@@ -19,6 +19,8 @@ source "$MOD_SRC/core/environment.sh"
 source "$MOD_SRC/core/files.sh"
 source "$MOD_SRC/core/helpers.sh"
 source "$MOD_SRC/core/setup.sh"
+source "$MOD_SRC/core/ports_double.sh" # NEW: Double-entry port accounting
+source "$MOD_SRC/core/start.sh"        # NEW: Universal command executor
 
 # System modules (depend on core)
 source "$MOD_SRC/system/formatting.sh"

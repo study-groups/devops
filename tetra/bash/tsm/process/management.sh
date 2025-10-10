@@ -273,27 +273,6 @@ tetra_tsm_start() {
         return 64
     fi
 
-    # Source env file if provided to get PORT and NAME
-    local env_name=""
-    if [[ -n "$env_file" && -f "$env_file" ]]; then
-        # Extract PORT and NAME from env file (handle export statements)
-        env_name="$(grep '^export NAME=' "$env_file" 2>/dev/null | sed 's/^export NAME=//' | sed 's/^"//' | sed 's/"$//' || true)"
-        if [[ -z "$port" ]]; then
-            port="$(grep '^export PORT=' "$env_file" 2>/dev/null | sed 's/^export PORT=//' | sed 's/^"//' | sed 's/"$//' || true)"
-        fi
-    fi
-
-    # Determine final name: --name flag > env file NAME > filename without extension
-    local final_name="$custom_name"
-    if [[ -z "$final_name" ]]; then
-        final_name="$env_name"
-    fi
-    if [[ -z "$final_name" ]]; then
-        # Default to first command argument filename without extension
-        local first_cmd="${command_args[0]}"
-        final_name="$(basename "$first_cmd" | sed 's/\.[^.]*$//')"
-    fi
-
     # Check if first arg is a known service
     local first_arg="${command_args[0]}"
     local service_file="$TETRA_DIR/tsm/services-available/${first_arg}.tsm"
@@ -303,14 +282,20 @@ tetra_tsm_start() {
         return $?
     fi
 
-    # Otherwise, treat as command
-    local cmd_args=()
-    [[ -n "$env_file" ]] && cmd_args+=(--env "$env_file")
-    [[ -n "$port" ]] && cmd_args+=(--port "$port")
-    [[ -n "$final_name" ]] && cmd_args+=(--name "$final_name")
-    [[ "$debug" == "true" ]] && cmd_args+=(--debug)
+    # Use universal start for any command
+    if declare -f tsm_start_any_command >/dev/null 2>&1; then
+        local command_string="${command_args[*]}"
+        tsm_start_any_command "$command_string" "$env_file" "$port" "$custom_name"
+    else
+        # Fallback to old method if universal start not loaded
+        local cmd_args=()
+        [[ -n "$env_file" ]] && cmd_args+=(--env "$env_file")
+        [[ -n "$port" ]] && cmd_args+=(--port "$port")
+        [[ -n "$custom_name" ]] && cmd_args+=(--name "$custom_name")
+        [[ "$debug" == "true" ]] && cmd_args+=(--debug)
 
-    tetra_tsm_start_command "${cmd_args[@]}" "${command_args[@]}"
+        tetra_tsm_start_command "${cmd_args[@]}" "${command_args[@]}"
+    fi
 }
 
 # === TSM KILL COMMAND ===

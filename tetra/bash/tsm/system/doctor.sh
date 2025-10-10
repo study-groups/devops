@@ -736,6 +736,30 @@ tetra_tsm_doctor() {
 
             tsm_validate_command "$command" "$port" "$env_file" "$json_output"
             ;;
+        "reconcile"|"ports-reconcile")
+            if declare -f tsm_reconcile_ports >/dev/null 2>&1; then
+                tsm_reconcile_ports
+            else
+                error "Port reconciliation not available (ports_double.sh not loaded)"
+                return 1
+            fi
+            ;;
+        "ports-declared")
+            if declare -f tsm_show_declared_ports >/dev/null 2>&1; then
+                tsm_show_declared_ports
+            else
+                error "Port registry not available (ports_double.sh not loaded)"
+                return 1
+            fi
+            ;;
+        "ports-actual")
+            if declare -f tsm_show_actual_ports >/dev/null 2>&1; then
+                tsm_show_actual_ports
+            else
+                error "Port scanning not available (ports_double.sh not loaded)"
+                return 1
+            fi
+            ;;
         "help"|"-h"|"--help")
             cat <<EOF
 TSM Doctor - Port diagnostics and conflict resolution
@@ -748,6 +772,9 @@ Usage:
   tsm doctor orphans [--json]    Find potentially orphaned TSM processes
   tsm doctor clean               Clean up stale process tracking files
   tsm doctor validate <command> [--port <port>] [--env <file>] [--json]  Pre-flight validation
+  tsm doctor reconcile           Run port reconciliation (declared vs actual)
+  tsm doctor ports-declared      Show TSM port registry (System A)
+  tsm doctor ports-actual        Show actual listening ports (System B)
   tsm doctor help                Show this help
 
 Examples:
@@ -758,6 +785,7 @@ Examples:
   tsm doctor env env/local.env   # Check environment file
   tsm doctor orphans             # Find processes TSM lost track of
   tsm doctor clean               # Clean up stale tracking files
+  tsm doctor reconcile           # Check declared vs actual ports
   tsm doctor validate "node server.js" --port 4000 --env env/dev.env  # Validate before start
 
 Common Issues:
@@ -766,6 +794,7 @@ Common Issues:
   - TSM defaulting to unexpected ports
   - Processes left running after crashes
   - Orphaned processes from previous TSM sessions
+  - Port mismatches (declared vs actual)
 EOF
             ;;
         *)
