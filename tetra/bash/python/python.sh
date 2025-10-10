@@ -1,13 +1,14 @@
-# Set TETRA_DIR and PYENV_ROOT
-export TETRA_DIR="${TETRA_DIR:-$HOME/tetra}"
-export PYENV_ROOT="$TETRA_DIR/pyenv"
+# Python module configuration
+# PYTHON_DIR is set by includes.sh following tetra convention
+# PYENV_ROOT stays at TETRA_DIR level (not nested in PYTHON_DIR)
+export PYENV_ROOT="${TETRA_DIR}/pyenv"
 
 # Function to install pyenv and a specific Python version
 tetra_python_install() {
     local python_version="${1:-3.11.11}"  # Default Python version
 
-    # Ensure TETRA_DIR exists
-    mkdir -p "$TETRA_DIR"
+    # Ensure PYTHON_DIR exists
+    mkdir -p "$PYTHON_DIR"
 
     # Install pyenv if not already installed
     if [[ ! -d "$PYENV_ROOT" ]]; then
@@ -68,9 +69,10 @@ tetra_python_list() {
 # Enhanced function to debug pyenv and environment status
 tetra_python_status() {
     echo "=== Tetra Python Status ==="
-    
+
     # Display environment variables
-    echo "TETRA_DIR: $TETRA_DIR"
+    echo "PYTHON_DIR: $PYTHON_DIR"
+    echo "PYTHON_SRC: $PYTHON_SRC"
     echo "PYENV_ROOT: $PYENV_ROOT"
     echo "PATH includes PYENV_ROOT/bin: $([[ ":$PATH:" == *":$PYENV_ROOT/bin:"* ]] && echo "Yes" || echo "No")"
     echo
