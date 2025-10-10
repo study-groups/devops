@@ -5,9 +5,9 @@
 
 # === CONFIGURATION ===
 
-TSM_MONITOR_CONFIG_DIR="${TSM_DIR:-/Users/mricos/src/devops/tetra/bash/tsm}/config"
+TSM_MONITOR_CONFIG_DIR="${TSM_DIR}/config"
 TSM_MONITOR_TRIGGERS_FILE="${TSM_MONITOR_CONFIG_DIR}/triggers.conf"
-TSM_MONITOR_LOG_FILE="${TSM_DIR}/logs/tsm-monitor.log"
+TSM_MONITOR_LOG_FILE="${TSM_LOGS_DIR}/tsm-monitor.log"
 
 # Default tetra token patterns
 declare -A DEFAULT_TETRA_PATTERNS=(
@@ -154,7 +154,7 @@ tsm_monitor_resolve_log_file() {
         local tsm_id="$pattern"
         local name=$(tsm list 2>/dev/null | grep "TSM ID: $tsm_id" | head -1 | sed 's/.*Name: \([^,]*\).*/\1/')
         if [[ -n "$name" ]]; then
-            echo "$TSM_DIR/logs/$name.out"
+            echo "$TSM_LOGS_DIR/$name.out"
             return 0
         fi
     fi
@@ -166,13 +166,13 @@ tsm_monitor_resolve_log_file() {
     fi
 
     # Look for service log file
-    if [[ -f "$TSM_DIR/logs/$pattern.out" ]]; then
-        echo "$TSM_DIR/logs/$pattern.out"
+    if [[ -f "$TSM_LOGS_DIR/$pattern.out" ]]; then
+        echo "$TSM_LOGS_DIR/$pattern.out"
         return 0
     fi
 
     # Try to find by service name pattern
-    local found_log=$(find "$TSM_DIR/logs" -name "*$pattern*.out" | head -1)
+    local found_log=$(find "$TSM_LOGS_DIR" -name "*$pattern*.out" | head -1)
     if [[ -n "$found_log" ]]; then
         echo "$found_log"
         return 0

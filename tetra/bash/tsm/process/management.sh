@@ -153,6 +153,11 @@ tetra_tsm_start_command() {
         env_file="$resolved_env_file"
     fi
 
+    # If port not found yet, try to infer from command arguments
+    if [[ -z "$port" ]]; then
+        port=$(_tsm_infer_port_from_command "${command_args[@]}")
+    fi
+
     # Debug output if requested
     if [[ "$debug" == "true" ]]; then
         echo "🔍 TSM Command Debug Information:"
@@ -164,7 +169,7 @@ tetra_tsm_start_command() {
         echo ""
     fi
 
-    [[ -n "$port" ]] || { echo "tsm: port required for command mode (not found in env file or --port)" >&2; return 64; }
+    [[ -n "$port" ]] || { echo "tsm: port required for command mode (not found in env file, --port, or command args)" >&2; return 64; }
 
     # Generate command string
     local command_string="${command_args[*]}"

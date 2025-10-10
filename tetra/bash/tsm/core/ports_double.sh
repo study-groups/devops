@@ -8,7 +8,7 @@
 
 # Initialize port registry
 tsm_init_port_registry() {
-    local registry="$TSM_DIR/ports/registry.tsv"
+    local registry="$TSM_PORTS_DIR/registry.tsv"
     mkdir -p "$(dirname "$registry")"
 
     if [[ ! -f "$registry" ]]; then
@@ -23,7 +23,7 @@ tsm_register_port() {
     local declared_port="$3"
     local pid="$4"
 
-    local registry="$TSM_DIR/ports/registry.tsv"
+    local registry="$TSM_PORTS_DIR/registry.tsv"
     tsm_init_port_registry
 
     # Add entry with declared port, actual will be updated later
@@ -35,7 +35,7 @@ tsm_update_actual_port() {
     local tsm_id="$1"
     local actual_port="$2"
 
-    local registry="$TSM_DIR/ports/registry.tsv"
+    local registry="$TSM_PORTS_DIR/registry.tsv"
     [[ ! -f "$registry" ]] && return 1
 
     local tmp="${registry}.tmp"
@@ -52,7 +52,7 @@ tsm_update_actual_port() {
 tsm_deregister_port() {
     local tsm_id="$1"
 
-    local registry="$TSM_DIR/ports/registry.tsv"
+    local registry="$TSM_PORTS_DIR/registry.tsv"
     [[ ! -f "$registry" ]] && return 0
 
     local tmp="${registry}.tmp"
@@ -79,7 +79,7 @@ tsm_reconcile_ports() {
     echo "🔍 Port Accounting Reconciliation"
     echo "=================================="
 
-    local registry="$TSM_DIR/ports/registry.tsv"
+    local registry="$TSM_PORTS_DIR/registry.tsv"
     if [[ ! -f "$registry" ]]; then
         echo "No port registry found"
         return 0
@@ -130,7 +130,7 @@ tsm_reconcile_ports() {
     echo ""
     echo "🔓 System Ports Not in TSM Registry:"
     for pid in "${!actual_ports[@]}"; do
-        if [[ ! -v tsm_by_pid[$pid] ]]; then
+        if [[ -z "${tsm_by_pid[$pid]:-}" ]]; then
             local port="${actual_ports[$pid]}"
             local cmd=$(ps -p "$pid" -o comm= 2>/dev/null || echo "unknown")
             echo "  🔓 PID $pid: $cmd listening on port $port (not managed by TSM)"
@@ -149,7 +149,7 @@ tsm_reconcile_ports() {
 
 # Show declared ports from registry
 tsm_show_declared_ports() {
-    local registry="$TSM_DIR/ports/registry.tsv"
+    local registry="$TSM_PORTS_DIR/registry.tsv"
     if [[ ! -f "$registry" ]]; then
         echo "No port registry found"
         return 0
