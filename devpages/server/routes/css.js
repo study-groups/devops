@@ -42,8 +42,7 @@ const CSS_BUNDLES = {
         'client/styles/tags-and-buttons.css'
     ],
     panels: [
-        'client/styles/panel-system.css',
-        'client/styles/floating-panels.css',
+        'client/styles/panels.css',
         'client/styles/design-system-panels.css',
         'client/styles/design-tokens-panel.css',
         'client/styles/ui-inspector.css'
