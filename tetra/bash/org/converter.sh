@@ -3,6 +3,63 @@
 # Tetra Infrastructure Converter
 # Converts DigitalOcean JSON + mapping file to TES-compliant Tetra TOML
 
+# Auto-detect ports from environment files
+_detect_ports_from_env_files() {
+    local env_dir="$1"
+    local mapping_file="$2"
+
+    declare -A detected_ports
+
+    # If env directory doesn't exist, return empty
+    [[ ! -d "$env_dir" ]] && return 1
+
+    # Scan all .env files in the directory
+    while IFS= read -r env_file; do
+        [[ ! -f "$env_file" ]] && continue
+
+        # Extract port definitions (PORT=, APP_PORT=, SERVICE_PORT=, etc.)
+        while IFS='=' read -r key value; do
+            # Skip comments and empty lines
+            [[ "$key" =~ ^[[:space:]]*# ]] && continue
+            [[ -z "$key" ]] && continue
+
+            # Clean up the value (remove quotes, spaces, comments)
+            value=$(echo "$value" | sed 's/#.*//' | tr -d '"'"'" | xargs)
+
+            # Check if this looks like a port variable
+            if [[ "$key" =~ PORT ]] && [[ "$value" =~ ^[0-9]+$ ]]; then
+                # Extract service name from variable name
+                local service_name
+                service_name=$(echo "$key" | sed 's/_PORT$//' | tr '[:upper:]' '[:lower:]')
+
+                # Map common patterns
+                case "$service_name" in
+                    app|application) service_name="app" ;;
+                    tetra*) service_name="tetra" ;;
+                    dev*page*) service_name="devpages" ;;
+                    arcade) service_name="arcade" ;;
+                    pbase) service_name="pbase" ;;
+                    api) service_name="api" ;;
+                    admin) service_name="admin" ;;
+                esac
+
+                detected_ports["$service_name"]="$value"
+            fi
+        done < "$env_file"
+    done < <(find "$env_dir" -maxdepth 2 -name "*.env" 2>/dev/null)
+
+    # Output detected ports as TOML
+    if [[ ${#detected_ports[@]} -gt 0 ]]; then
+        echo "# Auto-detected from environment files in $env_dir"
+        for service in "${!detected_ports[@]}"; do
+            echo "$service = ${detected_ports[$service]}"
+        done
+        return 0
+    fi
+
+    return 1
+}
+
 # TES-compliant converter: accepts mapping file
 tetra_convert_with_mapping() {
     local json_file="$1"
@@ -90,10 +147,53 @@ EOF
     echo "# Format: [auth_user:]work_user@host with auth_key" >> "$output_file"
 
     # Generate connectors for each environment (except local)
+    # Use custom users from mapping if provided, otherwise default to env name
     jq -r '.environments | to_entries[] |
         select(.value.type != "localhost") |
-        "\"@\(.key)\" = { auth_user = \"root\", work_user = \"\(.key)\", host = \"\(.value.address)\", auth_key = \"~/.ssh/id_rsa\" }"' \
+        "\"@\(.key)\" = { auth_user = \"\(.value.auth_user // "root")\", work_user = \"\(.value.work_user // .key)\", host = \"\(.value.address)\", auth_key = \"~/.ssh/id_rsa\" }"' \
         "$mapping_file" >> "$output_file"
+
+    # Ports section (TES Level 2: Named Port Registry)
+    cat >> "$output_file" << EOF
+
+# ═══════════════════════════════════════════════════════════
+# PORTS (Named Port Registry)
+# Service name to port number mapping
+# Used for port resolution priority (3rd level after flag and env)
+# ═══════════════════════════════════════════════════════════
+
+[ports]
+EOF
+
+    # Check if mapping file has custom ports
+    local has_custom_ports
+    has_custom_ports=$(jq -r '.ports // empty' "$mapping_file" 2>/dev/null)
+
+    # Try to detect ports from environment files
+    local env_dir
+    env_dir=$(dirname "$json_file")/env
+    local detected_ports
+    detected_ports=$(_detect_ports_from_env_files "$env_dir" "$mapping_file" 2>/dev/null)
+
+    if [[ -n "$has_custom_ports" && "$has_custom_ports" != "null" ]]; then
+        # Use custom ports from mapping file
+        echo "# Custom port mappings from configuration" >> "$output_file"
+        jq -r '.ports | to_entries[] | "\(.key) = \(.value)"' "$mapping_file" >> "$output_file"
+    elif [[ -n "$detected_ports" ]]; then
+        # Use auto-detected ports
+        echo "$detected_ports" >> "$output_file"
+    else
+        # Use default Tetra ecosystem ports
+        cat >> "$output_file" << EOF
+# Tetra ecosystem services (defaults)
+tetra = 4444
+devpages = 4000
+arcade = 8400
+pbase = 2600
+api = 8000
+admin = 9000
+EOF
+    fi
 
     # Infrastructure section (reference only, TES uses symbols/connectors)
     cat >> "$output_file" << EOF

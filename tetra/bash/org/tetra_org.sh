@@ -58,7 +58,7 @@ org_switch() {
         return 1
     fi
 
-    local org_dir="$TETRA_DIR/orgs/$org_name"
+    local org_dir="$TETRA_DIR/org/$org_name"
     local org_toml="$org_dir/${org_name}.toml"
     local tetra_toml="$TETRA_DIR/config/tetra.toml"
 
@@ -98,7 +98,7 @@ org_create() {
         return 1
     fi
 
-    local org_dir="$TETRA_DIR/orgs/$org_name"
+    local org_dir="$TETRA_DIR/org/$org_name"
     local org_toml="$org_dir/${org_name}.toml"
 
     if [[ -d "$org_dir" ]]; then
@@ -166,7 +166,7 @@ org_validate() {
         fi
     fi
 
-    local org_dir="$TETRA_DIR/orgs/$org_name"
+    local org_dir="$TETRA_DIR/org/$org_name"
     local org_toml="$org_dir/${org_name}.toml"
 
     echo "Validating organization: $org_name"
@@ -287,7 +287,7 @@ org_push() {
         return 1
     fi
 
-    local org_dir="$TETRA_DIR/orgs/$org_name"
+    local org_dir="$TETRA_DIR/org/$org_name"
     local org_toml="$org_dir/${org_name}.toml"
 
     echo "🚀 Pushing '$org_name' configuration to '$environment' environment..."
@@ -366,7 +366,7 @@ org_pull() {
         return 1
     fi
 
-    local org_dir="$TETRA_DIR/orgs/$org_name"
+    local org_dir="$TETRA_DIR/org/$org_name"
     local deployed_config="$org_dir/deployed/${environment}.toml"
 
     echo "📥 Pulling '$org_name' configuration from '$environment' environment..."
@@ -405,7 +405,7 @@ org_rollback() {
         return 1
     fi
 
-    local org_dir="$TETRA_DIR/orgs/$org_name"
+    local org_dir="$TETRA_DIR/org/$org_name"
     local backup_dir="$org_dir/backups"
 
     echo "🔄 Rolling back '$org_name' deployment in '$environment'..."
@@ -480,7 +480,7 @@ org_template() {
         org_name="${template_name}_$(date +%Y%m%d_%H%M%S)"
     fi
 
-    local org_dir="$TETRA_DIR/orgs/$org_name"
+    local org_dir="$TETRA_DIR/org/$org_name"
 
     if [[ -d "$org_dir" ]]; then
         echo "❌ Organization '$org_name' already exists"
@@ -534,7 +534,7 @@ org_history() {
         fi
     fi
 
-    local org_dir="$TETRA_DIR/orgs/$org_name"
+    local org_dir="$TETRA_DIR/org/$org_name"
 
     echo "📜 Deployment history for '$org_name':"
     echo
@@ -629,7 +629,7 @@ org_import() {
         return 1
     fi
 
-    local org_dir="$TETRA_DIR/orgs/$org_name"
+    local org_dir="$TETRA_DIR/org/$org_name"
 
     # Check if organization already exists
     if [[ -d "$org_dir" ]]; then

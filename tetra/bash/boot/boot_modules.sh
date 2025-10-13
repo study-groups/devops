@@ -37,6 +37,8 @@ tetra_register_module "tro" "$TETRA_BASH/tro"
 tetra_register_module "anthropic" "$TETRA_BASH/anthropic"
 tetra_register_module "reporting" "$TETRA_BASH/reporting"
 tetra_register_module "claude" "$TETRA_BASH/claude"
+tetra_register_module "spaces" "$TETRA_BASH/spaces"
+tetra_register_module "vox" "$TETRA_BASH/vox"
 
 # Register internal modules for RAG and Melvin (qa registered in boot_core.sh)
 tetra_register_module "rag" "$TETRA_BASH/rag"
@@ -93,4 +95,9 @@ tetra_create_lazy_function "tview" "tview"
 
 # Org module functions
 tetra_create_lazy_function "tetra_org" "org"
+
+# Vox module functions
+tetra_create_lazy_function "vox" "vox"
+tetra_create_lazy_function "v" "vox"
+tetra_create_lazy_function "vr" "vox"
 

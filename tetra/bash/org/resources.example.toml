@@ -1,0 +1,195 @@
+# Tetra Resources Configuration
+# TES-compliant resource sync definitions
+# Uses progressive symbol resolution: @local, @dev, @staging, @prod
+
+[_config]
+org_name = "pixeljam-arcade"
+tes_version = "2.1"
+sync_strategy = "manual"  # manual | auto | on-deploy
+
+# External storage configuration (DigitalOcean Spaces, S3, etc.)
+[_config.storage]
+backend = "digitalocean-spaces"
+bucket = "pja-games"
+endpoint = "https://sfo3.digitaloceanspaces.com"
+region = "sfo3"
+credentials_env = "DO_SPACES"  # Expects DO_SPACES_KEY and DO_SPACES_SECRET in secrets.env
+
+# ═══════════════════════════════════════════════════════════
+# RESOURCES
+# Each resource defines what to sync and where
+# Uses TES symbols (@dev, @staging, @prod) resolved at runtime
+# ═══════════════════════════════════════════════════════════
+
+# Game catalog manifest - critical file that defines all available games
+[resources.game_manifest]
+type = "file"
+description = "Main game catalog JSON manifest"
+operation = "push"
+backup = true
+required = true
+permissions = "644"
+
+[resources.game_manifest.source]
+symbol = "@local"
+locator = "~/dev/pixeljam-arcade/games.json"
+
+[resources.game_manifest.targets]
+"@dev" = "/var/www/arcade/games.json"
+"@staging" = "/var/www/arcade/games.json"
+"@prod" = "/var/www/arcade/games.json"
+s3 = "s3://pja-games/games.json"
+
+# Game files and assets - individual game directories
+[resources.game_files]
+type = "s3"
+description = "Game assets synced to DigitalOcean Spaces"
+operation = "s3_sync"
+backup = false
+required = false
+cache_control = "public, max-age=31536000"  # 1 year cache for game assets
+
+[resources.game_files.source]
+symbol = "@local"
+locator = "~/dev/pixeljam-arcade/games/"
+
+[resources.game_files.targets]
+s3 = "s3://pja-games/games/"
+
+# Environment configuration - different per environment
+# Uses {environment} variable expansion
+[resources.env_config]
+type = "env"
+description = "Environment-specific .env configuration"
+operation = "push"
+backup = true
+required = true
+permissions = "600"
+owner = "{work_user}:{work_user}"  # Expands to dev:dev, staging:staging, etc.
+
+[resources.env_config.source]
+symbol = "@local"
+locator = "env/{environment}.env"  # Expands to env/dev.env, env/staging.env, etc.
+
+[resources.env_config.targets]
+"@dev" = "/app/.env"
+"@staging" = "/app/.env"
+"@prod" = "/app/.env"
+
+# Nginx configuration - web server config per environment
+[resources.nginx_config]
+type = "config"
+description = "Nginx site configuration"
+operation = "push"
+backup = true
+required = true
+permissions = "644"
+owner = "root:root"
+post_sync = "sudo systemctl reload nginx"  # Reload nginx after updating config
+
+[resources.nginx_config.source]
+symbol = "@local"
+locator = "nginx/{environment}.conf"
+
+[resources.nginx_config.targets]
+"@dev" = "/etc/nginx/sites-available/arcade.conf"
+"@staging" = "/etc/nginx/sites-available/arcade.conf"
+"@prod" = "/etc/nginx/sites-available/arcade.conf"
+
+# SSL certificates - only for staging and production
+[resources.ssl_certs]
+type = "directory"
+description = "SSL certificates and keys"
+operation = "push"
+backup = true
+required = false
+permissions = "600"
+owner = "root:root"
+
+[resources.ssl_certs.source]
+symbol = "@local"
+locator = "ssl/{environment}/"
+
+[resources.ssl_certs.targets]
+"@staging" = "/etc/ssl/private/"
+"@prod" = "/etc/ssl/private/"
+
+# Database backups - pull from production
+[resources.db_backup]
+type = "database"
+description = "Pull production database backups to local"
+operation = "pull"
+backup = false
+required = false
+
+[resources.db_backup.source]
+symbol = "@prod"
+locator = "/var/backups/db/latest.sql.gz"
+
+[resources.db_backup.targets]
+"@local" = "~/backups/{org_name}/db_{timestamp}.sql.gz"
+
+# Systemd service files
+[resources.systemd_service]
+type = "config"
+description = "Systemd service unit file"
+operation = "push"
+backup = true
+required = true
+permissions = "644"
+owner = "root:root"
+post_sync = "sudo systemctl daemon-reload"
+
+[resources.systemd_service.source]
+symbol = "@local"
+locator = "systemd/arcade.service"
+
+[resources.systemd_service.targets]
+"@dev" = "/etc/systemd/system/arcade.service"
+"@staging" = "/etc/systemd/system/arcade.service"
+"@prod" = "/etc/systemd/system/arcade.service"
+
+# Static assets - thumbnails, images
+[resources.thumbnails]
+type = "directory"
+description = "Game thumbnail images"
+operation = "push"
+backup = false
+required = false
+
+[resources.thumbnails.source]
+symbol = "@local"
+locator = "assets/thumbnails/"
+
+[resources.thumbnails.targets]
+"@dev" = "/var/www/arcade/static/thumbnails/"
+"@staging" = "/var/www/arcade/static/thumbnails/"
+"@prod" = "/var/www/arcade/static/thumbnails/"
+s3 = "s3://pja-games/thumbnails/"
+
+# ═══════════════════════════════════════════════════════════
+# NOTES
+# ═══════════════════════════════════════════════════════════
+#
+# TES Symbol Resolution:
+# ---------------------
+# Symbols (@dev, @staging, @prod) are resolved at runtime via:
+#   Level 0: Symbol (@dev) → Level 1: Address (143.198.45.123)
+#   → Level 3: Connector (root:dev@143.198.45.123 -i ~/.ssh/id_rsa)
+#   → Level 5: Locator (dev@143.198.45.123:/app/.env)
+#
+# Variables:
+# ----------
+# {environment}  - Expands to: dev, staging, prod
+# {work_user}    - Expands from connector work_user field
+# {org_name}     - Organization name from _config
+# {timestamp}    - ISO timestamp for backups
+#
+# Secrets:
+# --------
+# No secrets in this file! Credentials referenced via credentials_env
+# Actual values stored in secrets.env (gitignored)
+#
+# Compilation:
+# -----------
+# This file + secrets.env → compiled into tetra.toml [resources] section

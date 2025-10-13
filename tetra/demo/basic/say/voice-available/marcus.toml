@@ -1,0 +1,22 @@
+# Marcus - Deep, authoritative male voice
+
+[voice]
+id = "marcus"
+display_name = "Marcus"
+description = "Deep, authoritative professional voice"
+
+[provider]
+name = "openai"
+model = "tts-1"
+voice_id = "onyx"
+api_endpoint = "https://api.openai.com/v1/audio/speech"
+
+[pricing]
+cost_per_1m_chars = 15.00
+currency = "USD"
+
+[metadata]
+tags = ["male", "deep", "authoritative", "professional"]
+quality = "standard"
+use_cases = ["presentations", "news", "documentation"]
+language = "en-US"

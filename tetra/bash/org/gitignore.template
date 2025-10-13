@@ -1,0 +1,68 @@
+# Tetra Organization .gitignore Template
+# Add these rules to your repository's .gitignore
+
+# ═══════════════════════════════════════════════════════════
+# TETRA SECRETS - NEVER COMMIT
+# ═══════════════════════════════════════════════════════════
+
+# Organization secrets (contains DB passwords, API keys, etc.)
+org/*/secrets.env
+orgs/*/secrets.env
+
+# Compiled configuration (contains embedded secrets)
+org/*/tetra.toml
+orgs/*/tetra.toml
+
+# Backup files may contain secrets
+org/*/backups/*.env
+orgs/*/backups/*.env
+org/*/backups/*.toml
+orgs/*/backups/*.toml
+
+# ═══════════════════════════════════════════════════════════
+# TETRA SAFE TO COMMIT (Schema files without secrets)
+# ═══════════════════════════════════════════════════════════
+
+# These files are OK to commit (no secrets, just structure):
+# org/*/digitalocean.json  - Infrastructure topology
+# org/*/mapping.json       - Environment mappings
+# org/*/resources.toml     - File sync schema
+# org/*/ports.json         - Port registry
+
+# ═══════════════════════════════════════════════════════════
+# TEMPORARY FILES
+# ═══════════════════════════════════════════════════════════
+
+# Temporary compilation artifacts
+/tmp/*_mapping_*.json
+/tmp/*_base_*.toml
+
+# Deployment artifacts
+org/*/deployed/*.toml
+orgs/*/deployed/*.toml
+
+# ═══════════════════════════════════════════════════════════
+# RECOMMENDED ADDITIONS
+# ═══════════════════════════════════════════════════════════
+
+# Node modules
+node_modules/
+
+# Environment files (if not in org/ directory)
+.env
+.env.local
+.env.*.local
+
+# SSH keys
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+
+# Database dumps (may contain sensitive data)
+*.sql
+*.sql.gz
+
+# Logs
+*.log
+logs/

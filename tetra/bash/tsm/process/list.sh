@@ -3,9 +3,11 @@
 # TSM List - Service listing with running|available|all options
 # Default: running services only
 
-# Load TSM configuration
-# Cross-module dependencies handled by include.sh loading order
-# services/registry.sh functions are available after include.sh completes
+# Load color module
+if [[ -f "$TETRA_SRC/bash/color/color_core.sh" ]]; then
+    source "$TETRA_SRC/bash/color/color_core.sh"
+    source "$TETRA_SRC/bash/color/color_palettes.sh"
+fi
 
 # Setup service directories
 TSM_SERVICES_AVAILABLE="$TETRA_DIR/tsm/services-available"
@@ -13,10 +15,12 @@ TSM_SERVICES_ENABLED="$TETRA_DIR/tsm/services-enabled"
 
 # Print table header
 print_table_header() {
-    printf "%-3s %-20s %-10s %-5s %-5s %-8s %-3s %-8s\n" \
-        "ID" "Name" "Env" "PID" "Port" "Status" "↻" "Uptime"
-    printf "%-3s %-20s %-10s %-5s %-5s %-8s %-3s %-8s\n" \
-        "--" "--------------------" "----------" "-----" "-----" "--------" "---" "--------"
+    text_color "00AAAA"
+    printf "%-3s %-20s %-10s %-5s %-5s %-8s %-8s\n" \
+        "ID" "Name" "Env" "PID" "Port" "Status" "Uptime"
+    printf "%-3s %-20s %-10s %-5s %-5s %-8s %-8s\n" \
+        "--" "--------------------" "----------" "-----" "-----" "--------" "--------"
+    reset_color
 }
 
 # Get service info
@@ -120,7 +124,7 @@ get_service_info() {
     [[ -z "$port" ]] && port="-"
 
     # Return values via echo (bash array simulation)
-    echo "$service_name|$env_file|$pid|$port|$status|$restarts|$uptime"
+    echo "$service_name|$env_file|$pid|$port|$status|$uptime"
 }
 
 # List running services only
@@ -175,8 +179,10 @@ tsm_list_running() {
                 # Format port
                 [[ -z "$port" || "$port" == "none" ]] && port="-"
 
-                printf "%-3s %-20s %-10s %-5s %-5s %-8s %-3s %-8s\n" \
-                    "$tsm_id" "$name" "$env_display" "$pid" "$port" "online" "0" "$uptime"
+                # Print with colors
+                printf "%-3s %-20s %-10s %-5s %-5s " "$tsm_id" "$name" "$env_display" "$pid" "$port"
+                text_color "00AA00"; printf "%-8s" "online"; reset_color
+                printf " %-8s\n" "$uptime"
 
                 found_running=true
             fi
@@ -200,10 +206,18 @@ tsm_list_available() {
             [[ -f "$service_file" ]] || continue
 
             local service_info=$(get_service_info "$service_file")
-            IFS='|' read -r name env_file pid port status restarts uptime <<< "$service_info"
+            IFS='|' read -r name env_file pid port status uptime <<< "$service_info"
 
-            printf "%-3s %-20s %-10s %-5s %-5s %-8s %-3s %-8s\n" \
-                "$id" "$name" "$env_file" "$pid" "$port" "$status" "$restarts" "$uptime"
+            # Print with status color
+            printf "%-3s %-20s %-10s %-5s %-5s " "$id" "$name" "$env_file" "$pid" "$port"
+            if [[ "$status" == "online" ]]; then
+                text_color "00AA00"
+            else
+                text_color "888888"
+            fi
+            printf "%-8s" "$status"
+            reset_color
+            printf " %-8s\n" "$uptime"
             id=$((id + 1))
         done
     fi

@@ -26,6 +26,7 @@ TETRA_OPTIONAL_MODULES=(
     "enc"
     "deploy"
     "rag"
+    "spaces"
 )
 
 # Initialize module config if it doesn't exist

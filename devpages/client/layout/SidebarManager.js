@@ -350,7 +350,8 @@ export class SidebarManager {
                     const panelState = sidebarPanels[panelId] || {};
                     const isExpanded = panelState.expanded || config.default_expanded;
                     const floatingPanelState = floatingPanels[panelId];
-                    const isFloating = floatingPanelState ? floatingPanelState.isFloating : false;
+                    // Panel is floating if it exists in Redux AND isFloating is true AND not docked
+                    const isFloating = floatingPanelState && floatingPanelState.isFloating && !floatingPanelState.isDocked;
                     const categoryColor = this.categories[config.category]?.color || '#666';
                     
                     return `
@@ -361,8 +362,8 @@ export class SidebarManager {
                             <div class="panel-header" data-action="toggle-panel" data-panel-id="${panelId}" draggable="false">
                                 <span class="panel-title">${config.title} ${isFloating ? '(floating)' : ''}</span>
                                 <div class="panel-controls">
-                                    ${isFloating ? 
-                                        `<button class="panel-control-btn" data-action="close-floating" data-panel-id="${panelId}" title="Close floating panel">↙</button>` :
+                                    ${isFloating ?
+                                        `<button class="panel-control-btn" data-action="dock-panel" data-panel-id="${panelId}" title="Dock panel back to sidebar">↘</button>` :
                                         `<button class="panel-control-btn" data-action="float-panel" data-panel-id="${panelId}" title="Float panel">↗</button>`
                                     }
                                 </div>
@@ -878,101 +879,14 @@ export class SidebarManager {
             } else if (action === 'float-panel') {
                 e.stopPropagation(); // Prevent toggling when floating
                 this.createFloatingPanel(panelId);
+            } else if (action === 'dock-panel') {
+                e.stopPropagation(); // Prevent toggling when docking
+                this.closeFloatingPanel(panelId);
             } else if (action === 'close-panel') {
                 this.closePanel(panelId);
             } else if (action === 'close-floating') {
                 this.closeFloatingPanel(panelId);
             }
-        });
-
-        // Drag and drop is now handled by initializeDragDrop()
-        
-        // Handle panel header clicks vs drag-to-float
-        let dragState = null;
-
-        container.addEventListener('mousedown', (e) => {
-            const targetElement = this.getElementWithClosest(e.target);
-            const panelHeader = targetElement ? targetElement.closest('.panel-header') : null;
-            const controlBtn = targetElement ? targetElement.closest('.panel-control-btn') : null;
-
-            // Don't start drag if clicking control buttons
-            if (controlBtn || !panelHeader) return;
-
-            const panelItem = panelHeader.closest('.panel-item');
-            if (!panelItem) return;
-
-            const panelId = panelItem.dataset.panelId;
-            const sidebarRect = this.container.getBoundingClientRect();
-
-            dragState = {
-                panelId,
-                panelItem,
-                startX: e.clientX,
-                startY: e.clientY,
-                startTime: Date.now(),
-                isDragging: false,
-                sidebarRect,
-                dragClone: null
-            };
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (!dragState) return;
-
-            const deltaX = e.clientX - dragState.startX;
-            const deltaY = e.clientY - dragState.startY;
-            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-            // Start dragging if moved more than 10px
-            if (!dragState.isDragging && distance > 10) {
-                dragState.isDragging = true;
-
-                // Create visual clone of panel being dragged
-                const clone = dragState.panelItem.cloneNode(true);
-                clone.style.position = 'fixed';
-                clone.style.width = dragState.panelItem.offsetWidth + 'px';
-                clone.style.pointerEvents = 'none';
-                clone.style.opacity = '0.8';
-                clone.style.zIndex = '10000';
-                clone.style.left = dragState.startX + 'px';
-                clone.style.top = dragState.startY + 'px';
-                document.body.appendChild(clone);
-                dragState.dragClone = clone;
-
-                // Dim original panel
-                dragState.panelItem.style.opacity = '0.3';
-            }
-
-            // Update clone position while dragging
-            if (dragState.isDragging && dragState.dragClone) {
-                dragState.dragClone.style.left = e.clientX + 'px';
-                dragState.dragClone.style.top = e.clientY + 'px';
-            }
-        });
-
-        document.addEventListener('mouseup', (e) => {
-            if (!dragState) return;
-
-            const wasDragging = dragState.isDragging;
-            const droppedOutsideSidebar = e.clientX > dragState.sidebarRect.right + 50;
-
-            // Clean up drag clone
-            if (dragState.dragClone) {
-                dragState.dragClone.remove();
-            }
-
-            // Restore original panel opacity
-            if (dragState.panelItem) {
-                dragState.panelItem.style.opacity = '1';
-            }
-
-            // If dragged outside sidebar, convert to floating panel
-            if (wasDragging && droppedOutsideSidebar) {
-                console.log(`[SidebarManager] Panel ${dragState.panelId} dragged out - converting to floating`);
-                this.createFloatingPanel(dragState.panelId);
-            }
-
-            dragState = null;
         });
     }
 

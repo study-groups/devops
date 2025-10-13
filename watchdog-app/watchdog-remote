@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+# Watchdog Remote Standalone Wrapper
+# Thin wrapper around the tetra watchdog module's remote functionality
+
+# Source tetra (which loads the watchdog module)
+if [[ -f "$HOME/tetra/tetra.sh" ]]; then
+    source "$HOME/tetra/tetra.sh"
+elif [[ -n "$TETRA_SRC" ]] && [[ -f "$TETRA_SRC/tetra.sh" ]]; then
+    source "$TETRA_SRC/tetra.sh"
+else
+    echo "Error: Tetra not found. Please install tetra or set TETRA_SRC" >&2
+    exit 1
+fi
+
+# Execute the remote watchdog script directly
+if [[ -f "$TETRA_SRC/bash/watchdog/remote.sh" ]]; then
+    exec "$TETRA_SRC/bash/watchdog/remote.sh" "$@"
+else
+    echo "Error: Watchdog remote module not found in tetra" >&2
+    exit 1
+fi

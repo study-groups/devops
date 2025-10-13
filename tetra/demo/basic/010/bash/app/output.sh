@@ -20,6 +20,11 @@ declare -g PREV_FOOTER_BUFFER=""
 
 # Initialize terminal for TUI mode
 init_terminal() {
+    # Get actual terminal size dynamically
+    LINES=$(tput lines)
+    COLUMNS=$(tput cols)
+    export LINES COLUMNS
+
     tput civis  # Hide cursor initially
     printf '\033[?25l'  # Extra cursor hide command
     tput clear  # Initial clear only
@@ -58,12 +63,13 @@ get_terminal_regions() {
         # REPL region: line above footer (left-aligned)
         REGION_REPL_LINE=$((term_height - UI_FOOTER_LINES))
     else
+        # Use full available height in gamepad mode
         REGION_CONTENT_END=$((term_height - UI_FOOTER_LINES))
         # No REPL region in gamepad mode
         REGION_REPL_LINE=0
     fi
 
-    # Footer region: last 4 lines
+    # Footer region: last 4 lines (or less if terminal is small)
     REGION_FOOTER_START=$((term_height - UI_FOOTER_LINES + 1))
     REGION_FOOTER_END=$term_height
 
@@ -97,11 +103,10 @@ generate_header_buffer() {
     local action_line=$(render_action_line)
     SCREEN_BUFFER+="$(tput cup 3 0)$(tput el)${action_line}"$'\n'
 
-    # Line 5: Separator with counter at end
-    local actions=($(get_actions))
-    local separator_with_counter="$(generate_action_separator "$(($ACTION_INDEX + 1))/${#actions[@]}")"
+    # Line 5: Separator (counter moved to bottom right)
+    local separator="$(generate_section_separator "${COLUMNS:-80}" "-")"
 
-    SCREEN_BUFFER+="$(tput cup 4 0)${separator_with_counter}$(tput el)"$'\n'
+    SCREEN_BUFFER+="$(tput cup 4 0)${separator}$(tput el)"$'\n'
 }
 
 # Generate content buffer for content region
@@ -147,6 +152,7 @@ generate_content_buffer() {
 # Generate footer buffer (4 lines)
 generate_footer_buffer() {
     local term_width=${COLUMNS:-80}
+    local term_height=${LINES:-24}
     local buffer=""
 
     get_terminal_regions
@@ -189,6 +195,15 @@ generate_footer_buffer() {
             buffer+="$(printf '\033[%d;1H\033[K' $line)"$'\n'
             ((line++))
         done
+    fi
+
+    # Add completed counter at bottom right (2 char margin on right, 1 line margin on bottom)
+    local actions=($(get_actions 2>/dev/null || true))
+    if [[ ${#actions[@]} -gt 0 ]]; then
+        local counter="$(($ACTION_INDEX + 1))/${#actions[@]}"
+        local counter_col=$((term_width - ${#counter} - 2))
+        local counter_row=$((term_height - 1))
+        buffer+="$(printf '\033[%d;%dH%s' $counter_row $counter_col "$counter")"$'\n'
     fi
 
     echo -n "$buffer"

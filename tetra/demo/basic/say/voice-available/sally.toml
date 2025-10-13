@@ -1,0 +1,22 @@
+# Sally - Warm, friendly female voice
+
+[voice]
+id = "sally"
+display_name = "Sally"
+description = "Warm, friendly conversational voice"
+
+[provider]
+name = "openai"
+model = "tts-1"
+voice_id = "nova"
+api_endpoint = "https://api.openai.com/v1/audio/speech"
+
+[pricing]
+cost_per_1m_chars = 15.00
+currency = "USD"
+
+[metadata]
+tags = ["female", "warm", "friendly", "conversational"]
+quality = "standard"
+use_cases = ["podcasts", "audiobooks", "general"]
+language = "en-US"

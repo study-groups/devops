@@ -118,12 +118,23 @@ _repl_main_loop() {
         "$init_function"
     fi
 
+    # Enable readline history
+    set -o history
+    local history_dir="${TETRA_DIR}/${module_name}/history"
+    mkdir -p "$history_dir" 2>/dev/null || true
+    HISTFILE="${history_dir}/bash_history"
+    HISTSIZE=1000
+    HISTFILESIZE=1000
+    shopt -s histappend
+    # Load existing history
+    history -r "$HISTFILE" 2>/dev/null || true
+
     while true; do
         local prompt
         prompt="$(_repl_get_prompt "$module_name")"
-        echo -n "$prompt"
 
-        if ! read -r input; then
+        # Use read -e for readline editing (enables Ctrl-A, Ctrl-E, arrow keys)
+        if ! read -e -p "$prompt" input; then
             # EOF reached
             echo
             break
@@ -133,6 +144,11 @@ _repl_main_loop() {
         if [[ -z "$input" ]]; then
             continue
         fi
+
+        # Add to bash history for up/down arrow navigation
+        history -s "$input"
+        # Save to history file
+        history -a "$HISTFILE"
 
         # Process bash commands first
         if _repl_process_bash "$input"; then

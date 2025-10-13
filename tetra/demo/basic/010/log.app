@@ -5953,3 +5953,53 @@
 14:56:46 GameInput: Unmapped key '[O' in view info
 14:56:54 GameInput: Unmapped key '[I' in view info
 14:56:55 GameInput: Unmapped key '[O' in view info
+03:11:05 Format: TUI Formatting module initialized with expressive colors
+03:11:05 View: TUI View layer initialized with pub/sub event subscribers
+03:11:05 Display: Synchronization subscribers initialized
+03:11:38 Rendering: Double buffer initialized (80x32)
+03:11:38 ViewController: Registered actions -> ActionsViewController
+03:11:38 ViewController: Registered palette -> PaletteViewController
+03:11:38 ViewController: Registered info -> InfoViewController
+03:11:38 ViewController: Registered repl -> ReplViewController
+03:11:38 ViewController: Registered debug -> DebugViewController
+03:11:38 ViewController: System initialized, starting in actions
+03:11:38 GameInput: System initialized with 21 mappings
+03:11:38 HeaderComponent: Mounted header
+03:11:38 Rendering: header marked dirty
+03:11:38 Component: header (HeaderComponent) mounted
+03:11:38 ContentComponent: Mounted content
+03:11:38 Rendering: content marked dirty
+03:11:38 Component: content (ContentComponent) mounted
+03:11:38 FooterComponent: Mounted footer
+03:11:38 Rendering: footer marked dirty
+03:11:38 Component: footer (FooterComponent) mounted
+03:11:38 Enhanced TUI: System initialized
+03:11:38 Rendering: Frame built in back buffer
+03:11:38 Rendering: Frame presented (hash: b58dd311)
+03:11:43 Format: TUI Formatting module initialized with expressive colors
+03:11:43 View: TUI View layer initialized with pub/sub event subscribers
+03:11:43 Display: Synchronization subscribers initialized
+02:16:14 Format: TUI Formatting module initialized with expressive colors
+02:16:14 View: TUI View layer initialized with pub/sub event subscribers
+02:16:14 Display: Synchronization subscribers initialized
+02:16:35 Rendering: Double buffer initialized (80x24)
+02:16:35 ViewController: Registered actions -> ActionsViewController
+02:16:35 ViewController: Registered palette -> PaletteViewController
+02:16:35 ViewController: Registered info -> InfoViewController
+02:16:35 ViewController: Registered repl -> ReplViewController
+02:16:35 ViewController: Registered debug -> DebugViewController
+02:16:35 ViewController: System initialized, starting in actions
+02:16:35 GameInput: System initialized with 21 mappings
+02:16:35 HeaderComponent: Mounted header
+02:16:35 Rendering: header marked dirty
+02:16:35 Component: header (HeaderComponent) mounted
+02:16:35 ContentComponent: Mounted content
+02:16:35 Rendering: content marked dirty
+02:16:35 Component: content (ContentComponent) mounted
+02:16:35 FooterComponent: Mounted footer
+02:16:35 Rendering: footer marked dirty
+02:16:35 Component: footer (FooterComponent) mounted
+02:16:35 Enhanced TUI: System initialized
+19:04:32 Format: TUI Formatting module initialized with expressive colors
+19:04:32 View: TUI View layer initialized with pub/sub event subscribers
+19:04:32 Display: Synchronization subscribers initialized

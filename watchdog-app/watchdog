@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+# Watchdog Standalone Wrapper
+# Thin wrapper around the tetra watchdog module
+
+# Source tetra (which loads the watchdog module)
+if [[ -f "$HOME/tetra/tetra.sh" ]]; then
+    source "$HOME/tetra/tetra.sh"
+elif [[ -n "$TETRA_SRC" ]] && [[ -f "$TETRA_SRC/tetra.sh" ]]; then
+    source "$TETRA_SRC/tetra.sh"
+else
+    echo "Error: Tetra not found. Please install tetra or set TETRA_SRC" >&2
+    exit 1
+fi
+
+# Source watchdog module explicitly
+if [[ -f "$TETRA_SRC/bash/watchdog/watchdog.sh" ]]; then
+    source "$TETRA_SRC/bash/watchdog/watchdog.sh"
+else
+    echo "Error: Watchdog module not found in tetra" >&2
+    exit 1
+fi
+
+# Pass through to watchdog functionality
+case "$1" in
+    loop)
+        watchdog_loop "${2:-$DEFAULT_SLEEP_DURATION}"
+        ;;
+    *)
+        watchdog_snapshot
+        ;;
+esac

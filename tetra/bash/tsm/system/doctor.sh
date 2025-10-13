@@ -3,20 +3,43 @@
 # TSM Doctor - Port diagnostics and conflict resolution
 # Scans ports, identifies conflicts, and helps resolve them
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+# Load color module
+if [[ -f "$TETRA_SRC/bash/color/color_core.sh" ]]; then
+    source "$TETRA_SRC/bash/color/color_core.sh"
+    source "$TETRA_SRC/bash/color/color_palettes.sh"
+fi
 
-# Helper functions
-log() { echo -e "${BLUE}[DOCTOR]${NC} $1"; }
-warn() { echo -e "${YELLOW}⚠️  $1${NC}"; }
-error() { echo -e "${RED}❌ $1${NC}"; }
-success() { echo -e "${GREEN}✅ $1${NC}"; }
-info() { echo -e "${CYAN}ℹ️  $1${NC}"; }
+# Helper functions using tetra color palette
+log() {
+    text_color "0088FF"
+    printf "[DOCTOR] %s" "$1"
+    reset_color
+    echo
+}
+warn() {
+    text_color "FFAA00"
+    printf "%s" "$1"
+    reset_color
+    echo
+}
+error() {
+    text_color "FF0044"
+    printf "%s" "$1"
+    reset_color
+    echo
+}
+success() {
+    text_color "00AA00"
+    printf "%s" "$1"
+    reset_color
+    echo
+}
+info() {
+    text_color "00AAAA"
+    printf "%s" "$1"
+    reset_color
+    echo
+}
 
 # Check if lsof is available
 check_dependencies() {
@@ -41,9 +64,13 @@ scan_common_ports() {
             local pid="$result"
             local process=$(ps -p $pid -o comm= 2>/dev/null || echo "unknown")
             local cmd=$(ps -p $pid -o args= 2>/dev/null | cut -c1-40 || echo "unknown")
-            printf "%-6s ${RED}%-8s${NC} %-20s %-10s %s\n" "$port" "USED" "$process" "$pid" "$cmd"
+            printf "%-6s " "$port"
+            text_color "FF0044"; printf "%-8s" "USED"; reset_color
+            printf " %-20s %-10s %s\n" "$process" "$pid" "$cmd"
         else
-            printf "%-6s ${GREEN}%-8s${NC} %-20s %-10s %s\n" "$port" "FREE" "-" "-" "-"
+            printf "%-6s " "$port"
+            text_color "00AA00"; printf "%-8s" "FREE"; reset_color
+            printf " %-20s %-10s %s\n" "-" "-" "-"
         fi
     done
     echo

@@ -19,6 +19,14 @@ source "$SCRIPT_DIR/tetra_remote.sh"
 
 # Initialize tetra meta environment
 tetra_repl_init() {
+    # Load bootloader if not already loaded
+    if [[ "${TETRA_BOOTLOADER_LOADED:-}" != "$$" ]]; then
+        local bootloader="${TETRA_SRC:-$HOME/src/devops/tetra}/bash/bootloader.sh"
+        if [[ -f "$bootloader" ]]; then
+            source "$bootloader"
+        fi
+    fi
+
     # Auto-setup REPL environment
     _repl_auto_setup "tetra"
 
@@ -50,6 +58,16 @@ tetra_repl_main() {
     # Initialize environment
     tetra_repl_init
 
+    # Enable readline history
+    set -o history
+    HISTFILE="${TETRA_HISTORY_DIR}/bash_history"
+    HISTSIZE=1000
+    HISTFILESIZE=1000
+    # Append to history file, don't overwrite
+    shopt -s histappend
+    # Load existing history
+    history -r "$HISTFILE" 2>/dev/null || true
+
     echo "Tetra Console - Configuration at Distance"
     echo "Type 'help' for commands, 'functions' for all available functions"
     echo "Use 'exit' or Ctrl+C to quit"
@@ -58,9 +76,9 @@ tetra_repl_main() {
     while true; do
         local prompt
         prompt="$(_repl_get_prompt "tetra")"
-        echo -n "$prompt"
 
-        if ! read -r input; then
+        # Use read -e for readline editing (enables Ctrl-A, Ctrl-E, arrow keys)
+        if ! read -e -p "$prompt" input; then
             echo
             break
         fi
@@ -70,13 +88,18 @@ tetra_repl_main() {
             continue
         fi
 
+        # Add to bash history for up/down arrow navigation
+        history -s "$input"
+        # Save to history file
+        history -a "$HISTFILE"
+
         # Process bash commands first
         if _repl_process_bash "$input"; then
             echo
             continue
         fi
 
-        # Save to history
+        # Save to custom history log
         _repl_save_history "tetra" "$input"
 
         # Handle standard help and exit
@@ -231,6 +254,25 @@ tetra_repl_dispatch() {
             fi
             ;;
 
+        # Spaces (Storage)
+        spaces)
+            if command -v spaces_list >/dev/null 2>&1; then
+                local spaces_cmd spaces_args
+                read -r spaces_cmd spaces_args <<< "$args"
+                case "$spaces_cmd" in
+                    list|ls) spaces_list $spaces_args ;;
+                    get|download) spaces_get $spaces_args ;;
+                    put|upload) spaces_put $spaces_args ;;
+                    sync) spaces_sync $spaces_args ;;
+                    url|link) spaces_url $spaces_args ;;
+                    delete|rm) spaces_delete $spaces_args ;;
+                    *) bash bash/spaces/spaces.sh $spaces_cmd $spaces_args ;;
+                esac
+            else
+                echo "Spaces not loaded. Try: load spaces"
+            fi
+            ;;
+
         # Configuration at Distance
         run)
             tetra_remote_exec $args
@@ -278,6 +320,14 @@ Module Management:
   unload <module>           Unload module
   modules                   List loaded modules
 
+Spaces (Storage):
+  spaces list <bucket>      List bucket contents
+  spaces get <bucket:path>  Download file from Spaces
+  spaces put <file> <bucket:path>  Upload file to Spaces
+  spaces sync <src> <dest>  Sync directories
+  spaces url <bucket:path>  Get public URL
+  spaces help               Show detailed spaces help
+
 Configuration at Distance:
   run <target> "<command>"      Execute command remotely
   tunnel <target:port>          Create SSH tunnel
@@ -296,7 +346,8 @@ Examples:
   run staging "start tetra" Start tetra service on staging
   generate staging deploy   Generate staging deployment keys
   tunnel staging:4444       Access staging tetra via tunnel
-  load tsm                  Load service manager module
+  load spaces               Load spaces storage module
+  spaces get pja-games:games.json -  Download and display file
 
 Type 'functions' for complete function reference.
 EOF
@@ -329,6 +380,14 @@ tetra_repl_functions() {
         declare -F | grep "tetra_.*_module" | cut -d' ' -f3 | sed 's/tetra_/  /' | sort
     else
         echo "  (not available)"
+    fi
+
+    echo
+    echo "Spaces (Storage):"
+    if command -v spaces_list >/dev/null 2>&1; then
+        declare -F | grep "^spaces_" | cut -d' ' -f3 | sed 's/spaces_/  /' | sort
+    else
+        echo "  (not loaded - try: load spaces)"
     fi
 
     echo

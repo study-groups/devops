@@ -1,0 +1,22 @@
+# Alex - Balanced, neutral non-binary voice
+
+[voice]
+id = "alex"
+display_name = "Alex"
+description = "Balanced, neutral voice for all contexts"
+
+[provider]
+name = "openai"
+model = "tts-1"
+voice_id = "alloy"
+api_endpoint = "https://api.openai.com/v1/audio/speech"
+
+[pricing]
+cost_per_1m_chars = 15.00
+currency = "USD"
+
+[metadata]
+tags = ["non-binary", "neutral", "balanced", "versatile"]
+quality = "standard"
+use_cases = ["general", "education", "accessibility"]
+language = "en-US"

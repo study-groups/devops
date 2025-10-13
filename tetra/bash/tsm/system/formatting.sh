@@ -3,6 +3,12 @@
 # TSM Responsive Formatting Functions
 # Provides small/medium/large output formatting based on terminal width
 
+# Load color module
+if [[ -f "$TETRA_SRC/bash/color/color_core.sh" ]]; then
+    source "$TETRA_SRC/bash/color/color_core.sh"
+    source "$TETRA_SRC/bash/color/color_palettes.sh"
+fi
+
 # Get terminal width, default to 80 if not detectable
 _tsm_get_terminal_width() {
     local width="${COLUMNS:-}"
@@ -103,15 +109,16 @@ _tsm_format_list_compact() {
     local name_width=${widths% *}
     local env_width=${widths#* }
 
-    printf "%-2s  %-${name_width}s  %-${env_width}s  %-4s  %-4s  %-7s  %-3s\n" "ID" "NAME" "ENV" "PID" "PORT" "STATUS" "↻"
-    printf "%-2s  %-${name_width}s  %-${env_width}s  %-4s  %-4s  %-7s  %-3s\n" "--" "$(printf '%*s' $name_width '' | tr ' ' '-')" "$(printf '%*s' $env_width '' | tr ' ' '-')" "----" "----" "-------" "---"
+    text_color "00AAAA"
+    printf "%-2s  %-${name_width}s  %-${env_width}s  %-4s  %-4s  %-7s\n" "ID" "NAME" "ENV" "PID" "PORT" "STATUS"
+    printf "%-2s  %-${name_width}s  %-${env_width}s  %-4s  %-4s  %-7s\n" "--" "$(printf '%*s' $name_width '' | tr ' ' '-')" "$(printf '%*s' $env_width '' | tr ' ' '-')" "----" "----" "-------"
+    reset_color
 
     for i in "${!_tsm_procs_name[@]}"; do
         local name="${_tsm_procs_name[i]}"
         local status="${_tsm_procs_status[i]}"
         local port="${_tsm_procs_port[i]}"
         local env_file="${_tsm_procs_env_file[i]}"
-        local restarts="${_tsm_procs_restarts[i]}"
 
         # Truncate name if too long
         if [[ ${#name} -gt $name_width ]]; then
@@ -126,8 +133,18 @@ _tsm_format_list_compact() {
             env_file="${env_file:0:$((env_width-3))}..."
         fi
 
-        printf "%-2s  %-${name_width}s  %-${env_width}s  %-4s  %-4s  %-7s  %-3s\n" \
-            "${_tsm_procs_id[i]}" "$name" "$env_file" "${_tsm_procs_pid[i]}" "$port" "$status" "$restarts"
+        printf "%-2s  %-${name_width}s  %-${env_width}s  %-4s  %-4s  " \
+            "${_tsm_procs_id[i]}" "$name" "$env_file" "${_tsm_procs_pid[i]}" "$port"
+
+        # Color status
+        if [[ "$status" == "online" ]]; then
+            text_color "00AA00"
+        else
+            text_color "888888"
+        fi
+        printf "%-7s" "$status"
+        reset_color
+        echo
     done
 }
 
@@ -137,10 +154,12 @@ _tsm_format_list_normal() {
     local name_width=${widths% *}
     local env_width=${widths#* }
 
-    printf "%-2s  %-${name_width}s  %-${env_width}s  %-4s  %-4s  %-7s  %-3s  %-8s\n" \
-        "ID" "Name" "Env" "PID" "Port" "Status" "↻" "Uptime"
-    printf "%-2s  %-${name_width}s  %-${env_width}s  %-4s  %-4s  %-7s  %-3s  %-8s\n" \
-        "--" "$(printf '%*s' $name_width '' | tr ' ' '-')" "$(printf '%*s' $env_width '' | tr ' ' '-')" "----" "----" "-------" "---" "--------"
+    text_color "00AAAA"
+    printf "%-2s  %-${name_width}s  %-${env_width}s  %-4s  %-4s  %-7s  %-8s\n" \
+        "ID" "Name" "Env" "PID" "Port" "Status" "Uptime"
+    printf "%-2s  %-${name_width}s  %-${env_width}s  %-4s  %-4s  %-7s  %-8s\n" \
+        "--" "$(printf '%*s' $name_width '' | tr ' ' '-')" "$(printf '%*s' $env_width '' | tr ' ' '-')" "----" "----" "-------" "--------"
+    reset_color
 
     for i in "${!_tsm_procs_name[@]}"; do
         local name="${_tsm_procs_name[i]}"
@@ -149,7 +168,6 @@ _tsm_format_list_normal() {
         local port="${_tsm_procs_port[i]}"
         local uptime="${_tsm_procs_uptime[i]}"
         local env_file="${_tsm_procs_env_file[i]}"
-        local restarts="${_tsm_procs_restarts[i]}"
 
         # Truncate fields if necessary
         if [[ ${#name} -gt $name_width ]]; then
@@ -172,8 +190,18 @@ _tsm_format_list_normal() {
             env_file="${env_file:0:$((env_width-3))}..."
         fi
 
-        printf "%-2s  %-${name_width}s  %-${env_width}s  %-4s  %-4s  %-7s  %-3s  %-8s\n" \
-            "${_tsm_procs_id[i]}" "$name" "$env_file" "$pid" "$port" "$status" "$restarts" "$uptime"
+        printf "%-2s  %-${name_width}s  %-${env_width}s  %-4s  %-4s  " \
+            "${_tsm_procs_id[i]}" "$name" "$env_file" "$pid" "$port"
+
+        # Color status
+        if [[ "$status" == "online" ]]; then
+            text_color "00AA00"
+        else
+            text_color "888888"
+        fi
+        printf "%-7s" "$status"
+        reset_color
+        printf "  %-8s\n" "$uptime"
     done
 }
 
