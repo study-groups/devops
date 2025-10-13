@@ -1,27 +1,93 @@
 /**
- * BasePanel.js - Core panel system with Redux integration
- * 
+ * BasePanel.js - Core panel system with optional Redux integration
+ *
  * Provides a standardized panel interface with:
  * - Position and size management
- * - State persistence via Redux
+ * - Optional state persistence via Redux
+ * - Event-driven communication
  * - Lifecycle management
  * - Debug integration
  */
 
 import { appStore } from '../appState.js';
 import { panelActions } from '../store/slices/panelSlice.js';
+import { zIndexManager } from '../utils/ZIndexManager.js';
+
+/**
+ * Simple EventEmitter for panel-to-panel communication
+ */
+class PanelEventEmitter {
+    constructor() {
+        this.events = {};
+    }
+
+    /**
+     * Register an event listener
+     * @param {string} event - Event name
+     * @param {Function} callback - Callback function
+     * @returns {PanelEventEmitter} For chaining
+     */
+    on(event, callback) {
+        if (!this.events[event]) {
+            this.events[event] = [];
+        }
+        this.events[event].push(callback);
+        return this;
+    }
+
+    /**
+     * Unregister an event listener
+     * @param {string} event - Event name
+     * @param {Function} callback - Callback function to remove
+     * @returns {PanelEventEmitter} For chaining
+     */
+    off(event, callback) {
+        if (!this.events[event]) return this;
+
+        this.events[event] = this.events[event].filter(cb => cb !== callback);
+        return this;
+    }
+
+    /**
+     * Emit an event to all registered listeners
+     * @param {string} event - Event name
+     * @param {*} data - Event data
+     * @returns {PanelEventEmitter} For chaining
+     */
+    emit(event, data) {
+        if (!this.events[event]) return this;
+
+        this.events[event].forEach(callback => {
+            try {
+                callback(data);
+            } catch (error) {
+                console.error(`[PanelEventEmitter] Error in event handler for ${event}:`, error);
+            }
+        });
+        return this;
+    }
+
+    /**
+     * Clear all event listeners
+     */
+    clear() {
+        this.events = {};
+    }
+}
 
 /**
  * Base class for creating dynamic, draggable, and resizable panels.
- * Integrates with Redux for state management and aligns with the application's design system.
+ * Supports optional Redux integration and local state management.
  * Panels can be instantiated, mounted to the DOM, shown/hidden, and destroyed.
- * Provides lifecycle hooks for extended functionality.
+ * Provides lifecycle hooks and event-driven communication.
  * @property {string} id - Unique identifier for the panel.
  * @property {string} title - Title displayed in the panel header.
  * @property {string} type - Type of the panel, used for styling and identification.
  * @property {HTMLElement|null} element - The root DOM element for the panel.
  * @property {boolean} mounted - True if the panel is currently in the DOM.
+ * @property {object} state - Local state (position, size, visibility, etc.)
  * @property {object} config - Configuration options for the panel's behavior and appearance.
+ * @property {PanelEventEmitter} events - Event emitter for panel communication.
  */
 export class BasePanel {
     /**
@@ -33,6 +99,9 @@ export class BasePanel {
      * @param {boolean} [config.draggable=true] - Whether the panel can be dragged.
      * @param {boolean} [config.collapsible=true] - Whether the panel can be collapsed.
      * @param {boolean} [config.closable=true] - Whether to show a close button.
+     * @param {boolean} [config.useRedux=false] - Whether to sync state with Redux (opt-in).
+     * @param {boolean} [config.isDocked=true] - Whether the panel is docked.
+     * @param {string} [config.zLayer='POPUP'] - Z-index layer (UI: 100-999, POPUP: 1000-9999).
      */
     constructor(config = {}) {
         this.id = config.id || `panel-${Date.now()}`;
@@ -40,29 +109,38 @@ export class BasePanel {
         this.type = config.type || 'generic';
         this.element = null;
         this.mounted = false;
-        
-        // Enhanced configuration with panel state
+        this.events = new PanelEventEmitter();
+
+        // Configuration
         this.config = {
             resizable: true,
             draggable: true,
             collapsible: true,
             closable: true,
             modal: false,
-            zIndex: 'var(--z-popover)', // Use design token for z-index
             minWidth: 200,
             minHeight: 150,
             defaultWidth: 400,
             defaultHeight: 300,
             defaultPosition: { x: 100, y: 100 },
-            // New state parameters
-            isDocked: true,  // Default to docked in sidebar
-            isOpen: false,   // Whether the panel is currently open
-            floatingState: {
-                position: { x: 100, y: 100 },
-                size: { width: 400, height: 300 },
-                zIndex: 'var(--z-popover)' // Use design token
-            },
+            useRedux: false,  // Opt-in Redux
+            zLayer: 'POPUP',  // Use ZIndexManager POPUP layer (1000-9999)
             ...config
+        };
+
+        // Local state (always exists)
+        // Z-index starts at layer minimum, will be managed by ZIndexManager
+        const layerMin = zIndexManager.layers[this.config.zLayer]?.min || 1000;
+        this.state = {
+            x: config.defaultPosition?.x || 100,
+            y: config.defaultPosition?.y || 100,
+            width: config.defaultWidth || 400,
+            height: config.defaultHeight || 300,
+            zIndex: layerMin,  // Will be set properly on mount
+            visible: false,
+            collapsed: false,
+            isDocked: config.isDocked ?? true,
+            isOpen: false
         };
 
         // Bind methods
@@ -71,102 +149,79 @@ export class BasePanel {
         this.handleMouseUp = this.handleMouseUp.bind(this);
         this.handleKeyDown = this.handleKeyDown.bind(this);
 
-        // Initialize panel state in Redux
-        this.initializeState();
+        // Optional Redux integration
+        if (this.config.useRedux) {
+            this.initializeReduxState();
+        }
     }
 
-    initializeState() {
-        // Create a comprehensive panel state with robust default values
+    /**
+     * Initialize Redux state (only if useRedux is enabled)
+     */
+    initializeReduxState() {
+        if (!this.config.useRedux) return;
+
         appStore.dispatch(panelActions.createPanel({
             id: this.id,
             title: this.title,
             type: this.type,
-            isDocked: this.config.isDocked,
-            isOpen: this.config.isOpen,
-            position: this.config.defaultPosition,
-            size: { 
-                width: this.config.defaultWidth, 
-                height: this.config.defaultHeight 
-            },
-            floatingState: {
-                position: this.config.defaultPosition,
-                size: { 
-                    width: this.config.defaultWidth, 
-                    height: this.config.defaultHeight 
-                },
-                zIndex: this.config.zIndex
-            },
-            visible: false,
-            collapsed: false,
-            zIndex: this.config.zIndex,
+            ...this.state,
             config: this.config
         }));
     }
 
+    /**
+     * Get current state (from Redux if enabled, otherwise local state)
+     * @returns {object} Current panel state
+     */
     getState() {
-        // This method should now reliably return the state, as it's created on construction.
-        const state = appStore.getState().panels?.panels?.[this.id];
-        if (state) {
-            return state;
-        }
-        // Fallback for race conditions during initial render.
-        return {
-            id: this.id,
-            title: this.title,
-            type: this.type,
-            isDocked: true,
-            isOpen: false,
-            position: this.config.defaultPosition,
-            size: { 
-                width: this.config.defaultWidth, 
-                height: this.config.defaultHeight 
-            },
-            floatingState: {
-                position: this.config.defaultPosition,
-                size: { 
-                    width: this.config.defaultWidth, 
-                    height: this.config.defaultHeight 
-                },
-                zIndex: 1000
-            },
-            visible: false,
-            collapsed: false,
-            zIndex: this.config.zIndex,
-            config: this.config,
-            mounted: false
-        };
-    }
-
-    updateState(updates) {
-        appStore.dispatch(panelActions.updatePanel({
-            id: this.id,
-            updates
-        }));
-    }
-
-    // Method to toggle between docked and floating states
-    togglePanelMode() {
-        const currentState = this.getState();
-        const newIsDocked = !currentState.isDocked;
-
-        this.updateState({
-            isDocked: newIsDocked,
-            // If becoming floating, update floating state
-            ...(newIsDocked ? {} : { 
-                floatingState: {
-                    position: this.element ? {
-                        x: parseInt(this.element.style.left || '100'),
-                        y: parseInt(this.element.style.top || '100')
-                    } : { x: 100, y: 100 },
-                    size: this.element ? {
-                        width: parseInt(this.element.style.width || '400'),
-                        height: parseInt(this.element.style.height || '300')
-                    } : { width: 400, height: 300 },
-                    zIndex: this.config.zIndex
+        if (this.config.useRedux) {
+            const reduxState = appStore.getState().panels?.panels?.[this.id];
+            if (reduxState) {
+                // Compatibility layer: support old nested state structure
+                if (reduxState.floatingState && !reduxState.x) {
+                    return {
+                        ...reduxState,
+                        x: reduxState.floatingState.position?.x || reduxState.position?.x || 100,
+                        y: reduxState.floatingState.position?.y || reduxState.position?.y || 100,
+                        width: reduxState.floatingState.size?.width || reduxState.size?.width || 400,
+                        height: reduxState.floatingState.size?.height || reduxState.size?.height || 300
+                    };
                 }
-            })
-        });
+                return reduxState;
+            }
+        }
+        return this.state;
+    }
 
+    /**
+     * Update panel state
+     * @param {object} updates - State updates to apply
+     */
+    updateState(updates) {
+        // Update local state
+        Object.assign(this.state, updates);
+
+        // Sync to Redux if enabled
+        if (this.config.useRedux) {
+            appStore.dispatch(panelActions.updatePanel({
+                id: this.id,
+                updates
+            }));
+        }
+
+        // Emit event
+        this.events.emit('stateChanged', { id: this.id, state: this.state });
+    }
+
+    /**
+     * Toggle between docked and floating states
+     * @returns {BasePanel} For chaining
+     */
+    togglePanelMode() {
+        const state = this.getState();
+        this.updateState({ isDocked: !state.isDocked });
+        this.applyStateToElement();
         return this;
     }
 
@@ -181,6 +236,12 @@ export class BasePanel {
 
         this.createElement();
         container.appendChild(this.element);
+
+        // Register with ZIndexManager for proper z-index management
+        const priority = 0; // Start at base priority, increases when brought to front
+        const zIndex = zIndexManager.register(this.element, this.config.zLayer, priority);
+        this.updateState({ zIndex });
+
         this.attachEventListeners();
         this.applyStateToElement();
         this.mounted = true;
@@ -226,12 +287,14 @@ export class BasePanel {
         return '<div class="panel-placeholder">Panel content goes here</div>';
     }
 
-    // Override show method to manage open state
+    /**
+     * Show the panel with fade-in animation
+     * @returns {BasePanel} For chaining
+     */
     show() {
-        this.updateState({ 
+        this.updateState({
             visible: true,
-            isOpen: true,
-            zIndex: appStore.getState().panels.maxZIndex + 1
+            isOpen: true
         });
         this.applyStateToElement();
         this.bringToFront();
@@ -239,13 +302,16 @@ export class BasePanel {
         return this;
     }
 
-    // Override hide method to manage open state
+    /**
+     * Hide the panel with fade-out animation
+     * @returns {BasePanel} For chaining
+     */
     hide() {
         this.element.classList.remove('is-visible');
-        
+
         // Wait for animation to finish before hiding
         setTimeout(() => {
-            this.updateState({ 
+            this.updateState({
                 visible: false,
                 isOpen: false
             });
@@ -267,65 +333,33 @@ export class BasePanel {
         return this;
     }
 
-    // Modify existing methods to work with new state structure
+    /**
+     * Apply current state to the DOM element
+     */
     applyStateToElement() {
         if (!this.element) return;
 
-        const state = this.getState();
-        if (!state) {
-            console.warn(`[BasePanel] No state found for panel ${this.id}`);
-            return;
-        }
+        const s = this.getState();
 
-        // Ensure floatingState exists with default values
-        const floatingState = state.floatingState || {
-            position: this.config.defaultPosition,
-            size: { 
-                width: this.config.defaultWidth, 
-                height: this.config.defaultHeight 
-            },
-            zIndex: 1000
-        };
+        // Position and size
+        this.element.style.left = `${s.x}px`;
+        this.element.style.top = `${s.y}px`;
+        this.element.style.width = `${s.width}px`;
+        this.element.style.height = `${s.height}px`;
+        this.element.style.zIndex = s.zIndex;
 
-        // Determine which position/size to use based on docked state
-        const position = state.isDocked 
-            ? this.config.defaultPosition 
-            : (floatingState.position || this.config.defaultPosition);
-        const size = state.isDocked 
-            ? { width: this.config.defaultWidth, height: this.config.defaultHeight }
-            : (floatingState.size || { 
-                width: this.config.defaultWidth, 
-                height: this.config.defaultHeight 
-            });
-
-        // Safely apply position and size
-        this.element.style.left = `${position.x || 100}px`;
-        this.element.style.top = `${position.y || 100}px`;
-        this.element.style.width = `${size.width || 400}px`;
-        this.element.style.height = `${size.height || 300}px`;
-        
-        // Apply z-index, with multiple fallback mechanisms
-        const zIndex = floatingState.zIndex || state.zIndex || this.config.zIndex || 1000;
-        const computedZIndex = typeof zIndex === 'string' && zIndex.startsWith('var(')
-            ? parseInt(getComputedStyle(document.documentElement).getPropertyValue(zIndex.slice(4, -1))) || 1000
-            : (typeof zIndex === 'number' ? zIndex : 1000);
-        
-        this.element.style.zIndex = computedZIndex;
-
-        // Visibility and open state
-        this.element.style.display = state.visible ? 'flex' : 'none';
-        if (state.visible) {
-            // Use a timeout to allow the element to be rendered before adding the class
-            setTimeout(() => {
-                this.element.classList.add('is-visible');
-            }, 10);
+        // Visibility
+        this.element.style.display = s.visible ? 'flex' : 'none';
+        if (s.visible) {
+            setTimeout(() => this.element.classList.add('is-visible'), 10);
         } else {
             this.element.classList.remove('is-visible');
         }
 
-        // Additional styling for docked vs floating
-        this.element.classList.toggle('is-docked', state.isDocked);
-        this.element.classList.toggle('is-floating', !state.isDocked);
+        // State classes
+        this.element.classList.toggle('collapsed', s.collapsed);
+        this.element.classList.toggle('is-docked', s.isDocked);
+        this.element.classList.toggle('is-floating', !s.isDocked);
     }
 
     /**
@@ -356,42 +390,18 @@ export class BasePanel {
     }
 
     /**
-     * Brings the panel to the front by increasing its z-index.
+     * Brings the panel to the front using ZIndexManager
+     * @returns {BasePanel} For chaining
      */
     bringToFront() {
-        const allPanels = appStore.getState().panels.panels;
-        
-        // Safely calculate max z-index with fallback to design tokens
-        const maxZ = allPanels ? 
-            Math.max(...Object.values(allPanels)
-                .map(p => {
-                    // Safely extract zIndex, with multiple fallback levels
-                    const zIndex = p?.floatingState?.zIndex || 
-                                   p?.zIndex || 
-                                   'var(--z-popover)';
-                    
-                    // If it's a CSS variable, convert to numeric value
-                    if (typeof zIndex === 'string' && zIndex.startsWith('var(')) {
-                        return parseInt(getComputedStyle(document.documentElement).getPropertyValue(zIndex.slice(4, -1))) || 1000;
-                    }
-                    
-                    // If it's already a number, return it
-                    return typeof zIndex === 'number' ? zIndex : 1000;
-                })
-            ) : parseInt(getComputedStyle(document.documentElement).getPropertyValue('--z-popover')) || 1000;
+        if (!this.element) return this;
 
-        // Get current panel state
-        const currentState = this.getState();
-        
-        // Safely update state with new z-index
-        this.updateState({ 
-            floatingState: {
-                ...(currentState.floatingState || {}),
-                zIndex: maxZ + 1
-            }
-        });
+        // Use ZIndexManager to bring element to front within its layer
+        const newZ = zIndexManager.bringToFront(this.element);
+        if (newZ) {
+            this.updateState({ zIndex: newZ });
+        }
 
-        this.applyStateToElement();
         return this;
     }
 
@@ -437,14 +447,14 @@ export class BasePanel {
                 if (this.config.draggable) {
                     const newX = Math.max(0, this.dragState.startLeft + deltaX);
                     const newY = Math.max(0, this.dragState.startTop + deltaY);
-                    this.updateState({ position: { x: newX, y: newY } });
+                    this.updateState({ x: newX, y: newY });
                 }
                 break;
             case 'resize':
                 if (this.config.resizable) {
                     const newWidth = Math.max(this.config.minWidth, this.dragState.startWidth + deltaX);
                     const newHeight = Math.max(this.config.minHeight, this.dragState.startHeight + deltaY);
-                    this.updateState({ size: { width: newWidth, height: newHeight } });
+                    this.updateState({ width: newWidth, height: newHeight });
                 }
                 break;
         }
@@ -470,29 +480,25 @@ export class BasePanel {
         }
     }
 
-    // Modify bringToFront to update floating state
-    // bringToFront() {
-    //     const allPanels = appStore.getState().panels.panels;
-    //     const maxZ = Math.max(...Object.values(allPanels).map(p => p.floatingState.zIndex || 1000));
-        
-    //     this.updateState({ 
-    //         floatingState: {
-    //             ...this.getState().floatingState,
-    //             zIndex: maxZ + 1
-    //         }
-    //     });
-    //     this.applyStateToElement();
-    // }
-
     /**
      * Removes the panel from the DOM and cleans up its state.
      */
     destroy() {
+        // Unregister from ZIndexManager
         if (this.element) {
+            zIndexManager.unregister(this.element);
             this.element.remove();
         }
+
+        // Clear event listeners
+        this.events.clear();
+
+        // Clean up Redux state if used
+        if (this.config.useRedux) {
+            appStore.dispatch(panelActions.removePanel(this.id));
+        }
+
         this.mounted = false;
-        appStore.dispatch(panelActions.removePanel(this.id));
         this.onDestroy();
     }
 
