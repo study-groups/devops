@@ -887,60 +887,92 @@ export class SidebarManager {
 
         // Drag and drop is now handled by initializeDragDrop()
         
-        // Handle panel header clicks vs drags
-        let dragStartTime = 0;
-        let dragStartPos = { x: 0, y: 0 };
-        let isDragOperation = false;
-        
+        // Handle panel header clicks vs drag-to-float
+        let dragState = null;
+
         container.addEventListener('mousedown', (e) => {
             const targetElement = this.getElementWithClosest(e.target);
             const panelHeader = targetElement ? targetElement.closest('.panel-header') : null;
-            
-            if (panelHeader) {
-                dragStartTime = Date.now();
-                dragStartPos = { x: e.clientX, y: e.clientY };
-                isDragOperation = false;
-            }
-        });
-        
-        container.addEventListener('mousemove', (e) => {
-            if (dragStartTime > 0) {
-                const distance = Math.sqrt(
-                    Math.pow(e.clientX - dragStartPos.x, 2) + 
-                    Math.pow(e.clientY - dragStartPos.y, 2)
-                );
-                
-                // If moved more than 5px, consider it a drag
-                if (distance > 5) {
-                    isDragOperation = true;
-                }
-            }
-        });
-        
-        container.addEventListener('mouseup', (e) => {
-            dragStartTime = 0;
-            // Reset drag operation flag after a short delay to allow click event to fire
-            setTimeout(() => {
-                isDragOperation = false;
-            }, 10);
-        });
-        
-        container.addEventListener('click', (e) => {
-            const targetElement = this.getElementWithClosest(e.target);
-            const panelHeader = targetElement ? targetElement.closest('.panel-header') : null;
             const controlBtn = targetElement ? targetElement.closest('.panel-control-btn') : null;
-            
-            // If clicking a control button, don't prevent the click
-            if (controlBtn) {
-                return;
+
+            // Don't start drag if clicking control buttons
+            if (controlBtn || !panelHeader) return;
+
+            const panelItem = panelHeader.closest('.panel-item');
+            if (!panelItem) return;
+
+            const panelId = panelItem.dataset.panelId;
+            const sidebarRect = this.container.getBoundingClientRect();
+
+            dragState = {
+                panelId,
+                panelItem,
+                startX: e.clientX,
+                startY: e.clientY,
+                startTime: Date.now(),
+                isDragging: false,
+                sidebarRect,
+                dragClone: null
+            };
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!dragState) return;
+
+            const deltaX = e.clientX - dragState.startX;
+            const deltaY = e.clientY - dragState.startY;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+            // Start dragging if moved more than 10px
+            if (!dragState.isDragging && distance > 10) {
+                dragState.isDragging = true;
+
+                // Create visual clone of panel being dragged
+                const clone = dragState.panelItem.cloneNode(true);
+                clone.style.position = 'fixed';
+                clone.style.width = dragState.panelItem.offsetWidth + 'px';
+                clone.style.pointerEvents = 'none';
+                clone.style.opacity = '0.8';
+                clone.style.zIndex = '10000';
+                clone.style.left = dragState.startX + 'px';
+                clone.style.top = dragState.startY + 'px';
+                document.body.appendChild(clone);
+                dragState.dragClone = clone;
+
+                // Dim original panel
+                dragState.panelItem.style.opacity = '0.3';
             }
-            
-            if (panelHeader && isDragOperation) {
-                // If this was a drag operation, prevent the click
-                e.stopPropagation();
-                e.preventDefault();
-                return;
+
+            // Update clone position while dragging
+            if (dragState.isDragging && dragState.dragClone) {
+                dragState.dragClone.style.left = e.clientX + 'px';
+                dragState.dragClone.style.top = e.clientY + 'px';
             }
+        });
+
+        document.addEventListener('mouseup', (e) => {
+            if (!dragState) return;
+
+            const wasDragging = dragState.isDragging;
+            const droppedOutsideSidebar = e.clientX > dragState.sidebarRect.right + 50;
+
+            // Clean up drag clone
+            if (dragState.dragClone) {
+                dragState.dragClone.remove();
+            }
+
+            // Restore original panel opacity
+            if (dragState.panelItem) {
+                dragState.panelItem.style.opacity = '1';
+            }
+
+            // If dragged outside sidebar, convert to floating panel
+            if (wasDragging && droppedOutsideSidebar) {
+                console.log(`[SidebarManager] Panel ${dragState.panelId} dragged out - converting to floating`);
+                this.createFloatingPanel(dragState.panelId);
+            }
+
+            dragState = null;
         });
     }
 
