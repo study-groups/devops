@@ -449,7 +449,8 @@ export class SidebarManager {
                 panel = await panelRegistry.createPanel(panelId, {
                     id: panelId,
                     title: config.title,
-                    type: panelId // Use panelId as type to match registration
+                    type: panelId, // Use panelId as type to match registration
+                    useRedux: true // Enable Redux sync for sidebar panels
                 });
                 this.panelInstances.set(panelId, panel);
             }
@@ -730,7 +731,8 @@ export class SidebarManager {
             const panelInstance = await panelRegistry.createPanel(panelId, {
                 id: panelId,
                 title: config.title,
-                type: panelId
+                type: panelId,
+                useRedux: true // Enable Redux sync for floating panels
             });
 
             if (panelInstance && typeof panelInstance.renderContent === 'function') {
