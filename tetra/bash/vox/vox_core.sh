@@ -8,6 +8,7 @@ vox_generate_tts() {
     local voice="${1:-alloy}"
     local output_file="${2:-}"
     local model="${3:-tts-1}"
+    local source_file="${4:-}"  # Optional: source esto file
 
     # Read stdin
     local text
@@ -17,6 +18,10 @@ vox_generate_tts() {
         echo "Error: No input text provided" >&2
         return 1
     fi
+
+    # Calculate content hash before truncation
+    local content_hash=$(echo "$text" | vox_hash_content)
+    local original_char_count=${#text}
 
     # Get API key
     local api_key="${OPENAI_API_KEY:-}"
@@ -33,16 +38,23 @@ vox_generate_tts() {
 
     # OpenAI has 4096 char limit
     local max_chars=4096
+    local effective_char_count=$original_char_count
     if [[ ${#text} -gt $max_chars ]]; then
         echo "Warning: Text truncated from ${#text} to $max_chars chars" >&2
         text="${text:0:$max_chars}"
+        effective_char_count=$max_chars
     fi
+
+    # Calculate cost: $15 per 1M chars
+    local cost=$(echo "scale=6; $effective_char_count * 15 / 1000000" | bc)
 
     # Generate temp file if no output specified
     local temp_file=""
+    local is_temp=false
     if [[ -z "$output_file" ]]; then
         temp_file=$(mktemp /tmp/vox.XXXXXX.mp3)
         output_file="$temp_file"
+        is_temp=true
     fi
 
     # Build JSON payload
@@ -71,8 +83,20 @@ vox_generate_tts() {
         return 1
     fi
 
+    # Generate metadata file (if not a temp file)
+    if [[ "$is_temp" == "false" ]] && [[ -f "$output_file" ]]; then
+        # Source vox_metadata.sh if not already loaded
+        if ! declare -f vox_meta_create &>/dev/null; then
+            source "${VOX_SRC}/vox_metadata.sh" 2>/dev/null || true
+        fi
+
+        if declare -f vox_meta_create &>/dev/null; then
+            vox_meta_create "$output_file" "$source_file" "$voice" "$content_hash" "$effective_char_count" "$cost" >/dev/null 2>&1
+        fi
+    fi
+
     # If temp file, cat to stdout and cleanup
-    if [[ -n "$temp_file" ]]; then
+    if [[ "$is_temp" == "true" ]]; then
         cat "$temp_file"
         rm -f "$temp_file"
     fi
@@ -113,7 +137,7 @@ vox_play_audio() {
     return 0
 }
 
-# Generate and play (pipe-first)
+# Generate and play (pipe-first - no caching)
 vox_play() {
     local voice="${1:-alloy}"
     local temp_audio=$(mktemp /tmp/vox.XXXXXX.mp3)
@@ -127,4 +151,157 @@ vox_play() {
         rm -f "$temp_audio"
         return 1
     fi
+}
+
+# Play from source ID (with caching)
+vox_play_id() {
+    local voice="$1"
+    local source_id="$2"
+
+    # Get source content and extract timestamp
+    local source_path
+    local content
+    local timestamp
+    local source_type
+
+    case "$source_id" in
+        qa:*)
+            # QA reference
+            source_type="qa"
+            source_path=$(vox_qa_get_path "$source_id")
+            if [[ $? -ne 0 ]]; then
+                return 1
+            fi
+            content=$(cat "$source_path")
+
+            # Extract timestamp from source_id (qa:1760229927 -> 1760229927)
+            timestamp="${source_id#qa:}"
+            ;;
+        *)
+            echo "Error: Unknown source type: $source_id" >&2
+            return 1
+            ;;
+    esac
+
+    # Calculate content hash
+    local content_hash=$(echo "$content" | vox_hash_content)
+
+    # Check cache
+    local cached_audio=$(vox_cache_get "$content_hash" "$voice")
+    local cache_hit=false
+
+    # Determine output path in VOX_DIR/db
+    vox_ensure_db_dir
+    local db_audio_path=$(vox_get_db_audio_path "$timestamp" "$voice")
+
+    if [[ -n "$cached_audio" ]]; then
+        echo "Playing cached audio ($source_id, $voice)" >&2
+        cache_hit=true
+
+        # Copy from cache to db if not already there
+        if [[ ! -f "$db_audio_path" ]]; then
+            cp "$cached_audio" "$db_audio_path"
+        fi
+
+        # Log cache hit
+        if declare -f vox_log_transaction &>/dev/null; then
+            vox_log_transaction "play" "vox play $voice $source_id" "$source_type" "$source_id" "$db_audio_path" "$voice" 0 true >/dev/null 2>&1
+        fi
+
+        vox_play_audio "$cached_audio"
+        return $?
+    fi
+
+    # Generate new audio directly to db
+    echo "Generating audio ($source_id, $voice)" >&2
+
+    # Calculate cost
+    local char_count=${#content}
+    local max_chars=4096
+    local effective_chars=$char_count
+    if [[ $char_count -gt $max_chars ]]; then
+        effective_chars=$max_chars
+    fi
+    local cost=$(echo "scale=6; $effective_chars * 15 / 1000000" | bc)
+
+    echo "$content" | vox_generate_tts "$voice" "$db_audio_path"
+
+    if [[ $? -ne 0 ]]; then
+        return 1
+    fi
+
+    # Store in cache
+    vox_cache_store "$content_hash" "$voice" "$db_audio_path"
+
+    # Log generation
+    if declare -f vox_log_transaction &>/dev/null; then
+        vox_log_transaction "generate" "vox play $voice $source_id" "$source_type" "$source_id" "$db_audio_path" "$voice" "$cost" false >/dev/null 2>&1
+    fi
+
+    # Play
+    vox_play_audio "$db_audio_path"
+    return $?
+}
+
+# Generate from source ID (with caching)
+vox_generate_id() {
+    local voice="$1"
+    local source_id="$2"
+    local output_file="$3"
+
+    # Get source content and extract timestamp
+    local source_path
+    local content
+    local timestamp
+    local source_type
+
+    case "$source_id" in
+        qa:*)
+            # QA reference
+            source_type="qa"
+            source_path=$(vox_qa_get_path "$source_id")
+            if [[ $? -ne 0 ]]; then
+                return 1
+            fi
+            content=$(cat "$source_path")
+
+            # Extract timestamp from source_id
+            timestamp="${source_id#qa:}"
+            ;;
+        *)
+            echo "Error: Unknown source type: $source_id" >&2
+            return 1
+            ;;
+    esac
+
+    # If no output file specified, use VOX_DIR/db path
+    if [[ -z "$output_file" ]]; then
+        vox_ensure_db_dir
+        output_file=$(vox_get_db_audio_path "$timestamp" "$voice")
+    fi
+
+    # Calculate content hash
+    local content_hash=$(echo "$content" | vox_hash_content)
+
+    # Check cache
+    local cached_audio=$(vox_cache_get "$content_hash" "$voice")
+
+    if [[ -n "$cached_audio" ]]; then
+        echo "Using cached audio ($source_id, $voice)" >&2
+        cp "$cached_audio" "$output_file"
+        return 0
+    fi
+
+    # Generate new audio
+    echo "Generating audio ($source_id, $voice)" >&2
+    echo "$content" | vox_generate_tts "$voice" "$output_file"
+
+    if [[ $? -ne 0 ]]; then
+        return 1
+    fi
+
+    # Store in cache
+    vox_cache_store "$content_hash" "$voice" "$output_file"
+
+    return 0
 }

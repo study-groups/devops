@@ -1,0 +1,232 @@
+@title "Interactive Vox Demo"
+@voice sally
+@author "Tetra Framework"
+@interactive true
+@speed_range min=0.8 max=1.5
+@duration_estimate 5min
+
+@begin chapter name=welcome
+@prompt "Welcome to the interactive vox demo! Press enter to begin."
+
+This demonstration showcases interactive features that make esto files more engaging.
+
+@pause 1.5
+
+You'll learn about prompts, code execution, navigation, and progress tracking.
+
+@pause 1.0
+
+Let's get started!
+@end chapter
+
+@begin chapter name=prompts
+@section "User Prompts"
+
+Interactive esto files can pause and wait for user input.
+
+@pause 1.0
+
+@prompt "This is a prompt. Press enter to continue."
+
+Great! You just interacted with the audio. Prompts create natural breakpoints in tutorials and allow self-paced learning.
+
+@pause 1.5
+
+In non-interactive mode, prompts are simply ignored, and the audio continues seamlessly.
+@end chapter
+
+@begin chapter name=timing
+@section "Timing Control"
+
+You can control playback timing with pause directives. For example, this sentence is followed by a two-second pause.
+
+@pause 2.0
+
+Timing control helps create rhythm and gives listeners time to absorb information.
+
+@pause 1.0
+
+You can also set per-section pauses or allow users to adjust playback speed.
+@end chapter
+
+@begin chapter name=code
+@section "Executable Code"
+
+Interactive esto files can include executable code blocks. Here's an example:
+
+@pause 0.5
+
+@code "echo 'Hello from vox!' | vox play echo" executable=true
+
+@pause 0.5
+
+In TUI mode, you can press 'e' to execute code directly. The output appears in a split pane.
+
+@pause 1.5
+
+This is perfect for tutorials where users need to practice commands as they learn.
+
+@code_prompt "Try it: Run the command above in your terminal"
+
+@pause 1.0
+@end chapter
+
+@begin chapter name=navigation
+@section "Navigation Features"
+
+@skippoint name="bookmarks_section"
+
+You can create skip points, allowing users to jump to specific sections.
+
+@pause 1.0
+
+Bookmarks let users save their position and return later.
+
+@pause 0.5
+
+@bookmark name="navigation_example"
+
+Section-based navigation makes it easy to review specific topics without replaying the entire file.
+
+@pause 1.5
+
+In TUI mode, use j and k to navigate between sections, just like vim.
+@end chapter
+
+@begin chapter name=progress
+@section "Progress Tracking"
+
+@checkpoint name="basics_complete"
+
+Interactive esto files automatically track your progress.
+
+@pause 1.0
+
+Your position, completed sections, and quiz scores are saved to dot vox slash progress dot json.
+
+@pause 1.5
+
+When you resume, playback continues from where you left off. Perfect for long tutorials or courses.
+
+@pause 1.0
+
+@progress show_percent=true show_time_remaining=true
+
+Progress tracking also enables gamification and certification workflows.
+@end chapter
+
+@begin chapter name=quiz
+@section "Knowledge Validation"
+
+Let's test your understanding with a quick quiz.
+
+@pause 1.0
+
+@quiz question="What command generates audio and saves it to a file?" answer="vox generate"
+
+@pause 0.5
+
+Excellent! Quiz questions help reinforce learning and identify areas that need review.
+
+@pause 1.0
+
+Quiz scores are tracked in your progress file, so you can see your improvement over time.
+@end chapter
+
+@begin chapter name=help
+@section "Context Help"
+
+@help topic="caching" available=true
+
+Interactive esto files can provide context-sensitive help.
+
+@pause 1.0
+
+Press 'h' in TUI mode to access documentation without leaving the tutorial.
+
+@pause 1.5
+
+This just-in-time learning approach keeps users in flow while providing support when needed.
+
+@glossary term="content-addressed caching" definition="Storage system where data is indexed by its hash, enabling deduplication"
+@end chapter
+
+@begin chapter name=advanced
+@section "Advanced Features"
+
+@skippoint name="advanced_start"
+
+Interactive esto supports many advanced features:
+
+@pause 0.5
+
+Loop sections for review.
+@loop section=true count=2
+
+@pause 0.5
+
+Adaptive speed based on quiz performance.
+@adapt_speed based_on=quiz_performance
+
+@pause 0.5
+
+Event hooks for custom workflows.
+@on_section_end command="save_progress"
+
+@pause 1.0
+
+And much more! The interactive esto system is designed to be extensible.
+@end chapter
+
+@begin chapter name=conclusion
+@section "Wrapping Up"
+
+@checkpoint name="demo_complete"
+
+You've now experienced the key interactive features of esto files:
+
+@pause 0.5
+
+Prompts for user interaction.
+@pause 0.3
+Executable code blocks.
+@pause 0.3
+Navigation and bookmarks.
+@pause 0.3
+Progress tracking.
+@pause 0.3
+Quiz validation.
+@pause 0.3
+And context help.
+
+@pause 1.5
+
+These features make esto ideal for tutorials, courseware, and interactive documentation.
+
+@pause 1.5
+
+@prompt "Ready to create your own interactive content? Press enter to finish."
+
+Thank you for trying the interactive vox demo!
+
+@pause 1.0
+@end chapter
+
+@begin meta
+# Metadata for interactive demo
+
+@on_section_start command="highlight_section"
+@on_prompt command="show_prompt_ui"
+@on_code_execute validate=true
+@on_quiz command="show_quiz_ui"
+
+# Analytics
+@track event="demo_completed"
+@track metric="completion_time"
+@track metric="quiz_accuracy"
+
+# Recommendations
+@recommend next="vox_tutorial.esto"
+@recommend related="bash_basics.esto"
+
+@end meta

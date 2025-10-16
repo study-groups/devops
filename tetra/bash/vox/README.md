@@ -1,378 +1,476 @@
-# Vox - Text-to-Speech Module for Tetra
+# vox - Audio-Text Synchronization System
 
-Vox is a TTS (Text-to-Speech) module that operates as an augmentation layer over the QA (Question & Answer) database. It provides voice synthesis with caching, grading, and comprehensive cost tracking.
+**Pure pipe-first TTS + programmatic sound generation for the tetra framework**
+
+**Version:** 1.0.0
+**TCS Version:** 3.0 Compliant
+**Status:** Production Ready
+
+---
+
+## Related Documentation
+- [Tetra Core Specification](../../docs/Tetra_Core_Specification.md) - Foundational concepts (TCS 3.0)
+- [Module Convention](../../docs/Tetra_Module_Convention.md) - Module integration patterns
+- [TES Storage Extension](../../docs/TES_Storage_Extension.md) - Cloud storage for audio files
+
+---
+
+## Overview
+
+vox is a TCS 3.0-compliant dual-purpose audio system:
+1. **TTS (Text-to-Speech)** - OpenAI-powered voice synthesis with pipe-first design
+2. **Sound Synthesis** - Strudel-inspired programmatic sound generation with custom wave synthesis
+
+**Key Features:**
+- ✅ Pipe-first Unix design (`cat file | vox generate sally`)
+- ✅ Custom wave synthesis (no SoX, no Python - pure bash/awk + Go)
+- ✅ Strudel-like mini-notation for rhythmic patterns
+- ✅ Zero legacy code - clean, tight implementation
+- ✅ **TCS 3.0 Compliant** - Database pattern, symbol resolution, type contracts
+- ✅ **Cross-module integration** - Preserves QA timestamps for correlation
+
+---
+
+## TCS 3.0 Compliance
+
+### Module Database Pattern
+
+VOX follows the TCS 3.0 database pattern:
+
+**Directory Structure**:
+```
+$TETRA_DIR/vox/
+├── db/                   # TCS 3.0 Database (timestamp-based)
+│   ├── {ts}.vox.{voice}.mp3   # Audio files
+│   ├── {ts}.vox.{voice}.meta  # Metadata
+│   └── {ts}.vox.{voice}.spans # Timing data (planned)
+├── config/               # Configuration
+├── logs/                 # Module-specific logs
+└── cache/                # Optional caching
+```
+
+**Primary Key**: Unix timestamp (1-second resolution)
+**Filename Format**: `{timestamp}.vox.{voice}.{extension}`
+**Guarantee**: No collisions - operations never start faster than 1-second intervals
+
+### Path Functions
+
+All TCS 3.0 path functions implemented in `vox_paths.sh`:
+
+```bash
+vox_get_db_dir()           # Returns $VOX_DIR/db
+vox_generate_timestamp()   # Returns current Unix timestamp
+vox_get_db_audio_path()    # Constructs timestamped audio path
+vox_get_db_meta_path()     # Constructs timestamped metadata path
+```
+
+### Symbol Resolution
+
+VOX provides `@vox:timestamp.voice` symbol resolution:
+
+```bash
+# Symbol examples
+@vox:1760229927.sally      # Specific timestamp + voice
+@vox:0                     # Latest (relative index)
+@vox:*.mp3                 # Wildcard (for sync operations)
+
+# Resolution: @vox:1760229927.sally → $VOX_DIR/db/1760229927.vox.sally.mp3
+```
+
+### Type Contracts
+
+Every VOX action declares its type contract using the `::` operator:
+
+```bash
+vox.play :: (text:stdin, voice:string) → Audio[stdout]
+  where Effect[api_call, cache, log, metadata]
+
+vox.generate :: (voice:string, text:stdin) → @vox:timestamp.voice.mp3
+  where Effect[api_call, cache, log, metadata]
+
+vox.list :: ([filter:string]) → Text[stdout]
+  where Effect[read]
+
+vox.sync :: (@vox:*.mp3 → @spaces:vox-audio/*.mp3)
+  where Effect[network, write, log]
+```
+
+### Cross-Module Integration
+
+VOX preserves timestamps from other modules (e.g., QA):
+
+```bash
+# QA generates answer
+qa.query "What is bash?"
+# → Creates: $QA_DIR/db/1760229927.answer
+
+# VOX processes QA answer (preserves timestamp!)
+qa a 0 | vox play sally
+# → Creates: $VOX_DIR/db/1760229927.vox.sally.mp3
+#            (same timestamp = 1760229927)
+
+# Find all resources for this query
+find $TETRA_DIR -name "1760229927.*"
+# ~/tetra/qa/db/1760229927.answer
+# ~/tetra/vox/db/1760229927.vox.sally.mp3
+# ~/tetra/vox/db/1760229927.vox.sally.meta
+```
+
+## Quick Start
+
+### TTS (Text-to-Speech)
+```bash
+# Simple text to speech
+echo "Hello world" | vox play alloy
+
+# Generate audio file
+cat story.txt | vox generate nova --output story.mp3
+
+# Dry-run analysis (no API calls)
+echo "Test text" | vox dry-run stdin sally
+
+# Available voices: alloy, echo, fable, onyx, nova, shimmer
+```
+
+### Sound Generation
+```bash
+# Generate drum pattern
+echo "bd sd cp hh" | vox sound generate --output beat.wav
+
+# Play pattern directly
+echo "bd ~ sd ~" | vox sound play --tempo 140
+
+# Musical tones
+echo "c a f e" | vox sound generate --synth sine --tempo 120
+```
 
 ## Architecture
 
-### Core Concept
-- Vox operates on **existing QA answer IDs** from `$QA_DIR/db/{id}.answer`
-- Voice profiles use nginx-style available/enabled configuration
-- Audio files are cached in QA database: `{qa_id}.vox.{voice}.mp3`
-- Each voice+answer combo can be graded and compared
-- Uses QA's OpenAI API key automatically
-
-### Directory Structure
+### Core Modules
 
 ```
-$TETRA_DIR/vox/
-├── voice-available/        # All voice configurations (TOML files)
-│   ├── sally.toml         # Female voice (OpenAI nova)
-│   ├── marcus.toml        # Male voice (OpenAI onyx)
-│   └── alex.toml          # Non-binary voice (OpenAI alloy)
-├── voice-enabled/          # Enabled voices (symlinks)
-│   └── sally.toml -> ../voice-available/sally.toml
-├── voices/
-│   └── active             # Current active voice ID
-├── cache/
-│   └── matrix.jsonl       # Voice matrix metadata
-└── logs/
-    └── usage.jsonl        # Cost tracking per generation
-
-$TETRA_DIR/qa/db/           # Shared with QA module
-├── {id}.answer            # QA answer text
-├── {id}.vox.{voice}.mp3   # TTS audio (cached)
-├── {id}.vox.{voice}.meta  # Generation metadata
-└── {id}.vox.{voice}.grade # User rating
+bash/vox/
+├── vox.sh                     # Main CLI (pipe-first)
+├── vox_core.sh               # TTS generation (OpenAI)
+├── vox_cache.sh              # Content-addressed caching
+├── vox_qa.sh                 # QA database integration
+├── vox_dry_run.sh            # Dry-run analysis (no API calls)
+├── vox_sound.sh              # Sound generation integration
+├── vox_sound_synth.sh        # Custom wave synthesis
+├── vox_sound_pattern.sh      # Mini-notation parser
+├── wav_encode.go             # Pure Go WAV encoder (2.1MB binary)
+└── wav_encode                # Compiled binary
 ```
 
-## Voice Configuration
+### Tech Stack
+- **Bash 5.2** - Control flow and integration
+- **AWK** - High-performance math (sine waves, exponentials, random)
+- **Go** - WAV encoding (single static binary, no runtime deps)
+- **BC** - High-precision calculations
+- **curl + jq** - OpenAI API integration
 
-### Voice Profile Format (TOML)
+**Zero Python dependencies!**
 
-```toml
-[voice]
-id = "sally"
-display_name = "Sally"
-description = "Warm, friendly conversational voice"
+## TTS (Text-to-Speech)
 
-[provider]
-name = "openai"
-model = "tts-1"
-voice_id = "nova"
-api_endpoint = "https://api.openai.com/v1/audio/speech"
+### Configuration
 
-[pricing]
-cost_per_1m_chars = 15.00
-currency = "USD"
-
-[metadata]
-tags = ["female", "warm", "friendly", "conversational"]
-quality = "standard"
-use_cases = ["podcasts", "audiobooks", "general"]
-language = "en-US"
+Set your OpenAI API key:
+```bash
+export OPENAI_API_KEY='sk-...'
+# Or save to file:
+mkdir -p ~/.config/vox
+echo 'sk-...' > ~/.config/vox/openai_key
 ```
 
-### Built-in Voices
+### Usage
 
-| Voice ID | OpenAI Voice | Tags | Use Cases |
-|----------|-------------|------|-----------|
-| sally | nova | female, warm, friendly | Podcasts, audiobooks, general |
-| marcus | onyx | male, deep, authoritative | Presentations, news, documentation |
-| alex | alloy | non-binary, neutral, balanced | General, education, accessibility |
+**Pipe-first design:**
+```bash
+# From stdin
+echo "Test message" | vox play alloy
 
-## Usage
+# From file
+cat chapter.txt | vox generate nova --output chapter.mp3
 
-### Basic Commands
+# Direct file (shortcut)
+vox generate sally story.txt --output story.mp3
+```
+
+**Available OpenAI voices:**
+- `alloy` - Neutral, balanced
+- `echo` - Clear, articulate
+- `fable` - Expressive, warm
+- `onyx` - Deep, authoritative
+- `nova` - Friendly, conversational
+- `shimmer` - Bright, energetic
+
+### Limitations
+- OpenAI TTS has 4096 character limit (auto-truncates with warning)
+- MP3 output only (OpenAI API constraint)
+
+### Dry-Run Analysis
+
+Test inputs and estimate costs without making API calls:
 
 ```bash
-# Vox last QA answer with active voice
-vox a 1
+# Analyze stdin
+echo "Your text" | vox dry-run stdin sally
 
-# Vox with specific voice
-vox a 1 marcus
+# Analyze QA reference
+vox dry-run qa qa:0 nova
 
-# Vox specific QA ID
-vox id 1728567890
+# Analyze file
+vox dry-run file document.txt alloy
 
-# Vox arbitrary text
-vox text "Hello world" sally
+# Batch analysis
+vox dry-run batch sally 0 10    # Analyze qa:0 through qa:9
 
-# Replay last audio
-vox replay
+# Get help
+vox dry-run help
 ```
 
-### Voice Management
+**What dry-run shows:**
+- Content characteristics (chars, words, lines, hash)
+- Cache status (HIT/MISS)
+- Estimated API cost
+- Truncation warnings
+- Content preview
+
+See [DRY_RUN.md](./DRY_RUN.md) for complete documentation.
+
+## Sound Synthesis
+
+### Custom Synthesizers
+
+All pure math - no external dependencies:
+
+**Drum Sounds:**
+- `bd`, `kick` - Bass drum (pitch envelope 150→40Hz)
+- `sd`, `snare` - Snare (tone + noise blend)
+- `cp`, `clap` - Clap (multi-burst filtered noise)
+- `hh`, `hihat` - Hi-hat (high-frequency burst)
+
+**Waveforms:**
+- `sine` - Pure sine wave
+- `square` - Square wave
+- `saw` - Sawtooth wave
+- `triangle` - Triangle wave
+- `noise` - White noise
+
+### Pattern Notation
+
+Strudel/TidalCycles-inspired mini-notation:
 
 ```bash
-# List all voices
-vox voices
+# Simple sequence (space-separated)
+echo "bd sd cp hh" | vox sound play
 
-# Set active voice
-vox voice marcus
+# Rests with ~
+echo "bd ~ sd ~" | vox sound play --tempo 140
 
-# Test a voice
-vox voice-test sally
+# Musical notes (c d e f g a b)
+echo "c e g c" | vox sound generate --synth sine
 
-# Enable/disable voices
-vox voice-enable alex
-vox voice-disable alex
-
-# Show voice info
-vox voice-info marcus
+# Mix drums and notes
+echo "bd sd hh hh" | vox sound play --tempo 160
 ```
 
-### Voice Matrix & Caching
+### Options
 
 ```bash
-# Show voice matrix for a QA answer
-vox matrix 1728567890
-
-# Generate all voice variations
-vox generate-matrix 1728567890
-
-# Cache status
-vox cache-status
+--output, -o FILE     # Output WAV file
+--tempo, -t BPM       # Beats per minute (default: 120)
+--synth, -s TYPE      # Synth type (auto, sine, square, saw, triangle)
 ```
 
-### Grading & Comparison
+## Implementation Details
 
-```bash
-# Grade a voice/answer combination
-vox grade 1728567890 sally 5 "Perfect clarity and warmth"
+### Wave Synthesis (vox_sound_synth.sh)
 
-# Show grades for an answer
-vox grades 1728567890
+Pure mathematical synthesis using AWK:
 
-# Play best-rated voice
-vox best 1728567890
-```
-
-### Cost Analysis
-
-```bash
-# Total cost summary
-vox cost-summary
-
-# Cost by voice profile
-vox cost-by-voice
-
-# System status
-vox status
-```
-
-### Interactive REPL
-
-```bash
-vox repl
-```
-
-REPL commands:
-```
-say> a 1                    # Vox last QA answer
-say> a 1 marcus             # Vox with specific voice
-say> qa What is AI?         # Ask QA and speak answer
-say> voices                 # List voices
-say> voice sally            # Switch voice
-say> matrix 1728567890      # Show voice matrix
-say> grade 1728567890 sally 5 "Great"
-say> best 1728567890        # Play best-rated
-say> help                   # Show help
-```
-
-## Integration with QA
-
-Vox is tightly integrated with the QA module:
-
-1. **Shared Database**: Audio files live in `$QA_DIR/db/` alongside QA data
-2. **Same IDs**: Use QA answer IDs to reference audio
-3. **Shared API Key**: Uses QA's OpenAI API key from `$QA_DIR/api_key`
-4. **Syntax Compatibility**: `a 1` works like QA's answer command
-
-### QA+Vox Workflow
-
-```bash
-# 1. Ask a question with QA
-qa query "What is the fastest land animal?"
-
-# 2. Vox the answer
-vox a 1
-
-# 3. Try different voices
-vox a 1 marcus
-vox a 1 sally
-
-# 4. Grade the voices
-vox grade <qa_id> marcus 4 "Clear but too formal"
-vox grade <qa_id> sally 5 "Perfect warmth"
-
-# 5. Play best
-vox best <qa_id>
-
-# 6. Or do it all in Vox REPL
-vox repl
-say> qa What is quantum computing?
-say> grade <qa_id> sally 5 "Excellent"
-```
-
-## Cost Tracking
-
-Vox provides granular cost tracking:
-
-### Per-Request Logging (`logs/usage.jsonl`)
-```json
-{
-  "timestamp": "2025-10-11T12:34:50Z",
-  "qa_id": "1728567890",
-  "voice": "sally",
-  "chars": 150,
-  "cost": 0.00225
+```awk
+# Example: Kick drum with pitch envelope
+for (i = 0; i < samples; i++) {
+    t = i / rate
+    freq = 40 + 110 * exp(-t * 8)      # 150Hz → 40Hz decay
+    amp = exp(-t * 6)                   # Exponential amplitude decay
+    value = amp * sin(2 * pi * freq * t)
+    print value
 }
 ```
 
-### Metadata Files (`{id}.vox.{voice}.meta`)
-```json
-{
-  "qa_id": "1728567890",
-  "voice_profile": "sally",
-  "provider": "openai",
-  "model": "tts-1",
-  "voice_name": "nova",
-  "timestamp": "2025-10-11T12:34:50Z",
-  "generation_seconds": 2,
-  "text_length": 150,
-  "audio_bytes": 245000,
-  "cost_usd": 0.00225
-}
-```
+**Performance:**
+- Generates 44.1kHz samples in real-time
+- AWK handles math operations efficiently
+- Go encoder converts samples to WAV instantly
 
-### Grade Files (`{id}.vox.{voice}.grade`)
-```json
-{
-  "qa_id": "1728567890",
-  "voice": "sally",
-  "rating": 5,
-  "notes": "Perfect clarity and warmth",
-  "timestamp": "2025-10-11T12:35:00Z",
-  "graded_by": "username"
-}
-```
+### WAV Encoding (wav_encode.go)
 
-## Adding New Voices
-
-### 1. Create Voice Config
-
-Create `$TETRA_DIR/vox/voice-available/newvoice.toml`:
-
-```toml
-[voice]
-id = "newvoice"
-display_name = "New Voice"
-description = "Description of voice characteristics"
-
-[provider]
-name = "openai"
-model = "tts-1"
-voice_id = "fable"  # OpenAI voice name
-
-[pricing]
-cost_per_1m_chars = 15.00
-currency = "USD"
-
-[metadata]
-tags = ["tag1", "tag2"]
-quality = "standard"
-use_cases = ["use case 1", "use case 2"]
-language = "en-US"
-```
-
-### 2. Enable the Voice
+Pure Go binary with zero runtime dependencies:
 
 ```bash
-vox voice-enable newvoice
+# Build
+go build -o wav_encode wav_encode.go
+
+# Usage (from bash)
+synth_kick 0.5 | ./wav_encode 44100 1 > kick.wav
 ```
 
-### 3. Test It
+**Features:**
+- Reads float samples from stdin
+- Writes RIFF WAV to stdout
+- 16-bit PCM encoding
+- Configurable sample rate and channels
+- 2.1MB static binary
+
+### Pattern Parser (vox_sound_pattern.sh)
+
+Parses mini-notation into timeline events:
 
 ```bash
-vox voice-test newvoice
+# Input pattern
+"bd sd cp hh"
+
+# Output timeline (time, sound, duration)
+0.000000 bd 0.125000
+0.125000 sd 0.125000
+0.250000 cp 0.125000
+0.375000 hh 0.125000
 ```
 
-## Shortcut Commands
+## File Structure
 
-```bash
-s 1              # Shortcut for: vox a 1
-sr               # Shortcut for: vox replay
+```
+project/
+├── story.txt                 # Source text
+├── story.mp3                # Generated TTS audio
+├── beat.wav                 # Generated sound pattern
+└── .vox/                    # Future: config and cache
+    ├── config.toml          # Project configuration
+    └── cache/               # Audio cache
 ```
 
-## Dependencies
+## Environment Variables
 
-- **QA Module**: Required for database and API keys
-- **jq**: JSON parsing
-- **bc**: Cost calculations
-- **curl**: API requests
-- **afplay** (macOS) or **mpg123** or **mpv**: Audio playback
-
-## API Key Configuration
-
-Vox uses QA's OpenAI API key automatically from `$QA_DIR/api_key`.
-
-If needed, you can set a separate key:
 ```bash
-echo "sk-your-api-key" > $TETRA_DIR/vox/config/api_keys/openai
-chmod 600 $TETRA_DIR/vox/config/api_keys/openai
+VOX_SRC       # Module source directory (auto-detected)
+VOX_DIR       # Data directory (default: $TETRA_DIR/vox)
+OPENAI_API_KEY # OpenAI API key for TTS
 ```
 
 ## Examples
 
-### Complete Workflow
-
+### Audiobook Generation
 ```bash
-# Initialize
-vox init
-
-# Ask QA a question
-qa query "Explain quantum entanglement"
-
-# Vox it with default voice
-vox a 1
-
-# Try all voices
-vox generate-matrix $(qa last | grep -o '[0-9]*' | head -1)
-
-# Listen to each one
-vox id <qa_id> sally
-vox id <qa_id> marcus
-vox id <qa_id> alex
-
-# Grade them
-vox grade <qa_id> sally 5 "Warm and clear"
-vox grade <qa_id> marcus 4 "Too formal"
-vox grade <qa_id> alex 3 "Too neutral"
-
-# Play the best
-vox best <qa_id>
-
-# Check costs
-vox cost-summary
+for chapter in chapters/*.txt; do
+    base=$(basename "$chapter" .txt)
+    cat "$chapter" | vox generate nova --output "audio/$base.mp3"
+done
 ```
 
-### Voice Comparison
-
+### Rhythmic Patterns
 ```bash
-# Create test phrase
-vox text "The quick brown fox jumps over the lazy dog" sally
-vox text "The quick brown fox jumps over the lazy dog" marcus
-vox text "The quick brown fox jumps over the lazy dog" alex
+# Four-on-the-floor
+echo "bd bd bd bd" | vox sound play --tempo 128
 
-# Compare costs
-vox cost-by-voice
+# Classic 808 pattern
+echo "bd ~ sd ~ bd ~ sd ~" | vox sound play --tempo 120
+
+# Hi-hat pattern
+echo "hh hh hh hh" | vox sound play --tempo 140
 ```
 
-## Architecture Benefits
+### Musical Sequences
+```bash
+# C major scale
+echo "c d e f g a b c" | vox sound generate --synth sine --tempo 120
 
-1. **Caching**: Never regenerate the same voice+answer combination
-2. **Voice Matrix**: Compare multiple voices for the same content
-3. **Grading System**: Track which voices work best for different content
-4. **Cost Transparency**: Know exactly what each generation costs
-5. **QA Integration**: Seamless workflow from question to answer to speech
-6. **Extensible**: Easy to add new TTS providers and voices
+# Arpeggio
+echo "c e g c" | vox sound play --synth triangle --tempo 100
+```
 
-## Future Enhancements
+## Future Roadmap
 
-- Support for ElevenLabs API
-- Support for Google Cloud TTS
-- Voice cloning integration
-- Batch generation workflows
-- Export to podcast RSS
-- Voice similarity comparison
-- Audio post-processing (speed, pitch)
+### Phase 1 (Complete)
+- ✅ Pipe-first TTS
+- ✅ Custom wave synthesis
+- ✅ Mini-notation parser
+- ✅ Go WAV encoder
+
+### Phase 2 (Next)
+- esto markup language (`@directives`, IPA phonetics)
+- Hierarchical span system (audio-text sync)
+- Layered configuration system
+- Proper audio mixing (overlapping sounds)
+
+### Phase 3 (Future)
+- Euclidean rhythms: `bd(3,8)`
+- Pattern functions: `fast()`, `slow()`, `rev()`
+- REPL for live coding
+- TUI demo with synchronized playback
+- Markdown + LaTeX math support
+- Multi-voice narration
+
+## Dependencies
+
+**Required:**
+- bash 5.2+
+- awk (gawk or BSD awk)
+- bc (basic calculator)
+- curl (for OpenAI API)
+- jq (JSON processing)
+- Go 1.16+ (to build WAV encoder)
+
+**Audio playback (one of):**
+- afplay (macOS)
+- mpg123 (Linux)
+- mpv (cross-platform)
+- ffplay (ffmpeg)
+
+## Building
+
+```bash
+cd $TETRA_SRC/bash/vox
+
+# Compile WAV encoder
+go build -o wav_encode wav_encode.go
+
+# Test TTS
+echo "Hello" | vox play alloy
+
+# Test sound
+echo "bd sd cp hh" | vox sound play
+```
+
+## Design Philosophy
+
+**Pipe-First:**
+- Everything works with stdin/stdout
+- Composable with other Unix tools
+- No module coupling
+
+**Pure Implementation:**
+- Custom wave synthesis (no SoX)
+- Go WAV encoder (no Python)
+- Minimal dependencies
+
+**Clean Code:**
+- No legacy QA integration
+- Tight, focused modules
+- Easy to understand and extend
+
+## Credits
+
+**Inspired by:**
+- [Strudel](https://strudel.cc/) - Live coding pattern language
+- [TidalCycles](https://tidalcycles.org/) - Algorithmic pattern music
+- Unix philosophy - Pipe-first composability
+
+**Built for:**
+- [tetra](https://github.com/tetraframework) - Modular bash framework
+
+## License
+
+MIT License - See tetra framework for details

@@ -220,40 +220,21 @@ samples_to_wav() {
     _vox_wav_encode "$sample_rate" "$num_channels"
 }
 
-# WAV encoder helper (will be replaced with Go binary)
+# WAV encoder helper - uses Go binary
 _vox_wav_encode() {
     local sample_rate="$1"
     local num_channels="$2"
 
-    # For now, use Python as fallback until we build Go version
-    python3 - "$sample_rate" "$num_channels" <<'PYTHON'
-import sys
-import struct
-import wave
+    # Use compiled Go WAV encoder
+    local encoder="$VOX_SRC/wav_encode"
 
-sample_rate = int(sys.argv[1])
-num_channels = int(sys.argv[2])
+    if [[ ! -x "$encoder" ]]; then
+        echo "Error: WAV encoder not found at $encoder" >&2
+        echo "Build it with: cd $VOX_SRC && go build wav_encode.go" >&2
+        return 1
+    fi
 
-# Read samples from stdin
-samples = []
-for line in sys.stdin:
-    samples.append(float(line.strip()))
-
-# Convert to 16-bit PCM
-pcm_data = b''
-for sample in samples:
-    # Clamp and convert to int16
-    value = max(-1.0, min(1.0, sample))
-    int_val = int(value * 32767)
-    pcm_data += struct.pack('<h', int_val)
-
-# Write WAV to stdout
-with wave.open(sys.stdout.buffer, 'wb') as wav:
-    wav.setnchannels(num_channels)
-    wav.setsampwidth(2)  # 16-bit
-    wav.setframerate(sample_rate)
-    wav.writeframes(pcm_data)
-PYTHON
+    "$encoder" "$sample_rate" "$num_channels"
 }
 
 # High-level sound generation

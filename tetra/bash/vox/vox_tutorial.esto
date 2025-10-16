@@ -1,0 +1,301 @@
+@title "Vox Audio System Tutorial"
+@voice sally
+@author "Tetra Framework"
+@interactive true
+@pause_after_section 2.0
+
+@begin chapter name=introduction
+Welcome to vox, the pipe-first audio system for the tetra framework.
+
+@pause 1.5
+
+This tutorial will guide you through vox's key features: text-to-speech generation, dry-run analysis, sound synthesis, and caching. Each section is designed to be interactive, allowing you to pause, replay, or skip ahead as you learn.
+
+@prompt "Press enter to continue to basic TTS commands"
+@end chapter
+
+@begin chapter name=tts_basics
+@section "Text-to-Speech Basics"
+
+Vox supports pipe-first text-to-speech using OpenAI's voices. The simplest command is:
+
+@pause 0.5
+@code "echo 'Hello world' | vox play alloy"
+@pause 0.5
+
+This generates audio and plays it immediately. Six voices are available: alloy, echo, fable, onyx, nova, and shimmer. Each has a distinct character.
+
+@pause 1.0
+
+To save audio to a file, use the generate command:
+
+@code "cat story.txt | vox generate nova --output story.mp3"
+
+@pause 0.5
+
+The output file is always in MP3 format, as required by OpenAI's API.
+
+@prompt "Try it: Generate audio with your preferred voice. Press enter when ready to continue."
+@end chapter
+
+@begin chapter name=dry_run
+@section "Dry-Run Analysis"
+
+Before making API calls, you can analyze what vox would do using dry-run mode. This is crucial for cost estimation and debugging.
+
+@pause 1.0
+
+The dry-run command shows content characteristics, cache status, API cost, and potential truncation warnings, all without touching the OpenAI endpoint.
+
+@pause 0.5
+
+For example, analyze text from standard input:
+
+@code "echo 'Your text here' | vox dry-run stdin sally"
+
+@pause 1.0
+
+This displays character count, word count, estimated cost, and whether the audio is already cached. Cache hits mean zero cost and instant playback.
+
+@pause 0.5
+
+You can also analyze QA database references:
+
+@code "vox dry-run qa qa:0 nova"
+
+@pause 0.5
+
+Or batch-analyze multiple QA answers:
+
+@code "vox dry-run batch alloy 0 10"
+
+@pause 1.0
+
+This shows a summary with total characters and estimated cost for all uncached items.
+
+@prompt "Try: Run dry-run on some sample text. Press enter to continue."
+@end chapter
+
+@begin chapter name=caching
+@section "Content-Addressed Caching"
+
+Vox uses content-addressed caching to avoid redundant API calls. Each text input is hashed, and the audio is stored by that hash plus voice name.
+
+@pause 1.5
+
+If you generate audio for the same text twice, the second request is served instantly from cache with zero API cost.
+
+@pause 1.0
+
+To see cache statistics:
+
+@code "vox ls cache"
+
+@pause 0.5
+
+Or list available QA sources:
+
+@code "vox ls qa"
+
+@pause 0.5
+
+The cache is stored in your tetra data directory under vox slash cache, organized by content hash.
+
+@prompt "Explore: Check your cache statistics. Press enter when ready."
+@end chapter
+
+@begin chapter name=qa_references
+@section "QA Reference System"
+
+Vox integrates with the tetra QA database, supporting both relative and absolute references.
+
+@pause 1.0
+
+Relative indices are convenient but change over time. qa colon zero is always the latest answer, qa colon one is the previous, and so on.
+
+@pause 1.0
+
+Absolute timestamp references never change. qa colon one-billion-728-million refers to a specific answer by its creation timestamp.
+
+@pause 1.0
+
+You can also use qa colon latest for explicit clarity.
+
+@pause 0.5
+
+The shorthand command "a" makes QA playback even faster:
+
+@code "vox a 0 sally"
+
+@pause 0.5
+
+This plays the latest QA answer with the sally voice.
+
+@prompt "Try: Play a QA answer using the a command. Press enter to continue."
+@end chapter
+
+@begin chapter name=sound_synthesis
+@section "Programmatic Sound Generation"
+
+Beyond text-to-speech, vox includes a powerful sound synthesis engine inspired by Strudel and TidalCycles.
+
+@pause 1.5
+
+Generate drum patterns using simple notation:
+
+@code "echo 'bd sd cp hh' | vox sound play"
+
+@pause 0.5
+
+Here, b-d is bass drum, s-d is snare, c-p is clap, and h-h is hi-hat. Use tildes for rests:
+
+@code "echo 'bd ~ sd ~' | vox sound play --tempo 140"
+
+@pause 1.0
+
+You can also generate musical tones:
+
+@code "echo 'c e g c' | vox sound generate --synth sine"
+
+@pause 1.0
+
+The sound system uses pure mathematical synthesis: no external dependencies, no sample libraries. Everything is generated from sine waves, noise, and envelopes using awk and a Go WAV encoder.
+
+@pause 0.5
+
+Set tempo with the --tempo flag, and choose waveforms with --synth: sine, square, saw, or triangle.
+
+@prompt "Experiment: Create a rhythm pattern. Press enter when ready."
+@end chapter
+
+@begin chapter name=advanced_features
+@section "Advanced Features"
+
+Vox includes several advanced features for power users.
+
+@pause 1.0
+
+First, the listing commands. To see all available sources and cache in one view:
+
+@code "vox ls"
+
+@pause 0.5
+
+Second, cache management. View detailed cache info:
+
+@code "vox cache stats"
+
+@pause 0.5
+
+Or get information about a specific content hash:
+
+@code "vox cache info a-b-c-d-e-f"
+
+@pause 1.0
+
+Third, batch operations. Use the batch dry-run to survey large collections of QA answers before committing to generation.
+
+@pause 1.0
+
+Finally, all commands work in pipes. You can chain vox with other Unix tools seamlessly.
+
+@prompt "Ready for the final section? Press enter."
+@end chapter
+
+@begin chapter name=workflow
+@section "Recommended Workflow"
+
+Here's a typical vox workflow for generating narrated content.
+
+@pause 1.0
+
+Step one: Draft your text in a plain file or esto document.
+
+@pause 0.5
+
+Step two: Dry-run analyze to check length and cost:
+
+@code "cat script.txt | vox dry-run stdin nova"
+
+@pause 0.5
+
+Step three: If the cost looks good and no truncation warnings appear, generate:
+
+@code "cat script.txt | vox generate nova --output narration.mp3"
+
+@pause 1.0
+
+Step four: The audio is now cached. Regenerating the same text is instant and free.
+
+@pause 1.0
+
+For QA answers, the workflow is even simpler. Just use the a command with an index and voice. The caching happens automatically.
+
+@pause 1.0
+
+Remember: always check dry-run first for long documents to avoid surprises with the 4096 character limit.
+
+@prompt "Almost done! Press enter for the conclusion."
+@end chapter
+
+@begin chapter name=conclusion
+@section "Next Steps"
+
+You now understand vox's core capabilities: pipe-first TTS, dry-run analysis, content-addressed caching, QA integration, and programmatic sound synthesis.
+
+@pause 1.5
+
+For more details, consult the documentation:
+- README dot md for architecture and examples
+- DRY underscore RUN dot md for dry-run specifics
+- NEXT dot md for upcoming features like esto markup and span systems
+
+@pause 1.5
+
+The vox system is designed to grow with your needs. Future phases will add hierarchical span tracking, multi-voice narration, pattern functions, and a live-coding REPL.
+
+@pause 1.5
+
+Thank you for exploring vox. Start creating audio today!
+
+@pause 2.0
+@end chapter
+
+@begin meta
+# Interactive Playback Features (Proposed Syntax)
+
+# Section-level navigation
+@on_section_start command="vox_show_section_title"
+@on_section_end command="vox_wait_for_prompt"
+
+# User prompts (pause until enter)
+@prompt "message"
+
+# Timed pauses (seconds)
+@pause 1.5
+
+# Skip points (allow user to jump ahead)
+@skippoint name="advanced_features"
+
+# Bookmarks (user can save position)
+@bookmark name="cache_section"
+
+# Interactive code blocks (user can execute)
+@code "echo 'test' | vox play alloy" executable=true
+
+# Replay controls
+@replay_section enabled=true
+
+# Speed controls
+@speed_range min=0.5 max=2.0 default=1.0
+
+# Context-sensitive help
+@help topic="dry-run" available=true
+
+# Progress tracking
+@progress show_percent=true show_time_remaining=true
+
+# Quiz/validation points
+@quiz question="What command lists QA sources?" answer="vox ls qa"
+
+@end meta
