@@ -8,12 +8,13 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { Server } = require('socket.io');
+const GamepadHandler = require('./gamepad-handler');
 
 // Environment configuration
 const TETRA_ENV = process.env.TETRA_ENV || 'local';
-const PORT = process.env.TETRA_PORT || 4443;
-const TETRA_DIR = process.env.TETRA_DIR || '/Users/mricos/tetra';
-const TETRA_SRC = process.env.TETRA_SRC || '/home/dev/src/devops/tetra';
+const PORT = process.env.PORT || 4444;
+const TETRA_DIR = process.env.TETRA_DIR;
+const TETRA_SRC = process.env.TETRA_SRC;
 
 // JWT secret for session tokens (in production, use environment variable)
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(64).toString('hex');
@@ -55,6 +56,25 @@ const FEATURES = {
 };
 
 console.log('🔧 Feature flags:', FEATURES);
+
+// Gamepad Handler (optional, runs alongside server)
+let gamepadHandler = null;
+if (FEATURES.console_access) {
+    try {
+        gamepadHandler = new GamepadHandler({
+            optional: true,      // Don't fail if no gamepad
+            pipe: true,          // Write to named pipe for Bash TUI
+            mapping: true        // Enable keyboard mapping
+        });
+
+        gamepadHandler.init().catch(err => {
+            // Silently ignore - gamepad is optional
+            console.log('   (Gamepad unavailable - TUI will use keyboard only)');
+        });
+    } catch (err) {
+        console.log('⚠️  Gamepad module unavailable:', err.message);
+    }
+}
 
 // Local Terminal (Socket.IO)
 if (FEATURES.console_access) {
@@ -186,6 +206,26 @@ app.post('/api/auth/validate-token', (req, res) => {
     } catch (error) {
         res.status(401).json({ error: 'Invalid or expired token' });
     }
+});
+
+// Gamepad API endpoints
+app.get('/api/gamepad/status', (req, res) => {
+    if (!gamepadHandler) {
+        return res.json({ available: false, reason: 'Gamepad module not initialized' });
+    }
+    const state = gamepadHandler.getRawState();
+    res.json({
+        available: true,
+        connected: state.connected,
+        timestamp: state.timestamp
+    });
+});
+
+app.get('/api/gamepad/raw', (req, res) => {
+    if (!gamepadHandler) {
+        return res.status(404).json({ error: 'Gamepad not available' });
+    }
+    res.json(gamepadHandler.getRawState());
 });
 
 // API Routes
