@@ -34,24 +34,27 @@ handler_execute() {
 
     # Build result header with routing info
     local routing=$(get_action_routing "$verb" "$noun")
-    local content="$(render_action_verb_noun "$verb" "$noun")$(render_response_type "$verb" "$noun") → $env:$mode
-tui::routing :: $routing
-$(generate_section_separator)"
+
+    # Build Info section (above the line)
+    local info_section="Action:        $(render_action_verb_noun "$verb" "$noun") ($(($ACTION_INDEX + 1))/$(get_actions | wc -w))
+Status:        $(render_response_type "$verb" "$noun")
+Info:        $routing"
 
     # Get description from nouns_verbs system
     local description=$(get_action_description "$verb" "$noun")
     if [[ -n "$description" ]]; then
-        content+="
-$description
-
-Module Output:
-"
+        info_section+=" - $description"
     fi
+
+    # Start content with Info section, separator, then content area
+    local content="$info_section
+$(generate_section_separator)"
 
     # Handle specific show actions
     case "$noun" in
         "palette")
-            content+="🎨 Interactive Color Palette Demonstration
+            content+="
+🎨 Interactive Color Palette Demonstration
 ==========================================
 
 "
@@ -63,7 +66,8 @@ Module Output:
             ;;
 
         "demo")
-            content+="🚀 TUI Demo Application
+            content+="
+🚀 TUI Demo Application
 =======================
 
 "
@@ -82,7 +86,8 @@ This demonstrates the complete TUI framework in action."
             ;;
 
         "colors")
-            content+="🎨 Color System Status
+            content+="
+🎨 Color System Status
 =====================
 
 "
@@ -98,7 +103,8 @@ Current theme: Default"
             ;;
 
         "tui")
-            content+="🖥️  TUI System Information
+            content+="
+🖥️  TUI System Information
 =========================
 
 "
@@ -117,7 +123,8 @@ System Status: ✅ Operational"
             ;;
 
         "input")
-            content+="⌨️  Input System Status
+            content+="
+⌨️  Input System Status
 ======================
 
 "
@@ -134,7 +141,8 @@ Last Action: $verb:$noun executed"
             ;;
 
         "inspect")
-            content+="🔍 System Inspection
+            content+="
+🔍 System Inspection
 ===================
 
 "

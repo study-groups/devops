@@ -193,10 +193,118 @@ action_status_tsm() {
 }
 ```
 
+## TES Command Examples
+
+### Basic Commands
+
+All TES operations follow a consistent pattern of progressive resolution through 8 phases.
+
+#### 1. Validate TES Connectors
+
+Test connectivity to all configured environments:
+
+```bash
+# From System > Control menu
+Action: validate:tes
+
+# Output shows:
+# - Connector parsing results
+# - SSH key validation
+# - Connection tests for @dev, @staging, @prod
+```
+
+This action demonstrates TES requirements in its declaration:
+```bash
+tes_level=handle         # Requires validated connection
+tes_target=@dev          # Tests @dev environment
+tes_operation=execute    # Executes test command
+tes_requires=connector   # Needs connector resolved
+```
+
+#### 2. Remote Status Checks
+
+Check TSM status on remote server:
+
+```bash
+# Navigate to: Dev > Monitor > status:tsm
+Action: status:tsm
+
+# TES Resolution shows:
+Phase 0: Symbol (@dev)
+Phase 1: Address (137.184.226.163)
+Phase 2: Channel (dev@host)
+Phase 3: Connector (root:dev@host -i key)
+Phase 4: Handle (✓ validated)
+Phase 5: Locator (dev@host:~/tetra)
+Phase 6: Binding (execute: tsm ls)
+Phase 7: Plan (full SSH command)
+```
+
+#### 3. Remote Control Operations
+
+Start/stop services remotely:
+
+```bash
+# Dev > Control > start:tsm
+# Executes: ssh -i key root@host "su - dev -c 'source ~/tetra/tetra.sh && tsm start'"
+
+# Dev > Control > stop:tsm
+# Executes: ssh -i key root@host "su - dev -c 'source ~/tetra/tetra.sh && tsm stop'"
+```
+
+#### 4. Deployment Actions
+
+Deploy to remote environments:
+
+```bash
+# Dev > Deploy > deploy:dev
+declare_action "deploy_dev" \
+    tes_level=plan \
+    tes_target=@dev \
+    tes_operation=write \
+    tes_requires=connector
+
+# Dev > Deploy > deploy:staging
+declare_action "deploy_staging" \
+    tes_level=plan \
+    tes_target=@staging \
+    tes_operation=write \
+    tes_requires=handle    # Requires validated connection
+
+# Dev > Deploy > deploy:prod
+declare_action "deploy_prod" \
+    tes_level=plan \
+    tes_target=@prod \
+    tes_operation=write \
+    tes_requires=binding   # Highest safety level
+```
+
+### TES Metadata Fields
+
+Every action that uses TES declares these fields:
+
+| Field | Purpose | Example Values |
+|-------|---------|----------------|
+| `tes_level` | Resolution level needed | local, symbol, connector, handle, binding, plan |
+| `tes_target` | Target environment | @dev, @staging, @prod, @local |
+| `tes_operation` | Operation type | read, write, execute |
+| `tes_requires` | Minimum resolution | connector, handle, binding |
+
+### Configuration Edit
+
+Edit the tetra.toml to modify connectors:
+
+```bash
+# System > Control > edit:toml
+# Opens vim with: ~/tetra/org/pixeljam-arcade/tetra.toml
+
+# After editing, test with:
+# System > Control > validate:tes
+```
+
 ## Next Steps
 
 - Add TES resolution for Staging/Prod environments
-- Implement deployment actions with TES
+- Implement deployment actions with TES file transfers
 - Add TOML validation on edit
-- Create TES resolver cache for performance
-- Add SSH connection pooling
+- Implement connection pooling for performance

@@ -207,22 +207,24 @@ EOF
             ;;
 
         view:toml)
-            local toml_path="${TETRA_DIR}/org/pixeljam-arcade/tetra.toml"
+            local toml_path="${TETRA_DIR}/org/${TETRA_ORG}/tetra.toml"
             if [[ -f "$toml_path" ]]; then
+                echo "Organization: $TETRA_ORG"
                 echo "File: ${toml_path/$HOME/~}"
-                echo ""
+                echo "────────────────────────────────────────────────────────────"
                 head -20 "$toml_path"
                 echo ""
                 echo "Total lines: $(wc -l < "$toml_path")"
             else
                 echo "TOML file not found: $toml_path"
                 echo ""
+                echo "Organization: $TETRA_ORG (not found)"
                 echo "This action reads from @local"
                 return 1
             fi
             ;;
 
-        status:local)
+        check:local)
             if command -v tsm &>/dev/null; then
                 echo "exec_at: @local"
                 echo ""
@@ -233,7 +235,7 @@ EOF
             fi
             ;;
 
-        status:remote)
+        check:remote)
             cat <<EOF
 This action would:
   exec_at:     @local

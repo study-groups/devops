@@ -558,7 +558,7 @@ $(generate_section_separator)
 
 Navigation:
 • Number keys (1-5) for quick view switching
-• Home row: e/d/f for env/mode/action navigation
+• Home row: e/d/a for env/mode/action navigation
 • Enter to execute, r for refresh
 • Enhanced: 60fps rendering with double buffering"
         fi
@@ -568,7 +568,7 @@ Navigation:
 
     local current_view=$(get_current_view_mode)
     local view_title="${current_view^} View"  # Capitalize first letter
-    FOOTER_CONTENT="$(format_footer_combined "$view_title" "e/d/f=nav i/k=select | a=catalog | 1-4=views | Enter=exec | View: $current_view")"
+    FOOTER_CONTENT="$(format_footer_combined "$view_title" "e/d/a=nav i/k=select | c=clear | 1-4=views | Enter=exec | View: $current_view")"
 }
 
 show_palette_demonstration() {
@@ -704,9 +704,9 @@ $(generate_section_separator)
 $(generate_section_separator)
 
 🎮 Navigation System:
-• e/d/f = env/mode/action navigation
+• e/d/a = env/mode/action navigation
 • 1-5 = instant view switching
-• a = action catalog with signatures
+• c = clear content
 • Enter = execute current action
 • ESC/q = context-sensitive exit
 
@@ -766,7 +766,7 @@ Available Actions with Signatures:
 $(generate_section_separator)
 
 Navigation:
-• ↑↓ arrows or f/F to change actions
+• ↑↓ arrows or a/A to change actions
 • Enter to execute current action
 • 1-5 to switch views
 • e/d for env/mode navigation"

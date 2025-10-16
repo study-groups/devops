@@ -61,7 +61,7 @@ execute_action_with_feedback() {
     tetra_log "demo014" "$verb" "$noun" "success" "{\"duration_ms\":$duration}"
     set_action_state "$action" "success"
     TUI_BUFFERS["@tui[content]"]="$output"
-    TUI_BUFFERS["@tui[footer]"]="✓ Completed (${duration}ms)"
+    TUI_BUFFERS["@tui[footer]"]="completed:${duration}ms"
 
     return 0
 }

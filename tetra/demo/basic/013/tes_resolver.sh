@@ -165,81 +165,102 @@ show_connector_info() {
     echo "  Key: ${auth_key/$HOME/~}"
 }
 
-# Show 8-phase TES resolution for an action
-# Usage: show_tes_resolution "status:tsm" "@dev"
+# Log TES resolution plan (internal use - goes to diagnostic log)
+# Usage: log_tes_plan "status:tsm" "@dev" "tsm ls"
+log_tes_plan() {
+    local action="$1"
+    local symbol="$2"
+    local command="$3"
+
+    # Build the plan data
+    local toml_path=$(get_toml_path)
+    local address=$(grep "\"$symbol\"" "$toml_path" | grep -o 'address = "[^"]*"' | cut -d'"' -f2 | head -1)
+    local droplet=$(grep "\"$symbol\"" "$toml_path" | grep -o 'droplet = "[^"]*"' | cut -d'"' -f2 | head -1)
+    local connector_data=$(resolve_connector "$symbol")
+    IFS='|' read -r auth_user work_user host auth_key <<< "$connector_data"
+    local ssh_cmd=$(build_ssh_command "$symbol" "$command")
+
+    # Store in diagnostic buffer
+    TUI_BUFFERS["@tui[diagnostic]"]="TES Resolution: $action → $symbol
+
+Phase 0: Symbol = \"$symbol\" (type: remote)
+Phase 1: Address = \"$address\" (droplet: $droplet)
+Phase 2: Channel = ${work_user}@${host}
+Phase 3: Connector = ${auth_user}:${work_user}@${host} -i ${auth_key/$HOME/~}
+Phase 4: Handle = (validated)
+Phase 5: Locator = ${work_user}@${host}:~/tetra
+Phase 6: Binding = execute(\"$command\")
+Phase 7: Plan = $ssh_cmd"
+
+    # Also set status line to show we're using TES
+    TUI_BUFFERS["@tui[status]"]="TES: $action → $symbol | Press 't' to view resolution plan"
+}
+
+# Show 8-phase TES resolution for an action (for display in content)
+# Usage: show_tes_resolution "status:tsm" "@dev" "tsm ls"
 show_tes_resolution() {
     local action="$1"
     local symbol="$2"
     local command="$3"
 
-    echo "═══════════════════════════════════════════════════════════"
-    echo "TES Resolution Pipeline (8 Phases)"
-    echo "Action: $action → $symbol"
-    echo "═══════════════════════════════════════════════════════════"
-    echo ""
+    # Log the plan to diagnostic
+    log_tes_plan "$action" "$symbol" "$command"
 
-    # Phase 0: Symbol
-    echo "Phase 0: Symbol (Logical Name)"
-    echo "  symbol = \"$symbol\""
-    echo "  type   = remote"
-    echo ""
+    # Don't output to content - just log to diagnostic
+    # The status line will show user can press 't' to see the plan
+}
 
-    # Phase 1: Address (from toml)
-    local toml_path=$(get_toml_path)
-    local address=$(grep "\"$symbol\"" "$toml_path" | grep -o 'address = "[^"]*"' | cut -d'"' -f2 | head -1)
-    local droplet=$(grep "\"$symbol\"" "$toml_path" | grep -o 'droplet = "[^"]*"' | cut -d'"' -f2 | head -1)
+# Preview TES plan for current action (used during navigation)
+# Usage: preview_tes_plan_for_action "status:tsm" "Dev"
+preview_tes_plan_for_action() {
+    local action="$1"
+    local env="$2"
 
-    echo "Phase 1: Address (IP/Hostname)"
-    echo "  address = \"$address\""
-    echo "  droplet = \"$droplet\""
-    echo ""
-
-    # Phase 2: Channel (not used directly in our impl, but conceptually user@host)
-    echo "Phase 2: Channel (User@Host combo)"
-    echo "  (Resolved in Phase 3 connector)"
-    echo ""
-
-    # Phase 3: Connector (authentication info)
-    local connector_data=$(resolve_connector "$symbol")
-    IFS='|' read -r auth_user work_user host auth_key <<< "$connector_data"
-
-    echo "Phase 3: Connector (Dual-role auth)"
-    echo "  auth_user = \"$auth_user\"  # SSH authentication user"
-    echo "  work_user = \"$work_user\"  # Working user (su target)"
-    echo "  host      = \"$host\""
-    echo "  auth_key  = \"${auth_key/$HOME/~}\""
-    echo ""
-
-    # Phase 4: Handle (validated connector - test connection)
-    echo "Phase 4: Handle (Validated connector)"
-    echo "  Testing connection to ${auth_user}@${host}..."
-    if test_connector "$symbol" 2>/dev/null; then
-        echo "  ✓ Connection validated"
-    else
-        echo "  ⚠ Connection not tested (use test_connector)"
+    # Get action metadata
+    local action_name="${action//:/_}"
+    if ! declare -p "ACTION_${action_name}" &>/dev/null; then
+        return 1
     fi
-    echo ""
 
-    # Phase 5: Locator (full resource path)
-    local remote_path="~/tetra"
-    echo "Phase 5: Locator (Full resource path)"
-    echo "  locator = \"${work_user}@${host}:${remote_path}\""
-    echo ""
+    local -n _action="ACTION_${action_name}"
+    local tes_target="${_action[tes_target]}"
+    local tes_operation="${_action[tes_operation]}"
 
-    # Phase 6: Binding (operation + locator + validation)
-    echo "Phase 6: Binding (Operation + Locator)"
-    echo "  operation = execute"
-    echo "  command   = \"$command\""
-    echo "  requires  = source ~/tetra/tetra.sh"
-    echo ""
+    # Skip if no TES metadata
+    [[ -z "$tes_target" || -z "$tes_operation" ]] && return 1
 
-    # Phase 7: Plan (executable command)
-    local ssh_cmd=$(build_ssh_command "$symbol" "$command")
-    echo "Phase 7: Plan (Executable command)"
-    echo "  Full SSH command:"
-    echo ""
-    echo "  $ssh_cmd"
-    echo ""
+    # Determine command based on action
+    local command=""
+    local verb="${action%%:*}"
+    local noun="${action##*:}"
 
-    echo "═══════════════════════════════════════════════════════════"
+    case "$verb:$noun" in
+        status:tsm)
+            command="tsm list"
+            ;;
+        status:watchdog)
+            command="pgrep -f 'tetra.*watchdog'"
+            ;;
+        start:tsm)
+            command="tsm start"
+            ;;
+        stop:tsm)
+            command="tsm stop"
+            ;;
+        start:watchdog)
+            command="tetra watchdog start"
+            ;;
+        stop:watchdog)
+            command="tetra watchdog stop"
+            ;;
+        deploy:*)
+            command="cd ~/tetra && git pull && bash deploy.sh"
+            ;;
+        *)
+            command="echo 'No command defined'"
+            ;;
+    esac
+
+    # Generate the plan (without executing)
+    log_tes_plan "$action" "$tes_target" "$command"
 }

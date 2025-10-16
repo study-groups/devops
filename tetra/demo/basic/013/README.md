@@ -137,6 +137,122 @@ The resolve module reads from organization TOML files:
 9. `step` → Level 7: Generates full SSH command (plan)
 10. `execute` → Runs the plan
 
+## Practical TES Examples
+
+### Example 1: Validate All Connectors
+
+Navigate to `System > Control > validate:tes` and press Enter:
+
+```
+TES Connector Validation
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Testing: @dev
+  Auth user: root
+  Work user: dev
+  Host: 137.184.226.163
+  Key: ~/.ssh/id_rsa
+  ✓ SSH key found
+  ✓ Connection successful
+
+Testing: @staging
+  Auth user: root
+  Work user: qa
+  Host: 24.199.72.22
+  Key: ~/.ssh/id_rsa
+  ✓ SSH key found
+  ✓ Connection successful
+
+Testing: @prod
+  Auth user: root
+  Work user: app
+  Host: 164.90.247.44
+  Key: ~/.ssh/id_rsa
+  ✓ SSH key found
+  ✗ Connection failed (timeout or auth failure)
+```
+
+### Example 2: Remote Service Status
+
+Navigate to `Dev > Monitor > status:tsm`:
+
+```
+═══════════════════════════════════════════════════════════
+TES Resolution Pipeline (8 Phases)
+Action: status:tsm → @dev
+═══════════════════════════════════════════════════════════
+
+Phase 0: Symbol (Logical Name)
+  symbol = "@dev"
+  type   = remote
+
+Phase 1: Address (IP/Hostname)
+  address = "137.184.226.163"
+  droplet = "pxjam-arcade-dev01"
+
+Phase 3: Connector (Dual-role auth)
+  auth_user = "root"
+  work_user = "dev"
+  host      = "137.184.226.163"
+  auth_key  = "~/.ssh/id_rsa"
+
+Phase 4: Handle (Validated connector)
+  ✓ Connection validated
+
+Phase 7: Plan (Executable command)
+  ssh -i ~/.ssh/id_rsa root@137.184.226.163 \
+      "su - dev -c 'source ~/tetra/tetra.sh && tsm ls'"
+
+Executing...
+
+service1  ✓ running  pid:12345
+service2  ✓ running  pid:12346
+```
+
+### Example 3: Remote Control Operations
+
+Start TSM remotely via `Dev > Control > start:tsm`:
+
+```bash
+# TES automatically constructs:
+ssh -i ~/.ssh/id_rsa root@137.184.226.163 \
+    "su - dev -c 'source ~/tetra/tetra.sh && tsm start'"
+
+✓ Started (remote)
+TSM service manager initialized
+```
+
+### Example 4: Using TES in Custom Actions
+
+Create your own TES-enabled actions:
+
+```bash
+# In action_registry.sh
+declare_action "my_check" \
+    "verb=check" \
+    "noun=remote" \
+    "tes_level=plan" \
+    "tes_target=@dev" \
+    "tes_operation=execute" \
+    "tes_requires=connector"
+
+# In actions_impl.sh
+action_check_remote() {
+    local env="${1:-Local}"
+
+    if [[ "$env" == "Dev" ]]; then
+        local symbol=$(get_env_symbol "$env")
+        local command="uptime && df -h"
+
+        # Show resolution
+        show_tes_resolution "check:remote" "$symbol" "$command"
+
+        # Execute
+        execute_remote "$symbol" "$command"
+    fi
+}
+```
+
 ## Why "resolve"?
 
 The module is called `resolve` rather than `tes` because:

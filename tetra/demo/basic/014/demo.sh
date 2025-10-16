@@ -12,12 +12,27 @@ DEMO_DIR="$(dirname "${BASH_SOURCE[0]}")"
 source "$DEMO_DIR/tui.conf"
 source "$DEMO_DIR/bash/tui/typography.sh"
 source "$DEMO_DIR/bash/tui/colors/color_core.sh"
+source "$DEMO_DIR/bash/tui/oscillator.sh"
+source "$DEMO_DIR/bash/tui/line_animator.sh"
+source "$DEMO_DIR/bash/tui/buffer.sh"
+source "$DEMO_DIR/bash/tui/animation_controller.sh"
+source "$DEMO_DIR/bash/tui/header.sh"
+source "$DEMO_DIR/bash/tui/gamepad_input.sh"
 source "$DEMO_DIR/bash/actions/state.sh"
 source "$DEMO_DIR/bash/actions/router.sh"
 source "$DEMO_DIR/bash/actions/registry.sh"
 source "$DEMO_DIR/bash/actions/actions_impl.sh"
 source "$DEMO_DIR/bash/actions/executor.sh"
 source "$DEMO_DIR/bash/actions/module_discovery.sh"
+
+# Initialize TUI modules
+osc_init
+line_init
+tui_buffer_init
+anim_init
+
+# Try to initialize gamepad (optional, won't error if not available)
+gamepad_init 2>/dev/null || echo "⌨️  Gamepad not available, using keyboard only"
 
 # Application state
 ENV_INDEX=0
@@ -27,15 +42,28 @@ SHOW_DETAIL=false
 VIEW_MODE=false
 SCROLL_OFFSET=0
 
-# Layout constants
-TUI_HEIGHT=24
-HEADER_LINES=5
+# Organization context (set at runtime, not changed by demo)
+TETRA_ORG="${TETRA_ORG:-pixeljam-arcade}"
+
+# Layout constants - get actual terminal size
+if [[ -e /dev/tty ]]; then
+    read TUI_HEIGHT TUI_WIDTH < <(stty size </dev/tty 2>/dev/null)
+fi
+[[ -z "$TUI_HEIGHT" ]] && TUI_HEIGHT=$(tput lines 2>/dev/null || echo 24)
+[[ -z "$TUI_WIDTH" ]] && TUI_WIDTH=$(tput cols 2>/dev/null || echo 80)
+
 SEPARATOR_LINES=1
 FOOTER_LINES=5
-CONTENT_VIEWPORT_HEIGHT=$((TUI_HEIGHT - HEADER_LINES - SEPARATOR_LINES - FOOTER_LINES))
+
+# Dynamic layout calculation helper
+calculate_layout() {
+    HEADER_LINES=$(header_get_lines)
+    [[ "$HEADER_REPL_ACTIVE" == "true" ]] && ((HEADER_LINES++))
+    CONTENT_VIEWPORT_HEIGHT=$((TUI_HEIGHT - HEADER_LINES - SEPARATOR_LINES - FOOTER_LINES))
+}
 
 # Execution contexts (where actions start from)
-ENVIRONMENTS=("HELP" "Local" "Dev" "Staging" "Production")
+ENVIRONMENTS=("Local" "Dev" "Staging" "Production")
 MODES=("Inspect" "Transfer" "Execute")
 
 # Get actions for current context
@@ -48,48 +76,44 @@ get_actions() {
 
     # Built-in demo actions
     case "$env:$mode" in
-        "HELP:"*)
-            # HELP environment shows explanatory actions
-            builtin_actions="help:signatures help:contexts help:modes help:operations"
-            ;;
         "Local:Inspect")
-            builtin_actions="show:demo show:help view:env view:toml status:local"
+            builtin_actions="view:toml view:env check:local show:help help:signatures help:operations"
             ;;
         "Local:Transfer")
-            builtin_actions="view:toml show:signatures"
+            builtin_actions="view:toml help:transfer"
             ;;
         "Local:Execute")
-            builtin_actions="status:local show:signatures"
+            builtin_actions="check:local help:execute"
             ;;
         "Dev:Inspect")
-            builtin_actions="view:env status:remote view:logs"
+            builtin_actions="view:env check:remote view:logs"
             ;;
         "Dev:Transfer")
             builtin_actions="fetch:config push:config sync:files"
             ;;
         "Dev:Execute")
-            builtin_actions="status:remote view:logs"
+            builtin_actions="check:remote view:logs"
             ;;
         "Staging:Inspect")
-            builtin_actions="view:env status:remote view:logs"
+            builtin_actions="view:env check:remote view:logs"
             ;;
         "Staging:Transfer")
             builtin_actions="fetch:config push:config"
             ;;
         "Staging:Execute")
-            builtin_actions="status:remote"
+            builtin_actions="check:remote"
             ;;
         "Production:Inspect")
-            builtin_actions="view:env status:remote"
+            builtin_actions="view:env check:remote"
             ;;
         "Production:Transfer")
             builtin_actions="fetch:config"
             ;;
         "Production:Execute")
-            builtin_actions="status:remote"
+            builtin_actions="check:remote"
             ;;
         *)
-            builtin_actions="show:demo show:help"
+            builtin_actions="view:toml show:help"
             ;;
     esac
 
@@ -100,98 +124,24 @@ get_actions() {
     echo "$builtin_actions $module_actions"
 }
 
-# Render header with colorized action
+# Render header with colorized action - outputs to buffer
 render_header() {
-    local env="${ENVIRONMENTS[$ENV_INDEX]}"
-    local mode="${MODES[$MODE_INDEX]}"
-    local actions=($(get_actions))
+    # Update region bounds based on header size
+    tui_region_update
 
-    # Title - emphasize ENV as execution context
-    printf "Demo 014: Action Signatures | [\033[1;33m%s\033[0m %s \033[1;32m%s\033[0m]\n" "$env" "$CROSS_OP" "$mode"
+    # Capture header output line by line
+    local line_num=0
+    while IFS= read -r line; do
+        tui_write_header "$line_num" "$line"
+        ((line_num++))
+    done < <(header_render)
 
-    # Environment line - use tab for alignment
-    printf "\033[36mEnvironment:\033[0m\t"
-    for i in "${!ENVIRONMENTS[@]}"; do
-        if [[ $i -eq $ENV_INDEX ]]; then
-            printf "\033[1;33m%s%s%s\033[0m " "$TUI_BRACKET_LEFT" "${ENVIRONMENTS[$i]}" "$TUI_BRACKET_RIGHT"
-        else
-            echo -n "${ENVIRONMENTS[$i]} "
-        fi
-    done
-    echo
-
-    # Mode line - use tab for alignment
-    printf "\033[35mMode:\033[0m\t\t"
-    for i in "${!MODES[@]}"; do
-        if [[ $i -eq $MODE_INDEX ]]; then
-            printf "\033[1;32m%s%s%s\033[0m " "$TUI_BRACKET_LEFT" "${MODES[$i]}" "$TUI_BRACKET_RIGHT"
-        else
-            echo -n "${MODES[$i]} "
-        fi
-    done
-    echo
-
-    # Action line with colorized verb:noun - use tab
-    printf "\033[36mAction:\033[0m\t\t"
-    if [[ ${#actions[@]} -gt 0 ]]; then
-        local current="${actions[$ACTION_INDEX]}"
-        local verb="${current%%:*}"
-        local noun="${current##*:}"
-        local state=$(get_action_state "$current")
-        local state_symbol=$(get_state_symbol "$state")
-
-        # Refresh colors
-        refresh_color_state_cached "$verb" "$noun"
-
-        # Display as verb:noun :: (count)
-        render_action_verb_noun "$verb" "$noun"
-        printf " %s (%d/%d)" "$BIND_OP" $(($ACTION_INDEX + 1)) ${#actions[@]}
-
-        # Show detail indicator
-        if [[ "$SHOW_DETAIL" == "true" ]]; then
-            echo -n " [detail]"
-        fi
-        echo
-    else
-        echo "[none]"
-    fi
-
-    # Status line - shows detail signature when toggled, or content title when idle
-    printf "\033[36mStatus:\033[0m\t\t"
-    if [[ ${#actions[@]} -gt 0 ]]; then
-        local current="${actions[$ACTION_INDEX]}"
-        local state=$(get_action_state "$current")
-        local state_symbol=$(get_state_symbol "$state")
-
-        if [[ "$SHOW_DETAIL" == "true" ]]; then
-            # Show action signature detail
-            local action_name="${current//:/_}"
-            if declare -p "ACTION_${action_name}" &>/dev/null; then
-                local -n _action="ACTION_${action_name}"
-                printf "%s %s - " "$state_symbol" "$state"
-                printf "(%s) → %s" "${_action[inputs]:-}" "${_action[output]}"
-                [[ -n "${_action[effects]}" ]] && printf " [where %s]" "${_action[effects]}"
-                echo
-            else
-                echo "$state_symbol $state"
-            fi
-        else
-            # Show state, and if idle, show content title
-            if [[ "$state" == "idle" && -n "${TUI_BUFFERS["@tui[content]"]}" ]]; then
-                # Extract first line as title
-                local content_title=$(echo -e "${TUI_BUFFERS["@tui[content]"]}" | head -n1)
-                printf "%s %s - %s\n" "$state_symbol" "$state" "$content_title"
-            else
-                echo "$state_symbol $state"
-            fi
-        fi
-    else
-        echo "○ idle"
-    fi
-    render_separator
+    # Render animated separator with oscillator - capture as string
+    local separator_line=$(line_animate_from_osc "$(osc_get_position)" | tr -d '\n')
+    tui_write_separator "$separator_line"
 }
 
-# Render content with viewport constraints
+# Render content with viewport constraints - outputs to buffer
 render_content() {
     # Get content
     local content=""
@@ -209,17 +159,27 @@ Execution Context: $env
 Navigation:
   e - Cycle environment (Local/Dev/Staging/Production)
   m - Cycle mode (Inspect/Transfer/Execute)
-  f - Cycle action
+  a - Cycle action
   i - Toggle action detail view
   v - View mode (scroll long content)
   ↑/↓ - Scroll in view mode
   Enter - Execute action
 
+Header Controls:
+  h - Cycle header size (max/med/min)
+  o - Toggle oscillator animation
+  / - Toggle REPL line
+  ←/→ - Move oscillator marker
+
 Features:
   • Clear I/O signatures: (inputs) → output [where effects]
   • Endpoint-aware operations (@local, @dev, @staging, @prod)
-  • TES operation types (read, write, execute)"
+  • TES operation types (read, write, execute)
+  • Animated separator with oscillator control"
     fi
+
+    # Prepare content output
+    local output=""
 
     # In view mode, show scroll indicator and apply viewport
     if [[ "$VIEW_MODE" == "true" ]]; then
@@ -230,48 +190,112 @@ Features:
         [[ $max_offset -lt 0 ]] && max_offset=0
 
         # Show viewport window with scroll position
-        echo -e "$content" | tail -n +$((SCROLL_OFFSET + 1)) | head -n $viewport_content_lines
+        output=$(echo -e "$content" | tail -n +$((SCROLL_OFFSET + 1)) | head -n $viewport_content_lines)
 
         # Always show scroll indicator in view mode
         local end_line=$((SCROLL_OFFSET + viewport_content_lines))
         [[ $end_line -gt $total_lines ]] && end_line=$total_lines
-        echo -e "${TUI_TEXT_DIM}[Viewing $((SCROLL_OFFSET + 1))-${end_line} of $total_lines lines | ↑/↓=scroll ESC=back]${TUI_TEXT_NORMAL}"
+        output+=$'\n'"${TUI_TEXT_DIM}[Viewing $((SCROLL_OFFSET + 1))-${end_line} of $total_lines lines | ↑/↓=scroll ESC=back]${TUI_TEXT_NORMAL}"
     else
         # Normal mode: truncate to viewport height, reserve 1 line for truncation message if needed
         local line_count=$(echo -e "$content" | wc -l)
         if [[ $line_count -gt $CONTENT_VIEWPORT_HEIGHT ]]; then
             local display_lines=$((CONTENT_VIEWPORT_HEIGHT - 1))
-            echo -e "$content" | head -n $display_lines
-            echo -e "${TUI_TEXT_DIM}[Content truncated - press 'v' to view all]${TUI_TEXT_NORMAL}"
+            output=$(echo -e "$content" | head -n $display_lines)
+            output+=$'\n'"${TUI_TEXT_DIM}[Content truncated - press 'v' to view all]${TUI_TEXT_NORMAL}"
         else
-            echo -e "$content"
+            output=$(echo -e "$content")
         fi
     fi
+
+    # Write to buffer line by line
+    local line_num=0
+    while IFS= read -r line; do
+        tui_write_content "$line_num" "$line"
+        ((line_num++))
+    done <<< "$output"
 }
 
-# Render footer (grey text, no separator)
+# Render footer (grey text, no separator) - outputs to buffer
 render_footer() {
-    echo ""  # Blank line instead of separator
+    local line_num=0
 
-    if [[ -n "${TUI_BUFFERS["@tui[footer]"]}" ]]; then
-        echo -e "${TUI_TEXT_DIM}${TUI_BUFFERS["@tui[footer]"]}${TUI_TEXT_NORMAL}"
+    # Blank line
+    tui_write_footer $line_num ""
+    ((line_num++))
+
+    # Expand ANSI codes properly using printf
+    local dim_code reset_code
+    printf -v dim_code "%b" "\033[2m"
+    printf -v reset_code "%b" "\033[0m"
+
+    # Build animation status indicator with FPS
+    local anim_status=$(anim_get_status)
+    if [[ "$ANIM_ENABLED" == "true" ]]; then
+        local fps=$(anim_get_fps)
+        [[ $fps -gt 0 ]] && anim_status="ON:${fps}fps" || anim_status="ON"
+    fi
+
+    # Check if footer is completion status
+    if [[ -n "${TUI_BUFFERS["@tui[footer]"]}" && "${TUI_BUFFERS["@tui[footer]"]}" == completed:* ]]; then
+        # Show normal footer nav
+        if [[ "$VIEW_MODE" == "true" ]]; then
+            tui_write_footer $line_num "${dim_code}$(center_text "↑/↓=scroll  ESC=back  q=quit" 50)${reset_code}"
+        else
+            tui_write_footer $line_num "${dim_code}$(center_text "e=env  m=mode  a=action  h=header  o=anim:$anim_status  /=repl" 50)${reset_code}"
+            ((line_num++))
+            tui_write_footer $line_num "${dim_code}$(center_text "Enter=exec  s=sigs  ←/→=osc  c=clear  q=quit" 50)${reset_code}"
+        fi
+        ((line_num++))
+        tui_write_footer $line_num ""
+
+        # Place completion at bottom-right corner (handled separately for now)
+        # TODO: Add positioned text support to buffer system
+    elif [[ -n "${TUI_BUFFERS["@tui[footer]"]}" ]]; then
+        tui_write_footer $line_num "${dim_code}${TUI_BUFFERS["@tui[footer]"]}${reset_code}"
     else
         if [[ "$VIEW_MODE" == "true" ]]; then
-            echo -e "${TUI_TEXT_DIM}$(center_text "↑/↓=scroll  ESC=back  q=quit" 50)${TUI_TEXT_NORMAL}"
+            tui_write_footer $line_num "${dim_code}$(center_text "↑/↓=scroll  ESC=back  q=quit" 50)${reset_code}"
         else
-            echo -e "${TUI_TEXT_DIM}$(center_text "e=env  m=mode  f=action  i=detail  v=view" 50)${TUI_TEXT_NORMAL}"
-            echo -e "${TUI_TEXT_DIM}$(center_text "Enter=exec  s=sigs  l=log  c=clear  q=quit" 50)${TUI_TEXT_NORMAL}"
+            tui_write_footer $line_num "${dim_code}$(center_text "e=env  m=mode  a=action  h=header  o=anim:$anim_status  /=repl" 50)${reset_code}"
+            ((line_num++))
+            tui_write_footer $line_num "${dim_code}$(center_text "Enter=exec  s=sigs  ←/→=osc  c=clear  q=quit" 50)${reset_code}"
         fi
-        echo ""
+        ((line_num++))
+        tui_write_footer $line_num ""
     fi
 }
 
-# Render full screen
+# Render full screen with differential updates (DOM-like diff)
 render_screen() {
-    clear
+    local first_render="${1:-false}"
+
+    # Clear buffer and rebuild
+    tui_buffer_clear
+
+    # Populate buffer (these now write to TUI_SCREEN_BUFFER)
     render_header
     render_content
     render_footer
+
+    # Render: full screen on first call, differential updates after
+    if [[ "$first_render" == "true" ]]; then
+        tui_buffer_render_full
+    else
+        tui_buffer_render_diff
+    fi
+}
+
+# Update animated separator with flicker-free rendering
+update_separator_animation() {
+    # Generate new separator line
+    local separator_line=$(line_animate_from_osc "$(osc_get_position)" | tr -d '\n')
+
+    # Update buffer with new separator
+    tui_write_separator "$separator_line"
+
+    # Render using vsync for flicker-free updates
+    tui_buffer_render_vsync
 }
 
 # Execute current action
@@ -372,15 +396,74 @@ show_execution_log() {
 # Main loop
 main() {
     echo "🎯 Demo 014: Action Signatures & File Transfer"
-    echo "Discovering tetra modules..."
-    discover_tetra_modules
+
+    # Skip module discovery for now (can be slow/blocking)
+    # discover_tetra_modules 2>/dev/null || echo "⚠ No modules loaded"
+    echo "Using built-in actions only (module discovery disabled for testing)"
+
     echo "Starting in 1 second..."
     sleep 1
 
-    while true; do
-        render_screen
+    # Calculate initial layout
+    calculate_layout
 
-        read -rsn1 key
+    # Initialize animation controller
+    anim_set_fps 30
+
+    # Track if screen needs redraw
+    local needs_redraw=true
+    local is_first_render=true
+    local show_fps_overlay=false
+
+    # Set up cleanup for gamepad
+    trap 'gamepad_cleanup; anim_stop; clear; exit' EXIT INT TERM
+
+    while true; do
+        # Frame timing start (for FPS tracking)
+        local frame_start=$(date +%s%N)
+
+        # Only render if something changed
+        if [[ "$needs_redraw" == "true" ]]; then
+            render_screen "$is_first_render"
+            needs_redraw=false
+            is_first_render=false
+        fi
+
+        # Animation tick (only if enabled and not paused)
+        if anim_should_tick; then
+            osc_tick
+            update_separator_animation
+            # Record frame for FPS tracking
+            anim_record_frame
+            anim_check_performance
+        fi
+
+        # Calculate frame budget for input timeout
+        local target_frame_time=$(anim_get_frame_time)
+        local timeout_sec=$(printf "%.6f" "$target_frame_time")
+
+        # Read from keyboard OR gamepad with frame-rate-aware timeout
+        local key=""
+        if anim_should_tick; then
+            # Use frame-paced timeout when animation is running
+            key=$(get_input_multiplexed "$timeout_sec" 2>/dev/null) || key=""
+        else
+            # Blocking read when animation is off
+            key=$(get_input_multiplexed 0 2>/dev/null) || key=""
+        fi
+
+        # Skip if no key (timeout)
+        if [[ -z "$key" ]]; then
+            # Show FPS overlay if enabled
+            if [[ "$show_fps_overlay" == "true" && "$ANIM_ENABLED" == "true" ]]; then
+                local stats=$(anim_get_stats)
+                printf '\033[s\033[1;1H\033[K\033[33m%s\033[0m\033[u' "$stats"
+            fi
+            continue
+        fi
+
+        # Key was pressed - will need full redraw after handling
+        needs_redraw=true
 
         # Handle ESC sequences (arrow keys, ESC)
         if [[ "$key" == $'\x1b' ]]; then
@@ -413,7 +496,7 @@ main() {
                 SHOW_DETAIL=false
                 clear_content
                 ;;
-            'f'|'F')
+            'a'|'A')
                 nav_action_right
                 [[ "$SHOW_DETAIL" == "true" ]] && continue  # Update detail view
                 ;;
@@ -435,6 +518,45 @@ main() {
                     VIEW_MODE=true
                     SCROLL_OFFSET=0
                 fi
+                ;;
+            'h'|'H')
+                # Cycle header size: max -> med -> min -> max
+                case "$HEADER_SIZE" in
+                    max) header_set_size "med" ;;
+                    med) header_set_size "min" ;;
+                    min) header_set_size "max" ;;
+                esac
+                calculate_layout  # Recalculate viewport
+                ;;
+            'o'|'O')
+                # Toggle animation
+                anim_toggle
+                ;;
+            'p'|'P')
+                # Pause/resume animation
+                if [[ "$ANIM_PAUSED" == "true" ]]; then
+                    anim_resume
+                else
+                    anim_pause
+                fi
+                ;;
+            'f'|'F')
+                # Toggle FPS overlay
+                show_fps_overlay=$([ "$show_fps_overlay" == "true" ] && echo "false" || echo "true")
+                needs_redraw=false  # Don't redraw entire screen for FPS toggle
+                ;;
+            '/')
+                # Toggle REPL
+                header_repl_toggle
+                calculate_layout  # Recalculate viewport (REPL adds a line)
+                ;;
+            $'\x1b[D')
+                # Left arrow - move oscillator left
+                osc_set_position $(($(osc_get_position) - 5))
+                ;;
+            $'\x1b[C')
+                # Right arrow - move oscillator right
+                osc_set_position $(($(osc_get_position) + 5))
                 ;;
             $'\x1b[A')
                 # Up arrow - scroll up in view mode

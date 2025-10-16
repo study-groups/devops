@@ -31,7 +31,7 @@ declare -a ACTION_REGISTRY=(
     "view_services"
     "view_org"
     # System:Control
-    "refresh_cache"
+    "validate_tes"
     "edit_toml"
     # Local/Dev:Monitor
     "status_tsm"
@@ -118,15 +118,19 @@ declare_action "view_org" \
     "cannot=Modify files or directories"
 
 # ========== SYSTEM:CONTROL ==========
-declare_action "refresh_cache" \
-    "verb=refresh" \
-    "noun=cache" \
+declare_action "validate_tes" \
+    "verb=validate" \
+    "noun=tes" \
     "inputs=" \
     "output=@tui[content]" \
     "effects=@app[stdout]" \
     "immediate=false" \
-    "can=Clear cached system data" \
-    "cannot=Delete persistent data"
+    "tes_level=handle" \
+    "tes_target=@dev" \
+    "tes_operation=execute" \
+    "tes_requires=connector" \
+    "can=Validate TES connectors and SSH access" \
+    "cannot=Modify connector configuration"
 
 declare_action "edit_toml" \
     "verb=edit" \
@@ -146,6 +150,10 @@ declare_action "status_tsm" \
     "output=@tui[content]" \
     "effects=" \
     "immediate=true" \
+    "tes_level=plan" \
+    "tes_target=@dev" \
+    "tes_operation=execute" \
+    "tes_requires=connector" \
     "can=Check TSM service status" \
     "cannot=Modify service state"
 
@@ -156,6 +164,10 @@ declare_action "status_watchdog" \
     "output=@tui[content]" \
     "effects=" \
     "immediate=true" \
+    "tes_level=plan" \
+    "tes_target=@dev" \
+    "tes_operation=execute" \
+    "tes_requires=connector" \
     "can=Check watchdog process status" \
     "cannot=Start or stop watchdog"
 
@@ -187,6 +199,10 @@ declare_action "start_tsm" \
     "output=@tui[content]" \
     "effects=@app[stdout]" \
     "immediate=false" \
+    "tes_level=plan" \
+    "tes_target=@dev" \
+    "tes_operation=execute" \
+    "tes_requires=connector" \
     "can=Start TSM service manager" \
     "cannot=Modify TSM configuration"
 
@@ -197,6 +213,10 @@ declare_action "stop_tsm" \
     "output=@tui[content]" \
     "effects=@app[stdout]" \
     "immediate=false" \
+    "tes_level=plan" \
+    "tes_target=@dev" \
+    "tes_operation=execute" \
+    "tes_requires=connector" \
     "can=Stop TSM service manager" \
     "cannot=Force kill processes"
 
@@ -207,6 +227,10 @@ declare_action "restart_tsm" \
     "output=@tui[content]" \
     "effects=@app[stdout]" \
     "immediate=false" \
+    "tes_level=plan" \
+    "tes_target=@dev" \
+    "tes_operation=execute" \
+    "tes_requires=connector" \
     "can=Restart TSM service manager" \
     "cannot=Modify service configuration"
 
@@ -217,6 +241,10 @@ declare_action "start_watchdog" \
     "output=@tui[content]" \
     "effects=@app[stdout]" \
     "immediate=false" \
+    "tes_level=plan" \
+    "tes_target=@dev" \
+    "tes_operation=execute" \
+    "tes_requires=connector" \
     "can=Start watchdog monitoring service" \
     "cannot=Modify watchdog configuration"
 
@@ -227,6 +255,10 @@ declare_action "stop_watchdog" \
     "output=@tui[content]" \
     "effects=@app[stdout]" \
     "immediate=false" \
+    "tes_level=plan" \
+    "tes_target=@dev" \
+    "tes_operation=execute" \
+    "tes_requires=connector" \
     "can=Stop watchdog monitoring service" \
     "cannot=Force kill watchdog"
 

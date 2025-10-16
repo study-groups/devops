@@ -29,6 +29,7 @@ MODE_INDEX=0
 ACTION_INDEX=0
 REPL_MODE=false
 REPL_INPUT=""
+PREVIEW_MODE=false  # When true, automatically show action preview on navigation
 
 ENVIRONMENTS=("System" "Local" "Dev")
 MODES=("Monitor" "Control" "Deploy")
@@ -43,7 +44,7 @@ get_actions() {
             echo "view:toml view:services view:org"
             ;;
         "System:Control")
-            echo "refresh:cache edit:toml"
+            echo "validate:tes edit:toml"
             ;;
         "System:Deploy")
             echo ""  # No deploy from system view
@@ -178,110 +179,164 @@ render_header() {
     local env="${ENVIRONMENTS[$ENV_INDEX]}"
     local mode="${MODES[$MODE_INDEX]}"
     local actions=($(get_actions))
+    local term_width=${COLUMNS:-80}
 
-    # Top row with colored env × mode
-    printf "Tetra Control Center | \033[1;33m%s\033[0m \033[2m%s\033[0m \033[1;32m%s\033[0m\n" "$env" "$CROSS_OP" "$mode"
+    # Compute status info and action state
+    local status_info="-"
+    local action_state="idle"
+    if [[ ${#actions[@]} -gt 0 ]]; then
+        local current="${actions[$ACTION_INDEX]}"
+        status_info=$(compute_action_status "$current" "$env")
+        status_info="${status_info:--}"
+        action_state=$(get_action_state "$current")
+    fi
 
-    # Env line with color and tab alignment
-    printf "\033[36m%s\033[0m\t" "$TUI_LABEL_ENV"  # Cyan for Env:
+    # Top line: right-aligned state::tetra
+    local right_text="${action_state}::tetra"
+    local right_len=${#right_text}
+    local padding=$((term_width - right_len))
+    printf "%*s\033[1;33m%s\033[0m::\033[1;36m%s\033[0m\n" "$padding" "" "$action_state" "tetra"
+
+    # Env line
+    printf "\033[36mEnv:\033[0m\t"
     for i in "${!ENVIRONMENTS[@]}"; do
         if [[ $i -eq $ENV_INDEX ]]; then
-            printf "\033[1;33m%s%s%s\033[0m " "$TUI_BRACKET_LEFT" "${ENVIRONMENTS[$i]}" "$TUI_BRACKET_RIGHT"  # Bold yellow
+            printf "\033[1;33m[%s]\033[0m " "${ENVIRONMENTS[$i]}"
         else
-            echo -n "${ENVIRONMENTS[$i]} "
+            printf "%s " "${ENVIRONMENTS[$i]}"
         fi
     done
     echo
 
-    # Mode line with color and tab alignment
-    printf "\033[35m%s\033[0m\t" "$TUI_LABEL_MODE"  # Magenta for Mode:
+    # Mode line
+    printf "\033[35mMode:\033[0m\t"
     for i in "${!MODES[@]}"; do
         if [[ $i -eq $MODE_INDEX ]]; then
-            printf "\033[1;32m%s%s%s\033[0m " "$TUI_BRACKET_LEFT" "${MODES[$i]}" "$TUI_BRACKET_RIGHT"  # Bold green
+            printf "\033[1;32m[%s]\033[0m " "${MODES[$i]}"
         else
-            echo -n "${MODES[$i]} "
+            printf "%s " "${MODES[$i]}"
         fi
     done
     echo
 
-    # Action line with signature and state at end (COLORIZED) - tab aligned
-    printf "\033[36m%s\033[0m\t" "$TUI_LABEL_ACTION"  # Cyan for Action:
+    # Action line
+    printf "\033[36mAction:\033[0m\t"
     if [[ ${#actions[@]} -gt 0 ]]; then
         local current="${actions[$ACTION_INDEX]}"
         local action_name="${current//:/_}"
         local verb="${current%%:*}"
         local noun="${current##*:}"
-        local state=$(get_action_state "$current")
-        local state_symbol=$(get_state_symbol "$state")
 
         # Refresh colors for current action
         refresh_color_state_cached "$verb" "$noun"
 
         # Get action details
+        printf "($(($ACTION_INDEX + 1))/${#actions[@]}) "
+        render_action_verb_noun "$verb" "$noun"
+
         if declare -p "ACTION_${action_name}" &>/dev/null; then
             local -n _action="ACTION_${action_name}"
             local inputs="${_action[inputs]}"
             local output="${_action[output]}"
             local effects="${_action[effects]}"
 
-            # Build signature parts
-            local input_part="(${inputs})"
-            local output_part="$output"
-            [[ -n "$effects" ]] && output_part="$output where $effects"
+            [[ -z "$inputs" ]] && inputs="@[]"
+            [[ -z "$output" ]] && output="@[]"
 
-            # Render with COLORS
-            echo -n "${TUI_BRACKET_LEFT}"
-            render_action_verb_noun "$verb" "$noun"
-            echo -n "${TUI_BRACKET_RIGHT}$ENDPOINT_OP$input_part $FLOW_OP $output_part "
-            echo "($(($ACTION_INDEX + 1))/${#actions[@]}) $state_symbol $state"
-        else
-            echo -n "${TUI_BRACKET_LEFT}"
-            render_action_verb_noun "$verb" "$noun"
-            echo "${TUI_BRACKET_RIGHT} ($(($ACTION_INDEX + 1))/${#actions[@]}) $state_symbol $state"
+            local full_output="$output"
+            [[ -n "$effects" ]] && full_output="$output, $effects"
+
+            local display_inputs="${inputs/@\[\]/$(render_empty_symbol)}"
+            local display_output="${full_output/@\[\]/$(render_empty_symbol)}"
+
+            printf " :: %s -> %s" "$display_inputs" "$display_output"
         fi
-
-        # Status line - always present, contextual info
-        local status_info=$(compute_action_status "$current" "$env")
-        printf "\033[2m%s\033[0m\t%s\n" "Status:" "${status_info:--}"
+        echo
     else
         echo "[none]"
-        printf "\033[2m%s\033[0m\t%s\n" "Status:" "-"
+    fi
+
+    # Status line with @tui[status] support
+    if [[ -n "${TUI_BUFFERS["@tui[status]"]}" ]]; then
+        printf "\033[36mStatus:\033[0m\t%s\n" "${TUI_BUFFERS["@tui[status]"]}"
+    elif [[ -n "$status_info" && "$status_info" != "-" ]]; then
+        printf "\033[36mStatus:\033[0m\t%s\n" "$status_info"
+    fi
+
+    # Info line (for headers, metadata) - unlabeled, dimmed, below Status
+    if [[ -n "${TUI_BUFFERS["@tui[info]"]}" ]]; then
+        printf "\033[2m%s\033[0m\n" "${TUI_BUFFERS["@tui[info]"]}"
+    fi
+
+    # REPL prompt line - always shown between header and content
+    if [[ "$REPL_MODE" == "true" ]]; then
+        local actions=($(get_actions))
+
+        if [[ ${#actions[@]} -gt 0 ]]; then
+            local action="${actions[$ACTION_INDEX]}"
+            local action_name="${action//:/_}"
+
+            # Try to get TES channel info
+            if declare -p "ACTION_${action_name}" &>/dev/null; then
+                local -n _action="ACTION_${action_name}"
+                local tes_target="${_action[tes_target]}"
+
+                # Get channel info (username@environment)
+                local channel_info=""
+                if [[ -n "$tes_target" ]]; then
+                    local toml_path=$(get_toml_path)
+                    local connector_data=$(resolve_connector "$tes_target")
+                    IFS='|' read -r auth_user work_user host auth_key <<< "$connector_data"
+
+                    # Extract environment name from host or use symbolic name
+                    local env_name="$tes_target"
+                    env_name="${env_name/@/}"  # Remove @ prefix
+
+                    channel_info="${work_user}@${env_name}"
+                else
+                    channel_info="${USER}@local"
+                fi
+
+                printf "\033[1;36m%s\033[0m> %s\n" "$channel_info" "$REPL_INPUT"
+            else
+                printf "\033[1;36m%s@local\033[0m> %s\n" "${USER}" "$REPL_INPUT"
+            fi
+        else
+            printf "\033[1;36m%s@local\033[0m> %s\n" "${USER}" "$REPL_INPUT"
+        fi
     fi
 }
 
 render_content() {
-    render_separator
-
-    if [[ -n "${TUI_BUFFERS["@tui[content]"]}" ]]; then
+    # Popup takes precedence over content
+    if [[ -n "${TUI_BUFFERS["@tui[popup]"]}" ]]; then
+        echo -e "${TUI_BUFFERS["@tui[popup]"]}"
+    elif [[ -n "${TUI_BUFFERS["@tui[content]"]}" ]]; then
         echo -e "${TUI_BUFFERS["@tui[content]"]}"
     else
         cat <<'EOF'
 🎯 Tetra Control Center
 
-Navigate: e=env  d=mode  f=action  Enter=execute
+Navigate: e=env  m=mode  a=action  Enter=execute
 
 System > view:toml, view:services, view:org
 Local  > status/start/stop tsm & watchdog, deploy:local
 Dev    > remote tsm & watchdog, deploy:dev/staging/prod
 
-Press 'f' to select action, Enter to execute
+Press 'a' to select action, Enter to execute
 EOF
     fi
 }
 
 render_footer() {
-    render_separator 40
-
-    if [[ "$REPL_MODE" == "true" ]]; then
-        # REPL prompt
-        local env="${ENVIRONMENTS[$ENV_INDEX]}"
-        local current_modes=($(get_current_modes))
-        local mode="${current_modes[$MODE_INDEX]}"
-        printf "%s:%s> %s" "$env" "$mode" "$REPL_INPUT"
-    elif [[ -n "${TUI_BUFFERS["@tui[footer]"]}" ]]; then
+    if [[ -n "${TUI_BUFFERS["@tui[footer]"]}" ]]; then
         echo -e "${TUI_TEXT_DIM}${TUI_BUFFERS["@tui[footer]"]}${TUI_TEXT_NORMAL}"
     else
-        echo "e=env d=mode f=action Enter=exec v=view r=routes s=stream l=log c=clear q=quit"
+        local preview_indicator=""
+        if [[ "$PREVIEW_MODE" == "true" ]]; then
+            preview_indicator=" \033[1;32m[PREVIEW]\033[0m"
+        fi
+        echo -e "e=env m=mode a=action Enter=exec t=tes p=preview v=view r=routes s=stream l=log c=clear q=quit${preview_indicator}"
     fi
 }
 
@@ -401,57 +456,259 @@ TES Lifecycle: template → qualified → ready → execute
 nav_env_right() {
     ENV_INDEX=$(( (ENV_INDEX + 1) % ${#ENVIRONMENTS[@]} ))
     ACTION_INDEX=0
+    preview_tes_for_current_action
+    update_action_preview
 }
 
 nav_mode_right() {
     MODE_INDEX=$(( (MODE_INDEX + 1) % ${#MODES[@]} ))
     ACTION_INDEX=0
+    preview_tes_for_current_action
+    update_action_preview
 }
 
 nav_action_right() {
     local actions=($(get_actions))
     [[ ${#actions[@]} -gt 0 ]] && ACTION_INDEX=$(( (ACTION_INDEX + 1) % ${#actions[@]} ))
+    preview_tes_for_current_action
+    update_action_preview
     # Don't clear content - let user see previous action results
 }
 
+# Helper to preview TES plan when navigating - generates plan to @tui[diagnostic]
+preview_tes_for_current_action() {
+    local env="${ENVIRONMENTS[$ENV_INDEX]}"
+    local actions=($(get_actions))
+    [[ ${#actions[@]} -eq 0 ]] && return
+
+    local action="${actions[$ACTION_INDEX]}"
+    preview_tes_plan_for_action "$action" "$env"
+}
+
+# Update action preview (content, status, info) when navigating
+update_action_preview() {
+    # Only update if in preview mode
+    [[ "$PREVIEW_MODE" != "true" ]] && return
+
+    local env="${ENVIRONMENTS[$ENV_INDEX]}"
+    local actions=($(get_actions))
+    [[ ${#actions[@]} -eq 0 ]] && return
+
+    local action="${actions[$ACTION_INDEX]}"
+    local action_name="${action//:/_}"
+
+    # Check if action exists
+    if ! declare -p "ACTION_${action_name}" &>/dev/null; then
+        return
+    fi
+
+    local -n _action="ACTION_${action_name}"
+    local verb="${action%%:*}"
+    local noun="${action##*:}"
+
+    # Check if action has TES metadata
+    local tes_target="${_action[tes_target]}"
+    if [[ -n "$tes_target" ]]; then
+        # TES plan was already generated by preview_tes_for_current_action
+        # Just copy diagnostic → content for display
+        if [[ -n "${TUI_BUFFERS["@tui[diagnostic]"]}" ]]; then
+            TUI_BUFFERS["@tui[info]"]="Preview: TES Resolution Plan"
+            TUI_BUFFERS["@tui[content]"]="${TUI_BUFFERS["@tui[diagnostic]"]}"
+        fi
+    else
+        # Show action preview for non-TES actions
+        show_action_preview "$action" "$env"
+    fi
+}
+
+# Show preview for non-TES actions
+show_action_preview() {
+    local action="$1"
+    local env="$2"
+    local action_name="${action//:/_}"
+
+    if ! declare -p "ACTION_${action_name}" &>/dev/null; then
+        return
+    fi
+
+    local -n _action="ACTION_${action_name}"
+    local verb="${action%%:*}"
+    local noun="${action##*:}"
+    local can="${_action[can]}"
+    local cannot="${_action[cannot]}"
+    local inputs="${_action[inputs]}"
+    local output="${_action[output]}"
+    local effects="${_action[effects]}"
+    local immediate="${_action[immediate]}"
+
+    # Build preview content
+    local preview="Action Preview: $verb:$noun\n\n"
+    preview+="Environment: $env\n"
+    preview+="Execution: $([ "$immediate" == "true" ] && echo "immediate" || echo "manual")\n\n"
+
+    preview+="Capabilities:\n"
+    preview+="  ✓ Can: $can\n"
+    preview+="  ✗ Cannot: $cannot\n\n"
+
+    preview+="Signature:\n"
+    preview+="  Inputs: ${inputs:-∅}\n"
+    preview+="  Output: $output\n"
+    [[ -n "$effects" ]] && preview+="  Effects: $effects\n"
+
+    # Add contextual info based on action
+    preview+="\nWill execute:\n"
+    case "$action" in
+        view:toml)
+            preview+="  → Display ${TETRA_DIR}/org/pixeljam-arcade/tetra.toml"
+            ;;
+        view:services)
+            preview+="  → Run: tsm list"
+            ;;
+        view:org)
+            preview+="  → List files in ${TETRA_DIR}/org/pixeljam-arcade/"
+            ;;
+        status:tsm)
+            if [[ "$env" == "Dev" ]]; then
+                preview+="  → SSH to @dev: tsm list"
+            else
+                preview+="  → Local: tsm list"
+            fi
+            ;;
+        status:watchdog)
+            if [[ "$env" == "Dev" ]]; then
+                preview+="  → SSH to @dev: pgrep -f 'tetra.*watchdog'"
+            else
+                preview+="  → Local: pgrep -f 'tetra.*watchdog'"
+            fi
+            ;;
+        start:tsm|stop:tsm|restart:tsm)
+            if [[ "$env" == "Dev" ]]; then
+                preview+="  → SSH to @dev: tsm $verb"
+            else
+                preview+="  → Local: tsm $verb"
+            fi
+            ;;
+        start:watchdog|stop:watchdog)
+            if [[ "$env" == "Dev" ]]; then
+                preview+="  → SSH to @dev: tetra watchdog $verb"
+            else
+                preview+="  → Local: tetra watchdog $verb"
+            fi
+            ;;
+        deploy:*)
+            preview+="  → Deploy to ${noun^^} environment"
+            preview+="  → Rsync + remote restart"
+            ;;
+        edit:toml)
+            preview+="  → Open vim ${TETRA_DIR}/org/pixeljam-arcade/tetra.toml"
+            ;;
+        view:logs)
+            preview+="  → List and tail recent logs"
+            ;;
+        validate:tes)
+            preview+="  → Test SSH connection to @dev"
+            preview+="  → Validate connector configuration"
+            ;;
+        *)
+            preview+="  → (No preview available)"
+            ;;
+    esac
+
+    TUI_BUFFERS["@tui[info]"]="Preview Mode: Action Details"
+    TUI_BUFFERS["@tui[content]"]="$preview"
+}
+
 show_routing_table() {
+    TUI_BUFFERS["@tui[info]"]="Action Registry - Routing Signatures with TES Metadata"
+    TUI_BUFFERS["@tui[status]"]=""
     TUI_BUFFERS["@tui[content]"]="$(list_action_signatures)"
 }
 
 show_app_stream() {
     local stream_output=$(get_app_stream "@app[stdout]")
 
+    TUI_BUFFERS["@tui[info]"]="@app[stdout] Stream - Application Output"
+    TUI_BUFFERS["@tui[status]"]=""
     if [[ -z "$stream_output" ]]; then
-        TUI_BUFFERS["@tui[content]"]="@app[stdout] Stream\n$(render_separator)\n\nNo entries yet.\n\nActions that route to @app[stdout] will appear here."
+        TUI_BUFFERS["@tui[content]"]="No entries yet.\n\nActions that route to @app[stdout] will appear here."
     else
-        TUI_BUFFERS["@tui[content]"]="@app[stdout] Stream\n$(render_separator)\n\n$stream_output"
+        TUI_BUFFERS["@tui[content]"]="$stream_output"
     fi
 }
 
 show_execution_log_view() {
+    TUI_BUFFERS["@tui[info]"]="Execution Log - Action History"
+    TUI_BUFFERS["@tui[status]"]=""
     local log_content=$(show_execution_log)
     TUI_BUFFERS["@tui[content]"]="$log_content"
+}
+
+show_tes_plan_view() {
+    # If in preview mode, TES plan is already visible
+    if [[ "$PREVIEW_MODE" == "true" ]]; then
+        # Already showing preview, just ensure TES plans are visible
+        update_action_preview
+        return
+    fi
+
+    # Manual TES view (preview mode OFF)
+    if [[ -n "${TUI_BUFFERS["@tui[diagnostic]"]}" ]]; then
+        TUI_BUFFERS["@tui[info]"]="TES Resolution Plan - 8 Phase Pipeline"
+        TUI_BUFFERS["@tui[status]"]=""
+        TUI_BUFFERS["@tui[content]"]="${TUI_BUFFERS["@tui[diagnostic]"]}"
+    else
+        TUI_BUFFERS["@tui[info]"]="No TES plan available"
+        TUI_BUFFERS["@tui[status]"]=""
+        TUI_BUFFERS["@tui[content]"]="No TES resolution has been performed yet.\n\nNavigate to Dev environment or enable preview mode (press 'p') to see TES plans."
+    fi
+}
+
+toggle_preview_mode() {
+    if [[ "$PREVIEW_MODE" == "true" ]]; then
+        PREVIEW_MODE=false
+        clear_content
+        TUI_BUFFERS["@tui[footer]"]="Preview mode disabled"
+    else
+        PREVIEW_MODE=true
+        update_action_preview
+        TUI_BUFFERS["@tui[footer]"]="Preview mode enabled - content updates automatically"
+    fi
 }
 
 # Main loop
 main() {
     echo "🎯 Tetra Control Center"
-    echo "Navigate: e=env  d=mode  f=action  Enter=execute"
+    echo "Navigate: e=env  m=mode  a=action  Enter=execute"
     sleep 1
 
     while true; do
         render_screen
 
         if [[ "$REPL_MODE" == "true" ]]; then
-            # REPL input mode
-            read -e -r input
-            if [[ "$input" == "exit" || "$input" == "q" ]]; then
-                REPL_MODE=false
-                REPL_INPUT=""
-            elif [[ -n "$input" ]]; then
-                execute_repl_command "$input"
-                REPL_INPUT=""
-            fi
+            # REPL input mode - character by character
+            read -rsn1 key
+
+            case "$key" in
+                $'\x7f'|$'\b')  # Backspace
+                    REPL_INPUT="${REPL_INPUT%?}"
+                    ;;
+                $'\n'|'')  # Enter
+                    if [[ "$REPL_INPUT" == "exit" || "$REPL_INPUT" == "q" ]]; then
+                        REPL_MODE=false
+                        REPL_INPUT=""
+                    elif [[ -n "$REPL_INPUT" ]]; then
+                        execute_repl_command "$REPL_INPUT"
+                        REPL_INPUT=""
+                    fi
+                    ;;
+                $'\e')  # Escape
+                    REPL_MODE=false
+                    REPL_INPUT=""
+                    ;;
+                *)  # Regular character
+                    REPL_INPUT="${REPL_INPUT}${key}"
+                    ;;
+            esac
         else
             # Normal navigation mode
             read -rsn1 key
@@ -461,10 +718,12 @@ main() {
 
             case "$key" in
                 'e'|'E') nav_env_right ;;
-                'd'|'D') nav_mode_right ;;
-                'f'|'F') nav_action_right ;;
+                'm'|'M') nav_mode_right ;;
+                'a'|'A') nav_action_right ;;
                 ''|$'\n') execute_current_action ;;  # Enter key (empty string when piped, \n when interactive)
                 'i'|'I') REPL_MODE=true ;;  # Enter REPL mode
+                't'|'T') show_tes_plan_view ;;  # T = TES plan
+                'p'|'P') toggle_preview_mode ;;  # P = Toggle preview mode
                 'r'|'R') show_routing_table ;;
                 's'|'S') show_app_stream ;;
                 'l'|'L') show_execution_log_view ;;

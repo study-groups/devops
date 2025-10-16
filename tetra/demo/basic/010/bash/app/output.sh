@@ -20,10 +20,23 @@ declare -g PREV_FOOTER_BUFFER=""
 
 # Initialize terminal for TUI mode
 init_terminal() {
-    # Get actual terminal size dynamically
-    LINES=$(tput lines)
-    COLUMNS=$(tput cols)
+    # Get actual terminal size dynamically using /dev/tty
+    if [[ -e /dev/tty ]]; then
+        read LINES COLUMNS < <(stty size </dev/tty 2>/dev/null)
+    fi
+
+    # Fallback to tput if stty failed
+    if [[ -z "$LINES" || -z "$COLUMNS" ]]; then
+        LINES=$(tput lines 2>/dev/null || echo 24)
+        COLUMNS=$(tput cols 2>/dev/null || echo 80)
+    fi
+
     export LINES COLUMNS
+
+    # Log the detected size
+    if command -v log_action >/dev/null 2>&1; then
+        log_action "Terminal size detected: ${COLUMNS}x${LINES}"
+    fi
 
     tput civis  # Hide cursor initially
     printf '\033[?25l'  # Extra cursor hide command
@@ -49,8 +62,13 @@ cleanup_terminal() {
 
 # Calculate terminal regions
 get_terminal_regions() {
-    local term_width=${COLUMNS:-80}
-    local term_height=${LINES:-24}
+    # Always get fresh terminal size - redirect from /dev/tty to ensure TTY access
+    local term_height term_width
+    if [[ -e /dev/tty ]]; then
+        read term_height term_width < <(stty size </dev/tty 2>/dev/null)
+    fi
+    [[ -z "$term_height" ]] && term_height=$(tput lines 2>/dev/null || echo ${LINES:-24})
+    [[ -z "$term_width" ]] && term_width=$(tput cols 2>/dev/null || echo ${COLUMNS:-80})
 
     # Header region: lines 1-4
     REGION_HEADER_START=1
@@ -85,7 +103,11 @@ position_at_cli() { tput cup $((REGION_CLI_START - 1)) 0; }
 
 # Generate screen buffer for header region
 generate_header_buffer() {
-    local term_width=${COLUMNS:-80}
+    local term_width
+    if [[ -e /dev/tty ]]; then
+        read _ term_width < <(stty size </dev/tty 2>/dev/null)
+    fi
+    [[ -z "$term_width" ]] && term_width=$(tput cols 2>/dev/null || echo ${COLUMNS:-80})
     SCREEN_BUFFER=""
 
     # Line 1: Header
@@ -135,7 +157,7 @@ generate_content_buffer() {
         ((current_line++))
 
         if [[ "$CURRENT_INPUT_MODE" == "$INPUT_MODE_GAMEPAD" ]]; then
-            buffer+="$(tput cup $((current_line - 1)) 0)Home row: e/d/s/f | a=info A=fire | REPL: /$(tput el)"$'\n'
+            buffer+="$(tput cup $((current_line - 1)) 0)Home row: e/d/a | c=clear r=refresh | REPL: /$(tput el)"$'\n'
             ((current_line++))
         fi
     fi
@@ -151,8 +173,12 @@ generate_content_buffer() {
 
 # Generate footer buffer (4 lines)
 generate_footer_buffer() {
-    local term_width=${COLUMNS:-80}
-    local term_height=${LINES:-24}
+    local term_height term_width
+    if [[ -e /dev/tty ]]; then
+        read term_height term_width < <(stty size </dev/tty 2>/dev/null)
+    fi
+    [[ -z "$term_height" ]] && term_height=$(tput lines 2>/dev/null || echo ${LINES:-24})
+    [[ -z "$term_width" ]] && term_width=$(tput cols 2>/dev/null || echo ${COLUMNS:-80})
     local buffer=""
 
     get_terminal_regions
@@ -202,7 +228,7 @@ generate_footer_buffer() {
     if [[ ${#actions[@]} -gt 0 ]]; then
         local counter="$(($ACTION_INDEX + 1))/${#actions[@]}"
         local counter_col=$((term_width - ${#counter} - 2))
-        local counter_row=$((term_height - 1))
+        local counter_row=$((term_height - 2))  # 1 line margin from bottom means -2 not -1
         buffer+="$(printf '\033[%d;%dH%s' $counter_row $counter_col "$counter")"$'\n'
     fi
 
@@ -211,8 +237,12 @@ generate_footer_buffer() {
 
 # Display complete screen (gamepad mode)
 show_gamepad_display() {
-    local term_width=${COLUMNS:-80}
-    local term_height=${LINES:-24}
+    local term_height term_width
+    if [[ -e /dev/tty ]]; then
+        read term_height term_width < <(stty size </dev/tty 2>/dev/null)
+    fi
+    [[ -z "$term_height" ]] && term_height=$(tput lines 2>/dev/null || echo ${LINES:-24})
+    [[ -z "$term_width" ]] && term_width=$(tput cols 2>/dev/null || echo ${COLUMNS:-80})
 
     # Apply current theme/background before rendering
     apply_current_theme
@@ -257,7 +287,11 @@ position_repl_input() {
 
 # Update only content region (preserve header/footer/cli)
 update_content_region() {
-    local term_width=${COLUMNS:-80}
+    local term_width
+    if [[ -e /dev/tty ]]; then
+        read _ term_width < <(stty size </dev/tty 2>/dev/null)
+    fi
+    [[ -z "$term_width" ]] && term_width=$(tput cols 2>/dev/null || echo ${COLUMNS:-80})
     get_terminal_regions
 
     # Generate and display only content buffer

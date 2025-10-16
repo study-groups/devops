@@ -169,10 +169,10 @@ handle_gamepad_input() {
         'd') navigate_mode_right ;;
         'D') navigate_mode_left ;;
 
-        # Action navigation (f cycles forward and shows summary, executes if immediate)
-        'f')
+        # Action navigation (a/A cycles through actions and shows summary, executes if immediate)
+        'a')
             navigate_action_right
-            # Auto-show summary when F is pressed
+            # Auto-show summary when 'a' is pressed
             local actions=($(get_actions))
             if [[ ${#actions[@]} -gt 0 ]]; then
                 local action="${actions[$ACTION_INDEX]}"
@@ -191,9 +191,9 @@ handle_gamepad_input() {
                 fi
             fi
             ;;
-        'F')
+        'A')
             navigate_action_left
-            # Auto-show summary when F is pressed
+            # Auto-show summary when 'A' is pressed
             local actions=($(get_actions))
             if [[ ${#actions[@]} -gt 0 ]]; then
                 local action="${actions[$ACTION_INDEX]}"
@@ -254,15 +254,9 @@ handle_gamepad_input() {
             navigate_action_down
             ;;
 
-        # Action list and function signatures
-        'a')
-            log_action "Input: Action list mode requested"
-            CONTENT_MODE="actionList"
-            set_content_mode "actionList"
-            ;;
-        'A'|'a')
-            log_action "Input: Switching to actions view"
-            set_content_mode "actions"
+        # Old 'f' key - now deprecated, but leaving for backward compatibility
+        'f'|'F')
+            log_action "Input: Deprecated key 'f' used - please use 'a/A' instead"
             ;;
 
         # Test diagnostics (comprehensive)
@@ -514,15 +508,14 @@ $(get_env_specific_info "$env" "" "")"
 
 # Help display (TUI concern)
 show_help() {
-    CONTENT="🎮 Navigation: e,d,f Pattern
+    CONTENT="🎮 Navigation: e,d,a Pattern
 =============================
 
 e/E = Environment (left/right)
 d/D = Mode (left/right)
-f/F = Action (forward/back)
+a/A = Action (forward/back)
 return = Execute current action
 
-a = Show action info
 c = Clear content
 / = REPL mode
 q = Quit

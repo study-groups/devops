@@ -9,6 +9,7 @@ declare -A TYPOGRAPHY_TOKENS=(
     [ACTION_SIGIL]=""               # Configurable action prefix symbol (sigil)
     [ACTION_SEPARATOR]=" × "         # Multiplication symbol between verb and noun
     [ACTION_ARROW]=" → "            # Arrow for action results
+    [EMPTY_SYMBOL]="∅"              # Symbol for @[] (no input/output)
 
     # Typography Hierarchy
     [HEADING_PREFIX]="## "          # Section heading prefix
@@ -56,6 +57,11 @@ render_action_separator() {
 # Render action arrow (for result indication)
 render_action_arrow() {
     printf "%s" "${TYPOGRAPHY_TOKENS[ACTION_ARROW]}"
+}
+
+# Render empty symbol for @[]
+render_empty_symbol() {
+    printf "%s" "${TYPOGRAPHY_TOKENS[EMPTY_SYMBOL]}"
 }
 
 # Typography utilities for consistent formatting

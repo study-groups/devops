@@ -17,9 +17,9 @@ declare -ga ACTION_REGISTRY=(
     # Local inspection
     "view_env"
     "view_toml"
-    "status_local"
+    "check_local"
     # Remote inspection (requires context)
-    "status_remote"
+    "check_remote"
     "view_remote_logs"
     # File operations
     "fetch_config"
@@ -146,8 +146,8 @@ declare_action "view_toml" \
     "can=Display local tetra.toml config" \
     "cannot=Edit configuration"
 
-declare_action "status_local" \
-    "verb=status" \
+declare_action "check_local" \
+    "verb=check" \
     "noun=local" \
     "inputs=" \
     "output=@tui[content]" \
@@ -157,8 +157,8 @@ declare_action "status_local" \
     "cannot=Start or stop services"
 
 # ========== REMOTE INSPECTION (context-dependent) ==========
-declare_action "status_remote" \
-    "verb=status" \
+declare_action "check_remote" \
+    "verb=check" \
     "noun=remote" \
     "inputs=" \
     "output=@tui[content]" \

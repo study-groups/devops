@@ -1,0 +1,275 @@
+#!/usr/bin/env bash
+
+# Demo 014 - Standalone version (no tetra.sh dependency)
+# Tests animation system independently
+
+DEMO_DIR="$(dirname "${BASH_SOURCE[0]}")"
+
+# Source modules (skip tetra.sh)
+source "$DEMO_DIR/tui.conf"
+source "$DEMO_DIR/bash/tui/typography.sh"
+source "$DEMO_DIR/bash/tui/colors/color_core.sh"
+source "$DEMO_DIR/bash/tui/oscillator.sh"
+source "$DEMO_DIR/bash/tui/line_animator.sh"
+source "$DEMO_DIR/bash/tui/buffer.sh"
+source "$DEMO_DIR/bash/tui/animation_controller.sh"
+source "$DEMO_DIR/bash/tui/header.sh"
+source "$DEMO_DIR/bash/actions/state.sh"
+source "$DEMO_DIR/bash/actions/router.sh"
+source "$DEMO_DIR/bash/actions/registry.sh"
+source "$DEMO_DIR/bash/actions/actions_impl.sh"
+source "$DEMO_DIR/bash/actions/executor.sh"
+
+# Initialize TUI modules
+osc_init
+line_init
+tui_buffer_init
+
+# Application state
+ENV_INDEX=0
+MODE_INDEX=0
+ACTION_INDEX=0
+SHOW_DETAIL=false
+VIEW_MODE=false
+SCROLL_OFFSET=0
+
+# Organization context
+TETRA_ORG="${TETRA_ORG:-pixeljam-arcade}"
+
+# Layout constants - get actual terminal size
+if [[ -e /dev/tty ]]; then
+    read TUI_HEIGHT TUI_WIDTH < <(stty size </dev/tty 2>/dev/null)
+fi
+[[ -z "$TUI_HEIGHT" ]] && TUI_HEIGHT=$(tput lines 2>/dev/null || echo 24)
+[[ -z "$TUI_WIDTH" ]] && TUI_WIDTH=$(tput cols 2>/dev/null || echo 80)
+
+SEPARATOR_LINES=1
+FOOTER_LINES=5
+
+# Dynamic layout calculation helper
+calculate_layout() {
+    HEADER_LINES=$(header_get_lines)
+    [[ "$HEADER_REPL_ACTIVE" == "true" ]] && ((HEADER_LINES++))
+    CONTENT_VIEWPORT_HEIGHT=$((TUI_HEIGHT - HEADER_LINES - SEPARATOR_LINES - FOOTER_LINES))
+}
+
+# Execution contexts
+ENVIRONMENTS=("Local" "Dev" "Staging" "Production")
+MODES=("Inspect" "Transfer" "Execute")
+
+# Get actions for current context
+get_actions() {
+    local env="${ENVIRONMENTS[$ENV_INDEX]}"
+    local mode="${MODES[$MODE_INDEX]}"
+
+    local builtin_actions=""
+
+    # Built-in demo actions
+    case "$env:$mode" in
+        "Local:Inspect")
+            builtin_actions="view:toml view:env check:local show:help"
+            ;;
+        "Local:Transfer")
+            builtin_actions="view:toml"
+            ;;
+        "Local:Execute")
+            builtin_actions="check:local"
+            ;;
+        *)
+            builtin_actions="view:toml show:help"
+            ;;
+    esac
+
+    echo "$builtin_actions"
+}
+
+# Render header with colorized action - outputs to buffer
+render_header() {
+    # Update region bounds based on header size
+    tui_region_update
+
+    # Capture header output line by line
+    local line_num=0
+    while IFS= read -r line; do
+        tui_write_header "$line_num" "$line"
+        ((line_num++))
+    done < <(header_render)
+
+    # Render animated separator with oscillator - capture as string
+    local separator_line=$(line_animate_from_osc "$(osc_get_position)" | tr -d '\n')
+    tui_write_separator "$separator_line"
+}
+
+# Render content with viewport constraints - outputs to buffer
+render_content() {
+    local content="🎯 Demo 014: Action Signatures & Animation
+
+Press 'o' to toggle animation ON/OFF
+Press 'h' to cycle header size
+Press '/' to toggle REPL line
+Press '←' or '→' to move oscillator marker manually
+
+Navigation:
+  e - Cycle environment (Local/Dev/Staging/Production)
+  m - Cycle mode (Inspect/Transfer/Execute)
+  a - Cycle action
+  q - Quit
+
+Animation Status: $([ "$OSC_RUNNING" == "true" ] && echo "ON" || echo "OFF")
+Oscillator Position: $(osc_get_position)
+Header Size: $HEADER_SIZE"
+
+    # Write to buffer line by line
+    local line_num=0
+    while IFS= read -r line; do
+        tui_write_content "$line_num" "$line"
+        ((line_num++))
+    done <<< "$content"
+}
+
+# Render footer - outputs to buffer
+render_footer() {
+    local line_num=0
+    local dim_code reset_code
+    printf -v dim_code "%b" "\033[2m"
+    printf -v reset_code "%b" "\033[0m"
+
+    local anim_status="off"
+    [[ "$OSC_RUNNING" == "true" ]] && anim_status="ON"
+
+    tui_write_footer $line_num ""
+    ((line_num++))
+    tui_write_footer $line_num "${dim_code}$(center_text "e=env  m=mode  a=action  h=header  o=anim:$anim_status  /=repl" 60)${reset_code}"
+    ((line_num++))
+    tui_write_footer $line_num "${dim_code}$(center_text "←/→=move marker  q=quit" 60)${reset_code}"
+}
+
+# Render full screen with differential updates
+render_screen() {
+    local first_render="${1:-false}"
+
+    tui_buffer_clear
+    render_header
+    render_content
+    render_footer
+
+    if [[ "$first_render" == "true" ]]; then
+        tui_buffer_render_full
+    else
+        tui_buffer_render_diff
+    fi
+}
+
+# Optimized: Only update animated separator line
+update_separator_animation() {
+    local separator_line=$(line_animate_from_osc "$(osc_get_position)" | tr -d '\n')
+    tui_write_separator "$separator_line"
+
+    local sep_row="$TUI_REGION_SEP_ROW"
+    local content="${TUI_SCREEN_BUFFER["$sep_row:0"]}"
+
+    if [[ "$content" != "${TUI_PREV_BUFFER["$sep_row:0"]}" ]]; then
+        printf '\033[%d;1H\033[K%s' $((sep_row + 1)) "$content"
+        TUI_PREV_BUFFER["$sep_row:0"]="$content"
+    fi
+}
+
+# Navigation helpers
+nav_env_right() {
+    ENV_INDEX=$(( (ENV_INDEX + 1) % ${#ENVIRONMENTS[@]} ))
+    ACTION_INDEX=0
+}
+
+nav_mode_right() {
+    MODE_INDEX=$(( (MODE_INDEX + 1) % ${#MODES[@]} ))
+    ACTION_INDEX=0
+}
+
+nav_action_right() {
+    local actions=($(get_actions))
+    [[ ${#actions[@]} -gt 0 ]] && ACTION_INDEX=$(( (ACTION_INDEX + 1) % ${#actions[@]} ))
+}
+
+# Main loop
+main() {
+    echo "🎯 Demo 014: Standalone Animation Test"
+    echo "Starting in 1 second..."
+    sleep 1
+
+    calculate_layout
+
+    local needs_redraw=true
+    local is_first_render=true
+
+    trap 'clear; exit' EXIT INT TERM
+
+    while true; do
+        if [[ "$needs_redraw" == "true" ]]; then
+            render_screen "$is_first_render"
+            needs_redraw=false
+            is_first_render=false
+        fi
+
+        local key=""
+        if [[ "$OSC_RUNNING" == "true" ]]; then
+            read -rsn1 -t 0.05 key || key=""
+            osc_tick
+            update_separator_animation
+        else
+            read -rsn1 key
+        fi
+
+        if [[ -z "$key" ]]; then
+            continue
+        fi
+
+        needs_redraw=true
+
+        # Handle ESC sequences
+        if [[ "$key" == $'\x1b' ]]; then
+            read -rsn2 -t 0.01 key2
+            if [[ -z "$key2" ]]; then
+                key="ESC"
+            else
+                key="$key$key2"
+            fi
+        fi
+
+        case "$key" in
+            'e'|'E') nav_env_right ;;
+            'm'|'M') nav_mode_right ;;
+            'a'|'A') nav_action_right ;;
+            'h'|'H')
+                case "$HEADER_SIZE" in
+                    max) header_set_size "med" ;;
+                    med) header_set_size "min" ;;
+                    min) header_set_size "max" ;;
+                esac
+                calculate_layout
+                ;;
+            'o'|'O')
+                if [[ "$OSC_RUNNING" == "true" ]]; then
+                    osc_stop
+                else
+                    osc_start
+                fi
+                ;;
+            '/')
+                header_repl_toggle
+                calculate_layout
+                ;;
+            $'\x1b[D')
+                osc_set_position $(($(osc_get_position) - 5))
+                ;;
+            $'\x1b[C')
+                osc_set_position $(($(osc_get_position) + 5))
+                ;;
+            'q'|'Q') break ;;
+        esac
+    done
+
+    clear
+    echo "Demo complete."
+}
+
+main "$@"

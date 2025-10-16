@@ -12,16 +12,16 @@ execute_repl_command() {
 ────────────────────────────────────────
 Commands:
   help              Show this help
-  env [name]        Switch environment (APP, DEV)
-  mode [name]       Switch mode (Learn, Try, Test)
-  fire <action>     Execute action (e.g., fire show:demo)
+  env [name]        Switch environment (System, Local, Dev)
+  mode [name]       Switch mode (Monitor, Control, Deploy)
+  fire <action>     Execute action (e.g., fire status:tsm)
   list              List available actions
   exit              Exit REPL mode (or 'q')
 
 Examples:
-  env DEV           Switch to DEV environment
-  mode Test         Switch to Test mode
-  fire show:demo    Execute show:demo action
+  env Dev           Switch to Dev environment
+  mode Control      Switch to Control mode
+  fire status:tsm   Execute status:tsm action
   list              Show all actions"
             ;;
 
@@ -37,7 +37,7 @@ Examples:
                     return
                 fi
             done
-            TUI_BUFFERS["@tui[content]"]="Unknown environment: $env_name
+            TUI_BUFFERS["@tui[content]"]="\033[1;31mError:\033[0m Unknown environment: $env_name
 Available: ${ENVIRONMENTS[*]}"
             ;;
 
@@ -53,7 +53,7 @@ Available: ${ENVIRONMENTS[*]}"
                     return
                 fi
             done
-            TUI_BUFFERS["@tui[content]"]="Unknown mode: $mode_name
+            TUI_BUFFERS["@tui[content]"]="\033[1;31mError:\033[0m Unknown mode: $mode_name
 Available: ${current_modes[*]}"
             ;;
 
@@ -68,7 +68,7 @@ Available: ${current_modes[*]}"
                     return
                 fi
             done
-            TUI_BUFFERS["@tui[content]"]="Unknown action: $action_name
+            TUI_BUFFERS["@tui[content]"]="\033[1;31mError:\033[0m Unknown action: $action_name
 Use 'list' to see available actions"
             ;;
 
@@ -96,7 +96,7 @@ Use 'list' to see available actions"
             ;;
 
         *)
-            TUI_BUFFERS["@tui[content]"]="Unknown command: $input
+            TUI_BUFFERS["@tui[content]"]="\033[1;31mError:\033[0m Unknown command: $input
 Type 'help' for available commands"
             ;;
     esac

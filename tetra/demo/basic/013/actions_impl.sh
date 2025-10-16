@@ -63,9 +63,56 @@ action_view_org() {
 }
 
 # ========== SYSTEM:CONTROL ==========
-action_refresh_cache() {
-    echo "Clearing cached data..."
-    echo "✓ Cache refreshed"
+action_validate_tes() {
+    # Set info header
+    TUI_BUFFERS["@tui[info]"]="TES Connector Validation - Testing @dev, @staging, @prod"
+
+    # Test all environment symbols
+    for symbol in "@dev" "@staging" "@prod"; do
+        echo "Testing: $symbol"
+
+        local connector=$(resolve_connector "$symbol" 2>&1)
+        if [[ $? -ne 0 ]]; then
+            echo "  ✗ Failed to resolve connector"
+            echo "    $connector"
+            echo ""
+            continue
+        fi
+
+        # Parse connector
+        local auth_user=$(echo "$connector" | jq -r '.auth_user' 2>/dev/null)
+        local work_user=$(echo "$connector" | jq -r '.work_user' 2>/dev/null)
+        local host=$(echo "$connector" | jq -r '.host' 2>/dev/null)
+        local auth_key=$(echo "$connector" | jq -r '.auth_key' 2>/dev/null)
+
+        if [[ -z "$auth_user" || -z "$host" ]]; then
+            echo "  ✗ Invalid connector format"
+            echo ""
+            continue
+        fi
+
+        echo "  Auth user: $auth_user"
+        echo "  Work user: $work_user"
+        echo "  Host: $host"
+        echo "  Key: ${auth_key/$HOME/~}"
+
+        # Check key exists
+        if [[ ! -f "$auth_key" ]]; then
+            echo "  ✗ SSH key not found: $auth_key"
+            echo ""
+            continue
+        fi
+        echo "  ✓ SSH key found"
+
+        # Test connection
+        if timeout 3 ssh -i "$auth_key" -o ConnectTimeout=3 -o StrictHostKeyChecking=no "$auth_user@$host" "echo ok" &>/dev/null; then
+            echo "  ✓ Connection successful"
+        else
+            echo "  ✗ Connection failed (timeout or auth failure)"
+        fi
+
+        echo ""
+    done
 }
 
 action_edit_toml() {
@@ -94,13 +141,17 @@ action_status_tsm() {
         local symbol=$(get_env_symbol "$env")
         local command="source ~/tetra/tetra.sh && tsm ls"
 
-        # Show TES resolution pipeline
+        # Log TES resolution (sets @tui[status] and @tui[diagnostic])
         show_tes_resolution "status:tsm" "$symbol" "$command"
-        echo "Executing..."
-        echo ""
+
+        # Update status while executing
+        TUI_BUFFERS["@tui[status]"]="Executing remote command on $symbol..."
 
         local output=$(execute_remote "$symbol" "$command" 2>&1)
         local exit_code=$?
+
+        # Clear status after execution
+        TUI_BUFFERS["@tui[status]"]=""
 
         if [[ $exit_code -eq 0 ]]; then
             echo "$output"

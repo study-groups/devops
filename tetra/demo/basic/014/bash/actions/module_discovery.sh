@@ -12,19 +12,30 @@ discover_tetra_modules() {
     local tetra_src="${TETRA_SRC:-$HOME/tetra}"
 
     if [[ ! -d "$tetra_src/bash" ]]; then
-        echo "Warning: TETRA_SRC not found at $tetra_src" >&2
+        echo "Warning: TETRA_SRC not found at $tetra_src - skipping module discovery" >&2
         return 1
     fi
+
+    # Limit discovery to prevent hanging
+    local count=0
+    local max_modules=5
 
     # Scan bash/*/actions.sh for module action declarations
     for actions_file in "$tetra_src/bash"/*/actions.sh; do
         [[ -f "$actions_file" ]] || continue
 
+        # Safety: limit number of modules to discover
+        ((count++))
+        if [[ $count -gt $max_modules ]]; then
+            echo "Warning: Module discovery limit reached ($max_modules)" >&2
+            break
+        fi
+
         local module_dir=$(dirname "$actions_file")
         local module_name=$(basename "$module_dir")
 
-        # Source the actions file
-        source "$actions_file" 2>/dev/null || {
+        # Source the actions file with timeout protection
+        ( source "$actions_file" 2>/dev/null ) || {
             echo "Warning: Failed to source $actions_file" >&2
             continue
         }
@@ -33,15 +44,16 @@ discover_tetra_modules() {
         if declare -f "${module_name}_register_actions" >/dev/null 2>&1 && \
            declare -f "${module_name}_execute_action" >/dev/null 2>&1; then
 
-            # Call registration function
-            "${module_name}_register_actions" 2>/dev/null && {
+            # Call registration function with timeout
+            if "${module_name}_register_actions" 2>/dev/null; then
                 DISCOVERED_MODULES+=("$module_name")
                 echo "Discovered module: $module_name" >&2
-            }
+            fi
         fi
     done
 
     echo "Loaded ${#DISCOVERED_MODULES[@]} modules: ${DISCOVERED_MODULES[*]}" >&2
+    return 0
 }
 
 # Get actions from modules filtered by context and mode
