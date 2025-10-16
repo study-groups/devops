@@ -127,57 +127,41 @@ get_service_info() {
     echo "$service_name|$env_file|$pid|$port|$status|$uptime"
 }
 
-# List running services only
+# List running services only (PM2-style: read from process directories)
 tsm_list_running() {
     print_table_header
 
-    local id=0
     local found_running=false
 
-    # Scan actual process metadata files
+    # Read from process directories
     if [[ -d "$TSM_PROCESSES_DIR" ]]; then
-        for meta_file in "$TSM_PROCESSES_DIR"/*.meta; do
+        for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+            [[ -d "$process_dir" ]] || continue
+
+            local name=$(basename "$process_dir")
+            local meta_file="$process_dir/meta.json"
             [[ -f "$meta_file" ]] || continue
 
-            # Read metadata
-            local tsm_id name pid port command env_file start_time
-            while IFS='=' read -r key value; do
-                case "$key" in
-                    tsm_id) tsm_id="${value//\'/}" ;;
-                    name) name="${value//\'/}" ;;
-                    pid) pid="${value//\'/}" ;;
-                    port) port="${value//\'/}" ;;
-                    command) command="${value//\'/}" ;;
-                    env_file) env_file="${value//\'/}" ;;
-                    start_time) start_time="${value//\'/}" ;;
-                esac
-            done < "$meta_file"
+            # Read all metadata in one jq call (efficient!)
+            local metadata
+            metadata=$(jq -r '[.tsm_id, .pid, .port, .start_time, .env_file] | @tsv' "$meta_file" 2>/dev/null)
+            [[ -z "$metadata" ]] && continue
 
-            # Check if process is still alive
-            if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+            read tsm_id pid port start_time env_file <<< "$metadata"
+
+            # Verify process is still running
+            if kill -0 "$pid" 2>/dev/null; then
                 # Calculate uptime
-                local uptime="-"
-                if [[ -n "$start_time" ]]; then
-                    local current_time=$(date +%s)
-                    local uptime_seconds=$((current_time - start_time))
-
-                    if [[ $uptime_seconds -lt 60 ]]; then
-                        uptime="${uptime_seconds}s"
-                    elif [[ $uptime_seconds -lt 3600 ]]; then
-                        uptime="$((uptime_seconds / 60))m"
-                    elif [[ $uptime_seconds -lt 86400 ]]; then
-                        uptime="$((uptime_seconds / 3600))h"
-                    else
-                        uptime="$((uptime_seconds / 86400))d"
-                    fi
-                fi
+                local uptime=$(tsm_calculate_uptime "$start_time")
 
                 # Format env file (basename only)
                 local env_display="-"
-                [[ -n "$env_file" ]] && env_display=$(basename "$env_file" 2>/dev/null || echo "-")
+                if [[ -n "$env_file" && "$env_file" != "null" && "$env_file" != "" ]]; then
+                    env_display=$(basename "$env_file" 2>/dev/null || echo "-")
+                fi
 
                 # Format port
-                [[ -z "$port" || "$port" == "none" ]] && port="-"
+                [[ -z "$port" || "$port" == "none" || "$port" == "null" ]] && port="-"
 
                 # Print with colors
                 printf "%-3s %-20s %-10s %-5s %-5s " "$tsm_id" "$name" "$env_display" "$pid" "$port"
@@ -185,6 +169,9 @@ tsm_list_running() {
                 printf " %-8s\n" "$uptime"
 
                 found_running=true
+            else
+                # Process died - mark as crashed and clean up
+                tsm_set_status "$name" "crashed"
             fi
         done
     fi

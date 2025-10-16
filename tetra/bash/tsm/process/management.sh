@@ -471,34 +471,27 @@ _tsm_kill_by_name() {
 
     echo "🔍 Finding processes with name '$name'..."
 
-    # Look for TSM managed processes in new location
+    # Look for TSM managed processes (JSON metadata)
     local found=false
 
-    # Try exact match first
-    if [[ -f "$TSM_PROCESSES_DIR/${name}.meta" ]]; then
-        local pid=$(grep "^pid=" "$TSM_PROCESSES_DIR/${name}.meta" | cut -d= -f2)
-        if [[ -n "$pid" ]] && (kill -0 "$pid" 2>/dev/null); then
-            echo "📋 Found TSM process: $name (PID: $pid)"
-            if _tsm_kill_process "$pid" "$force"; then
-                echo "✅ Killed TSM process: $name"
-                rm -f "$TSM_PROCESSES_DIR/${name}.meta"
-                found=true
-            fi
-        fi
-    fi
+    if [[ -d "$TSM_PROCESSES_DIR" ]]; then
+        for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+            [[ -d "$process_dir" ]] || continue
+            local proc_name=$(basename "$process_dir")
 
-    # Try pattern match (name-*)
-    if [[ "$found" == "false" ]]; then
-        for metadata_file in "$TSM_PROCESSES_DIR"/${name}-*.meta; do
-            [[ -f "$metadata_file" ]] || continue
-            local pid=$(grep "^pid=" "$metadata_file" | cut -d= -f2)
-            if [[ -n "$pid" ]] && (kill -0 "$pid" 2>/dev/null); then
-                local proc_name=$(basename "$metadata_file" .meta)
-                echo "📋 Found TSM process: $proc_name (PID: $pid)"
-                if _tsm_kill_process "$pid" "$force"; then
-                    echo "✅ Killed TSM process: $proc_name"
-                    rm -f "$metadata_file"
-                    found=true
+            # Match exact name or prefix (e.g., "http" matches "http-8001")
+            if [[ "$proc_name" == "$name" || "$proc_name" == ${name}-* ]]; then
+                local meta_file="${process_dir}meta.json"
+                if [[ -f "$meta_file" ]]; then
+                    local pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
+                    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+                        echo "📋 Found TSM process: $proc_name (PID: $pid)"
+                        if _tsm_kill_process "$pid" "$force"; then
+                            echo "✅ Killed TSM process: $proc_name"
+                            rm -rf "$process_dir"
+                            found=true
+                        fi
+                    fi
                 fi
             fi
         done
@@ -519,41 +512,40 @@ _tsm_kill_by_id() {
 
     echo "🔍 Finding process with TSM ID $id..."
 
-    # Find metadata file for this ID in new location
-    local metadata_file
-    for file in "$TSM_PROCESSES_DIR"/*.meta; do
-        [[ -f "$file" ]] || continue
-        local file_id=$(grep "^tsm_id=" "$file" | cut -d= -f2)
-        if [[ "$file_id" == "$id" ]]; then
-            metadata_file="$file"
-            break
-        fi
-    done
-
-    if [[ -z "$metadata_file" ]]; then
-        echo "❌ No process found with TSM ID $id"
-        return 1
+    # Find process directory with this TSM ID (JSON metadata)
+    local process_name pid process_dir
+    if [[ -d "$TSM_PROCESSES_DIR" ]]; then
+        for dir in "$TSM_PROCESSES_DIR"/*/; do
+            [[ -d "$dir" ]] || continue
+            local meta_file="${dir}meta.json"
+            if [[ -f "$meta_file" ]]; then
+                local file_id=$(jq -r '.tsm_id // empty' "$meta_file" 2>/dev/null)
+                if [[ "$file_id" == "$id" ]]; then
+                    process_name=$(jq -r '.name // empty' "$meta_file" 2>/dev/null)
+                    pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
+                    process_dir="$dir"
+                    break
+                fi
+            fi
+        done
     fi
 
-    local pid=$(grep "^pid=" "$metadata_file" | cut -d= -f2)
-    local name=$(grep "^name=" "$metadata_file" | cut -d= -f2)
-
-    if [[ -z "$pid" ]]; then
-        echo "❌ Invalid metadata for TSM ID $id"
+    if [[ -z "$process_name" || -z "$pid" ]]; then
+        echo "❌ No process found with TSM ID $id"
         return 1
     fi
 
     if ! kill -0 "$pid" 2>/dev/null; then
         echo "❌ Process with TSM ID $id is not running (PID $pid dead)"
-        rm -f "$metadata_file"
+        rm -rf "$process_dir"
         return 1
     fi
 
-    echo "📋 Found process: $name (TSM ID: $id, PID: $pid)"
+    echo "📋 Found process: $process_name (TSM ID: $id, PID: $pid)"
 
     if _tsm_kill_process "$pid" "$force"; then
-        echo "✅ Killed process: $name (TSM ID: $id)"
-        rm -f "$metadata_file"
+        echo "✅ Killed process: $process_name (TSM ID: $id)"
+        rm -rf "$process_dir"
         return 0
     else
         return 1

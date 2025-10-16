@@ -14,10 +14,10 @@ if [[ -z "${TSM_LOG_MAX_LINES:-}" ]]; then
     readonly TSM_LOG_MAX_LINES=1000
 fi
 
-# TSM Module Directory (source location)
-export TSM_DIR="${TETRA_SRC}/bash/tsm"
+# TSM Source Directory (where bash files live)
+export TSM_SRC="${TETRA_SRC}/bash/tsm"
 
-# TSM Runtime Directory Structure
+# TSM Runtime Directory Structure (PM2-style: process directories)
 export TSM_LOGS_DIR="${TETRA_DIR}/tsm/runtime/logs"
 export TSM_PIDS_DIR="${TETRA_DIR}/tsm/runtime/pids"
 export TSM_PROCESSES_DIR="${TETRA_DIR}/tsm/runtime/processes"

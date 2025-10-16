@@ -1,0 +1,77 @@
+🚀 Starting Tetra Server (local) on port 4444
+🔧 Feature flags: { console_access: true, limited_console: false, proxy_only: false }
+🎮 Initializing Tetra Gamepad Handler...
+   Mode: optional
+   Pipe: enabled
+   Mapping: enabled
+📡 Created named pipe: /tmp/tetra-gamepad.fifo
+🖥️ Local Terminal enabled
+🔗 Initializing SSH Bridge WebSocket server
+🔗 SSH Bridge enabled
+✅ Tetra server running on http://127.0.0.1:4444
+📊 Environment: local
+🔌 WebSocket SSH bridge: enabled
+📝 Opened pipe for writing
+🔍 Found 39 HID devices
+🎮 Connecting to: 8Bitdo SN30 Pro
+   Vendor: 11720, Product: 24833
+✅ Gamepad connected and ready
+✅ Gamepad handler initialized
+   Pipe: /tmp/tetra-gamepad.fifo
+   Poll rate: 60 Hz
+🎮 Button 7 -> 'D'
+🎮 Button 15 -> 'ESC[C'
+🕹️  Axis 0 -> -0.98 -> 'a'
+🕹️  Axis 1 -> -0.88 -> 'i'
+🎮 Button 8 -> 'q'
+🎮 Button 9 -> 'h'
+🎮 Button 10 -> 'o'
+🎮 Button 11 -> '/'
+🎮 Button 12 -> 'ESC[A'
+🎮 Button 13 -> 'ESC[B'
+🎮 Button 14 -> 'ESC[D'
+🎮 Button 15 -> 'ESC[C'
+🎮 Button 8 -> 'q'
+🎮 Button 9 -> 'h'
+🎮 Button 10 -> 'o'
+🎮 Button 11 -> '/'
+🎮 Button 12 -> 'ESC[A'
+🎮 Button 13 -> 'ESC[B'
+🎮 Button 14 -> 'ESC[D'
+🎮 Button 15 -> 'ESC[C'
+🎮 Button 8 -> 'q'
+🎮 Button 9 -> 'h'
+🎮 Button 10 -> 'o'
+🎮 Button 11 -> '/'
+🎮 Button 12 -> 'ESC[A'
+🎮 Button 13 -> 'ESC[B'
+🎮 Button 14 -> 'ESC[D'
+🎮 Button 15 -> 'ESC[C'
+🎮 Button 8 -> 'q'
+🎮 Button 9 -> 'h'
+🎮 Button 10 -> 'o'
+🎮 Button 11 -> '/'
+🎮 Button 12 -> 'ESC[A'
+🎮 Button 13 -> 'ESC[B'
+🎮 Button 14 -> 'ESC[D'
+🎮 Button 15 -> 'ESC[C'
+🎮 Button 8 -> 'q'
+🎮 Button 9 -> 'h'
+🎮 Button 10 -> 'o'
+🎮 Button 11 -> '/'
+🎮 Button 12 -> 'ESC[A'
+🎮 Button 13 -> 'ESC[B'
+🎮 Button 14 -> 'ESC[D'
+🎮 Button 15 -> 'ESC[C'
+🎮 Button 8 -> 'q'
+🎮 Button 9 -> 'h'
+🎮 Button 10 -> 'o'
+🎮 Button 11 -> '/'
+🎮 Button 12 -> 'ESC[A'
+🎮 Button 13 -> 'ESC[B'
+🎮 Button 14 -> 'ESC[D'
+🎮 Button 15 -> 'ESC[C'
+🔍 Found 38 HID devices
+🎮 Connecting to: Unknown Gamepad
+   Vendor: 0, Product: 0
+✅ Gamepad connected and ready

@@ -5,20 +5,6 @@
 
 # === CORE HELPERS ===
 
-_tsm_get_next_id() {
-    local id_file="$TSM_ID_FILE"
-    local next_id
-
-    if [[ -f "$id_file" ]]; then
-        next_id=$(cat "$id_file")
-    else
-        next_id=0
-    fi
-
-    echo $((next_id + 1)) > "$id_file"
-    echo "$next_id"
-}
-
 _tsm_validate_script() {
     local script="$1"
     [[ -n "$script" ]] || { echo "tsm: script required" >&2; return 64; }
@@ -41,6 +27,5 @@ _tsm_generate_process_name() {
 }
 
 # Export helper functions
-export -f _tsm_get_next_id
 export -f _tsm_validate_script
 export -f _tsm_generate_process_name

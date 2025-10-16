@@ -1,41 +1,39 @@
 #!/bin/bash
 
-# TSM Patrol System - Automatic cleanup and port management
-# Handles stale process cleanup and port range validation
-
-# Load services configuration
-# Cross-module dependencies handled by include.sh loading order
-# services/registry.sh functions are available after include.sh completes
+# TSM Patrol System - Automatic cleanup
+# PM2-style: Only checks process directories in runtime/processes/
 
 # Silent patrol - cleanup without output
 tsm_patrol_silent() {
     local cleaned=0
 
-    if [[ ! -d "$TSM_PROCESSES_DIR" ]]; then
-        return 0
+    # Clean up stale process directories
+    if [[ -d "$TSM_PROCESSES_DIR" ]]; then
+        for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+            [[ -d "$process_dir" ]] || continue
+
+            local name=$(basename "$process_dir")
+            local meta_file="${process_dir}meta.json"
+
+            # If no metadata, clean up directory
+            if [[ ! -f "$meta_file" ]]; then
+                rm -rf "$process_dir"
+                cleaned=$((cleaned + 1))
+                continue
+            fi
+
+            # Check if process is still running
+            local pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
+            if [[ -z "$pid" ]] || ! kill -0 "$pid" 2>/dev/null; then
+                # Update status to crashed before cleanup
+                jq '.status = "crashed"' "$meta_file" > "${meta_file}.tmp" 2>/dev/null && \
+                    mv "${meta_file}.tmp" "$meta_file"
+
+                # Keep directory for historical purposes (can add auto-removal later)
+                cleaned=$((cleaned + 1))
+            fi
+        done
     fi
-
-    for process_file in "$TSM_PROCESSES_DIR"/*.meta; do
-        [[ -f "$process_file" ]] || continue
-
-        local process_name=$(basename "$process_file" .meta)
-        local pid
-        pid=$(grep -o "pid=[0-9]*" "$process_file" 2>/dev/null | cut -d'=' -f2)
-
-        if [[ -z "$pid" ]]; then
-            rm -f "$process_file"
-            rm -f "$TSM_PIDS_DIR/$process_name.pid" 2>/dev/null
-            cleaned=$((cleaned + 1))
-            continue
-        fi
-
-        # Check if process is still running
-        if ! kill -0 "$pid" 2>/dev/null; then
-            rm -f "$process_file"
-            rm -f "$TSM_PIDS_DIR/$process_name.pid" 2>/dev/null
-            cleaned=$((cleaned + 1))
-        fi
-    done
 
     return $cleaned
 }
@@ -49,40 +47,41 @@ tsm_patrol() {
         echo "🚨 TSM Patrol: Checking for stale processes..."
     fi
 
-    if [[ ! -d "$TSM_PROCESSES_DIR" ]]; then
-        [[ "$show_output" == "true" ]] && echo "✅ No process tracking directory"
-        return 0
+    # Clean up stale process directories
+    if [[ -d "$TSM_PROCESSES_DIR" ]]; then
+        for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+            [[ -d "$process_dir" ]] || continue
+
+            local name=$(basename "$process_dir")
+            local meta_file="${process_dir}meta.json"
+
+            # If no metadata, clean up directory
+            if [[ ! -f "$meta_file" ]]; then
+                [[ "$show_output" == "true" ]] && echo "🧹 Removing invalid process directory: $name"
+                rm -rf "$process_dir"
+                cleaned=$((cleaned + 1))
+                continue
+            fi
+
+            # Check if process is still running
+            local pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
+            if [[ -z "$pid" ]] || ! kill -0 "$pid" 2>/dev/null; then
+                [[ "$show_output" == "true" ]] && echo "🧹 Marking crashed process: $name (PID $pid)"
+
+                # Update status to crashed
+                jq '.status = "crashed"' "$meta_file" > "${meta_file}.tmp" 2>/dev/null && \
+                    mv "${meta_file}.tmp" "$meta_file"
+
+                cleaned=$((cleaned + 1))
+            fi
+        done
     fi
-
-    for process_file in "$TSM_PROCESSES_DIR"/*.meta; do
-        [[ -f "$process_file" ]] || continue
-
-        local process_name=$(basename "$process_file" .meta)
-        local pid
-        pid=$(grep -o "pid=[0-9]*" "$process_file" 2>/dev/null | cut -d'=' -f2)
-
-        if [[ -z "$pid" ]]; then
-            [[ "$show_output" == "true" ]] && echo "🧹 Cleaning invalid process file: $process_name"
-            rm -f "$process_file"
-            rm -f "$TSM_PIDS_DIR/$process_name.pid" 2>/dev/null
-            cleaned=$((cleaned + 1))
-            continue
-        fi
-
-        # Check if process is still running
-        if ! kill -0 "$pid" 2>/dev/null; then
-            [[ "$show_output" == "true" ]] && echo "🧹 Cleaning stale process: $process_name (PID $pid)"
-            rm -f "$process_file"
-            rm -f "$TSM_PIDS_DIR/$process_name.pid" 2>/dev/null
-            cleaned=$((cleaned + 1))
-        fi
-    done
 
     if [[ "$show_output" == "true" ]]; then
         if [[ $cleaned -eq 0 ]]; then
             echo "✅ No stale processes found"
         else
-            echo "✅ Cleaned up $cleaned stale processes"
+            echo "✅ Cleaned up $cleaned stale entries"
         fi
     fi
 

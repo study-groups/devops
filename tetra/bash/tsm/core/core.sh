@@ -80,9 +80,7 @@ if declare -f tetra_tsm_setup >/dev/null; then
 fi
 
 # Helpers module
-if declare -f _tsm_get_next_id >/dev/null; then
-    export -f _tsm_get_next_id
-fi
+# Note: _tsm_get_next_id removed - replaced by tetra_tsm_get_next_id in utils.sh
 if declare -f _tsm_validate_script >/dev/null; then
     export -f _tsm_validate_script
 fi

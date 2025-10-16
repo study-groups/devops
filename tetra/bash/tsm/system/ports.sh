@@ -499,7 +499,136 @@ tsm_ports_overview() {
     echo "  ⏹️  STOPPED - Service not currently running in TSM"
 }
 
-# Export functions for use in other TSM modules
+# === DOUBLE-ENTRY PORT ACCOUNTING (merged from core/ports_double.sh) ===
+
+# Initialize port registry (TSV format for reconciliation)
+tsm_init_port_registry() {
+    local registry="$TSM_PORTS_DIR/registry.tsv"
+    mkdir -p "$(dirname "$registry")"
+
+    if [[ ! -f "$registry" ]]; then
+        echo -e "tsm_id\tname\tdeclared_port\tactual_port\tpid\ttimestamp" > "$registry"
+    fi
+}
+
+# Register declared port
+tsm_register_port() {
+    local tsm_id="$1"
+    local name="$2"
+    local declared_port="$3"
+    local pid="$4"
+
+    local registry="$TSM_PORTS_DIR/registry.tsv"
+    tsm_init_port_registry
+
+    echo -e "$tsm_id\t$name\t$declared_port\tnone\t$pid\t$(date +%s)" >> "$registry"
+}
+
+# Update actual scanned port
+tsm_update_actual_port() {
+    local tsm_id="$1"
+    local actual_port="$2"
+
+    local registry="$TSM_PORTS_DIR/registry.tsv"
+    [[ ! -f "$registry" ]] && return 1
+
+    local tmp="${registry}.tmp"
+
+    awk -v id="$tsm_id" -v port="$actual_port" '
+        BEGIN {FS=OFS="\t"}
+        NR==1 {print; next}
+        $1==id {$4=port}
+        {print}
+    ' "$registry" > "$tmp" && mv "$tmp" "$registry"
+}
+
+# Deregister port when process stops
+tsm_deregister_port() {
+    local tsm_id="$1"
+
+    local registry="$TSM_PORTS_DIR/registry.tsv"
+    [[ ! -f "$registry" ]] && return 0
+
+    local tmp="${registry}.tmp"
+
+    awk -v id="$tsm_id" 'BEGIN {FS=OFS="\t"} NR==1 || $1!=id {print}' "$registry" > "$tmp" && mv "$tmp" "$registry"
+}
+
+# Scan actual listening ports
+tsm_scan_actual_ports() {
+    if command -v lsof >/dev/null 2>&1; then
+        lsof -iTCP -sTCP:LISTEN -n -P 2>/dev/null | awk 'NR>1 {print $2, $9}' | sed 's/.*://' | sed 's/\*://' | grep -E '^[0-9]+ [0-9]+$'
+    else
+        netstat -tlnp 2>/dev/null | awk '/LISTEN/ {print $7, $4}' | sed 's/\// /' | sed 's/.*://' | grep -E '^[0-9]+ [0-9]+$'
+    fi
+}
+
+# Reconcile declared vs actual ports
+tsm_reconcile_ports() {
+    echo "🔍 Port Accounting Reconciliation"
+    echo "=================================="
+
+    local registry="$TSM_PORTS_DIR/registry.tsv"
+    if [[ ! -f "$registry" ]]; then
+        echo "No port registry found"
+        return 0
+    fi
+
+    declare -A tsm_by_pid
+    declare -A tsm_by_port
+
+    while IFS=$'\t' read -r tsm_id name declared_port actual_port pid timestamp; do
+        [[ "$tsm_id" == "tsm_id" ]] && continue
+        tsm_by_pid[$pid]="$tsm_id:$name:$declared_port:$actual_port"
+        [[ "$declared_port" != "none" ]] && tsm_by_port[$declared_port]="$tsm_id:$name:$pid"
+    done < "$registry"
+
+    declare -A actual_ports
+    while read -r pid port; do
+        actual_ports[$pid]=$port
+    done < <(tsm_scan_actual_ports)
+
+    local correct=0 mismatches=0 orphans=0
+
+    echo ""
+    echo "📊 TSM-Managed Processes:"
+    for pid in "${!tsm_by_pid[@]}"; do
+        IFS=':' read -r tsm_id name declared_port stored_actual <<< "${tsm_by_pid[$pid]}"
+        local actual_port="${actual_ports[$pid]:-none}"
+
+        if [[ "$declared_port" == "$actual_port" ]]; then
+            echo "  ✅ TSM ID $tsm_id: $name (port=$actual_port)"
+            ((correct++))
+        elif [[ "$declared_port" == "none" && "$actual_port" == "none" ]]; then
+            echo "  ✅ TSM ID $tsm_id: $name (no port)"
+            ((correct++))
+        elif [[ "$actual_port" == "none" ]]; then
+            echo "  ⚠️  TSM ID $tsm_id: $name - DECLARED port $declared_port but NOTHING listening"
+            ((mismatches++))
+        else
+            echo "  ❌ TSM ID $tsm_id: $name - PORT MISMATCH (declared=$declared_port, actual=$actual_port)"
+            ((mismatches++))
+        fi
+    done
+
+    echo ""
+    echo "🔓 System Ports Not in TSM Registry:"
+    for pid in "${!actual_ports[@]}"; do
+        if [[ -z "${tsm_by_pid[$pid]:-}" ]]; then
+            local port="${actual_ports[$pid]}"
+            local cmd=$(ps -p "$pid" -o comm= 2>/dev/null || echo "unknown")
+            echo "  🔓 PID $pid: $cmd listening on port $port (not managed by TSM)"
+            ((orphans++))
+        fi
+    done
+
+    echo ""
+    echo "📈 Summary: ✅ Correct: $correct | ❌ Mismatches: $mismatches | 🔓 Orphan ports: $orphans"
+
+    [[ $mismatches -eq 0 ]]
+}
+
+# Export unified functions
 export -f tsm_get_named_port
 export -f tsm_get_port_owner
 export -f tsm_list_named_ports
@@ -509,6 +638,12 @@ export -f tsm_remove_named_port
 export -f tsm_resolve_service_port
 export -f tsm_scan_named_ports
 export -f tsm_ports_overview
+export -f tsm_init_port_registry
+export -f tsm_register_port
+export -f tsm_update_actual_port
+export -f tsm_deregister_port
+export -f tsm_scan_actual_ports
+export -f tsm_reconcile_ports
 
 # Check if a port is reserved
 _tsm_is_port_reserved() {

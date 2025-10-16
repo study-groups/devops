@@ -49,28 +49,75 @@ check_dependencies() {
     fi
 }
 
-# Scan common development ports
+# Scan common development ports + TSM-managed ports
 scan_common_ports() {
-    local ports=(3000 3001 4000 4001 5000 5001 8000 8080 8888 9000)
+    # Always start with common development ports
+    local ports=(3000 3001 4000 4001 5000 5001 8000 8001 8080 8888 9000 9001)
+
+    # Add any TSM-managed ports not in common list
+    if [[ -d "$TSM_PROCESSES_DIR" ]]; then
+        for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+            [[ -d "$process_dir" ]] || continue
+            local meta_file="${process_dir}meta.json"
+            if [[ -f "$meta_file" ]]; then
+                local port=$(jq -r '.port // empty' "$meta_file" 2>/dev/null)
+                if [[ -n "$port" && "$port" != "none" && "$port" =~ ^[0-9]+$ ]]; then
+                    # Add to list if not already present
+                    local found=false
+                    for existing_port in "${ports[@]}"; do
+                        if [[ "$existing_port" == "$port" ]]; then
+                            found=true
+                            break
+                        fi
+                    done
+                    if [[ "$found" == "false" ]]; then
+                        ports+=("$port")
+                    fi
+                fi
+            fi
+        done
+    fi
+
+    # Sort and deduplicate all ports
+    IFS=$'\n' ports=($(sort -nu <<<"${ports[*]}"))
+    unset IFS
 
     log "Scanning common development ports..."
+
     echo
-    printf "%-6s %-8s %-20s %-10s %s\n" "PORT" "STATUS" "PROCESS" "PID" "COMMAND"
-    printf "%-6s %-8s %-20s %-10s %s\n" "----" "------" "-------" "---" "-------"
+    printf "%-6s %-8s %-10s %-20s %-10s %s\n" "PORT" "STATUS" "TSM" "PROCESS" "PID" "COMMAND"
+    printf "%-6s %-8s %-10s %-20s %-10s %s\n" "----" "------" "---" "-------" "---" "-------"
 
     for port in "${ports[@]}"; do
         local result=$(lsof -ti :$port 2>/dev/null)
+        local is_tsm_managed="-"
+
+        # Check if this port is managed by TSM
+        if [[ -d "$TSM_PROCESSES_DIR" ]]; then
+            for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+                [[ -d "$process_dir" ]] || continue
+                local meta_file="${process_dir}meta.json"
+                if [[ -f "$meta_file" ]]; then
+                    local meta_port=$(jq -r '.port // empty' "$meta_file" 2>/dev/null)
+                    if [[ "$meta_port" == "$port" ]]; then
+                        is_tsm_managed="TSM"
+                        break
+                    fi
+                fi
+            done
+        fi
+
         if [[ -n "$result" ]]; then
             local pid="$result"
             local process=$(ps -p $pid -o comm= 2>/dev/null || echo "unknown")
             local cmd=$(ps -p $pid -o args= 2>/dev/null | cut -c1-40 || echo "unknown")
             printf "%-6s " "$port"
             text_color "FF0044"; printf "%-8s" "USED"; reset_color
-            printf " %-20s %-10s %s\n" "$process" "$pid" "$cmd"
+            printf " %-10s %-20s %-10s %s\n" "$is_tsm_managed" "$process" "$pid" "$cmd"
         else
             printf "%-6s " "$port"
             text_color "00AA00"; printf "%-8s" "FREE"; reset_color
-            printf " %-20s %-10s %s\n" "-" "-" "-"
+            printf " %-10s %-20s %-10s %s\n" "$is_tsm_managed" "-" "-" "-"
         fi
     done
     echo

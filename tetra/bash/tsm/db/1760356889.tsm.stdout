@@ -1,0 +1,11 @@
+🚀 Starting Tetra Server (local) on port 4444
+🔧 Feature flags: { console_access: true, limited_console: false, proxy_only: false }
+🎮 Initializing Tetra Gamepad Handler...
+   Mode: optional
+   Pipe: enabled
+   Mapping: enabled
+🗑️  Removed old pipe: /tmp/tetra-gamepad.fifo
+📡 Created named pipe: /tmp/tetra-gamepad.fifo
+🖥️ Local Terminal enabled
+🔗 Initializing SSH Bridge WebSocket server
+🔗 SSH Bridge enabled

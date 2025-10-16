@@ -1,0 +1,2 @@
+usage: server.py [-h] [--cgi] [-b ADDRESS] [-d DIRECTORY] [-p VERSION] [port]
+server.py: error: unrecognized arguments: test-server

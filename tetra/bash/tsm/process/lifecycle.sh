@@ -165,15 +165,18 @@ tetra_tsm_start_webserver() {
 tetra_tsm_stop_single() {
     local name="$1"
     local force="${2:-false}"
-    local pidfile="$TSM_PIDS_DIR/$name.pid"
 
-    tetra_tsm_is_running "$name" || {
+    # Resolve name to timestamp via active symlink
+    if ! tsm_is_active "$name"; then
         echo "tsm: process '$name' not running"
         return 1
-    }
+    fi
 
-    local pid
-    pid=$(cat "$pidfile")
+    local timestamp=$(tsm_resolve_active_to_timestamp "$name")
+    local pid=$(tsm_metadata_get "$timestamp" "pid")
+
+    # Log stop attempt
+    tetra_log_try "tsm" "stop" "$name" "{\"pid\":$pid,\"force\":$force}"
 
     # Get process group ID
     local pgid=""
@@ -221,8 +224,15 @@ tetra_tsm_stop_single() {
         fi
     fi
 
-    # Clean up files
-    rm -f "$pidfile"
+    # Update metadata
+    tsm_metadata_set_status "$timestamp" "stopped"
+    tsm_metadata_set_stop_time "$timestamp" "$(date +%s)"
+
+    # Remove active symlink
+    tsm_deactivate "$name"
+
+    # Log success
+    tetra_log_success "tsm" "stop" "$name" "{\"pid\":$pid,\"timestamp\":$timestamp}"
 
     echo "tsm: stopped '$name'"
 }
@@ -246,16 +256,29 @@ tetra_tsm_delete_single() {
     local name="$1"
 
     # Stop the process if running
-    tetra_tsm_is_running "$name" && tetra_tsm_stop_single "$name" "true" 2>/dev/null || true
+    tsm_is_active "$name" && tetra_tsm_stop_single "$name" "true" 2>/dev/null || true
 
-    # Remove all associated files
-    rm -f "$TSM_PIDS_DIR/$name.pid"
-    rm -f "$TSM_LOGS_DIR/$name.out"
-    rm -f "$TSM_LOGS_DIR/$name.err"
-    rm -f "$TSM_PROCESSES_DIR/$name.meta"
-    rm -f "$TSM_PROCESSES_DIR/$name.env"
+    # Get all timestamps for this name (historical)
+    local timestamps=$(tsm_get_service_history "$name")
 
-    echo "tsm: deleted '$name'"
+    if [[ -n "$timestamps" ]]; then
+        while IFS= read -r timestamp; do
+            # Remove all TCS files for this timestamp
+            local db_files=$(tsm_get_db_files "$timestamp")
+            if [[ -n "$db_files" ]]; then
+                echo "$db_files" | xargs rm -f
+            fi
+
+            # Unregister from names registry
+            tsm_unregister_name "$timestamp"
+        done <<< "$timestamps"
+
+        tetra_log_success "tsm" "delete" "$name" "{}"
+        echo "tsm: deleted '$name' (removed $(echo "$timestamps" | wc -l | tr -d ' ') instance(s))"
+    else
+        echo "tsm: process '$name' not found"
+        return 1
+    fi
 }
 
 tetra_tsm_delete_by_id() {
