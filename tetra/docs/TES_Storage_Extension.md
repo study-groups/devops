@@ -1,15 +1,22 @@
 # TES Storage Extension
 ## DigitalOcean Spaces and S3-Compatible Endpoints
 
-**Version:** 1.0.0
-**TES Version:** 2.1
-**Date:** 2025-10-10
+**Version:** 1.1.0
+**TCS Version:** 3.0
+**Date:** 2025-10-13
+
+---
+
+## Related Documentation
+- [Tetra Core Specification](Tetra_Core_Specification.md) - Foundational concepts (TCS 3.0)
+- [TES SSH Extension](TES_SSH_Extension.md) - SSH deployment specifics
+- [Module Convention](Tetra_Module_Convention.md) - Module integration patterns
 
 ---
 
 ## Overview
 
-This document extends the Tetra Endpoint Specification (TES) to support cloud storage endpoints like DigitalOcean Spaces, AWS S3, and S3-compatible services.
+This document extends the [Tetra Core Specification (TCS 3.0)](Tetra_Core_Specification.md) to support cloud storage endpoints like DigitalOcean Spaces, AWS S3, and S3-compatible services. It builds on TCS 3.0's operator hierarchy and progressive resolution patterns.
 
 ## Storage Symbol Syntax
 
@@ -93,6 +100,29 @@ DO_SPACES_SECRET=+kH1E4zhaaisTmKwQRoJS9nfDRK2j9ZOigXmm0PJygY
 # AWS S3
 AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
 AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+```
+
+## Type Contracts (TCS 3.0)
+
+All storage operations MUST declare type contracts using the `::` operator:
+
+```bash
+# Storage module contracts
+storage.list :: (@storage:bucket:path) → [@file:path]
+  where Effect[network, read]
+
+storage.get :: (@storage:bucket:path, target:path) → @local:path
+  where Effect[network, write]
+
+storage.put :: (@local:path → @storage:bucket:path)
+  where Effect[network, write, log]
+
+storage.sync :: (@local:path → @storage:bucket:path)
+  where Effect[network, write, delete, log]
+
+# VOX sync example
+vox.sync :: (@vox:*.mp3 → @spaces:vox-audio/*.mp3)
+  where Effect[network, write, log]
 ```
 
 ## Storage Operations

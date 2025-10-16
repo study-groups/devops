@@ -1,9 +1,25 @@
-Tetra Endpoint Specification (TES)
+# TES SSH Extension
 
-  Version 2.1
-  Date: 2025-10-10
+**Version:** 2.1
+**TCS Version:** 3.0
+**Date:** 2025-10-10
+**Status:** Extension Specification
 
-  ---
+---
+
+## Related Documentation
+- [Tetra Core Specification](Tetra_Core_Specification.md) - Foundational concepts (TCS 3.0)
+- [TES Storage Extension](TES_Storage_Extension.md) - Cloud storage integration
+- [Module Convention](Tetra_Module_Convention.md) - Module integration patterns
+
+---
+
+## Abstract
+
+The TES SSH Extension builds on the [Tetra Core Specification (TCS 3.0)](Tetra_Core_Specification.md) to provide SSH-specific progressive resolution and dual-role authentication for remote deployments. This extension defines how tetra handles SSH connections, credentials, and remote operations while maintaining TCS 3.0 compliance.
+
+---
+
   1. Core Concepts
 
   1.1 Separation of Concerns
