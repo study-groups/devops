@@ -1,0 +1,50 @@
+# TSM Named Port Registry Configuration
+# Auto-generated on 2025-09-24T06:37:33Z
+
+[allocation]
+max_port = 9999
+allocation_strategy = "sequential"
+avoid_system_ports = "true"
+auto_allocate = "true"
+min_port = 3000
+
+[conflicts]
+prefer_named_services = "true"
+auto_resolve = "false"
+check_on_start = "true"
+
+[metadata]
+last_updated = "2025-09-24T06:37:33Z"
+version = "1.0"
+auto_updated = "true"
+
+[port_ranges]
+prod = "8000-8999"
+dev = "5000-5999"
+proxy = "7000-7999"
+staging = "6000-6999"
+
+[ports]
+autoservice = ""
+arcade-dev = 5800
+tetra = 4444
+devpages-dev = 4000
+tetra-prod = 8444
+devpages-prod = 8000
+tetra-staging = 6444
+arcade-staging = 6800
+pbase-dev = 5600
+testservice = ""
+arcade-prod = 8800
+pbase-prod = 8600
+tetra-dev = 4444
+devpages-staging = 6000
+pbase = 5600
+devpages = 4000
+arcade = 5800
+pbase-staging = 6600
+
+[reserved]
+system = [22, 80, 443, 3306, 5432, 6379, 27017]
+development = [3000, 8080, 9000]
+

@@ -3,6 +3,9 @@
 # Tetra Bootloader - Single entry point for Tetra environment
 # Replaces bootstrap.sh and tetra_env.sh with cleaner architecture
 
+# Error tracking
+export TETRA_BOOT_ERRORS=()
+
 # Prevent multiple loads in the same shell session
 if [[ "${TETRA_BOOTLOADER_LOADED:-}" == "$$" ]]; then
     return 0
@@ -15,11 +18,39 @@ export TETRA_SRC="${TETRA_SRC:-$HOME/src/devops/tetra}"
 # Bootloader components directory
 BOOT_DIR="$TETRA_SRC/bash/boot"
 
-# Load bootloader components in order
-source "$BOOT_DIR/boot_core.sh"      # Core functions and module system
-source "$BOOT_DIR/boot_modules.sh"   # Module registration and lazy loading
-source "$BOOT_DIR/boot_aliases.sh"   # Aliases and shortcuts
-source "$BOOT_DIR/boot_prompt.sh"    # Prompt and interactive setup
+# Error handler for component loading
+_tetra_load_component() {
+    local component_path="$1"
+    local component_name=$(basename "$component_path")
+
+    if [[ ! -f "$component_path" ]]; then
+        TETRA_BOOT_ERRORS+=("MISSING: $component_name")
+        echo "ERROR: Missing bootloader component: $component_name" >&2
+        return 1
+    fi
+
+    if ! source "$component_path" 2>&1; then
+        TETRA_BOOT_ERRORS+=("FAILED: $component_name - $?")
+        echo "ERROR: Failed to load: $component_name" >&2
+        return 1
+    fi
+
+    return 0
+}
+
+# Load bootloader components in order with error tracking
+_tetra_load_component "$BOOT_DIR/boot_core.sh" || true      # Core functions and module system
+_tetra_load_component "$BOOT_DIR/boot_modules.sh" || true   # Module registration and lazy loading
+_tetra_load_component "$BOOT_DIR/boot_aliases.sh" || true   # Aliases and shortcuts
+_tetra_load_component "$BOOT_DIR/boot_prompt.sh" || true    # Prompt and interactive setup
+
+# Report boot errors if any
+if [[ ${#TETRA_BOOT_ERRORS[@]} -gt 0 ]]; then
+    echo "TETRA BOOT ERRORS DETECTED:" >&2
+    for error in "${TETRA_BOOT_ERRORS[@]}"; do
+        echo "  - $error" >&2
+    done
+fi
 
 # Auto-load enabled modules after all components are ready (prevent recursion)
 if [[ "${TETRA_AUTO_LOADING:-}" != "true" && "${TETRA_BOOTLOADER_LOADED:-}" != "$$" ]]; then
