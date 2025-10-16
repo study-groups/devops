@@ -1,2 +1,4 @@
 #!/usr/bin/env bash
-$HOME/src/bash/rag/bash/multicat.sh ${@}
+# Require TETRA_SRC to be set
+: "${TETRA_SRC:?TETRA_SRC must be set. Source ~/tetra/tetra.sh first}"
+exec "$TETRA_SRC/bash/rag/core/multicat/multicat.sh" "$@"

@@ -185,6 +185,55 @@ generate_agent_example() {
     fi
 }
 
+list_available_agents_cli() {
+    local sys_dir="${TETRA_SRC:-$(dirname "$0")/../..}/bash/rag/agents"
+    local user_dir="${TETRA_DIR:-$HOME/.tetra}/rag/agents"
+
+    echo "Available LLM Agents"
+    echo "════════════════════════════════════════════════════════════"
+    echo ""
+
+    # System agents
+    local found=0
+    if [[ -d "$sys_dir" ]]; then
+        for conf in "$sys_dir"/*.conf; do
+            [[ -f "$conf" ]] || continue
+            found=1
+            local name=$(basename "$conf" .conf)
+            local desc=$(grep '^AGENT_DESCRIPTION=' "$conf" 2>/dev/null | cut -d'"' -f2)
+            printf "  %-20s %s\n" "$name" "${desc:-(system agent)}"
+            printf "  └─ %s\n" "${conf/$HOME/~}"
+            echo ""
+        done
+    fi
+
+    # User agents
+    if [[ -d "$user_dir" ]]; then
+        for conf in "$user_dir"/*.conf; do
+            [[ -f "$conf" ]] || continue
+            found=1
+            local name=$(basename "$conf" .conf)
+            local desc=$(grep '^AGENT_DESCRIPTION=' "$conf" 2>/dev/null | cut -d'"' -f2)
+            printf "  %-20s %s\n" "$name" "${desc:-(user agent)}"
+            printf "  └─ %s\n" "${conf/$HOME/~}"
+            echo ""
+        done
+    fi
+
+    if [[ $found -eq 0 ]]; then
+        echo "  No agent profiles found."
+        echo ""
+        echo "  System directory: $sys_dir"
+        echo "  User directory:   $user_dir"
+        echo ""
+    fi
+
+    echo "Usage:"
+    echo "  mc --agent <name> [files...]        Use specific agent profile"
+    echo "  mc --example <name>                 Generate agent-specific example"
+    echo ""
+}
+
 # --- ULM Integration ---
 
 get_ulm_path() {
@@ -324,7 +373,15 @@ while [[ $# -gt 0 ]]; do
     -m) shift; manifest_path="${1:-}"; [[ -n "$manifest_path" && -f "$manifest_path" ]] || { echo "Missing/invalid -m file" >&2; exit 1; } ;;
     -C) shift; root_dir="${1:-}"; [[ -n "$root_dir" ]] || { echo "Missing -C <dir>" >&2; exit 1; } ;;
     --tree-only) tree_only=1 ;;
-    --agent) shift; agent_name="${1:-}"; [[ -n "$agent_name" ]] || { echo "Missing --agent <name>" >&2; exit 1; } ;;
+    --agent)
+      shift
+      if [[ -z "${1:-}" || "${1}" == -* ]]; then
+        # No value or next arg is a flag → list agents
+        list_available_agents_cli
+        exit 0
+      fi
+      agent_name="${1}"
+      ;;
     --ulm-rank) shift; ulm_query="${1:-}"; ulm_ranking=1; [[ -n "$ulm_query" ]] || { echo "Missing --ulm-rank <query>" >&2; exit 1; } ;;
     --ulm-top) shift; ulm_top="${1:-20}"; [[ "$ulm_top" =~ ^[0-9]+$ ]] || { echo "Invalid --ulm-top value" >&2; exit 1; } ;;
     --dryrun) dryrun=1 ;;

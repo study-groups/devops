@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
+# RAG Module Includes
+# Loads all RAG functionality for TCS-compliant integration
 
-# RAG Module Includes - Controls what gets loaded for RAG functionality
+: "${RAG_SRC:=$TETRA_SRC/bash/rag}"
 
-# TETRA_SRC should never be redefined - it points to the tetra project root
-# Use TETRA_BASH for the bash directory
-: "${TETRA_BASH:=$TETRA_SRC/bash}"
+# Core RAG functionality
+[[ -f "$RAG_SRC/rag.sh" ]] && source "$RAG_SRC/rag.sh"
 
-# Set RAG module variables with proper override guards
-: "${RAG_SRC:=$TETRA_BASH/rag}"
-: "${RAG_DIR:=$TETRA_DIR/rag}"
+# TCS-compliant actions (for TUI integration)
+[[ -f "$RAG_SRC/actions.sh" ]] && source "$RAG_SRC/actions.sh"
 
-# Source the main RAG module
-source "$RAG_SRC/rag.sh"
+# Bash completion
+[[ -f "$RAG_SRC/rag_completion.sh" ]] && source "$RAG_SRC/rag_completion.sh"
 
-# Export RAG module variables
-export RAG_SRC RAG_DIR
+# State management
+[[ -f "$RAG_SRC/state_manager.sh" ]] && source "$RAG_SRC/state_manager.sh"
+
+# Extensions (if present)
+[[ -f "$RAG_SRC/rag_extensions.sh" ]] && source "$RAG_SRC/rag_extensions.sh"
