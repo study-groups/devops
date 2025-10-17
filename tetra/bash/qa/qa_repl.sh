@@ -6,11 +6,11 @@
 source "${TETRA_SRC:-$HOME/src/devops/tetra}/bash/utils/repl_utils.sh"
 
 qa_repl() {
-    echo "🤖 QA Interactive REPL - Question & Answer System"
+    echo "QA Interactive REPL - Question & Answer System"
     echo "Commands: query, set-engine, set-context, search, browse, help, status, exit"
     echo "Current engine: $(_get_qa_engine)"
     echo "Current context: $(_get_qa_context)"
-    echo "Tip: Just type your question directly to query!"
+    echo "Tip: Type your question directly to query"
     echo
 
     while true; do
@@ -27,7 +27,7 @@ qa_repl() {
 
         case "$cmd" in
             "exit"|"quit"|"q")
-                echo "Thanks for using QA! Happy learning!"
+                echo "Exiting QA REPL"
                 break
                 ;;
             "help"|"h")
@@ -38,7 +38,7 @@ qa_repl() {
                 ;;
             "query"|"q"|"ask")
                 if [[ -n "$args" ]]; then
-                    echo "🔍 Querying: $args"
+                    echo "Querying: $args"
                     qq "$args"
                 else
                     echo "Usage: query <your question>"
@@ -78,22 +78,35 @@ qa_repl() {
                 ;;
             "search")
                 if [[ -n "$args" ]]; then
-                    echo "🔍 Searching: $args"
+                    echo "Searching: $args"
                     qa_search "$args"
                 else
                     echo "Usage: search <term>"
                 fi
                 ;;
             "browse")
-                echo "📖 Browsing answers..."
-                qa_browse
+                # Optional viewer argument: browse [chroma|raw]
+                if [[ -n "$args" ]]; then
+                    qa_browse "$args"
+                else
+                    qa_browse
+                fi
                 ;;
-            "browse-glow")
-                echo "📖 Browsing with glow..."
-                qa_browse_glow
+            "browse-raw")
+                qa_browse raw
+                ;;
+            "viewer")
+                if [[ -n "$args" ]]; then
+                    export QA_VIEWER="$args"
+                    echo "Viewer set to: $args"
+                else
+                    echo "Current viewer: $(_qa_get_viewer)"
+                    echo "Available: chroma (default), raw"
+                    echo "Usage: viewer <name>"
+                fi
                 ;;
             "test")
-                echo "🧪 Running test query..."
+                echo "Running test query..."
                 qa_test
                 ;;
             "clear")
@@ -110,7 +123,7 @@ qa_repl() {
                 ;;
             *)
                 # Treat as direct query
-                echo "🔍 Querying: $input"
+                echo "Querying: $input"
                 qq "$input"
                 ;;
         esac
@@ -123,7 +136,7 @@ _qa_repl_help() {
     case "$topic" in
         "engines")
             cat <<EOF
-🤖 Available QA Engines:
+Available QA Engines:
 
 OpenAI Models:
   gpt-4              - Most capable, slower, more expensive
@@ -141,20 +154,21 @@ EOF
             ;;
         "commands")
             cat <<EOF
-🤖 QA REPL Commands:
+QA REPL Commands:
 
 Query Commands:
   query <question>     - Ask a question explicitly
   search <term>        - Search through previous answers
   last [n]             - Show last answer (or nth from last)
-  browse               - Browse all answers interactively
-  browse-glow          - Browse answers with glow preview
+  browse [viewer]      - Browse answers (defaults to chroma)
+  browse-raw           - Browse with plain text viewer
   test                 - Run test query
 
 Configuration:
   set-engine <name>    - Set AI engine (gpt-4, claude, etc.)
   set-context <text>   - Set default context for queries
   set-apikey <key>     - Set API key
+  viewer [name]        - Show or set viewer (chroma or raw)
   status               - Show system status
 
 System:
@@ -164,15 +178,15 @@ System:
   ls [args]            - List files
   exit, quit, q        - Exit REPL
 
-Note: You can also just type your question directly!
+Note: You can type your question directly
 EOF
             ;;
         *)
             cat <<EOF
-🤖 QA Interactive REPL Help:
+QA Interactive REPL Help:
 
 Quick Start:
-  Just type your question! No need for 'query' command.
+  Type your question directly. No need for 'query' command.
 
 Examples:
   What is the capital of France?
@@ -186,7 +200,8 @@ Configuration:
 Browse History:
   last                 - Show last answer
   search <term>        - Find previous answers
-  browse               - Interactive answer browser
+  browse               - Interactive answer browser (chroma by default)
+  browse raw           - Use plain text viewer
 
 Help Topics:
   help commands        - All available commands
@@ -199,10 +214,11 @@ EOF
 }
 
 _qa_repl_status() {
-    echo "🤖 QA System Status:"
-    echo "=================="
+    echo "QA System Status:"
+    echo "================"
     echo "Engine: $(_get_qa_engine)"
     echo "Context: $(_get_qa_context)"
+    echo "Viewer: $(_qa_get_viewer)"
     echo ""
     echo "Directories:"
     echo "  QA_DIR: ${QA_DIR:-<not set>}"

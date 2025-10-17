@@ -27,26 +27,23 @@ _truncate_middle() {
   fi
 }
 
-_get_openai_api() {
-  if [[ -z "$OPENAI_API" ]] && [[ -f "$OPENAI_API_FILE" ]]; then
-    OPENAI_API=$(cat "$OPENAI_API_FILE")
+# Generic getter for QA configuration values
+# Usage: _qa_get <var_name> <file_path>
+_qa_get() {
+  local var_name="$1"
+  local file_path="$2"
+  local -n var_ref="$var_name"
+
+  if [[ -z "$var_ref" ]] && [[ -f "$file_path" ]]; then
+    var_ref=$(cat "$file_path")
   fi
-  echo "$OPENAI_API"
+  echo "$var_ref"
 }
 
-_get_qa_engine() {
-  if [[ -z "$QA_ENGINE" ]] && [[ -f "$QA_ENGINE_FILE" ]]; then
-    QA_ENGINE=$(cat "$QA_ENGINE_FILE")
-  fi
-  echo "$QA_ENGINE"
-}
-
-_get_qa_context() {
-  if [[ -z "$QA_CONTEXT" ]] && [[ -f "$QA_CONTEXT_FILE" ]]; then
-    QA_CONTEXT=$(cat "$QA_CONTEXT_FILE")
-  fi
-  echo "$QA_CONTEXT"
-}
+# Convenience wrappers for specific configs
+_get_openai_api() { _qa_get OPENAI_API "$OPENAI_API_FILE"; }
+_get_qa_engine() { _qa_get QA_ENGINE "$QA_ENGINE_FILE"; }
+_get_qa_context() { _qa_get QA_CONTEXT "$QA_CONTEXT_FILE"; }
 
 _qa_sanitize_index ()
 {
@@ -77,59 +74,53 @@ _qa_sanitize_input()
     echo "$input"
 }
 
-qa_query() {
+# Unified input reading function
+_qa_read_input() {
   local input
 
   if [[ "$1" == "-" ]]; then
-    echo "Reading input from stdin (via placeholder '-')." >&2
     input=$(cat)
     shift
-  elif [[ ! -z "$1" ]]; then
-    echo "Reading input from command line arguments." >&2
+  elif [[ -n "$1" ]]; then
     input="$*"
   else
-    echo "Reading input from stdin." >&2
     input=$(cat)
+    if [[ $? -ne 0 ]]; then
+      echo "Error: Failed reading from stdin" >&2
+      return 1
+    fi
   fi
 
   if [[ -z "$input" ]]; then
-    echo "No input received." >&2
+    echo "Error: No input received" >&2
     return 1
   fi
 
-  input=$(_qa_sanitize_input "$input")
+  echo "$input"
+}
 
+qa_query() {
+  local input
+  input=$(_qa_read_input "$@") || return 1
+  input=$(_qa_sanitize_input "$input")
   q_gpt_query "$input"
 }
 
 q_gpt_query ()
 {
-    #set -x # Keep tracing for now, can remove later
-
     echo "Using $(_get_qa_engine)" >&2
     local api_endpoint="https://api.openai.com/v1/chat/completions"
     local db="$QA_DIR/db"
     local id=$(date +%s)
-    local input
+    local input="$*"
 
-    # --- REVERTED INPUT HANDLING ---
-    if [[ -n "$1" ]]; then
-        echo "Reading input from command line arguments." >&2
-        input="$@"
-    else
-        # This will now read from stdin provided by Node's spawn
-        echo "Reading input from stdin." >&2
-        input=$(cat)
-        if [ $? -ne 0 ]; then
-             echo "[qa.sh ERROR] Failed reading from stdin." >&2
-             return 1
-        fi
-        echo "Finished reading from stdin." >&2
+    if [[ -z "$input" ]]; then
+        echo "Error: No query provided" >&2
+        return 1
     fi
-    # --- END REVERTED INPUT HANDLING ---
 
     echo "$input" > "$db/$id.prompt"
-    input=$(_qa_sanitize_input "$input") # Use the existing sanitize function
+    input=$(_qa_sanitize_input "$input")
     local data
     data=$(jq -nc --arg model "$(_get_qa_engine)" \
                    --arg content "$input" \
@@ -258,7 +249,7 @@ q-init() {
 q() {
     # get the last question
     local db="$QA_DIR/db"
-    local files=($(ls "$db"/*.prompt 2>/dev/null | sort -n))
+    local files=($(command ls --color=never "$db"/*.prompt 2>/dev/null | sort -n))
     if [[ ${#files[@]} -eq 0 ]]; then
         echo "No queries found" >&2
         return 1
@@ -266,18 +257,35 @@ q() {
     local last=$((${#files[@]}-1))
     local indexFromLast=$(_qa_sanitize_index $1)
     local index=$(($last-$indexFromLast))
-    cat "${files[$index]}"
+    local file="${files[$index]}"
+    # Strip ANSI color codes from file path
+    file=$(echo "$file" | sed 's/\x1b\[[0-9;]*m//g')
+    cat "$file"
 }
 
 qa_delete(){
-    echo rm $QA_DIR/db/$1.*
+    local id="$1"
+    if [[ -z "$id" ]]; then
+        echo "Error: No ID provided" >&2
+        echo "Usage: qa_delete <id>" >&2
+        return 1
+    fi
+
+    local files=("$QA_DIR/db/$id".*)
+    if [[ ! -e "${files[0]}" ]]; then
+        echo "Error: No files found for ID: $id" >&2
+        return 1
+    fi
+
+    echo "Deleting: ${files[@]}" >&2
+    rm -f "$QA_DIR/db/$id".*
 }
 
 a()
 {
     # get the last answer
     local db="$QA_DIR/db"
-    local files=($(ls "$db"/*.answer 2>/dev/null | sort -n))
+    local files=($(command ls --color=never "$db"/*.answer 2>/dev/null | sort -n))
     if [[ ${#files[@]} -eq 0 ]]; then
         echo "No answers found" >&2
         return 1
@@ -287,12 +295,14 @@ a()
     local indexFromLast=$(_qa_sanitize_index $1)
     local index=$(($lastIndex-$indexFromLast))
     local file="${files[$index]}"
-    local id=$(basename $file .answer)
-    local info="[QA/global/$((index+1))/${lastIndex}${file} ]"
+    # Strip ANSI color codes from file path
+    file=$(echo "$file" | sed 's/\x1b\[[0-9;]*m//g')
+    local id=$(basename "$file" .answer)
+    local info="[QA/global/$((index+1))/${lastIndex} $id]"
 
     printf "[$id: $(head -n 1 $db/$id.prompt | _truncate_middle )]"
     printf "\n\n"
-    cat $file
+    cat "$file"
     printf "\n$info\n"
 }
 
@@ -300,7 +310,7 @@ qa_responses ()
 {
     local db="$QA_DIR/db"
     local listing
-    if ! listing=$(ls -1 "$db"/*.response 2>/dev/null); then
+    if ! listing=$(ls --color=never -1 "$db"/*.response 2>/dev/null); then
         echo "No responses found" >&2
         return 1
     fi
@@ -319,7 +329,14 @@ qa_test(){
 }
 
 fa(){
-    a "$@" | glow
+    # Format answer with chroma
+    local chroma_cmd="bash ${QA_SRC:-$(dirname "${BASH_SOURCE[0]}")}/chroma.sh"
+    local file=$(a "$@" 2>/dev/null | grep -o "[0-9]*\.answer" | head -1)
+    if [[ -n "$file" ]]; then
+        $chroma_cmd "$QA_DIR/db/$file"
+    else
+        a "$@"
+    fi
 }
 
 # Functions are available when module is loaded via lazy loading

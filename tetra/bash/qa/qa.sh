@@ -36,7 +36,7 @@ qa_source_modules() {
             source "$module"
             [[ "$verbose" == "true" ]] && echo "✓ Sourced: $(basename "$module")"
         else
-            echo "⚠ Module not found: $(basename "$module")" >&2
+            echo "Warning: Module not found: $(basename "$module")" >&2
         fi
     done
 }
@@ -45,7 +45,7 @@ qa_source_modules() {
 qa_init() {
     # Validate TETRA_DIR first
     if [[ -z "$TETRA_DIR" ]]; then
-        echo "❌ Error: TETRA_DIR environment variable not set" >&2
+        echo "Error: TETRA_DIR environment variable not set" >&2
         return 1
     fi
     
@@ -71,10 +71,11 @@ Commands:
   set-engine <engine>   Set the AI engine
   set-apikey <key>      Set API key
   set-context <text>    Set default context
+  viewer [name]         Show or set viewer (chroma or raw)
   last|a [index]        Show last answer (or nth from last)
   search <term>         Search through previous answers
-  browse                Browse all answers interactively
-  browse-glow           Browse answers with glow preview
+  browse [viewer]       Browse answers (defaults to chroma)
+  browse-raw            Browse with plain text
   test                  Run test query
   repl                  Start interactive REPL
   init                  Initialize QA system
@@ -121,10 +122,20 @@ EOF
             qa_search "$@"
             ;;
         "browse")
-            qa_browse
+            qa_browse "$1"
             ;;
-        "browse-glow")
-            qa_browse_glow
+        "browse-raw")
+            qa_browse raw
+            ;;
+        "viewer")
+            if [[ -n "$1" ]]; then
+                export QA_VIEWER="$1"
+                echo "Viewer set to: $1"
+            else
+                source "$QA_SRC/qa_search.sh"
+                echo "Current viewer: $(_qa_get_viewer)"
+                echo "Available: chroma (default), raw"
+            fi
             ;;
         "test")
             qa_test

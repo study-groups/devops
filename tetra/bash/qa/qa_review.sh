@@ -42,6 +42,11 @@ show_qa_pair() {
     echo -ne "\033c"  # Clear screen
     echo -e "Question: $prompt\n"
     echo "-------------------------------"
-    echo "$answer" | glow -s dark -w 75 | less -R +G
+    # Use chroma for formatted display
+    local chroma_cmd="bash ${QA_SRC:-$(dirname "${BASH_SOURCE[0]}")}/chroma.sh"
+    local tmpfile="/tmp/qa_review_$$.md"
+    echo "$answer" > "$tmpfile"
+    $chroma_cmd --pager "$tmpfile"
+    rm -f "$tmpfile"
 }
 
