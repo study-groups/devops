@@ -27,6 +27,7 @@ source "$TETRA_CORE/dispatcher.sh"
 source "$TETRA_CORE/context.sh"
 source "$TETRA_CORE/agents.sh"
 source "$TETRA_CORE/help.sh"
+source "$TETRA_CORE/doctor.sh"
 
 # Discover and load modules
 tetra_load_modules
@@ -103,6 +104,11 @@ tetra() {
                     return 1
                     ;;
             esac
+            ;;
+
+        doctor)
+            # Installation and configuration health check
+            tetra_doctor "$@"
             ;;
 
         help|--help|-h)
