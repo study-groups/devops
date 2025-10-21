@@ -329,8 +329,8 @@ qa_test(){
 }
 
 fa(){
-    # Format answer with chroma
-    local chroma_cmd="bash ${QA_SRC:-$(dirname "${BASH_SOURCE[0]}")}/chroma.sh"
+    # Format answer with TDS markdown renderer (via chroma wrapper)
+    local chroma_cmd="bash ${TDS_SRC:-$(dirname "${BASH_SOURCE[0]}")/../tds}/chroma.sh"
     local file=$(a "$@" 2>/dev/null | grep -o "[0-9]*\.answer" | head -1)
     if [[ -n "$file" ]]; then
         $chroma_cmd "$QA_DIR/db/$file"

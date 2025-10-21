@@ -59,55 +59,101 @@ _tsm_save_from_process() {
     local process_identifier="$1"
     local new_service_name="${2:-}"
 
-    # Get process metadata
-    local meta_file process_name
+    # Find process by TSM ID or name
+    local process_name meta_file tsm_id
     if [[ "$process_identifier" =~ ^[0-9]+$ ]]; then
-        # TSM ID provided
-        local tsm_id="$process_identifier"
-        meta_file="$TSM_PROCESSES_DIR/"
-        for meta in "$meta_file"*.meta; do
-            [[ -f "$meta" ]] || continue
-            if grep -q "tsm_id=$tsm_id " "$meta"; then
-                meta_file="$meta"
-                process_name=$(basename "$meta" .meta)
+        # TSM ID provided - search for process with this ID
+        tsm_id="$process_identifier"
+        for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+            [[ -d "$process_dir" ]] || continue
+            local check_file="${process_dir}meta.json"
+            [[ -f "$check_file" ]] || continue
+
+            local found_id=$(jq -r '.tsm_id // empty' "$check_file" 2>/dev/null)
+            if [[ "$found_id" == "$tsm_id" ]]; then
+                process_name=$(basename "$process_dir")
+                meta_file="$check_file"
                 break
             fi
         done
+
+        if [[ -z "$meta_file" ]]; then
+            echo "❌ Process with TSM ID $tsm_id not found"
+            return 1
+        fi
     else
         # Process name provided
         process_name="$process_identifier"
-        meta_file="$TSM_PROCESSES_DIR/${process_name}.meta"
+        meta_file="$TSM_PROCESSES_DIR/$process_name/meta.json"
+
+        if [[ ! -f "$meta_file" ]]; then
+            echo "❌ Process not found: $process_name"
+            return 1
+        fi
+
+        tsm_id=$(jq -r '.tsm_id // empty' "$meta_file" 2>/dev/null)
     fi
 
-    if [[ ! -f "$meta_file" ]]; then
-        echo "❌ Process not found: $process_identifier"
+    # Extract metadata from JSON (individual calls to handle spaces/tabs in values)
+    local command cwd env_file port
+    command=$(jq -r '.command // empty' "$meta_file" 2>/dev/null)
+    cwd=$(jq -r '.cwd // empty' "$meta_file" 2>/dev/null)
+    env_file=$(jq -r '.env_file // empty' "$meta_file" 2>/dev/null)
+    port=$(jq -r '.port // empty' "$meta_file" 2>/dev/null)
+
+    if [[ -z "$command" ]]; then
+        echo "❌ Failed to read metadata for $process_name"
         return 1
     fi
 
-    # Extract metadata
-    source "$meta_file"
+    # Handle null/empty values
+    [[ "$env_file" == "null" || "$env_file" == "" ]] && env_file=""
+    [[ "$port" == "null" || "$port" == "" ]] && port=""
+    [[ "$cwd" == "null" || "$cwd" == "" ]] && cwd="$(pwd)"
+
+    # Determine service name
     local service_name="${new_service_name:-${process_name%%-*}}"
 
-    # Create service definition
+    # Create services directory
     mkdir -p "$TETRA_DIR/tsm/services-available"
     local service_file="$TETRA_DIR/tsm/services-available/${service_name}.tsm"
 
+    # Check if service file already exists - prompt for confirmation
+    if [[ -f "$service_file" ]]; then
+        echo "⚠️  Service '$service_name' already exists at:"
+        echo "   $service_file"
+        echo -n "Overwrite? [y/N] "
+        read -r response
+        if [[ ! "$response" =~ ^[Yy]$ ]]; then
+            echo "❌ Save cancelled"
+            return 1
+        fi
+    fi
+
+    # Create service definition
     cat > "$service_file" <<EOF
 #!/usr/bin/env bash
 # TSM Service: $service_name
-# Saved from running process: $process_name
+# Saved from running process: $process_name (TSM ID: $tsm_id)
 # Generated on $(date)
 
 TSM_NAME="$service_name"
-TSM_COMMAND="$script"
+TSM_COMMAND="$command"
 TSM_CWD="$cwd"
-TSM_ENV_FILE=""
+TSM_ENV_FILE="$env_file"
+TSM_PORT="$port"
 EOF
 
     chmod +x "$service_file"
 
     echo "✅ Saved running process '$process_name' as service: $service_file"
+    echo "   Command: $command"
+    echo "   Working directory: $cwd"
+    [[ -n "$env_file" ]] && echo "   Environment file: $env_file"
+    [[ -n "$port" ]] && echo "   Port: $port"
+    echo ""
     echo "Enable with: tsm enable $service_name"
+    echo "Start with: tsm start $service_name"
 }
 
 # Start all enabled services
@@ -200,12 +246,13 @@ tetra_tsm_start_service() {
             export TSM_PORT="$port"
         fi
 
+        # Build start command with optional pre-hook
+        local start_args=(--name "$TSM_NAME")
+        [[ "$port" != "auto" ]] && start_args+=(--port "$port")
+        [[ -n "${TSM_PRE_COMMAND:-}" ]] && start_args+=(--pre-hook "$TSM_PRE_COMMAND")
+
         # Use TSM command mode to start
-        if [[ "$port" == "auto" ]]; then
-            tsm start --name "$TSM_NAME" $TSM_COMMAND
-        else
-            tsm start --port "$port" --name "$TSM_NAME" $TSM_COMMAND
-        fi
+        tsm start "${start_args[@]}" $TSM_COMMAND
     )
 
     # Validate port is open (only if port is specified)

@@ -57,7 +57,7 @@ tsm_processes_to_json() {
 
             # Check if process is actually running
             local actual_status="stopped"
-            if [[ -n "$PID" ]] && kill -0 "$PID" 2>/dev/null; then
+            if tsm_is_pid_alive "$PID"; then
                 actual_status="running"
             fi
 
@@ -199,6 +199,45 @@ tetra_tsm_get_next_id() {
 # === PROCESS NAME/ID RESOLUTION (JSON metadata only) ===
 
 # Convert ID to process name
+# Smart resolver: detect if input is TSM ID, PID, or port and convert to process name
+tetra_tsm_smart_resolve() {
+    local input="$1"
+
+    # First try: TSM ID
+    if tetra_tsm_id_to_name "$input" >/dev/null 2>&1; then
+        tetra_tsm_id_to_name "$input"
+        return 0
+    fi
+
+    # Second try: PID (check if it matches any tracked process)
+    for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+        [[ -d "$process_dir" ]] || continue
+        local meta_file="${process_dir}meta.json"
+        [[ -f "$meta_file" ]] || continue
+
+        local pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
+        if [[ "$pid" == "$input" ]]; then
+            basename "$process_dir"
+            return 0
+        fi
+    done
+
+    # Third try: Port (check if it matches any tracked process)
+    for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+        [[ -d "$process_dir" ]] || continue
+        local meta_file="${process_dir}meta.json"
+        [[ -f "$meta_file" ]] || continue
+
+        local port=$(jq -r '.port // empty' "$meta_file" 2>/dev/null)
+        if [[ "$port" == "$input" ]]; then
+            basename "$process_dir"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 tetra_tsm_id_to_name() {
     local id="$1"
     for process_dir in "$TSM_PROCESSES_DIR"/*/; do
@@ -268,6 +307,12 @@ tetra_tsm_resolve_to_id() {
     esac
 }
 
+# Check if a PID is alive (simple wrapper for repeated pattern)
+tsm_is_pid_alive() {
+    local pid="$1"
+    [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
+}
+
 # Check if process is running
 tetra_tsm_is_running() {
     local process_name="$1"
@@ -277,9 +322,7 @@ tetra_tsm_is_running() {
     [[ -f "$meta_file" ]] || return 1
 
     local pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
-    [[ -z "$pid" ]] && return 1
-
-    kill -0 "$pid" 2>/dev/null
+    tsm_is_pid_alive "$pid"
 }
 
 # Port discovery - deprecated, use tsm_discover_port() in start.sh instead
@@ -287,3 +330,6 @@ tetra_tsm_extract_port() {
     echo "DEPRECATED: Use tsm_discover_port() from start.sh" >&2
     return 1
 }
+
+# Export utility functions
+export -f tsm_is_pid_alive

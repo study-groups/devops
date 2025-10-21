@@ -1,78 +1,119 @@
 #!/usr/bin/env bash
+# Org Module - Organization Management System
 
-# Org Module Integration - Tetra Organization Management
+ORG_SRC="${ORG_SRC:-$TETRA_SRC/bash/org}"
 
-# Load org management system
-source "$TETRA_SRC/bash/org/tetra_org.sh"
+source "$ORG_SRC/tetra_org.sh"
+source "$ORG_SRC/discovery.sh" 2>/dev/null || true
+source "$ORG_SRC/converter.sh" 2>/dev/null || true
+source "$ORG_SRC/compiler.sh" 2>/dev/null || true
+source "$ORG_SRC/org_help.sh" 2>/dev/null || true
+source "$ORG_SRC/actions.sh" 2>/dev/null || true
+source "$ORG_SRC/org_repl.sh" 2>/dev/null || true
 
-# Register org command for tetra integration
-tetra_create_lazy_function "tetra_org" "org"
+# Multi-environment configuration management
+source "$ORG_SRC/org_config.sh" 2>/dev/null || true
+source "$ORG_SRC/env_profiles.sh" 2>/dev/null || true
+source "$ORG_SRC/org_deploy.sh" 2>/dev/null || true
 
-# Main org command interface
-tetra_org() {
-    local subcommand="${1:-list}"
-    shift
+# Main org command - launches enhanced REPL by default
+org() {
+    local action="${1:-repl}"
 
-    case "$subcommand" in
-        "list"|"ls")
+    # No args or "repl" - launch REPL
+    if [[ -z "$action" ]] || [[ "$action" == "repl" ]]; then
+        org_repl
+        return $?
+    fi
+
+    # Direct command execution (for scripting)
+    shift || true
+
+    case "$action" in
+        # Organization management
+        list|ls)
             org_list "$@"
             ;;
-        "switch"|"sw")
-            org_switch "$@"
-            ;;
-        "active"|"current")
+        active)
             org_active "$@"
             ;;
-        "create")
+        switch|sw)
+            org_switch "$@"
+            ;;
+        create)
             org_create "$@"
             ;;
-        "validate")
-            org_validate "$@"
-            ;;
-        "push")
-            org_push "$@"
-            ;;
-        "pull")
-            org_pull "$@"
-            ;;
-        "rollback")
-            org_rollback "$@"
-            ;;
-        "template")
-            org_template "$@"
-            ;;
-        "templates")
-            org_list_templates "$@"
-            ;;
-        "history")
-            org_history "$@"
-            ;;
-        "import")
+        import)
             org_import "$@"
             ;;
-        "help"|"-h"|"--help")
-            echo "Tetra Organization Management"
-            echo "Usage: tetra org <command>"
-            echo ""
-            echo "Commands:"
-            echo "  list, ls                List all organizations"
-            echo "  switch, sw <org>        Switch to organization"
-            echo "  active, current         Show active organization"
-            echo "  create <org>            Create new organization"
-            echo "  validate <org>          Validate organization configuration"
-            echo "  push <org> <env>        Deploy org config to environment"
-            echo "  pull <org> <env>        Sync org config from environment"
-            echo "  rollback <org> <env>    Rollback to previous deployment"
-            echo "  template <name> [org]   Create org from template"
-            echo "  templates               List available templates"
-            echo "  history <org> [env]     Show deployment history"
-            echo "  import <type> <path> [org]  Import org from external source"
-            echo "  help                    Show this help"
+        discover)
+            org_discover "$@"
+            ;;
+        validate)
+            org_validate "$@"
+            ;;
+        compile)
+            tetra_compile_toml "$@"
+            ;;
+        push)
+            org_push "$@"
+            ;;
+        pull)
+            org_pull "$@"
+            ;;
+        rollback)
+            org_rollback "$@"
+            ;;
+        history|hist)
+            org_history "$@"
+            ;;
+
+        # Multi-environment configuration (NEW)
+        init)
+            org_config_init "$@"
+            ;;
+        promote)
+            org_promote "$@"
+            ;;
+        env)
+            # Sub-commands for environment management
+            local env_action="${1:-list}"
+            shift || true
+            case "$env_action" in
+                list|ls)
+                    org_config_list "$@"
+                    ;;
+                edit)
+                    org_config_env_edit "$@"
+                    ;;
+                show)
+                    org_config_env_show "$@"
+                    ;;
+                validate)
+                    org_config_validate "$@"
+                    ;;
+                *)
+                    echo "Usage: tsm org env [list|edit|show|validate] <environment>"
+                    return 1
+                    ;;
+            esac
+            ;;
+        diff)
+            org_deploy_diff "$@"
+            ;;
+        apply)
+            org_apply "$@"
+            ;;
+
+        help|--help|-h)
+            org_help "$@"
             ;;
         *)
-            echo "Unknown org command: $subcommand"
-            echo "Use 'tetra org help' for available commands"
+            echo "Unknown command: $action"
+            echo "Use 'org help' for available commands"
             return 1
             ;;
     esac
 }
+
+export -f org

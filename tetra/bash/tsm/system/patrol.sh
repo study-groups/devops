@@ -24,7 +24,7 @@ tsm_patrol_silent() {
 
             # Check if process is still running
             local pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
-            if [[ -z "$pid" ]] || ! kill -0 "$pid" 2>/dev/null; then
+            if ! tsm_is_pid_alive "$pid"; then
                 # Update status to crashed before cleanup
                 jq '.status = "crashed"' "$meta_file" > "${meta_file}.tmp" 2>/dev/null && \
                     mv "${meta_file}.tmp" "$meta_file"
@@ -65,7 +65,7 @@ tsm_patrol() {
 
             # Check if process is still running
             local pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
-            if [[ -z "$pid" ]] || ! kill -0 "$pid" 2>/dev/null; then
+            if ! tsm_is_pid_alive "$pid"; then
                 [[ "$show_output" == "true" ]] && echo "🧹 Marking crashed process: $name (PID $pid)"
 
                 # Update status to crashed

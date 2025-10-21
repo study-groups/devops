@@ -12,7 +12,9 @@ org_list() {
     echo "Tetra Organizations:"
     echo ""
 
+    # Create orgs directory if it doesn't exist
     if [[ ! -d "$orgs_dir" ]]; then
+        mkdir -p "$orgs_dir"
         echo "No organizations found. Create one with: tetra org create <name>"
         return 0
     fi

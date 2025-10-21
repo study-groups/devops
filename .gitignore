@@ -8,7 +8,6 @@ tmp
 pb.sh
 nh-data
 qik/
-qa/
 # mkdocs generated
 site
 .tmp

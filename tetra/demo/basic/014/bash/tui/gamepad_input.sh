@@ -95,12 +95,12 @@ get_input_multiplexed() {
         fi
     fi
 
-    # Then check keyboard with timeout
-    if read -rsn1 -t "$timeout" key; then
+    # Then check keyboard with timeout (read from /dev/tty explicitly)
+    if read -rsn1 -t "$timeout" key </dev/tty; then
         # Handle escape sequences from keyboard
         if [[ "$key" == $'\x1b' ]]; then
             local seq=""
-            if read -rsn2 -t 0.01 seq 2>/dev/null; then
+            if read -rsn2 -t 0.01 seq </dev/tty 2>/dev/null; then
                 echo -n "$key$seq"
                 return 0
             fi

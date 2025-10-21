@@ -150,7 +150,7 @@ tsm_list_running() {
             read tsm_id pid port start_time env_file <<< "$metadata"
 
             # Verify process is still running
-            if kill -0 "$pid" 2>/dev/null; then
+            if tsm_is_pid_alive "$pid"; then
                 # Calculate uptime
                 local uptime=$(tsm_calculate_uptime "$start_time")
 

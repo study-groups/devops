@@ -2,6 +2,11 @@
 # tetra_query_parser.sh - Tetra Query Language (TQL) Parser
 # Parses collection and filtered queries into structured components
 
+# Load unified logging
+if ! type tetra_log_event >/dev/null 2>&1; then
+    [[ -n "${TETRA_SRC:-}" ]] && source "${TETRA_SRC}/bash/utils/unified_log.sh" 2>/dev/null || true
+fi
+
 # Parse a TQL query and output structured data
 # Usage: parse_tql_query "@dev:qa:1760229927"
 #        parse_tql_query "@dev.vox.{ts>1760229000}.sally.mp3"
@@ -33,6 +38,9 @@ parse_collection_query() {
         module="${BASH_REMATCH[1]}"
         id="${BASH_REMATCH[2]}"
     else
+        # Log parse error
+        type tetra_log_error >/dev/null 2>&1 && \
+            tetra_log_error query-parser "parse" "collection-query" "{\"query\":\"$query\",\"error\":\"invalid format\"}"
         echo "ERROR:Invalid collection query format: $query" >&2
         return 1
     fi
@@ -82,6 +90,9 @@ parse_filtered_query() {
     # Parse parts based on count
     # Note: type_pattern can have dots (e.g., sally.mp3)
     if [[ ${#parts[@]} -lt 3 ]]; then
+        # Log parse error
+        type tetra_log_error >/dev/null 2>&1 && \
+            tetra_log_error query-parser "parse" "filtered-query" "{\"query\":\"$query\",\"error\":\"too few parts\",\"parts\":${#parts[@]}}"
         echo "ERROR:Invalid filtered query format (too few parts): $query" >&2
         return 1
     fi
@@ -179,6 +190,9 @@ parse_label_matcher() {
         # Output structured matcher
         echo "matcher:$label:$op:$value"
     else
+        # Log parse error
+        type tetra_log_error >/dev/null 2>&1 && \
+            tetra_log_error query-parser "parse" "label-matcher" "{\"matcher\":\"$matcher\",\"error\":\"invalid format\"}"
         echo "ERROR:Invalid label matcher: $matcher" >&2
         return 1
     fi

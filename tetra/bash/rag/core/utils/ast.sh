@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # ast.sh - Language-agnostic AST dispatcher and legacy function wrappers
 
-set -euo pipefail
 
 # Get the directory where this script resides
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

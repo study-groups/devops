@@ -5,6 +5,7 @@
 # Import RAG functionality
 : "${RAG_SRC:=$TETRA_SRC/bash/rag}"
 source "$RAG_SRC/rag.sh" 2>/dev/null || true
+source "$RAG_SRC/core/utils/agents.sh" 2>/dev/null || true
 
 # Register RAG actions with TUI
 rag_register_actions() {
@@ -181,7 +182,7 @@ rag_execute_action() {
                 echo "Error: Agent not found: $agent_name"
                 echo ""
                 echo "Available agents:"
-                list_available_agents
+                list_available_agents "simple"
                 return 1
             fi
             ;;
@@ -206,7 +207,7 @@ rag_execute_action() {
             ;;
 
         list:agents)
-            list_available_agents
+            list_available_agents "simple"
             ;;
 
         *)
@@ -216,41 +217,6 @@ rag_execute_action() {
     esac
 }
 
-# Helper: List available agents
-list_available_agents() {
-    local sys_dir="$TETRA_SRC/bash/rag/agents"
-    local user_dir="${TETRA_DIR:-$HOME/.tetra}/rag/agents"
-
-    echo "Available LLM Agents:"
-    echo "─────────────────────────────────────────────────────"
-
-    # System agents
-    if [[ -d "$sys_dir" ]]; then
-        for conf in "$sys_dir"/*.conf; do
-            [[ -f "$conf" ]] || continue
-            local name=$(basename "$conf" .conf)
-            local desc=$(grep '^AGENT_DESCRIPTION=' "$conf" 2>/dev/null | cut -d'"' -f2)
-            printf "  %-20s %s\n" "$name" "${desc:-(system)}"
-            printf "  └─ %s\n" "${conf/$HOME/~}"
-        done
-    fi
-
-    # User agents
-    if [[ -d "$user_dir" ]]; then
-        for conf in "$user_dir"/*.conf; do
-            [[ -f "$conf" ]] || continue
-            local name=$(basename "$conf" .conf)
-            local desc=$(grep '^AGENT_DESCRIPTION=' "$conf" 2>/dev/null | cut -d'"' -f2)
-            printf "  %-20s %s\n" "$name" "${desc:-(user)}"
-            printf "  └─ %s\n" "${conf/$HOME/~}"
-        done
-    fi
-
-    echo ""
-    echo "Usage: rag set agent <name>"
-}
-
-# Export for discovery
 export -f rag_register_actions
 export -f rag_execute_action
 export -f list_available_agents

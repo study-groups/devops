@@ -350,8 +350,9 @@ export class SidebarManager {
                     const panelState = sidebarPanels[panelId] || {};
                     const isExpanded = panelState.expanded || config.default_expanded;
                     const floatingPanelState = floatingPanels[panelId];
-                    // Panel is floating if it exists in Redux AND isFloating is true AND not docked
-                    const isFloating = floatingPanelState && floatingPanelState.isFloating && !floatingPanelState.isDocked;
+                    // Panel is floating ONLY if it exists in Redux AND isFloating is true AND isDocked is false
+                    // If panel doesn't exist in Redux, it's never been floated, so isFloating = false
+                    const isFloating = floatingPanelState ? (floatingPanelState.isFloating === true && floatingPanelState.isDocked === false) : false;
                     const categoryColor = this.categories[config.category]?.color || '#666';
                     
                     return `
@@ -495,12 +496,26 @@ export class SidebarManager {
             return;
         }
 
+        // Remove any existing floating panel DOM element first (clean slate)
+        const existingPanel = document.getElementById(`floating-panel-${panelId}`);
+        if (existingPanel) {
+            console.log(`[SidebarManager] Removing existing floating panel DOM for: ${panelId}`);
+            existingPanel.remove();
+        }
+
         // Ensure panel exists in Redux state first
         const state = appStore.getState();
         console.log(`[SidebarManager] Current panel state for ${panelId}:`, state.panels?.panels?.[panelId]);
         
         if (!state.panels?.panels?.[panelId]) {
             getLogger().info('CREATE_PANEL_STATE', `Creating panel ${panelId} in Redux state before floating`);
+
+            // Calculate center position for floating panel
+            const defaultWidth = 400;
+            const defaultHeight = 300;
+            const centerX = (window.innerWidth - defaultWidth) / 2;
+            const centerY = (window.innerHeight - defaultHeight) / 2;
+
             // Create panel in Redux state first
             appStore.dispatch(panelActions.createPanel({
                 id: panelId,
@@ -508,8 +523,8 @@ export class SidebarManager {
                 type: panelId,
                 visible: false,
                 collapsed: false,
-                position: { x: 100, y: 100 },
-                size: { width: 400, height: 300 }
+                position: { x: centerX, y: centerY },
+                size: { width: defaultWidth, height: defaultHeight }
             }));
         }
 
@@ -651,15 +666,30 @@ export class SidebarManager {
     }
 
     async mountFloatingPanel(panelState) {
-        const { id: panelId, x, y, width, height } = panelState;
+        let { id: panelId, x, y, width, height } = panelState;
         const config = this.panelConfigs[panelId];
         if (!config) return;
 
-        // Check if floating panel already exists
+        // Check if floating panel already exists AND is in the DOM
         const existingPanel = document.getElementById(`floating-panel-${panelId}`);
-        if (existingPanel) {
-            console.log('Floating panel already exists, skipping:', panelId);
+        if (existingPanel && existingPanel.parentNode) {
+            console.log('Floating panel already exists and is mounted, skipping:', panelId);
             return;
+        }
+
+        // If element exists but isn't in DOM, remove it first
+        if (existingPanel && !existingPanel.parentNode) {
+            console.log('Floating panel exists but not in DOM, removing:', panelId);
+            existingPanel.remove();
+        }
+
+        // If position is at default (100, 100), center it instead
+        if (x === 100 && y === 100) {
+            x = (window.innerWidth - width) / 2;
+            y = (window.innerHeight - height) / 2;
+            console.log(`[SidebarManager] Centering panel ${panelId} from (100,100) to (${x},${y})`);
+            // Update Redux state with centered position
+            appStore.dispatch(panelActions.movePanel({ id: panelId, position: { x, y } }));
         }
 
         // Create simple floating panel HTML

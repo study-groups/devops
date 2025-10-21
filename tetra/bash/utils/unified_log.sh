@@ -1,25 +1,103 @@
 #!/usr/bin/env bash
 
-# Tetra Unified Logging - TCS 3.0 Compliant
-# All modules log to $TETRA_DIR/logs/tetra.jsonl
+# Tetra Unified Logging - TCS 4.0 Compliant
+# All modules log to $TETRA_DIR/logs/tetra.jsonl with console integration
 
 # === CONFIGURATION ===
 
 : "${TETRA_LOG_FILE:=$TETRA_DIR/logs/tetra.jsonl}"
 : "${TETRA_LOG_EXEC_AT:=@local}"  # Can be overridden for remote execution
+: "${TETRA_LOG_LEVEL:=INFO}"      # DEBUG, INFO, WARN, ERROR
+: "${TETRA_LOG_CONSOLE:=1}"       # 0=silent, 1=console output, 2=verbose console
+: "${TETRA_LOG_CONSOLE_COLOR:=1}" # 0=no color, 1=color (requires color module)
+
+# Log level priorities (for filtering)
+declare -A TETRA_LOG_LEVEL_PRIORITY=(
+    ["DEBUG"]=0
+    ["INFO"]=1
+    ["WARN"]=2
+    ["ERROR"]=3
+)
+
+# Get current log level priority
+TETRA_CURRENT_LOG_PRIORITY=${TETRA_LOG_LEVEL_PRIORITY[$TETRA_LOG_LEVEL]:-1}
+
+# === CONSOLE OUTPUT ===
+
+# Output to console if enabled
+_tetra_log_console() {
+    local level="$1"
+    local module="$2"
+    local verb="$3"
+    local subject="$4"
+    local status="$5"
+    local metadata="$6"
+
+    [[ $TETRA_LOG_CONSOLE -eq 0 ]] && return 0
+
+    # Build console message
+    local timestamp=$(date '+%H:%M:%S')
+    local msg="[$timestamp] $module:$verb $subject"
+
+    # Add status if verbose mode
+    if [[ $TETRA_LOG_CONSOLE -eq 2 ]]; then
+        msg="$msg ($status)"
+    fi
+
+    # Color output if enabled and color module is loaded
+    if [[ $TETRA_LOG_CONSOLE_COLOR -eq 1 ]] && type tetra_console_info >/dev/null 2>&1; then
+        case "$status" in
+            success|online|running|active)
+                tetra_console_success "$msg"
+                ;;
+            fail|failed|error|ERROR)
+                tetra_console_error "$msg"
+                ;;
+            warn|warning|WARN)
+                tetra_console_warn "$msg"
+                ;;
+            try|pending)
+                tetra_console_info "$msg"
+                ;;
+            debug|DEBUG)
+                tetra_console_debug "$msg"
+                ;;
+            *)
+                tetra_console_log "$msg"
+                ;;
+        esac
+    else
+        # No color available
+        echo "$msg"
+    fi
+
+    # Show metadata in verbose mode
+    if [[ $TETRA_LOG_CONSOLE -eq 2 ]] && [[ "$metadata" != "{}" ]]; then
+        echo "  metadata: $metadata" | head -c 200
+        echo ""
+    fi
+}
 
 # === CORE LOGGING FUNCTION ===
 
 # Log an action to the unified tetra.jsonl
-# Usage: tetra_log_event <module> <verb> <subject> <status> [metadata_json]
+# Usage: tetra_log_event <module> <verb> <subject> <status> [metadata_json] [level]
 # Example: tetra_log_event tsm start "tetra-4444" try '{}'
 # Example: tetra_log_event tsm start "tetra-4444" success '{"pid":29762,"port":4444}'
+# Example: tetra_log_event tsm debug "cache-check" event '{"cached":true}' DEBUG
 tetra_log_event() {
     local module="$1"
     local verb="$2"
     local subject="$3"
     local status="$4"
     local metadata_json="${5:-{}}"
+    local level="${6:-INFO}"  # DEBUG, INFO, WARN, ERROR
+
+    # Check if this message should be logged based on level
+    local msg_priority=${TETRA_LOG_LEVEL_PRIORITY[$level]:-1}
+    if [[ $msg_priority -lt $TETRA_CURRENT_LOG_PRIORITY ]]; then
+        return 0  # Skip logging (below threshold)
+    fi
 
     # Ensure log directory exists
     local log_dir=$(dirname "$TETRA_LOG_FILE")
@@ -33,13 +111,14 @@ tetra_log_event() {
         metadata_json="{}"
     fi
 
-    # Create log entry
-    local log_entry=$(jq -n \
+    # Create log entry (compact format for JSONL)
+    local log_entry=$(jq -nc \
         --arg timestamp "$timestamp" \
         --arg module "$module" \
         --arg verb "$verb" \
         --arg subject "$subject" \
         --arg status "$status" \
+        --arg level "$level" \
         --arg exec_at "$TETRA_LOG_EXEC_AT" \
         --argjson metadata "$metadata_json" \
         '{
@@ -48,12 +127,16 @@ tetra_log_event() {
             verb: $verb,
             subject: $subject,
             status: $status,
+            level: $level,
             exec_at: $exec_at,
             metadata: $metadata
         }')
 
     # Append to log file (atomic operation)
     echo "$log_entry" >> "$TETRA_LOG_FILE"
+
+    # Console output
+    _tetra_log_console "$level" "$module" "$verb" "$subject" "$status" "$metadata_json"
 }
 
 # === CONVENIENCE FUNCTIONS ===
@@ -64,7 +147,7 @@ tetra_log_try() {
     local verb="$2"
     local subject="$3"
     local metadata="${4:-{}}"
-    tetra_log_event "$module" "$verb" "$subject" "try" "$metadata"
+    tetra_log_event "$module" "$verb" "$subject" "try" "$metadata" "INFO"
 }
 
 # Log a success event
@@ -73,7 +156,7 @@ tetra_log_success() {
     local verb="$2"
     local subject="$3"
     local metadata="${4:-{}}"
-    tetra_log_event "$module" "$verb" "$subject" "success" "$metadata"
+    tetra_log_event "$module" "$verb" "$subject" "success" "$metadata" "INFO"
 }
 
 # Log a fail event
@@ -82,16 +165,43 @@ tetra_log_fail() {
     local verb="$2"
     local subject="$3"
     local metadata="${4:-{}}"
-    tetra_log_event "$module" "$verb" "$subject" "fail" "$metadata"
+    tetra_log_event "$module" "$verb" "$subject" "fail" "$metadata" "ERROR"
 }
 
-# Log a generic event (non-try/fail)
+# Log a generic info event (non-try/fail)
 tetra_log_info() {
     local module="$1"
     local verb="$2"
     local subject="$3"
     local metadata="${4:-{}}"
-    tetra_log_event "$module" "$verb" "$subject" "event" "$metadata"
+    tetra_log_event "$module" "$verb" "$subject" "event" "$metadata" "INFO"
+}
+
+# Log a debug event
+tetra_log_debug() {
+    local module="$1"
+    local verb="$2"
+    local subject="$3"
+    local metadata="${4:-{}}"
+    tetra_log_event "$module" "$verb" "$subject" "debug" "$metadata" "DEBUG"
+}
+
+# Log a warning event
+tetra_log_warn() {
+    local module="$1"
+    local verb="$2"
+    local subject="$3"
+    local metadata="${4:-{}}"
+    tetra_log_event "$module" "$verb" "$subject" "warn" "$metadata" "WARN"
+}
+
+# Log an error event
+tetra_log_error() {
+    local module="$1"
+    local verb="$2"
+    local subject="$3"
+    local metadata="${4:-{}}"
+    tetra_log_event "$module" "$verb" "$subject" "error" "$metadata" "ERROR"
 }
 
 # === QUERYING ===
@@ -112,7 +222,15 @@ tetra_log_query_status() {
     fi
 }
 
-# Query logs by time range (Unix timestamps)
+# Query logs by level
+tetra_log_query_level() {
+    local level="$1"
+    if [[ -f "$TETRA_LOG_FILE" ]]; then
+        jq -c "select(.level == \"$level\")" "$TETRA_LOG_FILE"
+    fi
+}
+
+# Query logs by time range (ISO 8601 timestamps)
 tetra_log_query_range() {
     local start_time="$1"
     local end_time="$2"
@@ -120,6 +238,20 @@ tetra_log_query_range() {
         jq -c --arg start "$start_time" --arg end "$end_time" \
             'select(.timestamp >= $start and .timestamp <= $end)' \
             "$TETRA_LOG_FILE"
+    fi
+}
+
+# Query errors only
+tetra_log_query_errors() {
+    if [[ -f "$TETRA_LOG_FILE" ]]; then
+        jq -c 'select(.level == "ERROR" or .status == "fail" or .status == "error")' "$TETRA_LOG_FILE"
+    fi
+}
+
+# Query warnings and errors
+tetra_log_query_issues() {
+    if [[ -f "$TETRA_LOG_FILE" ]]; then
+        jq -c 'select(.level == "ERROR" or .level == "WARN" or .status == "fail" or .status == "warn")' "$TETRA_LOG_FILE"
     fi
 }
 

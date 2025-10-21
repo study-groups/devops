@@ -51,22 +51,20 @@ tsm_module_init() {
 
     # Use new lifecycle management for component initialization
     if declare -f tsm_lifecycle_init_all >/dev/null; then
-        echo "🔄 Using lifecycle management for component initialization..."
         tsm_lifecycle_init_all
     else
-        echo "⚠️  Lifecycle management not available, using legacy initialization"
+        # Legacy fallback - minimal initialization
 
-        # Load deferred external dependencies (legacy fallback)
+        # Load REPL utilities if available
         if declare -f _tsm_repl_load_utils >/dev/null; then
             _tsm_repl_load_utils
         fi
 
-        if declare -f _tsm_ports_load_toml_parser >/dev/null; then
-            _tsm_ports_load_toml_parser
-        fi
+        # Note: toml_parse port loading removed - ports detected at runtime via lsof
     fi
 
-    echo "TSM module initialized successfully"
+    # Silent init - only report on error
+    return 0
 }
 
 # === COMPATIBILITY EXPORTS ===

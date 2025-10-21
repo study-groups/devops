@@ -24,7 +24,7 @@ qa_search() {
   local db="${QA_DIR}/db"
   local query="$*"
   local viewer=$(_qa_get_viewer)
-  local chroma_cmd="bash ${QA_SRC:-$(dirname "${BASH_SOURCE[0]}")}/chroma.sh"
+  local chroma_cmd="bash ${TDS_SRC:-$(dirname "${BASH_SOURCE[0]}")/../tds}/chroma.sh"
 
   echo "Searching in $db (viewer: $viewer)"
 
@@ -76,7 +76,7 @@ qa_browse() {
 
   case "$viewer" in
     chroma)
-      local chroma_cmd="bash ${QA_SRC:-$(dirname "${BASH_SOURCE[0]}")}/chroma.sh"
+      local chroma_cmd="bash ${TDS_SRC:-$(dirname "${BASH_SOURCE[0]}")/../tds}/chroma.sh"
       find "$db" -type f -name '*.answer' | \
         fzf \
           --layout=reverse \

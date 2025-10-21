@@ -34,6 +34,14 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(TETRA_DIR, 'dashboard')));
 
+// Serve devpages client
+const devpagesPath = path.join(TETRA_SRC, '../devpages/client');
+const devpagesRoot = path.join(TETRA_SRC, '../devpages');
+app.use('/client', express.static(devpagesPath));
+app.use('/css', express.static(path.join(devpagesRoot, 'css')));
+app.use('/node_modules', express.static(path.join(devpagesRoot, 'node_modules')));
+console.log(`📁 Serving devpages from: ${devpagesRoot}`);
+
 // Socket.IO for local terminal
 const io = new Server(server, {
     cors: {
@@ -267,9 +275,9 @@ app.get('/status', (req, res) => {
     });
 });
 
-// Default route
+// Default route - serve devpages
 app.get('/', (req, res) => {
-    res.sendFile(path.join(TETRA_SRC, 'public', 'index.html'));
+    res.sendFile(path.join(devpagesPath, 'index.html'));
 });
 
 // Error handling

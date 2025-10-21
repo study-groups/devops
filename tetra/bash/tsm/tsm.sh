@@ -15,15 +15,15 @@ _tsm_load_components() {
     fi
 
     # Load TSM using full include now that fork issues are resolved
-    source "$MOD_SRC/include.sh"
+    source "$MOD_SRC/core/include.sh"
 
     # Initialize TSM module after all components loaded
     if declare -f tsm_module_init >/dev/null; then
         tsm_module_init
 
-        # Register with module system if available
+        # Register with module system if available (silently)
         if declare -f tetra_module_register >/dev/null; then
-            tetra_module_register "tsm" "$MOD_SRC" "active"
+            tetra_module_register "tsm" "$MOD_SRC" "active" >/dev/null 2>&1
         fi
     else
         echo "ERROR: TSM module initialization failed - tsm_module_init not found" >&2
@@ -66,25 +66,21 @@ tsm() {
             if [[ "$OSTYPE" == "darwin"* ]] && ! command -v setsid >/dev/null 2>&1; then
                 tetra_tsm_setup
             fi
-            # Patrol cleanup before start
-            tsm_patrol_silent
             tetra_tsm_start "$@"
             ;;
         stop)
-            # Patrol cleanup after stop
             tetra_tsm_stop "$@"
-            tsm_patrol_silent
             ;;
         delete|del)
             tetra_tsm_delete "$@"
-            tsm_patrol_silent
+            ;;
+        cleanup)
+            tetra_tsm_cleanup "$@"
             ;;
         kill)
             tetra_tsm_kill "$@"
-            tsm_patrol_silent
             ;;
         restart)
-            tsm_patrol_silent
             tetra_tsm_restart "$@"
             ;;
         list|ls)
@@ -229,11 +225,12 @@ tsm() {
         doctor)
             tetra_tsm_doctor "$@"
             ;;
-        ports)
-            tetra_tsm_ports "$@"
+        daemon)
+            # Systemd daemon management (loaded from integrations/systemd.sh)
+            tsm_daemon "$@"
             ;;
         repl)
-            source "$TETRA_SRC/bash/tsm/interfaces/repl.sh"
+            # bash/repl-based REPL (loaded by include.sh)
             tsm_repl_main
             ;;
         patrol)
@@ -243,46 +240,59 @@ tsm() {
             tsm_show_port_ranges
             ;;
         monitor)
-            source "$TETRA_SRC/bash/tsm/tsm_monitor.sh"
+            # Already loaded from system/monitor.sh via include.sh
             tsm_monitor_service "$@"
             ;;
         stream)
-            source "$TETRA_SRC/bash/tsm/tsm_monitor.sh"
+            # Already loaded from system/monitor.sh via include.sh
             tsm_monitor_stream "$@"
             ;;
         dashboard|analytics)
-            source "$TETRA_SRC/bash/tsm/tsm_monitor.sh"
+            # Already loaded from system/monitor.sh via include.sh
             tsm_monitor_dashboard "$@"
             ;;
         clicks|click-timing)
-            source "$TETRA_SRC/bash/tsm/tsm_analytics.sh"
+            # Already loaded from system/analytics.sh via include.sh
             tsm_analyze_click_timing "$@"
             ;;
         journey|user-journey)
-            source "$TETRA_SRC/bash/tsm/tsm_analytics.sh"
+            # Already loaded from system/analytics.sh via include.sh
             tsm_analyze_user_journey "$@"
             ;;
         click-perf)
-            source "$TETRA_SRC/bash/tsm/tsm_analytics.sh"
+            # Already loaded from system/analytics.sh via include.sh
             tsm_analyze_click_performance "$@"
             ;;
         sessions)
-            source "$TETRA_SRC/bash/tsm/tsm_session_aggregator.sh"
+            # Already loaded from system/session_aggregator.sh via include.sh
             tsm_extract_sessions "$@"
             ;;
         users)
-            source "$TETRA_SRC/bash/tsm/tsm_session_aggregator.sh"
+            # Already loaded from system/session_aggregator.sh via include.sh
             tsm_disambiguate_users "$@"
             ;;
         patterns)
-            source "$TETRA_SRC/bash/tsm/tsm_session_aggregator.sh"
+            # Already loaded from system/session_aggregator.sh via include.sh
             tsm_analyze_user_patterns "$@"
             ;;
         help)
-            if [[ "$1" == "all" ]]; then
-                _tsm_show_detailed_help
+            # Check if help.sh is loaded
+            if declare -f tsm_help_topic >/dev/null 2>&1; then
+                if [[ "$1" == "all" ]]; then
+                    _tsm_show_detailed_help
+                elif [[ -n "$1" ]]; then
+                    # Route to topic/command help
+                    tsm_help_topic "$1"
+                else
+                    _tsm_show_simple_help
+                fi
             else
-                _tsm_show_simple_help
+                # Fallback if help.sh not loaded
+                if [[ "$1" == "all" ]]; then
+                    _tsm_show_detailed_help
+                else
+                    _tsm_show_simple_help
+                fi
             fi
             ;;
         *)
@@ -382,43 +392,27 @@ tsm_tview_list() {
 # === TSM HELP FUNCTIONS ===
 
 _tsm_show_simple_help() {
-    cat <<'EOF'
-TSM - Tetra Service Manager
+    # Colors
+    local C_TITLE='\033[1;36m'
+    local C_CAT='\033[1;34m'
+    local C_CMD='\033[0;36m'
+    local C_GRAY='\033[0;90m'
+    local C_NC='\033[0m'
 
-Usage: tsm <command> [args]
+    cat <<EOF
+$(echo -e "${C_TITLE}TSM${C_NC}") - Tetra Service Manager
 
-Common Commands:
-  list|ls [running|available|all]  List services (default: running)
-  start <service-name>       Start a service from services-available
-  stop <process|id>          Stop a process
-  services                   List available service definitions
-  logs <process|id> [-f]     Show/follow process logs
-  monitor <service>          Monitor service for tetra tokens
-  stream <service> [filter]  Stream tetra tokens in real-time
-  dashboard <service>        Show tetra analytics dashboard
-  clicks <service>           Analyze click timing and patterns
-  journey <service>          Show user journey timeline
-  click-perf <service>       Correlate clicks with API performance
-  sessions <service>         Extract and analyze user sessions
-  users <service>            Disambiguate user traffic
-  patterns <service> [user]  Analyze user behavioral patterns
-  ports overview             Show named ports and status
-  doctor                     Scan ports and diagnose issues
-  repl                       Interactive command mode
-  help all                   Show detailed help
+$(echo -e "${C_CAT}CATEGORIES${C_NC}")
+  $(echo -e "${C_CMD}Process${C_NC}")     start stop restart list info logs
+  $(echo -e "${C_CMD}Services${C_NC}")    services save enable disable
+  $(echo -e "${C_CMD}Daemon${C_NC}")      daemon install/enable/start/status (systemd)
+  $(echo -e "${C_CMD}Ports${C_NC}")       ports doctor
+  $(echo -e "${C_CMD}Runtime${C_NC}")     Pre-hooks for Python/Node (tsm help pre-hooks)
+  $(echo -e "${C_CMD}Monitor${C_NC}")     monitor stream dashboard
 
-Examples:
-  tsm start tserve           Start tserve service
-  tsm start devpages         Start devpages service
-  tsm start tetra            Start tetra service
-  tsm list                   Show running services (default)
-  tsm list available         Show all available services
-  tsm logs 0 -f             Follow logs for process ID 0
-  tsm monitor devpages       Monitor devpages for tetra tokens
-  tsm stream devpages PERF   Stream performance tokens
-  tsm dashboard devpages     Show analytics dashboard
-  tsm ports overview         Show port usage
-  tsm help all              Show complete help
+$(echo -e "${C_GRAY}Quick:${C_NC}") tsm start python -m http.server 8020
+$(echo -e "${C_GRAY}Help: ${C_NC}") tsm help <command|topic>  $(echo -e "${C_GRAY}(start, pre-hooks, python)${C_NC}")
+$(echo -e "${C_GRAY}List: ${C_NC}") tsm help all  $(echo -e "${C_GRAY}# full command list${C_NC}")
 EOF
 }
 
@@ -450,8 +444,10 @@ Commands:
   paths <process|id>         Show paths for logs, pid, etc. for a process
   scan-ports                 Scan and report open ports and their owners
   ports [list|detailed|scan|overview|status|validate|set|remove|allocate|import|export|conflicts] Named port registry and mappings
+  doctor healthcheck         Validate TSM environment and diagnose issues
   doctor [scan|port|kill|env] Port diagnostics and conflict resolution
-  repl                       Start interactive REPL with /commands
+  daemon [install|enable|start|stop|status|logs] Manage systemd daemon (tsm daemon help)
+  repl                       Interactive REPL (bash/repl-based: colors, mode switching, /tsm-help)
   help [all]                 Show this help
 
 Environment Setup Workflow:

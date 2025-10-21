@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# multimerge.sh - Enhanced merge tool supporting both diff and function cursor modes
+# multimerge.sh - Enhanced merge tool supporting both diff and function selector modes
 
-set -euo pipefail
 
 # Get the directory where this script resides
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,15 +20,15 @@ Options:
 
 Modes Supported:
   mode: diff         Traditional unified diff (delegates to multidiff.sh)
-  mode: function     AST-aware function replacement using cursors
+  mode: function     AST-aware function replacement using selectors
   mode: full         Complete file replacement (passthrough)
 
-Function Cursor Format:
+Function Selector Format:
   #MULTICAT_START
   # dir: /path/to/dir
   # file: script.sh
   # mode: function
-  # cursor: function_name
+  # selector: function_name
   #MULTICAT_END
   function_name() {
     # new function body
@@ -56,43 +55,43 @@ init_session() {
   echo "$session_dir"
 }
 
-# Apply function cursor replacement
-apply_function_cursor() {
+# Apply function selector replacement
+apply_function_selector() {
   local dir="$1"
   local file="$2"
-  local cursor="$3"
+  local selector="$3"
   local new_function="$4"
   local session_dir="${5:-}"
-  
+
   local target_path="$dir/$file"
-  
+
   if [[ ! -f "$target_path" ]]; then
     echo "Error: Target file not found: $target_path" >&2
     return 1
   fi
-  
+
   # Log the operation if session tracking is enabled
   if [[ -n "$session_dir" ]]; then
-    echo "$(date): Replacing function '$cursor' in $target_path" >> "$session_dir/operations.log"
+    echo "$(date): Replacing function '$selector' in $target_path" >> "$session_dir/operations.log"
     # Backup original function
-    ast_extract_function "$target_path" "$cursor" > "$session_dir/backup_${cursor}_$(basename "$file").txt" 2>/dev/null || true
+    ast_extract_function "$target_path" "$selector" > "$session_dir/backup_${selector}_$(basename "$file").txt" 2>/dev/null || true
   fi
-  
+
   # Create temp file with new function
   local tmpfn
   tmpfn=$(mktemp)
   echo "$new_function" > "$tmpfn"
-  
+
   # Use AST-aware function replacement
   if ast_replace_function "$target_path" < "$tmpfn"; then
     if [[ -n "$session_dir" ]]; then
-      echo "$(date): Successfully replaced function '$cursor' in $target_path" >> "$session_dir/operations.log"
+      echo "$(date): Successfully replaced function '$selector' in $target_path" >> "$session_dir/operations.log"
     fi
     rm -f "$tmpfn"
     return 0
   else
     if [[ -n "$session_dir" ]]; then
-      echo "$(date): Failed to replace function '$cursor' in $target_path" >> "$session_dir/operations.log"
+      echo "$(date): Failed to replace function '$selector' in $target_path" >> "$session_dir/operations.log"
     fi
     rm -f "$tmpfn"
     return 1
@@ -144,14 +143,14 @@ process_multicat() {
   local session_dir="$1"
   
   local in_block=0
-  local mode="full" cursor="" requires="no" note=""
+  local mode="full" selector="" requires="no" note=""
   local dir="" file="" content=""
-  
+
   while IFS= read -r line || [[ -n "$line" ]]; do
     if [[ "$line" == "#MULTICAT_START" ]]; then
       in_block=1
       mode="full"
-      cursor=""
+      selector=""
       requires="no"
       note=""
       dir=""
@@ -162,16 +161,16 @@ process_multicat() {
       # Process the block based on mode
       case "$mode" in
         function)
-          if [[ -z "$cursor" ]]; then
-            echo "Error: function mode requires cursor specification" >&2
+          if [[ -z "$selector" ]]; then
+            echo "Error: function mode requires selector specification" >&2
             exit 1
           fi
-          
-          if expanded=$(apply_function_cursor "$dir" "$file" "$cursor" "$content" "$session_dir"); then
+
+          if expanded=$(apply_function_selector "$dir" "$file" "$selector" "$content" "$session_dir"); then
             content="$expanded"
             mode="full"  # Convert to full after successful merge
           else
-            echo "Failed to apply function cursor '$cursor' to $dir/$file" >&2
+            echo "Failed to apply function selector '$selector' to $dir/$file" >&2
             exit 1
           fi
           ;;
@@ -202,7 +201,7 @@ process_multicat() {
       echo "# dir: $dir"
       echo "# file: $file"
       [[ "$mode" == "diff" ]] && echo "# mode: diff"
-      [[ "$mode" == "function" ]] && echo "# mode: function" && [[ -n "$cursor" ]] && echo "# cursor: $cursor"
+      [[ "$mode" == "function" ]] && echo "# mode: function" && [[ -n "$selector" ]] && echo "# selector: $selector"
       [[ "$requires" == "true" ]] && echo "# requires: true"
       [[ -n "$note" ]] && echo "# note: $note"
       echo "#MULTICAT_END"
@@ -210,13 +209,13 @@ process_multicat() {
       in_block=0
       continue
     fi
-    
+
     if [[ "$in_block" -eq 1 ]]; then
       case "$line" in
         "# dir: "*) dir="${line#"# dir: "}" ;;
         "# file: "*) file="${line#"# file: "}" ;;
         "# mode: "*) mode="${line#"# mode: "}" ;;
-        "# cursor: "*) cursor="${line#"# cursor: "}" ;;
+        "# selector: "*) selector="${line#"# selector: "}" ;;
         *) content+="$line"$'\n' ;;
       esac
     fi

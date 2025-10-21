@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # multdiff.sh — Expand diff blocks in a MULTICAT file using disk content.
 
-set -euo pipefail
 
 expand_diff() {
   local dir="$1"

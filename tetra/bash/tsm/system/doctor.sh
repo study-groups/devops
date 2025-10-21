@@ -41,6 +41,33 @@ info() {
     echo
 }
 
+# Truncate string with ellipsis in middle to fit width
+truncate_middle() {
+    local str="$1"
+    local max_width="${2:-40}"
+
+    # If string fits, return as-is
+    if [[ ${#str} -le $max_width ]]; then
+        echo "$str"
+        return
+    fi
+
+    # Calculate how much to show on each side (leave 3 chars for "...")
+    local side_width=$(( (max_width - 3) / 2 ))
+    local start_width=$side_width
+    local end_width=$side_width
+
+    # If odd number, give extra char to end
+    if [[ $(( (max_width - 3) % 2 )) -eq 1 ]]; then
+        end_width=$((end_width + 1))
+    fi
+
+    # Extract start and end, join with ellipsis
+    local start="${str:0:$start_width}"
+    local end="${str: -$end_width}"
+    echo "${start}...${end}"
+}
+
 # Check if lsof is available
 check_dependencies() {
     if ! command -v lsof >/dev/null 2>&1; then
@@ -51,45 +78,43 @@ check_dependencies() {
 
 # Scan common development ports + TSM-managed ports
 scan_common_ports() {
-    # Always start with common development ports
-    local ports=(3000 3001 4000 4001 5000 5001 8000 8001 8080 8888 9000 9001)
+    # Scan all ports in development range (1024-10000) that are actually in use
+    log "Scanning development ports (1024-10000)..."
 
-    # Add any TSM-managed ports not in common list
-    if [[ -d "$TSM_PROCESSES_DIR" ]]; then
-        for process_dir in "$TSM_PROCESSES_DIR"/*/; do
-            [[ -d "$process_dir" ]] || continue
-            local meta_file="${process_dir}meta.json"
-            if [[ -f "$meta_file" ]]; then
-                local port=$(jq -r '.port // empty' "$meta_file" 2>/dev/null)
-                if [[ -n "$port" && "$port" != "none" && "$port" =~ ^[0-9]+$ ]]; then
-                    # Add to list if not already present
-                    local found=false
-                    for existing_port in "${ports[@]}"; do
-                        if [[ "$existing_port" == "$port" ]]; then
-                            found=true
-                            break
-                        fi
-                    done
-                    if [[ "$found" == "false" ]]; then
-                        ports+=("$port")
-                    fi
-                fi
-            fi
-        done
+    # Get all listening ports in the range using lsof
+    local ports=()
+    while IFS= read -r port; do
+        [[ -n "$port" ]] || continue
+        # Filter to development port range
+        if [[ "$port" -ge 1024 && "$port" -le 10000 ]]; then
+            ports+=("$port")
+        fi
+    done < <(lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk 'NR>1 {print $9}' | sed 's/.*://g' | sort -nu)
+
+    # If no ports found in range, show common defaults as reference
+    if [[ ${#ports[@]} -eq 0 ]]; then
+        log "No ports in use in range 1024-10000"
+        echo
+        return 0
     fi
 
-    # Sort and deduplicate all ports
-    IFS=$'\n' ports=($(sort -nu <<<"${ports[*]}"))
-    unset IFS
-
-    log "Scanning common development ports..."
+    # Calculate available space for COMMAND column based on terminal width
+    local term_width=${COLUMNS:-80}
+    # Fixed columns: PORT(6) + STATUS(8) + TSM(5) + PID(8) + spaces(4) = 31
+    # Subtract 1 more for right margin breathing room
+    local fixed_width=32
+    local cmd_width=$((term_width - fixed_width))
+    # Set reasonable bounds
+    [[ $cmd_width -lt 40 ]] && cmd_width=40  # Minimum width
+    [[ $cmd_width -gt 120 ]] && cmd_width=120  # Maximum width
 
     echo
-    printf "%-6s %-8s %-10s %-20s %-10s %s\n" "PORT" "STATUS" "TSM" "PROCESS" "PID" "COMMAND"
-    printf "%-6s %-8s %-10s %-20s %-10s %s\n" "----" "------" "---" "-------" "---" "-------"
+    printf "%-6s %-8s %-5s %-8s %s\n" "PORT" "STATUS" "TSM" "PID" "COMMAND"
+    printf "%-6s %-8s %-5s %-8s %s\n" "----" "------" "---" "---" "-------"
 
     for port in "${ports[@]}"; do
-        local result=$(lsof -ti :$port 2>/dev/null)
+        # Get PID for this port (we know it's in use from lsof)
+        local pid=$(lsof -ti :$port 2>/dev/null | head -1)
         local is_tsm_managed="-"
 
         # Check if this port is managed by TSM
@@ -107,18 +132,12 @@ scan_common_ports() {
             done
         fi
 
-        if [[ -n "$result" ]]; then
-            local pid="$result"
-            local process=$(ps -p $pid -o comm= 2>/dev/null || echo "unknown")
-            local cmd=$(ps -p $pid -o args= 2>/dev/null | cut -c1-40 || echo "unknown")
-            printf "%-6s " "$port"
-            text_color "FF0044"; printf "%-8s" "USED"; reset_color
-            printf " %-10s %-20s %-10s %s\n" "$is_tsm_managed" "$process" "$pid" "$cmd"
-        else
-            printf "%-6s " "$port"
-            text_color "00AA00"; printf "%-8s" "FREE"; reset_color
-            printf " %-10s %-20s %-10s %s\n" "$is_tsm_managed" "-" "-" "-"
-        fi
+        # All ports in this list are USED (we got them from lsof)
+        local cmd_full=$(ps -p $pid -o args= 2>/dev/null || echo "unknown")
+        local cmd=$(truncate_middle "$cmd_full" $cmd_width)
+        printf "%-6s " "$port"
+        text_color "FF0044"; printf "%-8s" "USED"; reset_color
+        printf " %-5s %-8s %s\n" "$is_tsm_managed" "$pid" "$cmd"
     done
     echo
 }
@@ -134,11 +153,13 @@ scan_port() {
 
     log "Scanning port $port..."
 
-    local result=$(lsof -ti :$port 2>/dev/null)
+    local result=$(tsm_get_port_pid "$port")
     if [[ -n "$result" ]]; then
         local pid="$result"
-        local process=$(ps -p $pid -o comm= 2>/dev/null || echo "unknown")
-        local cmd=$(ps -p $pid -o args= 2>/dev/null || echo "unknown")
+        local process_full=$(ps -p $pid -o comm= 2>/dev/null || echo "unknown")
+        local process=$(truncate_middle "$process_full" 30)
+        local cmd_full=$(ps -p $pid -o args= 2>/dev/null || echo "unknown")
+        local cmd=$(truncate_middle "$cmd_full" 60)
         local user=$(ps -p $pid -o user= 2>/dev/null || echo "unknown")
 
         warn "Port $port is in use"
@@ -175,15 +196,17 @@ kill_port_process() {
         return 1
     fi
 
-    local result=$(lsof -ti :$port 2>/dev/null)
+    local result=$(tsm_get_port_pid "$port")
     if [[ -z "$result" ]]; then
         info "Port $port is already free"
         return 0
     fi
 
     local pid="$result"
-    local process=$(ps -p $pid -o comm= 2>/dev/null || echo "unknown")
-    local cmd=$(ps -p $pid -o args= 2>/dev/null || echo "unknown")
+    local process_full=$(ps -p $pid -o comm= 2>/dev/null || echo "unknown")
+    local process=$(truncate_middle "$process_full" 30)
+    local cmd_full=$(ps -p $pid -o args= 2>/dev/null || echo "unknown")
+    local cmd=$(truncate_middle "$cmd_full" 60)
 
     log "Found process using port $port:"
     echo "  PID:     $pid"
@@ -213,14 +236,14 @@ kill_port_process() {
         sleep 2
 
         # Check if still running
-        if kill -0 "$pid" 2>/dev/null; then
+        if tsm_is_pid_alive "$pid"; then
             warn "Process still running, sending SIGKILL..."
             kill -9 "$pid" 2>/dev/null
             sleep 1
         fi
 
         # Verify it's gone
-        if ! kill -0 "$pid" 2>/dev/null; then
+        if ! tsm_is_pid_alive "$pid"; then
             success "Process $pid killed successfully"
 
             # Double-check port is free
@@ -298,12 +321,14 @@ diagnose_env_loading() {
 
     # Test sourcing the file
     log "Testing environment file sourcing..."
-    if (source "$env_file" 2>/dev/null); then
+    # Source once and capture both validation and variable output
+    local env_output
+    if env_output=$(source "$env_file" 2>&1 && env | grep -E "^(PORT|NODE_ENV|PD_DIR)="); then
         success "Environment file sources without errors"
 
         # Show extracted variables
         echo "  Extracted variables:"
-        (source "$env_file" 2>/dev/null && env | grep -E "^(PORT|NODE_ENV|PD_DIR)=" | sed 's/^/    /')
+        echo "$env_output" | sed 's/^/    /'
     else
         error "Environment file has syntax errors"
         echo "  Try: bash -n $env_file"
@@ -322,11 +347,13 @@ tsm_diagnose_startup_failure() {
 
     # Check port conflict
     local existing_pid
-    existing_pid=$(lsof -ti :$port 2>/dev/null)
+    existing_pid=$(tsm_get_port_pid "$port")
     if [[ -n "$existing_pid" ]]; then
-        local process_name process_cmd user_name
-        process_name=$(ps -p $existing_pid -o comm= 2>/dev/null | tr -d ' ' || echo "unknown")
-        process_cmd=$(ps -p $existing_pid -o args= 2>/dev/null | head -c 80 || echo "unknown")
+        local process_name_full process_name process_cmd_full process_cmd user_name
+        process_name_full=$(ps -p $existing_pid -o comm= 2>/dev/null | tr -d ' ' || echo "unknown")
+        process_name=$(truncate_middle "$process_name_full" 30)
+        process_cmd_full=$(ps -p $existing_pid -o args= 2>/dev/null || echo "unknown")
+        process_cmd=$(truncate_middle "$process_cmd_full" 80)
         user_name=$(ps -p $existing_pid -o user= 2>/dev/null | tr -d ' ' || echo "unknown")
 
         error "Port $port is already in use"
@@ -589,9 +616,10 @@ tsm_validate_command() {
 
     # Check port availability
     if [[ -n "$port" ]]; then
-        local existing_pid=$(lsof -ti :$port 2>/dev/null)
+        local existing_pid=$(tsm_get_port_pid "$port")
         if [[ -n "$existing_pid" ]]; then
-            local process_cmd=$(ps -p $existing_pid -o args= 2>/dev/null | head -c 60 || echo "unknown")
+            local process_cmd_full=$(ps -p $existing_pid -o args= 2>/dev/null || echo "unknown")
+            local process_cmd=$(truncate_middle "$process_cmd_full" 60)
             validation_errors+=("Port $port is already in use by PID $existing_pid ($process_cmd)")
         else
             validation_info+=("Port $port is available")
@@ -699,6 +727,9 @@ tsm_validate_command() {
 # Clean up stale TSM process tracking files
 tsm_clean_stale_processes() {
     local cleaned=0
+    local kept=0
+    local total=0
+    local aggressive="${1:-false}"
 
     log "Cleaning up stale TSM process tracking files..."
 
@@ -707,12 +738,69 @@ tsm_clean_stale_processes() {
         return 0
     fi
 
+    # AGGRESSIVE MODE: Clean directory-based structure
+    for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+        [[ -d "$process_dir" ]] || continue
+
+        local name=$(basename "$process_dir")
+        local meta_file="${process_dir}meta.json"
+
+        ((total++))
+
+        if [[ ! -f "$meta_file" ]]; then
+            warn "No meta.json in $name, removing entire directory"
+            rm -rf "$process_dir"
+            ((cleaned++))
+            continue
+        fi
+
+        # Read PID from metadata
+        local pid
+        pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
+
+        if [[ -z "$pid" ]]; then
+            warn "Invalid metadata (no PID) in $name, removing"
+            rm -rf "$process_dir"
+            ((cleaned++))
+            continue
+        fi
+
+        # Check if PID is alive
+        if ! tsm_is_pid_alive "$pid"; then
+            info "Cleaning stale process tracking: $name (PID $pid is dead)"
+            rm -rf "$process_dir"
+            ((cleaned++))
+            continue
+        fi
+
+        # AGGRESSIVE: Check if PID matches the port
+        if [[ "$aggressive" == "true" ]]; then
+            local port
+            port=$(jq -r '.port // empty' "$meta_file" 2>/dev/null)
+            if [[ -n "$port" && "$port" != "null" && "$port" != "none" ]]; then
+                local actual_pid
+                actual_pid=$(lsof -ti :$port 2>/dev/null | head -1)
+                if [[ -n "$actual_pid" && "$actual_pid" != "$pid" ]]; then
+                    warn "PID $pid alive but port $port has PID $actual_pid, removing stale tracking for $name"
+                    rm -rf "$process_dir"
+                    ((cleaned++))
+                    continue
+                fi
+            fi
+        fi
+
+        ((kept++))
+    done
+
+    # Legacy cleanup: old .meta files
     for process_file in "$TSM_PROCESSES_DIR"/*.meta; do
         [[ -f "$process_file" ]] || continue
 
         local process_name=$(basename "$process_file" .meta)
         local pid
         pid=$(grep -o "pid=[0-9]*" "$process_file" 2>/dev/null | cut -d'=' -f2)
+
+        ((total++))
 
         if [[ -z "$pid" ]]; then
             warn "Invalid process file (no PID): $process_name"
@@ -722,21 +810,183 @@ tsm_clean_stale_processes() {
         fi
 
         # Check if process is still running
-        if ! kill -0 "$pid" 2>/dev/null; then
+        if ! tsm_is_pid_alive "$pid"; then
             info "Cleaning stale process tracking: $process_name (PID $pid no longer exists)"
             rm -f "$process_file"
             rm -f "$TSM_PIDS_DIR/$process_name.pid" 2>/dev/null
             cleaned=$((cleaned + 1))
+        else
+            ((kept++))
         fi
     done
 
-    if [[ $cleaned -eq 0 ]]; then
-        success "No stale process files found"
+    echo ""
+    if [[ $total -eq 0 ]]; then
+        success "No process tracking files found"
+    elif [[ $cleaned -eq 0 ]]; then
+        success "No stale process files found ($kept valid processes)"
     else
-        success "Cleaned up $cleaned stale process files"
+        success "Cleaned up $cleaned stale process files ($kept kept)"
     fi
 
     return 0
+}
+
+# Health check - validate TSM environment and state
+tsm_healthcheck() {
+    local errors=0
+    local warnings=0
+    local fix_suggestions=()
+
+    log "TSM Health Check"
+    echo "==================="
+    echo
+
+    # Check TETRA core variables
+    log "Core Environment:"
+    if [[ -n "${TETRA_SRC:-}" ]]; then
+        success "  [OK] TETRA_SRC=$TETRA_SRC"
+    else
+        error "  [ERROR] TETRA_SRC not set"
+        fix_suggestions+=("Run: source ~/tetra/tetra.sh")
+        ((errors++))
+    fi
+
+    if [[ -n "${TETRA_DIR:-}" ]]; then
+        success "  [OK] TETRA_DIR=$TETRA_DIR"
+    else
+        error "  [ERROR] TETRA_DIR not set"
+        fix_suggestions+=("Run: source ~/tetra/tetra.sh")
+        ((errors++))
+    fi
+
+    echo
+
+    # Check TSM runtime variables
+    log "TSM Runtime Variables:"
+    local tsm_vars=("TSM_PROCESSES_DIR" "TSM_LOGS_DIR" "TSM_PIDS_DIR" "TSM_PORTS_DIR")
+    for var in "${tsm_vars[@]}"; do
+        if [[ -n "${!var:-}" ]]; then
+            success "  [OK] $var=${!var}"
+        else
+            error "  [ERROR] $var not set"
+            fix_suggestions+=("TSM not properly initialized. Run: source $TETRA_SRC/bash/tsm/tsm.sh")
+            ((errors++))
+        fi
+    done
+
+    echo
+
+    # Check runtime directories exist
+    log "Runtime Directories:"
+    for var in "${tsm_vars[@]}"; do
+        local dir_path="${!var:-}"
+        if [[ -z "$dir_path" ]]; then
+            warn "  [WARN] $var: skipped (not set)"
+            ((warnings++))
+        elif [[ -d "$dir_path" ]]; then
+            success "  [OK] $var: exists"
+        else
+            warn "  [WARN] $var: missing"
+            fix_suggestions+=("Create with: mkdir -p $dir_path")
+            ((warnings++))
+        fi
+    done
+
+    echo
+
+    # Check dependencies
+    log "Dependencies:"
+    local deps=("lsof" "jq" "ps" "kill")
+    for dep in "${deps[@]}"; do
+        if command -v "$dep" >/dev/null 2>&1; then
+            success "  [OK] $dep: installed"
+        else
+            error "  [ERROR] $dep: not found"
+            if [[ "$dep" == "lsof" ]]; then
+                fix_suggestions+=("Install: brew install lsof")
+            elif [[ "$dep" == "jq" ]]; then
+                fix_suggestions+=("Install: brew install jq")
+            fi
+            ((errors++))
+        fi
+    done
+
+    echo
+
+    # Check for running processes vs tracked processes
+    log "Process Tracking:"
+    if [[ -n "${TSM_PROCESSES_DIR:-}" && -d "${TSM_PROCESSES_DIR:-}" ]]; then
+        local meta_count=$(find "$TSM_PROCESSES_DIR" -name "*.meta" -o -name "meta.json" 2>/dev/null | wc -l | tr -d ' ')
+        info "  Tracked processes: $meta_count"
+
+        # Check for stale tracking
+        local stale=0
+        if [[ $meta_count -gt 0 ]]; then
+            for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+                [[ -d "$process_dir" ]] || continue
+                local meta_file="${process_dir}meta.json"
+                if [[ -f "$meta_file" ]]; then
+                    local pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
+                    if ! tsm_is_pid_alive "$pid"; then
+                        ((stale++))
+                    fi
+                fi
+            done
+
+            if [[ $stale -gt 0 ]]; then
+                warn "  [WARN] Stale process files: $stale"
+                fix_suggestions+=("Clean stale processes: tsm doctor clean")
+                ((warnings++))
+            else
+                success "  [OK] No stale process files"
+            fi
+        fi
+    else
+        warn "  [WARN] Cannot check (TSM_PROCESSES_DIR not available)"
+        ((warnings++))
+    fi
+
+    echo
+
+    # Check for orphaned processes
+    log "Orphaned Processes:"
+    if command -v lsof >/dev/null 2>&1; then
+        local orphan_count=$(ps -eo pid,args | grep -E "python.*http.server|node.*server" | grep -v grep | wc -l | tr -d ' ')
+        if [[ $orphan_count -gt 0 ]]; then
+            warn "  [WARN] Potential orphans: $orphan_count"
+            fix_suggestions+=("Check orphans: tsm doctor orphans")
+            ((warnings++))
+        else
+            success "  [OK] No obvious orphans"
+        fi
+    fi
+
+    echo
+
+    # Summary
+    log "Summary:"
+    if [[ $errors -eq 0 && $warnings -eq 0 ]]; then
+        success "  All checks passed"
+        return 0
+    elif [[ $errors -eq 0 ]]; then
+        warn "  $warnings warning(s) found"
+    else
+        error "  $errors error(s), $warnings warning(s) found"
+    fi
+
+    echo
+
+    # Show fix suggestions
+    if [[ ${#fix_suggestions[@]} -gt 0 ]]; then
+        log "Suggested Fixes:"
+        for suggestion in "${fix_suggestions[@]}"; do
+            echo "  -> $suggestion"
+        done
+        echo
+    fi
+
+    return $(( errors > 0 ? 1 : 0 ))
 }
 
 # Main doctor command
@@ -744,9 +994,15 @@ tetra_tsm_doctor() {
     local subcommand="$1"
     shift
 
-    check_dependencies || return 1
+    # healthcheck doesn't need lsof dependency check
+    if [[ "$subcommand" != "healthcheck" && "$subcommand" != "health" ]]; then
+        check_dependencies || return 1
+    fi
 
     case "$subcommand" in
+        "healthcheck"|"health")
+            tsm_healthcheck
+            ;;
         "scan"|"ports"|"")
             scan_common_ports
             ;;
@@ -777,7 +1033,11 @@ tetra_tsm_doctor() {
             tsm_scan_orphaned_processes
             ;;
         "clean")
-            tsm_clean_stale_processes
+            local aggressive="false"
+            if [[ "$1" == "--aggressive" || "$1" == "-a" ]]; then
+                aggressive="true"
+            fi
+            tsm_clean_stale_processes "$aggressive"
             ;;
         "validate")
             local command="" port="" env_file="" json_output=false
@@ -839,12 +1099,13 @@ tetra_tsm_doctor() {
 TSM Doctor - Port diagnostics and conflict resolution
 
 Usage:
+  tsm doctor healthcheck         Run comprehensive health check (TSM env, deps, processes)
   tsm doctor [scan]              Scan common development ports
   tsm doctor port <number>       Check specific port
   tsm doctor kill <port> [--force]  Kill process using port
   tsm doctor env [file]          Diagnose environment file loading
   tsm doctor orphans [--json]    Find potentially orphaned TSM processes
-  tsm doctor clean               Clean up stale process tracking files
+  tsm doctor clean [-a|--aggressive]  Clean up stale process tracking files
   tsm doctor validate <command> [--port <port>] [--env <file>] [--json]  Pre-flight validation
   tsm doctor reconcile           Run port reconciliation (declared vs actual)
   tsm doctor ports-declared      Show TSM port registry (System A)
@@ -852,6 +1113,7 @@ Usage:
   tsm doctor help                Show this help
 
 Examples:
+  tsm doctor healthcheck         # Validate TSM environment and state (START HERE!)
   tsm doctor                     # Scan common ports
   tsm doctor port 4000           # Check if port 4000 is free
   tsm doctor kill 4000           # Kill process using port 4000
@@ -863,6 +1125,7 @@ Examples:
   tsm doctor validate "node server.js" --port 4000 --env env/dev.env  # Validate before start
 
 Common Issues:
+  - TSM variables not set (TSM_PROCESSES_DIR, etc.) → Run: tsm doctor healthcheck
   - Port conflicts preventing service startup
   - Environment variables not loading
   - TSM defaulting to unexpected ports

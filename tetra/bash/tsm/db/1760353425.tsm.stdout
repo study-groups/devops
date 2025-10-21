@@ -75,3 +75,5 @@
 🎮 Connecting to: Unknown Gamepad
    Vendor: 0, Product: 0
 ✅ Gamepad connected and ready
+🛑 Received SIGTERM, shutting down gracefully
+✅ Server closed

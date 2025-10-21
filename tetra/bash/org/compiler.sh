@@ -17,7 +17,8 @@
 #   - tetra.toml contains secrets - NEVER check into git
 #   - Always validate secrets.env exists and has 600 permissions
 
-set -euo pipefail
+# NOTE: set -euo pipefail removed - causes terminal crashes when sourced
+# Functions should handle errors explicitly instead
 
 # Source required modules
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -449,7 +450,7 @@ EOF
         *)
             echo "Unknown command: $1"
             echo "Use 'compiler.sh help' for usage information"
-            exit 1
+            return 1  # Changed from exit 1 - don't kill parent shell when sourced
             ;;
     esac
 fi

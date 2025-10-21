@@ -25,6 +25,7 @@ tsm_create_metadata() {
     local interpreter="$6"
     local type="$7"
     local env_file="$8"
+    local prehook="${9:-}"  # Optional: pre-hook used
 
     local tsm_id=$(tsm_get_next_id)
     local start_time=$(date +%s)
@@ -45,6 +46,7 @@ tsm_create_metadata() {
         --arg interpreter "$interpreter" \
         --arg type "$type" \
         --arg env_file "$env_file" \
+        --arg prehook "$prehook" \
         --arg start_time "$start_time" \
         '{
             tsm_id: ($tsm_id | tonumber),
@@ -54,8 +56,9 @@ tsm_create_metadata() {
             port: ($port | tonumber? // $port),
             cwd: $cwd,
             interpreter: $interpreter,
-            type: $type,
+            process_type: $type,
             env_file: $env_file,
+            prehook: $prehook,
             status: "online",
             start_time: ($start_time | tonumber),
             restarts: 0,
@@ -133,11 +136,28 @@ tsm_increment_restarts() {
     mv "$temp_file" "$meta_file"
 }
 
-# Check if process is tracked
+# Check if process is tracked AND actually running
 tsm_process_exists() {
     local name="$1"
     local meta_file=$(tsm_get_meta_file "$name")
-    [[ -f "$meta_file" ]]
+
+    # No metadata file = not tracked
+    [[ -f "$meta_file" ]] || return 1
+
+    # Read PID from metadata
+    local pid
+    pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
+    [[ -z "$pid" ]] && return 1
+
+    # Check if process is actually alive
+    if ! tsm_is_pid_alive "$pid"; then
+        # Process is dead - clean up the metadata
+        tsm_set_status "$name" "crashed"
+        return 1
+    fi
+
+    # Process exists and is running
+    return 0
 }
 
 # List all tracked processes

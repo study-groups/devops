@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # state_manager.sh - State management for RAG system
-set -euo pipefail
 
 # State directories
 TETRA_USER_RAG="${TETRA_DIR:-$HOME/.tetra}/rag"

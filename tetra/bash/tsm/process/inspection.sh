@@ -2,6 +2,42 @@
 
 # tetra_tsm_ inspect - Inspection and debugging commands for tsm
 
+# Smart path shortening for terminal display
+_tsm_shorten_path() {
+    local path="$1"
+    local max_width="${2:-60}"  # Default max width
+
+    # If path is shorter than max, return as-is
+    if [[ ${#path} -le $max_width ]]; then
+        echo "$path"
+        return
+    fi
+
+    # Replace HOME with ~
+    path="${path/#$HOME/\~}"
+
+    # If still too long, intelligently truncate
+    if [[ ${#path} -gt $max_width ]]; then
+        # Strategy: Keep filename and show truncated directory
+        local filename=$(basename "$path")
+        local dirname=$(dirname "$path")
+
+        # Calculate available space for dirname
+        local available=$((max_width - ${#filename} - 4))  # 4 for ".../"
+
+        if [[ $available -lt 10 ]]; then
+            # Very tight space - just show filename with leading ...
+            echo ".../${filename}"
+        else
+            # Show start of path + ... + filename
+            local start_len=$((available - 3))
+            echo "${dirname:0:$start_len}.../$(basename "$path")"
+        fi
+    else
+        echo "$path"
+    fi
+}
+
 # Get system resource summary in watchdog format
 _tsm_get_resource_summary() {
     case "$(uname)" in
@@ -70,22 +106,63 @@ tetra_tsm_list() {
 tetra_tsm_env() {
     local pattern="${1:-}"
     [[ -n "$pattern" ]] || { echo "tsm: env <process|id>" >&2; return 64; }
-    
+
+    # Colors
+    local C_TITLE='\033[1;36m'
+    local C_SECTION='\033[1;34m'
+    local C_VAR='\033[0;33m'
+    local C_VALUE='\033[0;37m'
+    local C_GRAY='\033[0;90m'
+    local C_NC='\033[0m'
+
     local resolved_id
     resolved_id=$(tetra_tsm_resolve_to_id "$pattern")
     if [[ $? -ne 0 ]]; then
-        echo "tsm: process '$pattern' not found" >&2
+        echo -e "${C_ERROR}✗ Process '$pattern' not found${C_NC}" >&2
         return 1
     fi
-    
+
     local name
     name=$(tetra_tsm_id_to_name "$resolved_id")
-    
+
     local env_file="$TSM_PROCESSES_DIR/$name.env"
     if [[ -f "$env_file" ]]; then
-        cat "$env_file" | sort
+        local var_count=$(grep -c "^" "$env_file" 2>/dev/null || echo "0")
+
+        echo -e "${C_TITLE}╔═══════════════════════════════════════════════════════╗${C_NC}"
+        echo -e "${C_TITLE}║  Environment Variables: ${C_VALUE}$name${C_TITLE} (TSM ID: ${C_VALUE}$resolved_id${C_TITLE})${C_NC}"
+        echo -e "${C_TITLE}╚═══════════════════════════════════════════════════════╝${C_NC}"
+        echo -e "${C_GRAY}Captured at process start time ($var_count variables)${C_NC}"
+        echo ""
+
+        # Format variables with colors
+        while IFS='=' read -r var_name var_value; do
+            # Skip empty lines
+            [[ -z "$var_name" ]] && continue
+
+            # Highlight important variables
+            case "$var_name" in
+                PATH|PYTHONPATH|NODE_PATH|GOPATH)
+                    echo -e "${C_SECTION}${var_name}${C_NC}=${C_VALUE}${var_value}${C_NC}"
+                    ;;
+                *PASSWORD*|*SECRET*|*TOKEN*|*KEY*)
+                    # Mask sensitive values
+                    echo -e "${C_VAR}${var_name}${C_NC}=${C_GRAY}***MASKED***${C_NC}"
+                    ;;
+                PORT|HOST|*_PORT|*_HOST)
+                    echo -e "${C_VAR}${var_name}${C_NC}=${C_VALUE}${var_value}${C_NC}"
+                    ;;
+                *)
+                    echo -e "${C_GRAY}${var_name}${C_NC}=${C_VALUE}${var_value}${C_NC}"
+                    ;;
+            esac
+        done < <(sort "$env_file")
+
+        echo ""
+        echo -e "${C_GRAY}Tip: Environment variables are captured when the process starts${C_NC}"
     else
-        echo "tsm: no environment file found for '$name'" >&2
+        echo -e "${C_GRAY}No environment snapshot for '$name'${C_NC}" >&2
+        echo -e "${C_GRAY}This can happen if the process was started before env capturing was enabled${C_NC}" >&2
         return 1
     fi
 }
@@ -105,7 +182,7 @@ tetra_tsm_paths() {
     name=$(tetra_tsm_id_to_name "$resolved_id")
 
     echo "Paths for process '$name' (ID: $resolved_id):"
-    echo "  meta: $TSM_PROCESSES_DIR/$name.meta"
+    echo "  meta: $TSM_PROCESSES_DIR/$name/meta.json"
     echo "  pid:  $TSM_PIDS_DIR/$name.pid"
     echo "  env:  $TSM_PROCESSES_DIR/$name.env"
     echo "  out:  $TSM_LOGS_DIR/$name.out"
@@ -188,33 +265,54 @@ tetra_tsm_logs_single() {
     local name="$1"
     local lines="${2:-50}"
     local follow="${3:-false}"
+
+    local meta_file="$TSM_PROCESSES_DIR/$name/meta.json"
+    [[ -f "$meta_file" ]] || { echo "tsm: process '$name' not found" >&2; return 1; }
+
+    # Logs are stored in the process directory
+    local outlog="$TSM_PROCESSES_DIR/$name/current.out"
+    local errlog="$TSM_PROCESSES_DIR/$name/current.err"
     
-    local metafile="$TSM_PROCESSES_DIR/$name.meta"
-    [[ -f "$metafile" ]] || { echo "tsm: process '$name' not found" >&2; return 1; }
-    
-    # All processes use standard TSM log structure
-    local outlog="$TSM_LOGS_DIR/$name.out"
-    local errlog="$TSM_LOGS_DIR/$name.err"
-    
+    # Colors
+    local C_SECTION='\033[1;34m'
+    local C_GRAY='\033[0;90m'
+    local C_ERROR='\033[0;31m'
+    local C_NC='\033[0m'
+
     if [[ "$follow" == "true" ]]; then
         # Follow logs in real-time
-        echo "Following logs for '$name' (Ctrl-C to exit)..."
+        echo -e "${C_SECTION}Following logs for '$name'${C_NC} ${C_GRAY}(Ctrl-C to exit)${C_NC}"
         tail -n "$lines" -f "$outlog" "$errlog" 2>/dev/null
     else
         # Default: show last N lines
         if [[ ! -f "$outlog" && ! -f "$errlog" ]]; then
-            echo "tsm: no logs found for '$name'"
+            echo -e "${C_GRAY}No log files found for '$name'${C_NC}"
+            echo -e "${C_GRAY}Log files will be created when the process produces output${C_NC}"
             return
         fi
-        
-        echo "--- Logs for $name (Last $lines lines) ---"
+
+        echo -e "${C_SECTION}Logs for $name${C_NC} ${C_GRAY}(last $lines lines)${C_NC}"
+        echo ""
+
+        # Show stdout
         if [[ -f "$outlog" ]]; then
-            echo "=== STDOUT ==="
-            tail -n "$lines" "$outlog" 2>/dev/null
+            if [[ -s "$outlog" ]]; then
+                echo -e "${C_SECTION}STDOUT${C_NC}"
+                tail -n "$lines" "$outlog" 2>/dev/null
+            else
+                echo -e "${C_GRAY}stdout: (empty)${C_NC}"
+            fi
         fi
+
+        # Show stderr
         if [[ -f "$errlog" ]]; then
-            echo "=== STDERR ==="
-            tail -n "$lines" "$errlog" 2>/dev/null
+            if [[ -s "$errlog" ]]; then
+                echo ""
+                echo -e "${C_ERROR}STDERR${C_NC}"
+                tail -n "$lines" "$errlog" 2>/dev/null
+            else
+                echo -e "${C_GRAY}stderr: (empty)${C_NC}"
+            fi
         fi
     fi
 }
@@ -305,23 +403,59 @@ tetra_tsm_ports() {
 }
 
 tetra_tsm_info() {
-    local pattern="${1:-}"
-    [[ -n "$pattern" ]] || { echo "tsm: info <process|id>" >&2; return 64; }
+    # Parse arguments
+    local pattern="" verbose=false
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -v|--verbose)
+                verbose=true
+                shift
+                ;;
+            -*)
+                echo "tsm: unknown flag '$1' for info command" >&2
+                return 64
+                ;;
+            *)
+                pattern="$1"
+                shift
+                ;;
+        esac
+    done
+
+    [[ -n "$pattern" ]] || { echo "tsm: info <process|id> [--verbose]" >&2; return 64; }
+
+    # Colors
+    local C_TITLE='\033[1;36m'     # Cyan bold
+    local C_SECTION='\033[1;34m'   # Blue bold
+    local C_LABEL='\033[0;33m'     # Yellow
+    local C_VALUE='\033[0;37m'     # White
+    local C_SUCCESS='\033[0;32m'   # Green
+    local C_ERROR='\033[0;31m'     # Red
+    local C_GRAY='\033[0;90m'      # Gray
+    local C_NC='\033[0m'           # No color
 
     local resolved_id
     resolved_id=$(tetra_tsm_resolve_to_id "$pattern")
     if [[ $? -ne 0 ]]; then
-        echo "tsm: process '$pattern' not found" >&2
+        echo -e "${C_ERROR}✗ Process '$pattern' not found${C_NC}" >&2
         return 1
     fi
 
     local name
     name=$(tetra_tsm_id_to_name "$resolved_id")
 
-    # --- Gather all data ---
-    local metafile="$TSM_PROCESSES_DIR/$name.meta"
-    local pid port start_time script tsm_id
-    eval "$(cat "$metafile")"
+    # --- Gather all data from JSON metadata ---
+    local meta_file="$TSM_PROCESSES_DIR/$name/meta.json"
+    local pid port start_time script tsm_id process_type interpreter cwd env_file
+    pid=$(jq -r '.pid // empty' "$meta_file")
+    port=$(jq -r '.port // empty' "$meta_file")
+    start_time=$(jq -r '.start_time // empty' "$meta_file")
+    script=$(jq -r '.command // empty' "$meta_file")
+    tsm_id=$(jq -r '.tsm_id // empty' "$meta_file")
+    process_type=$(jq -r '.process_type // "unknown"' "$meta_file")
+    interpreter=$(jq -r '.interpreter // "default"' "$meta_file")
+    cwd=$(jq -r '.cwd // "unknown"' "$meta_file")
+    env_file=$(jq -r '.env_file // ""' "$meta_file")
 
     local proc_status uptime
     if tetra_tsm_is_running "$name"; then
@@ -364,54 +498,148 @@ tetra_tsm_info() {
 
 
     # --- Output ---
-    echo "───────── Process Info: $name (id: $resolved_id) ─────────"
-    printf "%12s: %s\n" "Status" "$proc_status"
-    printf "%12s: %s\n" "PID" "$pid"
-    printf "%12s: %s\n" "Uptime" "$uptime"
-    printf "%12s: %s\n" "Port" "$port"
-    printf "%12s: %s\n" "Script" "$script"
+    echo -e "${C_TITLE}╔═══════════════════════════════════════════════════════╗${C_NC}"
+    echo -e "${C_TITLE}║  Process Info: ${C_VALUE}$name${C_TITLE} (TSM ID: ${C_VALUE}$resolved_id${C_TITLE})${C_NC}"
+    echo -e "${C_TITLE}╚═══════════════════════════════════════════════════════╝${C_NC}"
+    echo ""
 
-    # Show which env file was loaded (if any)
-    local env_file="$TSM_PROCESSES_DIR/$name.env"
-    if [[ -f "$env_file" ]]; then
-        # Try to determine the original env file from the script path
-        local original_env_file=""
-        if [[ -f "$script" ]]; then
-            original_env_file="$(grep -o "env/[^'\"]*\.env" "$script" 2>/dev/null | head -1)"
-        fi
-        if [[ -n "$original_env_file" ]]; then
-            printf "%12s: %s\n" "Env File" "$original_env_file"
+    # Status with color and uptime on same line
+    local status_display
+    if [[ "$proc_status" == "online" ]]; then
+        status_display="${C_SUCCESS}● online${C_NC}"
+    else
+        status_display="${C_ERROR}○ stopped${C_NC}"
+    fi
+
+    echo -e "${C_SECTION}PROCESS${C_NC}"
+    printf "  ${C_LABEL}%-14s${C_NC} %b ${C_GRAY}(uptime: ${C_VALUE}%s${C_GRAY})${C_NC}\n" "Status:" "$status_display" "$uptime"
+    printf "  ${C_LABEL}%-14s${C_NC} ${C_VALUE}%s${C_NC} ${C_GRAY}PID:${C_NC} ${C_VALUE}%s${C_NC}\n" "Type:" "$process_type" "$pid"
+    printf "  ${C_LABEL}%-14s${C_NC} ${C_VALUE}%s${C_NC} ${C_GRAY}Memory:${C_NC} ${C_VALUE}%s${C_NC}\n" "CPU:" "$cpu_usage" "$mem_usage"
+
+    echo ""
+    # Get terminal width for smart path shortening
+    local term_width=${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}
+    local max_path_width=$((term_width - 20))  # Leave room for labels and padding
+
+    echo -e "${C_SECTION}RUNTIME${C_NC}"
+    local interpreter_short=$(_tsm_shorten_path "$interpreter" "$max_path_width")
+    printf "  ${C_LABEL}%-14s${C_NC} ${C_VALUE}%s${C_NC}\n" "Interpreter:" "$interpreter_short"
+
+    local script_short=$(_tsm_shorten_path "$script" "$max_path_width")
+    printf "  ${C_LABEL}%-14s${C_NC} ${C_VALUE}%s${C_NC}\n" "Command:" "$script_short"
+
+    local cwd_short=$(_tsm_shorten_path "$cwd" "$max_path_width")
+    printf "  ${C_LABEL}%-14s${C_NC} ${C_VALUE}%s${C_NC}\n" "CWD:" "$cwd_short"
+
+    # Port with status indicator
+    if [[ -n "$port" && "$port" != "none" && "$port" != "-" ]]; then
+        # Check if port is actually open
+        local port_status
+        if command -v lsof >/dev/null 2>&1; then
+            if lsof -iTCP:"$port" -sTCP:LISTEN -P -n 2>/dev/null | grep -q "$pid"; then
+                port_status="${C_SUCCESS}listening${C_NC}"
+            else
+                port_status="${C_ERROR}not listening${C_NC}"
+            fi
         else
-            printf "%12s: %s\n" "Env File" "detected"
+            port_status="${C_GRAY}unknown${C_NC}"
+        fi
+        printf "  ${C_LABEL}%-14s${C_NC} ${C_VALUE}%s${C_NC} (%b)\n" "Port:" "$port" "$port_status"
+    else
+        printf "  ${C_LABEL}%-14s${C_NC} ${C_GRAY}none${C_NC}\n" "Port:"
+    fi
+
+    # Environment file
+    echo ""
+    echo -e "${C_SECTION}ENVIRONMENT${C_NC}"
+    if [[ -n "$env_file" && "$env_file" != "null" ]]; then
+        printf "  ${C_LABEL}%-14s${C_NC} ${C_VALUE}%s${C_NC}\n" "File:" "$env_file"
+        # Check if env snapshot exists
+        local env_snapshot="$TSM_PROCESSES_DIR/$name.env"
+        if [[ -f "$env_snapshot" ]]; then
+            local env_var_count=$(grep -c "^" "$env_snapshot" 2>/dev/null || echo "0")
+            printf "  ${C_LABEL}%-14s${C_NC} ${C_GRAY}%d variables captured${C_NC}\n" "Snapshot:" "$env_var_count"
+            printf "  ${C_GRAY}%-14s  Use 'tsm env %s' to view all variables${C_NC}\n" "" "$pattern"
         fi
     else
-        printf "%12s: %s\n" "Env File" "none"
+        printf "  ${C_LABEL}%-14s${C_NC} ${C_GRAY}none${C_NC}\n" "File:"
     fi
 
-    # One-line resource summary
-    local resources="$(_tsm_get_resource_summary)"
-    printf "%12s: %s\n" "Resources" "$resources"
+    echo ""
+    echo -e "${C_SECTION}LOG FILES${C_NC}"
+    local stdout_log="$TSM_PROCESSES_DIR/$name/current.out"
+    local stderr_log="$TSM_PROCESSES_DIR/$name/current.err"
 
-    echo ""
-    echo "───────── Working Dirs ─────────"
-    printf "%12s: %s\n" "CWD@start" "${cwd:-unknown}"
-    printf "%12s: %s\n" "Start Dir" "${start_dir:-unknown}"
-    
-    echo ""
-    echo "───────── Paths ─────────"
-    printf "%12s: %s\n" "Meta" "$TSM_PROCESSES_DIR/$name.meta"
-    printf "%12s: %s\n" "PID File" "$TSM_PIDS_DIR/$name.pid"
-    printf "%12s: %s\n" "Env" "$TSM_PROCESSES_DIR/$name.env"
-    printf "%12s: %s\n" "Out Log" "$TSM_LOGS_DIR/$name.out"
-    printf "%12s: %s\n" "Err Log" "$TSM_LOGS_DIR/$name.err"
-    
-    if [[ -n "$port" && "$port" != "-" ]]; then
-        echo ""
-        echo "───────── Port Status ($port) ─────────"
-        if command -v lsof >/dev/null 2>&1; then
-             lsof -iTCP:"$port" -sTCP:LISTEN -P -n 2>/dev/null | tail -n +2
+    # Show log sizes and locations with shortened paths
+    if [[ -f "$stdout_log" ]]; then
+        local stdout_size=$(stat -f%z "$stdout_log" 2>/dev/null || stat -c%s "$stdout_log" 2>/dev/null || echo "0")
+        local stdout_size_human
+        if (( stdout_size > 1024*1024 )); then
+            stdout_size_human="$(awk "BEGIN {printf \"%.1f MB\", $stdout_size/1024/1024}")"
+        elif (( stdout_size > 1024 )); then
+            stdout_size_human="$(awk "BEGIN {printf \"%.1f KB\", $stdout_size/1024}")"
         else
-            echo "'lsof' not found. Cannot check port status."
+            stdout_size_human="${stdout_size}B"
+        fi
+        local stdout_short=$(_tsm_shorten_path "$stdout_log" "$max_path_width")
+        printf "  ${C_LABEL}%-14s${C_NC} ${C_VALUE}%s${C_NC} ${C_GRAY}(%s)${C_NC}\n" "stdout:" "$stdout_short" "$stdout_size_human"
+    else
+        local stdout_short=$(_tsm_shorten_path "$stdout_log" "$max_path_width")
+        printf "  ${C_LABEL}%-14s${C_NC} ${C_GRAY}%s (not created)${C_NC}\n" "stdout:" "$stdout_short"
+    fi
+
+    if [[ -f "$stderr_log" ]]; then
+        local stderr_size=$(stat -f%z "$stderr_log" 2>/dev/null || stat -c%s "$stderr_log" 2>/dev/null || echo "0")
+        local stderr_size_human
+        if (( stderr_size > 1024*1024 )); then
+            stderr_size_human="$(awk "BEGIN {printf \"%.1f MB\", $stderr_size/1024/1024}")"
+        elif (( stderr_size > 1024 )); then
+            stderr_size_human="$(awk "BEGIN {printf \"%.1f KB\", $stderr_size/1024}")"
+        else
+            stderr_size_human="${stderr_size}B"
+        fi
+        local stderr_short=$(_tsm_shorten_path "$stderr_log" "$max_path_width")
+        printf "  ${C_LABEL}%-14s${C_NC} ${C_VALUE}%s${C_NC} ${C_GRAY}(%s)${C_NC}\n" "stderr:" "$stderr_short" "$stderr_size_human"
+    else
+        local stderr_short=$(_tsm_shorten_path "$stderr_log" "$max_path_width")
+        printf "  ${C_LABEL}%-14s${C_NC} ${C_GRAY}%s (not created)${C_NC}\n" "stderr:" "$stderr_short"
+    fi
+
+    printf "  ${C_GRAY}%-14s  Use 'tsm logs %s' to view logs${C_NC}\n" "" "$pattern"
+
+    # Verbose mode: show metadata and additional paths
+    if [[ "$verbose" == "true" ]]; then
+        echo ""
+        echo -e "${C_SECTION}METADATA & PATHS${C_NC}"
+        local meta_short=$(_tsm_shorten_path "$meta_file" "$max_path_width")
+        printf "  ${C_LABEL}%-14s${C_NC} ${C_GRAY}%s${C_NC}\n" "meta.json:" "$meta_short"
+
+        local pid_file="$TSM_PROCESSES_DIR/$name/${name}.pid"
+        local pid_short=$(_tsm_shorten_path "$pid_file" "$max_path_width")
+        printf "  ${C_LABEL}%-14s${C_NC} ${C_GRAY}%s${C_NC}\n" "PID file:" "$pid_short"
+
+        if [[ -f "$TSM_PROCESSES_DIR/$name.env" ]]; then
+            local env_snap_short=$(_tsm_shorten_path "$TSM_PROCESSES_DIR/$name.env" "$max_path_width")
+            printf "  ${C_LABEL}%-14s${C_NC} ${C_GRAY}%s${C_NC}\n" "env snapshot:" "$env_snap_short"
+        fi
+
+        echo ""
+        echo -e "${C_SECTION}SYSTEM RESOURCES${C_NC}"
+        local resources="$(_tsm_get_resource_summary)"
+        printf "  ${C_GRAY}%s${C_NC}\n" "$resources"
+
+        # Show recent log lines
+        echo ""
+        echo -e "${C_SECTION}RECENT LOG OUTPUT (last 5 lines)${C_NC}"
+        if [[ -f "$stdout_log" ]]; then
+            echo -e "  ${C_GRAY}stdout:${C_NC}"
+            tail -5 "$stdout_log" 2>/dev/null | sed 's/^/    /' || echo -e "    ${C_GRAY}(empty)${C_NC}"
+        fi
+        if [[ -f "$stderr_log" && -s "$stderr_log" ]]; then
+            echo -e "  ${C_ERROR}stderr:${C_NC}"
+            tail -5 "$stderr_log" 2>/dev/null | sed 's/^/    /' || echo -e "    ${C_GRAY}(empty)${C_NC}"
         fi
     fi
+
+    echo ""
 }

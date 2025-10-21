@@ -164,53 +164,6 @@ _tsm_generate_name() {
     fi
 }
 
-# === METADATA MANAGEMENT ===
-
-_tsm_save_metadata() {
-    local name="$1"
-    local script="$2"
-    local pid="$3"
-    local port="$4"
-    local type="$5"
-    local start_dir="${6:-}"
-    local cwd="${7:-}"
-    local preserve_id="${8:-}"
-    local is_restart="${9:-false}"
-    local env_file="${10:-}"
-
-    local tsm_id restart_count=0 last_restart_time=""
-    if [[ -n "$preserve_id" ]]; then
-        tsm_id="$preserve_id"
-        # If preserving ID, check for existing restart count
-        local existing_metafile="$TSM_PROCESSES_DIR/$name.meta"
-        if [[ -f "$existing_metafile" ]] && [[ "$is_restart" == "true" ]]; then
-            # Extract existing restart count
-            local existing_restart_count=""
-            eval "$(grep -o 'restart_count=[0-9]*' "$existing_metafile" 2>/dev/null || echo 'restart_count=0')"
-            restart_count=$((existing_restart_count + 1))
-            last_restart_time=$(date +%s)
-        fi
-    else
-        tsm_id=$(tetra_tsm_get_next_id)
-    fi
-
-    local metafile="$TSM_PROCESSES_DIR/$name.meta"
-    local meta_content="script='$script' pid=$pid port=$port start_time=$(date +%s) type=$type tsm_id=$tsm_id restart_count=$restart_count"
-    [[ -n "$start_dir" ]] && meta_content+=" start_dir='$start_dir'"
-    [[ -n "$cwd" ]] && meta_content+=" cwd='$cwd'"
-    [[ -n "$last_restart_time" ]] && meta_content+=" last_restart_time=$last_restart_time"
-
-    echo "$meta_content" > "$metafile"
-
-    # Save environment info
-    {
-        echo "TSM_ENV_FILE=\"$env_file\""
-        printenv
-    } > "$TSM_PROCESSES_DIR/$name.env"
-
-    echo "$tsm_id"
-}
-
 # === ID MANAGEMENT ===
 
 tetra_tsm_reset_id() {
@@ -239,5 +192,4 @@ export -f _tsm_auto_detect_env
 export -f _tsm_validate_env_file
 export -f _tsm_resolve_script_path
 export -f _tsm_generate_name
-export -f _tsm_save_metadata
 export -f tetra_tsm_reset_id

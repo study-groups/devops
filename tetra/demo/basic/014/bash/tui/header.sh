@@ -51,10 +51,7 @@ header_repl_set_input() {
 header_render_repl() {
     if [[ "$HEADER_REPL_ACTIVE" == "true" ]]; then
         printf "\033[36mREPL:\033[0m\t\t%s%s" "$HEADER_REPL_PROMPT" "$HEADER_REPL_INPUT"
-        # Show cursor
-        printf "\033[?25h"
-    else
-        printf "\033[?25l"  # Hide cursor
+        # Note: Cursor visibility managed by main loop, not here
     fi
     echo
 }

@@ -4,6 +4,10 @@
 # Extracted from tsm_interface.sh during Phase 2 refactor
 # Functions handling process start/stop/restart operations
 
+# Load TSM logging wrapper
+TSM_DIR="${TSM_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+source "$TSM_DIR/tsm_log.sh" 2>/dev/null || true
+
 # === CORE PROCESS STARTING ===
 
 _tsm_start_process() {
@@ -92,8 +96,14 @@ tetra_tsm_start_python() {
 
     local name="${custom_name:-python-server}-${port}"
 
+    # Log start attempt
+    type tsm_log_process_start_try >/dev/null 2>&1 && \
+        tsm_log_process_start_try "$name" "$port"
+
     tetra_tsm_is_running "$name" && {
         echo "tsm: process '$name' already running" >&2
+        type tsm_log_process_start_fail >/dev/null 2>&1 && \
+            tsm_log_process_start_fail "$name" "already running"
         return 1
     }
 
@@ -135,12 +145,19 @@ tetra_tsm_start_python() {
         fi
 
         local tsm_id
-        tsm_id=$(_tsm_save_metadata "$name" "$python_cmd" "$pid" "$port" "python" "$start_dir" "$cwd_value")
+        tsm_id=$(tsm_create_metadata "$name" "$pid" "$python_cmd" "$port" "$cwd_value" "python" "python" "")
+
+        # Log success
+        type tsm_log_process_start_success >/dev/null 2>&1 && \
+            tsm_log_process_start_success "$name" "$pid" "$port"
 
         echo "tsm: started '$name' (TSM ID: $tsm_id, PID: $pid, Port: $port)"
     else
         echo "tsm: failed to start '$name'" >&2
         echo >&2
+        # Log failure
+        type tsm_log_process_start_fail >/dev/null 2>&1 && \
+            tsm_log_process_start_fail "$name" "process failed to start"
         # Run diagnostic to provide helpful error context
         tsm_diagnose_startup_failure "$name" "$port" "$python_cmd" ""
         return 1
@@ -166,14 +183,15 @@ tetra_tsm_stop_single() {
     local name="$1"
     local force="${2:-false}"
 
-    # Resolve name to timestamp via active symlink
-    if ! tsm_is_active "$name"; then
+    # Check if process is running
+    if ! tetra_tsm_is_running "$name"; then
         echo "tsm: process '$name' not running"
         return 1
     fi
 
-    local timestamp=$(tsm_resolve_active_to_timestamp "$name")
-    local pid=$(tsm_metadata_get "$timestamp" "pid")
+    # Get PID from JSON metadata
+    local meta_file="$TSM_PROCESSES_DIR/$name/meta.json"
+    local pid=$(jq -r '.pid // empty' "$meta_file")
 
     # Log stop attempt
     tetra_log_try "tsm" "stop" "$name" "{\"pid\":$pid,\"force\":$force}"
@@ -224,15 +242,12 @@ tetra_tsm_stop_single() {
         fi
     fi
 
-    # Update metadata
-    tsm_metadata_set_status "$timestamp" "stopped"
-    tsm_metadata_set_stop_time "$timestamp" "$(date +%s)"
-
-    # Remove active symlink
-    tsm_deactivate "$name"
+    # Update metadata status in JSON
+    local temp_file="${meta_file}.tmp"
+    jq '.status = "stopped" | .stop_time = now' "$meta_file" > "$temp_file" && mv "$temp_file" "$meta_file"
 
     # Log success
-    tetra_log_success "tsm" "stop" "$name" "{\"pid\":$pid,\"timestamp\":$timestamp}"
+    tetra_log_success "tsm" "stop" "$name" "{\"pid\":$pid}"
 
     echo "tsm: stopped '$name'"
 }
@@ -242,9 +257,13 @@ tetra_tsm_stop_by_id() {
     local force="${2:-false}"
 
     local name
-    name=$(tetra_tsm_id_to_name "$id") || {
-        echo "tsm: process ID '$id' not found" >&2
-        return 1
+    # Try smart resolver first (handles TSM ID, PID, or port)
+    name=$(tetra_tsm_smart_resolve "$id") || {
+        # Fallback to original ID-only lookup
+        name=$(tetra_tsm_id_to_name "$id") || {
+            echo "tsm: process ID/PID/port '$id' not found" >&2
+            return 1
+        }
     }
 
     tetra_tsm_stop_single "$name" "$force"
@@ -256,7 +275,7 @@ tetra_tsm_delete_single() {
     local name="$1"
 
     # Stop the process if running
-    tsm_is_active "$name" && tetra_tsm_stop_single "$name" "true" 2>/dev/null || true
+    tetra_tsm_is_running "$name" && tetra_tsm_stop_single "$name" "true" 2>/dev/null || true
 
     # Get all timestamps for this name (historical)
     local timestamps=$(tsm_get_service_history "$name")
@@ -298,16 +317,20 @@ tetra_tsm_delete_by_id() {
 tetra_tsm_restart_single() {
     local name="$1"
 
-    # Get metadata before stopping
-    local metafile="$TSM_PROCESSES_DIR/$name.meta"
-    if [[ ! -f "$metafile" ]]; then
+    # Get metadata before stopping (use JSON metadata)
+    local meta_file="$TSM_PROCESSES_DIR/$name/meta.json"
+    if [[ ! -f "$meta_file" ]]; then
         echo "tsm: process '$name' not found" >&2
         return 1
     fi
 
-    # Extract metadata
-    local script="" port="" type="" tsm_id="" cwd=""
-    eval "$(cat "$metafile")"
+    # Extract metadata from JSON
+    local script port type tsm_id cwd
+    script=$(jq -r '.command // empty' "$meta_file")
+    port=$(jq -r '.port // empty' "$meta_file")
+    type=$(jq -r '.type // empty' "$meta_file")
+    tsm_id=$(jq -r '.tsm_id // empty' "$meta_file")
+    cwd=$(jq -r '.cwd // empty' "$meta_file")
 
     # Stop if running
     tetra_tsm_is_running "$name" && tetra_tsm_stop_single "$name" "true"
@@ -364,12 +387,23 @@ _tsm_restart_unified() {
                 local pid
                 pid=$(cat "$piddir/$name.pid")
 
-                local tsm_id
-                tsm_id=$(_tsm_save_metadata "$name" "$script" "$pid" "$port" "python" "$working_dir" "$cwd" "$preserve_id" "true")
+                # Update existing metadata for restart
+                local meta_file=$(tsm_get_meta_file "$name")
+                local temp_file="${meta_file}.tmp"
+                jq --arg pid "$pid" \
+                   --arg start_time "$(date +%s)" \
+                   '.pid = ($pid | tonumber) | .start_time = ($start_time | tonumber) | .status = "online" | .restarts += 1' \
+                   "$meta_file" > "$temp_file" && mv "$temp_file" "$meta_file"
 
-                echo "tsm: restarted '$name' (TSM ID: $tsm_id, PID: $pid, Port: $port)"
+                # Log restart success
+                type tsm_log_process_restart >/dev/null 2>&1 && \
+                    tsm_log_process_restart "$name" "$preserve_id" "$pid"
+
+                echo "tsm: restarted '$name' (TSM ID: $preserve_id, PID: $pid, Port: $port)"
             else
                 echo "tsm: failed to restart '$name'" >&2
+                type tsm_log_fail >/dev/null 2>&1 && \
+                    tsm_log_fail "restart" "$name" '{"error":"process failed to start"}'
                 return 1
             fi
             ;;
@@ -390,10 +424,15 @@ _tsm_restart_unified() {
             local pid
             pid=$(cat "$TSM_PIDS_DIR/$name.pid")
 
-            local tsm_id
-            tsm_id=$(_tsm_save_metadata "$name" "$script_path" "$pid" "$port" "cli" "" "$cwd" "$preserve_id" "true")
+            # Update existing metadata for restart
+            local meta_file=$(tsm_get_meta_file "$name")
+            local temp_file="${meta_file}.tmp"
+            jq --arg pid "$pid" \
+               --arg start_time "$(date +%s)" \
+               '.pid = ($pid | tonumber) | .start_time = ($start_time | tonumber) | .status = "online" | .restarts += 1' \
+               "$meta_file" > "$temp_file" && mv "$temp_file" "$meta_file"
 
-            echo "tsm: restarted '$name' (TSM ID: $tsm_id, PID: $pid)"
+            echo "tsm: restarted '$name' (TSM ID: $preserve_id, PID: $pid)"
             ;;
         command)
             _tsm_start_command_process "$script" "$name" "" "$cwd" || {
@@ -404,10 +443,35 @@ _tsm_restart_unified() {
             local pid
             pid=$(cat "$TSM_PIDS_DIR/$name.pid")
 
-            local tsm_id
-            tsm_id=$(_tsm_save_metadata "$name" "$script" "$pid" "$port" "command" "" "$cwd" "$preserve_id" "true")
+            # Update existing metadata for restart
+            local meta_file=$(tsm_get_meta_file "$name")
+            local temp_file="${meta_file}.tmp"
+            jq --arg pid "$pid" \
+               --arg start_time "$(date +%s)" \
+               '.pid = ($pid | tonumber) | .start_time = ($start_time | tonumber) | .status = "online" | .restarts += 1' \
+               "$meta_file" > "$temp_file" && mv "$temp_file" "$meta_file"
 
-            echo "tsm: restarted '$name' (TSM ID: $tsm_id, PID: $pid, Port: $port)"
+            echo "tsm: restarted '$name' (TSM ID: $preserve_id, PID: $pid, Port: $port)"
+            ;;
+        node)
+            # Node processes - similar to command but tracked as node type
+            _tsm_start_command_process "$script" "$name" "" "$cwd" || {
+                echo "tsm: failed to restart '$name'" >&2
+                return 1
+            }
+
+            local pid
+            pid=$(cat "$TSM_PIDS_DIR/$name.pid")
+
+            # Update JSON metadata for restart
+            local meta_file="$TSM_PROCESSES_DIR/$name/meta.json"
+            local temp_file="${meta_file}.tmp"
+            jq --arg pid "$pid" \
+               --arg start_time "$(date +%s)" \
+               '.pid = ($pid | tonumber) | .start_time = ($start_time | tonumber) | .status = "online" | .restarts += 1' \
+               "$meta_file" > "$temp_file" && mv "$temp_file" "$meta_file"
+
+            echo "tsm: restarted '$name' (TSM ID: $preserve_id, PID: $pid, Port: $port)"
             ;;
         *)
             echo "tsm: unknown process type '$type'" >&2

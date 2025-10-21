@@ -20,7 +20,25 @@ _tsm_load_environment() {
     fi
 }
 
-# Extract PORT and NAME from environment files
+# Parse env file once and extract PORT and NAME together
+# Returns: "PORT=value NAME=value" on stdout
+# Usage: eval $(tsm_parse_env_file "$env_file")
+tsm_parse_env_file() {
+    local env_file="$1"
+
+    if [[ ! -f "$env_file" ]]; then
+        return 1
+    fi
+
+    # Source in subshell and extract both vars at once
+    (
+        source "$env_file" 2>/dev/null
+        echo "ENV_PORT=${PORT:-${TETRA_PORT:-}}"
+        echo "ENV_NAME=${NAME:-${TETRA_NAME:-}}"
+    )
+}
+
+# Extract single variable from environment file
 _tsm_extract_env_vars() {
     local env_file="$1"
     local var_name="$2"
@@ -44,6 +62,7 @@ _tsm_get_env_name() {
 }
 
 # Export environment functions
+export -f tsm_parse_env_file
 export -f _tsm_load_environment
 export -f _tsm_extract_env_vars
 export -f _tsm_get_env_port

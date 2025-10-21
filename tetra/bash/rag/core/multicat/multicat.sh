@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # multicat.sh — Concatenates files into MULTICAT format
-set -euo pipefail
+
+# Source agents utility
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../utils/agents.sh"
 
 # --- Global ---
 include_files=()
@@ -149,25 +152,6 @@ EOF
 
 # --- Agent Integration ---
 
-load_agent_profile() {
-    local agent="$1"
-
-    # Try user directory first, then system directory
-    local user_profile="${TETRA_DIR:-$HOME/.tetra}/rag/agents/$agent.conf"
-    local system_profile="${TETRA_SRC:-$(dirname "$0")/../..}/bash/rag/agents/$agent.conf"
-
-    if [[ -f "$user_profile" ]]; then
-        source "$user_profile"
-        echo "Loaded agent profile: $user_profile" >&2
-    elif [[ -f "$system_profile" ]]; then
-        source "$system_profile"
-        echo "Loaded agent profile: $system_profile" >&2
-    else
-        echo "Warning: Agent profile not found for '$agent', using defaults" >&2
-        return 1
-    fi
-}
-
 generate_agent_example() {
     local agent="$1"
 
@@ -183,55 +167,6 @@ generate_agent_example() {
     else
         generate_example  # Fallback to default
     fi
-}
-
-list_available_agents_cli() {
-    local sys_dir="${TETRA_SRC:-$(dirname "$0")/../..}/bash/rag/agents"
-    local user_dir="${TETRA_DIR:-$HOME/.tetra}/rag/agents"
-
-    echo "Available LLM Agents"
-    echo "════════════════════════════════════════════════════════════"
-    echo ""
-
-    # System agents
-    local found=0
-    if [[ -d "$sys_dir" ]]; then
-        for conf in "$sys_dir"/*.conf; do
-            [[ -f "$conf" ]] || continue
-            found=1
-            local name=$(basename "$conf" .conf)
-            local desc=$(grep '^AGENT_DESCRIPTION=' "$conf" 2>/dev/null | cut -d'"' -f2)
-            printf "  %-20s %s\n" "$name" "${desc:-(system agent)}"
-            printf "  └─ %s\n" "${conf/$HOME/~}"
-            echo ""
-        done
-    fi
-
-    # User agents
-    if [[ -d "$user_dir" ]]; then
-        for conf in "$user_dir"/*.conf; do
-            [[ -f "$conf" ]] || continue
-            found=1
-            local name=$(basename "$conf" .conf)
-            local desc=$(grep '^AGENT_DESCRIPTION=' "$conf" 2>/dev/null | cut -d'"' -f2)
-            printf "  %-20s %s\n" "$name" "${desc:-(user agent)}"
-            printf "  └─ %s\n" "${conf/$HOME/~}"
-            echo ""
-        done
-    fi
-
-    if [[ $found -eq 0 ]]; then
-        echo "  No agent profiles found."
-        echo ""
-        echo "  System directory: $sys_dir"
-        echo "  User directory:   $user_dir"
-        echo ""
-    fi
-
-    echo "Usage:"
-    echo "  mc --agent <name> [files...]        Use specific agent profile"
-    echo "  mc --example <name>                 Generate agent-specific example"
-    echo ""
 }
 
 # --- ULM Integration ---
@@ -377,7 +312,7 @@ while [[ $# -gt 0 ]]; do
       shift
       if [[ -z "${1:-}" || "${1}" == -* ]]; then
         # No value or next arg is a flag → list agents
-        list_available_agents_cli
+        list_available_agents "cli"
         exit 0
       fi
       agent_name="${1}"

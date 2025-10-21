@@ -5,31 +5,36 @@
 
 set -euo pipefail
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Load unified logging
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TETRA_SRC="${TETRA_SRC:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+
+# Enable console logging with color
+export TETRA_LOG_CONSOLE=1
+export TETRA_LOG_CONSOLE_COLOR=1
+export TETRA_LOG_LEVEL=INFO
+
+source "${TETRA_SRC}/bash/utils/unified_log.sh"
 
 # Migration configuration
 BACKUP_SUFFIX=".pre-migration-$(date +%Y%m%d-%H%M%S)"
 DRY_RUN=${DRY_RUN:-false}
 
+# Logging wrappers for migration script
 log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+    tetra_log_info migrate "$1" "{}"
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+    tetra_log_success migrate "$1" "{}"
 }
 
 log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+    tetra_log_warn migrate "$1" "{}"
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    tetra_log_error migrate "$1" "{}"
 }
 
 # Check if we're in dry run mode

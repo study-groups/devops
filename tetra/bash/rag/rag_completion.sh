@@ -1,20 +1,29 @@
 #!/usr/bin/env bash
 # Bash completion for RAG module (TCS-compliant actions)
 
+# Source agents utility for completion
+: "${TETRA_SRC:=$HOME/src/devops/tetra}"
+if [[ -f "$TETRA_SRC/bash/rag/core/utils/agents.sh" ]]; then
+    source "$TETRA_SRC/bash/rag/core/utils/agents.sh"
+fi
+
 _rag_complete() {
     local cur prev words cword
     _init_completion || return
 
     # Get available agents dynamically
     _rag_get_agents() {
-        local sys_dir="${TETRA_SRC:-$HOME/src/devops/tetra}/bash/rag/agents"
-        local user_dir="${TETRA_DIR:-$HOME/.tetra}/rag/agents"
-
-        local agents=()
-        [[ -d "$sys_dir" ]] && agents+=($(ls "$sys_dir"/*.conf 2>/dev/null | xargs -n1 basename | sed 's/.conf$//'))
-        [[ -d "$user_dir" ]] && agents+=($(ls "$user_dir"/*.conf 2>/dev/null | xargs -n1 basename | sed 's/.conf$//'))
-
-        echo "${agents[@]}"
+        if declare -f list_agent_names >/dev/null 2>&1; then
+            list_agent_names
+        else
+            # Fallback if agents.sh not loaded
+            local sys_dir="${TETRA_SRC:-$HOME/src/devops/tetra}/bash/rag/agents"
+            local user_dir="${TETRA_DIR:-$HOME/.tetra}/rag/agents"
+            local agents=()
+            [[ -d "$sys_dir" ]] && agents+=($(ls "$sys_dir"/*.conf 2>/dev/null | xargs -n1 basename | sed 's/.conf$//'))
+            [[ -d "$user_dir" ]] && agents+=($(ls "$user_dir"/*.conf 2>/dev/null | xargs -n1 basename | sed 's/.conf$//'))
+            echo "${agents[@]}"
+        fi
     }
 
     case $cword in
@@ -80,14 +89,17 @@ _mc_complete() {
 
     # Get available agents
     _mc_get_agents() {
-        local sys_dir="${TETRA_SRC:-$HOME/src/devops/tetra}/bash/rag/agents"
-        local user_dir="${TETRA_DIR:-$HOME/.tetra}/rag/agents"
-
-        local agents=()
-        [[ -d "$sys_dir" ]] && agents+=($(ls "$sys_dir"/*.conf 2>/dev/null | xargs -n1 basename | sed 's/.conf$//'))
-        [[ -d "$user_dir" ]] && agents+=($(ls "$user_dir"/*.conf 2>/dev/null | xargs -n1 basename | sed 's/.conf$//'))
-
-        echo "${agents[@]}"
+        if declare -f list_agent_names >/dev/null 2>&1; then
+            list_agent_names
+        else
+            # Fallback if agents.sh not loaded
+            local sys_dir="${TETRA_SRC:-$HOME/src/devops/tetra}/bash/rag/agents"
+            local user_dir="${TETRA_DIR:-$HOME/.tetra}/rag/agents"
+            local agents=()
+            [[ -d "$sys_dir" ]] && agents+=($(ls "$sys_dir"/*.conf 2>/dev/null | xargs -n1 basename | sed 's/.conf$//'))
+            [[ -d "$user_dir" ]] && agents+=($(ls "$user_dir"/*.conf 2>/dev/null | xargs -n1 basename | sed 's/.conf$//'))
+            echo "${agents[@]}"
+        fi
     }
 
     # Handle flags

@@ -8,13 +8,17 @@ tsm_discover_port() {
     local command="$1"
     local env_file="$2"
     local explicit_port="$3"
+    local parsed_port="${4:-}"  # Optional: pre-parsed ENV_PORT
 
     # Priority: --port > env file > script file > command scan > none
     [[ -n "$explicit_port" ]] && { echo "$explicit_port"; return 0; }
 
-    # Check env file for PORT or TETRA_PORT (with or without export)
-    if [[ -n "$env_file" && -f "$env_file" ]]; then
-        local port=$(grep -E '^(export )?(PORT|TETRA_PORT)=' "$env_file" | head -1 | grep -oE '[0-9]{4,5}')
+    # Use pre-parsed port if available, otherwise read env file
+    if [[ -n "$parsed_port" ]]; then
+        echo "$parsed_port"
+        return 0
+    elif [[ -n "$env_file" && -f "$env_file" ]]; then
+        local port=$(_tsm_get_env_port "$env_file")
         [[ -n "$port" ]] && { echo "$port"; return 0; }
     fi
 
@@ -44,14 +48,17 @@ tsm_generate_process_name() {
     local port="$2"
     local explicit_name="$3"
     local env_file="$4"
+    local parsed_name="${5:-}"  # Optional: pre-parsed ENV_NAME
 
     local base_name
     if [[ -n "$explicit_name" ]]; then
         base_name="$explicit_name"
     else
-        # Try to get NAME from env file
-        if [[ -n "$env_file" && -f "$env_file" ]]; then
-            base_name=$(grep -E '^(export )?NAME=' "$env_file" | head -1 | cut -d= -f2 | tr -d '"' | tr -d "'")
+        # Use pre-parsed name if available, otherwise read env file
+        if [[ -n "$parsed_name" ]]; then
+            base_name="$parsed_name"
+        elif [[ -n "$env_file" && -f "$env_file" ]]; then
+            base_name=$(_tsm_get_env_name "$env_file")
         fi
 
         # If still no name, try package.json
@@ -61,18 +68,23 @@ tsm_generate_process_name() {
 
         # If still no name, extract from script file or module
         if [[ -z "$base_name" ]]; then
+            local dir_name=$(basename "$PWD")
+
             # Match: python script.py, node app.js, python -m module.name
             if [[ "$command" =~ (node|python|python3)[[:space:]]+-m[[:space:]]+([a-zA-Z0-9_.]+) ]]; then
-                # Python module: python -m http.server -> http
+                # Python module: combine directory name + module name
+                # Example: python -m http.server -> mydemo-http
                 local module_name="${BASH_REMATCH[2]}"
-                base_name="${module_name%%.*}"  # Get first part before dot
+                base_name="${dir_name}-${module_name%%.*}"
             elif [[ "$command" =~ (node|python|python3)[[:space:]]+([^[:space:]-][^[:space:]]*) ]]; then
-                # Script file: python script.py -> script
+                # Script file: combine directory name + script name
+                # Example: python server.py -> mydemo-server
                 local script_file="${BASH_REMATCH[2]}"
-                base_name=$(basename "$script_file" .js 2>/dev/null || echo "$script_file")
-                base_name=$(basename "$base_name" .py 2>/dev/null || echo "$base_name")
+                local script_base=$(basename "$script_file" .js 2>/dev/null || echo "$script_file")
+                script_base=$(basename "$script_base" .py 2>/dev/null || echo "$script_base")
+                base_name="${dir_name}-${script_base}"
             else
-                # Fallback: first command word
+                # Fallback: first command word (no directory prefix for non-scripting commands)
                 base_name="${command%% *}"
                 base_name="${base_name##*/}"
                 base_name="${base_name%.sh}"
@@ -94,11 +106,18 @@ tsm_start_any_command() {
     local env_file="$2"
     local explicit_port="$3"
     local explicit_name="$4"
+    local explicit_prehook="$5"  # Optional: --pre-hook value
 
     [[ -z "$command" ]] && {
         echo "tsm: command required" >&2
         return 64
     }
+
+    # Parse env file ONCE at the beginning (extracts PORT and NAME)
+    local ENV_PORT="" ENV_NAME=""
+    if [[ -n "$env_file" && -f "$env_file" ]]; then
+        eval "$(tsm_parse_env_file "$env_file")"
+    fi
 
     # Detect process type and resolve interpreter
     local process_type
@@ -115,14 +134,14 @@ tsm_start_any_command() {
         final_command="$command"
     fi
 
-    # Discover port
+    # Discover port (pass parsed value to avoid re-reading)
     local port
-    port=$(tsm_discover_port "$command" "$env_file" "$explicit_port")
+    port=$(tsm_discover_port "$command" "$env_file" "$explicit_port" "$ENV_PORT")
     [[ -z "$port" ]] && port="none"
 
-    # Generate name
+    # Generate name (pass parsed value to avoid re-reading)
     local name
-    name=$(tsm_generate_process_name "$command" "$port" "$explicit_name" "$env_file")
+    name=$(tsm_generate_process_name "$command" "$port" "$explicit_name" "$env_file" "$ENV_NAME")
 
     # Check if already running
     if tsm_process_exists "$name"; then
@@ -145,10 +164,16 @@ tsm_start_any_command() {
     # Build environment activation and user env file
     local env_setup=""
 
-    # Add runtime environment activation (pyenv, nvm, etc.)
-    local runtime_activation
-    runtime_activation=$(tsm_build_env_activation "$process_type")
-    [[ -n "$runtime_activation" ]] && env_setup="$runtime_activation"$'\n'
+    # Build pre-hook (priority: explicit > service def > auto-detected)
+    local prehook_cmd
+    if declare -f tsm_build_prehook >/dev/null 2>&1; then
+        prehook_cmd=$(tsm_build_prehook "$explicit_prehook" "$process_type" "")
+    else
+        # Fallback to old method if hooks.sh not loaded
+        prehook_cmd=$(tsm_build_env_activation "$process_type")
+    fi
+
+    [[ -n "$prehook_cmd" ]] && env_setup="$prehook_cmd"$'\n'
 
     # Add user env file if specified
     if [[ -n "$env_file" && -f "$env_file" ]]; then
@@ -179,13 +204,13 @@ tsm_start_any_command() {
     fi
 
     local pid=$(cat "$pid_file")
-    if ! kill -0 "$pid" 2>/dev/null; then
+    if ! tsm_is_pid_alive "$pid"; then
         echo "❌ Failed to start: $name (process died immediately)" >&2
         echo >&2
 
         # Check for port conflict first
         if [[ "$port" != "none" ]] && command -v lsof >/dev/null 2>&1; then
-            local existing_pid=$(lsof -ti :$port 2>/dev/null)
+            local existing_pid=$(tsm_get_port_pid "$port")
             if [[ -n "$existing_pid" ]]; then
                 local process_cmd=$(ps -p $existing_pid -o args= 2>/dev/null | head -c 80 || echo "unknown")
                 echo "🔴 Port $port is already in use!" >&2
@@ -215,7 +240,8 @@ tsm_start_any_command() {
         "$PWD" \
         "$interpreter" \
         "$process_type" \
-        "$env_file")
+        "$env_file" \
+        "$explicit_prehook")
 
     # Log success (construct JSON safely)
     local success_meta=$(jq -n --arg pid "$pid" --arg port "$port" --arg id "$tsm_id" \

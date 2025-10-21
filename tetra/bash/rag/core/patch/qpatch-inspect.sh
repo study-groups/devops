@@ -3,7 +3,6 @@
 # - Normalizes input (BOM/CRLF stripped, prose/``` before first header removed)
 # - Prints kind, size, file headers, per-directory strip trial matrix
 # Flags: [ID] --from-file FILE --dir DIR --tool {git|patch|auto}
-set -euo pipefail
 
 # Don't execute main logic if script is being sourced
 [[ "${BASH_SOURCE[0]}" != "${0}" ]] && return 0

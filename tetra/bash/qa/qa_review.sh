@@ -42,8 +42,8 @@ show_qa_pair() {
     echo -ne "\033c"  # Clear screen
     echo -e "Question: $prompt\n"
     echo "-------------------------------"
-    # Use chroma for formatted display
-    local chroma_cmd="bash ${QA_SRC:-$(dirname "${BASH_SOURCE[0]}")}/chroma.sh"
+    # Use TDS markdown renderer (via chroma wrapper for backward compatibility)
+    local chroma_cmd="bash ${TDS_SRC:-$(dirname "${BASH_SOURCE[0]}")/../tds}/chroma.sh"
     local tmpfile="/tmp/qa_review_$$.md"
     echo "$answer" > "$tmpfile"
     $chroma_cmd --pager "$tmpfile"

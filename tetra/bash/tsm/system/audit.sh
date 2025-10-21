@@ -363,48 +363,5 @@ tsm_list() {
     fi
 }
 
-# Main audit command handler
-case "${1:-audit}" in
-    "init")
-        tsm_audit_init
-        ;;
-    "audit"|"")
-        tsm_audit "${2:-false}"
-        ;;
-    "detailed"|"detail")
-        tsm_audit "true"
-        ;;
-    "enable")
-        tsm_enable "$2"
-        ;;
-    "disable")
-        tsm_disable "$2"
-        ;;
-    "list"|"ls")
-        if [[ "$2" == "available" ]]; then
-            tsm_list_available
-        else
-            tsm_list
-        fi
-        ;;
-    "available")
-        tsm_list_available
-        ;;
-    "ports")
-        tsm_show_port_ranges
-        ;;
-    *)
-        echo "Usage: tsm audit [init|audit|detailed|enable|disable|list|available|ports] [service-name]"
-        echo ""
-        echo "Commands:"
-        echo "  init       - Initialize service directories"
-        echo "  audit      - Audit service configurations (default)"
-        echo "  detailed   - Detailed audit with service file analysis"
-        echo "  enable     - Enable a service"
-        echo "  disable    - Disable a service"
-        echo "  list       - List available and enabled services"
-        echo "  available  - List available services in table format"
-        echo "  ports      - Show port ranges and assignments"
-        exit 1
-        ;;
-esac
+# Note: Auto-execution removed - functions only defined, not executed on source
+# Use: tsm audit [command] to run audit functions explicitly

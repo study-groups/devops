@@ -4,7 +4,7 @@
 
 tmod_load_module() {
     local module="$1"
-    local dev_flag="$2"
+    local dev_flag="${2:-}"
     
     if [[ -z "$module" ]]; then
         echo "Usage: load <module> [-dev]"
@@ -66,7 +66,7 @@ _tmod_format_simple_list() {
 
 tmod_list_modules() {
     local filter="${1:-all}"
-    local dev_flag="$2"
+    local dev_flag="${2:-}"
 
     [[ "$filter" == "-dev" ]] && { dev_flag="-dev"; filter="all"; }
 
@@ -101,7 +101,7 @@ tmod_list_modules() {
 
 tmod_find_modules() {
     local pattern="$1"
-    local dev_flag="$2"
+    local dev_flag="${2:-}"
     
     if [[ -z "$pattern" ]]; then
         echo "Usage: find <pattern> [-dev]"

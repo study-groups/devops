@@ -7,7 +7,6 @@
 # Flags: --dir DIR --strip N --dry-run --reverse --fuzz N --from-file FILE
 #        --explain --verbose
 
-set -euo pipefail
 
 # Don't execute main logic if script is being sourced
 [[ "${BASH_SOURCE[0]}" != "${0}" ]] && return 0

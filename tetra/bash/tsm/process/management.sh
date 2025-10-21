@@ -17,13 +17,13 @@ tetra_tsm_start_cli() {
     local resolved_env_file
     resolved_env_file="$(_tsm_auto_detect_env "$script" "$env_file")" || return $?
 
-    # If we found an env file, source it temporarily to get PORT and NAME
+    # If we found an env file, parse it once to get PORT and NAME
     local port env_name
     if [[ -n "$resolved_env_file" ]]; then
-        # Source env file in subshell to extract PORT or TETRA_PORT without affecting current environment
-        port="$(source "$resolved_env_file" 2>/dev/null && echo "${PORT:-${TETRA_PORT:-}}")"
-        # Also extract NAME or TETRA_NAME from environment file
-        env_name="$(source "$resolved_env_file" 2>/dev/null && echo "${NAME:-${TETRA_NAME:-}}")"
+        # Use tsm_parse_env_file to source once and extract both vars
+        eval "$(tsm_parse_env_file "$resolved_env_file")"
+        port="${ENV_PORT:-}"
+        env_name="${ENV_NAME:-}"
     fi
 
     # Fallback to extracting PORT from script if not found in env
@@ -69,7 +69,7 @@ _tsm_start_cli_internal() {
     pid=$(cat "$TSM_PIDS_DIR/$name.pid")
 
     local tsm_id
-    tsm_id=$(_tsm_save_metadata "$name" "$script" "$pid" "$port" "cli" "" "$pwd_at_start")
+    tsm_id=$(tsm_create_metadata "$name" "$pid" "$script" "$port" "$pwd_at_start" "bash" "cli" "${env_file:-}")
 
     echo "tsm: started '$name' (TSM ID: $tsm_id, PID: $pid)"
 }
@@ -132,20 +132,18 @@ tetra_tsm_start_command() {
         fi
 
         # Extract port and name from resolved env file if not provided
-        if [[ -z "$port" && -f "$resolved_env_file" ]]; then
-            port="$(grep '^export PORT=' "$resolved_env_file" 2>/dev/null | sed 's/^export PORT=//' | sed 's/^"//' | sed 's/"$//' || true)"
-            # Fallback to TETRA_PORT if PORT not found
-            if [[ -z "$port" ]]; then
-                port="$(grep '^export TETRA_PORT=' "$resolved_env_file" 2>/dev/null | sed 's/^export TETRA_PORT=//' | sed 's/^"//' | sed 's/"$//' || true)"
-            fi
-        fi
+        # Use tsm_parse_env_file to source once and extract both vars
+        if [[ -f "$resolved_env_file" ]]; then
+            eval "$(tsm_parse_env_file "$resolved_env_file")"
 
-        # Extract name from env file if no custom name provided
-        if [[ -z "$custom_name" && -f "$resolved_env_file" ]]; then
-            env_name="$(grep '^export NAME=' "$resolved_env_file" 2>/dev/null | sed 's/^export NAME=//' | sed 's/^"//' | sed 's/"$//' || true)"
-            # Fallback to TETRA_NAME if NAME not found
-            if [[ -z "$env_name" ]]; then
-                env_name="$(grep '^export TETRA_NAME=' "$resolved_env_file" 2>/dev/null | sed 's/^export TETRA_NAME=//' | sed 's/^"//' | sed 's/"$//' || true)"
+            # Use extracted values if not already set
+            if [[ -z "$port" ]]; then
+                port="${ENV_PORT:-}"
+            fi
+
+            # Use extracted name if no custom name provided
+            if [[ -z "$custom_name" ]]; then
+                env_name="${ENV_NAME:-}"
             fi
         fi
 
@@ -214,8 +212,16 @@ tetra_tsm_start_command() {
     local pid
     pid=$(cat "$TSM_PIDS_DIR/$name.pid")
 
+    # Determine interpreter from first command arg
+    local interpreter="bash"
+    if [[ "$command_string" =~ ^node ]]; then
+        interpreter="node"
+    elif [[ "$command_string" =~ ^python ]]; then
+        interpreter="python"
+    fi
+
     local tsm_id
-    tsm_id=$(_tsm_save_metadata "$name" "$command_string" "$pid" "$port" "command" "" "$working_dir" "" "false" "$env_file")
+    tsm_id=$(tsm_create_metadata "$name" "$pid" "$command_string" "$port" "$working_dir" "$interpreter" "command" "${env_file:-}")
 
     if [[ "$json_output" == "true" ]]; then
         local process_data="{\"tsm_id\": \"$tsm_id\", \"name\": \"$name\", \"pid\": \"$pid\", \"port\": \"$port\", \"command\": \"$(_tsm_json_escape "$command_string")\", \"working_dir\": \"$(_tsm_json_escape "$working_dir")\"}"
@@ -228,7 +234,25 @@ tetra_tsm_start_command() {
 # === MAIN CLI COMMANDS ===
 
 tetra_tsm_start() {
-    local env_file="" port="" debug=false custom_name=""
+    # Check for --help first
+    if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+        if declare -f tsm_help_start >/dev/null 2>&1; then
+            tsm_help_start
+        else
+            echo "Usage: tsm start [OPTIONS] <command>"
+            echo ""
+            echo "Options:"
+            echo "  --env FILE         Environment file to source"
+            echo "  --port PORT        Explicit port number"
+            echo "  --name NAME        Custom process name (port will be appended)"
+            echo "  --pre-hook CMD     Pre-execution hook command"
+            echo ""
+            echo "Use 'tsm help start' for detailed help"
+        fi
+        return 0
+    fi
+
+    local env_file="" port="" debug=false custom_name="" prehook=""
     local command_args=()
 
     # Parse flags first
@@ -248,6 +272,10 @@ tetra_tsm_start() {
                 ;;
             --name)
                 custom_name="$2"
+                shift 2
+                ;;
+            --pre-hook)
+                prehook="$2"
                 shift 2
                 ;;
             --debug)
@@ -285,7 +313,7 @@ tetra_tsm_start() {
     # Use universal start for any command
     if declare -f tsm_start_any_command >/dev/null 2>&1; then
         local command_string="${command_args[*]}"
-        tsm_start_any_command "$command_string" "$env_file" "$port" "$custom_name"
+        tsm_start_any_command "$command_string" "$env_file" "$port" "$custom_name" "$prehook"
     else
         # Fallback to old method if universal start not loaded
         local cmd_args=()
@@ -606,4 +634,148 @@ _tsm_kill_process() {
 
     return 0
 }
+
+# === WRAPPER COMMANDS FOR TSM.SH ===
+# These functions route to the appropriate *_single or *_by_id functions
+
+tetra_tsm_stop() {
+    local target="$1"
+    local force="${2:-false}"
+
+    if [[ -z "$target" ]]; then
+        echo "tsm: stop requires a process name or ID" >&2
+        return 64
+    fi
+
+    # Handle wildcard - stop all
+    if [[ "$target" == "*" ]]; then
+        echo "tsm: stopping all processes..."
+        if [[ -d "$TSM_PROCESSES_DIR" ]]; then
+            local count=0
+            for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+                [[ -d "$process_dir" ]] || continue
+                local name=$(basename "$process_dir")
+                if tetra_tsm_is_running "$name"; then
+                    tetra_tsm_stop_single "$name" "$force" && ((count++))
+                fi
+            done
+            echo "tsm: stopped $count process(es)"
+        fi
+        return 0
+    fi
+
+    # Check if it's a numeric ID
+    if [[ "$target" =~ ^[0-9]+$ ]]; then
+        tetra_tsm_stop_by_id "$target" "$force"
+    else
+        tetra_tsm_stop_single "$target" "$force"
+    fi
+}
+
+tetra_tsm_delete() {
+    local target="$1"
+
+    if [[ -z "$target" ]]; then
+        echo "tsm: delete requires a process name or ID" >&2
+        return 64
+    fi
+
+    # Handle wildcard - delete all
+    if [[ "$target" == "*" ]]; then
+        echo "tsm: deleting all processes..."
+        if [[ -d "$TSM_PROCESSES_DIR" ]]; then
+            local count=0
+            for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+                [[ -d "$process_dir" ]] || continue
+                local name=$(basename "$process_dir")
+                tetra_tsm_delete_single "$name" && ((count++))
+            done
+            echo "tsm: deleted $count process(es)"
+        fi
+        return 0
+    fi
+
+    # Check if it's a numeric ID
+    if [[ "$target" =~ ^[0-9]+$ ]]; then
+        tetra_tsm_delete_by_id "$target"
+    else
+        tetra_tsm_delete_single "$target"
+    fi
+}
+
+tetra_tsm_cleanup() {
+    echo "🧹 Cleaning up crashed/dead processes..."
+
+    if [[ ! -d "$TSM_PROCESSES_DIR" ]]; then
+        echo "No process directory found."
+        return 0
+    fi
+
+    local count=0
+    local removed=0
+
+    for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+        [[ -d "$process_dir" ]] || continue
+
+        local name=$(basename "$process_dir")
+        local meta_file="$process_dir/meta.json"
+        [[ -f "$meta_file" ]] || continue
+
+        # Read PID from metadata
+        local pid
+        pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
+        [[ -z "$pid" ]] && continue
+
+        count=$((count + 1))
+
+        # Check if process is actually alive
+        if ! tsm_is_pid_alive "$pid"; then
+            echo "  Removing crashed process: $name (PID $pid)"
+            tsm_remove_process "$name"
+            removed=$((removed + 1))
+        fi
+    done
+
+    echo ""
+    echo "Summary: Checked $count processes, removed $removed crashed processes"
+}
+
+tetra_tsm_restart() {
+    local target="$1"
+
+    if [[ -z "$target" ]]; then
+        echo "tsm: restart requires a process name or ID" >&2
+        return 64
+    fi
+
+    # Handle wildcard - restart all
+    if [[ "$target" == "*" ]]; then
+        echo "tsm: restarting all processes..."
+        if [[ -d "$TSM_PROCESSES_DIR" ]]; then
+            local count=0
+            for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+                [[ -d "$process_dir" ]] || continue
+                local name=$(basename "$process_dir")
+                if tetra_tsm_is_running "$name"; then
+                    tetra_tsm_restart_single "$name" && ((count++))
+                fi
+            done
+            echo "tsm: restarted $count process(es)"
+        fi
+        return 0
+    fi
+
+    # Check if it's a numeric ID
+    if [[ "$target" =~ ^[0-9]+$ ]]; then
+        tetra_tsm_restart_by_id "$target"
+    else
+        tetra_tsm_restart_single "$target"
+    fi
+}
+
+# Export wrapper functions
+export -f tetra_tsm_stop
+export -f tetra_tsm_delete
+export -f tetra_tsm_cleanup
+export -f tetra_tsm_restart
 

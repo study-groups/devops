@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# Source guard
+[[ -n "${_COLOR_CORE_LOADED}" ]] && return 0
+_COLOR_CORE_LOADED=1
+
 # Color conversion functions
 hex_to_rgb() {
     local hex=${1#\#}
@@ -40,9 +44,17 @@ darken() {
 hex_to_256() {
     local hex="$1"
     local r g b
+    local hex_clean
 
     # Extract RGB values manually without arithmetic
-    local hex_clean=${hex#\#}
+    hex_clean="${hex#\#}"
+
+    # Validate hex_clean is 6 characters
+    if [[ ! "$hex_clean" =~ ^[0-9A-Fa-f]{6}$ ]]; then
+        echo "15"  # Default to white
+        return 1
+    fi
+
     r=$((16#${hex_clean:0:2}))
     g=$((16#${hex_clean:2:2}))
     b=$((16#${hex_clean:4:2}))
@@ -66,7 +78,8 @@ hex_to_256() {
 # Solid color block (fg+bg same color) - for palette swatches and visual indicators
 color_swatch() {
     local hex="$1"
-    local color256=$(hex_to_256 "$hex")
+    local color256
+    color256=$(hex_to_256 "$hex")
     printf "\033[38;5;%d;48;5;%dm" "$color256" "$color256"
 }
 
@@ -76,7 +89,8 @@ fg_color() { color_swatch "$@"; }
 # Pure foreground text color - for UI text and labels
 text_color() {
     local hex="$1"
-    local color256=$(hex_to_256 "$hex")
+    local color256
+    color256=$(hex_to_256 "$hex")
     printf "\033[38;5;%dm" "$color256"
 }
 
@@ -86,7 +100,8 @@ fg_only() { text_color "$@"; }
 # Background color only - for highlighting and emphasis
 bg_only() {
     local hex="$1"
-    local color256=$(hex_to_256 "$hex")
+    local color256
+    color256=$(hex_to_256 "$hex")
     printf "\033[48;5;%dm" "$color256"
 }
 

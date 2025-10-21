@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Interactive fuzzy search for code patterns using ripgrep and fzf
 
-set -euo pipefail
 
 # Default editor if not set - prefer nvim, fallback to vim
 if [[ -z "${EDITOR:-}" ]]; then

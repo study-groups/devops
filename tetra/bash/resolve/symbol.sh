@@ -3,6 +3,11 @@
 # TES Level 0-1: Symbol → Address resolution
 # Reads from organization TOML files to map semantic symbols to network addresses
 
+# Load unified logging
+if ! type tetra_log_event >/dev/null 2>&1; then
+    [[ -n "${TETRA_SRC:-}" ]] && source "${TETRA_SRC}/bash/utils/unified_log.sh" 2>/dev/null || true
+fi
+
 # Resolve a symbol to an address
 # Level 0 → 1: @staging → 24.199.72.22
 resolve_symbol_to_address() {
@@ -28,6 +33,8 @@ resolve_symbol_to_address() {
     fi
 
     if [[ ! -f "$org_toml" ]]; then
+        type tetra_log_error >/dev/null 2>&1 && \
+            tetra_log_error resolve "symbol-to-address" "$symbol" "{\"error\":\"no org TOML found\",\"TETRA_ORG\":\"${TETRA_ORG:-}\"}"
         echo "ERROR: No organization TOML found. Set TETRA_ORG or create org config." >&2
         return 1
     fi
@@ -48,6 +55,8 @@ resolve_symbol_to_address() {
     ' "$org_toml")
 
     if [[ -z "$address" ]]; then
+        type tetra_log_error >/dev/null 2>&1 && \
+            tetra_log_error resolve "symbol-to-address" "$symbol" "{\"error\":\"symbol not found\",\"org_toml\":\"$org_toml\"}"
         echo "ERROR: Symbol @$symbol not found in $org_toml" >&2
         return 1
     fi
@@ -79,6 +88,8 @@ resolve_address_to_channel() {
     fi
 
     if [[ ! -f "$org_toml" ]]; then
+        type tetra_log_error >/dev/null 2>&1 && \
+            tetra_log_error resolve "address-to-channel" "$address" "{\"error\":\"no org TOML found\",\"symbol\":\"$symbol\"}"
         echo "ERROR: No organization TOML found" >&2
         return 1
     fi
@@ -134,6 +145,8 @@ list_symbols() {
     fi
 
     if [[ ! -f "$org_toml" ]]; then
+        type tetra_log_error >/dev/null 2>&1 && \
+            tetra_log_error resolve "list-symbols" "query" "{\"error\":\"no org TOML found\"}"
         echo "ERROR: No organization TOML found" >&2
         return 1
     fi

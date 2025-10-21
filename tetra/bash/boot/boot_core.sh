@@ -2,12 +2,17 @@
 
 # Boot Core - Core functions and module system
 
+# Load environment variables from local.env if it exists
+if [[ -f "$TETRA_SRC/env/local.env" ]]; then
+    source "$TETRA_SRC/env/local.env"
+fi
+
 # Lazy loading registry - only declare if not already exist to avoid reload conflicts
 if ! declare -p TETRA_MODULE_LOADERS >/dev/null 2>&1; then
-    declare -A TETRA_MODULE_LOADERS
+    declare -gA TETRA_MODULE_LOADERS
 fi
 if ! declare -p TETRA_MODULE_LOADED >/dev/null 2>&1; then
-    declare -A TETRA_MODULE_LOADED
+    declare -gA TETRA_MODULE_LOADED
 fi
 
 # Function to register a module loader
@@ -43,12 +48,26 @@ tetra_load_module() {
     
     [[ "${TETRA_DEBUG_LOADING:-false}" == "true" ]] && echo "Loading module: $module_name" >&2
     
+    # DEFENSIVE LOADING - Prevent terminal crashes by testing in subshell first
     # Check for includes.sh first, fallback to loading main module file
     if [[ -f "$loader_path/includes.sh" ]]; then
+        echo "BOOT: Testing $module_name in subshell..." >> /tmp/boot_trace.log
+        # Test in subshell to catch fatal errors before sourcing in parent shell
+        if ! ( source "$loader_path/includes.sh" ) >/dev/null 2>&1; then
+            echo "ERROR: Module '$module_name' failed safety check (includes.sh has errors)" >&2
+            echo "  File: $loader_path/includes.sh" >&2
+            return 1
+        fi
+        echo "BOOT: Subshell test passed, now sourcing in parent..." >> /tmp/boot_trace.log
+        # Safe to source in parent shell
         source "$loader_path/includes.sh"
+        echo "BOOT: Parent shell source complete" >> /tmp/boot_trace.log
     elif [[ -f "$loader_path/$(basename "$loader_path").sh" ]]; then
         # Load the main module file (e.g., tkm/tkm.sh)
-        source "$loader_path/$(basename "$loader_path").sh"
+        if ! source "$loader_path/$(basename "$loader_path").sh" 2>&1; then
+            echo "ERROR: Failed to load module '$module_name' from main file" >&2
+            return 1
+        fi
     elif [[ -d "$loader_path" ]]; then
         # Fallback: load all .sh files except excluded ones
         for f in "$loader_path"/*.sh; do
@@ -62,15 +81,19 @@ tetra_load_module() {
                   "$f" != *"/tsm_repl.sh" && \
                   "$f" != *"/tmod_repl.sh" && \
                   "$f" != *"/init.sh" ]]; then
-                source "$f"
+                if ! source "$f" 2>&1; then
+                    echo "WARNING: Failed to source $f in module '$module_name'" >&2
+                fi
             fi
         done
     else
         echo "Warning: Module path not found: $loader_path" >&2
         return 1
     fi
-    
+
+    echo "BOOT: Setting TETRA_MODULE_LOADED[$module_name]=true" >> /tmp/boot_trace.log
     TETRA_MODULE_LOADED[$module_name]=true
+    echo "BOOT: Module $module_name load COMPLETE" >> /tmp/boot_trace.log
 }
 
 # Create lazy loading stub functions
@@ -127,12 +150,6 @@ tetra_register_module "utils" "$TETRA_SRC/bash/utils"
 tetra_register_module "prompt" "$TETRA_SRC/bash/prompt"
 tetra_register_module "tmod" "$TETRA_SRC/bash/tmod"
 tetra_register_module "qa" "$TETRA_SRC/bash/qa"
-
-# Source module config system
-source "$TETRA_SRC/bash/utils/module_config.sh"
-
-# Source new function state tracking system
-source "$TETRA_SRC/bash/utils/module_state.sh"
 
 # Load essential modules immediately
 tetra_load_module "utils"

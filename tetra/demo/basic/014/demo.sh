@@ -404,6 +404,28 @@ main() {
     echo "Starting in 1 second..."
     sleep 1
 
+    # Save terminal state and configure for TUI
+    local old_tty_state=$(stty -g)
+    tput smcup  # Save screen and enter alternate buffer
+    tput civis  # Hide cursor
+
+    # Configure terminal for raw input (reading from /dev/tty)
+    # -echo: don't echo input
+    # -icanon: disable line buffering (read char-by-char)
+    # -isig: disable signal generation (Ctrl-C, Ctrl-Z won't send signals)
+    # min 0: read() returns immediately even if no data
+    # time 0: no inter-character timer
+    stty -echo -icanon -isig min 0 time 0 </dev/tty
+    clear
+
+    # Debug logging (use regular file, not FIFO to avoid blocking)
+    local DEBUG_FIFO="/tmp/demo014_debug.log"
+    echo "=== Demo 014 Debug Log Started $(date) ===" > "$DEBUG_FIFO" 2>/dev/null || true
+    echo "TTY device: /dev/tty" >> "$DEBUG_FIFO" 2>/dev/null || true
+    echo "TTY settings after configuration:" >> "$DEBUG_FIFO" 2>/dev/null || true
+    stty -a </dev/tty >> "$DEBUG_FIFO" 2>/dev/null || true
+    echo "---" >> "$DEBUG_FIFO" 2>/dev/null || true
+
     # Calculate initial layout
     calculate_layout
 
@@ -415,8 +437,27 @@ main() {
     local is_first_render=true
     local show_fps_overlay=false
 
-    # Set up cleanup for gamepad
-    trap 'gamepad_cleanup; anim_stop; clear; exit' EXIT INT TERM
+    # Set up cleanup for gamepad and terminal
+    cleanup() {
+        # Stop animation first
+        anim_stop 2>/dev/null || true
+
+        # Cleanup gamepad resources
+        gamepad_cleanup 2>/dev/null || true
+
+        # Restore terminal state (apply to /dev/tty explicitly)
+        stty "$old_tty_state" </dev/tty 2>/dev/null || stty sane
+
+        # Show cursor and restore screen
+        tput cnorm 2>/dev/null || true
+        tput rmcup 2>/dev/null || true
+
+        echo "Demo 014 exited." >&2
+    }
+    trap cleanup EXIT INT TERM
+
+    # Log that main loop started
+    echo "MAIN LOOP STARTED" >> "$DEBUG_FIFO" 2>/dev/null || true
 
     while true; do
         # Frame timing start (for FPS tracking)
@@ -424,6 +465,7 @@ main() {
 
         # Only render if something changed
         if [[ "$needs_redraw" == "true" ]]; then
+            echo "RENDER: first=$is_first_render" >> "$DEBUG_FIFO" 2>/dev/null || true
             render_screen "$is_first_render"
             needs_redraw=false
             is_first_render=false
@@ -444,12 +486,20 @@ main() {
 
         # Read from keyboard OR gamepad with frame-rate-aware timeout
         local key=""
+        echo "READING INPUT (timeout=$timeout_sec, anim=$(anim_should_tick && echo on || echo off))" >> "$DEBUG_FIFO" 2>/dev/null || true
         if anim_should_tick; then
             # Use frame-paced timeout when animation is running
             key=$(get_input_multiplexed "$timeout_sec" 2>/dev/null) || key=""
         else
             # Blocking read when animation is off
             key=$(get_input_multiplexed 0 2>/dev/null) || key=""
+        fi
+
+        # Debug log key press
+        if [[ -n "$key" ]]; then
+            echo "KEY RECEIVED: '$(echo -n "$key" | od -An -tx1)' raw='$key'" >> "$DEBUG_FIFO" 2>/dev/null || true
+        else
+            echo "NO KEY (timeout)" >> "$DEBUG_FIFO" 2>/dev/null || true
         fi
 
         # Skip if no key (timeout)
@@ -465,24 +515,32 @@ main() {
         # Key was pressed - will need full redraw after handling
         needs_redraw=true
 
-        # Handle ESC sequences (arrow keys, ESC)
+        # Handle pure ESC key (already processed sequences come from get_input_multiplexed)
         if [[ "$key" == $'\x1b' ]]; then
-            read -rsn2 -t 0.01 key2
-            if [[ -z "$key2" ]]; then
-                # Pure ESC - exit view mode
-                if [[ "$VIEW_MODE" == "true" ]]; then
-                    VIEW_MODE=false
-                    SCROLL_OFFSET=0
-                    continue
-                fi
-            else
-                # ESC sequence (arrow key, etc)
-                key="$key$key2"
+            # Pure ESC - exit view mode or REPL
+            if [[ "$VIEW_MODE" == "true" ]]; then
+                VIEW_MODE=false
+                SCROLL_OFFSET=0
+                continue
+            elif [[ "$HEADER_REPL_ACTIVE" == "true" ]]; then
+                HEADER_REPL_ACTIVE=false
+                HEADER_REPL_INPUT=""
+                calculate_layout
+                continue
             fi
         fi
 
+        # Debug log before case
+        echo "HANDLING KEY: '$key'" >> "$DEBUG_FIFO" 2>/dev/null || true
+
         case "$key" in
+            $'\x03')
+                # Ctrl-C - handled gracefully (signal generation disabled via -isig)
+                echo "CTRL-C pressed (handled gracefully)" >> "$DEBUG_FIFO" 2>/dev/null || true
+                TUI_BUFFERS["@tui[footer]"]="⚠ Ctrl-C is disabled - use 'q' to quit"
+                ;;
             'e'|'E')
+                echo "ACTION: nav_env_right" >> "$DEBUG_FIFO" 2>/dev/null || true
                 VIEW_MODE=false
                 SCROLL_OFFSET=0
                 nav_env_right
@@ -546,9 +604,11 @@ main() {
                 needs_redraw=false  # Don't redraw entire screen for FPS toggle
                 ;;
             '/')
-                # Toggle REPL
-                header_repl_toggle
-                calculate_layout  # Recalculate viewport (REPL adds a line)
+                # Toggle REPL (disabled - no input handling implemented yet)
+                # header_repl_toggle
+                # calculate_layout  # Recalculate viewport (REPL adds a line)
+                TUI_BUFFERS["@tui[footer]"]="REPL mode not implemented yet - press any key to continue"
+                needs_redraw=true
                 ;;
             $'\x1b[D')
                 # Left arrow - move oscillator left

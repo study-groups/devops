@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# Source guard
+[[ -n "${_COLOR_PALETTES_LOADED}" ]] && return 0
+_COLOR_PALETTES_LOADED=1
+
 source "$(dirname "${BASH_SOURCE[0]}")/color_core.sh"
 
 # Primary color palettes (8 colors each, no names)
@@ -66,7 +70,7 @@ env_color() {
             dark) color="$(darken "${ENV_COMPLEMENT[$comp_index]}")" ;;
         esac
     fi
-    fg_color "$color"
+    text_color "$color"
 }
 
 mode_color() {
@@ -86,7 +90,7 @@ mode_color() {
             dark) color="$(darken "${MODE_COMPLEMENT[$comp_index]}")" ;;
         esac
     fi
-    fg_color "$color"
+    text_color "$color"
 }
 
 verbs_color() {
@@ -106,7 +110,7 @@ verbs_color() {
             dark) color="$(darken "${VERBS_COMPLEMENT[$comp_index]}")" ;;
         esac
     fi
-    fg_color "$color"
+    text_color "$color"
 }
 
 nouns_color() {
@@ -126,5 +130,5 @@ nouns_color() {
             dark) color="$(darken "${NOUNS_COMPLEMENT[$comp_index]}")" ;;
         esac
     fi
-    fg_color "$color"
+    text_color "$color"
 }
