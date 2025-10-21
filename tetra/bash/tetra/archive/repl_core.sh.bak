@@ -1,0 +1,265 @@
+#!/usr/bin/env bash
+# Tetra REPL Core Framework
+# Character-aware REPL with trigger support
+# Copyable framework for building custom REPLs
+
+# REPL State
+declare -g REPL_BUFFER=""           # Current input buffer
+declare -g REPL_CURSOR_POS=0        # Cursor position in buffer
+declare -g REPL_RUNNING=false       # REPL active flag
+declare -g REPL_PROMPT=">"          # Prompt string
+
+# Key/Trigger Registries
+declare -gA REPL_KEY_HANDLERS       # key -> handler_function
+declare -gA REPL_TRIGGER_PATTERNS   # pattern -> handler_function
+
+# Control characters
+declare -g REPL_CTRL_A=$'\x01'      # Beginning of line
+declare -g REPL_CTRL_E=$'\x05'      # End of line
+declare -g REPL_CTRL_C=$'\x03'      # Interrupt
+declare -g REPL_CTRL_D=$'\x04'      # EOF
+declare -g REPL_BACKSPACE=$'\x7f'   # Backspace
+declare -g REPL_ENTER=$'\n'         # Enter
+declare -g REPL_TAB=$'\t'           # Tab
+
+# Initialize REPL framework
+repl_init() {
+    REPL_BUFFER=""
+    REPL_CURSOR_POS=0
+    REPL_RUNNING=true
+
+    # Register default key handlers
+    REPL_KEY_HANDLERS[$REPL_CTRL_A]="repl_key_home"
+    REPL_KEY_HANDLERS[$REPL_CTRL_E]="repl_key_end"
+    REPL_KEY_HANDLERS[$REPL_BACKSPACE]="repl_key_backspace"
+    REPL_KEY_HANDLERS[$REPL_ENTER]="repl_key_enter"
+    REPL_KEY_HANDLERS[$REPL_CTRL_C]="repl_key_interrupt"
+    REPL_KEY_HANDLERS[$REPL_CTRL_D]="repl_key_eof"
+
+    # Set up terminal for raw input
+    stty -echo -icanon </dev/tty 2>/dev/null
+
+    # Show cursor
+    tput cnorm 2>/dev/null || printf '\033[?25h'
+
+    return 0
+}
+
+# Cleanup REPL
+repl_cleanup() {
+    # Restore terminal
+    stty echo icanon </dev/tty 2>/dev/null
+
+    # Clear line
+    printf '\r\033[K'
+
+    return 0
+}
+
+# Register a key handler
+# Usage: repl_register_key "KEY" handler_function
+repl_register_key() {
+    local key="$1"
+    local handler="$2"
+    REPL_KEY_HANDLERS[$key]="$handler"
+}
+
+# Register a trigger pattern
+# Usage: repl_register_trigger "PATTERN" handler_function
+repl_register_trigger() {
+    local pattern="$1"
+    local handler="$2"
+    REPL_TRIGGER_PATTERNS[$pattern]="$handler"
+}
+
+# Check for trigger patterns in buffer
+repl_check_triggers() {
+    for pattern in "${!REPL_TRIGGER_PATTERNS[@]}"; do
+        # Check if buffer ends with pattern
+        if [[ "$REPL_BUFFER" == *"$pattern" ]]; then
+            local handler="${REPL_TRIGGER_PATTERNS[$pattern]}"
+            if declare -f "$handler" >/dev/null 2>&1; then
+                # Call handler with pattern
+                "$handler" "$pattern"
+                return 0
+            fi
+        fi
+    done
+    return 1
+}
+
+# Insert character at cursor position
+repl_insert_char() {
+    local char="$1"
+
+    # Split buffer at cursor
+    local before="${REPL_BUFFER:0:$REPL_CURSOR_POS}"
+    local after="${REPL_BUFFER:$REPL_CURSOR_POS}"
+
+    # Insert character
+    REPL_BUFFER="${before}${char}${after}"
+
+    # Move cursor forward
+    ((REPL_CURSOR_POS++))
+
+    # Check for triggers after insertion
+    repl_check_triggers
+}
+
+# Delete character before cursor
+repl_delete_char() {
+    if [[ $REPL_CURSOR_POS -gt 0 ]]; then
+        local before="${REPL_BUFFER:0:$((REPL_CURSOR_POS-1))}"
+        local after="${REPL_BUFFER:$REPL_CURSOR_POS}"
+        REPL_BUFFER="${before}${after}"
+        ((REPL_CURSOR_POS--))
+    fi
+}
+
+# Move cursor to beginning of line
+repl_cursor_home() {
+    REPL_CURSOR_POS=0
+}
+
+# Move cursor to end of line
+repl_cursor_end() {
+    REPL_CURSOR_POS=${#REPL_BUFFER}
+}
+
+# Render current line with cursor
+repl_render() {
+    local prompt="${1:-$REPL_PROMPT}"
+
+    # Move to beginning of line and clear
+    printf '\r\033[K'
+
+    # Render prompt and buffer
+    printf '%s %s' "$prompt" "$REPL_BUFFER"
+
+    # Calculate cursor position (prompt length + space + cursor pos)
+    local cursor_col=$((${#prompt} + 1 + REPL_CURSOR_POS))
+
+    # Move cursor to correct position
+    printf '\r'  # Return to start
+    if [[ $cursor_col -gt 0 ]]; then
+        printf '\033[%dC' "$cursor_col"  # Move right
+    fi
+}
+
+# Default key handlers
+
+repl_key_home() {
+    repl_cursor_home
+}
+
+repl_key_end() {
+    repl_cursor_end
+}
+
+repl_key_backspace() {
+    repl_delete_char
+}
+
+repl_key_enter() {
+    # Move to new line
+    printf '\n'
+
+    # Process the line (to be overridden)
+    if declare -f repl_process_line >/dev/null 2>&1; then
+        repl_process_line "$REPL_BUFFER"
+    fi
+
+    # Reset buffer
+    REPL_BUFFER=""
+    REPL_CURSOR_POS=0
+}
+
+repl_key_interrupt() {
+    printf '\n^C\n'
+    REPL_BUFFER=""
+    REPL_CURSOR_POS=0
+}
+
+repl_key_eof() {
+    if [[ -z "$REPL_BUFFER" ]]; then
+        # Empty buffer - exit REPL
+        printf '\n'
+        REPL_RUNNING=false
+    else
+        # Non-empty buffer - delete char
+        repl_delete_char
+    fi
+}
+
+# Main REPL loop
+repl_loop() {
+    local prompt="${1:-$REPL_PROMPT}"
+
+    # Source tcurses input if available
+    if [[ -f "$TETRA_SRC/bash/tcurses/tcurses_input.sh" ]]; then
+        source "$TETRA_SRC/bash/tcurses/tcurses_input.sh"
+    else
+        echo "ERROR: tcurses_input.sh not found" >&2
+        return 1
+    fi
+
+    repl_init
+
+    # Render initial prompt
+    repl_render "$prompt"
+
+    while $REPL_RUNNING; do
+        # Read single character
+        local key
+        key="$(tcurses_input_read_key_blocking)"
+        local read_status=$?
+
+        # Handle read error
+        if [[ $read_status -ne 0 ]]; then
+            break
+        fi
+
+        # Skip empty keys
+        [[ -z "$key" ]] && continue
+
+        # Check for registered key handler (safe check)
+        local handler=""
+        if [[ -n "${REPL_KEY_HANDLERS[$key]+isset}" ]]; then
+            handler="${REPL_KEY_HANDLERS[$key]}"
+        fi
+
+        if [[ -n "$handler" ]]; then
+            "$handler"
+        else
+            # Regular printable character
+            if [[ ${#key} -eq 1 ]]; then
+                repl_insert_char "$key"
+            fi
+        fi
+
+        # Re-render
+        repl_render "$prompt"
+    done
+
+    repl_cleanup
+    return 0
+}
+
+# Export functions
+export -f repl_init
+export -f repl_cleanup
+export -f repl_register_key
+export -f repl_register_trigger
+export -f repl_check_triggers
+export -f repl_insert_char
+export -f repl_delete_char
+export -f repl_cursor_home
+export -f repl_cursor_end
+export -f repl_render
+export -f repl_loop
+export -f repl_key_home
+export -f repl_key_end
+export -f repl_key_backspace
+export -f repl_key_enter
+export -f repl_key_interrupt
+export -f repl_key_eof

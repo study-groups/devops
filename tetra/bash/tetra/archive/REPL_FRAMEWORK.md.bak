@@ -1,0 +1,322 @@
+# Tetra REPL Framework
+
+**Character-aware REPL with trigger system**
+
+## Overview
+
+The Tetra REPL framework provides:
+- ✓ Character-by-character input handling
+- ✓ Cursor control (Ctrl-A/Ctrl-E, Backspace)
+- ✓ Trigger system (@ and :: operators)
+- ✓ Customizable key handlers
+- ✓ Copyable architecture for building module REPLs
+
+## Architecture
+
+```
+bash/tetra/core/repl_core.sh      # Framework (copyable)
+bash/tetra/interfaces/repl.sh     # Tetra REPL implementation
+bash/tcurses/tcurses_input.sh     # Low-level input (from tcurses library)
+```
+
+## Usage
+
+### Start Tetra REPL
+
+```bash
+source bash/tetra/tetra.sh
+tetra repl
+```
+
+### Interactive Features
+
+**Cursor Control:**
+- `Ctrl-A` - Move to beginning of line
+- `Ctrl-E` - Move to end of line
+- `Backspace` - Delete character before cursor
+- `Ctrl-C` - Clear current line
+- `Ctrl-D` - Exit (if line empty)
+
+**Triggers:**
+- `@` - Launch fuzzy file finder (requires fzf)
+- `::` - TCS endpoint operator selector
+
+**Slash Commands:**
+- `/help` - Show help
+- `/exit, /quit, /q` - Exit REPL
+- `/status` - Orchestrator status
+- `/env [name]` - Get/set environment
+- `/mode [modules]` - Get/set mode
+- `/context` - Show [Env × Mode] → Actions
+- `/history` - Recent commands
+- `/clear` - Clear screen
+
+**Action Dispatch:**
+```
+list modules
+list actions
+rag list agents
+```
+
+## Framework API
+
+### Core Functions (repl_core.sh)
+
+#### Initialization
+```bash
+repl_init                    # Initialize REPL (raw mode, cursor, state)
+repl_cleanup                 # Restore terminal, cleanup
+```
+
+#### Key/Trigger Registration
+```bash
+repl_register_key "KEY" handler_function
+repl_register_trigger "PATTERN" handler_function
+```
+
+#### Input Handling
+```bash
+repl_insert_char "c"         # Insert character at cursor
+repl_delete_char             # Delete before cursor
+repl_cursor_home             # Move to line start
+repl_cursor_end              # Move to line end
+repl_check_triggers          # Check for trigger patterns
+```
+
+#### Display
+```bash
+repl_render "prompt"         # Render line with cursor
+```
+
+#### Main Loop
+```bash
+repl_loop "prompt"           # Main REPL loop
+```
+
+### Extension Points
+
+#### repl_process_line()
+Override to customize line processing:
+
+```bash
+repl_process_line() {
+    local line="$1"
+
+    # Your custom logic here
+    # - Parse commands
+    # - Dispatch actions
+    # - Update state
+}
+```
+
+## Building Custom REPLs
+
+### Example: Simple Module REPL
+
+```bash
+#!/usr/bin/env bash
+# my_module_repl.sh
+
+source "$TETRA_SRC/bash/tetra/core/repl_core.sh"
+
+# Custom trigger for tags
+my_trigger_hash() {
+    # Remove # from buffer
+    REPL_BUFFER="${REPL_BUFFER%#}"
+    REPL_CURSOR_POS=$((REPL_CURSOR_POS - 1))
+
+    # Show tag selector (fzf)
+    stty echo icanon 2>/dev/tty
+    tput cnorm 2>/dev/null
+    printf '\r\033[K'
+
+    local tag
+    tag="$(printf 'bug\nfeature\ndocs\ntest\n' | fzf --prompt='# Tag: ')"
+
+    stty -echo -icanon 2>/dev/tty
+
+    if [[ -n "$tag" ]]; then
+        for ((i=0; i<${#tag}; i++)); do
+            repl_insert_char "${tag:$i:1}"
+        done
+    fi
+}
+
+# Custom line processor
+repl_process_line() {
+    local line="$1"
+
+    if [[ "$line" == /exit ]]; then
+        REPL_RUNNING=false
+        return
+    fi
+
+    echo "You entered: $line"
+}
+
+# Main entry
+my_repl() {
+    # Register custom trigger
+    repl_register_trigger "#" "my_trigger_hash"
+
+    # Launch
+    repl_loop "my_module>"
+}
+
+my_repl
+```
+
+### Example: Adding Custom Keys
+
+```bash
+# Register Ctrl-R for history search
+repl_register_key $'\x12' "my_history_search"
+
+my_history_search() {
+    # Save state
+    stty echo icanon 2>/dev/tty
+    tput cnorm 2>/dev/null
+    printf '\r\033[K'
+
+    # Run fzf on history
+    local selection
+    selection="$(cat "$HISTORY_FILE" | fzf --prompt='History: ')"
+
+    # Restore state
+    stty -echo -icanon 2>/dev/tty
+
+    # Replace buffer
+    if [[ -n "$selection" ]]; then
+        REPL_BUFFER="$selection"
+        REPL_CURSOR_POS=${#REPL_BUFFER}
+    fi
+}
+```
+
+## Trigger System
+
+### How Triggers Work
+
+1. User types trigger pattern (e.g., `@` or `::`)
+2. Pattern inserted into buffer
+3. `repl_check_triggers()` scans buffer
+4. If pattern matches, calls handler function
+5. Handler can:
+   - Remove trigger from buffer
+   - Launch interactive selector (fzf)
+   - Insert selected text
+   - Modify buffer state
+
+### Trigger Handler Pattern
+
+```bash
+my_trigger_handler() {
+    local pattern="$1"
+
+    # 1. Remove trigger from buffer
+    REPL_BUFFER="${REPL_BUFFER%$pattern}"
+    REPL_CURSOR_POS=$((REPL_CURSOR_POS - ${#pattern}))
+
+    # 2. Save terminal state
+    stty echo icanon 2>/dev/tty
+    tput cnorm 2>/dev/null || printf '\033[?25h'
+    printf '\r\033[K'
+
+    # 3. Run interactive selector
+    local selection
+    selection="$(my_selector_command | fzf --prompt='Select: ')"
+
+    # 4. Restore raw mode
+    stty -echo -icanon 2>/dev/tty
+
+    # 5. Insert selection
+    if [[ -n "$selection" ]]; then
+        for ((i=0; i<${#selection}; i++)); do
+            repl_insert_char "${selection:$i:1}"
+        done
+    fi
+}
+```
+
+## Control Characters
+
+```bash
+REPL_CTRL_A=$'\x01'       # ^A - Home
+REPL_CTRL_E=$'\x05'       # ^E - End
+REPL_CTRL_C=$'\x03'       # ^C - Interrupt
+REPL_CTRL_D=$'\x04'       # ^D - EOF
+REPL_BACKSPACE=$'\x7f'    # Backspace
+REPL_ENTER=$'\n'          # Enter
+REPL_TAB=$'\t'            # Tab
+```
+
+## State Variables
+
+```bash
+REPL_BUFFER=""            # Current input buffer
+REPL_CURSOR_POS=0         # Cursor position (0-indexed)
+REPL_RUNNING=false        # Loop control flag
+REPL_PROMPT=">"           # Prompt string
+
+declare -gA REPL_KEY_HANDLERS       # key → handler
+declare -gA REPL_TRIGGER_PATTERNS   # pattern → handler
+```
+
+## Dependencies
+
+- **tcurses_input.sh** - Character input (`tcurses_input_read_key_blocking`)
+- **fzf** (optional) - Fuzzy finder for triggers
+- **Bash 5.2+** - Associative arrays, string manipulation
+
+## Testing
+
+### Manual Test
+```bash
+bash bash/tetra/test_repl.sh
+```
+
+### Automated Test
+```bash
+# Pipe commands to REPL
+echo -e "list modules\n/exit" | tetra repl
+```
+
+## Design Principles
+
+1. **Character-aware** - Sees every keypress before Enter
+2. **Non-blocking triggers** - Launch interactive selectors without breaking flow
+3. **Copyable** - Framework is self-contained and reusable
+4. **Minimal** - Only Ctrl-A/Ctrl-E for cursor (as requested)
+5. **Extensible** - Register custom keys and triggers
+
+## Comparison with rag REPL
+
+**Tetra REPL** (orchestrator-level):
+- Uses repl_core.sh framework
+- Character-aware input with triggers
+- Action dispatch to modules
+- Minimal: context management, /help, /status
+
+**rag REPL** (module-specific):
+- Uses rlwrap for readline support
+- Domain logic: flows, evidence, multicat
+- Rich commands: /flow, /evidence, /mc, /ms, /mi
+- Custom prompt modes, history
+
+Both coexist independently. Tetra REPL can dispatch to rag actions, but rag REPL is a separate specialized tool.
+
+## Future Extensions
+
+Potential additions:
+- **Ctrl-R** - History search
+- **Tab completion** - Action/file completion
+- **Multi-line input** - Ctrl-\ to continue line
+- **Vim mode** - Alternative key bindings
+- **More triggers** - ! (shell), % (variable), etc.
+
+## Files
+
+- `bash/tetra/core/repl_core.sh` - Framework (273 lines)
+- `bash/tetra/interfaces/repl.sh` - Tetra REPL (196 lines)
+- `bash/tetra/test_repl.sh` - Manual test guide
+- `bash/tcurses/tcurses_input.sh` - Low-level input

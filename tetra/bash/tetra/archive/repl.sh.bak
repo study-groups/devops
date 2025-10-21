@@ -1,0 +1,277 @@
+#!/usr/bin/env bash
+# Tetra REPL Interface
+# Character-aware REPL with @ and :: triggers
+
+# Source REPL framework
+source "$TETRA_SRC/bash/tetra/core/repl_core.sh"
+
+# REPL history
+TETRA_REPL_HISTORY="${TETRA_DIR}/tetra/repl_history"
+
+# @ trigger - Fuzzy file/evidence finder
+tetra_repl_trigger_at() {
+    # Remove @ from buffer
+    REPL_BUFFER="${REPL_BUFFER%@}"
+    REPL_CURSOR_POS=$((REPL_CURSOR_POS - 1))
+
+    # Launch fzf if available
+    if command -v fzf >/dev/null 2>&1; then
+        # Save terminal state
+        stty echo icanon </dev/tty 2>/dev/null
+        tput cnorm 2>/dev/null || printf '\033[?25h'
+        printf '\r\033[K'
+
+        # Run fuzzy finder
+        local selection
+        if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+            selection="$(git ls-files | fzf --height=40% --reverse --prompt='@ File: ')"
+        else
+            selection="$(find . -type f 2>/dev/null | fzf --height=40% --reverse --prompt='@ File: ')"
+        fi
+
+        # Restore raw mode
+        stty -echo -icanon </dev/tty 2>/dev/null
+
+        # Insert selection
+        if [[ -n "$selection" ]]; then
+            for ((i=0; i<${#selection}; i++)); do
+                repl_insert_char "${selection:$i:1}"
+            done
+        fi
+    else
+        # No fzf - insert @ back
+        repl_insert_char "@"
+        printf '\n[Install fzf for @ trigger]\n' >&2
+    fi
+}
+
+# :: trigger - TCS endpoint operator
+tetra_repl_trigger_doublecolon() {
+    # Get text before ::
+    local before="${REPL_BUFFER%::}"
+
+    # Check if looks like file or action
+    if [[ "$before" =~ \.(sh|bash|js|py|go|rs)$ ]] || [[ "$before" =~ ^[a-z_]+$ ]]; then
+        # Offer endpoint options
+        if command -v fzf >/dev/null 2>&1; then
+            stty echo icanon </dev/tty 2>/dev/null
+            tput cnorm 2>/dev/null || printf '\033[?25h'
+            printf '\r\033[K'
+
+            local selection
+            selection="$(printf 'line,line\nbyte,byte\nfunction\nclass.method\n' | fzf --height=40% --reverse --prompt=':: Endpoint: ')"
+
+            stty -echo -icanon </dev/tty 2>/dev/null
+
+            if [[ -n "$selection" ]]; then
+                for ((i=0; i<${#selection}; i++)); do
+                    repl_insert_char "${selection:$i:1}"
+                done
+            fi
+        else
+            printf '\n[Format: file::100,200 or action::endpoint]\n' >&2
+        fi
+    fi
+}
+
+# Process completed line
+repl_process_line() {
+    local line="$1"
+
+    [[ -z "$line" ]] && return 0
+
+    # Save to history
+    echo "$line" >> "$TETRA_REPL_HISTORY"
+
+    # Slash commands
+    if [[ "$line" == /* ]]; then
+        local cmd="${line#/}"
+        local cmd_name="${cmd%% *}"
+        local cmd_args="${cmd#* }"
+        [[ "$cmd_name" == "$cmd" ]] && cmd_args=""
+
+        case "$cmd_name" in
+            help|h)
+                tetra_repl_help
+                ;;
+            exit|quit|q)
+                printf 'Exiting tetra REPL\n'
+                REPL_RUNNING=false
+                ;;
+            status)
+                tetra show status
+                ;;
+            env)
+                if [[ -n "$cmd_args" ]]; then
+                    tetra_set_env "$cmd_args"
+                    printf 'Environment: %s\n' "$cmd_args"
+                else
+                    printf 'Environment: %s\n' "$(tetra_get_env)"
+                fi
+                ;;
+            mode)
+                if [[ -n "$cmd_args" ]]; then
+                    tetra_set_mode "$cmd_args"
+                    printf 'Mode: %s\n' "$cmd_args"
+                else
+                    printf 'Mode: %s\n' "$(tetra_get_mode)"
+                fi
+                ;;
+            context)
+                tetra_context_summary
+                ;;
+            history)
+                [[ -f "$TETRA_REPL_HISTORY" ]] && tail -20 "$TETRA_REPL_HISTORY" | nl
+                ;;
+            clear)
+                printf '\033[2J\033[H'
+                ;;
+            *)
+                printf 'Unknown: /%s (try /help)\n' "$cmd_name"
+                ;;
+        esac
+    else
+        # Dispatch to orchestrator
+        tetra_dispatch_action $line
+    fi
+}
+
+# Help
+tetra_repl_help() {
+    cat <<'EOF'
+Tetra REPL - Interactive Mode
+
+MODES:
+  tetra repl          Character-aware (triggers, cursor control)
+  tetra repl --simple Line-based (robust fallback, optional rlwrap)
+
+COMMANDS:
+  /help, /h           Show this help
+  /exit, /quit, /q    Exit REPL
+  /status             Orchestrator status
+  /env [name]         Get/set environment
+  /mode [modules]     Get/set mode (comma-separated)
+  /context            Show [Env × Mode] → Actions
+  /history            Recent history
+  /clear              Clear screen
+
+CURSOR:
+  Ctrl-A              Beginning of line
+  Ctrl-E              End of line
+  Backspace           Delete char
+  Ctrl-C              Clear line
+  Ctrl-D              Exit (empty line)
+
+TRIGGERS:
+  @                   Fuzzy file finder
+  ::                  TCS endpoint (file::100,200)
+
+ACTIONS:
+  list modules
+  list actions
+  rag list agents
+
+EXAMPLES:
+  @<select file>              # Fuzzy find file
+  file.sh::<endpoint>         # Add endpoint
+  /env Dev                    # Set environment
+  /mode rag                   # Filter to rag only
+EOF
+}
+
+# Main entry
+tetra_repl() {
+    mkdir -p "$(dirname "$TETRA_REPL_HISTORY")"
+    touch "$TETRA_REPL_HISTORY"
+
+    # Register triggers
+    repl_register_trigger "@" "tetra_repl_trigger_at"
+    repl_register_trigger "::" "tetra_repl_trigger_doublecolon"
+
+    # Build prompt
+    local env="$(tetra_get_env)"
+    local mode="$(tetra_get_mode)"
+    local prompt="[${env} × ${mode:-all}] tetra>"
+
+    # Welcome
+    printf '\nTetra REPL\n'
+    printf '==========\n\n'
+    printf '/help for commands\n'
+    printf 'Triggers: @ (fuzzy), :: (endpoint)\n'
+    printf 'Ctrl-A/E (home/end)\n\n'
+
+    # Start REPL
+    repl_loop "$prompt"
+    printf '\n'
+}
+
+# Simple REPL (line-based, no triggers, no tcurses)
+tetra_repl_simple() {
+    mkdir -p "$(dirname "$TETRA_REPL_HISTORY")"
+    touch "$TETRA_REPL_HISTORY"
+
+    # Build prompt
+    local env="$(tetra_get_env)"
+    local mode="$(tetra_get_mode)"
+    local prompt="[${env} × ${mode:-all}] tetra> "
+
+    # Welcome
+    printf '\nTetra REPL (Simple Mode)\n'
+    printf '========================\n\n'
+    printf '/help for commands\n'
+    if command -v rlwrap >/dev/null 2>&1; then
+        printf 'Arrow keys enabled (rlwrap)\n'
+    fi
+    printf '\n'
+
+    # Simple REPL loop
+    local input
+    while true; do
+        # Read line with prompt
+        read -r -p "$prompt" input || break
+
+        # Handle empty input
+        [[ -z "$input" ]] && continue
+
+        # Save to history
+        echo "$input" >> "$TETRA_REPL_HISTORY"
+
+        # Check for exit
+        if [[ "$input" =~ ^/(exit|quit|q)$ ]]; then
+            printf 'Exiting tetra REPL\n'
+            break
+        fi
+
+        # Process line (reuse existing handler)
+        # Temporarily override REPL_RUNNING for exit detection
+        REPL_RUNNING=true
+        repl_process_line "$input"
+        if [[ $REPL_RUNNING == false ]]; then
+            break
+        fi
+    done
+
+    printf '\n'
+}
+
+# Wrapper with rlwrap support
+tetra_repl_simple_with_rlwrap() {
+    if command -v rlwrap >/dev/null 2>&1; then
+        # Use rlwrap for history and line editing
+        rlwrap -H "$TETRA_REPL_HISTORY" \
+               -C tetra \
+               -f /dev/null \
+               bash -c "source '$TETRA_SRC/bash/tetra/tetra.sh' && source '$TETRA_SRC/bash/tetra/interfaces/repl.sh' && tetra_repl_simple"
+    else
+        # Fallback to basic mode
+        tetra_repl_simple
+    fi
+}
+
+export -f tetra_repl
+export -f tetra_repl_simple
+export -f tetra_repl_simple_with_rlwrap
+export -f tetra_repl_trigger_at
+export -f tetra_repl_trigger_doublecolon
+export -f repl_process_line
+export -f tetra_repl_help
