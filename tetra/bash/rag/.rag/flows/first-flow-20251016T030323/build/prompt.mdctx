@@ -1,0 +1,140 @@
+<!-- mdctx:version=1.0; flow_id=null; assembly=lexical -->
+
+# System
+
+# Constraints
+
+- Preserve existing behavior
+- Do not modify code without clear justification
+- Maintain test coverage
+
+# Output Contract
+
+Emit MULTICAT format with:
+- `plan.json` - Ordered list of changes
+- `patch.diff` - Unified diff format
+- `notes.md` - Explanation of changes
+
+
+# User Request
+
+<!-- rs:intent=edit; rs:scope=code; rs:id=first-flow-20251016T030323 -->
+
+Explain what this means in flow_manager.sh at the top:
+
+<!-- source_uri=file://core/flow_manager.sh;
+cid=sha256:8c99c72ebd01c49fa2e57c9e6d38edae40a81f1d23fabe8ec0cce861f4b76ec3;
+span=lines=100:200 -->
+
+
+## Evidence: flow_manager_sh
+<!-- source_uri=file://evidence/100_flow_manager_sh.evidence.md; cid=sha256:6a0707eaf4e6381aabaf6c648cffe4fa3219c29c1ac1f44b088a2ce5389f6e03 -->
+
+## Evidence: core/flow_manager.sh
+<!-- source_uri=file://core/flow_manager.sh; cid=sha256:8c99c72ebd01c49fa2e57c9e6d38edae40a81f1d23fabe8ec0cce861f4b76ec3; span=lines=100:200 -->
+
+```sh
+  "last_checkpoint": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+  "last_error": null
+}
+EOF
+
+    # Initialize events.ndjson
+    echo "{\"ts\":\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\",\"event\":\"flow_start\",\"flow_id\":\"$flow_id\",\"description\":\"$description\"}" \
+        > "$flow_dir/events.ndjson"
+
+    # Set as active flow
+    ln -sf "$flow_dir" "$rag_dir/flows/active"
+
+    echo "Flow created: $flow_id"
+    echo "Directory: $flow_dir"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Edit request: \$EDITOR $flow_dir/ctx/010_request.user.md"
+    echo "  2. Select evidence: rag select \"<query>\""
+    echo "  3. Assemble context: rag assemble"
+}
+
+# Get flow state
+flow_get_state() {
+    local flow_dir="$1"
+
+    if [[ -z "$flow_dir" ]]; then
+        flow_dir="$(get_active_flow_dir)"
+    fi
+
+    if [[ -z "$flow_dir" ]] || [[ ! -d "$flow_dir" ]]; then
+        echo "Error: No active flow" >&2
+        return 1
+    fi
+
+    local state_file="$flow_dir/state.json"
+    if [[ ! -f "$state_file" ]]; then
+        echo "Error: state.json not found" >&2
+        return 1
+    fi
+
+    cat "$state_file"
+}
+
+# Update flow state
+flow_update_state() {
+    local flow_dir="$1"
+    local updates="$2"  # JSON string with updates
+
+    if [[ -z "$flow_dir" ]]; then
+        flow_dir="$(get_active_flow_dir)"
+    fi
+
+    if [[ -z "$flow_dir" ]] || [[ ! -d "$flow_dir" ]]; then
+        echo "Error: No active flow" >&2
+        return 1
+    fi
+
+    local state_file="$flow_dir/state.json"
+    local temp_file=$(mktemp)
+
+    # Update state using jq if available, otherwise manual update
+    if command -v jq >/dev/null 2>&1; then
+        jq --arg ts "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+           ". + $updates + {last_checkpoint: \$ts}" \
+           "$state_file" > "$temp_file"
+        mv "$temp_file" "$state_file"
+    else
+        # Fallback: simple field update
+        echo "Warning: jq not available, state update limited" >&2
+        cp "$state_file" "$temp_file"
+        mv "$temp_file" "$state_file"
+    fi
+}
+
+# Transition to new stage
+flow_transition() {
+    local new_stage="$1"
+    local flow_dir="${2:-}"
+
+    if [[ -z "$flow_dir" ]]; then
+        flow_dir="$(get_active_flow_dir)"
+    fi
+
+    if [[ -z "$flow_dir" ]] || [[ ! -d "$flow_dir" ]]; then
+        echo "Error: No active flow" >&2
+        return 1
+    fi
+
+    # Validate stage transition
+    local current_stage
+    if command -v jq >/dev/null 2>&1; then
+        current_stage=$(jq -r '.stage' "$flow_dir/state.json")
+    else
+        current_stage=$(grep '"stage"' "$flow_dir/state.json" | cut -d'"' -f4)
+    fi
+
+    # Log transition
+    echo "{\"ts\":\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\",\"event\":\"stage_transition\",\"from\":\"$current_stage\",\"to\":\"$new_stage\"}" \
+        >> "$flow_dir/events.ndjson"
+
+    # Update state
+```
+
+

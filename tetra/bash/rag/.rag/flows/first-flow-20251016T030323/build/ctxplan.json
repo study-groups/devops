@@ -1,0 +1,34 @@
+{
+  "version": "1.0",
+  "flow_id": "null",
+  "order_rule": "lexical",
+  "snippets": [],
+  "parts": [
+    {
+      "rank": "000",
+      "kind": "policy",
+      "role": "system",
+      "uri": "file://000_policy.system.md",
+      "cid": "sha256:ae1fa5e3300385154c5691aeb641c4b1b9989be44f19dd8e8e814fd3aa5795db",
+      "bytes": 280
+    },
+    {
+      "rank": "001",
+      "kind": "request",
+      "role": "user",
+      "uri": "file://010_request.user.md",
+      "cid": "sha256:74a24dee5a2ca20d706c6d1fc9e5a1fa68828d922667c4d6fa6acda13d20037f",
+      "bytes": 275
+    },
+    {
+      "rank": "002",
+      "kind": "flow_manager_sh",
+      "role": "evidence",
+      "uri": "file://evidence/100_flow_manager_sh.evidence.md",
+      "cid": "sha256:6a0707eaf4e6381aabaf6c648cffe4fa3219c29c1ac1f44b088a2ce5389f6e03",
+      "bytes": 2977
+    }
+  ],
+  "total_bytes": 3532,
+  "ctx_digest": "sha256:5364190fd3b8cef86583523ca255a548cfb74977f321a00a5d514ea2072f7e4c"
+}

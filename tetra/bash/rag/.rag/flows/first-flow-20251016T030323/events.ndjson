@@ -1,0 +1,7 @@
+{"ts":"2025-10-16T10:03:23Z","event":"flow_start","flow_id":"first-flow-20251016T030323","description":"First flow"}
+{"ts":"2025-10-16T10:33:16Z","event":"evidence_added","file":"core/flow_manager.sh","span":"lines=200:250","tags":"flow"}
+{"ts":"2025-10-17T07:28:08Z","event":"evidence_added","file":"virtual-gamepad.html","span":"full","tags":""}
+{"ts":"2025-10-17T08:01:31Z","event":"evidence_added","file":"./raybar/index.html","span":"full","tags":""}
+{"ts":"2025-10-17T10:21:28Z","event":"evidence_added","file":"core/flow_manager.sh","span":"lines=100:200","tags":""}
+{"ts":"2025-10-18T09:37:40Z","event":"ctx_assembled","ctx_digest":"sha256:5364190fd3b8cef86583523ca255a548cfb74977f321a00a5d514ea2072f7e4c","parts":3,"bytes":3532}
+{"ts":"2025-10-18T09:37:57Z","event":"qa_submit","target":"@qa","qa_id":"1760780270"}

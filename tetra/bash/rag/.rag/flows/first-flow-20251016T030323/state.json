@@ -1,0 +1,12 @@
+{
+  "txn_id": "first-flow-20251016T030323",
+  "description": "First flow",
+  "stage": "DONE",
+  "target": "@local",
+  "iteration": 1,
+  "agent": "base",
+  "ctx_digest": "sha256:5364190fd3b8cef86583523ca255a548cfb74977f321a00a5d514ea2072f7e4c",
+  "last_checkpoint": "2025-10-18T09:37:57Z",
+  "last_error": null,
+  "prompt_mode": "twoline"
+}

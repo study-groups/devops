@@ -1,0 +1,1177 @@
+#!/usr/bin/env bash
+# RAG REPL - Interactive educational interface for RAG tools
+# ABSOLUTELY NO AUTO-START ALLOWED
+
+# Source color system
+if [[ -f "$TETRA_SRC/bash/color/color_core.sh" ]]; then
+    source "$TETRA_SRC/bash/color/color_core.sh"
+    source "$TETRA_SRC/bash/color/color_palettes.sh"
+    source "$TETRA_SRC/bash/color/color_elements.sh"
+    COLOR_ENABLED=1
+else
+    COLOR_ENABLED=0
+fi
+
+# Source RAG aliases (mc, ms, mi, etc.)
+if [[ -f "$RAG_SRC/bash/aliases.sh" ]]; then
+    source "$RAG_SRC/bash/aliases.sh"
+fi
+
+# Source history and completion systems
+if [[ -f "$RAG_SRC/bash/rag_history.sh" ]]; then
+    source "$RAG_SRC/bash/rag_history.sh"
+fi
+if [[ -f "$RAG_SRC/bash/rag_completion_tree.sh" ]]; then
+    source "$RAG_SRC/bash/rag_completion_tree.sh"
+fi
+
+# Main entry point with rlwrap detection
+rag() {
+    # If rlwrap is available, use it for history + readline support
+    if command -v rlwrap >/dev/null 2>&1; then
+        # Use rlwrap with separate history file
+        export RLWRAP_HISTORY_FILE="${TETRA_DIR:-$HOME/.tetra}/rag/history"
+        mkdir -p "$(dirname "$RLWRAP_HISTORY_FILE")"
+
+        # Run REPL through rlwrap
+        rlwrap -H "$RLWRAP_HISTORY_FILE" \
+               -C rag \
+               -f /dev/null \
+               bash -c "source '$RAG_SRC/bash/rag_repl.sh' && rag_repl_inner"
+    else
+        # Fallback to basic mode without readline
+        rag_repl_inner
+    fi
+}
+
+# Inner REPL function (called directly or via rlwrap)
+rag_repl_inner() {
+    rag_repl
+}
+
+# Debugging function
+rag_debug() {
+    local message="$1"
+    echo "[RAG REPL DEBUG] $message" >&2
+}
+
+# Capture call stack for debugging
+rag_trace_call_stack() {
+    rag_debug "Call stack:"
+    local frame=0
+    while caller $frame; do
+        ((frame++))
+    done
+}
+
+rag_repl() {
+    # Initialize RAG history (separate from shell history)
+    rag_history_init
+
+    # Set muted LS_COLORS - use soft pastels, no bright whites
+    # Format: file_type=color_code
+    # Colors: 38;5;N for 256-color palette
+    # Key mappings:
+    #   fi=regular file, di=directory, ln=symlink, ex=executable
+    #   103=muted gray-green, 109=muted blue-gray, 110=muted blue, 139=muted purple, 180=muted tan
+    export LS_COLORS="rs=0:fi=38;5;103:di=38;5;110:ln=38;5;109:mh=00:pi=38;5;103:so=38;5;139:do=38;5;139:bd=38;5;180:cd=38;5;180:or=38;5;139:mi=00:su=38;5;103:sg=38;5;103:ca=00:tw=38;5;110:ow=38;5;110:st=38;5;110:ex=38;5;139:*.tar=38;5;103:*.tgz=38;5;103:*.arc=38;5;103:*.arj=38;5;103:*.taz=38;5;103:*.lha=38;5;103:*.lz4=38;5;103:*.lzh=38;5;103:*.lzma=38;5;103:*.tlz=38;5;103:*.txz=38;5;103:*.tzo=38;5;103:*.t7z=38;5;103:*.zip=38;5;103:*.z=38;5;103:*.dz=38;5;103:*.gz=38;5;103:*.lrz=38;5;103:*.lz=38;5;103:*.lzo=38;5;103:*.xz=38;5;103:*.zst=38;5;103:*.tzst=38;5;103:*.bz2=38;5;103:*.bz=38;5;103:*.tbz=38;5;103:*.tbz2=38;5;103:*.tz=38;5;103:*.deb=38;5;103:*.rpm=38;5;103:*.jar=38;5;103:*.war=38;5;103:*.ear=38;5;103:*.sar=38;5;103:*.rar=38;5;103:*.alz=38;5;103:*.ace=38;5;103:*.zoo=38;5;103:*.cpio=38;5;103:*.7z=38;5;103:*.rz=38;5;103:*.cab=38;5;103:*.wim=38;5;103:*.swm=38;5;103:*.dwm=38;5;103:*.esd=38;5;103:*.jpg=38;5;139:*.jpeg=38;5;139:*.mjpg=38;5;139:*.mjpeg=38;5;139:*.gif=38;5;139:*.bmp=38;5;139:*.pbm=38;5;139:*.pgm=38;5;139:*.ppm=38;5;139:*.tga=38;5;139:*.xbm=38;5;139:*.xpm=38;5;139:*.tif=38;5;139:*.tiff=38;5;139:*.png=38;5;139:*.svg=38;5;139:*.svgz=38;5;139:*.mng=38;5;139:*.pcx=38;5;139:*.mov=38;5;139:*.mpg=38;5;139:*.mpeg=38;5;139:*.m2v=38;5;139:*.mkv=38;5;139:*.webm=38;5;139:*.webp=38;5;139:*.ogm=38;5;139:*.mp4=38;5;139:*.m4v=38;5;139:*.mp4v=38;5;139:*.vob=38;5;139:*.qt=38;5;139:*.nuv=38;5;139:*.wmv=38;5;139:*.asf=38;5;139:*.rm=38;5;139:*.rmvb=38;5;139:*.flc=38;5;139:*.avi=38;5;139:*.fli=38;5;139:*.flv=38;5;139:*.gl=38;5;139:*.dl=38;5;139:*.xcf=38;5;139:*.xwd=38;5;139:*.yuv=38;5;139:*.cgm=38;5;139:*.emf=38;5;139:*.ogv=38;5;139:*.ogx=38;5;139:*.aac=38;5;109:*.au=38;5;109:*.flac=38;5;109:*.m4a=38;5;109:*.mid=38;5;109:*.midi=38;5;109:*.mka=38;5;109:*.mp3=38;5;109:*.mpc=38;5;109:*.ogg=38;5;109:*.ra=38;5;109:*.wav=38;5;109:*.oga=38;5;109:*.opus=38;5;109:*.spx=38;5;109:*.xspf=38;5;109:"
+
+    # Welcome message with soft pastel colors (no whites)
+    if [[ $COLOR_ENABLED -eq 1 ]]; then
+        echo "$(text_color "66AA99")🔧 Welcome to RAG Tools Interactive REPL!$(reset_color)"
+        echo "$(text_color "6699CC")Type '/help' for categories or '/help <topic>' for details$(reset_color)"
+        echo "$(text_color "9988BB")Shell commands (no /) run directly$(reset_color)"
+        if command -v rlwrap >/dev/null 2>&1; then
+            echo "$(text_color "7788AA")Arrow keys & TAB completion enabled$(reset_color)"
+        else
+            echo "$(text_color "BB9966")Note: Install 'rlwrap' for arrow key history$(reset_color)"
+        fi
+    else
+        echo "🔧 Welcome to RAG Tools Interactive REPL!"
+        echo "Type '/help' for categories or '/help <topic>' for details"
+        echo "Shell commands (no /) run directly"
+        if command -v rlwrap >/dev/null 2>&1; then
+            echo "Arrow keys & TAB completion enabled"
+        else
+            echo "Note: Install 'rlwrap' for arrow key history"
+        fi
+    fi
+    echo ""
+
+    # Initialize RAG environment
+    [[ ! -d "$RAG_DIR" ]] && mkdir -p "$RAG_DIR"
+
+    # Source managers and selectors
+    if [[ -f "$RAG_SRC/core/flow_manager_ttm.sh" ]]; then
+        source "$RAG_SRC/core/flow_manager_ttm.sh"
+    elif [[ -f "$RAG_SRC/core/flow_manager.sh" ]]; then
+        source "$RAG_SRC/core/flow_manager.sh"
+    fi
+    if [[ -f "$RAG_SRC/core/evidence_selector.sh" ]]; then
+        source "$RAG_SRC/core/evidence_selector.sh"
+    fi
+    if [[ -f "$RAG_SRC/core/evidence_manager.sh" ]]; then
+        source "$RAG_SRC/core/evidence_manager.sh"
+    fi
+    if [[ -f "$RAG_SRC/core/stats_manager.sh" ]]; then
+        source "$RAG_SRC/core/stats_manager.sh"
+    fi
+    if [[ -f "$RAG_SRC/core/prompt_manager.sh" ]]; then
+        source "$RAG_SRC/core/prompt_manager.sh"
+    fi
+
+    # Auto-load QA module for /flow submit integration
+    if [[ -f "$TETRA_SRC/bash/qa/qa.sh" ]]; then
+        source "$TETRA_SRC/bash/qa/qa.sh" 2>/dev/null
+    fi
+
+    # Initialize evidence variables on startup
+    if type init_evidence_vars >/dev/null 2>&1; then
+        init_evidence_vars
+    fi
+
+    # Custom ls function that uses our color palette
+    ls() {
+        if [[ $COLOR_ENABLED -ne 1 ]]; then
+            command ls -1F "$@"
+            return
+        fi
+
+        local item
+        while IFS= read -r item; do
+            [[ -z "$item" ]] && continue
+
+            if [[ -d "$item" ]]; then
+                # Directory - blue
+                printf "%b%s/%b\n" "$(text_color "7AA2F7")" "$item" "$(reset_color)"
+            elif [[ -x "$item" ]]; then
+                # Executable - purple
+                printf "%b%s*%b\n" "$(text_color "BB9AF7")" "$item" "$(reset_color)"
+            elif [[ -L "$item" ]]; then
+                # Symlink - cyan
+                printf "%b%s@%b\n" "$(text_color "7DCFFF")" "$item" "$(reset_color)"
+            else
+                # Regular file - muted gray
+                printf "%b%s%b\n" "$(text_color "9099A0")" "$item" "$(reset_color)"
+            fi
+        done < <(command ls -1 "$@" 2>/dev/null)
+    }
+
+    local input cmd args
+    while true; do
+        # Build prompt dynamically using prompt manager
+        local prompt
+        if command -v build_prompt >/dev/null 2>&1; then
+            prompt=$(build_prompt)
+        else
+            # Fallback if prompt manager not loaded
+            prompt="rag> "
+        fi
+
+        # Read input with plain prompt (no readline editing)
+        # This prevents bash history contamination
+        read -p "$prompt" input
+
+        # Handle empty input
+        [[ -z "$input" ]] && continue
+
+        # Add to RAG history file only
+        rag_history_add "$input"
+
+        # Parse command and arguments
+        read -r cmd args <<< "$input"
+
+        # Check if command starts with /
+        if [[ "$cmd" == /* ]]; then
+            # RAG command (strip the /)
+            local rag_cmd="${cmd#/}"
+
+            case "$rag_cmd" in
+                # CLI prompt commands (with /prompt alias for backwards compat)
+                cli|prompt)
+                    _rag_repl_cli $args
+                    ;;
+                # Evidence commands (with /e alias)
+                evidence|e)
+                    _rag_repl_evidence $args
+                    ;;
+                # Flow commands
+                flow|f)
+                    _rag_repl_flow $args
+                    ;;
+                # Core porcelain functions
+                mc)
+                    _rag_repl_mc $args
+                    ;;
+                ms)
+                    _rag_repl_ms $args
+                    ;;
+                mi)
+                    _rag_repl_mi $args
+                    ;;
+                mf)
+                    _rag_repl_mf $args
+                    ;;
+                qpatch)
+                    _rag_repl_qpatch $args
+                    ;;
+                replace)
+                    _rag_repl_replace $args
+                    ;;
+                example)
+                    _rag_repl_example $args
+                    ;;
+                # System commands
+                status)
+                    _rag_repl_status
+                    ;;
+                help|h)
+                    _rag_repl_help $args
+                    ;;
+                tutorial)
+                    _rag_repl_tutorial $args
+                    ;;
+                functions)
+                    _rag_repl_functions
+                    ;;
+                exit|quit|q)
+                    echo "Exiting RAG REPL. Happy coding!"
+                    # Cleanup handled by RETURN trap
+                    break
+                    ;;
+                history)
+                    _rag_repl_history $args
+                    ;;
+                *)
+                    echo "Unknown RAG command: /$rag_cmd"
+                    echo "Try '/help' for available commands"
+                    ;;
+            esac
+        else
+            # Regular shell command - execute it
+            eval "$input"
+        fi
+    done
+}
+
+# New porcelain command implementations for REPL
+
+# CLI prompt mode command (renamed from prompt to avoid confusion with RAG prompts)
+_rag_repl_cli() {
+    local subcmd="$1"
+    local scope="${2:-flow}"
+
+    if [[ -z "$subcmd" ]]; then
+        # Show current mode
+        local mode=$(get_prompt_mode)
+        if [[ $COLOR_ENABLED -eq 1 ]]; then
+            echo "$(text_color "00D4AA")Current CLI prompt mode:$(reset_color) $(text_color "7AA2F7")$mode$(reset_color)"
+            echo ""
+            echo "$(text_color "BB9AF7")Available modes:$(reset_color)"
+            echo "  $(text_color "7AA2F7")minimal$(reset_color)  - Simple > prompt"
+            echo "  $(text_color "7AA2F7")normal$(reset_color)   - [flow:stage] rag> prompt"
+            echo "  $(text_color "7AA2F7")twoline$(reset_color)  - Stats meters + flow prompt"
+            echo ""
+            echo "$(text_color "565F89")Usage:$(reset_color) /cli <mode> [global]"
+            echo "$(text_color "565F89")       /cli toggle$(reset_color)"
+            echo "$(text_color "565F89")       Ctrl+P to quick toggle$(reset_color)"
+        else
+            echo "Current CLI prompt mode: $mode"
+            echo ""
+            echo "Available modes: minimal, normal, twoline"
+            echo "Usage: /cli <mode> [global]"
+            echo "       /cli toggle"
+        fi
+        return
+    fi
+
+    case "$subcmd" in
+        minimal|normal|twoline)
+            set_prompt_mode "$subcmd" "$scope"
+            ;;
+        toggle)
+            toggle_prompt_mode
+            ;;
+        *)
+            echo "Unknown CLI prompt mode: $subcmd"
+            echo "Use: minimal, normal, twoline, toggle"
+            ;;
+    esac
+}
+
+_rag_repl_evidence() {
+    local subcmd="$1"
+    shift || true
+
+    case "$subcmd" in
+        add)
+            evidence_add "$@"
+            # Refresh variables after adding evidence
+            init_evidence_vars
+            ;;
+        list|ls|"")
+            evidence_list
+            ;;
+        toggle|on|off)
+            evidence_toggle "$@"
+            # Refresh variables after toggling
+            init_evidence_vars
+            ;;
+        status)
+            evidence_status "$@"
+            ;;
+        remove)
+            evidence_remove "$@"
+            ;;
+        rebase)
+            evidence_rebase
+            ;;
+        *)
+            if [[ $COLOR_ENABLED -eq 1 ]]; then
+                echo "$(text_color "00D4AA")Usage:$(reset_color) $(text_color "7AA2F7")evidence$(reset_color) <command> [args]"
+                echo ""
+                echo "$(text_color "BB9AF7")Commands:$(reset_color)"
+                echo "  $(text_color "7AA2F7")add$(reset_color) <selector>      - Add evidence to active flow"
+                echo "  $(text_color "7AA2F7")list$(reset_color), $(text_color "7AA2F7")ls$(reset_color)            - List evidence files with \$e variables & status"
+                echo "  $(text_color "7AA2F7")toggle$(reset_color) <target> [on|off] - Toggle evidence active/skipped"
+                echo "  $(text_color "7AA2F7")on$(reset_color) <target>, $(text_color "7AA2F7")off$(reset_color) <target> - Activate/deactivate evidence"
+                echo "  $(text_color "7AA2F7")status$(reset_color)              - Show context status & token budget"
+                echo "  $(text_color "7AA2F7")remove$(reset_color) <target>     - Remove evidence file"
+                echo "  $(text_color "7AA2F7")rebase$(reset_color)              - Renumber and groom evidence files"
+                echo ""
+                echo "$(text_color "BB9AF7")Selector Format:$(reset_color)"
+                echo "  $(text_color "565F89")file.sh                  - Whole file$(reset_color)"
+                echo "  $(text_color "565F89")file.sh::100,200         - Lines 100-200$(reset_color)"
+                echo "  $(text_color "565F89")file.sh::100c,500c       - Bytes 100-500$(reset_color)"
+                echo "  $(text_color "565F89")file.sh#tag1,tag2        - With tags$(reset_color)"
+                echo ""
+                echo "$(text_color "BB9AF7")Toggle Targets:$(reset_color)"
+                echo "  $(text_color "565F89")100                      - By rank$(reset_color)"
+                echo "  $(text_color "565F89")flow_sh                  - By pattern$(reset_color)"
+                echo "  $(text_color "565F89")200-299                  - Range$(reset_color)"
+                echo ""
+                echo "$(text_color "BB9AF7")Examples:$(reset_color)"
+                echo "  $(text_color "565F89")/e add core/flow.sh::100,200#important$(reset_color)"
+                echo "  $(text_color "565F89")/e list$(reset_color)"
+                echo "  $(text_color "565F89")/e status$(reset_color)"
+                echo "  $(text_color "565F89")/e toggle 200_test$(reset_color)           # Disable test file"
+                echo "  $(text_color "565F89")/e toggle 300-399$(reset_color)             # Disable range"
+                echo "  $(text_color "565F89")/e toggle 200_test$(reset_color)           # Re-enable"
+                echo ""
+                echo "$(text_color "9D7CD8")Use evidence variables: cat \$e1, grep pattern \$e2, diff \$e1 \$e3$(reset_color)"
+            else
+                echo "Usage: evidence <command> [args]"
+                echo ""
+                echo "Commands:"
+                echo "  add <selector>      - Add evidence to active flow"
+                echo "  list, ls            - List evidence files with \$e variables & status"
+                echo "  toggle <target> [on|off] - Toggle evidence active/skipped"
+                echo "  on <target>, off <target> - Activate/deactivate evidence"
+                echo "  status              - Show context status & token budget"
+                echo "  remove <target>     - Remove evidence file"
+                echo "  rebase              - Renumber and groom evidence files"
+                echo ""
+                echo "Examples:"
+                echo "  /e add core/flow.sh::100,200#important"
+                echo "  /e list"
+                echo "  /e status"
+                echo "  /e toggle 200_test           # Disable test file"
+                echo "  /e toggle 300-399             # Disable range"
+                echo ""
+                echo "Use evidence variables: cat \$e1, grep pattern \$e2, diff \$e1 \$e3"
+            fi
+            ;;
+    esac
+}
+
+_rag_repl_flow() {
+    local subcmd="$1"
+    shift || true
+
+    case "$subcmd" in
+        help)
+            # Display flow help table
+            if [[ $COLOR_ENABLED -eq 1 ]]; then
+                cat <<EOF
+  $(text_color "565F89")╔════════════════════════════════════════════════════════════════════════╗
+  ║                RAG FLOW PROCESS - COMPLETE GUIDE                       ║
+  ╚════════════════════════════════════════════════════════════════════════╝$(reset_color)
+
+  $(text_color "BB9AF7")FLOW STAGES$(reset_color) - Each stage represents a step in the RAG workflow
+
+  $(text_color "565F89")┌─────────┬──────────┬──────────────────────────────────────────────────┐$(reset_color)
+  $(text_color "565F89")│$(reset_color) $(text_color "7AA2F7")STAGE$(reset_color)   $(text_color "565F89")│$(reset_color) $(text_color "E0AF68")COLOR$(reset_color)    $(text_color "565F89")│$(reset_color) $(text_color "9AAB9E")DESCRIPTION & NEXT ACTION$(reset_color)                        $(text_color "565F89")│$(reset_color)
+  $(text_color "565F89")├─────────┼──────────┼──────────────────────────────────────────────────┤$(reset_color)
+  $(text_color "565F89")│$(reset_color) NEW     $(text_color "565F89")│$(reset_color) $(text_color "7AA2F7")Blue$(reset_color)     $(text_color "565F89")│$(reset_color) $(text_color "9AAB9E")Flow created, ready to gather evidence$(reset_color)           $(text_color "565F89")│$(reset_color)
+  $(text_color "565F89")│$(reset_color)         $(text_color "565F89")│$(reset_color)          $(text_color "565F89")│$(reset_color) $(text_color "7AA2F7")Next: /e add <file>$(reset_color)                              $(text_color "565F89")│$(reset_color)
+  $(text_color "565F89")├─────────┼──────────┼──────────────────────────────────────────────────┤$(reset_color)
+  $(text_color "565F89")│$(reset_color) SELECT  $(text_color "565F89")│$(reset_color) $(text_color "BB9AF7")Purple$(reset_color)   $(text_color "565F89")│$(reset_color) $(text_color "9AAB9E")Gathering evidence files for context$(reset_color)             $(text_color "565F89")│$(reset_color)
+  $(text_color "565F89")│$(reset_color)         $(text_color "565F89")│$(reset_color)          $(text_color "565F89")│$(reset_color) $(text_color "7AA2F7")Next: /e add more, then /flow assemble$(reset_color)           $(text_color "565F89")│$(reset_color)
+  $(text_color "565F89")├─────────┼──────────┼──────────────────────────────────────────────────┤$(reset_color)
+  $(text_color "565F89")│$(reset_color) ASSEMBLE$(text_color "565F89")│$(reset_color) $(text_color "9D7CD8")Dk Purple$(reset_color)$(text_color "565F89")│$(reset_color) $(text_color "9AAB9E")Building context from evidence$(reset_color)                   $(text_color "565F89")│$(reset_color)
+  $(text_color "565F89")│$(reset_color)         $(text_color "565F89")│$(reset_color)          $(text_color "565F89")│$(reset_color) $(text_color "7AA2F7")Next: /flow submit$(reset_color)                               $(text_color "565F89")│$(reset_color)
+  $(text_color "565F89")├─────────┼──────────┼──────────────────────────────────────────────────┤$(reset_color)
+  $(text_color "565F89")│$(reset_color) SUBMIT  $(text_color "565F89")│$(reset_color) $(text_color "E0AF68")Orange$(reset_color)   $(text_color "565F89")│$(reset_color) $(text_color "9AAB9E")Submitting to AI agent for processing$(reset_color)            $(text_color "565F89")│$(reset_color)
+  $(text_color "565F89")│$(reset_color)         $(text_color "565F89")│$(reset_color)          $(text_color "565F89")│$(reset_color) $(text_color "7AA2F7")Next: /flow apply$(reset_color)                                $(text_color "565F89")│$(reset_color)
+  $(text_color "565F89")├─────────┼──────────┼──────────────────────────────────────────────────┤$(reset_color)
+  $(text_color "565F89")│$(reset_color) APPLY   $(text_color "565F89")│$(reset_color) $(text_color "FF9E64")Br Orange$(reset_color)$(text_color "565F89")│$(reset_color) $(text_color "9AAB9E")Applying changes from agent response$(reset_color)             $(text_color "565F89")│$(reset_color)
+  $(text_color "565F89")│$(reset_color)         $(text_color "565F89")│$(reset_color)          $(text_color "565F89")│$(reset_color) $(text_color "7AA2F7")Next: /flow validate$(reset_color)                             $(text_color "565F89")│$(reset_color)
+  $(text_color "565F89")├─────────┼──────────┼──────────────────────────────────────────────────┤$(reset_color)
+  $(text_color "565F89")│$(reset_color) VALIDATE$(text_color "565F89")│$(reset_color) $(text_color "F7768E")Red$(reset_color)      $(text_color "565F89")│$(reset_color) $(text_color "9AAB9E")Running tests & validation$(reset_color)                       $(text_color "565F89")│$(reset_color)
+  $(text_color "565F89")│$(reset_color)         $(text_color "565F89")│$(reset_color)          $(text_color "565F89")│$(reset_color) $(text_color "7AA2F7")Next: /flow fold (failed) or DONE (passed)$(reset_color)       $(text_color "565F89")│$(reset_color)
+  $(text_color "565F89")├─────────┼──────────┼──────────────────────────────────────────────────┤$(reset_color)
+  $(text_color "565F89")│$(reset_color) DONE    $(text_color "565F89")│$(reset_color) $(text_color "9ECE6A")Green$(reset_color)    $(text_color "565F89")│$(reset_color) $(text_color "9AAB9E")Successfully completed$(reset_color)                           $(text_color "565F89")│$(reset_color)
+  $(text_color "565F89")├─────────┼──────────┼──────────────────────────────────────────────────┤$(reset_color)
+  $(text_color "565F89")│$(reset_color) FAIL    $(text_color "565F89")│$(reset_color) $(text_color "F7768E")Red$(reset_color)      $(text_color "565F89")│$(reset_color) $(text_color "9AAB9E")Flow failed - check last_error in state.json$(reset_color)     $(text_color "565F89")│$(reset_color)
+  $(text_color "565F89")│$(reset_color)         $(text_color "565F89")│$(reset_color)          $(text_color "565F89")│$(reset_color) $(text_color "7AA2F7")Next: /flow resume to retry$(reset_color)                      $(text_color "565F89")│$(reset_color)
+  $(text_color "565F89")└─────────┴──────────┴──────────────────────────────────────────────────┘$(reset_color)
+
+$(text_color "BB9AF7")FLOW COMMANDS$(reset_color)
+
+  $(text_color "7AA2F7")/flow create$(reset_color) "description"  - Create a new flow
+  $(text_color "7AA2F7")/flow status$(reset_color)                - Show current flow status
+  $(text_color "7AA2F7")/flow list$(reset_color)                  - List all flows
+  $(text_color "7AA2F7")/flow resume$(reset_color) [flow-id]      - Resume a flow
+  $(text_color "7AA2F7")/flow help$(reset_color)                  - Show this help
+
+  $(text_color "565F89")Alias: Use /f instead of /flow$(reset_color)
+
+$(text_color "BB9AF7")COMPLETE WORKFLOW EXAMPLE$(reset_color)
+
+  $(text_color "9ECE6A")1.$(reset_color) Create flow:
+     $(text_color "565F89")/flow create "Fix bug in parser module"$(reset_color)
+
+  $(text_color "9ECE6A")2.$(reset_color) Add evidence (use $(text_color "7AA2F7")/e$(reset_color) alias):
+     $(text_color "565F89")/e add core/parser.sh$(reset_color)
+     $(text_color "565F89")/e add core/parser.sh::100,200#bug$(reset_color)
+     $(text_color "565F89")/e add tests/parser_test.sh$(reset_color)
+
+  $(text_color "9ECE6A")3.$(reset_color) List evidence to verify:
+     $(text_color "565F89")/e list$(reset_color)
+
+  $(text_color "9ECE6A")4.$(reset_color) Check flow status:
+     $(text_color "565F89")/flow status$(reset_color)
+
+  $(text_color "9ECE6A")5.$(reset_color) Proceed through stages:
+     $(text_color "565F89")/flow assemble$(reset_color)   $(text_color "565F89")# Build context$(reset_color)
+     $(text_color "565F89")/flow submit$(reset_color)     $(text_color "565F89")# Send to agent$(reset_color)
+     $(text_color "565F89")/flow apply$(reset_color)      $(text_color "565F89")# Apply changes$(reset_color)
+     $(text_color "565F89")/flow validate$(reset_color)   $(text_color "565F89")# Run tests$(reset_color)
+
+$(text_color "BB9AF7")TIPS$(reset_color)
+
+  • Evidence files: $(text_color "565F89")\$FLOW_DIR/ctx/evidence/$(reset_color)
+  • Flow state: $(text_color "565F89")\$FLOW_DIR/state.json$(reset_color)
+  • Events log: $(text_color "565F89")\$FLOW_DIR/events.ndjson$(reset_color)
+  • Use $(text_color "7AA2F7")\$e1, \$e2, \$e3$(reset_color) variables to reference evidence files
+  • View events: $(text_color "565F89")cat \$FLOW_DIR/events.ndjson | jq$(reset_color)
+
+$(text_color "E0AF68")Pro Tip: The prompt shows your current stage with color coding!$(reset_color)
+EOF
+            else
+                cat <<'EOF'
+  ╔════════════════════════════════════════════════════════════════════════╗
+  ║                RAG FLOW PROCESS - COMPLETE GUIDE                       ║
+  ╚════════════════════════════════════════════════════════════════════════╝
+
+  FLOW STAGES - Each stage represents a step in the RAG workflow
+
+  ┌─────────┬──────────┬──────────────────────────────────────────────────┐
+  │ STAGE   │ COLOR    │ DESCRIPTION & NEXT ACTION                        │
+  ├─────────┼──────────┼──────────────────────────────────────────────────┤
+  │ NEW     │ Blue     │ Flow created, ready to gather evidence           │
+  │         │          │ Next: /e add <file>                              │
+  ├─────────┼──────────┼──────────────────────────────────────────────────┤
+  │ SELECT  │ Purple   │ Gathering evidence files for context             │
+  │         │          │ Next: /e add more, then /flow assemble           │
+  ├─────────┼──────────┼──────────────────────────────────────────────────┤
+  │ ASSEMBLE│ Dk Purple│ Building context from evidence                   │
+  │         │          │ Next: /flow submit                               │
+  ├─────────┼──────────┼──────────────────────────────────────────────────┤
+  │ SUBMIT  │ Orange   │ Submitting to AI agent for processing            │
+  │         │          │ Next: /flow apply                                │
+  ├─────────┼──────────┼──────────────────────────────────────────────────┤
+  │ APPLY   │ Br Orange│ Applying changes from agent response             │
+  │         │          │ Next: /flow validate                             │
+  ├─────────┼──────────┼──────────────────────────────────────────────────┤
+  │ VALIDATE│ Red      │ Running tests & validation                       │
+  │         │          │ Next: /flow fold (failed) or DONE (passed)       │
+  ├─────────┼──────────┼──────────────────────────────────────────────────┤
+  │ DONE    │ Green    │ Successfully completed                           │
+  ├─────────┼──────────┼──────────────────────────────────────────────────┤
+  │ FAIL    │ Red      │ Flow failed - check last_error in state.json     │
+  │         │          │ Next: /flow resume to retry                      │
+  └─────────┴──────────┴──────────────────────────────────────────────────┘
+
+FLOW COMMANDS
+
+  /flow create "description"  - Create a new flow
+  /flow status                - Show current flow status
+  /flow list                  - List all flows
+  /flow resume [flow-id]      - Resume a flow
+  /flow help                  - Show this help
+
+  Alias: Use /f instead of /flow
+
+COMPLETE WORKFLOW EXAMPLE
+
+  1. Create flow:
+     /flow create "Fix bug in parser module"
+
+  2. Add evidence (use /e alias):
+     /e add core/parser.sh
+     /e add core/parser.sh::100,200#bug
+     /e add tests/parser_test.sh
+
+  3. List evidence to verify:
+     /e list
+
+  4. Check flow status:
+     /flow status
+
+  5. Proceed through stages:
+     /flow assemble   # Build context
+     /flow submit     # Send to agent
+     /flow apply      # Apply changes
+     /flow validate   # Run tests
+
+TIPS
+
+  • Evidence files: $FLOW_DIR/ctx/evidence/
+  • Flow state: $FLOW_DIR/state.json
+  • Events log: $FLOW_DIR/events.ndjson
+  • Use $e1, $e2, $e3 variables to reference evidence files
+  • View events: cat $FLOW_DIR/events.ndjson | jq
+
+Pro Tip: The prompt shows your current stage with color coding!
+EOF
+            fi
+            ;;
+        create)
+            if type flow_create >/dev/null 2>&1; then
+                flow_create "$@"
+            else
+                echo "Error: flow_create function not found"
+            fi
+            ;;
+        status)
+            if type flow_status >/dev/null 2>&1; then
+                flow_status "$@"
+            else
+                echo "Error: flow_status function not found"
+            fi
+            ;;
+        list)
+            if type flow_list >/dev/null 2>&1; then
+                flow_list "$@"
+            else
+                echo "Error: flow_list function not found"
+            fi
+            ;;
+        resume)
+            if type flow_resume >/dev/null 2>&1; then
+                flow_resume "$@"
+            else
+                echo "Error: flow_resume function not found"
+            fi
+            ;;
+        assemble)
+            if type assemble_ctx >/dev/null 2>&1; then
+                assemble_ctx "$@"
+            else
+                echo "Error: assemble_ctx function not found"
+                echo "Loading assembler..."
+                source "$RAG_SRC/core/assembler.sh" 2>/dev/null && assemble_ctx "$@"
+            fi
+            ;;
+        submit)
+            local target="${1:-@qa}"
+            if [[ "$target" != "@qa" ]]; then
+                echo "Error: Only @qa target supported currently"
+                echo "Usage: /flow submit @qa"
+                return 1
+            fi
+            if type submit_to_qa >/dev/null 2>&1; then
+                submit_to_qa
+            else
+                echo "Error: submit_to_qa function not found"
+                echo "Loading QA submit module..."
+                source "$RAG_SRC/core/qa_submit.sh" 2>/dev/null && submit_to_qa
+            fi
+            ;;
+        *)
+            if [[ $COLOR_ENABLED -eq 1 ]]; then
+                echo "$(text_color "00D4AA")Usage:$(reset_color) $(text_color "7AA2F7")flow$(reset_color) <create|status|list|resume|assemble|submit|help> [args]"
+                echo ""
+                echo "$(text_color "BB9AF7")Commands:$(reset_color)"
+                echo "  $(text_color "7AA2F7")create$(reset_color) \"description\" - Create a new flow"
+                echo "  $(text_color "7AA2F7")status$(reset_color)               - Show current flow status"
+                echo "  $(text_color "7AA2F7")list$(reset_color)                 - List all flows"
+                echo "  $(text_color "7AA2F7")resume$(reset_color) [flow-id]     - Resume a flow"
+                echo "  $(text_color "7AA2F7")assemble$(reset_color)             - Assemble context from evidence"
+                echo "  $(text_color "7AA2F7")submit$(reset_color) @qa           - Submit to QA agent"
+                echo "  $(text_color "7AA2F7")help$(reset_color)                 - Show flow process guide"
+                echo ""
+                echo "$(text_color "565F89")Use /f as a shortcut for /flow$(reset_color)"
+                echo "$(text_color "565F89")For workflow guide, run: /flow help$(reset_color)"
+            else
+                echo "Usage: flow <create|status|list|resume|assemble|submit|help> [args]"
+                echo ""
+                echo "Commands:"
+                echo "  create \"description\" - Create a new flow"
+                echo "  status               - Show current flow status"
+                echo "  list                 - List all flows"
+                echo "  resume [flow-id]     - Resume a flow"
+                echo "  assemble             - Assemble context from evidence"
+                echo "  submit @qa           - Submit to QA agent"
+                echo "  help                 - Show flow process guide"
+                echo ""
+                echo "Use /f as a shortcut for /flow"
+                echo "For workflow guide, run: /flow help"
+            fi
+            ;;
+    esac
+}
+
+_rag_repl_mc() {
+    echo "Creating MULTICAT: $*"
+    mc "$@"
+}
+
+_rag_repl_ms() {
+    echo "Splitting MULTICAT: $*"
+    ms "$@"
+}
+
+_rag_repl_mi() {
+    echo "MULTICAT info: $*"
+    mi "$@"
+}
+
+_rag_repl_mf() {
+    echo "Finding files: $*"
+    mf "$@"
+}
+
+_rag_repl_qpatch() {
+    echo "Applying patch: $*"
+    qpatch "$@"
+}
+
+_rag_repl_replace() {
+    echo "Replacing content: $*"
+    replace "$@"
+}
+
+_rag_repl_example() {
+    echo "📄 Generating MULTICAT example with 2 files..."
+    mc --example
+}
+
+_rag_repl_status() {
+    if [[ $COLOR_ENABLED -eq 1 ]]; then
+        echo "$(text_color "00D4AA")RAG Tools Status:$(reset_color)"
+        echo "$(text_color "565F89")═════════════════$(reset_color)"
+        echo "$(text_color "7AA2F7")RAG_DIR:$(reset_color) ${RAG_DIR:-$(text_color "F7768E")<not set>$(reset_color)}"
+        echo "$(text_color "7AA2F7")RAG_SRC:$(reset_color) ${RAG_SRC:-$(text_color "F7768E")<not set>$(reset_color)}"
+        echo ""
+        echo "$(text_color "BB9AF7")Available tools:$(reset_color)"
+        for tool in mc ms mi mf qpatch replace; do
+            if command -v "$tool" >/dev/null 2>&1; then
+                echo "  $(text_color "9ECE6A")✓$(reset_color) $tool"
+            else
+                echo "  $(text_color "F7768E")✗$(reset_color) $tool"
+            fi
+        done
+        echo ""
+        echo "$(text_color "BB9AF7")Storage directories:$(reset_color)"
+        if [[ -d "$RAG_DIR" ]]; then
+            echo "  $(text_color "9ECE6A")✓$(reset_color) $RAG_DIR"
+        else
+            echo "  $(text_color "F7768E")✗$(reset_color) $RAG_DIR $(text_color "565F89")(missing)$(reset_color)"
+        fi
+    else
+        echo "RAG Tools Status:"
+        echo "================="
+        echo "RAG_DIR: ${RAG_DIR:-<not set>}"
+        echo "RAG_SRC: ${RAG_SRC:-<not set>}"
+        echo ""
+        echo "Available tools:"
+        for tool in mc ms mi mf qpatch replace; do
+            if command -v "$tool" >/dev/null 2>&1; then
+                echo "  ✓ $tool"
+            else
+                echo "  ✗ $tool"
+            fi
+        done
+        echo ""
+        echo "Storage directories:"
+        [[ -d "$RAG_DIR" ]] && echo "  ✓ $RAG_DIR" || echo "  ✗ $RAG_DIR (missing)"
+    fi
+}
+
+_rag_repl_help() {
+    local topic="$1"
+
+    # Topic-specific help
+    if [[ -n "$topic" ]]; then
+        case "$topic" in
+            flow)
+                _rag_repl_flow help
+                return
+                ;;
+            evidence|e)
+                _rag_repl_evidence
+                return
+                ;;
+            cli|prompt)
+                _rag_repl_cli
+                return
+                ;;
+            symbols|status|stats)
+                _rag_repl_help_symbols
+                return
+                ;;
+            cdp|agent)
+                _rag_repl_help_cdp
+                return
+                ;;
+            stages)
+                _rag_repl_help_stages
+                return
+                ;;
+            question|ask|use|usecase)
+                _rag_repl_help_usecase
+                return
+                ;;
+            model|models|agent|agents)
+                _rag_repl_help_models
+                return
+                ;;
+            *)
+                echo "Unknown help topic: $topic"
+                echo "Available topics: usecase, models, symbols, stages, cdp, flow, evidence, cli"
+                return 1
+                ;;
+        esac
+    fi
+
+    # Main concise help
+    if [[ $COLOR_ENABLED -eq 1 ]]; then
+        cat <<EOF
+$(text_color "00D4AA")🔧 RAG Tools REPL$(reset_color)
+
+$(text_color "BB9AF7")Categories:$(reset_color)
+  $(text_color "7AA2F7")/flow$(reset_color)        - Manage RAG flows (create, status, list)
+  $(text_color "7AA2F7")/evidence$(reset_color)    - Add & manage evidence files
+  $(text_color "7AA2F7")/mc$(reset_color), $(text_color "7AA2F7")/ms$(reset_color), $(text_color "7AA2F7")/mi$(reset_color) - MULTICAT operations
+  $(text_color "7AA2F7")/cli$(reset_color)         - CLI prompt modes & settings
+  $(text_color "7AA2F7")/history$(reset_color)     - REPL command history
+
+$(text_color "BB9AF7")Help Topics:$(reset_color)
+  $(text_color "7AA2F7")/help usecase$(reset_color) - How to ask questions & use RAG
+  $(text_color "7AA2F7")/help models$(reset_color)  - Select AI model (Claude/GPT)
+  $(text_color "7AA2F7")/help symbols$(reset_color) - Status line symbols (■●◆▲)
+  $(text_color "7AA2F7")/help stages$(reset_color)  - Flow stages explained
+  $(text_color "7AA2F7")/help cdp$(reset_color)     - Start CDP browser agent
+  $(text_color "7AA2F7")/help flow$(reset_color)    - Complete flow guide
+  $(text_color "7AA2F7")/help evidence$(reset_color) - Evidence management
+  $(text_color "7AA2F7")/help cli$(reset_color)     - Prompt modes
+
+$(text_color "BB9AF7")Quick Start:$(reset_color)
+  $(text_color "565F89")/flow create "Fix auth bug"$(reset_color) → $(text_color "565F89")/e add auth.sh$(reset_color) → $(text_color "565F89")/e list$(reset_color) → $(text_color "565F89")/flow assemble$(reset_color)
+
+$(text_color "565F89")Shell commands (no /) run directly. TAB for completion.$(reset_color)
+EOF
+    else
+        cat <<EOF
+🔧 RAG Tools REPL
+
+Categories:
+  /flow        - Manage RAG flows (create, status, list)
+  /evidence    - Add & manage evidence files
+  /mc, /ms, /mi - MULTICAT operations
+  /cli         - CLI prompt modes & settings
+  /history     - REPL command history
+
+Help Topics:
+  /help usecase - How to ask questions & use RAG
+  /help models  - Select AI model (Claude/GPT)
+  /help symbols - Status line symbols (■●◆▲)
+  /help stages  - Flow stages explained
+  /help cdp     - Start CDP browser agent
+  /help flow    - Complete flow guide
+  /help evidence - Evidence management
+  /help cli     - Prompt modes
+
+Quick Start:
+  /flow create "Fix auth bug" → /e add auth.sh → /flow assemble
+
+Shell commands (no /) run directly. TAB for completion.
+EOF
+    fi
+}
+
+# Help: Status symbols
+_rag_repl_help_symbols() {
+    if [[ $COLOR_ENABLED -eq 1 ]]; then
+        cat <<EOF
+$(text_color "00D4AA")Status Line Symbols$(reset_color) $(text_color "565F89")(visible in /cli twoline mode)$(reset_color)
+
+  $(text_color "CC9966")■$(reset_color) Pinned    - Core pinned documents (high priority)
+  $(text_color "6699CC")●$(reset_color) Evidence  - Regular evidence files
+  $(text_color "9988BB")◆$(reset_color) Selections - Line/byte ranges (::100,200)
+  $(text_color "66AA99")▲$(reset_color) External  - Symlinked files
+
+$(text_color "BB9AF7")Example:$(reset_color) $(text_color "565F89")■⁰ ●³ ◆¹ ▲⁰ 4f 521L$(reset_color)
+  = 0 pinned, 3 evidence files, 1 selection, 0 external
+  = 4 total files, 521 lines
+
+$(text_color "BB9AF7")Brightness:$(reset_color) Symbols dim when count is 0, brighten with more items
+
+$(text_color "BB9AF7")Commands:$(reset_color)
+  $(text_color "7AA2F7")/cli twoline$(reset_color)  - Show status line
+  $(text_color "7AA2F7")/e list$(reset_color)       - List all evidence
+  $(text_color "7AA2F7")/e status$(reset_color)     - Check token budget
+EOF
+    else
+        cat <<EOF
+Status Line Symbols (visible in /cli twoline mode)
+
+  ■ Pinned    - Core pinned documents (high priority)
+  ● Evidence  - Regular evidence files
+  ◆ Selections - Line/byte ranges (::100,200)
+  ▲ External  - Symlinked files
+
+Example: ■⁰ ●³ ◆¹ ▲⁰ 4f 521L
+  = 0 pinned, 3 evidence files, 1 selection, 0 external
+  = 4 total files, 521 lines
+
+Brightness: Symbols dim when count is 0, brighten with more items
+
+Commands:
+  /cli twoline  - Show status line
+  /e list       - List all evidence
+  /e status     - Check token budget
+EOF
+    fi
+}
+
+# Help: Flow stages
+_rag_repl_help_stages() {
+    if [[ $COLOR_ENABLED -eq 1 ]]; then
+        cat <<EOF
+$(text_color "00D4AA")Flow Stages$(reset_color) $(text_color "565F89")(shown in prompt as color-coded stage name)$(reset_color)
+
+  $(text_color "6699CC")NEW$(reset_color)      → Add evidence: $(text_color "7AA2F7")/e add file.sh$(reset_color)
+  $(text_color "9988BB")SELECT$(reset_color)   → Keep adding, then: $(text_color "7AA2F7")/flow assemble$(reset_color)
+  $(text_color "8877AA")ASSEMBLE$(reset_color) → Build context: $(text_color "7AA2F7")/flow submit$(reset_color)
+  $(text_color "CC9966")SUBMIT$(reset_color)   → Send to AI: $(text_color "7AA2F7")/flow apply$(reset_color)
+  $(text_color "DD8855")APPLY$(reset_color)    → Apply changes: $(text_color "7AA2F7")/flow validate$(reset_color)
+  $(text_color "CC6677")VALIDATE$(reset_color) → Test changes
+  $(text_color "88BB66")DONE$(reset_color)     → Complete!
+  $(text_color "CC6677")FAIL$(reset_color)     → Resume: $(text_color "7AA2F7")/flow resume$(reset_color)
+
+$(text_color "BB9AF7")Commands:$(reset_color)
+  $(text_color "7AA2F7")/flow status$(reset_color)  - Show current stage
+  $(text_color "7AA2F7")/flow help$(reset_color)    - Detailed stage guide
+EOF
+    else
+        cat <<EOF
+Flow Stages (shown in prompt as color-coded stage name)
+
+  NEW      → Add evidence: /e add file.sh
+  SELECT   → Keep adding, then: /flow assemble
+  ASSEMBLE → Build context: /flow submit
+  SUBMIT   → Send to AI: /flow apply
+  APPLY    → Apply changes: /flow validate
+  VALIDATE → Test changes
+  DONE     → Complete!
+  FAIL     → Resume: /flow resume
+
+Commands:
+  /flow status  - Show current stage
+  /flow help    - Detailed stage guide
+EOF
+    fi
+}
+
+# Help: CDP agent
+_rag_repl_help_cdp() {
+    if [[ $COLOR_ENABLED -eq 1 ]]; then
+        cat <<EOF
+$(text_color "00D4AA")CDP Browser Agent$(reset_color) $(text_color "565F89")(Chrome automation for screenshots & HTML)$(reset_color)
+
+$(text_color "BB9AF7")Quick Start:$(reset_color)
+  1. $(text_color "7AA2F7")tetra agent init cdp$(reset_color)
+  2. $(text_color "7AA2F7")tetra agent connect cdp$(reset_color)
+  3. $(text_color "7AA2F7")cdp_navigate "https://example.com"$(reset_color)
+  4. $(text_color "7AA2F7")screenshot=\$(cdp_screenshot)$(reset_color)
+  5. $(text_color "7AA2F7")/e add "\$screenshot"$(reset_color)
+  6. $(text_color "7AA2F7")tetra agent disconnect cdp$(reset_color)
+
+$(text_color "BB9AF7")Key Commands:$(reset_color)
+  $(text_color "7AA2F7")cdp_screenshot$(reset_color)          - Capture screenshot
+  $(text_color "7AA2F7")cdp_get_html$(reset_color)           - Get page HTML
+  $(text_color "7AA2F7")cdp_extract "selector"$(reset_color) - Extract text by CSS selector
+  $(text_color "7AA2F7")cdp_click "button"$(reset_color)     - Click element
+  $(text_color "7AA2F7")tetra agent status cdp$(reset_color) - Check connection
+
+$(text_color "BB9AF7")Example Flow:$(reset_color)
+  $(text_color "565F89")/flow create "Document UI bug"$(reset_color)
+  $(text_color "565F89")tetra agent connect cdp$(reset_color)
+  $(text_color "565F89")cdp_navigate "http://localhost:3000"$(reset_color)
+  $(text_color "565F89")shot=\$(cdp_screenshot); /e add "\$shot"$(reset_color)
+  $(text_color "565F89")tetra agent disconnect cdp$(reset_color)
+
+$(text_color "565F89")See also: \$RAG_SRC/cdp/CDP_RAG_FLOW_GUIDE.md$(reset_color)
+EOF
+    else
+        cat <<EOF
+CDP Browser Agent (Chrome automation for screenshots & HTML)
+
+Quick Start:
+  1. tetra agent init cdp
+  2. tetra agent connect cdp
+  3. cdp_navigate "https://example.com"
+  4. screenshot=\$(cdp_screenshot)
+  5. /e add "\$screenshot"
+  6. tetra agent disconnect cdp
+
+Key Commands:
+  cdp_screenshot          - Capture screenshot
+  cdp_get_html           - Get page HTML
+  cdp_extract "selector" - Extract text by CSS selector
+  cdp_click "button"     - Click element
+  tetra agent status cdp - Check connection
+
+Example Flow:
+  /flow create "Document UI bug"
+  tetra agent connect cdp
+  cdp_navigate "http://localhost:3000"
+  shot=\$(cdp_screenshot); /e add "\$shot"
+  tetra agent disconnect cdp
+
+See also: \$RAG_SRC/cdp/CDP_RAG_FLOW_GUIDE.md
+EOF
+    fi
+}
+
+# Help: Use case - How RAG works
+_rag_repl_help_usecase() {
+    if [[ $COLOR_ENABLED -eq 1 ]]; then
+        cat <<EOF
+$(text_color "00D4AA")How RAG Works$(reset_color) $(text_color "565F89")(Retrieval-Augmented Generation)$(reset_color)
+
+$(text_color "BB9AF7")The Question:$(reset_color)
+  Your question is the $(text_color "7AA2F7")flow description$(reset_color):
+  $(text_color "565F89")/flow create "How does the parser handle errors?"$(reset_color)
+  $(text_color "565F89")/flow create "Fix the authentication timeout bug"$(reset_color)
+
+  Edit for details: $(text_color "7AA2F7")\$EDITOR \$FLOW_DIR/ctx/010_request.user.md$(reset_color)
+
+$(text_color "BB9AF7")The Context:$(reset_color)
+  Add evidence files $(text_color "9988BB")(●)$(reset_color) that answer your question:
+  $(text_color "565F89")/e add src/parser.js$(reset_color)            $(text_color "565F89")# Whole file$(reset_color)
+  $(text_color "565F89")/e add src/parser.js::100,200$(reset_color)  $(text_color "565F89")# Just lines 100-200$(reset_color)
+
+$(text_color "BB9AF7")The Output:$(reset_color)
+  $(text_color "565F89")/flow assemble$(reset_color) creates $(text_color "7AA2F7")\$FLOW_DIR/build/prompt.mdctx$(reset_color)
+
+  This file contains:
+  - Your question (from 010_request.user.md)
+  - All your evidence files $(text_color "9988BB")(●)$(reset_color)
+  - System policies (000_policy.system.md)
+
+$(text_color "BB9AF7")Usage:$(reset_color)
+  1. $(text_color "7AA2F7")Copy$(reset_color) the prompt.mdctx contents
+  2. $(text_color "7AA2F7")Paste$(reset_color) into Claude/ChatGPT/etc.
+  3. Get AI response with full context!
+
+$(text_color "BB9AF7")Example:$(reset_color)
+  $(text_color "565F89")/flow create "Explain auth flow"$(reset_color)
+  $(text_color "565F89")/e add src/auth/*.js$(reset_color)
+  $(text_color "565F89")/e list$(reset_color)                      $(text_color "565F89")# Check: ■⁰ ●⁵ ◆⁰ ▲⁰$(reset_color)
+  $(text_color "565F89")/flow assemble$(reset_color)
+  $(text_color "565F89")cat \$FLOW_DIR/build/prompt.mdctx | pbcopy$(reset_color)  $(text_color "565F89")# Copy to clipboard$(reset_color)
+
+$(text_color "E0AF68")Pro Tip: RAG assembles context so AI understands your codebase!$(reset_color)
+EOF
+    else
+        cat <<EOF
+How RAG Works (Retrieval-Augmented Generation)
+
+The Question:
+  Your question is the flow description:
+  /flow create "How does the parser handle errors?"
+  /flow create "Fix the authentication timeout bug"
+
+  Edit for details: \$EDITOR \$FLOW_DIR/ctx/010_request.user.md
+
+The Context:
+  Add evidence files (●) that answer your question:
+  /e add src/parser.js            # Whole file
+  /e add src/parser.js::100,200  # Just lines 100-200
+
+The Output:
+  /flow assemble creates \$FLOW_DIR/build/prompt.mdctx
+
+  This file contains:
+  - Your question (from 010_request.user.md)
+  - All your evidence files (●)
+  - System policies (000_policy.system.md)
+
+Usage:
+  1. Copy the prompt.mdctx contents
+  2. Paste into Claude/ChatGPT/etc.
+  3. Get AI response with full context!
+
+Example:
+  /flow create "Explain auth flow"
+  /e add src/auth/*.js
+  /e list                      # Check: ■⁰ ●⁵ ◆⁰ ▲⁰
+  /flow assemble
+  cat \$FLOW_DIR/build/prompt.mdctx | pbcopy  # Copy to clipboard
+
+Pro Tip: RAG assembles context so AI understands your codebase!
+EOF
+    fi
+}
+
+# Help: Model selection
+_rag_repl_help_models() {
+    if [[ $COLOR_ENABLED -eq 1 ]]; then
+        cat <<EOF
+$(text_color "00D4AA")AI Model Selection$(reset_color)
+
+$(text_color "BB9AF7")Select Model When Creating Flow:$(reset_color)
+  $(text_color "565F89")/flow create "task" base$(reset_color)         $(text_color "565F89")# Universal (default)$(reset_color)
+  $(text_color "565F89")/flow create "task" claude-code$(reset_color)  $(text_color "565F89")# Claude optimized$(reset_color)
+  $(text_color "565F89")/flow create "task" openai$(reset_color)       $(text_color "565F89")# GPT optimized$(reset_color)
+
+$(text_color "BB9AF7")Available Agents:$(reset_color)
+  $(text_color "7AA2F7")base$(reset_color)        - Universal profile for any LLM
+  $(text_color "7AA2F7")claude-code$(reset_color) - Optimized for Claude (Anthropic)
+  $(text_color "7AA2F7")openai$(reset_color)      - Optimized for GPT (OpenAI)
+
+$(text_color "BB9AF7")What Changes:$(reset_color)
+  Agent profiles customize the $(text_color "7AA2F7")000_policy.system.md$(reset_color) file
+  to format output for specific models (MULTICAT format hints)
+
+$(text_color "BB9AF7")Check Current Agent:$(reset_color)
+  $(text_color "565F89")/flow status$(reset_color)  $(text_color "565F89")# Shows: Agent: claude-code$(reset_color)
+
+$(text_color "BB9AF7")Custom Agents:$(reset_color)
+  Create: $(text_color "7AA2F7")\$TETRA_DIR/rag/agents/myagent.conf$(reset_color)
+  Use: $(text_color "565F89")/flow create "task" myagent$(reset_color)
+
+$(text_color "565F89")Note: Agents don't auto-submit - they format the prompt$(reset_color)
+$(text_color "565F89")You copy/paste \$FLOW_DIR/build/prompt.mdctx to your AI$(reset_color)
+EOF
+    else
+        cat <<EOF
+AI Model Selection
+
+Select Model When Creating Flow:
+  /flow create "task" base         # Universal (default)
+  /flow create "task" claude-code  # Claude optimized
+  /flow create "task" openai       # GPT optimized
+
+Available Agents:
+  base        - Universal profile for any LLM
+  claude-code - Optimized for Claude (Anthropic)
+  openai      - Optimized for GPT (OpenAI)
+
+What Changes:
+  Agent profiles customize the 000_policy.system.md file
+  to format output for specific models (MULTICAT format hints)
+
+Check Current Agent:
+  /flow status  # Shows: Agent: claude-code
+
+Custom Agents:
+  Create: \$TETRA_DIR/rag/agents/myagent.conf
+  Use: /flow create "task" myagent
+
+Note: Agents don't auto-submit - they format the prompt
+You copy/paste \$FLOW_DIR/build/prompt.mdctx to your AI
+EOF
+    fi
+}
+
+_rag_repl_tutorial() {
+    echo "Tutorials are manual. Use specific commands."
+}
+
+_rag_repl_demo() {
+    echo "Demo workflows are manual. Use individual commands."
+}
+
+_rag_repl_functions() {
+    echo "Available rag_* functions:"
+    declare -F | grep "rag_" | sed 's/declare -f /  /' | sort
+}
+
+_rag_repl_history() {
+    local subcmd="$1"
+    shift || true
+
+    case "$subcmd" in
+        list|ls|"")
+            rag_history_list "${1:-20}"
+            ;;
+        search)
+            if [[ -z "$1" ]]; then
+                echo "Usage: /history search <pattern>"
+                return 1
+            fi
+            rag_history_search "$1"
+            ;;
+        clear)
+            rag_history_clear
+            ;;
+        export)
+            rag_history_export "$1"
+            ;;
+        import)
+            if [[ -z "$1" ]]; then
+                echo "Usage: /history import <file>"
+                return 1
+            fi
+            rag_history_import "$1"
+            ;;
+        stats)
+            rag_history_stats
+            ;;
+        *)
+            if [[ $COLOR_ENABLED -eq 1 ]]; then
+                echo "$(text_color "00D4AA")Usage:$(reset_color) $(text_color "7AA2F7")history$(reset_color) <command> [args]"
+                echo ""
+                echo "$(text_color "BB9AF7")Commands:$(reset_color)"
+                echo "  $(text_color "7AA2F7")list$(reset_color), $(text_color "7AA2F7")ls$(reset_color) [n]       - List last N commands (default: 20)"
+                echo "  $(text_color "7AA2F7")search$(reset_color) <pattern>    - Search history for pattern"
+                echo "  $(text_color "7AA2F7")clear$(reset_color)                - Clear all history"
+                echo "  $(text_color "7AA2F7")export$(reset_color) [file]        - Export history to file"
+                echo "  $(text_color "7AA2F7")import$(reset_color) <file>        - Import history from file"
+                echo "  $(text_color "7AA2F7")stats$(reset_color)                - Show history statistics"
+                echo ""
+                echo "$(text_color "565F89")Note: RAG history is separate from shell history$(reset_color)"
+            else
+                echo "Usage: history <command> [args]"
+                echo ""
+                echo "Commands:"
+                echo "  list, ls [n]       - List last N commands (default: 20)"
+                echo "  search <pattern>   - Search history for pattern"
+                echo "  clear              - Clear all history"
+                echo "  export [file]      - Export history to file"
+                echo "  import <file>      - Import history from file"
+                echo "  stats              - Show history statistics"
+                echo ""
+                echo "Note: RAG history is separate from shell history"
+            fi
+            ;;
+    esac
+}
+
+# Note: REPL completion is handled by _rag_tab_handler using bind -x
+# External bash-completion for 'rag' command is in rag_completion.sh

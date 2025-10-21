@@ -1,0 +1,397 @@
+#!/usr/bin/env bash
+# flow_manager.sh - Flow state management with FSM for RAG module
+#
+# Flow stages: NEW → SELECT → ASSEMBLE → SUBMIT → APPLY → VALIDATE → (FOLD | DONE | FAIL)
+
+: "${RAG_SRC:=$TETRA_SRC/bash/rag}"
+: "${TETRA_DIR:=$HOME/.tetra}"
+
+# Flow stage constants (only declare if not already set)
+if [[ -z "${STAGE_NEW:-}" ]]; then
+    declare -r STAGE_NEW="NEW"
+    declare -r STAGE_SELECT="SELECT"
+    declare -r STAGE_ASSEMBLE="ASSEMBLE"
+    declare -r STAGE_SUBMIT="SUBMIT"
+    declare -r STAGE_APPLY="APPLY"
+    declare -r STAGE_VALIDATE="VALIDATE"
+    declare -r STAGE_FOLD="FOLD"
+    declare -r STAGE_DONE="DONE"
+    declare -r STAGE_FAIL="FAIL"
+fi
+
+# Get project .rag directory
+get_rag_project_dir() {
+    local project_dir="${1:-.}"
+    echo "$(cd "$project_dir" && pwd)/.rag"
+}
+
+# Get active flow directory
+get_active_flow_dir() {
+    local rag_dir="$(get_rag_project_dir)"
+    if [[ -L "$rag_dir/flows/active" ]]; then
+        readlink -f "$rag_dir/flows/active" 2>/dev/null || \
+        readlink "$rag_dir/flows/active"
+    fi
+}
+
+# Generate flow ID
+generate_flow_id() {
+    local description="$1"
+    local slug=$(echo "$description" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | cut -c1-30 | sed 's/-$//')
+    local timestamp=$(date '+%Y%m%dT%H%M%S')
+    echo "${slug}-${timestamp}"
+}
+
+# Create flow directory structure
+flow_create() {
+    local description="$1"
+    local agent="${2:-base}"
+    local project_dir="${3:-.}"
+
+    if [[ -z "$description" ]]; then
+        echo "Error: Flow description required" >&2
+        return 1
+    fi
+
+    local rag_dir="$(get_rag_project_dir "$project_dir")"
+    local flow_id="$(generate_flow_id "$description")"
+    local flow_dir="$rag_dir/flows/$flow_id"
+
+    # Create directory structure
+    mkdir -p "$flow_dir"/{ctx/evidence,build,artifacts}
+
+    # Create default policy file
+    cat > "$flow_dir/ctx/000_policy.system.md" <<'EOF'
+# Constraints
+
+- Preserve existing behavior
+- Do not modify code without clear justification
+- Maintain test coverage
+
+# Output Contract
+
+Emit MULTICAT format with:
+- `plan.json` - Ordered list of changes
+- `patch.diff` - Unified diff format
+- `notes.md` - Explanation of changes
+EOF
+
+    # Create default request file
+    cat > "$flow_dir/ctx/010_request.user.md" <<EOF
+<!-- rs:intent=edit; rs:scope=code; rs:id=$flow_id -->
+
+$description
+
+Acceptance:
+- Code compiles without errors
+- Tests pass
+EOF
+
+    # Create state.json
+    local state_file="$flow_dir/state.json"
+    cat > "$state_file" <<EOF
+{
+  "flow_id": "$flow_id",
+  "description": "$description",
+  "stage": "$STAGE_NEW",
+  "iteration": 1,
+  "agent": "$agent",
+  "ctx_digest": null,
+  "last_checkpoint": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+  "last_error": null
+}
+EOF
+
+    # Initialize events.ndjson
+    echo "{\"ts\":\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\",\"event\":\"flow_start\",\"flow_id\":\"$flow_id\",\"description\":\"$description\"}" \
+        > "$flow_dir/events.ndjson"
+
+    # Set as active flow
+    ln -sf "$flow_dir" "$rag_dir/flows/active"
+
+    echo "Flow created: $flow_id"
+    echo "Directory: $flow_dir"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Edit request: \$EDITOR $flow_dir/ctx/010_request.user.md"
+    echo "  2. Select evidence: rag select \"<query>\""
+    echo "  3. Assemble context: rag assemble"
+}
+
+# Get flow state
+flow_get_state() {
+    local flow_dir="$1"
+
+    if [[ -z "$flow_dir" ]]; then
+        flow_dir="$(get_active_flow_dir)"
+    fi
+
+    if [[ -z "$flow_dir" ]] || [[ ! -d "$flow_dir" ]]; then
+        echo "Error: No active flow" >&2
+        return 1
+    fi
+
+    local state_file="$flow_dir/state.json"
+    if [[ ! -f "$state_file" ]]; then
+        echo "Error: state.json not found" >&2
+        return 1
+    fi
+
+    cat "$state_file"
+}
+
+# Update flow state
+flow_update_state() {
+    local flow_dir="$1"
+    local updates="$2"  # JSON string with updates
+
+    if [[ -z "$flow_dir" ]]; then
+        flow_dir="$(get_active_flow_dir)"
+    fi
+
+    if [[ -z "$flow_dir" ]] || [[ ! -d "$flow_dir" ]]; then
+        echo "Error: No active flow" >&2
+        return 1
+    fi
+
+    local state_file="$flow_dir/state.json"
+    local temp_file=$(mktemp)
+
+    # Update state using jq if available, otherwise manual update
+    if command -v jq >/dev/null 2>&1; then
+        jq --arg ts "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+           ". + $updates + {last_checkpoint: \$ts}" \
+           "$state_file" > "$temp_file"
+        mv "$temp_file" "$state_file"
+    else
+        # Fallback: simple field update
+        echo "Warning: jq not available, state update limited" >&2
+        cp "$state_file" "$temp_file"
+        mv "$temp_file" "$state_file"
+    fi
+}
+
+# Transition to new stage
+flow_transition() {
+    local new_stage="$1"
+    local flow_dir="${2:-}"
+
+    if [[ -z "$flow_dir" ]]; then
+        flow_dir="$(get_active_flow_dir)"
+    fi
+
+    if [[ -z "$flow_dir" ]] || [[ ! -d "$flow_dir" ]]; then
+        echo "Error: No active flow" >&2
+        return 1
+    fi
+
+    # Validate stage transition
+    local current_stage
+    if command -v jq >/dev/null 2>&1; then
+        current_stage=$(jq -r '.stage' "$flow_dir/state.json")
+    else
+        current_stage=$(grep '"stage"' "$flow_dir/state.json" | cut -d'"' -f4)
+    fi
+
+    # Log transition
+    echo "{\"ts\":\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\",\"event\":\"stage_transition\",\"from\":\"$current_stage\",\"to\":\"$new_stage\"}" \
+        >> "$flow_dir/events.ndjson"
+
+    # Update state
+    flow_update_state "$flow_dir" "{\"stage\":\"$new_stage\"}"
+
+    echo "Flow transitioned: $current_stage → $new_stage"
+}
+
+# Show flow status
+flow_status() {
+    local flow_dir="${1:-}"
+
+    if [[ -z "$flow_dir" ]]; then
+        flow_dir="$(get_active_flow_dir)"
+    fi
+
+    if [[ -z "$flow_dir" ]] || [[ ! -d "$flow_dir" ]]; then
+        echo "No active flow"
+        return 0
+    fi
+
+    local state_file="$flow_dir/state.json"
+    if [[ ! -f "$state_file" ]]; then
+        echo "Error: state.json not found" >&2
+        return 1
+    fi
+
+    # Parse state
+    if command -v jq >/dev/null 2>&1; then
+        local flow_id=$(jq -r '.flow_id' "$state_file")
+        local description=$(jq -r '.description' "$state_file")
+        local stage=$(jq -r '.stage' "$state_file")
+        local iteration=$(jq -r '.iteration' "$state_file")
+        local agent=$(jq -r '.agent' "$state_file")
+        local ctx_digest=$(jq -r '.ctx_digest // "none"' "$state_file")
+        local last_checkpoint=$(jq -r '.last_checkpoint' "$state_file")
+
+        # Get directory components
+        local rag_dir="$(get_rag_project_dir)"
+        local flow_name=$(basename "$flow_dir")
+
+        echo "Flow: $flow_id (active)"
+        echo "Description: $description"
+        echo "Stage: $stage"
+        echo "Iteration: $iteration"
+        echo "Agent: $agent"
+        echo "Context digest: ${ctx_digest:0:16}..."
+        echo "Last updated: $last_checkpoint"
+        echo ""
+        echo "Directories:"
+        echo "  RAG_DIR=$rag_dir"
+        echo "  FLOW_DIR=$rag_dir/flows"
+        echo "  flow=$flow_name"
+    else
+        echo "Flow status:"
+        cat "$state_file"
+    fi
+}
+
+# List all flows
+flow_list() {
+    local project_dir="${1:-.}"
+    local rag_dir="$(get_rag_project_dir "$project_dir")"
+    local flows_dir="$rag_dir/flows"
+
+    if [[ ! -d "$flows_dir" ]]; then
+        echo "No flows found"
+        return 0
+    fi
+
+    echo "Flows:"
+    echo "────────────────────────────────────────────────────────"
+
+    local active_flow
+    if [[ -L "$flows_dir/active" ]]; then
+        active_flow=$(basename "$(readlink -f "$flows_dir/active" 2>/dev/null || readlink "$flows_dir/active")")
+    fi
+
+    for flow_dir in "$flows_dir"/*; do
+        [[ -d "$flow_dir" ]] || continue
+        [[ "$(basename "$flow_dir")" == "active" ]] && continue
+
+        local flow_id=$(basename "$flow_dir")
+        local state_file="$flow_dir/state.json"
+
+        if [[ -f "$state_file" ]]; then
+            if command -v jq >/dev/null 2>&1; then
+                local stage=$(jq -r '.stage' "$state_file")
+                local description=$(jq -r '.description' "$state_file")
+                local marker=" "
+                [[ "$flow_id" == "$active_flow" ]] && marker="→"
+                printf "%s %-40s  %-10s  %s\n" "$marker" "$flow_id" "$stage" "${description:0:40}"
+            else
+                local marker=" "
+                [[ "$flow_id" == "$active_flow" ]] && marker="→"
+                echo "$marker $flow_id"
+            fi
+        fi
+    done
+}
+
+# Resume flow from checkpoint
+flow_resume() {
+    local flow_id="$1"
+    local project_dir="${2:-.}"
+
+    if [[ -z "$flow_id" ]]; then
+        # Resume active flow
+        local flow_dir="$(get_active_flow_dir)"
+        if [[ -z "$flow_dir" ]]; then
+            echo "Error: No active flow to resume" >&2
+            return 1
+        fi
+    else
+        local rag_dir="$(get_rag_project_dir "$project_dir")"
+        flow_dir="$rag_dir/flows/$flow_id"
+        if [[ ! -d "$flow_dir" ]]; then
+            echo "Error: Flow not found: $flow_id" >&2
+            return 1
+        fi
+        # Set as active
+        ln -sf "$flow_dir" "$rag_dir/flows/active"
+    fi
+
+    # Get current stage
+    local state_file="$flow_dir/state.json"
+    if command -v jq >/dev/null 2>&1; then
+        local stage=$(jq -r '.stage' "$state_file")
+        local flow_id=$(jq -r '.flow_id' "$state_file")
+
+        echo "Resuming flow: $flow_id"
+        echo "Current stage: $stage"
+        echo ""
+
+        case "$stage" in
+            "$STAGE_NEW")
+                echo "Next: rag select \"<query>\" to gather evidence"
+                ;;
+            "$STAGE_SELECT")
+                echo "Next: rag assemble to build context"
+                ;;
+            "$STAGE_ASSEMBLE")
+                echo "Next: rag submit to send to agent"
+                ;;
+            "$STAGE_SUBMIT")
+                echo "Next: rag apply to apply changes"
+                ;;
+            "$STAGE_APPLY")
+                echo "Next: rag validate to run tests"
+                ;;
+            "$STAGE_VALIDATE")
+                echo "Check validation results in artifacts/validate.json"
+                echo "If failed: rag fold to iterate"
+                echo "If passed: flow complete!"
+                ;;
+            "$STAGE_DONE")
+                echo "Flow complete!"
+                ;;
+            "$STAGE_FAIL")
+                echo "Flow failed. Check last_error in state.json"
+                ;;
+        esac
+    else
+        echo "Resumed flow: $(basename "$flow_dir")"
+    fi
+}
+
+# Checkpoint current state
+flow_checkpoint() {
+    local stage="$1"
+    local metadata="$2"  # Optional JSON metadata
+    local flow_dir="${3:-}"
+
+    if [[ -z "$flow_dir" ]]; then
+        flow_dir="$(get_active_flow_dir)"
+    fi
+
+    if [[ -z "$flow_dir" ]] || [[ ! -d "$flow_dir" ]]; then
+        return 0  # Silent fail if no active flow
+    fi
+
+    # Log checkpoint
+    echo "{\"ts\":\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\",\"event\":\"checkpoint\",\"stage\":\"$stage\",\"metadata\":$metadata}" \
+        >> "$flow_dir/events.ndjson"
+
+    flow_transition "$stage" "$flow_dir"
+}
+
+# Export functions
+export -f get_rag_project_dir
+export -f get_active_flow_dir
+export -f generate_flow_id
+export -f flow_create
+export -f flow_get_state
+export -f flow_update_state
+export -f flow_transition
+export -f flow_status
+export -f flow_list
+export -f flow_resume
+export -f flow_checkpoint
