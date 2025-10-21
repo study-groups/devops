@@ -1,0 +1,171 @@
+#!/usr/bin/env bash
+# REPL Symbol Parser
+# Tokenizes input and extracts special symbols
+
+# Symbol handler registry
+declare -A REPL_SYMBOL_HANDLERS
+
+# Register a symbol handler
+repl_register_symbol() {
+    local symbol="$1"      # @, ::, #, etc
+    local handler="$2"     # Function name
+
+    if ! command -v "$handler" >/dev/null 2>&1; then
+        echo "Warning: Symbol handler not found: $handler" >&2
+        return 1
+    fi
+
+    REPL_SYMBOL_HANDLERS["$symbol"]="$handler"
+}
+
+# Parse input for symbols
+repl_parse_symbols() {
+    local input="$1"
+
+    # Extract different symbol types
+    local at_symbols=()
+    local range_symbols=()
+    local tag_symbols=()
+    local var_symbols=()
+
+    # Find @ symbols (TES endpoints, file refs)
+    while [[ "$input" =~ @([a-zA-Z0-9_/.-]+) ]]; do
+        at_symbols+=("${BASH_REMATCH[1]}")
+        input="${input//${BASH_REMATCH[0]}/}"
+    done
+
+    # Find :: symbols (ranges, namespaces)
+    while [[ "$input" =~ ::([a-zA-Z0-9_,.-]+) ]]; do
+        range_symbols+=("${BASH_REMATCH[1]}")
+        input="${input//${BASH_REMATCH[0]}/}"
+    done
+
+    # Find # symbols (tags, metadata) - escape # in regex
+    while [[ "$input" =~ \#([a-zA-Z0-9_-]+) ]]; do
+        tag_symbols+=("${BASH_REMATCH[1]}")
+        input="${input//${BASH_REMATCH[0]}/}"
+    done
+
+    # Find $ symbols (variables)
+    while [[ "$input" =~ \$([a-zA-Z0-9_]+) ]]; do
+        var_symbols+=("${BASH_REMATCH[1]}")
+        input="${input//${BASH_REMATCH[0]}/}"
+    done
+
+    # Return parsed structure as variables
+    # Caller can access via: eval $(repl_parse_symbols "$input")
+    echo "PARSED_AT_SYMBOLS=(${at_symbols[@]})"
+    echo "PARSED_RANGE_SYMBOLS=(${range_symbols[@]})"
+    echo "PARSED_TAG_SYMBOLS=(${tag_symbols[@]})"
+    echo "PARSED_VAR_SYMBOLS=(${var_symbols[@]})"
+    echo "PARSED_BASE_INPUT='${input## }'"  # Trimmed base
+
+    # Return status
+    if [[ ${#at_symbols[@]} -gt 0 || ${#range_symbols[@]} -gt 0 || ${#tag_symbols[@]} -gt 0 || ${#var_symbols[@]} -gt 0 ]]; then
+        return 0  # Has symbols
+    else
+        return 1  # No symbols
+    fi
+}
+
+# Process symbols in input (calls registered handlers)
+repl_process_symbols() {
+    local input="$1"
+    local processed="$input"
+
+    # Parse symbols
+    local parse_output
+    parse_output=$(repl_parse_symbols "$input")
+    eval "$parse_output"
+
+    # Track processed symbols to avoid duplicates
+    declare -A processed_symbols
+
+    # Process @ symbols
+    if [[ ${#PARSED_AT_SYMBOLS[@]} -gt 0 && -n "${REPL_SYMBOL_HANDLERS["@"]}" ]]; then
+        for token in "${PARSED_AT_SYMBOLS[@]}"; do
+            # Skip if already processed
+            [[ -n "${processed_symbols["@:$token"]}" ]] && continue
+            processed_symbols["@:$token"]=1
+
+            local resolved
+            resolved=$("${REPL_SYMBOL_HANDLERS["@"]}" "$token" "at")
+            local status=$?
+            if [[ $status -eq 0 ]]; then
+                # Replace all occurrences in processed string
+                processed="${processed//@$token/$resolved}"
+            else
+                echo "Warning: @ symbol handler failed for: $token" >&2
+            fi
+        done
+    fi
+
+    # Process :: symbols
+    if [[ ${#PARSED_RANGE_SYMBOLS[@]} -gt 0 && -n "${REPL_SYMBOL_HANDLERS[::]}" ]]; then
+        for token in "${PARSED_RANGE_SYMBOLS[@]}"; do
+            # Skip if already processed
+            [[ -n "${processed_symbols[":::$token"]}" ]] && continue
+            processed_symbols[":::$token"]=1
+
+            local resolved
+            resolved=$("${REPL_SYMBOL_HANDLERS[::]}" "$token" "range")
+            local status=$?
+            if [[ $status -eq 0 ]]; then
+                # Replace all occurrences in processed string
+                processed="${processed//::$token/$resolved}"
+            else
+                echo "Warning: :: symbol handler failed for: $token" >&2
+            fi
+        done
+    fi
+
+    # Process # symbols
+    if [[ ${#PARSED_TAG_SYMBOLS[@]} -gt 0 && -n "${REPL_SYMBOL_HANDLERS[#]}" ]]; then
+        for token in "${PARSED_TAG_SYMBOLS[@]}"; do
+            # Skip if already processed
+            [[ -n "${processed_symbols["#:$token"]}" ]] && continue
+            processed_symbols["#:$token"]=1
+
+            local resolved
+            resolved=$("${REPL_SYMBOL_HANDLERS[#]}" "$token" "tag")
+            local status=$?
+            if [[ $status -eq 0 ]]; then
+                # Replace all occurrences in processed string
+                processed="${processed//#$token/$resolved}"
+            else
+                echo "Warning: # symbol handler failed for: $token" >&2
+            fi
+        done
+    fi
+
+    echo "$processed"
+}
+
+# Check if input has symbols
+repl_has_symbols() {
+    local input="$1"
+    repl_parse_symbols "$input" >/dev/null 2>&1
+    return $?
+}
+
+# Get symbol count
+repl_symbol_count() {
+    local input="$1"
+    local parse_output
+    parse_output=$(repl_parse_symbols "$input")
+    eval "$parse_output"
+
+    local count=0
+    count=$((count + ${#PARSED_AT_SYMBOLS[@]}))
+    count=$((count + ${#PARSED_RANGE_SYMBOLS[@]}))
+    count=$((count + ${#PARSED_TAG_SYMBOLS[@]}))
+    count=$((count + ${#PARSED_VAR_SYMBOLS[@]}))
+
+    echo "$count"
+}
+
+export -f repl_register_symbol
+export -f repl_parse_symbols
+export -f repl_process_symbols
+export -f repl_has_symbols
+export -f repl_symbol_count
