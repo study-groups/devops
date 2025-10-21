@@ -1,0 +1,196 @@
+#!/usr/bin/env bash
+
+# Org Module Integration - Tetra Organization Management
+# DEFENSIVE LOADING - Prevent terminal crashes
+
+ORG_SRC="${ORG_SRC:-$TETRA_SRC/bash/org}"
+
+# Helper function for safe sourcing
+_org_safe_source() {
+    local file="$1"
+    local required="${2:-false}"
+
+    if [[ ! -f "$file" ]]; then
+        if [[ "$required" == "true" ]]; then
+            echo "ERROR: Required file not found: $file" >&2
+            false  # Changed from return 1
+        fi
+        true  # Changed from return 0 - do not exit parent shell
+    fi
+
+    # Source in subshell first to check for fatal errors
+    if ! ( source "$file" ) >/dev/null 2>&1; then
+        if [[ "$required" == "true" ]]; then
+            echo "ERROR: Failed to source required file: $file" >&2
+            false  # Changed from return 1
+        fi
+        true  # Changed from return 0 - do not exit parent shell
+    fi
+
+    # Actually source it
+    source "$file" 2>/dev/null || false  # Changed from return 1
+}
+
+# Load core org management system (REQUIRED)
+if ! _org_safe_source "$ORG_SRC/tetra_org.sh" "true"; then
+    echo "FATAL: Cannot load org module - tetra_org.sh failed" >&2
+    false  # Changed from return 1
+fi
+
+# Load optional components
+_org_safe_source "$ORG_SRC/discovery.sh"
+_org_safe_source "$ORG_SRC/converter.sh"
+_org_safe_source "$ORG_SRC/compiler.sh"
+_org_safe_source "$ORG_SRC/refresh.sh"
+_org_safe_source "$ORG_SRC/secrets_manager.sh"
+_org_safe_source "$ORG_SRC/org_help.sh"
+_org_safe_source "$ORG_SRC/org_repl_adapter.sh"
+_org_safe_source "$TETRA_SRC/bash/nh/nh_bridge.sh"
+
+# Register org command for tetra integration
+tetra_create_lazy_function "tetra_org" "org" 2>/dev/null || true
+
+# Main org command interface
+tetra_org() {
+    local subcommand="${1:-list}"
+    shift
+
+    case "$subcommand" in
+        "list"|"ls")
+            org_list "$@"
+            ;;
+        "switch"|"sw")
+            org_switch "$@"
+            ;;
+        "active"|"current")
+            org_active "$@"
+            ;;
+        "create")
+            org_create "$@"
+            ;;
+        "validate")
+            org_validate "$@"
+            ;;
+        "push")
+            org_push "$@"
+            ;;
+        "pull")
+            org_pull "$@"
+            ;;
+        "rollback")
+            org_rollback "$@"
+            ;;
+        "template")
+            org_template "$@"
+            ;;
+        "templates")
+            org_list_templates "$@"
+            ;;
+        "history")
+            org_history "$@"
+            ;;
+        "import")
+            org_import "$@"
+            ;;
+        "discover")
+            org_discover "$@"
+            ;;
+        "compile")
+            tetra_compile_toml "$@" 2>/dev/null || echo "Compiler not available"
+            ;;
+        "refresh")
+            tetra_org_refresh "$@" 2>/dev/null || echo "Refresh not available"
+            ;;
+        "secrets")
+            # Delegate to secrets manager
+            local secrets_cmd="tetra_secrets_${1:-help}"
+            shift 2>/dev/null || true
+            if command -v "$secrets_cmd" >/dev/null 2>&1; then
+                "$secrets_cmd" "$@"
+            else
+                echo "Secrets manager not available"
+            fi
+            ;;
+        "repl")
+            # Launch interactive REPL
+            if command -v org_repl >/dev/null 2>&1; then
+                org_repl
+            else
+                echo "Org REPL not available (load org_repl.sh)"
+            fi
+            ;;
+        "help"|"-h"|"--help")
+            echo "Tetra Organization Management"
+            echo "Usage: tetra org <command>"
+            echo ""
+            echo "Commands:"
+            echo "  list, ls                List all organizations"
+            echo "  switch, sw <org>        Switch to organization"
+            echo "  active, current         Show active organization"
+            echo "  create <org>            Create new organization"
+            echo "  validate <org>          Validate organization configuration"
+            echo "  push <org> <env>        Deploy org config to environment"
+            echo "  pull <org> <env>        Sync org config from environment"
+            echo "  rollback <org> <env>    Rollback to previous deployment"
+            echo "  template <name> [org]   Create org from template"
+            echo "  templates               List available templates"
+            echo "  history <org> [env]     Show deployment history"
+            echo "  import <type> <path> [org]  Import org from external source"
+            echo "  discover <json>         Interactive infrastructure discovery"
+            echo "  compile <org>           Compile tetra.toml with secrets"
+            echo "  refresh <org> [json]    Refresh from new infrastructure"
+            echo "  secrets <cmd> <org>     Manage organization secrets"
+            echo "  repl                    Launch interactive org REPL"
+            echo "  help                    Show this help"
+            echo ""
+            echo "Interactive Mode:"
+            echo "  tetra org repl          Launch org REPL with tab completion"
+            echo "  org                     Direct REPL alias (if loaded)"
+            ;;
+        *)
+            echo "Unknown org command: $subcommand"
+            echo "Use 'tetra org help' for available commands"
+            false  # Changed from return 1
+            ;;
+    esac
+}
+
+# Main org function
+org() {
+    if [[ $# -eq 0 ]]; then
+        # No args - launch REPL (uses bash/repl library)
+        if command -v org_repl >/dev/null 2>&1; then
+            org_repl
+        else
+            echo "Org REPL not available - load org module first"
+            false  # Changed from return 1
+        fi
+    else
+        # Has args - delegate to tetra_org
+        tetra_org "$@"
+    fi
+}
+
+# Export main function
+export -f org 2>/dev/null || true
+
+# Export key org management functions
+export -f org_list 2>/dev/null || true
+export -f org_active 2>/dev/null || true
+export -f org_switch 2>/dev/null || true
+export -f org_create 2>/dev/null || true
+export -f org_import 2>/dev/null || true
+export -f org_discover 2>/dev/null || true
+export -f org_validate 2>/dev/null || true
+export -f org_push 2>/dev/null || true
+export -f org_pull 2>/dev/null || true
+export -f org_rollback 2>/dev/null || true
+export -f org_history 2>/dev/null || true
+
+# Cleanup
+unset -f _org_safe_source
+
+# Success indicator (only if verbose)
+[[ "${TETRA_MODULE_VERBOSE:-false}" == "true" ]] && echo "✓ org module loaded successfully"
+
+true  # Changed from return 0 - do not exit parent shell
