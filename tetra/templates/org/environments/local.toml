@@ -1,0 +1,80 @@
+# Tetra Environment Configuration Template
+# This is the SINGLE SOURCE OF TRUTH for all environments
+# Edit this file locally, then promote to dev/staging/prod with: tsm org promote @<env>
+
+[environment]
+name = "local"
+type = "development"
+description = "Local development environment"
+
+# Deployment configuration - THESE ARE OVERRIDDEN PER ENVIRONMENT
+[deployment]
+tetra_src = "~/src/devops/tetra"      # dev: /root/src/devops/tetra, prod: /opt/tetra
+tetra_dir = "~/tetra"                 # dev: /root/tetra, prod: /var/lib/tetra
+user = "mricos"                       # dev: root, prod: tetra
+group = "staff"                       # dev: root, prod: tetra
+hostname = "localhost"
+domain = "localhost"                  # dev: dev.example.com, prod: example.com
+
+# System configuration
+[system]
+os = "darwin"                         # All servers: linux
+init_system = "none"                  # Servers: systemd
+auto_start = false                    # Servers: true
+
+# Port assignments - SAME ACROSS ALL ENVIRONMENTS
+[ports]
+tetra = 4444
+devpages = 3000
+api = 8080
+dynamic_start = 5000
+dynamic_end = 5099
+
+# Service definitions - SAME LOGIC, DIFFERENT ENV FLAGS
+[services.tetra]
+enabled = true
+command = "node server/server.js"    # prod adds: --env production
+working_dir = "${TETRA_SRC}"
+env_file = "env/local.env"            # Changes per environment
+auto_restart = false                  # Servers: true
+description = "Tetra main server"
+
+[services.devpages]
+enabled = false
+command = "npm start"
+working_dir = "${TETRA_SRC}/../devpages"
+auto_restart = false
+
+# Resource limits - SCALE UP FOR PRODUCTION
+[resources]
+memory_max = 0          # prod: 4096 (4GB)
+nofile = 1024           # prod: 131072
+nproc = 512             # prod: 8192
+
+# Security - TIGHTEN FOR PRODUCTION
+[security]
+firewall_enabled = false              # prod: true
+allowed_ips = ["127.0.0.1"]          # prod: restricted list
+ssl_enabled = false                   # prod: true
+ssl_cert = ""
+ssl_key = ""
+
+# Logging - MORE VERBOSE LOCALLY, STRUCTURED IN PROD
+[logging]
+level = "debug"                       # prod: "warn"
+format = "pretty"                     # prod: "json"
+destination = "file"                  # prod: "syslog"
+file_path = "${TETRA_DIR}/logs/tetra.log"
+retention_days = 7                    # prod: 90
+
+# Monitoring - OFF LOCALLY, ON IN PROD
+[monitoring]
+enabled = false                       # prod: true
+health_check_interval = 30
+alert_on_failure = false              # prod: true
+
+# Backup - OFF LOCALLY, REQUIRED IN PROD
+[backup]
+enabled = false                       # prod: true
+schedule = ""                         # prod: "0 1 * * *"
+retention_days = 7                    # prod: 30

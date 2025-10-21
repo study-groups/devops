@@ -1,0 +1,44 @@
+# Tetra Organization Manifest
+# This file defines organization-wide settings for multi-environment deployments
+
+[organization]
+name = "my-org"
+description = "My Organization Tetra Deployment"
+default_environment = "local"
+
+# Contact information for this deployment
+[organization.contact]
+admin_email = "admin@example.com"
+on_call = "oncall@example.com"
+
+# Git repository for source code
+[organization.repository]
+url = "https://github.com/your-org/tetra.git"
+branch = "main"
+
+# Shared configuration across all environments
+[shared]
+# These values can be overridden per environment
+timezone = "UTC"
+log_retention_days = 30
+backup_enabled = true
+
+# Default port ranges
+[shared.ports]
+base_port = 4000
+range_size = 100  # Each environment gets 100 ports
+
+# Monitoring and alerts
+[monitoring]
+enabled = true
+health_check_interval = 30  # seconds
+alert_on_failure = true
+
+# Deployment settings
+[deployment]
+# Strategy: rolling, blue-green, canary
+strategy = "rolling"
+# Require manual approval for production
+prod_requires_approval = true
+# Keep deployment history
+history_retention = 10
