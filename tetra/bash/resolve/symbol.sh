@@ -8,6 +8,12 @@ if ! type tetra_log_event >/dev/null 2>&1; then
     [[ -n "${TETRA_SRC:-}" ]] && source "${TETRA_SRC}/bash/utils/unified_log.sh" 2>/dev/null || true
 fi
 
+# Source centralized TOML parser
+TOML_PARSER="${TETRA_SRC}/bash/utils/toml_parser.sh"
+if [[ -f "$TOML_PARSER" ]]; then
+    source "$TOML_PARSER"
+fi
+
 # Resolve a symbol to an address
 # Level 0 → 1: @staging → 24.199.72.22
 resolve_symbol_to_address() {
@@ -39,20 +45,29 @@ resolve_symbol_to_address() {
         return 1
     fi
 
-    # Parse TOML to find symbol address
-    # Look for [symbols] section entries like: "@dev" = { address = "137.184.226.163", ... }
+    # Parse TOML using centralized parser
+    toml_parse "$org_toml" "ORG" || {
+        type tetra_log_error >/dev/null 2>&1 && \
+            tetra_log_error resolve "symbol-to-address" "$symbol" "{\"error\":\"failed to parse TOML\",\"org_toml\":\"$org_toml\"}"
+        echo "ERROR: Failed to parse $org_toml" >&2
+        return 1
+    }
+
+    # Look up symbol address in [symbols] section
+    # Format: "@dev" = { address = "137.184.226.163", ... }
+    # The parser converts dots to underscores, so we look for key "@symbol"
     local address
-    address=$(awk -F'[=\"]' -v sym="@$symbol" '
-        /^\[symbols\]/ { in_symbols=1; next }
-        /^\[/ { in_symbols=0 }
-        in_symbols && $0 ~ sym {
-            # Extract address value
-            if (match($0, /address[[:space:]]*=[[:space:]]*"([^"]+)"/, arr)) {
-                print arr[1]
-                exit
-            }
-        }
-    ' "$org_toml")
+    local symbol_key="@${symbol}"
+
+    # Try to get the address from the symbols section
+    # Since the value is inline JSON-like, we need to extract just the address field
+    local symbol_value
+    symbol_value=$(toml_get "symbols" "$symbol_key" "ORG" 2>/dev/null)
+
+    # Extract address from inline JSON-like format: { address = "...", ... }
+    if [[ -n "$symbol_value" && "$symbol_value" =~ address[[:space:]]*=[[:space:]]*\"([^\"]+)\" ]]; then
+        address="${BASH_REMATCH[1]}"
+    fi
 
     if [[ -z "$address" ]]; then
         type tetra_log_error >/dev/null 2>&1 && \
@@ -94,26 +109,24 @@ resolve_address_to_channel() {
         return 1
     fi
 
-    # Parse connector to get work_user
+    # Parse TOML using centralized parser
+    toml_parse "$org_toml" "ORG" || {
+        type tetra_log_error >/dev/null 2>&1 && \
+            tetra_log_error resolve "address-to-channel" "$address" "{\"error\":\"failed to parse TOML\",\"org_toml\":\"$org_toml\"}"
+        echo "ERROR: Failed to parse $org_toml" >&2
+        return 1
+    }
+
+    # Get work_user from connectors section
     local work_user
-    work_user=$(awk -F'[=\"]' -v sym="@$symbol" '
-        /^\[connectors\]/ { in_connectors=1; next }
-        /^\[/ { in_connectors=0 }
-        in_connectors && $0 ~ sym {
-            # Start of this symbol block
-            in_block=1
-        }
-        in_block && /work_user/ {
-            if (match($0, /work_user[[:space:]]*=[[:space:]]*"([^"]+)"/, arr)) {
-                print arr[1]
-                exit
-            }
-        }
-        in_block && /^\[/ {
-            # End of block
-            in_block=0
-        }
-    ' "$org_toml")
+    local symbol_key="@${symbol}"
+    local connector_value
+    connector_value=$(toml_get "connectors" "$symbol_key" "ORG" 2>/dev/null)
+
+    # Extract work_user from inline format: { work_user = "...", ... }
+    if [[ -n "$connector_value" && "$connector_value" =~ work_user[[:space:]]*=[[:space:]]*\"([^\"]+)\" ]]; then
+        work_user="${BASH_REMATCH[1]}"
+    fi
 
     if [[ -z "$work_user" ]]; then
         # Default to symbol name as user if not found

@@ -25,6 +25,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/converter.sh"
 source "$SCRIPT_DIR/secrets_manager.sh"
 
+# Source centralized TOML parser
+TOML_PARSER="${TETRA_SRC}/bash/utils/toml_parser.sh"
+if [[ -f "$TOML_PARSER" ]]; then
+    source "$TOML_PARSER"
+fi
+
 # Compile tetra.toml from all input sources
 tetra_compile_toml() {
     local org_name="$1"
@@ -35,7 +41,7 @@ tetra_compile_toml() {
         return 1
     fi
 
-    local org_dir="$TETRA_DIR/org/$org_name"
+    local org_dir="$TETRA_DIR/orgs/$org_name"
 
     # Input files
     local json_file="$org_dir/digitalocean.json"
@@ -207,10 +213,20 @@ _append_storage_section() {
 
 EOF
 
-    # Extract storage config from resources.toml _config section
-    # Get storage backend name from _config
+    # Parse resources.toml using centralized parser
+    toml_parse "$resources_file" "RESOURCES" || {
+        echo "   ❌ Failed to parse resources.toml"
+        return 1
+    }
+
+    # Get storage backend name from _config section
     local storage_backend storage_symbol
-    storage_backend=$(awk '/^\[_config.storage\]/,/^\[/ { if (/^backend/) print $3 }' "$resources_file" | tr -d '"')
+    storage_backend=$(toml_get "_config_storage" "backend" "RESOURCES" 2>/dev/null)
+
+    if [[ -z "$storage_backend" ]]; then
+        echo "   ⚠️  No backend specified in storage config"
+        return 0
+    fi
 
     # Determine symbol name based on backend
     case "$storage_backend" in
@@ -232,22 +248,23 @@ EOF
     echo "[storage.$storage_symbol]" >> "$output_file"
     echo "symbol = \"@$storage_symbol\"" >> "$output_file"
 
-    # Extract and append storage config fields
-    awk '/^\[_config.storage\]/,/^\[/ {
-        if (/^backend/ || /^endpoint/ || /^region/ || /^bucket/ || /^credentials_env/) {
-            if ($1 == "credentials_env") {
-                # Expand credentials_env into access_key and secret_key
-                prefix = $3
-                gsub(/"/, "", prefix)
-                print "access_key = \"${" prefix "_KEY}\""
-                print "secret_key = \"${" prefix "_SECRET}\""
-            } else if ($1 == "bucket") {
-                print "default_bucket = " $3
-            } else {
-                print
-            }
-        }
-    }' "$resources_file" >> "$output_file"
+    # Extract and append storage config fields using toml_parser
+    local endpoint region bucket credentials_env
+    endpoint=$(toml_get "_config_storage" "endpoint" "RESOURCES" 2>/dev/null)
+    region=$(toml_get "_config_storage" "region" "RESOURCES" 2>/dev/null)
+    bucket=$(toml_get "_config_storage" "bucket" "RESOURCES" 2>/dev/null)
+    credentials_env=$(toml_get "_config_storage" "credentials_env" "RESOURCES" 2>/dev/null)
+
+    [[ -n "$storage_backend" ]] && echo "backend = \"$storage_backend\"" >> "$output_file"
+    [[ -n "$endpoint" ]] && echo "endpoint = \"$endpoint\"" >> "$output_file"
+    [[ -n "$region" ]] && echo "region = \"$region\"" >> "$output_file"
+    [[ -n "$bucket" ]] && echo "default_bucket = \"$bucket\"" >> "$output_file"
+
+    # Expand credentials_env into access_key and secret_key
+    if [[ -n "$credentials_env" ]]; then
+        echo "access_key = \"\${${credentials_env}_KEY}\"" >> "$output_file"
+        echo "secret_key = \"\${${credentials_env}_SECRET}\"" >> "$output_file"
+    fi
 
     echo "" >> "$output_file"
     echo "   ✅ Storage section added"
@@ -321,7 +338,7 @@ tetra_quick_compile() {
 tetra_validate_toml() {
     local org_name="$1"
 
-    local org_dir="$TETRA_DIR/org/$org_name"
+    local org_dir="$TETRA_DIR/orgs/$org_name"
     local toml_file="$org_dir/tetra.toml"
 
     if [[ ! -f "$toml_file" ]]; then

@@ -3,6 +3,12 @@
 # Tetra Secure Environment Management System
 # Implements template-based environment management that never commits secrets
 
+# Source centralized TOML parser
+TOML_PARSER="${TETRA_SRC}/bash/utils/toml_parser.sh"
+if [[ -f "$TOML_PARSER" ]]; then
+    source "$TOML_PARSER"
+fi
+
 # Main tetra env command
 tetra_env() {
     local command="${1:-}"
@@ -359,7 +365,16 @@ tetra_env_toml_sync_nh() {
     echo "✅ Infrastructure data synced successfully"
     echo
     echo "📋 Updated infrastructure section:"
-    awk '/^\[infrastructure\]/{flag=1; print; next} /^\[/{flag=0} flag && /^[a-z]/ {print "  " $0}' "$toml_file"
+    toml_parse "$toml_file" "INFRA" >/dev/null 2>&1
+    local keys
+    keys=$(toml_keys "infrastructure" "INFRA" 2>/dev/null || echo "")
+    if [[ -n "$keys" ]]; then
+        while IFS= read -r key; do
+            local value
+            value=$(toml_get "infrastructure" "$key" "INFRA" 2>/dev/null)
+            echo "  $key = $value"
+        done <<< "$keys"
+    fi
 }
 
 # Show TOML section or variable
@@ -374,16 +389,28 @@ tetra_env_toml_show() {
 
     if [[ -z "$section" ]]; then
         echo "📋 tetra.toml sections:"
-        grep '^\[' "$toml_file" | sed 's/\[/  /; s/\]//'
+        toml_parse "$toml_file" "SHOW" >/dev/null 2>&1
+        local sections
+        sections=$(toml_sections "SHOW" 2>/dev/null)
+        if [[ -n "$sections" ]]; then
+            while IFS= read -r sec; do
+                echo "  $sec"
+            done <<< "$sections"
+        fi
         return 0
     fi
 
     echo "📋 [$section] section:"
-    awk -v section="[$section]" '
-        $0 == section {flag=1; print; next}
-        /^\[/{flag=0}
-        flag {print "  " $0}
-    ' "$toml_file"
+    toml_parse "$toml_file" "SHOW" >/dev/null 2>&1
+    local keys
+    keys=$(toml_keys "${section//./_}" "SHOW" 2>/dev/null)
+    if [[ -n "$keys" ]]; then
+        while IFS= read -r key; do
+            local value
+            value=$(toml_get "${section//./_}" "$key" "SHOW" 2>/dev/null)
+            echo "  $key = $value"
+        done <<< "$keys"
+    fi
 }
 
 # Validate tetra.toml structure
@@ -418,7 +445,8 @@ tetra_env_toml_validate() {
             var_name="${var_ref#\${variables.}"
             var_name="${var_name%}}"
 
-            if ! awk -v var="$var_name" '/^\[variables\]/{flag=1; next} /^\[/{flag=0} flag && $1 == var {found=1} END {exit !found}' "$toml_file"; then
+            toml_parse "$toml_file" "VAL" >/dev/null 2>&1
+            if ! toml_get "variables" "$var_name" "VAL" >/dev/null 2>&1; then
                 echo "❌ Undefined variable reference: $var_ref"
                 ((errors++))
             fi
