@@ -157,6 +157,7 @@ desaturated_fg_only() {
 
 # Background detection and management
 term_bg_color() { printf "\033]11;#%s\007" "$1"; }
+term_fg_color() { printf "\033]10;#%s\007" "$1"; }
 set_background() {
     SCREEN_BACKGROUND="$1"
     term_bg_color "$1"

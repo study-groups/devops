@@ -7,28 +7,32 @@ _COLOR_PALETTES_LOADED=1
 source "$(dirname "${BASH_SOURCE[0]}")/color_core.sh"
 
 # Primary color palettes (8 colors each, no names)
-declare -a ENV_PRIMARY=(
+# Use simple assignment to ensure global scope even when sourced from functions
+ENV_PRIMARY=(
     "00AA00" "22DD22" "44AA44" "66FF66"
     "00DD88" "006644" "88FF00" "00AAAA"
 )
 
-declare -a MODE_PRIMARY=(
+MODE_PRIMARY=(
     "0088FF" "0044AA" "4400AA" "000088"
     "0066FF" "4488AA" "88AAFF" "6688AA"
 )
 
-declare -a VERBS_PRIMARY=(
+VERBS_PRIMARY=(
     "FF0044" "FF6644" "AA4400" "FFAA00"
     "AA6600" "CC6633" "FFCC00" "FF4400"
 )
 
-declare -a NOUNS_PRIMARY=(
+NOUNS_PRIMARY=(
     "AA00AA" "FF00FF" "8800AA" "CC44CC"
     "AA0088" "880088" "FF88FF" "CC00CC"
 )
 
 # Generate complementary colors
-declare -a ENV_COMPLEMENT MODE_COMPLEMENT VERBS_COMPLEMENT NOUNS_COMPLEMENT
+ENV_COMPLEMENT=()
+MODE_COMPLEMENT=()
+VERBS_COMPLEMENT=()
+NOUNS_COMPLEMENT=()
 
 generate_complements() {
     local -n primary=$1

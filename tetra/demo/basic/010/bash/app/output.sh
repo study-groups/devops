@@ -157,7 +157,7 @@ generate_content_buffer() {
         ((current_line++))
 
         if [[ "$CURRENT_INPUT_MODE" == "$INPUT_MODE_GAMEPAD" ]]; then
-            buffer+="$(tput cup $((current_line - 1)) 0)Home row: e/d/a | c=clear r=refresh | REPL: /$(tput el)"$'\n'
+            buffer+="$(tput cup $((current_line - 1)) 0)Keys: 1-env 2-mode 3-action Tab-dropdown | c=clear r=refresh | REPL: /$(tput el)"$'\n'
             ((current_line++))
         fi
     fi

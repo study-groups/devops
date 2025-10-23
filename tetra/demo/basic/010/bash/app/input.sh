@@ -161,15 +161,27 @@ handle_gamepad_input() {
     local key="$1"
 
     case "$key" in
-        # Environment navigation (bidirectional)
-        'e') navigate_env_right ;;
-        'E') navigate_env_left ;;
+        # Environment navigation (1/! for up/down)
+        '1') navigate_env_left ;;
+        '!') navigate_env_right ;;
 
-        # Mode navigation (bidirectional)
-        'd') navigate_mode_right ;;
-        'D') navigate_mode_left ;;
+        # Mode navigation (2/@ for up/down)
+        '2') navigate_mode_left ;;
+        '@') navigate_mode_right ;;
 
-        # Action navigation (a/A cycles through actions and shows summary, executes if immediate)
+        # Action navigation (3/# for up/down, or tab for dropdown)
+        '3') navigate_action_left ;;
+        '#') navigate_action_right ;;
+
+        # Additional action navigation (4/$ for up/down)
+        '4') navigate_action_left ;;
+        '$') navigate_action_right ;;
+
+        $'\t')  # Tab key - show action dropdown
+            show_action_dropdown
+            ;;
+
+        # Legacy action navigation (a/A cycles through actions and shows summary, executes if immediate)
         'a')
             navigate_action_right
             # Auto-show summary when 'a' is pressed
@@ -294,6 +306,51 @@ handle_gamepad_input() {
     esac
 
     return 0
+}
+
+# Show action dropdown (colored, navigable with arrows)
+show_action_dropdown() {
+    local actions=($(get_actions))
+    if [[ ${#actions[@]} -eq 0 ]]; then
+        CONTENT="No actions available"
+        update_content_region
+        return
+    fi
+
+    # Generate colored action list
+    CONTENT="$(ui_action_label)ACTION DROPDOWN$(reset_color)
+$(generate_section_separator)
+
+"
+    for i in "${!actions[@]}"; do
+        local action="${actions[$i]}"
+        if [[ "$action" == *:* ]]; then
+            local verb="${action%%:*}"
+            local noun="${action##*:}"
+
+            if [[ $i -eq $ACTION_INDEX ]]; then
+                CONTENT+="$(ui_action_selected)► $((i+1)). $(render_action_verb_noun "$verb" "$noun")$(reset_color)
+"
+            else
+                CONTENT+="  $((i+1)). $(render_action_verb_noun "$verb" "$noun")$(reset_color)
+"
+            fi
+        else
+            if [[ $i -eq $ACTION_INDEX ]]; then
+                CONTENT+="$(ui_action_selected)► $((i+1)). $action$(reset_color)
+"
+            else
+                CONTENT+="  $((i+1)). $action
+"
+            fi
+        fi
+    done
+
+    CONTENT+="
+$(generate_section_separator)
+Use arrows (↑↓) or i/k to navigate, Enter to execute"
+
+    update_content_region
 }
 
 # REPL mode input handling with command editing
@@ -508,12 +565,14 @@ $(get_env_specific_info "$env" "" "")"
 
 # Help display (TUI concern)
 show_help() {
-    CONTENT="🎮 Navigation: e,d,a Pattern
+    CONTENT="🎮 Navigation: 1,2,3,4 Pattern
 =============================
 
-e/E = Environment (left/right)
-d/D = Mode (left/right)
-a/A = Action (forward/back)
+1/! = Environment (left/right)
+2/@ = Mode (left/right)
+3/# = Action (left/right)
+4/$ = Action (left/right)
+Tab = Action dropdown (arrows to navigate)
 return = Execute current action
 
 c = Clear content

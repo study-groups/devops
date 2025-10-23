@@ -48,9 +48,10 @@ source "$BOOT_DIR/boot_core.sh" || {
 
 # Load unified logging after boot_core (now TETRA_DIR and basics are set)
 if [[ -f "$TETRA_SRC/bash/utils/unified_log.sh" ]]; then
-    export TETRA_LOG_CONSOLE=1
-    export TETRA_LOG_CONSOLE_COLOR=1
-    export TETRA_LOG_LEVEL=INFO
+    # Only set defaults if not already set by user
+    export TETRA_LOG_CONSOLE="${TETRA_LOG_CONSOLE:-0}"
+    export TETRA_LOG_CONSOLE_COLOR="${TETRA_LOG_CONSOLE_COLOR:-1}"
+    export TETRA_LOG_LEVEL="${TETRA_LOG_LEVEL:-INFO}"
     source "$TETRA_SRC/bash/utils/unified_log.sh" 2>/dev/null || true
 fi
 

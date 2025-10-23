@@ -72,7 +72,7 @@ tcurses_buffer_render_full() {
         local line="${_TCURSES_BACK_BUFFER[$i]:-}"
         tcurses_screen_move_cursor $((i + 1)) 1
         # Clear line and write content
-        printf '\033[K%s' "$line"
+        printf '\033[K%b' "$line"
     done
 
     # Copy back buffer to front buffer
@@ -95,7 +95,7 @@ tcurses_buffer_render_diff() {
         if [[ "$back_line" != "$front_line" ]]; then
             local line_num=$((key + 1))
             tcurses_screen_move_cursor "$line_num" 1
-            printf '\033[K%s' "$back_line"
+            printf '\033[K%b' "$back_line"
             _TCURSES_FRONT_BUFFER["$key"]="$back_line"
             ((changes++))
         fi

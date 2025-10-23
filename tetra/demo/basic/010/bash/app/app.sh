@@ -434,7 +434,7 @@ render_action_line_responsive() {
 }
 
 render_environment_line() {
-    printf "$(ui_env_label)Env: $(reset_color)"
+    printf "$(ui_env_label)1-env: $(reset_color)"
     for i in "${!ENVIRONMENTS[@]}"; do
         if [[ $i -eq $ENV_INDEX ]]; then
             printf "$(ui_env_selected)[${ENVIRONMENTS[$i]}]$(reset_color) "
@@ -446,7 +446,7 @@ render_environment_line() {
 
 render_mode_line() {
     local current_modes=($(get_current_modes))
-    printf "$(ui_mode_label)Mode: $(reset_color)"
+    printf "$(ui_mode_label)2-mode: $(reset_color)"
     for i in "${!current_modes[@]}"; do
         if [[ $i -eq $MODE_INDEX ]]; then
             printf "$(ui_mode_selected)[${current_modes[$i]}]$(reset_color) "
@@ -461,7 +461,7 @@ render_action_line() {
     local term_width=${COLUMNS:-80}
 
     # Responsive action line rendering
-    printf "%s" "$(ui_action_label)Action: $(reset_color)"
+    printf "%s" "$(ui_action_label)3-action: $(reset_color)"
 
     if [[ ${#actions[@]} -gt 0 && $ACTION_INDEX -lt ${#actions[@]} ]]; then
         render_action_line_responsive "${actions[@]}"
@@ -558,7 +558,7 @@ $(generate_section_separator)
 
 Navigation:
 • Number keys (1-5) for quick view switching
-• Home row: e/d/a for env/mode/action navigation
+• Keys: 1-env 2-mode 3-action Tab-dropdown for navigation
 • Enter to execute, r for refresh
 • Enhanced: 60fps rendering with double buffering"
         fi
@@ -568,7 +568,7 @@ Navigation:
 
     local current_view=$(get_current_view_mode)
     local view_title="${current_view^} View"  # Capitalize first letter
-    FOOTER_CONTENT="$(format_footer_combined "$view_title" "e/d/a=nav i/k=select | c=clear | 1-4=views | Enter=exec | View: $current_view")"
+    FOOTER_CONTENT="$(format_footer_combined "$view_title" "1-env 2-mode 3-action Tab-dropdown | i/k=select | c=clear | 1-4=views | Enter=exec | View: $current_view")"
 }
 
 show_palette_demonstration() {
@@ -704,7 +704,8 @@ $(generate_section_separator)
 $(generate_section_separator)
 
 🎮 Navigation System:
-• e/d/a = env/mode/action navigation
+• 1/! 2/@ 3/# = env/mode/action navigation (with shift for reverse)
+• Tab = action dropdown
 • 1-5 = instant view switching
 • c = clear content
 • Enter = execute current action

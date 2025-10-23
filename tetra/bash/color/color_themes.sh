@@ -10,18 +10,12 @@ source "$(dirname "${BASH_SOURCE[0]}")/color_core.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/color_palettes.sh"
 
 # Theme state
-CURRENT_THEME_BASE=""       # light/dark/solarized
+CURRENT_THEME_BASE=""       # dark/solarized
 CURRENT_THEME_PALETTE=""    # default/tokyo_night/nord/gruvbox
 THEME_SWITCH_CALLBACKS=()   # Registered callbacks
 PALETTE_BRIGHTNESS=4        # 0-7 brightness level
 
 # Legacy theme definitions (keep for backward compatibility)
-declare -A THEME_LIGHT=(
-    [bg]="FFFFFF"
-    [text]="000000"
-    [accent]="4169E1"
-)
-
 declare -A THEME_DARK=(
     [bg]="1E1E1E"
     [text]="FFFFFF"
@@ -42,7 +36,6 @@ SCREEN_BACKGROUND=""
 get_theme_color() {
     local key=$1
     case "$CURRENT_THEME" in
-        light) echo "${THEME_LIGHT[$key]}" ;;
         dark) echo "${THEME_DARK[$key]}" ;;
         solarized) echo "${THEME_SOLARIZED_DARK[$key]}" ;;
     esac
@@ -51,7 +44,10 @@ get_theme_color() {
 set_theme() {
     CURRENT_THEME="$1"
     SCREEN_BACKGROUND=""  # Clear custom background when setting theme
+
+    # Set both background and text colors for proper visibility
     term_bg_color "$(get_theme_color bg)"
+    term_fg_color "$(get_theme_color text)"
 
     # Also update new theme system
     theme_set_base "$1" 2>/dev/null
@@ -106,13 +102,9 @@ nouns_color() {
 
 # Set base theme (background + brightness)
 theme_set_base() {
-    local base="$1"  # light/dark/solarized
+    local base="$1"  # dark/solarized
 
     case "$base" in
-        light)
-            SCREEN_BACKGROUND="FFFFFF"
-            PALETTE_BRIGHTNESS=7  # Bright colors for light bg
-            ;;
         dark)
             SCREEN_BACKGROUND="1E1E1E"
             PALETTE_BRIGHTNESS=4  # Muted colors for dark bg
@@ -166,7 +158,7 @@ theme_set_combined() {
         local palette="${theme##*/}"
         theme_set_base "$base" && theme_set_palette "$palette"
     # Check if it's a base theme
-    elif [[ "$theme" =~ ^(light|dark|solarized)$ ]]; then
+    elif [[ "$theme" =~ ^(dark|solarized)$ ]]; then
         theme_set_base "$theme"
     # Assume it's a palette theme
     else
@@ -204,7 +196,6 @@ theme_current() {
 # List available themes
 theme_list() {
     echo "Base themes:"
-    echo "  light      - Light background, bright colors"
     echo "  dark       - Dark background, muted colors"
     echo "  solarized  - Solarized background"
     echo ""
@@ -240,6 +231,112 @@ theme_load() {
     fi
 }
 
+# Show theme colors visually
+theme_show() {
+    local theme="${1:-$(theme_current)}"
+
+    echo "Theme: $theme"
+    echo "═══════════════════════════════════════════════════════════"
+    echo ""
+
+    # Show base theme colors
+    if [[ -n "$CURRENT_THEME_BASE" ]]; then
+        echo "Base Theme: $CURRENT_THEME_BASE"
+        case "$CURRENT_THEME_BASE" in
+            dark)
+                echo "  Background:  $(text_color 'FFFFFF')████$(reset_color) #1E1E1E"
+                echo "  Text:        $(text_color 'FFFFFF')████$(reset_color) #FFFFFF"
+                echo "  Accent:      $(text_color '87CEEB')████$(reset_color) #87CEEB"
+                ;;
+            solarized)
+                echo "  Background:  $(text_color '002B36')████$(reset_color) #002B36"
+                echo "  Text:        $(text_color '839496')████$(reset_color) #839496"
+                echo "  Accent:      $(text_color '268BD2')████$(reset_color) #268BD2"
+                ;;
+        esac
+        echo ""
+    fi
+
+    # Show palette colors if available
+    if [[ -n "$CURRENT_THEME_PALETTE" && "$CURRENT_THEME_PALETTE" != "default" ]]; then
+        echo "Palette: $CURRENT_THEME_PALETTE"
+        echo "  Brightness: $PALETTE_BRIGHTNESS/7"
+        echo ""
+    fi
+
+    # Show REPL colors
+    source "$(dirname "${BASH_SOURCE[0]}")/repl_colors.sh"
+    echo "REPL Colors:"
+    echo "  Environments:"
+    echo "    Local:       $(text_color "$REPL_ENV_LOCAL")████$(reset_color) #$REPL_ENV_LOCAL"
+    echo "    Dev:         $(text_color "$REPL_ENV_DEV")████$(reset_color) #$REPL_ENV_DEV"
+    echo "    Staging:     $(text_color "$REPL_ENV_STAGING")████$(reset_color) #$REPL_ENV_STAGING"
+    echo "    Production:  $(text_color "$REPL_ENV_PRODUCTION")████$(reset_color) #$REPL_ENV_PRODUCTION"
+    echo ""
+    echo "  Modes:"
+    echo "    Inspect:     $(text_color "$REPL_MODE_INSPECT")████$(reset_color) #$REPL_MODE_INSPECT"
+    echo "    Transfer:    $(text_color "$REPL_MODE_TRANSFER")████$(reset_color) #$REPL_MODE_TRANSFER"
+    echo "    Execute:     $(text_color "$REPL_MODE_EXECUTE")████$(reset_color) #$REPL_MODE_EXECUTE"
+    echo ""
+    echo "  Actions:"
+    echo "    Active:      $(text_color "$REPL_ACTION_ACTIVE")████$(reset_color) #$REPL_ACTION_ACTIVE"
+    echo "    None:        $(text_color "$REPL_ACTION_NONE")████$(reset_color) #$REPL_ACTION_NONE"
+    echo ""
+    echo "  Structure:"
+    echo "    Bracket:     $(text_color "$REPL_BRACKET")████$(reset_color) #$REPL_BRACKET"
+    echo "    Separator:   $(text_color "$REPL_SEPARATOR")████$(reset_color) #$REPL_SEPARATOR"
+    echo "    Arrow:       $(text_color "$REPL_ARROW")████$(reset_color) #$REPL_ARROW"
+    echo ""
+}
+
+# Show detailed theme values
+theme_values() {
+    echo "Theme System Values"
+    echo "═══════════════════════════════════════════════════════════"
+    echo ""
+    echo "Current State:"
+    echo "  CURRENT_THEME:         ${CURRENT_THEME:-unset}"
+    echo "  CURRENT_THEME_BASE:    ${CURRENT_THEME_BASE:-unset}"
+    echo "  CURRENT_THEME_PALETTE: ${CURRENT_THEME_PALETTE:-unset}"
+    echo "  PALETTE_BRIGHTNESS:    ${PALETTE_BRIGHTNESS:-unset}"
+    echo "  SCREEN_BACKGROUND:     ${SCREEN_BACKGROUND:-unset}"
+    echo ""
+
+    echo "Base Themes (dark/solarized):"
+    echo "  THEME_DARK:"
+    for key in "${!THEME_DARK[@]}"; do
+        echo "    [$key] = ${THEME_DARK[$key]}"
+    done
+    echo "  THEME_SOLARIZED_DARK:"
+    for key in "${!THEME_SOLARIZED_DARK[@]}"; do
+        echo "    [$key] = ${THEME_SOLARIZED_DARK[$key]}"
+    done
+    echo ""
+
+    echo "REPL Color Values:"
+    source "$(dirname "${BASH_SOURCE[0]}")/repl_colors.sh"
+    echo "  REPL_ENV_LOCAL:        $REPL_ENV_LOCAL"
+    echo "  REPL_ENV_DEV:          $REPL_ENV_DEV"
+    echo "  REPL_ENV_STAGING:      $REPL_ENV_STAGING"
+    echo "  REPL_ENV_PRODUCTION:   $REPL_ENV_PRODUCTION"
+    echo "  REPL_MODE_INSPECT:     $REPL_MODE_INSPECT"
+    echo "  REPL_MODE_TRANSFER:    $REPL_MODE_TRANSFER"
+    echo "  REPL_MODE_EXECUTE:     $REPL_MODE_EXECUTE"
+    echo "  REPL_ACTION_ACTIVE:    $REPL_ACTION_ACTIVE"
+    echo "  REPL_ACTION_NONE:      $REPL_ACTION_NONE"
+    echo "  REPL_BRACKET:          $REPL_BRACKET"
+    echo "  REPL_SEPARATOR:        $REPL_SEPARATOR"
+    echo "  REPL_ARROW:            $REPL_ARROW"
+    echo "  REPL_ORG_ACTIVE:       $REPL_ORG_ACTIVE"
+    echo "  REPL_ORG_INACTIVE:     $REPL_ORG_INACTIVE"
+    echo ""
+
+    echo "Registered Callbacks: ${#THEME_SWITCH_CALLBACKS[@]}"
+    for callback in "${THEME_SWITCH_CALLBACKS[@]}"; do
+        echo "  - $callback"
+    done
+}
+
 # Initialize theme system
 theme_init() {
     local default_theme="${TETRA_THEME:-dark}"
@@ -263,6 +360,8 @@ export -f theme_set_combined
 export -f theme_register_callback
 export -f theme_current
 export -f theme_list
+export -f theme_show
+export -f theme_values
 export -f theme_save
 export -f theme_load
 export -f theme_init

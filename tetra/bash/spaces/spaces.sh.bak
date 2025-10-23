@@ -77,7 +77,7 @@ _spaces_resolve() {
     fi
 
     # Try to find org directory with name normalization
-    local toml_file="$TETRA_DIR/orgs/$org_name/tetra.toml"
+    local toml_file="$TETRA_DIR/org/$org_name/tetra.toml"
 
     if [[ ! -f "$toml_file" ]]; then
         # Try alternate name formats (underscore <-> hyphen)
@@ -90,7 +90,7 @@ _spaces_resolve() {
             alt_name="${org_name//-/_}"
         fi
 
-        local alt_toml="$TETRA_DIR/orgs/$alt_name/tetra.toml"
+        local alt_toml="$TETRA_DIR/org/$alt_name/tetra.toml"
         if [[ -f "$alt_toml" ]]; then
             echo "Note: Using org directory '$alt_name' (normalized from '$org_name')" >&2
             org_name="$alt_name"
@@ -102,7 +102,7 @@ _spaces_resolve() {
             fi
             echo "" >&2
             echo "Available orgs:" >&2
-            ls -1 "$TETRA_DIR/orgs/" 2>/dev/null | sed 's/^/  /' >&2 || echo "  (none found)" >&2
+            ls -1 "$TETRA_DIR/org/" 2>/dev/null | sed 's/^/  /' >&2 || echo "  (none found)" >&2
             echo "" >&2
             echo "Compile with: bash/org/compiler.sh compile <org-name>" >&2
             return 1

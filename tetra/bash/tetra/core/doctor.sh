@@ -9,16 +9,21 @@ declare -g DOCTOR_ERRORS=0
 declare -g DOCTOR_WARNINGS=0
 declare -g DOCTOR_FIXES=0
 
+# Load TDS for proper border rendering
+if [[ -f "$TETRA_SRC/bash/tds/tds.sh" ]]; then
+    source "$TETRA_SRC/bash/tds/tds.sh" 2>/dev/null || true
+fi
+
 # Colors for output
 _doctor_color() {
     local color="$1"
     shift
     case "$color" in
-        green)  echo -e "\033[32m$*\033[0m" ;;
-        red)    echo -e "\033[31m$*\033[0m" ;;
-        yellow) echo -e "\033[33m$*\033[0m" ;;
-        blue)   echo -e "\033[34m$*\033[0m" ;;
-        *)      echo "$*" ;;
+        green)  printf "\033[32m%s\033[0m" "$*" ;;
+        red)    printf "\033[31m%s\033[0m" "$*" ;;
+        yellow) printf "\033[33m%s\033[0m" "$*" ;;
+        blue)   printf "\033[34m%s\033[0m" "$*" ;;
+        *)      printf "%s" "$*" ;;
     esac
 }
 
@@ -222,14 +227,15 @@ _doctor_check_modules() {
 
         if [[ -f "$includes_path" ]]; then
             # Test in subshell like bootloader does
-            if ( export TETRA_SRC TETRA_DIR; source "$includes_path" ) >/dev/null 2>&1; then
+            # CRITICAL: Unset MOD_SRC to prevent cross-module contamination
+            if ( unset MOD_SRC MOD_DIR; export TETRA_SRC TETRA_DIR; source "$includes_path" ) >/dev/null 2>&1; then
                 _doctor_ok "Module '$module' loads successfully"
             else
                 _doctor_error "Module '$module' fails to load"
                 _doctor_info "  Test with: source $includes_path"
                 # Show actual error
                 local error_output
-                error_output=$( ( export TETRA_SRC TETRA_DIR; source "$includes_path" ) 2>&1 | head -3 )
+                error_output=$( ( unset MOD_SRC MOD_DIR; export TETRA_SRC TETRA_DIR; source "$includes_path" ) 2>&1 | head -3 )
                 _doctor_info "  Error: $error_output"
             fi
 
@@ -382,9 +388,16 @@ tetra_doctor() {
     DOCTOR_WARNINGS=0
     DOCTOR_FIXES=0
 
-    echo "$(_doctor_color green "╔═══════════════════════════════════════╗")"
-    echo "$(_doctor_color green "║")     Tetra Installation Doctor      $(_doctor_color green "║")"
-    echo "$(_doctor_color green "╚═══════════════════════════════════════╝")"
+    # Use TDS for proper ANSI-aware borders if available
+    if command -v tds_panel_header &>/dev/null; then
+        local title="$(_doctor_color green "Tetra Installation Doctor")"
+        tds_panel_header "$title" 43 "double"
+    else
+        # Fallback to simple borders
+        echo "$(_doctor_color green "╔═══════════════════════════════════════╗")"
+        printf "%s     Tetra Installation Doctor      %s\n" "$(_doctor_color green "║")" "$(_doctor_color green "║")"
+        echo "$(_doctor_color green "╚═══════════════════════════════════════╝")"
+    fi
 
     # Run checks based on filter
     case "$check_filter" in

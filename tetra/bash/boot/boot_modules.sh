@@ -95,6 +95,7 @@ tetra_create_lazy_function "tview" "tview"
 
 # Org module functions
 tetra_create_lazy_function "tetra_org" "org"
+tetra_create_lazy_function "org" "org"
 
 # Vox module functions
 tetra_create_lazy_function "vox" "vox"
