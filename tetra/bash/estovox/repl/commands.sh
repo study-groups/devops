@@ -226,8 +226,13 @@ Information:
     - expressions               - List expressions
     - params                    - List all parameters
     - all                       - List everything
+  ipa, chart                    - Show IPA phoneme chart (color-coded)
+  controls                      - Show keyboard controls help
   help                          - Show this help
   clear                         - Clear screen and redraw
+
+Mode Control (TUI only):
+  interactive, int              - Switch to interactive mode
 
 Control:
   quit, exit                    - Exit Estovox
@@ -283,6 +288,15 @@ estovox_process_command() {
             ;;
         clear|cls)
             estovox_cmd_clear "$@"
+            ;;
+        ipa|chart)
+            estovox_cmd_ipa "$@"
+            ;;
+        controls)
+            estovox_cmd_controls "$@"
+            ;;
+        interactive|int)
+            estovox_cmd_interactive "$@"
             ;;
         list|ls)
             estovox_cmd_list "$@"
