@@ -1,0 +1,12 @@
+  /* src/app.css */
+  :root {
+    --primary-color: #3498db;
+    --secondary-color: #2ecc71;
+    /* Add more variables as needed */
+  }
+
+  body {
+    background-color: var(--primary-color);
+    color: var(--secondary-color);
+    /* Utilize variables in your styles */
+  }

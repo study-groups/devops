@@ -1,0 +1,3 @@
+#!/bin/bash
+PORT=$PBASE_PORT
+$PB_EXE serve --http=localhost:$PBASE_PORT

@@ -18,7 +18,7 @@ pbase_create_pbase_exe() {
 }
 
 pbase_create_entrypoint() {
-    cat <<EOF 
+    cat <<EOF
 #!/bin/bash
 
 
@@ -34,4 +34,29 @@ pbase_create_entrypoint() {
   --http="${PBASE_HOST}:${PBASE_PORT}" --dev
 EOF
 
+}
+
+# Main pbase dispatcher
+pbase() {
+    case "$1" in
+        repl)
+            source "$PBASE_SRC/bash/pbase_repl.sh"
+            pbase_repl
+            ;;
+        info)
+            pbase_info
+            ;;
+        *)
+            cat <<EOF
+Usage: pbase <command>
+
+Commands:
+  repl         Start interactive REPL
+  info         Show pbase environment
+
+For pdata service management, use: pdata <command>
+For pdata administration, use: admin <command>
+EOF
+            ;;
+    esac
 }

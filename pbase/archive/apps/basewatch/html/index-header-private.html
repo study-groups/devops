@@ -1,0 +1,79 @@
+<header class="bg-gray-800 text-white p-4 flex justify-between items-center">
+  <!-- Info Button on the Left -->
+  <button onclick="showInfoModalHyperscript()" 
+  class="btn bg-gray-600 hover:bg-gray-700 text-white 
+  flex-grow-0 flex-shrink-0 px-4 py-2 rounded-md">
+    Info
+  </button>
+  
+  <!-- Centered Message -->
+  <h1 class="text-2xl font-bold mx-4 flex-grow text-center">P B A S E </h1>
+
+  <!-- Logout Button on the Right -->
+  <button onclick="logout()" 
+  class="btn bg-gray-600 hover:bg-gray-700 text-white 
+  flex-grow-0 flex-shrink-0 px-4 py-2 rounded-md">
+    Logout
+  </button>
+</header>
+
+<style>
+  :root {
+    --popup-bg-color: var(--paper-light);
+    --popup-text-color: var(--ink);
+    --popup-font-family: theme('fontFamily.sans');
+  }
+
+  #debug {
+    @apply bottom-32;
+  }
+
+  #debug:not(.hidden) {
+    display: block !important;
+  }
+
+  #slider {
+    @apply bg-blue-200; /* Use a Tailwind color for a chill background */
+  }
+</style>
+
+<script type="text/hyperscript">
+  def showInfoModalHyperscript()
+    set content to "<p>Context Specific Information</p>"
+    call showInfoModal()
+  end
+
+  def toggleDebugMode(isEnabled)
+    set window.localStorage.debugMode to isEnabled
+    if isEnabled then
+      remove .hidden from #debug-client
+      trigger debugPanelShown on body
+    else
+      add .hidden to #debug-client
+    end
+    trigger debugModeChanged(isEnabled:isEnabled)
+  end
+
+  def toggleMonospaceMode(isEnabled)
+  set window.localStorage.monospaceMode to isEnabled
+  if isEnabled then
+    add .monospace-font to body
+  else
+    remove .monospace-font from body
+  end
+  trigger monospaceModeChanged(isEnabled:isEnabled)
+end
+
+  def initDebugMode()
+    set isDebugMode to window.localStorage.debugMode is "true"
+    call toggleDebugMode(isDebugMode)
+  end
+
+  on load
+    call initDebugMode()
+  end
+
+  on debugModeChanged(isEnabled)
+    set .debug-checkbox.checked to isEnabled
+  end
+</script>

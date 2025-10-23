@@ -1,0 +1,122 @@
+import { test } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
+import { analyzeDomStructure } from '../lib/analyzers/domAnalyzer.mjs';
+import { generateReport } from '../lib/reportGenerator.mjs';
+
+const BASE_DIR = 'pbase/playwright/test-results';
+const SCREENSHOTS_DIR = `${BASE_DIR}/screenshots`;
+const TIMELINE_DIR = `${BASE_DIR}/timeline`;
+const REPORTS_DIR = 'pbase/playwright/reports';
+
+// Function to ensure a directory exists
+function ensureDirSync(dir) {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+}
+
+async function analyzeDomStructureWithRetries(url, options, retries = 3, delay = 1000) {
+    let result;
+    for (let attempt = 0; attempt < retries; attempt++) {
+        result = await analyzeDomStructure(url, options);
+        if (result.meta.screenshot) {
+            break;
+        }
+        await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    return result;
+}
+
+// Function to capture a screenshot
+async function captureScreenshot(page, name) {
+    const screenshotPath = path.join(SCREENSHOTS_DIR, `${name}.png`);
+    await page.screenshot({ path: screenshotPath });
+    console.log(`Screenshot saved: ${screenshotPath}`);
+}
+
+function formatMemoryStats(meta) {
+    const { memory } = meta.test.system;
+
+    const formatBytes = (bytes) => {
+        const units = ['B', 'KB', 'MB', 'GB'];
+        let value = bytes;
+        let unitIndex = 0;
+        while (value >= 1024 && unitIndex < units.length - 1) {
+            value /= 1024;
+            unitIndex++;
+        }
+        return `${Math.round(value * 10) / 10}${units[unitIndex]}`;
+    };
+
+    const totalMem = formatBytes(memory.total);
+    const freeMem = formatBytes(memory.free);
+    const residentMem = formatBytes(memory.process.rss);
+    const heapTotal = formatBytes(memory.process.heapTotal);
+    const heapUsed = formatBytes(memory.process.heapUsed);
+
+    console.log(`Machine: ${freeMem} free of ${totalMem} total`);
+    console.log(`Process: ${heapTotal} heap of ${residentMem} resident memory`);
+    console.log(`In use:  ${heapUsed} for code and stack`);
+}
+
+test.use({ trace: 'on' });
+
+// Set default test timeout to 10 seconds
+test.setTimeout(20000);
+test('take snapshot before clicking and proceed with interaction', async ({ page }) => {
+    const url = 'https://pixeljamarcade.com/play/grid-ranger/';
+    console.log('Navigating to URL...');
+
+    // Navigate to the page
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    console.log('Initial page load complete.');
+
+    // Take a snapshot after the page loads, before clicking anything
+    const preClickScreenshotPath = 'pre-click-screenshot.png';
+    await page.screenshot({ path: preClickScreenshotPath, fullPage: true });
+    console.log(`Captured pre-click screenshot: ${preClickScreenshotPath}`);
+
+    // Wait for the game container to appear
+    const gameContainer = await page.waitForSelector('.game-container', { state: 'attached', timeout: 10000 });
+    console.log('Game container found.');
+
+    // Find the button inside the game container
+    const button = await gameContainer.$('button');
+    if (!button) throw new Error('Button not found in game container.');
+
+    // Ensure the button is visible and interactable
+    await button.scrollIntoViewIfNeeded();
+    await page.waitForSelector('.game-container button', { state: 'visible', timeout: 5000 });
+    console.log('Button is visible and ready to click.');
+
+    // Click the button
+    await button.click();
+    console.log('First button clicked.');
+
+    // Wait for the iframe to load
+    const iframeElement = await page.waitForSelector('.game-iframe', { state: 'attached', timeout: 10000 });
+    console.log('Iframe appeared.');
+
+    // Access iframe content
+    const iframe = await iframeElement.contentFrame();
+    if (!iframe) throw new Error('Iframe content frame not found.');
+
+    // Find and click the button inside the iframe
+    const iframeButton = iframe.locator('#start'); // Adjust selector as needed
+    await iframeButton.waitFor({ state: 'visible' });
+    await iframeButton.click();
+    console.log('Second button inside iframe clicked.');
+
+    // Wait 1 second
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log('Waited 1 second.');
+
+    // Take a final screenshot
+    const finalScreenshotPath = 'final-screenshot.png';
+    await page.screenshot({ path: finalScreenshotPath, fullPage: true });
+    console.log(`Captured final screenshot: ${finalScreenshotPath}`);
+
+    console.log('Test completed successfully.');
+});
+

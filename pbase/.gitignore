@@ -16,3 +16,6 @@ tests-old
 *notsure*
 *.zip
 
+# pdata symlink (points to canonical location)
+pdata/
+
