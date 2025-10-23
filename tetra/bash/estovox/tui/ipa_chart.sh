@@ -2,22 +2,32 @@
 # Estovox IPA Chart Display
 # Colorized IPA chart organized by articulation
 
-# Source TDS colors if available
-source_if_exists() {
-    [[ -f "$1" ]] && source "$1"
+# Source color system
+if [[ -f "$TETRA_SRC/bash/color/color_core.sh" ]]; then
+    source "$TETRA_SRC/bash/color/color_core.sh"
+    ESTOVOX_HAS_COLORS=1
+else
+    ESTOVOX_HAS_COLORS=0
+fi
+
+# Define color hex values for IPA categories
+IPA_COLOR_VOWEL="#00FFFF"      # Cyan
+IPA_COLOR_PLOSIVE="#FF0000"    # Red
+IPA_COLOR_FRICATIVE="#FFFF00"  # Yellow
+IPA_COLOR_NASAL="#00FF00"      # Green
+IPA_COLOR_APPROXIMANT="#0080FF" # Blue
+IPA_COLOR_LATERAL="#FF00FF"    # Magenta
+
+# Color helper functions
+ipa_color() {
+    local hex=$1
+    local text=$2
+    if (( ESTOVOX_HAS_COLORS )); then
+        printf "%b%s%b" "$(text_color "$hex")" "$text" "$(reset_color)"
+    else
+        printf "%s" "$text"
+    fi
 }
-
-source_if_exists "$TETRA_SRC/bash/tds/core/semantic_colors.sh"
-source_if_exists "$TETRA_SRC/bash/color/color_core.sh"
-
-# Color definitions (fallback if TDS not available)
-COLOR_VOWEL=${COLOR_CYAN:-'\033[36m'}
-COLOR_PLOSIVE=${COLOR_RED:-'\033[31m'}
-COLOR_FRICATIVE=${COLOR_YELLOW:-'\033[33m'}
-COLOR_NASAL=${COLOR_GREEN:-'\033[32m'}
-COLOR_APPROXIMANT=${COLOR_BLUE:-'\033[34m'}
-COLOR_LATERAL=${COLOR_MAGENTA:-'\033[35m'}
-COLOR_RESET=${COLOR_RESET:-'\033[0m'}
 
 estovox_render_ipa_chart() {
     tput clear
@@ -27,43 +37,43 @@ estovox_render_ipa_chart() {
 ║                    IPA PHONEME CHART - Estovox                           ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 
-${COLOR_VOWEL}VOWELS${COLOR_RESET} - Oral cavity resonance with open vocal tract
+$(ipa_color "$IPA_COLOR_VOWEL" "VOWELS") - Oral cavity resonance with open vocal tract
 ┌────────────────────────────────────────────────────────────────┐
 │                   FRONT      CENTRAL     BACK                  │
-│  CLOSE            ${COLOR_VOWEL}i${COLOR_RESET} [beet]                ${COLOR_VOWEL}u${COLOR_RESET} [boot]            │
-│  CLOSE-MID        ${COLOR_VOWEL}e${COLOR_RESET} [bay]                 ${COLOR_VOWEL}o${COLOR_RESET} [boat]            │
-│  MID                         ${COLOR_VOWEL}ə${COLOR_RESET} [about]                       │
-│  OPEN             ${COLOR_VOWEL}a${COLOR_RESET} [bat]                                    │
+│  CLOSE            $(ipa_color "$IPA_COLOR_VOWEL" "i") [beet]                $(ipa_color "$IPA_COLOR_VOWEL" "u") [boot]            │
+│  CLOSE-MID        $(ipa_color "$IPA_COLOR_VOWEL" "e") [bay]                 $(ipa_color "$IPA_COLOR_VOWEL" "o") [boat]            │
+│  MID                         $(ipa_color "$IPA_COLOR_VOWEL" "ə") [about]                       │
+│  OPEN             $(ipa_color "$IPA_COLOR_VOWEL" "a") [bat]                                    │
 └────────────────────────────────────────────────────────────────┘
 
-${COLOR_PLOSIVE}PLOSIVES${COLOR_RESET} - Complete oral closure, air released suddenly
+$(ipa_color "$IPA_COLOR_PLOSIVE" "PLOSIVES") - Complete oral closure, air released suddenly
 ┌────────────────────────────────────────────────────────────────┐
-│  BILABIAL         ${COLOR_PLOSIVE}p${COLOR_RESET} [pop]   ${COLOR_PLOSIVE}b${COLOR_RESET} [bob]                          │
+│  BILABIAL         $(ipa_color "$IPA_COLOR_PLOSIVE" "p") [pop]   $(ipa_color "$IPA_COLOR_PLOSIVE" "b") [bob]                          │
 └────────────────────────────────────────────────────────────────┘
 
-${COLOR_NASAL}NASALS${COLOR_RESET} - Air flows through nasal cavity (velum lowered)
+$(ipa_color "$IPA_COLOR_NASAL" "NASALS") - Air flows through nasal cavity (velum lowered)
 ┌────────────────────────────────────────────────────────────────┐
-│  BILABIAL         ${COLOR_NASAL}m${COLOR_RESET} [mom]                                    │
+│  BILABIAL         $(ipa_color "$IPA_COLOR_NASAL" "m") [mom]                                    │
 └────────────────────────────────────────────────────────────────┘
 
-${COLOR_FRICATIVE}FRICATIVES${COLOR_RESET} - Air forced through narrow channel
+$(ipa_color "$IPA_COLOR_FRICATIVE" "FRICATIVES") - Air forced through narrow channel
 ┌────────────────────────────────────────────────────────────────┐
-│  LABIODENTAL      ${COLOR_FRICATIVE}f${COLOR_RESET} [fan]   ${COLOR_FRICATIVE}v${COLOR_RESET} [van]                          │
-│  ALVEOLAR         ${COLOR_FRICATIVE}s${COLOR_RESET} [see]   ${COLOR_FRICATIVE}z${COLOR_RESET} [zoo]                          │
-│  POSTALVEOLAR     ${COLOR_FRICATIVE}sh${COLOR_RESET} [she]  ${COLOR_FRICATIVE}zh${COLOR_RESET} [measure]                     │
-│  GLOTTAL          ${COLOR_FRICATIVE}h${COLOR_RESET} [hat]                                    │
+│  LABIODENTAL      $(ipa_color "$IPA_COLOR_FRICATIVE" "f") [fan]   $(ipa_color "$IPA_COLOR_FRICATIVE" "v") [van]                          │
+│  ALVEOLAR         $(ipa_color "$IPA_COLOR_FRICATIVE" "s") [see]   $(ipa_color "$IPA_COLOR_FRICATIVE" "z") [zoo]                          │
+│  POSTALVEOLAR     $(ipa_color "$IPA_COLOR_FRICATIVE" "sh") [she]  $(ipa_color "$IPA_COLOR_FRICATIVE" "zh") [measure]                     │
+│  GLOTTAL          $(ipa_color "$IPA_COLOR_FRICATIVE" "h") [hat]                                    │
 └────────────────────────────────────────────────────────────────┘
 
-${COLOR_APPROXIMANT}APPROXIMANTS${COLOR_RESET} - Articulators approach but don't create turbulence
+$(ipa_color "$IPA_COLOR_APPROXIMANT" "APPROXIMANTS") - Articulators approach but don't create turbulence
 ┌────────────────────────────────────────────────────────────────┐
-│  LABIAL-VELAR     ${COLOR_APPROXIMANT}w${COLOR_RESET} [we]                                     │
-│  PALATAL          ${COLOR_APPROXIMANT}j${COLOR_RESET}/${COLOR_APPROXIMANT}y${COLOR_RESET} [yes]                                 │
-│  ALVEOLAR         ${COLOR_APPROXIMANT}r${COLOR_RESET} [red]                                    │
+│  LABIAL-VELAR     $(ipa_color "$IPA_COLOR_APPROXIMANT" "w") [we]                                     │
+│  PALATAL          $(ipa_color "$IPA_COLOR_APPROXIMANT" "j")/$(ipa_color "$IPA_COLOR_APPROXIMANT" "y") [yes]                                 │
+│  ALVEOLAR         $(ipa_color "$IPA_COLOR_APPROXIMANT" "r") [red]                                    │
 └────────────────────────────────────────────────────────────────┘
 
-${COLOR_LATERAL}LATERAL${COLOR_RESET} - Air flows around sides of tongue
+$(ipa_color "$IPA_COLOR_LATERAL" "LATERAL") - Air flows around sides of tongue
 ┌────────────────────────────────────────────────────────────────┐
-│  ALVEOLAR         ${COLOR_LATERAL}l${COLOR_RESET} [let]                                    │
+│  ALVEOLAR         $(ipa_color "$IPA_COLOR_LATERAL" "l") [let]                                    │
 └────────────────────────────────────────────────────────────────┘
 
 SPECIAL POSITIONS
@@ -73,12 +83,12 @@ SPECIAL POSITIONS
 └────────────────────────────────────────────────────────────────┘
 
 LEGEND:
-  ${COLOR_VOWEL}■${COLOR_RESET} Vowels (tongue position, jaw height, lip rounding)
-  ${COLOR_PLOSIVE}■${COLOR_RESET} Plosives (complete closure, sudden release)
-  ${COLOR_NASAL}■${COLOR_RESET} Nasals (nasal airflow, velum lowered)
-  ${COLOR_FRICATIVE}■${COLOR_RESET} Fricatives (turbulent airflow)
-  ${COLOR_APPROXIMANT}■${COLOR_RESET} Approximants (smooth airflow)
-  ${COLOR_LATERAL}■${COLOR_RESET} Lateral (air around tongue sides)
+  $(ipa_color "$IPA_COLOR_VOWEL" "■") Vowels (tongue position, jaw height, lip rounding)
+  $(ipa_color "$IPA_COLOR_PLOSIVE" "■") Plosives (complete closure, sudden release)
+  $(ipa_color "$IPA_COLOR_NASAL" "■") Nasals (nasal airflow, velum lowered)
+  $(ipa_color "$IPA_COLOR_FRICATIVE" "■") Fricatives (turbulent airflow)
+  $(ipa_color "$IPA_COLOR_APPROXIMANT" "■") Approximants (smooth airflow)
+  $(ipa_color "$IPA_COLOR_LATERAL" "■") Lateral (air around tongue sides)
 
 Press any key to return...
 EOF
