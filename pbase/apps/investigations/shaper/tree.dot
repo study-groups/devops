@@ -1,7 +1,0 @@
-digraph ResolutionTree {
-    rankdir=TB;
-    0 [label="P\(a\)"];
-    1 [label="¬P\(a\)"];
-    "P(a)" -> "¬P(a)" [label="resolve(P(a), ¬P(a))"];
-    contradiction [label="P\(a\)", shape=box, color=red];
-}
