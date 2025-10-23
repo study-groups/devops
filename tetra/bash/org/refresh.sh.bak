@@ -34,7 +34,7 @@ tetra_org_refresh() {
         return 1
     fi
 
-    local org_dir="$TETRA_DIR/orgs/$org_name"
+    local org_dir="$TETRA_DIR/org/$org_name"
     local json_file="$org_dir/digitalocean.json"
     local mapping_file="$org_dir/mapping.json"
     local secrets_file="$org_dir/secrets.env"
@@ -174,7 +174,7 @@ tetra_org_refresh_status() {
         return 1
     fi
 
-    local org_dir="$TETRA_DIR/orgs/$org_name"
+    local org_dir="$TETRA_DIR/org/$org_name"
 
     if [[ ! -d "$org_dir" ]]; then
         echo "❌ Organization not found: $org_name"

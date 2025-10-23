@@ -2,9 +2,6 @@
 # Org Hierarchical Tab Completion
 # Tree-based completion for tetra org commands
 
-# Source canonical constants
-source "${TETRA_SRC}/bash/org/org_constants.sh"
-
 # Completion tree structure
 declare -gA ORG_COMPLETION_TREE
 
@@ -132,7 +129,7 @@ org_completion_build_path() {
 
 # Complete organization names
 org_completion_orgs() {
-    local orgs_dir="$TETRA_DIR/orgs"
+    local orgs_dir="$TETRA_DIR/org"
     [[ ! -d "$orgs_dir" ]] && return
 
     local orgs=()
@@ -143,14 +140,9 @@ org_completion_orgs() {
     echo "${orgs[@]}"
 }
 
-# Complete environments (using canonical names from org_constants.sh)
+# Complete environments
 org_completion_envs() {
-    # Convert to lowercase for completion (user types lowercase)
-    local envs=()
-    for env in "${ORG_ENVIRONMENTS[@]}"; do
-        envs+=("${env,,}")  # Convert to lowercase
-    done
-    echo "${envs[@]}"
+    echo "local dev staging prod qa"
 }
 
 # Complete NodeHolder directories (containing digocean.json)

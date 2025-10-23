@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Org REPL - Clean implementation using bash/repl with simple color system
 
-source "$TETRA_SRC/bash/org/org_constants.sh"
 source "$TETRA_SRC/bash/repl/repl.sh"
 source "$TETRA_SRC/bash/color/repl_colors.sh"
 source "$TETRA_SRC/bash/org/actions.sh"
@@ -11,8 +10,8 @@ source "$TETRA_SRC/bash/org/org_repl_tui.sh"
 ORG_REPL_ENV_INDEX=0
 ORG_REPL_MODE_INDEX=0
 ORG_REPL_ACTION_INDEX=0
-ORG_REPL_ENVIRONMENTS=("${ORG_ENVIRONMENTS[@]}")
-ORG_REPL_MODES=("${ORG_MODES[@]}")
+ORG_REPL_ENVIRONMENTS=("Local" "Dev" "Staging" "Production")
+ORG_REPL_MODES=("Inspect" "Transfer" "Execute")
 
 # Helpers
 _org_active() { org_active 2>/dev/null || echo "none"; }
@@ -31,8 +30,7 @@ _org_build_prompt() {
     local action="${actions[$ORG_REPL_ACTION_INDEX]:-none}"
 
     # Capture prompt output to global variable via tmpfile (avoids command substitution subshell)
-    local tmpfile
-    tmpfile=$(mktemp /tmp/repl_prompt.XXXXXX) || return 1
+    local tmpfile="/tmp/repl_prompt_$$"
     repl_build_org_prompt "$org" "$env" "$ORG_REPL_ENV_INDEX" "$mode" "$ORG_REPL_MODE_INDEX" "$action" > "$tmpfile"
     REPL_PROMPT=$(<"$tmpfile")
     rm -f "$tmpfile"
@@ -185,12 +183,3 @@ EOF
 
 export -f org_repl
 export -f _org_repl_basic
-export -f _org_active
-export -f _org_actions
-export -f _org_build_prompt
-export -f _org_cycle_env
-export -f _org_cycle_mode
-export -f _org_cycle_action
-export -f _org_process_input
-export -f _org_show_help
-export -f _org_show_actions

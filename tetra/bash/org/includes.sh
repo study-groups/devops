@@ -3,6 +3,9 @@
 
 ORG_SRC="${ORG_SRC:-$TETRA_SRC/bash/org}"
 
+# Load constants first - required by all other modules
+source "$ORG_SRC/org_constants.sh"
+
 source "$ORG_SRC/tetra_org.sh"
 source "$ORG_SRC/discovery.sh" 2>/dev/null || true
 source "$ORG_SRC/converter.sh" 2>/dev/null || true

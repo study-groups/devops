@@ -3,8 +3,8 @@
 # Org Module Actions - TUI Integration
 # Defines verb:noun actions for organization management
 
-# Source canonical constants
-source "${TETRA_SRC}/bash/org/org_constants.sh"
+# Environments for org operations
+ORG_ENVIRONMENTS=("Local" "Dev" "Staging" "Production")
 
 # Get org-specific actions for context
 org_get_actions() {
@@ -88,36 +88,26 @@ org_action_view_orgs() {
 org_action_view_toml() {
     local active_org=$(org_active)
     if [[ "$active_org" != "none" ]]; then
-        local toml_path="$TETRA_DIR/orgs/$active_org/tetra.toml"
+        local toml_path="$TETRA_DIR/org/$active_org/tetra.toml"
         if [[ -f "$toml_path" ]]; then
             echo "Organization: $active_org"
             echo "─────────────────────────────────────"
             echo ""
 
-            # Ensure TDS is loaded for syntax highlighting
-            if [[ -z "${TDS_LOADED:-}" ]] && [[ -f "$TETRA_SRC/bash/tds/tds.sh" ]]; then
-                source "$TETRA_SRC/bash/tds/tds.sh" 2>/dev/null || true
-            fi
-
-            # Use TDS renderer if available, otherwise plain text
-            if command -v tds_toml &>/dev/null; then
-                tds_toml "$toml_path"
-            else
-                # Fallback to plain text with indentation
-                local in_section=""
-                while IFS= read -r line; do
-                    if [[ "$line" =~ ^\[(.*)\]$ ]]; then
-                        in_section="${BASH_REMATCH[1]}"
-                        echo "[$in_section]"
-                    elif [[ -n "$line" && ! "$line" =~ ^# ]]; then
-                        echo "  $line"
-                    elif [[ "$line" =~ ^# ]]; then
-                        echo "  $line"
-                    elif [[ -z "$line" && -n "$in_section" ]]; then
-                        echo ""
-                    fi
-                done < "$toml_path"
-            fi
+            # Parse sections
+            local in_section=""
+            while IFS= read -r line; do
+                if [[ "$line" =~ ^\[(.*)\]$ ]]; then
+                    in_section="${BASH_REMATCH[1]}"
+                    echo "[$in_section]"
+                elif [[ -n "$line" && ! "$line" =~ ^# ]]; then
+                    echo "  $line"
+                elif [[ "$line" =~ ^# ]]; then
+                    echo "  $line"
+                elif [[ -z "$line" && -n "$in_section" ]]; then
+                    echo ""
+                fi
+            done < "$toml_path"
         else
             echo "No tetra.toml found for: $active_org"
         fi
@@ -129,9 +119,9 @@ org_action_view_toml() {
 org_action_view_secrets() {
     local active_org=$(org_active)
     if [[ "$active_org" != "none" ]]; then
-        echo "Secrets file location: $TETRA_DIR/orgs/$active_org/secrets.env"
+        echo "Secrets file location: $TETRA_DIR/org/$active_org/secrets.env"
         echo "(Showing structure only, not values)"
-        local secrets_file="$TETRA_DIR/orgs/$active_org/secrets.env"
+        local secrets_file="$TETRA_DIR/org/$active_org/secrets.env"
         if [[ -f "$secrets_file" ]]; then
             grep -E '^[A-Z_]+=.*$' "$secrets_file" | sed 's/=.*/=***/' || echo "No secrets defined"
         else
@@ -179,7 +169,7 @@ org_action_import_json() {
 org_action_export_toml() {
     local active_org=$(org_active)
     if [[ "$active_org" != "none" ]]; then
-        local toml_path="$TETRA_DIR/orgs/$active_org/tetra.toml"
+        local toml_path="$TETRA_DIR/org/$active_org/tetra.toml"
         echo "Exporting: $toml_path"
         echo "To: ./tetra-export-$(date +%Y%m%d-%H%M%S).toml"
     else

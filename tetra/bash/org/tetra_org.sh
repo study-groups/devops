@@ -22,7 +22,7 @@ org_list() {
     for org_dir in "$orgs_dir"/*; do
         if [[ -d "$org_dir" ]]; then
             local org_name=$(basename "$org_dir")
-            local toml_file="$org_dir/${org_name}.toml"
+            local toml_file="$org_dir/tetra.toml"
 
             if [[ "$org_name" == "$active_org" ]]; then
                 echo "  $(tput bold)* $org_name$(tput sgr0) (active)"
@@ -60,8 +60,8 @@ org_switch() {
         return 1
     fi
 
-    local org_dir="$TETRA_DIR/org/$org_name"
-    local org_toml="$org_dir/${org_name}.toml"
+    local org_dir="$TETRA_DIR/orgs/$org_name"
+    local org_toml="$org_dir/tetra.toml"
     local tetra_toml="$TETRA_DIR/config/tetra.toml"
 
     if [[ ! -d "$org_dir" ]]; then
@@ -100,8 +100,8 @@ org_create() {
         return 1
     fi
 
-    local org_dir="$TETRA_DIR/org/$org_name"
-    local org_toml="$org_dir/${org_name}.toml"
+    local org_dir="$TETRA_DIR/orgs/$org_name"
+    local org_toml="$org_dir/tetra.toml"
 
     if [[ -d "$org_dir" ]]; then
         echo "Organization '$org_name' already exists"
@@ -168,8 +168,8 @@ org_validate() {
         fi
     fi
 
-    local org_dir="$TETRA_DIR/org/$org_name"
-    local org_toml="$org_dir/${org_name}.toml"
+    local org_dir="$TETRA_DIR/orgs/$org_name"
+    local org_toml="$org_dir/tetra.toml"
 
     echo "Validating organization: $org_name"
     echo
@@ -289,8 +289,8 @@ org_push() {
         return 1
     fi
 
-    local org_dir="$TETRA_DIR/org/$org_name"
-    local org_toml="$org_dir/${org_name}.toml"
+    local org_dir="$TETRA_DIR/orgs/$org_name"
+    local org_toml="$org_dir/tetra.toml"
 
     echo "🚀 Pushing '$org_name' configuration to '$environment' environment..."
     echo
@@ -368,7 +368,7 @@ org_pull() {
         return 1
     fi
 
-    local org_dir="$TETRA_DIR/org/$org_name"
+    local org_dir="$TETRA_DIR/orgs/$org_name"
     local deployed_config="$org_dir/deployed/${environment}.toml"
 
     echo "📥 Pulling '$org_name' configuration from '$environment' environment..."
@@ -380,7 +380,7 @@ org_pull() {
     fi
 
     # Create backup of current local config
-    local org_toml="$org_dir/${org_name}.toml"
+    local org_toml="$org_dir/tetra.toml"
     local backup_file="${org_toml}.backup.$(date +%s)"
 
     if [[ -f "$org_toml" ]]; then
@@ -407,7 +407,7 @@ org_rollback() {
         return 1
     fi
 
-    local org_dir="$TETRA_DIR/org/$org_name"
+    local org_dir="$TETRA_DIR/orgs/$org_name"
     local backup_dir="$org_dir/backups"
 
     echo "🔄 Rolling back '$org_name' deployment in '$environment'..."
@@ -482,7 +482,7 @@ org_template() {
         org_name="${template_name}_$(date +%Y%m%d_%H%M%S)"
     fi
 
-    local org_dir="$TETRA_DIR/org/$org_name"
+    local org_dir="$TETRA_DIR/orgs/$org_name"
 
     if [[ -d "$org_dir" ]]; then
         echo "❌ Organization '$org_name' already exists"
@@ -493,10 +493,10 @@ org_template() {
     mkdir -p "$org_dir"
 
     # Process template (simple variable substitution for now)
-    sed "s/\\\${ORG_NAME}/$org_name/g" "$template_file" > "$org_dir/${org_name}.toml"
+    sed "s/\\\${ORG_NAME}/$org_name/g" "$template_file" > "$org_dir/tetra.toml"
 
     echo "✅ Created organization '$org_name' from template '$template_name'"
-    echo "📍 Configuration: $org_dir/${org_name}.toml"
+    echo "📍 Configuration: $org_dir/tetra.toml"
     echo
     echo "Next steps:"
     echo "  1. Edit the configuration to match your setup"
@@ -536,7 +536,7 @@ org_history() {
         fi
     fi
 
-    local org_dir="$TETRA_DIR/org/$org_name"
+    local org_dir="$TETRA_DIR/orgs/$org_name"
 
     echo "📜 Deployment history for '$org_name':"
     echo
@@ -631,7 +631,7 @@ org_import() {
         return 1
     fi
 
-    local org_dir="$TETRA_DIR/org/$org_name"
+    local org_dir="$TETRA_DIR/orgs/$org_name"
 
     # Check if organization already exists
     if [[ -d "$org_dir" ]]; then
@@ -728,7 +728,7 @@ org_import() {
     fi
 
     # Convert using TES-compliant converter with mapping
-    local toml_file="$org_dir/${org_name}.toml"
+    local toml_file="$org_dir/tetra.toml"
 
     echo ""
     echo "Converting to TES-compliant TOML..."
@@ -760,7 +760,7 @@ _org_show_success_message() {
     echo "   Location: $org_dir"
     echo "   Structure:"
     echo "     📁 $org_dir/"
-    echo "     ├── 📄 ${org_name}.toml (TES-compliant infrastructure)"
+    echo "     ├── 📄 tetra.toml (TES-compliant infrastructure)"
     echo "     ├── 📁 services/ (application services)"
     echo "     ├── 📁 nginx/ (web server configs)"
     echo "     └── 📁 deployment/ (deployment strategies)"
@@ -824,7 +824,7 @@ _org_import_from_nh() {
     fi
 
     # Import infrastructure using the existing converter
-    local toml_file="$org_dir/${org_name}.toml"
+    local toml_file="$org_dir/tetra.toml"
     _org_generate_infrastructure_toml "$json_file" "$org_name" "$toml_file" "$env_file"
 
     if [[ $? -eq 0 ]]; then
@@ -920,7 +920,7 @@ _org_import_from_json() {
 
     echo "📊 Importing from JSON: $json_file"
 
-    local toml_file="$org_dir/${org_name}.toml"
+    local toml_file="$org_dir/tetra.toml"
     _org_generate_infrastructure_toml "$json_file" "$org_name" "$toml_file"
 
     if [[ $? -eq 0 ]]; then
@@ -946,7 +946,7 @@ _org_import_from_env() {
 
     echo "📊 Importing from ENV: $env_file"
 
-    local toml_file="$org_dir/${org_name}.toml"
+    local toml_file="$org_dir/tetra.toml"
     _org_generate_infrastructure_from_env "$env_file" "$org_name" "$toml_file"
 
     if [[ $? -eq 0 ]]; then

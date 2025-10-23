@@ -34,7 +34,7 @@ org_push_tes() {
     esac
 
     local symbol="@${env}"
-    local org_dir="$TETRA_DIR/orgs/${org_name}"
+    local org_dir="$TETRA_DIR/org/${org_name}"
     local org_toml="${org_dir}/tetra.toml"
     local remote_path="~/tetra/org/${org_name}/tetra.toml"
 
@@ -250,7 +250,7 @@ org_pull_tes() {
     esac
 
     local symbol="@${env}"
-    local org_dir="$TETRA_DIR/orgs/${org_name}"
+    local org_dir="$TETRA_DIR/org/${org_name}"
     local org_toml="${org_dir}/tetra.toml"
     local remote_path="~/tetra/org/${org_name}/tetra.toml"
     local backup_file="${org_toml}.backup.$(date +%s)"
@@ -331,7 +331,7 @@ org_push_status() {
         fi
     fi
 
-    local org_dir="$TETRA_DIR/orgs/${org_name}"
+    local org_dir="$TETRA_DIR/org/${org_name}"
     local deployment_dir="${org_dir}/deployed"
 
     echo ""
