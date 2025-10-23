@@ -59,15 +59,17 @@ source "$GAME_SRC/core/input_detect.sh"
 source "$GAME_SRC/core/doctor.sh"
 
 # Source Pulsar integration (optional, C engine backend)
-if [[ -f "$GAME_SRC/core/pulsar.sh" ]]; then
-    source "$GAME_SRC/core/pulsar.sh"
+if [[ -f "$GAME_SRC/games/pulsar/pulsar.sh" ]]; then
+    source "$GAME_SRC/games/pulsar/pulsar.sh"
     source "$GAME_SRC/core/game_loop_pulsar.sh"
     source "$GAME_SRC/animation/pulsar_3d.sh"
-    source "$GAME_SRC/core/pulsar_repl.sh"
     export GAME_PULSAR_AVAILABLE=true
 else
     export GAME_PULSAR_AVAILABLE=false
 fi
+
+# Source game REPL (launcher for all games)
+source "$GAME_SRC/game_repl.sh"
 
 # Source demos
 source "$GAME_SRC/demos/quadrapole.sh"
@@ -99,14 +101,9 @@ game() {
                 return 1
             fi
             ;;
-        "repl"|"pulsar-repl")
-            if [[ "$GAME_PULSAR_AVAILABLE" == "true" ]]; then
-                pulsar_repl_run "$@"
-            else
-                echo "ERROR: Pulsar engine not available. Build the C engine first:" >&2
-                echo "  cd $GAME_SRC/engine && make" >&2
-                return 1
-            fi
+        "repl")
+            # Launch main game launcher REPL
+            game_repl_run "$@"
             ;;
         "doctor"|"status"|"check")
             game_doctor
@@ -134,17 +131,17 @@ Game Module - Tetra Game Engine
 Usage: game <command> [options]
 
 Commands:
+  repl                    Launch game selector (interactive launcher)
   quadrapole              Run the Quadrapole demo (CURRENT - with NEW mechanics!)
   quadrapole-bash         Run the Quadrapole demo (original bash renderer, for posterity)
-  repl                    Interactive Pulsar Engine Protocol shell (REPL)
   doctor                  Run system diagnostics (engine, terminal, gamepad, dependencies)
   help                    Show this help message
   version                 Show version information
 
 Examples:
-  game quadrapole         # Launch Quadrapole (recommended - NEW mechanics with Pulsar C engine)
+  game repl               # Launch game selector (recommended)
+  game quadrapole         # Launch Quadrapole directly (NEW mechanics with Pulsar C engine)
   game quadrapole-bash    # Launch original Quadrapole (bash renderer, legacy)
-  game repl               # Launch interactive Pulsar REPL (explore engine commands)
   game help               # Show help
 
 Game Controls:

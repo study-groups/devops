@@ -16,6 +16,8 @@
 #include <sys/stat.h>
 #include <sys/resource.h>
 #include <sys/ioctl.h>
+#include <sys/select.h>
+#include <sys/time.h>
 #include <termios.h>
 
 /* Module headers */
@@ -38,6 +40,7 @@ static int next_id = 1;
 static int running = 0;
 static FILE *tty = NULL;
 static volatile sig_atomic_t window_resized = 0;
+static int command_check_interval = 10;  /* Check stdin every N frames (lower = more responsive, more flicker) */
 
 /* Event log (shared with utils.c) */
 Event event_log[MAX_EVENT_LOG];
@@ -323,6 +326,33 @@ static void render_frame(void) {
  * INPUT HANDLING
  * ======================================================================== */
 
+/* Try to read a command from stdin (non-blocking)
+ * Returns: command string if available, NULL otherwise */
+static char* try_read_command(void) {
+    static char buffer[1024];
+
+    /* Check if data available without blocking */
+    fd_set readfds;
+    struct timeval timeout = {0, 0};  /* Don't wait */
+
+    FD_ZERO(&readfds);
+    FD_SET(STDIN_FILENO, &readfds);
+
+    int ready = select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout);
+
+    if (ready > 0 && FD_ISSET(STDIN_FILENO, &readfds)) {
+        /* Data available, try to read */
+        if (fgets(buffer, sizeof(buffer), stdin)) {
+            buffer[strcspn(buffer, "\n")] = 0;  /* Remove newline */
+            if (strlen(buffer) > 0) {
+                return buffer;
+            }
+        }
+    }
+
+    return NULL;
+}
+
 static void handle_input(void) {
     /* Poll gamepad input */
     input_poll_gamepad(&input_mgr);
@@ -529,6 +559,21 @@ static void process_command(char *line) {
             float dt = (current_time - last_frame_time) / 1000000000.0f;
             last_frame_time = current_time;
 
+            /* Check for live commands from stdin (throttled to reduce flicker)
+             * Interval configurable via SET_COMMAND_RATE command */
+            if (frame_count % command_check_interval == 0) {
+                char *cmd = try_read_command();
+                if (cmd) {
+                    /* Process safe commands during RUN */
+                    /* Ignore: QUIT, RUN, INIT (dangerous during animation) */
+                    if (strncmp(cmd, "QUIT", 4) != 0 &&
+                        strncmp(cmd, "RUN", 3) != 0 &&
+                        strncmp(cmd, "INIT", 4) != 0) {
+                        process_command(cmd);
+                    }
+                }
+            }
+
             /* Handle input */
             handle_input();
 
@@ -571,6 +616,20 @@ static void process_command(char *line) {
         /* Exit after RUN completes - don't go back to command loop */
         cleanup_child_processes();
         exit(0);
+
+    } else if (strcmp(cmd, "SET_COMMAND_RATE") == 0) {
+        int rate;
+        if (sscanf(line, "SET_COMMAND_RATE %d", &rate) == 1) {
+            if (rate >= 1 && rate <= 60) {
+                command_check_interval = rate;
+                printf("OK SET_COMMAND_RATE %d\n", rate);
+            } else {
+                printf("ERR INVALID_RATE (must be 1-60)\n");
+            }
+        } else {
+            printf("ERR INVALID_PARAMS\n");
+        }
+        fflush(stdout);
 
     } else if (strcmp(cmd, "QUERY") == 0) {
         char path[256];

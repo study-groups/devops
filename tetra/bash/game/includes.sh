@@ -1,15 +1,23 @@
 #!/usr/bin/env bash
 
-# Game Module Includes
-# Standard includes pattern for tetra module system
+# Game Module - Entry Point
+# Following Tetra Module Convention v2.0
 
-# This file can be sourced to load the game module
-# following the tetra module pattern
-
+# Global check
 if [[ -z "$TETRA_SRC" ]]; then
     echo "Error: TETRA_SRC must be set" >&2
     return 1
 fi
 
-# Source the main game module
-source "$TETRA_SRC/bash/game/game.sh"
+# Module paths (strong globals)
+GAME_SRC="${GAME_SRC:-$TETRA_SRC/bash/game}"
+export GAME_SRC
+
+GAME_DIR="${GAME_DIR:-$TETRA_DIR/game}"
+export GAME_DIR
+
+# Source main module file
+source "$GAME_SRC/game.sh"
+
+# Module loaded
+export GAME_LOADED=true
