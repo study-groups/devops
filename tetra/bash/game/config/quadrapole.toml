@@ -1,0 +1,47 @@
+# Quadrupole Mechanics Configuration
+# Controls the behavior of the dual-pulsar quadrupole control system
+
+[quadrupole]
+# Starting position (center-left of screen)
+start_x = 20
+start_y = 12
+
+# Contrary motion detection
+contrary_threshold = 1.5        # Seconds of contrary motion required to split
+contrary_angle = 150             # Degrees - how opposite the sticks must be (180 = perfectly opposite)
+
+# Field forces (when split)
+tension_constant = 0.3           # Spring force when pulsars are too far apart
+repulsion_constant = 1.5         # Repulsion force when pulsars are too close
+max_separation = 30.0            # Maximum comfortable distance between pulsars
+min_separation = 5.0             # Minimum distance before strong repulsion
+
+[quadrupole.input]
+# Joystick mapping
+max_velocity = 20.0              # Maximum velocity in units/second at full stick deflection
+deadzone = 0.15                  # Deadzone radius for stick input [0.0 - 1.0]
+stick_sensitivity = 1.0          # Global sensitivity multiplier
+
+[quadrupole.pulsars]
+# Pulsar A (accent color)
+pulsar_a_color = "accent"
+pulsar_a_arms = 8
+pulsar_a_rotation = 0.5          # rad/s
+
+# Pulsar B (danger color)
+pulsar_b_color = "danger"
+pulsar_b_arms = 6
+pulsar_b_rotation = -0.7         # rad/s (negative = counter-clockwise)
+
+[quadrupole.visual]
+# Visual feedback for state transitions
+show_tether = true               # Show visual tether between pulsars when split
+tether_color = "info"
+show_contrary_indicator = true   # Show visual indicator during contrary motion
+contrary_indicator_color = "warning"
+
+[quadrupole.debug]
+# Debug logging
+log_stick_input = false          # Log every stick input (can be verbose)
+log_state_changes = true         # Log state transitions (bonded <-> split)
+log_field_forces = false         # Log tension/repulsion calculations

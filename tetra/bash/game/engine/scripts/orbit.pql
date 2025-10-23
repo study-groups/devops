@@ -1,0 +1,18 @@
+# Orbit - Ring of Pulsars
+# Usage: cat scripts/orbit.pql | ./bin/pulsar
+
+INIT 160 96
+
+# Circle of 8 pulsars around center (80, 48)
+# Radius ~30 units
+
+SPAWN_PULSAR 110 48 10 3 0.5 0.4 0   # East
+SPAWN_PULSAR 101 69 10 3 0.5 0.4 1   # SE
+SPAWN_PULSAR 80 78 10 3 0.5 0.4 2    # South
+SPAWN_PULSAR 59 69 10 3 0.5 0.4 3    # SW
+SPAWN_PULSAR 50 48 10 3 0.5 0.4 4    # West
+SPAWN_PULSAR 59 27 10 3 0.5 0.4 5    # NW
+SPAWN_PULSAR 80 18 10 3 0.5 0.4 0    # North
+SPAWN_PULSAR 101 27 10 3 0.5 0.4 1   # NE
+
+RUN 60

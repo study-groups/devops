@@ -1,0 +1,28 @@
+# GlyphGrid Game Engine - Global Settings
+
+[display]
+fps = 60
+default_width = 80
+default_height = 24
+show_debug_hud = false
+hud_overlay_percent = 80
+
+[physics]
+enabled = true
+timestep = 0.016  # 60 Hz
+energy_decay_rate = 0.001
+max_pulsars = 16
+
+[colors]
+# Terminal color palette (ANSI codes)
+neutral = 37
+info = 34
+success = 32
+warning = 33
+danger = 31
+accent = 35
+
+[gameplay]
+starting_pulsars = 2
+auto_pause_on_hud = true
+time_scale = 1.0

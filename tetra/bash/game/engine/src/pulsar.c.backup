@@ -1,0 +1,1422 @@
+/*
+ * GlyphGrid - Terminal sprite engine with Braille microgrid rendering
+ * Minimal implementation for tetra game module integration
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <time.h>
+#include <math.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <errno.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <stdint.h>
+#include <signal.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <sys/resource.h>
+
+#define MAX_SPRITES 256
+#define MAX_COLS 200
+#define MAX_ROWS 100
+
+/* Sprite state */
+typedef struct {
+    int active;
+    int id;
+    int mx, my;          /* microgrid position */
+    int len0;            /* base arm length */
+    int amp;             /* pulse amplitude */
+    float freq;          /* pulse frequency Hz */
+    float dtheta;        /* rotation rad/s */
+    int valence;         /* color 0-5 */
+    float theta;         /* current rotation */
+    float phase;         /* current pulse phase */
+} Sprite;
+
+/* Gamepad input state - datagram protocol */
+#define MAX_PLAYERS 4
+#define AXES_MAX 6
+
+/* Wire format (matches sender.c) */
+struct gp_msg {
+    uint32_t version;     /* = 1 */
+    uint32_t player_id;
+    uint32_t seq;
+    uint32_t buttons;     /* bitfield */
+    int16_t  axes[AXES_MAX]; /* [-32768,32767] : LX, LY, RX, RY, LT, RT */
+    uint16_t n_axes;
+    uint64_t t_mono_ns;   /* sender timestamp */
+};
+
+/* Internal normalized state */
+typedef struct {
+    float axes[AXES_MAX];      /* Normalized to [-1.0, 1.0] */
+    uint32_t buttons;          /* Bitfield (same as wire format) */
+    uint32_t last_seq;         /* Last received sequence number */
+    uint64_t last_update_ns;   /* Last receive time */
+} GamepadState;
+
+/* Event log system */
+#define MAX_EVENT_LOG 16
+typedef struct {
+    char type[16];        /* Event type: GAMEPAD, KEYBOARD, SYSTEM */
+    uint32_t user_id;     /* Anonymous user ID (0-3 for players) */
+    uint64_t timestamp_ns;
+    char data[64];        /* Event-specific data */
+} Event;
+
+/* Pixeljam Universal ID (PUID) */
+typedef struct {
+    uint64_t puid;        /* Unique identifier */
+    int32_t score;        /* Current score */
+    int32_t tokens;       /* Game tokens */
+    int32_t credits;      /* Account credits */
+    char username[32];    /* Anonymous display name */
+    uint64_t created_at;  /* Account creation timestamp */
+} PUID_Account;
+
+/* Global state */
+static Sprite sprites[MAX_SPRITES];
+static int next_id = 1;
+static int cols = 80;
+static int rows = 24;
+static int running = 0;
+static struct termios orig_termios;
+static FILE *tty = NULL;  /* Terminal output for rendering */
+static int gamepad_sock = -1;  /* Unix domain datagram socket */
+static int show_help = 0;  /* Help HUD toggle - still accessible via 'h' */
+static int paused = 0;  /* Pause state */
+static int panel_flags = 0;  /* Bitfield for numbered panels: bit 0 = panel 1, etc. */
+static int show_mapping = 0;  /* Panel 4: Mapping debug */
+static int show_config = 0;  /* Panel 9: Configuration info */
+static GamepadState gamepads[MAX_PLAYERS];  /* Per-player gamepad state */
+static Event event_log[MAX_EVENT_LOG];  /* Circular event log */
+static int event_log_head = 0;  /* Next write position */
+static PUID_Account player_accounts[MAX_PLAYERS];  /* PUID data per player */
+
+/* Input debouncing state */
+static char last_key_pressed = 0;
+static uint64_t last_key_time_ns = 0;
+static float last_logged_axes[MAX_PLAYERS][AXES_MAX] = {{0}};
+static uint64_t last_axis_log_time[MAX_PLAYERS] = {0};
+
+/* CPU usage tracking */
+static struct rusage last_rusage;
+static uint64_t last_wall_time_ns = 0;
+static float cpu_usage_percent = 0.0f;
+
+/* Keyboard simulation of gamepad */
+static int kbd_sim_enabled = 1;  /* Enable WASD → gamepad simulation by default */
+static struct {
+    int w, a, s, d;  /* WASD for left stick */
+    int i, j, k, l;  /* IJKL for right stick */
+    int space;       /* Space for button A */
+} kbd_state = {0};
+
+/* Process manager - child processes spawned by engine */
+#define MAX_CHILD_PROCESSES 4
+typedef struct {
+    pid_t pid;
+    char name[32];
+    char cmd[256];
+    int active;
+} ChildProcess;
+
+static ChildProcess child_processes[MAX_CHILD_PROCESSES];
+static int child_count = 0;
+
+/* Forward declarations */
+static int sprite_count(void);
+static void update_keyboard_gamepad_simulation(void);
+static pid_t spawn_child_process(const char *name, char *const argv[]);
+static void cleanup_child_processes(void);
+static pid_t spawn_gamepad_sender(const char *socket_path);
+
+/* Initialize sprite array */
+static void init_sprites(void) {
+    memset(sprites, 0, sizeof(sprites));
+}
+
+/* Get monotonic time in nanoseconds */
+static uint64_t now_ns(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
+}
+
+/* Initialize gamepad state */
+static void init_gamepads(void) {
+    memset(gamepads, 0, sizeof(gamepads));
+}
+
+/* Initialize event log */
+static void init_event_log(void) {
+    memset(event_log, 0, sizeof(event_log));
+    event_log_head = 0;
+}
+
+/* Initialize player accounts with anonymous IDs */
+static void init_player_accounts(void) {
+    memset(player_accounts, 0, sizeof(player_accounts));
+    uint64_t base_time = now_ns();
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        /* Generate deterministic PUID from engine start time + player slot */
+        player_accounts[i].puid = base_time + i;
+        player_accounts[i].score = 0;
+        player_accounts[i].tokens = 0;
+        player_accounts[i].credits = 0;
+        snprintf(player_accounts[i].username, sizeof(player_accounts[i].username),
+                 "Player%d", i);
+        player_accounts[i].created_at = base_time;
+    }
+}
+
+/* Log an event */
+static void log_event(const char *type, uint32_t user_id, const char *data) {
+    Event *e = &event_log[event_log_head];
+    strncpy(e->type, type, sizeof(e->type) - 1);
+    e->type[sizeof(e->type) - 1] = '\0';
+    e->user_id = user_id;
+    e->timestamp_ns = now_ns();
+    strncpy(e->data, data, sizeof(e->data) - 1);
+    e->data[sizeof(e->data) - 1] = '\0';
+    event_log_head = (event_log_head + 1) % MAX_EVENT_LOG;
+}
+
+/* ========================================================================
+ * PROCESS MANAGER - Spawn and manage child processes
+ * ======================================================================== */
+
+/* Spawn a child process and track it */
+static pid_t spawn_child_process(const char *name, char *const argv[]) {
+    if (child_count >= MAX_CHILD_PROCESSES) {
+        fprintf(stderr, "ERROR: Maximum child processes reached\n");
+        return -1;
+    }
+
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        perror("fork");
+        return -1;
+    }
+
+    if (pid == 0) {
+        /* Child process */
+        /* Redirect stdout/stderr to /dev/null to avoid cluttering terminal */
+        int devnull = open("/dev/null", O_WRONLY);
+        if (devnull >= 0) {
+            dup2(devnull, STDOUT_FILENO);
+            dup2(devnull, STDERR_FILENO);
+            close(devnull);
+        }
+
+        /* Execute the command */
+        execvp(argv[0], argv);
+
+        /* If execvp returns, it failed */
+        perror("execvp");
+        exit(1);
+    }
+
+    /* Parent process - track the child */
+    ChildProcess *proc = &child_processes[child_count++];
+    proc->pid = pid;
+    proc->active = 1;
+    strncpy(proc->name, name, sizeof(proc->name) - 1);
+    proc->name[sizeof(proc->name) - 1] = '\0';
+
+    /* Build command string for logging */
+    proc->cmd[0] = '\0';
+    for (int i = 0; argv[i] != NULL && i < 10; i++) {
+        strncat(proc->cmd, argv[i], sizeof(proc->cmd) - strlen(proc->cmd) - 1);
+        if (argv[i+1] != NULL) {
+            strncat(proc->cmd, " ", sizeof(proc->cmd) - strlen(proc->cmd) - 1);
+        }
+    }
+
+    char log_msg[128];
+    snprintf(log_msg, sizeof(log_msg), "Spawned %s (PID: %d)", name, pid);
+    log_event("SYSTEM", 0, log_msg);
+
+    return pid;
+}
+
+/* Cleanup all child processes */
+static void cleanup_child_processes(void) {
+    for (int i = 0; i < child_count; i++) {
+        if (child_processes[i].active && child_processes[i].pid > 0) {
+            /* Send SIGTERM */
+            kill(child_processes[i].pid, SIGTERM);
+
+            /* Wait briefly for graceful shutdown */
+            int status;
+            pid_t result = waitpid(child_processes[i].pid, &status, WNOHANG);
+
+            if (result == 0) {
+                /* Still running, give it 100ms */
+                usleep(100000);
+                result = waitpid(child_processes[i].pid, &status, WNOHANG);
+            }
+
+            if (result == 0) {
+                /* Force kill */
+                kill(child_processes[i].pid, SIGKILL);
+                waitpid(child_processes[i].pid, &status, 0);
+            }
+
+            char log_msg[128];
+            snprintf(log_msg, sizeof(log_msg), "Killed %s (PID: %d)",
+                     child_processes[i].name, child_processes[i].pid);
+            log_event("SYSTEM", 0, log_msg);
+
+            child_processes[i].active = 0;
+        }
+    }
+    child_count = 0;
+}
+
+/* Spawn gamepad sender process */
+static pid_t spawn_gamepad_sender(const char *socket_path) {
+    /* Find sender binary relative to engine */
+    char sender_path[512];
+
+    /* Try environment variable first */
+    const char *game_src = getenv("GAME_SRC");
+    if (game_src) {
+        snprintf(sender_path, sizeof(sender_path), "%s/tools/sender", game_src);
+    } else {
+        /* Fallback: assume we're in engine/bin/pulsar, sender is in ../../tools/sender */
+        strcpy(sender_path, "../tools/sender");
+    }
+
+    /* Check if sender exists */
+    struct stat st;
+    if (stat(sender_path, &st) != 0) {
+        fprintf(stderr, "ERROR: Cannot find sender binary at %s\n", sender_path);
+        fprintf(stderr, "  Set GAME_SRC environment variable or ensure sender is built\n");
+        log_event("SYSTEM", 0, "Gamepad sender not found");
+        return -1;
+    }
+
+    /* Build argv for sender */
+    char *argv[] = {
+        sender_path,
+        (char*)socket_path,
+        "0",  /* player_id */
+        NULL
+    };
+
+    return spawn_child_process("gamepad-sender", argv);
+}
+
+/* Open Unix domain datagram socket (non-blocking) */
+static int open_gamepad_socket(const char *path) {
+    /* Remove old socket file if exists */
+    unlink(path);
+
+    int fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+    if (fd < 0) {
+        return -1;
+    }
+
+    /* Make non-blocking */
+    int flags = fcntl(fd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+    struct sockaddr_un addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
+
+    if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        close(fd);
+        return -1;
+    }
+
+    /* Optional: increase receive buffer */
+    int rcvbuf = 256 * 1024;
+    setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
+
+    return fd;
+}
+
+/* Process one gamepad datagram */
+static void process_gamepad_datagram(const struct gp_msg *msg) {
+    if (msg->version != 1) {
+        /* Log version mismatch */
+        char err_data[64];
+        snprintf(err_data, sizeof(err_data), "Unknown version: %u", msg->version);
+        log_event("SYSTEM", 0, err_data);
+        return;
+    }
+
+    uint32_t player = msg->player_id;
+    if (player >= MAX_PLAYERS) {
+        return; /* Invalid player */
+    }
+
+    /* Update state */
+    gamepads[player].buttons = msg->buttons;
+    gamepads[player].last_seq = msg->seq;
+    gamepads[player].last_update_ns = now_ns();
+
+    /* Normalize axes from int16 [-32768, 32767] to float [-1.0, 1.0] */
+    for (int i = 0; i < AXES_MAX && i < msg->n_axes; i++) {
+        gamepads[player].axes[i] = msg->axes[i] / 32767.0f;
+    }
+
+    /* Log significant gamepad events (axes with movement > threshold or button presses) */
+    static uint32_t last_logged_buttons[MAX_PLAYERS] = {0};
+
+    /* Log button changes only */
+    if (msg->buttons != last_logged_buttons[player]) {
+        char event_data[64];
+        snprintf(event_data, sizeof(event_data), "btn=%08x seq=%u", msg->buttons, msg->seq);
+        log_event("GAMEPAD", player, event_data);
+        last_logged_buttons[player] = msg->buttons;
+    }
+
+    /* Log axis movements with debouncing:
+     * - Only if magnitude > 0.3
+     * - Only if axes changed significantly (delta > 0.1)
+     * - Rate limit to max once per 100ms
+     */
+    uint64_t now = now_ns();
+    uint64_t time_since_last_log = now - last_axis_log_time[player];
+
+    float mag = sqrtf(gamepads[player].axes[0] * gamepads[player].axes[0] +
+                      gamepads[player].axes[1] * gamepads[player].axes[1]);
+
+    if (mag > 0.3f && time_since_last_log > 100000000ULL) {  /* 100ms rate limit */
+        /* Check if axes changed significantly */
+        float delta = 0.0f;
+        for (int i = 0; i < 4; i++) {
+            float d = fabsf(gamepads[player].axes[i] - last_logged_axes[player][i]);
+            if (d > delta) delta = d;
+        }
+
+        if (delta > 0.1f) {  /* Significant change threshold */
+            char event_data[64];
+            snprintf(event_data, sizeof(event_data), "L[%.2f,%.2f] R[%.2f,%.2f]",
+                     gamepads[player].axes[0], gamepads[player].axes[1],
+                     gamepads[player].axes[2], gamepads[player].axes[3]);
+            log_event("GAMEPAD", player, event_data);
+
+            /* Update last logged state */
+            for (int i = 0; i < AXES_MAX; i++) {
+                last_logged_axes[player][i] = gamepads[player].axes[i];
+            }
+            last_axis_log_time[player] = now;
+        }
+    }
+}
+
+/* Update simulated gamepad from keyboard state */
+static void update_keyboard_gamepad_simulation(void) {
+    if (!kbd_sim_enabled) return;
+
+    /* Calculate synthetic gamepad axes from keyboard state */
+    float left_x = 0.0f, left_y = 0.0f;
+    float right_x = 0.0f, right_y = 0.0f;
+
+    /* Left stick from WASD */
+    if (kbd_state.d) left_x += 1.0f;
+    if (kbd_state.a) left_x -= 1.0f;
+    if (kbd_state.s) left_y += 1.0f;
+    if (kbd_state.w) left_y -= 1.0f;
+
+    /* LOG keyboard state */
+    static int kbd_log_counter = 0;
+    if (++kbd_log_counter % 60 == 0 && (kbd_state.w || kbd_state.a || kbd_state.s || kbd_state.d)) {
+        char event_data[128];
+        snprintf(event_data, sizeof(event_data),
+            "[KBD] w=%d a=%d s=%d d=%d -> axes[%.2f,%.2f]",
+            kbd_state.w, kbd_state.a, kbd_state.s, kbd_state.d, left_x, left_y);
+        log_event("SYSTEM", 0, event_data);
+    }
+
+    /* Right stick from IJKL */
+    if (kbd_state.l) right_x += 1.0f;
+    if (kbd_state.j) right_x -= 1.0f;
+    if (kbd_state.k) right_y += 1.0f;
+    if (kbd_state.i) right_y -= 1.0f;
+
+    /* Normalize diagonal movement */
+    float left_mag = sqrtf(left_x * left_x + left_y * left_y);
+    if (left_mag > 1.0f) {
+        left_x /= left_mag;
+        left_y /= left_mag;
+    }
+    float right_mag = sqrtf(right_x * right_x + right_y * right_y);
+    if (right_mag > 1.0f) {
+        right_x /= right_mag;
+        right_y /= right_mag;
+    }
+
+    /* Update Player 0 gamepad state (simulated) */
+    gamepads[0].axes[0] = left_x;
+    gamepads[0].axes[1] = left_y;
+    gamepads[0].axes[2] = right_x;
+    gamepads[0].axes[3] = right_y;
+    gamepads[0].axes[4] = 0.0f;  /* Left trigger */
+    gamepads[0].axes[5] = 0.0f;  /* Right trigger */
+
+    /* Button simulation */
+    uint32_t buttons = 0;
+    if (kbd_state.space) buttons |= (1u << 0);  /* A button */
+
+    gamepads[0].buttons = buttons;
+    gamepads[0].last_update_ns = now_ns();
+
+    /* Log simulated gamepad events (same debouncing as real gamepad) */
+    static uint32_t last_sim_buttons = 0;
+    if (buttons != last_sim_buttons) {
+        char event_data[64];
+        snprintf(event_data, sizeof(event_data), "[SIM] btn=%08x", buttons);
+        log_event("GAMEPAD", 0, event_data);
+        last_sim_buttons = buttons;
+    }
+
+    /* Log axis changes (with same debouncing) */
+    uint64_t now = now_ns();
+    uint64_t time_since_last = now - last_axis_log_time[0];
+
+    if ((left_mag > 0.1f || right_mag > 0.1f) && time_since_last > 100000000ULL) {
+        float delta = 0.0f;
+        for (int i = 0; i < 4; i++) {
+            float d = fabsf(gamepads[0].axes[i] - last_logged_axes[0][i]);
+            if (d > delta) delta = d;
+        }
+
+        if (delta > 0.1f) {
+            char event_data[64];
+            snprintf(event_data, sizeof(event_data), "[SIM] L[%.2f,%.2f] R[%.2f,%.2f]",
+                     left_x, left_y, right_x, right_y);
+            log_event("GAMEPAD", 0, event_data);
+
+            for (int i = 0; i < AXES_MAX; i++) {
+                last_logged_axes[0][i] = gamepads[0].axes[i];
+            }
+            last_axis_log_time[0] = now;
+        }
+    }
+}
+
+/* Poll gamepad socket for datagrams (non-blocking) */
+static void poll_gamepad_input(void) {
+    if (gamepad_sock < 0) return;
+
+    struct gp_msg msg;
+    struct sockaddr_un peer;
+    socklen_t plen = sizeof(peer);
+
+    /* Read all available datagrams */
+    while (1) {
+        ssize_t n = recvfrom(gamepad_sock, &msg, sizeof(msg), 0,
+                            (struct sockaddr*)&peer, &plen);
+
+        if (n < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                break; /* No more data */
+            }
+            if (errno == EINTR) {
+                continue; /* Interrupted, try again */
+            }
+            /* Other errors - just break */
+            break;
+        }
+
+        if ((size_t)n < sizeof(struct gp_msg)) {
+            continue; /* Short datagram, skip */
+        }
+
+        process_gamepad_datagram(&msg);
+    }
+}
+
+/* Set terminal to raw mode for non-blocking input */
+static void enable_raw_mode(int fd) {
+    tcgetattr(fd, &orig_termios);
+    struct termios raw = orig_termios;
+    raw.c_lflag &= ~(ECHO | ICANON);
+    raw.c_cc[VMIN] = 0;
+    raw.c_cc[VTIME] = 0;
+    tcsetattr(fd, TCSANOW, &raw);
+
+    /* Set fd to non-blocking */
+    int flags = fcntl(fd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
+/* Restore terminal mode */
+static void disable_raw_mode(int fd) {
+    tcsetattr(fd, TCSANOW, &orig_termios);
+
+    /* Restore fd to blocking */
+    int flags = fcntl(fd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+}
+
+/* Try to open gamepad device - DEPRECATED (using datagram socket now) */
+#if 0
+static int try_open_gamepad(void) {
+    /* Check for GAMEPAD_DEVICE environment variable first */
+    const char *env_device = getenv("GAMEPAD_DEVICE");
+    if (env_device != NULL) {
+        int fd = open(env_device, O_RDONLY | O_NONBLOCK);
+        if (fd >= 0) {
+            if (debug_mode) {
+                fprintf(stderr, "[DEBUG] Opened gamepad: %s\n", env_device);
+            }
+            return fd;
+        }
+    }
+
+    /* Try common Linux gamepad device paths */
+    const char *paths[] = {
+        "/dev/input/js0",
+        "/dev/input/js1",
+        "/dev/input/event0",
+        "/dev/input/event1",
+        "/dev/hidraw0",
+        "/dev/hidraw1",
+        NULL
+    };
+
+    for (int i = 0; paths[i] != NULL; i++) {
+        int fd = open(paths[i], O_RDONLY | O_NONBLOCK);
+        if (fd >= 0) {
+            if (debug_mode) {
+                fprintf(stderr, "[DEBUG] Opened gamepad: %s\n", paths[i]);
+            }
+            return fd;
+        }
+    }
+
+    /* macOS Note: macOS doesn't expose HID devices as simple /dev files
+     * Proper macOS gamepad support requires IOKit or Game Controller framework
+     * For now, gamepad detection on macOS reports via environment variable
+     * but actual input handling is not yet implemented */
+
+    return -1;  /* No gamepad found */
+}
+
+/* Read gamepad input (returns 1 if quit button pressed) */
+static int check_gamepad_quit(void) {
+    if (gamepad_fd < 0) return 0;
+
+    unsigned char buf[32];
+    ssize_t n = read(gamepad_fd, buf, sizeof(buf));
+
+    if (n > 0) {
+        /* Basic button detection - any button press quits for now */
+        /* This is a simple implementation - real gamepad parsing would be more complex */
+        for (ssize_t i = 0; i < n; i++) {
+            /* Look for button press patterns (simplified) */
+            if (buf[i] == 0x01 || buf[i] == 0x81) {  /* Common button press byte */
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
+#endif /* DEPRECATED gamepad code */
+
+/* Find free sprite slot */
+static int alloc_sprite(void) {
+    for (int i = 0; i < MAX_SPRITES; i++) {
+        if (!sprites[i].active) {
+            sprites[i].id = next_id++;
+            sprites[i].active = 1;
+            return i;
+        }
+    }
+    return -1;
+}
+
+/* Find sprite by ID */
+static int find_sprite(int id) {
+    for (int i = 0; i < MAX_SPRITES; i++) {
+        if (sprites[i].active && sprites[i].id == id) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/* Draw help HUD overlay */
+static void draw_help_hud(void) {
+    if (!tty || !show_help) return;
+
+    int hud_width = (cols * 80) / 100;
+    int hud_height = (rows * 80) / 100;
+    int start_x = (cols - hud_width) / 2;
+    int start_y = (rows - hud_height) / 2;
+
+    /* Draw border */
+    fprintf(tty, "\033[1;37m");  /* Bright white */
+    for (int y = start_y; y < start_y + hud_height; y++) {
+        fprintf(tty, "\033[%d;%dH", y + 1, start_x + 1);
+        if (y == start_y || y == start_y + hud_height - 1) {
+            for (int x = 0; x < hud_width; x++) fprintf(tty, "=");
+        } else {
+            fprintf(tty, "|");
+            fprintf(tty, "\033[%d;%dH|", y + 1, start_x + hud_width);
+        }
+    }
+
+    /* Draw help text */
+    int line = start_y + 2;
+    fprintf(tty, "\033[%d;%dH\033[1;36mPLASMA FIELD - Controls\033[0m", line++, start_x + 3);
+    line++;
+    fprintf(tty, "\033[%d;%dH\033[33mKEYBOARD:\033[0m", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  Q - Quit", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  H - Toggle this help", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  P - Pause/Resume", line++, start_x + 3);
+    line++;
+    fprintf(tty, "\033[%d;%dH\033[33mNUMBERED PANELS:\033[0m", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  1 - Debug info", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  2 - Event log (bottom)", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  3 - Player stats (right)", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  4 - Mapping debug (left)", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  9 - Configuration (center)", line++, start_x + 3);
+    line++;
+    fprintf(tty, "\033[%d;%dH\033[33mGAMEPAD:\033[0m", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  Sticks control pulsars", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  WASD simulates gamepad", line++, start_x + 3);
+    line++;
+    fprintf(tty, "\033[%d;%dH\033[32mConfigs: bash/game/config/*.toml\033[0m", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH\033[32mAdvanced features in development\033[0m", line++, start_x + 3);
+
+    fprintf(tty, "\033[0m");
+}
+
+/* Update CPU usage (call periodically) */
+static void update_cpu_usage(void) {
+    struct rusage usage;
+    if (getrusage(RUSAGE_SELF, &usage) != 0) {
+        cpu_usage_percent = 0.0f;
+        return;
+    }
+
+    uint64_t current_wall_ns = now_ns();
+
+    /* Calculate CPU time used since last measurement */
+    double user_time = usage.ru_utime.tv_sec + usage.ru_utime.tv_usec / 1e6;
+    double sys_time = usage.ru_stime.tv_sec + usage.ru_stime.tv_usec / 1e6;
+    double last_user_time = last_rusage.ru_utime.tv_sec + last_rusage.ru_utime.tv_usec / 1e6;
+    double last_sys_time = last_rusage.ru_stime.tv_sec + last_rusage.ru_stime.tv_usec / 1e6;
+
+    double cpu_time_delta = (user_time - last_user_time) + (sys_time - last_sys_time);
+    double wall_time_delta = (current_wall_ns - last_wall_time_ns) / 1e9;
+
+    if (wall_time_delta > 0.0) {
+        cpu_usage_percent = (float)((cpu_time_delta / wall_time_delta) * 100.0);
+        /* Clamp to reasonable values */
+        if (cpu_usage_percent > 999.0f) cpu_usage_percent = 999.0f;
+        if (cpu_usage_percent < 0.0f) cpu_usage_percent = 0.0f;
+    }
+
+    last_rusage = usage;
+    last_wall_time_ns = current_wall_ns;
+}
+
+/* Draw numbered panel 1: Debug Info */
+static void draw_panel_1_debug(void) {
+    if (!tty || !(panel_flags & (1 << 0))) return;
+
+    fprintf(tty, "\033[1;1H\033[1;36m[PANEL 1: DEBUG]\033[0m");
+    fprintf(tty, "\033[2;1H Pulsars: %d | FPS: 60 | CPU: %5.1f%% | Gamepad: %s",
+            sprite_count(), cpu_usage_percent, gamepad_sock >= 0 ? "YES" : "NO");
+    fprintf(tty, "\033[3;1H Panels: 0x%02x | Help: h | Quit: q", panel_flags);
+}
+
+/* Draw numbered panel 2: Event Log (bottom 4 lines) */
+static void draw_panel_2_event_log(void) {
+    if (!tty || !(panel_flags & (1 << 1))) return;
+
+    int log_lines = 4;
+    int start_row = rows - log_lines;
+
+    /* Display last 4 events in reverse chronological order (no title, use all 4 lines) */
+    int displayed = 0;
+    for (int i = 0; i < MAX_EVENT_LOG && displayed < log_lines; i++) {
+        int idx = (event_log_head - 1 - i + MAX_EVENT_LOG) % MAX_EVENT_LOG;
+        Event *e = &event_log[idx];
+
+        if (e->timestamp_ns == 0) continue;  /* Skip uninitialized */
+
+        /* Format timestamp - show actual time in HH:MM:SS format */
+        time_t timestamp_sec = e->timestamp_ns / 1000000000;
+        struct tm *tm_info = localtime(&timestamp_sec);
+        char time_str[16];
+        snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d",
+                 tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec);
+
+        /* Get PUID username */
+        const char *username = (e->user_id < MAX_PLAYERS) ?
+            player_accounts[e->user_id].username : "Unknown";
+
+        int row = start_row + displayed;
+        fprintf(tty, "\033[%d;1H\033[K", row);  /* Clear line */
+        fprintf(tty, "\033[32m%-10s\033[0m \033[36m%-8s\033[0m %8s | %s",
+                e->type, username, time_str, e->data);
+
+        displayed++;
+    }
+}
+
+/* Draw panel 9: Configuration Info */
+static void draw_panel_9_config(void) {
+    if (!tty || !show_config) return;
+
+    int panel_width = (cols * 70) / 100;
+    int panel_height = (rows * 70) / 100;
+    int start_x = (cols - panel_width) / 2;
+    int start_y = (rows - panel_height) / 2;
+
+    /* Draw border */
+    fprintf(tty, "\033[1;36m");  /* Cyan */
+    for (int y = start_y; y < start_y + panel_height; y++) {
+        fprintf(tty, "\033[%d;%dH", y + 1, start_x + 1);
+        if (y == start_y || y == start_y + panel_height - 1) {
+            for (int x = 0; x < panel_width; x++) fprintf(tty, "=");
+        } else {
+            fprintf(tty, "|");
+            fprintf(tty, "\033[%d;%dH|", y + 1, start_x + panel_width);
+        }
+    }
+
+    /* Draw title */
+    int line = start_y + 2;
+    fprintf(tty, "\033[%d;%dH\033[1;33m=== CONFIGURATION & MAPPING PARAMETERS ===\033[0m", line++, start_x + 3);
+    line++;
+
+    /* Environment variables */
+    fprintf(tty, "\033[%d;%dH\033[1;32mEnvironment:\033[0m", line++, start_x + 3);
+    const char *game_src = getenv("GAME_SRC");
+    const char *tetra_src = getenv("TETRA_SRC");
+    fprintf(tty, "\033[%d;%dH  GAME_SRC:  %s", line++, start_x + 3, game_src ? game_src : "(not set)");
+    fprintf(tty, "\033[%d;%dH  TETRA_SRC: %s", line++, start_x + 3, tetra_src ? tetra_src : "(not set)");
+    line++;
+
+    /* Config file locations */
+    fprintf(tty, "\033[%d;%dH\033[1;32mConfig Files:\033[0m", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  game.toml:     bash/game/config/game.toml", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  controls.toml: bash/game/config/controls.toml", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  help.toml:     bash/game/config/help.toml", line++, start_x + 3);
+    line++;
+
+    /* Mapping parameters */
+    fprintf(tty, "\033[%d;%dH\033[1;32mMapping Parameters:\033[0m", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  Velocity Scale:    20.0 units/sec", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  Position Mult X:   2.0 (microgrid)", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  Position Mult Y:   4.0 (aspect ratio)", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  Axis Inversion:    X=-1, Y=-1", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  Deadzone:          0.15", line++, start_x + 3);
+    line++;
+
+    /* Stick mapping */
+    fprintf(tty, "\033[%d;%dH\033[1;32mStick → Sprite Mapping:\033[0m", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  Left Stick  (axes 0,1) → Sprite 0 (Pulsar A)", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  Right Stick (axes 2,3) → Sprite 1 (Pulsar B)", line++, start_x + 3);
+    line++;
+
+    /* Engine info */
+    fprintf(tty, "\033[%d;%dH\033[1;32mEngine:\033[0m", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  Binary:      bash/game/engine/bin/pulsar", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  Source:      bash/game/engine/src/pulsar.c", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  FPS Target:  60", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  Screen Size: %d x %d", line++, start_x + 3, cols, rows);
+    line++;
+
+    /* Mechanics */
+    fprintf(tty, "\033[%d;%dH\033[1;32mQuadrapole Mechanics:\033[0m", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  Contrary Threshold: 1.5s", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  Contrary Angle:     150°", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  Tension Constant:   0.3", line++, start_x + 3);
+    fprintf(tty, "\033[%d;%dH  Repulsion Constant: 1.5", line++, start_x + 3);
+
+    fprintf(tty, "\033[0m");
+}
+
+/* Draw panel 4: Mapping Debug */
+static void draw_panel_4_mapping(void) {
+    if (!tty || !show_mapping) return;
+
+    int start_x = 2;
+    int start_y = rows / 2;
+
+    fprintf(tty, "\033[%d;%dH\033[1;33m[PANEL 4: MAPPING]\033[0m", start_y, start_x);
+
+    int line = start_y + 1;
+
+    /* Keyboard state */
+    fprintf(tty, "\033[%d;%dH\033[36mKeyboard:\033[0m", line++, start_x);
+    fprintf(tty, "\033[%d;%dH  WASD: %d%d%d%d  IJKL: %d%d%d%d", line++, start_x,
+        kbd_state.w, kbd_state.a, kbd_state.s, kbd_state.d,
+        kbd_state.i, kbd_state.j, kbd_state.k, kbd_state.l);
+
+    /* Gamepad axes */
+    line++;
+    fprintf(tty, "\033[%d;%dH\033[36mGamepad Axes:\033[0m", line++, start_x);
+    fprintf(tty, "\033[%d;%dH  Left:  [%.2f, %.2f]", line++, start_x,
+        gamepads[0].axes[0], gamepads[0].axes[1]);
+    fprintf(tty, "\033[%d;%dH  Right: [%.2f, %.2f]", line++, start_x,
+        gamepads[0].axes[2], gamepads[0].axes[3]);
+
+    /* Sprite positions */
+    line++;
+    fprintf(tty, "\033[%d;%dH\033[36mSprite Positions:\033[0m", line++, start_x);
+    for (int i = 0; i < MAX_SPRITES && i < 2; i++) {
+        if (sprites[i].active) {
+            fprintf(tty, "\033[%d;%dH  Sprite %d: (%d, %d)", line++, start_x,
+                i, sprites[i].mx, sprites[i].my);
+        }
+    }
+}
+
+/* Draw numbered panel 3: Player Stats */
+static void draw_panel_3_player_stats(void) {
+    if (!tty || !(panel_flags & (1 << 2))) return;
+
+    int start_x = cols - 30;
+    if (start_x < 40) start_x = 40;
+
+    fprintf(tty, "\033[1;%dH\033[1;35m[PANEL 3: PLAYERS]\033[0m", start_x);
+
+    int line = 2;
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        PUID_Account *acc = &player_accounts[i];
+        uint64_t last_input = gamepads[i].last_update_ns;
+        const char *status = (last_input > 0 && (now_ns() - last_input) < 5000000000ULL) ? "ACTIVE" : "idle";
+
+        fprintf(tty, "\033[%d;%dH\033[36m%s\033[0m %-6s", line++, start_x, acc->username, status);
+        fprintf(tty, "\033[%d;%dH  PUID: %016llx", line++, start_x, (unsigned long long)acc->puid);
+        fprintf(tty, "\033[%d;%dH  Score:%5d Tokens:%3d", line++, start_x, acc->score, acc->tokens);
+        line++;
+    }
+}
+
+/* Render a single frame (placeholder - simple output) */
+static void render_frame(void) {
+    if (!tty) return;
+
+    /* Clear screen */
+    fprintf(tty, "\033[2J\033[H");
+
+    /* Draw active sprites (simplified Braille rendering) */
+    for (int i = 0; i < MAX_SPRITES; i++) {
+        if (!sprites[i].active) continue;
+
+        Sprite *s = &sprites[i];
+
+        /* Convert microgrid to terminal coords */
+        int cx = s->mx / 2;
+        int cy = s->my / 4;
+
+        /* Valence to ANSI color */
+        const char *colors[] = {
+            "\033[37m",  /* neutral - gray */
+            "\033[34m",  /* info - blue */
+            "\033[32m",  /* success - green */
+            "\033[33m",  /* warning - yellow */
+            "\033[31m",  /* danger - red */
+            "\033[35m"   /* accent - purple */
+        };
+
+        const char *color = colors[s->valence % 6];
+
+        /* Draw pulsar with rotating arms (8 arms) */
+        for (int arm = 0; arm < 8; arm++) {
+            float angle = s->theta + (arm * 3.14159 * 2.0 / 8.0);
+
+            /* Calculate pulse effect */
+            float pulse = 1.0 + s->amp * 0.05 * sin(s->phase * 2.0 * 3.14159);
+            int len = (int)(s->len0 * 0.5 * pulse);  /* More visible arms */
+            if (len < 3) len = 3;  /* Minimum arm length */
+
+            /* Draw arm segments */
+            for (int r = 1; r <= len && r <= 15; r++) {
+                int ax = cx + (int)(r * cos(angle));
+                int ay = cy + (int)(r * sin(angle) * 0.5);  /* 0.5 for terminal aspect ratio */
+
+                /* Bounds check */
+                if (ax >= 0 && ax < cols && ay >= 0 && ay < rows) {
+                    char ch = (r == len) ? '*' : (r % 2 == 0 ? 'o' : '.');
+                    fprintf(tty, "\033[%d;%dH%s%c\033[0m", ay + 1, ax + 1, color, ch);
+                }
+            }
+        }
+
+        /* Update animation (only if not paused) */
+        if (!paused) {
+            s->theta += s->dtheta * (1.0 / 60.0);  /* assuming 60fps */
+            s->phase += s->freq * (1.0 / 60.0);
+
+            /* MAPPING: Move sprites with gamepad */
+            /* Sprite 0 (first pulsar) uses LEFT stick, Sprite 1 (second) uses RIGHT stick */
+            int stick_idx = (i % 2) * 2;  /* 0 for first sprite (axes 0,1), 2 for second (axes 2,3) */
+            float stick_x = -gamepads[0].axes[stick_idx];      /* INVERT X */
+            float stick_y = -gamepads[0].axes[stick_idx + 1];  /* INVERT Y */
+
+            /* Map to velocity (scale by 20 units/sec) */
+            float vx = stick_x * 20.0f;
+            float vy = stick_y * 20.0f;
+
+            /* LOG MAPPING */
+            static int log_counter = 0;
+            if (++log_counter % 60 == 0 && (fabs(stick_x) > 0.1f || fabs(stick_y) > 0.1f)) {
+                char event_data[128];
+                snprintf(event_data, sizeof(event_data),
+                    "[MAPPING] sprite%d stick[%d,%d] axes[%.2f,%.2f] -> vel[%.1f,%.1f] -> pos[%d,%d]",
+                    i, stick_idx, stick_idx+1, stick_x, stick_y, vx, vy, s->mx, s->my);
+                log_event("SYSTEM", 0, event_data);
+            }
+
+            /* Apply to position (delta = velocity * dt, dt = 1/60) */
+            /* Scale up velocity so movement is visible */
+            s->mx += (int)(vx * 2.0f);  /* Direct mapping - move fast */
+            s->my += (int)(vy * 4.0f);  /* *4 for terminal aspect ratio */
+
+            /* Keep in bounds */
+            if (s->mx < 0) s->mx = 0;
+            if (s->mx >= cols * 2) s->mx = cols * 2 - 1;
+            if (s->my < 0) s->my = 0;
+            if (s->my >= rows * 4) s->my = rows * 4 - 1;
+        }
+    }
+
+    /* Draw help HUD if toggled */
+    draw_help_hud();
+
+    /* Draw numbered panels */
+    draw_panel_1_debug();
+    draw_panel_2_event_log();
+    draw_panel_3_player_stats();
+    draw_panel_4_mapping();
+    draw_panel_9_config();
+
+    /* Draw pause indicator (bottom right) */
+    if (paused) {
+        int status_y = rows - 1;
+        int status_x = cols - 30;
+        fprintf(tty, "\033[%d;%dH\033[1;31m⏸  PAUSED  \033[90m[p]resume\033[0m", status_y, status_x);
+    }
+
+    fflush(tty);
+}
+
+/* Count active sprites */
+static int sprite_count(void) {
+    int count = 0;
+    for (int i = 0; i < MAX_SPRITES; i++) {
+        if (sprites[i].active) count++;
+    }
+    return count;
+}
+
+/* Process commands */
+static void process_command(char *line) {
+    char cmd[64];
+    sscanf(line, "%s", cmd);
+
+    if (strcmp(cmd, "INIT") == 0) {
+        int c, r;
+        if (sscanf(line, "INIT %d %d", &c, &r) == 2) {
+            cols = c;
+            rows = r;
+        }
+        printf("OK INIT\n");
+        fflush(stdout);
+
+    } else if (strcmp(cmd, "SPAWN_PULSAR") == 0) {
+        int mx, my, len0, amp, valence;
+        float freq, dtheta;
+
+        if (sscanf(line, "SPAWN_PULSAR %d %d %d %d %f %f %d",
+                   &mx, &my, &len0, &amp, &freq, &dtheta, &valence) == 7) {
+            int idx = alloc_sprite();
+            if (idx >= 0) {
+                sprites[idx].mx = mx;
+                sprites[idx].my = my;
+                sprites[idx].len0 = len0;
+                sprites[idx].amp = amp;
+                sprites[idx].freq = freq;
+                sprites[idx].dtheta = dtheta;
+                sprites[idx].valence = valence;
+                sprites[idx].theta = 0;
+                sprites[idx].phase = 0;
+
+                printf("ID %d\n", sprites[idx].id);
+                fflush(stdout);
+            } else {
+                printf("ERR SPRITE_LIMIT\n");
+                fflush(stdout);
+            }
+        } else {
+            printf("ERR INVALID_PARAMS\n");
+            fflush(stdout);
+        }
+
+    } else if (strcmp(cmd, "SET") == 0) {
+        int id;
+        char key[64], value[64];
+
+        if (sscanf(line, "SET %d %s %s", &id, key, value) == 3) {
+            int idx = find_sprite(id);
+            if (idx >= 0) {
+                /* Handle parameter updates */
+                if (strcmp(key, "mx") == 0) sprites[idx].mx = atoi(value);
+                else if (strcmp(key, "my") == 0) sprites[idx].my = atoi(value);
+                else if (strcmp(key, "dtheta") == 0) sprites[idx].dtheta = atof(value);
+                else if (strcmp(key, "freq") == 0) sprites[idx].freq = atof(value);
+                /* Accept but ignore unsupported parameters like amp[n], freq[n] */
+                /* This allows the protocol to work even without full feature implementation */
+
+                printf("OK SET\n");
+            } else {
+                printf("ERR SPRITE_NOT_FOUND\n");
+            }
+            fflush(stdout);
+        } else {
+            printf("ERR INVALID_PARAMS\n");
+            fflush(stdout);
+        }
+
+    } else if (strcmp(cmd, "KILL") == 0) {
+        int id;
+        if (sscanf(line, "KILL %d", &id) == 1) {
+            int idx = find_sprite(id);
+            if (idx >= 0) {
+                sprites[idx].active = 0;
+                printf("OK KILL %d\n", id);
+            } else {
+                printf("ERR SPRITE_NOT_FOUND\n");
+            }
+            fflush(stdout);
+        }
+
+    } else if (strcmp(cmd, "RUN") == 0) {
+        int fps = 60;
+        sscanf(line, "RUN %d", &fps);
+
+        /* Open TTY for rendering output and input */
+        tty = fopen("/dev/tty", "w");
+        if (!tty) {
+            printf("ERR CANNOT_OPEN_TTY\n");
+            fflush(stdout);
+            return;
+        }
+
+        /* Open TTY for input (read mode) */
+        int tty_fd = open("/dev/tty", O_RDONLY | O_NONBLOCK);
+        if (tty_fd < 0) {
+            printf("ERR CANNOT_OPEN_TTY_INPUT\n");
+            fflush(stdout);
+            fclose(tty);
+            tty = NULL;
+            return;
+        }
+
+        running = 1;
+
+        /* Gamepad via datagram socket (opened via OPEN_SOCKET command) */
+
+        /* Enable raw mode for TTY input */
+        enable_raw_mode(tty_fd);
+
+        /* Hide cursor */
+        fprintf(tty, "\033[?25l");
+        fflush(tty);
+
+        /* Initialize CPU tracking */
+        getrusage(RUSAGE_SELF, &last_rusage);
+        last_wall_time_ns = now_ns();
+        cpu_usage_percent = 0.0f;
+
+        struct timespec frame_time;
+        frame_time.tv_sec = 0;
+        frame_time.tv_nsec = 1000000000L / fps;
+
+        int frame_count = 0;
+        while (running) {
+            /* Poll gamepad input from datagram socket */
+            poll_gamepad_input();
+
+            /* Update CPU usage every 10 frames (~6 times/sec at 60fps) */
+            if (++frame_count % 10 == 0) {
+                update_cpu_usage();
+            }
+
+            render_frame();
+            nanosleep(&frame_time, NULL);
+
+            /* Check for key input - read from TTY, not stdin */
+            static int no_key_frames = 0;
+            char c;
+            if (read(tty_fd, &c, 1) > 0) {
+                /* Reset no-key counter */
+                no_key_frames = 0;
+
+                /* Process key action first */
+                if (c == 'q' || c == 'Q' || c == 27) {  /* q or ESC */
+                    running = 0;
+                } else if (c == 'h' || c == 'H' || c == '?') {
+                    show_help = !show_help;  /* Toggle help */
+                } else if (c == 'p' || c == 'P') {
+                    /* Toggle pause */
+                    paused = !paused;
+                } else if (c >= '1' && c <= '3') {
+                    /* Toggle numbered panels 1-3 */
+                    int panel = c - '1';
+                    panel_flags ^= (1 << panel);
+                } else if (c == '4') {
+                    /* Toggle mapping panel */
+                    show_mapping = !show_mapping;
+                } else if (c >= '5' && c <= '8') {
+                    /* Toggle numbered panels 5-8 */
+                    int panel = c - '1';
+                    panel_flags ^= (1 << panel);
+                } else if (c == '9') {
+                    /* Toggle configuration panel */
+                    show_config = !show_config;
+                } else if (c == '0') {
+                    /* Toggle all panels off */
+                    panel_flags = 0;
+                    show_mapping = 0;
+                    show_config = 0;
+                }
+
+                /* WASD / IJKL / Space for gamepad simulation */
+                else if (c == 'w' || c == 'W') kbd_state.w = 1;
+                else if (c == 'a' || c == 'A') kbd_state.a = 1;
+                else if (c == 's' || c == 'S') kbd_state.s = 1;
+                else if (c == 'd' || c == 'D') kbd_state.d = 1;
+                else if (c == 'i' || c == 'I') kbd_state.i = 1;
+                else if (c == 'j' || c == 'J') kbd_state.j = 1;
+                else if (c == 'k' || c == 'K') kbd_state.k = 1;
+                else if (c == 'l' || c == 'L') kbd_state.l = 1;
+                else if (c == ' ') kbd_state.space = 1;
+
+                /* Log keyboard events only on NEW key press
+                 * Don't log if same key as last frame (held key) */
+                if (c != last_key_pressed) {
+                    char kbd_event[64];
+                    snprintf(kbd_event, sizeof(kbd_event), "key='%c' (0x%02x)",
+                             (c >= 32 && c < 127) ? c : '?', (unsigned char)c);
+                    log_event("KEYBOARD", 0, kbd_event);
+                    last_key_pressed = c;
+                    last_key_time_ns = now_ns();
+                }
+            } else {
+                /* No key this frame - clear last key to detect re-press
+                 * But wait a few frames to avoid flicker */
+                no_key_frames++;
+                if (no_key_frames > 3) {  /* Clear after 3 frames of no input (~50ms at 60fps) */
+                    last_key_pressed = 0;
+                    no_key_frames = 0;
+                    /* Also clear keyboard simulation state */
+                    memset(&kbd_state, 0, sizeof(kbd_state));
+                }
+            }
+
+            /* Gamepad input now handled via poll_gamepad_input() */
+        }
+
+        /* Update keyboard→gamepad simulation EVERY FRAME (not just on keypress) */
+        update_keyboard_gamepad_simulation();
+
+        /* Restore terminal and show cursor */
+        disable_raw_mode(tty_fd);
+        close(tty_fd);
+
+        /* Close gamepad socket if opened */
+        if (gamepad_sock >= 0) {
+            close(gamepad_sock);
+            gamepad_sock = -1;
+        }
+
+        fprintf(tty, "\033[?25h\033[2J\033[H");
+        fflush(tty);
+
+        /* Close TTY */
+        if (tty) {
+            fclose(tty);
+            tty = NULL;
+        }
+
+        printf("OK RUN\n");
+        fflush(stdout);
+
+    } else if (strcmp(cmd, "QUERY") == 0) {
+        char path[256];
+        if (sscanf(line, "QUERY %s", path) == 1) {
+            /* Parse query path: pulsar.ID.property or world.property */
+            if (strncmp(path, "pulsar.", 7) == 0) {
+                int id;
+                char prop[64];
+                if (sscanf(path + 7, "%d.%s", &id, prop) == 2) {
+                    int idx = find_sprite(id);
+                    if (idx >= 0) {
+                        if (strcmp(prop, "center_x") == 0) printf("VALUE %s %d\n", path, sprites[idx].mx);
+                        else if (strcmp(prop, "center_y") == 0) printf("VALUE %s %d\n", path, sprites[idx].my);
+                        else if (strcmp(prop, "angular_velocity") == 0) printf("VALUE %s %f\n", path, sprites[idx].dtheta);
+                        else if (strcmp(prop, "pulse_frequency") == 0) printf("VALUE %s %f\n", path, sprites[idx].freq);
+                        else if (strcmp(prop, "theta") == 0) printf("VALUE %s %f\n", path, sprites[idx].theta);
+                        else if (strcmp(prop, "phase") == 0) printf("VALUE %s %f\n", path, sprites[idx].phase);
+                        else printf("ERROR Unknown property: %s\n", prop);
+                    } else {
+                        printf("ERROR Pulsar not found: %d\n", id);
+                    }
+                } else {
+                    printf("ERROR Invalid pulsar query path\n");
+                }
+            } else if (strcmp(path, "world.pulsars.count") == 0) {
+                printf("VALUE %s %d\n", path, sprite_count());
+            } else if (strncmp(path, "gamepad.", 8) == 0) {
+                /* Query gamepad state: gamepad.PLAYER.axis.AXIS_ID or gamepad.PLAYER.buttons */
+                int player;
+                char rest[128];
+                if (sscanf(path + 8, "%d.%s", &player, rest) == 2) {
+                    if (player >= 0 && player < MAX_PLAYERS) {
+                        if (strncmp(rest, "axis.", 5) == 0) {
+                            int axis_id;
+                            if (sscanf(rest + 5, "%d", &axis_id) == 1) {
+                                if (axis_id >= 0 && axis_id < AXES_MAX) {
+                                    printf("VALUE %s %f\n", path, gamepads[player].axes[axis_id]);
+                                } else {
+                                    printf("ERROR Invalid axis ID: %d\n", axis_id);
+                                }
+                            } else {
+                                printf("ERROR Invalid axis query\n");
+                            }
+                        } else if (strcmp(rest, "buttons") == 0) {
+                            printf("VALUE %s %u\n", path, gamepads[player].buttons);
+                        } else {
+                            printf("ERROR Unknown gamepad property: %s\n", rest);
+                        }
+                    } else {
+                        printf("ERROR Invalid player ID: %d\n", player);
+                    }
+                } else {
+                    printf("ERROR Invalid gamepad query path\n");
+                }
+            } else {
+                printf("ERROR Unknown query path: %s\n", path);
+            }
+            fflush(stdout);
+        }
+
+    } else if (strcmp(cmd, "EXPORT_STATE") == 0) {
+        /* Export complete state as TOML */
+        printf("version = \"1.0.0\"\n");
+        printf("timestamp = %ld\n", time(NULL));
+        printf("\n[world]\n");
+        printf("width = %d\n", cols * 2);
+        printf("height = %d\n", rows * 4);
+        printf("\n");
+
+        for (int i = 0; i < MAX_SPRITES; i++) {
+            if (sprites[i].active) {
+                printf("[[pulsars]]\n");
+                printf("id = %d\n", sprites[i].id);
+                printf("center_x = %d\n", sprites[i].mx);
+                printf("center_y = %d\n", sprites[i].my);
+                printf("angular_velocity = %f\n", sprites[i].dtheta);
+                printf("pulse_frequency = %f\n", sprites[i].freq);
+                printf("theta = %f\n", sprites[i].theta);
+                printf("phase = %f\n", sprites[i].phase);
+                printf("\n");
+            }
+        }
+        printf("END_STATE\n");
+        fflush(stdout);
+
+    } else if (strcmp(cmd, "LIST_PULSARS") == 0) {
+        for (int i = 0; i < MAX_SPRITES; i++) {
+            if (sprites[i].active) {
+                printf("%d\n", sprites[i].id);
+            }
+        }
+        printf("END_LIST\n");
+        fflush(stdout);
+
+    } else if (strcmp(cmd, "OPEN_SOCKET") == 0) {
+        char path[256];
+        if (sscanf(line, "OPEN_SOCKET %s", path) == 1) {
+            /* Auto-spawn gamepad sender if not already running */
+            pid_t sender_pid = spawn_gamepad_sender(path);
+
+            if (sender_pid > 0) {
+                /* Give sender time to initialize */
+                usleep(200000);  /* 200ms */
+            }
+
+            /* Open socket to receive datagrams from sender */
+            gamepad_sock = open_gamepad_socket(path);
+
+            if (gamepad_sock >= 0) {
+                printf("OK SOCKET_OPENED %s sender_pid=%d\n", path, sender_pid);
+            } else {
+                printf("ERROR SOCKET_OPEN_FAILED %s\n", path);
+            }
+            fflush(stdout);
+        }
+
+    } else if (strcmp(cmd, "RENDER") == 0) {
+        /* Render a single frame */
+        render_frame();
+        printf("OK RENDER\n");
+        fflush(stdout);
+
+    } else if (strcmp(cmd, "QUIT") == 0) {
+        running = 0;
+        cleanup_child_processes();
+        printf("OK QUIT\n");
+        fflush(stdout);
+        exit(0);
+    }
+}
+
+int main(void) {
+    /* Set unbuffered I/O */
+    setbuf(stdin, NULL);
+    setbuf(stdout, NULL);
+
+    /* Initialize */
+    init_sprites();
+    init_gamepads();
+    init_event_log();
+    init_player_accounts();
+
+    /* Log system startup */
+    log_event("SYSTEM", 0, "Engine initialized");
+
+    /* Send ready signal */
+    printf("OK READY\n");
+    fflush(stdout);
+
+    /* Command loop */
+    char line[1024];
+    while (fgets(line, sizeof(line), stdin)) {
+        /* Remove newline */
+        line[strcspn(line, "\n")] = 0;
+
+        if (strlen(line) > 0) {
+            process_command(line);
+        }
+    }
+
+    /* Cleanup on exit */
+    cleanup_child_processes();
+
+    return 0;
+}

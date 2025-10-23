@@ -1,0 +1,291 @@
+# Tokyo Night Palette
+# Inspired by the popular VS Code theme - balanced and professional
+
+[palette]
+name = "tokyo_night"
+theme_base = "tokyo_night"
+description = "Clean, balanced palette inspired by Tokyo Night VS Code theme"
+
+# =============================================================================
+# CORE COLORS (0-7) - Based on Tokyo Night Storm variant
+# =============================================================================
+
+[[colors]]
+index = 0
+name = "tokyo_cyan"
+hex = "7DCFFF"
+semantic_token = "env:0"
+description = "Sky blue - player color"
+
+[[colors]]
+index = 1
+name = "tokyo_blue"
+hex = "7AA2F7"
+semantic_token = "mode:0"
+description = "Deep blue - functions/methods"
+
+[[colors]]
+index = 2
+name = "tokyo_purple"
+hex = "BB9AF7"
+semantic_token = "nouns:0"
+description = "Soft purple - keywords"
+
+[[colors]]
+index = 3
+name = "tokyo_magenta"
+hex = "F7768E"
+semantic_token = "verbs:0"
+description = "Red-pink - errors/enemies"
+
+[[colors]]
+index = 4
+name = "tokyo_green"
+hex = "9ECE6A"
+semantic_token = "env:1"
+description = "Spring green - success"
+
+[[colors]]
+index = 5
+name = "tokyo_yellow"
+hex = "E0AF68"
+semantic_token = "env:2"
+description = "Golden yellow - warnings"
+
+[[colors]]
+index = 6
+name = "tokyo_orange"
+hex = "FF9E64"
+semantic_token = "verbs:1"
+description = "Warm orange - constants"
+
+[[colors]]
+index = 7
+name = "tokyo_red"
+hex = "DB4B4B"
+semantic_token = "verbs:2"
+description = "Deep red - danger"
+
+# =============================================================================
+# DIMMED VARIANTS (8-15)
+# =============================================================================
+
+[[colors]]
+index = 8
+name = "dim_cyan"
+hex = "4D7C8A"
+description = "Dimmed cyan"
+
+[[colors]]
+index = 9
+name = "dim_blue"
+hex = "4D6E9C"
+description = "Dimmed blue"
+
+[[colors]]
+index = 10
+name = "dim_purple"
+hex = "7F6DA3"
+description = "Dimmed purple"
+
+[[colors]]
+index = 11
+name = "dim_magenta"
+hex = "A64D5F"
+description = "Dimmed magenta"
+
+[[colors]]
+index = 12
+name = "dim_green"
+hex = "6A8A4A"
+description = "Dimmed green"
+
+[[colors]]
+index = 13
+name = "dim_yellow"
+hex = "967A42"
+description = "Dimmed yellow"
+
+[[colors]]
+index = 14
+name = "dim_orange"
+hex = "AA6E42"
+description = "Dimmed orange"
+
+[[colors]]
+index = 15
+name = "dim_red"
+hex = "923232"
+description = "Dimmed red"
+
+# =============================================================================
+# TOKYO NIGHT BACKGROUND/UI COLORS (16-23)
+# =============================================================================
+
+[[colors]]
+index = 16
+name = "bg_dark"
+hex = "1A1B26"
+description = "Tokyo Night main background"
+
+[[colors]]
+index = 17
+name = "bg_darker"
+hex = "16161E"
+description = "Darker background - panels"
+
+[[colors]]
+index = 18
+name = "bg_highlight"
+hex = "292E42"
+description = "Highlighted background - selections"
+
+[[colors]]
+index = 19
+name = "fg_dark"
+hex = "565F89"
+description = "Dark foreground - comments"
+
+[[colors]]
+index = 20
+name = "fg_normal"
+hex = "787C99"
+description = "Normal foreground"
+
+[[colors]]
+index = 21
+name = "fg_bright"
+hex = "A9B1D6"
+description = "Bright foreground - main text"
+
+[[colors]]
+index = 22
+name = "fg_light"
+hex = "C0CAF5"
+description = "Light foreground - emphasis"
+
+[[colors]]
+index = 23
+name = "border"
+hex = "3B4261"
+description = "Border color - lines/separators"
+
+# =============================================================================
+# ENERGY GRADIENT (24-31)
+# =============================================================================
+
+[[colors]]
+index = 24
+name = "energy_0"
+hex = "2D3F76"
+description = "No energy - deep blue"
+
+[[colors]]
+index = 25
+name = "energy_1"
+hex = "3D4F96"
+description = "Low energy"
+
+[[colors]]
+index = 26
+name = "energy_2"
+hex = "4D6EB6"
+description = "Medium-low energy"
+
+[[colors]]
+index = 27
+name = "energy_3"
+hex = "5D82D6"
+description = "Medium energy"
+
+[[colors]]
+index = 28
+name = "energy_4"
+hex = "7AA2F7"
+description = "Medium-high energy - tokyo blue"
+
+[[colors]]
+index = 29
+name = "energy_5"
+hex = "8FB5FF"
+description = "High energy"
+
+[[colors]]
+index = 30
+name = "energy_6"
+hex = "A5C8FF"
+description = "Very high energy"
+
+[[colors]]
+index = 31
+name = "energy_7"
+hex = "BBDBFF"
+description = "Maximum energy - bright blue-white"
+
+# =============================================================================
+# GRADIENTS
+# =============================================================================
+
+[gradients]
+player_energy = [24, 26, 28, 0]   # Dark blue → sky blue
+enemy_energy = [15, 11, 3, 7]     # Dim red → magenta → red
+health = [7, 6, 5, 4]             # Red → orange → yellow → green
+heat = [24, 1, 0, 22]             # Blue → cyan → white
+depth = [19, 20, 21, 22]          # Dark → bright (z-depth)
+plasma = [2, 0, 1, 22]            # Purple → cyan → blue → white
+
+# =============================================================================
+# SEMANTIC MAPPINGS
+# =============================================================================
+
+[semantic]
+# Primary consciousness
+player_core = 0           # Tokyo cyan
+player_arm = 1            # Tokyo blue
+player_trail = 8          # Dim cyan
+
+# Conjugate / inverse polarity
+conjugate_core = 3        # Tokyo magenta
+conjugate_arm = 7         # Deep red
+conjugate_trail = 11      # Dim magenta
+
+# Resonant / harmonic
+resonant_core = 2         # Tokyo purple
+resonant_arm = 10         # Dim purple
+
+# Catalyst / phase shifter
+catalyst = 5              # Yellow
+
+# Anchor / field stabilizer
+anchor = 19               # Dark foreground
+
+# Environment
+field = 16                # Tokyo Night background
+ui_text = 21              # Bright foreground
+ui_panel = 17             # Darker background
+ui_border = 23            # Border color
+grid = 19                 # Dark foreground
+
+# System states (cooperative, not competitive)
+coherent = 4              # Green - synchronized harmony
+transitioning = 5         # Yellow - phase evolution
+chaotic = 7               # Red - turbulent entropy
+flowing = 1               # Blue - energy circulation
+accent = 0                # Cyan - resonance peak
+
+# =============================================================================
+# USAGE NOTES
+# =============================================================================
+
+[notes]
+description = """
+This palette is based on the Tokyo Night Storm color scheme.
+It provides excellent contrast while being easy on the eyes.
+All colors are carefully chosen to work well together.
+Dimmed variants maintain the same hue relationships.
+Energy gradient uses blue→cyan→white progression.
+"""
+
+best_with = "Any terminal, especially with Tokyo Night theme applied"
+avoid_with = "Very bright terminals (reduces contrast)"
+compatible_terminals = ["iTerm2 + Tokyo Night", "Terminal.app + Tokyo Night", "VSCode integrated terminal"]

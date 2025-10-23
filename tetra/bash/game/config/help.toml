@@ -1,0 +1,60 @@
+# Help System - Editable without recompiling
+
+[hud]
+title = "PLASMA FIELD - GlyphGrid Engine"
+footer = "Press 'h' to close help | 'r' to reload configs"
+
+[[sections]]
+header = "GLOBAL MODE (Default)"
+keybinds = [
+    "ENTER/Button A    Spawn pulsar at center",
+    "DELETE/Button B   Delete nearest pulsar",
+    "X Button          Switch to Focused Mode",
+    "Y Button          Toggle physics simulation",
+    "L/R Triggers      Adjust time scale",
+    "+/-               Speed up/slow down time",
+    "D-Pad/Arrows      Navigate (future: cursor)",
+]
+
+[[sections]]
+header = "FOCUSED MODE (Select pulsar first)"
+keybinds = [
+    "W/Button A        Increase energy",
+    "S/Button B        Decrease energy",
+    "E/Q               Rotate faster/slower",
+    "[/]               Remove/add arm",
+    "T/Y Button        Flip polarity",
+    "Z/X / L/R Trig    Depth forward/back",
+    "X Button          Return to Global Mode",
+]
+
+[[sections]]
+header = "UNIVERSAL CONTROLS"
+keybinds = [
+    "H or ?            Toggle this help",
+    "P or SPACE        Pause/unpause",
+    "Q or ESC          Quit",
+    "R                 Reload all configs",
+    "D                 Toggle debug HUD",
+    "1/2               Switch to Global/Focused mode",
+]
+
+[[sections]]
+header = "PHYSICS INTERACTIONS"
+info = [
+    "Energy Exchange: Overlapping arms transfer energy",
+    "Magnetism: Opposite polarities attract, same repel",
+    "Synchronization: Nearby pulsars phase-lock rotation",
+    "Group Formation: Clusters orbit common center",
+    "",
+    "Experiment! The plasma field creates emergent patterns.",
+]
+
+[[sections]]
+header = "DEPTH SYSTEM (Tempest-style)"
+info = [
+    "Z-axis: 0.0 (far) to 1.0 (near)",
+    "Further = smaller + pulled toward center",
+    "16 z-order layers for arm interleaving",
+    "Creates tunnel/vortex visual effect",
+]

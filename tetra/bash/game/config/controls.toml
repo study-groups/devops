@@ -1,0 +1,68 @@
+# Input Mappings for Keyboard and Gamepad
+
+[keyboard]
+quit = ['q', 'Q', 'ESC']
+help = ['h', 'H', '?']
+pause = ['p', 'P', 'SPACE']
+reload_config = ['r', 'R']
+toggle_debug = ['d', 'D']
+mode_global = '1'
+mode_focused = '2'
+screenshot = 's'
+
+[keyboard.global_mode]
+spawn_pulsar = 'ENTER'
+delete_nearest = 'DELETE'
+increase_timescale = '+'
+decrease_timescale = '-'
+toggle_physics = 'f'
+
+[keyboard.focused_mode]
+increase_energy = 'w'
+decrease_energy = 's'
+rotate_faster = 'e'
+rotate_slower = 'q'
+add_arm = ']'
+remove_arm = '['
+flip_polarity = 't'
+depth_forward = 'z'
+depth_backward = 'x'
+
+# Gamepad button mappings (using common controller layout)
+[gamepad]
+vendor_id = 0x0000  # 0 = any
+product_id = 0x0000  # 0 = any
+
+[gamepad.buttons]
+# Button IDs vary by controller, these are common values
+button_a = 0        # Spawn / Confirm
+button_b = 1        # Delete / Cancel
+button_x = 2        # Switch mode
+button_y = 3        # Toggle polarity
+button_start = 7    # Pause
+button_select = 6   # Help
+left_trigger = 4
+right_trigger = 5
+
+[gamepad.global_mode]
+button_a_action = "spawn_pulsar"
+button_b_action = "delete_nearest"
+button_x_action = "switch_to_focused"
+button_y_action = "toggle_physics"
+left_trigger_action = "decrease_timescale"
+right_trigger_action = "increase_timescale"
+
+[gamepad.focused_mode]
+button_a_action = "increase_energy"
+button_b_action = "decrease_energy"
+button_x_action = "switch_to_global"
+button_y_action = "flip_polarity"
+left_trigger_action = "depth_backward"
+right_trigger_action = "depth_forward"
+
+[gamepad.axes]
+left_stick_x = 0
+left_stick_y = 1
+right_stick_x = 2
+right_stick_y = 3
+# Axes control rotation speed and cursor movement depending on mode

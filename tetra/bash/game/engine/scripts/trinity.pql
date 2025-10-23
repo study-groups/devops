@@ -1,0 +1,15 @@
+# Trinity - Three Pulsars in Formation
+# Usage: cat scripts/trinity.pql | ./bin/pulsar
+
+INIT 160 96
+
+# Left pulsar - Cyan (fast rotation)
+SPAWN_PULSAR 40 48 18 6 0.5 0.8 0
+
+# Center pulsar - Yellow (slow rotation)
+SPAWN_PULSAR 80 48 20 8 0.4 -0.3 2
+
+# Right pulsar - Magenta (medium rotation)
+SPAWN_PULSAR 120 48 15 4 0.7 0.6 5
+
+RUN 60

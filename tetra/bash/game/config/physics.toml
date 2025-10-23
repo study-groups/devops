@@ -1,0 +1,38 @@
+# Physics Simulation Parameters for Plasma Field
+
+[energy_exchange]
+enabled = true
+transfer_rate = 5.0  # Energy/second when arms overlap
+overlap_threshold = 2.0  # Distance in terminal cells
+efficiency = 0.8  # How much energy actually transfers (rest dissipates)
+
+[magnetism]
+enabled = true
+strength = 50.0  # Force multiplier
+falloff = 2.0  # Inverse square (2.0) or linear (1.0)
+max_distance = 30.0  # Beyond this, no magnetic effect
+# Positive attracts negative, same polarity repels
+
+[synchronization]
+enabled = true
+phase_coupling_strength = 0.1  # Kuramoto model coupling
+sync_threshold = 0.7  # Resonance level needed for phase lock
+max_sync_distance = 20.0  # Terminal cells
+frequency_tolerance = 0.1  # How close frequencies must be
+
+[group_formation]
+enabled = true
+cluster_distance = 15.0  # Max distance to join group
+min_group_size = 2
+max_group_size = 8
+orbit_speed = 0.3  # How fast groups rotate around center
+cohesion_strength = 30.0  # Force keeping group together
+
+[world]
+# Tempest-style geometry
+center_x = 0.5  # Normalized (0-1) screen center
+center_y = 0.5
+tunnel_strength = 0.7  # How much z-depth pulls toward center
+min_scale = 0.3  # Minimum size at z=0.0 (far)
+max_scale = 2.0  # Maximum size at z=1.0 (near)
+z_speed = 0.05  # How fast pulsars move in z-axis

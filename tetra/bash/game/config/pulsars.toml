@@ -1,0 +1,47 @@
+# Pulsar Templates and Default Properties
+
+[defaults]
+arm_count = 8
+base_arm_length = 18
+arm_amplitude = 6
+rotation_speed = 0.6  # rad/s
+pulse_frequency = 0.5  # Hz
+energy = 100.0
+polarity = 0.0  # -1.0 to +1.0
+z_depth = 0.5  # 0.0=far, 1.0=near
+
+[arm_defaults]
+active = true
+z_order = 8  # Middle layer (0-15)
+energy_level = 1.0
+angle_offset = 0.0  # Radians from default radial distribution
+
+# Pulsar templates for quick spawning
+[[templates]]
+name = "standard"
+arm_count = 8
+rotation_speed = 0.6
+polarity = 0.0
+color = "accent"
+
+[[templates]]
+name = "fast_spinner"
+arm_count = 6
+rotation_speed = 1.5
+polarity = 1.0
+color = "danger"
+
+[[templates]]
+name = "slow_pulse"
+arm_count = 8
+rotation_speed = 0.3
+pulse_frequency = 0.2
+polarity = -1.0
+color = "info"
+
+[[templates]]
+name = "dense_cluster"
+arm_count = 12
+base_arm_length = 12
+rotation_speed = -0.8
+color = "success"

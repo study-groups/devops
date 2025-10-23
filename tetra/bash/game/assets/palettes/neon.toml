@@ -1,0 +1,287 @@
+# Neon Palette
+# High-contrast cyberpunk aesthetic for the Pulsar game
+
+[palette]
+name = "neon"
+theme_base = "dark"
+description = "Vibrant neon colors inspired by cyberpunk and synthwave aesthetics"
+
+# =============================================================================
+# CORE COLORS (0-7)
+# =============================================================================
+
+[[colors]]
+index = 0
+name = "neon_cyan"
+hex = "00FFFF"
+semantic_token = "env:0"
+description = "Electric cyan - primary player color"
+
+[[colors]]
+index = 1
+name = "neon_blue"
+hex = "00AAFF"
+semantic_token = "mode:0"
+description = "Bright blue - player energy high"
+
+[[colors]]
+index = 2
+name = "neon_magenta"
+hex = "FF00FF"
+semantic_token = "nouns:0"
+description = "Hot magenta - collectibles"
+
+[[colors]]
+index = 3
+name = "neon_pink"
+hex = "FF0099"
+semantic_token = "verbs:0"
+description = "Hot pink - enemies"
+
+[[colors]]
+index = 4
+name = "neon_green"
+hex = "00FF00"
+semantic_token = "env:1"
+description = "Lime green - success/health"
+
+[[colors]]
+index = 5
+name = "neon_yellow"
+hex = "FFFF00"
+semantic_token = "env:2"
+description = "Electric yellow - warning"
+
+[[colors]]
+index = 6
+name = "neon_orange"
+hex = "FF8800"
+semantic_token = "verbs:1"
+description = "Hot orange - danger"
+
+[[colors]]
+index = 7
+name = "neon_red"
+hex = "FF0044"
+semantic_token = "verbs:2"
+description = "Hot red - critical damage"
+
+# =============================================================================
+# DIMMED VARIANTS (8-15)
+# =============================================================================
+
+[[colors]]
+index = 8
+name = "dim_cyan"
+hex = "008888"
+description = "Dimmed cyan - inactive player"
+
+[[colors]]
+index = 9
+name = "dim_blue"
+hex = "005588"
+description = "Dimmed blue - low energy"
+
+[[colors]]
+index = 10
+name = "dim_magenta"
+hex = "880088"
+description = "Dimmed magenta - collected items"
+
+[[colors]]
+index = 11
+name = "dim_pink"
+hex = "880044"
+description = "Dimmed pink - dead enemies"
+
+[[colors]]
+index = 12
+name = "dim_green"
+hex = "008800"
+description = "Dimmed green"
+
+[[colors]]
+index = 13
+name = "dim_yellow"
+hex = "888800"
+description = "Dimmed yellow"
+
+[[colors]]
+index = 14
+name = "dim_orange"
+hex = "884400"
+description = "Dimmed orange"
+
+[[colors]]
+index = 15
+name = "dim_red"
+hex = "880022"
+description = "Dimmed red"
+
+# =============================================================================
+# BACKGROUND/UI COLORS (16-23)
+# =============================================================================
+
+[[colors]]
+index = 16
+name = "bg_deep"
+hex = "000000"
+description = "Deep black background"
+
+[[colors]]
+index = 17
+name = "bg_dark"
+hex = "0a0a0a"
+description = "Dark grey background"
+
+[[colors]]
+index = 18
+name = "bg_medium"
+hex = "1a1a1a"
+description = "Medium grey - panels"
+
+[[colors]]
+index = 19
+name = "fg_medium"
+hex = "888888"
+description = "Medium grey text"
+
+[[colors]]
+index = 20
+name = "fg_light"
+hex = "AAAAAA"
+description = "Light grey text"
+
+[[colors]]
+index = 21
+name = "fg_bright"
+hex = "EEEEEE"
+description = "Bright text - headings"
+
+[[colors]]
+index = 22
+name = "grid_dark"
+hex = "222222"
+description = "Dark grid lines"
+
+[[colors]]
+index = 23
+name = "grid_bright"
+hex = "444444"
+description = "Bright grid lines"
+
+# =============================================================================
+# ENERGY GRADIENT (24-31)
+# =============================================================================
+
+[[colors]]
+index = 24
+name = "energy_0"
+hex = "440044"
+description = "No energy - deep purple"
+
+[[colors]]
+index = 25
+name = "energy_1"
+hex = "880088"
+description = "Low energy"
+
+[[colors]]
+index = 26
+name = "energy_2"
+hex = "AA00AA"
+description = "Medium-low energy"
+
+[[colors]]
+index = 27
+name = "energy_3"
+hex = "CC00CC"
+description = "Medium energy"
+
+[[colors]]
+index = 28
+name = "energy_4"
+hex = "FF00FF"
+description = "Medium-high energy"
+
+[[colors]]
+index = 29
+name = "energy_5"
+hex = "FF44FF"
+description = "High energy"
+
+[[colors]]
+index = 30
+name = "energy_6"
+hex = "FF88FF"
+description = "Very high energy"
+
+[[colors]]
+index = 31
+name = "energy_7"
+hex = "FFCCFF"
+description = "Maximum energy - white hot"
+
+# =============================================================================
+# GRADIENTS
+# =============================================================================
+
+[gradients]
+player_energy = [8, 1, 0, 0]      # Dim cyan → bright cyan
+enemy_energy = [11, 3, 3, 7]      # Dim pink → hot pink → red
+health = [7, 6, 5, 4]             # Red → orange → yellow → green
+heat = [24, 26, 28, 30]           # Purple → magenta → bright magenta
+depth = [22, 19, 20, 21]          # Dark → light (z-depth)
+
+# =============================================================================
+# SEMANTIC MAPPINGS
+# =============================================================================
+
+[semantic]
+# Primary consciousness / player
+player_core = 0           # Neon cyan
+player_arm = 1            # Neon blue
+player_trail = 8          # Dim cyan
+
+# Conjugate / dual polarity (opposite magnetic charge, not hostile)
+conjugate_core = 3        # Hot pink
+conjugate_arm = 7         # Hot red
+conjugate_trail = 11      # Dim pink
+
+# Resonant / harmonic (same frequency, different phase)
+resonant_core = 2         # Magenta
+resonant_arm = 10         # Dim magenta
+
+# Catalyst (triggers phase transitions, energy exchange)
+catalyst = 5              # Yellow
+
+# Anchor / stabilizer (fixed field points)
+anchor = 19               # Medium grey
+
+# Environment
+field = 16                # Black void
+ui_text = 21              # Bright grey
+ui_panel = 18             # Medium grey
+ui_border = 0             # Cyan
+
+# State indicators (not win/lose, but system states)
+coherent = 4              # Green - phase-locked, synchronized
+transitioning = 5         # Yellow - energy flowing, shifting
+chaotic = 7               # Red - high entropy, turbulent
+flowing = 1               # Blue - stable energy transfer
+
+# =============================================================================
+# USAGE NOTES
+# =============================================================================
+
+[notes]
+description = """
+This palette is designed for maximum visual impact on dark terminals.
+All primary colors are at maximum saturation (FF component).
+Dimmed variants use 0x88 for consistency.
+Energy gradients use purple→magenta→white progression.
+UI colors are desaturated for contrast with game elements.
+"""
+
+best_with = "Dark terminal background, 256-color support"
+avoid_with = "Light backgrounds (colors will be harsh)"
