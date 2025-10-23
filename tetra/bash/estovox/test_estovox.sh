@@ -140,6 +140,15 @@ test_command_processing() {
     fi
 }
 
+test_clear_command() {
+    # Test clear command (shouldn't fail)
+    if estovox_process_command "clear" >/dev/null 2>&1; then
+        test_result "Command processing (clear)" "PASS"
+    else
+        test_result "Command processing (clear)" "FAIL"
+    fi
+}
+
 test_phoneme_list() {
     local phonemes=$(estovox_list_phonemes)
 
@@ -178,6 +187,7 @@ test_clamp
 test_update_frame
 test_reset_state
 test_command_processing
+test_clear_command
 test_phoneme_list
 test_expression_list
 

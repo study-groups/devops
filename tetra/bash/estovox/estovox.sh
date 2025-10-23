@@ -29,22 +29,40 @@ Version: $ESTOVOX_MOD_VERSION
 Description: Facial animation and IPA-based articulation system
 
 Features:
-  - IPA phoneme articulation
+  - Full TUI with command and interactive modes
+  - Real-time keyboard controls (WASD, IJKL)
+  - IPA phoneme articulation with color chart
   - Facial expression presets
   - Real-time animation with interpolation
   - TUI rendering with TDS components
-  - Interactive REPL interface
 
 Usage:
-  estovox              - Start interactive REPL
+  estovox              - Start full TUI (default)
+  estovox tui          - Start full TUI with modes
+  estovox repl         - Simple command-only REPL
+  estovox ipa          - Show IPA chart
   estovox demo         - Run demonstration
-  estovox help         - Show help
+  estovox help         - Show this help
 
-Commands (in REPL):
+Modes:
+  Command Mode         - Type commands (default start)
+  Interactive Mode     - Real-time keyboard control (ESC or 'interactive')
+
+Keyboard Controls (Interactive Mode):
+  WASD                 - Jaw control
+  IJKL                 - Tongue control
+  Q/E                  - Lip rounding/spreading
+  1-5                  - Quick vowels (i,e,a,o,u)
+  R                    - Reset to neutral
+  :                    - Enter command mode
+
+Commands (Command Mode):
   ph <ipa>             - Articulate phoneme
   expr <name>          - Show expression
-  say <text>           - Simple text-to-speech
-  help                 - Full command list
+  ipa                  - Show IPA chart
+  interactive          - Switch to interactive mode
+  help                 - Show controls help
+  quit                 - Exit
 EOF
 }
 
@@ -83,16 +101,27 @@ estovox_demo() {
 # === MAIN ENTRY POINT ===
 
 estovox() {
-    local cmd=${1:-repl}
+    local cmd=${1:-tui}
     shift || true
 
     case $cmd in
+        tui|"")
+            # New default: Full TUI with modes
+            source "$ESTOVOX_MOD_DIR/repl/estovox_tui.sh"
+            estovox_tui
+            ;;
         repl)
+            # Legacy REPL (simple command-only mode)
             source "$ESTOVOX_MOD_DIR/repl/estovox_repl.sh"
             estovox_repl
             ;;
         demo)
             estovox_demo
+            ;;
+        ipa)
+            # Quick IPA chart display
+            source "$ESTOVOX_MOD_DIR/tui/ipa_chart.sh"
+            estovox_render_ipa_chart
             ;;
         init)
             estovox_module_init

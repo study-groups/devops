@@ -66,6 +66,9 @@ set LIP_ROUNDING 1.0
 # Reset to neutral
 reset
 
+# Clear screen
+clear
+
 # Exit
 quit
 ```

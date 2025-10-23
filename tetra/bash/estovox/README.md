@@ -88,6 +88,9 @@ list all
 
 # Show help
 help
+
+# Clear screen and redraw face
+clear
 ```
 
 ## Available Phonemes

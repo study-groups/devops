@@ -133,6 +133,32 @@ estovox_cmd_clear() {
     tput clear
 }
 
+estovox_cmd_ipa() {
+    # Source IPA chart if not already loaded
+    if ! type -t estovox_render_ipa_chart >/dev/null 2>&1; then
+        local mod_dir="${BASH_SOURCE[0]%/*}/.."
+        source "$mod_dir/tui/ipa_chart.sh"
+    fi
+
+    estovox_render_ipa_chart
+}
+
+estovox_cmd_controls() {
+    # Source IPA chart module for controls help
+    if ! type -t estovox_render_controls_help >/dev/null 2>&1; then
+        local mod_dir="${BASH_SOURCE[0]%/*}/.."
+        source "$mod_dir/tui/ipa_chart.sh"
+    fi
+
+    estovox_render_controls_help
+}
+
+estovox_cmd_interactive() {
+    echo "Switching to interactive mode..."
+    echo "(This command only works in TUI mode, not legacy REPL)"
+    sleep 2
+}
+
 estovox_cmd_list() {
     local what=${1:-all}
 
