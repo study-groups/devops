@@ -129,8 +129,15 @@ estovox_cmd_reset() {
     echo "State reset to defaults"
 }
 
+estovox_cmd_clear() {
+    tput clear
+}
+
 estovox_cmd_list() {
     local what=${1:-all}
+
+    # Clear screen for list output
+    tput clear
 
     case $what in
         phonemes|phoneme)
@@ -159,9 +166,17 @@ estovox_cmd_list() {
             return 1
             ;;
     esac
+
+    echo ""
+    echo "Press any key to continue..."
+    read -n 1 -s
+    tput clear
 }
 
 estovox_cmd_help() {
+    # Clear the screen first
+    tput clear
+
     cat <<'EOF'
 ╭────────────────────────────────────────────────────────────╮
 │                    Estovox REPL Commands                    │
@@ -186,6 +201,7 @@ Information:
     - params                    - List all parameters
     - all                       - List everything
   help                          - Show this help
+  clear                         - Clear screen and redraw
 
 Control:
   quit, exit                    - Exit Estovox
@@ -201,6 +217,11 @@ Shortcuts:
   ph = phoneme
   seq = sequence
 EOF
+
+    echo ""
+    echo "Press any key to continue..."
+    read -n 1 -s
+    tput clear
 }
 
 # === COMMAND DISPATCHER ===
@@ -233,6 +254,9 @@ estovox_process_command() {
             ;;
         reset)
             estovox_cmd_reset "$@"
+            ;;
+        clear|cls)
+            estovox_cmd_clear "$@"
             ;;
         list|ls)
             estovox_cmd_list "$@"
@@ -278,7 +302,7 @@ estovox_get_completions() {
             ;;
         *)
             # Top-level commands
-            echo "phoneme ph expr expression set setimm get seq sequence say reset list ls help quit exit"
+            echo "phoneme ph expr expression set setimm get seq sequence say reset clear cls list ls help quit exit"
             ;;
     esac
 }
