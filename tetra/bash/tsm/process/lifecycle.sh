@@ -273,31 +273,41 @@ tetra_tsm_stop_by_id() {
 
 tetra_tsm_delete_single() {
     local name="$1"
+    local process_dir="$TSM_PROCESSES_DIR/$name"
+
+    # Check if process exists
+    if [[ ! -d "$process_dir" ]]; then
+        echo "tsm: process '$name' not found"
+        return 1
+    fi
 
     # Stop the process if running
     tetra_tsm_is_running "$name" && tetra_tsm_stop_single "$name" "true" 2>/dev/null || true
 
-    # Get all timestamps for this name (historical)
-    local timestamps=$(tsm_get_service_history "$name")
-
-    if [[ -n "$timestamps" ]]; then
-        while IFS= read -r timestamp; do
-            # Remove all TCS files for this timestamp
-            local db_files=$(tsm_get_db_files "$timestamp")
-            if [[ -n "$db_files" ]]; then
-                echo "$db_files" | xargs rm -f
-            fi
-
-            # Unregister from names registry
-            tsm_unregister_name "$timestamp"
-        done <<< "$timestamps"
-
-        tetra_log_success "tsm" "delete" "$name" "{}"
-        echo "tsm: deleted '$name' (removed $(echo "$timestamps" | wc -l | tr -d ' ') instance(s))"
-    else
-        echo "tsm: process '$name' not found"
-        return 1
+    # Get TSM ID before deleting the directory
+    local meta_file="${process_dir}/meta.json"
+    local tsm_id=""
+    if [[ -f "$meta_file" ]]; then
+        tsm_id=$(jq -r '.tsm_id // empty' "$meta_file" 2>/dev/null)
     fi
+
+    # Remove process directory (contains meta.json and any other metadata)
+    rm -rf "$process_dir"
+
+    # Clean up any reserved ID placeholder for this process
+    if [[ -n "$tsm_id" ]]; then
+        local reserved_dir="$TSM_PROCESSES_DIR/.reserved-$tsm_id"
+        [[ -d "$reserved_dir" ]] && rm -rf "$reserved_dir"
+    fi
+
+    # Clean up legacy TCS database files if they exist
+    local db_pattern="bash/tsm/db/*.tsm.*"
+    if compgen -G "$db_pattern" > /dev/null 2>&1; then
+        find bash/tsm/db -name "*${name}*.tsm.*" -type f -delete 2>/dev/null || true
+    fi
+
+    tetra_log_success "tsm" "delete" "$name" "{}"
+    echo "tsm: deleted '$name'"
 }
 
 tetra_tsm_delete_by_id() {

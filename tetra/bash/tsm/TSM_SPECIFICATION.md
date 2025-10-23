@@ -584,11 +584,14 @@ bash tests/run_all_tests.sh
 
 ## References
 
-- **User Guide:** [README.md](./README.md)
-- **Tetra Conventions:** `../../docs/Tetra_Module_Convention.md`
-- **Tests:** `tests/`
+- **User Guide:** [README.md](./README.md) - Complete user documentation
+- **Daemon Setup:** [docs/reference/tsm/daemon-setup.md](../../docs/reference/tsm/daemon-setup.md) - Systemd integration
+- **Testing Guide:** [docs/reference/tsm/testing.md](../../docs/reference/tsm/testing.md) - Test suite documentation
+- **Architecture Review:** [docs/reference/tsm/architecture-review.md](../../docs/reference/tsm/architecture-review.md) - Design decisions
+- **Tetra Conventions:** [docs/Tetra_Module_Convention.md](../../docs/Tetra_Module_Convention.md) - Module standards
+- **Test Suite:** `tests/` - 50 comprehensive tests
 - **Examples:** See service definitions in `services/definitions.sh`
 
 ---
 
-**End of Reference**
+**End of Specification**

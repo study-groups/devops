@@ -187,12 +187,15 @@ tsm_start_any_command() {
         return 1
     }
 
+    # Create wrapper error log to capture setup/bash errors
+    local log_wrapper="$process_dir/wrapper.err"
+
     (
         $setsid_cmd bash -c "
             $env_setup
             $final_command </dev/null >>'${log_out}' 2>>'${log_err}' &
             echo \$! > '${pid_file}'
-        " &
+        " 2>>'${log_wrapper}' &
     )
 
     sleep 0.5
@@ -200,6 +203,14 @@ tsm_start_any_command() {
     # Verify started
     if [[ ! -f "$pid_file" ]]; then
         echo "❌ Failed to start: $name (no PID file)" >&2
+
+        # Show wrapper errors if any (env file errors, pre-hook failures, etc.)
+        if [[ -f "$log_wrapper" && -s "$log_wrapper" ]]; then
+            echo "" >&2
+            echo "Startup wrapper errors:" >&2
+            tail -10 "$log_wrapper" >&2
+        fi
+
         return 1
     fi
 
@@ -225,9 +236,30 @@ tsm_start_any_command() {
             fi
         fi
 
-        # No port conflict, show stderr
-        echo "Process started but crashed. Check error logs:" >&2
-        [[ -f "$log_err" ]] && tail -10 "$log_err" >&2
+        # No port conflict, show all available error logs
+        local has_errors=false
+
+        # Show wrapper errors (env file, pre-hook failures)
+        if [[ -f "$log_wrapper" && -s "$log_wrapper" ]]; then
+            echo "Startup wrapper errors:" >&2
+            tail -10 "$log_wrapper" >&2
+            has_errors=true
+        fi
+
+        # Show process stderr
+        if [[ -f "$log_err" && -s "$log_err" ]]; then
+            [[ "$has_errors" == "true" ]] && echo "" >&2
+            echo "Process error output:" >&2
+            tail -10 "$log_err" >&2
+            has_errors=true
+        fi
+
+        # If no errors captured, provide generic message
+        if [[ "$has_errors" == "false" ]]; then
+            echo "Process started but crashed immediately with no error output." >&2
+            echo "Check logs: $log_out and $log_err" >&2
+        fi
+
         return 1
     fi
 
