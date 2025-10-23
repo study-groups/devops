@@ -479,10 +479,10 @@ debug:          Build with debug symbols
 
 | Metric | Target | Notes |
 |--------|--------|-------|
-| Latency | < 25ms | End-to-end command-to-audio |
+| Latency | < 20ms | End-to-end command-to-audio |
 | CPU Usage | < 10% | Single core @ 2 GHz |
 | Buffer Size | 512 samples | @ 44.1 kHz = 11.6ms |
-| Lookahead | 50ms | Ring buffer size |
+| Lookahead | 40ms | Ring buffer size |
 | Formants | 5 | F1-F5 (can reduce to 3 for efficiency) |
 | Max Grains | 32-64 | Concurrent active grains |
 

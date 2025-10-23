@@ -6,7 +6,7 @@ The Estovox Command Language (ECL) is a real-time protocol for streaming phoneti
 
 ## Design Goals
 
-1. **Real-time Performance**: Target 25ms average phoneme duration
+1. **Real-time Performance**: Target 20ms average phoneme duration
 2. **IPA Compatibility**: Direct mapping from IPA phonemes to formant parameters
 3. **Prosodic Control**: Support for pitch, duration, intensity, and emotional cues
 4. **Streaming Protocol**: Continuous command flow with timing precision
@@ -192,9 +192,9 @@ STOP                   # Stop immediately (with fadeout)
 ### Target Latency
 
 - **Command processing**: < 1ms
-- **Formant interpolation**: 5-10ms
-- **Audio buffer**: 10-15ms
-- **Total latency**: 20-25ms (target)
+- **Formant interpolation**: 5-8ms
+- **Audio buffer**: 8-12ms
+- **Total latency**: 15-20ms (target)
 
 ### Buffer Management
 
@@ -381,13 +381,13 @@ ERROR SYNTHESIS_FAILURE
 
 ## Summary
 
-The Estovox Command Language provides a simple, text-based protocol for real-time control of formant synthesis. It balances expressiveness with parsing efficiency, enabling rich vocal synthesis while maintaining sub-30ms latency.
+The Estovox Command Language provides a simple, text-based protocol for real-time control of formant synthesis. It balances expressiveness with parsing efficiency, enabling rich vocal synthesis while maintaining sub-20ms latency.
 
 **Key Features:**
 - ✅ IPA-based phoneme control
 - ✅ Prosodic parameter control
 - ✅ Emotional vocal characteristics
-- ✅ Real-time performance (< 25ms)
+- ✅ Real-time performance (< 20ms)
 - ✅ Extensible command set
 - ✅ Simple text protocol
 - ✅ Vocal fry and breathiness support
