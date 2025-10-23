@@ -106,8 +106,8 @@ estovox() {
 
     case $cmd in
         tui|"")
-            # New default: Full TUI with modes
-            source "$ESTOVOX_MOD_DIR/repl/estovox_tui.sh"
+            # Full TUI with modes (production version)
+            source "$ESTOVOX_MOD_DIR/repl/estovox_tui_final.sh"
             estovox_tui
             ;;
         repl)
