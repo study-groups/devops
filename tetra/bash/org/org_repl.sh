@@ -1,94 +1,245 @@
 #!/usr/bin/env bash
-# Org REPL - Clean implementation using bash/repl with simple color system
+# Org REPL - Interactive Organization Management Shell
+# Integrates with bash/repl, TDS, and TSM
 
-source "$TETRA_SRC/bash/org/org_constants.sh"
+# Source dependencies (follow module hierarchy)
+# bash/repl - Universal REPL system
 source "$TETRA_SRC/bash/repl/repl.sh"
-source "$TETRA_SRC/bash/color/repl_colors.sh"
-source "$TETRA_SRC/bash/org/actions.sh"
-source "$TETRA_SRC/bash/org/org_repl_tui.sh"
 
-# State
+# bash/color - Color system (loaded by repl.sh, but explicit for clarity)
+source "$TETRA_SRC/bash/color/repl_colors.sh"
+
+# bash/tds - Display system (borders and layout only)
+TDS_SRC="${TETRA_SRC}/bash/tds"
+if [[ -f "$TDS_SRC/layout/borders.sh" ]]; then
+    # Load only what we need: ANSI utilities and borders
+    source "$TDS_SRC/core/ansi.sh"
+    source "$TDS_SRC/layout/borders.sh"
+else
+    echo "Warning: TDS borders not found, layout may not align" >&2
+fi
+
+# Org-specific modules
+ORG_SRC="${TETRA_SRC}/bash/org"
+source "$ORG_SRC/org_constants.sh"
+source "$ORG_SRC/actions.sh"
+source "$ORG_SRC/org_help.sh" 2>/dev/null || true
+
+# REPL Configuration
+REPL_HISTORY_BASE="${TETRA_DIR}/org/history/org_repl"
+
+# REPL State
 ORG_REPL_ENV_INDEX=0
 ORG_REPL_MODE_INDEX=0
 ORG_REPL_ACTION_INDEX=0
 ORG_REPL_ENVIRONMENTS=("${ORG_ENVIRONMENTS[@]}")
 ORG_REPL_MODES=("${ORG_MODES[@]}")
 
-# Helpers
-_org_active() { org_active 2>/dev/null || echo "none"; }
+# ============================================================================
+# STATE HELPERS
+# ============================================================================
+
+_org_active() {
+    org_active 2>/dev/null || echo "none"
+}
+
 _org_actions() {
     org_get_actions "${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}" \
                     "${ORG_REPL_MODES[$ORG_REPL_MODE_INDEX]}"
 }
 
-# Prompt builder using simple color system
-# Sets global REPL_PROMPT (not via return/echo to avoid command substitution subshell)
-_org_build_prompt() {
+# ============================================================================
+# NAVIGATION (State Cyclers)
+# ============================================================================
+
+_org_cycle_env() {
+    ORG_REPL_ENV_INDEX=$(( (ORG_REPL_ENV_INDEX + 1) % ${#ORG_REPL_ENVIRONMENTS[@]} ))
+    ORG_REPL_ACTION_INDEX=0
+}
+
+_org_cycle_mode() {
+    ORG_REPL_MODE_INDEX=$(( (ORG_REPL_MODE_INDEX + 1) % ${#ORG_REPL_MODES[@]} ))
+    ORG_REPL_ACTION_INDEX=0
+}
+
+_org_cycle_action() {
+    local actions=($(_org_actions))
+    [[ ${#actions[@]} -gt 0 ]] && ORG_REPL_ACTION_INDEX=$(( (ORG_REPL_ACTION_INDEX + 1) % ${#actions[@]} ))
+}
+
+# ============================================================================
+# PROMPT BUILDER
+# ============================================================================
+
+_org_repl_build_prompt() {
     local org=$(_org_active)
     local env="${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}"
     local mode="${ORG_REPL_MODES[$ORG_REPL_MODE_INDEX]}"
     local actions=($(_org_actions))
     local action="${actions[$ORG_REPL_ACTION_INDEX]:-none}"
 
-    # Capture prompt output to global variable via tmpfile (avoids command substitution subshell)
+    # Build prompt using TDS theme palette
     local tmpfile
-    tmpfile=$(mktemp /tmp/repl_prompt.XXXXXX) || return 1
-    repl_build_org_prompt "$org" "$env" "$ORG_REPL_ENV_INDEX" "$mode" "$ORG_REPL_MODE_INDEX" "$action" > "$tmpfile"
+    tmpfile=$(mktemp /tmp/org_repl_prompt.XXXXXX) || return 1
+
+    # Use TDS color tokens if available
+    if type tds_text_color &>/dev/null; then
+        # Takeover mode: colored brackets from theme
+        tds_text_color "repl.prompt.bracket" > "$tmpfile"
+        printf "[" >> "$tmpfile"
+        reset_color >> "$tmpfile"
+
+        # Organization name
+        if [[ "$org" == "none" ]]; then
+            tds_text_color "repl.org.inactive" >> "$tmpfile"
+        else
+            tds_text_color "repl.org.active" >> "$tmpfile"
+        fi
+        printf "%s" "$org" >> "$tmpfile"
+        reset_color >> "$tmpfile"
+
+        tds_text_color "repl.prompt.bracket" >> "$tmpfile"
+        printf "]" >> "$tmpfile"
+        reset_color >> "$tmpfile"
+        printf " " >> "$tmpfile"
+
+        # Environment (colored based on env type)
+        local env_lower="${env,,}"
+        tds_text_color "repl.env.${env_lower}" >> "$tmpfile"
+        printf "%s" "$env" >> "$tmpfile"
+        reset_color >> "$tmpfile"
+
+        # Separator
+        printf " " >> "$tmpfile"
+        tds_text_color "repl.prompt.separator" >> "$tmpfile"
+        printf "×" >> "$tmpfile"
+        reset_color >> "$tmpfile"
+        printf " " >> "$tmpfile"
+
+        # Mode (colored based on mode type)
+        local mode_lower="${mode,,}"
+        tds_text_color "repl.mode.${mode_lower}" >> "$tmpfile"
+        printf "%s" "$mode" >> "$tmpfile"
+        reset_color >> "$tmpfile"
+
+        # Action (if present)
+        if [[ "$action" != "none" ]]; then
+            printf " " >> "$tmpfile"
+            tds_text_color "repl.feedback.arrow" >> "$tmpfile"
+            printf "→" >> "$tmpfile"
+            reset_color >> "$tmpfile"
+            printf " " >> "$tmpfile"
+            tds_text_color "repl.action.primary" >> "$tmpfile"
+            printf "%s" "$action" >> "$tmpfile"
+            reset_color >> "$tmpfile"
+        fi
+
+        # Prompt arrow
+        printf " " >> "$tmpfile"
+        tds_text_color "repl.prompt.arrow" >> "$tmpfile"
+        printf "▶" >> "$tmpfile"
+        reset_color >> "$tmpfile"
+        printf " " >> "$tmpfile"
+    else
+        # Fallback: simple prompt without TDS
+        printf "[%s] %s × %s" "$org" "$env" "$mode" > "$tmpfile"
+        if [[ "$action" != "none" ]]; then
+            printf " → %s" "$action" >> "$tmpfile"
+        fi
+        printf " ▶ " >> "$tmpfile"
+    fi
+
     REPL_PROMPT=$(<"$tmpfile")
     rm -f "$tmpfile"
 }
 
-_org_cycle_env() {
-    ORG_REPL_ENV_INDEX=$(( (ORG_REPL_ENV_INDEX + 1) % ${#ORG_REPL_ENVIRONMENTS[@]} ))
-    ORG_REPL_ACTION_INDEX=0
+# ============================================================================
+# INPUT PROCESSOR
+# ============================================================================
 
-    # Inject empty command to force loop restart with new prompt
-    READLINE_LINE=$'\n'
-    READLINE_POINT=${#READLINE_LINE}
-}
-
-_org_cycle_mode() {
-    ORG_REPL_MODE_INDEX=$(( (ORG_REPL_MODE_INDEX + 1) % ${#ORG_REPL_MODES[@]} ))
-    ORG_REPL_ACTION_INDEX=0
-
-    # Inject empty command to force loop restart with new prompt
-    READLINE_LINE=$'\n'
-    READLINE_POINT=${#READLINE_LINE}
-}
-
-_org_cycle_action() {
-    local actions=($(_org_actions))
-    [[ ${#actions[@]} -gt 0 ]] && ORG_REPL_ACTION_INDEX=$(( (ORG_REPL_ACTION_INDEX + 1) % ${#actions[@]} ))
-
-    # Inject empty command to force loop restart with new prompt
-    READLINE_LINE=$'\n'
-    READLINE_POINT=${#READLINE_LINE}
-}
-
-# Input processor
-_org_process_input() {
+_org_repl_process_input() {
     local input="$1"
 
-    # Empty = execute current action
+    # Empty input - execute current action
     if [[ -z "$input" ]]; then
         local actions=($(_org_actions))
         local action="${actions[$ORG_REPL_ACTION_INDEX]}"
-        [[ -n "$action" && "$action" != "none" ]] && input="$action" || return 0
+        if [[ -n "$action" && "$action" != "none" ]]; then
+            input="$action"
+        else
+            return 0
+        fi
     fi
 
     # Shell command
-    [[ "$input" == !* ]] && { eval "${input:1}"; return 0; }
+    if [[ "$input" == !* ]]; then
+        eval "${input:1}"
+        return 0
+    fi
 
-    # Exit
+    # Parse command (full takeover mode - no / prefix needed)
     case "$input" in
-        exit|quit|q) return 1 ;;
-        help|h|\?) _org_show_help; return 0 ;;
-        actions|a) _org_show_actions; return 0 ;;
+        # Navigation commands
+        env|e)
+            _org_cycle_env
+            echo "Environment: ${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}"
+            return 2  # Signal prompt refresh
+            ;;
+        mode|m)
+            _org_cycle_mode
+            echo "Mode: ${ORG_REPL_MODES[$ORG_REPL_MODE_INDEX]}"
+            return 2  # Signal prompt refresh
+            ;;
+        action|a)
+            _org_cycle_action
+            local actions=($(_org_actions))
+            local action="${actions[$ORG_REPL_ACTION_INDEX]:-none}"
+            echo "Action: $action"
+            return 2  # Signal prompt refresh
+            ;;
+        next|n)
+            # Cycle all three in order
+            _org_cycle_action
+            local actions=($(_org_actions))
+            if [[ $ORG_REPL_ACTION_INDEX -eq 0 ]]; then
+                _org_cycle_mode
+                if [[ $ORG_REPL_MODE_INDEX -eq 0 ]]; then
+                    _org_cycle_env
+                fi
+            fi
+            return 2  # Signal prompt refresh
+            ;;
+
+        # Exit commands
+        exit|quit|q)
+            return 1
+            ;;
+
+        # Help commands
+        help|h|\?)
+            _org_show_help
+            return 0
+            ;;
+        help\ *|h\ *)
+            # Help with topic (future extension)
+            local topic="${input#help }"
+            topic="${topic#h }"
+            _org_show_help "$topic"
+            return 0
+            ;;
+
+        # Info commands
+        actions)
+            _org_show_actions
+            return 0
+            ;;
     esac
 
-    # Action (verb:noun)
+    # Action (verb:noun format)
     if [[ "$input" == *:* ]]; then
-        echo -e "\nExecuting: $input (${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]})\n---"
+        echo ""
+        echo "Executing: $input (${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]})"
+        echo "---"
         org_execute_action "$input" "${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}"
         echo ""
         return 0
@@ -96,36 +247,72 @@ _org_process_input() {
 
     # Legacy commands
     case "$input" in
-        list|ls) org_list ;;
-        active) org_active ;;
-        *) echo "Unknown: $input (try 'help' or verb:noun)" ;;
+        list|ls)
+            org_list
+            ;;
+        active)
+            org_active
+            ;;
+        status)
+            echo ""
+            echo "Active org: $(_org_active)"
+            echo "Environment: ${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}"
+            echo "Mode: ${ORG_REPL_MODES[$ORG_REPL_MODE_INDEX]}"
+            local actions=($(_org_actions))
+            echo "Available actions: ${#actions[@]}"
+            echo ""
+            ;;
+        *)
+            echo "Unknown command: $input"
+            echo "Type 'help' for available commands"
+            ;;
     esac
+
+    return 0
 }
 
-# Help
+# ============================================================================
+# HELP SYSTEM
+# ============================================================================
+
 _org_show_help() {
-    cat <<EOF
+    local topic="${1:-}"
+
+    if [[ -z "$topic" ]]; then
+        cat <<EOF
 
 ═══════════════════════════════════════════════════════════
-  ORG REPL - Full Control Mode
+  ORG REPL - Organization Management Shell (Takeover Mode)
 ═══════════════════════════════════════════════════════════
 
 Navigation:
-  Ctrl+E         Cycle environment (Local→Dev→Staging→Production)
-  Ctrl+R         Cycle mode (Inspect→Transfer→Execute)
-  Ctrl+A         Cycle action
-  Tab            Show/hide action menu (TUI mode only)
-  Ctrl+X/Enter   Execute current action
+  env, e         Cycle environment (Local→Dev→Staging→Production)
+  mode, m        Cycle mode (Inspect→Transfer→Execute)
+  action, a      Cycle action
+  next, n        Cycle to next (action→mode→env)
 
 Commands:
   verb:noun      Execute action (e.g., view:toml, push:config)
-  !command       Run shell command
+  !command       Run shell command (prefix with !)
   help, h, ?     Show this help
-  actions, a     List available actions
+  actions        List available actions
+  status         Show current state
   list, ls       List organizations
+  active         Show active organization
   exit, quit, q  Exit REPL
 
+Note: This REPL is in takeover mode - commands are executed
+directly without / prefix. Use ! for shell commands.
+
 EOF
+    else
+        # Topic-specific help (delegate to org_help if available)
+        if type org_help &>/dev/null; then
+            org_help "$topic"
+        else
+            echo "No detailed help available for: $topic"
+        fi
+    fi
 }
 
 _org_show_actions() {
@@ -133,64 +320,71 @@ _org_show_actions() {
     local mode="${ORG_REPL_MODES[$ORG_REPL_MODE_INDEX]}"
     local actions=($(_org_actions))
 
-    echo -e "\nAvailable actions for: $env x $mode\n---"
-    [[ ${#actions[@]} -gt 0 ]] && printf '  %s\n' "${actions[@]}" || echo "  (none)"
+    echo ""
+    echo "Available actions for: $env × $mode"
+    echo "---"
+    if [[ ${#actions[@]} -gt 0 ]]; then
+        printf '  %s\n' "${actions[@]}"
+    else
+        echo "  (no actions available)"
+    fi
     echo ""
 }
 
-# Main entry - use TUI mode for full control
+# ============================================================================
+# MAIN ENTRY POINT
+# ============================================================================
+
 org_repl() {
-    # Check if TUI mode available
-    if [[ -t 0 && -t 1 ]]; then
-        org_repl_tui
+    echo ""
+    text_color "66FFFF"
+    echo "🏢 ORG REPL v2.0"
+    reset_color
+    echo ""
+
+    # Show takeover mode indicator
+    if type tds_text_color &>/dev/null; then
+        tds_text_color "repl.exec.repl"
+        printf "⚡ TAKEOVER MODE"
+        reset_color
+        echo " - org commands by default, !cmd for shell"
     else
-        # Fallback to basic mode
-        _org_repl_basic
+        echo "Mode: TAKEOVER - org commands by default, !cmd for shell"
     fi
-}
 
-# Basic REPL fallback (non-TUI)
-_org_repl_basic() {
-    cat <<EOF
+    echo ""
+    echo "Active organization: $(_org_active)"
+    echo ""
+    echo "Type 'help' for commands, 'env'/'mode'/'action' to navigate"
+    echo ""
 
-═══════════════════════════════════════════════════════════
-  TETRA ORGANIZATION MANAGEMENT
-═══════════════════════════════════════════════════════════
+    # Set execution mode to takeover
+    REPL_EXECUTION_MODE="takeover"
 
-Full Control Mode - Direct command input
-Type 'help' for commands, Ctrl+E/Ctrl+R/Ctrl+A to navigate
-
-Active organization: $(_org_active)
-
-EOF
-
-    # Setup
-    REPL_HISTORY_BASE="$TETRA_DIR/org/history/repl"
-    bind -x '"\C-e": _org_cycle_env'
-    bind -x '"\C-r": _org_cycle_mode'
-    bind -x '"\C-a": _org_cycle_action'
-
-    # Wrap bash/repl callbacks with local functions (prevents collision)
-    repl_build_prompt() { _org_build_prompt "$@"; }
-    repl_process_input() { _org_process_input "$@"; }
+    # Override REPL callbacks with org-specific implementations
+    repl_build_prompt() { _org_repl_build_prompt "$@"; }
+    repl_process_input() { _org_repl_process_input "$@"; }
     export -f repl_build_prompt repl_process_input
 
-    # Run
+    # Run unified REPL loop
     repl_run
 
     # Cleanup
-    bind -r '\C-e' '\C-r' '\C-a' 2>/dev/null
     unset -f repl_build_prompt repl_process_input
+
+    echo ""
+    echo "Goodbye!"
+    echo ""
 }
 
+# Export functions
 export -f org_repl
-export -f _org_repl_basic
 export -f _org_active
 export -f _org_actions
-export -f _org_build_prompt
 export -f _org_cycle_env
 export -f _org_cycle_mode
 export -f _org_cycle_action
-export -f _org_process_input
+export -f _org_repl_build_prompt
+export -f _org_repl_process_input
 export -f _org_show_help
 export -f _org_show_actions
