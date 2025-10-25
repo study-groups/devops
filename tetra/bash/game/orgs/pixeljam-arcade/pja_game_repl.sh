@@ -43,9 +43,9 @@ pja_game_repl_start_engine() {
     local title="${PJA_GAME_TITLE[$game]}"
 
     echo ""
-    local header="$emoji $title ENGINE v0.1 (Skeleton)"
-    local width=$((${#header} - 1 + ${#emoji}))  # Adjust for emoji
-    tds_panel_header "$header" "$width"
+    text_color "66FFFF"
+    echo "$emoji $title ENGINE v0.1 (Skeleton)"
+    reset_color
     echo ""
     text_color "FFAA00"
     echo "  ⚠️  Engine not yet implemented"
@@ -223,10 +223,9 @@ _pja_game_repl_run() {
     local title="${PJA_GAME_TITLE[$game]}"
 
     echo ""
-    # Use TDS panel header (+1 for emoji width)
-    local header="$emoji $title REPL v0.1 (Skeleton)"
-    local width=$((${#header} - 1 + ${#emoji}))
-    tds_panel_header "$header" "$width"
+    text_color "66FFFF"
+    echo "$emoji $title REPL v0.1 (Skeleton)"
+    reset_color
     echo ""
     text_color "FFAA00"
     echo "⚠️  Skeleton implementation - engine not yet built"

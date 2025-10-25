@@ -6,7 +6,8 @@
 # Registry of available games
 declare -gA GAME_REGISTRY_NAMES=(
     [pulsar]="Pulsar Engine"
-    [estovox]="Estovox"
+    [estoface]="Estoface"
+    [formant]="Formant"
     [cornhole-hero]="Cornhole Hero"
     [cheap-golf]="Cheap Golf"
     [grid-ranger]="Grid Ranger"
@@ -14,7 +15,8 @@ declare -gA GAME_REGISTRY_NAMES=(
 
 declare -gA GAME_REGISTRY_DESC=(
     [pulsar]="Terminal Sprite Animation System"
-    [estovox]="Audio-Visual Synthesis Engine"
+    [estoface]="Audio-Visual Synthesis Engine"
+    [formant]="Real-time Vocal Synthesis Engine"
     [cornhole-hero]="Arcade cornhole physics game"
     [cheap-golf]="Minimalist golf with trick shots"
     [grid-ranger]="Grid-based action adventure"
@@ -22,7 +24,8 @@ declare -gA GAME_REGISTRY_DESC=(
 
 declare -gA GAME_REGISTRY_STATUS=(
     [pulsar]="ready"
-    [estovox]="skeleton"
+    [estoface]="ready"
+    [formant]="ready"
     [cornhole-hero]="skeleton"
     [cheap-golf]="skeleton"
     [grid-ranger]="skeleton"
@@ -30,7 +33,8 @@ declare -gA GAME_REGISTRY_STATUS=(
 
 declare -gA GAME_REGISTRY_REPL=(
     [pulsar]="pulsar_game_repl_run"
-    [estovox]="estovox_game_repl_run"
+    [estoface]="estoface_game_repl_run"
+    [formant]="formant_game_repl_run"
     [cornhole-hero]="cornhole_hero_game_repl_run"
     [cheap-golf]="cheap_golf_game_repl_run"
     [grid-ranger]="grid_ranger_game_repl_run"
@@ -38,7 +42,8 @@ declare -gA GAME_REGISTRY_REPL=(
 
 declare -gA GAME_REGISTRY_ORG=(
     [pulsar]="tetra"
-    [estovox]="tetra"
+    [estoface]="tetra"
+    [formant]="tetra"
     [cornhole-hero]="pixeljam-arcade"
     [cheap-golf]="pixeljam-arcade"
     [grid-ranger]="pixeljam-arcade"
@@ -254,26 +259,42 @@ game_user_new() {
 # List all available games (optionally filtered by org)
 game_list() {
     local filter_org="${1:-$GAME_ACTIVE_ORG}"
+    local show_all_orgs=false
+
+    if [[ "$filter_org" == "all" ]]; then
+        show_all_orgs=true
+    fi
 
     echo ""
     text_color "66FFFF"
-    if [[ "$filter_org" == "all" ]]; then
+    if [[ "$show_all_orgs" == "true" ]]; then
         echo "⚡ Available Games (All Organizations)"
     else
         echo "⚡ Available Games (Organization: $filter_org)"
     fi
     reset_color
-    echo "═══════════════════════════════════════════════════════════════"
     echo ""
 
+    # Collect and sort games
+    local -a game_list=()
     for game_id in "${!GAME_REGISTRY_NAMES[@]}"; do
         local game_org="${GAME_REGISTRY_ORG[$game_id]}"
 
         # Filter by org unless "all"
-        if [[ "$filter_org" != "all" && "$game_org" != "$filter_org" ]]; then
+        if [[ "$show_all_orgs" == "false" && "$game_org" != "$filter_org" ]]; then
             continue
         fi
 
+        game_list+=("$game_id")
+    done
+
+    # Sort alphabetically
+    IFS=$'\n' game_list=($(sort <<<"${game_list[*]}"))
+    unset IFS
+
+    # Display games
+    for game_id in "${game_list[@]}"; do
+        local game_org="${GAME_REGISTRY_ORG[$game_id]}"
         local name="${GAME_REGISTRY_NAMES[$game_id]}"
         local desc="${GAME_REGISTRY_DESC[$game_id]}"
         local status="${GAME_REGISTRY_STATUS[$game_id]}"
@@ -296,10 +317,14 @@ game_list() {
                 ;;
         esac
 
-        # Org badge (dimmed)
-        text_color "666666"
-        printf "  [%-15s] " "$game_org"
-        reset_color
+        # Only show org badge if showing all orgs
+        if [[ "$show_all_orgs" == "true" ]]; then
+            text_color "666666"
+            printf "  [%-15s] " "$game_org"
+            reset_color
+        else
+            printf "  "
+        fi
 
         # Game ID (orange)
         text_color "FFAA00"
@@ -316,7 +341,7 @@ game_list() {
         printf "%-20s" "$name"
         reset_color
         text_color "AAAAAA"
-        printf " %s" "$desc"
+        printf "%s" "$desc"
         reset_color
 
         echo ""
@@ -324,7 +349,11 @@ game_list() {
 
     echo ""
     text_color "666666"
-    echo "Commands: 'play <game>' | 'org <name>' | 'ls all' (show all orgs)"
+    if [[ "$show_all_orgs" == "false" ]]; then
+        echo "Commands: 'play <game>' | 'ls all' (show all orgs)"
+    else
+        echo "Commands: 'play <game>' | 'org <name>' (switch org)"
+    fi
     reset_color
     echo ""
 }

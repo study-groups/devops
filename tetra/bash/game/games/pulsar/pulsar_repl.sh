@@ -46,8 +46,9 @@ pulsar_repl_start_engine() {
     fi
 
     echo ""
-    # Use TDS panel header (+1 for emoji width)
-    tds_panel_header "⚡ PULSAR ENGINE v1.0" 46
+    text_color "66FFFF"
+    echo "⚡ PULSAR ENGINE v1.0"
+    reset_color
     echo ""
     echo "  Starting engine..."
 
@@ -267,12 +268,13 @@ pulsar_repl_preset_dance() {
 }
 
 # ============================================================================
-# HELP SYSTEM (Delegated to pulsar_help.sh)
+# HELP SYSTEM (using bash/tree via pulsar_help.sh)
 # ============================================================================
 
 pulsar_repl_show_help() {
-    # Delegate to the new help system
-    pulsar_help "$@"
+    local topic="${1:-pulsar}"
+    # Delegate to pulsar_help (uses bash/tree for 18-line pagination)
+    pulsar_help "$topic"
 }
 
 # ============================================================================
@@ -424,34 +426,26 @@ _pulsar_repl_process_input() {
 
 pulsar_game_repl_run() {
     echo ""
-    # Use TDS panel header (+1 for emoji width)
-    tds_panel_header "⚡ PULSAR REPL v1.0" 46
+    text_color "66FFFF"
+    echo "⚡ PULSAR REPL v1.0"
+    reset_color
     echo ""
     echo "Type 'help' for commands, 'start' to begin"
     echo ""
 
-    # Register prompt builder
-    REPL_PROMPT_BUILDERS=(_pulsar_repl_build_prompt)
-
     # Set cleanup handler
     trap 'pulsar_repl_stop_engine 2>/dev/null' EXIT
 
-    # Run REPL loop
-    while true; do
-        # Build prompt
-        _pulsar_repl_build_prompt
+    # Override REPL callbacks with pulsar-specific implementations
+    repl_build_prompt() { _pulsar_repl_build_prompt "$@"; }
+    repl_process_input() { _pulsar_repl_process_input "$@"; }
+    export -f repl_build_prompt repl_process_input
 
-        # Read input
-        read -e -p "$REPL_PROMPT" input
+    # Run unified REPL loop (provides /help, /theme, /mode, /exit commands)
+    repl_run
 
-        # Add to history
-        [[ -n "$input" ]] && history -s "$input"
-
-        # Process input
-        _pulsar_repl_process_input "$input" || break
-
-        echo ""
-    done
+    # Cleanup
+    unset -f repl_build_prompt repl_process_input
 
     echo ""
     echo "Goodbye! ⚡"

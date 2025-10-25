@@ -20,7 +20,8 @@ source "$GAME_SRC/core/game_registry.sh"
 # Load org-specific game REPLs
 # Tetra org games (native implementations)
 source "$GAME_SRC/games/pulsar/pulsar_repl.sh"
-source "$GAME_SRC/games/estovox/core/estovox_repl.sh"
+source "$GAME_SRC/games/estoface/core/estoface_repl.sh"
+source "$GAME_SRC/games/formant/formant_repl.sh"
 
 # PixelJam Arcade org (single REPL for all PJA games)
 source "$GAME_SRC/orgs/pixeljam-arcade/pja_game_repl.sh"
@@ -40,52 +41,52 @@ _game_repl_build_prompt() {
     tmpfile=$(mktemp /tmp/game_repl_prompt.XXXXXX) || return 1
 
     # Opening bracket (colored)
-    text_color "$REPL_BRACKET"
+    text_color "$REPL_BRACKET" >> "$tmpfile"
     printf '[' >> "$tmpfile"
     reset_color >> "$tmpfile"
 
     # Organization
-    text_color "$REPL_ORG_ACTIVE"
+    text_color "$REPL_ORG_ACTIVE" >> "$tmpfile"
     printf '%s' "${GAME_ACTIVE_ORG:-tetra}" >> "$tmpfile"
     reset_color >> "$tmpfile"
 
     # Separator (colored)
-    text_color "$REPL_SEPARATOR"
+    text_color "$REPL_SEPARATOR" >> "$tmpfile"
     printf ' x ' >> "$tmpfile"
     reset_color >> "$tmpfile"
 
     # User
     if [[ -n "$GAME_ACTIVE_USER" ]]; then
-        text_color "$REPL_ENV_LOCAL"
+        text_color "$REPL_ENV_LOCAL" >> "$tmpfile"
         printf '%s' "$GAME_ACTIVE_USER" >> "$tmpfile"
     else
-        text_color "$REPL_ORG_INACTIVE"
+        text_color "$REPL_ORG_INACTIVE" >> "$tmpfile"
         printf 'none' >> "$tmpfile"
     fi
     reset_color >> "$tmpfile"
 
     # Separator (colored)
-    text_color "$REPL_SEPARATOR"
+    text_color "$REPL_SEPARATOR" >> "$tmpfile"
     printf ' x ' >> "$tmpfile"
     reset_color >> "$tmpfile"
 
     # Game
     if [[ -n "$GAME_ACTIVE" ]]; then
-        text_color "$REPL_ENV_DEV"  # Green for active game
+        text_color "$REPL_ENV_DEV" >> "$tmpfile"  # Green for active game
         printf '%s' "$GAME_ACTIVE" >> "$tmpfile"
     else
-        text_color "$REPL_ORG_INACTIVE"
+        text_color "$REPL_ORG_INACTIVE" >> "$tmpfile"
         printf 'lobby' >> "$tmpfile"
     fi
     reset_color >> "$tmpfile"
 
     # Closing bracket (colored)
-    text_color "$REPL_BRACKET"
+    text_color "$REPL_BRACKET" >> "$tmpfile"
     printf '] ' >> "$tmpfile"
     reset_color >> "$tmpfile"
 
     # Prompt arrow (colored)
-    text_color "$REPL_ARROW"
+    text_color "$REPL_ARROW" >> "$tmpfile"
     printf '> ' >> "$tmpfile"
     reset_color >> "$tmpfile"
 
@@ -128,7 +129,7 @@ game_repl_show_help() {
     text_color "8888FF"
     echo "ORGANIZATIONS:"
     reset_color
-    echo "  $(text_color "FFFFFF")tetra$(reset_color)              Core Tetra games (pulsar, estovox)"
+    echo "  $(text_color "FFFFFF")tetra$(reset_color)              Core Tetra games (pulsar, estovox, formant)"
     echo "  $(text_color "FFFFFF")pixeljam-arcade$(reset_color)    PixelJam Arcade games"
     echo ""
 
@@ -222,9 +223,9 @@ _game_repl_process_input() {
 
 game_repl_run() {
     echo ""
-    # Use TDS panel header
-    # Note: TDS doesn't handle emoji width correctly yet, so adjust width by +1
-    tds_panel_header "⚡ GAME REPL v1.0" 51
+    text_color "66FFFF"
+    echo "⚡ GAME REPL v1.0"
+    reset_color
     echo ""
     text_color "AAAAAA"
     echo "Type 'ls' to see available games, 'help' for commands"
