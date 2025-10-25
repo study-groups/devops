@@ -6,15 +6,17 @@
 
 ## Overview
 
-Universal REPL (Read-Eval-Print Loop) library for all Tetra modules. Provides a consistent, mode-aware interface with dynamic prompt building, slash command registration, and runtime theme switching.
+Universal REPL (Read-Eval-Print Loop) library for all Tetra modules. Provides a consistent, mode-aware interface with two implementation patterns: **custom routing** (full control) or **built-in routing** (feature-rich).
 
 ## Features
 
-- **Three-mode progressive enhancement**: basic → enhanced → tui
-- **Dynamic prompt system**: Modules register builders
-- **Slash command registration**: Extensible command system
+- **Two implementation patterns**: Custom routing or built-in routing
+- **Three input modes**: basic → enhanced → tui (auto-detected)
+- **Two execution modes**: augment (shell-first) vs takeover (module-first)
+- **Dynamic prompt system**: Override `repl_build_prompt()` callback
+- **Slash command registration**: Optional extensible command system
 - **Runtime theme switching**: Integrated with bash/color themes
-- **History management**: Per-module history files
+- **History management**: Per-module, per-mode history files
 - **Color support**: Auto-detect and graceful degradation
 
 ## Installation
@@ -35,7 +37,9 @@ source "$TETRA_SRC/bash/repl/repl.sh"
 
 ## Quick Start
 
-### Minimal Module REPL
+### Pattern 1: Custom Routing (Simple, Full Control)
+
+**Used by**: game modules, org module
 
 ```bash
 #!/usr/bin/env bash
@@ -43,26 +47,86 @@ source "$TETRA_SRC/bash/repl/repl.sh"
 
 source "$TETRA_SRC/bash/repl/repl.sh"
 
-# Register prompt builder
-mymod_prompt() {
-    echo "[mymod]> "
+# Prompt builder
+_mymod_build_prompt() {
+    REPL_PROMPT="[mymod]> "
 }
-repl_register_prompt_builder "mymod" "mymod_prompt"
 
-# Register slash command
-mymod_cmd_status() {
-    echo "Module status: OK"
+# Input processor
+_mymod_process_input() {
+    local input="$1"
+
+    # Empty input
+    [[ -z "$input" ]] && return 0
+
+    # Shell escape
+    if [[ "$input" == !* ]]; then
+        eval "${input:1}"
+        return 0
+    fi
+
+    # Commands
+    case "$input" in
+        exit|quit|q) return 1 ;;
+        help) echo "Commands: start, stop, status"; return 0 ;;
+        start) echo "Starting..."; return 0 ;;
+        status) echo "Status: OK"; return 0 ;;
+        *) echo "Unknown: $input"; return 0 ;;
+    esac
 }
+
+# Main entry
+mymod_repl() {
+    REPL_HISTORY_BASE="${TETRA_DIR}/mymod/history"
+
+    # Override callbacks
+    repl_build_prompt() { _mymod_build_prompt; }
+    repl_process_input() { _mymod_process_input "$@"; }
+    export -f repl_build_prompt repl_process_input
+
+    # Run
+    repl_run
+
+    # Cleanup
+    unset -f repl_build_prompt repl_process_input
+}
+
+mymod_repl
+```
+
+### Pattern 2: Built-in Routing (Feature-Rich)
+
+**Used by**: rag module, tool modules
+
+```bash
+#!/usr/bin/env bash
+# bash/mymod/mymod_repl.sh
+
+source "$TETRA_SRC/bash/repl/repl.sh"
+
+# Register commands
+mymod_cmd_start() {
+    echo "Starting..."
+    return 0
+}
+mymod_cmd_status() {
+    echo "Status: OK"
+    return 0
+}
+repl_register_slash_command "start" "mymod_cmd_start"
 repl_register_slash_command "status" "mymod_cmd_status"
 
-# Run REPL (mode auto-detected)
+# Run REPL (gets /help, /theme, /mode for free!)
 mymod_repl() {
-    REPL_HISTORY_FILE="${TETRA_DIR}/mymod/history"
+    REPL_HISTORY_BASE="${TETRA_DIR}/mymod/history"
+    REPL_EXECUTION_MODE="takeover"  # Optional: module commands by default
     repl_run
 }
 
 mymod_repl
 ```
+
+See [ARCHITECTURE_CLARIFICATION.md](./ARCHITECTURE_CLARIFICATION.md) for detailed comparison.
 
 ## Three-Mode System
 
@@ -342,7 +406,7 @@ tds_repl_feedback_mode "Execute" >&2
 tds_repl_feedback_action "deploy:config" >&2
 ```
 
-### Example: Org REPL Pattern
+### Example: Org REPL Pattern (Pattern 1)
 
 See `bash/org/org_repl.sh` for a complete implementation using TDS design tokens:
 
@@ -359,57 +423,44 @@ _org_build_prompt() {
     local org=$(_org_active)
     local env="${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}"
 
-    tds_repl_build_prompt "$org" "$env" "$ORG_REPL_ENV_INDEX" \
-                         "Inspect" 0 "none"
+    # Build colored prompt using TDS tokens
+    tds_text_color "repl.prompt.bracket"
+    printf "["
+    reset_color
+    tds_text_color "repl.org.active"
+    printf "%s" "$org"
+    reset_color
+    # ... etc
 }
 
-# Navigation with feedback
-_org_cycle_env() {
-    ORG_REPL_ENV_INDEX=$(( (ORG_REPL_ENV_INDEX + 1) % 4 ))
+# Input processor - full takeover mode
+_org_process_input() {
+    local input="$1"
 
-    # Clear input to prevent visual glitch
-    READLINE_LINE=""
-    READLINE_POINT=0
+    [[ -z "$input" ]] && return 0
 
-    # Show immediate feedback
-    tds_repl_feedback_env "${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}" >&2
+    # Shell escape
+    [[ "$input" == !* ]] && { eval "${input:1}"; return 0; }
+
+    # Commands (no / prefix needed in takeover mode)
+    case "$input" in
+        env|e) _org_cycle_env; return 2 ;;  # Return 2 = refresh prompt
+        mode|m) _org_cycle_mode; return 2 ;;
+        exit|quit|q) return 1 ;;
+        *) echo "Unknown: $input"; return 0 ;;
+    esac
 }
 
-# Bind to Ctrl+E
-bind -x '"\C-e": _org_cycle_env'
-
-# Export callbacks
+# Wire callbacks
 repl_build_prompt() { _org_build_prompt; }
-repl_process_input() { local input="$1"; echo "Got: $input"; }
+repl_process_input() { _org_process_input "$@"; }
 export -f repl_build_prompt repl_process_input
 
+REPL_EXECUTION_MODE="takeover"
 repl_run
 ```
 
-### Keyboard Navigation Best Practice
-
-When implementing state cycling (Ctrl+E, Ctrl+X,M, etc):
-
-```bash
-_my_cycle_handler() {
-    # 1. Update state
-    STATE_INDEX=$(( (STATE_INDEX + 1) % ${#STATES[@]} ))
-
-    # 2. Clear readline input (CRITICAL - prevents visual glitches)
-    READLINE_LINE=""
-    READLINE_POINT=0
-
-    # 3. Show immediate feedback (new prompt displays on next Enter)
-    tds_repl_feedback_env "${STATES[$STATE_INDEX]}" >&2
-}
-```
-
-**Why this pattern?**
-- `read -e` evaluates prompt only once at start of input
-- `bind -x` callbacks can't refresh the prompt mid-input
-- Clearing `READLINE_LINE` prevents terminal artifacts
-- Feedback provides immediate visual confirmation
-- Updated prompt displays naturally when user presses Enter
+**Note**: `bind -x` keybindings **don't work** inside `read -e` or `tcurses_input_read_line`. Use commands instead (e.g., `env` to cycle environment, not Ctrl+E).
 
 ### Extending TDS for Your Module
 

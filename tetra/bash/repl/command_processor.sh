@@ -2,6 +2,72 @@
 # REPL Command Processor
 # Dispatches input to appropriate handlers
 
+# Module Registry - tracks registered modules and their commands
+declare -gA REPL_MODULE_REGISTRY      # module_name → "cmd1 cmd2 cmd3"
+declare -gA REPL_MODULE_HANDLERS      # module.command → handler_function
+declare -g REPL_MODULE_CONTEXT=""     # Current active module context
+
+# Register a module with its commands
+# Usage: repl_register_module "module_name" "cmd1 cmd2 cmd3" ["namespace"]
+# Example: repl_register_module "rag" "flow txn doc" "help.rag"
+repl_register_module() {
+    local module_name="$1"
+    local commands="$2"
+    local namespace="${3:-help.$module_name}"
+
+    if [[ -z "$module_name" || -z "$commands" ]]; then
+        echo "Error: repl_register_module requires module_name and commands" >&2
+        return 1
+    fi
+
+    REPL_MODULE_REGISTRY["$module_name"]="$commands"
+
+    # Set module context if this is the first registration
+    if [[ -z "$REPL_MODULE_CONTEXT" ]]; then
+        REPL_MODULE_CONTEXT="$module_name"
+    fi
+
+    # Store namespace for help system integration
+    REPL_MODULE_REGISTRY["${module_name}:namespace"]="$namespace"
+}
+
+# Register a module command handler
+# Usage: repl_register_module_handler "module.command" "handler_function"
+# Example: repl_register_module_handler "rag.flow.create" "rag_flow_create"
+repl_register_module_handler() {
+    local path="$1"
+    local handler="$2"
+
+    if [[ -z "$path" || -z "$handler" ]]; then
+        echo "Error: repl_register_module_handler requires path and handler" >&2
+        return 1
+    fi
+
+    if ! command -v "$handler" >/dev/null 2>&1; then
+        echo "Warning: Module handler not found: $handler" >&2
+        return 1
+    fi
+
+    REPL_MODULE_HANDLERS["$path"]="$handler"
+}
+
+# Set the current module context
+# Usage: repl_set_module_context "module_name"
+repl_set_module_context() {
+    local module_name="$1"
+
+    if [[ -n "$module_name" ]] && [[ -z "${REPL_MODULE_REGISTRY[$module_name]}" ]]; then
+        echo "Warning: Setting context to unregistered module: $module_name" >&2
+    fi
+
+    REPL_MODULE_CONTEXT="$module_name"
+}
+
+# Get current module context
+repl_get_module_context() {
+    echo "$REPL_MODULE_CONTEXT"
+}
+
 # Register a slash command
 repl_register_slash_command() {
     local command="$1"
@@ -89,22 +155,43 @@ repl_process_input() {
     fi
 }
 
-# Dispatch slash command
-# Priority: 1) Module handlers, 2) Built-in meta, 3) Action system, 4) Unknown
+# Dispatch slash command with hybrid routing support
+# Supports both /action and /mod.action formats
+# Priority: 1) Module handlers, 2) Built-in meta, 3) Module routing, 4) Action system, 5) Unknown
 repl_dispatch_slash() {
     local input="$1"
     local cmd="${input%% *}"
     local args="${input#* }"
     [[ "$cmd" == "$input" ]] && args=""
 
+    # Parse dotted path (support /mod.action or /mod.cat.action)
+    local module=""
+    local action="$cmd"
+    if [[ "$cmd" == *.* ]]; then
+        # Has dots - first part is module
+        module="${cmd%%.*}"
+        action="${cmd#*.}"
+    fi
+
     # Priority 1: Module registered handler (override)
+    # Try full path first (mod.action), then just action
+    if [[ -n "$module" ]] && [[ -n "${REPL_MODULE_HANDLERS[$cmd]}" ]]; then
+        "${REPL_MODULE_HANDLERS[$cmd]}" $args
+        return $?
+    fi
+
     if [[ -n "${REPL_SLASH_HANDLERS[$cmd]}" ]]; then
         "${REPL_SLASH_HANDLERS[$cmd]}" $args
         return $?
     fi
 
+    if [[ -n "${REPL_SLASH_HANDLERS[$action]}" ]]; then
+        "${REPL_SLASH_HANDLERS[$action]}" $args
+        return $?
+    fi
+
     # Priority 2: Built-in REPL meta-commands
-    case "$cmd" in
+    case "$action" in
         help|h)
             repl_cmd_help $args
             return 0
@@ -130,14 +217,77 @@ repl_dispatch_slash() {
             ;;
     esac
 
-    # Priority 3: Try action system (for module commands)
+    # Priority 3: Module routing (hybrid support)
+    # Try to route via tree-based help system or module registry
+    if command -v tree_exists >/dev/null 2>&1; then
+        local tree_path=""
+
+        if [[ -n "$module" ]]; then
+            # Explicit module: /mod.action
+            local namespace="${REPL_MODULE_REGISTRY[${module}:namespace]:-help.$module}"
+            tree_path="$namespace.$action"
+
+            if tree_exists "$tree_path" 2>/dev/null; then
+                # Check if tree node has handler
+                local handler=$(tree_get "$tree_path" "handler" 2>/dev/null)
+                if [[ -n "$handler" ]] && command -v "$handler" >/dev/null 2>&1; then
+                    "$handler" $args
+                    return $?
+                else
+                    # No handler - show help for this path
+                    tree_help_show "$tree_path" 2>/dev/null || {
+                        echo "Command found but not executable: /$cmd" >&2
+                    }
+                    return 0
+                fi
+            fi
+        else
+            # Implicit module: /action - try current context first
+            if [[ -n "$REPL_MODULE_CONTEXT" ]]; then
+                local namespace="${REPL_MODULE_REGISTRY[${REPL_MODULE_CONTEXT}:namespace]:-help.$REPL_MODULE_CONTEXT}"
+                tree_path="$namespace.$action"
+
+                if tree_exists "$tree_path" 2>/dev/null; then
+                    local handler=$(tree_get "$tree_path" "handler" 2>/dev/null)
+                    if [[ -n "$handler" ]] && command -v "$handler" >/dev/null 2>&1; then
+                        "$handler" $args
+                        return $?
+                    fi
+                fi
+            fi
+
+            # Not in current context - search all registered modules
+            for mod in "${!REPL_MODULE_REGISTRY[@]}"; do
+                # Skip namespace entries
+                [[ "$mod" == *:namespace ]] && continue
+
+                local namespace="${REPL_MODULE_REGISTRY[${mod}:namespace]:-help.$mod}"
+                tree_path="$namespace.$action"
+
+                if tree_exists "$tree_path" 2>/dev/null; then
+                    local handler=$(tree_get "$tree_path" "handler" 2>/dev/null)
+                    if [[ -n "$handler" ]] && command -v "$handler" >/dev/null 2>&1; then
+                        "$handler" $args
+                        return $?
+                    fi
+                fi
+            done
+        fi
+    fi
+
+    # Priority 4: Try action system (for module commands)
     if [[ "${REPL_DISABLE_ACTION_DISPATCH:-0}" -eq 0 ]] && command -v tetra_dispatch_action >/dev/null 2>&1; then
         tetra_dispatch_action "$cmd" $args
         return $?
     fi
 
-    # Priority 4: Unknown
-    echo "Unknown command: /$cmd (try /help)" >&2
+    # Priority 5: Unknown
+    if [[ -n "$module" ]]; then
+        echo "Unknown command: /$cmd (module: $module, action: $action)" >&2
+        echo "Try: /help or /$module.help" >&2
+    else
+        echo "Unknown command: /$cmd (try /help)" >&2
+    fi
     return 0
 }
 
@@ -306,6 +456,10 @@ repl_cmd_mode() {
     esac
 }
 
+export -f repl_register_module
+export -f repl_register_module_handler
+export -f repl_set_module_context
+export -f repl_get_module_context
 export -f repl_register_slash_command
 export -f repl_process_input
 export -f repl_dispatch_slash
