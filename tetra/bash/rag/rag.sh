@@ -202,39 +202,13 @@ EOF
             submit_to_qa
             ;;
         "repl"|"r")
-            # Source bash/repl system
-            if [[ -f "$TETRA_SRC/bash/repl/repl.sh" ]]; then
-                source "$TETRA_SRC/bash/repl/repl.sh"
-                source "$RAG_SRC/bash/rag_prompts.sh"
-                source "$RAG_SRC/bash/rag_commands.sh"
-
-                # Register RAG prompts and commands
-                rag_register_prompts
-                rag_register_commands
-
-                # Initialize evidence variables if there's an active flow
-                source "$RAG_SRC/core/flow_manager_ttm.sh"
-                source "$RAG_SRC/core/evidence_manager.sh"
-                local active_flow=$(flow_active 2>/dev/null)
-                if [[ -n "$active_flow" ]]; then
-                    flow_init_evidence_vars "$active_flow" 2>/dev/null
-                fi
-
-                # Set history file
-                export REPL_HISTORY_BASE="$RAG_DIR/.rag_history"
-
-                # Start REPL in enhanced mode
-                repl_run enhanced
+            # Load new RAG REPL (integrates bash/repl, TDS, bash/tree)
+            if [[ -f "$RAG_SRC/rag_repl.sh" ]]; then
+                source "$RAG_SRC/rag_repl.sh"
+                rag_repl
             else
-                echo "Error: bash/repl not found at $TETRA_SRC/bash/repl/" >&2
-                echo "Falling back to legacy REPL..." >&2
-                # Fallback to old rag_repl if available
-                if command -v rag_repl >/dev/null 2>&1; then
-                    rag_repl
-                else
-                    echo "Error: No REPL available" >&2
-                    return 1
-                fi
+                echo "Error: rag_repl.sh not found at $RAG_SRC/" >&2
+                return 1
             fi
             ;;
         "example"|"ex")

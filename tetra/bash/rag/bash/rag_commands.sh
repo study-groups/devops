@@ -519,142 +519,53 @@ rag_cmd_kb() {
 
 rag_cmd_help() {
     local topic="$1"
+    local interactive=0
 
-    if [[ -n "$topic" ]]; then
-        # Topic-specific help
-        case "$topic" in
-            flow)
-                cat <<'EOF'
-FLOW COMMANDS
-=============
-
-/flow create <desc>    Create new flow
-/flow status           Show current flow status
-/flow list             List all flows
-/flow resume <id>      Resume a flow
-
-Flow Lifecycle:
-  NEW → SELECT → ASSEMBLE → EXECUTE → VALIDATE → DONE/FAIL
-
-Example:
-  /flow create "fix auth timeout"
-  /select authentication error
-  /assemble
-  /submit @qa
-EOF
-                ;;
-            evidence)
-                cat <<'EOF'
-EVIDENCE COMMANDS
-=================
-
-/evidence add <selector>   Add evidence file
-/evidence list             List evidence files
-/evidence <number>         View evidence with TDS/chroma (colored markdown)
-/evidence toggle <id>      Toggle evidence on/off
-/evidence status           Show evidence status
-
-Viewing Evidence:
-  /e                  List all evidence
-  /e 1                View $e1 with colored markdown
-  /e 1 2 3            View multiple evidence files
-  cat $e1             Direct access to evidence file
-
-Selector Format:
-  file                Whole file
-  file::100,200       Lines 100-200
-  file::100c,500c     Bytes 100-500
-  file#tag1,tag2      With tags
-
-Examples:
-  /e add src/auth.js::50,100    Add lines 50-100
-  /e list                       Show all evidence
-  /e 1                          View first evidence (colored!)
-  /e toggle 100                 Toggle evidence on/off
-EOF
-                ;;
-            workflow)
-                cat <<'EOF'
-QUICK START WORKFLOW
-====================
-
-Fast path (create and go):
-1. /flow create "How does auth work?"   # Prompt is set!
-2. /e add auth.sh                       # Add evidence
-3. /assemble                            # Build context
-4. /submit @qa --async                  # Send to LLM (background)
-5. /r                                   # View response when done
-
-Refine prompt as needed:
-  /p "Better question"      Replace prompt text
-  /p                        Edit prompt in editor
-
-For more: /help flow, /help evidence, /help prompt
-EOF
-                ;;
-            all)
-                cat <<'EOF'
-RAG REPL - ALL COMMANDS
-=======================
-
-FLOW:       /flow, /f               (try: /help flow)
-EVIDENCE:   /evidence, /e           (try: /help evidence)
-PROMPT:     /p ["text"]             Edit or replace prompt (try: /help prompt)
-ASSEMBLE:   /assemble               Build context
-SUBMIT:     /submit @qa [--async]   Send to LLM (use --async to continue working)
-RESPONSE:   /r                      View LLM answer (colored markdown)
-
-KNOWLEDGE:  /tag [tags...]          Promote flow to knowledge base
-            /kb {list|view|search}  Browse knowledge base
-
-TOOLS:      /mc, /ms, /mi           MULTICAT tools
-DISPLAY:    /cli, /status           Display settings
-HELP:       /help <topic>           This help
-
-REPL:       /mode, /theme, /history, /clear, /exit
-
-Topics: workflow, flow, evidence, prompt, all
-EOF
-                ;;
-            prompt)
-                cat <<'EOF'
-PROMPT COMMANDS
-===============
-
-/p                      Edit prompt in $EDITOR
-/p "Your question"      Replace prompt with new text
-
-The prompt is your question to the LLM. It's set automatically when you
-create a flow, but you can refine it anytime:
-
-Examples:
-  /flow create "How does auth work?"    # Prompt is set!
-  /e add auth.sh
-  /p "How do I fix the timeout?"        # Replace prompt
-  /submit @qa
-
-  /flow create "Initial question"
-  /p                                    # Open editor to refine
-  /submit @qa
-
-File: .rag/flows/active/ctx/010_prompt.user.md
-EOF
-                ;;
-            *)
-                echo "Unknown help topic: $topic"
-                echo ""
-                echo "Available topics:"
-                echo "  workflow   - Quick start guide"
-                echo "  flow       - Flow management"
-                echo "  evidence   - Evidence commands"
-                echo "  prompt     - Prompt/question editing"
-                echo "  all        - All commands"
-                ;;
-        esac
-        return
+    # Check for --interactive flag
+    if [[ "$topic" == "--interactive" ]] || [[ "$topic" == "-i" ]]; then
+        interactive=1
+        topic="$2"
+    elif [[ "$2" == "--interactive" ]] || [[ "$2" == "-i" ]]; then
+        interactive=1
     fi
 
-    # Default concise help
+    # Check if bash/tree help system is available
+    if command -v tree_help_show >/dev/null 2>&1; then
+        if [[ $interactive -eq 1 ]]; then
+            # Interactive navigation mode (explicit opt-in)
+            echo "Interactive help browser"
+            echo "Navigate: type topic name to dive in, 'b' to go back, 'q' to quit"
+            echo ""
+            tree_help_navigate "${topic:-rag}"
+            return 0
+        fi
+
+        if [[ -n "$topic" ]]; then
+            # Show specific topic (non-interactive)
+            local help_path="rag.$topic"
+            if tree_exists "$help_path"; then
+                tree_help_show "$help_path"
+            else
+                # Try without rag prefix
+                help_path="rag"
+                if tree_exists "$help_path"; then
+                    tree_help_show "$help_path"
+                else
+                    echo "Help topic not found: $topic"
+                    echo "Try: /help (show overview) or /help --interactive (browse)"
+                fi
+            fi
+        else
+            # Show main help (non-interactive)
+            tree_help_show "rag"
+        fi
+        return 0
+    fi
+
+    # Fallback to legacy help if bash/tree not available
+    echo "Note: bash/tree not available, showing simplified help"
+    echo ""
+
     cat <<'EOF'
 RAG QUICK REFERENCE
 ===================
@@ -665,7 +576,7 @@ Essential Commands:
   /e 1                       View evidence (colored!)
   /p ["text"]                Edit or replace prompt
   /assemble                  Build context
-  /submit @qa --async        Send to LLM (background, prompt shows ⏳)
+  /submit @qa --async        Send to LLM (background)
   /r                         View response (colored markdown)
   /tag auth troubleshooting  Save to knowledge base
 
@@ -675,11 +586,10 @@ Knowledge Base:
   /kb view <flow-id>         View saved entry
 
 Get More Help:
-  /help workflow    Quick start workflow
-  /help flow        Flow commands
-  /help evidence    Evidence commands
-  /help prompt      Prompt editing
-  /help all         All commands
+  /help flow                 Flow commands
+  /help evidence             Evidence commands
+  /help workflow             Quick start workflow
+  /help --interactive        Browse help tree interactively
 
 Shortcuts: /f (flow), /e (evidence), /h (help)
 EOF
