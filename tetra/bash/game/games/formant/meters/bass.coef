@@ -1,0 +1,24 @@
+# Bass emphasis filter
+# Low-pass FIR emphasizing frequencies below 500Hz
+# 21-tap FIR filter
+0.048
+0.049
+0.050
+0.051
+0.052
+0.053
+0.054
+0.055
+0.056
+0.057
+0.058
+0.057
+0.056
+0.055
+0.054
+0.053
+0.052
+0.051
+0.050
+0.049
+0.048

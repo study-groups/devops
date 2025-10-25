@@ -1,0 +1,25 @@
+# hello.esto - Simple greeting
+# Estovox Speech Script Format
+#
+# Format: <phoneme>:<duration_ms>:<pitch_hz> [# comment]
+# You can also use: @EMOTION, @PITCH, @RATE directives
+
+# Set happy emotion
+@EMOTION HAPPY 0.7
+@PITCH 130
+
+# Say "hello"
+h:80:130
+e:180:135
+l:100:130
+o:280:125
+
+# Pause
+rest:100:0
+
+# Say "world"
+w:100:120
+ə:80:125
+r:80:125
+l:100:125
+d:120:120

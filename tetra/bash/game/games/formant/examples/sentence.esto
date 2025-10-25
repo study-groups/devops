@@ -1,0 +1,76 @@
+# sentence.esto - Full sentence example
+# "The quick brown fox jumps over the lazy dog"
+
+@EMOTION NEUTRAL 0.5
+@PITCH 120
+@RATE 1.0
+
+# "The"
+ð:80:120     # 'th' (use 'd' for now)
+ə:100:120
+
+rest:80:0
+
+# "quick"
+k:60:125
+w:80:125
+i:120:128
+k:70:125
+
+rest:80:0
+
+# "brown"
+b:80:122
+r:90:122
+a:150:120
+u:140:118
+n:100:118
+
+rest:80:0
+
+# "fox"
+f:100:120
+a:160:122
+k:80:120
+s:120:120
+
+rest:100:0
+
+# "jumps"
+j:80:125
+ə:100:125
+m:100:122
+p:60:122
+s:120:120
+
+rest:80:0
+
+# "over"
+o:150:118
+v:100:118
+ə:100:115
+r:120:115
+
+rest:80:0
+
+# "the"
+ð:80:115
+ə:100:115
+
+rest:80:0
+
+# "lazy"
+l:100:118
+e:180:120
+i:150:122
+z:100:122
+i:120:120
+
+rest:100:0
+
+# "dog"
+d:80:118
+a:200:115
+g:120:112
+
+rest:300:0

@@ -1,0 +1,79 @@
+# words.esto - Common words for testing
+# Demonstrates various phoneme combinations
+
+@EMOTION NEUTRAL 0.5
+@PITCH 120
+@RATE 1.0
+
+# === Simple Words ===
+
+# "hello"
+h:80:120
+e:180:125
+l:100:122
+o:280:120
+rest:200:0
+
+# "world"
+w:100:118
+ə:80:120
+r:80:120
+l:100:120
+d:120:118
+rest:200:0
+
+# "mama"
+m:120:115
+a:200:118
+m:120:115
+a:200:118
+rest:200:0
+
+# "papa"
+p:80:115
+a:200:118
+p:80:115
+a:200:118
+rest:200:0
+
+# "baby"
+b:80:118
+e:200:122
+b:80:118
+i:180:125
+rest:200:0
+
+# "yes"
+y:100:125
+e:180:128
+s:140:125
+rest:200:0
+
+# "no"
+n:120:112
+o:250:110
+rest:200:0
+
+# "thank you"
+th:80:120    # Use 't' for 'th'
+a:140:122
+ŋ:120:120    # Use 'n' for 'ng'
+k:80:120
+
+rest:100:0
+
+y:80:125
+u:200:125
+rest:300:0
+
+# "good bye"
+g:80:115
+u:160:118
+d:100:118
+
+rest:100:0
+
+b:80:118
+a:200:120
+i:180:122
+rest:300:0

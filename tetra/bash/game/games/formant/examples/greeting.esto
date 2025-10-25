@@ -1,0 +1,38 @@
+# greeting.esto - Friendly greeting with emotion
+# Demonstrates prosody and emotion control
+
+@EMOTION HAPPY 0.8
+@PITCH 140
+@RATE 1.0
+
+# "Hi there!"
+h:70:150
+a:180:155
+i:200:160
+
+rest:150:0
+
+# "there"
+ð:80:145    # 'th' sound (use 'd' as approximation)
+e:160:150
+r:100:145
+
+rest:200:0
+
+# "How are you?"
+@PITCH 135
+h:80:140
+a:150:145
+u:180:140
+
+rest:100:0
+
+a:120:135
+r:100:130
+
+rest:100:0
+
+y:80:145
+u:200:140
+
+rest:150:0
