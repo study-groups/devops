@@ -80,6 +80,8 @@ tetra_create_lazy_function "anthropic" "anthropic"
 # QA module functions - loaded directly in boot_core.sh (not lazy loaded)
 
 # Melvin module functions
+tetra_create_lazy_function "melvin" "melvin"
+tetra_create_lazy_function "melvin_repl" "melvin"
 tetra_create_lazy_function "echo64" "melvin"
 
 # Claude module functions

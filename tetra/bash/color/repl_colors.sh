@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# REPL Color System - Simple direct color assignments for REPL prompts
+# REPL Color System - Theme-aware color assignments for REPL prompts
+# Supports runtime theme switching via palette overrides
 # No associative arrays, no complex tokens, just simple variables that export properly
 
 # Source core color functions
@@ -7,33 +8,34 @@ COLOR_SRC="${COLOR_SRC:-$(dirname "${BASH_SOURCE[0]}")}"
 source "$COLOR_SRC/color_core.sh"
 
 # REPL Environment Colors (Local -> Dev -> Staging -> Production)
-REPL_ENV_LOCAL="00AA00"          # Bright green
-REPL_ENV_DEV="22DD22"            # Light green
-REPL_ENV_STAGING="44AA44"        # Yellow-green
-REPL_ENV_PRODUCTION="66FF66"     # Caution green
+# These can be overridden by palette themes (synthwave, arcade, pulsar, etc.)
+REPL_ENV_LOCAL="${REPL_ENV_LOCAL:-00AA00}"          # Bright green
+REPL_ENV_DEV="${REPL_ENV_DEV:-22DD22}"              # Light green
+REPL_ENV_STAGING="${REPL_ENV_STAGING:-44AA44}"      # Yellow-green
+REPL_ENV_PRODUCTION="${REPL_ENV_PRODUCTION:-66FF66}" # Caution green
 
 # REPL Mode Colors (Inspect -> Transfer -> Execute)
-REPL_MODE_INSPECT="0088FF"       # Bright blue
-REPL_MODE_TRANSFER="0044AA"      # Medium blue
-REPL_MODE_EXECUTE="4400AA"       # Dark blue
+REPL_MODE_INSPECT="${REPL_MODE_INSPECT:-0088FF}"    # Bright blue
+REPL_MODE_TRANSFER="${REPL_MODE_TRANSFER:-0044AA}"  # Medium blue
+REPL_MODE_EXECUTE="${REPL_MODE_EXECUTE:-4400AA}"    # Dark blue
 
 # REPL Action/Command Colors
-REPL_ACTION_ACTIVE="FFAA00"      # Orange
-REPL_ACTION_NONE="4488AA"        # Muted gray
+REPL_ACTION_ACTIVE="${REPL_ACTION_ACTIVE:-FFAA00}"  # Orange
+REPL_ACTION_NONE="${REPL_ACTION_NONE:-4488AA}"      # Muted gray
 
 # REPL Prompt Structure Colors
-REPL_BRACKET="88AAFF"            # Muted blue
-REPL_SEPARATOR="88FF00"          # Subtle gray
-REPL_ARROW="FFAA00"              # Orange
+REPL_BRACKET="${REPL_BRACKET:-88AAFF}"              # Muted blue
+REPL_SEPARATOR="${REPL_SEPARATOR:-88FF00}"          # Subtle gray
+REPL_ARROW="${REPL_ARROW:-FFAA00}"                  # Orange
 
 # REPL Context Colors
-REPL_ORG_ACTIVE="6688AA"         # Bright text
-REPL_ORG_INACTIVE="4488AA"       # Muted text
+REPL_ORG_ACTIVE="${REPL_ORG_ACTIVE:-6688AA}"        # Bright text
+REPL_ORG_INACTIVE="${REPL_ORG_INACTIVE:-4488AA}"    # Muted text
 
 # Feedback colors
-REPL_FEEDBACK_ENV="22DD22"       # Bright green
-REPL_FEEDBACK_MODE="0088FF"      # Bright blue
-REPL_FEEDBACK_ACTION="FFAA00"    # Orange
+REPL_FEEDBACK_ENV="${REPL_FEEDBACK_ENV:-22DD22}"    # Bright green
+REPL_FEEDBACK_MODE="${REPL_FEEDBACK_MODE:-0088FF}"  # Bright blue
+REPL_FEEDBACK_ACTION="${REPL_FEEDBACK_ACTION:-FFAA00}" # Orange
 
 # Helper: Get environment color by index
 repl_env_color() {
