@@ -239,8 +239,9 @@ tdoc_db_list() {
             [[ "$found" == false ]] && continue
         fi
 
-        # Output metadata
-        echo "$meta"
+        # Output metadata as single-line JSON for easy parsing
+        echo "$meta" | tr '\n' ' ' | sed 's/  */ /g'
+        echo ""
     done
 }
 

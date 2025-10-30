@@ -31,4 +31,7 @@ void panels_render_all(const IPAPanel panels[MAX_IPA_PANELS]);
 /* Update panel positions for bottom strip layout */
 void panels_update_positions(IPAPanel panels[MAX_IPA_PANELS], int terminal_rows);
 
+/* Update panel animations (falling effect) */
+void panels_update_animation(IPAPanel panels[MAX_IPA_PANELS], float delta_time);
+
 #endif /* ESTOFACE_PANELS_H */

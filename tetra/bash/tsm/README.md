@@ -11,13 +11,14 @@ source ~/tetra/tetra.sh
 # TSM is auto-loaded, or load manually
 source "$TETRA_SRC/bash/tsm/includes.sh"
 
-# Start a process
-tsm start devpages                    # Start service by name
-tsm start python run.py               # Start Python script
-tsm start node server.js --port 4000  # Start Node app
+# Start processes - ports auto-allocated!
+tsm start python -m http.server       # Auto-allocates port (tries 8000)
+tsm start python server.py            # Auto-allocates port
+tsm start node server.js              # Auto-allocates port (tries 3000)
+tsm start bash worker.sh              # No port needed, uses socket
 
 # Manage processes
-tsm list                              # Show running processes
+tsm list                              # Show running processes with types
 tsm logs 0                            # View logs (by TSM ID)
 tsm stop devpages                     # Stop by name
 tsm restart 0                         # Restart by ID
@@ -26,7 +27,8 @@ tsm delete devpages                   # Remove process tracking
 # Diagnostics
 tsm doctor                            # Port diagnostics
 tsm doctor healthcheck                # Environment validation
-tsm doctor orphans                    # Find orphaned processes
+tsm_list_port_allocations             # Show allocated ports
+tsm_ipc_list_channels                 # Show IPC channels
 ```
 
 ## Table of Contents
@@ -104,6 +106,58 @@ tsm show <service>            # Show service definition
 
 ---
 
+## Smart Service Management
+
+TSM intelligently classifies services and automatically handles port allocation and IPC setup:
+
+### Automatic Port Allocation
+
+When you start a service without specifying a port, TSM will:
+
+1. **Check known patterns** - Matches command against registry of common services
+2. **Use default port** - If available (e.g., `python -m http.server` → 8000)
+3. **Allocate dynamically** - If default is busy, finds free port in range 8000-8999
+
+```bash
+# These all work without explicit ports:
+tsm start python -m http.server     # Auto-allocates (tries 8000 first)
+tsm start python server.py          # Auto-allocates from range
+tsm start node server.js            # Auto-allocates (tries 3000 first)
+```
+
+### Service Classification
+
+TSM automatically classifies services into types:
+
+- **port** - Network services (HTTP servers, APIs)
+- **socket** - Unix domain socket services (workers, daemons)
+- **pid** - Simple process tracking (no network or socket)
+
+Classification is based on:
+1. Known patterns in `patterns.txt`
+2. Port 0 in pattern = socket-based service
+
+### Sockets for Non-Port Services
+
+For services that don't use network ports, TSM provides Unix domain sockets:
+
+```bash
+# Start a worker - TSM creates socket automatically
+tsm start bash worker.sh
+
+# Check status via socket
+tsm_socket_status "worker"
+
+# Health check
+tsm_socket_health "worker"
+```
+
+Socket protocol supports:
+- STATUS - Query service state
+- HEALTH - Health check ping/pong
+- RELOAD - Reload configuration
+- STOP - Graceful shutdown
+
 ## Starting Processes
 
 TSM can start any process type automatically:
@@ -114,13 +168,10 @@ TSM can start any process type automatically:
 # HTTP server
 tsm start python -m http.server 8000
 
-# Flask app (auto-detects port)
+# Python app (auto-allocates port)
 tsm start python run.py
 
-# Django
-tsm start python manage.py runserver 8000
-
-# Custom script
+# Python script with environment
 tsm start --env prod python app.py
 ```
 
@@ -175,8 +226,8 @@ $ tsm start node app.js
 → Process name: my-api-app-3000
 
 # Running from ~/projects/phasefield
-$ tsm start python -m flask run
-→ Process name: phasefield-flask-5000
+$ tsm start python server.py
+→ Process name: phasefield-server-5000
 
 # Custom naming
 $ tsm start --name backend python server.py
@@ -355,6 +406,52 @@ tsm doctor clean
 tsm doctor clean --aggressive
 ```
 
+### Port Allocation Diagnostics
+
+```bash
+# List all port allocations
+tsm_list_port_allocations
+
+# Cleanup stale allocations
+tsm_cleanup_port_allocations
+
+# View port allocation range
+tsm_get_port_range
+# Output: 8000 8999
+```
+
+### IPC Diagnostics
+
+```bash
+# List all IPC channels
+tsm_ipc_list_channels
+
+# Test IPC channel
+tsm_ipc_test_channel "myservice-worker"
+
+# Cleanup stale IPC channels
+tsm_ipc_cleanup_stale
+
+# Manually send IPC command
+tsm_ipc_send "myservice-worker" "STATUS"
+```
+
+### Service Classification
+
+```bash
+# Classify a command
+tsm_get_service_info "python -m http.server"
+# Output:
+# Service Classification:
+#   Type: port-based
+#   Port Required: true
+#   IPC Enabled: false
+#   Default Port: 8000
+
+# Validate classification
+tsm_validate_classification "bash worker.sh"
+```
+
 ---
 
 ## Interactive Mode
@@ -381,6 +478,37 @@ tsm> help
 tsm> /history
 # Shows command history
 ```
+
+---
+
+## Service Patterns Registry
+
+TSM maintains a registry of known service patterns in `patterns.txt`:
+
+### Built-in Patterns
+
+Common services are pre-configured:
+- Python: http.server
+- Node: node
+- Go: go run
+- Bash: bash scripts
+
+### Custom Patterns
+
+Add to `$TETRA_DIR/tsm/patterns.txt`:
+
+```txt
+# name|match|port|template
+myapp-server|./myapp server|9000|{cmd} --listen {port}
+myapp-worker|./myapp worker|0|{cmd}
+```
+
+### Pattern Fields
+
+- `name` - Pattern identifier
+- `match` - Command pattern to match
+- `port` - Default port (0 = socket-based)
+- `template` - Command template ({cmd} = command, {port} = port)
 
 ---
 

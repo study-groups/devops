@@ -26,6 +26,7 @@ tsm_create_metadata() {
     local type="$7"
     local env_file="$8"
     local prehook="${9:-}"  # Optional: pre-hook used
+    local service_type="${10:-pid}"  # Service type: port|socket|pid
 
     local tsm_id=$(tsm_get_next_id)
     local start_time=$(date +%s)
@@ -47,6 +48,7 @@ tsm_create_metadata() {
         --arg type "$type" \
         --arg env_file "$env_file" \
         --arg prehook "$prehook" \
+        --arg service_type "$service_type" \
         --arg start_time "$start_time" \
         '{
             tsm_id: ($tsm_id | tonumber),
@@ -57,6 +59,7 @@ tsm_create_metadata() {
             cwd: $cwd,
             interpreter: $interpreter,
             process_type: $type,
+            service_type: $service_type,
             env_file: $env_file,
             prehook: $prehook,
             status: "online",

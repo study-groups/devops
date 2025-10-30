@@ -205,6 +205,71 @@ Direction: estoface→formant (unidirectional)"
 FIFOs: low latency, simple, standard shell redirection"
 
     # ========================================================================
+    # REPL COMMANDS
+    # ========================================================================
+
+    tree_insert "help.estoface.commands" category \
+        title="Commands" \
+        help="Bash REPL command reference" \
+        detail="Two modes: Launch TUI binary, or use bash commands for dev/test
+Type 'help <command>' for detailed info on specific commands"
+
+    tree_insert "help.estoface.commands.run" category \
+        title="run/play" \
+        help="Launch the TUI binary" \
+        detail="Usage: run | play
+Exit the bash REPL and launch the C binary in TUI mode.
+The binary provides real-time gamepad control and facial rendering.
+Press Ctrl+C in the TUI to exit back to the bash REPL."
+
+    tree_insert "help.estoface.commands.config" category \
+        title="config" \
+        help="Configure game settings" \
+        detail="Usage: config [setting] [value]
+Configure display, audio, and control settings.
+Settings: width, height, fps, sample_rate, buffer_size
+Example: config fps 60"
+
+    tree_insert "help.estoface.commands.setup" category \
+        title="setup" \
+        help="Run setup wizard" \
+        detail="Usage: setup
+Interactive setup wizard for initial game configuration.
+Guides through display, audio, and gamepad calibration."
+
+    tree_insert "help.estoface.commands.test" category \
+        title="test" \
+        help="Run test suite" \
+        detail="Usage: test [suite]
+Run automated tests for rendering, audio, and input.
+Suites: rendering, audio, input, all
+Example: test rendering"
+
+    tree_insert "help.estoface.commands.debug" category \
+        title="debug" \
+        help="Enable debug mode" \
+        detail="Usage: debug [mode]
+Enable verbose logging and profiling.
+Modes: logging, profiling, memory, all
+Example: debug logging"
+
+    tree_insert "help.estoface.commands.script" category \
+        title="script" \
+        help="Load and execute command script" \
+        detail="Usage: script <file>
+Load and execute a sequence of estoface commands from a file.
+Useful for automation, testing, and demo sequences.
+Example: script demos/hello_world.esto"
+
+    tree_insert "help.estoface.commands.record" category \
+        title="record" \
+        help="Record animation sequences" \
+        detail="Usage: record [output_file]
+Record animation sequences, gameplay, or phoneme samples.
+Modes: sequence, performance, audio
+Example: record mysequence.esto"
+
+    # ========================================================================
     # TESTING
     # ========================================================================
 

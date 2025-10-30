@@ -110,6 +110,11 @@ typedef struct {
     const PhonemePreset *phoneme;
     char esto_code[256];
     FacialState state_snapshot;  /* Snapshot of state for display */
+
+    /* Animation state for fall-in effect */
+    float anim_y;        /* Current animated y position */
+    float anim_velocity; /* Velocity for fall animation */
+    int just_shown;      /* Flag to trigger fall animation */
 } IPAPanel;
 
 /* Main engine context */

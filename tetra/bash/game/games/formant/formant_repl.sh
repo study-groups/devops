@@ -6,7 +6,10 @@
 # Source dependencies
 source "$TETRA_SRC/bash/repl/repl.sh"
 source "$TETRA_SRC/bash/color/repl_colors.sh"
-source "$TETRA_SRC/bash/tree/help.sh"
+
+# Game-specific modules
+FORMANT_GAME_SRC="$GAME_SRC/games/formant"
+source "$FORMANT_GAME_SRC/formant_help.sh"
 
 # REPL Configuration
 REPL_HISTORY_BASE="${TETRA_DIR}/game/formant_repl_history"
@@ -44,93 +47,13 @@ formant_repl_status() {
 }
 
 # ============================================================================
-# HELP SYSTEM (using bash/tree)
+# HELP SYSTEM (using formant_help.sh)
 # ============================================================================
 
-# Build formant help tree
-_formant_build_help_tree() {
-    # Main help
-    tree_insert "formant" category \
-        title="🎙️ FORMANT - Vocal Synthesis Shell" \
-        help="Real-time vocal synthesis with IPA phoneme support"
-
-    # Engine commands
-    tree_insert "formant.engine" category title="Engine Commands"
-    tree_insert "formant.engine.start" command \
-        title="Start Engine" \
-        help="Start the formant synthesis engine" \
-        synopsis="start"
-    tree_insert "formant.engine.status" command \
-        title="Engine Status" \
-        help="Show engine status and configuration" \
-        synopsis="status"
-    tree_insert "formant.engine.demo" command \
-        title="Demo Speech" \
-        help="Run formant synthesis demo" \
-        synopsis="demo"
-
-    # Metering commands
-    tree_insert "formant.meter" category title="Metering Commands"
-    tree_insert "formant.meter.preset" command \
-        title="Select Meter" \
-        help="Select meter preset for recording" \
-        synopsis="meter <preset>" \
-        detail="Presets: vu, a_weight, bass, treble" \
-        examples="meter a_weight"
-    tree_insert "formant.meter.show" command \
-        title="Show Meter" \
-        help="Display current meter reading" \
-        synopsis="meter show"
-    tree_insert "formant.meter.reset" command \
-        title="Reset Meter" \
-        help="Reset meter statistics" \
-        synopsis="meter reset"
-
-    # Recording commands
-    tree_insert "formant.record" category title="Recording Commands"
-    tree_insert "formant.record.phoneme" command \
-        title="Record Phoneme" \
-        help="Record phoneme with VAD and live metering" \
-        synopsis="record <phoneme>" \
-        examples="record a"
-    tree_insert "formant.record.analyze" command \
-        title="Analyze WAV" \
-        help="Analyze WAV file for loop points and grain data" \
-        synopsis="analyze <wav_file>" \
-        examples="analyze a.wav"
-
-    # Sound bank commands
-    tree_insert "formant.bank" category title="Sound Bank Commands"
-    tree_insert "formant.bank.list" command \
-        title="List Bank" \
-        help="Show phoneme BST structure" \
-        synopsis="bank list"
-    tree_insert "formant.bank.add" command \
-        title="Add to Bank" \
-        help="Add grain to sound bank" \
-        synopsis="bank add <phoneme> <wav>" \
-        examples="bank add a a.wav"
-    tree_insert "formant.bank.play" command \
-        title="Play from Bank" \
-        help="Play grain from sound bank" \
-        synopsis="bank play <phoneme>" \
-        examples="bank play a"
-    tree_insert "formant.bank.export" command \
-        title="Export Bank" \
-        help="Export bank metadata" \
-        synopsis="bank export"
-}
-
 formant_repl_show_help() {
-    local topic="${1:-formant}"
-
-    # Build tree on first use
-    if ! tree_exists "formant" 2>/dev/null; then
-        _formant_build_help_tree
-    fi
-
-    # Show help using tree system (18-line paginated)
-    tree_help_show "$topic"
+    local topic="${1:-}"
+    # Delegate to formant_help (uses bash/tree for paginated help)
+    formant_help "$topic"
 }
 
 # ============================================================================
@@ -208,7 +131,7 @@ _formant_repl_process_input() {
             # Help with topic: "help engine", "help bank", etc.
             local topic="${input#help }"
             topic="${topic#h }"
-            formant_repl_show_help "formant.$topic"
+            formant_repl_show_help "$topic"
             return 0
             ;;
     esac
@@ -413,6 +336,10 @@ _formant_repl_process_input() {
 # ============================================================================
 
 formant_game_repl_run() {
+    # Register module
+    repl_register_module "formant" "start status demo speak phoneme meter record analyze bank" "help.game.formant"
+    repl_set_module_context "formant"
+
     echo ""
     text_color "66FFFF"
     echo "🎙️ FORMANT - Vocal Synthesis REPL"

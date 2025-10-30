@@ -40,6 +40,7 @@ TDS_QUIET_LOAD=1 tds_switch_theme "$TDS_ACTIVE_THEME" 2>/dev/null || {
 # Layer 3: Color tokens (existing palette → semantic mapping)
 source "$TDS_SRC/tokens/color_tokens.sh"
 source "$TDS_SRC/tokens/repl_tokens.sh"
+source "$TDS_SRC/tokens/unicode_explorer_tokens.sh"
 
 # Layer 4: Layout utilities (borders, panels, spacing)
 source "$TDS_SRC/layout/borders.sh"

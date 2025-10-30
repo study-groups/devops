@@ -58,8 +58,14 @@ qa_init() {
 
 # Main qa command interface
 qa() {
+    # Lazy load QA modules on first invocation
+    if [[ "${QA_MODULES_LOADED:-false}" != "true" ]]; then
+        qa_source_modules
+        export QA_MODULES_LOADED=true
+    fi
+
     local action="${1:-}"
-    
+
     if [[ -z "$action" ]]; then
         cat <<'EOF'
 Usage: qa <command> [args]
@@ -156,10 +162,16 @@ EOF
 }
 
 # Shortcut command
-qq() { qa_query "$@"; }
-
-# Source modules immediately when this file is loaded
-qa_source_modules
+qq() {
+    # Ensure modules are loaded before using shortcut
+    if [[ "${QA_MODULES_LOADED:-false}" != "true" ]]; then
+        qa_source_modules
+        export QA_MODULES_LOADED=true
+    fi
+    qa_query "$@"
+}
 
 # Export essential module variables
 export QA_SRC QA_DIR
+
+# Note: QA sub-modules are now lazy-loaded on first use of 'qa' or 'qq' commands

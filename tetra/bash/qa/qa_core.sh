@@ -120,6 +120,18 @@ q_gpt_query ()
     fi
 
     echo "$input" > "$db/$id.prompt"
+
+    # Save metadata if provided via environment variable
+    if [[ -n "${QA_FLOW_ID:-}" ]] || [[ -n "${QA_SOURCE:-}" ]]; then
+        local metadata="{"
+        metadata+="\"timestamp\":$id"
+        metadata+=",\"created\":\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\""
+        [[ -n "${QA_FLOW_ID:-}" ]] && metadata+=",\"flow_id\":\"$QA_FLOW_ID\""
+        [[ -n "${QA_SOURCE:-}" ]] && metadata+=",\"source\":\"$QA_SOURCE\"" || metadata+=",\"source\":\"direct\""
+        metadata+="}"
+        echo "$metadata" > "$db/$id.metadata.json"
+    fi
+
     input=$(_qa_sanitize_input "$input")
     local data
     data=$(jq -nc --arg model "$(_get_qa_engine)" \
@@ -159,8 +171,11 @@ q_gpt_query ()
     fi
 
     echo "$answer" > "$db/$id.answer"
+
+    # Output answer to stdout, timestamp to stderr for capture
+    echo "QA_ID=$id" >&2
     echo "$answer" # Always output the final answer to stdout
-    
+
     #set +x # Disable command tracing before exiting
 } 
 

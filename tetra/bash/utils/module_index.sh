@@ -219,14 +219,15 @@ _tetra_enhanced_completion() {
     esac
 }
 
-# Initialize module index
-tetra_load_module_index
-
 # Enhanced aliases
 alias tlsm='tetra_list_modules_enhanced'
 alias trm='tetra_remove_module'
 alias tfm='tetra_find_module'
 alias tmh='tetra_module_help'
+
+# Lazy load module metadata on first use instead of at boot time
+# The check at lines 34-36, 106-108, 157-159, 189-191 will load on demand
+# tetra_load_module_index  # REMOVED: Was causing 3000+ lines to execute at boot
 
 # Register enhanced tab completion
 complete -F _tetra_enhanced_completion tlsm trm tfm tmh

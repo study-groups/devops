@@ -31,10 +31,14 @@ source "$TDOC_SRC/core/database.sh"
 source "$TDOC_SRC/core/index.sh"
 source "$TDOC_SRC/core/classify.sh"
 source "$TDOC_SRC/core/search.sh"
+source "$TDOC_SRC/core/chuck.sh"
 source "$TDOC_SRC/ui/tags.sh"
 source "$TDOC_SRC/ui/preview.sh"
 source "$TDOC_SRC/ui/interactive.sh"
 source "$TDOC_SRC/integrations/rag_evidence.sh"
+
+# Load actions
+source "$TDOC_SRC/actions/chuck.sh"
 
 # Build help tree for tdoc
 _tdoc_build_help_tree() {
@@ -69,11 +73,21 @@ tdoc view file.md --meta-only"
 
     tree_insert "help.tdoc.list" command \
         title="List documents" \
-        help="List all tracked documents with filters" \
+        help="List all tracked documents with filters (compact format)" \
         synopsis="tdoc list [OPTIONS]" \
         handler="tdoc_list_docs" \
+        details="Compact one-line format. Use 'tdoc ls' for detailed preview." \
         examples="tdoc list --core
 tdoc list --module rag --tags bug-fix"
+
+    tree_insert "help.tdoc.ls" command \
+        title="List with preview" \
+        help="List all tracked documents with detailed preview" \
+        synopsis="tdoc ls [OPTIONS]" \
+        handler="tdoc_list_docs" \
+        details="Shows detailed preview with colors, badges, and full paths. Alias for 'tdoc list --preview'." \
+        examples="tdoc ls
+tdoc ls --core --module rag"
 
     tree_insert "help.tdoc.search" command \
         title="Search documents" \
@@ -154,6 +168,58 @@ tdoc list --module rag --tags bug-fix"
     tree_insert "help.tdoc.list.--tags" option \
         title="Tag filter" \
         help="Filter by comma-separated tags"
+
+    # Chuck command
+    tree_insert "help.tdoc.chuck" command \
+        title="Chuck LLM responses" \
+        help="Capture LLM responses as lower-grade technical documentation" \
+        synopsis="tdoc chuck <subcommand>" \
+        handler="tdoc_action_chuck" \
+        details="Chuck stores LLM responses in $TETRA_DIR/tdoc/chuck/ with epoch timestamps.
+These are lower-grade docs that can later be promoted to reference documentation." \
+        examples="tdoc chuck save tree < llm_response.md
+tdoc chuck list --recent 10
+tdoc chuck promote 1729950000 docs/reference/tree.md"
+
+    # Chuck subcommands
+    tree_insert "help.tdoc.chuck.save" command \
+        title="Save LLM response" \
+        help="Save LLM response from stdin or file" \
+        synopsis="tdoc chuck save <kind> [--from FILE]" \
+        examples="echo '...' | tdoc chuck save tree
+tdoc chuck save boot --from /tmp/response.md"
+
+    tree_insert "help.tdoc.chuck.list" command \
+        title="List chuck documents" \
+        help="List chucked documents with optional filters" \
+        synopsis="tdoc chuck list [--kind KIND] [--recent N]" \
+        examples="tdoc chuck list
+tdoc chuck list --kind tree --recent 5"
+
+    tree_insert "help.tdoc.chuck.view" command \
+        title="View chuck document" \
+        help="Display a chucked document" \
+        synopsis="tdoc chuck view <id> | --kind <kind>" \
+        examples="tdoc chuck view 1729950000
+tdoc chuck view --kind tree"
+
+    tree_insert "help.tdoc.chuck.promote" command \
+        title="Promote to reference" \
+        help="Promote chuck document to reference directory" \
+        synopsis="tdoc chuck promote <id> <dest_path>" \
+        examples="tdoc chuck promote 1729950000 docs/reference/tree-design.md"
+
+    tree_insert "help.tdoc.chuck.delete" command \
+        title="Delete chuck document" \
+        help="Remove a chuck document" \
+        synopsis="tdoc chuck delete <id> [--force]" \
+        examples="tdoc chuck delete 1729950000"
+
+    tree_insert "help.tdoc.chuck.search" command \
+        title="Search chuck documents" \
+        help="Full-text search across chuck documents" \
+        synopsis="tdoc chuck search <query>" \
+        examples="tdoc chuck search 'boot optimization'"
 }
 
 # Module initialization
@@ -164,15 +230,15 @@ tdoc_module_init() {
     # Initialize indexes if they don't exist
     tdoc_index_init
 
-    # Build help tree
-    _tdoc_build_help_tree
-
-    echo "tdoc module initialized successfully"
+    # Build help tree if tree module is loaded
+    if [[ -v TREE_TYPE ]]; then
+        _tdoc_build_help_tree
+    fi
 }
 
 # Module interface functions (for Tetra module system)
 tdoc_module_actions() {
-    echo "init view tag list search evidence audit"
+    echo "init view tag list search evidence audit chuck"
 }
 
 tdoc_module_properties() {
@@ -207,8 +273,11 @@ tdoc() {
         tag)
             tdoc_tag_interactive "$@"
             ;;
-        list|ls)
+        list)
             tdoc_list_docs "$@"
+            ;;
+        ls)
+            tdoc_list_docs --preview "$@"
             ;;
         search)
             tdoc_search_docs "$@"
@@ -229,6 +298,9 @@ tdoc() {
                     ;;
             esac
             ;;
+        chuck)
+            tdoc_action_chuck "$@"
+            ;;
         help|--help|-h)
             _tdoc_show_help
             ;;
@@ -241,16 +313,33 @@ tdoc() {
 }
 
 _tdoc_show_help() {
-    # Use tree-based help if available
-    if declare -F tree_help_show >/dev/null 2>&1; then
-        tree_help_show "help.tdoc"
-    else
-        # Fallback to basic help
-        echo "tdoc - Tetra Document Manager"
-        echo ""
-        echo "Commands: init, view, tag, list, search, evidence, audit, index"
-        echo "Try: tdoc <command> --help for details"
+    # Use tree-based help if available and help tree is built
+    if declare -F tree_help_show >/dev/null 2>&1 && declare -F tree_get >/dev/null 2>&1; then
+        # Check if help tree exists before trying to show it
+        if tree_get "help.tdoc" "type" >/dev/null 2>&1; then
+            tree_help_show "help.tdoc"
+            return 0
+        fi
     fi
+
+    # Fallback to basic help
+    echo "tdoc - Tetra Document Manager"
+    echo ""
+    echo "Commands:"
+    echo "  init      - Initialize document with metadata"
+    echo "  view      - Preview document with rendering"
+    echo "  tag       - Interactive tag editor"
+    echo "  list      - List tracked documents (compact)"
+    echo "  ls        - List tracked documents (detailed preview)"
+    echo "  search    - Full-text search"
+    echo "  evidence  - Evidence-weighted ranking for RAG"
+    echo "  audit     - Find documents without metadata"
+    echo "  index     - Manage document indexes"
+    echo "  chuck     - Capture LLM responses as docs"
+    echo ""
+    echo "Try: tdoc <command> --help for details"
+    echo ""
+    echo "Note: Load 'tree' module for enhanced help: tmod load tree"
 }
 
 # Export for use as command

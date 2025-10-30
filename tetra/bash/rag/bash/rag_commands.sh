@@ -181,6 +181,57 @@ rag_cmd_select() {
 }
 
 # ============================================================================
+# WORKFLOW COMMAND (quick start guide)
+# ============================================================================
+
+rag_cmd_workflow() {
+    # Show quick start workflow guide
+    cat <<'EOF'
+RAG Quick Start Workflow
+========================
+
+Basic workflow for answering questions about your codebase:
+
+1. /flow create "your question"
+   └─ Creates a new flow with your question as the prompt
+
+2. /e add file.sh
+   └─ Add evidence files (source code, docs, etc.)
+   └─ Use selectors for specific ranges:
+      • /e add file.sh::100,200     (lines 100-200)
+      • /e add file.sh::100         (from line 100 to EOF)
+      • /e add file.sh#important    (with tags)
+
+3. /assemble
+   └─ Builds the context from your evidence files
+   └─ Creates prompt.mdctx ready for submission
+
+4. /submit @qa [--async]
+   └─ Sends the assembled context to the QA agent
+   └─ Use --async to run in background
+
+5. /r
+   └─ View the LLM's response (colored markdown)
+
+6. /tag <tags...>
+   └─ Promote flow to knowledge base with tags
+   └─ Example: /tag auth troubleshooting
+
+Optional commands:
+  /p "new question"     Replace the prompt/question
+  /e list               List all evidence files
+  /e 1                  View evidence file #1
+  /e toggle 100         Toggle evidence on/off
+  /flow status          Show current flow status
+  /kb list              List knowledge base entries
+
+Tip: Use /help <topic> for more details on each command
+     Example: /help flow, /help evidence
+
+EOF
+}
+
+# ============================================================================
 # ASSEMBLE COMMAND
 # ============================================================================
 
@@ -514,6 +565,124 @@ rag_cmd_kb() {
 }
 
 # ============================================================================
+# QA COMMAND (QA history search and retrieval)
+# ============================================================================
+
+rag_cmd_qa() {
+    local subcmd="$1"
+    shift || true
+
+    # Source QA retrieval module
+    if [[ -f "$RAG_SRC/core/qa_retrieval.sh" ]]; then
+        source "$RAG_SRC/core/qa_retrieval.sh"
+    else
+        echo "Error: QA retrieval module not found" >&2
+        return 1
+    fi
+
+    case "$subcmd" in
+        search|find|s)
+            local query="$*"
+            if [[ -z "$query" ]]; then
+                echo "Error: Search query required" >&2
+                echo "Usage: /qa search <query>" >&2
+                return 1
+            fi
+
+            # Run search and display results
+            local results=$(qa_retrieval_search "$query")
+            if [[ $? -eq 0 ]] && [[ -n "$results" ]]; then
+                echo ""
+                echo "Results (score|qa_id|flow_id|created):"
+                echo "========================================"
+                echo "$results" | while IFS='|' read -r score qa_id flow_id created; do
+                    printf "  [%d] %s" "$score" "$qa_id"
+                    [[ -n "$flow_id" ]] && printf " (flow: %s)" "$flow_id"
+                    [[ -n "$created" ]] && printf " - %s" "$created"
+                    printf "\n"
+
+                    # Show preview
+                    qa_retrieval_show_preview "$qa_id" | sed 's/^/      /'
+                    echo ""
+                done
+            fi
+            ;;
+        list|ls)
+            qa_retrieval_list "$@"
+            ;;
+        view|show|v)
+            local qa_id="$1"
+            if [[ -z "$qa_id" ]]; then
+                echo "Error: QA ID required" >&2
+                echo "Usage: /qa view <qa_id>" >&2
+                return 1
+            fi
+
+            local prompt_file="$QA_DB_DIR/$qa_id.prompt"
+            local answer_file="$QA_DB_DIR/$qa_id.answer"
+
+            if [[ ! -f "$prompt_file" ]]; then
+                echo "Error: QA entry $qa_id not found" >&2
+                return 1
+            fi
+
+            echo "=== QA Entry: $qa_id ==="
+            echo ""
+            qa_retrieval_show_preview "$qa_id"
+            echo ""
+            echo "--- Full Answer ---"
+            if [[ -f "$answer_file" ]]; then
+                cat "$answer_file"
+            else
+                echo "(No answer file)"
+            fi
+            ;;
+        add)
+            local qa_id="$1"
+            if [[ -z "$qa_id" ]]; then
+                echo "Error: QA ID required" >&2
+                echo "Usage: /qa add <qa_id>" >&2
+                echo ""
+                echo "Tip: Use /qa search <query> to find QA IDs" >&2
+                return 1
+            fi
+
+            qa_retrieval_add_evidence "$qa_id"
+            ;;
+        help|h|"")
+            cat <<'EOF'
+/qa - QA History Search and Retrieval
+
+USAGE:
+  /qa search <query>    Search QA history for relevant Q&A pairs
+  /qa list [--limit N]  List recent QA entries
+  /qa view <qa_id>      View full QA entry
+  /qa add <qa_id>       Add QA entry as evidence to current flow
+
+EXAMPLES:
+  /qa search authentication error
+  /qa list --limit 10
+  /qa view 1758025638
+  /qa add 1758025638
+
+WORKFLOW:
+  1. Search QA history:  /qa search "your query"
+  2. View entry:         /qa view <qa_id>
+  3. Add as evidence:    /qa add <qa_id>
+  4. Assemble context:   /assemble
+  5. Submit:             /submit @qa
+
+This enables RAG to learn from prior Q&A interactions!
+EOF
+            ;;
+        *)
+            echo "Unknown qa subcommand: $subcmd"
+            echo "Try: /qa help"
+            ;;
+    esac
+}
+
+# ============================================================================
 # HELP COMMAND
 # ============================================================================
 
@@ -618,6 +787,9 @@ rag_register_commands() {
     repl_register_slash_command "assemble" rag_cmd_assemble
     repl_register_slash_command "submit" rag_cmd_submit
 
+    # Workflow guide
+    repl_register_slash_command "workflow" rag_cmd_workflow
+
     # Prompt/question editing
     repl_register_slash_command "p" rag_cmd_prompt_edit  # Edit prompt/question
 
@@ -640,6 +812,9 @@ rag_register_commands() {
     repl_register_slash_command "tag" rag_cmd_tag
     repl_register_slash_command "kb" rag_cmd_kb
 
+    # QA History Retrieval
+    repl_register_slash_command "qa" rag_cmd_qa
+
     # Help (override default with RAG-specific help)
     repl_register_slash_command "help" rag_cmd_help
     repl_register_slash_command "h" rag_cmd_help  # Alias
@@ -650,6 +825,7 @@ export -f rag_cmd_flow
 export -f rag_cmd_evidence
 export -f rag_cmd_select
 export -f rag_cmd_assemble
+export -f rag_cmd_workflow
 export -f rag_cmd_prompt_edit
 export -f rag_cmd_response
 export -f rag_cmd_submit
@@ -661,4 +837,5 @@ export -f rag_cmd_mi
 export -f rag_cmd_help
 export -f rag_cmd_tag
 export -f rag_cmd_kb
+export -f rag_cmd_qa
 export -f rag_register_commands

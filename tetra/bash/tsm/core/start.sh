@@ -134,10 +134,24 @@ tsm_start_any_command() {
         final_command="$command"
     fi
 
-    # Discover port (pass parsed value to avoid re-reading)
-    local port
-    port=$(tsm_discover_port "$command" "$env_file" "$explicit_port" "$ENV_PORT")
-    [[ -z "$port" ]] && port="none"
+    # Apply port resolution ladder (5-step)
+    local port template service_type
+    if declare -f tsm_resolve_port >/dev/null 2>&1; then
+        local resolution=$(tsm_resolve_port "$command" "$explicit_port")
+        IFS='|' read -r port template service_type <<< "$resolution"
+
+        # If template returned, rewrite command
+        if [[ "$template" != "{cmd}" ]]; then
+            final_command=$(tsm_apply_template "$final_command" "$port" "$template")
+        fi
+    else
+        # Fallback: use old discovery method
+        port=$(tsm_discover_port "$command" "$env_file" "$explicit_port" "$ENV_PORT")
+        template="{cmd}"
+        service_type="port"
+    fi
+
+    [[ -z "$port" || "$port" == "none" ]] && port="none" && service_type="pid"
 
     # Generate name (pass parsed value to avoid re-reading)
     local name
@@ -161,6 +175,12 @@ tsm_start_any_command() {
     local log_err="$process_dir/current.err"
     local pid_file="$process_dir/${name}.pid"
 
+    # Setup socket if service_type is socket
+    local socket_path=""
+    if [[ "$service_type" == "socket" ]] && declare -f tsm_socket_create >/dev/null 2>&1; then
+        socket_path=$(tsm_socket_create "$name")
+    fi
+
     # Build environment activation and user env file
     local env_setup=""
 
@@ -178,6 +198,11 @@ tsm_start_any_command() {
     # Add user env file if specified
     if [[ -n "$env_file" && -f "$env_file" ]]; then
         env_setup="${env_setup}source '$env_file'"
+    fi
+
+    # Export socket path for socket-based services
+    if [[ -n "$socket_path" ]]; then
+        env_setup="${env_setup}"$'\n'"export TSM_SOCKET_PATH='$socket_path'"
     fi
 
     # Start process
@@ -263,7 +288,7 @@ tsm_start_any_command() {
         return 1
     fi
 
-    # Create simple JSON metadata (PM2-style)
+    # Create JSON metadata with service_type
     local tsm_id=$(tsm_create_metadata \
         "$name" \
         "$pid" \
@@ -273,34 +298,29 @@ tsm_start_any_command() {
         "$interpreter" \
         "$process_type" \
         "$env_file" \
-        "$explicit_prehook")
+        "$explicit_prehook" \
+        "$service_type")
 
     # Log success (construct JSON safely)
     local success_meta=$(jq -n --arg pid "$pid" --arg port "$port" --arg id "$tsm_id" \
         '{pid: ($pid | tonumber), port: $port, tsm_id: ($id | tonumber)}')
     tetra_log_success "tsm" "start" "$name" "$success_meta"
 
-    # Register port (will be implemented in ports_double.sh)
-    if declare -f tsm_register_port >/dev/null 2>&1; then
-        tsm_register_port "$tsm_id" "$name" "$port" "$pid"
-
-        # Verify actual port if declared
-        if [[ "$port" != "none" ]]; then
-            sleep 1
-            local actual_port=$(lsof -Pan -p "$pid" -iTCP -sTCP:LISTEN 2>/dev/null | awk 'NR>1 {print $9}' | grep -oE '[0-9]+$' | head -1)
-
-            if [[ -z "$actual_port" ]]; then
-                echo "⚠️  Warning: Process started but not listening on expected port $port" >&2
-            elif [[ "$actual_port" != "$port" ]]; then
-                echo "⚠️  Warning: Port mismatch (declared=$port, actual=$actual_port)" >&2
-                if declare -f tsm_update_actual_port >/dev/null 2>&1; then
-                    tsm_update_actual_port "$tsm_id" "$actual_port"
-                fi
-            fi
-        fi
+    # Track port allocation
+    if [[ "$port" != "none" && "$port" != "0" ]] && declare -f tsm_track_port >/dev/null 2>&1; then
+        tsm_track_port "$port" "$name" "$pid"
     fi
 
-    echo "✅ Started: $name (TSM ID: $tsm_id, PID: $pid, Port: $port)"
+    # Success message showing service type
+    local success_msg="✅ Started: $name (TSM ID: $tsm_id, PID: $pid"
+    if [[ "$port" != "none" && "$port" != "0" ]]; then
+        success_msg="$success_msg, Port: $port"
+    fi
+    if [[ "$service_type" == "socket" ]]; then
+        success_msg="$success_msg, Socket: ${socket_path##*/}"
+    fi
+    success_msg="$success_msg)"
+    echo "$success_msg"
 }
 
 export -f tsm_discover_port

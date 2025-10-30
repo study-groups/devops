@@ -49,6 +49,34 @@ declare -gA GAME_REGISTRY_ORG=(
     [grid-ranger]="pixeljam-arcade"
 )
 
+# Game types: bash, tui, html
+declare -gA GAME_REGISTRY_TYPE=(
+    [pulsar]="bash"
+    [estoface]="tui"
+    [formant]="bash"
+    [cornhole-hero]="tui"
+    [cheap-golf]="tui"
+    [grid-ranger]="tui"
+)
+
+# Help namespaces for tree-based help system
+declare -gA GAME_REGISTRY_NAMESPACE=(
+    [pulsar]="help.game.pulsar"
+    [estoface]="help.game.estoface"
+    [formant]="help.game.formant"
+    [cornhole-hero]="help.game.cornhole-hero"
+    [cheap-golf]="help.game.cheap-golf"
+    [grid-ranger]="help.game.grid-ranger"
+)
+
+# Binary paths for TUI games (relative to GAME_SRC)
+declare -gA GAME_REGISTRY_BINARY=(
+    [estoface]="games/estoface/bin/estoface"
+    [cornhole-hero]="games/cornhole-hero/bin/cornhole-hero"
+    [cheap-golf]="games/cheap-golf/bin/cheap-golf"
+    [grid-ranger]="games/grid-ranger/bin/grid-ranger"
+)
+
 # Current active state
 GAME_ACTIVE=""
 GAME_ACTIVE_USER="${GAME_ACTIVE_USER:-guest}"
@@ -298,6 +326,7 @@ game_list() {
         local name="${GAME_REGISTRY_NAMES[$game_id]}"
         local desc="${GAME_REGISTRY_DESC[$game_id]}"
         local status="${GAME_REGISTRY_STATUS[$game_id]}"
+        local game_type="${GAME_REGISTRY_TYPE[$game_id]:-bash}"
 
         # Status icon and color
         local status_icon="✓"
@@ -314,6 +343,20 @@ game_list() {
             ready)
                 status_icon="✓"
                 status_color="00AA00"  # Green
+                ;;
+        esac
+
+        # Type badge
+        local type_badge=""
+        case "$game_type" in
+            bash)
+                type_badge="$(text_color "8888FF")[bash]$(reset_color)"
+                ;;
+            tui)
+                type_badge="$(text_color "00FFAA")[TUI]$(reset_color) "
+                ;;
+            html)
+                type_badge="$(text_color "FF8800")[HTML]$(reset_color)"
                 ;;
         esac
 
@@ -335,6 +378,9 @@ game_list() {
         text_color "$status_color"
         printf " %s " "$status_icon"
         reset_color
+
+        # Type badge
+        printf "%b " "$type_badge"
 
         # Name and description
         text_color "FFFFFF"
@@ -361,6 +407,7 @@ game_list() {
 # Select and launch a game
 game_play() {
     local game_id="$1"
+    local launch_mode="${2:---binary}"  # --binary (default) or --repl
 
     if [[ -z "$game_id" ]]; then
         echo ""
@@ -368,7 +415,7 @@ game_play() {
         echo "❌ No game specified"
         reset_color
         echo ""
-        echo "Usage: play <game>"
+        echo "Usage: play <game> [--repl]"
         echo ""
         game_list
         return 1
@@ -399,22 +446,73 @@ game_play() {
     # Set active game
     GAME_ACTIVE="$game_id"
 
-    # Launch game REPL
-    local repl_func="${GAME_REGISTRY_REPL[$game_id]}"
-    if declare -f "$repl_func" &>/dev/null; then
+    local game_type="${GAME_REGISTRY_TYPE[$game_id]:-bash}"
+
+    # Handle TUI games with direct binary launch
+    if [[ "$game_type" == "tui" && "$launch_mode" == "--binary" ]]; then
+        local binary_path="${GAME_REGISTRY_BINARY[$game_id]}"
+        local full_binary_path="$GAME_SRC/$binary_path"
+
+        # Check if binary exists
+        if [[ ! -f "$full_binary_path" ]]; then
+            echo ""
+            text_color "FF0000"
+            echo "❌ Binary not found: $full_binary_path"
+            reset_color
+            echo "   Try building the game first or use 'play $game_id --repl' for bash REPL"
+            echo ""
+            GAME_ACTIVE=""
+            return 1
+        fi
+
         echo ""
         text_color "00AA00"
         echo "▶ Launching ${GAME_REGISTRY_NAMES[$game_id]}..."
         reset_color
         echo ""
-        "$repl_func"
-    else
-        echo ""
-        text_color "FF0000"
-        echo "❌ Game REPL function not found: $repl_func"
+        text_color "66FFFF"
+        echo "Exiting REPL and running binary:"
+        reset_color
+        text_color "AAAAAA"
+        echo "  $full_binary_path"
         reset_color
         echo ""
-        return 1
+
+        # Launch the binary
+        "$full_binary_path"
+        local exit_code=$?
+
+        # Return to game REPL after binary exits
+        echo ""
+        text_color "66FFFF"
+        echo "Binary exited (code: $exit_code)"
+        reset_color
+        echo ""
+
+        # Launch game-specific REPL for post-game interaction
+        local repl_func="${GAME_REGISTRY_REPL[$game_id]}"
+        if declare -f "$repl_func" &>/dev/null; then
+            "$repl_func"
+        fi
+    else
+        # Launch game REPL (for bash games or TUI games with --repl flag)
+        local repl_func="${GAME_REGISTRY_REPL[$game_id]}"
+        if declare -f "$repl_func" &>/dev/null; then
+            echo ""
+            text_color "00AA00"
+            echo "▶ Launching ${GAME_REGISTRY_NAMES[$game_id]} REPL..."
+            reset_color
+            echo ""
+            "$repl_func"
+        else
+            echo ""
+            text_color "FF0000"
+            echo "❌ Game REPL function not found: $repl_func"
+            reset_color
+            echo ""
+            GAME_ACTIVE=""
+            return 1
+        fi
     fi
 
     # Clear active game when done

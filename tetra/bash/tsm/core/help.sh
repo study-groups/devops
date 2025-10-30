@@ -205,7 +205,7 @@ $(echo -e "${TETRA_BLUE}AUTO-DETECTION${TETRA_NC}")
 $(echo -e "${TETRA_BLUE}ENVIRONMENT FILE FORMAT${TETRA_NC}")
   export API_KEY="your-secret-key"
   export PORT=3000
-  export DATABASE_URL="postgres://..."
+  export DATABASE_URL="db://..."
 
 $(echo -e "${TETRA_BLUE}SEE ALSO${TETRA_NC}")
   tsm help start    Learn about the --env flag

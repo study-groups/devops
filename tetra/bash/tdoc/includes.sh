@@ -15,3 +15,6 @@ export TDOC_SRC TDOC_DIR
 
 # Source core tdoc functionality
 source "$TDOC_SRC/tdoc.sh"
+
+# Initialize module (creates directories, indexes, help tree)
+tdoc_module_init

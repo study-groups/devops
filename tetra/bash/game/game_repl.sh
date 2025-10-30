@@ -111,7 +111,8 @@ game_repl_show_help() {
     reset_color
     echo "  $(text_color "FFAA00")ls$(reset_color)                 List games for current organization"
     echo "  $(text_color "FFAA00")ls all$(reset_color)             List games for all organizations"
-    echo "  $(text_color "FFAA00")play <game>$(reset_color)        Launch a game"
+    echo "  $(text_color "FFAA00")play <game>$(reset_color)        Launch a game (TUI games launch binary)"
+    echo "  $(text_color "FFAA00")play <game> --repl$(reset_color) Launch game's bash REPL instead of binary"
     echo "  $(text_color "FFAA00")org <name>$(reset_color)         Switch organization"
     echo "  $(text_color "FFAA00")status$(reset_color)             Show current session status"
     echo ""
@@ -134,6 +135,14 @@ game_repl_show_help() {
     echo ""
 
     text_color "8888FF"
+    echo "GAME TYPES:"
+    reset_color
+    echo "  $(text_color "8888FF")[bash]$(reset_color)             Pure bash games (pulsar, formant)"
+    echo "  $(text_color "00FFAA")[TUI]$(reset_color)              Binary TUI games with bash REPL (estoface)"
+    echo "  $(text_color "FF8800")[HTML]$(reset_color)             Web/browser games (future)"
+    echo ""
+
+    text_color "8888FF"
     echo "UTILITY:"
     reset_color
     echo "  $(text_color "FFAA00")help, h, ?$(reset_color)         Show this help"
@@ -151,9 +160,11 @@ game_repl_show_help() {
     text_color "666666"
     echo "Examples:"
     reset_color
-    echo "  $(text_color "FFAA00")org pixeljam-arcade$(reset_color)  # Switch to PixelJam games"
-    echo "  $(text_color "FFAA00")ls$(reset_color)                   # List games for current org"
-    echo "  $(text_color "FFAA00")play cornhole-hero$(reset_color)   # Launch Cornhole Hero"
+    echo "  $(text_color "FFAA00")ls$(reset_color)                      # List games for current org"
+    echo "  $(text_color "FFAA00")play estoface$(reset_color)           # Launch Estoface TUI binary"
+    echo "  $(text_color "FFAA00")play estoface --repl$(reset_color)    # Enter Estoface bash REPL"
+    echo "  $(text_color "FFAA00")play pulsar$(reset_color)             # Launch Pulsar bash REPL"
+    echo "  $(text_color "FFAA00")org pixeljam-arcade$(reset_color)     # Switch to PixelJam games"
     echo ""
 }
 
@@ -194,7 +205,8 @@ _game_repl_process_input() {
             game_list "${cmd_args[1]}"
             ;;
         play)
-            game_play "${cmd_args[1]}"
+            # play <game> [--repl] - launch game (binary or REPL)
+            game_play "${cmd_args[1]}" "${cmd_args[2]}"
             ;;
         org)
             game_org "${cmd_args[1]}"

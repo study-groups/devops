@@ -124,52 +124,49 @@ void front_mouth_clear(FrontMouthBuffer *buf) {
 
 /* Calculate upper lip curve for FRONT view */
 float mouth_upper_lip(float x, const FacialState *state) {
+    float neutral_center = 0.5f;  /* Shared neutral midpoint (rubber band center) */
     float center_x = 0.5f;
     float dx = x - center_x;
 
-    /* Base curve: parabola opening downward */
-    float base = -dx * dx * 2.0f;
+    /* Base curve: upper lip dips DOWN at center (parabola opening downward in y-space) */
+    float base = dx * dx * 0.15f;  /* Positive: center has higher y (lower on screen) */
 
-    /* Smile/frown: corner height adjustment */
-    float corner_lift = (state->lip_corner_height - 0.5f) * 0.3f;
+    /* Smile/frown: corner height adjustment (edge-weighted) */
+    float corner_lift = (state->lip_corner_height - 0.5f) * 0.25f * (1.0f - fabsf(dx) * 2.0f);
 
-    /* Rounding: makes curve more circular at edges */
-    float round_factor = state->lip_rounding * 0.15f;
-    float rounding = round_factor * sqrtf(1.0f - dx * dx * 4.0f);
+    /* Rounding: pulls center up (lower y value) */
+    float rounding = state->lip_rounding * 0.12f * (1.0f - fabsf(dx) * 2.0f);
 
-    /* Jaw opening: shifts upper lip up */
-    float jaw_shift = -state->jaw_openness * 0.2f;
+    /* Jaw opening: upper lip moves UP from neutral (35% of total opening) */
+    float jaw_offset = state->jaw_openness * 0.35f;
 
-    /* Combine effects */
-    float y = base + corner_lift * (1.0f - fabsf(dx) * 2.0f) + rounding + jaw_shift;
-
-    return y + 0.3f;  /* Offset to mouth center */
+    /* Combine: start from neutral, add natural dip, subtract jaw/rounding to move up */
+    return neutral_center + base + corner_lift - rounding - jaw_offset;
 }
 
 /* Calculate lower lip curve for FRONT view */
 float mouth_lower_lip(float x, const FacialState *state) {
+    float neutral_center = 0.5f;  /* Shared neutral midpoint (rubber band center) */
     float center_x = 0.5f;
     float dx = x - center_x;
 
-    /* Base curve: parabola opening upward */
-    float base = dx * dx * 2.5f;
+    /* Base curve: lower lip curves UP at center (parabola opening upward in y-space) */
+    float base = dx * dx * 0.15f;  /* Positive: edges have higher y (lower on screen) */
 
-    /* Jaw opening: primary effect */
-    float jaw_drop = state->jaw_openness * 0.6f;
+    /* Smile/frown: corner effect (edge-weighted) */
+    float corner_effect = (state->lip_corner_height - 0.5f) * 0.15f * (1.0f - fabsf(dx) * 2.0f);
 
-    /* Corner effect: slight pull at edges for smile */
-    float corner_effect = (state->lip_corner_height - 0.5f) * 0.15f * (1.0f - fabsf(dx));
+    /* Protrusion: makes lower lip fuller (pushes down slightly) */
+    float protrusion = state->lip_protrusion * 0.08f * (1.0f - fabsf(dx) * 1.5f);
 
-    /* Protrusion: makes curve fuller */
-    float protrusion = state->lip_protrusion * 0.1f * (1.0f - fabsf(dx) * 1.5f);
+    /* Rounding: pulls center up (lower y value) */
+    float rounding = state->lip_rounding * 0.1f * (1.0f - fabsf(dx) * 2.0f);
 
-    /* Rounding: makes lower lip rounder */
-    float rounding = state->lip_rounding * 0.1f * (1.0f - dx * dx);
+    /* Jaw opening: lower lip moves DOWN from neutral (65% of total opening) */
+    float jaw_offset = state->jaw_openness * 0.65f;
 
-    /* Combine effects */
-    float y = base - jaw_drop - corner_effect + protrusion + rounding;
-
-    return y + 0.3f;  /* Offset to mouth center */
+    /* Combine: start from neutral, subtract natural curve, add jaw/protrusion to move down */
+    return neutral_center - base - corner_effect + protrusion - rounding + jaw_offset;
 }
 
 /* Helper: Set character if empty or priority character */
@@ -254,12 +251,15 @@ void mouth_render_front(FrontMouthBuffer *buf, const FacialState *state) {
         /* Draw upper lip */
         set_front_char(buf, upper_row, col, upper_char);
 
-        /* Draw lower lip if mouth is open */
-        if (lower_row > upper_row + 1) {
+        /* Draw lower lip (always, even when mouth is closed) */
+        if (lower_row != upper_row) {
+            int is_edge = (col == 0 || col == FRONT_MOUTH_WIDTH - 1);
+
+            /* Always draw lower lip at all positions */
             set_front_char(buf, lower_row, col, lower_char);
 
-            /* Connect corners with vertical edges */
-            if (col == 0 || col == FRONT_MOUTH_WIDTH - 1) {
+            /* Connect corners with vertical edges if mouth is open */
+            if (is_edge && lower_row > upper_row + 2) {
                 for (int r = upper_row + 1; r < lower_row; r++) {
                     set_front_char(buf, r, col, '|');
                 }

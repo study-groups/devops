@@ -110,7 +110,13 @@ tsm() {
             tetra_tsm_list_services "$@"
             ;;
         save)
-            tetra_tsm_save "$@"
+            # Check if this is "save pattern"
+            if [[ "$1" == "pattern" ]]; then
+                shift
+                tetra_tsm_save_pattern "$@"
+            else
+                tetra_tsm_save "$@"
+            fi
             ;;
         enable)
             tetra_tsm_enable "$@"
@@ -238,6 +244,9 @@ tsm() {
             ;;
         ranges)
             tsm_show_port_ranges
+            ;;
+        patterns)
+            tetra_tsm_list_patterns "$@"
             ;;
         monitor)
             # Already loaded from system/monitor.sh via include.sh

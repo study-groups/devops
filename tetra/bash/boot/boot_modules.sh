@@ -43,6 +43,8 @@ tetra_register_module "vox" "$TETRA_BASH/vox"
 # Register internal modules for RAG and Melvin (qa registered in boot_core.sh)
 tetra_register_module "rag" "$TETRA_BASH/rag"
 tetra_register_module "melvin" "$TETRA_BASH/melvin"
+tetra_register_module "midi" "$TETRA_BASH/midi"
+tetra_register_module "tperf" "$TETRA_BASH/tperf"
 
 # Register external modules (lazy loaded)
 tetra_register_module "logtime" "$HOME/src/bash/logtime"
@@ -103,4 +105,11 @@ tetra_create_lazy_function "org" "org"
 tetra_create_lazy_function "vox" "vox"
 tetra_create_lazy_function "v" "vox"
 tetra_create_lazy_function "vr" "vox"
+
+# MIDI module functions
+tetra_create_lazy_function "midi" "midi"
+tetra_create_lazy_function "midi_repl" "midi"
+
+# TPerf module functions
+tetra_create_lazy_function "tperf" "tperf"
 

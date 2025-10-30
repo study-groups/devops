@@ -425,6 +425,10 @@ _pulsar_repl_process_input() {
 # ============================================================================
 
 pulsar_game_repl_run() {
+    # Register module
+    repl_register_module "pulsar" "start stop restart status spawn set kill list hello trinity dance load" "help.game.pulsar"
+    repl_set_module_context "pulsar"
+
     echo ""
     text_color "66FFFF"
     echo "⚡ PULSAR REPL v1.0"

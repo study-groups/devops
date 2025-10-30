@@ -145,7 +145,7 @@ EOF
         for meta in "${results[@]}"; do
             local doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
             tdoc_render_compact "$meta" "$doc_path"
-            echo ""
+            printf "\n"
         done
     fi
 }

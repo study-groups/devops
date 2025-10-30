@@ -62,11 +62,11 @@ tdoc_render_category_badge() {
 
     if [[ "$TDS_LOADED" == "true" ]]; then
         if [[ "$category" == "core" ]]; then
-            tds_color_swatch "status.info"
+            tds_text_color "status.info"
             printf " CORE "
             reset_color
         else
-            tds_color_swatch "status.warning"
+            tds_text_color "status.warning"
             printf " OTHER "
             reset_color
         fi
@@ -195,21 +195,14 @@ tdoc_render_compact() {
 
     local category=$(echo "$meta_json" | grep -o '"category": "[^"]*"' | cut -d'"' -f4)
     local type=$(echo "$meta_json" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
-
-    # Category (5 chars)
-    printf "%-5s  " "$(echo "$category" | tr '[:lower:]' '[:upper:]')"
-
-    # Type (10 chars)
-    tdoc_render_tag "$type" false
-    printf "%-10s  " ""
-
-    # Filename
+    local module=$(echo "$meta_json" | grep -o '"module": "[^"]*"' | cut -d'"' -f4)
     local filename=$(basename "$doc_path")
-    if [[ "$TDS_LOADED" == "true" ]]; then
-        tds_text_color "text.primary"
-        printf "%s" "$filename"
-        reset_color
-    else
-        printf "%s" "$filename"
+
+    # Format: FILENAME  CATEGORY  TYPE  [MODULE]
+    printf "%-50s  %-8s  %-15s" "$filename" "$(echo "$category" | tr '[:lower:]' '[:upper:]')" "$type"
+
+    # Module if present
+    if [[ -n "$module" ]]; then
+        printf "  [%s]" "$module"
     fi
 }

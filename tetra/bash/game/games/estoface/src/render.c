@@ -93,27 +93,27 @@ void render_front_face(const FacialState *state, int center_x, int center_y) {
     char eye_l = render_get_eye_char(state->eye_l_openness);
     char eye_r = render_get_eye_char(state->eye_r_openness);
 
-    /* Eyebrows - moved higher */
-    move_cursor(center_y - 5, center_x - 4);
+    /* Eyebrows */
+    move_cursor(center_y - 2, center_x - 4);
     printf("%c%c", eyebrow_l, eyebrow_l);
-    move_cursor(center_y - 5, center_x + 3);
+    move_cursor(center_y - 2, center_x + 3);
     printf("%c%c", eyebrow_r, eyebrow_r);
 
-    /* Eyes - moved higher */
-    move_cursor(center_y - 3, center_x - 3);
+    /* Eyes - moved down to avoid text overlap */
+    move_cursor(center_y, center_x - 3);
     printf("%c", eye_l);
-    move_cursor(center_y - 3, center_x + 3);
+    move_cursor(center_y, center_x + 3);
     printf("%c", eye_r);
 
     /* Nose */
-    move_cursor(center_y - 1, center_x);
+    move_cursor(center_y + 1, center_x);
     printf("v");
 
     /* Mouth - use original parametric rendering */
     FrontMouthBuffer mouth_buf;
     mouth_render_front(&mouth_buf, state);
 
-    int mouth_start_y = center_y + 1;
+    int mouth_start_y = center_y + 3;  /* Adjusted for new eye position */
     int mouth_start_x = center_x - (FRONT_MOUTH_WIDTH / 2);
 
     for (int y = 0; y < FRONT_MOUTH_HEIGHT; y++) {

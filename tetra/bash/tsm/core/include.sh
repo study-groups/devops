@@ -21,21 +21,24 @@ TSM_INTEGRATIONS_SRC="$TETRA_SRC/bash/tsm/integrations"
 TSM_INTERFACES_SRC="$TETRA_SRC/bash/tsm/interfaces"
 
 # === PHASE 1: CORE FOUNDATION (no dependencies) ===
-source "$TSM_CORE_SRC/core.sh"         # Core functions
-source "$TSM_CORE_SRC/config.sh"       # Configuration and global state
-source "$TSM_CORE_SRC/utils.sh"        # Utility functions
-source "$TSM_CORE_SRC/validation.sh"   # Validation & helpers
-source "$TSM_CORE_SRC/environment.sh"  # Environment handling
-source "$TSM_CORE_SRC/helpers.sh"      # Helper functions
-source "$TSM_CORE_SRC/setup.sh"        # Setup utilities
-source "$TSM_CORE_SRC/metadata.sh"     # PM2-style JSON metadata
-source "$TSM_CORE_SRC/hooks.sh"        # Pre-hook system
-source "$TSM_CORE_SRC/runtime.sh"      # Interpreter resolution
-source "$TSM_CORE_SRC/start.sh"        # Universal start command
-source "$TSM_CORE_SRC/help.sh"         # Help system (contextual, colored)
+source "$TSM_CORE_SRC/core.sh"           # Core functions
+source "$TSM_CORE_SRC/config.sh"         # Configuration and global state
+source "$TSM_CORE_SRC/utils.sh"          # Utility functions
+source "$TSM_CORE_SRC/validation.sh"     # Validation & helpers
+source "$TSM_CORE_SRC/environment.sh"    # Environment handling
+source "$TSM_CORE_SRC/helpers.sh"        # Helper functions
+source "$TSM_CORE_SRC/setup.sh"          # Setup utilities
+source "$TSM_CORE_SRC/metadata.sh"       # PM2-style JSON metadata
+source "$TSM_CORE_SRC/hooks.sh"          # Pre-hook system
+source "$TSM_CORE_SRC/runtime.sh"        # Interpreter resolution
+source "$TSM_CORE_SRC/port_resolution.sh"  # Port ladder (5-step)
+source "$TSM_CORE_SRC/patterns.sh"       # Pattern management
+source "$TSM_CORE_SRC/start.sh"          # Universal start command
+source "$TSM_CORE_SRC/help.sh"           # Help system (contextual, colored)
 
 # === PHASE 2: SYSTEM MODULES (depend on core) ===
 source "$TSM_SYSTEM_SRC/ports.sh"              # Named port registry
+source "$TSM_SYSTEM_SRC/socket.sh"             # Unix domain sockets
 source "$TSM_SYSTEM_SRC/formatting.sh"         # Output formatting
 source "$TSM_SYSTEM_SRC/doctor.sh"             # Diagnostics
 source "$TSM_SYSTEM_SRC/patrol.sh"             # Patrol system

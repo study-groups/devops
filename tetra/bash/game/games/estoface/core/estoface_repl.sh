@@ -17,8 +17,46 @@ ESTOFACE_REPL_OUTPUT_LOG="$TETRA_DIR/game/estoface_repl_output.log"
 ESTOFACE_REPL_ENGINE_RUNNING=0
 
 # ============================================================================
-# ENGINE MANAGEMENT (Stub)
+# ENGINE MANAGEMENT AND TUI BINARY LAUNCH
 # ============================================================================
+
+# Launch the TUI binary
+estoface_repl_run_binary() {
+    local binary_path="$GAME_SRC/games/estoface/bin/estoface"
+
+    if [[ ! -f "$binary_path" ]]; then
+        echo ""
+        text_color "FF0000"
+        echo "❌ Binary not found: $binary_path"
+        reset_color
+        echo "   Try building the game first: cd games/estoface && make"
+        echo ""
+        return 1
+    fi
+
+    echo ""
+    text_color "00FFAA"
+    echo "⚡ Launching Estoface TUI..."
+    reset_color
+    echo ""
+    text_color "66FFFF"
+    echo "Exiting REPL and running binary:"
+    reset_color
+    text_color "AAAAAA"
+    echo "  $binary_path"
+    reset_color
+    echo ""
+
+    # Launch the binary
+    "$binary_path"
+    local exit_code=$?
+
+    echo ""
+    text_color "66FFFF"
+    echo "Binary exited (code: $exit_code)"
+    reset_color
+    echo ""
+}
 
 estoface_repl_start_engine() {
     echo ""
@@ -33,12 +71,22 @@ estoface_repl_start_engine() {
     echo ""
 }
 
+estoface_repl_stop_engine() {
+    echo ""
+    text_color "AAAAAA"
+    echo "  🛑 Engine stopped (stub)"
+    reset_color
+    echo ""
+}
+
 estoface_repl_status() {
     echo ""
-    text_color "666666"
-    echo "  🏗️  Estoface Status: Skeleton"
+    text_color "00FFAA"
+    echo "  🏗️  Estoface Status"
     reset_color
-    echo "  └─ Engine: Not implemented"
+    echo "  ├─ Type: TUI Binary + Bash REPL"
+    echo "  ├─ Binary: games/estoface/bin/estoface"
+    echo "  └─ REPL: Commands for config, test, script"
     echo ""
 }
 
@@ -173,6 +221,11 @@ _estoface_repl_process_input() {
             estoface_repl_show_help "${cmd_args[1]}"
             ;;
 
+        # TUI Binary Launch
+        run|play)
+            estoface_repl_run_binary
+            ;;
+
         # Engine control
         start)
             estoface_repl_start_engine
@@ -188,6 +241,96 @@ _estoface_repl_process_input() {
             estoface_repl_status
             ;;
 
+        # Configuration commands
+        config)
+            echo ""
+            text_color "00FFAA"
+            echo "⚙️  Configuration"
+            reset_color
+            echo "  Available settings:"
+            echo "    • Display: Width, Height, FPS"
+            echo "    • Audio: Sample Rate, Buffer Size"
+            echo "    • Controls: Gamepad mapping"
+            echo ""
+            echo "  Note: Configuration not yet implemented"
+            echo "  See: help config"
+            echo ""
+            ;;
+
+        setup)
+            echo ""
+            text_color "00FFAA"
+            echo "🔧 Setup & Configuration"
+            reset_color
+            echo "  Game setup wizard (not yet implemented)"
+            echo "  See: help setup"
+            echo ""
+            ;;
+
+        # Testing & Development
+        test)
+            echo ""
+            text_color "8888FF"
+            echo "🧪 Test Mode"
+            reset_color
+            echo "  Available tests:"
+            echo "    • Rendering: Frame timing, sprite updates"
+            echo "    • Audio: Formant synthesis, phoneme playback"
+            echo "    • Input: Gamepad calibration"
+            echo ""
+            echo "  Note: Testing not yet implemented"
+            echo "  See: help testing"
+            echo ""
+            ;;
+
+        debug)
+            echo ""
+            text_color "8888FF"
+            echo "🐛 Debug Mode"
+            reset_color
+            echo "  Debug utilities:"
+            echo "    • Logging: Verbose output, trace"
+            echo "    • Profiling: Performance metrics"
+            echo "    • Memory: Allocation tracking"
+            echo ""
+            echo "  Note: Debugging not yet implemented"
+            echo "  See: help debug"
+            echo ""
+            ;;
+
+        # Scripting & Automation
+        script)
+            local script_file="${cmd_args[1]}"
+            echo ""
+            text_color "FFAA00"
+            echo "📜 Script Mode"
+            reset_color
+            if [[ -n "$script_file" ]]; then
+                echo "  Loading script: $script_file"
+                echo "  Note: Scripting not yet implemented"
+            else
+                echo "  Usage: script <file>"
+                echo "  Load and execute estoface command script"
+            fi
+            echo "  See: help script"
+            echo ""
+            ;;
+
+        record)
+            echo ""
+            text_color "FF0088"
+            echo "⏺️  Record Mode"
+            reset_color
+            echo "  Recording features:"
+            echo "    • Sequence: Record animation sequences"
+            echo "    • Performance: Record gameplay"
+            echo "    • Audio: Record phoneme samples"
+            echo ""
+            echo "  Note: Recording not yet implemented"
+            echo "  See: help testing.record"
+            echo ""
+            ;;
+
         # Mode control
         mode)
             if [[ -n "${cmd_args[1]}" ]]; then
@@ -199,17 +342,10 @@ _estoface_repl_process_input() {
             fi
             ;;
 
-        # Placeholder commands
+        # Display commands
         show)
             echo "Show grid: Not yet implemented"
             echo "See: help gamepad.grid"
-            ;;
-        record)
-            echo "Record: Not yet implemented"
-            echo "See: help testing"
-            ;;
-        play)
-            echo "Playback: Not yet implemented"
             ;;
 
         # Unknown
@@ -226,16 +362,26 @@ _estoface_repl_process_input() {
 # ============================================================================
 
 estoface_game_repl_run() {
+    # Register module
+    repl_register_module "estoface" "run play config setup test debug script record status" "help.game.estoface"
+    repl_set_module_context "estoface"
+
     echo ""
     text_color "00AAFF"
-    echo "⚡ ESTOFACE REPL v0.1"
+    echo "⚡ ESTOFACE REPL v0.2"
     reset_color
     echo ""
-    echo "Facial animation + speech synthesis via bash commands"
-    echo "Type 'help' or TAB for topics | 'quit' to exit"
-    echo ""
+    text_color "FFFFFF"
+    echo "Facial animation + speech synthesis"
+    reset_color
     text_color "AAAAAA"
-    echo "Note: C binary (TUI) is separate: ./bin/estoface"
+    echo "  • Type 'run' or 'play' to launch the TUI binary"
+    echo "  • Type 'help' for bash REPL commands"
+    echo "  • Type 'quit' to return to game lobby"
+    reset_color
+    echo ""
+    text_color "00FFAA"
+    echo "Commands: run, config, test, debug, script, record, status"
     reset_color
     echo ""
 

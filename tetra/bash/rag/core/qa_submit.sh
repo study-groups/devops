@@ -59,27 +59,41 @@ submit_to_qa() {
     echo "Stage: EXECUTE"
     echo ""
 
-    # Submit to QA
-    local qa_timestamp=$(date +%s)
+    # Submit to QA and capture both answer and QA_ID
     local qa_answer
+    local qa_id=""
+    local stderr_file=$(mktemp)
 
-    if qa_answer=$(cat "$prompt_file" | qa_query 2>&1); then
+    # Set metadata for QA to create bidirectional link
+    export QA_FLOW_ID="$flow_id"
+    export QA_SOURCE="rag"
+
+    # Capture stderr to extract QA_ID
+    if qa_answer=$(cat "$prompt_file" | qa_query 2>"$stderr_file"); then
+        # Clear metadata environment variables
+        unset QA_FLOW_ID QA_SOURCE
+        # Extract QA_ID from stderr
+        qa_id=$(grep "^QA_ID=" "$stderr_file" | cut -d'=' -f2)
+        rm -f "$stderr_file"
+
         # Save answer
         echo "$qa_answer" > "$answer_file"
         echo "✓ Answer saved: $answer_file"
+        [[ -n "$qa_id" ]] && echo "✓ QA ID: $qa_id"
 
-        # Log success
+        # Log success with actual QA ID
         if [[ -f "$flow_dir/events.ndjson" ]]; then
-            echo "{\"ts\":\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\",\"event\":\"qa_submit\",\"target\":\"@qa\",\"qa_id\":\"$qa_timestamp\"}" \
+            echo "{\"ts\":\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\",\"event\":\"qa_submit\",\"target\":\"@qa\",\"qa_id\":\"$qa_id\"}" \
                 >> "$flow_dir/events.ndjson"
         fi
 
-        # Transition to DONE stage
+        # Transition to DONE stage and store QA ID
         if command -v jq >/dev/null 2>&1 && [[ -f "$flow_dir/state.json" ]]; then
             local state_file="$flow_dir/state.json"
             local temp_file=$(mktemp)
             jq --arg ts "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
-               '.stage = "DONE" | .last_checkpoint = $ts' \
+               --arg qa_id "$qa_id" \
+               '.stage = "DONE" | .last_checkpoint = $ts | .qa_id = $qa_id' \
                "$state_file" > "$temp_file"
             mv "$temp_file" "$state_file"
         fi
@@ -91,6 +105,9 @@ submit_to_qa() {
         echo "QA history: a 0"
         return 0
     else
+        # Clear metadata environment variables
+        unset QA_FLOW_ID QA_SOURCE
+        rm -f "$stderr_file"
         echo "Error: QA submission failed" >&2
 
         # Transition to FAIL stage

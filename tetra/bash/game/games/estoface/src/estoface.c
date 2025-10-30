@@ -112,6 +112,9 @@ static void main_loop(EstofaceContext *ctx, TerminalState *term) {
         /* Update animation frame */
         anim_update_frame(&ctx->current, &ctx->anim);
 
+        /* Update panel animations */
+        panels_update_animation(ctx->panels, delta_time);
+
         /* Render */
         render_full(ctx);
 

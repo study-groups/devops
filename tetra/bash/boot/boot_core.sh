@@ -1,6 +1,22 @@
 #!/usr/bin/env bash
 
 # Boot Core - Core functions and module system
+#
+# MODULE LOADING ARCHITECTURE:
+# ============================
+# 1. Boot-loaded (always available):
+#    - utils: Core utilities
+#    - prompt: Interactive shell prompt (interactive shells only)
+#
+# 2. Lazy-loaded via tetra_create_lazy_function (auto-load on first use):
+#    - tmod, qa, qq: Core commands (stubs created in this file)
+#    - All other modules: Function stubs created in boot_modules.sh
+#
+# 3. On-demand loading via tmod:
+#    - Regular modules can be explicitly loaded with: tmod load <module>
+#
+# CONSISTENCY RULE: Always use tetra_create_lazy_function for lazy loading
+# to maintain a unified pattern across all modules.
 
 # Load environment variables from local.env if it exists
 if [[ -f "$TETRA_SRC/env/local.env" ]]; then
@@ -47,21 +63,12 @@ tetra_load_module() {
     fi
     
     [[ "${TETRA_DEBUG_LOADING:-false}" == "true" ]] && echo "Loading module: $module_name" >&2
-    
-    # DEFENSIVE LOADING - Prevent terminal crashes by testing in subshell first
+
     # Check for includes.sh first, fallback to loading main module file
     if [[ -f "$loader_path/includes.sh" ]]; then
-        echo "BOOT: Testing $module_name in subshell..." >> /tmp/boot_trace.log
-        # Test in subshell to catch fatal errors before sourcing in parent shell
-        if ! ( source "$loader_path/includes.sh" ) >/dev/null 2>&1; then
-            echo "ERROR: Module '$module_name' failed safety check (includes.sh has errors)" >&2
-            echo "  File: $loader_path/includes.sh" >&2
-            return 1
-        fi
-        echo "BOOT: Subshell test passed, now sourcing in parent..." >> /tmp/boot_trace.log
-        # Safe to source in parent shell
+        [[ "${TETRA_DEBUG_BOOT:-false}" == "true" ]] && echo "BOOT: Sourcing $module_name/includes.sh..." >> /tmp/boot_trace.log
         source "$loader_path/includes.sh"
-        echo "BOOT: Parent shell source complete" >> /tmp/boot_trace.log
+        [[ "${TETRA_DEBUG_BOOT:-false}" == "true" ]] && echo "BOOT: $module_name source complete" >> /tmp/boot_trace.log
     elif [[ -f "$loader_path/$(basename "$loader_path").sh" ]]; then
         # Load the main module file (e.g., tkm/tkm.sh)
         if ! source "$loader_path/$(basename "$loader_path").sh" 2>&1; then
@@ -91,25 +98,31 @@ tetra_load_module() {
         return 1
     fi
 
-    echo "BOOT: Setting TETRA_MODULE_LOADED[$module_name]=true" >> /tmp/boot_trace.log
+    [[ "${TETRA_DEBUG_BOOT:-false}" == "true" ]] && echo "BOOT: Setting TETRA_MODULE_LOADED[$module_name]=true" >> /tmp/boot_trace.log
     TETRA_MODULE_LOADED[$module_name]=true
-    echo "BOOT: Module $module_name load COMPLETE" >> /tmp/boot_trace.log
+    [[ "${TETRA_DEBUG_BOOT:-false}" == "true" ]] && echo "BOOT: Module $module_name load COMPLETE" >> /tmp/boot_trace.log
+
+    # Explicitly return success
+    return 0
 }
 
 # Create lazy loading stub functions
+# This is the UNIFIED way to create lazy-loading stubs for all modules
+# Usage: tetra_create_lazy_function "function_name" "module_name"
+# When the stub is called, it loads the module and then calls the real function
 tetra_create_lazy_function() {
     local func_name="$1"
     local module_name="$2"
-    
+
     eval "
     $func_name() {
         local args=(\"\$@\")
-        
+
         if ! tetra_load_module \"$module_name\"; then
             echo \"Error: Failed to load module $module_name for function $func_name\" >&2
             return 1
         fi
-        
+
         # Function should now be the real one (tetra_load_module replaces the stub)
         \"$func_name\" \"\${args[@]}\"
     }
@@ -151,8 +164,25 @@ tetra_register_module "prompt" "$TETRA_SRC/bash/prompt"
 tetra_register_module "tmod" "$TETRA_SRC/bash/tmod"
 tetra_register_module "qa" "$TETRA_SRC/bash/qa"
 
-# Load essential modules immediately
-tetra_load_module "utils"
-tetra_load_module "prompt"
-tetra_load_module "tmod"
-tetra_load_module "qa"
+# Load only truly essential modules immediately
+tetra_load_module "utils" || {
+    echo "ERROR: Failed to load utils module" >&2
+    return 1
+}
+
+# Load prompt module only for interactive shells (needed by boot_prompt.sh)
+if [[ "$-" == *i* ]]; then
+    tetra_load_module "prompt" || {
+        echo "ERROR: Failed to load prompt module" >&2
+        return 1
+    }
+fi
+
+# Create lazy-loading stubs for core commands
+# Using tetra_create_lazy_function for consistency with other modules
+tetra_create_lazy_function "tmod" "tmod"
+tetra_create_lazy_function "qa" "qa"
+tetra_create_lazy_function "qq" "qa"
+
+# Ensure boot_core.sh exits with success
+return 0

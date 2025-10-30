@@ -180,6 +180,36 @@ _rag_init_help_tree() {
         help="Search knowledge base" \
         synopsis="/kb search <query>"
 
+    # QA History
+    tree_insert "rag.qa" category \
+        title="QA History" \
+        help="Search and retrieve from QA history"
+
+    tree_insert "rag.qa.search" command \
+        title="Search QA History" \
+        help="Search QA database for relevant Q&A pairs" \
+        synopsis="/qa search <query>" \
+        examples="/qa search authentication error"
+
+    tree_insert "rag.qa.list" command \
+        title="List QA Entries" \
+        help="List recent QA entries" \
+        synopsis="/qa list [--limit N]" \
+        examples="/qa list --limit 10"
+
+    tree_insert "rag.qa.view" command \
+        title="View QA Entry" \
+        help="View full QA entry with prompt and answer" \
+        synopsis="/qa view <qa_id>" \
+        examples="/qa view 1758025638"
+
+    tree_insert "rag.qa.add" command \
+        title="Add QA as Evidence" \
+        help="Add QA entry as evidence to current flow" \
+        synopsis="/qa add <qa_id>" \
+        detail="Retrieves a prior Q&A interaction and adds it to the current flow as evidence. This enables RAG to learn from historical queries." \
+        examples="/qa search auth\n/qa add 1758025638"
+
     # Workflow Guide
     tree_insert "rag.workflow" category \
         title="Quick Start Workflow" \

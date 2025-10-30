@@ -16,10 +16,10 @@ TSM_SERVICES_ENABLED="$TETRA_DIR/tsm/services-enabled"
 # Print table header
 print_table_header() {
     text_color "00AAAA"
-    printf "%-3s %-20s %-10s %-5s %-5s %-8s %-8s\n" \
-        "ID" "Name" "Env" "PID" "Port" "Status" "Uptime"
-    printf "%-3s %-20s %-10s %-5s %-5s %-8s %-8s\n" \
-        "--" "--------------------" "----------" "-----" "-----" "--------" "--------"
+    printf "%-3s %-20s %-10s %-5s %-5s %-8s %-12s %-8s\n" \
+        "ID" "Name" "Env" "PID" "Port" "Status" "Type" "Uptime"
+    printf "%-3s %-20s %-10s %-5s %-5s %-8s %-12s %-8s\n" \
+        "--" "--------------------" "----------" "-----" "-----" "--------" "------------" "--------"
     reset_color
 }
 
@@ -144,10 +144,10 @@ tsm_list_running() {
 
             # Read all metadata in one jq call (efficient!)
             local metadata
-            metadata=$(jq -r '[.tsm_id, .pid, .port, .start_time, .env_file] | @tsv' "$meta_file" 2>/dev/null)
+            metadata=$(jq -r '[.tsm_id, .pid, .port, .start_time, .env_file, .service_type] | @tsv' "$meta_file" 2>/dev/null)
             [[ -z "$metadata" ]] && continue
 
-            read tsm_id pid port start_time env_file <<< "$metadata"
+            read tsm_id pid port start_time env_file service_type <<< "$metadata"
 
             # Verify process is still running
             if tsm_is_pid_alive "$pid"; then
@@ -161,12 +161,15 @@ tsm_list_running() {
                 fi
 
                 # Format port
-                [[ -z "$port" || "$port" == "none" || "$port" == "null" ]] && port="-"
+                [[ -z "$port" || "$port" == "none" || "$port" == "null" || "$port" == "0" ]] && port="-"
+
+                # Format service type
+                local type_display="${service_type:-pid}"
 
                 # Print with colors
                 printf "%-3s %-20s %-10s %-5s %-5s " "$tsm_id" "$name" "$env_display" "$pid" "$port"
                 text_color "00AA00"; printf "%-8s" "online"; reset_color
-                printf " %-8s\n" "$uptime"
+                printf " %-12s %-8s\n" "$type_display" "$uptime"
 
                 found_running=true
             else

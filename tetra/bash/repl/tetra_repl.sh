@@ -15,7 +15,7 @@ TETRA_HISTORY_DIR="${TETRA_META_DIR}/history"
 
 # Source Configuration at Distance functions
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/tetra_remote.sh"
+source "$TETRA_SRC/bash/utils/tetra_remote.sh"
 
 # Initialize tetra meta environment
 tetra_repl_init() {

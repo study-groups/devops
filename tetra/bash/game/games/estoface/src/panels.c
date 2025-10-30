@@ -11,17 +11,22 @@
 #define ESC "\x1b"
 #define CSI ESC "["
 
-/* Panel dimensions for bottom strip */
-#define PANEL_STRIP_HEIGHT 7
-#define PANEL_STRIP_WIDTH 25
+/* Panel dimensions for bottom strip - single line per panel */
+#define PANEL_STRIP_HEIGHT 1
+#define PANEL_STRIP_WIDTH 80
 
-/* Panel positions - horizontal bottom strip, stacked left to right */
+/* Animation constants */
+#define PANEL_FALL_GRAVITY 50.0f    /* Pixels per second squared */
+#define PANEL_FALL_DAMPING 0.6f     /* Bounce damping factor */
+#define PANEL_SETTLE_THRESHOLD 0.5f /* Velocity threshold for settling */
+
+/* Panel positions - vertical stack at bottom-left */
 static int panel_positions[MAX_IPA_PANELS][2] = {
-    {2, 0},      /* Panel 1: will be dynamically positioned */
-    {27, 0},     /* Panel 2 */
-    {52, 0},     /* Panel 3 */
-    {77, 0},     /* Panel 4 */
-    {102, 0}     /* Panel 5 */
+    {2, 0},      /* Panel 1: will be dynamically positioned vertically */
+    {2, 0},      /* Panel 2: stacked below panel 1 */
+    {2, 0},      /* Panel 3: stacked below panel 2 */
+    {2, 0},      /* Panel 4: stacked below panel 3 */
+    {2, 0}       /* Panel 5: stacked below panel 4 */
 };
 
 /* Panel titles by type */
@@ -33,13 +38,27 @@ static const char *panel_titles[MAX_IPA_PANELS] = {
     "Esto Code"
 };
 
-/* Update panel positions for bottom strip */
+/* Update panel positions for bottom strip - stack only visible panels */
 void panels_update_positions(IPAPanel panels[MAX_IPA_PANELS], int terminal_rows) {
-    /* Position panels at bottom of screen, leaving room for mode bar */
-    int bottom_y = terminal_rows - PANEL_STRIP_HEIGHT - 2;  /* -2 for mode bar */
-
+    /* Count visible panels */
+    int visible_count = 0;
     for (int i = 0; i < MAX_IPA_PANELS; i++) {
-        panels[i].y = bottom_y;
+        if (panels[i].visible) visible_count++;
+    }
+
+    /* Stack visible panels from bottom up, one row each
+     * Bottom panel at row terminal_rows - (visible_count + 1)
+     * Mode bar always at row terminal_rows - 1
+     */
+    int visible_index = 0;
+    for (int i = 0; i < MAX_IPA_PANELS; i++) {
+        if (panels[i].visible) {
+            /* Position from bottom: terminal_rows - (visible_count + 1) + visible_index */
+            panels[i].y = terminal_rows - (visible_count + 1) + visible_index;
+            panels[i].x = 2;
+            panels[i].anim_y = panels[i].y;  /* Update animation target immediately */
+            visible_index++;
+        }
     }
 }
 
@@ -53,6 +72,9 @@ void panels_init(IPAPanel panels[MAX_IPA_PANELS]) {
         panels[i].phoneme = NULL;
         snprintf(panels[i].title, sizeof(panels[i].title), "%s", panel_titles[i]);
         panels[i].esto_code[0] = '\0';
+        panels[i].anim_y = 0.0f;
+        panels[i].anim_velocity = 0.0f;
+        panels[i].just_shown = 0;
     }
 }
 
@@ -60,6 +82,9 @@ void panels_init(IPAPanel panels[MAX_IPA_PANELS]) {
 void panels_toggle(IPAPanel panels[MAX_IPA_PANELS], int panel_index) {
     if (panel_index < 0 || panel_index >= MAX_IPA_PANELS) return;
     panels[panel_index].visible = !panels[panel_index].visible;
+
+    /* No animation - panels appear immediately at their position */
+    /* Animation disabled because it causes positioning issues */
 }
 
 /* Update all panels with current state */
@@ -93,82 +118,105 @@ static const char* get_panel_color(int panel_type) {
     }
 }
 
-/* Render a single panel without borders */
+/* Update panel animation (call before rendering) */
+void panels_update_animation(IPAPanel panels[MAX_IPA_PANELS], float delta_time) {
+    for (int i = 0; i < MAX_IPA_PANELS; i++) {
+        if (!panels[i].visible) continue;
+
+        /* If panel was just shown, animate it falling into place */
+        if (panels[i].just_shown || panels[i].anim_y < panels[i].y - 0.1f ||
+            panels[i].anim_velocity < -PANEL_SETTLE_THRESHOLD) {
+
+            /* Apply gravity */
+            panels[i].anim_velocity += PANEL_FALL_GRAVITY * delta_time;
+
+            /* Update position */
+            panels[i].anim_y += panels[i].anim_velocity * delta_time;
+
+            /* Check if we've reached or passed the target */
+            if (panels[i].anim_y >= panels[i].y) {
+                panels[i].anim_y = panels[i].y;
+
+                /* Bounce effect */
+                if (panels[i].anim_velocity > PANEL_SETTLE_THRESHOLD) {
+                    panels[i].anim_velocity = -panels[i].anim_velocity * PANEL_FALL_DAMPING;
+                } else {
+                    /* Settle */
+                    panels[i].anim_velocity = 0.0f;
+                    panels[i].just_shown = 0;
+                }
+            }
+        } else {
+            /* Panel is settled */
+            panels[i].anim_y = panels[i].y;
+        }
+    }
+}
+
+/* Render a single panel as a single line */
 static void panels_render_one(const IPAPanel *panel) {
     if (!panel->visible) return;
 
     int x = panel->x;
-    int y = panel->y;
+    int y = (int)(panel->anim_y + 0.5f);  /* Use animated y position */
     const FacialState *s = &panel->state_snapshot;
     const char *title_color = get_panel_color(panel->panel_type);
 
-    /* Title line */
+    /* Single line format: "Title: content..." */
     move_cursor(y, x);
-    printf("%s%s%s", title_color, panel->title, COLOR_RESET);
 
-    /* Content based on panel type - compact format for bottom strip */
     switch (panel->panel_type) {
         case PANEL_STATUS:
-            move_cursor(y + 1, x);
-            printf("JAW %.2f RND %.2f", s->jaw_openness, s->lip_rounding);
-            move_cursor(y + 2, x);
-            printf("TNG H:%.2f F:%.2f", s->tongue_height, s->tongue_frontness);
-            move_cursor(y + 3, x);
-            printf("LIP P:%.2f C:%.2f", s->lip_protrusion, s->lip_compression);
+            printf("%sStatus:%s JAW:%.2f RND:%.2f TNG:%.2f,%.2f LIP:%.2f,%.2f",
+                   title_color, COLOR_RESET,
+                   s->jaw_openness, s->lip_rounding,
+                   s->tongue_height, s->tongue_frontness,
+                   s->lip_protrusion, s->lip_compression);
             break;
 
         case PANEL_IPA_MATCH:
             if (panel->phoneme) {
                 const PhonemePreset *ph = panel->phoneme;
-                move_cursor(y + 1, x);
-                printf("%s[%s]%s", COLOR_IPA_SYMBOL, ph->symbol, COLOR_RESET);
-                move_cursor(y + 2, x);
-                /* Truncate description to fit */
-                char desc[20];
-                snprintf(desc, sizeof(desc), "%.18s", ph->description);
-                printf("%s%s%s", COLOR_IPA_DESC, desc, COLOR_RESET);
+                printf("%sIPA Match:%s [%s%s%s] %s%s%s",
+                       title_color, COLOR_RESET,
+                       COLOR_IPA_SYMBOL, ph->symbol, COLOR_RESET,
+                       COLOR_IPA_DESC, ph->description, COLOR_RESET);
             } else {
-                move_cursor(y + 1, x);
-                printf("%s(no match)%s", COLOR_DIM, COLOR_RESET);
+                printf("%sIPA Match:%s %s(no match)%s",
+                       title_color, COLOR_RESET,
+                       COLOR_DIM, COLOR_RESET);
             }
             break;
 
         case PANEL_ZONES:
-            /* Gamepad zone visualization - show 4x4 grid */
-            move_cursor(y + 1, x);
-            printf("L-ZONE [%d,%d]", 0, 0);  /* TODO: Get from gamepad */
-            move_cursor(y + 2, x);
-            printf("R-ZONE [%d,%d]", 0, 0);
-            move_cursor(y + 3, x);
-            printf("Conf: %.0f%%", 0.0f);
+            /* Gamepad zone visualization */
+            printf("%sZones:%s L:[%d,%d] R:[%d,%d] Conf:%.0f%%",
+                   title_color, COLOR_RESET,
+                   0, 0, 0, 0, 0.0f);  /* TODO: Get from gamepad */
             break;
 
         case PANEL_SEQUENCE:
             /* Recording/playback status */
-            move_cursor(y + 1, x);
-            printf("REC: OFF");  /* TODO: Get from sequence */
-            move_cursor(y + 2, x);
-            printf("PLAY: OFF");
-            move_cursor(y + 3, x);
-            printf("Frames: 0/10000");
+            printf("%sSequence:%s REC:OFF PLAY:OFF Frames:0/10000",
+                   title_color, COLOR_RESET);  /* TODO: Get from sequence */
             break;
 
         case PANEL_ESTO_CODE:
             if (panel->esto_code[0]) {
-                move_cursor(y + 1, x);
-                /* Truncate code to fit */
-                char code[20];
-                snprintf(code, sizeof(code), "%.18s", panel->esto_code);
-                printf("%s%s%s", COLOR_ACCENT, code, COLOR_RESET);
+                printf("%sEsto Code:%s %s%s%s",
+                       title_color, COLOR_RESET,
+                       COLOR_ACCENT, panel->esto_code, COLOR_RESET);
             } else {
-                move_cursor(y + 1, x);
-                printf("%s(none)%s", COLOR_DIM, COLOR_RESET);
+                printf("%sEsto Code:%s %s(none)%s",
+                       title_color, COLOR_RESET,
+                       COLOR_DIM, COLOR_RESET);
             }
             break;
 
         default:
-            move_cursor(y + 1, x);
-            printf("%s(unknown)%s", COLOR_DIM, COLOR_RESET);
+            printf("%sUnknown:%s %s(unknown panel type)%s",
+                   title_color, COLOR_RESET,
+                   COLOR_DIM, COLOR_RESET);
             break;
     }
 }
