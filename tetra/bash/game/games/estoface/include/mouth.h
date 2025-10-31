@@ -16,7 +16,7 @@
 #define MOUTH_WIDTH 28
 #define MOUTH_HEIGHT 12
 
-#define FRONT_MOUTH_WIDTH 16
+#define FRONT_MOUTH_WIDTH 14
 #define FRONT_MOUTH_HEIGHT 8
 
 /* Mouth rendering buffer (for side view) */

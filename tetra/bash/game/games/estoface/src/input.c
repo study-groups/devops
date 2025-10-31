@@ -60,35 +60,44 @@ void input_handle_interactive(EstofaceContext *ctx, char key) {
     FacialState *state = &ctx->current;
     
     switch (key) {
-        /* Jaw control (WASD) */
+        /* Tongue height (WS) - W=up, S=down */
         case 'w': case 'W':
-            state->jaw_openness = state_clamp(state->jaw_openness - KEY_STEP);
-            break;
-        case 's': case 'S':
-            state->jaw_openness = state_clamp(state->jaw_openness + KEY_STEP);
-            break;
-            
-        /* Tongue height (IK) */
-        case 'i': case 'I':
             state->tongue_height = state_clamp(state->tongue_height + KEY_STEP);
             break;
-        case 'k': case 'K':
+        case 's': case 'S':
             state->tongue_height = state_clamp(state->tongue_height - KEY_STEP);
             break;
-            
-        /* Tongue frontness (JL) */
-        case 'j': case 'J':
+
+        /* Tongue frontness (AD) - A=back, D=forward */
+        case 'a': case 'A':
             state->tongue_frontness = state_clamp(state->tongue_frontness - KEY_STEP);
             break;
-        case 'l': case 'L':
+        case 'd': case 'D':
             state->tongue_frontness = state_clamp(state->tongue_frontness + KEY_STEP);
             break;
-            
-        /* Lip control (QE) */
-        case 'q': case 'Q':
+
+        /* Jaw openness (IK) - I=close (pout automatic), K=open
+         * Pout is now automatically tied to jaw position in mouth rendering */
+        case 'i': case 'I':
+            state->jaw_openness = state_clamp(state->jaw_openness - KEY_STEP);
+            break;
+        case 'k': case 'K':
+            state->jaw_openness = state_clamp(state->jaw_openness + KEY_STEP);
+            break;
+
+        /* Lip protrusion (JL) - J=retract, L=protrude */
+        case 'j': case 'J':
+            state->lip_protrusion = state_clamp(state->lip_protrusion - KEY_STEP);
+            break;
+        case 'l': case 'L':
+            state->lip_protrusion = state_clamp(state->lip_protrusion + KEY_STEP);
+            break;
+
+        /* Lip control (UO) - U=rounding, O=corner height */
+        case 'u': case 'U':
             state->lip_rounding = state_clamp(state->lip_rounding + KEY_STEP);
             break;
-        case 'e': case 'E':
+        case 'o': case 'O':
             state->lip_corner_height = state_clamp(state->lip_corner_height + KEY_STEP);
             break;
             

@@ -160,7 +160,7 @@ static void print_usage(const char *progname) {
     printf("  %sW/S%s            Jaw control (close/open)\n", COLOR_ACCENT, COLOR_RESET);
     printf("  %sI/K%s            Tongue height (up/down)\n", COLOR_ACCENT, COLOR_RESET);
     printf("  %sJ/L%s            Tongue frontness (back/forward)\n", COLOR_ACCENT, COLOR_RESET);
-    printf("  %sQ/E%s            Lip rounding/spreading\n", COLOR_ACCENT, COLOR_RESET);
+    printf("  %sU/O%s            Lip rounding/spreading\n", COLOR_ACCENT, COLOR_RESET);
     printf("  %sR%s              Reset to neutral\n", COLOR_ACCENT, COLOR_RESET);
     printf("  %s:%s              Enter command mode\n", COLOR_ACCENT, COLOR_RESET);
     printf("  %s1-5%s            Toggle info panels\n", COLOR_ACCENT, COLOR_RESET);

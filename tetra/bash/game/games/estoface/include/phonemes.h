@@ -17,8 +17,6 @@ void phoneme_apply(FacialState *state, const char *symbol, float rate);
 /* List all available phonemes */
 void phoneme_list_all(void);
 
-#endif /* ESTOFACE_PHONEMES_H */
-
 /* Find closest matching IPA phoneme based on current facial state */
 const PhonemePreset* phoneme_find_closest(const FacialState *state);
 
@@ -30,3 +28,9 @@ void phoneme_to_esto(const PhonemePreset *phoneme, int duration_ms, int pitch_hz
 
 /* Get phoneme by zone coordinates (0-3, 0-3) */
 const PhonemePreset* phoneme_get_by_zone(int zone_x, int zone_y);
+
+/* Calculate effective vocal tract length from articulator positions (in cm)
+ * See ACOUSTIC_MODEL.md for detailed documentation */
+float calculate_vocal_tract_length(const FacialState *state);
+
+#endif /* ESTOFACE_PHONEMES_H */

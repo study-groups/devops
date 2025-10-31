@@ -94,15 +94,15 @@ void render_front_face(const FacialState *state, int center_x, int center_y) {
     char eye_r = render_get_eye_char(state->eye_r_openness);
 
     /* Eyebrows */
-    move_cursor(center_y - 2, center_x - 4);
+    move_cursor(center_y - 2, center_x - 5);
     printf("%c%c", eyebrow_l, eyebrow_l);
-    move_cursor(center_y - 2, center_x + 3);
+    move_cursor(center_y - 2, center_x + 4);
     printf("%c%c", eyebrow_r, eyebrow_r);
 
     /* Eyes - moved down to avoid text overlap */
-    move_cursor(center_y, center_x - 3);
+    move_cursor(center_y, center_x - 4);
     printf("%c", eye_l);
-    move_cursor(center_y, center_x + 3);
+    move_cursor(center_y, center_x + 4);
     printf("%c", eye_r);
 
     /* Nose */
@@ -137,9 +137,9 @@ void render_vocal_tract(const FacialState *state, int start_x, int start_y) {
 void render_face(const FacialState *state, int center_x, int center_y) {
     /* Left side: Side-view vocal tract */
     int tract_x = center_x - 35;
-    int tract_y = center_y - 2;
+    int tract_y = center_y;
 
-    move_cursor(tract_y - 1, tract_x);
+    move_cursor(tract_y - 4, tract_x);
     printf("Side View:");
     render_vocal_tract(state, tract_x, tract_y);
 
@@ -147,7 +147,7 @@ void render_face(const FacialState *state, int center_x, int center_y) {
     int face_x = center_x + 15;
     int face_y = center_y;
 
-    move_cursor(face_y - 3, face_x - 5);
+    move_cursor(face_y - 4, face_x - 5);
     printf("Front View:");
     render_front_face(state, face_x, face_y);
 }
@@ -160,20 +160,23 @@ void render_status(const FacialState *state, int row) {
 }
 
 /* Render mode bar */
-void render_mode_bar(EngineMode mode, int row) {
+void render_mode_bar(EngineMode mode, int row, const FacialState *state) {
     move_cursor(row, 1);
     clear_line();
 
     if (mode == MODE_INTERACTIVE) {
-        printf("%sINTERACTIVE%s - %sWS%s:Jaw %sIK%s:Tongue %sJL%s:TngFB %sQE%s:Lips %sR%s:Reset %s1-5%s:Panels %s:%s:Cmd",
+        /* Calculate vocal tract resonance (F1 approximation) */
+        float tract_length = calculate_vocal_tract_length(state);
+        int freq_hz = (int)(35000.0f / (4.0f * tract_length));  /* Quarter-wave resonance */
+
+        printf("%sINTERACTIVE%s - %sWSAD%s:Tongue %sIK%s:Jaw %sJL%s:Lips %sUO%s:Round/Corner %sR%s:Reset (%d Hz)",
                COLOR_MODE_ACTIVE, COLOR_RESET,
                COLOR_ACCENT, COLOR_RESET,
                COLOR_ACCENT, COLOR_RESET,
                COLOR_ACCENT, COLOR_RESET,
                COLOR_ACCENT, COLOR_RESET,
                COLOR_ACCENT, COLOR_RESET,
-               COLOR_ACCENT, COLOR_RESET,
-               COLOR_ACCENT, COLOR_RESET);
+               freq_hz);
     } else {
         printf("%sCOMMAND MODE%s - 'int' interactive, 'quit' exit",
                COLOR_WARNING, COLOR_RESET);
@@ -202,7 +205,7 @@ void render_full(EstofaceContext *ctx) {
     panels_render_all(ctx->panels);
 
     /* Render mode bar at VERY BOTTOM */
-    render_mode_bar(ctx->mode, ctx->rows - 1);
+    render_mode_bar(ctx->mode, ctx->rows - 1, &ctx->current);
 
     /* Prompt if command mode */
     if (ctx->mode == MODE_COMMAND) {

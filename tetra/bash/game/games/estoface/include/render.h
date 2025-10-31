@@ -23,7 +23,7 @@ void render_face(const FacialState *state, int center_x, int center_y);
 void render_status(const FacialState *state, int row);
 
 /* Render mode indicator bar */
-void render_mode_bar(EngineMode mode, int row);
+void render_mode_bar(EngineMode mode, int row, const FacialState *state);
 
 /* Get mouth shape character based on jaw/lip state */
 char render_get_mouth_char(const FacialState *state);

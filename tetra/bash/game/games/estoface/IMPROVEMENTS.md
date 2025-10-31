@@ -88,7 +88,7 @@ cd ../game/games/estoface
 - `W/S` - Jaw control (close/open)
 - `I/K` - Tongue height
 - `J/L` - Tongue frontness
-- `Q/E` - Lip rounding/spreading
+- `U/O` - Lip rounding/spreading
 - `R` - Reset to neutral
 - `1-5` - Toggle IPA info panels
 - `:` - Enter command mode

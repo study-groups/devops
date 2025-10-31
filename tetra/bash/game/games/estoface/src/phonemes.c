@@ -19,6 +19,7 @@ static const PhonemePreset phoneme_presets[] = {
             .tongue_height = 0.9f,
             .tongue_frontness = 0.1f,
             .lip_rounding = 0.9f,
+            .lip_protrusion = 0.8f,
             .lip_corner_height = 0.5f
         }
     },
@@ -30,6 +31,7 @@ static const PhonemePreset phoneme_presets[] = {
             .tongue_height = 0.9f,
             .tongue_frontness = 0.4f,
             .lip_rounding = 0.7f,
+            .lip_protrusion = 0.5f,
             .lip_corner_height = 0.5f
         }
     },
@@ -65,6 +67,7 @@ static const PhonemePreset phoneme_presets[] = {
             .tongue_height = 0.6f,
             .tongue_frontness = 0.1f,
             .lip_rounding = 0.8f,
+            .lip_protrusion = 0.6f,
             .lip_corner_height = 0.5f
         }
     },
@@ -76,6 +79,7 @@ static const PhonemePreset phoneme_presets[] = {
             .tongue_height = 0.6f,
             .tongue_frontness = 0.4f,
             .lip_rounding = 0.5f,
+            .lip_protrusion = 0.4f,
             .lip_corner_height = 0.5f
         }
     },
@@ -111,6 +115,7 @@ static const PhonemePreset phoneme_presets[] = {
             .tongue_height = 0.4f,
             .tongue_frontness = 0.1f,
             .lip_rounding = 0.7f,
+            .lip_protrusion = 0.3f,
             .lip_corner_height = 0.5f
         }
     },
@@ -289,4 +294,25 @@ const PhonemePreset* phoneme_get_by_zone(int zone_x, int zone_y) {
     if (index < 0 || index >= 16) return NULL;
 
     return &phoneme_presets[index];
+}
+
+/* Calculate effective vocal tract length based on articulator positions
+ * Formula: tract_length = base_length + (jaw_openness * jaw_length_scale) + (lip_protrusion * protrusion_length_scale)
+ * See ACOUSTIC_MODEL.md for detailed documentation of parameters and acoustic theory
+ */
+float calculate_vocal_tract_length(const FacialState *state) {
+    if (!state) return 0.0f;
+
+    /* Parameters from ACOUSTIC_MODEL.md */
+    const float base_length = 17.5f;              /* cm - typical adult neutral tract length */
+    const float jaw_length_scale = 2.0f;          /* cm - maximum jaw contribution to length */
+    const float protrusion_length_scale = 1.5f;   /* cm - maximum lip protrusion contribution */
+
+    /* Calculate effective length */
+    float jaw_contribution = state->jaw_openness * jaw_length_scale;
+    float protrusion_contribution = state->lip_protrusion * protrusion_length_scale;
+
+    float tract_length = base_length + jaw_contribution + protrusion_contribution;
+
+    return tract_length;  /* Returns length in centimeters */
 }
