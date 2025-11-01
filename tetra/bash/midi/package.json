@@ -1,0 +1,9 @@
+{
+  "name": "tmc-bridge",
+  "version": "1.0.0",
+  "description": "TMC MIDI Bridge for Tetra",
+  "main": "tmc.js",
+  "dependencies": {
+    "easymidi": "^2.0.1"
+  }
+}

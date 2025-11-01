@@ -1,0 +1,181 @@
+┌──────────────────────────────────────────────────────────────────────┐
+│                    PULSAR GAME ENGINE ARCHITECTURE                   │
+│                      Modular Refactored Design                       │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                           MAIN (pulsar.c)                           │
+│  ┌──────────────┐  ┌──────────────┐  ┌─────────────────────────┐  │
+│  │   Command    │  │  Sprite Mgmt │  │   Process Lifecycle    │  │
+│  │  Processing  │  │  (alloc/find)│  │  (spawn/cleanup/manage)│  │
+│  └──────────────┘  └──────────────┘  └─────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+                                │
+                ┌───────────────┼───────────────┐
+                │               │               │
+                ▼               ▼               ▼
+     ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+     │   LAYOUT     │  │      UI      │  │    INPUT     │
+     │  (layout.c)  │  │    (ui.c)    │  │  (input.c)   │
+     └──────────────┘  └──────────────┘  └──────────────┘
+            │                  │                  │
+            │                  │                  │
+            ▼                  ▼                  ▼
+     ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+     │  Region      │  │  Panel       │  │  Gamepad     │
+     │  Calculation │  │  Rendering   │  │  Polling     │
+     │  • Debug     │  │  • Debug     │  │  • Socket    │
+     │  • Event Log │  │  • Event Log │  │  • Keyboard  │
+     │  • Players   │  │  • Players   │  │  Simulation  │
+     │  • Mapping   │  │  • Mapping   │  │  • Debounce  │
+     │  • Config    │  │  • Config    │  └──────────────┘
+     │  • Play Area │  │  • Help      │
+     └──────────────┘  │  • Pause     │
+                       └──────────────┘
+                               │
+                               ▼
+                     ┌──────────────────┐
+                     │     RENDER       │
+                     │   (render.c)     │
+                     └──────────────────┘
+                               │
+                               ▼
+                     ┌──────────────────┐
+                     │  Sprite Drawing  │
+                     │  • Play Area     │
+                     │  • Bounds Check  │
+                     │  • Colors        │
+                     │  • Animation     │
+                     └──────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                         SHARED TYPES (types.h)                      │
+├─────────────────────────────────────────────────────────────────────┤
+│  Sprite │ GamepadState │ Event │ PUID_Account │ ChildProcess │ ... │
+└─────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════
+                         LAYOUT SYSTEM DETAILS
+═══════════════════════════════════════════════════════════════════════
+
+Terminal Layout (Example: 80x24)
+┌──────────────────────────────────────────────────────────────────────┐
+│ [PANEL 1: DEBUG] Pulsars: 2 | FPS: 60 | CPU: 12.3% | Gamepad: YES  │ ← Top (3 lines)
+│  Panels: 0x07 | Help: h | Quit: q | Size: 80x24                    │
+│                                                                      │
+├──────────────────────────────────────────────────────────┬───────────┤
+│                                                          │ [PANEL 3: │
+│                                                          │  PLAYERS] │
+│                    PLAY AREA                             │           │
+│              (Sprites render here)                       │  Player0  │ ← Right (30 chars)
+│                                                          │  ACTIVE   │
+│          Automatically resizes to avoid                  │  PUID: .. │
+│          overlapping with visible panels                 │  Score:0  │
+│                                                          │           │
+│                                                          │  Player1  │
+│                                                          │  idle     │
+├──────────────────────────────────────────────────────────┴───────────┤
+│ GAMEPAD  Player0   12:34:56 | L[0.50,0.30] R[0.00,0.00]            │
+│ KEYBOARD Player0   12:34:57 | key='w' (0x77)                       │ ← Bottom (4 lines)
+│ SYSTEM   Player0   12:34:58 | Spawned gamepad-sender (PID: 12345) │   STICKY!
+│ GAMEPAD  Player0   12:34:59 | btn=00000001 seq=42                  │
+└──────────────────────────────────────────────────────────────────────┘
+                            [PANEL 2: EVENT LOG]
+
+When '9' is pressed (Config Tab):
+┌──────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│        ═══════════════════════════════════════════════              │
+│        │ === CONFIGURATION (TAB 9) ===          │                   │
+│        │                                         │                   │
+│        │ Environment:                            │                   │
+│        │   GAME_SRC:  /path/to/game              │                   │ ← Centered
+│        │   TETRA_SRC: /path/to/tetra             │                     Overlay
+│        │                                         │                     (70% of
+│        │ Layout:                                 │                     screen)
+│        │   Terminal: 80 x 24                     │
+│        │   Play Area: 50x17 at (0,3)             │
+│        │                                         │
+│        │ Controls:                               │
+│        │   1-3: Toggle panels | 9: This view    │
+│        │   h: Help | p: Pause | q: Quit         │
+│        │                                         │
+│        │ Press 9 again to close this tab        │
+│        ═══════════════════════════════════════════
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════
+                          MODULE INTERACTIONS
+═══════════════════════════════════════════════════════════════════════
+
+Game Loop Flow:
+┌─────────────────────────────────────────────────────────────────┐
+│ while (running) {                                               │
+│   1. input_poll_gamepad(&input_mgr, ...)      ← INPUT MODULE   │
+│   2. update_cpu_usage()                       ← MAIN           │
+│   3. update_sprites(dt)                       ← MAIN           │
+│   4. render_frame():                                            │
+│      a. ui_clear_screen(&ui_ctx)              ← UI MODULE      │
+│      b. render_sprites(..., play_area)        ← RENDER MODULE  │
+│      c. ui_draw_panels(...)                   ← UI MODULE      │
+│   5. input_read_keyboard(&input_mgr)          ← INPUT MODULE   │
+│   6. Process key commands                     ← MAIN           │
+│   7. input_update_keyboard_simulation(...)    ← INPUT MODULE   │
+│   8. nanosleep(frame_time)                    ← MAIN           │
+│ }                                                               │
+└─────────────────────────────────────────────────────────────────┘
+
+Resize Event Flow:
+┌─────────────────────────────────────────────────────────────────┐
+│ INIT command received (new terminal size)                      │
+│   │                                                             │
+│   ├──► ui_resize(&ui_ctx, cols, rows)                         │
+│   │      └──► layout_resize(&layout, cols, rows)              │
+│   │             └──► layout_update_regions()                  │
+│   │                    • Recalculate all panel positions      │
+│   │                    • Update play area bounds              │
+│   │                                                            │
+│   └──► render_resize(&render_ctx, cols, rows)                │
+│          • Update render dimensions                           │
+│                                                               │
+│ Next frame will use new layout automatically!                 │
+└───────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════
+                           FILE ORGANIZATION
+═══════════════════════════════════════════════════════════════════════
+
+engine/src/
+├── types.h          (108 lines) - Common type definitions
+├── layout.h         ( 45 lines) - Layout management interface
+├── layout.c         (145 lines) - Layout implementation
+├── ui.h             ( 52 lines) - UI rendering interface
+├── ui.c             (330 lines) - UI panel rendering
+├── input.h          ( 54 lines) - Input handling interface
+├── input.c          (220 lines) - Input processing
+├── render.h         ( 27 lines) - Rendering interface
+├── render.c         ( 66 lines) - Sprite rendering
+├── pulsar.c         (630 lines) - Main engine & commands
+├── toml.h           (existing)  - Config parsing
+└── toml.c           (existing)  - Config implementation
+
+Total: ~1,677 lines (vs 1,422 monolithic)
+  But with MUCH better organization and maintainability!
+
+═══════════════════════════════════════════════════════════════════════
+                          KEY IMPROVEMENTS
+═══════════════════════════════════════════════════════════════════════
+
+✓ Modular architecture with clear separation of concerns
+✓ Resizable layout system that adapts to terminal size
+✓ Sticky bottom panel (event log) always at bottom
+✓ Tabbed '9' key view for configuration
+✓ Easy to add new panels (just extend layout.c and ui.c)
+✓ Clean interfaces with proper header files
+✓ Zero compiler warnings
+✓ Backward compatible with existing game commands
+✓ Professional code organization
+✓ Easier to test, debug, and extend
+
+═══════════════════════════════════════════════════════════════════════
