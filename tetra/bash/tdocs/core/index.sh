@@ -22,7 +22,7 @@ tdoc_index_rebuild() {
     local other_docs=()
 
     # Iterate through database
-    for meta_file in "$TDOC_DB_DIR"/*.meta; do
+    for meta_file in "$TDOCS_DB_DIR"/*.meta; do
         [[ ! -f "$meta_file" ]] && continue
 
         local meta=$(cat "$meta_file")
@@ -77,7 +77,7 @@ _tdoc_rebuild_module_indexes() {
         local module_docs=()
 
         # Find docs for this module in database
-        for meta_file in "$TDOC_DB_DIR"/*.meta; do
+        for meta_file in "$TDOCS_DB_DIR"/*.meta; do
             [[ ! -f "$meta_file" ]] && continue
 
             if grep -q "\"module\": \"$module\"" "$meta_file" 2>/dev/null; then
@@ -140,7 +140,7 @@ tdoc_index_status() {
     [[ $module_count -eq 0 ]] && echo "No module indexes found"
 
     echo ""
-    echo "Database: $TDOC_DB_DIR"
-    local db_count=$(find "$TDOC_DB_DIR" -name "*.meta" 2>/dev/null | wc -l | tr -d ' ')
+    echo "Database: $TDOCS_DB_DIR"
+    local db_count=$(find "$TDOCS_DB_DIR" -name "*.meta" 2>/dev/null | wc -l | tr -d ' ')
     echo "  Metadata files: $db_count"
 }

@@ -6003,3 +6003,33 @@
 19:04:32 Format: TUI Formatting module initialized with expressive colors
 19:04:32 View: TUI View layer initialized with pub/sub event subscribers
 19:04:32 Display: Synchronization subscribers initialized
+02:32:47 Format: TUI Formatting module initialized with expressive colors
+02:32:47 View: TUI View layer initialized with pub/sub event subscribers
+02:32:47 Display: Synchronization subscribers initialized
+02:32:53 Rendering: Double buffer initialized (80x24)
+02:32:53 ViewController: Registered actions -> ActionsViewController
+02:32:53 ViewController: Registered palette -> PaletteViewController
+02:32:53 ViewController: Registered info -> InfoViewController
+02:32:53 ViewController: Registered repl -> ReplViewController
+02:32:53 ViewController: Registered debug -> DebugViewController
+02:32:53 ViewController: System initialized, starting in actions
+02:32:53 GameInput: System initialized with 21 mappings
+02:32:53 HeaderComponent: Mounted header
+02:32:53 Rendering: header marked dirty
+02:32:53 Component: header (HeaderComponent) mounted
+02:32:53 ContentComponent: Mounted content
+02:32:53 Rendering: content marked dirty
+02:32:53 Component: content (ContentComponent) mounted
+02:32:53 FooterComponent: Mounted footer
+02:32:53 Rendering: footer marked dirty
+02:32:53 Component: footer (FooterComponent) mounted
+02:32:53 Enhanced TUI: System initialized
+02:32:53 Terminal size detected: 80x24
+02:32:53 Rendering: Frame built in back buffer
+02:32:53 Rendering: Frame presented (hash: 39688f93)
+02:32:54 GameInput: Unmapped key '[B' in view actions
+02:32:55 GameInput: Unmapped key '[A' in view actions
+02:32:55 GameInput: Unmapped key '[A' in view actions
+02:32:56 GameInput: Unmapped key '[D' in view actions
+02:32:56 GameInput: Unmapped key '[D' in view actions
+02:32:56 GameInput: Unmapped key '[A' in view actions

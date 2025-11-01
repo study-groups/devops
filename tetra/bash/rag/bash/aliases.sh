@@ -37,8 +37,8 @@ replace() {
 
 # Get code utility
 getcode() {
-    ( exec "$RAG_CORE_DIR/utils/getcode.sh" "$@" )
-    return $?
+    source "$RAG_CORE_DIR/utils/getcode.sh"
+    (getcode "$@" )
 }
 
 # Quick patch tool

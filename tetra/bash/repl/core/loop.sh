@@ -7,9 +7,6 @@ repl_main_loop() {
     trap 'printf "\n"; continue' INT
 
     while true; do
-        # Update active history file based on current mode
-        REPL_HISTORY_FILE=$(repl_get_history_file)
-
         # Build dynamic prompt
         # NOTE: Call prompt builder which sets global REPL_PROMPT (not via command substitution)
         # to preserve access to associative arrays like TDS_COLOR_TOKENS

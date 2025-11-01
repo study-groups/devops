@@ -19,8 +19,20 @@ source "$MIDI_SRC/core/learn.sh"
 SERVICE_NAME="${1:-tmc}"
 SOCKET_PATH="${TSM_PROCESSES_DIR}/sockets/${SERVICE_NAME}.sock"
 SUBSCRIBERS_FILE="${TSM_PROCESSES_DIR}/${SERVICE_NAME}/subscribers.txt"
-TMC_BINARY="${MIDI_SRC}/tmc"
+TMC_BINARY_C="${MIDI_SRC}/tmc"
+TMC_BINARY_NODE="${MIDI_SRC}/tmc.js"
+TMC_BINARY_PY="${MIDI_SRC}/tmc.py"
 TMC_BRIDGE_SOCKET="/tmp/tmc_bridge_$$.sock"
+
+# Auto-detect which TMC binary to use
+TMC_BINARY=""
+if [[ -x "$TMC_BINARY_C" ]]; then
+    TMC_BINARY="$TMC_BINARY_C"
+elif [[ -x "$TMC_BINARY_NODE" ]] && command -v node >/dev/null; then
+    TMC_BINARY="node $TMC_BINARY_NODE"
+elif [[ -x "$TMC_BINARY_PY" ]] && command -v python3 >/dev/null; then
+    TMC_BINARY="python3 $TMC_BINARY_PY"
+fi
 
 # Ensure directories exist
 mkdir -p "$(dirname "$SOCKET_PATH")"
@@ -274,9 +286,12 @@ handle_command() {
 
 # Start tmc binary bridge (if binary exists)
 start_tmc_bridge() {
-    if [[ ! -x "$TMC_BINARY" ]]; then
-        log "WARNING: tmc binary not found at $TMC_BINARY"
-        log "Build with: gcc -o $TMC_BINARY $MIDI_SRC/tmc.c -lportmidi -lpthread"
+    if [[ -z "$TMC_BINARY" ]]; then
+        log "WARNING: No TMC binary found"
+        log "Options:"
+        log "  1. Node.js: cd $MIDI_SRC && npm install easymidi"
+        log "  2. C: gcc -o $MIDI_SRC/tmc $MIDI_SRC/tmc.c -lportmidi -lpthread"
+        log "  3. Python: pip3 install python-rtmidi"
         return 1
     fi
 

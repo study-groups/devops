@@ -10,7 +10,7 @@ tdoc_generate_timestamp() {
 
 # Get database directory
 tdoc_get_db_dir() {
-    echo "$TDOC_DB_DIR"
+    echo "$TDOCS_DB_DIR"
 }
 
 # Get path to metadata file for timestamp
@@ -120,7 +120,7 @@ tdoc_db_get_by_path() {
     local abs_path=$(realpath "$doc_path" 2>/dev/null || echo "$doc_path")
 
     # Search for metadata file with this path
-    for meta_file in "$TDOC_DB_DIR"/*.meta; do
+    for meta_file in "$TDOCS_DB_DIR"/*.meta; do
         [[ ! -f "$meta_file" ]] && continue
 
         if grep -q "\"doc_path\": \"$abs_path\"" "$meta_file" 2>/dev/null; then
@@ -144,7 +144,7 @@ tdoc_db_update() {
     local timestamp=""
     local meta_file=""
 
-    for mf in "$TDOC_DB_DIR"/*.meta; do
+    for mf in "$TDOCS_DB_DIR"/*.meta; do
         [[ ! -f "$mf" ]] && continue
 
         if grep -q "\"doc_path\": \"$abs_path\"" "$mf" 2>/dev/null; then
@@ -212,7 +212,7 @@ tdoc_db_list() {
     done
 
     # Iterate through metadata files
-    for meta_file in "$TDOC_DB_DIR"/*.meta; do
+    for meta_file in "$TDOCS_DB_DIR"/*.meta; do
         [[ ! -f "$meta_file" ]] && continue
 
         local meta=$(cat "$meta_file")
@@ -251,7 +251,7 @@ tdoc_db_delete() {
     local abs_path=$(realpath "$doc_path" 2>/dev/null || echo "$doc_path")
 
     # Find and delete metadata files
-    for meta_file in "$TDOC_DB_DIR"/*.meta; do
+    for meta_file in "$TDOCS_DB_DIR"/*.meta; do
         [[ ! -f "$meta_file" ]] && continue
 
         if grep -q "\"doc_path\": \"$abs_path\"" "$meta_file" 2>/dev/null; then

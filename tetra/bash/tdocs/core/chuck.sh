@@ -6,20 +6,20 @@
 # Filename: {id}.{kind}.md (id = Linux epoch timestamp in seconds)
 
 # Get chuck directory
-tdoc_chuck_get_dir() {
-    echo "$TDOC_DIR/chuck"
+tdocs_chuck_get_dir() {
+    echo "$TDOCS_DIR/chuck"
 }
 
 # Get path to chuck file by id
-tdoc_chuck_get_path() {
+tdocs_chuck_get_path() {
     local id="$1"
     local kind="$2"
-    echo "$(tdoc_chuck_get_dir)/${id}.${kind}.md"
+    echo "$(tdocs_chuck_get_dir)/${id}.${kind}.md"
 }
 
 # Save LLM response as chuck document
-# Usage: tdoc_chuck_save <kind> [content_source]
-tdoc_chuck_save() {
+# Usage: tdocs_chuck_save <kind> [content_source]
+tdocs_chuck_save() {
     local kind="$1"
     local content_source="${2:-stdin}"
 
@@ -39,11 +39,11 @@ tdoc_chuck_save() {
     local id=$(date +%s)
 
     # Ensure chuck directory exists
-    local chuck_dir=$(tdoc_chuck_get_dir)
+    local chuck_dir=$(tdocs_chuck_get_dir)
     mkdir -p "$chuck_dir"
 
     # Get file path
-    local chuck_file=$(tdoc_chuck_get_path "$id" "$kind")
+    local chuck_file=$(tdocs_chuck_get_path "$id" "$kind")
 
     # Read content
     local content=""
@@ -81,8 +81,8 @@ grade: low
 }
 
 # List chuck documents
-# Usage: tdoc_chuck_list [--kind KIND] [--recent N] [--json]
-tdoc_chuck_list() {
+# Usage: tdocs_chuck_list [--kind KIND] [--recent N] [--json]
+tdocs_chuck_list() {
     local filter_kind=""
     local limit=""
     local json_output=false
@@ -107,7 +107,7 @@ tdoc_chuck_list() {
         esac
     done
 
-    local chuck_dir=$(tdoc_chuck_get_dir)
+    local chuck_dir=$(tdocs_chuck_get_dir)
 
     if [[ ! -d "$chuck_dir" ]]; then
         echo "No chuck documents found"
@@ -165,9 +165,9 @@ tdoc_chuck_list() {
 }
 
 # View a chuck document
-# Usage: tdoc_chuck_view <id> [kind]
-# Or: tdoc_chuck_view --kind <kind> (shows most recent)
-tdoc_chuck_view() {
+# Usage: tdocs_chuck_view <id> [kind]
+# Or: tdocs_chuck_view --kind <kind> (shows most recent)
+tdocs_chuck_view() {
     local id=""
     local kind=""
     local show_latest=false
@@ -180,7 +180,7 @@ tdoc_chuck_view() {
         kind="$2"
     fi
 
-    local chuck_dir=$(tdoc_chuck_get_dir)
+    local chuck_dir=$(tdocs_chuck_get_dir)
 
     if [[ "$show_latest" == true ]]; then
         # Find most recent for kind
@@ -208,7 +208,7 @@ tdoc_chuck_view() {
         cat "$found_file"
     else
         # Specific id and kind
-        local chuck_file=$(tdoc_chuck_get_path "$id" "$kind")
+        local chuck_file=$(tdocs_chuck_get_path "$id" "$kind")
 
         if [[ ! -f "$chuck_file" ]]; then
             echo "Chuck document not found: $chuck_file" >&2
@@ -220,8 +220,8 @@ tdoc_chuck_view() {
 }
 
 # Delete a chuck document
-# Usage: tdoc_chuck_delete <id> [kind]
-tdoc_chuck_delete() {
+# Usage: tdocs_chuck_delete <id> [kind]
+tdocs_chuck_delete() {
     local id="$1"
     local kind="$2"
 
@@ -230,7 +230,7 @@ tdoc_chuck_delete() {
         return 1
     fi
 
-    local chuck_dir=$(tdoc_chuck_get_dir)
+    local chuck_dir=$(tdocs_chuck_get_dir)
 
     if [[ -z "$kind" ]]; then
         # Find and delete any file with this id
@@ -247,7 +247,7 @@ tdoc_chuck_delete() {
         done
     else
         # Specific id and kind
-        local chuck_file=$(tdoc_chuck_get_path "$id" "$kind")
+        local chuck_file=$(tdocs_chuck_get_path "$id" "$kind")
 
         if [[ ! -f "$chuck_file" ]]; then
             echo "Chuck document not found: $chuck_file" >&2
@@ -260,8 +260,8 @@ tdoc_chuck_delete() {
 }
 
 # Promote chuck document to reference directory
-# Usage: tdoc_chuck_promote <id> <dest_path>
-tdoc_chuck_promote() {
+# Usage: tdocs_chuck_promote <id> <dest_path>
+tdocs_chuck_promote() {
     local id="$1"
     local dest_path="$2"
 
@@ -271,7 +271,7 @@ tdoc_chuck_promote() {
         return 1
     fi
 
-    local chuck_dir=$(tdoc_chuck_get_dir)
+    local chuck_dir=$(tdocs_chuck_get_dir)
 
     # Find chuck file
     local chuck_file=$(find "$chuck_dir" -name "${id}.*.md" -type f | head -1)
@@ -296,8 +296,8 @@ tdoc_chuck_promote() {
 }
 
 # Search chuck documents
-# Usage: tdoc_chuck_search <query>
-tdoc_chuck_search() {
+# Usage: tdocs_chuck_search <query>
+tdocs_chuck_search() {
     local query="$1"
 
     if [[ -z "$query" ]]; then
@@ -305,7 +305,7 @@ tdoc_chuck_search() {
         return 1
     fi
 
-    local chuck_dir=$(tdoc_chuck_get_dir)
+    local chuck_dir=$(tdocs_chuck_get_dir)
 
     if [[ ! -d "$chuck_dir" ]]; then
         echo "No chuck documents found"
@@ -329,11 +329,11 @@ tdoc_chuck_search() {
 }
 
 # Export functions
-export -f tdoc_chuck_get_dir
-export -f tdoc_chuck_get_path
-export -f tdoc_chuck_save
-export -f tdoc_chuck_list
-export -f tdoc_chuck_view
-export -f tdoc_chuck_delete
-export -f tdoc_chuck_promote
-export -f tdoc_chuck_search
+export -f tdocs_chuck_get_dir
+export -f tdocs_chuck_get_path
+export -f tdocs_chuck_save
+export -f tdocs_chuck_list
+export -f tdocs_chuck_view
+export -f tdocs_chuck_delete
+export -f tdocs_chuck_promote
+export -f tdocs_chuck_search

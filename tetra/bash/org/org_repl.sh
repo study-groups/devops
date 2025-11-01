@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 # Org REPL - Interactive Organization Management Shell
-# Integrates with bash/repl, TDS, and TSM
+# Integrates with bash/repl, bash/tree, bash/thelp, TDS, and TSM
 
 # Source dependencies (follow module hierarchy)
 # bash/repl - Universal REPL system
 source "$TETRA_SRC/bash/repl/repl.sh"
+source "$TETRA_SRC/bash/repl/command_processor.sh"
+
+# bash/tree - Tree-based help and completion
+source "$TETRA_SRC/bash/tree/core.sh"
+source "$TETRA_SRC/bash/tree/help.sh"
 
 # bash/color - Color system (loaded by repl.sh, but explicit for clarity)
 source "$TETRA_SRC/bash/color/repl_colors.sh"
@@ -24,6 +29,16 @@ ORG_SRC="${TETRA_SRC}/bash/org"
 source "$ORG_SRC/org_constants.sh"
 source "$ORG_SRC/actions.sh"
 source "$ORG_SRC/org_help.sh" 2>/dev/null || true
+source "$ORG_SRC/org_tree.sh"  # Tree-based help structure
+source "$ORG_SRC/org_completion.sh"  # Tree-based completion
+
+# Initialize org tree for thelp integration
+org_tree_init 2>/dev/null || true
+
+# Register with REPL module system
+repl_register_module "org" \
+    "list active switch create import discover validate compile push pull rollback history env secrets help" \
+    "help.org"
 
 # REPL Configuration
 REPL_HISTORY_BASE="${TETRA_DIR}/org/history/org_repl"
@@ -221,10 +236,27 @@ _org_repl_process_input() {
             return 0
             ;;
         help\ *|h\ *)
-            # Help with topic (future extension)
+            # Help with topic - use tree help if available
             local topic="${input#help }"
             topic="${topic#h }"
-            _org_show_help "$topic"
+
+            # Try tree help first
+            if tree_exists "help.org.$topic" 2>/dev/null; then
+                tree_help_show "help.org.$topic"
+            else
+                _org_show_help "$topic"
+            fi
+            return 0
+            ;;
+        thelp\ *|th\ *)
+            # Direct thelp access from REPL
+            local query="${input#thelp }"
+            query="${query#th }"
+            if command -v thelp >/dev/null 2>&1; then
+                thelp "org.$query"
+            else
+                echo "thelp not available - use 'help' instead"
+            fi
             return 0
             ;;
 

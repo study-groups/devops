@@ -16,6 +16,7 @@ repl_register_prompt_builder() {
 }
 
 # Build prompt from all registered builders
+# Sets global REPL_PROMPT variable (not via echo/command substitution)
 repl_build_prompt() {
     local prompt=""
 
@@ -29,7 +30,8 @@ repl_build_prompt() {
         prompt="> "
     fi
 
-    echo "$prompt"
+    # Set global REPL_PROMPT (required by repl_main_loop)
+    REPL_PROMPT="$prompt"
 }
 
 # Built-in prompt builders
@@ -37,6 +39,23 @@ repl_build_prompt() {
 # Basic prompt
 repl_prompt_basic() {
     echo "> "
+}
+
+# Module context prompt (shows current module)
+# Format: $ module>
+repl_prompt_module() {
+    local module=""
+
+    # Get module from context
+    if command -v repl_get_module_context >/dev/null 2>&1; then
+        module=$(repl_get_module_context)
+    fi
+
+    if [[ -n "$module" ]]; then
+        echo "$ ${module}> "
+    else
+        echo "$ > "
+    fi
 }
 
 # Context-aware prompt (if context functions exist)
@@ -49,18 +68,14 @@ repl_prompt_context() {
     fi
 }
 
-# Execution mode prompt (shows shell/repl mode)
+# Execution mode indicator (always "hybrid" now)
 repl_prompt_mode() {
-    local mode=$(repl_get_execution_mode)
-    case "$mode" in
-        augment) echo "shell" ;;
-        takeover) echo "repl" ;;
-        *) echo "$mode" ;;
-    esac
+    echo "hybrid"
 }
 
 export -f repl_register_prompt_builder
 export -f repl_build_prompt
 export -f repl_prompt_basic
+export -f repl_prompt_module
 export -f repl_prompt_context
 export -f repl_prompt_mode

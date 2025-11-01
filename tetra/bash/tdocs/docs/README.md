@@ -17,7 +17,7 @@ A TCS 3.0-compliant Tetra module for managing and categorizing LLM-generated mar
 The tdoc module is part of the Tetra system. Source it via:
 
 ```bash
-source $TETRA_SRC/bash/tdoc/includes.sh
+source $TETRA_SRC/bash/tdocs/includes.sh
 ```
 
 Or let the Tetra module system auto-discover it.

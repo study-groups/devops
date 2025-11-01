@@ -2,6 +2,10 @@
 
 # Demo 014: Harmonized TUI + Typed Actions
 # Combines best of 010 (colors, rendering) and 013 (typed actions, TES)
+#
+# NOTE: This demo uses its own TUI abstraction layer built on bash/tcurses.
+# The patterns shown here demonstrate how to build higher-level TUI applications.
+# For simple TUI apps, use bash/tui directly (see bash/tui/README.md).
 
 # Source tetra first
 source ~/tetra/tetra.sh

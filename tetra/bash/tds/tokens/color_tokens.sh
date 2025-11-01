@@ -44,6 +44,15 @@ declare -A TDS_COLOR_TOKENS=(
     [content.emphasis.italic]="env:1"      # Bright green - italic
     [content.link]="mode:0"                # Blue - links
     [content.hr]="mode:5"                  # Gray - horizontal rules
+
+    # Action tokens - module.action syntax
+    [action.module]="env:0"                # Module name (green - nouns/data)
+    [action.separator]="mode:6"            # Dot separator (muted)
+    [action.name]="verbs:0"                # Action name (red/orange - verbs)
+    [action.param]="mode:1"                # Parameters (blue)
+    [action.description]="mode:6"          # Help text (muted)
+    [action.tes.prefix]="verbs:3"          # @ symbol (orange)
+    [action.tes.endpoint]="nouns:1"        # Endpoint name (magenta - target)
 )
 
 # Resolve color token to hex value

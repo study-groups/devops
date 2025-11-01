@@ -33,6 +33,7 @@ MIDI_MODULES=(
     "$MIDI_MODULE_DIR/core/mapper.sh"
     "$MIDI_MODULE_DIR/core/learn.sh"
     "$MIDI_MODULE_DIR/core/repl.sh"
+    "$MIDI_MODULE_DIR/completion.sh"
 )
 
 # Source MIDI modules
@@ -107,51 +108,21 @@ midi() {
         cat <<'EOF'
 Usage: midi <command> [args]
 
-Service Management:
-  start               Start TMC service
-  stop                Stop TMC service
-  status              Show service status
+Service:     start stop status
+Learning:    learn learn-all wizard unlearn clear learn-help
+Mapping:     list mode
+Session:     save load
+Device:      device devices
+Config:      config init
+Other:       repl build help
 
-Learning Commands:
-  learn <sem> [syn] [min] [max]
-                      Learn mapping interactively
-  learn-all <type>    Batch learn (pots|sliders|buttons|transport)
-  wizard              Step-by-step learning wizard
-  unlearn <name>      Remove a mapping
-  clear               Clear all mappings
+Quick Start:
+  midi start              Start TMC service
+  midi repl               Interactive REPL
+  midi learn VOLUME p1    Learn a control (use tab completion)
 
-Mapping Management:
-  list                Show all mappings
-  mode <mode>         Set broadcast mode (raw|syntax|semantic|all)
-
-Session Management:
-  save [name]         Save session (default: default)
-  load [name]         Load session
-
-Device Management:
-  device <id>         Load device configuration
-  devices             List MIDI devices
-
-REPL:
-  repl                Start interactive MIDI REPL
-
-Configuration:
-  config show         Show config paths
-  config edit <file>  Edit config (hardware|semantic|colors)
-  init                Initialize MIDI system
-
-Build:
-  build               Build tmc binary
-
-Help:
-  help                Show full help
-  learn-help          Show learning help
-
-Examples:
-  tmod load midi
-  midi start
-  midi repl
-  midi learn VOLUME p1 0.0 1.0
+Use tab completion to explore commands: midi <tab>
+For detailed help: midi help | midi learn-help
 EOF
         return 0
     fi

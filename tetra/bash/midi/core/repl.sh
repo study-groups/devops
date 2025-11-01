@@ -14,59 +14,34 @@ REPL_HISTORY_BASE="${MIDI_DIR}/repl/history"
 # Register slash commands
 midi_register_repl_commands() {
     # Learning commands
-    REPL_SLASH_COMMANDS+=("/learn")
-    REPL_SLASH_HANDLERS["/learn"]="midi_repl_learn"
-
-    REPL_SLASH_COMMANDS+=("/learn-all")
-    REPL_SLASH_HANDLERS["/learn-all"]="midi_repl_learn_all"
-
-    REPL_SLASH_COMMANDS+=("/wizard")
-    REPL_SLASH_HANDLERS["/wizard"]="midi_repl_wizard"
-
-    REPL_SLASH_COMMANDS+=("/unlearn")
-    REPL_SLASH_HANDLERS["/unlearn"]="midi_repl_unlearn"
-
-    REPL_SLASH_COMMANDS+=("/clear")
-    REPL_SLASH_HANDLERS["/clear"]="midi_repl_clear"
+    repl_register_slash_command "learn" "midi_repl_learn"
+    repl_register_slash_command "learn-all" "midi_repl_learn_all"
+    repl_register_slash_command "wizard" "midi_repl_wizard"
+    repl_register_slash_command "unlearn" "midi_repl_unlearn"
+    repl_register_slash_command "clear" "midi_repl_clear"
 
     # Mapping commands
-    REPL_SLASH_COMMANDS+=("/list")
-    REPL_SLASH_HANDLERS["/list"]="midi_repl_list"
-
-    REPL_SLASH_COMMANDS+=("/mode")
-    REPL_SLASH_HANDLERS["/mode"]="midi_repl_mode"
+    repl_register_slash_command "list" "midi_repl_list"
+    repl_register_slash_command "mode" "midi_repl_mode"
 
     # Session commands
-    REPL_SLASH_COMMANDS+=("/save")
-    REPL_SLASH_HANDLERS["/save"]="midi_repl_save"
-
-    REPL_SLASH_COMMANDS+=("/load")
-    REPL_SLASH_HANDLERS["/load"]="midi_repl_load_session"
+    repl_register_slash_command "save" "midi_repl_save"
+    repl_register_slash_command "load" "midi_repl_load_session"
 
     # Device commands
-    REPL_SLASH_COMMANDS+=("/device")
-    REPL_SLASH_HANDLERS["/device"]="midi_repl_device"
-
-    REPL_SLASH_COMMANDS+=("/devices")
-    REPL_SLASH_HANDLERS["/devices"]="midi_repl_devices"
+    repl_register_slash_command "device" "midi_repl_device"
+    repl_register_slash_command "devices" "midi_repl_devices"
 
     # Service commands
-    REPL_SLASH_COMMANDS+=("/start")
-    REPL_SLASH_HANDLERS["/start"]="midi_repl_start"
-
-    REPL_SLASH_COMMANDS+=("/stop")
-    REPL_SLASH_HANDLERS["/stop"]="midi_repl_stop"
-
-    REPL_SLASH_COMMANDS+=("/status")
-    REPL_SLASH_HANDLERS["/status"]="midi_repl_status"
+    repl_register_slash_command "start" "midi_repl_start"
+    repl_register_slash_command "stop" "midi_repl_stop"
+    repl_register_slash_command "status" "midi_repl_status"
 
     # Monitor
-    REPL_SLASH_COMMANDS+=("/monitor")
-    REPL_SLASH_HANDLERS["/monitor"]="midi_repl_monitor"
+    repl_register_slash_command "monitor" "midi_repl_monitor"
 
     # Help
-    REPL_SLASH_COMMANDS+=("/help")
-    REPL_SLASH_HANDLERS["/help"]="midi_repl_help"
+    repl_register_slash_command "help" "midi_repl_help"
 }
 
 # Command handlers
@@ -158,108 +133,66 @@ midi_repl_monitor() {
 
 midi_repl_help() {
     cat <<'EOF'
-MIDI REPL Commands
-==================
+MIDI Commands (Ctrl+D to exit)
+/start /stop /status         - Service control
+/learn <name> [syntax]       - Map control (e.g., /learn VOLUME p1)
+/list /mode <raw|all>        - View/set mappings
+/save [name] /load [name]    - Sessions
+/device <id> /devices        - Device config
+/monitor                     - Start event monitor
 
-Learning:
-  /learn <semantic> [syntax] [min] [max]
-      Learn a mapping. Move/press control when prompted.
-      Examples:
-        /learn VOLUME p1 0.0 1.0
-        /learn TRIGGER_KICK b1a
-        /learn PLAY play
-
-  /learn-all <type>
-      Batch learn all controls (pots|sliders|buttons|transport)
-
-  /wizard
-      Step-by-step learning wizard
-
-  /unlearn <name>
-      Remove a mapping
-
-  /clear
-      Clear all mappings
-
-Mapping:
-  /list
-      Show all current mappings
-
-  /mode <mode>
-      Set broadcast mode (raw|syntax|semantic|all)
-
-Sessions:
-  /save [name]
-      Save mappings to session (default: default)
-
-  /load [name]
-      Load mappings from session
-
-Devices:
-  /device <id>
-      Load device configuration
-
-  /devices
-      List available MIDI devices
-
-Service:
-  /start
-      Start TMC service
-
-  /stop
-      Stop TMC service
-
-  /status
-      Show service status
-
-  /monitor
-      Start MIDI event monitor
-
-Help:
-  /help
-      Show this help
-
-Control Names:
-  Pots:      p1-p8         (rotary knobs)
-  Sliders:   s1-s8         (faders)
-  Buttons:   b1a-b8d       (4 buttons × 8 paths)
-  Transport: play, pause, stop, back, fwd, fback, ffwd,
-             up, down, left, right
-
-Examples:
-  /start
-  /learn VOLUME p1 0.0 1.0
-  /list
-  /save my-setup
-  /monitor
-
+Controls: p1-p8 (pots), s1-s8 (sliders), b1a-b8d (buttons)
+Example: /start → /learn VOLUME p1 0.0 1.0 → move knob → /list
 EOF
 }
 
 # Custom prompt builder
+# Format: [controller x map][CC#][val]>
+# Example: [vmx8 x qpong][7][64]>
 midi_repl_prompt() {
-    local status_color="${TETRA_GREEN}"
-    local status_text="ready"
-
-    # Check if TMC service is running
-    if ! echo "HEALTH" | nc -U "$TSM_PROCESSES_DIR/sockets/tmc.sock" 2>/dev/null >/dev/null; then
-        status_color="${TETRA_YELLOW}"
-        status_text="no service"
+    # Source state if needed (for state container functions)
+    if ! command -v tmc_state_get &>/dev/null; then
+        source "$MIDI_SRC/core/state.sh" 2>/dev/null || true
     fi
 
-    # Check if in learning mode
-    if [[ $TMC_LEARNING -eq 1 ]]; then
-        status_color="${TETRA_CYAN}"
-        status_text="learning"
+    # Get controller and map info from state
+    local controller=$(tmc_state_get "controller_name" 2>/dev/null || echo "")
+    local map=$(tmc_state_get "map_name" 2>/dev/null || echo "")
+
+    # Get last CC info from state
+    local last_cc_controller=$(tmc_state_get "last_cc_controller" 2>/dev/null || echo "")
+    local last_cc_value=$(tmc_state_get "last_cc_value" 2>/dev/null || echo "")
+
+    # Build first bracket: [controller x map]
+    local bracket1=""
+    if [[ -n "$controller" && -n "$map" ]]; then
+        bracket1="${TETRA_CYAN}[${controller} ${TETRA_DIM}x${TETRA_NC} ${TETRA_CYAN}${map}]${TETRA_NC}"
+    elif [[ -n "$controller" ]]; then
+        bracket1="${TETRA_CYAN}[${controller}]${TETRA_NC}"
+    elif [[ -n "$map" ]]; then
+        bracket1="${TETRA_CYAN}[${map}]${TETRA_NC}"
+    else
+        bracket1="${TETRA_DIM}[no map]${TETRA_NC}"
     fi
 
-    # Show current device if loaded
-    local device_info=""
-    if [[ -n "$TMC_CURRENT_DEVICE" ]]; then
-        device_info=" [$TMC_CURRENT_DEVICE]"
+    # Build second bracket: [CC#]
+    local bracket2=""
+    if [[ -n "$last_cc_controller" ]]; then
+        bracket2="${TETRA_YELLOW}[CC${last_cc_controller}]${TETRA_NC}"
+    else
+        bracket2="${TETRA_DIM}[--]${TETRA_NC}"
     fi
 
-    echo -ne "${TETRA_MAGENTA}midi${TETRA_NC}${device_info} ${status_color}${status_text}${TETRA_NC} > "
+    # Build third bracket: [val]
+    local bracket3=""
+    if [[ -n "$last_cc_value" ]]; then
+        bracket3="${TETRA_GREEN}[${last_cc_value}]${TETRA_NC}"
+    else
+        bracket3="${TETRA_DIM}[--]${TETRA_NC}"
+    fi
+
+    # Assemble prompt
+    echo -ne "${bracket1}${bracket2}${bracket3}${TETRA_MAGENTA}>${TETRA_NC} "
 }
 
 # Custom input handler
@@ -294,18 +227,7 @@ midi_repl() {
     # Set history base
     REPL_HISTORY_BASE="${MIDI_DIR}/repl/history"
 
-    echo ""
-    echo "TMC - Tetra MIDI Controller REPL"
-    echo "================================="
-    echo ""
-    echo "Type /help for commands, /start to begin, Ctrl+D to exit"
-    echo ""
-
-    # Check if service is running
-    if ! echo "HEALTH" | nc -U "$TSM_PROCESSES_DIR/sockets/tmc.sock" 2>/dev/null >/dev/null; then
-        echo "⚠ TMC service not running. Start with: /start"
-        echo ""
-    fi
+    echo "TMC REPL | Type /help for commands | Ctrl+D to exit"
 
     # Run REPL
     repl_run

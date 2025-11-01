@@ -25,24 +25,12 @@ source "$REPL_SRC/command_processor.sh"
 source "$REPL_SRC/adapters/symbol_ui.sh" 2>/dev/null || true
 
 # REPL state
-REPL_MODE=""                    # basic/enhanced/tui (auto-detected)
+REPL_MODE=""                    # simple/readline (auto-detected)
 REPL_HISTORY_BASE=""            # Base history path set by module
-REPL_HISTORY_FILE=""            # Active history file (switches with mode)
-REPL_HISTORY_FILE_SHELL=""      # Shell mode history
-REPL_HISTORY_FILE_REPL=""       # REPL mode history
-REPL_OUTPUT_HANDLER=""          # For TUI mode
+REPL_HISTORY_FILE=""            # History file (single file for hybrid mode)
 REPL_PROMPT_BUILDERS=()         # Registered prompt builders
 REPL_SLASH_COMMANDS=()          # Registered slash commands
 declare -A REPL_SLASH_HANDLERS  # command -> handler function
-
-# Get current history file based on execution mode
-repl_get_history_file() {
-    if repl_is_takeover; then
-        echo "$REPL_HISTORY_FILE_REPL"
-    else
-        echo "$REPL_HISTORY_FILE_SHELL"
-    fi
-}
 
 # Terminal cleanup function
 _repl_cleanup() {
@@ -68,22 +56,17 @@ repl_run() {
     # Detect mode if not specified
     REPL_MODE="$mode"
 
-    # Initialize history files
+    # Initialize history file (single file for hybrid mode)
     if [[ -z "$REPL_HISTORY_BASE" ]]; then
         REPL_HISTORY_BASE="${TETRA_DIR}/repl/history"
     fi
 
-    # Set mode-specific history files
-    REPL_HISTORY_FILE_SHELL="${REPL_HISTORY_BASE}.shell"
-    REPL_HISTORY_FILE_REPL="${REPL_HISTORY_BASE}.repl"
+    # Single history file for hybrid execution mode
+    REPL_HISTORY_FILE="${REPL_HISTORY_BASE}.history"
 
-    # Set active history based on current execution mode
-    REPL_HISTORY_FILE=$(repl_get_history_file)
-
-    # Ensure directories exist
-    mkdir -p "$(dirname "$REPL_HISTORY_FILE_SHELL")"
-    touch "$REPL_HISTORY_FILE_SHELL"
-    touch "$REPL_HISTORY_FILE_REPL"
+    # Ensure directory exists
+    mkdir -p "$(dirname "$REPL_HISTORY_FILE")"
+    touch "$REPL_HISTORY_FILE"
 
     # Run main loop
     # NOTE: No subshell wrapper - associative arrays cannot be exported to subshells
@@ -104,4 +87,3 @@ repl_run() {
 
 # Export functions
 export -f repl_run
-export -f repl_get_history_file

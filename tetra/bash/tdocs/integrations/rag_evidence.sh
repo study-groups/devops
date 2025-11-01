@@ -60,7 +60,7 @@ EOF
     local -A scored_docs=()
 
     # Search through database
-    for meta_file in "$TDOC_DB_DIR"/*.meta; do
+    for meta_file in "$TDOCS_DB_DIR"/*.meta; do
         [[ ! -f "$meta_file" ]] && continue
 
         local meta=$(cat "$meta_file")
@@ -148,7 +148,7 @@ tdoc_evidence_module() {
     local results=()
 
     # Filter by module
-    for meta_file in "$TDOC_DB_DIR"/*.meta; do
+    for meta_file in "$TDOCS_DB_DIR"/*.meta; do
         [[ ! -f "$meta_file" ]] && continue
 
         if grep -q "\"module\": \"$module\"" "$meta_file" 2>/dev/null; then

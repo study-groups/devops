@@ -1,26 +1,29 @@
 #!/usr/bin/env bash
-
 # TMC Mapper - Two-Layer MIDI Mapping System
 # Layer 1: Hardware (CC/NOTE) → Syntax (p1, s1, b1a, etc.)
 # Layer 2: Syntax → Semantic (VOLUME, TRIGGER_KICK, etc.)
+#
+# REFACTORED: Uses state.sh and errors.sh modules
+# PRIORITY: CC values are most important - maintain precision
 
-# Global mapping state
-declare -gA TMC_HARDWARE_MAP     # "CC|1|7" → "p1"
-declare -gA TMC_HARDWARE_REV     # "p1" → "CC|1|7" (reverse lookup)
-declare -gA TMC_SEMANTIC_MAP     # "p1" → "VOLUME|0.0|1.0"
-declare -gA TMC_SEMANTIC_REV     # "VOLUME" → "p1" (reverse lookup)
-
-# Broadcast mode: raw|syntax|semantic|all
-TMC_BROADCAST_MODE="${TMC_BROADCAST_MODE:-all}"
-
-# Config paths
-TMC_CONFIG_DIR="${TETRA_DIR}/midi"
-TMC_DEVICE_DIR=""  # Set by load_device()
-TMC_CURRENT_DEVICE=""
+# Source dependencies
+MIDI_SRC="${MIDI_SRC:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+source "$MIDI_SRC/core/state.sh"
+source "$MIDI_SRC/lib/errors.sh"
 
 # Initialize mapper
 tmc_mapper_init() {
-    mkdir -p "$TMC_CONFIG_DIR"/{devices,sessions,colors}
+    # Use state container instead of globals
+    local config_dir="${TMC_CONFIG_DIR:-$TETRA_DIR/midi}"
+
+    mkdir -p "$config_dir"/{devices,sessions,colors} || {
+        tmc_error $TMC_ERR_PERMISSION_DENIED "Failed to create config directories"
+        return $TMC_ERR_PERMISSION_DENIED
+    }
+
+    tmc_state_set "broadcast_mode" "all"
+    tmc_info "Mapper initialized: $config_dir"
+    return $TMC_ERR_SUCCESS
 }
 
 # Load device configuration
@@ -28,14 +31,24 @@ tmc_load_device() {
     local device_id="$1"
 
     if [[ -z "$device_id" ]]; then
-        echo "ERROR: Device ID required" >&2
-        return 1
+        tmc_error $TMC_ERR_INVALID_ARG "Device ID required"
+        return $TMC_ERR_INVALID_ARG
     fi
 
-    TMC_CURRENT_DEVICE="$device_id"
-    TMC_DEVICE_DIR="$TMC_CONFIG_DIR/devices/$device_id"
+    # Sanitize device ID
+    device_id=$(tmc_sanitize_name "$device_id") || return $?
 
-    mkdir -p "$TMC_DEVICE_DIR"
+    local config_dir="${TMC_CONFIG_DIR:-$TETRA_DIR/midi}"
+    local device_dir="$config_dir/devices/$device_id"
+
+    mkdir -p "$device_dir" || {
+        tmc_error $TMC_ERR_PERMISSION_DENIED "Failed to create device directory"
+        return $TMC_ERR_PERMISSION_DENIED
+    }
+
+    # Update state
+    tmc_state_set "device_id" "$device_id"
+    tmc_state_set "device_name" "$device_id"
 
     # Clear existing maps
     TMC_HARDWARE_MAP=()
@@ -44,20 +57,30 @@ tmc_load_device() {
     TMC_SEMANTIC_REV=()
 
     # Load hardware map
-    local hw_map="$TMC_DEVICE_DIR/hardware_map.txt"
+    local hw_map="$device_dir/hardware_map.txt"
     if [[ -f "$hw_map" ]]; then
-        tmc_load_hardware_map "$hw_map"
+        tmc_load_hardware_map "$hw_map" || return $?
+        tmc_state_set "hardware_map_file" "$hw_map"
+        tmc_state_set "hardware_map_loaded" "1"
+    else
+        tmc_warn "No hardware map found: $hw_map"
     fi
 
     # Load semantic map
-    local sem_map="$TMC_DEVICE_DIR/semantic_map.txt"
+    local sem_map="$device_dir/semantic_map.txt"
     if [[ -f "$sem_map" ]]; then
-        tmc_load_semantic_map "$sem_map"
+        tmc_load_semantic_map "$sem_map" || return $?
+        tmc_state_set "semantic_map_file" "$sem_map"
+        tmc_state_set "semantic_map_loaded" "1"
+    else
+        tmc_warn "No semantic map found: $sem_map"
     fi
 
-    echo "Loaded device: $device_id"
-    echo "  Hardware mappings: ${#TMC_HARDWARE_MAP[@]}"
-    echo "  Semantic mappings: ${#TMC_SEMANTIC_MAP[@]}"
+    tmc_info "Loaded device: $device_id"
+    tmc_info "  Hardware mappings: ${#TMC_HARDWARE_MAP[@]}"
+    tmc_info "  Semantic mappings: ${#TMC_SEMANTIC_MAP[@]}"
+
+    return $TMC_ERR_SUCCESS
 }
 
 # Load hardware map from file
@@ -66,15 +89,44 @@ tmc_load_device() {
 tmc_load_hardware_map() {
     local file="$1"
 
-    while IFS='|' read -r syntax type channel controller; do
-        # Skip comments and empty lines
-        [[ "$syntax" =~ ^# ]] && continue
-        [[ -z "$syntax" ]] && continue
+    tmc_validate_file "$file" || return $?
 
-        local key="${type}|${channel}|${controller}"
-        TMC_HARDWARE_MAP["$key"]="$syntax"
-        TMC_HARDWARE_REV["$syntax"]="$key"
+    local line_num=0
+    local loaded=0
+
+    while IFS='|' read -r syntax type channel controller; do
+        ((line_num++))
+
+        # Skip comments and empty lines
+        [[ "$syntax" =~ ^#.*$ || -z "$syntax" ]] && continue
+
+        # Validate inputs
+        if [[ -z "$syntax" || -z "$type" || -z "$channel" || -z "$controller" ]]; then
+            tmc_warn "Invalid format at line $line_num: skipping"
+            continue
+        fi
+
+        # Validate channel
+        tmc_validate_channel "$channel" || {
+            tmc_warn "Invalid channel at line $line_num: $channel"
+            continue
+        }
+
+        # Validate controller (for CC type)
+        if [[ "$type" == "CC" ]]; then
+            tmc_validate_controller "$controller" || {
+                tmc_warn "Invalid controller at line $line_num: $controller"
+                continue
+            }
+        fi
+
+        # Add to state
+        tmc_state_set_hardware_map "$syntax" "$type" "$channel" "$controller"
+        ((loaded++))
     done < "$file"
+
+    tmc_info "Loaded $loaded hardware mappings from $file"
+    return $TMC_ERR_SUCCESS
 }
 
 # Load semantic map from file
@@ -83,20 +135,49 @@ tmc_load_hardware_map() {
 tmc_load_semantic_map() {
     local file="$1"
 
-    while IFS='|' read -r syntax semantic min max; do
-        # Skip comments and empty lines
-        [[ "$syntax" =~ ^# ]] && continue
-        [[ -z "$syntax" ]] && continue
+    tmc_validate_file "$file" || return $?
 
-        local value="${semantic}|${min}|${max}"
-        TMC_SEMANTIC_MAP["$syntax"]="$value"
-        TMC_SEMANTIC_REV["$semantic"]="$syntax"
+    local line_num=0
+    local loaded=0
+
+    while IFS='|' read -r syntax semantic min max; do
+        ((line_num++))
+
+        # Skip comments and empty lines
+        [[ "$syntax" =~ ^#.*$ || -z "$syntax" ]] && continue
+
+        # Validate inputs
+        if [[ -z "$syntax" || -z "$semantic" ]]; then
+            tmc_warn "Invalid format at line $line_num: skipping"
+            continue
+        fi
+
+        # Default ranges
+        [[ -z "$min" ]] && min=0
+        [[ -z "$max" ]] && max=127
+
+        # Add to state
+        tmc_state_set_semantic_map "$syntax" "$semantic" "$min" "$max"
+        ((loaded++))
     done < "$file"
+
+    tmc_info "Loaded $loaded semantic mappings from $file"
+    return $TMC_ERR_SUCCESS
 }
 
 # Save hardware map to file
 tmc_save_hardware_map() {
-    local file="${1:-$TMC_DEVICE_DIR/hardware_map.txt}"
+    local file="${1:-}"
+
+    if [[ -z "$file" ]]; then
+        local device_id=$(tmc_state_get "device_id")
+        if [[ -z "$device_id" ]]; then
+            tmc_error $TMC_ERR_INVALID_ARG "No device loaded and no file specified"
+            return $TMC_ERR_INVALID_ARG
+        fi
+        local config_dir="${TMC_CONFIG_DIR:-$TETRA_DIR/midi}"
+        file="$config_dir/devices/$device_id/hardware_map.txt"
+    fi
 
     {
         echo "# TMC Hardware Map: Syntax → MIDI CC/NOTE"
@@ -108,14 +189,28 @@ tmc_save_hardware_map() {
             IFS='|' read -r type channel controller <<< "$key"
             echo "$syntax|$type|$channel|$controller"
         done
-    } > "$file"
+    } > "$file" || {
+        tmc_error $TMC_ERR_PERMISSION_DENIED "Failed to write file: $file"
+        return $TMC_ERR_PERMISSION_DENIED
+    }
 
-    echo "Saved hardware map: $file"
+    tmc_info "Saved hardware map: $file"
+    return $TMC_ERR_SUCCESS
 }
 
 # Save semantic map to file
 tmc_save_semantic_map() {
-    local file="${1:-$TMC_DEVICE_DIR/semantic_map.txt}"
+    local file="${1:-}"
+
+    if [[ -z "$file" ]]; then
+        local device_id=$(tmc_state_get "device_id")
+        if [[ -z "$device_id" ]]; then
+            tmc_error $TMC_ERR_INVALID_ARG "No device loaded and no file specified"
+            return $TMC_ERR_INVALID_ARG
+        fi
+        local config_dir="${TMC_CONFIG_DIR:-$TETRA_DIR/midi}"
+        file="$config_dir/devices/$device_id/semantic_map.txt"
+    fi
 
     {
         echo "# TMC Semantic Map: Syntax → Semantic Names"
@@ -127,9 +222,13 @@ tmc_save_semantic_map() {
             IFS='|' read -r semantic min max <<< "$value"
             echo "$syntax|$semantic|$min|$max"
         done
-    } > "$file"
+    } > "$file" || {
+        tmc_error $TMC_ERR_PERMISSION_DENIED "Failed to write file: $file"
+        return $TMC_ERR_PERMISSION_DENIED
+    }
 
-    echo "Saved semantic map: $file"
+    tmc_info "Saved semantic map: $file"
+    return $TMC_ERR_SUCCESS
 }
 
 # Save session (both maps together)
@@ -137,17 +236,29 @@ tmc_save_session() {
     local session_name="$1"
 
     if [[ -z "$session_name" ]]; then
-        echo "ERROR: Session name required" >&2
-        return 1
+        tmc_error $TMC_ERR_INVALID_ARG "Session name required"
+        return $TMC_ERR_INVALID_ARG
     fi
 
-    local session_dir="$TMC_CONFIG_DIR/sessions/$session_name"
-    mkdir -p "$session_dir"
+    # Sanitize session name
+    session_name=$(tmc_sanitize_name "$session_name") || return $?
 
-    tmc_save_hardware_map "$session_dir/hardware_map.txt"
-    tmc_save_semantic_map "$session_dir/semantic_map.txt"
+    local config_dir="${TMC_CONFIG_DIR:-$TETRA_DIR/midi}"
+    local session_dir="$config_dir/sessions/$session_name"
 
-    echo "Saved session: $session_name"
+    mkdir -p "$session_dir" || {
+        tmc_error $TMC_ERR_PERMISSION_DENIED "Failed to create session directory"
+        return $TMC_ERR_PERMISSION_DENIED
+    }
+
+    tmc_save_hardware_map "$session_dir/hardware_map.txt" || return $?
+    tmc_save_semantic_map "$session_dir/semantic_map.txt" || return $?
+
+    tmc_state_set "active_session" "$session_name"
+    tmc_state_set "session_dir" "$session_dir"
+
+    tmc_info "Saved session: $session_name"
+    return $TMC_ERR_SUCCESS
 }
 
 # Load session
@@ -155,15 +266,19 @@ tmc_load_session() {
     local session_name="$1"
 
     if [[ -z "$session_name" ]]; then
-        echo "ERROR: Session name required" >&2
-        return 1
+        tmc_error $TMC_ERR_INVALID_ARG "Session name required"
+        return $TMC_ERR_INVALID_ARG
     fi
 
-    local session_dir="$TMC_CONFIG_DIR/sessions/$session_name"
+    # Sanitize session name
+    session_name=$(tmc_sanitize_name "$session_name") || return $?
+
+    local config_dir="${TMC_CONFIG_DIR:-$TETRA_DIR/midi}"
+    local session_dir="$config_dir/sessions/$session_name"
 
     if [[ ! -d "$session_dir" ]]; then
-        echo "ERROR: Session not found: $session_name" >&2
-        return 1
+        tmc_error $TMC_ERR_FILE_NOT_FOUND "Session not found: $session_name"
+        return $TMC_ERR_FILE_NOT_FOUND
     fi
 
     # Clear existing maps
@@ -172,46 +287,70 @@ tmc_load_session() {
     TMC_SEMANTIC_MAP=()
     TMC_SEMANTIC_REV=()
 
-    tmc_load_hardware_map "$session_dir/hardware_map.txt"
-    tmc_load_semantic_map "$session_dir/semantic_map.txt"
+    tmc_load_hardware_map "$session_dir/hardware_map.txt" || return $?
+    tmc_load_semantic_map "$session_dir/semantic_map.txt" || return $?
 
-    echo "Loaded session: $session_name"
+    tmc_state_set "active_session" "$session_name"
+    tmc_state_set "session_dir" "$session_dir"
+
+    tmc_info "Loaded session: $session_name"
+    return $TMC_ERR_SUCCESS
 }
 
 # Normalize value from MIDI 0-127 to custom range
+# CRITICAL: Maintains precision for CC values
 tmc_normalize_value() {
     local midi_value="$1"
     local min="$2"
     local max="$3"
 
+    # Validate CC value
+    tmc_validate_cc_value "$midi_value" || return $?
+
     # Default to 0-127 if no range specified
     [[ -z "$min" ]] && min=0
     [[ -z "$max" ]] && max=127
 
-    # Normalize: value = min + (midi/127) * (max-min)
-    bc -l <<< "scale=4; $min + ($midi_value / 127.0) * ($max - $min)"
+    # High precision normalization: value = min + (midi/127) * (max-min)
+    # Using bc for floating point precision
+    bc -l <<< "scale=6; $min + ($midi_value / 127.0) * ($max - $min)"
 }
 
 # Map incoming MIDI event through both layers
 # Input: type channel controller value
 # Output: formatted string based on broadcast mode
+# CRITICAL: CC value precision maintained throughout
 tmc_map_event() {
     local type="$1"
     local channel="$2"
     local controller="$3"
     local value="$4"
 
+    # Validate inputs
+    tmc_validate_channel "$channel" || return $?
+
+    if [[ "$type" == "CC" ]]; then
+        tmc_validate_controller "$controller" || return $?
+        tmc_validate_cc_value "$value" || return $?
+
+        # Track CC events in state
+        tmc_state_set_last_cc "$channel" "$controller" "$value"
+    fi
+
+    # Increment event counter
+    tmc_state_increment_events
+
     local key="${type}|${channel}|${controller}"
 
     # Layer 1: Hardware → Syntax
-    local syntax="${TMC_HARDWARE_MAP[$key]}"
+    local syntax=$(tmc_state_get_hardware_map "$type" "$channel" "$controller")
 
     # Layer 2: Syntax → Semantic
     local semantic=""
     local normalized=""
 
     if [[ -n "$syntax" ]]; then
-        local sem_value="${TMC_SEMANTIC_MAP[$syntax]}"
+        local sem_value=$(tmc_state_get_semantic_map "$syntax")
         if [[ -n "$sem_value" ]]; then
             IFS='|' read -r semantic min max <<< "$sem_value"
             normalized=$(tmc_normalize_value "$value" "$min" "$max")
@@ -219,7 +358,9 @@ tmc_map_event() {
     fi
 
     # Format output based on broadcast mode
-    case "$TMC_BROADCAST_MODE" in
+    local mode=$(tmc_state_get "broadcast_mode")
+
+    case "$mode" in
         raw)
             echo "RAW $type $channel $controller $value"
             ;;
@@ -244,6 +385,8 @@ tmc_map_event() {
             echo "RAW $type $channel $controller $value"
             ;;
     esac
+
+    return $TMC_ERR_SUCCESS
 }
 
 # Learn hardware mapping
@@ -255,29 +398,28 @@ tmc_learn_hardware() {
     local controller="$4"
 
     if [[ -z "$syntax" || -z "$type" || -z "$channel" || -z "$controller" ]]; then
-        echo "ERROR: Invalid hardware mapping" >&2
-        return 1
+        tmc_error $TMC_ERR_INVALID_ARG "All arguments required: syntax type channel controller"
+        return $TMC_ERR_INVALID_ARG
     fi
 
     # Validate syntax name format
     if ! [[ "$syntax" =~ ^(p[1-8]|s[1-8]|b[1-8][a-d]|play|pause|stop|back|fwd|fback|ffwd|up|down|left|right)$ ]]; then
-        echo "ERROR: Invalid syntax name: $syntax" >&2
-        return 1
+        tmc_error $TMC_ERR_INVALID_ARG "Invalid syntax name: $syntax"
+        return $TMC_ERR_INVALID_ARG
     fi
 
-    local key="${type}|${channel}|${controller}"
+    # Validate channel and controller
+    tmc_validate_channel "$channel" || return $?
 
-    # Remove old mapping if syntax was mapped to something else
-    if [[ -n "${TMC_HARDWARE_REV[$syntax]}" ]]; then
-        local old_key="${TMC_HARDWARE_REV[$syntax]}"
-        unset TMC_HARDWARE_MAP["$old_key"]
+    if [[ "$type" == "CC" ]]; then
+        tmc_validate_controller "$controller" || return $?
     fi
 
-    # Add new mapping
-    TMC_HARDWARE_MAP["$key"]="$syntax"
-    TMC_HARDWARE_REV["$syntax"]="$key"
+    # Add mapping using state management
+    tmc_state_set_hardware_map "$syntax" "$type" "$channel" "$controller"
 
-    echo "Learned: $syntax → $type ch$channel cc$controller"
+    tmc_info "Learned: $syntax → $type ch$channel cc$controller"
+    return $TMC_ERR_SUCCESS
 }
 
 # Learn semantic mapping
@@ -289,27 +431,22 @@ tmc_learn_semantic() {
     local max="${4:-127}"
 
     if [[ -z "$syntax" || -z "$semantic" ]]; then
-        echo "ERROR: Invalid semantic mapping" >&2
-        return 1
+        tmc_error $TMC_ERR_INVALID_ARG "Syntax and semantic name required"
+        return $TMC_ERR_INVALID_ARG
     fi
 
-    # Remove old mapping if semantic was mapped to something else
-    if [[ -n "${TMC_SEMANTIC_REV[$semantic]}" ]]; then
-        local old_syntax="${TMC_SEMANTIC_REV[$semantic]}"
-        unset TMC_SEMANTIC_MAP["$old_syntax"]
-    fi
+    # Add mapping using state management
+    tmc_state_set_semantic_map "$syntax" "$semantic" "$min" "$max"
 
-    # Add new mapping
-    local value="${semantic}|${min}|${max}"
-    TMC_SEMANTIC_MAP["$syntax"]="$value"
-    TMC_SEMANTIC_REV["$semantic"]="$syntax"
-
-    echo "Learned: $syntax → $semantic (range: $min - $max)"
+    tmc_info "Learned: $syntax → $semantic (range: $min - $max)"
+    return $TMC_ERR_SUCCESS
 }
 
 # List all mappings
 tmc_list_mappings() {
-    echo "TMC Mappings (Device: ${TMC_CURRENT_DEVICE:-none})"
+    local device_id=$(tmc_state_get "device_id")
+
+    echo "TMC Mappings (Device: ${device_id:-none})"
     echo "=================================================="
     echo ""
 
@@ -335,7 +472,16 @@ tmc_list_mappings() {
     done
 
     echo ""
-    echo "Broadcast Mode: $TMC_BROADCAST_MODE"
+    local mode=$(tmc_state_get "broadcast_mode")
+    echo "Broadcast Mode: $mode"
+
+    # Show statistics
+    local events=$(tmc_state_get "events_processed")
+    local cc_events=$(tmc_state_get "cc_events_processed")
+    echo ""
+    echo "Statistics:"
+    echo "  Total events: $events"
+    echo "  CC events: $cc_events"
 }
 
 # Set broadcast mode
@@ -343,12 +489,14 @@ tmc_set_mode() {
     local mode="$1"
 
     if [[ ! "$mode" =~ ^(raw|syntax|semantic|all)$ ]]; then
-        echo "ERROR: Invalid mode. Use: raw|syntax|semantic|all" >&2
-        return 1
+        tmc_error $TMC_ERR_INVALID_ARG "Invalid mode. Use: raw|syntax|semantic|all"
+        return $TMC_ERR_INVALID_ARG
     fi
 
-    TMC_BROADCAST_MODE="$mode"
-    echo "Broadcast mode: $TMC_BROADCAST_MODE"
+    tmc_state_set "broadcast_mode" "$mode" || return $?
+
+    tmc_info "Broadcast mode: $mode"
+    return $TMC_ERR_SUCCESS
 }
 
 # Export functions

@@ -20,7 +20,7 @@ tdoc_search_docs() {
     local results=()
 
     # Search through database metadata
-    for meta_file in "$TDOC_DB_DIR"/*.meta; do
+    for meta_file in "$TDOCS_DB_DIR"/*.meta; do
         [[ ! -f "$meta_file" ]] && continue
 
         local meta=$(cat "$meta_file")
@@ -190,5 +190,92 @@ tdoc_audit_docs() {
     done
 
     echo ""
-    echo "Run 'tdoc init <file>' to add metadata"
+    echo "Run 'tdocs init <file>' to add metadata"
+    echo "Or run 'tdocs discover' to auto-index all documents"
+}
+
+# Auto-discover and index all documents
+tdoc_discover_docs() {
+    local auto_init="${1:-false}"  # --auto-init to automatically initialize all
+
+    echo "Discovering documents..."
+    echo ""
+
+    local discovered=()
+    local already_indexed=()
+    local to_index=()
+
+    # Scan top-level docs
+    while IFS= read -r file; do
+        [[ ! -f "$file" ]] && continue
+        discovered+=("$file")
+
+        local meta=$(tdoc_get_metadata "$file")
+        if [[ "$meta" == "{}" ]]; then
+            to_index+=("$file")
+        else
+            already_indexed+=("$file")
+        fi
+    done < <(find "$TETRA_SRC/docs" -name "*.md" -type f 2>/dev/null)
+
+    # Scan module docs
+    while IFS= read -r file; do
+        [[ ! -f "$file" ]] && continue
+        discovered+=("$file")
+
+        local meta=$(tdoc_get_metadata "$file")
+        if [[ "$meta" == "{}" ]]; then
+            to_index+=("$file")
+        else
+            already_indexed+=("$file")
+        fi
+    done < <(find "$TETRA_SRC/bash" -path "*/docs/*.md" -type f 2>/dev/null)
+
+    echo "Discovery Summary:"
+    echo "  Total found: ${#discovered[@]}"
+    echo "  Already indexed: ${#already_indexed[@]}"
+    echo "  Need indexing: ${#to_index[@]}"
+    echo ""
+
+    if [[ ${#to_index[@]} -eq 0 ]]; then
+        echo "✓ All documents are indexed"
+        return 0
+    fi
+
+    # Auto-init if requested
+    if [[ "$auto_init" == "--auto-init" ]]; then
+        echo "Auto-indexing ${#to_index[@]} document(s)..."
+        echo ""
+
+        local count=0
+        for file in "${to_index[@]}"; do
+            # Auto-detect metadata
+            local module=$(tdoc_detect_module "$file")
+            local category=$(tdoc_suggest_category "$file")
+            local type=$(tdoc_suggest_type "$file")
+            local tags=$(tdoc_suggest_tags "$file")
+
+            # Create database entry without modifying the file
+            local timestamp=$(tdoc_db_create "$file" "$category" "$type" "$tags" "$module" "discovered")
+
+            ((count++))
+            if (( count % 10 == 0 )); then
+                echo "  Indexed $count/${#to_index[@]}..."
+            fi
+        done
+
+        echo ""
+        echo "✓ Indexed ${#to_index[@]} document(s)"
+        echo ""
+        echo "Note: Documents were indexed without modifying files"
+        echo "Use 'tdocs init <file>' to add frontmatter to specific files"
+    else
+        echo "Documents needing indexing:"
+        for file in "${to_index[@]}"; do
+            local rel_path=${file#$TETRA_SRC/}
+            echo "  $rel_path"
+        done
+        echo ""
+        echo "Run 'tdocs discover --auto-init' to automatically index all"
+    fi
 }

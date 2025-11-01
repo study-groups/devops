@@ -42,6 +42,7 @@ tetra_register_module "vox" "$TETRA_BASH/vox"
 
 # Register internal modules for RAG and Melvin (qa registered in boot_core.sh)
 tetra_register_module "rag" "$TETRA_BASH/rag"
+tetra_register_module "tdocs" "$TETRA_BASH/tdocs"
 tetra_register_module "melvin" "$TETRA_BASH/melvin"
 tetra_register_module "midi" "$TETRA_BASH/midi"
 tetra_register_module "tperf" "$TETRA_BASH/tperf"
@@ -80,6 +81,9 @@ tetra_create_lazy_function "tro" "tro"
 tetra_create_lazy_function "anthropic" "anthropic"
 
 # QA module functions - loaded directly in boot_core.sh (not lazy loaded)
+
+# TDocs module functions
+tetra_create_lazy_function "tdocs" "tdocs"
 
 # Melvin module functions
 tetra_create_lazy_function "melvin" "melvin"

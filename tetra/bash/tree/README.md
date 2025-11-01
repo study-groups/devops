@@ -459,7 +459,7 @@ Try:
 
 ## See Also
 
-- `bash/tdoc/tdoc.sh` - Reference implementation using tree-based help
+- `bash/tdocs/tdoc.sh` - Reference implementation using tree-based help
 - `bash/game/games/estoface/core/estoface_repl.sh` - REPL with tab completion
 - `bash/repl/command_processor.sh` - Integration with REPL /help
 - `bash/tkm/tkm_completion.sh` - Alternative completion pattern

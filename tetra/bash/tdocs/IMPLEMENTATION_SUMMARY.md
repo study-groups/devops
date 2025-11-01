@@ -8,7 +8,7 @@ The tdoc (Tetra Document Manager) module has been successfully implemented as a 
 
 ### Core Module Structure
 ```
-bash/tdoc/
+bash/tdocs/
 ├── tdoc.sh               ✓ Main module with CLI interface
 ├── includes.sh           ✓ Module entry point
 ├── actions.sh            ✓ TUI integration (minimal read-only)
@@ -92,7 +92,7 @@ Minimal read-only actions registered:
 ## Testing Results
 
 ### Tested Successfully ✓
-- Module loading via `source bash/tdoc/includes.sh`
+- Module loading via `source bash/tdocs/includes.sh`
 - Help system (`tdoc help`)
 - Document initialization (`tdoc init`)
 - Metadata storage (frontmatter + database)
@@ -102,7 +102,7 @@ Minimal read-only actions registered:
 ### Sample Usage
 ```bash
 # Initialize a document
-source bash/tdoc/includes.sh
+source bash/tdocs/includes.sh
 tdoc init docs/reference/tdoc-system-design.md \
   --core --type spec --tags "tdoc,documentation,design"
 

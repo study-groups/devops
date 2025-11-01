@@ -227,7 +227,7 @@ Apply this pattern to other modules:
 - `bash/org/org_repl.sh` → `help.org`
 - `bash/rag/rag_repl.sh` → `help.rag`
 - `bash/melvin/melvin_repl.sh` → `help.melvin`
-- `bash/tdoc/tdoc.sh` → `help.tdoc`
+- `bash/tdocs/tdoc.sh` → `help.tdoc`
 
 Each gets tab completion by:
 1. Creating `module_help.sh`
