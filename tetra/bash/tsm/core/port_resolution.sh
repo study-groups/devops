@@ -73,17 +73,18 @@ tsm_track_port() {
     echo "$port|$name|$pid|$(date +%s)" >> "$TSM_PORT_ALLOCATIONS"
 }
 
-# 5-Step Port Ladder
+# 6-Step Port Ladder (IRON FIST PORT ACCOUNTING)
 # Returns: port|template|service_type
 tsm_resolve_port() {
     local command="$1"
     local explicit_port="$2"
+    local env_port="$3"  # Port from environment file
 
     local port=""
     local template="{cmd}"
     local service_type="pid"
 
-    # Step 1: Explicit --port flag
+    # Step 1: Explicit --port flag (HIGHEST PRIORITY)
     if [[ -n "$explicit_port" ]]; then
         port="$explicit_port"
         service_type="port"
@@ -91,7 +92,15 @@ tsm_resolve_port() {
         return 0
     fi
 
-    # Step 2: Pattern in registry
+    # Step 2: Environment file PORT (SECOND PRIORITY - env files override patterns!)
+    if [[ -n "$env_port" ]]; then
+        port="$env_port"
+        service_type="port"
+        echo "$port|$template|$service_type"
+        return 0
+    fi
+
+    # Step 3: Pattern in registry
     local pattern_match
     if pattern_match=$(tsm_find_pattern "$command"); then
         IFS='|' read -r pname pmatch pport ptemplate <<< "$pattern_match"
@@ -116,7 +125,7 @@ tsm_resolve_port() {
         fi
     fi
 
-    # Step 3: PORT in command text
+    # Step 4: PORT in command text
     if [[ "$command" =~ (:|--port|-p|PORT=)[[:space:]]*([0-9]{4,5}) ]]; then
         port="${BASH_REMATCH[2]}"
         service_type="port"
@@ -124,14 +133,14 @@ tsm_resolve_port() {
         return 0
     fi
 
-    # Step 4: Allocate from range
+    # Step 5: Allocate from range
     if port=$(tsm_allocate_port); then
         service_type="port"
         echo "$port|$template|$service_type"
         return 0
     fi
 
-    # Step 5: No port available
+    # Step 6: No port available
     echo "none|$template|pid"
     return 1
 }

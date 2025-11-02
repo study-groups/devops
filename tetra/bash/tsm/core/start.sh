@@ -134,10 +134,10 @@ tsm_start_any_command() {
         final_command="$command"
     fi
 
-    # Apply port resolution ladder (5-step)
+    # Apply port resolution ladder (6-step with IRON FIST env file priority)
     local port template service_type
     if declare -f tsm_resolve_port >/dev/null 2>&1; then
-        local resolution=$(tsm_resolve_port "$command" "$explicit_port")
+        local resolution=$(tsm_resolve_port "$command" "$explicit_port" "$ENV_PORT")
         IFS='|' read -r port template service_type <<< "$resolution"
 
         # If template returned, rewrite command
