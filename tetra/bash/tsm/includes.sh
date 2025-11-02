@@ -5,8 +5,9 @@
 
 # Follow tetra convention: MOD_SRC for source code, MOD_DIR for runtime data
 # Per CLAUDE.md: "MOD_SRC is a strong global. A module can count on it."
-MOD_SRC="${MOD_SRC:-$TETRA_SRC/bash/tsm}"  # Source files
-MOD_DIR="${MOD_DIR:-$TETRA_DIR/tsm}"        # Runtime data
+# IMPORTANT: Always set explicitly to avoid conflicts with other modules
+MOD_SRC="$TETRA_SRC/bash/tsm"  # Source files
+MOD_DIR="$TETRA_DIR/tsm"        # Runtime data
 
 # Backward compatibility - modules may still reference TSM_*
 TSM_SRC="$MOD_SRC"

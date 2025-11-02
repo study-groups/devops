@@ -92,17 +92,25 @@ tsm() {
                 available|all)
                     tsm_list_available
                     ;;
+                pwd|--pwd|paths)
+                    tsm_list_pwd
+                    ;;
+                -l|--long|long|detail|detailed)
+                    tsm_list_long
+                    ;;
                 help)
-                    echo "Usage: tsm list [running|available|all]"
+                    echo "Usage: tsm list [running|available|all|pwd|-l]"
                     echo ""
                     echo "Options:"
                     echo "  running    - Show only running services (default)"
                     echo "  available  - Show all available services"
                     echo "  all        - Show all services (same as available)"
+                    echo "  pwd        - Show running services with working directory"
+                    echo "  -l         - Show detailed/long format with CPU, memory, paths"
                     ;;
                 *)
                     echo "❌ Unknown option: $1"
-                    echo "Usage: tsm list [running|available|all]"
+                    echo "Usage: tsm list [running|available|all|pwd|-l]"
                     ;;
             esac
             ;;

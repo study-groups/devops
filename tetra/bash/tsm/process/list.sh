@@ -16,10 +16,10 @@ TSM_SERVICES_ENABLED="$TETRA_DIR/tsm/services-enabled"
 # Print table header
 print_table_header() {
     text_color "00AAAA"
-    printf "%-3s %-20s %-10s %-5s %-5s %-8s %-12s %-8s\n" \
+    printf "%-3s %-25s %-10s %-5s %-5s %-8s %-8s %-8s\n" \
         "ID" "Name" "Env" "PID" "Port" "Status" "Type" "Uptime"
-    printf "%-3s %-20s %-10s %-5s %-5s %-8s %-12s %-8s\n" \
-        "--" "--------------------" "----------" "-----" "-----" "--------" "------------" "--------"
+    printf "%-3s %-25s %-10s %-5s %-5s %-8s %-8s %-8s\n" \
+        "--" "-------------------------" "----------" "-----" "-----" "--------" "--------" "--------"
     reset_color
 }
 
@@ -167,9 +167,9 @@ tsm_list_running() {
                 local type_display="${service_type:-pid}"
 
                 # Print with colors
-                printf "%-3s %-20s %-10s %-5s %-5s " "$tsm_id" "$name" "$env_display" "$pid" "$port"
+                printf "%-3s %-25s %-10s %-5s %-5s " "$tsm_id" "$name" "$env_display" "$pid" "$port"
                 text_color "00AA00"; printf "%-8s" "online"; reset_color
-                printf " %-12s %-8s\n" "$type_display" "$uptime"
+                printf " %-8s %-8s\n" "$type_display" "$uptime"
 
                 found_running=true
             else
@@ -199,7 +199,7 @@ tsm_list_available() {
             IFS='|' read -r name env_file pid port status uptime <<< "$service_info"
 
             # Print with status color
-            printf "%-3s %-20s %-10s %-5s %-5s " "$id" "$name" "$env_file" "$pid" "$port"
+            printf "%-3s %-25s %-10s %-5s %-5s " "$id" "$name" "$env_file" "$pid" "$port"
             if [[ "$status" == "online" ]]; then
                 text_color "00AA00"
             else
@@ -207,7 +207,7 @@ tsm_list_available() {
             fi
             printf "%-8s" "$status"
             reset_color
-            printf " %-8s\n" "$uptime"
+            printf " %-8s %-8s\n" "-" "$uptime"
             id=$((id + 1))
         done
     fi
@@ -221,4 +221,218 @@ tsm_list_available() {
 # List all services (same as available, but clearer naming)
 tsm_list_all() {
     tsm_list_available
+}
+
+# Truncate path in the middle to fit within width
+_tsm_truncate_path() {
+    local path="$1"
+    local max_width="$2"
+
+    local path_len=${#path}
+
+    if [[ $path_len -le $max_width ]]; then
+        echo "$path"
+        return
+    fi
+
+    # Calculate how much to keep on each side
+    local keep=$((max_width - 3))  # Reserve 3 chars for "..."
+    local left=$((keep / 2))
+    local right=$((keep - left))
+
+    echo "${path:0:$left}...${path: -$right}"
+}
+
+# List running services in long/detailed format
+tsm_list_long() {
+    local found_running=false
+
+    # Read from process directories
+    if [[ -d "$TSM_PROCESSES_DIR" ]]; then
+        for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+            [[ -d "$process_dir" ]] || continue
+
+            local name=$(basename "$process_dir")
+            local meta_file="$process_dir/meta.json"
+            [[ -f "$meta_file" ]] || continue
+
+            # Read all metadata (read each field individually to avoid tab-splitting issues)
+            local tsm_id=$(jq -r '.tsm_id // empty' "$meta_file" 2>/dev/null)
+            local pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
+            local start_time=$(jq -r '.start_time // empty' "$meta_file" 2>/dev/null)
+            local interpreter=$(jq -r '.interpreter // empty' "$meta_file" 2>/dev/null)
+            local command=$(jq -r '.command // empty' "$meta_file" 2>/dev/null)
+            local cwd=$(jq -r '.cwd // empty' "$meta_file" 2>/dev/null)
+            local port=$(jq -r '.port // empty' "$meta_file" 2>/dev/null)
+            local env_file=$(jq -r '.env_file // empty' "$meta_file" 2>/dev/null)
+
+            [[ -z "$pid" ]] && continue
+
+            # Verify process is still running
+            if tsm_is_pid_alive "$pid"; then
+                [[ "$found_running" == "true" ]] && echo ""  # Spacing between entries
+                found_running=true
+
+                # Calculate uptime
+                local uptime=$(tsm_calculate_uptime "$start_time")
+
+                # Get CPU and memory stats
+                local cpu_usage="0.0%"
+                local mem_usage="0 MB"
+                if command -v ps >/dev/null 2>&1; then
+                    cpu_usage=$(ps -p "$pid" -o %cpu= 2>/dev/null | xargs || echo "0.0")%
+                    local mem_kb=$(ps -p "$pid" -o rss= 2>/dev/null | xargs || echo "0")
+                    local mem_mb=$(awk "BEGIN {printf \"%.1f\", $mem_kb/1024}")
+                    mem_usage="${mem_mb} MB"
+                fi
+
+                # Check if port is listening
+                local port_status=""
+                if [[ -n "$port" && "$port" != "null" && "$port" != "none" ]]; then
+                    if lsof -i ":$port" -sTCP:LISTEN >/dev/null 2>&1; then
+                        port_status="listening"
+                    else
+                        port_status="not listening"
+                    fi
+                fi
+
+                # Extract interpreter basename
+                local interp_type=$(basename "$interpreter" 2>/dev/null || echo "bash")
+                case "$interp_type" in
+                    python*) interp_type="python" ;;
+                    node) interp_type="node" ;;
+                esac
+
+                # Format paths with ~ for home
+                local cwd_display="$cwd"
+                [[ "$cwd" == "$HOME"* ]] && cwd_display="~${cwd#$HOME}"
+
+                local cmd_display="$command"
+                [[ "$command" == "$HOME"* ]] && cmd_display="~${command#$HOME}"
+
+                local env_display="${env_file:-none}"
+                [[ "$env_display" != "null" && "$env_display" != "none" && "$env_display" == "$HOME"* ]] && env_display="~${env_display#$HOME}"
+
+                # Print formatted output - header split into two lines
+                text_color "FFAA00"; echo -n "[$tsm_id] $name"; reset_color
+                echo -n "  "
+                text_color "00AA00"; echo -n "● online"; reset_color
+                echo " (uptime: $uptime)"
+
+                text_color "00AAAA"; echo -n "  $interp_type"; reset_color
+                echo " PID: $pid  CPU: $cpu_usage Memory: $mem_usage"
+
+                # Runtime section (toned down gray/monochrome)
+                text_color "888888"; echo -n "  Interpreter:   "; reset_color
+                text_color "AAAAAA"; echo "$interpreter"; reset_color
+
+                text_color "888888"
+                echo "  Command:       $cmd_display"
+                echo "  CWD:           $cwd_display"
+                if [[ -n "$port" && "$port" != "null" && "$port" != "none" ]]; then
+                    echo "  Port:          $port ($port_status)"
+                fi
+                reset_color
+
+                # Environment section (purple/magenta color)
+                if [[ -n "$env_file" && "$env_file" != "null" && "$env_file" != "" ]]; then
+                    text_color "AA88FF"
+                    echo "  File:          $env_display"
+                    reset_color
+                fi
+            else
+                # Process died - mark as crashed
+                tsm_set_status "$name" "crashed"
+            fi
+        done
+    fi
+
+    if [[ "$found_running" == "false" ]]; then
+        echo ""
+        echo "No running services found."
+        echo "Start services with: tsm start <service-name>"
+    fi
+}
+
+# List running services with PWD (compact mode: id, name, type, uptime, path)
+tsm_list_pwd() {
+    # Get terminal width, default to 80
+    local term_width=${COLUMNS:-80}
+
+    # Fixed column widths: ID(3) + Name(25) + Type(6) + Up(5) + spaces(4) = 43
+    # Path gets remaining space
+    local fixed_width=43
+    local path_width=$((term_width - fixed_width))
+    [[ $path_width -lt 20 ]] && path_width=20  # Minimum path width
+
+    # Compact header
+    text_color "00AAAA"
+    printf "%-3s %-25s %-6s %-5s %s\n" "ID" "Name" "Type" "Up" "Path"
+    printf "%-3s %-25s %-6s %-5s %s\n" "--" "-------------------------" "------" "-----" "----"
+    reset_color
+
+    local found_running=false
+
+    # Read from process directories
+    if [[ -d "$TSM_PROCESSES_DIR" ]]; then
+        for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+            [[ -d "$process_dir" ]] || continue
+
+            local name=$(basename "$process_dir")
+            local meta_file="$process_dir/meta.json"
+            [[ -f "$meta_file" ]] || continue
+
+            # Read all metadata in one jq call
+            local metadata
+            metadata=$(jq -r '[.tsm_id, .pid, .start_time, .interpreter, .cwd] | @tsv' "$meta_file" 2>/dev/null)
+            [[ -z "$metadata" ]] && continue
+
+            read tsm_id pid start_time interpreter cwd <<< "$metadata"
+
+            # Verify process is still running
+            if tsm_is_pid_alive "$pid"; then
+                # Calculate uptime
+                local uptime=$(tsm_calculate_uptime "$start_time")
+
+                # Format interpreter/runtime - extract basename if it's a path
+                local type_display="${interpreter:-bash}"
+                if [[ "$type_display" == */* ]]; then
+                    type_display=$(basename "$type_display")
+                fi
+
+                # Normalize common interpreters
+                case "$type_display" in
+                    python|python3|python3.*) type_display="python" ;;
+                    node|nodejs) type_display="node" ;;
+                    bash|sh) type_display="bash" ;;
+                    go) type_display="go" ;;
+                    ruby) type_display="ruby" ;;
+                    *) type_display="${type_display:0:6}" ;;
+                esac
+
+                # Format path - use ~ for home directory
+                local path_display="$cwd"
+                if [[ "$cwd" == "$HOME"* ]]; then
+                    path_display="~${cwd#$HOME}"
+                fi
+
+                # Truncate path if needed
+                path_display=$(_tsm_truncate_path "$path_display" "$path_width")
+
+                # Print compact format
+                printf "%-3s %-25s %-6s %-5s %s\n" "$tsm_id" "$name" "$type_display" "$uptime" "$path_display"
+
+                found_running=true
+            else
+                # Process died - mark as crashed
+                tsm_set_status "$name" "crashed"
+            fi
+        done
+    fi
+
+    if [[ "$found_running" == "false" ]]; then
+        echo ""
+        echo "No running services found."
+        echo "Start services with: tsm start <service-name>"
+    fi
 }

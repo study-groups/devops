@@ -124,7 +124,7 @@ tsm_socket_cleanup() {
     for sock in "$TSM_SOCKETS_DIR"/*.sock; do
         [[ -S "$sock" ]] || continue
 
-        local name=$(basename "$sock" .sock")
+        local name=$(basename "$sock" .sock)
 
         # Check if process still exists
         if ! tsm_process_exists "$name" 2>/dev/null; then
