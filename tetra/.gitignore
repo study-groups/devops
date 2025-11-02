@@ -58,3 +58,27 @@ ENV/
 *.log
 logs/
 *.jsonl
+
+# Session docs and demos (generated during development/debugging)
+bash/*/ACTION_TAB_COMPLETION.md
+bash/*/COMPLETION_FIXES_SUMMARY.md
+bash/*/FINAL_SOLUTION.md
+bash/*/QUICK_REFERENCE.md
+bash/*/RLWRAP_*.md
+bash/*/SOLUTION_SUMMARY.md
+bash/*/TAB_COMPLETION_*.md
+bash/*/USE_ORG_REPL.md
+bash/*/VERBOSE_FIX_COMPLETE.md
+bash/*/REPL_*.md
+bash/*/NO_BIN_SOLUTION.md
+bash/*/TUI_REPL_SOLUTION.md
+bash/*/DEBUG_*.md
+bash/*/demo_*.sh
+bash/*/diagnose_*.sh
+bash/*/generate_completions.sh
+bash/*/recommended_aliases.sh
+bash/*/setup_alias.sh
+bash/*/test_*.sh
+bash/*/smart_hints.sh
+bash/*/tui_repl.sh
+bash/*/VERIFY_*.sh
