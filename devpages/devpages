@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# DevPages REPL - Quick launcher
+# Usage: ./devpages
+
+DEVPAGES_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export DEVPAGES_ROOT
+
+# Run the REPL
+exec "$DEVPAGES_ROOT/scripts/devpages_repl.sh"
