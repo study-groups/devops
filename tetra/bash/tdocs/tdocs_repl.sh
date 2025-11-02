@@ -8,8 +8,11 @@ if [[ -z "$TETRA_SRC" ]]; then
     exit 1
 fi
 
-# Dependencies
+# Dependencies - source REPL first
 source "$TETRA_SRC/bash/repl/repl.sh"
+
+# Set module name for completion
+REPL_MODULE_NAME="tdocs"
 
 # Color system for REPL prompts
 source "$TETRA_SRC/bash/color/repl_colors.sh"
@@ -21,13 +24,93 @@ fi
 
 source "$TDOCS_SRC/tdocs_commands.sh"
 
-# Load REPL completion (v3 - uses bind -x for read -e)
-source "$TDOCS_SRC/tdocs_repl_complete_v3.sh"
-
 # REPL state (filters, context)
 TDOCS_REPL_CATEGORY=""      # all|core|other
 TDOCS_REPL_MODULE=""        # module filter
 TDOCS_REPL_DOC_COUNT=0      # cached count
+
+# Static fallback completions (for when tree isn't available)
+_tdocs_static_completions() {
+    # Commands
+    cat <<'EOF'
+ls
+list
+view
+v
+search
+s
+filter
+f
+tag
+init
+discover
+evidence
+e
+audit
+env
+help
+h
+exit
+quit
+q
+EOF
+
+    # Filter options
+    echo "core"
+    echo "other"
+    echo "module"
+    echo "clear"
+    echo "reset"
+
+    # Flags
+    cat <<'EOF'
+--core
+--other
+--module
+--preview
+--tags
+--pager
+--meta-only
+--raw
+--type
+--auto-init
+--rebuild
+EOF
+
+    # Document types
+    cat <<'EOF'
+spec
+guide
+reference
+bug-fix
+refactor
+plan
+summary
+investigation
+EOF
+
+    # Dynamic: modules from database
+    if [[ -d "$TDOCS_DIR/db" ]]; then
+        find "$TDOCS_DIR/db" -name "*.meta" -type f \
+            -exec jq -r '.module' {} \; 2>/dev/null | \
+            sort -u | \
+            grep -v '^null$'
+
+        # Document basenames
+        find "$TDOCS_DIR/db" -name "*.meta" -type f \
+            -exec jq -r '.path' {} \; 2>/dev/null | \
+            grep -v '^null$' | \
+            xargs -n1 basename 2>/dev/null
+    fi
+}
+
+# Ensure tdocs tree is initialized
+if command -v _tdocs_build_help_tree >/dev/null 2>&1; then
+    _tdocs_build_help_tree 2>/dev/null || true
+fi
+
+# Register tree-based completion with static fallback
+repl_register_tree_completion "help.tdocs" "_tdocs_static_completions"
 
 # Count filtered documents
 tdocs_count_filtered() {
@@ -289,7 +372,7 @@ HELP
                     "tdocs_cmd_${cmd}" $args
                 else
                     echo "Unknown command: $cmd"
-                    echo "Type 'help' for available commands"
+                    echo "Type 'help' for available commands, or press TAB for completions"
                     return 0
                 fi
             fi
@@ -324,13 +407,13 @@ tdocs_repl() {
     # Set execution mode to takeover
     REPL_EXECUTION_MODE="takeover"
 
+    # Tree completion is already registered above
+    # No need to set generator here - it's handled by repl_register_tree_completion
+
     # Override REPL callbacks with tdocs-specific implementations
     repl_build_prompt() { _tdocs_repl_build_prompt "$@"; }
     repl_process_input() { _tdocs_repl_process_input "$@"; }
     export -f repl_build_prompt repl_process_input
-
-    # Enable tab completion
-    tdocs_repl_enable_completion
 
     # Show welcome message
     cat <<'EOF'
@@ -348,20 +431,19 @@ Quick Start:
   filter core           Show only core documents
   help                  Show all commands
 
-Tab Completion:
-  Press TAB to see available commands, options, and files
-  Works context-aware based on what you're typing
-
-Use /shell for one-off shell commands
-Type exit or press Ctrl-D to quit
-
 EOF
+
+    # Show native tab completion status
+    echo "✓ Native TAB completion enabled"
+    echo ""
+
+    echo "Type exit or press Ctrl-D to quit"
+    echo ""
 
     # Run REPL in takeover mode (full REPL control)
     repl_run
 
     # Cleanup
-    tdocs_repl_disable_completion
     unset -f repl_build_prompt repl_process_input
 
     echo ""

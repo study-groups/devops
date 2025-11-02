@@ -15,8 +15,8 @@ repl_read_input() {
             return $status
             ;;
         readline)
-            # TCurses readline with history support
-            input=$(tcurses_input_read_line "$prompt" "$REPL_HISTORY_FILE")
+            # Native TCurses readline with TAB completion support
+            input=$(tcurses_readline "$prompt" "$REPL_HISTORY_FILE")
             local status=$?
             echo "$input"
             return $status
@@ -29,7 +29,8 @@ repl_read_input() {
             return $status
             ;;
         enhanced)
-            input=$(tcurses_input_read_line "$prompt" "$REPL_HISTORY_FILE")
+            # Native TCurses readline with TAB completion support
+            input=$(tcurses_readline "$prompt" "$REPL_HISTORY_FILE")
             local status=$?
             echo "$input"
             return $status

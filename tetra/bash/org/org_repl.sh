@@ -7,6 +7,9 @@
 source "$TETRA_SRC/bash/repl/repl.sh"
 source "$TETRA_SRC/bash/repl/command_processor.sh"
 
+# Set module name for completion
+REPL_MODULE_NAME="org"
+
 # bash/tree - Tree-based help and completion
 source "$TETRA_SRC/bash/tree/core.sh"
 source "$TETRA_SRC/bash/tree/help.sh"
@@ -39,6 +42,71 @@ org_tree_init 2>/dev/null || true
 repl_register_module "org" \
     "list active switch create import discover validate compile push pull rollback history env secrets help" \
     "help.org"
+
+# ============================================================================
+# TREE-BASED COMPLETION
+# ============================================================================
+
+# Static fallback completions (for when tree isn't available)
+_org_static_completions() {
+    # Navigation commands
+    cat <<'EOF'
+env
+e
+mode
+m
+action
+a
+next
+n
+EOF
+
+    # Legacy commands
+    cat <<'EOF'
+list
+ls
+active
+status
+help
+h
+actions
+exit
+quit
+q
+EOF
+
+    # Actions (verb:noun format)
+    # Get from org_get_actions if available
+    if command -v org_get_actions >/dev/null 2>&1; then
+        for env in "${ORG_ENVIRONMENTS[@]}"; do
+            for mode in "${ORG_MODES[@]}"; do
+                org_get_actions "$env" "$mode" 2>/dev/null | tr ' ' '\n'
+            done
+        done | sort -u
+    fi
+
+    # Environment/mode names
+    for env in "${ORG_ENVIRONMENTS[@]}"; do
+        echo "${env,,}"
+    done
+    for mode in "${ORG_MODES[@]}"; do
+        echo "${mode,,}"
+    done
+
+    # Organization names
+    if command -v org_list >/dev/null 2>&1; then
+        org_list 2>/dev/null | \
+            sed 's/\x1b\[[0-9;]*[mGKHJh]//g; s/\x1b[(][AB]//g; s/\x1b\].*\x07//g' | \
+            awk '/\*/ {
+                sub(/^[[:space:]]*\*[[:space:]]*/, "");
+                sub(/[[:space:]]*\(.*$/, "");
+                if (length($0) > 0) print;
+            }'
+    fi
+}
+
+# Register tree-based completion with static fallback
+repl_register_tree_completion "help.org" "_org_static_completions"
 
 # REPL Configuration
 REPL_HISTORY_BASE="${TETRA_DIR}/org/history/org_repl"
@@ -296,7 +364,7 @@ _org_repl_process_input() {
             ;;
         *)
             echo "Unknown command: $input"
-            echo "Type 'help' for available commands"
+            echo "Type 'help' for available commands, or press TAB for completions"
             ;;
     esac
 
@@ -387,11 +455,19 @@ org_repl() {
     echo ""
     echo "Active organization: $(_org_active)"
     echo ""
+
+    # Show native tab completion status
+    echo "✓ Native TAB completion enabled"
+    echo ""
+
     echo "Type 'help' for commands, 'env'/'mode'/'action' to navigate"
     echo ""
 
     # Set execution mode to takeover
     REPL_EXECUTION_MODE="takeover"
+
+    # Tree completion is already registered above
+    # No need to set generator here - it's handled by repl_register_tree_completion
 
     # Override REPL callbacks with org-specific implementations
     repl_build_prompt() { _org_repl_build_prompt "$@"; }
@@ -420,3 +496,4 @@ export -f _org_repl_build_prompt
 export -f _org_repl_process_input
 export -f _org_show_help
 export -f _org_show_actions
+export -f _org_static_completions

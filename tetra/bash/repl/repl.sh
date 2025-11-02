@@ -14,6 +14,11 @@ REPL_SRC="${REPL_SRC:-$TETRA_SRC/bash/repl}"
 # Source dependencies
 source "$TETRA_SRC/bash/color/color.sh"
 source "$TETRA_SRC/bash/tcurses/tcurses_input.sh"
+source "$TETRA_SRC/bash/tcurses/tcurses_completion.sh"
+source "$TETRA_SRC/bash/tcurses/tcurses_readline.sh"
+
+# Source tree completion integration
+source "$REPL_SRC/tree_completion.sh"
 
 # Source REPL components
 source "$REPL_SRC/core/mode.sh"
@@ -23,6 +28,9 @@ source "$REPL_SRC/prompt_manager.sh"
 source "$REPL_SRC/symbol_parser.sh"
 source "$REPL_SRC/command_processor.sh"
 source "$REPL_SRC/adapters/symbol_ui.sh" 2>/dev/null || true
+
+# Source smart hints (native tab completion is handled by tcurses_readline)
+source "$REPL_SRC/smart_hints.sh"
 
 # REPL state
 REPL_MODE=""                    # simple/readline (auto-detected)
