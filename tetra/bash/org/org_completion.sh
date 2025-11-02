@@ -125,6 +125,19 @@ _org_complete() {
         completions+=(--help -h)
     fi
 
+    # Add registered actions at top level (org <TAB>)
+    if [[ ${COMP_CWORD} -eq 1 ]] && command -v action_complete_list >/dev/null 2>&1; then
+        # Get org actions and strip the "org." prefix
+        local actions
+        actions=$(action_complete_list "org" 2>/dev/null | sed 's/^org\.//')
+        for action in $actions; do
+            # Only add if it contains a dot (e.g., view.toml, not just "view")
+            if [[ "$action" == *.* ]]; then
+                completions+=("$action")
+            fi
+        done
+    fi
+
     # Generate completion replies
     COMPREPLY=($(compgen -W "${completions[*]}" -- "$cur"))
 }
