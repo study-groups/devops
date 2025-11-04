@@ -31,6 +31,7 @@ fi
 ORG_SRC="${TETRA_SRC}/bash/org"
 source "$ORG_SRC/org_constants.sh"
 source "$ORG_SRC/actions.sh"
+source "$ORG_SRC/action_runner.sh"  # Safe version - TTS disabled
 source "$ORG_SRC/org_help.sh" 2>/dev/null || true
 source "$ORG_SRC/org_tree.sh"  # Tree-based help structure
 source "$ORG_SRC/org_completion.sh"  # Tree-based completion
@@ -117,6 +118,7 @@ ORG_REPL_MODE_INDEX=0
 ORG_REPL_ACTION_INDEX=0
 ORG_REPL_ENVIRONMENTS=("${ORG_ENVIRONMENTS[@]}")
 ORG_REPL_MODES=("${ORG_MODES[@]}")
+ORG_REPL_EXECUTE_MODE=false  # false = ▶ browse, true = ◆ execute
 
 # ============================================================================
 # STATE HELPERS
@@ -148,6 +150,16 @@ _org_cycle_mode() {
 _org_cycle_action() {
     local actions=($(_org_actions))
     [[ ${#actions[@]} -gt 0 ]] && ORG_REPL_ACTION_INDEX=$(( (ORG_REPL_ACTION_INDEX + 1) % ${#actions[@]} ))
+}
+
+_org_cycle_action_backwards() {
+    local actions=($(_org_actions))
+    if [[ ${#actions[@]} -gt 0 ]]; then
+        ORG_REPL_ACTION_INDEX=$(( (ORG_REPL_ACTION_INDEX - 1) ))
+        if [[ $ORG_REPL_ACTION_INDEX -lt 0 ]]; then
+            ORG_REPL_ACTION_INDEX=$(( ${#actions[@]} - 1 ))
+        fi
+    fi
 }
 
 # ============================================================================
@@ -217,10 +229,14 @@ _org_repl_build_prompt() {
             reset_color >> "$tmpfile"
         fi
 
-        # Prompt arrow
+        # Prompt sigil (▶ for browse, ◆ for execute)
         printf " " >> "$tmpfile"
         tds_text_color "repl.prompt.arrow" >> "$tmpfile"
-        printf "▶" >> "$tmpfile"
+        if [[ "$ORG_REPL_EXECUTE_MODE" == "true" ]]; then
+            printf "◆" >> "$tmpfile"
+        else
+            printf "▶" >> "$tmpfile"
+        fi
         reset_color >> "$tmpfile"
         printf " " >> "$tmpfile"
     else
@@ -229,11 +245,82 @@ _org_repl_build_prompt() {
         if [[ "$action" != "none" ]]; then
             printf " → %s" "$action" >> "$tmpfile"
         fi
-        printf " ▶ " >> "$tmpfile"
+        if [[ "$ORG_REPL_EXECUTE_MODE" == "true" ]]; then
+            printf " ◆ " >> "$tmpfile"
+        else
+            printf " ▶ " >> "$tmpfile"
+        fi
     fi
 
     REPL_PROMPT=$(<"$tmpfile")
     rm -f "$tmpfile"
+
+    # Always keep TCURSES_READLINE_PROMPT in sync
+    TCURSES_READLINE_PROMPT="$REPL_PROMPT"
+}
+
+# ============================================================================
+# TAB AND ESC HANDLERS
+# ============================================================================
+
+_org_handle_tab() {
+    # Browse forward through actions (stay in browse mode ▶)
+    _org_cycle_action
+
+    # Clear the input line
+    REPL_INPUT=""
+    REPL_CURSOR_POS=0
+
+    # Rebuild prompt with new action
+    _org_repl_build_prompt
+
+    # Update the global prompt variable so the readline loop uses the new prompt
+    TCURSES_READLINE_PROMPT="$REPL_PROMPT"
+}
+
+_org_handle_shift_tab() {
+    # Browse backward through actions (stay in browse mode ▶)
+    _org_cycle_action_backwards
+
+    # Clear the input line
+    REPL_INPUT=""
+    REPL_CURSOR_POS=0
+
+    # Rebuild prompt with new action
+    _org_repl_build_prompt
+
+    # Update the global prompt variable so the readline loop uses the new prompt
+    TCURSES_READLINE_PROMPT="$REPL_PROMPT"
+}
+
+_org_handle_space() {
+    # Select current action - switch to execute mode (◆)
+    ORG_REPL_EXECUTE_MODE=true
+
+    # Clear the input line
+    REPL_INPUT=""
+    REPL_CURSOR_POS=0
+
+    # Rebuild prompt to show ◆
+    _org_repl_build_prompt
+
+    # Update the global prompt variable so the readline loop uses the new prompt
+    TCURSES_READLINE_PROMPT="$REPL_PROMPT"
+}
+
+_org_handle_esc() {
+    # Deselect - return to browse mode (▶)
+    ORG_REPL_EXECUTE_MODE=false
+
+    # Clear the input line
+    REPL_INPUT=""
+    REPL_CURSOR_POS=0
+
+    # Rebuild prompt
+    _org_repl_build_prompt
+
+    # Update the global prompt variable so the readline loop uses the new prompt
+    TCURSES_READLINE_PROMPT="$REPL_PROMPT"
 }
 
 # ============================================================================
@@ -243,16 +330,34 @@ _org_repl_build_prompt() {
 _org_repl_process_input() {
     local input="$1"
 
-    # Empty input - execute current action
+    echo "DEBUG: _org_repl_process_input called with input='$input'" >&2
+    echo "DEBUG: Execute mode=$ORG_REPL_EXECUTE_MODE" >&2
+
+    # Empty input - execute current action ONLY if in execute mode (◆)
     if [[ -z "$input" ]]; then
-        local actions=($(_org_actions))
-        local action="${actions[$ORG_REPL_ACTION_INDEX]}"
-        if [[ -n "$action" && "$action" != "none" ]]; then
-            input="$action"
+        echo "DEBUG: Empty input detected" >&2
+        if [[ "$ORG_REPL_EXECUTE_MODE" == "true" ]]; then
+            echo "DEBUG: In execute mode, getting action" >&2
+            local actions=($(_org_actions))
+            local action="${actions[$ORG_REPL_ACTION_INDEX]}"
+            echo "DEBUG: Selected action: '$action'" >&2
+            if [[ -n "$action" && "$action" != "none" ]]; then
+                input="$action"
+                # Return to browse mode after executing
+                ORG_REPL_EXECUTE_MODE=false
+                echo "DEBUG: Will execute action: $action" >&2
+            else
+                echo "No action selected" >&2
+                return 0
+            fi
         else
+            echo "DEBUG: In browse mode, empty input ignored" >&2
+            # In browse mode (▶), empty return does nothing
             return 0
         fi
     fi
+
+    echo "DEBUG: After empty check, input='$input'" >&2
 
     # Shell command
     if [[ "$input" == !* ]]; then
@@ -265,20 +370,23 @@ _org_repl_process_input() {
         # Navigation commands
         env|e)
             _org_cycle_env
+            _org_repl_build_prompt
+            TCURSES_READLINE_PROMPT="$REPL_PROMPT"
             echo "Environment: ${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}"
-            return 2  # Signal prompt refresh
+            return 0
             ;;
         mode|m)
             _org_cycle_mode
+            _org_repl_build_prompt
+            TCURSES_READLINE_PROMPT="$REPL_PROMPT"
             echo "Mode: ${ORG_REPL_MODES[$ORG_REPL_MODE_INDEX]}"
-            return 2  # Signal prompt refresh
+            return 0
             ;;
         action|a)
             _org_cycle_action
-            local actions=($(_org_actions))
-            local action="${actions[$ORG_REPL_ACTION_INDEX]:-none}"
-            echo "Action: $action"
-            return 2  # Signal prompt refresh
+            _org_repl_build_prompt
+            TCURSES_READLINE_PROMPT="$REPL_PROMPT"
+            return 0
             ;;
         next|n)
             # Cycle all three in order
@@ -335,13 +443,23 @@ _org_repl_process_input() {
             ;;
     esac
 
-    # Action (verb:noun format)
+    # Action (verb:noun format) - Use safe action runner (no TTS)
     if [[ "$input" == *:* ]]; then
-        echo ""
-        echo "Executing: $input (${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]})"
-        echo "---"
-        org_execute_action "$input" "${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}"
-        echo ""
+        echo "DEBUG: Matched action pattern: $input" >&2
+        local env="${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}"
+        echo "DEBUG: Environment: $env" >&2
+
+        # Store mode for action runner
+        export ORG_REPL_MODE="${ORG_REPL_MODES[$ORG_REPL_MODE_INDEX]}"
+
+        echo "DEBUG: About to call org_run_action with: $input $env" >&2
+
+        # Use action runner with TES resolution (TTS disabled for safety)
+        org_run_action "$input" "$env"
+
+        echo "DEBUG: org_run_action returned: $?" >&2
+
+        unset ORG_REPL_MODE
         return 0
     fi
 
@@ -469,10 +587,14 @@ org_repl() {
     # Tree completion is already registered above
     # No need to set generator here - it's handled by repl_register_tree_completion
 
-    # Override REPL callbacks with org-specific implementations
-    repl_build_prompt() { _org_repl_build_prompt "$@"; }
-    repl_process_input() { _org_repl_process_input "$@"; }
-    export -f repl_build_prompt repl_process_input
+    # Override REPL callbacks with org-specific implementations (must be global for subshells)
+    eval 'repl_build_prompt() { _org_repl_build_prompt "$@"; }'
+    eval 'repl_process_input() { _org_repl_process_input "$@"; }'
+    eval 'repl_handle_tab() { _org_handle_tab "$@"; }'
+    eval 'repl_handle_shift_tab() { _org_handle_shift_tab "$@"; }'
+    eval 'repl_handle_space() { _org_handle_space "$@"; }'
+    eval 'repl_handle_esc() { _org_handle_esc "$@"; }'
+    export -f repl_build_prompt repl_process_input repl_handle_tab repl_handle_shift_tab repl_handle_space repl_handle_esc
 
     # Run unified REPL loop
     repl_run
@@ -492,6 +614,11 @@ export -f _org_actions
 export -f _org_cycle_env
 export -f _org_cycle_mode
 export -f _org_cycle_action
+export -f _org_cycle_action_backwards
+export -f _org_handle_tab
+export -f _org_handle_shift_tab
+export -f _org_handle_space
+export -f _org_handle_esc
 export -f _org_repl_build_prompt
 export -f _org_repl_process_input
 export -f _org_show_help
