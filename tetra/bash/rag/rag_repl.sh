@@ -416,6 +416,170 @@ _rag_show_welcome() {
 }
 
 # ============================================================================
+# TAB COMPLETION
+# ============================================================================
+
+_rag_repl_generate_completions() {
+    # Get current input and cursor position from global state
+    local input="${REPL_INPUT:-}"
+    local cursor="${REPL_CURSOR_POS:-0}"
+
+    # Debug logging if enabled
+    if [[ "${RAG_COMPLETION_DEBUG:-0}" == "1" ]]; then
+        echo "[RAG_COMPLETION] input='$input' cursor=$cursor" >&2
+    fi
+
+    # Get flow context for context-aware completions
+    local flow_dir=$(get_active_flow_dir 2>/dev/null)
+    local has_flow=0
+    local has_evidence=0
+    local evidence_count=0
+
+    if [[ -n "$flow_dir" ]] && [[ -d "$flow_dir" ]]; then
+        has_flow=1
+        if [[ -d "$flow_dir/ctx/evidence" ]]; then
+            evidence_count=$(find "$flow_dir/ctx/evidence" -name "*.evidence.md" -type f 2>/dev/null | wc -l | tr -d ' ')
+            [[ $evidence_count -gt 0 ]] && has_evidence=1
+        fi
+    fi
+
+    # Parse slash command format: /command [subcommand] [args]
+    local cmd subcmd rest
+    if [[ "$input" =~ ^/([a-z]+)[[:space:]]*(.*)$ ]]; then
+        cmd="${BASH_REMATCH[1]}"
+        rest="${BASH_REMATCH[2]}"
+
+        # Check if rest contains a subcommand
+        if [[ "$rest" =~ ^([a-z]+)[[:space:]]*(.*)$ ]]; then
+            subcmd="${BASH_REMATCH[1]}"
+        fi
+    elif [[ "$input" =~ ^/$ ]]; then
+        # Just slash, show all commands
+        cmd=""
+    else
+        # Not a slash command, no completions
+        return 0
+    fi
+
+    if [[ "${RAG_COMPLETION_DEBUG:-0}" == "1" ]]; then
+        echo "[RAG_COMPLETION] cmd='$cmd' subcmd='$subcmd' rest='$rest'" >&2
+    fi
+
+    # Helper function to set hint and category
+    _set_completion() {
+        local item=$1
+        local hint=$2
+        local category=$3
+
+        if command -v repl_set_completion_hint >/dev/null 2>&1; then
+            repl_set_completion_hint "$item" "$hint"
+        fi
+        if command -v repl_set_completion_category >/dev/null 2>&1; then
+            repl_set_completion_category "$item" "$category"
+        fi
+        echo "$item"
+    }
+
+    # If we have a command and space, complete subcommands
+    if [[ -n "$cmd" && " $input " =~ " " ]]; then
+        case "$cmd" in
+            flow|f)
+                _set_completion "create" "Flow • Create new RAG flow with description" "Flow"
+                _set_completion "status" "Flow • Show current flow status and stage" "Flow"
+                _set_completion "list" "Flow • List all flows (local/global)" "Flow"
+                _set_completion "resume" "Flow • Resume a previous flow from checkpoint" "Flow"
+                _set_completion "promote" "Flow • Promote flow from local to global" "Flow"
+                ;;
+            evidence|e)
+                if [[ -n "$subcmd" ]]; then
+                    # Already have subcommand, no further completion
+                    return 0
+                fi
+                _set_completion "add" "Evidence • Add file as evidence with selector" "Evidence"
+                _set_completion "list" "Evidence • List all evidence files with variables" "Evidence"
+                if [[ $has_evidence -eq 1 ]]; then
+                    _set_completion "toggle" "Evidence • Toggle evidence active/skipped" "Evidence"
+                    _set_completion "status" "Evidence • Show context status and token budget" "Evidence"
+                    # Add numeric completions for viewing evidence
+                    for i in $(seq 1 $evidence_count); do
+                        _set_completion "$i" "Evidence • View evidence file #$i" "Evidence"
+                    done
+                fi
+                ;;
+            qa)
+                _set_completion "search" "QA • Search QA database for relevant Q&A pairs" "QA"
+                _set_completion "list" "QA • List recent QA entries" "QA"
+                _set_completion "view" "QA • View full QA entry with prompt and answer" "QA"
+                if [[ $has_flow -eq 1 ]]; then
+                    _set_completion "add" "QA • Add QA entry as evidence to current flow" "QA"
+                fi
+                ;;
+            kb)
+                _set_completion "list" "KB • List knowledge base entries" "KB"
+                _set_completion "search" "KB • Search knowledge base" "KB"
+                ;;
+            *)
+                # No subcommand completions for other commands
+                return 0
+                ;;
+        esac
+    else
+        # Complete top-level slash commands with context-aware hints
+
+        # Flow commands - always available
+        _set_completion "flow" "Flow • Create and manage RAG flows" "Flow"
+        _set_completion "f" "Flow • Alias for /flow" "Flow"
+
+        # Evidence commands - enhanced hints if flow exists
+        if [[ $has_flow -eq 1 ]]; then
+            _set_completion "evidence" "Evidence • Add/manage evidence (flow active: ${evidence_count}e)" "Evidence"
+            _set_completion "e" "Evidence • Alias for /evidence" "Evidence"
+        else
+            _set_completion "evidence" "Evidence • Add/manage evidence (create flow first)" "Evidence"
+            _set_completion "e" "Evidence • Alias for /evidence" "Evidence"
+        fi
+
+        # Context assembly - only suggest if we have evidence
+        if [[ $has_evidence -eq 1 ]]; then
+            _set_completion "select" "Assembly • Select evidence using query" "Assembly"
+            _set_completion "assemble" "Assembly • Build context from evidence to prompt.mdctx" "Assembly"
+            _set_completion "submit" "Assembly • Submit assembled context to QA agent" "Assembly"
+            _set_completion "r" "Assembly • View LLM response with colored markdown" "Assembly"
+        fi
+
+        # Prompt editing
+        if [[ $has_flow -eq 1 ]]; then
+            _set_completion "p" "Prompt • Edit or replace flow prompt/question" "Prompt"
+        fi
+
+        # Workflow guide
+        _set_completion "workflow" "Guide • Show step-by-step workflow guide" "Guide"
+
+        # QA and KB - always available
+        _set_completion "qa" "QA • Search and retrieve from QA history" "QA"
+        _set_completion "kb" "KB • Manage knowledge base entries" "KB"
+        if [[ $has_flow -eq 1 ]]; then
+            _set_completion "tag" "KB • Promote flow to knowledge base with tags" "KB"
+        fi
+
+        # Status and metadata
+        _set_completion "status" "Info • Show comprehensive RAG status" "Info"
+
+        # Melvin commands (modal context)
+        _set_completion "mc" "Melvin • Modal context message" "Melvin"
+        _set_completion "ms" "Melvin • Modal send" "Melvin"
+        _set_completion "mi" "Melvin • Modal info" "Melvin"
+
+        # CLI/prompt mode
+        _set_completion "cli" "Mode • Enter CLI/prompt mode" "Mode"
+
+        # Help
+        _set_completion "help" "Help • Show navigable help tree" "Help"
+        _set_completion "h" "Help • Alias for /help" "Help"
+    fi
+}
+
+# ============================================================================
 # MAIN ENTRY POINT
 # ============================================================================
 
@@ -450,6 +614,9 @@ rag_repl() {
     repl_process_input() { _rag_repl_process_input "$@"; }
     export -f repl_build_prompt repl_process_input
 
+    # Register tab completion generator
+    repl_set_completion_generator "_rag_repl_generate_completions"
+
     # Run unified REPL loop (provides /mode, /theme, /history, /exit)
     repl_run enhanced
 
@@ -468,4 +635,5 @@ export -f rag_repl
 export -f _rag_init_help_tree
 export -f _rag_repl_build_prompt
 export -f _rag_repl_process_input
+export -f _rag_repl_generate_completions
 export -f _rag_show_welcome
