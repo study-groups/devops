@@ -7,6 +7,58 @@ declare -g REPL_COMPLETION_WORDS=()
 declare -g REPL_COMPLETION_MATCHES=()
 declare -g REPL_COMPLETION_INDEX=0
 declare -g REPL_COMPLETION_ORIGINAL=""
+declare -g REPL_COMPLETION_TAB_COUNT=0
+
+# Completion metadata (associative array: word -> hint)
+declare -gA REPL_COMPLETION_HINTS=()
+
+# Completion categories (associative array: word -> category)
+declare -gA REPL_COMPLETION_CATEGORIES=()
+
+# Completion menu position: "above" or "below" (default: above for REPL, below for TUI)
+declare -g REPL_COMPLETION_MENU_POSITION="${REPL_COMPLETION_MENU_POSITION:-above}"
+
+# Set completion menu position
+# Usage: repl_set_completion_menu_position "above|below"
+repl_set_completion_menu_position() {
+    REPL_COMPLETION_MENU_POSITION="$1"
+}
+
+# Set hint for a completion word
+# Usage: repl_set_completion_hint "word" "hint text"
+repl_set_completion_hint() {
+    REPL_COMPLETION_HINTS["$1"]="$2"
+}
+
+# Get hint for a completion word
+# Usage: hint=$(repl_get_completion_hint "word")
+repl_get_completion_hint() {
+    echo "${REPL_COMPLETION_HINTS[$1]}"
+}
+
+# Set category for a completion word
+# Usage: repl_set_completion_category "word" "category"
+repl_set_completion_category() {
+    REPL_COMPLETION_CATEGORIES["$1"]="$2"
+}
+
+# Get category for a completion word
+# Usage: category=$(repl_get_completion_category "word")
+repl_get_completion_category() {
+    echo "${REPL_COMPLETION_CATEGORIES[$1]}"
+}
+
+# Get color for category
+# Returns ANSI color code for a given category
+_repl_get_category_color() {
+    local category="$1"
+    case "$category" in
+        "TDS") echo "36" ;;  # Cyan for TDS
+        "REPL") echo "35" ;; # Magenta for REPL
+        "Palette") echo "33" ;; # Yellow for Palette
+        *) echo "37" ;; # White for unknown
+    esac
+}
 
 # Register completion words
 # Usage: repl_register_completion_words "word1" "word2" ...
@@ -87,45 +139,92 @@ _repl_find_completions() {
 
 # Handle TAB key press
 repl_handle_tab() {
+    # Debug
+    if [[ "${TCURSES_COMPLETION_DEBUG:-0}" == "1" ]]; then
+        echo "[TAB] Starting repl_handle_tab" >&2
+        echo "[TAB] REPL_COMPLETION_ORIGINAL='$REPL_COMPLETION_ORIGINAL'" >&2
+    fi
+
     # Get current word
     local word_info="$(_repl_get_current_word)"
     IFS='|' read -r word_start word_end current_word <<< "$word_info"
 
+    if [[ "${TCURSES_COMPLETION_DEBUG:-0}" == "1" ]]; then
+        echo "[TAB] current_word='$current_word' start=$word_start end=$word_end" >&2
+    fi
+
     # First TAB - find completions
-    if [[ -z "$REPL_COMPLETION_ORIGINAL" ]]; then
+    # Note: Can't use -z test on ORIGINAL because it might legitimately be empty
+    if [[ "$REPL_COMPLETION_TAB_COUNT" -eq 0 ]]; then
+        if [[ "${TCURSES_COMPLETION_DEBUG:-0}" == "1" ]]; then
+            echo "[TAB] First TAB - finding completions" >&2
+        fi
+
         REPL_COMPLETION_ORIGINAL="$current_word"
+        REPL_COMPLETION_TAB_COUNT=1
+        REPL_COMPLETION_WORD_START="$word_start"
+        REPL_COMPLETION_WORD_END="$word_end"
         _repl_find_completions "$current_word"
         REPL_COMPLETION_INDEX=0
+
+        if [[ "${TCURSES_COMPLETION_DEBUG:-0}" == "1" ]]; then
+            echo "[TAB] Set REPL_COMPLETION_ORIGINAL='$REPL_COMPLETION_ORIGINAL'" >&2
+            echo "[TAB] Found ${#REPL_COMPLETION_MATCHES[@]} matches" >&2
+        fi
 
         if [[ ${#REPL_COMPLETION_MATCHES[@]} -eq 0 ]]; then
             # No matches - beep or do nothing
             return
-        elif [[ ${#REPL_COMPLETION_MATCHES[@]} -eq 1 ]]; then
-            # Single match - complete it
-            local match="${REPL_COMPLETION_MATCHES[0]}"
-            REPL_INPUT="${REPL_INPUT:0:$word_start}${match}${REPL_INPUT:$word_end}"
-            REPL_CURSOR_POS=$((word_start + ${#match}))
-            REPL_COMPLETION_ORIGINAL=""
-            return
         fi
 
-        # Multiple matches - show first one
+        # Show first match and fill it in
         local match="${REPL_COMPLETION_MATCHES[$REPL_COMPLETION_INDEX]}"
         REPL_INPUT="${REPL_INPUT:0:$word_start}${match}${REPL_INPUT:$word_end}"
         REPL_CURSOR_POS=$((word_start + ${#match}))
 
+        # Update word_end to point after the completed word for next cycle
+        REPL_COMPLETION_WORD_END=$((word_start + ${#match}))
+
     else
-        # Subsequent TAB - cycle through matches
+        # Subsequent TAB - check for double-TAB or cycle
+        REPL_COMPLETION_TAB_COUNT=$((REPL_COMPLETION_TAB_COUNT + 1))
+
+        if [[ "${TCURSES_COMPLETION_DEBUG:-0}" == "1" ]]; then
+            echo "[TAB] Subsequent TAB (count=$REPL_COMPLETION_TAB_COUNT, index=$REPL_COMPLETION_INDEX)" >&2
+        fi
+
+        # Double-TAB (second TAB press) - show all matches
+        if [[ "$REPL_COMPLETION_TAB_COUNT" -eq 2 && ${#REPL_COMPLETION_MATCHES[@]} -gt 1 ]]; then
+            if [[ "${TCURSES_COMPLETION_DEBUG:-0}" == "1" ]]; then
+                echo "[TAB] Double-TAB detected - showing all matches" >&2
+            fi
+
+            # Show all completions
+            repl_show_completions
+
+            # Don't cycle yet, let user see the list
+            return
+        fi
+
+        # Regular cycle through matches
         if [[ ${#REPL_COMPLETION_MATCHES[@]} -gt 0 ]]; then
             REPL_COMPLETION_INDEX=$(( (REPL_COMPLETION_INDEX + 1) % ${#REPL_COMPLETION_MATCHES[@]} ))
             local match="${REPL_COMPLETION_MATCHES[$REPL_COMPLETION_INDEX]}"
 
-            # Get word boundaries again
-            word_info="$(_repl_get_current_word)"
-            IFS='|' read -r word_start word_end current_word <<< "$word_info"
+            if [[ "${TCURSES_COMPLETION_DEBUG:-0}" == "1" ]]; then
+                echo "[TAB] New index=$REPL_COMPLETION_INDEX match='$match'" >&2
+            fi
 
-            REPL_INPUT="${REPL_INPUT:0:$word_start}${match}${REPL_INPUT:$word_end}"
-            REPL_CURSOR_POS=$((word_start + ${#match}))
+            # Use saved word boundaries from first TAB
+            # (don't recalculate, as the word has changed since first TAB)
+            local saved_start="$REPL_COMPLETION_WORD_START"
+            local saved_end="$REPL_COMPLETION_WORD_END"
+
+            REPL_INPUT="${REPL_INPUT:0:$saved_start}${match}${REPL_INPUT:$saved_end}"
+            REPL_CURSOR_POS=$((saved_start + ${#match}))
+
+            # Update word_end for next cycle
+            REPL_COMPLETION_WORD_END=$((saved_start + ${#match}))
         fi
     fi
 }
@@ -135,30 +234,362 @@ repl_reset_completion() {
     REPL_COMPLETION_ORIGINAL=""
     REPL_COMPLETION_MATCHES=()
     REPL_COMPLETION_INDEX=0
+    REPL_COMPLETION_TAB_COUNT=0
+    REPL_COMPLETION_WORD_START=""
+    REPL_COMPLETION_WORD_END=""
 }
 
-# Show completion popup (optional - for showing all matches)
+# Interactive completion menu with arrow key navigation
+# Returns: selected index (via REPL_COMPLETION_INDEX)
+repl_interactive_completion_menu() {
+    if [[ "${TCURSES_COMPLETION_DEBUG:-0}" == "1" ]]; then
+        echo "[INTERACTIVE] Entering interactive menu with ${#REPL_COMPLETION_MATCHES[@]} matches" >&2
+    fi
+
+    if [[ ${#REPL_COMPLETION_MATCHES[@]} -eq 0 ]]; then
+        return
+    fi
+
+    local count=${#REPL_COMPLETION_MATCHES[@]}
+    local selected=$REPL_COMPLETION_INDEX
+    local menu_lines
+    local max_menu_lines=0
+
+    # Hide cursor (redirect tput output to stderr)
+    tput civis >&2 2>/dev/null || printf '\033[?25l' >&2
+
+    # Position menu based on setting
+    if [[ "$REPL_COMPLETION_MENU_POSITION" == "below" ]]; then
+        # Draw menu below (move cursor to next line first)
+        echo "" >&2
+    else
+        # For menu above, we'll draw it and track how many lines
+        # No need to save cursor - we'll calculate positions
+        :
+    fi
+
+    # Draw initial menu and get line count
+    _repl_draw_completion_menu_and_return_lines "$selected"
+    menu_lines=$REPL_MENU_LINES
+    max_menu_lines=$menu_lines
+
+    # Interactive navigation loop
+    local should_select=0
+    while true; do
+        local key
+        key=$(tcurses_input_read_key_blocking)
+
+        case "$key" in
+            "$TCURSES_KEY_UP")
+                # Move up - don't advance cursor
+                selected=$(( (selected - 1 + count) % count ))
+                _repl_redraw_completion_menu "$max_menu_lines" "$selected"
+                menu_lines=$REPL_MENU_LINES
+                # Update max if new menu is larger
+                if [[ $menu_lines -gt $max_menu_lines ]]; then
+                    max_menu_lines=$menu_lines
+                fi
+                ;;
+
+            "$TCURSES_KEY_DOWN")
+                # Move down - don't advance cursor
+                selected=$(( (selected + 1) % count ))
+                _repl_redraw_completion_menu "$max_menu_lines" "$selected"
+                menu_lines=$REPL_MENU_LINES
+                # Update max if new menu is larger
+                if [[ $menu_lines -gt $max_menu_lines ]]; then
+                    max_menu_lines=$menu_lines
+                fi
+                ;;
+
+            "$TCURSES_KEY_ENTER"|"")
+                # Select current item and apply to input
+                REPL_COMPLETION_INDEX=$selected
+                should_select=1
+                break
+                ;;
+
+            "$TCURSES_KEY_ESC"|"$TCURSES_KEY_CTRL_C"|"q"|"Q")
+                # Cancel - revert to original input (ESC, Ctrl-C, or 'q')
+                should_select=0
+                break
+                ;;
+
+            "$TCURSES_KEY_TAB")
+                # TAB cycles through selections but doesn't advance cursor yet
+                selected=$(( (selected + 1) % count ))
+                _repl_redraw_completion_menu "$max_menu_lines" "$selected"
+                menu_lines=$REPL_MENU_LINES
+                if [[ $menu_lines -gt $max_menu_lines ]]; then
+                    max_menu_lines=$menu_lines
+                fi
+                ;;
+
+            *)
+                # Any other key - exit menu without selection
+                should_select=0
+                break
+                ;;
+        esac
+    done
+
+    # Clear menu - delete lines to reclaim space and return prompt to original position
+    _repl_delete_completion_lines "$max_menu_lines"
+
+    # Show cursor (redirect tput output to stderr)
+    tput cnorm >&2 2>/dev/null || printf '\033[?25h' >&2
+
+    # Clear the line and redraw the prompt immediately
+    printf '\r' >&2                    # Move to start of line
+    printf '\033[K' >&2                # Clear to end of line
+    if command -v tcurses_readline_redraw >/dev/null 2>&1; then
+        tcurses_readline_redraw "${TCURSES_READLINE_PROMPT:-"> "}"
+    else
+        # Fallback: manually redraw
+        printf '%s%s' "${TCURSES_READLINE_PROMPT:-"> "}" "$REPL_INPUT" >&2
+    fi
+
+    # Apply selection to input if ENTER was pressed
+    if [[ $should_select -eq 1 ]]; then
+        local match="${REPL_COMPLETION_MATCHES[$selected]}"
+
+        if [[ "${TCURSES_COMPLETION_DEBUG:-0}" == "1" ]]; then
+            echo "[APPLY] match='$match'" >&2
+            echo "[APPLY] REPL_INPUT before='$REPL_INPUT'" >&2
+            echo "[APPLY] word_start=$REPL_COMPLETION_WORD_START word_end=$REPL_COMPLETION_WORD_END" >&2
+        fi
+
+        REPL_INPUT="${REPL_INPUT:0:$REPL_COMPLETION_WORD_START}${match}${REPL_INPUT:$REPL_COMPLETION_WORD_END}"
+        REPL_CURSOR_POS=$((REPL_COMPLETION_WORD_START + ${#match}))
+        REPL_COMPLETION_WORD_END=$((REPL_COMPLETION_WORD_START + ${#match}))
+
+        if [[ "${TCURSES_COMPLETION_DEBUG:-0}" == "1" ]]; then
+            echo "[APPLY] REPL_INPUT after='$REPL_INPUT'" >&2
+        fi
+    fi
+}
+
+# Delete N lines starting at row R, following the provided pattern exactly
+delete_lines() {
+  local R="$1" N="$2"
+  local rows=$(tput lines); rows=$((rows-1))     # bottom row index
+  tput civis                   # hide cursor (optional)
+  tput csr "$R" "$rows"        # restrict scroll region to [R..bottom]
+  tput cup "$R" 0              # position at row R, column 0
+  # Many tput impls accept a repeat count arg; fallback to loop if not.
+  if tput dl "$N" 2>/dev/null; then :; else
+    for _ in $(seq 1 "$N"); do tput dl1; done
+  fi
+  tput csr 0 "$rows"           # restore full scroll region
+  tput cvvis                   # restore cursor
+  # Cursor is now at row R, column 0 - don't restore, stay here
+}
+
+# Wrapper that calculates R from current position
+_repl_delete_completion_lines() {
+    local N="$1"  # Number of lines to delete
+
+    # We need to get the current cursor row, then subtract N to get R
+    # Use ANSI DSR (Device Status Report) to query cursor position
+    local oldstty=$(stty -g)
+    stty raw -echo min 0 time 5
+
+    printf '\033[6n' >&2
+    IFS=';' read -r -d R -a pos
+
+    stty "$oldstty"
+
+    # Parse response: ESC [ row ; col R
+    # pos[0] contains ESC[row, pos[1] contains col
+    local current_row="${pos[0]#*[}"
+
+    # Convert to 0-based and calculate menu start row
+    local R=$((current_row - 1 - N))
+
+    # Call the delete function with the calculated row
+    delete_lines "$R" "$N"
+}
+
+# Fade out menu with animation - dims and collapses upward
+_repl_fade_out_menu() {
+    local lines="$1"
+
+    # Brief pause before starting fade
+    sleep 0.05
+
+    # Move to start of menu
+    printf "\033[%dA" "$lines" >&2
+
+    # Dim the menu by redrawing in darker colors (optional visual effect)
+    # For now, just collapse it smoothly by deleting lines from top
+
+    # Delete lines using terminfo - collapse upward
+    local rows=$(tput lines 2>/dev/null || echo 24)
+    rows=$((rows - 1))
+
+    # Set scroll region and delete the menu lines
+    tput sc 2>/dev/null || printf '\033[s' >&2
+    tput civis 2>/dev/null || printf '\033[?25l' >&2
+
+    # Get current cursor position (start of menu)
+    # We'll delete all menu lines which collapses them upward
+    if tput csr 0 "$rows" 2>/dev/null; then
+        # Delete the lines
+        if tput dl "$lines" 2>/dev/null; then
+            :  # Success
+        else
+            # Fallback: delete one line at a time
+            for ((i=0; i<lines; i++)); do
+                tput dl1 2>/dev/null || printf '\033[M' >&2
+            done
+        fi
+        tput csr 0 "$rows" 2>/dev/null  # Restore scroll region
+    else
+        # Fallback: just clear the lines in place
+        for ((i=0; i<lines; i++)); do
+            printf "\033[2K\n" >&2
+        done
+        printf "\033[%dA" "$lines" >&2
+    fi
+
+    tput rc 2>/dev/null || printf '\033[u' >&2
+    tput cnorm 2>/dev/null || printf '\033[?25h' >&2
+}
+
+# Clear completion menu
+_repl_clear_completion_menu() {
+    local lines="$1"
+
+    # Move to start of menu
+    tput cuu "$lines" 2>/dev/null || printf "\033[%dA" "$lines" >&2
+
+    # Clear from cursor down
+    tput ed 2>/dev/null || printf '\033[J' >&2
+}
+
+# Draw completion menu (helper function) - for backward compatibility
+_repl_draw_completion_menu() {
+    local selected="$1"
+    _repl_draw_completion_menu_and_return_lines "$selected" >/dev/null
+}
+
+# Draw completion menu and return line count
+_repl_draw_completion_menu_and_return_lines() {
+    local selected="$1"
+    local count=${#REPL_COMPLETION_MATCHES[@]}
+
+    # Print newline and header
+    echo "" >&2
+
+    if [[ -n "$REPL_COMPLETION_ORIGINAL" ]]; then
+        printf "  +- Completions for '%s' [v2]\n" "$REPL_COMPLETION_ORIGINAL" >&2
+    else
+        printf "  +- Available commands [v2]\n" >&2
+    fi
+    printf "  +----------------------------------------------------\n" >&2
+    printf "  \033[2m↑/↓: navigate  ENTER: select  q: cancel\033[0m\n" >&2
+    echo "" >&2
+
+    # Draw list items in 3-column layout
+    local cols=3
+    local rows=$(( (count + cols - 1) / cols ))
+
+    for ((row=0; row<rows; row++)); do
+        for ((col=0; col<cols; col++)); do
+            local idx=$((row + col * rows))
+            if [[ $idx -lt $count ]]; then
+                local match="${REPL_COMPLETION_MATCHES[$idx]}"
+                local category="${REPL_COMPLETION_CATEGORIES[$match]}"
+                local color=$(_repl_get_category_color "$category")
+
+                if [[ $idx -eq $selected ]]; then
+                    # Highlighted item with category color
+                    printf "  \033[1;36m▶\033[0m \033[1;${color}m%-18s\033[0m" "$match" >&2
+                else
+                    # Regular item with dimmed category color
+                    printf "    \033[2;${color}m%-18s\033[0m" "$match" >&2
+                fi
+            fi
+        done
+        echo "" >&2
+    done
+
+    echo "" >&2
+
+    # Show notes for currently selected item only (replaces instruction area)
+    local selected_match="${REPL_COMPLETION_MATCHES[$selected]}"
+    local hint="${REPL_COMPLETION_HINTS[$selected_match]}"
+    local category="${REPL_COMPLETION_CATEGORIES[$selected_match]}"
+
+    if [[ -n "$hint" ]]; then
+        # Parse hint to extract category prefix
+        if [[ "$hint" =~ ^([^•]+)•(.+)$ ]]; then
+            local cat_prefix="${BASH_REMATCH[1]}"
+            local description="${BASH_REMATCH[2]}"
+            printf "  \033[2;36m┌─\033[0m \033[1m%s\033[0m\n" "$selected_match" >&2
+            printf "  \033[2;36m│\033[0m \033[2m%s•%s\033[0m\n" "$cat_prefix" "$description" >&2
+        else
+            printf "  \033[2;36m┌─\033[0m \033[1m%s\033[0m\n" "$selected_match" >&2
+            printf "  \033[2;36m│\033[0m \033[2m%s\033[0m\n" "$hint" >&2
+        fi
+        echo "" >&2
+    fi
+
+    # Calculate total lines: blank(1) + header(1) + footer(1) + nav_help(1) + blank(1) + rows + blank(1) + (hint ? 3 : 0)
+    local total_lines=$((6 + rows))
+    if [[ -n "$hint" ]]; then
+        total_lines=$((total_lines + 3))
+    fi
+
+    # Debug output if enabled
+    if [[ "${TCURSES_COMPLETION_DEBUG:-0}" == "1" ]]; then
+        echo "[MENU] Calculated total_lines=$total_lines (rows=$rows, hint='$hint')" >&2
+    fi
+
+    # Store line count in global variable instead of echoing
+    # This avoids stdout/stderr mixing issues
+    REPL_MENU_LINES=$total_lines
+}
+
+# Redraw completion menu after cursor movement
+_repl_redraw_completion_menu() {
+    local old_lines="$1"
+    local selected="$2"
+
+    if [[ "${TCURSES_COMPLETION_DEBUG:-0}" == "1" ]]; then
+        echo "[REDRAW] Moving up $old_lines lines and clearing" >&2
+    fi
+
+    # Move cursor up to start of menu and clear
+    # Use printf directly to stderr to ensure atomic output
+    printf "\033[%dA\033[J" "$old_lines" >&2
+
+    # Redraw menu (line count stored in REPL_MENU_LINES)
+    _repl_draw_completion_menu_and_return_lines "$selected"
+}
+
+# Show completion popup (non-interactive fallback)
 repl_show_completions() {
     if [[ ${#REPL_COMPLETION_MATCHES[@]} -eq 0 ]]; then
         return
     fi
 
-    # Build completion display
-    local display=""
-    for ((i=0; i<${#REPL_COMPLETION_MATCHES[@]}; i++)); do
-        local match="${REPL_COMPLETION_MATCHES[$i]}"
-        if [[ $i -eq $REPL_COMPLETION_INDEX ]]; then
-            display+="  > $match\n"
-        else
-            display+="    $match\n"
-        fi
-    done
-
-    # Set as response (will be displayed above input)
-    repl_set_response "$display"
+    # Use interactive menu if tcurses_input is available
+    if command -v tcurses_input_read_key_blocking >/dev/null 2>&1; then
+        repl_interactive_completion_menu
+    else
+        # Fallback to static list
+        _repl_draw_completion_menu "$REPL_COMPLETION_INDEX" >/dev/null
+    fi
 }
 
 # Export functions
+export -f repl_set_completion_menu_position
+export -f repl_set_completion_hint
+export -f repl_get_completion_hint
+export -f repl_set_completion_category
+export -f repl_get_completion_category
+export -f _repl_get_category_color
 export -f repl_register_completion_words
 export -f repl_load_completion_words
 export -f repl_set_completion_generator
@@ -168,3 +599,10 @@ export -f _repl_find_completions
 export -f repl_handle_tab
 export -f repl_reset_completion
 export -f repl_show_completions
+export -f repl_interactive_completion_menu
+export -f _repl_draw_completion_menu
+export -f _repl_draw_completion_menu_and_return_lines
+export -f _repl_redraw_completion_menu
+export -f _repl_clear_completion_menu
+export -f _repl_delete_completion_lines
+export -f _repl_fade_out_menu

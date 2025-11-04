@@ -27,6 +27,8 @@ declare -g TCURSES_KEY_CTRL_D=$'\x04'
 declare -g TCURSES_KEY_CTRL_Z=$'\x1a'
 declare -g TCURSES_KEY_BACKSPACE=$'\x7f'
 declare -g TCURSES_KEY_TAB=$'\t'
+declare -g TCURSES_KEY_SHIFT_TAB=$'\x1b[Z'
+declare -g TCURSES_KEY_SPACE=' '
 
 # Read a single key from stdin with timeout
 # Usage: tcurses_input_read_key [timeout_seconds]

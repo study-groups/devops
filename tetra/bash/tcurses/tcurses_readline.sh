@@ -321,6 +321,20 @@ tcurses_readline() {
                 fi
                 ;;
 
+            "$TCURSES_KEY_SHIFT_TAB")
+                # Shift-TAB
+                if command -v repl_handle_shift_tab >/dev/null 2>&1; then
+                    repl_handle_shift_tab
+                fi
+                ;;
+
+            "$TCURSES_KEY_ESC")
+                # ESC key
+                if command -v repl_handle_esc >/dev/null 2>&1; then
+                    repl_handle_esc
+                fi
+                ;;
+
             "$TCURSES_KEY_BACKSPACE")
                 tcurses_readline_backspace
                 ;;
@@ -365,6 +379,16 @@ tcurses_readline() {
                 tcurses_readline_end
                 ;;
 
+            "$TCURSES_KEY_SPACE")
+                # Space key - check for handler override
+                if command -v repl_handle_space >/dev/null 2>&1; then
+                    repl_handle_space
+                else
+                    # Default: insert space character
+                    tcurses_readline_insert_char "$key"
+                fi
+                ;;
+
             *)
                 # Regular character - insert it
                 if [[ -n "$key" ]]; then
@@ -373,8 +397,9 @@ tcurses_readline() {
                 ;;
         esac
 
-        # Redraw line
-        tcurses_readline_redraw "$prompt"
+        # Redraw line (use global prompt if it changed, otherwise use local)
+        local current_prompt="${TCURSES_READLINE_PROMPT:-$prompt}"
+        tcurses_readline_redraw "$current_prompt"
     done
 
     # Save to history
