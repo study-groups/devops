@@ -23,11 +23,23 @@ fi
 # Themes need tds_apply_semantic_colors() function
 source "$TDS_SRC/core/semantic_colors.sh"
 
+# Layer 1.6: Theme validation and stack management
+source "$TDS_SRC/core/theme_validation.sh"
+source "$TDS_SRC/core/theme_stack.sh"
+source "$TDS_SRC/core/token_validation.sh"
+
 # Layer 2: Theme system (load themes after semantic_colors.sh)
 source "$TDS_SRC/themes/theme_registry.sh"
 source "$TDS_SRC/themes/default.sh"
 source "$TDS_SRC/themes/tokyo_night.sh"
 source "$TDS_SRC/themes/neon.sh"
+
+# Temperature themes (for module phase-shifts)
+# Register them lazily - themes will be sourced on-demand when first used
+tds_register_lazy_theme "warm" "tds_theme_warm" "Warm amber temperature for org"
+tds_register_lazy_theme "cool" "tds_theme_cool" "Cool blue temperature for logs"
+tds_register_lazy_theme "neutral" "tds_theme_neutral" "Neutral green temperature for tsm"
+tds_register_lazy_theme "electric" "tds_theme_electric" "Electric purple temperature for deploy"
 
 # Load active theme (sets palette arrays and semantic colors)
 TDS_ACTIVE_THEME="${TDS_ACTIVE_THEME:-default}"
@@ -72,3 +84,76 @@ export TDS_LOADED=true
 
 # Version info
 export TDS_VERSION="1.0.0"
+
+# ============================================================================
+# TDS COMMAND INTERFACE
+# ============================================================================
+
+# Load REPL
+source "$TDS_SRC/tds_repl.sh"
+
+# Main tds command
+tds() {
+    local action="${1:-help}"
+
+    case "$action" in
+        repl)
+            # Launch TDS REPL
+            tds_repl
+            ;;
+
+        themes)
+            # Quick theme list
+            tds_list_themes
+            ;;
+
+        switch)
+            # Switch theme
+            local theme="$2"
+            if [[ -z "$theme" ]]; then
+                echo "Usage: tds switch <theme-name>"
+                echo "Available: $(echo ${!TDS_THEME_REGISTRY[@]} | tr ' ' ', ')"
+                return 1
+            fi
+            tds_switch_theme "$theme"
+            ;;
+
+        palette)
+            # Show palette
+            if [[ -f "$TDS_SRC/tools/show_palette.sh" ]]; then
+                bash "$TDS_SRC/tools/show_palette.sh" "${2:-$(tds_active_theme)}"
+            else
+                echo "Palette tool not found"
+                return 1
+            fi
+            ;;
+
+        help|--help|-h)
+            cat <<EOF
+
+TDS - Tetra Design System
+
+COMMANDS
+  repl              Launch interactive TDS explorer
+  themes            List available themes
+  switch <theme>    Switch to a theme
+  palette [theme]   Show theme palette
+
+EXAMPLES
+  tds repl          Interactive color/theme explorer
+  tds themes        Show all themes
+  tds switch warm   Switch to warm temperature
+  tds palette cool  Show cool theme colors
+
+EOF
+            ;;
+
+        *)
+            echo "Unknown command: $action"
+            echo "Try: tds help"
+            return 1
+            ;;
+    esac
+}
+
+export -f tds

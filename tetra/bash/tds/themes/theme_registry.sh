@@ -95,20 +95,41 @@ tds_switch_theme() {
 
     # Call theme loader
     local loader="${TDS_THEME_REGISTRY[$theme_name]}"
-    if declare -f "$loader" >/dev/null; then
-        "$loader"
-        TDS_ACTIVE_THEME="$theme_name"
 
-        # Export theme name for subprocesses
-        export TDS_ACTIVE_THEME
-
-        # Only show message if explicitly requested (not during boot)
-        [[ "${TDS_QUIET_LOAD:-0}" != "1" ]] && echo "Switched to theme: $theme_name"
-        return 0
-    else
-        echo "Error: Theme loader '$loader' not found" >&2
-        return 1
+    # Check if loader function exists
+    if ! declare -f "$loader" >/dev/null; then
+        # Function doesn't exist - try lazy loading for temperature themes
+        case "$theme_name" in
+            warm|cool|neutral|electric)
+                # Lazy load temperature theme
+                local theme_file="$TDS_SRC/themes/${theme_name}.sh"
+                if [[ -f "$theme_file" ]]; then
+                    TDS_QUIET_LOAD=1 source "$theme_file" || {
+                        echo "Error: Failed to lazy-load theme '$theme_name'" >&2
+                        return 1
+                    }
+                else
+                    echo "Error: Theme file not found: $theme_file" >&2
+                    return 1
+                fi
+                ;;
+            *)
+                echo "Error: Theme loader '$loader' not found" >&2
+                return 1
+                ;;
+        esac
     fi
+
+    # Now call the loader
+    "$loader"
+    TDS_ACTIVE_THEME="$theme_name"
+
+    # Export theme name for subprocesses
+    export TDS_ACTIVE_THEME
+
+    # Only show message if explicitly requested (not during boot)
+    [[ "${TDS_QUIET_LOAD:-0}" != "1" ]] && echo "Switched to theme: $theme_name"
+    return 0
 }
 
 # Get active theme name
@@ -118,14 +139,15 @@ tds_active_theme() {
 }
 
 # Register a new theme (for third-party themes)
-# Args: theme_name, loader_function
+# Args: theme_name, loader_function, description (optional)
 tds_register_theme() {
     local theme_name="$1"
     local loader_fn="$2"
+    local description="${3:-}"
 
     if [[ -z "$theme_name" || -z "$loader_fn" ]]; then
         echo "Error: Theme name and loader function required" >&2
-        echo "Usage: tds_register_theme <name> <loader_function>" >&2
+        echo "Usage: tds_register_theme <name> <loader_function> [description]" >&2
         return 1
     fi
 
@@ -134,8 +156,20 @@ tds_register_theme() {
         return 1
     fi
 
+    # Only log if this is a new registration or being updated
+    local is_new=false
+    if [[ -z "${TDS_THEME_REGISTRY[$theme_name]}" ]] || \
+       [[ "${TDS_THEME_REGISTRY[$theme_name]}" != "$loader_fn" ]]; then
+        is_new=true
+    fi
+
     TDS_THEME_REGISTRY["$theme_name"]="$loader_fn"
-    echo "Registered theme: $theme_name"
+
+    # Only show registration message if not in quiet mode AND it's a new registration
+    if [[ "${TDS_QUIET_LOAD:-0}" != "1" ]] && [[ "$is_new" == "true" ]]; then
+        echo "Registered theme: $theme_name"
+    fi
+
     return 0
 }
 
@@ -243,5 +277,24 @@ tds_compare_themes() {
 }
 
 # Export functions
-export -f tds_list_themes tds_theme_info tds_switch_theme tds_active_theme tds_register_theme
+# Register lazy-loadable theme (doesn't require loader function to exist yet)
+# Args: theme_name, loader_function, description (optional)
+tds_register_lazy_theme() {
+    local theme_name="$1"
+    local loader_fn="$2"
+    local description="${3:-}"
+
+    if [[ -z "$theme_name" || -z "$loader_fn" ]]; then
+        echo "Error: Theme name and loader function required" >&2
+        return 1
+    fi
+
+    # Register even if loader doesn't exist yet (for lazy loading)
+    TDS_THEME_REGISTRY["$theme_name"]="$loader_fn"
+
+    # Don't print anything - this is for lazy loading
+    return 0
+}
+
+export -f tds_list_themes tds_theme_info tds_switch_theme tds_active_theme tds_register_theme tds_register_lazy_theme
 export -f tds_preview_themes tds_compare_themes

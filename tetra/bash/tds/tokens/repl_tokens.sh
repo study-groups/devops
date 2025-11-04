@@ -25,6 +25,7 @@ declare -A TDS_REPL_TOKENS=(
     [repl.action.none]="text.muted"    # Muted when no action selected
 
     # REPL prompt structure tokens
+    [repl.prompt]="mode:0"             # MODE_PRIMARY[0] - main prompt color (changes with temperature)
     [repl.prompt.bracket]="mode:6"     # MODE_PRIMARY[6] - muted blue brackets
     [repl.prompt.separator]="text.tertiary"  # Subtle separators (x)
     [repl.prompt.arrow]="verbs:3"      # Orange arrow >

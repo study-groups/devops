@@ -53,6 +53,10 @@ declare -A TDS_COLOR_TOKENS=(
     [action.description]="mode:6"          # Help text (muted)
     [action.tes.prefix]="verbs:3"          # @ symbol (orange)
     [action.tes.endpoint]="nouns:1"        # Endpoint name (magenta - target)
+
+    # Marker tokens - module visual markers
+    [marker.primary]="mode:0"              # Primary marker color (changes with temperature)
+    [marker.active]="verbs:3"              # Active/selected marker
 )
 
 # Resolve color token to hex value
