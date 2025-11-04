@@ -46,6 +46,7 @@ source "$TDOCS_SRC/integrations/rag_evidence.sh"
 
 # Load actions
 source "$TDOCS_SRC/actions/chuck.sh"
+source "$TDOCS_SRC/action_interface.sh"
 
 # Build help tree for tdocs
 _tdocs_build_help_tree() {
@@ -58,6 +59,7 @@ _tdocs_build_help_tree() {
     # Commands
     tree_insert "help.tdocs.init" command \
         title="Initialize document" \
+        description="Initialize document with metadata (interactive or non-interactive)" \
         help="Add metadata to document (interactive or non-interactive)" \
         synopsis="tdocs init <file> [OPTIONS]" \
         handler="tdocs_init_doc" \
@@ -66,6 +68,7 @@ tdoc init docs/API_SPEC.md --core --type spec"
 
     tree_insert "help.tdocs.view" command \
         title="Preview document" \
+        description="Preview document with color rendering and metadata" \
         help="View document with color rendering and metadata" \
         synopsis="tdocs view <file> [OPTIONS]" \
         handler="tdocs_view_doc" \
@@ -74,12 +77,14 @@ tdoc view file.md --meta-only"
 
     tree_insert "help.tdocs.tag" command \
         title="Tag editor" \
+        description="Interactive tag editor for documents" \
         help="Interactive tag editor for documents" \
         synopsis="tdocs tag <file>" \
         handler="tdocs_tag_interactive"
 
     tree_insert "help.tdocs.ls" command \
         title="List documents" \
+        description="List tracked documents with filters and preview" \
         help="List all tracked documents with filters and preview" \
         synopsis="tdocs ls [OPTIONS]" \
         handler="tdocs_ls_docs" \
@@ -91,6 +96,7 @@ tdocs ls --core --module rag --preview"
 
     tree_insert "help.tdocs.search" command \
         title="Search documents" \
+        description="Full-text search across all documents" \
         help="Full-text search across all documents" \
         synopsis="tdocs search <query>" \
         handler="tdocs_search_docs" \
@@ -98,18 +104,21 @@ tdocs ls --core --module rag --preview"
 
     tree_insert "help.tdocs.evidence" command \
         title="Evidence ranking" \
+        description="Get evidence-weighted document list for RAG" \
         help="Get evidence-weighted document list for RAG" \
         synopsis="tdocs evidence <query>" \
         handler="tdocs_evidence_for_query"
 
     tree_insert "help.tdocs.audit" command \
         title="Audit documents" \
+        description="Find documents without metadata" \
         help="Find documents without metadata" \
         synopsis="tdocs audit" \
         handler="tdocs_audit_docs"
 
     tree_insert "help.tdocs.browse" command \
         title="Interactive browser" \
+        description="Launch interactive REPL for browsing documents" \
         help="Launch interactive REPL for browsing documents" \
         synopsis="tdocs browse" \
         details="Hybrid mode REPL: shell commands work directly, /cmd for tdocs commands. Use /help inside REPL for more info." \
@@ -122,8 +131,18 @@ tdocs ls --core --module rag --preview"
 
     tree_insert "help.tdocs.index" command \
         title="Index management" \
+        description="Show or rebuild document indexes" \
         help="Show or rebuild document indexes" \
         synopsis="tdocs index [--rebuild]"
+
+    tree_insert "help.tdocs.about" command \
+        title="About tdocs" \
+        description="Show comprehensive tdocs documentation and usage guide" \
+        help="Display the full tdocs documentation including features, usage examples, and best practices" \
+        synopsis="tdocs about [--no-pager]" \
+        handler="tdocs_about" \
+        examples="tdocs about
+tdocs about --no-pager"
 
     # init flags/options
     tree_insert "help.tdocs.init.--core" flag \
@@ -181,9 +200,20 @@ tdocs ls --core --module rag --preview"
         title="Tag filter" \
         help="Filter by comma-separated tags"
 
+    # Discover command
+    tree_insert "help.tdocs.discover" command \
+        title="Discover documents" \
+        description="Scan for undocumented markdown files and optionally initialize them" \
+        help="Scan for undocumented markdown files and optionally initialize them" \
+        synopsis="tdocs discover [--auto-init]" \
+        handler="tdocs_discover_docs" \
+        examples="tdocs discover
+tdocs discover --auto-init"
+
     # Chuck command
     tree_insert "help.tdocs.chuck" command \
         title="Chuck LLM responses" \
+        description="Capture LLM responses as lower-grade technical documentation" \
         help="Capture LLM responses as lower-grade technical documentation" \
         synopsis="tdocs chuck <subcommand>" \
         handler="tdocs_action_chuck" \
@@ -250,7 +280,13 @@ tdocs_module_init() {
 
 # Module interface functions (for Tetra module system)
 tdoc_module_actions() {
-    echo "init view tag list search evidence audit chuck"
+    # Auto-generate from help tree if available
+    if declare -F tree_to_module_actions >/dev/null 2>&1; then
+        tree_to_module_actions "help.tdocs"
+    else
+        # Fallback to hardcoded list
+        echo "init view tag ls search evidence audit discover index browse chuck about"
+    fi
 }
 
 tdoc_module_properties() {
@@ -317,6 +353,9 @@ tdocs() {
             ;;
         chuck)
             tdoc_action_chuck "$@"
+            ;;
+        about)
+            tdocs_about "$@"
             ;;
         help|--help|-h)
             _tdocs_show_help
@@ -396,6 +435,46 @@ tdocs_index_status() {
     tdoc_index_status
 }
 
+tdocs_about() {
+    local use_pager=true
+
+    # Parse options
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --no-pager|-n)
+                use_pager=false
+                shift
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+
+    local readme_path="$TDOCS_SRC/docs/README.md"
+
+    if [[ ! -f "$readme_path" ]]; then
+        echo "Error: Documentation not found at $readme_path" >&2
+        return 1
+    fi
+
+    if [[ "$use_pager" == true ]]; then
+        # Try bat first (best markdown rendering)
+        if command -v bat >/dev/null 2>&1; then
+            bat --style=plain --paging=always "$readme_path"
+        # Fall back to less
+        elif command -v less >/dev/null 2>&1; then
+            less -R "$readme_path"
+        # Last resort: cat
+        else
+            cat "$readme_path"
+        fi
+    else
+        # No pager requested
+        cat "$readme_path"
+    fi
+}
+
 # Export wrapper functions
 export -f tdocs_ls_docs
 export -f tdocs_view_doc
@@ -407,6 +486,7 @@ export -f tdocs_discover_docs
 export -f tdocs_evidence_for_query
 export -f tdocs_index_rebuild
 export -f tdocs_index_status
+export -f tdocs_about
 
 # Export core functions (needed for REPL and subshells)
 export -f tdoc_list_docs

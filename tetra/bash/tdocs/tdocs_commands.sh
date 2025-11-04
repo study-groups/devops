@@ -23,6 +23,7 @@ tdocs_register_commands() {
     repl_register_slash_command "audit" tdocs_cmd_audit
     repl_register_slash_command "discover" tdocs_cmd_discover
     repl_register_slash_command "evidence" tdocs_cmd_evidence
+    repl_register_slash_command "about" tdocs_cmd_about
 }
 
 # Command: /ls [--core|--other] [--module NAME]
@@ -188,6 +189,29 @@ tdocs_cmd_evidence() {
     tdocs_evidence_for_query "$query" "$@"
 }
 
+# Command: /about
+tdocs_cmd_about() {
+    local readme_path="$TDOCS_SRC/docs/README.md"
+
+    if [[ ! -f "$readme_path" ]]; then
+        echo "Error: Documentation not found at $readme_path"
+        return 1
+    fi
+
+    # Check if pager is available
+    if command -v less >/dev/null 2>&1; then
+        # Use less with color support if available
+        if command -v bat >/dev/null 2>&1; then
+            bat --style=plain --paging=always "$readme_path"
+        else
+            less -R "$readme_path"
+        fi
+    else
+        # Fallback to cat
+        cat "$readme_path"
+    fi
+}
+
 export -f tdocs_register_commands
 export -f tdocs_cmd_ls
 export -f tdocs_cmd_view
@@ -199,3 +223,4 @@ export -f tdocs_cmd_env
 export -f tdocs_cmd_audit
 export -f tdocs_cmd_discover
 export -f tdocs_cmd_evidence
+export -f tdocs_cmd_about

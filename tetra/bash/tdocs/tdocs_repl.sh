@@ -48,6 +48,7 @@ evidence
 e
 audit
 env
+about
 help
 h
 exit
@@ -317,6 +318,11 @@ _tdocs_repl_process_input() {
             tdocs_cmd_audit
             ;;
 
+        # About
+        about)
+            tdocs_cmd_about
+            ;;
+
         # Help
         help|h|\?)
             cat <<'HELP'
@@ -350,6 +356,7 @@ Organization:
 Info:
   env                Show environment details
   audit              Show system status
+  about              Show full tdocs documentation
   help               Show this help
 
 System:

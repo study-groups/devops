@@ -8,6 +8,11 @@ if ! declare -F tree_children >/dev/null 2>&1; then
     source "$TREE_HELP_SRC/core.sh"
 fi
 
+# Load helper functions
+if [[ -f "$TREE_HELP_SRC/helpers.sh" ]]; then
+    source "$TREE_HELP_SRC/helpers.sh"
+fi
+
 # Load color system if available
 if [[ -n "$TETRA_SRC" ]] && [[ -f "$TETRA_SRC/bash/color/color.sh" ]]; then
     source "$TETRA_SRC/bash/color/color.sh"
