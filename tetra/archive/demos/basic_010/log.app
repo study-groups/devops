@@ -6033,3 +6033,39 @@
 02:32:56 GameInput: Unmapped key '[D' in view actions
 02:32:56 GameInput: Unmapped key '[D' in view actions
 02:32:56 GameInput: Unmapped key '[A' in view actions
+04:24:20 Format: TUI Formatting module initialized with expressive colors
+04:24:20 View: TUI View layer initialized with pub/sub event subscribers
+04:24:20 Display: Synchronization subscribers initialized
+04:24:48 Format: TUI Formatting module initialized with expressive colors
+04:24:48 View: TUI View layer initialized with pub/sub event subscribers
+04:24:48 Display: Synchronization subscribers initialized
+04:24:57 Format: TUI Formatting module initialized with expressive colors
+04:24:57 View: TUI View layer initialized with pub/sub event subscribers
+04:24:58 Display: Synchronization subscribers initialized
+04:25:57 Rendering: Double buffer initialized (80x24)
+04:25:57 ViewController: Registered actions -> ActionsViewController
+04:25:57 ViewController: Registered palette -> PaletteViewController
+04:25:57 ViewController: Registered info -> InfoViewController
+04:25:57 ViewController: Registered repl -> ReplViewController
+04:25:57 ViewController: Registered debug -> DebugViewController
+04:25:57 ViewController: System initialized, starting in actions
+04:25:57 GameInput: System initialized with 21 mappings
+04:25:57 HeaderComponent: Mounted header
+04:25:57 Rendering: header marked dirty
+04:25:57 Component: header (HeaderComponent) mounted
+04:25:57 ContentComponent: Mounted content
+04:25:57 Rendering: content marked dirty
+04:25:57 Component: content (ContentComponent) mounted
+04:25:57 FooterComponent: Mounted footer
+04:25:57 Rendering: footer marked dirty
+04:25:57 Component: footer (FooterComponent) mounted
+04:25:57 Enhanced TUI: System initialized
+04:25:57 Terminal size detected: 80x24
+04:25:57 Rendering: Frame built in back buffer
+04:25:57 Rendering: Frame presented (hash: 39688f93)
+04:25:59 GameInput: Unmapped key '[B' in view actions
+04:25:59 GameInput: Unmapped key '[A' in view actions
+04:26:00 GameInput: Unmapped key '' in view actions
+04:26:00 GameInput: Unmapped key '' in view actions
+04:26:01 GameInput: Unmapped key '' in view actions
+04:26:01 GameInput: Unmapped key '' in view actions

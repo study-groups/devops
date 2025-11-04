@@ -82,6 +82,7 @@ gamepad_read_sequence() {
 
 # Get input from either keyboard or gamepad (multiplexed)
 # Returns: key pressed (from stdin or gamepad pipe)
+# Args: $1 = timeout in seconds (0 = block forever, omit = 0.05 default)
 get_input_multiplexed() {
     local timeout="${1:-0.05}"
     local key=""
@@ -96,17 +97,35 @@ get_input_multiplexed() {
     fi
 
     # Then check keyboard with timeout (read from /dev/tty explicitly)
-    if read -rsn1 -t "$timeout" key </dev/tty; then
-        # Handle escape sequences from keyboard
-        if [[ "$key" == $'\x1b' ]]; then
-            local seq=""
-            if read -rsn2 -t 0.01 seq </dev/tty 2>/dev/null; then
-                echo -n "$key$seq"
-                return 0
+    # timeout=0 means block forever (no -t flag)
+    if [[ "$timeout" == "0" || "$timeout" == "0.0" || "$timeout" == "0.000000" ]]; then
+        # Blocking read - wait forever for input
+        if read -rsn1 key </dev/tty; then
+            # Handle escape sequences from keyboard
+            if [[ "$key" == $'\x1b' ]]; then
+                local seq=""
+                if read -rsn2 -t 0.01 seq </dev/tty 2>/dev/null; then
+                    echo -n "$key$seq"
+                    return 0
+                fi
             fi
+            echo -n "$key"
+            return 0
         fi
-        echo -n "$key"
-        return 0
+    else
+        # Timeout read
+        if read -rsn1 -t "$timeout" key </dev/tty; then
+            # Handle escape sequences from keyboard
+            if [[ "$key" == $'\x1b' ]]; then
+                local seq=""
+                if read -rsn2 -t 0.01 seq </dev/tty 2>/dev/null; then
+                    echo -n "$key$seq"
+                    return 0
+                fi
+            fi
+            echo -n "$key"
+            return 0
+        fi
     fi
 
     # No input from either source

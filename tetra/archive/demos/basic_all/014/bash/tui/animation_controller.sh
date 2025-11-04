@@ -19,6 +19,17 @@ declare -g ANIM_FRAME_HISTORY_SIZE=60
 declare -g ANIM_FRAME_DROPS=0
 declare -g ANIM_RENDER_TIME_MS=0
 
+# Get current time in nanoseconds (portable for macOS and Linux)
+_anim_get_time_ns() {
+    if date +%s%N 2>/dev/null | grep -q 'N$'; then
+        # macOS - use microseconds and convert
+        echo $(($(gdate +%s%N 2>/dev/null || perl -MTime::HiRes=time -e 'printf "%.0f", time * 1000000000')))
+    else
+        # Linux - native nanosecond support
+        date +%s%N
+    fi
+}
+
 # Initialize animation controller
 anim_init() {
     ANIM_ENABLED=false
@@ -26,7 +37,7 @@ anim_init() {
     ANIM_FPS_TARGET=30
     ANIM_FRAME_COUNT=0
     ANIM_FRAME_DROPS=0
-    ANIM_LAST_FPS_CHECK=$(date +%s%N)
+    ANIM_LAST_FPS_CHECK=$(_anim_get_time_ns)
     ANIM_FRAME_TIMES=()
 }
 
@@ -44,7 +55,7 @@ anim_start() {
     ANIM_ENABLED=true
     ANIM_PAUSED=false
     osc_start
-    ANIM_LAST_FPS_CHECK=$(date +%s%N)
+    ANIM_LAST_FPS_CHECK=$(_anim_get_time_ns)
     ANIM_FRAME_COUNT=0
 }
 
@@ -71,12 +82,12 @@ anim_should_tick() {
 
 # Get target frame time in seconds
 anim_get_frame_time() {
-    bc <<< "scale=6; 1.0 / $ANIM_FPS_TARGET"
+    awk "BEGIN {printf \"%.6f\", 1.0 / $ANIM_FPS_TARGET}"
 }
 
 # Record frame timing
 anim_record_frame() {
-    local now=$(date +%s%N)
+    local now=$(_anim_get_time_ns)
     local frame_time_ns=$((now - ANIM_LAST_FPS_CHECK))
 
     ((ANIM_FRAME_COUNT++))
@@ -90,9 +101,9 @@ anim_record_frame() {
         ANIM_FRAME_TIMES=("${ANIM_FRAME_TIMES[@]:1}")
     fi
 
-    # Calculate FPS every second
-    local elapsed_sec=$(bc <<< "scale=3; $frame_time_ns / 1000000000")
-    if (( $(echo "$elapsed_sec >= 1.0" | bc -l) )); then
+    # Calculate FPS every second (avoid bc, use awk)
+    local elapsed_sec=$(awk "BEGIN {printf \"%.3f\", $frame_time_ns / 1000000000}")
+    if awk "BEGIN {exit !($elapsed_sec >= 1.0)}"; then
         ANIM_FPS_ACTUAL=$ANIM_FRAME_COUNT
         ANIM_FRAME_COUNT=0
         ANIM_LAST_FPS_CHECK=$now
@@ -120,7 +131,7 @@ anim_get_avg_frame_time() {
 
 # Detect if we're dropping frames
 anim_check_performance() {
-    local target_ms=$(bc <<< "scale=0; 1000 / $ANIM_FPS_TARGET")
+    local target_ms=$(awk "BEGIN {printf \"%.0f\", 1000 / $ANIM_FPS_TARGET}")
     local avg_ms=$(anim_get_avg_frame_time)
 
     if [[ $avg_ms -gt $target_ms ]]; then

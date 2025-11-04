@@ -464,9 +464,6 @@ main() {
     echo "MAIN LOOP STARTED" >> "$DEBUG_FIFO" 2>/dev/null || true
 
     while true; do
-        # Frame timing start (for FPS tracking)
-        local frame_start=$(date +%s%N)
-
         # Only render if something changed
         if [[ "$needs_redraw" == "true" ]]; then
             echo "RENDER: first=$is_first_render" >> "$DEBUG_FIFO" 2>/dev/null || true
@@ -475,6 +472,9 @@ main() {
             is_first_render=false
         fi
 
+        # Read from keyboard OR gamepad
+        local key=""
+
         # Animation tick (only if enabled and not paused)
         if anim_should_tick; then
             osc_tick
@@ -482,20 +482,14 @@ main() {
             # Record frame for FPS tracking
             anim_record_frame
             anim_check_performance
-        fi
 
-        # Calculate frame budget for input timeout
-        local target_frame_time=$(anim_get_frame_time)
-        local timeout_sec=$(printf "%.6f" "$target_frame_time")
-
-        # Read from keyboard OR gamepad with frame-rate-aware timeout
-        local key=""
-        echo "READING INPUT (timeout=$timeout_sec, anim=$(anim_should_tick && echo on || echo off))" >> "$DEBUG_FIFO" 2>/dev/null || true
-        if anim_should_tick; then
             # Use frame-paced timeout when animation is running
-            key=$(get_input_multiplexed "$timeout_sec" 2>/dev/null) || key=""
+            local target_frame_time=$(anim_get_frame_time)
+            echo "READING INPUT (timeout=$target_frame_time, anim=on)" >> "$DEBUG_FIFO" 2>/dev/null || true
+            key=$(get_input_multiplexed "$target_frame_time" 2>/dev/null) || key=""
         else
-            # Blocking read when animation is off
+            # Blocking read when animation is off (timeout=0 means wait forever)
+            echo "READING INPUT (blocking, anim=off)" >> "$DEBUG_FIFO" 2>/dev/null || true
             key=$(get_input_multiplexed 0 2>/dev/null) || key=""
         fi
 
