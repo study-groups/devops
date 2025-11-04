@@ -132,7 +132,27 @@ EOF
     case "$action" in
         # REPL mode
         repl)
-            midi_repl
+            # Parse OSC connection options
+            local osc_host="$REPL_OSC_HOST"
+            local osc_port="$REPL_OSC_PORT"
+
+            while [[ $# -gt 0 ]]; do
+                case "$1" in
+                    --osc-host)
+                        osc_host="$2"
+                        shift 2
+                        ;;
+                    --osc-port)
+                        osc_port="$2"
+                        shift 2
+                        ;;
+                    *)
+                        shift
+                        ;;
+                esac
+            done
+
+            midi_repl "$osc_host" "$osc_port"
             ;;
 
         # Initialize
@@ -206,14 +226,7 @@ EOF
             ;;
 
         devices)
-            echo "Available MIDI devices:"
-            if [[ -x "$MIDI_SRC/tmc" ]]; then
-                "$MIDI_SRC/tmc" -l
-            else
-                echo "tmc binary not found. Build with:"
-                echo "  cd $MIDI_SRC"
-                echo "  gcc -o tmc tmc.c -lportmidi -lpthread"
-            fi
+            "$MIDI_SRC/midi.js" -l
             ;;
 
         # Configuration
@@ -270,25 +283,18 @@ EOF
             esac
             ;;
 
-        # Build tmc binary
+        # Install dependencies
         build)
-            echo "Building tmc binary..."
-            if ! command -v gcc >/dev/null; then
-                echo "ERROR: gcc not found"
-                return 1
-            fi
-
+            echo "Installing Node.js dependencies..."
             cd "$MIDI_SRC"
-            if gcc -o tmc tmc.c -lportmidi -lpthread 2>&1; then
-                echo "✓ Built: $MIDI_SRC/tmc"
+            if npm install; then
+                echo "✓ Dependencies installed"
                 echo ""
-                echo "Test with: $MIDI_SRC/tmc -l"
+                echo "Test with: $MIDI_SRC/tmc.js -l"
             else
-                echo "✗ Build failed"
+                echo "✗ Installation failed"
                 echo ""
-                echo "Make sure PortMIDI is installed:"
-                echo "  macOS: brew install portmidi"
-                echo "  Linux: apt-get install libportmidi-dev"
+                echo "Make sure Node.js and npm are installed"
                 return 1
             fi
             ;;

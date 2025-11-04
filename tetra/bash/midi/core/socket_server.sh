@@ -19,20 +19,8 @@ source "$MIDI_SRC/core/learn.sh"
 SERVICE_NAME="${1:-tmc}"
 SOCKET_PATH="${TSM_PROCESSES_DIR}/sockets/${SERVICE_NAME}.sock"
 SUBSCRIBERS_FILE="${TSM_PROCESSES_DIR}/${SERVICE_NAME}/subscribers.txt"
-TMC_BINARY_C="${MIDI_SRC}/tmc"
-TMC_BINARY_NODE="${MIDI_SRC}/tmc.js"
-TMC_BINARY_PY="${MIDI_SRC}/tmc.py"
-TMC_BRIDGE_SOCKET="/tmp/tmc_bridge_$$.sock"
-
-# Auto-detect which TMC binary to use
-TMC_BINARY=""
-if [[ -x "$TMC_BINARY_C" ]]; then
-    TMC_BINARY="$TMC_BINARY_C"
-elif [[ -x "$TMC_BINARY_NODE" ]] && command -v node >/dev/null; then
-    TMC_BINARY="node $TMC_BINARY_NODE"
-elif [[ -x "$TMC_BINARY_PY" ]] && command -v python3 >/dev/null; then
-    TMC_BINARY="python3 $TMC_BINARY_PY"
-fi
+MIDI_BRIDGE="${MIDI_SRC}/midi.js"
+TMC_BRIDGE_PIPE="/tmp/tmc_bridge_$$.pipe"
 
 # Ensure directories exist
 mkdir -p "$(dirname "$SOCKET_PATH")"
@@ -284,32 +272,41 @@ handle_command() {
     esac
 }
 
-# Start tmc binary bridge (if binary exists)
+# Start MIDI bridge (pipes stdout to us)
 start_tmc_bridge() {
-    if [[ -z "$TMC_BINARY" ]]; then
-        log "WARNING: No TMC binary found"
-        log "Options:"
-        log "  1. Node.js: cd $MIDI_SRC && npm install easymidi"
-        log "  2. C: gcc -o $MIDI_SRC/tmc $MIDI_SRC/tmc.c -lportmidi -lpthread"
-        log "  3. Python: pip3 install python-rtmidi"
+    if [[ ! -f "$MIDI_BRIDGE" ]]; then
+        log "ERROR: MIDI bridge not found: $MIDI_BRIDGE"
+        return 1
+    fi
+
+    if ! command -v node >/dev/null; then
+        log "ERROR: Node.js not found. Install Node.js to use MIDI bridge."
         return 1
     fi
 
     # Get MIDI device configuration
-    local input_device="${TMC_INPUT_DEVICE:--1}"
-    local output_device="${TMC_OUTPUT_DEVICE:--1}"
+    local input_device="${TMC_INPUT_DEVICE:-0}"
+    local output_device="${TMC_OUTPUT_DEVICE:-0}"
 
-    log "Starting tmc bridge..."
+    log "Starting MIDI bridge..."
+    log "  Bridge: $MIDI_BRIDGE"
     log "  Input device: $input_device"
     log "  Output device: $output_device"
-    log "  Bridge socket: $TMC_BRIDGE_SOCKET"
 
-    # Start tmc binary in background
-    "$TMC_BINARY" -i "$input_device" -o "$output_device" \
-                  -s "$TMC_BRIDGE_SOCKET" -v &
+    # Start midi.js bridge, reading its stdout
+    node "$MIDI_BRIDGE" -i "$input_device" -o "$output_device" -v 2>&1 | while IFS= read -r line; do
+        # Strip "MIDI IN: " prefix if present (from verbose stderr)
+        line="${line#MIDI IN: }"
+
+        if [[ "$line" =~ ^(CC|NOTE_ON|NOTE_OFF|PROGRAM_CHANGE|PITCH_BEND) ]]; then
+            process_midi_event "$line"
+        elif [[ -n "$line" ]]; then
+            log "$line"
+        fi
+    done &
     TMC_BRIDGE_PID=$!
 
-    log "TMC bridge started (PID: $TMC_BRIDGE_PID)"
+    log "MIDI bridge started (PID: $TMC_BRIDGE_PID)"
 }
 
 # Monitor tmc bridge socket for incoming MIDI
@@ -333,19 +330,13 @@ start_server() {
 
     # Remove old socket if exists
     [[ -S "$SOCKET_PATH" ]] && rm -f "$SOCKET_PATH"
-    [[ -S "$TMC_BRIDGE_SOCKET" ]] && rm -f "$TMC_BRIDGE_SOCKET"
 
-    # Try to start tmc bridge
+    # Start tmc bridge (pipes MIDI events to process_midi_event)
     start_tmc_bridge || log "Running without tmc bridge"
 
     # Use nc or socat to create socket server
     if command -v nc >/dev/null 2>&1; then
         log "Using netcat for socket server"
-
-        # Start bridge monitor in background
-        if [[ -n "$TMC_BRIDGE_PID" ]]; then
-            monitor_tmc_bridge &
-        fi
 
         while true; do
             # nc -l -U creates a Unix socket server

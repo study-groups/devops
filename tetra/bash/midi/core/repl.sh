@@ -11,8 +11,23 @@ fi
 # REPL configuration
 REPL_HISTORY_BASE="${MIDI_DIR}/repl/history"
 
+# REPL state (OSC-based, no more tmc_state_get dependency)
+REPL_CONTROLLER=""
+REPL_INSTANCE=0
+REPL_VARIANT=""
+REPL_VARIANT_NAME=""
+REPL_LAST_CC=""
+REPL_LAST_VAL=""
+
+# OSC connection settings
+REPL_OSC_HOST="${REPL_OSC_HOST:-0.0.0.0}"
+REPL_OSC_PORT="${REPL_OSC_PORT:-57121}"
+
 # Register slash commands
 midi_register_repl_commands() {
+    # Variant control (NEW - OSC-based)
+    repl_register_slash_command "variant" "midi_repl_variant"
+
     # Learning commands
     repl_register_slash_command "learn" "midi_repl_learn"
     repl_register_slash_command "learn-all" "midi_repl_learn_all"
@@ -32,7 +47,7 @@ midi_register_repl_commands() {
     repl_register_slash_command "device" "midi_repl_device"
     repl_register_slash_command "devices" "midi_repl_devices"
 
-    # Service commands
+    # Service commands (DEPRECATED - for Unix socket mode)
     repl_register_slash_command "start" "midi_repl_start"
     repl_register_slash_command "stop" "midi_repl_stop"
     repl_register_slash_command "status" "midi_repl_status"
@@ -45,6 +60,30 @@ midi_register_repl_commands() {
 }
 
 # Command handlers
+
+midi_repl_variant() {
+    local variant="$1"
+
+    if [[ -z "$variant" ]]; then
+        echo "Current variant: ${REPL_VARIANT} (${REPL_VARIANT_NAME})"
+        echo "Usage: /variant <a|b|c|d>"
+        return 0
+    fi
+
+    # Send OSC control message to switch variant
+    # We need a simple OSC sender tool for this
+    if command -v oscsend >/dev/null 2>&1; then
+        oscsend localhost "$REPL_OSC_PORT" /midi/control/variant s "$variant"
+        echo "Variant switch requested: $variant"
+    elif [[ -f "$MIDI_SRC/osc_send.js" ]]; then
+        node "$MIDI_SRC/osc_send.js" localhost "$REPL_OSC_PORT" /midi/control/variant "$variant"
+        echo "Variant switch requested: $variant"
+    else
+        echo "ERROR: No OSC sender available"
+        echo "Install oscsend or create osc_send.js helper"
+        return 1
+    fi
+}
 
 midi_repl_learn() {
     local args="$*"
@@ -100,8 +139,10 @@ midi_repl_device() {
 midi_repl_devices() {
     if [[ -x "$MIDI_SRC/tmc" ]]; then
         "$MIDI_SRC/tmc" -l
+    elif [[ -x "$MIDI_SRC/midi.js" ]]; then
+        node "$MIDI_SRC/midi.js" -l
     else
-        echo "tmc binary not found. Build with: midi build"
+        echo "midi binary not found. Build with: midi build"
     fi
 }
 
@@ -147,46 +188,36 @@ EOF
 }
 
 # Custom prompt builder
-# Format: [controller x map][CC#][val]>
-# Example: [vmx8 x qpong][7][64]>
+# Format: [controller[instance]:variant name][CC#][val]>
+# Example: [vmx8[0]:a mixer][CC7][64]>
 midi_repl_prompt() {
-    # Source state if needed (for state container functions)
-    if ! command -v tmc_state_get &>/dev/null; then
-        source "$MIDI_SRC/core/state.sh" 2>/dev/null || true
-    fi
-
-    # Get controller and map info from state
-    local controller=$(tmc_state_get "controller_name" 2>/dev/null || echo "")
-    local map=$(tmc_state_get "map_name" 2>/dev/null || echo "")
-
-    # Get last CC info from state
-    local last_cc_controller=$(tmc_state_get "last_cc_controller" 2>/dev/null || echo "")
-    local last_cc_value=$(tmc_state_get "last_cc_value" 2>/dev/null || echo "")
-
-    # Build first bracket: [controller x map]
+    # Build first bracket: [controller[instance]:variant variant_name]
     local bracket1=""
-    if [[ -n "$controller" && -n "$map" ]]; then
-        bracket1="${TETRA_CYAN}[${controller} ${TETRA_DIM}x${TETRA_NC} ${TETRA_CYAN}${map}]${TETRA_NC}"
-    elif [[ -n "$controller" ]]; then
-        bracket1="${TETRA_CYAN}[${controller}]${TETRA_NC}"
-    elif [[ -n "$map" ]]; then
-        bracket1="${TETRA_CYAN}[${map}]${TETRA_NC}"
+    if [[ -n "$REPL_CONTROLLER" && -n "$REPL_VARIANT" ]]; then
+        bracket1="${TETRA_CYAN}[${REPL_CONTROLLER}[${REPL_INSTANCE}]:${REPL_VARIANT}"
+        if [[ -n "$REPL_VARIANT_NAME" ]]; then
+            bracket1+=" ${TETRA_DIM}${REPL_VARIANT_NAME}${TETRA_NC}${TETRA_CYAN}]${TETRA_NC}"
+        else
+            bracket1+="]${TETRA_NC}"
+        fi
+    elif [[ -n "$REPL_CONTROLLER" ]]; then
+        bracket1="${TETRA_CYAN}[${REPL_CONTROLLER}[${REPL_INSTANCE}]]${TETRA_NC}"
     else
         bracket1="${TETRA_DIM}[no map]${TETRA_NC}"
     fi
 
     # Build second bracket: [CC#]
     local bracket2=""
-    if [[ -n "$last_cc_controller" ]]; then
-        bracket2="${TETRA_YELLOW}[CC${last_cc_controller}]${TETRA_NC}"
+    if [[ -n "$REPL_LAST_CC" ]]; then
+        bracket2="${TETRA_YELLOW}[CC${REPL_LAST_CC}]${TETRA_NC}"
     else
         bracket2="${TETRA_DIM}[--]${TETRA_NC}"
     fi
 
     # Build third bracket: [val]
     local bracket3=""
-    if [[ -n "$last_cc_value" ]]; then
-        bracket3="${TETRA_GREEN}[${last_cc_value}]${TETRA_NC}"
+    if [[ -n "$REPL_LAST_VAL" ]]; then
+        bracket3="${TETRA_GREEN}[${REPL_LAST_VAL}]${TETRA_NC}"
     else
         bracket3="${TETRA_DIM}[--]${TETRA_NC}"
     fi
@@ -213,8 +244,56 @@ midi_repl_input() {
     fi
 }
 
+# Background OSC event listener
+midi_repl_osc_listener() {
+    local osc_host="$1"
+    local osc_port="$2"
+
+    # Start Node.js OSC listener
+    node "$MIDI_SRC/osc_repl_listener.js" -h "$osc_host" -p "$osc_port" 2>&1 | while IFS= read -r line; do
+        case "$line" in
+            __STATE__*)
+                # Parse state: __STATE__ controller=vmx8 instance=0 variant=a ...
+                local state_str="${line#__STATE__ }"
+
+                # Parse key=value pairs
+                while IFS= read -r pair; do
+                    local key="${pair%%=*}"
+                    local value="${pair#*=}"
+
+                    case "$key" in
+                        controller) REPL_CONTROLLER="$value" ;;
+                        instance) REPL_INSTANCE="$value" ;;
+                        variant) REPL_VARIANT="$value" ;;
+                        variant_name) REPL_VARIANT_NAME="$value" ;;
+                        last_cc) REPL_LAST_CC="$value" ;;
+                        last_val) REPL_LAST_VAL="$value" ;;
+                    esac
+                done < <(echo "$state_str" | tr ' ' '\n')
+                ;;
+
+            __EVENT__*)
+                # Parse event: __EVENT__ raw CC 1 7 64
+                local event_str="${line#__EVENT__ }"
+                # Display event to user (optional, can be customized)
+                # echo "$event_str"
+                ;;
+
+            *)
+                # Regular output from OSC listener (errors, status messages)
+                if [[ -n "$line" ]]; then
+                    echo "$line" >&2
+                fi
+                ;;
+        esac
+    done
+}
+
 # Main REPL entry point
 midi_repl() {
+    local osc_host="${1:-$REPL_OSC_HOST}"
+    local osc_port="${2:-$REPL_OSC_PORT}"
+
     # Ensure MIDI is initialized
     midi_init 2>/dev/null || true
 
@@ -227,10 +306,22 @@ midi_repl() {
     # Set history base
     REPL_HISTORY_BASE="${MIDI_DIR}/repl/history"
 
-    echo "TMC REPL | Type /help for commands | Ctrl+D to exit"
+    # Start background OSC listener
+    midi_repl_osc_listener "$osc_host" "$osc_port" &
+    local listener_pid=$!
+
+    # Cleanup on exit
+    trap "kill $listener_pid 2>/dev/null; wait $listener_pid 2>/dev/null || true" EXIT
+
+    echo "MIDI REPL (OSC-based) | Listening on ${osc_host}:${osc_port}"
+    echo "Type /help for commands | Ctrl+D to exit"
 
     # Run REPL
     repl_run
+
+    # Cleanup
+    kill $listener_pid 2>/dev/null || true
+    wait $listener_pid 2>/dev/null || true
 }
 
 # Export functions

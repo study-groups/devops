@@ -4,6 +4,7 @@
   "description": "TMC MIDI Bridge for Tetra",
   "main": "tmc.js",
   "dependencies": {
-    "easymidi": "^2.0.1"
+    "easymidi": "^2.0.1",
+    "osc": "^2.4.5"
   }
 }
