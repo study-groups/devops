@@ -20,6 +20,9 @@ source "$TETRA_SRC/bash/tcurses/tcurses_readline.sh"
 # Source tree completion integration
 source "$REPL_SRC/tree_completion.sh"
 
+# Source REPL metadata system
+source "$REPL_SRC/repl_metadata.sh"
+
 # Source REPL components
 source "$REPL_SRC/core/mode.sh"
 source "$REPL_SRC/core/input.sh"

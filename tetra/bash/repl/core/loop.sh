@@ -56,7 +56,8 @@ repl_main_loop() {
             1)  # Exit
                 break
                 ;;
-            2)  # Prompt changed (mode switch, theme change, etc), rebuild
+            2)  # Prompt changed (mode switch, theme change, etc), rebuild on same line
+                printf '\r\033[K'  # Clear line
                 continue
                 ;;
             *)  # Unknown status
