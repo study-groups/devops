@@ -2,7 +2,12 @@
 # Symbol-Driven REPL Demo
 # Shows runtime mode switching and symbol detection
 
-cd "$(dirname "$0")/../.."
+# Navigate to TETRA_SRC if available, otherwise use relative path
+if [[ -n "$TETRA_SRC" ]]; then
+    cd "$TETRA_SRC"
+else
+    cd "$(dirname "$0")/../.."
+fi
 
 cat << 'EOF'
 Symbol-Driven REPL Demo

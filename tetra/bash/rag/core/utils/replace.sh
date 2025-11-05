@@ -1,5 +1,4 @@
 #MULTICAT_START#
-# dir: /Users/mricos/src/bash/rag
 # file: replace.sh
 # notes:
 #MULTICAT_END#
