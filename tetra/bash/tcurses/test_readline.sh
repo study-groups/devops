@@ -3,7 +3,8 @@
 
 set -e
 
-export TETRA_SRC="${TETRA_SRC:-/Users/mricos/src/devops/tetra}"
+: "${TETRA_SRC:=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+export TETRA_SRC
 
 # Source the readline module
 source "$TETRA_SRC/bash/tcurses/tcurses_readline.sh"

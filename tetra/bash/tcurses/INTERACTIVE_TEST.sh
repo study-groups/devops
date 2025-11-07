@@ -4,7 +4,8 @@
 
 set -e
 
-export TETRA_SRC="${TETRA_SRC:-/Users/mricos/src/devops/tetra}"
+: "${TETRA_SRC:=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+export TETRA_SRC
 
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║      Testing Native Readline - INTERACTIVE TEST           ║"

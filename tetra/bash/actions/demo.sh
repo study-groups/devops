@@ -5,8 +5,9 @@
 set -e
 
 # Setup
-export TETRA_SRC="${TETRA_SRC:-/Users/mricos/src/devops/tetra}"
-export TETRA_DIR="${TETRA_DIR:-$HOME/tetra}"
+: "${TETRA_SRC:=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+: "${TETRA_DIR:=$HOME/tetra}"
+export TETRA_SRC TETRA_DIR
 
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║        Action Registry System - Live Demo                   ║"

@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-export TETRA_SRC="/Users/mricos/src/devops/tetra"
+# Auto-detect TETRA_SRC if not set (relative to this script)
+: "${TETRA_SRC:=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+export TETRA_SRC
+
 source "$TETRA_SRC/bash/game/game.sh"
 
 echo "=== Test direct entity create ==="

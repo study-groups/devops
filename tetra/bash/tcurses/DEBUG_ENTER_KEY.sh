@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Debug script to see what Enter key sends
 
-export TETRA_SRC="${TETRA_SRC:-/Users/mricos/src/devops/tetra}"
+: "${TETRA_SRC:=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+export TETRA_SRC
 export TCURSES_READLINE_DEBUG=1
 
 source "$TETRA_SRC/bash/tcurses/tcurses_readline.sh"

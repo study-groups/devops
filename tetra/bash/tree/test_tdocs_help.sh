@@ -3,8 +3,10 @@
 
 set -e
 
-export TETRA_SRC=/Users/mricos/src/devops/tetra
-export TETRA_DIR=$HOME/tetra
+# Auto-detect TETRA_SRC if not set (relative to this script)
+: "${TETRA_SRC:=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+: "${TETRA_DIR:=$HOME/tetra}"
+export TETRA_SRC TETRA_DIR
 
 # Load only what we need
 source "$TETRA_SRC/bash/tree/core.sh"

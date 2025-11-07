@@ -10,8 +10,9 @@ echo "╚═══════════════════════�
 echo ""
 
 # Setup environment
-export TETRA_SRC="${TETRA_SRC:-/Users/mricos/src/devops/tetra}"
-export TETRA_DIR="${TETRA_DIR:-$HOME/tetra}"
+: "${TETRA_SRC:=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+: "${TETRA_DIR:=$HOME/tetra}"
+export TETRA_SRC TETRA_DIR
 
 echo "⚙️  Loading system..."
 source ~/tetra/tetra.sh 2>/dev/null || echo "  Note: tetra.sh not loaded (optional)"

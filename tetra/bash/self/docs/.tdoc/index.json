@@ -1,0 +1,32 @@
+{
+  "module": "self",
+  "documents": [
+    {
+  "timestamp": 1762218222,
+  "doc_path": "/Users/mricos/src/devops/tetra/bash/self/docs/ARCHITECTURE.md",
+  "category": "other",
+  "type": "guide",
+  "tags": ["bug-fix", "plan", "self"],
+  "module": "self",
+  "evidence_weight": "secondary",
+  "created": "2025-11-03T17:03:42Z",
+  "updated": "2025-11-03T17:03:42Z",
+  "status": "discovered",
+  "hash": "d85c9ba6ba8c851859b2e539153a1cfe4e3615229a644f522f55572ba12169ad"
+}
+,
+    {
+  "timestamp": 1762218223,
+  "doc_path": "/Users/mricos/src/devops/tetra/bash/self/docs/TASKS.md",
+  "category": "other",
+  "type": "guide",
+  "tags": ["bug-fix", "self"],
+  "module": "self",
+  "evidence_weight": "secondary",
+  "created": "2025-11-03T17:03:43Z",
+  "updated": "2025-11-03T17:03:43Z",
+  "status": "discovered",
+  "hash": "68eff7b2dd0f8cf6df9c4c5213987b578c89f4e87904835a4eb26cc257aa63b9"
+}
+  ]
+}
