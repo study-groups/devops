@@ -89,7 +89,7 @@ tsm() {
                 running|"")
                     tsm_list_running
                     ;;
-                available|all)
+                available|all|--all|-a)
                     tsm_list_available
                     ;;
                 pwd|--pwd|paths)
@@ -105,12 +105,13 @@ tsm() {
                     echo "  running    - Show only running services (default)"
                     echo "  available  - Show all available services"
                     echo "  all        - Show all services (same as available)"
+                    echo "  --all, -a  - Show all services (alternative syntax)"
                     echo "  pwd        - Show running services with working directory"
                     echo "  -l         - Show detailed/long format with CPU, memory, paths"
                     ;;
                 *)
                     echo "❌ Unknown option: $1"
-                    echo "Usage: tsm list [running|available|all|pwd|-l]"
+                    echo "Usage: tsm list [running|available|all|--all|pwd|-l]"
                     ;;
             esac
             ;;
@@ -244,8 +245,14 @@ tsm() {
             tsm_daemon "$@"
             ;;
         repl)
-            # bash/repl-based REPL (loaded by include.sh)
-            tsm_repl_main
+            # Modern bash/repl-based REPL
+            if [[ -f "$TETRA_SRC/bash/tsm/tsm_repl.sh" ]]; then
+                source "$TETRA_SRC/bash/tsm/tsm_repl.sh"
+                tsm_repl
+            else
+                echo "Error: TSM REPL not found at $TETRA_SRC/bash/tsm/tsm_repl.sh" >&2
+                return 1
+            fi
             ;;
         patrol)
             tsm_patrol "${@:2}"

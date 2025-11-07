@@ -68,22 +68,33 @@ tdoc_suggest_type() {
     local file="$1"
     local filename=$(basename "$file")
 
+    # System-wide standards (TCS, TAS, TRS, TES, TTS, etc.)
+    if [[ "$filename" =~ ^T[A-Z]{2}_ ]]; then
+        echo "standard"
+    # Module specifications (e.g., TUBES_SPECIFICATION.md)
+    elif [[ "$filename" =~ _SPECIFICATION\.md$ ]]; then
+        echo "specification"
+    # Integration examples (e.g., TUBES_INTEGRATION_EXAMPLE.md)
+    elif [[ "$filename" =~ _EXAMPLE\.md$ ]] || [[ "$filename" =~ EXAMPLE\.md$ ]]; then
+        echo "example"
     # Core document types
-    if [[ "$filename" =~ (SPEC|Specification) ]]; then
+    elif [[ "$filename" =~ (SPEC|Specification) ]]; then
         echo "spec"
     elif [[ "$filename" =~ (GUIDE|Guide|Tutorial) ]]; then
         echo "guide"
     elif [[ "$filename" =~ (REFERENCE|Reference) ]]; then
         echo "reference"
-    # Working document types
+    # Working document types (temporal)
     elif [[ "$filename" =~ (BUG|FIX|FIXES) ]]; then
-        echo "bug-fix"
+        echo "temporal"
     elif [[ "$filename" =~ (REFACTOR|CLEANUP) ]]; then
-        echo "refactor"
+        echo "temporal"
     elif [[ "$filename" =~ (PLAN|TODO) ]]; then
-        echo "plan"
+        echo "temporal"
     elif [[ "$filename" =~ (SUMMARY|REPORT) ]]; then
-        echo "summary"
+        echo "temporal"
+    elif [[ "$filename" =~ (IMPLEMENTATION|SESSION|DEBUG|FIXES) ]]; then
+        echo "temporal"
     else
         echo "guide"  # Default
     fi
@@ -134,8 +145,9 @@ tdoc_classify_interactive() {
     # Prompt for type
     echo ""
     echo "Type:"
+    echo "  System types: standard, specification, example"
     echo "  Core types: spec, guide, reference"
-    echo "  Other types: bug-fix, refactor, plan, summary, investigation"
+    echo "  Temporal types: temporal, plan, investigation"
     printf "Enter type (default: %s): " "$suggested_type"
     read -r type_input
 

@@ -107,6 +107,9 @@ tdoc_write_frontmatter() {
     local tags="$4"  # Comma-separated
     local module="${5:-}"
     local status="${6:-draft}"
+    local completeness_level="${7:-}"
+    local implements="${8:-}"  # Comma-separated standards
+    local integrates="${9:-}"  # Comma-separated modules
 
     # Read existing content (skip old frontmatter if present)
     local content=""
@@ -147,6 +150,15 @@ tags: [$tags]"
 
     [[ -n "$module" ]] && frontmatter+="
 module: $module"
+
+    [[ -n "$completeness_level" ]] && frontmatter+="
+completeness_level: $completeness_level"
+
+    [[ -n "$implements" ]] && frontmatter+="
+implements: [$implements]"
+
+    [[ -n "$integrates" ]] && frontmatter+="
+integrates: [$integrates]"
 
     frontmatter+="
 created: $date

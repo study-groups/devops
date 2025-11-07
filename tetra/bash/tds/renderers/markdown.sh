@@ -8,6 +8,33 @@
 : "${TDS_MARKDOWN_PAGER:=less -R}"
 : "${TDS_MARKDOWN_WIDTH:=${COLUMNS:-80}}"
 
+# Process inline formatting and return formatted string
+# Args: text
+tds_process_inline_formatting() {
+    local text="$1"
+    local result=""
+
+    # Bold **text**
+    while [[ "$text" =~ (.*)\*\*([^*]+)\*\*(.*) ]]; do
+        result+="${BASH_REMATCH[1]}"
+        result+="$(printf "\033[1m"; tds_text_color "content.emphasis.bold"; printf "%s" "${BASH_REMATCH[2]}"; reset_color)"
+        text="${BASH_REMATCH[3]}"
+    done
+    result+="$text"
+    text="$result"
+    result=""
+
+    # Inline code `code`
+    while [[ "$text" =~ (.*)\`([^\`]+)\`(.*) ]]; do
+        result+="${BASH_REMATCH[1]}"
+        result+="$(tds_text_color "content.code.inline"; printf "%s" "${BASH_REMATCH[2]}"; reset_color)"
+        text="${BASH_REMATCH[3]}"
+    done
+    result+="$text"
+
+    echo -n "$result"
+}
+
 # Render markdown file using semantic tokens
 tds_render_markdown() {
     local file="$1"
@@ -37,7 +64,7 @@ tds_render_markdown() {
 
         # Inside code block - render as-is with semantic color
         if [[ "$in_code_block" == true ]]; then
-            tds_render_code_line "$line"
+            tds_render_code_line "$line" "$TDS_MARKDOWN_WIDTH"
             continue
         fi
 
@@ -55,19 +82,29 @@ tds_render_markdown() {
             continue
         fi
 
-        # List items - use semantic list renderer
+        # Unordered list items (-, *, +)
         if [[ "$line" =~ ^([[:space:]]*)[-*+][[:space:]]+(.+)$ ]]; then
             local indent="${BASH_REMATCH[1]}"
             local content="${BASH_REMATCH[2]}"
             local indent_level=$((${#indent} / 2))  # Count spaces
-            tds_render_list_item "$content" "$indent_level"
+            tds_render_list_item_with_inline "$content" "$indent_level" "$TDS_MARKDOWN_WIDTH"
+            continue
+        fi
+
+        # Ordered list items (1. 2. 3. etc)
+        if [[ "$line" =~ ^([[:space:]]*)([0-9]+)\.[[:space:]]+(.+)$ ]]; then
+            local indent="${BASH_REMATCH[1]}"
+            local number="${BASH_REMATCH[2]}"
+            local content="${BASH_REMATCH[3]}"
+            local indent_level=$((${#indent} / 2))  # Count spaces
+            tds_render_ordered_list_item_with_inline "$content" "$number" "$indent_level" "$TDS_MARKDOWN_WIDTH"
             continue
         fi
 
         # Blockquotes - use semantic quote renderer
         if [[ "$line" =~ ^\>[[:space:]]*(.+)$ ]]; then
             local content="${BASH_REMATCH[1]}"
-            tds_render_quote "$content"
+            tds_render_quote "$content" "$TDS_MARKDOWN_WIDTH"
             continue
         fi
 

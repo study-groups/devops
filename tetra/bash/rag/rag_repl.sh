@@ -500,10 +500,12 @@ _rag_repl_generate_completions() {
                 if [[ $has_evidence -eq 1 ]]; then
                     _set_completion "toggle" "Evidence • Toggle evidence active/skipped" "Evidence"
                     _set_completion "status" "Evidence • Show context status and token budget" "Evidence"
-                    # Add numeric completions for viewing evidence
-                    for i in $(seq 1 $evidence_count); do
-                        _set_completion "$i" "Evidence • View evidence file #$i" "Evidence"
-                    done
+                    # Add numeric completions for viewing evidence (only if count > 0)
+                    if [[ $evidence_count -gt 0 ]]; then
+                        for i in $(seq 1 $evidence_count); do
+                            _set_completion "$i" "Evidence • View evidence file #$i" "Evidence"
+                        done
+                    fi
                 fi
                 ;;
             qa)

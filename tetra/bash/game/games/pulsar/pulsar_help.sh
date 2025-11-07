@@ -236,8 +236,5 @@ pulsar_help() {
     tree_help_show "$topic"
 }
 
-# Export
-export -f pulsar_help
-export -f _pulsar_build_help_tree
-export -f _pulsar_complete_sprite_names
-export -f _pulsar_complete_valence
+# Note: Functions are NOT exported to avoid /bin/sh import errors
+# They are available in the current shell when this file is sourced

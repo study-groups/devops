@@ -91,26 +91,18 @@ repl_tree_complete() {
     # Get completions from tree
     local completions=()
 
-    # 1. Get child nodes (subcommands)
-    if command -v tree_complete >/dev/null 2>&1; then
-        local tree_children
-        tree_children=$(tree_complete "$tree_path" "$current_word" 2>/dev/null)
-        if [[ -n "$tree_children" ]]; then
-            completions+=($tree_children)
-        fi
-    fi
-
-    # 2. Get dynamic/static values from current node
+    # Get completions using tree_complete_values (which handles both children and values)
+    # Note: tree_complete_values already falls back to tree_complete if no explicit values
     if command -v tree_complete_values >/dev/null 2>&1; then
-        local tree_values
-        tree_values=$(tree_complete_values "$tree_path" 2>/dev/null)
-        if [[ -n "$tree_values" ]]; then
+        local tree_results
+        tree_results=$(tree_complete_values "$tree_path" 2>/dev/null)
+        if [[ -n "$tree_results" ]]; then
             # Filter by current word
-            for value in $tree_values; do
+            while IFS= read -r value; do
                 if [[ -z "$current_word" ]] || [[ "$value" == "$current_word"* ]]; then
                     completions+=("$value")
                 fi
-            done
+            done <<< "$tree_results"
         fi
     fi
 

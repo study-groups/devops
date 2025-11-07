@@ -285,24 +285,46 @@ rag_status() {
 }
 
 rag_help() {
-    echo "🔧 RAG Tools Help:"
-    echo ""
-    echo "Core Commands:"
-    echo "  rag repl             Start interactive REPL with all tools"
-    echo "  rag example          Generate sample MULTICAT format"
-    echo ""
-    echo "MULTICAT Tools:"
-    echo "  rag mc <files>       Create MULTICAT from files/directories"
-    echo "  rag ms <file.mc>     Split MULTICAT back to individual files"
-    echo "  rag mi <file.mc>     Show info about MULTICAT file"
-    echo ""
-    echo "System:"
-    echo "  rag status           Show system status and available tools"
-    echo "  rag init             Initialize RAG directories"
-    echo ""
-    echo "Interactive Mode:"
-    echo "  All commands available without 'rag' prefix in REPL"
-    echo "  Example: 'mc --example' instead of 'rag mc --example'"
+    cat <<'EOF'
+RAG Tools Help
+
+Core Commands:
+  rag flow create "<desc>"   Create new flow
+  rag flow status            Show current flow status
+  rag flow resume [id]       Resume flow from checkpoint
+  rag flow list              List all flows
+
+Evidence Commands:
+  rag evidence add <file>    Add evidence file
+  rag evidence list          List evidence files
+  rag select "<query>"       Select evidence using query
+
+Context Assembly:
+  rag assemble               Assemble context to prompt.mdctx
+  rag submit @qa             Submit to QA agent
+
+MULTICAT Tools:
+  rag mc <files>             Create MULTICAT from files
+  rag ms <file.mc>           Split MULTICAT to files
+  rag mi <file.mc>           Show MULTICAT info
+  rag example                Generate sample MULTICAT format
+
+System:
+  rag repl                   Start interactive REPL
+  rag status                 Show system status
+  rag init                   Initialize RAG directories
+  rag help                   Show this help
+
+Quick Start:
+  1. rag flow create "your question"
+  2. rag evidence add file.sh
+  3. rag assemble
+  4. rag submit @qa
+
+Interactive Mode:
+  All commands available without 'rag' prefix in REPL
+  Example: 'flow create "question"' instead of 'rag flow create "question"'
+EOF
 }
 
 # Source modules immediately when this file is loaded (protected to prevent terminal crash)

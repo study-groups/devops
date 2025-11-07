@@ -31,8 +31,6 @@ source "$TDS_SRC/core/token_validation.sh"
 # Layer 2: Theme system (load themes after semantic_colors.sh)
 source "$TDS_SRC/themes/theme_registry.sh"
 source "$TDS_SRC/themes/default.sh"
-source "$TDS_SRC/themes/tokyo_night.sh"
-source "$TDS_SRC/themes/neon.sh"
 
 # Temperature themes (for module phase-shifts)
 # Register them lazily - themes will be sourced on-demand when first used

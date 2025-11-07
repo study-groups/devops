@@ -12,6 +12,7 @@ devpages = 4000
 tetra = 4444
 arcade = 8400
 pbase = 2600
+cymatica = 3400
 
 [port_ranges]
 # Environment-specific port ranges

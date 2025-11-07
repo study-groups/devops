@@ -688,79 +688,75 @@ EOF
 
 rag_cmd_help() {
     local topic="$1"
-    local interactive=0
 
-    # Check for --interactive flag
-    if [[ "$topic" == "--interactive" ]] || [[ "$topic" == "-i" ]]; then
-        interactive=1
-        topic="$2"
-    elif [[ "$2" == "--interactive" ]] || [[ "$2" == "-i" ]]; then
-        interactive=1
-    fi
-
-    # Check if bash/tree help system is available
-    if command -v tree_help_show >/dev/null 2>&1; then
-        if [[ $interactive -eq 1 ]]; then
-            # Interactive navigation mode (explicit opt-in)
-            echo "Interactive help browser"
-            echo "Navigate: type topic name to dive in, 'b' to go back, 'q' to quit"
-            echo ""
-            tree_help_navigate "${topic:-rag}"
-            return 0
-        fi
-
-        if [[ -n "$topic" ]]; then
-            # Show specific topic (non-interactive)
+    # If topic requested, try tree help for specific topics
+    if [[ -n "$topic" ]]; then
+        if command -v tree_help_show >/dev/null 2>&1; then
             local help_path="rag.$topic"
             if tree_exists "$help_path"; then
                 tree_help_show "$help_path"
-            else
-                # Try without rag prefix
-                help_path="rag"
-                if tree_exists "$help_path"; then
-                    tree_help_show "$help_path"
-                else
-                    echo "Help topic not found: $topic"
-                    echo "Try: /help (show overview) or /help --interactive (browse)"
-                fi
+                return 0
             fi
-        else
-            # Show main help (non-interactive)
-            tree_help_show "rag"
         fi
-        return 0
+        echo "Help topic not found: $topic"
+        echo "Try: /help (show overview)"
+        return 1
     fi
 
-    # Fallback to legacy help if bash/tree not available
-    echo "Note: bash/tree not available, showing simplified help"
-    echo ""
-
+    # Show main RAG REPL help (matches CLI format)
     cat <<'EOF'
-RAG QUICK REFERENCE
-===================
+RAG REPL Help
 
-Essential Commands:
-  /flow create "question"    Start new flow (sets prompt!)
-  /e add file.sh             Add evidence
-  /e 1                       View evidence (colored!)
-  /p ["text"]                Edit or replace prompt
-  /assemble                  Build context
-  /submit @qa --async        Send to LLM (background)
-  /r                         View response (colored markdown)
-  /tag auth troubleshooting  Save to knowledge base
+Core Commands:
+  /flow create "<desc>"   Create new flow
+  /flow status            Show current flow status
+  /flow resume [id]       Resume flow from checkpoint
+  /flow list              List all flows
 
-Knowledge Base:
-  /kb list                   List saved Q&A
-  /kb search <query>         Search knowledge base
-  /kb view <flow-id>         View saved entry
+Evidence Commands:
+  /e add <file>           Add evidence file
+  /e list                 List evidence files
+  /e <number>             View evidence by number (1, 2, 3...)
+  /e toggle <target>      Toggle evidence active/skipped
+  /e status               Show context status
 
-Get More Help:
-  /help flow                 Flow commands
-  /help evidence             Evidence commands
-  /help workflow             Quick start workflow
-  /help --interactive        Browse help tree interactively
+Context Assembly:
+  /select "<query>"       Select evidence using query
+  /assemble               Assemble context to prompt.mdctx
+  /submit @qa             Submit to QA agent
+  /r                      View LLM response
 
-Shortcuts: /f (flow), /e (evidence), /h (help)
+Knowledge & History:
+  /qa search <query>      Search QA history
+  /qa list                List recent QA entries
+  /qa view <id>           View specific QA entry
+  /qa add <id>            Add QA entry as evidence
+  /kb list [tag]          List knowledge base entries
+  /tag <tags>             Tag flow for knowledge base
+
+Workflow:
+  /p ["text"]             Edit or replace prompt
+  /status                 Show RAG system status
+  /workflow               Show workflow guide
+
+MULTICAT Tools:
+  /mc <files>             Create MULTICAT from files
+  /ms <file.mc>           Split MULTICAT to files
+  /mi <file.mc>           Show MULTICAT info
+
+Meta:
+  /help                   Show this help
+  /exit                   Exit REPL
+  exit                    Exit REPL
+
+Quick Start:
+  1. /flow create "your question"
+  2. /e add file.sh
+  3. /assemble
+  4. /submit @qa
+  5. /r
+
+Tip: Press TAB for context-aware command completion!
 EOF
 }
 

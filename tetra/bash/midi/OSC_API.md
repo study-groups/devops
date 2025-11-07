@@ -12,7 +12,7 @@ VMX8 Controller (Bluetooth)
 midi.js (Node.js Bridge)
   ├─ Loads JSON map file: vmx8[0].json
   ├─ Current variant: a/b/c/d
-  └─ Broadcasts OSC UDP :57121
+  └─ Broadcasts OSC UDP :1983
       ↓
   [Multiple OSC Subscribers]
     - REPL (bash + osc_repl_listener.js)
@@ -176,7 +176,7 @@ node midi.js -i "VMX8 Bluetooth" --map vmx8[0].json --variant b -v
 midi repl
 
 # Remote bridge
-midi repl --osc-host 192.168.1.100 --osc-port 57121
+midi repl --osc-host 192.168.1.100 --osc-port 1983
 ```
 
 ### Switch Variant from REPL
@@ -193,7 +193,7 @@ const osc = require('osc');
 
 const udpPort = new osc.UDPPort({
     localAddress: "0.0.0.0",
-    localPort: 57121
+    localPort: 1983
 });
 
 // Listen to raw MIDI
@@ -222,7 +222,7 @@ udpPort.open();
 **Machine A: MIDI Bridge**
 ```bash
 node midi.js -i "VMX8 Bluetooth" --map vmx8[0].json --variant a -v
-# Broadcasts to network 255.255.255.255:57121
+# Broadcasts to network 255.255.255.255:1983
 ```
 
 **Machine B: REPL Consumer**

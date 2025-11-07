@@ -27,6 +27,7 @@
 #include "input.h"
 #include "render.h"
 #include "utils.h"
+#include "tgp.h"
 
 /* ========================================================================
  * GLOBAL STATE
@@ -41,6 +42,15 @@ static int running = 0;
 static FILE *tty = NULL;
 static volatile sig_atomic_t window_resized = 0;
 static int command_check_interval = 10;  /* Check stdin every N frames (lower = more responsive, more flicker) */
+
+/* FIFO mode state */
+static int fifo_mode = 0;  /* 0 = direct rendering, 1 = FIFO mode */
+static FILE *fifo_out = NULL;
+static char fifo_path[256] = {0};
+
+/* TGP mode state */
+static int tgp_mode = 0;  /* 0 = stdio protocol, 1 = TGP protocol */
+static TGP_Context tgp_ctx;
 
 /* Event log (shared with utils.c) */
 Event event_log[MAX_EVENT_LOG];
@@ -319,7 +329,13 @@ static void render_frame(void) {
     }
 
     /* Flush output */
-    fflush(tty);
+    if (fifo_mode && fifo_out) {
+        /* In FIFO mode, also write a frame marker */
+        fprintf(fifo_out, "\n__FRAME_END__\n");
+        fflush(fifo_out);
+    } else {
+        fflush(tty);
+    }
 }
 
 /* ========================================================================
@@ -478,15 +494,27 @@ static void process_command(char *line) {
         int fps = 60;
         sscanf(line, "RUN %d", &fps);
 
-        /* Try to open TTY for output, fall back to stderr if not available */
-        tty = fopen("/dev/tty", "w");
-        if (!tty) {
-            /* No /dev/tty available, use stderr (which bash can redirect to the terminal) */
-            tty = fdopen(dup(STDERR_FILENO), "w");
-            if (!tty) {
-                printf("ERR CANNOT_OPEN_OUTPUT\n");
+        /* Open output based on mode */
+        if (fifo_mode) {
+            /* FIFO mode: write to FIFO instead of TTY */
+            fifo_out = fopen(fifo_path, "w");
+            if (!fifo_out) {
+                printf("ERR CANNOT_OPEN_FIFO %s\n", fifo_path);
                 fflush(stdout);
                 return;
+            }
+            tty = fifo_out;  /* Use FIFO as TTY output */
+        } else {
+            /* Direct mode: Try to open TTY for output, fall back to stderr if not available */
+            tty = fopen("/dev/tty", "w");
+            if (!tty) {
+                /* No /dev/tty available, use stderr (which bash can redirect to the terminal) */
+                tty = fdopen(dup(STDERR_FILENO), "w");
+                if (!tty) {
+                    printf("ERR CANNOT_OPEN_OUTPUT\n");
+                    fflush(stdout);
+                    return;
+                }
             }
         }
 
@@ -598,14 +626,17 @@ static void process_command(char *line) {
         input_disable_raw_mode(&input_mgr);
 
         if (tty) {
-            fprintf(tty, "\033[?25h");  /* Show cursor */
-            fprintf(tty, "\033[2J\033[H");  /* Clear screen */
-            fprintf(tty, "\033[0m");     /* Reset colors */
+            if (!fifo_mode) {
+                fprintf(tty, "\033[?25h");  /* Show cursor */
+                fprintf(tty, "\033[2J\033[H");  /* Clear screen */
+                fprintf(tty, "\033[0m");     /* Reset colors */
+            }
             fflush(tty);
             fclose(tty);
             tty = NULL;
         }
         ui_ctx.tty = NULL;
+        fifo_out = NULL;
 
         /* Send completion signal to bash */
         printf("OK RUN_COMPLETE\n");
@@ -734,6 +765,200 @@ static void process_command(char *line) {
 }
 
 /* ========================================================================
+ * TGP PROTOCOL HANDLER
+ * ======================================================================== */
+
+/* Process TGP command */
+static void process_tgp_command(const TGP_Header *hdr, const void *payload) {
+    switch (hdr->type) {
+        case TGP_CMD_INIT: {
+            const TGP_Init *init = (const TGP_Init*)payload;
+            ui_resize(&ui_ctx, init->cols, init->rows);
+            render_resize(&render_ctx, init->cols, init->rows);
+            tgp_send_ok(&tgp_ctx, hdr->seq);
+            log_event("TGP", 0, "INIT received");
+            break;
+        }
+
+        case TGP_CMD_SPAWN: {
+            const TGP_Spawn *spawn = (const TGP_Spawn*)payload;
+            int idx = alloc_sprite();
+            if (idx >= 0) {
+                sprites[idx].mx = spawn->x;
+                sprites[idx].my = spawn->y;
+                sprites[idx].len0 = spawn->param1;
+                sprites[idx].amp = spawn->param2;
+                /* Convert fixed-point back to float (simplified) */
+                sprites[idx].freq = spawn->fparam1 / 1000.0f;
+                sprites[idx].dtheta = spawn->fparam2 / 1000.0f;
+                sprites[idx].valence = spawn->valence;
+                sprites[idx].theta = 0;
+                sprites[idx].phase = 0;
+
+                tgp_send_id(&tgp_ctx, hdr->seq, sprites[idx].id);
+
+                char msg[64];
+                snprintf(msg, sizeof(msg), "Spawned ID %d", sprites[idx].id);
+                log_event("TGP", 0, msg);
+            } else {
+                tgp_send_error(&tgp_ctx, hdr->seq, TGP_ERR_LIMIT, "Sprite limit reached");
+            }
+            break;
+        }
+
+        case TGP_CMD_SET: {
+            const TGP_Set *set = (const TGP_Set*)payload;
+            int idx = find_sprite(set->entity_id);
+            if (idx >= 0) {
+                /* Handle property updates */
+                switch (set->property) {
+                    case TGP_PROP_X:
+                        sprites[idx].mx = set->i_value;
+                        break;
+                    case TGP_PROP_Y:
+                        sprites[idx].my = set->i_value;
+                        break;
+                    case TGP_PROP_ROTATION:
+                        sprites[idx].dtheta = set->f_value;
+                        break;
+                    default:
+                        tgp_send_error(&tgp_ctx, hdr->seq, TGP_ERR_PARAM, "Unknown property");
+                        return;
+                }
+                tgp_send_ok(&tgp_ctx, hdr->seq);
+            } else {
+                tgp_send_error(&tgp_ctx, hdr->seq, TGP_ERR_INVALID_ID, "Entity not found");
+            }
+            break;
+        }
+
+        case TGP_CMD_KILL: {
+            const TGP_Kill *kill = (const TGP_Kill*)payload;
+            int idx = find_sprite(kill->entity_id);
+            if (idx >= 0) {
+                sprites[idx].active = 0;
+                tgp_send_ok(&tgp_ctx, hdr->seq);
+            } else {
+                tgp_send_error(&tgp_ctx, hdr->seq, TGP_ERR_INVALID_ID, "Entity not found");
+            }
+            break;
+        }
+
+        case TGP_CMD_RUN: {
+            running = 1;
+            tgp_send_ok(&tgp_ctx, hdr->seq);
+            log_event("TGP", 0, "Engine started");
+            break;
+        }
+
+        case TGP_CMD_STOP: {
+            running = 0;
+            tgp_send_ok(&tgp_ctx, hdr->seq);
+            log_event("TGP", 0, "Engine stopped");
+            break;
+        }
+
+        case TGP_CMD_QUIT: {
+            running = -1;  /* Signal quit */
+            tgp_send_ok(&tgp_ctx, hdr->seq);
+            log_event("TGP", 0, "Quit requested");
+            break;
+        }
+
+        default:
+            tgp_send_error(&tgp_ctx, hdr->seq, TGP_ERR_INVALID_CMD, "Unknown command");
+            break;
+    }
+}
+
+/* TGP main loop */
+static void tgp_main_loop(void) {
+    fprintf(stderr, "TGP mode: waiting for commands...\n");
+
+    struct timespec frame_time;
+    frame_time.tv_sec = 0;
+    frame_time.tv_nsec = 16666667;  /* ~60 FPS */
+
+    uint64_t last_frame_time = now_ns();
+    int frame_count = 0;
+
+    while (running != -1) {
+        /* Receive commands (non-blocking) */
+        TGP_Header hdr;
+        uint8_t payload[1024];
+        int n = tgp_recv_command(&tgp_ctx, &hdr, payload, sizeof(payload));
+
+        if (n > 0) {
+            process_tgp_command(&hdr, payload);
+        }
+
+        /* If engine is running, update and render */
+        if (running == 1) {
+            /* Calculate delta time */
+            uint64_t current_time = now_ns();
+            float dt = (current_time - last_frame_time) / 1000000000.0f;
+            last_frame_time = current_time;
+
+            /* Update sprites */
+            update_sprites(dt);
+
+            /* Update CPU usage periodically */
+            if (++frame_count % 10 == 0) {
+                update_cpu_usage();
+            }
+
+            /* Render frame to memory buffer */
+            char *frame_buffer = NULL;
+            size_t frame_size = 0;
+            FILE *frame_stream = open_memstream(&frame_buffer, &frame_size);
+
+            if (frame_stream) {
+                /* Temporarily redirect UI output to memory stream */
+                FILE *original_tty = ui_ctx.tty;
+                ui_ctx.tty = frame_stream;
+
+                /* Render frame */
+                ui_clear_screen(&ui_ctx);
+                LayoutRegion play_area = layout_get_play_area(&ui_ctx.layout);
+                render_sprites(&render_ctx, sprites, MAX_SPRITES, &play_area);
+                ui_draw_panels(&ui_ctx, sprites, sprite_count(),
+                               input_mgr.gamepads, event_log, event_log_head,
+                               player_accounts, &input_mgr.kbd_state);
+
+                /* Restore original TTY */
+                ui_ctx.tty = original_tty;
+                fclose(frame_stream);
+
+                /* Send frame via TGP */
+                if (frame_buffer && frame_size > 0) {
+                    tgp_send_frame(&tgp_ctx, frame_buffer, frame_size, 0);
+                    free(frame_buffer);
+                }
+            }
+
+            /* Send metadata */
+            TGP_Frame_Meta meta;
+            meta.frame_number = frame_count;
+            meta.timestamp_ms = tgp_timestamp_ms();
+            meta.entity_count = sprite_count();
+            meta.fps = 60;  /* TODO: Calculate actual FPS */
+            meta.cpu_usage = cpu_usage_percent;
+            meta.reserved = 0;
+
+            tgp_send_event(&tgp_ctx, TGP_FRAME_META, &meta, sizeof(meta));
+
+            /* Frame rate control */
+            nanosleep(&frame_time, NULL);
+        } else {
+            /* Not running, just sleep briefly */
+            usleep(10000);  /* 10ms */
+        }
+    }
+
+    fprintf(stderr, "TGP mode: shutting down\n");
+}
+
+/* ========================================================================
  * MAIN
  * ======================================================================== */
 
@@ -741,6 +966,24 @@ int main(int argc, char **argv) {
     /* Set unbuffered I/O */
     setbuf(stdin, NULL);
     setbuf(stdout, NULL);
+
+    /* Parse command line arguments */
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--fifo") == 0 && i + 1 < argc) {
+            fifo_mode = 1;
+            strncpy(fifo_path, argv[i + 1], sizeof(fifo_path) - 1);
+            i++;  /* Skip next arg (the path) */
+        } else if (strcmp(argv[i], "--tgp") == 0 && i + 1 < argc) {
+            tgp_mode = 1;
+            /* Initialize TGP with provided session name */
+            if (tgp_init(&tgp_ctx, argv[i + 1]) < 0) {
+                fprintf(stderr, "Failed to initialize TGP session: %s\n", argv[i + 1]);
+                return 1;
+            }
+            fprintf(stderr, "TGP mode: session '%s'\n", argv[i + 1]);
+            i++;  /* Skip next arg (the session name) */
+        }
+    }
 
     /* Initialize */
     init_sprites();
@@ -752,6 +995,14 @@ int main(int argc, char **argv) {
 
     /* Log system startup */
     log_event("SYSTEM", 0, "Engine initialized");
+
+    /* Check if running in TGP mode */
+    if (tgp_mode) {
+        tgp_main_loop();
+        tgp_cleanup(&tgp_ctx);
+        cleanup_child_processes();
+        return 0;
+    }
 
     /* Check if running in standalone mode (if stdin is a terminal) */
     if (isatty(STDIN_FILENO) || (argc > 1 && strcmp(argv[1], "--standalone") == 0)) {
@@ -775,15 +1026,17 @@ int main(int argc, char **argv) {
     }
 
     /* Command mode: wait for commands via stdin */
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  ╔═══════════════════════════════════════╗\n");
-    fprintf(stderr, "  ║   ⚡ PULSAR ENGINE v1.0              ║\n");
-    fprintf(stderr, "  ║   Terminal Sprite Animation System   ║\n");
-    fprintf(stderr, "  ╚═══════════════════════════════════════╝\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  Ready for Engine Protocol commands.\n");
-    fprintf(stderr, "  Pipe scripts: cat scene.pql | pulsar\n");
-    fprintf(stderr, "\n");
+    if (!fifo_mode) {
+        fprintf(stderr, "\n");
+        fprintf(stderr, "  ╔═══════════════════════════════════════╗\n");
+        fprintf(stderr, "  ║   ⚡ PULSAR ENGINE v1.0              ║\n");
+        fprintf(stderr, "  ║   Terminal Sprite Animation System   ║\n");
+        fprintf(stderr, "  ╚═══════════════════════════════════════╝\n");
+        fprintf(stderr, "\n");
+        fprintf(stderr, "  Ready for Engine Protocol commands.\n");
+        fprintf(stderr, "  Pipe scripts: cat scene.pql | pulsar\n");
+        fprintf(stderr, "\n");
+    }
 
     printf("OK READY\n");
     fflush(stdout);

@@ -1,8 +1,23 @@
 #!/usr/bin/env node
 
 /**
- * OSC REPL Listener
- * Subscribes to OSC MIDI broadcasts and outputs formatted events for bash REPL
+ * OSC REPL Listener - MIDI REPL Client Component
+ *
+ * Architecture Role: CLIENT (not a service)
+ *
+ * This script is started BY the REPL as a background helper process.
+ * It connects to OSC broadcasts from the midi-bridge service.
+ *
+ * Flow:
+ *   1. User runs: midi repl
+ *   2. REPL starts this script in background
+ *   3. This script listens to OSC broadcasts on :1983
+ *   4. Receives MIDI events from midi-bridge service
+ *   5. Outputs formatted events to bash for prompt updates
+ *   6. When REPL exits, this script is killed
+ *
+ * Multiple instances can run simultaneously (different REPLs, games, etc.)
+ * All listen to the same UDP broadcast from midi-bridge.
  */
 
 const osc = require('osc');
@@ -10,7 +25,7 @@ const osc = require('osc');
 class OSCReplListener {
     constructor(options = {}) {
         this.oscHost = options.oscHost || '0.0.0.0';
-        this.oscPort = options.oscPort || 57121;
+        this.oscPort = options.oscPort || 1983;
         this.verbose = options.verbose || false;
         this.udpPort = null;
 
@@ -35,7 +50,8 @@ class OSCReplListener {
         this.udpPort = new osc.UDPPort({
             localAddress: this.oscHost,
             localPort: this.oscPort,
-            broadcast: false,
+            broadcast: true,         // Enable broadcast reception
+            multicastTTL: 1,        // Allow multicast
             metadata: true
         });
 
@@ -164,7 +180,7 @@ function main() {
     const args = process.argv.slice(2);
     const options = {
         oscHost: '0.0.0.0',
-        oscPort: 57121,
+        oscPort: 1983,
         verbose: false
     };
 
@@ -191,7 +207,7 @@ Usage: osc_repl_listener.js [OPTIONS]
 
 Options:
   -h, --osc-host HOST     OSC listen address (default: 0.0.0.0)
-  -p, --osc-port PORT     OSC listen port (default: 57121)
+  -p, --osc-port PORT     OSC listen port (default: 1983)
   -v, --verbose           Verbose output to stderr
   --help                  Show this help
 
@@ -204,7 +220,7 @@ This listener is designed to be used by the MIDI REPL for networked MIDI control
 It subscribes to OSC broadcasts and outputs formatted events that the bash REPL can parse.
 
 Example:
-  node osc_repl_listener.js -p 57121 -v
+  node osc_repl_listener.js -p 1983 -v
 `);
                 process.exit(0);
                 break;

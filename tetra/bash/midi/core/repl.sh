@@ -2,6 +2,19 @@
 
 # MIDI REPL - Interactive MIDI Controller Interface
 # Uses Tetra's universal REPL system
+#
+# Architecture Overview:
+#   This REPL is a CLIENT that connects to OSC broadcasts from midi-bridge.
+#   It does NOT start the MIDI service - that's done by TSM.
+#
+# Service Layer (TSM-managed):
+#   tsm start midi-bridge → Reads MIDI hardware → Broadcasts OSC on :1983
+#
+# Client Layer (this file):
+#   midi repl → Listens to OSC :1983 → Updates prompt with MIDI state
+#
+# Multiple clients can connect to the same OSC broadcast simultaneously.
+# The REPL can be started/stopped without affecting the midi-bridge service.
 
 # Source REPL library if not already loaded
 if ! declare -f repl_run >/dev/null; then
@@ -21,7 +34,7 @@ REPL_LAST_VAL=""
 
 # OSC connection settings
 REPL_OSC_HOST="${REPL_OSC_HOST:-0.0.0.0}"
-REPL_OSC_PORT="${REPL_OSC_PORT:-57121}"
+REPL_OSC_PORT="${REPL_OSC_PORT:-1983}"
 
 # Register slash commands
 midi_register_repl_commands() {
@@ -174,16 +187,36 @@ midi_repl_monitor() {
 
 midi_repl_help() {
     cat <<'EOF'
-MIDI Commands (Ctrl+D to exit)
-/start /stop /status         - Service control
-/learn <name> [syntax]       - Map control (e.g., /learn VOLUME p1)
-/list /mode <raw|all>        - View/set mappings
-/save [name] /load [name]    - Sessions
-/device <id> /devices        - Device config
-/monitor                     - Start event monitor
+MIDI REPL - Interactive MIDI Controller Interface
+
+Architecture:
+  This REPL connects to OSC broadcasts from the midi-bridge service.
+  The midi-bridge service reads from MIDI hardware and broadcasts events.
+  Multiple clients (REPLs, games, visualizers) can listen simultaneously.
+
+Service Management:
+  tsm start midi-bridge        - Start MIDI broadcast service (port 1983)
+  tsm stop midi-bridge         - Stop MIDI broadcast service
+  tsm status midi-bridge       - Check service status
+
+REPL Commands:
+  /variant <a|b|c|d>           - Switch device variant/preset
+  /learn <name> [syntax]       - Map control (e.g., /learn VOLUME p1)
+  /list /mode <raw|all>        - View/set mappings
+  /save [name] /load [name]    - Save/load mapping sessions
+  /device <id> /devices        - Select/list device configurations
+  /monitor                     - Start event monitor
 
 Controls: p1-p8 (pots), s1-s8 (sliders), b1a-b8d (buttons)
-Example: /start → /learn VOLUME p1 0.0 1.0 → move knob → /list
+
+Example Workflow:
+  1. tsm start midi-bridge     # Start service once
+  2. midi repl                 # Connect REPL (can restart anytime)
+  3. /learn VOLUME p1          # Map a control
+  4. Move physical knob        # See it mapped
+  5. /list                     # View all mappings
+
+Press Ctrl+D to exit REPL
 EOF
 }
 
@@ -306,15 +339,28 @@ midi_repl() {
     # Set history base
     REPL_HISTORY_BASE="${MIDI_DIR}/repl/history"
 
-    # Start background OSC listener
+    # Check if midi-bridge service is running (optional check)
+    # This is informational only - the REPL will still start even if service is not running
+    if ! tsm status midi-bridge &>/dev/null; then
+        echo "${TETRA_YELLOW}⚠ midi-bridge service not detected${TETRA_NC}"
+        echo "  Start with: ${TETRA_CYAN}tsm start midi-bridge${TETRA_NC}"
+        echo "  REPL will connect when service starts..."
+        echo ""
+    fi
+
+    # Start background OSC listener (connects to midi-bridge broadcast)
+    # This is a CLIENT that listens to OSC broadcasts from midi-bridge
+    # Multiple clients can listen to the same broadcast simultaneously
     midi_repl_osc_listener "$osc_host" "$osc_port" &
     local listener_pid=$!
 
     # Cleanup on exit
     trap "kill $listener_pid 2>/dev/null; wait $listener_pid 2>/dev/null || true" EXIT
 
-    echo "MIDI REPL (OSC-based) | Listening on ${osc_host}:${osc_port}"
-    echo "Type /help for commands | Ctrl+D to exit"
+    echo "${TETRA_GREEN}✓${TETRA_NC} MIDI REPL started"
+    echo "  Listening for OSC broadcasts on ${TETRA_CYAN}${osc_host}:${osc_port}${TETRA_NC}"
+    echo "  Type ${TETRA_DIM}/help${TETRA_NC} for commands | ${TETRA_DIM}Ctrl+D${TETRA_NC} to exit"
+    echo ""
 
     # Run REPL
     repl_run

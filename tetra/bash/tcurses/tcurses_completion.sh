@@ -499,7 +499,10 @@ _repl_draw_completion_menu_and_return_lines() {
             local idx=$((row + col * rows))
             if [[ $idx -lt $count ]]; then
                 local match="${REPL_COMPLETION_MATCHES[$idx]}"
-                local category="${REPL_COMPLETION_CATEGORIES[$match]}"
+                # Safely access associative array - suppress errors if array doesn't exist
+                # or has issues with special characters (bash export -f limitation)
+                local category=""
+                ( category="${REPL_COMPLETION_CATEGORIES[$match]:-}" ) 2>/dev/null && :
                 local color=$(_repl_get_category_color "$category")
 
                 if [[ $idx -eq $selected ]]; then
@@ -518,8 +521,13 @@ _repl_draw_completion_menu_and_return_lines() {
 
     # Show notes for currently selected item only (replaces instruction area)
     local selected_match="${REPL_COMPLETION_MATCHES[$selected]}"
-    local hint="${REPL_COMPLETION_HINTS[$selected_match]}"
-    local category="${REPL_COMPLETION_CATEGORIES[$selected_match]}"
+    # Safely access associative arrays - suppress errors if array doesn't exist
+    # or has issues with special characters (bash export -f limitation)
+    local hint=""
+    local category=""
+    ( hint="${REPL_COMPLETION_HINTS[$selected_match]:-}" ) 2>/dev/null && :
+    ( category="${REPL_COMPLETION_CATEGORIES[$selected_match]:-}" ) 2>/dev/null && :
+
 
     if [[ -n "$hint" ]]; then
         # Parse hint to extract category prefix

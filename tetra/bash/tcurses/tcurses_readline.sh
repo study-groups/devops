@@ -58,10 +58,14 @@ tcurses_readline_save_to_history() {
     fi
 }
 
-# Strip ANSI escape codes for length calculation
+# Strip ANSI escape codes AND readline markers for length calculation
 _tcurses_readline_strip_ansi() {
     local text="$1"
     local result="$text"
+
+    # Remove readline non-printing markers (\001 and \002)
+    result="${result//$'\001'/}"
+    result="${result//$'\002'/}"
 
     # Remove common ANSI sequences using bash parameter expansion
     # This is faster than spawning sed on every keystroke
@@ -397,9 +401,8 @@ tcurses_readline() {
                 ;;
         esac
 
-        # Redraw line (use global prompt if it changed, otherwise use local)
-        local current_prompt="${TCURSES_READLINE_PROMPT:-$prompt}"
-        tcurses_readline_redraw "$current_prompt"
+        # Redraw line with the prompt passed to tcurses_readline()
+        tcurses_readline_redraw "$prompt"
     done
 
     # Save to history

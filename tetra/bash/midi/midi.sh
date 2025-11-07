@@ -163,22 +163,20 @@ EOF
 
         # Service management
         start)
-            echo "Starting TMC service..."
-            tsm start bash "$MIDI_SRC/core/socket_server.sh" tmc
+            echo "Starting MIDI service..."
+            tsm start --port 1983 --name midi node "$MIDI_SRC/midi.js" -i 0 -o 0 -v
             ;;
 
         stop)
-            tsm stop tmc
+            tsm stop midi
             ;;
 
         status)
-            if echo "STATUS" | nc -U "$TSM_PROCESSES_DIR/sockets/tmc.sock" 2>/dev/null; then
-                return 0
-            else
-                echo "TMC service not running"
+            tsm list | grep "midi" || {
+                echo "MIDI service not running"
                 echo "Start with: midi start"
                 return 1
-            fi
+            }
             ;;
 
         # Learning mode

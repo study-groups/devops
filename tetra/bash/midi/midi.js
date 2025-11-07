@@ -16,7 +16,7 @@ class TMCBridge {
         this.socketPath = options.socketPath;
         this.inputDeviceId = options.inputDevice ?? -1;
         this.outputDeviceId = options.outputDevice ?? -1;
-        this.oscPort = options.oscPort || 57121;
+        this.oscPort = options.oscPort || 1983;
         this.oscEnabled = options.oscEnabled !== false; // Default to enabled
         this.verbose = options.verbose || false;
         this.running = true;
@@ -148,26 +148,28 @@ class TMCBridge {
         const variant = this.currentVariant;
         const variantName = this.mapData.variants[variant]?.name || variant;
 
-        // Broadcast state metadata
+        // Broadcast state metadata (use localhost for macOS compatibility)
+        const broadcastAddr = "127.0.0.1";
+
         this.udpPort.send({
             address: '/midi/state/controller',
             args: [{ type: 's', value: controller }]
-        }, "255.255.255.255", this.oscPort);
+        }, broadcastAddr, this.oscPort);
 
         this.udpPort.send({
             address: '/midi/state/instance',
             args: [{ type: 'i', value: instance }]
-        }, "255.255.255.255", this.oscPort);
+        }, broadcastAddr, this.oscPort);
 
         this.udpPort.send({
             address: '/midi/state/variant',
             args: [{ type: 's', value: variant }]
-        }, "255.255.255.255", this.oscPort);
+        }, broadcastAddr, this.oscPort);
 
         this.udpPort.send({
             address: '/midi/state/variant_name',
             args: [{ type: 's', value: variantName }]
-        }, "255.255.255.255", this.oscPort);
+        }, broadcastAddr, this.oscPort);
 
         if (this.verbose) {
             console.error(`State: ${controller}[${instance}]:${variant} (${variantName})`);
@@ -355,7 +357,7 @@ class TMCBridge {
                 this.udpPort.send({
                     address: rawOscAddress,
                     args: rawOscArgs.map(v => ({ type: 'i', value: v }))
-                }, "255.255.255.255", this.oscPort);
+                }, "127.0.0.1", this.oscPort);
 
                 if (this.verbose) {
                     process.stderr.write(`OSC RAW: ${rawOscAddress} ${rawOscArgs.join(' ')}\n`);
@@ -386,7 +388,7 @@ class TMCBridge {
                         this.udpPort.send({
                             address: mappedAddress,
                             args: [{ type: 'f', value: mappedValue }]
-                        }, "255.255.255.255", this.oscPort);
+                        }, "127.0.0.1", this.oscPort);
 
                         if (this.verbose) {
                             process.stderr.write(`OSC MAPPED: ${mappedAddress} ${mappedValue.toFixed(6)}\n`);
@@ -573,7 +575,7 @@ function main() {
         inputDevice: -1,
         outputDevice: -1,
         socketPath: null,
-        oscPort: 57121,
+        oscPort: 1983,
         oscEnabled: true,
         verbose: false,
         mapFile: null,
@@ -640,7 +642,7 @@ Options:
   -m, --map FILE          Load map file (enables semantic mapping)
   --variant VARIANT       Set initial variant (a/b/c/d, default from map)
   -s, --socket PATH       Unix socket path for communication (legacy)
-  --osc-port PORT         OSC UDP port for broadcasting (default: 57121)
+  --osc-port PORT         OSC UDP port for broadcasting (default: 1983)
   --no-osc                Disable OSC output
   -v, --verbose           Verbose output (shows OSC messages)
   -h, --help              Show this help

@@ -9,12 +9,12 @@ const osc = require('osc');
 
 const udpPort = new osc.UDPPort({
     localAddress: "0.0.0.0",
-    localPort: 57121,
+    localPort: 1983,
     metadata: true
 });
 
 udpPort.on("ready", () => {
-    console.log("OSC Listener ready on port 57121");
+    console.log("OSC Listener ready on port 1983");
     console.log("Waiting for MIDI events from tmc.js...");
     console.log("Move a knob or press a button on your VMX8\n");
 });

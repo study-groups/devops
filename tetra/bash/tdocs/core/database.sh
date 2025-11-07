@@ -29,11 +29,20 @@ tdoc_get_tags_path() {
 # Returns: timestamp
 tdoc_db_create() {
     local doc_path="$1"
-    local category="$2"
+    local category="$2"              # Deprecated: keep for compatibility
     local type="$3"
-    local tags="$4"  # Comma-separated or array
+    local tags="$4"                  # Comma-separated or array
     local module="${5:-}"
     local status="${6:-draft}"
+    local level="${7:-}"             # Optional: L0-L4 for quick assessment
+    local implements="${8:-}"        # Comma-separated standards
+    local integrates="${9:-}"        # Comma-separated modules
+    local authority="${10:-working}" # canonical|stable|working|draft|stale|archived
+    local doc_type="${11:-guide}"    # specification|guide|reference|plan|investigation|scratch
+    local grade="${12:-}"            # A|B|C|X for triage
+    local grounded_in="${13:-}"      # Comma-separated code file paths
+    local related_docs="${14:-}"     # Comma-separated related doc paths
+    local supersedes="${15:-}"       # Path to superseded document
 
     # Generate timestamp
     local timestamp=$(tdoc_generate_timestamp)
@@ -73,6 +82,97 @@ tdoc_db_create() {
     fi
     tags_json+="]"
 
+    # Convert implements to JSON array
+    local implements_json="[]"
+    if [[ -n "$implements" ]]; then
+        implements_json="["
+        IFS=',' read -ra impl_array <<< "$implements"
+        local first=true
+        for impl in "${impl_array[@]}"; do
+            impl=$(echo "$impl" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+            [[ "$first" == false ]] && implements_json+=", "
+            first=false
+            implements_json+="\"$impl\""
+        done
+        implements_json+="]"
+    fi
+
+    # Convert integrates to JSON array
+    local integrates_json="[]"
+    if [[ -n "$integrates" ]]; then
+        integrates_json="["
+        IFS=',' read -ra integ_array <<< "$integrates"
+        local first=true
+        for integ in "${integ_array[@]}"; do
+            integ=$(echo "$integ" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+            [[ "$first" == false ]] && integrates_json+=", "
+            first=false
+            integrates_json+="\"$integ\""
+        done
+        integrates_json+="]"
+    fi
+
+    # Convert grounded_in to JSON array
+    local grounded_in_json="[]"
+    if [[ -n "$grounded_in" ]]; then
+        grounded_in_json="["
+        IFS=',' read -ra ground_array <<< "$grounded_in"
+        local first=true
+        for ground in "${ground_array[@]}"; do
+            ground=$(echo "$ground" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+            [[ "$first" == false ]] && grounded_in_json+=", "
+            first=false
+            grounded_in_json+="\"$ground\""
+        done
+        grounded_in_json+="]"
+    fi
+
+    # Convert related_docs to JSON array
+    local related_docs_json="[]"
+    if [[ -n "$related_docs" ]]; then
+        related_docs_json="["
+        IFS=',' read -ra related_array <<< "$related_docs"
+        local first=true
+        for related in "${related_array[@]}"; do
+            related=$(echo "$related" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+            [[ "$first" == false ]] && related_docs_json+=", "
+            first=false
+            related_docs_json+="\"$related\""
+        done
+        related_docs_json+="]"
+    fi
+
+    # Calculate staleness metrics
+    local code_last_changed=""
+    local staleness_score="0"
+    if [[ -n "$grounded_in" ]]; then
+        # Find newest file in grounded_in list
+        local newest_code=0
+        IFS=',' read -ra ground_array <<< "$grounded_in"
+        for ground_file in "${ground_array[@]}"; do
+            ground_file=$(echo "$ground_file" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+            if [[ -f "$ground_file" ]]; then
+                local file_mtime=$(stat -f %m "$ground_file" 2>/dev/null || stat -c %Y "$ground_file" 2>/dev/null || echo "0")
+                [[ $file_mtime -gt $newest_code ]] && newest_code=$file_mtime
+            fi
+        done
+        if [[ $newest_code -gt 0 ]]; then
+            code_last_changed=$(date -r $newest_code +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -d "@$newest_code" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "")
+            # Calculate staleness: if code newer than doc creation, potentially stale
+            local doc_time=$timestamp
+            if [[ $newest_code -gt $doc_time ]]; then
+                local age_diff=$((newest_code - doc_time))
+                local days_stale=$((age_diff / 86400))
+                # Score: 0=fresh, 0.5=moderately stale (30d), 1.0=very stale (90d+)
+                if command -v awk >/dev/null 2>&1; then
+                    staleness_score=$(awk "BEGIN {s = $days_stale / 90.0; print (s > 1.0) ? 1.0 : s}")
+                else
+                    [[ $days_stale -ge 90 ]] && staleness_score="1.0" || staleness_score="0.$(($days_stale * 11 / 100))"
+                fi
+            fi
+        fi
+    fi
+
     # Create JSON metadata
     local meta_json="{
   \"timestamp\": $timestamp,
@@ -85,7 +185,19 @@ tdoc_db_create() {
   \"created\": \"$created\",
   \"updated\": \"$updated\",
   \"status\": \"$status\",
-  \"hash\": \"$hash\"
+  \"hash\": \"$hash\",
+  \"level\": \"$level\",
+  \"completeness_level\": \"$level\",
+  \"implements\": $implements_json,
+  \"integrates\": $integrates_json,
+  \"authority\": \"$authority\",
+  \"doc_type\": \"$doc_type\",
+  \"grade\": \"$grade\",
+  \"grounded_in\": $grounded_in_json,
+  \"related_docs\": $related_docs_json,
+  \"supersedes\": \"$supersedes\",
+  \"code_last_changed\": \"$code_last_changed\",
+  \"staleness_score\": \"$staleness_score\"
 }"
 
     # Write metadata file
@@ -216,6 +328,13 @@ tdoc_db_list() {
         [[ ! -f "$meta_file" ]] && continue
 
         local meta=$(cat "$meta_file")
+
+        # Check if the actual document file exists
+        local doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
+        if [[ -n "$doc_path" ]] && [[ ! -f "$doc_path" ]]; then
+            # Skip stale entries for non-existent files
+            continue
+        fi
 
         # Apply filters
         if [[ -n "$category" ]]; then

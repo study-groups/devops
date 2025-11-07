@@ -24,31 +24,93 @@ tdocs_register_commands() {
     repl_register_slash_command "discover" tdocs_cmd_discover
     repl_register_slash_command "evidence" tdocs_cmd_evidence
     repl_register_slash_command "about" tdocs_cmd_about
+
+    # Module commands
+    repl_register_slash_command "module" tdocs_cmd_module
+    repl_register_slash_command "spec" tdocs_cmd_spec
+    repl_register_slash_command "audit-specs" tdocs_cmd_audit_specs
 }
 
 # Command: /ls [--core|--other] [--module NAME]
 tdocs_cmd_ls() {
     local args=("$@")
+    local detailed=false
+    local numbered=true  # Always show numbers for selection
 
-    # Apply current filters
+    # Check for -l flag (detailed view)
+    local filtered_args=()
+    for arg in "${args[@]}"; do
+        if [[ "$arg" == "-l" ]]; then
+            detailed=true
+        else
+            filtered_args+=("$arg")
+        fi
+    done
+
+    # Apply current filters (from new array-based filters)
     local filter_args=()
+
+    # Module filters (join with comma)
+    if [[ ${#TDOCS_REPL_MODULES[@]} -gt 0 ]]; then
+        local module_list=$(IFS=','; echo "${TDOCS_REPL_MODULES[*]}")
+        filter_args+=("--module" "$module_list")
+    fi
+
+    # Authority filters (join with comma)
+    if [[ ${#TDOCS_REPL_AUTHORITY[@]} -gt 0 ]]; then
+        local authority_list=$(IFS=','; echo "${TDOCS_REPL_AUTHORITY[*]}")
+        filter_args+=("--authority" "$authority_list")
+    fi
+
+    # Type filters (join with comma)
+    if [[ ${#TDOCS_REPL_TYPE[@]} -gt 0 ]]; then
+        local type_list=$(IFS=','; echo "${TDOCS_REPL_TYPE[*]}")
+        filter_args+=("--type" "$type_list")
+    fi
+
+    # Level filter (optional)
+    [[ -n "$TDOCS_REPL_LEVEL" ]] && filter_args+=("--level" "$TDOCS_REPL_LEVEL")
+
+    # Temporal filter
+    [[ -n "$TDOCS_REPL_TEMPORAL" ]] && filter_args+=("--temporal" "$TDOCS_REPL_TEMPORAL")
+
+    # Backward compat: old category/module fields
     [[ -n "$TDOCS_REPL_CATEGORY" ]] && filter_args+=("--$TDOCS_REPL_CATEGORY")
     [[ -n "$TDOCS_REPL_MODULE" ]] && filter_args+=("--module" "$TDOCS_REPL_MODULE")
 
+    # Add mode flags
+    [[ "$detailed" == true ]] && filter_args+=("--detailed")
+    filter_args+=("--numbered")  # Always numbered in REPL
+
     # Merge with provided args
-    tdocs_ls_docs "${filter_args[@]}" "${args[@]}"
+    tdocs_ls_docs "${filter_args[@]}" "${filtered_args[@]}"
 }
 
-# Command: /view <file>
+# Command: /view <file|number>
 tdocs_cmd_view() {
     local doc="${1:-}"
 
     if [[ -z "$doc" ]]; then
-        echo "Usage: /view <file>"
+        echo "Usage: /view <file|number>"
+        echo "  /view 3         View document #3 from last ls"
+        echo "  /view README.md View specific file"
         return 1
     fi
 
-    tdocs_view_doc "$doc"
+    # Check if it's a number (index from last ls)
+    if [[ "$doc" =~ ^[0-9]+$ ]]; then
+        # Get document by index from last list
+        local index=$((doc - 1))  # Convert to 0-based
+        if [[ -n "${TDOCS_LAST_LIST[$index]}" ]]; then
+            tdocs_view_doc "${TDOCS_LAST_LIST[$index]}" --pager
+        else
+            echo "Error: No document at index $doc"
+            echo "Run 'ls' first to see available documents"
+            return 1
+        fi
+    else
+        tdocs_view_doc "$doc" --pager
+    fi
 }
 
 # Command: /search <query>
@@ -176,6 +238,11 @@ tdocs_cmd_discover() {
     tdocs_discover_docs "$@"
 }
 
+# Command: /doctor [--fix|--summary]
+tdocs_cmd_doctor() {
+    tdocs_doctor "$@"
+}
+
 # Command: /evidence <query>
 tdocs_cmd_evidence() {
     local query="${1:-}"
@@ -191,25 +258,37 @@ tdocs_cmd_evidence() {
 
 # Command: /about
 tdocs_cmd_about() {
-    local readme_path="$TDOCS_SRC/docs/README.md"
+    # Just delegate to the main tdocs_about function with pager enabled
+    tdocs_about "$@"
+}
 
-    if [[ ! -f "$readme_path" ]]; then
-        echo "Error: Documentation not found at $readme_path"
-        return 1
+# Command: /module <name>
+tdocs_cmd_module() {
+    local module_name="${1:-}"
+
+    if [[ -z "$module_name" ]]; then
+        echo "Usage: module <module_name>"
+        return 0  # Don't exit REPL
     fi
 
-    # Check if pager is available
-    if command -v less >/dev/null 2>&1; then
-        # Use less with color support if available
-        if command -v bat >/dev/null 2>&1; then
-            bat --style=plain --paging=always "$readme_path"
-        else
-            less -R "$readme_path"
-        fi
-    else
-        # Fallback to cat
-        cat "$readme_path"
+    tdoc_module_docs "$module_name"
+}
+
+# Command: /spec <module>
+tdocs_cmd_spec() {
+    local module_name="${1:-}"
+
+    if [[ -z "$module_name" ]]; then
+        echo "Usage: spec <module_name>"
+        return 0  # Don't exit REPL
     fi
+
+    tdoc_show_spec "$module_name"
+}
+
+# Command: /audit-specs [--missing]
+tdocs_cmd_audit_specs() {
+    tdoc_audit_specs "$@"
 }
 
 export -f tdocs_register_commands
@@ -222,5 +301,9 @@ export -f tdocs_cmd_filter
 export -f tdocs_cmd_env
 export -f tdocs_cmd_audit
 export -f tdocs_cmd_discover
+export -f tdocs_cmd_doctor
 export -f tdocs_cmd_evidence
 export -f tdocs_cmd_about
+export -f tdocs_cmd_module
+export -f tdocs_cmd_spec
+export -f tdocs_cmd_audit_specs

@@ -14,9 +14,9 @@ function main() {
 Usage: osc_send.js <host> <port> <address> [args...]
 
 Examples:
-  osc_send.js localhost 57121 /midi/control/variant a
-  osc_send.js 192.168.1.100 57121 /midi/control/reload
-  osc_send.js localhost 57121 /midi/control/status
+  osc_send.js localhost 1983 /midi/control/variant a
+  osc_send.js 192.168.1.100 1983 /midi/control/reload
+  osc_send.js localhost 1983 /midi/control/status
 `);
         process.exit(1);
     }

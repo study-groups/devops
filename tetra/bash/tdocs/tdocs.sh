@@ -38,7 +38,13 @@ source "$TDOCS_SRC/core/database.sh"
 source "$TDOCS_SRC/core/index.sh"
 source "$TDOCS_SRC/core/classify.sh"
 source "$TDOCS_SRC/core/search.sh"
+source "$TDOCS_SRC/core/doctor.sh"
 source "$TDOCS_SRC/core/chuck.sh"
+source "$TDOCS_SRC/core/module_ops.sh"
+source "$TDOCS_SRC/core/ranking.sh"
+source "$TDOCS_SRC/core/scan.sh"
+source "$TDOCS_SRC/core/help.sh"
+source "$TDOCS_SRC/ui/tdocs_tokens.sh"
 source "$TDOCS_SRC/ui/tags.sh"
 source "$TDOCS_SRC/ui/preview.sh"
 source "$TDOCS_SRC/ui/interactive.sh"
@@ -64,7 +70,7 @@ _tdocs_build_help_tree() {
         synopsis="tdocs init <file> [OPTIONS]" \
         handler="tdocs_init_doc" \
         examples="tdocs init bash/rag/docs/NEW_FEATURE.md
-tdoc init docs/API_SPEC.md --core --type spec"
+tdocs init docs/API_SPEC.md --core --type spec"
 
     tree_insert "help.tdocs.view" command \
         title="Preview document" \
@@ -73,7 +79,7 @@ tdoc init docs/API_SPEC.md --core --type spec"
         synopsis="tdocs view <file> [OPTIONS]" \
         handler="tdocs_view_doc" \
         examples="tdocs view bash/rag/docs/REPL_FIXES.md
-tdoc view file.md --meta-only"
+tdocs view file.md --meta-only"
 
     tree_insert "help.tdocs.tag" command \
         title="Tag editor" \
@@ -93,6 +99,43 @@ tdoc view file.md --meta-only"
 tdocs ls --core
 tdocs ls --module rag
 tdocs ls --core --module rag --preview"
+
+    # ls flags (same as list, since ls is an alias)
+    tree_insert "help.tdocs.ls.--core" flag \
+        title="Core only" \
+        help="List only core documents"
+
+    tree_insert "help.tdocs.ls.--other" flag \
+        title="Other only" \
+        help="List only other/working documents"
+
+    tree_insert "help.tdocs.ls.--preview" flag \
+        title="Show preview" \
+        help="Display metadata preview for each document"
+
+    tree_insert "help.tdocs.ls.--module" option \
+        title="Module filter" \
+        help="Filter by module name"
+
+    tree_insert "help.tdocs.ls.--tags" option \
+        title="Tag filter" \
+        help="Filter by comma-separated tags"
+
+    tree_insert "help.tdocs.ls.--type" option \
+        title="Type filter" \
+        help="Filter by document type"
+
+    tree_insert "help.tdocs.ls.--pager" flag \
+        title="Use pager" \
+        help="Display output in pager (less)"
+
+    tree_insert "help.tdocs.ls.--meta-only" flag \
+        title="Metadata only" \
+        help="Show only metadata, not content"
+
+    tree_insert "help.tdocs.ls.--raw" flag \
+        title="Raw output" \
+        help="Show raw file with frontmatter"
 
     tree_insert "help.tdocs.search" command \
         title="Search documents" \
@@ -138,11 +181,33 @@ tdocs ls --core --module rag --preview"
     tree_insert "help.tdocs.about" command \
         title="About tdocs" \
         description="Show comprehensive tdocs documentation and usage guide" \
-        help="Display the full tdocs documentation including features, usage examples, and best practices" \
-        synopsis="tdocs about [--no-pager]" \
+        help="Display the full tdocs documentation including features, usage examples, and best practices. Uses TDS markdown renderer with color syntax highlighting and configurable margins for improved readability." \
+        synopsis="tdocs about [OPTIONS]" \
         handler="tdocs_about" \
         examples="tdocs about
-tdocs about --no-pager"
+tdocs about --no-pager
+tdocs about --width 100 --margin 8
+tdocs about --left-margin 10"
+
+    tree_insert "help.tdocs.about.--no-pager" flag \
+        title="Disable pager" \
+        help="Display without pager (print to stdout)"
+
+    tree_insert "help.tdocs.about.--width" option \
+        title="Max content width" \
+        help="Maximum content width (default: terminal width - margins)"
+
+    tree_insert "help.tdocs.about.--margin" option \
+        title="Set margins" \
+        help="Set both left and right margins (default: 4 spaces)"
+
+    tree_insert "help.tdocs.about.--left-margin" option \
+        title="Left margin" \
+        help="Set left margin in spaces (default: 4)"
+
+    tree_insert "help.tdocs.about.--right-margin" option \
+        title="Right margin" \
+        help="Set right margin in spaces (default: 4)"
 
     # init flags/options
     tree_insert "help.tdocs.init.--core" flag \
@@ -206,9 +271,18 @@ tdocs about --no-pager"
         description="Scan for undocumented markdown files and optionally initialize them" \
         help="Scan for undocumented markdown files and optionally initialize them" \
         synopsis="tdocs discover [--auto-init]" \
-        handler="tdocs_discover_docs" \
-        examples="tdocs discover
-tdocs discover --auto-init"
+        handler="tdocs_discover_docs"
+
+    tree_insert "help.tdocs.doctor" command \
+        title="Health check" \
+        description="Diagnose and repair database issues" \
+        help="Check for stale entries, missing metadata, and database consistency" \
+        synopsis="tdocs doctor [--fix|--summary]" \
+        handler="tdocs_doctor" \
+        details="Reports stale database entries and documents without metadata. Use --fix to automatically repair issues." \
+        examples="tdocs doctor
+tdocs doctor --fix
+tdocs doctor --summary"
 
     # Chuck command
     tree_insert "help.tdocs.chuck" command \
@@ -217,33 +291,33 @@ tdocs discover --auto-init"
         help="Capture LLM responses as lower-grade technical documentation" \
         synopsis="tdocs chuck <subcommand>" \
         handler="tdocs_action_chuck" \
-        details="Chuck stores LLM responses in $TETRA_DIR/tdoc/chuck/ with epoch timestamps.
+        details="Chuck stores LLM responses in $TETRA_DIR/tdocs/chuck/ with epoch timestamps.
 These are lower-grade docs that can later be promoted to reference documentation." \
         examples="tdocs chuck save tree < llm_response.md
-tdoc chuck list --recent 10
-tdoc chuck promote 1729950000 docs/reference/tree.md"
+tdocs chuck list --recent 10
+tdocs chuck promote 1729950000 docs/reference/tree.md"
 
     # Chuck subcommands
     tree_insert "help.tdocs.chuck.save" command \
         title="Save LLM response" \
         help="Save LLM response from stdin or file" \
         synopsis="tdocs chuck save <kind> [--from FILE]" \
-        examples="echo '...' | tdoc chuck save tree
-tdoc chuck save boot --from /tmp/response.md"
+        examples="echo '...' | tdocs chuck save tree
+tdocs chuck save boot --from /tmp/response.md"
 
     tree_insert "help.tdocs.chuck.list" command \
         title="List chuck documents" \
         help="List chucked documents with optional filters" \
         synopsis="tdocs chuck list [--kind KIND] [--recent N]" \
         examples="tdocs chuck list
-tdoc chuck list --kind tree --recent 5"
+tdocs chuck list --kind tree --recent 5"
 
     tree_insert "help.tdocs.chuck.view" command \
         title="View chuck document" \
         help="Display a chucked document" \
         synopsis="tdocs chuck view <id> | --kind <kind>" \
         examples="tdocs chuck view 1729950000
-tdoc chuck view --kind tree"
+tdocs chuck view --kind tree"
 
     tree_insert "help.tdocs.chuck.promote" command \
         title="Promote to reference" \
@@ -262,6 +336,38 @@ tdoc chuck view --kind tree"
         help="Full-text search across chuck documents" \
         synopsis="tdocs chuck search <query>" \
         examples="tdocs chuck search 'boot optimization'"
+
+    # Module commands
+    tree_insert "help.tdocs.module" command \
+        title="Module documentation" \
+        description="Show all documentation for a specific module" \
+        help="Display specifications, examples, and completeness level for a module" \
+        synopsis="tdocs module <module_name>" \
+        handler="tdoc_module_docs" \
+        examples="tdocs module tubes
+tdocs module rag"
+
+    tree_insert "help.tdocs.spec" command \
+        title="View module specification" \
+        description="Display the specification document for a module" \
+        help="View the specification document for a specific module" \
+        synopsis="tdocs spec <module_name>" \
+        handler="tdoc_show_spec" \
+        examples="tdocs spec tubes
+tdocs spec tdocs"
+
+    tree_insert "help.tdocs.audit-specs" command \
+        title="Audit module specifications" \
+        description="Check which modules have specifications and their completeness levels" \
+        help="Audit all modules to see which have specifications and what completeness level they've achieved" \
+        synopsis="tdocs audit-specs [--missing]" \
+        handler="tdoc_audit_specs" \
+        examples="tdocs audit-specs
+tdocs audit-specs --missing"
+
+    tree_insert "help.tdocs.audit-specs.--missing" flag \
+        title="Show missing only" \
+        help="Show only modules without specifications"
 }
 
 # Module initialization
@@ -312,7 +418,8 @@ tdocs() {
     shift || true
 
     case "$action" in
-        init)
+        add|init)
+            # add is preferred, init for backward compat
             tdocs_init_doc "$@"
             ;;
         view)
@@ -336,6 +443,25 @@ tdocs() {
         discover)
             tdocs_discover_docs "$@"
             ;;
+        scan)
+            tdocs_scan
+            ;;
+        rank)
+            # Show ranking breakdown for a file
+            if [[ -z "$1" ]]; then
+                echo "Usage: tdocs rank <file>" >&2
+                return 1
+            fi
+            tdoc_show_rank_breakdown "$1"
+            ;;
+        promote)
+            # Promote document type
+            if [[ -z "$1" ]]; then
+                echo "Usage: tdocs promote <file>" >&2
+                return 1
+            fi
+            tdocs_promote_doc "$1"
+            ;;
         browse|repl)
             # Launch interactive REPL
             source "$TDOCS_SRC/tdocs_repl.sh"
@@ -354,41 +480,69 @@ tdocs() {
         chuck)
             tdoc_action_chuck "$@"
             ;;
+        module)
+            tdoc_module_docs "$@"
+            ;;
+        spec)
+            tdoc_show_spec "$@"
+            ;;
+        audit-specs)
+            tdoc_audit_specs "$@"
+            ;;
+        demo)
+            # Run demo script
+            if [[ -f "$TDOCS_SRC/demo_tdocs.sh" ]]; then
+                "$TDOCS_SRC/demo_tdocs.sh" "$@"
+            else
+                echo "Demo script not found" >&2
+                return 1
+            fi
+            ;;
         about)
             tdocs_about "$@"
             ;;
         help|--help|-h)
-            _tdocs_show_help
+            if [[ -n "$1" ]]; then
+                tdocs_help_topic "$1"
+            else
+                _tdocs_show_help
+            fi
             ;;
         *)
             echo "Unknown command: $action" >&2
-            echo "Try: tdoc help" >&2
+            echo "Try: tdocs help" >&2
             return 1
             ;;
     esac
 }
 
 _tdocs_show_help() {
-    # Colors (matching tsm style)
-    local C_TITLE='\033[1;36m'
-    local C_CAT='\033[1;34m'
-    local C_CMD='\033[0;36m'
-    local C_GRAY='\033[0;90m'
+    # Subtle color palette - intensity creates hierarchy
+    local C_TITLE='\033[1;36m'      # Bright cyan (title)
+    local C_CMD='\033[0;36m'        # Normal cyan (commands)
+    local C_CMD_DIM='\033[2;36m'    # Dim cyan (secondary commands)
+    local C_GRAY='\033[0;90m'       # Grey (descriptions)
+    local C_GRAY_DIM='\033[2;37m'   # Dim grey (hints)
     local C_NC='\033[0m'
 
     cat <<EOF
-$(echo -e "${C_TITLE}TDOCS${C_NC}") - Tetra Document Manager
+$(echo -e "${C_TITLE}tdocs${C_NC}") - type-based doc ranking
 
-$(echo -e "${C_CAT}CATEGORIES${C_NC}")
-  $(echo -e "${C_CMD}Core${C_NC}")         init view tag ls
-  $(echo -e "${C_CMD}Discovery${C_NC}")    discover audit index
-  $(echo -e "${C_CMD}Search${C_NC}")       search evidence
-  $(echo -e "${C_CMD}Capture${C_NC}")      chuck (save LLM responses)
-  $(echo -e "${C_CMD}Interactive${C_NC}")  browse (REPL mode)
+  $(echo -e "${C_CMD}ls${C_NC}")              list (with ranks)
+  $(echo -e "${C_CMD}view${C_NC}") <n>        show doc #n from ls
+  $(echo -e "${C_CMD}search${C_NC}") <q>      find text
+  $(echo -e "${C_CMD_DIM}rank${C_NC}") <file>     explain ranking
 
-$(echo -e "${C_GRAY}Quick:${C_NC}") tdocs discover --auto-init  $(echo -e "${C_GRAY}# Index all docs${C_NC}")
-$(echo -e "${C_GRAY}View: ${C_NC}") tdocs ls --core --preview   $(echo -e "${C_GRAY}# List core docs${C_NC}")
-$(echo -e "${C_GRAY}Help: ${C_NC}") tdocs help <command>        $(echo -e "${C_GRAY}# Command details${C_NC}")
+  $(echo -e "${C_CMD}add${C_NC}") <file>      edit metadata
+  $(echo -e "${C_CMD_DIM}promote${C_NC}") <file>  notes→guide→ref
+  $(echo -e "${C_CMD_DIM}scan${C_NC}")            refresh index
+
+  $(echo -e "${C_CMD_DIM}module${C_NC}") <m>      module docs
+  $(echo -e "${C_CMD_DIM}spec${C_NC}") <m>        module spec
+  $(echo -e "${C_CMD_DIM}browse${C_NC}")          REPL mode
+
+$(echo -e "${C_GRAY_DIM}Types: reference 1.0 • guide 0.6 • notes 0.3${C_NC}")
+$(echo -e "${C_GRAY_DIM}More:  tdocs help <topic>${C_NC}")  $(echo -e "${C_GRAY}rank filter types${C_NC}")
 EOF
 }
 
@@ -423,6 +577,10 @@ tdocs_discover_docs() {
     tdoc_discover_docs "$@"
 }
 
+tdocs_doctor() {
+    tdoc_doctor "$@"
+}
+
 tdocs_evidence_for_query() {
     tdoc_evidence_for_query "$@"
 }
@@ -435,8 +593,19 @@ tdocs_index_status() {
     tdoc_index_status
 }
 
+# Helper: Add left margin to piped input
+_tdocs_add_margin() {
+    local margin="$1"
+    while IFS= read -r line; do
+        printf "%*s%s\n" "$margin" "" "$line"
+    done
+}
+
 tdocs_about() {
     local use_pager=true
+    local left_margin=4
+    local right_margin=4
+    local max_width=""
 
     # Parse options
     while [[ $# -gt 0 ]]; do
@@ -444,6 +613,23 @@ tdocs_about() {
             --no-pager|-n)
                 use_pager=false
                 shift
+                ;;
+            --width|-w)
+                max_width="$2"
+                shift 2
+                ;;
+            --margin|-m)
+                left_margin="$2"
+                right_margin="$2"
+                shift 2
+                ;;
+            --left-margin)
+                left_margin="$2"
+                shift 2
+                ;;
+            --right-margin)
+                right_margin="$2"
+                shift 2
                 ;;
             *)
                 shift
@@ -458,20 +644,47 @@ tdocs_about() {
         return 1
     fi
 
-    if [[ "$use_pager" == true ]]; then
-        # Try bat first (best markdown rendering)
-        if command -v bat >/dev/null 2>&1; then
-            bat --style=plain --paging=always "$readme_path"
-        # Fall back to less
-        elif command -v less >/dev/null 2>&1; then
-            less -R "$readme_path"
-        # Last resort: cat
+    # Calculate content width
+    local term_width=${COLUMNS:-80}
+    local content_width=$((term_width - left_margin - right_margin))
+
+    # Apply max width if specified
+    if [[ -n "$max_width" ]]; then
+        content_width=$max_width
+    fi
+
+    # Ensure minimum width
+    [[ $content_width -lt 40 ]] && content_width=40
+
+    # Use TDS markdown renderer if available, otherwise fall back to simpler rendering
+    if declare -F tds_render_markdown >/dev/null 2>&1; then
+        # TDS is available - use it with margins
+        if [[ "$use_pager" == true ]]; then
+            TDS_MARKDOWN_WIDTH=$content_width tds_render_markdown "$readme_path" | \
+                _tdocs_add_margin "$left_margin" | \
+                less -R
         else
-            cat "$readme_path"
+            TDS_MARKDOWN_WIDTH=$content_width tds_render_markdown "$readme_path" | \
+                _tdocs_add_margin "$left_margin"
         fi
     else
-        # No pager requested
-        cat "$readme_path"
+        # Fallback: Try bat, then less, then cat
+        if [[ "$use_pager" == true ]]; then
+            if command -v bat >/dev/null 2>&1; then
+                bat --style=plain --paging=always --terminal-width=$content_width "$readme_path" | \
+                    _tdocs_add_margin "$left_margin"
+            elif command -v less >/dev/null 2>&1; then
+                cat "$readme_path" | \
+                    _tdocs_add_margin "$left_margin" | \
+                    less -R
+            else
+                cat "$readme_path" | \
+                    _tdocs_add_margin "$left_margin"
+            fi
+        else
+            cat "$readme_path" | \
+                _tdocs_add_margin "$left_margin"
+        fi
     fi
 }
 
@@ -487,6 +700,7 @@ export -f tdocs_evidence_for_query
 export -f tdocs_index_rebuild
 export -f tdocs_index_status
 export -f tdocs_about
+export -f _tdocs_add_margin
 
 # Export core functions (needed for REPL and subshells)
 export -f tdoc_list_docs
