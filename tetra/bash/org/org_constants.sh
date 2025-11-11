@@ -35,6 +35,14 @@ declare -r ORG_TUI_CONTENT_START=6 2>/dev/null || true
 declare -r ORG_REPL_HISTORY_MAX=100 2>/dev/null || true    # Maximum commands in history
 declare -r ORG_REPL_INPUT_MAX=1000 2>/dev/null || true     # Maximum input length
 
+# SSH and network timeout settings (in seconds)
+declare -r ORG_SSH_CONNECT_TIMEOUT="${ORG_SSH_CONNECT_TIMEOUT:-3}" 2>/dev/null || true
+declare -r ORG_SSH_OVERALL_TIMEOUT="${ORG_SSH_OVERALL_TIMEOUT:-5}" 2>/dev/null || true
+declare -r ORG_SSH_BATCH_MODE="${ORG_SSH_BATCH_MODE:-yes}" 2>/dev/null || true
+
 # Export for use in other modules
 export ORG_ENVIRONMENTS
 export ORG_MODES
+export ORG_SSH_CONNECT_TIMEOUT
+export ORG_SSH_OVERALL_TIMEOUT
+export ORG_SSH_BATCH_MODE

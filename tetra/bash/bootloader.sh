@@ -72,6 +72,9 @@ source "$BOOT_DIR/boot_modules.sh" 2>/dev/null || true
 source "$BOOT_DIR/boot_aliases.sh" 2>/dev/null || true
 source "$BOOT_DIR/boot_prompt.sh" 2>/dev/null || true
 
+# Load user aliases if they exist
+[[ -f "$TETRA_DIR/aliases.sh" ]] && source "$TETRA_DIR/aliases.sh" 2>/dev/null || true
+
 # Calculate and export boot time
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # macOS: microseconds

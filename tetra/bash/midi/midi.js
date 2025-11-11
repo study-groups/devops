@@ -10,6 +10,8 @@ const easymidi = require('easymidi');
 const osc = require('osc');
 const fs = require('fs');
 const path = require('path');
+const toml = require('toml');
+const os = require('os');
 
 class TMCBridge {
     constructor(options = {}) {
@@ -17,6 +19,7 @@ class TMCBridge {
         this.inputDeviceId = options.inputDevice ?? -1;
         this.outputDeviceId = options.outputDevice ?? -1;
         this.oscPort = options.oscPort || 1983;
+        this.oscMulticast = options.oscMulticast || '239.1.1.1';
         this.oscEnabled = options.oscEnabled !== false; // Default to enabled
         this.verbose = options.verbose || false;
         this.running = true;
@@ -36,7 +39,50 @@ class TMCBridge {
 
     log(msg) {
         if (this.verbose) {
-            console.error(`[TMC] ${msg}`);
+            console.error(`[MIDI] ${msg}`);
+        }
+    }
+
+    loadConfig() {
+        try {
+            const configPath = path.resolve(this.configFile);
+            if (!fs.existsSync(configPath)) {
+                this.log(`Config file not found: ${configPath}`);
+                return false;
+            }
+
+            const configData = fs.readFileSync(configPath, 'utf8');
+            this.config = toml.parse(configData);
+            this.log(`Loaded config: ${configPath}`);
+
+            // Apply config values (CLI options override config)
+            if (!this.inputDeviceId || this.inputDeviceId === -1) {
+                this.inputDeviceId = this.config.service?.device_input || -1;
+            }
+            if (!this.outputDeviceId || this.outputDeviceId === -1) {
+                this.outputDeviceId = this.config.service?.device_output || -1;
+            }
+            if (!this.mapFile && this.config.service?.default_map) {
+                const mapName = this.config.service.default_map;
+                this.mapFile = path.join(os.homedir(), 'tetra/midi/maps', `${mapName}.json`);
+            }
+            if (!this.currentVariant && this.config.service?.default_variant) {
+                this.currentVariant = this.config.service.default_variant;
+            }
+            if (this.config.service?.verbose !== undefined) {
+                this.verbose = this.config.service.verbose;
+            }
+            if (this.config.service?.osc_port) {
+                this.oscPort = this.config.service.osc_port;
+            }
+            if (this.config.service?.osc_multicast) {
+                this.oscMulticast = this.config.service.osc_multicast;
+            }
+
+            return true;
+        } catch (err) {
+            console.error(`ERROR: Failed to load config: ${err.message}`);
+            return false;
         }
     }
 
@@ -148,8 +194,8 @@ class TMCBridge {
         const variant = this.currentVariant;
         const variantName = this.mapData.variants[variant]?.name || variant;
 
-        // Broadcast state metadata (use localhost for macOS compatibility)
-        const broadcastAddr = "127.0.0.1";
+        // Broadcast state metadata
+        const broadcastAddr = this.oscMulticast;
 
         this.udpPort.send({
             address: '/midi/state/controller',
@@ -182,15 +228,36 @@ class TMCBridge {
             return;
         }
 
+        // Create UDP socket with SO_REUSEADDR for multicast
+        const dgram = require('dgram');
+        const socket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+
+        socket.on('listening', () => {
+            // Join multicast group to receive control messages
+            try {
+                socket.addMembership(this.oscMulticast);
+                this.log(`Joined multicast group ${this.oscMulticast}:${this.oscPort}`);
+            } catch (err) {
+                console.error(`Failed to join multicast: ${err.message}`);
+            }
+        });
+
+        socket.on('error', (err) => {
+            console.error(`Socket ERROR: ${err.message}`);
+        });
+
+        // Bind to multicast port
+        socket.bind(this.oscPort, "0.0.0.0");
+
         this.udpPort = new osc.UDPPort({
-            localAddress: "0.0.0.0",
-            localPort: 0, // Use any available port for sending
+            socket: socket,
             broadcast: true,
+            multicastTTL: 1,
             metadata: true
         });
 
         this.udpPort.on("ready", () => {
-            this.log(`OSC ready - broadcasting to UDP port ${this.oscPort}`);
+            this.log(`OSC ready - multicasting to ${this.oscMulticast}:${this.oscPort}`);
             // Broadcast initial state if map loaded
             if (this.mapData) {
                 this.broadcastState();
@@ -217,13 +284,84 @@ class TMCBridge {
             const variant = args[0];
             if (this.switchVariant(variant)) {
                 this.log(`Variant switched to: ${variant}`);
+                console.error(`✓ Variant: ${variant}`);
+            }
+        } else if (address === '/midi/control/load-map') {
+            const mapName = args[0];
+            const mapPath = path.join(os.homedir(), 'tetra/midi/maps', `${mapName}.json`);
+            this.mapFile = mapPath;
+            if (this.loadMap()) {
+                this.log(`Map loaded: ${mapName}`);
+                console.error(`✓ Map loaded: ${mapName}`);
             }
         } else if (address === '/midi/control/reload') {
             if (this.loadMap()) {
                 this.log('Map reloaded');
+                console.error('✓ Map reloaded');
+            }
+        } else if (address === '/midi/control/reload-config') {
+            if (this.loadConfig()) {
+                this.log('Config reloaded');
+                console.error('✓ Config reloaded');
             }
         } else if (address === '/midi/control/status') {
             this.broadcastState();
+        } else if (address.startsWith('/midi/out/')) {
+            // Handle MIDI output: /midi/out/note, /midi/out/cc, etc.
+            this.handleMidiOutput(address, args);
+        }
+    }
+
+    handleMidiOutput(address, args) {
+        if (!this.midiOutput) {
+            console.error('ERROR: No MIDI output device');
+            return;
+        }
+
+        const parts = address.split('/').filter(p => p.length > 0);
+        const msgType = parts[2]; // note, cc, program
+
+        try {
+            switch (msgType) {
+                case 'note':
+                    // /midi/out/note channel note velocity
+                    if (args.length >= 3) {
+                        const channel = args[0] - 1;
+                        const note = args[1];
+                        const velocity = args[2];
+                        if (velocity > 0) {
+                            this.midiOutput.send('noteon', { channel, note, velocity });
+                            this.log(`MIDI OUT: NOTE_ON ${channel+1} ${note} ${velocity}`);
+                        } else {
+                            this.midiOutput.send('noteoff', { channel, note, velocity: 0 });
+                            this.log(`MIDI OUT: NOTE_OFF ${channel+1} ${note}`);
+                        }
+                    }
+                    break;
+
+                case 'cc':
+                    // /midi/out/cc channel controller value
+                    if (args.length >= 3) {
+                        const channel = args[0] - 1;
+                        const controller = args[1];
+                        const value = args[2];
+                        this.midiOutput.send('cc', { channel, controller, value });
+                        this.log(`MIDI OUT: CC ${channel+1} ${controller} ${value}`);
+                    }
+                    break;
+
+                case 'program':
+                    // /midi/out/program channel number
+                    if (args.length >= 2) {
+                        const channel = args[0] - 1;
+                        const number = args[1];
+                        this.midiOutput.send('program', { channel, number });
+                        this.log(`MIDI OUT: PROGRAM ${channel+1} ${number}`);
+                    }
+                    break;
+            }
+        } catch (err) {
+            console.error(`ERROR: Failed to send MIDI: ${err.message}`);
         }
     }
 
@@ -352,12 +490,12 @@ class TMCBridge {
         }
 
         if (formatted) {
-            // ALWAYS send raw OSC (UDP broadcast - all listeners receive)
+            // ALWAYS send raw OSC (UDP multicast - all listeners receive)
             if (this.udpPort && rawOscAddress) {
                 this.udpPort.send({
                     address: rawOscAddress,
                     args: rawOscArgs.map(v => ({ type: 'i', value: v }))
-                }, "127.0.0.1", this.oscPort);
+                }, this.oscMulticast, this.oscPort);
 
                 if (this.verbose) {
                     process.stderr.write(`OSC RAW: ${rawOscAddress} ${rawOscArgs.join(' ')}\n`);
@@ -388,7 +526,7 @@ class TMCBridge {
                         this.udpPort.send({
                             address: mappedAddress,
                             args: [{ type: 'f', value: mappedValue }]
-                        }, "127.0.0.1", this.oscPort);
+                        }, this.oscMulticast, this.oscPort);
 
                         if (this.verbose) {
                             process.stderr.write(`OSC MAPPED: ${mappedAddress} ${mappedValue.toFixed(6)}\n`);
@@ -511,9 +649,14 @@ class TMCBridge {
     }
 
     async run() {
-        this.log('Starting MIDI Bridge...');
+        console.error('Starting MIDI Bridge...');
 
-        // Load map if specified
+        // Load config first (unless --no-config specified)
+        if (this.configFile) {
+            this.loadConfig();
+        }
+
+        // Load map if specified (CLI overrides config)
         if (this.mapFile) {
             if (!this.loadMap()) {
                 console.error('WARNING: Map loading failed, running with raw MIDI only');

@@ -21,11 +21,13 @@
  */
 
 const osc = require('osc');
+const dgram = require('dgram');
 
 class OSCReplListener {
     constructor(options = {}) {
         this.oscHost = options.oscHost || '0.0.0.0';
         this.oscPort = options.oscPort || 1983;
+        this.oscMulticast = options.oscMulticast || '239.1.1.1';
         this.verbose = options.verbose || false;
         this.udpPort = null;
 
@@ -38,6 +40,11 @@ class OSCReplListener {
             last_cc: '',
             last_val: ''
         };
+
+        // Dense logging with timing
+        this.eventId = 0;
+        this.lastEventTime = Date.now();
+        this.startTime = Date.now();
     }
 
     log(msg) {
@@ -47,17 +54,37 @@ class OSCReplListener {
     }
 
     init() {
+        // Create UDP socket with SO_REUSEADDR for multicast
+        const socket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+
+        // Configure socket
+        socket.on('error', (err) => {
+            console.error(`Socket ERROR: ${err.message}`);
+        });
+
+        socket.on('listening', () => {
+            const address = socket.address();
+            // Join multicast group
+            try {
+                socket.addMembership(this.oscMulticast);
+                this.log(`Joined multicast group ${this.oscMulticast}:${this.oscPort}`);
+                console.error(`✓ OSC listener ready - multicast ${this.oscMulticast}:${address.port}`);
+            } catch (err) {
+                console.error(`Failed to join multicast group: ${err.message}`);
+            }
+        });
+
+        // Bind socket
+        socket.bind(this.oscPort, this.oscHost);
+
+        // Create OSC UDP port using the existing socket
         this.udpPort = new osc.UDPPort({
-            localAddress: this.oscHost,
-            localPort: this.oscPort,
-            broadcast: true,         // Enable broadcast reception
-            multicastTTL: 1,        // Allow multicast
+            socket: socket,
             metadata: true
         });
 
         this.udpPort.on("ready", () => {
-            this.log(`Listening on ${this.oscHost}:${this.oscPort}`);
-            console.error(`✓ OSC listener ready on port ${this.oscPort}`);
+            this.log(`OSC port ready`);
         });
 
         this.udpPort.on("message", (oscMsg) => {
@@ -117,26 +144,34 @@ class OSCReplListener {
         const channel = parts[3];
         const value = args[0];
 
+        // Dense logging: calculate timing
+        const now = Date.now();
+        const delta = now - this.lastEventTime;
+        const elapsed = now - this.startTime;
+        this.lastEventTime = now;
+        this.eventId++;
+
         let output = null;
 
         if (type === 'cc') {
             const controller = parts[4];
             this.state.last_cc = controller;
             this.state.last_val = value;
-            output = `__EVENT__ raw CC ${channel} ${controller} ${value}`;
+            // Format: __EVENT__ id delta_ms elapsed_ms raw CC ch ctrl val
+            output = `__EVENT__ ${this.eventId} ${delta} ${elapsed} raw CC ${channel} ${controller} ${value}`;
         } else if (type === 'note') {
             const note = parts[4];
             if (value > 0) {
-                output = `__EVENT__ raw NOTE_ON ${channel} ${note} ${value}`;
+                output = `__EVENT__ ${this.eventId} ${delta} ${elapsed} raw NOTE_ON ${channel} ${note} ${value}`;
             } else {
-                output = `__EVENT__ raw NOTE_OFF ${channel} ${note}`;
+                output = `__EVENT__ ${this.eventId} ${delta} ${elapsed} raw NOTE_OFF ${channel} ${note}`;
             }
             this.state.last_cc = `N${note}`;
             this.state.last_val = value;
         } else if (type === 'program') {
-            output = `__EVENT__ raw PROGRAM_CHANGE ${channel} ${value}`;
+            output = `__EVENT__ ${this.eventId} ${delta} ${elapsed} raw PROGRAM_CHANGE ${channel} ${value}`;
         } else if (type === 'pitchbend') {
-            output = `__EVENT__ raw PITCH_BEND ${channel} ${value}`;
+            output = `__EVENT__ ${this.eventId} ${delta} ${elapsed} raw PITCH_BEND ${channel} ${value}`;
         }
 
         if (output) {
@@ -149,7 +184,7 @@ class OSCReplListener {
             console.log(`__STATE__ ${stateStr}`);
 
             if (this.verbose) {
-                console.error(`Raw: ${output}`);
+                console.error(`[${this.eventId}] Δ${delta}ms: ${output}`);
             }
         }
     }
@@ -160,17 +195,29 @@ class OSCReplListener {
         const semantic = parts[3];
         const value = args[0];
 
-        const output = `__EVENT__ mapped ${variant} ${semantic} ${value.toFixed(6)}`;
+        // Dense logging with timing
+        const now = Date.now();
+        const delta = now - this.lastEventTime;
+        const elapsed = now - this.startTime;
+        this.lastEventTime = now;
+        this.eventId++;
+
+        // Format: __EVENT__ id delta_ms elapsed_ms mapped variant semantic value
+        const output = `__EVENT__ ${this.eventId} ${delta} ${elapsed} mapped ${variant} ${semantic} ${value.toFixed(6)}`;
         console.log(output);
 
         if (this.verbose) {
-            console.error(`Mapped: ${semantic}=${value.toFixed(6)}`);
+            console.error(`[${this.eventId}] Δ${delta}ms: ${semantic}=${value.toFixed(6)}`);
         }
     }
 
     cleanup() {
         if (this.udpPort) {
-            this.udpPort.close();
+            try {
+                this.udpPort.close();
+            } catch (err) {
+                // Ignore cleanup errors
+            }
         }
     }
 }

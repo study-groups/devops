@@ -6,10 +6,32 @@
 # Organization management functions
 
 org_list() {
+    local show_details=false
+
+    # Parse flags
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -l|--long)
+                show_details=true
+                shift
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+
     local orgs_dir="$TETRA_DIR/orgs"
     local active_org=$(org_active)
 
-    echo "Tetra Organizations:"
+    # Header with color
+    if type tds_text_color &>/dev/null; then
+        tds_text_color "content.heading.h2"
+        echo "Tetra Organizations"
+        tput sgr0
+    else
+        echo "Tetra Organizations"
+    fi
     echo ""
 
     # Create orgs directory if it doesn't exist
@@ -19,24 +41,76 @@ org_list() {
         return 0
     fi
 
+    local org_count=0
     for org_dir in "$orgs_dir"/*; do
         if [[ -d "$org_dir" ]]; then
             local org_name=$(basename "$org_dir")
             local toml_file="$org_dir/tetra.toml"
+            ((org_count++))
 
+            # Show organization name with color
             if [[ "$org_name" == "$active_org" ]]; then
-                echo "  $(tput bold)* $org_name$(tput sgr0) (active)"
+                # Active org - bold green with star
+                if type tds_text_color &>/dev/null; then
+                    tds_text_color "repl.feedback.success"
+                    printf "  ★ %s" "$org_name"
+                    tput sgr0
+                    tds_text_color "content.text.muted"
+                    printf " (active)\n"
+                    tput sgr0
+                else
+                    printf "  $(tput bold)* %s$(tput sgr0) (active)\n" "$org_name"
+                fi
             else
-                echo "    $org_name"
+                # Inactive org - normal cyan
+                if type tds_text_color &>/dev/null; then
+                    tds_text_color "content.text.primary"
+                    printf "  • %s\n" "$org_name"
+                    tput sgr0
+                else
+                    printf "    %s\n" "$org_name"
+                fi
             fi
 
-            if [[ -f "$toml_file" ]]; then
-                echo "      Config: $toml_file"
-            else
-                echo "      $(tput setaf 1)Missing config: $toml_file$(tput sgr0)"
+            # Show details if -l flag
+            if [[ "$show_details" == "true" ]]; then
+                if [[ -f "$toml_file" ]]; then
+                    if type tds_text_color &>/dev/null; then
+                        tds_text_color "content.text.muted"
+                        printf "    Config: %s\n" "$toml_file"
+                        tput sgr0
+                    else
+                        printf "    Config: %s\n" "$toml_file"
+                    fi
+
+                    # Show endpoint count if available
+                    local endpoint_count=$(grep -c '^\[connectors\.' "$toml_file" 2>/dev/null || echo 0)
+                    if [[ $endpoint_count -gt 0 ]]; then
+                        if type tds_text_color &>/dev/null; then
+                            tds_text_color "content.text.muted"
+                            printf "    Endpoints: %d\n" "$endpoint_count"
+                            tput sgr0
+                        else
+                            printf "    Endpoints: %d\n" "$endpoint_count"
+                        fi
+                    fi
+                else
+                    if type tds_text_color &>/dev/null; then
+                        tds_text_color "repl.feedback.error"
+                        printf "    ⚠ Missing config: %s\n" "$toml_file"
+                        tput sgr0
+                    else
+                        printf "    $(tput setaf 1)Missing config: %s$(tput sgr0)\n" "$toml_file"
+                    fi
+                fi
+                echo ""
             fi
         fi
     done
+
+    if [[ $org_count -eq 0 ]]; then
+        echo "No organizations found. Create one with: tetra org create <name>"
+    fi
     echo ""
 }
 
@@ -57,6 +131,13 @@ org_switch() {
 
     if [[ -z "$org_name" ]]; then
         echo "Usage: tetra org switch <organization>"
+        return 1
+    fi
+
+    # Validate org name to prevent path traversal
+    if [[ ! "$org_name" =~ ^[a-zA-Z0-9_]+$ ]]; then
+        echo "Error: Invalid organization name: '$org_name'"
+        echo "Name must contain only letters, numbers, and underscores"
         return 1
     fi
 
@@ -96,7 +177,25 @@ org_create() {
 
     # Validate org name (alphanumeric and underscore only)
     if [[ ! "$org_name" =~ ^[a-zA-Z0-9_]+$ ]]; then
-        echo "Organization name must contain only letters, numbers, and underscores"
+        echo "Error: Organization name must contain only letters, numbers, and underscores"
+        echo "Invalid characters found in: '$org_name'"
+        return 1
+    fi
+
+    # Check for path traversal attempts
+    if [[ "$org_name" == *".."* ]] || [[ "$org_name" == *"/"* ]]; then
+        echo "Error: Organization name cannot contain '..' or '/' (path traversal attempt)"
+        return 1
+    fi
+
+    # Length validation (reasonable limits)
+    if [[ ${#org_name} -lt 2 ]]; then
+        echo "Error: Organization name must be at least 2 characters"
+        return 1
+    fi
+
+    if [[ ${#org_name} -gt 64 ]]; then
+        echo "Error: Organization name must be 64 characters or less"
         return 1
     fi
 
@@ -628,6 +727,19 @@ org_import() {
     # Validate org name
     if [[ ! "$org_name" =~ ^[a-zA-Z0-9_]+$ ]]; then
         echo "Error: Organization name must contain only letters, numbers, and underscores"
+        echo "Invalid characters found in: '$org_name'"
+        return 1
+    fi
+
+    # Check for path traversal attempts
+    if [[ "$org_name" == *".."* ]] || [[ "$org_name" == *"/"* ]]; then
+        echo "Error: Organization name cannot contain '..' or '/' (path traversal attempt)"
+        return 1
+    fi
+
+    # Length validation
+    if [[ ${#org_name} -lt 2 ]] || [[ ${#org_name} -gt 64 ]]; then
+        echo "Error: Organization name must be between 2 and 64 characters"
         return 1
     fi
 

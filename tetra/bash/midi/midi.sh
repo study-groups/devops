@@ -1,106 +1,30 @@
 #!/usr/bin/env bash
 
-# MIDI Module - Tetra MIDI Controller (TMC)
-# Main entry point loaded by tmod
+# MIDI Module - Clean TSM-based Architecture
+# Service runs as background daemon, REPL is pure monitor, CLI manages everything
 
-# MIDI Module Environment Variables with proper override guards
+# MIDI Module Environment
 : "${MIDI_SRC:=$TETRA_SRC/bash/midi}"
 : "${MIDI_DIR:=$TETRA_DIR/midi}"
 
-# MIDI Directory Convention under TETRA_DIR
-MIDI_CONFIG_DIR="${MIDI_DIR}/config"
-MIDI_DEVICES_DIR="${MIDI_DIR}/devices"
-MIDI_SESSIONS_DIR="${MIDI_DIR}/sessions"
-MIDI_COLORS_DIR="${MIDI_DIR}/colors"
-MIDI_LOGS_DIR="${MIDI_DIR}/logs"
-
-# Override TMC_CONFIG_DIR for mapper
-TMC_CONFIG_DIR="$MIDI_DIR"
-export TMC_CONFIG_DIR
-
-# MIDI Module Management
-MIDI_MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# MIDI Configuration
+MIDI_CONFIG="${MIDI_CONFIG:-$MIDI_DIR/config.toml}"
+MIDI_MAPS_DIR="$MIDI_DIR/maps"
 
 # Global check
 if [[ -z "$TETRA_SRC" ]]; then
     echo "Error: TETRA_SRC must be set" >&2
-    echo "Source ~/tetra/tetra.sh first" >&2
     return 1
 fi
 
-# MIDI modules to source
-MIDI_MODULES=(
-    "$MIDI_MODULE_DIR/core/mapper.sh"
-    "$MIDI_MODULE_DIR/core/learn.sh"
-    "$MIDI_MODULE_DIR/core/repl.sh"
-    "$MIDI_MODULE_DIR/completion.sh"
-)
-
-# Source MIDI modules
-midi_source_modules() {
-    local verbose="${1:-false}"
-    local failed_modules=()
-
-    for module in "${MIDI_MODULES[@]}"; do
-        if [[ -f "$module" ]]; then
-            if source "$module" 2>/dev/null; then
-                [[ "$verbose" == "true" ]] && echo "✓ Sourced: $(basename "$module")"
-            else
-                local exit_code=$?
-                echo "⚠ Failed to source: $(basename "$module") (exit code: $exit_code)" >&2
-                failed_modules+=("$(basename "$module")")
-            fi
-        else
-            echo "⚠ Module not found: $(basename "$module")" >&2
-            failed_modules+=("$(basename "$module")")
-        fi
-    done
-
-    if [[ ${#failed_modules[@]} -gt 0 ]]; then
-        echo "⚠ MIDI module loaded with ${#failed_modules[@]} warning(s)" >&2
-    fi
-    return 0
+# Helper: Send OSC control message
+midi_osc_send() {
+    local address="$1"
+    shift
+    node "$MIDI_SRC/osc_send.js" localhost 1983 "$address" "$@" 2>/dev/null
 }
 
-# Initialize MIDI environment
-midi_init() {
-    # Validate TETRA_DIR first
-    if [[ -z "$TETRA_DIR" ]]; then
-        echo "❌ Error: TETRA_DIR environment variable not set" >&2
-        return 1
-    fi
-
-    # Create necessary directories
-    mkdir -p "$MIDI_CONFIG_DIR" "$MIDI_DEVICES_DIR" "$MIDI_SESSIONS_DIR" "$MIDI_COLORS_DIR" "$MIDI_LOGS_DIR"
-
-    # Source modules
-    midi_source_modules
-
-    # Initialize mapper
-    tmc_mapper_init
-
-    # Set up color table from TDS if available
-    if [[ -f "$TETRA_SRC/bash/tds/tds.sh" ]]; then
-        source "$TETRA_SRC/bash/tds/tds.sh" 2>/dev/null || true
-        tmc_sync_tds_colors
-    fi
-}
-
-# Sync TDS colors to MIDI color table
-tmc_sync_tds_colors() {
-    local color_table="$TMC_CONFIG_DIR/colors/color_table.txt"
-
-    # Create colors directory if needed
-    mkdir -p "$(dirname "$color_table")"
-
-    # Copy template if no existing table
-    if [[ ! -f "$color_table" ]]; then
-        cp "$MIDI_SRC/config/color_table_template.txt" "$color_table"
-        echo "Created color table: $color_table"
-    fi
-}
-
-# Main MIDI command interface (follows Tetra module pattern)
+# Main MIDI command interface
 midi() {
     local action="${1:-}"
 
@@ -108,21 +32,37 @@ midi() {
         cat <<'EOF'
 Usage: midi <command> [args]
 
-Service:     start stop status
-Learning:    learn learn-all wizard unlearn clear learn-help
-Mapping:     list mode
-Session:     save load
-Device:      device devices
-Config:      config init
-Other:       repl build help
+Service Management:
+  start             Start MIDI bridge service (TSM-managed)
+  stop              Stop MIDI bridge service
+  restart           Restart service
+  status            Show service status
+
+Map Management:
+  load-map NAME     Load map file (e.g., vmx8[0])
+  reload-map        Reload current map
+  reload-config     Reload config.toml
+  variant LETTER    Switch variant (a/b/c/d)
+
+Monitoring:
+  repl              Start interactive REPL (CLI + Key mode)
+  devices           List available MIDI devices
+
+Configuration:
+  config show       Show current configuration
+  config edit       Edit config.toml
 
 Quick Start:
-  midi start              Start TMC service
-  midi repl               Interactive REPL
-  midi learn VOLUME p1    Learn a control (use tab completion)
+  1. midi start                  # Start service (loads default map from config)
+  2. midi repl                   # Open TUI REPL (clean, no event spam)
+  3. midi variant b              # Switch to variant 'b'
+  4. midi load-map vmx8[0]       # Load different map
 
-Use tab completion to explore commands: midi <tab>
-For detailed help: midi help | midi learn-help
+Examples:
+  midi start                     # Uses config.toml defaults
+  midi repl                      # TUI mode, logging off (use /log in REPL)
+  midi load-map akai[0]          # Hot-reload different controller map
+  midi variant c                 # Switch to variant 'c'
 EOF
         return 0
     fi
@@ -130,101 +70,111 @@ EOF
     shift || true
 
     case "$action" in
-        # REPL mode
-        repl)
-            # Parse OSC connection options
-            local osc_host="$REPL_OSC_HOST"
-            local osc_port="$REPL_OSC_PORT"
-
-            while [[ $# -gt 0 ]]; do
-                case "$1" in
-                    --osc-host)
-                        osc_host="$2"
-                        shift 2
-                        ;;
-                    --osc-port)
-                        osc_port="$2"
-                        shift 2
-                        ;;
-                    *)
-                        shift
-                        ;;
-                esac
-            done
-
-            midi_repl "$osc_host" "$osc_port"
-            ;;
-
-        # Initialize
-        init)
-            midi_init
-            echo "✓ MIDI module initialized"
-            ;;
-
         # Service management
         start)
-            echo "Starting MIDI service..."
-            tsm start --port 1983 --name midi node "$MIDI_SRC/midi.js" -i 0 -o 0 -v
+            echo "Starting MIDI bridge service..."
+            # Build command with map from config if available
+            local map_arg=""
+            if [[ -f "$MIDI_CONFIG" ]]; then
+                local default_map=$(grep "^default_map" "$MIDI_CONFIG" | cut -d'"' -f2 2>/dev/null)
+                if [[ -n "$default_map" ]]; then
+                    map_arg="-m $MIDI_MAPS_DIR/${default_map}.json"
+                fi
+            fi
+            # Use TSM with explicit port 1983 (OSC multicast port)
+            if tsm start --name midi --port 1983 node "$MIDI_SRC/midi.js" -v $map_arg; then
+                echo "✓ MIDI bridge started"
+                sleep 1
+                midi status
+            else
+                echo "✗ Failed to start service"
+                return 1
+            fi
             ;;
 
         stop)
-            tsm stop midi
+            echo "Stopping MIDI bridge..."
+            # Find and stop by pattern
+            local service_id=$(tsm ls 2>/dev/null | grep "midi-1983" | awk '{print $1}')
+            if [[ -n "$service_id" ]]; then
+                tsm stop "$service_id"
+            else
+                echo "✗ MIDI bridge not found"
+                return 1
+            fi
+            ;;
+
+        restart)
+            echo "Restarting MIDI bridge..."
+            tsm stop midi-broadcast
+            sleep 1
+            midi start
             ;;
 
         status)
-            tsm list | grep "midi" || {
-                echo "MIDI service not running"
-                echo "Start with: midi start"
+            # Find the service by pattern (TSM may add port suffix)
+            if tsm ls 2>/dev/null | grep -q "midi-1983"; then
+                echo "✓ MIDI bridge: running"
+                tsm ls | grep "midi-1983"
+                # Request status broadcast
+                midi_osc_send "/midi/control/status"
+                sleep 0.2
+            else
+                echo "✗ MIDI bridge: not running"
+                echo "  Start with: midi start"
                 return 1
-            }
+            fi
             ;;
 
-        # Learning mode
-        learn)
-            tmc_learn "$@"
+        # Map management
+        load-map)
+            local map_name="$1"
+            if [[ -z "$map_name" ]]; then
+                echo "Usage: midi load-map <name>"
+                echo "Available maps:"
+                ls -1 "$MIDI_MAPS_DIR"/*.json 2>/dev/null | xargs -n1 basename | sed 's/\.json$//'
+                return 1
+            fi
+
+            echo "Loading map: $map_name"
+            midi_osc_send "/midi/control/load-map" "$map_name"
             ;;
 
-        learn-all)
-            tmc_learn_all "$@"
+        reload-map)
+            echo "Reloading current map..."
+            midi_osc_send "/midi/control/reload"
             ;;
 
-        wizard)
-            tmc_learn_wizard
+        reload-config)
+            echo "Reloading configuration..."
+            midi_osc_send "/midi/control/reload-config"
             ;;
 
-        unlearn)
-            tmc_unlearn "$@"
+        variant)
+            local variant="$1"
+            if [[ -z "$variant" ]]; then
+                echo "Usage: midi variant <a|b|c|d>"
+                return 1
+            fi
+
+            if [[ ! "$variant" =~ ^[a-d]$ ]]; then
+                echo "Error: Variant must be a, b, c, or d"
+                return 1
+            fi
+
+            echo "Switching to variant: $variant"
+            midi_osc_send "/midi/control/variant" "$variant"
             ;;
 
-        clear)
-            tmc_clear_all
-            ;;
-
-        # Mapping management
-        list)
-            tmc_list_mappings
-            ;;
-
-        mode)
-            tmc_set_mode "$@"
-            ;;
-
-        # Session management
-        save)
-            tmc_save_session "$@"
-            ;;
-
-        load)
-            tmc_load_session "$@"
-            ;;
-
-        # Device management
-        device)
-            tmc_load_device "$@"
+        # Monitoring
+        repl)
+            # Source the REPL
+            source "$MIDI_SRC/core/repl.sh"
+            midi_repl "$@"
             ;;
 
         devices)
-            "$MIDI_SRC/midi.js" -l
+            node "$MIDI_SRC/midi.js" -l
             ;;
 
         # Configuration
@@ -234,199 +184,47 @@ EOF
 
             case "$config_action" in
                 show)
-                    echo "TMC Configuration"
-                    echo "================="
-                    echo "Config dir: $TMC_CONFIG_DIR"
-                    echo "Device dir: ${TMC_DEVICE_DIR:-none}"
-                    echo "Current device: ${TMC_CURRENT_DEVICE:-none}"
-                    echo ""
-                    echo "Files:"
-                    echo "  Hardware maps: $TMC_CONFIG_DIR/devices/*/hardware_map.txt"
-                    echo "  Semantic maps: $TMC_CONFIG_DIR/devices/*/semantic_map.txt"
-                    echo "  Sessions: $TMC_CONFIG_DIR/sessions/"
-                    echo "  Color table: $TMC_CONFIG_DIR/colors/color_table.txt"
+                    if [[ -f "$MIDI_CONFIG" ]]; then
+                        echo "Configuration: $MIDI_CONFIG"
+                        echo "---"
+                        cat "$MIDI_CONFIG"
+                    else
+                        echo "No config file found at: $MIDI_CONFIG"
+                    fi
                     ;;
 
                 edit)
-                    local file="${1:-hardware}"
-                    case "$file" in
-                        hardware|hw)
-                            ${EDITOR:-vi} "$TMC_DEVICE_DIR/hardware_map.txt"
-                            ;;
-                        semantic|sem)
-                            ${EDITOR:-vi} "$TMC_DEVICE_DIR/semantic_map.txt"
-                            ;;
-                        colors|color)
-                            ${EDITOR:-vi} "$TMC_CONFIG_DIR/colors/color_table.txt"
-                            ;;
-                        *)
-                            echo "Unknown config file: $file"
-                            echo "Use: hardware|semantic|colors"
-                            return 1
-                            ;;
-                    esac
-                    ;;
-
-                templates)
-                    echo "Config templates available at:"
-                    echo "  $MIDI_SRC/config/"
-                    ls -1 "$MIDI_SRC/config/"
+                    ${EDITOR:-vi} "$MIDI_CONFIG"
+                    echo "Config saved. Reload with: midi reload-config"
                     ;;
 
                 *)
                     echo "Unknown config action: $config_action"
-                    echo "Use: show|edit|templates"
+                    echo "Use: show|edit"
                     return 1
                     ;;
             esac
             ;;
 
-        # Install dependencies
-        build)
-            echo "Installing Node.js dependencies..."
-            cd "$MIDI_SRC"
-            if npm install; then
-                echo "✓ Dependencies installed"
-                echo ""
-                echo "Test with: $MIDI_SRC/tmc.js -l"
-            else
-                echo "✗ Installation failed"
-                echo ""
-                echo "Make sure Node.js and npm are installed"
-                return 1
-            fi
-            ;;
-
         # Help
         help|--help|-h)
-            tmc_help
-            ;;
-
-        learn-help)
-            tmc_learn_help
+            midi
             ;;
 
         *)
             echo "Unknown command: $action"
-            echo "Use 'tmc help' for usage"
+            echo "Use 'midi help' for usage"
             return 1
             ;;
     esac
 }
 
-# Show help
-tmc_help() {
-    cat <<EOF
-TMC - Tetra MIDI Controller
-============================
-
-A bidirectional MIDI mapping system with socket-based pub/sub.
-
-USAGE
-  tmc <command> [options]
-
-SERVICE MANAGEMENT
-  start           Start TMC service (via TSM)
-  stop            Stop TMC service
-  status          Show service status
-
-LEARNING MODE
-  learn <semantic> [syntax] [min] [max]
-                  Learn a mapping interactively
-                  Examples:
-                    tmc learn VOLUME p1 0.0 1.0
-                    tmc learn TRIGGER_KICK b1a
-
-  learn-all <type>
-                  Batch learn controls (pots|sliders|buttons|transport)
-
-  wizard          Step-by-step learning wizard
-
-  unlearn <name>  Remove a mapping
-
-  clear           Clear all mappings
-
-MAPPING MANAGEMENT
-  list            Show all current mappings
-
-  mode <mode>     Set broadcast mode
-                  Modes: raw|syntax|semantic|all
-
-SESSION MANAGEMENT
-  save [name]     Save mappings to session (default: default)
-
-  load [name]     Load mappings from session
-
-DEVICE MANAGEMENT
-  device <id>     Load device configuration
-
-  devices         List available MIDI devices
-
-CONFIGURATION
-  config show     Show configuration paths
-  config edit <file>
-                  Edit config (hardware|semantic|colors)
-  config templates
-                  List available templates
-
-BUILD
-  build           Build tmc binary from source
-
-HELP
-  help            Show this help
-  learn-help      Show learning mode help
-
-EXAMPLES
-
-  # Start TMC service
-  tsm start bash $MIDI_SRC/core/socket_server.sh tmc
-
-  # Learn volume control
-  tmc learn VOLUME p1 0.0 1.0
-  # (move pot 1 on your controller)
-
-  # Learn all pots
-  tmc learn-all pots
-
-  # Set broadcast mode
-  tmc mode semantic
-
-  # Save session
-  tmc save my-setup
-
-  # Check status
-  tmc status
-
-ARCHITECTURE
-
-  Hardware (MIDI) → tmc.c → Socket → Mapper → Subscribers
-                              ↓
-                         Learning Mode
-                              ↓
-                         Config Files
-
-  Two-layer mapping:
-    1. Hardware (CC/NOTE) → Syntax (p1, s1, b1a)
-    2. Syntax → Semantic (VOLUME, TRIGGER_KICK)
-
-CONTROL NAMES
-
-  Pots:      p1-p8         (rotary knobs)
-  Sliders:   s1-s8         (faders)
-  Buttons:   b1a-b8d       (4 buttons × 8 paths = 32 buttons)
-  Transport: play, pause, stop, back, fwd, fback, ffwd,
-             up, down, left, right
-
-For more info: tmc learn-help
-
-EOF
-}
-
 # Initialize module when sourced
-midi_init
+if [[ -z "$MIDI_INITIALIZED" ]]; then
+    mkdir -p "$MIDI_DIR" "$MIDI_MAPS_DIR"
+    MIDI_INITIALIZED=1
+fi
 
 # Export functions
 export -f midi
-export -f midi_init
-export -f midi_source_modules
-export -f tmc_sync_tds_colors
+export -f midi_osc_send

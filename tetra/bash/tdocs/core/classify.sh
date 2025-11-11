@@ -70,13 +70,10 @@ tdoc_suggest_type() {
 
     # System-wide standards (TCS, TAS, TRS, TES, TTS, etc.)
     if [[ "$filename" =~ ^T[A-Z]{2}_ ]]; then
-        echo "standard"
+        echo "spec"
     # Module specifications (e.g., TUBES_SPECIFICATION.md)
     elif [[ "$filename" =~ _SPECIFICATION\.md$ ]]; then
-        echo "specification"
-    # Integration examples (e.g., TUBES_INTEGRATION_EXAMPLE.md)
-    elif [[ "$filename" =~ _EXAMPLE\.md$ ]] || [[ "$filename" =~ EXAMPLE\.md$ ]]; then
-        echo "example"
+        echo "spec"
     # Core document types
     elif [[ "$filename" =~ (SPEC|Specification) ]]; then
         echo "spec"
@@ -84,19 +81,19 @@ tdoc_suggest_type() {
         echo "guide"
     elif [[ "$filename" =~ (REFERENCE|Reference) ]]; then
         echo "reference"
-    # Working document types (temporal)
+    # Working document types
     elif [[ "$filename" =~ (BUG|FIX|FIXES) ]]; then
-        echo "temporal"
+        echo "investigation"
     elif [[ "$filename" =~ (REFACTOR|CLEANUP) ]]; then
-        echo "temporal"
+        echo "investigation"
     elif [[ "$filename" =~ (PLAN|TODO) ]]; then
-        echo "temporal"
+        echo "plan"
     elif [[ "$filename" =~ (SUMMARY|REPORT) ]]; then
-        echo "temporal"
+        echo "summary"
     elif [[ "$filename" =~ (IMPLEMENTATION|SESSION|DEBUG|FIXES) ]]; then
-        echo "temporal"
+        echo "summary"
     else
-        echo "guide"  # Default
+        echo "scratch"  # Default for unknown
     fi
 }
 

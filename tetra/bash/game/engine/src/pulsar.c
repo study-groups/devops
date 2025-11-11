@@ -28,6 +28,7 @@
 #include "render.h"
 #include "utils.h"
 #include "tgp.h"
+#include "osc.h"
 
 /* ========================================================================
  * GLOBAL STATE
@@ -51,6 +52,11 @@ static char fifo_path[256] = {0};
 /* TGP mode state */
 static int tgp_mode = 0;  /* 0 = stdio protocol, 1 = TGP protocol */
 static TGP_Context tgp_ctx;
+
+/* OSC mode state */
+static int osc_mode = 0;  /* 0 = disabled, 1 = OSC mode */
+static OSC_Receiver osc_receiver;
+static int osc_sprite_id = -1;  /* Active sprite controlled by OSC */
 
 /* Event log (shared with utils.c) */
 Event event_log[MAX_EVENT_LOG];
@@ -765,6 +771,75 @@ static void process_command(char *line) {
 }
 
 /* ========================================================================
+ * OSC PROTOCOL HANDLER
+ * ======================================================================== */
+
+/* Process OSC message - map MIDI controls to pulsar parameters */
+static void process_osc_message(const OSC_Message *msg) {
+    /* We expect messages like: /midi/mapped/a/speed 0.5 */
+    if (strncmp(msg->address, "/midi/mapped/", 13) != 0) {
+        return;  /* Ignore non-mapped messages */
+    }
+
+    /* Parse address: /midi/mapped/{variant}/{semantic} */
+    const char *path = msg->address + 13;
+    char variant[32], semantic[64];
+
+    if (sscanf(path, "%31[^/]/%63s", variant, semantic) != 2) {
+        return;  /* Invalid format */
+    }
+
+    /* Get value (should be float) */
+    if (msg->argc < 1 || msg->args[0].type != OSC_TYPE_FLOAT) {
+        return;
+    }
+
+    float value = msg->args[0].f;
+
+    /* Ensure we have a sprite to control */
+    if (osc_sprite_id < 0) {
+        int idx = alloc_sprite();
+        if (idx >= 0) {
+            osc_sprite_id = sprites[idx].id;
+            /* Initialize sprite at center */
+            sprites[idx].mx = ui_ctx.layout.cols / 2;
+            sprites[idx].my = ui_ctx.layout.rows / 2;
+            sprites[idx].len0 = 10;
+            sprites[idx].amp = 5;
+            sprites[idx].freq = 1.0f;
+            sprites[idx].dtheta = 0.0f;
+            sprites[idx].valence = 1;
+            sprites[idx].theta = 0;
+            sprites[idx].phase = 0;
+
+            log_event("OSC", 0, "Auto-spawned sprite for MIDI control");
+        }
+    }
+
+    /* Find our sprite */
+    int idx = find_sprite(osc_sprite_id);
+    if (idx < 0) return;
+
+    /* Map semantic controls to sprite parameters */
+    if (strcmp(semantic, "speed") == 0) {
+        /* Speed: map to rotation speed (dtheta) */
+        sprites[idx].dtheta = (value - 0.5f) * 4.0f;  /* Range: -2 to +2 */
+    } else if (strcmp(semantic, "intensity") == 0) {
+        /* Intensity: map to pulse frequency */
+        sprites[idx].freq = value * 5.0f;  /* Range: 0 to 5 Hz */
+    } else if (strcmp(semantic, "x") == 0) {
+        /* X position (normalized 0-1) */
+        sprites[idx].mx = (int)(value * ui_ctx.layout.cols);
+    } else if (strcmp(semantic, "y") == 0) {
+        /* Y position (normalized 0-1) */
+        sprites[idx].my = (int)(value * ui_ctx.layout.rows);
+    } else if (strcmp(semantic, "size") == 0) {
+        /* Size: map to amplitude */
+        sprites[idx].amp = (int)(value * 20);  /* Range: 0 to 20 */
+    }
+}
+
+/* ========================================================================
  * TGP PROTOCOL HANDLER
  * ======================================================================== */
 
@@ -958,6 +1033,132 @@ static void tgp_main_loop(void) {
     fprintf(stderr, "TGP mode: shutting down\n");
 }
 
+/* OSC main loop - listens to MIDI via OSC multicast */
+static void osc_main_loop(void) {
+    fprintf(stderr, "OSC mode: listening on 224.0.0.1:1983...\n");
+
+    /* Initialize OSC receiver */
+    if (osc_init_receiver(&osc_receiver, "224.0.0.1", 1983) < 0) {
+        fprintf(stderr, "ERROR: Failed to initialize OSC receiver\n");
+        return;
+    }
+
+    /* Open TTY for output */
+    tty = fopen("/dev/tty", "w");
+    if (!tty) {
+        tty = fdopen(dup(STDERR_FILENO), "w");
+        if (!tty) {
+            fprintf(stderr, "ERROR: Cannot open output\n");
+            osc_close_receiver(&osc_receiver);
+            return;
+        }
+    }
+
+    ui_ctx.tty = tty;
+
+    /* Initialize input module */
+    if (input_init(&input_mgr) < 0) {
+        fprintf(stderr, "ERROR: Cannot init input\n");
+        fclose(tty);
+        tty = NULL;
+        ui_ctx.tty = NULL;
+        osc_close_receiver(&osc_receiver);
+        return;
+    }
+
+    /* Get terminal size */
+    struct winsize ws;
+    int cols = 80, rows = 24;
+    if (ioctl(fileno(tty), TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0 && ws.ws_row > 0) {
+        cols = ws.ws_col;
+        rows = ws.ws_row;
+    }
+
+    ui_resize(&ui_ctx, cols, rows);
+    render_init(&render_ctx, tty, cols, rows);
+
+    /* Setup SIGWINCH handler */
+    struct sigaction sa;
+    sa.sa_handler = sigwinch_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART;
+    sigaction(SIGWINCH, &sa, NULL);
+
+    /* Enable raw mode */
+    input_enable_raw_mode(&input_mgr);
+
+    /* Clear screen and hide cursor */
+    fprintf(tty, "\033[2J\033[H\033[?25l");
+    fflush(tty);
+
+    /* Initialize CPU tracking */
+    getrusage(RUSAGE_SELF, &last_rusage);
+    last_wall_time_ns = now_ns();
+
+    running = 1;
+
+    /* Main loop */
+    struct timespec frame_time;
+    frame_time.tv_sec = 0;
+    frame_time.tv_nsec = 16666667;  /* ~60 FPS */
+
+    int frame_count = 0;
+    uint64_t last_frame_time = now_ns();
+
+    fprintf(stderr, "OSC mode: ready! Move your MIDI controls...\n");
+
+    while (running) {
+        /* Check window resize */
+        check_window_resize();
+
+        /* Receive OSC messages (process all available) */
+        OSC_Message osc_msg;
+        while (osc_recv_message(&osc_receiver, &osc_msg) == 1) {
+            process_osc_message(&osc_msg);
+        }
+
+        /* Handle keyboard input */
+        handle_input();
+
+        /* Calculate delta time */
+        uint64_t current_time = now_ns();
+        float dt = (current_time - last_frame_time) / 1000000000.0f;
+        last_frame_time = current_time;
+
+        /* Update sprites if not paused */
+        if (!ui_ctx.paused) {
+            update_sprites(dt);
+        }
+
+        /* Update CPU usage periodically */
+        if (++frame_count % 10 == 0) {
+            update_cpu_usage();
+        }
+
+        /* Render frame */
+        render_frame();
+
+        /* Frame rate control */
+        nanosleep(&frame_time, NULL);
+    }
+
+    /* Cleanup */
+    input_disable_raw_mode(&input_mgr);
+
+    if (tty) {
+        fprintf(tty, "\033[?25h\033[2J\033[H\033[0m");
+        fflush(tty);
+        fclose(tty);
+        tty = NULL;
+    }
+
+    ui_ctx.tty = NULL;
+    input_cleanup(&input_mgr);
+    osc_close_receiver(&osc_receiver);
+
+    fprintf(stderr, "OSC mode: shutting down\n");
+}
+
 /* ========================================================================
  * MAIN
  * ======================================================================== */
@@ -982,6 +1183,8 @@ int main(int argc, char **argv) {
             }
             fprintf(stderr, "TGP mode: session '%s'\n", argv[i + 1]);
             i++;  /* Skip next arg (the session name) */
+        } else if (strcmp(argv[i], "--osc") == 0) {
+            osc_mode = 1;
         }
     }
 
@@ -995,6 +1198,13 @@ int main(int argc, char **argv) {
 
     /* Log system startup */
     log_event("SYSTEM", 0, "Engine initialized");
+
+    /* Check if running in OSC mode */
+    if (osc_mode) {
+        osc_main_loop();
+        cleanup_child_processes();
+        return 0;
+    }
 
     /* Check if running in TGP mode */
     if (tgp_mode) {

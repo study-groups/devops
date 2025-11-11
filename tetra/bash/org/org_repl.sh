@@ -2,19 +2,47 @@
 # Org REPL - Interactive Organization Management Shell
 # Integrates with bash/repl, bash/tree, bash/thelp, TDS, and TSM
 
+# Verify TETRA_SRC is set
+if [[ -z "$TETRA_SRC" ]]; then
+    echo "Error: TETRA_SRC not set. Please source tetra.sh first." >&2
+    return 1 2>/dev/null || exit 1
+fi
+
 # Source dependencies (follow module hierarchy)
 # bash/repl - Universal REPL system
+if [[ ! -f "$TETRA_SRC/bash/repl/repl.sh" ]]; then
+    echo "Error: Required dependency not found: $TETRA_SRC/bash/repl/repl.sh" >&2
+    return 1 2>/dev/null || exit 1
+fi
 source "$TETRA_SRC/bash/repl/repl.sh"
+
+if [[ ! -f "$TETRA_SRC/bash/repl/command_processor.sh" ]]; then
+    echo "Error: Required dependency not found: $TETRA_SRC/bash/repl/command_processor.sh" >&2
+    return 1 2>/dev/null || exit 1
+fi
 source "$TETRA_SRC/bash/repl/command_processor.sh"
 
 # Set module name for completion
 REPL_MODULE_NAME="org"
 
 # bash/tree - Tree-based help and completion
+if [[ ! -f "$TETRA_SRC/bash/tree/core.sh" ]]; then
+    echo "Error: Required dependency not found: $TETRA_SRC/bash/tree/core.sh" >&2
+    return 1 2>/dev/null || exit 1
+fi
 source "$TETRA_SRC/bash/tree/core.sh"
+
+if [[ ! -f "$TETRA_SRC/bash/tree/help.sh" ]]; then
+    echo "Error: Required dependency not found: $TETRA_SRC/bash/tree/help.sh" >&2
+    return 1 2>/dev/null || exit 1
+fi
 source "$TETRA_SRC/bash/tree/help.sh"
 
 # bash/color - Color system (loaded by repl.sh, but explicit for clarity)
+if [[ ! -f "$TETRA_SRC/bash/color/repl_colors.sh" ]]; then
+    echo "Error: Required dependency not found: $TETRA_SRC/bash/color/repl_colors.sh" >&2
+    return 1 2>/dev/null || exit 1
+fi
 source "$TETRA_SRC/bash/color/repl_colors.sh"
 
 # bash/tds - Display system (borders and layout only)
@@ -29,6 +57,15 @@ fi
 
 # Org-specific modules
 ORG_SRC="${TETRA_SRC}/bash/org"
+
+# Check required org modules
+for required_file in "org_constants.sh" "actions.sh" "action_runner.sh" "org_tree.sh" "org_completion.sh"; do
+    if [[ ! -f "$ORG_SRC/$required_file" ]]; then
+        echo "Error: Required org module not found: $ORG_SRC/$required_file" >&2
+        return 1 2>/dev/null || exit 1
+    fi
+done
+
 source "$ORG_SRC/org_constants.sh"
 source "$ORG_SRC/actions.sh"
 source "$ORG_SRC/action_runner.sh"  # Safe version - TTS disabled
@@ -119,6 +156,7 @@ ORG_REPL_ACTION_INDEX=0
 ORG_REPL_ENVIRONMENTS=("${ORG_ENVIRONMENTS[@]}")
 ORG_REPL_MODES=("${ORG_MODES[@]}")
 ORG_REPL_EXECUTE_MODE=false  # false = ▶ browse, true = ◆ execute
+ORG_REPL_SINGLE_KEY_MODE=false  # true when space pressed as first char
 
 # ============================================================================
 # STATE HELPERS
@@ -229,11 +267,13 @@ _org_repl_build_prompt() {
             reset_color >> "$tmpfile"
         fi
 
-        # Prompt sigil (▶ for browse, ◆ for execute)
+        # Mode indicator and prompt sigil
         printf " " >> "$tmpfile"
         tds_text_color "repl.prompt.arrow" >> "$tmpfile"
-        if [[ "$ORG_REPL_EXECUTE_MODE" == "true" ]]; then
-            printf "◆" >> "$tmpfile"
+        if [[ "$ORG_REPL_SINGLE_KEY_MODE" == "true" ]]; then
+            printf "⌨" >> "$tmpfile"
+        elif [[ "$ORG_REPL_EXECUTE_MODE" == "true" ]]; then
+            printf "|" >> "$tmpfile"
         else
             printf "▶" >> "$tmpfile"
         fi
@@ -245,8 +285,10 @@ _org_repl_build_prompt() {
         if [[ "$action" != "none" ]]; then
             printf " → %s" "$action" >> "$tmpfile"
         fi
-        if [[ "$ORG_REPL_EXECUTE_MODE" == "true" ]]; then
-            printf " ◆ " >> "$tmpfile"
+        if [[ "$ORG_REPL_SINGLE_KEY_MODE" == "true" ]]; then
+            printf " ⌨ " >> "$tmpfile"  # Single-key mode indicator
+        elif [[ "$ORG_REPL_EXECUTE_MODE" == "true" ]]; then
+            printf " | " >> "$tmpfile"  # Armed/unlocked mode
         else
             printf " ▶ " >> "$tmpfile"
         fi
@@ -264,7 +306,82 @@ _org_repl_build_prompt() {
 # ============================================================================
 
 _org_handle_tab() {
-    # Browse forward through actions (stay in browse mode ▶)
+    # If in single-key mode, TAB copies current action to line and shows full TES spec
+    if [[ "$ORG_REPL_SINGLE_KEY_MODE" == "true" ]]; then
+        local actions=($(_org_actions))
+        local action="${actions[$ORG_REPL_ACTION_INDEX]:-none}"
+
+        if [[ "$action" != "none" ]]; then
+            # Copy action to input line
+            REPL_INPUT="$action"
+            REPL_CURSOR_POS=${#REPL_INPUT}
+
+            # Exit single-key mode
+            ORG_REPL_SINGLE_KEY_MODE=false
+
+            # Show full TES specification
+            local env="${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}"
+            local mode="${ORG_REPL_MODES[$ORG_REPL_MODE_INDEX]}"
+
+            echo "" >&2
+            echo "TES Specification:" >&2
+            echo "  Environment: $env" >&2
+            echo "  Mode: $mode" >&2
+            echo "  Action: $action" >&2
+            echo "" >&2
+
+            # Rebuild prompt
+            _org_repl_build_prompt
+            TCURSES_READLINE_PROMPT="$REPL_PROMPT"
+        fi
+        return 0
+    fi
+
+    # If in armed mode, show resolved TES endpoints
+    if [[ "$ORG_REPL_EXECUTE_MODE" == "true" ]]; then
+        local actions=($(_org_actions))
+        local action="${actions[$ORG_REPL_ACTION_INDEX]:-none}"
+        local env="${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}"
+        local mode="${ORG_REPL_MODES[$ORG_REPL_MODE_INDEX]}"
+
+        echo "" >&2
+        echo "Resolved TES Endpoints:" >&2
+        echo "  Action: $action" >&2
+        echo "  Environment: $env" >&2
+        echo "  Mode: $mode" >&2
+        echo "" >&2
+
+        # Get active org for TES resolution
+        local org=$(_org_active)
+        if [[ "$org" != "none" ]]; then
+            local symbol="@${env,,}"
+            echo "  Symbol: $symbol" >&2
+
+            # Try to resolve if TES functions available
+            if command -v tes_resolve_symbol &>/dev/null; then
+                local address=$(tes_resolve_symbol "$symbol" 2>/dev/null || echo "N/A")
+                echo "  Address: $address" >&2
+
+                if command -v tes_resolve_channel &>/dev/null; then
+                    local channel=$(tes_resolve_channel "$symbol" 2>/dev/null || echo "N/A")
+                    echo "  Channel: $channel" >&2
+                fi
+
+                if command -v tes_resolve_connector &>/dev/null; then
+                    local connector=$(tes_resolve_connector "$symbol" 2>/dev/null || echo "N/A")
+                    echo "  Connector: $connector" >&2
+                fi
+            else
+                echo "  (TES resolution not available)" >&2
+            fi
+        else
+            echo "  (No active organization)" >&2
+        fi
+        echo "" >&2
+        return 0
+    fi
+
+    # Normal mode: Browse forward through actions (stay in browse mode ▶)
     _org_cycle_action
 
     # Clear the input line
@@ -294,21 +411,45 @@ _org_handle_shift_tab() {
 }
 
 _org_handle_space() {
-    # Select current action - switch to execute mode (◆)
-    ORG_REPL_EXECUTE_MODE=true
+    # Check if space is pressed as first character (empty input, cursor at 0)
+    if [[ -z "$REPL_INPUT" && $REPL_CURSOR_POS -eq 0 ]]; then
+        # Enter single-key mode
+        ORG_REPL_SINGLE_KEY_MODE=true
 
-    # Clear the input line
-    REPL_INPUT=""
-    REPL_CURSOR_POS=0
+        # Don't insert the space, just rebuild prompt to show mode change
+        _org_repl_build_prompt
+        TCURSES_READLINE_PROMPT="$REPL_PROMPT"
+        return 0
+    fi
 
-    # Rebuild prompt to show ◆
-    _org_repl_build_prompt
+    # If already in single-key mode or not first char, insert space normally
+    if [[ "$ORG_REPL_SINGLE_KEY_MODE" == "false" ]]; then
+        # Normal mode: Select current action - switch to execute mode (◆)
+        ORG_REPL_EXECUTE_MODE=true
 
-    # Update the global prompt variable so the readline loop uses the new prompt
-    TCURSES_READLINE_PROMPT="$REPL_PROMPT"
+        # Clear the input line
+        REPL_INPUT=""
+        REPL_CURSOR_POS=0
+
+        # Rebuild prompt to show ◆
+        _org_repl_build_prompt
+
+        # Update the global prompt variable so the readline loop uses the new prompt
+        TCURSES_READLINE_PROMPT="$REPL_PROMPT"
+    fi
 }
 
 _org_handle_esc() {
+    # Exit single-key mode if active
+    if [[ "$ORG_REPL_SINGLE_KEY_MODE" == "true" ]]; then
+        ORG_REPL_SINGLE_KEY_MODE=false
+
+        # Rebuild prompt
+        _org_repl_build_prompt
+        TCURSES_READLINE_PROMPT="$REPL_PROMPT"
+        return 0
+    fi
+
     # Deselect - return to browse mode (▶)
     ORG_REPL_EXECUTE_MODE=false
 
@@ -323,6 +464,44 @@ _org_handle_esc() {
     TCURSES_READLINE_PROMPT="$REPL_PROMPT"
 }
 
+# Single-key mode handler - processes a/e/m keys when in single-key mode
+repl_handle_single_key() {
+    local key="$1"
+
+    # Only process if in single-key mode
+    if [[ "$ORG_REPL_SINGLE_KEY_MODE" != "true" ]]; then
+        return 1  # Not handled, allow normal processing
+    fi
+
+    case "$key" in
+        a|A)
+            # Cycle action
+            _org_cycle_action
+            _org_repl_build_prompt
+            TCURSES_READLINE_PROMPT="$REPL_PROMPT"
+            return 0  # Handled
+            ;;
+        e|E)
+            # Cycle environment
+            _org_cycle_env
+            _org_repl_build_prompt
+            TCURSES_READLINE_PROMPT="$REPL_PROMPT"
+            return 0  # Handled
+            ;;
+        m|M)
+            # Cycle mode
+            _org_cycle_mode
+            _org_repl_build_prompt
+            TCURSES_READLINE_PROMPT="$REPL_PROMPT"
+            return 0  # Handled
+            ;;
+        *)
+            # Not a single-key command, allow normal processing
+            return 1
+            ;;
+    esac
+}
+
 # ============================================================================
 # INPUT PROCESSOR
 # ============================================================================
@@ -330,39 +509,70 @@ _org_handle_esc() {
 _org_repl_process_input() {
     local input="$1"
 
-    echo "DEBUG: _org_repl_process_input called with input='$input'" >&2
-    echo "DEBUG: Execute mode=$ORG_REPL_EXECUTE_MODE" >&2
-
-    # Empty input - execute current action ONLY if in execute mode (◆)
+    # Empty input - output TTS action with TES endpoints if in armed mode (|)
     if [[ -z "$input" ]]; then
-        echo "DEBUG: Empty input detected" >&2
         if [[ "$ORG_REPL_EXECUTE_MODE" == "true" ]]; then
-            echo "DEBUG: In execute mode, getting action" >&2
             local actions=($(_org_actions))
             local action="${actions[$ORG_REPL_ACTION_INDEX]}"
-            echo "DEBUG: Selected action: '$action'" >&2
+            local env="${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}"
+            local mode="${ORG_REPL_MODES[$ORG_REPL_MODE_INDEX]}"
+
             if [[ -n "$action" && "$action" != "none" ]]; then
-                input="$action"
-                # Return to browse mode after executing
+                # Output TTS (Task/Target/State) action with TES formatted endpoints
+                echo ""
+                echo "TTS Action Specification:"
+                echo "  Task: $action"
+                echo "  Target: ${env} environment"
+                echo "  State: ${mode} mode"
+                echo ""
+                echo "TES Endpoints:"
+
+                # Get active org for TES resolution
+                local org=$(_org_active)
+                if [[ "$org" != "none" ]]; then
+                    # Show TES resolution for this environment
+                    local symbol="@${env,,}"  # e.g., @local, @dev, @staging, @prod
+                    echo "  Symbol: $symbol"
+
+                    # If we can resolve, show the details
+                    if command -v tes_resolve_symbol &>/dev/null; then
+                        local address=$(tes_resolve_symbol "$symbol" 2>/dev/null || echo "N/A")
+                        echo "  Address: $address"
+
+                        if command -v tes_resolve_channel &>/dev/null; then
+                            local channel=$(tes_resolve_channel "$symbol" 2>/dev/null || echo "N/A")
+                            echo "  Channel: $channel"
+                        fi
+                    fi
+                else
+                    echo "  (No active organization - TES resolution unavailable)"
+                fi
+                echo ""
+
+                # Return to browse mode after displaying
                 ORG_REPL_EXECUTE_MODE=false
-                echo "DEBUG: Will execute action: $action" >&2
+                return 0
             else
                 echo "No action selected" >&2
                 return 0
             fi
         else
-            echo "DEBUG: In browse mode, empty input ignored" >&2
             # In browse mode (▶), empty return does nothing
             return 0
         fi
     fi
 
-    echo "DEBUG: After empty check, input='$input'" >&2
-
-    # Shell command
+    # Shell command - execute with bash -c for safer execution
     if [[ "$input" == !* ]]; then
-        eval "${input:1}"
-        return 0
+        local shell_cmd="${input:1}"
+        # Validate command isn't empty
+        if [[ -z "$shell_cmd" ]]; then
+            echo "Error: Empty shell command" >&2
+            return 1
+        fi
+        # Use bash -c for safer execution (still inherits environment but prevents some injection)
+        bash -c "$shell_cmd"
+        return $?
     fi
 
     # Parse command (full takeover mode - no / prefix needed)
@@ -445,22 +655,17 @@ _org_repl_process_input() {
 
     # Action (verb:noun format) - Use safe action runner (no TTS)
     if [[ "$input" == *:* ]]; then
-        echo "DEBUG: Matched action pattern: $input" >&2
         local env="${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}"
-        echo "DEBUG: Environment: $env" >&2
 
         # Store mode for action runner
         export ORG_REPL_MODE="${ORG_REPL_MODES[$ORG_REPL_MODE_INDEX]}"
 
-        echo "DEBUG: About to call org_run_action with: $input $env" >&2
-
         # Use action runner with TES resolution (TTS disabled for safety)
         org_run_action "$input" "$env"
-
-        echo "DEBUG: org_run_action returned: $?" >&2
+        local exit_code=$?
 
         unset ORG_REPL_MODE
-        return 0
+        return $exit_code
     fi
 
     # Legacy commands
@@ -594,7 +799,7 @@ org_repl() {
     eval 'repl_handle_shift_tab() { _org_handle_shift_tab "$@"; }'
     eval 'repl_handle_space() { _org_handle_space "$@"; }'
     eval 'repl_handle_esc() { _org_handle_esc "$@"; }'
-    export -f repl_build_prompt repl_process_input repl_handle_tab repl_handle_shift_tab repl_handle_space repl_handle_esc
+    export -f repl_build_prompt repl_process_input repl_handle_tab repl_handle_shift_tab repl_handle_space repl_handle_esc repl_handle_single_key
 
     # Run unified REPL loop
     repl_run
@@ -619,6 +824,7 @@ export -f _org_handle_tab
 export -f _org_handle_shift_tab
 export -f _org_handle_space
 export -f _org_handle_esc
+export -f repl_handle_single_key
 export -f _org_repl_build_prompt
 export -f _org_repl_process_input
 export -f _org_show_help

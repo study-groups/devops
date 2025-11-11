@@ -102,14 +102,14 @@ tdoc_get_field() {
 # Add or update frontmatter in a markdown file
 tdoc_write_frontmatter() {
     local file="$1"
-    local category="$2"
-    local type="$3"
-    local tags="$4"  # Comma-separated
-    local module="${5:-}"
-    local status="${6:-draft}"
+    local type="$2"              # spec|guide|investigation|reference|plan|summary
+    local intent="$3"            # define|instruct|analyze|document|propose|track
+    local grade="${4:-C}"        # A|B|C|X (default: C=working)
+    local tags="$5"              # Comma-separated
+    local module="${6:-}"
     local completeness_level="${7:-}"
-    local implements="${8:-}"  # Comma-separated standards
-    local integrates="${9:-}"  # Comma-separated modules
+    local implements="${8:-}"    # Comma-separated standards
+    local integrates="${9:-}"    # Comma-separated modules
 
     # Read existing content (skip old frontmatter if present)
     local content=""
@@ -135,17 +135,23 @@ tdoc_write_frontmatter() {
         done < "$file"
     fi
 
-    # Determine evidence weight
-    local evidence_weight="secondary"
-    [[ "$category" == "core" ]] && evidence_weight="primary"
+    # Determine evidence weight from grade
+    local evidence_weight="tertiary"
+    case "$grade" in
+        A) evidence_weight="primary" ;;
+        B) evidence_weight="secondary" ;;
+        C) evidence_weight="tertiary" ;;
+        X) evidence_weight="excluded" ;;
+    esac
 
     # Get current date
     local date=$(date +%Y-%m-%d)
 
     # Build new frontmatter
     local frontmatter="---
-category: $category
 type: $type
+intent: $intent
+grade: $grade
 tags: [$tags]"
 
     [[ -n "$module" ]] && frontmatter+="
@@ -163,7 +169,6 @@ integrates: [$integrates]"
     frontmatter+="
 created: $date
 updated: $date
-status: $status
 evidence_weight: $evidence_weight
 ---
 "

@@ -23,7 +23,15 @@ org_run_action() {
     local verb="${action%%:*}"
     local noun="${action##*:}"
 
-    # PROOF OF LIFE - Show we're actually being called
+    # Verbosity control: simple inspect actions in Local env = quiet mode
+    local verbose=true
+    if [[ "$env" == "Local" && ( "$verb" == "view" || "$verb" == "list" || "$verb" == "validate" ) ]]; then
+        # Execute directly without all the ceremony
+        org_execute_action "$action" "$env"
+        return $?
+    fi
+
+    # Show execution intent
     echo ""
     echo "Going to execute $verb:$noun in $env environment"
     echo ""
@@ -35,21 +43,27 @@ org_run_action() {
     local mode="${ORG_REPL_MODE:-Inspect}"  # From REPL if available
 
     echo ""
-    echo "╔═══════════════════════════════════════════════════════════╗"
-    echo "║  ORG ACTION RUNNER                                        ║"
-    echo "╚═══════════════════════════════════════════════════════════╝"
+    if type tds_text_color &>/dev/null; then
+        tds_text_color "content.heading.h2"
+        echo "ORG ACTION RUNNER"
+        tput sgr0
+    else
+        echo "ORG ACTION RUNNER"
+    fi
     echo ""
 
-    # ========================================
-    # SECTION 1: Context Gathering
-    # ========================================
-    echo "┌───────────────────────────────────────────────────────────┐"
-    echo "│ 1. CONTEXT                                                │"
-    echo "└───────────────────────────────────────────────────────────┘"
+    # Context
+    if type tds_text_color &>/dev/null; then
+        tds_text_color "content.heading.h3"
+        echo "CONTEXT"
+        tput sgr0
+    else
+        echo "CONTEXT"
+    fi
     echo ""
     echo "  Action:          $action"
-    echo "    ├─ Verb:       $verb (what to do)"
-    echo "    └─ Noun:       $noun (target)"
+    echo "    • Verb:        $verb (what to do)"
+    echo "    • Noun:        $noun (target)"
     echo ""
     echo "  Environment:     $env"
     echo "  Mode:            $mode"
@@ -58,12 +72,14 @@ org_run_action() {
     echo "  Timestamp:       $timestamp"
     echo ""
 
-    # ========================================
-    # SECTION 2: TES Resolution
-    # ========================================
-    echo "┌───────────────────────────────────────────────────────────┐"
-    echo "│ 2. TES ENDPOINT RESOLUTION                                │"
-    echo "└───────────────────────────────────────────────────────────┘"
+    # TES Resolution
+    if type tds_text_color &>/dev/null; then
+        tds_text_color "content.heading.h3"
+        echo "TES ENDPOINT RESOLUTION"
+        tput sgr0
+    else
+        echo "TES ENDPOINT RESOLUTION"
+    fi
     echo ""
 
     local tes_symbol=""
@@ -112,6 +128,30 @@ org_run_action() {
             local ssh_port=$(grep -A10 "^\[$env_lower\]" "$toml_file" 2>/dev/null | grep "^port" | head -1 | awk '{print $3}')
             local ssh_key=$(grep -A10 "^\[$env_lower\]" "$toml_file" 2>/dev/null | grep "^identity" | head -1 | cut -d'"' -f2)
 
+            # Validate SSH key if specified
+            if [[ -n "$ssh_key" ]]; then
+                # Expand tilde to home directory
+                ssh_key="${ssh_key/#\~/$HOME}"
+
+                if [[ ! -f "$ssh_key" ]]; then
+                    echo "  Status:          ⚠️  ERROR"
+                    echo "  Error:           SSH key file not found: $ssh_key"
+                    echo ""
+                    return 1
+                fi
+
+                # Check file permissions (should be 600 or 400)
+                local key_perms=$(stat -f "%OLp" "$ssh_key" 2>/dev/null || stat -c "%a" "$ssh_key" 2>/dev/null)
+                if [[ "$key_perms" != "600" && "$key_perms" != "400" ]]; then
+                    echo "  Status:          ⚠️  WARNING"
+                    echo "  Warning:         SSH key has insecure permissions: $key_perms"
+                    echo "  Expected:        600 or 400"
+                    echo "  Key File:        $ssh_key"
+                    echo "  Fix with:        chmod 600 $ssh_key"
+                    echo ""
+                fi
+            fi
+
             if [[ -z "$ssh_host" || -z "$ssh_user" ]]; then
                 echo "  Status:          ⚠️  ERROR"
                 echo "  Error:           Incomplete SSH configuration in tetra.toml"
@@ -138,24 +178,28 @@ org_run_action() {
 
     echo ""
 
-    # ========================================
-    # SECTION 3: Action Plan
-    # ========================================
-    echo "┌───────────────────────────────────────────────────────────┐"
-    echo "│ 3. EXECUTION PLAN                                         │"
-    echo "└───────────────────────────────────────────────────────────┘"
+    # Execution Plan
+    if type tds_text_color &>/dev/null; then
+        tds_text_color "content.heading.h3"
+        echo "EXECUTION PLAN"
+        tput sgr0
+    else
+        echo "EXECUTION PLAN"
+    fi
     echo ""
 
     _org_explain_action "$verb" "$noun" "$env" "$active_org" "$tes_target"
 
     echo ""
 
-    # ========================================
-    # SECTION 4: Possible Nouns/Targets
-    # ========================================
-    echo "┌───────────────────────────────────────────────────────────┐"
-    echo "│ 4. AVAILABLE TARGETS                                      │"
-    echo "└───────────────────────────────────────────────────────────┘"
+    # Available Targets
+    if type tds_text_color &>/dev/null; then
+        tds_text_color "content.heading.h3"
+        echo "AVAILABLE TARGETS"
+        tput sgr0
+    else
+        echo "AVAILABLE TARGETS"
+    fi
     echo ""
 
     case "$noun" in
@@ -196,12 +240,14 @@ org_run_action() {
 
     echo ""
 
-    # ========================================
-    # SECTION 5: Prerequisites & Validation
-    # ========================================
-    echo "┌───────────────────────────────────────────────────────────┐"
-    echo "│ 5. PREREQUISITES                                          │"
-    echo "└───────────────────────────────────────────────────────────┘"
+    # Prerequisites
+    if type tds_text_color &>/dev/null; then
+        tds_text_color "content.heading.h3"
+        echo "PREREQUISITES"
+        tput sgr0
+    else
+        echo "PREREQUISITES"
+    fi
     echo ""
 
     local prereq_passed=true
@@ -217,11 +263,17 @@ org_run_action() {
     # Check SSH connectivity for remote environments
     if [[ "$tes_requires_ssh" == "true" ]]; then
         echo -n "  ⋯ Checking SSH connectivity to $tes_target... "
-        if timeout 5 ssh -o BatchMode=yes -o ConnectTimeout=3 ${ssh_key:+-i $ssh_key} ${ssh_port:+-p $ssh_port} "$tes_target" "echo ok" &>/dev/null; then
+        if timeout "$ORG_SSH_OVERALL_TIMEOUT" ssh \
+            -o BatchMode="$ORG_SSH_BATCH_MODE" \
+            -o ConnectTimeout="$ORG_SSH_CONNECT_TIMEOUT" \
+            ${ssh_key:+-i "$ssh_key"} \
+            ${ssh_port:+-p "$ssh_port"} \
+            "$tes_target" "echo ok" &>/dev/null; then
             echo "✓"
         else
             echo "✗"
             echo "    Warning: SSH connection failed (action may fail)"
+            echo "    Timeout: ${ORG_SSH_OVERALL_TIMEOUT}s (override with ORG_SSH_OVERALL_TIMEOUT)"
         fi
     fi
 
@@ -257,12 +309,15 @@ org_run_action() {
         fi
     fi
 
-    # ========================================
-    # SECTION 6: Confirmation
-    # ========================================
-    echo "╔═══════════════════════════════════════════════════════════╗"
-    echo "║  READY TO EXECUTE                                         ║"
-    echo "╚═══════════════════════════════════════════════════════════╝"
+    # Confirmation
+    echo ""
+    if type tds_text_color &>/dev/null; then
+        tds_text_color "repl.feedback.success"
+        echo "READY TO EXECUTE"
+        tput sgr0
+    else
+        echo "READY TO EXECUTE"
+    fi
     echo ""
     printf "Execute action '$action' on $tes_symbol? [Y/n]: "
     read -r confirm
@@ -288,27 +343,36 @@ org_run_action() {
     org_execute_action "$action" "$env"
     local exit_code=$?
 
-    # ========================================
-    # SECTION 9: Result
-    # ========================================
+    # Result
     echo ""
-    echo "┌───────────────────────────────────────────────────────────┐"
-    echo "│ RESULT                                                    │"
-    echo "└───────────────────────────────────────────────────────────┘"
-    echo ""
-
     if [[ $exit_code -eq 0 ]]; then
-        echo "  Status:          ✓ SUCCESS"
-        echo "  Exit Code:       0"
+        if type tds_text_color &>/dev/null; then
+            tds_text_color "repl.feedback.success"
+            echo "✓ SUCCESS"
+            tput sgr0
+        else
+            echo "✓ SUCCESS"
+        fi
+        echo "  Exit Code: 0"
     else
-        echo "  Status:          ✗ FAILED"
-        echo "  Exit Code:       $exit_code"
+        if type tds_text_color &>/dev/null; then
+            tds_text_color "repl.feedback.error"
+            echo "✗ FAILED"
+            tput sgr0
+        else
+            echo "✗ FAILED"
+        fi
+        echo "  Exit Code: $exit_code"
     fi
-
     echo ""
-    echo "╔═══════════════════════════════════════════════════════════╗"
-    echo "║  EXECUTION COMPLETE                                       ║"
-    echo "╚═══════════════════════════════════════════════════════════╝"
+
+    if type tds_text_color &>/dev/null; then
+        tds_text_color "content.heading.h2"
+        echo "EXECUTION COMPLETE"
+        tput sgr0
+    else
+        echo "EXECUTION COMPLETE"
+    fi
     echo ""
 
     printf "Press RETURN to continue..."

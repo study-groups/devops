@@ -5,6 +5,7 @@
   "main": "tmc.js",
   "dependencies": {
     "easymidi": "^2.0.1",
-    "osc": "^2.4.5"
+    "osc": "^2.4.5",
+    "toml": "^3.0.0"
   }
 }

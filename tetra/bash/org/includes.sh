@@ -11,18 +11,27 @@ source "$ORG_SRC/org_tree.sh"
 source "$ORG_SRC/org_completion.sh"
 
 # Core functionality
+if [[ ! -f "$ORG_SRC/tetra_org.sh" ]]; then
+    echo "Error: Required core module not found: $ORG_SRC/tetra_org.sh" >&2
+    return 1 2>/dev/null || exit 1
+fi
 source "$ORG_SRC/tetra_org.sh"
-source "$ORG_SRC/discovery.sh" 2>/dev/null || true
-source "$ORG_SRC/converter.sh" 2>/dev/null || true
-source "$ORG_SRC/compiler.sh" 2>/dev/null || true
-source "$ORG_SRC/org_help.sh" 2>/dev/null || true
-source "$ORG_SRC/actions.sh" 2>/dev/null || true
-source "$ORG_SRC/org_repl.sh" 2>/dev/null || true
 
-# Multi-environment configuration management
-source "$ORG_SRC/org_config.sh" 2>/dev/null || true
-source "$ORG_SRC/env_profiles.sh" 2>/dev/null || true
-source "$ORG_SRC/org_deploy.sh" 2>/dev/null || true
+# Optional modules - warn if missing but continue
+for optional_module in "discovery.sh" "converter.sh" "compiler.sh" "org_help.sh" "actions.sh" "org_repl.sh"; do
+    if [[ -f "$ORG_SRC/$optional_module" ]]; then
+        source "$ORG_SRC/$optional_module"
+    else
+        echo "Warning: Optional org module not found: $optional_module (some features may be unavailable)" >&2
+    fi
+done
+
+# Multi-environment configuration management (optional)
+for config_module in "org_config.sh" "env_profiles.sh" "org_deploy.sh"; do
+    if [[ -f "$ORG_SRC/$config_module" ]]; then
+        source "$ORG_SRC/$config_module"
+    fi
+done
 
 # Register org actions with action registry
 if [[ -f "$TETRA_SRC/bash/actions/registry.sh" ]]; then

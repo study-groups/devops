@@ -216,23 +216,100 @@ tdoc_search_docs() {
         return 0
     fi
 
-    echo "Found ${#results[@]} result(s):"
+    # Ensure all results have ranks calculated
+    local results_with_ranks=()
+    for meta in "${results[@]}"; do
+        local doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
+        tdoc_db_ensure_rank "$doc_path" 2>/dev/null
+
+        # Re-read metadata with rank
+        local updated_meta=$(tdoc_db_get_by_path "$doc_path")
+        if [[ -n "$updated_meta" && "$updated_meta" != "{}" ]]; then
+            results_with_ranks+=("$updated_meta")
+        else
+            results_with_ranks+=("$meta")
+        fi
+    done
+
+    # Sort by rank (descending)
+    local sorted_results=()
+    while IFS= read -r scored_item; do
+        sorted_results+=("${scored_item#*|}")
+    done < <(
+        for meta in "${results_with_ranks[@]}"; do
+            local rank=$(echo "$meta" | grep -o '"rank": [0-9.]*' | cut -d' ' -f2)
+            rank=${rank:-0.0}
+            echo "${rank}|${meta}"
+        done | sort -t'|' -k1 -rn
+    )
+
+    echo "Found ${#sorted_results[@]} result(s):"
     echo ""
 
-    # Render results
-    for meta in "${results[@]}"; do
-        tdoc_render_compact "$meta" "$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)"
+    # Render results with rank, type, and filename
+    for meta in "${sorted_results[@]}"; do
+        local doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
+        local rank=$(echo "$meta" | grep -o '"rank": [0-9.]*' | cut -d' ' -f2)
+        local doc_type=$(echo "$meta" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
+        local recency_boost=$(echo "$meta" | grep -o '"recency_boost": [0-9.]*' | cut -d' ' -f2)
+        local filename=$(basename "$doc_path")
+
+        # Determine if fresh
+        local is_fresh=false
+        if [[ -n "$recency_boost" ]] && command -v awk >/dev/null 2>&1; then
+            is_fresh=$(awk "BEGIN {print ($recency_boost > 0.01) ? 1 : 0}")
+        fi
+
+        # Display: rank (grey) type (grey) filename (cyan) fresh (grey)
+        if [[ -n "$rank" ]]; then
+            printf "\033[2;37m%5s\033[0m  " "$rank"
+        else
+            printf "       "
+        fi
+
+        printf "\033[2;37m%-16s\033[0m  " "$doc_type"
+        printf "\033[0;36m%s\033[0m" "$filename"
+
+        if [[ "$is_fresh" == "1" ]]; then
+            printf "  \033[2;37mfresh\033[0m"
+        fi
+
         echo ""
     done
+}
+
+# Cache for list results (cleared when filters change)
+declare -g TDOCS_LIST_CACHE=""
+declare -g TDOCS_LIST_CACHE_KEY=""
+
+# Check if cache is valid (newer than all .meta files)
+_tdoc_cache_is_valid() {
+    local cache_file="$1"
+
+    [[ ! -f "$cache_file" ]] && return 1
+
+    # Get cache timestamp
+    local cache_time=$(stat -f %m "$cache_file" 2>/dev/null || stat -c %Y "$cache_file" 2>/dev/null || echo 0)
+
+    # Find newest .meta file
+    local newest_meta=0
+    for meta_file in "$TDOCS_DB_DIR"/*.meta; do
+        [[ ! -f "$meta_file" ]] && continue
+        local meta_time=$(stat -f %m "$meta_file" 2>/dev/null || stat -c %Y "$meta_file" 2>/dev/null || echo 0)
+        [[ $meta_time -gt $newest_meta ]] && newest_meta=$meta_time
+    done
+
+    # Cache valid if newer than all .meta files
+    [[ $cache_time -gt $newest_meta ]]
 }
 
 # List documents with filters
 tdoc_list_docs() {
     local show_preview=false
-    local category=""
     local module=""
-    local authority=""
-    local doc_type=""
+    local type=""
+    local intent=""
+    local grade=""
     local tags=""
     local level=""
     local temporal=""
@@ -248,24 +325,20 @@ tdoc_list_docs() {
                 show_preview=true
                 shift
                 ;;
-            --core)
-                category="core"
-                shift
-                ;;
-            --other)
-                category="other"
-                shift
-                ;;
             --module)
                 module="$2"
                 shift 2
                 ;;
-            --authority)
-                authority="$2"
+            --type)
+                type="$2"
                 shift 2
                 ;;
-            --type)
-                doc_type="$2"
+            --intent)
+                intent="$2"
+                shift 2
+                ;;
+            --grade)
+                grade="$2"
                 shift 2
                 ;;
             --tags)
@@ -347,25 +420,39 @@ EOF
     local module_array=()
     [[ -n "$module" ]] && IFS=',' read -ra module_array <<< "$module"
 
-    local authority_array=()
-    [[ -n "$authority" ]] && IFS=',' read -ra authority_array <<< "$authority"
-
     local type_array=()
-    [[ -n "$doc_type" ]] && IFS=',' read -ra type_array <<< "$doc_type"
+    [[ -n "$type" ]] && IFS=',' read -ra type_array <<< "$type"
 
-    # Get documents from database
-    local results=()
-    local scored_results=()
+    local intent_array=()
+    [[ -n "$intent" ]] && IFS=',' read -ra intent_array <<< "$intent"
+
+    local grade_array=()
+    [[ -n "$grade" ]] && IFS=',' read -ra grade_array <<< "$grade"
+
+    # Check cache (key based on all filter parameters)
+    local cache_key="${module}|${type}|${intent}|${grade}|${level}|${temporal}|${sort_mode}"
+    if [[ "$cache_key" == "$TDOCS_LIST_CACHE_KEY" ]] && [[ -n "$TDOCS_LIST_CACHE" ]]; then
+        # Use cached scored results
+        local scored_results=()
+        while IFS= read -r line; do
+            scored_results+=("$line")
+        done <<< "$TDOCS_LIST_CACHE"
+    else
+        # Build fresh results and cache them
+        local results=()
+        local scored_results=()
     while IFS= read -r meta; do
         [[ -z "$meta" ]] && continue
 
-        # Extract document metadata for filtering
-        local doc_level=$(echo "$meta" | jq -r '.level // .completeness_level // ""' 2>/dev/null)
-        local doc_timestamp=$(echo "$meta" | jq -r '.updated // .created // ""' 2>/dev/null)
-        local doc_module=$(echo "$meta" | jq -r '.module // ""' 2>/dev/null)
-        local doc_authority=$(echo "$meta" | jq -r '.authority // ""' 2>/dev/null)
-        local doc_doc_type=$(echo "$meta" | jq -r '.doc_type // .type // ""' 2>/dev/null)
-        local doc_grade=$(echo "$meta" | jq -r '.grade // ""' 2>/dev/null)
+        # Extract metadata - simple grep is faster than jq overhead
+        local doc_level=$(echo "$meta" | grep -o '"level": "[^"]*"' | cut -d'"' -f4)
+        [[ -z "$doc_level" ]] && doc_level=$(echo "$meta" | grep -o '"completeness_level": "[^"]*"' | cut -d'"' -f4)
+        local doc_timestamp=$(echo "$meta" | grep -o '"updated": "[^"]*"' | cut -d'"' -f4)
+        [[ -z "$doc_timestamp" ]] && doc_timestamp=$(echo "$meta" | grep -o '"created": "[^"]*"' | cut -d'"' -f4)
+        local doc_module=$(echo "$meta" | grep -o '"module": "[^"]*"' | cut -d'"' -f4)
+        local doc_type=$(echo "$meta" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
+        local doc_intent=$(echo "$meta" | grep -o '"intent": "[^"]*"' | cut -d'"' -f4)
+        local doc_grade=$(echo "$meta" | grep -o '"grade": "[^"]*"' | cut -d'"' -f4)
 
         # Convert ISO timestamp to Unix epoch if needed
         if [[ "$doc_timestamp" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2} ]]; then
@@ -386,11 +473,11 @@ EOF
             [[ "$match" == false ]] && continue
         fi
 
-        # Apply authority filter (OR logic)
-        if [[ ${#authority_array[@]} -gt 0 ]]; then
+        # Apply type filter (OR logic)
+        if [[ ${#type_array[@]} -gt 0 ]]; then
             local match=false
-            for auth in "${authority_array[@]}"; do
-                if [[ "$doc_authority" == "$auth" ]]; then
+            for typ in "${type_array[@]}"; do
+                if [[ "$doc_type" == "$typ" ]]; then
                     match=true
                     break
                 fi
@@ -398,11 +485,23 @@ EOF
             [[ "$match" == false ]] && continue
         fi
 
-        # Apply type filter (OR logic)
-        if [[ ${#type_array[@]} -gt 0 ]]; then
+        # Apply intent filter (OR logic)
+        if [[ ${#intent_array[@]} -gt 0 ]]; then
             local match=false
-            for typ in "${type_array[@]}"; do
-                if [[ "$doc_doc_type" == "$typ" ]]; then
+            for int in "${intent_array[@]}"; do
+                if [[ "$doc_intent" == "$int" ]]; then
+                    match=true
+                    break
+                fi
+            done
+            [[ "$match" == false ]] && continue
+        fi
+
+        # Apply grade filter (OR logic)
+        if [[ ${#grade_array[@]} -gt 0 ]]; then
+            local match=false
+            for grd in "${grade_array[@]}"; do
+                if [[ "$doc_grade" == "$grd" ]]; then
                     match=true
                     break
                 fi
@@ -430,24 +529,14 @@ EOF
             score=$(tdoc_calculate_relevance "$doc_timestamp" "$doc_level" "$doc_module" "$module")
         elif [[ "$sort_mode" == "time" ]]; then
             score=${doc_timestamp:-0}
-        elif [[ "$sort_mode" == "authority" ]]; then
-            # Authority priority: canonical=5, stable=4, working=3, draft=2, stale=1, archived=0
-            case "$doc_authority" in
-                canonical) score=5 ;;
-                stable) score=4 ;;
-                working) score=3 ;;
-                draft) score=2 ;;
-                stale) score=1 ;;
-                *) score=0 ;;
-            esac
         elif [[ "$sort_mode" == "grade" ]]; then
-            # Grade priority: A=4, B=3, C=2, X=1, none=0
+            # Grade priority: A=4, B=3, C=2, X=1
             case "$doc_grade" in
                 A) score=4 ;;
                 B) score=3 ;;
                 C) score=2 ;;
                 X) score=1 ;;
-                *) score=0 ;;
+                *) score=2 ;;  # Default to C
             esac
         elif [[ "$sort_mode" == "level" ]]; then
             score=${doc_level#L}
@@ -457,6 +546,11 @@ EOF
         # Store with score for sorting
         scored_results+=("${score}|${meta}")
     done < <(tdoc_db_list "${query_args[@]}")
+
+        # Cache the scored results
+        TDOCS_LIST_CACHE_KEY="$cache_key"
+        TDOCS_LIST_CACHE=$(printf '%s\n' "${scored_results[@]}")
+    fi
 
     # Sort results based on sort_mode
     local sorted_results=()
@@ -477,48 +571,82 @@ EOF
         return 0
     fi
 
-    echo "Found ${#sorted_results[@]} document(s):"
-    echo ""
-
     # Clear and populate TDOCS_LAST_LIST if numbered mode
     if [[ "$numbered" == true ]]; then
         TDOCS_LAST_LIST=()
     fi
 
-    # Render results
+    # Use metadata as-is (ranks should be pre-calculated during scan)
+    local sorted_results_with_ranks=("${sorted_results[@]}")
+
+    # Group results by type (based on base rank)
+    local reference_docs=()
+    local guide_docs=()
+    local notes_docs=()
+    local unranked_docs=()
+
+    for meta in "${sorted_results_with_ranks[@]}"; do
+        local doc_type=$(echo "$meta" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
+        local rank=$(echo "$meta" | grep -o '"rank": [0-9.]*' | cut -d' ' -f2)
+
+        # Classify by type
+        case "$doc_type" in
+            spec|standard|reference)
+                reference_docs+=("$meta")
+                ;;
+            guide|example|integration)
+                guide_docs+=("$meta")
+                ;;
+            bug-fix|investigation|plan|summary|refactor)
+                notes_docs+=("$meta")
+                ;;
+            *)
+                if [[ -z "$rank" ]]; then
+                    unranked_docs+=("$meta")
+                else
+                    # Has rank but unknown type, put in guide
+                    guide_docs+=("$meta")
+                fi
+                ;;
+        esac
+    done
+
+    # Display total count
+    local total=$((${#reference_docs[@]} + ${#guide_docs[@]} + ${#notes_docs[@]} + ${#unranked_docs[@]}))
+    echo "Found ${total} document(s):"
+    echo ""
+
+    # Render results by group
     local index=1
-    local number_width=0
+    local number_width=5
 
-    # Calculate number width (for 3-digit numbers: "  1. " = 5 chars)
-    if [[ "$numbered" == true ]]; then
-        number_width=5
-    fi
+    # Render all documents in single-line compact format (no group headers)
+    local all_docs=()
+    all_docs+=("${reference_docs[@]}")
+    all_docs+=("${guide_docs[@]}")
+    all_docs+=("${notes_docs[@]}")
+    all_docs+=("${unranked_docs[@]}")
 
-    for meta in "${sorted_results[@]}"; do
+    for meta in "${all_docs[@]}"; do
         local doc_path=$(echo "$meta" | jq -r '.doc_path // ""' 2>/dev/null)
         [[ -z "$doc_path" ]] && doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
 
         # Add to list if numbered
         if [[ "$numbered" == true ]]; then
             TDOCS_LAST_LIST+=("$doc_path")
-        fi
-
-        # Print number prefix if numbered
-        if [[ "$numbered" == true ]]; then
             printf "\033[38;5;111m%3d.\033[0m " "$index"
+            ((index++))
         fi
 
-        if [[ "$detailed" == true ]]; then
-            tdoc_render_detailed "$meta" "$doc_path"
-        elif [[ "$show_preview" == "true" ]]; then
-            tdoc_render_list_with_preview "$meta"
-        else
-            tdoc_render_compact "$meta" "$doc_path" "$number_width"
+        # Use compact rendering (single line or detailed based on flag)
+        tdoc_render_compact "$meta" "$doc_path" "$number_width" "$detailed"
+        # Only add newline if not already added by detailed mode
+        if [[ "$detailed" != "true" ]]; then
+            printf "\n"
         fi
-
-        printf "\n"
-        ((index++))
     done
+
+    return 0
 }
 
 # Audit documents - find those without metadata
@@ -565,11 +693,11 @@ tdoc_audit_docs() {
     echo "Or run 'tdocs discover' to auto-index all documents"
 }
 
-# Auto-discover and index all documents
-tdoc_discover_docs() {
-    local auto_init="${1:-false}"  # --auto-init to automatically initialize all
+# Scan and index all documents
+tdoc_scan_docs() {
+    local dry_run="${1:-false}"  # --dry-run to preview only
 
-    echo "Discovering documents..."
+    echo "Scanning documents..."
     echo ""
 
     local discovered=()
@@ -602,7 +730,7 @@ tdoc_discover_docs() {
         fi
     done < <(find "$TETRA_SRC/bash" -path "*/docs/*.md" -type f 2>/dev/null)
 
-    echo "Discovery Summary:"
+    echo "Scan Summary:"
     echo "  Total found: ${#discovered[@]}"
     echo "  Already indexed: ${#already_indexed[@]}"
     echo "  Need indexing: ${#to_index[@]}"
@@ -613,21 +741,37 @@ tdoc_discover_docs() {
         return 0
     fi
 
-    # Auto-init if requested
-    if [[ "$auto_init" == "--auto-init" ]]; then
-        echo "Auto-indexing ${#to_index[@]} document(s)..."
+    # Index by default, unless --dry-run
+    if [[ "$dry_run" == "--dry-run" ]]; then
+        echo "Documents needing indexing:"
+        for file in "${to_index[@]}"; do
+            local rel_path=${file#$TETRA_SRC/}
+            echo "  $rel_path"
+        done
+        echo ""
+        echo "Run 'tdocs scan' to index all"
+    else
+        echo "Indexing ${#to_index[@]} document(s)..."
         echo ""
 
         local count=0
         for file in "${to_index[@]}"; do
             # Auto-detect metadata
             local module=$(tdoc_detect_module "$file")
-            local category=$(tdoc_suggest_category "$file")
             local type=$(tdoc_suggest_type "$file")
             local tags=$(tdoc_suggest_tags "$file")
 
-            # Create database entry without modifying the file
-            local timestamp=$(tdoc_db_create "$file" "$category" "$type" "$tags" "$module" "discovered")
+            # Auto-detect intent from type
+            local intent="document"
+            case "$type" in
+                spec|specification|reference) intent="define" ;;
+                guide) intent="instruct" ;;
+                investigation) intent="analyze" ;;
+                plan) intent="propose" ;;
+            esac
+
+            # Create database entry: tdoc_db_create(path, type, intent, grade, tags, module, level, implements, integrates, grounded_in, related_docs, supersedes)
+            local timestamp=$(tdoc_db_create "$file" "$type" "$intent" "C" "$tags" "$module" "" "" "" "" "" "")
 
             ((count++))
             if (( count % 10 == 0 )); then
@@ -639,14 +783,6 @@ tdoc_discover_docs() {
         echo "✓ Indexed ${#to_index[@]} document(s)"
         echo ""
         echo "Note: Documents were indexed without modifying files"
-        echo "Use 'tdocs init <file>' to add frontmatter to specific files"
-    else
-        echo "Documents needing indexing:"
-        for file in "${to_index[@]}"; do
-            local rel_path=${file#$TETRA_SRC/}
-            echo "  $rel_path"
-        done
-        echo ""
-        echo "Run 'tdocs discover --auto-init' to automatically index all"
+        echo "Use 'tdocs add <file>' to edit metadata for specific files"
     fi
 }

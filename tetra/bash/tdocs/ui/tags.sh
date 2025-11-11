@@ -32,6 +32,31 @@ TDOC_TAG_COLORS[deprecated]="tdocs.status.deprecated"
 # Default
 TDOC_TAG_COLORS[default]="text.tertiary"
 
+# Get color for a tag using round-robin through palette slots [1-7]
+# Uses simple hash of tag name to pick palette and index
+_tdoc_get_tag_color() {
+    local tag="$1"
+
+    # Hash tag name to number (sum of character codes)
+    local hash=0
+    local len=${#tag}
+    for ((i=0; i<len; i++)); do
+        local char="${tag:$i:1}"
+        local code=$(printf '%d' "'$char")
+        hash=$((hash + code))
+    done
+
+    # Pick palette (0-3) using modulo
+    local palettes=("env" "mode" "verbs" "nouns")
+    local palette_idx=$((hash % 4))
+    local palette="${palettes[$palette_idx]}"
+
+    # Pick slot [1-7] using modulo (skip [0] which is used by categories)
+    local color_idx=$(( (hash / 4) % 7 + 1 ))
+
+    echo "${palette}:${color_idx}"
+}
+
 # Render a tag with color coding
 tdoc_render_tag() {
     local tag="$1"
@@ -40,15 +65,19 @@ tdoc_render_tag() {
     # Skip empty tags
     [[ -z "$tag" ]] && return 0
 
-    # Get color token for this tag (use default if not found)
-    local token="${TDOC_TAG_COLORS[default]}"
+    # Get color for this tag
+    local palette_ref
     if [[ -n "${TDOC_TAG_COLORS[$tag]}" ]]; then
-        token="${TDOC_TAG_COLORS[$tag]}"
+        # Use predefined color if available
+        palette_ref="${TDOC_TAG_COLORS[$tag]}"
+    else
+        # Use round-robin palette selection
+        palette_ref=$(_tdoc_get_tag_color "$tag")
     fi
 
     # Render with color
     if [[ "$TDS_LOADED" == "true" ]]; then
-        tds_text_color "$token"
+        tds_text_color "$palette_ref"
         [[ "$show_symbol" == "true" ]] && printf "◆ "
         printf "%s" "$tag"
         reset_color
@@ -218,14 +247,43 @@ tdoc_render_compact() {
     local meta_json="$1"
     local doc_path="$2"
     local number_width="${3:-0}"  # Optional: width reserved for number prefix
+    local detailed="${4:-false}"  # Optional: show detailed metadata on additional lines
 
-    local category=$(echo "$meta_json" | grep -o '"category": "[^"]*"' | cut -d'"' -f4)
+    # Extract new schema fields - simple grep is faster for bash
     local type=$(echo "$meta_json" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
+    local intent=$(echo "$meta_json" | grep -o '"intent": "[^"]*"' | cut -d'"' -f4)
+    local grade=$(echo "$meta_json" | grep -o '"grade": "[^"]*"' | cut -d'"' -f4)
     local module=$(echo "$meta_json" | grep -o '"module": "[^"]*"' | cut -d'"' -f4)
     local rank=$(echo "$meta_json" | grep -o '"rank": [0-9.]*' | cut -d' ' -f2)
     local recency_boost=$(echo "$meta_json" | grep -o '"recency_boost": [0-9.]*' | cut -d' ' -f2)
+    local tags_json=$(echo "$meta_json" | tr -d '\n' | grep -o '"tags": *\[[^]]*\]' | sed 's/"tags": *//')
+    local created=$(echo "$meta_json" | grep -o '"created": "[^"]*"' | cut -d'"' -f4)
+    local updated=$(echo "$meta_json" | grep -o '"updated": "[^"]*"' | cut -d'"' -f4)
+    local has_frontmatter=$(echo "$meta_json" | grep -o '"has_frontmatter": [^,}]*' | cut -d' ' -f2)
+    local title=$(echo "$meta_json" | grep -o '"title": "[^"]*"' | cut -d'"' -f4)
 
-    # Get display path (relative to TETRA_SRC if possible, otherwise TETRA_DIR)
+    # Format tags for inline display (first 3 tags, comma-separated)
+    local tags_display=""
+    if [[ -n "$tags_json" ]]; then
+        local tag_array=()
+        while IFS= read -r tag; do
+            [[ -z "$tag" ]] && continue
+            tag_array+=("$tag")
+        done < <(echo "$tags_json" | grep -o '"[^"]*"' | tr -d '"')
+
+        # Take first 3 tags
+        local tag_count=${#tag_array[@]}
+        if [[ $tag_count -gt 0 ]]; then
+            tags_display="${tag_array[0]}"
+            [[ $tag_count -gt 1 ]] && tags_display+=",${tag_array[1]}"
+            [[ $tag_count -gt 2 ]] && tags_display+=",${tag_array[2]}"
+        fi
+    fi
+
+    # Get display path and filename
+    local filename=$(basename "$doc_path")
+    local display_name="$filename"
+
     local display_path="$doc_path"
     if [[ -n "$TETRA_SRC" ]] && [[ "$doc_path" == "$TETRA_SRC"* ]]; then
         display_path="${doc_path#$TETRA_SRC/}"
@@ -233,22 +291,17 @@ tdoc_render_compact() {
         display_path="~/.tetra/${doc_path#$TETRA_DIR/}"
     fi
 
-    # Fixed column widths for consistent alignment
-    local cols="${COLUMNS:-120}"
-    local category_width=5      # "CORE" or "OTHER"
-    local type_width=16          # Type name
-    local module_width=12        # Module name (or empty)
-    local spacing=8              # Total spacing (2 spaces between each column)
+    # Fixed column widths for consistent alignment (tight one-liner)
+    local name_width=32          # Name/title
+    local type_width=6           # Type name (spec, guide, etc)
+    local intent_width=7         # Intent (define, instruct, etc)
+    local grade_width=3          # Grade ([A], [B], [C], [X])
+    local module_width=7         # Module name (or empty)
 
-    # Calculate path width: total - (number + category + type + module + spacing)
-    # Account for number prefix if present (e.g., "  1. " = 5 chars)
-    local path_max_width=$((cols - number_width - category_width - type_width - module_width - spacing))
-
-    # Ensure minimum path width
-    [[ $path_max_width -lt 35 ]] && path_max_width=35
-
-    # Truncate path if needed
-    display_path=$(_tdoc_truncate_path "$display_path" "$path_max_width")
+    # Truncate display name if needed
+    if [[ ${#display_name} -gt $name_width ]]; then
+        display_name="${display_name:0:$((name_width - 3))}..."
+    fi
 
     # Determine if this is a fresh doc (recency boost > 0.01 means < 7 days old for notes)
     local is_fresh=false
@@ -256,61 +309,219 @@ tdoc_render_compact() {
         is_fresh=$(awk "BEGIN {print ($recency_boost > 0.01) ? 1 : 0}")
     fi
 
-    # Render with colors if TDS available
-    if [[ "$TDS_LOADED" == "true" ]]; then
-        # Path using TDS token (left-aligned, fixed width)
-        tds_text_color "tdocs.list.path"
-        printf "%-${path_max_width}s" "$display_path"
-        reset_color
-        printf "  "
-
-        # Category badge using TDS token (fixed width)
-        if [[ "$category" == "core" ]]; then
-            tds_text_color "tdocs.category.core"
+    # Build colored tags for normal mode (cycling through TDS MODE 8 colors)
+    local colored_tags_normal=""
+    if [[ -n "$tags_json" ]]; then
+        # Use TDS MODE palette (blues) - falls back to ANSI if not loaded
+        local tag_palette=()
+        if [[ -n "${MODE_PRIMARY[0]}" ]]; then
+            tag_palette=("${MODE_PRIMARY[@]}")
         else
-            tds_text_color "tdocs.category.other"
+            tag_palette=(9 10 11 12 13 14 15 208)
         fi
-        printf "%-${category_width}s" "$(echo "$category" | tr '[:lower:]' '[:upper:]')"
-        reset_color
-        printf "  "
 
-        # Type using TDS token (left-aligned, fixed width)
-        local type_token="tdocs.type.${type}"
-        # Fallback to default if specific type token doesn't exist
-        if [[ -z "${TDS_COLOR_TOKENS[$type_token]:-}" ]]; then
-            type_token="text.secondary"
-        fi
-        tds_text_color "$type_token"
-        printf "%-${type_width}s" "$type"
-        reset_color
-        printf "  "
+        local tag_index=0
+        while IFS= read -r tag; do
+            [[ -z "$tag" ]] && continue
 
-        # Module using TDS token (left-aligned, fixed width)
-        tds_text_color "tdocs.module"
-        printf "%-${module_width}s" "${module}"
-        reset_color
+            # Cycle through 8 colors
+            local color_value="${tag_palette[$((tag_index % 8))]}"
 
-        # Rank (dim grey, right-aligned)
-        if [[ -n "$rank" ]]; then
-            printf "  \033[2;37m%5s\033[0m" "$rank"
-            # Add "fresh" hint for recent notes
-            if [[ "$is_fresh" == "1" ]]; then
-                printf " \033[2;37mfresh\033[0m"
+            if [[ -n "$colored_tags_normal" ]]; then
+                colored_tags_normal+=","
             fi
+
+            # Check if hex (TDS) or numeric (ANSI)
+            if [[ "$color_value" =~ ^[0-9A-Fa-f]{6}$ ]]; then
+                # TDS hex - convert to RGB
+                local r=$((16#${color_value:0:2}))
+                local g=$((16#${color_value:2:2}))
+                local b=$((16#${color_value:4:2}))
+                colored_tags_normal+="\033[38;2;${r};${g};${b}m${tag}\033[0m"
+            else
+                # ANSI 256 foreground color
+                colored_tags_normal+="\033[38;5;${color_value}m${tag}\033[0m"
+            fi
+            ((tag_index++))
+        done < <(echo "$tags_json" | grep -o '"[^"]*"' | tr -d '"')
+    fi
+
+    # Render single line
+    if [[ "$detailed" == "true" ]]; then
+        # Detailed mode: just show filename/title (with newline)
+        if [[ "$TDS_LOADED" == "true" ]]; then
+            tds_text_color "tdocs.list.path"
+            printf "%s\033[0m\n" "$display_name"
+        else
+            printf "%s\n" "$display_name"
         fi
     else
-        # Fallback without colors (fixed widths)
-        printf "%-${path_max_width}s  %-${category_width}s  %-${type_width}s  %-${module_width}s" \
-            "$display_path" \
-            "$(echo "$category" | tr '[:lower:]' '[:upper:]')" \
-            "$type" \
-            "${module}"
-        # Rank in plaintext
-        if [[ -n "$rank" ]]; then
-            printf "  %5s" "$rank"
-            [[ "$is_fresh" == "1" ]] && printf " fresh"
+        # Normal mode: tight format [grade], type, intent, tags (no columns)
+        if [[ "$TDS_LOADED" == "true" ]]; then
+            # Filename
+            tds_text_color "tdocs.list.path"
+            printf "%s\033[0m " "$display_name"
+
+            # Grade - [A] [B] [C] [X]
+            if [[ -n "$grade" ]]; then
+                local grade_token="tdocs.grade.${grade}"
+                [[ -z "${TDS_COLOR_TOKENS[$grade_token]:-}" ]] && grade_token="text.secondary"
+                tds_text_color "$grade_token"
+                printf "[%s]\033[0m, " "$grade"
+            fi
+
+            # Type (NOUN)
+            local type_token="tdocs.type.${type}"
+            [[ -z "${TDS_COLOR_TOKENS[$type_token]:-}" ]] && type_token="text.secondary"
+            tds_text_color "$type_token"
+            printf "%s\033[0m, " "${type:-scratch}"
+
+            # Intent (VERB)
+            if [[ -n "$intent" ]]; then
+                local intent_token="tdocs.intent.${intent}"
+                [[ -z "${TDS_COLOR_TOKENS[$intent_token]:-}" ]] && intent_token="text.secondary"
+                tds_text_color "$intent_token"
+                printf "%s\033[0m, " "$intent"
+            fi
+
+            # Tags (colored, cycling through 8 colors)
+            if [[ -n "$colored_tags_normal" ]]; then
+                printf "%b" "$colored_tags_normal"
+            fi
+        else
+            # Fallback without colors
+            printf "%s [%s], %s, %s, %s" \
+                "$display_name" "${grade:-C}" "${type:-scratch}" "${intent:-}" "$tags_display"
         fi
     fi
+
+    # If detailed mode, add metadata on indented lines
+    if [[ "$detailed" == "true" ]]; then
+        # Format dates (remove time, just show date)
+        local created_date="${created%%T*}"
+        local updated_date="${updated%%T*}"
+
+        # Determine date display: created, or "modified" if different
+        local date_display=""
+        if [[ -n "$created_date" ]]; then
+            if [[ -n "$updated_date" ]] && [[ "$updated_date" != "$created_date" ]]; then
+                date_display="$created_date (modified)"
+            else
+                date_display="$created_date"
+            fi
+        fi
+
+        # Build metadata line with colored tags using TDS MODE 8 colors
+        local tag_palette=()
+        if [[ -n "${MODE_PRIMARY[0]}" ]]; then
+            tag_palette=("${MODE_PRIMARY[@]}")
+        else
+            tag_palette=(9 10 11 12 13 14 15 208)
+        fi
+
+        # Parse individual tags and color them - each tag gets next color in cycle
+        local colored_tags=""
+        if [[ -n "$tags_json" ]]; then
+            local tag_index=0
+            while IFS= read -r tag; do
+                [[ -z "$tag" ]] && continue
+
+                # Cycle through 8 colors
+                local color_value="${tag_palette[$((tag_index % 8))]}"
+
+                if [[ -n "$colored_tags" ]]; then
+                    colored_tags+=","
+                fi
+
+                # Check if hex (TDS) or numeric (ANSI)
+                if [[ "$color_value" =~ ^[0-9A-Fa-f]{6}$ ]]; then
+                    # TDS hex - convert to RGB with dimming
+                    local r=$((16#${color_value:0:2}))
+                    local g=$((16#${color_value:2:2}))
+                    local b=$((16#${color_value:4:2}))
+                    colored_tags+="\033[2;38;2;${r};${g};${b}m${tag}\033[0m"
+                else
+                    # ANSI 256 foreground color with dimming
+                    colored_tags+="\033[2;38;5;${color_value}m${tag}\033[0m"
+                fi
+                ((tag_index++))
+            done < <(echo "$tags_json" | grep -o '"[^"]*"' | tr -d '"')
+        fi
+
+        # Colorize type and kind using palette colors (dimmed)
+        local type_color=""
+        local kind_color=""
+
+        # Type uses NOUNS palette (first color)
+        if [[ -n "${tag_palette[0]}" ]]; then
+            local color_value="${tag_palette[0]}"
+            if [[ "$color_value" =~ ^[0-9A-Fa-f]{6}$ ]]; then
+                # TDS hex color (6-digit hex) - convert to RGB
+                local r=$((16#${color_value:0:2}))
+                local g=$((16#${color_value:2:2}))
+                local b=$((16#${color_value:4:2}))
+                type_color="\033[2;38;2;${r};${g};${b}m${type}\033[0m"
+            else
+                type_color="\033[2;38;5;${color_value}m${type}\033[0m"
+            fi
+        else
+            type_color="${type}"
+        fi
+
+        # Kind uses VERBS palette (second color)
+        if [[ -n "$kind" ]] && [[ -n "${tag_palette[1]}" ]]; then
+            local color_value="${tag_palette[1]}"
+            if [[ "$color_value" =~ ^[0-9A-Fa-f]{6}$ ]]; then
+                # TDS hex color (6-digit hex) - convert to RGB
+                local r=$((16#${color_value:0:2}))
+                local g=$((16#${color_value:2:2}))
+                local b=$((16#${color_value:4:2}))
+                kind_color="\033[2;38;2;${r};${g};${b}m${kind}\033[0m"
+            else
+                kind_color="\033[2;38;5;${color_value}m${kind}\033[0m"
+            fi
+        fi
+
+        # Print path on first indented line (dimmed)
+        printf "     \033[2m%s\033[0m\n" "$display_path"
+
+        # Print metadata line in a readable format with labels
+        # Format: type kind module:value authority:value date tags:[...]
+        printf "     "
+
+        # Type (use plain text, dimmed)
+        if [[ -n "$type" ]]; then
+            printf "\033[2m%s\033[0m " "$type"
+        fi
+
+        # Kind (dimmed)
+        if [[ -n "$kind" ]]; then
+            printf "\033[2m%s\033[0m " "$kind"
+        fi
+
+        # Module (if present)
+        [[ -n "$module" ]] && printf "module:\033[36m%s\033[0m " "$module"
+
+        # Authority
+        [[ -n "$authority" ]] && printf "auth:\033[33m%s\033[0m " "$authority"
+
+        # Date
+        [[ -n "$date_display" ]] && printf "%s " "$date_display"
+
+        # Tags (colored)
+        if [[ -n "$colored_tags" ]]; then
+            printf "tags:%b " "$colored_tags"
+        fi
+
+        # Frontmatter indicator (if missing)
+        if [[ "$has_frontmatter" != "true" ]]; then
+            printf " \033[2;31m[no-fm]\033[0m"
+        fi
+
+        printf "\n"
+    fi
+
+    return 0
 }
 
 # Render detailed view: front matter on line 1 (gray), file on line 2, then first 5 lines

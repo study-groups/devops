@@ -338,7 +338,7 @@ tetra_tsm_restart_single() {
     local script port type tsm_id cwd
     script=$(jq -r '.command // empty' "$meta_file")
     port=$(jq -r '.port // empty' "$meta_file")
-    type=$(jq -r '.type // empty' "$meta_file")
+    type=$(jq -r '.process_type // empty' "$meta_file")
     tsm_id=$(jq -r '.tsm_id // empty' "$meta_file")
     cwd=$(jq -r '.cwd // empty' "$meta_file")
 

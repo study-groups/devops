@@ -418,9 +418,8 @@ tdocs() {
     shift || true
 
     case "$action" in
-        add|init)
-            # add is preferred, init for backward compat
-            tdocs_init_doc "$@"
+        add)
+            tdocs_add_doc "$@"
             ;;
         view)
             tdocs_view_doc "$@"
@@ -440,11 +439,11 @@ tdocs() {
         audit)
             tdocs_audit_docs "$@"
             ;;
-        discover)
-            tdocs_discover_docs "$@"
-            ;;
         scan)
-            tdocs_scan
+            tdocs_scan_docs "$@"
+            ;;
+        doctor)
+            tdocs_doctor "$@"
             ;;
         rank)
             # Show ranking breakdown for a file
@@ -550,7 +549,30 @@ EOF
 # The core functions use tdoc_ but the command interface uses tdocs_
 
 tdocs_ls_docs() {
-    tdoc_list_docs "$@"
+    # CACHE: Check for cached output (only for simple ls with no complex filters)
+    local cache_file="$TDOCS_CACHE_DIR/ls_output.cache"
+    local cache_signature="${*}"  # Simple signature based on args
+
+    # Check if we should use cache (no filters that would change output)
+    local use_cache=false
+    if [[ -z "$cache_signature" ]] || [[ "$cache_signature" =~ ^(--numbered)?$ ]]; then
+        use_cache=true
+    fi
+
+    if [[ "$use_cache" == true ]] && _tdoc_cache_is_valid "$cache_file"; then
+        # Cache hit - use cached output
+        cat "$cache_file"
+        return 0
+    fi
+
+    # Cache miss - generate output
+    if [[ "$use_cache" == true ]]; then
+        # Generate and save to cache
+        tdoc_list_docs "$@" | tee "$cache_file"
+    else
+        # Just generate without caching
+        tdoc_list_docs "$@"
+    fi
 }
 
 tdocs_view_doc() {
@@ -565,16 +587,16 @@ tdocs_tag_interactive() {
     tdoc_tag_interactive "$@"
 }
 
-tdocs_init_doc() {
-    tdoc_init_doc "$@"
+tdocs_add_doc() {
+    tdocs_add_doc "$@"
 }
 
 tdocs_audit_docs() {
     tdoc_audit_docs "$@"
 }
 
-tdocs_discover_docs() {
-    tdoc_discover_docs "$@"
+tdocs_scan_docs() {
+    tdoc_scan_docs "$@"
 }
 
 tdocs_doctor() {
@@ -693,9 +715,9 @@ export -f tdocs_ls_docs
 export -f tdocs_view_doc
 export -f tdocs_search_docs
 export -f tdocs_tag_interactive
-export -f tdocs_init_doc
+export -f tdocs_add_doc
 export -f tdocs_audit_docs
-export -f tdocs_discover_docs
+export -f tdocs_scan_docs
 export -f tdocs_evidence_for_query
 export -f tdocs_index_rebuild
 export -f tdocs_index_status
@@ -709,7 +731,6 @@ export -f tdoc_search_docs
 export -f tdoc_tag_interactive
 export -f tdoc_init_doc
 export -f tdoc_audit_docs
-export -f tdoc_discover_docs
 export -f tdoc_preview_doc
 export -f tdoc_render_list_with_preview
 export -f tdoc_render_compact

@@ -15,6 +15,7 @@ export TDOCS_SRC TDOCS_DIR
 
 # Source UI components (colors first for TDS integration)
 source "$TDOCS_SRC/ui/colors.sh"
+source "$TDOCS_SRC/ui/color_explorer.sh"
 
 # Source core tdocs functionality
 source "$TDOCS_SRC/tdocs.sh"

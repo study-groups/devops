@@ -13,7 +13,7 @@ tdocs_register_commands() {
     repl_register_slash_command "view" tdocs_cmd_view
     repl_register_slash_command "search" tdocs_cmd_search
     repl_register_slash_command "tag" tdocs_cmd_tag
-    repl_register_slash_command "init" tdocs_cmd_init
+    repl_register_slash_command "add" tdocs_cmd_add
 
     # Context commands
     repl_register_slash_command "filter" tdocs_cmd_filter
@@ -21,9 +21,10 @@ tdocs_register_commands() {
 
     # Utility commands
     repl_register_slash_command "audit" tdocs_cmd_audit
-    repl_register_slash_command "discover" tdocs_cmd_discover
+    repl_register_slash_command "scan" tdocs_cmd_scan
     repl_register_slash_command "evidence" tdocs_cmd_evidence
     repl_register_slash_command "about" tdocs_cmd_about
+    repl_register_slash_command "colors" tdocs_cmd_colors
 
     # Module commands
     repl_register_slash_command "module" tdocs_cmd_module
@@ -56,16 +57,22 @@ tdocs_cmd_ls() {
         filter_args+=("--module" "$module_list")
     fi
 
-    # Authority filters (join with comma)
-    if [[ ${#TDOCS_REPL_AUTHORITY[@]} -gt 0 ]]; then
-        local authority_list=$(IFS=','; echo "${TDOCS_REPL_AUTHORITY[*]}")
-        filter_args+=("--authority" "$authority_list")
-    fi
-
     # Type filters (join with comma)
     if [[ ${#TDOCS_REPL_TYPE[@]} -gt 0 ]]; then
         local type_list=$(IFS=','; echo "${TDOCS_REPL_TYPE[*]}")
         filter_args+=("--type" "$type_list")
+    fi
+
+    # Intent filters (join with comma)
+    if [[ ${#TDOCS_REPL_INTENT[@]} -gt 0 ]]; then
+        local intent_list=$(IFS=','; echo "${TDOCS_REPL_INTENT[*]}")
+        filter_args+=("--intent" "$intent_list")
+    fi
+
+    # Grade filters (join with comma)
+    if [[ ${#TDOCS_REPL_GRADE[@]} -gt 0 ]]; then
+        local grade_list=$(IFS=','; echo "${TDOCS_REPL_GRADE[*]}")
+        filter_args+=("--grade" "$grade_list")
     fi
 
     # Level filter (optional)
@@ -73,10 +80,6 @@ tdocs_cmd_ls() {
 
     # Temporal filter
     [[ -n "$TDOCS_REPL_TEMPORAL" ]] && filter_args+=("--temporal" "$TDOCS_REPL_TEMPORAL")
-
-    # Backward compat: old category/module fields
-    [[ -n "$TDOCS_REPL_CATEGORY" ]] && filter_args+=("--$TDOCS_REPL_CATEGORY")
-    [[ -n "$TDOCS_REPL_MODULE" ]] && filter_args+=("--module" "$TDOCS_REPL_MODULE")
 
     # Add mode flags
     [[ "$detailed" == true ]] && filter_args+=("--detailed")
@@ -137,17 +140,18 @@ tdocs_cmd_tag() {
     tdocs_tag_interactive "$doc"
 }
 
-# Command: /init <file>
-tdocs_cmd_init() {
+# Command: /add <file>
+tdocs_cmd_add() {
     local doc="${1:-}"
 
     if [[ -z "$doc" ]]; then
-        echo "Usage: /init <file>"
+        echo "Usage: add <file>"
+        echo "  Add metadata to a document with smart defaults"
         return 1
     fi
 
     shift
-    tdocs_init_doc "$doc" "$@"
+    tdocs_add_doc "$doc" "$@"
 }
 
 # Command: /filter {core|other|module=NAME|clear}
@@ -233,9 +237,9 @@ tdocs_cmd_audit() {
     tdocs_audit_docs "$@"
 }
 
-# Command: /discover [--auto-init]
-tdocs_cmd_discover() {
-    tdocs_discover_docs "$@"
+# Command: /scan [--dry-run]
+tdocs_cmd_scan() {
+    tdocs_scan_docs "$@"
 }
 
 # Command: /doctor [--fix|--summary]
@@ -291,19 +295,31 @@ tdocs_cmd_audit_specs() {
     tdoc_audit_specs "$@"
 }
 
+# Command: /colors [subcommand] [args]
+tdocs_cmd_colors() {
+    if [[ $# -eq 0 ]]; then
+        # Show help by default
+        tdocs_color_explorer help
+    else
+        # Forward all arguments to color explorer
+        tdocs_color_explorer "$@"
+    fi
+}
+
 export -f tdocs_register_commands
 export -f tdocs_cmd_ls
 export -f tdocs_cmd_view
 export -f tdocs_cmd_search
 export -f tdocs_cmd_tag
-export -f tdocs_cmd_init
+export -f tdocs_cmd_add
 export -f tdocs_cmd_filter
 export -f tdocs_cmd_env
 export -f tdocs_cmd_audit
-export -f tdocs_cmd_discover
+export -f tdocs_cmd_scan
 export -f tdocs_cmd_doctor
 export -f tdocs_cmd_evidence
 export -f tdocs_cmd_about
 export -f tdocs_cmd_module
 export -f tdocs_cmd_spec
 export -f tdocs_cmd_audit_specs
+export -f tdocs_cmd_colors

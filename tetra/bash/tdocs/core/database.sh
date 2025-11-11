@@ -3,9 +3,23 @@
 # TDOC Database System
 # TCS 3.0-compliant timestamp-based database for document metadata
 
-# Generate timestamp (TCS 3.0 pattern)
+# Generate timestamp (TCS 3.0 pattern with collision avoidance)
 tdoc_generate_timestamp() {
-    date +%s
+    local timestamp=$(date +%s)
+    local offset=0
+
+    # If file exists, work backwards in time until we find a free slot
+    while [[ -f "$(tdoc_get_db_dir)/$((timestamp - offset)).meta" ]]; do
+        ((offset++))
+        # Safety check: don't go back more than 1000 seconds
+        if [[ $offset -gt 1000 ]]; then
+            echo "Error: Cannot generate unique timestamp after 1000 attempts" >&2
+            echo "Database may be full or corrupted. Try again in a few seconds." >&2
+            return 1
+        fi
+    done
+
+    echo $((timestamp - offset))
 }
 
 # Get database directory
@@ -29,20 +43,17 @@ tdoc_get_tags_path() {
 # Returns: timestamp
 tdoc_db_create() {
     local doc_path="$1"
-    local category="$2"              # Deprecated: keep for compatibility
-    local type="$3"
-    local tags="$4"                  # Comma-separated or array
-    local module="${5:-}"
-    local status="${6:-draft}"
+    local type="$2"                  # spec|guide|investigation|reference|plan|summary|scratch
+    local intent="$3"                # define|instruct|analyze|document|propose|track
+    local grade="${4:-C}"            # A|B|C|X (default: C=working)
+    local tags="$5"                  # Comma-separated or array
+    local module="${6:-}"
     local level="${7:-}"             # Optional: L0-L4 for quick assessment
     local implements="${8:-}"        # Comma-separated standards
     local integrates="${9:-}"        # Comma-separated modules
-    local authority="${10:-working}" # canonical|stable|working|draft|stale|archived
-    local doc_type="${11:-guide}"    # specification|guide|reference|plan|investigation|scratch
-    local grade="${12:-}"            # A|B|C|X for triage
-    local grounded_in="${13:-}"      # Comma-separated code file paths
-    local related_docs="${14:-}"     # Comma-separated related doc paths
-    local supersedes="${15:-}"       # Path to superseded document
+    local grounded_in="${10:-}"      # Comma-separated code file paths
+    local related_docs="${11:-}"     # Comma-separated related doc paths
+    local supersedes="${12:-}"       # Path to superseded document
 
     # Generate timestamp
     local timestamp=$(tdoc_generate_timestamp)
@@ -50,9 +61,38 @@ tdoc_db_create() {
     # Get absolute path
     local abs_path=$(realpath "$doc_path" 2>/dev/null || echo "$doc_path")
 
-    # Determine evidence weight
-    local evidence_weight="secondary"
-    [[ "$category" == "core" ]] && evidence_weight="primary"
+    # Auto-detect intent from type if not specified
+    if [[ -z "$intent" ]]; then
+        case "$type" in
+            spec|specification|standard|reference)
+                intent="define"
+                ;;
+            guide|example)
+                intent="instruct"
+                ;;
+            investigation)
+                intent="analyze"
+                ;;
+            summary|scratch)
+                intent="document"
+                ;;
+            plan)
+                intent="propose"
+                ;;
+            *)
+                intent="document"  # Default
+                ;;
+        esac
+    fi
+
+    # Determine evidence weight from grade
+    local evidence_weight="tertiary"
+    case "$grade" in
+        A) evidence_weight="primary" ;;    # Canonical
+        B) evidence_weight="secondary" ;;  # Stable
+        C) evidence_weight="tertiary" ;;   # Working
+        X) evidence_weight="excluded" ;;   # Archived
+    esac
 
     # Get file hash for change detection
     local hash=""
@@ -60,9 +100,25 @@ tdoc_db_create() {
         hash=$(shasum -a 256 "$doc_path" 2>/dev/null | awk '{print $1}')
     fi
 
-    # Get dates
-    local created=$(date +%Y-%m-%dT%H:%M:%SZ)
-    local updated="$created"
+    # Get dates from file modification time
+    local created updated
+    if [[ -f "$doc_path" ]]; then
+        # Get file modification time
+        local mtime=$(stat -f %m "$doc_path" 2>/dev/null || stat -c %Y "$doc_path" 2>/dev/null || echo "")
+        if [[ -n "$mtime" ]]; then
+            # Convert to ISO 8601 format
+            created=$(date -r "$mtime" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -d "@$mtime" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date +%Y-%m-%dT%H:%M:%SZ)
+            updated="$created"
+        else
+            # Fallback to current time
+            created=$(date +%Y-%m-%dT%H:%M:%SZ)
+            updated="$created"
+        fi
+    else
+        # File doesn't exist, use current time
+        created=$(date +%Y-%m-%dT%H:%M:%SZ)
+        updated="$created"
+    fi
 
     # Convert tags to JSON array
     local tags_json="["
@@ -177,22 +233,19 @@ tdoc_db_create() {
     local meta_json="{
   \"timestamp\": $timestamp,
   \"doc_path\": \"$abs_path\",
-  \"category\": \"$category\",
   \"type\": \"$type\",
+  \"intent\": \"$intent\",
+  \"grade\": \"$grade\",
   \"tags\": $tags_json,
   \"module\": \"$module\",
   \"evidence_weight\": \"$evidence_weight\",
   \"created\": \"$created\",
   \"updated\": \"$updated\",
-  \"status\": \"$status\",
   \"hash\": \"$hash\",
   \"level\": \"$level\",
   \"completeness_level\": \"$level\",
   \"implements\": $implements_json,
   \"integrates\": $integrates_json,
-  \"authority\": \"$authority\",
-  \"doc_type\": \"$doc_type\",
-  \"grade\": \"$grade\",
   \"grounded_in\": $grounded_in_json,
   \"related_docs\": $related_docs_json,
   \"supersedes\": \"$supersedes\",
@@ -243,6 +296,69 @@ tdoc_db_get_by_path() {
 
     echo "{}"
     return 1
+}
+
+# Ensure metadata has rank calculated and cached
+# Updates the .meta file with rank and rank_factors
+tdoc_db_ensure_rank() {
+    local doc_path="$1"
+    local abs_path=$(realpath "$doc_path" 2>/dev/null || echo "$doc_path")
+
+    # Find metadata file
+    local meta_file=""
+    for mf in "$TDOCS_DB_DIR"/*.meta; do
+        [[ ! -f "$mf" ]] && continue
+        if grep -q "\"doc_path\": \"$abs_path\"" "$mf" 2>/dev/null; then
+            meta_file="$mf"
+            break
+        fi
+    done
+
+    [[ -z "$meta_file" ]] && return 1
+
+    # Check if rank already exists
+    if grep -q '"rank":' "$meta_file" 2>/dev/null; then
+        # Already has rank
+        return 0
+    fi
+
+    # Get metadata fields needed for ranking
+    local meta=$(cat "$meta_file")
+    local doc_type=$(echo "$meta" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
+    local timeless=$(echo "$meta" | grep -o '"timeless": [^,}]*' | awk '{print $2}' | tr -d ',' | tr -d '"')
+    local module=$(echo "$meta" | grep -o '"module": "[^"]*"' | cut -d'"' -f4)
+    local tags=$(echo "$meta" | grep -o '"tags": \[[^\]]*\]')
+    local created=$(echo "$meta" | grep -o '"created": "[^"]*"' | cut -d'"' -f4)
+
+    # Calculate rank if we have ranking.sh loaded
+    if ! command -v tdoc_calculate_rank >/dev/null 2>&1; then
+        return 1
+    fi
+
+    local rank_json=$(tdoc_calculate_rank "$doc_path" "$doc_type" "$timeless" "$module" "$tags" "$created")
+
+    # Extract rank and factors
+    local rank=$(echo "$rank_json" | grep -o '"rank": [0-9.]*' | head -1 | cut -d' ' -f2)
+    local base_rank=$(echo "$rank_json" | grep -o '"type_base": [0-9.]*' | cut -d' ' -f2)
+    local length_bonus=$(echo "$rank_json" | grep -o '"length_bonus": [0-9.]*' | cut -d' ' -f2)
+    local metadata_bonus=$(echo "$rank_json" | grep -o '"metadata_bonus": [0-9.]*' | cut -d' ' -f2)
+    local recency_boost=$(echo "$rank_json" | grep -o '"recency_boost": [0-9.]*' | cut -d' ' -f2)
+
+    # Insert rank fields before the closing brace
+    # Remove trailing } and add rank fields
+    local updated_meta=$(echo "$meta" | sed 's/}$//')
+    updated_meta="${updated_meta},
+  \"rank\": $rank,
+  \"rank_factors\": {
+    \"base_rank\": $base_rank,
+    \"length_bonus\": $length_bonus,
+    \"metadata_bonus\": $metadata_bonus,
+    \"recency_boost\": $recency_boost
+  }
+}"
+
+    # Write back to file
+    echo "$updated_meta" > "$meta_file"
 }
 
 # Update metadata for a document
@@ -323,45 +439,87 @@ tdoc_db_list() {
         esac
     done
 
-    # Iterate through metadata files
-    for meta_file in "$TDOCS_DB_DIR"/*.meta; do
-        [[ ! -f "$meta_file" ]] && continue
+    # PERFORMANCE: Batch process all .meta files at once with cat + jq
+    # This reduces process spawns from ~273 to just 1-2
+    if command -v jq >/dev/null 2>&1 && [[ -z "$category" ]] && [[ -z "$module" ]] && [[ -z "$tags" ]]; then
+        # Fast path: no filters, batch process everything with one jq call
+        # Use jq slurp mode to read all files at once and filter/compact
+        cat "$TDOCS_DB_DIR"/*.meta 2>/dev/null | \
+            jq -c 'select(.doc_path != null)' 2>/dev/null || true
+    else
+        # Slow path: filters require per-file processing
+        for meta_file in "$TDOCS_DB_DIR"/*.meta; do
+            [[ ! -f "$meta_file" ]] && continue
 
-        local meta=$(cat "$meta_file")
+            local meta=$(cat "$meta_file")
 
-        # Check if the actual document file exists
-        local doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
-        if [[ -n "$doc_path" ]] && [[ ! -f "$doc_path" ]]; then
-            # Skip stale entries for non-existent files
-            continue
-        fi
+            # PERFORMANCE: Use jq for faster doc_path extraction
+            if command -v jq >/dev/null 2>&1; then
+                local doc_path=$(echo "$meta" | jq -r '.doc_path // ""' 2>/dev/null)
+            else
+                local doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
+            fi
 
-        # Apply filters
-        if [[ -n "$category" ]]; then
-            echo "$meta" | grep -q "\"category\": \"$category\"" || continue
-        fi
+            # Check if the actual document file exists
+            if [[ -n "$doc_path" ]] && [[ ! -f "$doc_path" ]]; then
+                # Skip stale entries for non-existent files
+                continue
+            fi
 
-        if [[ -n "$module" ]]; then
-            echo "$meta" | grep -q "\"module\": \"$module\"" || continue
-        fi
-
-        if [[ -n "$tags" ]]; then
-            local found=false
-            IFS=',' read -ra tag_array <<< "$tags"
-            for tag in "${tag_array[@]}"; do
-                tag=$(echo "$tag" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-                if echo "$meta" | grep -q "\"$tag\""; then
-                    found=true
-                    break
+            # Apply filters - use jq if available (much faster)
+            if command -v jq >/dev/null 2>&1; then
+                if [[ -n "$category" ]]; then
+                    local meta_category=$(echo "$meta" | jq -r '.category // ""' 2>/dev/null)
+                    [[ "$meta_category" != "$category" ]] && continue
                 fi
-            done
-            [[ "$found" == false ]] && continue
-        fi
 
-        # Output metadata as single-line JSON for easy parsing
-        echo "$meta" | tr '\n' ' ' | sed 's/  */ /g'
-        echo ""
-    done
+                if [[ -n "$module" ]]; then
+                    local meta_module=$(echo "$meta" | jq -r '.module // ""' 2>/dev/null)
+                    [[ "$meta_module" != "$module" ]] && continue
+                fi
+
+                if [[ -n "$tags" ]]; then
+                    local found=false
+                    IFS=',' read -ra tag_array <<< "$tags"
+                    for tag in "${tag_array[@]}"; do
+                        tag="${tag// /}"  # Trim whitespace without sed
+                        local has_tag=$(echo "$meta" | jq --arg t "$tag" '.tags | index($t) != null' 2>/dev/null)
+                        if [[ "$has_tag" == "true" ]]; then
+                            found=true
+                            break
+                        fi
+                    done
+                    [[ "$found" == false ]] && continue
+                fi
+            else
+                # Fallback to grep (slower)
+                if [[ -n "$category" ]]; then
+                    echo "$meta" | grep -q "\"category\": \"$category\"" || continue
+                fi
+
+                if [[ -n "$module" ]]; then
+                    echo "$meta" | grep -q "\"module\": \"$module\"" || continue
+                fi
+
+                if [[ -n "$tags" ]]; then
+                    local found=false
+                    IFS=',' read -ra tag_array <<< "$tags"
+                    for tag in "${tag_array[@]}"; do
+                        tag=$(echo "$tag" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+                        if echo "$meta" | grep -q "\"$tag\""; then
+                            found=true
+                            break
+                        fi
+                    done
+                    [[ "$found" == false ]] && continue
+                fi
+            fi
+
+            # PERFORMANCE: Output as single line - avoid tr/sed pipeline
+            echo "$meta" | tr -d '\n'
+            echo ""
+        done
+    fi
 }
 
 # Delete metadata for a document

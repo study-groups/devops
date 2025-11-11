@@ -91,6 +91,53 @@ tds_render_toml_value() {
         return
     fi
 
+    # Inline tables - { key = value, key = value }
+    if [[ "$value" =~ ^\{(.+)\}$ ]]; then
+        local table_content="${BASH_REMATCH[1]}"
+
+        # Print opening brace
+        tds_text_color "text.secondary"
+        printf "{\n"
+        reset_color
+
+        # Split on commas and render each key-value pair
+        local IFS=','
+        local first=true
+        for pair in $table_content; do
+            pair=$(echo "$pair" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+            if [[ "$pair" =~ ^([^=]+)=(.*)$ ]]; then
+                local key="${BASH_REMATCH[1]}"
+                local val="${BASH_REMATCH[2]}"
+                key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                val=$(echo "$val" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+                # Indent
+                printf "  "
+
+                # Render key
+                tds_text_color "content.emphasis.bold"
+                printf "%s" "$key"
+                reset_color
+
+                # Equals
+                tds_text_color "text.secondary"
+                printf " = "
+                reset_color
+
+                # Value (recursively)
+                tds_render_toml_value "$val"
+                printf "\n"
+            fi
+        done
+
+        # Closing brace
+        tds_text_color "text.secondary"
+        printf "}"
+        reset_color
+        return
+    fi
+
     # Arrays - [item1, item2, item3]
     if [[ "$value" =~ ^\[(.+)\]$ ]]; then
         local array_content="${BASH_REMATCH[1]}"
@@ -205,6 +252,7 @@ Color Scheme (TDS Tokens):
   true/false       → interactive.active
   # comments       → text.secondary (italic)
   arrays           → text.secondary (brackets)
+  inline tables    → multi-line pretty-printed with indentation
 
 EOF
                 return 0

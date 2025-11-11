@@ -29,17 +29,14 @@ source "$TDOCS_SRC/core/help.sh"
 
 # REPL state (filters, context)
 declare -a TDOCS_REPL_MODULES       # Array: (rag midi) or (*) or ("")
-declare -a TDOCS_REPL_AUTHORITY     # Array: (canonical stable working)
-declare -a TDOCS_REPL_TYPE          # Array: (specification guide)
+declare -a TDOCS_REPL_TYPE          # Array: (spec guide investigation)
+declare -a TDOCS_REPL_INTENT        # Array: (define instruct analyze)
+declare -a TDOCS_REPL_GRADE         # Array: (A B C X)
 TDOCS_REPL_LEVEL=""                 # Optional: L0-L4, L3+, L2-L4
 TDOCS_REPL_TEMPORAL=""              # Temporal filter: last:7d, etc
-TDOCS_REPL_SORT="relevance"         # Sort: relevance|time|authority|grade
+TDOCS_REPL_SORT="relevance"         # Sort: relevance|time|grade|level
 TDOCS_REPL_DOC_COUNT=0              # Cached count
 TDOCS_REPL_STATE="find"             # State: find|edit|search|filter
-
-# Deprecated (keep for backward compat)
-TDOCS_REPL_CATEGORY=""              # Deprecated: mapped to authority
-TDOCS_REPL_MODULE=""                # Deprecated: use TDOCS_REPL_MODULES array
 
 declare -a TDOCS_LAST_LIST          # Array of document paths from last ls
 
@@ -64,6 +61,7 @@ e
 audit
 env
 about
+colors
 help
 h
 exit
@@ -141,16 +139,22 @@ tdocs_count_filtered() {
         filter_args+=("--module" "$module_list")
     fi
 
-    # Authority filters (join with comma)
-    if [[ ${#TDOCS_REPL_AUTHORITY[@]} -gt 0 ]]; then
-        local authority_list=$(IFS=','; echo "${TDOCS_REPL_AUTHORITY[*]}")
-        filter_args+=("--authority" "$authority_list")
-    fi
-
     # Type filters (join with comma)
     if [[ ${#TDOCS_REPL_TYPE[@]} -gt 0 ]]; then
         local type_list=$(IFS=','; echo "${TDOCS_REPL_TYPE[*]}")
         filter_args+=("--type" "$type_list")
+    fi
+
+    # Intent filters (join with comma)
+    if [[ ${#TDOCS_REPL_INTENT[@]} -gt 0 ]]; then
+        local intent_list=$(IFS=','; echo "${TDOCS_REPL_INTENT[*]}")
+        filter_args+=("--intent" "$intent_list")
+    fi
+
+    # Grade filters (join with comma)
+    if [[ ${#TDOCS_REPL_GRADE[@]} -gt 0 ]]; then
+        local grade_list=$(IFS=','; echo "${TDOCS_REPL_GRADE[*]}")
+        filter_args+=("--grade" "$grade_list")
     fi
 
     # Level filter (optional)
@@ -161,10 +165,6 @@ tdocs_count_filtered() {
 
     # Sort mode
     [[ -n "$TDOCS_REPL_SORT" ]] && filter_args+=("--sort" "$TDOCS_REPL_SORT")
-
-    # Backward compat: old category/module fields
-    [[ -n "$TDOCS_REPL_CATEGORY" ]] && filter_args+=("--$TDOCS_REPL_CATEGORY")
-    [[ -n "$TDOCS_REPL_MODULE" ]] && filter_args+=("--module" "$TDOCS_REPL_MODULE")
 
     # Count documents by parsing the "Found X document(s):" line
     if command -v tdocs_ls_docs >/dev/null 2>&1; then
@@ -187,10 +187,12 @@ _tdocs_repl_build_prompt() {
     local doc_count="${TDOCS_REPL_DOC_COUNT:-0}"
     local state="${TDOCS_REPL_STATE:-find}"
 
-    # Update doc count
-    if [[ "$doc_count" -eq 0 ]]; then
+    # Update doc count (cached - only recalculate if explicitly invalidated)
+    # Note: Set TDOCS_REPL_DOC_COUNT=0 in filter commands to invalidate cache
+    if [[ "$doc_count" -eq 0 ]] || [[ "${TDOCS_REPL_FORCE_COUNT:-false}" == "true" ]]; then
         doc_count=$(tdocs_count_filtered 2>/dev/null) || doc_count=0
         TDOCS_REPL_DOC_COUNT=$doc_count
+        TDOCS_REPL_FORCE_COUNT=false
     fi
 
     # Get TDS colors
@@ -223,39 +225,47 @@ _tdocs_repl_build_prompt() {
         modules="${module_color}(${mod_list})${reset}"
     fi
 
-    # Build filter set display
-    local filters=()
+    # Build type breakdown display (spec:3 guide:12 investigation:5)
+    # Count documents by type from current filter set
+    local type_breakdown=""
+    local has_filters=false
 
-    # Authority filters
-    if [[ ${#TDOCS_REPL_AUTHORITY[@]} -gt 0 ]]; then
-        for auth in "${TDOCS_REPL_AUTHORITY[@]}"; do
-            filters+=("${auth_color}${auth}${reset}")
-        done
+    # Check if we have any filters active
+    if [[ ${#TDOCS_REPL_TYPE[@]} -gt 0 ]] || \
+       [[ ${#TDOCS_REPL_INTENT[@]} -gt 0 ]] || \
+       [[ ${#TDOCS_REPL_GRADE[@]} -gt 0 ]] || \
+       [[ -n "$TDOCS_REPL_LEVEL" ]] || \
+       [[ -n "$TDOCS_REPL_TEMPORAL" ]]; then
+        has_filters=true
     fi
 
-    # Type filters
-    if [[ ${#TDOCS_REPL_TYPE[@]} -gt 0 ]]; then
-        for typ in "${TDOCS_REPL_TYPE[@]}"; do
-            filters+=("${type_color}${typ}${reset}")
-        done
+    # Get type counts (using new taxonomy)
+    declare -A type_counts
+
+    # Quick count by reading metadata files
+    if [[ -d "$TDOCS_DB_DIR" ]] && [[ -n "$(ls -A "$TDOCS_DB_DIR"/*.meta 2>/dev/null)" ]]; then
+        # Use grep to extract all types in one pass
+        local types=$(grep -h '"type": "' "$TDOCS_DB_DIR"/*.meta 2>/dev/null | cut -d'"' -f4)
+
+        while IFS= read -r doc_type; do
+            [[ -z "$doc_type" ]] && continue
+            ((type_counts[$doc_type]++))
+        done <<< "$types"
     fi
 
-    # Level filter (optional)
-    if [[ -n "$TDOCS_REPL_LEVEL" ]]; then
-        local level_display="$TDOCS_REPL_LEVEL"
-        [[ ! "$level_display" =~ ^L ]] && level_display="L${level_display}"
-        filters+=("${type_color}${level_display}${reset}")
-    fi
+    # Build type breakdown string (show top 3 types)
+    local breakdown_parts=()
+    for type in spec guide investigation reference plan summary scratch; do
+        local count=${type_counts[$type]:-0}
+        if [[ $count -gt 0 ]]; then
+            breakdown_parts+=("${type_color}${type}:${count}${reset}")
+        fi
+        # Limit to 3 types in prompt
+        [[ ${#breakdown_parts[@]} -ge 3 ]] && break
+    done
 
-    # Temporal filter
-    if [[ -n "$TDOCS_REPL_TEMPORAL" ]]; then
-        filters+=("${temporal_color}${TDOCS_REPL_TEMPORAL}${reset}")
-    fi
-
-    # Join filters with spaces
-    local filter_str=""
-    if [[ ${#filters[@]} -gt 0 ]]; then
-        filter_str="${filters[*]}"
+    if [[ ${#breakdown_parts[@]} -gt 0 ]]; then
+        type_breakdown=$(IFS=' '; echo "${breakdown_parts[*]}")
     fi
 
     # State display with sort mode
@@ -264,19 +274,20 @@ _tdocs_repl_build_prompt() {
         state_display="${state}:${sort_mode}"
     fi
 
-    # Build prompt based on what's active
-    if [[ -n "$modules" && -n "$filter_str" ]]; then
-        # Both modules and filters: [rag × canonical spec → 3] find >
-        REPL_PROMPT="${bracket}[${reset}${modules} ${cross}×${reset} ${filter_str} ${arrow}→${reset} ${count_color}${doc_count}${reset}${bracket}]${reset} ${state_color}${state_display}${reset} ${prompt_arrow}>${reset} "
+    # Build prompt: [module | type:counts] total >
+    # Format: [rag | spec:3 guide:12 scratch:5] 20 >
+    if [[ -n "$modules" && -n "$type_breakdown" ]]; then
+        # Module with type breakdown: [rag | spec:3 guide:12] 20 >
+        REPL_PROMPT="${bracket}[${reset}${modules} ${pipe}|${reset} ${type_breakdown}${bracket}]${reset} ${count_color}${doc_count}${reset} ${prompt_arrow}>${reset} "
     elif [[ -n "$modules" ]]; then
-        # Only modules: [rag → 12] find >
-        REPL_PROMPT="${bracket}[${reset}${modules} ${arrow}→${reset} ${count_color}${doc_count}${reset}${bracket}]${reset} ${state_color}${state_display}${reset} ${prompt_arrow}>${reset} "
-    elif [[ -n "$filter_str" ]]; then
-        # Only filters: [canonical spec → 5] find >
-        REPL_PROMPT="${bracket}[${reset}${filter_str} ${arrow}→${reset} ${count_color}${doc_count}${reset}${bracket}]${reset} ${state_color}${state_display}${reset} ${prompt_arrow}>${reset} "
+        # Only modules: [rag] 20 >
+        REPL_PROMPT="${bracket}[${reset}${modules}${bracket}]${reset} ${count_color}${doc_count}${reset} ${prompt_arrow}>${reset} "
+    elif [[ -n "$type_breakdown" ]]; then
+        # Only type breakdown: [spec:3 guide:12] 20 >
+        REPL_PROMPT="${bracket}[${reset}${type_breakdown}${bracket}]${reset} ${count_color}${doc_count}${reset} ${prompt_arrow}>${reset} "
     else
-        # No filters: [47] find >
-        REPL_PROMPT="${bracket}[${reset}${count_color}${doc_count}${reset}${bracket}]${reset} ${state_color}${state_display}${reset} ${prompt_arrow}>${reset} "
+        # No context: [20] >
+        REPL_PROMPT="${bracket}[${reset}${count_color}${doc_count}${reset}${bracket}]${reset} ${prompt_arrow}>${reset} "
     fi
 }
 
@@ -358,18 +369,25 @@ _tdocs_repl_process_input() {
                     echo "Filter: modules = ${TDOCS_REPL_MODULES[*]}"
                     return 2
                     ;;
-                authority|auth|a)
-                    # Support: filter authority canonical,stable
-                    IFS=',' read -ra TDOCS_REPL_AUTHORITY <<< "${filter_args[1]}"
-                    TDOCS_REPL_DOC_COUNT=0
-                    echo "Filter: authority = ${TDOCS_REPL_AUTHORITY[*]}"
-                    return 2
-                    ;;
                 type|t)
                     # Support: filter type spec,guide
                     IFS=',' read -ra TDOCS_REPL_TYPE <<< "${filter_args[1]}"
                     TDOCS_REPL_DOC_COUNT=0
                     echo "Filter: type = ${TDOCS_REPL_TYPE[*]}"
+                    return 2
+                    ;;
+                intent|i)
+                    # Support: filter intent define,instruct
+                    IFS=',' read -ra TDOCS_REPL_INTENT <<< "${filter_args[1]}"
+                    TDOCS_REPL_DOC_COUNT=0
+                    echo "Filter: intent = ${TDOCS_REPL_INTENT[*]}"
+                    return 2
+                    ;;
+                grade|g)
+                    # Support: filter grade A,B
+                    IFS=',' read -ra TDOCS_REPL_GRADE <<< "${filter_args[1]}"
+                    TDOCS_REPL_DOC_COUNT=0
+                    echo "Filter: grade = ${TDOCS_REPL_GRADE[*]}"
                     return 2
                     ;;
                 level|l)
@@ -385,39 +403,27 @@ _tdocs_repl_process_input() {
                     echo "Filter: temporal = ${filter_args[0]}"
                     return 2
                     ;;
-                # Backward compat
-                core)
-                    TDOCS_REPL_AUTHORITY=(canonical)
-                    TDOCS_REPL_DOC_COUNT=0
-                    echo "Filter: authority = canonical (deprecated: use 'filter authority canonical')"
-                    return 2
-                    ;;
-                other)
-                    TDOCS_REPL_AUTHORITY=(working)
-                    TDOCS_REPL_DOC_COUNT=0
-                    echo "Filter: authority = working (deprecated: use 'filter authority working')"
-                    return 2
-                    ;;
                 clear|reset)
                     TDOCS_REPL_MODULES=()
-                    TDOCS_REPL_AUTHORITY=()
                     TDOCS_REPL_TYPE=()
+                    TDOCS_REPL_INTENT=()
+                    TDOCS_REPL_GRADE=()
                     TDOCS_REPL_LEVEL=""
                     TDOCS_REPL_TEMPORAL=""
-                    TDOCS_REPL_CATEGORY=""
-                    TDOCS_REPL_MODULE=""
                     TDOCS_REPL_DOC_COUNT=0
                     echo "Filters cleared"
                     return 2
                     ;;
                 *)
                     cat <<'EOF'
-Usage: filter [module|authority|type|level|temporal|clear] <value>
-       filter module rag,midi    filter authority canonical
-       filter type spec,guide    filter last:7d
+Usage: filter [module|type|intent|grade|level|temporal|clear] <value>
+       filter module rag,midi     filter type spec,guide
+       filter intent define       filter grade A,B
+       filter level L3+           filter last:7d
 
-Authority: canonical stable working draft stale archived
-Type: specification guide reference plan investigation scratch
+Type: spec guide investigation reference plan summary scratch
+Intent: define instruct analyze document propose track
+Grade: A (canonical) B (stable) C (working) X (archived)
 Module: rag midi tdocs repl (or * for all, "" for system)
 Level: L0-L4, L3+, L2-L4
 Temporal: last:7d last:2w last:1m  recent:week  time:2025-11-01
@@ -431,11 +437,12 @@ EOF
             tdocs_cmd_tag $args
             ;;
 
-        # Discovery
-        discover)
-            tdocs_cmd_discover $args
-            # Reset document count cache after discovery
+        # Scan for documents
+        scan)
+            tdocs_cmd_scan $args
+            # Reset document count cache after scan
             TDOCS_REPL_DOC_COUNT=0
+            return 2  # Signal prompt refresh
             ;;
 
         # Doctor (health check)
@@ -445,10 +452,10 @@ EOF
             TDOCS_REPL_DOC_COUNT=0
             ;;
 
-        # Initialize
-        init)
-            tdocs_cmd_init $args
-            # Reset document count cache after initialization
+        # Add document metadata
+        add)
+            tdocs_cmd_add $args
+            # Reset document count cache after adding
             TDOCS_REPL_DOC_COUNT=0
             ;;
 
@@ -561,7 +568,7 @@ tdocs_repl() {
     tdocs_module_init 2>/dev/null || true
 
     # Register the tdocs module with the REPL system
-    repl_register_module "tdocs" "ls view search filter tag init discover evidence audit env"
+    repl_register_module "tdocs" "ls view search filter tag add scan evidence audit env"
 
     # Register slash commands
     tdocs_register_commands
@@ -593,10 +600,10 @@ Takeover Mode: Direct commands (no shell pass-through)
 
 Quick Start:
   demo                  Run interactive demo (start here!)
-  discover --auto-init  Auto-index all documents
+  scan                  Index all documents
   ls                    List all documents
   module <name>         Show module documentation
-  filter core           Show only core documents
+  filter type spec      Show only specifications
   help                  Show all commands
 
 ✓ Native TAB completion enabled

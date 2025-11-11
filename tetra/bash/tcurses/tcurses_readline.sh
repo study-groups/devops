@@ -250,6 +250,9 @@ tcurses_readline() {
     local prompt="${1:-$TCURSES_READLINE_PROMPT}"
     local history_file="${2:-}"
 
+    # Sync global prompt with local prompt for dynamic updates
+    TCURSES_READLINE_PROMPT="$prompt"
+
     # Initialize
     tcurses_readline_init
 
@@ -394,15 +397,24 @@ tcurses_readline() {
                 ;;
 
             *)
-                # Regular character - insert it
-                if [[ -n "$key" ]]; then
+                # Regular character - check for single-key mode handler first
+                local handled=false
+                if command -v repl_handle_single_key >/dev/null 2>&1; then
+                    if repl_handle_single_key "$key"; then
+                        handled=true
+                    fi
+                fi
+
+                # Default: insert character if not handled
+                if [[ "$handled" == "false" && -n "$key" ]]; then
                     tcurses_readline_insert_char "$key"
                 fi
                 ;;
         esac
 
-        # Redraw line with the prompt passed to tcurses_readline()
-        tcurses_readline_redraw "$prompt"
+        # Redraw line - use global TCURSES_READLINE_PROMPT if set, otherwise use local prompt
+        # This allows handlers to update the prompt dynamically
+        tcurses_readline_redraw "${TCURSES_READLINE_PROMPT:-$prompt}"
     done
 
     # Save to history
