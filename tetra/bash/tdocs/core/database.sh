@@ -45,7 +45,7 @@ tdoc_db_create() {
     local doc_path="$1"
     local type="$2"                  # spec|guide|investigation|reference|plan|summary|scratch
     local intent="$3"                # define|instruct|analyze|document|propose|track
-    local grade="${4:-C}"            # A|B|C|X (default: C=working)
+    local lifecycle="${4:-$TDOC_DEFAULT_LIFECYCLE}"  # D|W|S|C|X (default: W=working)
     local tags="$5"                  # Comma-separated or array
     local module="${6:-}"
     local level="${7:-}"             # Optional: L0-L4 for quick assessment
@@ -85,14 +85,17 @@ tdoc_db_create() {
         esac
     fi
 
-    # Determine evidence weight from grade
-    local evidence_weight="tertiary"
-    case "$grade" in
-        A) evidence_weight="primary" ;;    # Canonical
-        B) evidence_weight="secondary" ;;  # Stable
-        C) evidence_weight="tertiary" ;;   # Working
-        X) evidence_weight="excluded" ;;   # Archived
-    esac
+    # Resolve type alias if needed
+    type=$(tdoc_resolve_type "$type")
+
+    # Validate lifecycle
+    if ! tdoc_valid_lifecycle "$lifecycle"; then
+        echo "Warning: Invalid lifecycle '$lifecycle', defaulting to $TDOC_DEFAULT_LIFECYCLE" >&2
+        lifecycle="$TDOC_DEFAULT_LIFECYCLE"
+    fi
+
+    # Determine evidence weight from lifecycle using constants
+    local evidence_weight=$(tdoc_lifecycle_evidence "$lifecycle")
 
     # Get file hash for change detection
     local hash=""
@@ -235,7 +238,7 @@ tdoc_db_create() {
   \"doc_path\": \"$abs_path\",
   \"type\": \"$type\",
   \"intent\": \"$intent\",
-  \"grade\": \"$grade\",
+  \"lifecycle\": \"$lifecycle\",
   \"tags\": $tags_json,
   \"module\": \"$module\",
   \"evidence_weight\": \"$evidence_weight\",

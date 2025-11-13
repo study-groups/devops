@@ -30,6 +30,11 @@ tdocs_register_commands() {
     repl_register_slash_command "module" tdocs_cmd_module
     repl_register_slash_command "spec" tdocs_cmd_spec
     repl_register_slash_command "audit-specs" tdocs_cmd_audit_specs
+
+    # Publishing commands
+    repl_register_slash_command "publish" tdocs_cmd_publish
+    repl_register_slash_command "nginx-config" tdocs_cmd_nginx_config
+    repl_register_slash_command "publish-targets" tdocs_cmd_publish_targets
 }
 
 # Command: /ls [--core|--other] [--module NAME]
@@ -69,10 +74,10 @@ tdocs_cmd_ls() {
         filter_args+=("--intent" "$intent_list")
     fi
 
-    # Grade filters (join with comma)
-    if [[ ${#TDOCS_REPL_GRADE[@]} -gt 0 ]]; then
-        local grade_list=$(IFS=','; echo "${TDOCS_REPL_GRADE[*]}")
-        filter_args+=("--grade" "$grade_list")
+    # Lifecycle filters (join with comma)
+    if [[ ${#TDOCS_REPL_LIFECYCLE[@]} -gt 0 ]]; then
+        local lifecycle_list=$(IFS=','; echo "${TDOCS_REPL_LIFECYCLE[*]}")
+        filter_args+=("--lifecycle" "$lifecycle_list")
     fi
 
     # Level filter (optional)
@@ -87,6 +92,10 @@ tdocs_cmd_ls() {
 
     # Merge with provided args
     tdocs_ls_docs "${filter_args[@]}" "${filtered_args[@]}"
+
+    # Exit search mode when listing
+    TDOCS_REPL_STATE="find"
+    TDOCS_REPL_SEARCH_QUERY=""
 }
 
 # Command: /view <file|number>
@@ -126,6 +135,13 @@ tdocs_cmd_search() {
     fi
 
     tdocs_search_docs "$query"
+
+    # Update REPL state to reflect search mode
+    TDOCS_REPL_STATE="search"
+    TDOCS_REPL_SEARCH_QUERY="$query"
+    TDOCS_REPL_DOC_COUNT=${#TDOCS_LAST_LIST[@]}
+
+    return 2  # Signal prompt rebuild
 }
 
 # Command: /tag <file>
@@ -306,6 +322,58 @@ tdocs_cmd_colors() {
     fi
 }
 
+# Command: /publish [source] [target]
+tdocs_cmd_publish() {
+    local source_path="${1:-.}"
+    local target="${2:-docs}"
+
+    if [[ "$source_path" == "--help" ]] || [[ "$source_path" == "-h" ]]; then
+        echo "Usage: publish [source] [target]"
+        echo ""
+        echo "Arguments:"
+        echo "  source  - Source directory to publish (default: current directory)"
+        echo "  target  - Publish target from tetra.toml (default: docs)"
+        echo ""
+        echo "Examples:"
+        echo "  publish . docs           - Publish current dir to publish.docs"
+        echo "  publish ./api docs.api   - Publish ./api to publish.docs.api"
+        echo ""
+        echo "See available targets: publish-targets"
+        return 0
+    fi
+
+    tdocs_publish "$source_path" "$target"
+}
+
+# Command: /nginx-config [target]
+tdocs_cmd_nginx_config() {
+    local target="${1:-docs}"
+
+    if [[ "$target" == "--help" ]] || [[ "$target" == "-h" ]]; then
+        echo "Usage: nginx-config [target]"
+        echo ""
+        echo "Generate nginx proxy configuration for a publish target"
+        echo ""
+        echo "Arguments:"
+        echo "  target  - Publish target from tetra.toml (default: docs)"
+        echo ""
+        echo "Examples:"
+        echo "  nginx-config docs       - Generate config for publish.docs"
+        echo "  nginx-config docs.api   - Generate config for publish.docs.api"
+        echo ""
+        echo "Output can be piped directly to a file:"
+        echo "  nginx-config docs | sudo tee /etc/nginx/sites-available/my-domain"
+        return 0
+    fi
+
+    tdocs_generate_nginx_config "$target"
+}
+
+# Command: /publish-targets
+tdocs_cmd_publish_targets() {
+    tdocs_list_publish_targets
+}
+
 export -f tdocs_register_commands
 export -f tdocs_cmd_ls
 export -f tdocs_cmd_view
@@ -323,3 +391,6 @@ export -f tdocs_cmd_module
 export -f tdocs_cmd_spec
 export -f tdocs_cmd_audit_specs
 export -f tdocs_cmd_colors
+export -f tdocs_cmd_publish
+export -f tdocs_cmd_nginx_config
+export -f tdocs_cmd_publish_targets

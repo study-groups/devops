@@ -20,8 +20,14 @@ source "$TDOCS_SRC/ui/color_explorer.sh"
 # Source core tdocs functionality
 source "$TDOCS_SRC/tdocs.sh"
 
+# Source publish module
+source "$TDOCS_SRC/core/publish.sh"
+
 # Source tab completion
 source "$TDOCS_SRC/tdocs_completion.sh"
+
+# Source tree help registration
+source "$TDOCS_SRC/tdocs_tree.sh" 2>/dev/null || true
 
 # Initialize module (creates directories, indexes, help tree)
 tdocs_module_init

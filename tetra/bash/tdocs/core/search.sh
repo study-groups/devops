@@ -195,9 +195,13 @@ tdoc_search_docs() {
     # Search through database metadata
     for meta_file in "$TDOCS_DB_DIR"/*.meta; do
         [[ ! -f "$meta_file" ]] && continue
+        [[ ! -s "$meta_file" ]] && continue  # Skip empty files
 
         local meta=$(cat "$meta_file")
         local doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
+
+        # Skip if no doc_path found
+        [[ -z "$doc_path" ]] && continue
 
         # Search in metadata
         if echo "$meta" | grep -qi "$query"; then
@@ -246,35 +250,31 @@ tdoc_search_docs() {
     echo "Found ${#sorted_results[@]} result(s):"
     echo ""
 
-    # Render results with rank, type, and filename
+    # Store search results in TDOCS_LAST_LIST for numbered access
+    TDOCS_LAST_LIST=()
+    local index=1
+
+    # Render results using consistent compact format
     for meta in "${sorted_results[@]}"; do
         local doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
-        local rank=$(echo "$meta" | grep -o '"rank": [0-9.]*' | cut -d' ' -f2)
-        local doc_type=$(echo "$meta" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
-        local recency_boost=$(echo "$meta" | grep -o '"recency_boost": [0-9.]*' | cut -d' ' -f2)
-        local filename=$(basename "$doc_path")
 
-        # Determine if fresh
-        local is_fresh=false
-        if [[ -n "$recency_boost" ]] && command -v awk >/dev/null 2>&1; then
-            is_fresh=$(awk "BEGIN {print ($recency_boost > 0.01) ? 1 : 0}")
+        # Skip entries without valid doc_path
+        if [[ -z "$doc_path" ]]; then
+            echo "Warning: Skipping result with no doc_path" >&2
+            continue
         fi
 
-        # Display: rank (grey) type (grey) filename (cyan) fresh (grey)
-        if [[ -n "$rank" ]]; then
-            printf "\033[2;37m%5s\033[0m  " "$rank"
-        else
-            printf "       "
-        fi
+        # Add to list for numbered access
+        TDOCS_LAST_LIST+=("$doc_path")
 
-        printf "\033[2;37m%-16s\033[0m  " "$doc_type"
-        printf "\033[0;36m%s\033[0m" "$filename"
+        # Display: number (blue) followed by compact metadata
+        printf "\033[38;5;111m%3d.\033[0m " "$index"
 
-        if [[ "$is_fresh" == "1" ]]; then
-            printf "  \033[2;37mfresh\033[0m"
-        fi
+        # Use the standard compact render function for consistency
+        tdoc_render_compact "$meta" "$doc_path" "5" "false"
 
         echo ""
+        ((index++))
     done
 }
 
@@ -309,7 +309,7 @@ tdoc_list_docs() {
     local module=""
     local type=""
     local intent=""
-    local grade=""
+    local lifecycle=""
     local tags=""
     local level=""
     local temporal=""
@@ -337,8 +337,8 @@ tdoc_list_docs() {
                 intent="$2"
                 shift 2
                 ;;
-            --grade)
-                grade="$2"
+            --lifecycle)
+                lifecycle="$2"
                 shift 2
                 ;;
             --tags)
@@ -378,11 +378,11 @@ USAGE:
 
 OPTIONS:
   --module <name>      Filter by module (comma-separated: rag,midi,tdocs)
-  --authority <auth>   Filter by authority (comma-separated: canonical,stable,working)
+  --lifecycle <stage>  Filter by lifecycle (comma-separated: D,W,S,C,X)
   --type <type>        Filter by type (comma-separated: spec,guide,reference)
   --level <level>      Filter by level (L0-L4, L3+, L2-L4)
   --temporal <time>    Filter by time (last:7d, recent:2w, time:2025-11-01)
-  --sort <mode>        Sort mode: relevance|time|authority|grade
+  --sort <mode>        Sort mode: relevance|time|lifecycle
   --tags <tags>        Filter by tags (comma-separated)
   --preview            Show metadata preview
   --numbered           Show line numbers for selection
@@ -390,8 +390,8 @@ OPTIONS:
   --no-color           Disable color output
 
 EXAMPLES:
-  tdoc list --authority canonical --type spec
-  tdoc list --module rag,midi --authority stale
+  tdoc list --lifecycle C --type spec
+  tdoc list --module rag,midi --lifecycle S,C
   tdoc list --type guide --temporal last:7d
   tdoc list --sort time --preview
 
@@ -426,11 +426,11 @@ EOF
     local intent_array=()
     [[ -n "$intent" ]] && IFS=',' read -ra intent_array <<< "$intent"
 
-    local grade_array=()
-    [[ -n "$grade" ]] && IFS=',' read -ra grade_array <<< "$grade"
+    local lifecycle_array=()
+    [[ -n "$lifecycle" ]] && IFS=',' read -ra lifecycle_array <<< "$lifecycle"
 
     # Check cache (key based on all filter parameters)
-    local cache_key="${module}|${type}|${intent}|${grade}|${level}|${temporal}|${sort_mode}"
+    local cache_key="${module}|${type}|${intent}|${lifecycle}|${level}|${temporal}|${sort_mode}"
     if [[ "$cache_key" == "$TDOCS_LIST_CACHE_KEY" ]] && [[ -n "$TDOCS_LIST_CACHE" ]]; then
         # Use cached scored results
         local scored_results=()
@@ -452,7 +452,7 @@ EOF
         local doc_module=$(echo "$meta" | grep -o '"module": "[^"]*"' | cut -d'"' -f4)
         local doc_type=$(echo "$meta" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
         local doc_intent=$(echo "$meta" | grep -o '"intent": "[^"]*"' | cut -d'"' -f4)
-        local doc_grade=$(echo "$meta" | grep -o '"grade": "[^"]*"' | cut -d'"' -f4)
+        local doc_lifecycle=$(echo "$meta" | grep -o '"lifecycle": "[^"]*"' | cut -d'"' -f4)
 
         # Convert ISO timestamp to Unix epoch if needed
         if [[ "$doc_timestamp" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2} ]]; then
@@ -497,11 +497,11 @@ EOF
             [[ "$match" == false ]] && continue
         fi
 
-        # Apply grade filter (OR logic)
-        if [[ ${#grade_array[@]} -gt 0 ]]; then
+        # Apply lifecycle filter (OR logic)
+        if [[ ${#lifecycle_array[@]} -gt 0 ]]; then
             local match=false
-            for grd in "${grade_array[@]}"; do
-                if [[ "$doc_grade" == "$grd" ]]; then
+            for lc in "${lifecycle_array[@]}"; do
+                if [[ "$doc_lifecycle" == "$lc" ]]; then
                     match=true
                     break
                 fi
@@ -611,9 +611,33 @@ EOF
         esac
     done
 
-    # Display total count
+    # Display total count with enhanced information
     local total=$((${#reference_docs[@]} + ${#guide_docs[@]} + ${#notes_docs[@]} + ${#unranked_docs[@]}))
-    echo "Found ${total} document(s):"
+
+    # Count lifecycle breakdown from results
+    local lifecycle_counts=()
+    declare -A lifecycle_map=()
+    for meta in "${sorted_results_with_ranks[@]}"; do
+        local lc=$(echo "$meta" | grep -o '"lifecycle": "[^"]*"' | cut -d'"' -f4)
+        [[ -z "$lc" ]] && lc="W"  # Default to Working if missing
+        lifecycle_map[$lc]=$((${lifecycle_map[$lc]:-0} + 1))
+    done
+
+    # Build lifecycle summary
+    local lifecycle_summary=""
+    [[ -n "${lifecycle_map[C]}" ]] && lifecycle_summary+="C:${lifecycle_map[C]} "
+    [[ -n "${lifecycle_map[S]}" ]] && lifecycle_summary+="S:${lifecycle_map[S]} "
+    [[ -n "${lifecycle_map[W]}" ]] && lifecycle_summary+="W:${lifecycle_map[W]} "
+    [[ -n "${lifecycle_map[D]}" ]] && lifecycle_summary+="D:${lifecycle_map[D]} "
+    [[ -n "${lifecycle_map[X]}" ]] && lifecycle_summary+="X:${lifecycle_map[X]}"
+
+    # Simple display without expensive filesystem scan
+    echo "Found ${total} document(s)"
+
+    # Show lifecycle breakdown
+    if [[ -n "$lifecycle_summary" ]]; then
+        echo "Lifecycle: ${lifecycle_summary}"
+    fi
     echo ""
 
     # Render results by group

@@ -22,6 +22,9 @@ fi
 # Always load tdocs tokens (in case tdocs was already loaded before tokens were added)
 source "$TDOCS_SRC/ui/tdocs_tokens.sh"
 
+# Load color explorer (needed for colors command)
+source "$TDOCS_SRC/ui/color_explorer.sh"
+
 source "$TDOCS_SRC/tdocs_commands.sh"
 
 # Load colored help system
@@ -31,12 +34,14 @@ source "$TDOCS_SRC/core/help.sh"
 declare -a TDOCS_REPL_MODULES       # Array: (rag midi) or (*) or ("")
 declare -a TDOCS_REPL_TYPE          # Array: (spec guide investigation)
 declare -a TDOCS_REPL_INTENT        # Array: (define instruct analyze)
-declare -a TDOCS_REPL_GRADE         # Array: (A B C X)
+declare -a TDOCS_REPL_LIFECYCLE     # Array: (D W S C X)
 TDOCS_REPL_LEVEL=""                 # Optional: L0-L4, L3+, L2-L4
 TDOCS_REPL_TEMPORAL=""              # Temporal filter: last:7d, etc
-TDOCS_REPL_SORT="relevance"         # Sort: relevance|time|grade|level
-TDOCS_REPL_DOC_COUNT=0              # Cached count
+TDOCS_REPL_SORT="relevance"         # Sort: relevance|time|grade|level|alpha
+TDOCS_REPL_DOC_COUNT=0              # Cached filtered count
+TDOCS_REPL_TOTAL_COUNT=0            # Cached absolute total count
 TDOCS_REPL_STATE="find"             # State: find|edit|search|filter
+TDOCS_REPL_SEARCH_QUERY=""          # Last search query
 
 declare -a TDOCS_LAST_LIST          # Array of document paths from last ls
 
@@ -44,6 +49,7 @@ declare -a TDOCS_LAST_LIST          # Array of document paths from last ls
 _tdocs_static_completions() {
     # Commands
     cat <<'EOF'
+find
 ls
 list
 view
@@ -70,6 +76,7 @@ q
 EOF
 
     # Filter options
+    echo "all"
     echo "core"
     echo "other"
     echo "module"
@@ -151,10 +158,10 @@ tdocs_count_filtered() {
         filter_args+=("--intent" "$intent_list")
     fi
 
-    # Grade filters (join with comma)
-    if [[ ${#TDOCS_REPL_GRADE[@]} -gt 0 ]]; then
-        local grade_list=$(IFS=','; echo "${TDOCS_REPL_GRADE[*]}")
-        filter_args+=("--grade" "$grade_list")
+    # Lifecycle filters (join with comma)
+    if [[ ${#TDOCS_REPL_LIFECYCLE[@]} -gt 0 ]]; then
+        local lifecycle_list=$(IFS=','; echo "${TDOCS_REPL_LIFECYCLE[*]}")
+        filter_args+=("--lifecycle" "$lifecycle_list")
     fi
 
     # Level filter (optional)
@@ -180,14 +187,30 @@ tdocs_count_filtered() {
     echo "$count"
 }
 
+# Count total documents in database (absolute count, no filters)
+tdocs_count_total() {
+    # Count all non-empty .meta files
+    if [[ -d "$TDOCS_DB_DIR" ]]; then
+        find "$TDOCS_DB_DIR" -name "*.meta" -type f ! -size 0 2>/dev/null | wc -l | tr -d ' '
+    else
+        echo "0"
+    fi
+}
+
 # Build dynamic prompt with colors
-# Format: [module-set × filter-set → count] state >
+# Format: [total {modules} (type | intent)] [lifecycle] n :sort >
 _tdocs_repl_build_prompt() {
     local sort_mode="${TDOCS_REPL_SORT:-relevance}"
     local doc_count="${TDOCS_REPL_DOC_COUNT:-0}"
-    local state="${TDOCS_REPL_STATE:-find}"
+    local total_count="${TDOCS_REPL_TOTAL_COUNT:-0}"
 
-    # Update doc count (cached - only recalculate if explicitly invalidated)
+    # Update total count (cached - only calculate once at REPL start)
+    if [[ "$total_count" -eq 0 ]]; then
+        total_count=$(tdocs_count_total 2>/dev/null) || total_count=0
+        TDOCS_REPL_TOTAL_COUNT=$total_count
+    fi
+
+    # Update filtered doc count (cached - only recalculate if explicitly invalidated)
     # Note: Set TDOCS_REPL_DOC_COUNT=0 in filter commands to invalidate cache
     if [[ "$doc_count" -eq 0 ]] || [[ "${TDOCS_REPL_FORCE_COUNT:-false}" == "true" ]]; then
         doc_count=$(tdocs_count_filtered 2>/dev/null) || doc_count=0
@@ -195,100 +218,120 @@ _tdocs_repl_build_prompt() {
         TDOCS_REPL_FORCE_COUNT=false
     fi
 
-    # Get TDS colors
-    local reset=$(tdocs_prompt_reset)
-    local bracket=$(tdocs_prompt_color "tdocs.prompt.bracket")
-    local pipe=$(tdocs_prompt_color "tdocs.prompt.separator")
-    local cross=$(tdocs_prompt_color "tdocs.prompt.separator")  # × symbol
-    local arrow=$(tdocs_prompt_color "tdocs.prompt.arrow.pipe")
-    local count_color=$(tdocs_prompt_color "tdocs.prompt.count")
-    local prompt_arrow=$(tdocs_prompt_color "tdocs.prompt.arrow")
-    local state_color=$(tdocs_prompt_color "tdocs.prompt.state")
-    local module_color=$(tdocs_prompt_color "tdocs.prompt.topic2")
-    local auth_color=$(tdocs_prompt_color "tdocs.prompt.filter.core")
-    local type_color=$(tdocs_prompt_color "tdocs.prompt.level")
-    local temporal_color=$(tdocs_prompt_color "tdocs.prompt.temporal")
+    # Get TDS colors (using simplified approach - no readline wrapping)
+    local reset=$(tdocs_prompt_reset 2>/dev/null)
+    local bracket=$(tdocs_prompt_color "tdocs.prompt.bracket" 2>/dev/null)
+    local brace_color=$(tdocs_prompt_color "tdocs.prompt.topic1" 2>/dev/null)       # {} for modules
+    local paren_color=$(tdocs_prompt_color "tdocs.prompt.bracket" 2>/dev/null)      # () for type/intent
+    local pipe_color=$(tdocs_prompt_color "tdocs.prompt.separator" 2>/dev/null)     # | separator
+    local count_color=$(tdocs_prompt_color "tdocs.prompt.count" 2>/dev/null)
+    local prompt_arrow=$(tdocs_prompt_color "tdocs.prompt.arrow" 2>/dev/null)
+    local module_color=$(tdocs_prompt_color "tdocs.prompt.topic2" 2>/dev/null)      # module names
+    local type_color=$(tdocs_prompt_color "tdocs.prompt.level" 2>/dev/null)         # type names
+    local intent_color=$(tdocs_prompt_color "tdocs.prompt.temporal" 2>/dev/null)    # intent names
+    local auth_color=$(tdocs_prompt_color "tdocs.prompt.filter.core" 2>/dev/null)   # C, S lifecycle
+    local working_color=$(tdocs_prompt_color "tdocs.prompt.level" 2>/dev/null)      # W lifecycle
+    local temporal_color=$(tdocs_prompt_color "tdocs.prompt.temporal" 2>/dev/null)  # D, X lifecycle
 
-    # Build module set display
-    local modules=""
+    # DEBUG: Check if colors are working
+    if [[ "$TDOCS_DEBUG_PROMPT" == "1" ]]; then
+        >&2 echo "DEBUG bracket: [$(echo "$bracket" | cat -v)]"
+        >&2 echo "DEBUG count_color: [$(echo "$count_color" | cat -v)]"
+        >&2 echo "DEBUG module_color: [$(echo "$module_color" | cat -v)]"
+    fi
+
+    # Build module display: {*} or {midi osc} or {}
+    local module_display=""
     if [[ ${#TDOCS_REPL_MODULES[@]} -eq 0 ]]; then
-        modules=""
-    elif [[ "${TDOCS_REPL_MODULES[0]}" == "*" ]]; then
-        modules="${module_color}*${reset}"
-    elif [[ "${TDOCS_REPL_MODULES[0]}" == "" ]]; then
-        modules="${module_color}sys${reset}"
-    elif [[ ${#TDOCS_REPL_MODULES[@]} -eq 1 ]]; then
-        modules="${module_color}${TDOCS_REPL_MODULES[0]}${reset}"
+        module_display="${brace_color}{${reset}${module_color}*${reset}${brace_color}}${reset}"
     else
-        # Multiple modules: (rag|midi|tdocs)
-        local mod_list=$(IFS='|'; echo "${TDOCS_REPL_MODULES[*]}")
-        modules="${module_color}(${mod_list})${reset}"
-    fi
-
-    # Build type breakdown display (spec:3 guide:12 investigation:5)
-    # Count documents by type from current filter set
-    local type_breakdown=""
-    local has_filters=false
-
-    # Check if we have any filters active
-    if [[ ${#TDOCS_REPL_TYPE[@]} -gt 0 ]] || \
-       [[ ${#TDOCS_REPL_INTENT[@]} -gt 0 ]] || \
-       [[ ${#TDOCS_REPL_GRADE[@]} -gt 0 ]] || \
-       [[ -n "$TDOCS_REPL_LEVEL" ]] || \
-       [[ -n "$TDOCS_REPL_TEMPORAL" ]]; then
-        has_filters=true
-    fi
-
-    # Get type counts (using new taxonomy)
-    declare -A type_counts
-
-    # Quick count by reading metadata files
-    if [[ -d "$TDOCS_DB_DIR" ]] && [[ -n "$(ls -A "$TDOCS_DB_DIR"/*.meta 2>/dev/null)" ]]; then
-        # Use grep to extract all types in one pass
-        local types=$(grep -h '"type": "' "$TDOCS_DB_DIR"/*.meta 2>/dev/null | cut -d'"' -f4)
-
-        while IFS= read -r doc_type; do
-            [[ -z "$doc_type" ]] && continue
-            ((type_counts[$doc_type]++))
-        done <<< "$types"
-    fi
-
-    # Build type breakdown string (show top 3 types)
-    local breakdown_parts=()
-    for type in spec guide investigation reference plan summary scratch; do
-        local count=${type_counts[$type]:-0}
-        if [[ $count -gt 0 ]]; then
-            breakdown_parts+=("${type_color}${type}:${count}${reset}")
+        local module_list=$(IFS=' '; echo "${TDOCS_REPL_MODULES[*]}")
+        if [[ -n "$module_list" ]]; then
+            module_display="${brace_color}{${reset}${module_color}${module_list}${reset}${brace_color}}${reset}"
+        else
+            module_display="${brace_color}{}${reset}"
         fi
-        # Limit to 3 types in prompt
-        [[ ${#breakdown_parts[@]} -ge 3 ]] && break
-    done
-
-    if [[ ${#breakdown_parts[@]} -gt 0 ]]; then
-        type_breakdown=$(IFS=' '; echo "${breakdown_parts[*]}")
     fi
 
-    # State display with sort mode
-    local state_display="$state"
-    if [[ "$sort_mode" != "relevance" ]]; then
-        state_display="${state}:${sort_mode}"
+    # Build type | intent display: () or (spec guide) or (spec | define) or (spec guide | define)
+    local type_intent_display=""
+    local type_part=""
+    local intent_part=""
+
+    # Build type part
+    if [[ ${#TDOCS_REPL_TYPE[@]} -gt 0 ]]; then
+        local type_list=$(IFS=' '; echo "${TDOCS_REPL_TYPE[*]}")
+        type_part="${type_color}${type_list}${reset}"
     fi
 
-    # Build prompt: [module | type:counts] total >
-    # Format: [rag | spec:3 guide:12 scratch:5] 20 >
-    if [[ -n "$modules" && -n "$type_breakdown" ]]; then
-        # Module with type breakdown: [rag | spec:3 guide:12] 20 >
-        REPL_PROMPT="${bracket}[${reset}${modules} ${pipe}|${reset} ${type_breakdown}${bracket}]${reset} ${count_color}${doc_count}${reset} ${prompt_arrow}>${reset} "
-    elif [[ -n "$modules" ]]; then
-        # Only modules: [rag] 20 >
-        REPL_PROMPT="${bracket}[${reset}${modules}${bracket}]${reset} ${count_color}${doc_count}${reset} ${prompt_arrow}>${reset} "
-    elif [[ -n "$type_breakdown" ]]; then
-        # Only type breakdown: [spec:3 guide:12] 20 >
-        REPL_PROMPT="${bracket}[${reset}${type_breakdown}${bracket}]${reset} ${count_color}${doc_count}${reset} ${prompt_arrow}>${reset} "
+    # Build intent part
+    if [[ ${#TDOCS_REPL_INTENT[@]} -gt 0 ]]; then
+        local intent_list=$(IFS=' '; echo "${TDOCS_REPL_INTENT[*]}")
+        intent_part="${intent_color}${intent_list}${reset}"
+    fi
+
+    # Combine type and intent with | separator
+    if [[ -n "$type_part" && -n "$intent_part" ]]; then
+        type_intent_display="${paren_color}(${reset}${type_part} ${pipe_color}|${reset} ${intent_part}${paren_color})${reset}"
+    elif [[ -n "$type_part" ]]; then
+        type_intent_display="${paren_color}(${reset}${type_part}${paren_color})${reset}"
+    elif [[ -n "$intent_part" ]]; then
+        type_intent_display="${paren_color}(${reset}${intent_part}${paren_color})${reset}"
     else
-        # No context: [20] >
-        REPL_PROMPT="${bracket}[${reset}${count_color}${doc_count}${reset}${bracket}]${reset} ${prompt_arrow}>${reset} "
+        type_intent_display="${paren_color}()${reset}"
     fi
+
+    # Get lifecycle breakdown (C:3 S:12 W:68 D:8) - cached to avoid slow grep
+    # Show only non-zero stages
+    # IMPORTANT: Only count non-empty .meta files to match total count
+    local lifecycle_breakdown=""
+
+    # Only recalculate if cache is empty or total count changed
+    if [[ -z "${TDOCS_REPL_LIFECYCLE_BREAKDOWN:-}" ]] || [[ "${TDOCS_REPL_LAST_TOTAL:-0}" != "$total_count" ]]; then
+        declare -A lifecycle_counts
+        if [[ -d "$TDOCS_DB_DIR" ]]; then
+            # Only process non-empty .meta files (matches tdocs_count_total logic)
+            while IFS= read -r meta_file; do
+                [[ ! -f "$meta_file" ]] && continue
+                local lc=$(grep -o '"lifecycle": "[^"]*"' "$meta_file" 2>/dev/null | cut -d'"' -f4 | head -1)
+                [[ -z "$lc" ]] && lc="W"  # Default to Working
+                ((lifecycle_counts[$lc]++))
+            done < <(find "$TDOCS_DB_DIR" -name "*.meta" -type f ! -size 0 2>/dev/null)
+        fi
+
+        # Build lifecycle breakdown string (ordered: C, S, W, D, X) - skip zeros
+        local lc_parts=()
+        [[ -n "${lifecycle_counts[C]}" && "${lifecycle_counts[C]}" -gt 0 ]] && lc_parts+=("${auth_color}C:${lifecycle_counts[C]}${reset}")
+        [[ -n "${lifecycle_counts[S]}" && "${lifecycle_counts[S]}" -gt 0 ]] && lc_parts+=("${auth_color}S:${lifecycle_counts[S]}${reset}")
+        [[ -n "${lifecycle_counts[W]}" && "${lifecycle_counts[W]}" -gt 0 ]] && lc_parts+=("${working_color}W:${lifecycle_counts[W]}${reset}")
+        [[ -n "${lifecycle_counts[D]}" && "${lifecycle_counts[D]}" -gt 0 ]] && lc_parts+=("${temporal_color}D:${lifecycle_counts[D]}${reset}")
+        [[ -n "${lifecycle_counts[X]}" && "${lifecycle_counts[X]}" -gt 0 ]] && lc_parts+=("${temporal_color}X:${lifecycle_counts[X]}${reset}")
+
+        if [[ ${#lc_parts[@]} -gt 0 ]]; then
+            lifecycle_breakdown=$(IFS=' '; echo "${lc_parts[*]}")
+        fi
+
+        # Cache the result
+        TDOCS_REPL_LIFECYCLE_BREAKDOWN="$lifecycle_breakdown"
+        TDOCS_REPL_LAST_TOTAL="$total_count"
+    else
+        # Use cached value
+        lifecycle_breakdown="$TDOCS_REPL_LIFECYCLE_BREAKDOWN"
+    fi
+
+    # Build sort display - show as prefix if not relevance
+    local sort_display=""
+    if [[ "$sort_mode" != "relevance" ]]; then
+        sort_display="${count_color}${sort_mode}:${reset}"
+    fi
+
+    # Build prompt: [total {modules} (type | intent)] [lifecycle] n :sort >
+    # Examples:
+    #   [92 {*} ()] [] 92 >
+    #   [92 {midi osc} (spec)] [W:183] 64 >
+    #   [92 {midi} (spec | define)] [C:3 S:12] 15 time:15 >
+
+    REPL_PROMPT="${bracket}[${reset}${count_color}${total_count}${reset} ${module_display} ${type_intent_display}${bracket}] ${reset}${bracket}[${reset}${lifecycle_breakdown}${bracket}] ${reset}${sort_display}${count_color}${doc_count}${reset} ${prompt_arrow}>${reset} "
 }
 
 # ============================================================================
@@ -350,44 +393,160 @@ _tdocs_repl_process_input() {
         # View document
         view|v)
             tdocs_cmd_view $args
+            return 0  # Don't exit REPL on error
             ;;
 
         # Search
         search|s)
             tdocs_cmd_search $args
+            local search_result=$?
+            # Return the result code from search (2 = prompt rebuild)
+            return $search_result
             ;;
 
-        # Filtering
+        # Find - smart discovery (modules, types, or search)
+        find)
+            local find_args=($args)
+
+            if [[ ${#find_args[@]} -eq 0 ]]; then
+                # No args - show current filters
+                echo "Find mode: showing current context"
+                echo "Modules: ${TDOCS_REPL_MODULES[*]:-all}"
+                echo "Types: ${TDOCS_REPL_TYPE[*]:-all}"
+                echo ""
+                echo "Usage: find <modules/types/query...>"
+                echo "  find all            - Reset filters, show all documents"
+                echo "  find midi           - Filter by midi module"
+                echo "  find midi osc       - Filter by midi and osc modules"
+                echo "  find spec guide     - Filter by spec and guide types"
+                return 0
+            fi
+
+            # Handle special cases
+            if [[ "${find_args[0]}" == "all" ]] || [[ "${find_args[0]}" == "clear" ]] || [[ "${find_args[0]}" == "reset" ]]; then
+                # Reset all filters
+                TDOCS_REPL_MODULES=()
+                TDOCS_REPL_TYPE=()
+                TDOCS_REPL_INTENT=()
+                TDOCS_REPL_LIFECYCLE=()
+                TDOCS_REPL_LEVEL=""
+                TDOCS_REPL_TEMPORAL=""
+                TDOCS_REPL_DOC_COUNT=0
+                TDOCS_REPL_STATE="find"
+                TDOCS_REPL_SEARCH_QUERY=""
+                echo "Filters cleared - showing all documents"
+                echo ""
+                tdocs_cmd_ls
+                return 2  # Signal prompt rebuild
+            fi
+
+            # Detect if args are module names, types, or search query
+            local modules=()
+            local types=()
+            local search_terms=()
+
+            # Known modules and types for detection
+            local known_modules="rag midi tdocs repl tcurses tree tds tsm boot game org tgp osc"
+            local known_types="spec guide investigation reference plan summary scratch bug-fix refactor"
+
+            for arg in "${find_args[@]}"; do
+                # Normalize plural forms: remove trailing 's' if it makes a known type
+                local singular="$arg"
+                if [[ "$arg" == *s ]] && [[ " $known_types " == *" ${arg%s} "* ]]; then
+                    singular="${arg%s}"
+                fi
+
+                if [[ " $known_modules " == *" $arg "* ]]; then
+                    modules+=("$arg")
+                elif [[ " $known_types " == *" $singular "* ]]; then
+                    types+=("$singular")
+                else
+                    search_terms+=("$arg")
+                fi
+            done
+
+            # Apply filters and/or search
+            local did_filter=false
+            if [[ ${#modules[@]} -gt 0 ]]; then
+                TDOCS_REPL_MODULES=("${modules[@]}")
+                TDOCS_REPL_DOC_COUNT=0
+                TDOCS_REPL_STATE="find"
+                echo "Find: modules = ${modules[*]}"
+                did_filter=true
+            fi
+
+            if [[ ${#types[@]} -gt 0 ]]; then
+                TDOCS_REPL_TYPE=("${types[@]}")
+                TDOCS_REPL_DOC_COUNT=0
+                TDOCS_REPL_STATE="find"
+                echo "Find: types = ${types[*]}"
+                did_filter=true
+            fi
+
+            if [[ ${#search_terms[@]} -gt 0 ]]; then
+                # Perform search
+                local query="${search_terms[*]}"
+                tdocs_cmd_search "$query"
+                return $?
+            fi
+
+            # If we filtered, show the results
+            if [[ "$did_filter" == true ]]; then
+                echo ""
+                tdocs_cmd_ls
+            fi
+
+            return 2  # Signal prompt rebuild
+            ;;
+
+        # Filtering (legacy support)
         filter|f)
             local filter_args=($args)
             local filter_type="${filter_args[0]}"
             case "$filter_type" in
                 module|mod|m)
-                    # Support: filter module rag,midi,tdocs
-                    IFS=',' read -ra TDOCS_REPL_MODULES <<< "${filter_args[1]}"
+                    # Support: filter module rag midi tdocs OR filter module rag,midi,tdocs
+                    local module_spec="${filter_args[@]:1}"
+                    # Replace spaces with commas if not already comma-separated
+                    if [[ ! "$module_spec" =~ , ]]; then
+                        module_spec="${module_spec// /,}"
+                    fi
+                    IFS=',' read -ra TDOCS_REPL_MODULES <<< "$module_spec"
                     TDOCS_REPL_DOC_COUNT=0
                     echo "Filter: modules = ${TDOCS_REPL_MODULES[*]}"
                     return 2
                     ;;
                 type|t)
-                    # Support: filter type spec,guide
-                    IFS=',' read -ra TDOCS_REPL_TYPE <<< "${filter_args[1]}"
+                    # Support: filter type spec guide OR filter type spec,guide
+                    local type_spec="${filter_args[@]:1}"
+                    if [[ ! "$type_spec" =~ , ]]; then
+                        type_spec="${type_spec// /,}"
+                    fi
+                    IFS=',' read -ra TDOCS_REPL_TYPE <<< "$type_spec"
                     TDOCS_REPL_DOC_COUNT=0
                     echo "Filter: type = ${TDOCS_REPL_TYPE[*]}"
                     return 2
                     ;;
                 intent|i)
-                    # Support: filter intent define,instruct
-                    IFS=',' read -ra TDOCS_REPL_INTENT <<< "${filter_args[1]}"
+                    # Support: filter intent define instruct
+                    local intent_spec="${filter_args[@]:1}"
+                    if [[ ! "$intent_spec" =~ , ]]; then
+                        intent_spec="${intent_spec// /,}"
+                    fi
+                    IFS=',' read -ra TDOCS_REPL_INTENT <<< "$intent_spec"
                     TDOCS_REPL_DOC_COUNT=0
                     echo "Filter: intent = ${TDOCS_REPL_INTENT[*]}"
                     return 2
                     ;;
-                grade|g)
-                    # Support: filter grade A,B
-                    IFS=',' read -ra TDOCS_REPL_GRADE <<< "${filter_args[1]}"
+                lifecycle|lc)
+                    # Support: filter lifecycle C S W
+                    local lifecycle_spec="${filter_args[@]:1}"
+                    if [[ ! "$lifecycle_spec" =~ , ]]; then
+                        lifecycle_spec="${lifecycle_spec// /,}"
+                    fi
+                    IFS=',' read -ra TDOCS_REPL_LIFECYCLE <<< "$lifecycle_spec"
                     TDOCS_REPL_DOC_COUNT=0
-                    echo "Filter: grade = ${TDOCS_REPL_GRADE[*]}"
+                    echo "Filter: lifecycle = ${TDOCS_REPL_LIFECYCLE[*]}"
                     return 2
                     ;;
                 level|l)
@@ -407,7 +566,7 @@ _tdocs_repl_process_input() {
                     TDOCS_REPL_MODULES=()
                     TDOCS_REPL_TYPE=()
                     TDOCS_REPL_INTENT=()
-                    TDOCS_REPL_GRADE=()
+                    TDOCS_REPL_LIFECYCLE=()
                     TDOCS_REPL_LEVEL=""
                     TDOCS_REPL_TEMPORAL=""
                     TDOCS_REPL_DOC_COUNT=0
@@ -416,14 +575,21 @@ _tdocs_repl_process_input() {
                     ;;
                 *)
                     cat <<'EOF'
-Usage: filter [module|type|intent|grade|level|temporal|clear] <value>
-       filter module rag,midi     filter type spec,guide
-       filter intent define       filter grade A,B
+Usage: filter [module|type|intent|lifecycle|level|temporal|clear] <value...>
+       filter module rag midi     filter type spec guide
+       filter intent define       filter lifecycle C S W
        filter level L3+           filter last:7d
+       filter clear               clear all filters
+
+EASIER: Use find command instead!
+       find all                   show all documents (reset filters)
+       find midi osc              find midi and osc modules
+       find spec guide            find specs and guides
+       clear                      alias for filter clear
 
 Type: spec guide investigation reference plan summary scratch
 Intent: define instruct analyze document propose track
-Grade: A (canonical) B (stable) C (working) X (archived)
+Lifecycle: D (draft) W (working) S (stable) C (canonical) X (archived)
 Module: rag midi tdocs repl (or * for all, "" for system)
 Level: L0-L4, L3+, L2-L4
 Temporal: last:7d last:2w last:1m  recent:week  time:2025-11-01
@@ -519,8 +685,10 @@ EOF
 
         # Clear filters (alias for filter clear)
         clear)
-            TDOCS_REPL_CATEGORY=""
-            TDOCS_REPL_MODULE=""
+            TDOCS_REPL_MODULES=()
+            TDOCS_REPL_TYPE=()
+            TDOCS_REPL_INTENT=()
+            TDOCS_REPL_LIFECYCLE=()
             TDOCS_REPL_LEVEL=""
             TDOCS_REPL_TEMPORAL=""
             TDOCS_REPL_DOC_COUNT=0
@@ -568,7 +736,7 @@ tdocs_repl() {
     tdocs_module_init 2>/dev/null || true
 
     # Register the tdocs module with the REPL system
-    repl_register_module "tdocs" "ls view search filter tag add scan evidence audit env"
+    repl_register_module "tdocs" "ls view search filter tag add scan evidence audit env colors"
 
     # Register slash commands
     tdocs_register_commands
@@ -596,14 +764,21 @@ tdocs_repl() {
 ║           tdocs - Interactive Document Browser            ║
 ╚═══════════════════════════════════════════════════════════╝
 
-Takeover Mode: Direct commands (no shell pass-through)
+Prompt Format: [total {modules} (type | intent)] [lifecycle] n >
+  total      = all documents in database
+  {modules}  = {*} for all, {midi osc} for specific, {} for none
+  (type)     = document types: spec, guide, reference, etc.
+  (intent)   = what it does: define, instruct, analyze, etc.
+  [lifecycle]= breakdown by stage (C/S/W/D/X)
+  n          = current filtered count
+  time:n     = sort prefix (relevance is default, not shown)
 
 Quick Start:
-  demo                  Run interactive demo (start here!)
   scan                  Index all documents
   ls                    List all documents
-  module <name>         Show module documentation
-  filter type spec      Show only specifications
+  find midi osc spec    Filter by modules and types
+  clear                 Clear all filters
+  r t a                 Toggle sort: relevance|time|alpha
   help                  Show all commands
 
 ✓ Native TAB completion enabled
@@ -625,6 +800,7 @@ EOF
 
 # Export functions
 export -f tdocs_count_filtered
+export -f tdocs_count_total
 export -f _tdocs_repl_build_prompt
 export -f _tdocs_repl_process_input
 export -f tdocs_repl

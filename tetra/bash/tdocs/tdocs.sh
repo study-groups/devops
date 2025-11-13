@@ -11,6 +11,13 @@ fi
 : "${TDOCS_SRC:=$TETRA_SRC/bash/tdocs}"
 : "${TDOCS_DIR:=$TETRA_DIR/tdocs}"
 
+# Source publish module if not already loaded
+if [[ -z "$(type -t tdocs_list_publish_targets)" ]]; then
+    if [[ -f "$TDOCS_SRC/core/publish.sh" ]]; then
+        source "$TDOCS_SRC/core/publish.sh"
+    fi
+fi
+
 # Module directories
 TDOCS_DB_DIR="${TDOCS_DIR}/db"
 TDOCS_CONFIG_DIR="${TDOCS_DIR}/config"
@@ -31,6 +38,9 @@ fi
 if [[ -f "$TETRA_SRC/bash/tree/help.sh" ]]; then
     source "$TETRA_SRC/bash/tree/help.sh"
 fi
+
+# Load tdocs constants first (taxonomy definitions)
+source "$TDOCS_SRC/core/tdocs_constants.sh"
 
 # Load tdocs components
 source "$TDOCS_SRC/core/metadata.sh"
@@ -427,10 +437,11 @@ tdocs() {
         tag)
             tdocs_tag_interactive "$@"
             ;;
-        ls)
+        ls|list)
             tdocs_ls_docs "$@"
             ;;
-        search)
+        find|search)
+            # find is the primary global search command (search kept for compatibility)
             tdocs_search_docs "$@"
             ;;
         evidence)
@@ -500,6 +511,22 @@ tdocs() {
         about)
             tdocs_about "$@"
             ;;
+        colors)
+            # Color explorer - delegate to tdocs_color_explorer
+            tdocs_color_explorer "$@"
+            ;;
+        publish)
+            # Publish docs to configured endpoint
+            tdocs_publish "$@"
+            ;;
+        nginx-config)
+            # Generate nginx proxy configuration
+            tdocs_generate_nginx_config "$@"
+            ;;
+        publish-targets)
+            # List available publish targets
+            tdocs_list_publish_targets "$@"
+            ;;
         help|--help|-h)
             if [[ -n "$1" ]]; then
                 tdocs_help_topic "$1"
@@ -539,6 +566,10 @@ $(echo -e "${C_TITLE}tdocs${C_NC}") - type-based doc ranking
   $(echo -e "${C_CMD_DIM}module${C_NC}") <m>      module docs
   $(echo -e "${C_CMD_DIM}spec${C_NC}") <m>        module spec
   $(echo -e "${C_CMD_DIM}browse${C_NC}")          REPL mode
+
+  $(echo -e "${C_CMD_DIM}publish${C_NC}") <src> <target>   publish to Spaces
+  $(echo -e "${C_CMD_DIM}nginx-config${C_NC}") <target>    generate proxy config
+  $(echo -e "${C_CMD_DIM}publish-targets${C_NC}")          list publish targets
 
 $(echo -e "${C_GRAY_DIM}Types: reference 1.0 • guide 0.6 • notes 0.3${C_NC}")
 $(echo -e "${C_GRAY_DIM}More:  tdocs help <topic>${C_NC}")  $(echo -e "${C_GRAY}rank filter types${C_NC}")
