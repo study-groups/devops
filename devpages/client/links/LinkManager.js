@@ -1,12 +1,12 @@
 /**
  * LinkManager.js
- * 
+ *
  * Centralized handler for rewriting URLs for images, links, and other resources
  * based on the current context (e.g., preview, publish). It uses settings from
  * linkSettings.js to determine how to transform paths.
  */
 
-import { getLinkSettings } from '/client/settings/linkSettings.js';
+import { getLinkSettings } from '../settings/linkSettings.js';
 
 const log = window.APP.services.log.createLogger('SYSTEM', 'LinkManager');
 

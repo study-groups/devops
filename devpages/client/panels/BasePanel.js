@@ -143,6 +143,10 @@ export class BasePanel {
             isOpen: false
         };
 
+        // Global event bus (for inter-panel communication)
+        this.globalEvents = window.APP?.panels?.eventBus;
+        this.globalSubscriptions = [];
+
         // Bind methods
         this.handleMouseDown = this.handleMouseDown.bind(this);
         this.handleMouseMove = this.handleMouseMove.bind(this);
@@ -481,9 +485,51 @@ export class BasePanel {
     }
 
     /**
+     * Subscribe to global panel event
+     * Enables communication with other panels via the event bus
+     * @param {string} event - Event name (e.g., 'element-selected')
+     * @param {Function} callback - Callback function (receives payload with source, timestamp, data)
+     * @returns {Function} Unsubscribe function
+     */
+    subscribeGlobal(event, callback) {
+        if (!this.globalEvents) {
+            console.warn(`[BasePanel] Global event bus not available for panel "${this.id}"`);
+            return () => {};
+        }
+
+        const unsubscribe = this.globalEvents.subscribe(this.id, event, callback);
+        this.globalSubscriptions.push(unsubscribe);
+        return unsubscribe;
+    }
+
+    /**
+     * Publish global panel event
+     * Sends event to all subscribed panels via the event bus
+     * @param {string} event - Event name (e.g., 'element-selected')
+     * @param {*} data - Event data (will be wrapped with source and timestamp)
+     */
+    publishGlobal(event, data) {
+        if (!this.globalEvents) {
+            console.warn(`[BasePanel] Global event bus not available for panel "${this.id}"`);
+            return;
+        }
+
+        this.globalEvents.publish(this.id, event, data);
+    }
+
+    /**
      * Removes the panel from the DOM and cleans up its state.
      */
     destroy() {
+        // Cleanup global subscriptions
+        this.globalSubscriptions.forEach(unsubscribe => unsubscribe());
+        this.globalSubscriptions = [];
+
+        // Cleanup panel event bus subscriptions
+        if (this.globalEvents) {
+            this.globalEvents.cleanup(this.id);
+        }
+
         // Unregister from ZIndexManager
         if (this.element) {
             zIndexManager.unregister(this.element);

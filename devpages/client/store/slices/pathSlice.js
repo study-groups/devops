@@ -12,6 +12,19 @@ import { apiSlice } from '../apiSlice.js';
 import { fileThunks } from './fileSlice.js';
 import { getParentPath } from '../../utils/pathUtils.js';
 
+// Safe logger that falls back to no-op if window.APP is not available
+const log = (() => {
+    if (typeof window !== 'undefined' && window.APP?.services?.log) {
+        return window.APP.services.log.createLogger('PathSlice');
+    }
+    return {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {}
+    };
+})();
+
 // Initial state
 const initialState = {
   // Current path information
@@ -47,13 +60,13 @@ export const pathSlice = createSlice({
     // New reducer for navigation without fetching
     _navigateToPath: (state, action) => {
         const { pathname, isDirectory } = action.payload;
-        console.log(`[PATHXXX] _navigateToPath reducer - Setting path to '${pathname}', isDirectory: ${isDirectory}`);
+        log.debug('PATH', ` _navigateToPath reducer - Setting path to '${pathname}', isDirectory: ${isDirectory}`);
         state.currentPathname = pathname;
         state.isDirectorySelected = isDirectory;
         // When navigating to the root, the listing is conceptually empty,
         // and the UI should use topLevelDirs instead.
         if (pathname === '' || pathname === '/') {
-            console.log(`[PATHXXX] _navigateToPath reducer - Clearing listing for root path`);
+            log.debug('PATH', ` _navigateToPath reducer - Clearing listing for root path`);
             state.currentListing = {
                 pathname: null,
                 dirs: [],
@@ -61,7 +74,7 @@ export const pathSlice = createSlice({
             };
         }
         state.status = 'idle'; // Reset status as no fetch is occurring
-        console.log(`[PATHXXX] _navigateToPath reducer - Path state updated:`, {
+        log.debug('PATH', ` _navigateToPath reducer - Path state updated:`, {
             currentPathname: state.currentPathname,
             isDirectorySelected: state.isDirectorySelected,
             status: state.status
@@ -123,7 +136,7 @@ export const pathSlice = createSlice({
       .addMatcher(
         apiSlice.endpoints.getDirectoryListing.matchFulfilled,
         (state, action) => {
-          console.log(`[PATHXXX] getDirectoryListing.matchFulfilled - Processing response`);
+          log.debug('PATH', ` getDirectoryListing.matchFulfilled - Processing response`);
           state.status = 'succeeded';
           state.currentListing = {
             pathname: action.payload.pathname,
@@ -137,7 +150,7 @@ export const pathSlice = createSlice({
           const requestedPath = action.meta.arg; // The path we requested
           const actualPath = action.payload.pathname; // The path the server returned data for
           
-          console.log(`[PATHXXX] getDirectoryListing.matchFulfilled - Path comparison:`, {
+          log.debug('PATH', ` getDirectoryListing.matchFulfilled - Path comparison:`, {
             requestedPath,
             actualPath,
             currentPathname: state.currentPathname,
@@ -145,13 +158,13 @@ export const pathSlice = createSlice({
           });
           
           if (requestedPath !== actualPath && state.isDirectorySelected) {
-            console.log(`[PATHXXX] getDirectoryListing.matchFulfilled - Server redirect detected: requested '${requestedPath}' -> actual '${actualPath}'`);
+            log.debug('PATH', ` getDirectoryListing.matchFulfilled - Server redirect detected: requested '${requestedPath}' -> actual '${actualPath}'`);
             state.currentPathname = actualPath;
             state.isDirectorySelected = true; // Server redirects are always to directories
           }
           
           // Debug logging
-          console.log('[PATHXXX] getDirectoryListing.matchFulfilled - Directory listing updated:', {
+          log.debug('PATH', ' getDirectoryListing.matchFulfilled - Directory listing updated:', {
             requestedPath,
             actualPath,
             currentPathname: state.currentPathname,
@@ -234,11 +247,11 @@ export const pathThunks = {
    * Universal navigation thunk. Updates path state and fetches relevant data.
    */
   navigateToPath: ({ pathname, isDirectory }) => async (dispatch, getState) => {
-    console.log(`[PATHXXX] navigateToPath called with pathname='${pathname}', isDirectory=${isDirectory}`);
+    log.debug('PATH', ` navigateToPath called with pathname='${pathname}', isDirectory=${isDirectory}`);
     
     // Dispatch the synchronous action to update the path immediately
     dispatch(_navigateToPath({ pathname, isDirectory }));
-    console.log(`[PATHXXX] Path state updated to pathname='${pathname}', isDirectory=${isDirectory}`);
+    log.debug('PATH', ` Path state updated to pathname='${pathname}', isDirectory=${isDirectory}`);
 
     // Update the browser URL to reflect the current path
     try {
@@ -267,38 +280,38 @@ export const pathThunks = {
     const isAuthenticated = state.auth?.isAuthenticated;
     const authChecked = state.auth?.authChecked;
     
-    console.log(`[PATHXXX] Auth check: authChecked=${authChecked}, isAuthenticated=${isAuthenticated}`);
+    log.debug('PATH', ` Auth check: authChecked=${authChecked}, isAuthenticated=${isAuthenticated}`);
     
     if (!authChecked || !isAuthenticated) {
-      console.log('[PATHXXX] Skipping data fetch - user not authenticated');
+      log.debug('PATH', ' Skipping data fetch - user not authenticated');
       return;
     }
 
     if (isDirectory) {
       // If it's a directory, fetch its listing
-      console.log(`[PATHXXX] Fetching directory listing for: '${pathname}'`);
+      log.debug('PATH', ` Fetching directory listing for: '${pathname}'`);
       try {
         const result = await dispatch(apiSlice.endpoints.getDirectoryListing.initiate(pathname)).unwrap();
-        console.log(`[PATHXXX] Directory listing fetched successfully:`, result);
+        log.debug('PATH', ` Directory listing fetched successfully:`, result);
       } catch (error) {
-        console.error(`[PATHXXX] Failed to fetch directory listing for ${pathname}:`, error);
+        log.error('PATH', ` Failed to fetch directory listing for ${pathname}:`, error);
       }
     } else {
       // If it's a file, load its content and its parent directory listing
-      console.log(`[PATHXXX] Loading file content for: '${pathname}'`);
+      log.debug('PATH', ` Loading file content for: '${pathname}'`);
       try {
         await dispatch(fileThunks.loadFileContent(pathname));
-        console.log(`[PATHXXX] File content loaded successfully for: '${pathname}'`);
+        log.debug('PATH', ` File content loaded successfully for: '${pathname}'`);
         
         const parentPath = getParentPath(pathname);
-        console.log(`[PATHXXX] Parent path calculated as: '${parentPath}'`);
+        log.debug('PATH', ` Parent path calculated as: '${parentPath}'`);
         if (parentPath) {
-          console.log(`[PATHXXX] Fetching parent directory listing for: '${parentPath}'`);
+          log.debug('PATH', ` Fetching parent directory listing for: '${parentPath}'`);
           const parentResult = await dispatch(apiSlice.endpoints.getDirectoryListing.initiate(parentPath)).unwrap();
-          console.log(`[PATHXXX] Parent directory listing fetched:`, parentResult);
+          log.debug('PATH', ` Parent directory listing fetched:`, parentResult);
         }
       } catch (error) {
-        console.error(`[PATHXXX] Failed to load file content for ${pathname}:`, error);
+        log.error('PATH', ` Failed to load file content for ${pathname}:`, error);
       }
     }
   },
@@ -317,27 +330,27 @@ export const pathThunks = {
    * This is a compatibility layer for existing code
    */
   loadTopLevelDirectories: () => async (dispatch, getState) => {
-    console.log(`[PATHXXX] loadTopLevelDirectories called`);
+    log.debug('PATH', ` loadTopLevelDirectories called`);
     
     // Check if user is authenticated before making API calls
     const state = getState();
     const isAuthenticated = state.auth?.isAuthenticated;
     const authChecked = state.auth?.authChecked;
     
-    console.log(`[PATHXXX] Top-level dirs auth check: authChecked=${authChecked}, isAuthenticated=${isAuthenticated}`);
+    log.debug('PATH', ` Top-level dirs auth check: authChecked=${authChecked}, isAuthenticated=${isAuthenticated}`);
     
     if (!authChecked || !isAuthenticated) {
-      console.log('[PATHXXX] Skipping top-level directories fetch - user not authenticated');
+      log.debug('PATH', ' Skipping top-level directories fetch - user not authenticated');
       return [];
     }
     
     try {
-      console.log(`[PATHXXX] Fetching top-level directories...`);
+      log.debug('PATH', ` Fetching top-level directories...`);
       const result = await dispatch(apiSlice.endpoints.getTopLevelDirectories.initiate()).unwrap();
-      console.log(`[PATHXXX] Top-level directories fetched:`, result);
+      log.debug('PATH', ` Top-level directories fetched:`, result);
       return result;
     } catch (error) {
-      console.error('[PATHXXX] Failed to load top-level directories:', error);
+      log.error('PATH', ' Failed to load top-level directories:', error);
       // Error is handled by the extraReducers
       return [];
     }

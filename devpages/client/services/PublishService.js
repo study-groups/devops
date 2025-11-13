@@ -7,6 +7,7 @@ import { workspaceManager } from '../components/WorkspaceManager.js';
 import { appStore } from '/client/appState.js';
 import { renderMarkdown } from '/client/preview/renderer.js';
 import { getPanelLayoutState } from '/client/store/enhancedSelectors.js';
+import { selectActiveConfigurationDecrypted } from '/client/store/slices/publishConfigSlice.js';
 
 class PublishService {
   /**
@@ -139,36 +140,46 @@ ${finalHtmlContent}
    */
   async publish(markdownContent, filePath, options = {}) {
     const html = await this.generatePublishHtml(markdownContent, filePath, options);
-    
+
     const state = appStore.getState();
-    const publishMode = state.settings?.publish?.mode || 'local';
-    
-    if (publishMode === 'spaces') {
-      return this.publishToSpaces(html, filePath);
-    } else {
-      return this.downloadFile(html, filePath);
+    const activeConfig = selectActiveConfigurationDecrypted(state);
+
+    if (!activeConfig) {
+      throw new Error('No publish configuration selected. Please configure publishing in the Publish panel.');
     }
+
+    // Use activeConfig instead of checking publish mode from settings
+    return this.publishToSpaces(html, filePath, activeConfig);
   }
 
   /**
    * Publish to Digital Ocean Spaces
    */
-  async publishToSpaces(htmlContent, filePath) {
+  async publishToSpaces(htmlContent, filePath, config) {
     const response = await window.APP.services.globalFetch('/api/publish', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         pathname: filePath,
-        htmlContent: htmlContent
+        htmlContent: htmlContent,
+        config: {
+          endpoint: config.endpoint,
+          region: config.region,
+          bucket: config.bucket,
+          accessKey: config.accessKey,
+          secretKey: config.secretKey,
+          prefix: config.prefix,
+          baseUrl: config.baseUrl
+        }
       })
     });
 
     const result = await response.json();
-    
+
     if (!response.ok || !result.success) {
       throw new Error(result.error || `Server error: ${response.status}`);
     }
-    
+
     return { success: true, url: result.url, type: 'spaces' };
   }
 

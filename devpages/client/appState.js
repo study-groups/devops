@@ -22,6 +22,7 @@ import { persistenceMiddleware } from './store/middleware/persistenceMiddleware.
 // Reducers
 import authReducer from './store/slices/authSlice.js';
 import pathReducer from './store/slices/pathSlice.js';
+import pathV2Reducer from './store/slices/pathSlice.v2.js';
 import { settingsReducer } from './store/slices/settingsSlice.js';
 import logReducer from './store/slices/logSlice.js';
 import { uiReducer } from './store/uiSlice.js';
@@ -30,6 +31,7 @@ import fileReducer from './store/slices/fileSlice.js';
 import { previewReducer } from './store/slices/previewSlice.js';
 import pluginReducer from './store/slices/pluginSlice.js';
 import publishReducer from './store/slices/publishSlice.js';
+import publishConfigReducer from './store/slices/publishConfigSlice.js';
 import systemReducer from './store/slices/systemSlice.js';
 import { commReducer } from './store/slices/commSlice.js';
 import editorReducer from './store/slices/editorSlice.js';
@@ -55,6 +57,7 @@ import { panelThunks } from './store/slices/panelSlice.js';
 const rootReducer = {
     auth: authReducer,
     path: pathReducer,
+    pathV2: pathV2Reducer, // New path slice - will replace path once migration complete
     settings: settingsReducer,
     log: logReducer,
     ui: uiReducer,
@@ -63,6 +66,7 @@ const rootReducer = {
     preview: previewReducer,
     plugins: pluginReducer,
     publish: publishReducer,
+    publishConfig: publishConfigReducer,
     panels: panelReducer,
     system: systemReducer,
     communications: commReducer,

@@ -45,7 +45,11 @@ const CSS_BUNDLES = {
         'client/styles/panels.css',
         'client/styles/design-system-panels.css',
         'client/styles/design-tokens-panel.css',
-        'client/styles/ui-inspector.css'
+        'client/styles/ui-inspector.css',
+        'client/styles/theme-editor-panel.css',
+        'client/styles/dom-inspector-panel.css',
+        'client/panels/publish/PublishPanelStyles.css',
+        'client/panels/publish/ConfigManagerStyles.css'
     ]
 };
 

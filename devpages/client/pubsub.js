@@ -27,18 +27,10 @@ export function subscribe(event, callback) {
     };
 }
 
-// Make globally available
+// Make globally available via window.APP.services
+// (Will be registered by ServiceInitializer)
 if (typeof window !== 'undefined') {
-    const pubsub = { publish, subscribe };
-
-// Register with consolidation system
-if (window.devpages && window.devpages._internal && window.devpages._internal.consolidator) {
-    window.devpages._internal.consolidator.migrate('pubsub', pubsub);
-} else {
-    // Fallback for legacy support
-    // Expose via APP.services instead of global window
     window.APP = window.APP || {};
     window.APP.services = window.APP.services || {};
-    window.APP.services.pubsub = pubsub;
-}
+    window.APP.services.pubsub = { publish, subscribe };
 } 

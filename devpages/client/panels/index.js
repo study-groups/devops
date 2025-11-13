@@ -7,9 +7,17 @@
  */
 
 import './dev/FileBrowserPanel.js';
-import './publish/PublishPanel.js';
+import './publish/PublishPanel.js'; // Unified publish panel
 import './settings/ThemePanel.js';
 import './settings/LogSettingsPanel.js';
 import './DesignTokensPanel.js';
 import './DiagnosticPanel.js';
 import './UIInspectorPanel.js';
+import './InspectorUtilitiesPanel.js';
+import './ThemeEditorPanel.js';
+import './DOMInspectorPanel.js';
+import './CSSInspectorPanel.js';
+import './TetraSettingsPanel.js';
+
+// Note: CSS is loaded via server bundles (/css/bundles/*.bundle.css)
+// Not imported directly in JavaScript modules

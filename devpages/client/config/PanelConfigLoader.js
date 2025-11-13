@@ -40,6 +40,36 @@ const panelConfig = {
             content_type: 'tree',
             data_sources: ['file_system']
         },
+        'inspector-utilities': {
+            title: 'Inspector Utilities',
+            description: 'Element inspection tools (picker, box model, design tokens)',
+            category: 'dev',
+            sidebar: true,
+            floating: true,
+            default_expanded: false,
+            content_type: 'interactive',
+            data_sources: ['dom_elements', 'css_properties']
+        },
+        'dom-inspector': {
+            title: 'DOM Inspector',
+            description: 'Full DOM tree explorer with element details and CSS inspection',
+            category: 'dev',
+            sidebar: true,
+            floating: true,
+            default_expanded: false,
+            content_type: 'interactive',
+            data_sources: ['dom_tree', 'css_properties', 'computed_styles']
+        },
+        'css-inspector': {
+            title: 'CSS Inspector',
+            description: 'Focused CSS styles, rules, and layout inspection',
+            category: 'dev',
+            sidebar: true,
+            floating: true,
+            default_expanded: false,
+            content_type: 'interactive',
+            data_sources: ['css_properties', 'computed_styles', 'css_rules', 'css_variables']
+        },
         'design-tokens': {
             title: 'Design Tokens',
             description: 'Design system tokens and theming',
@@ -52,13 +82,13 @@ const panelConfig = {
         },
         'theme-editor': {
             title: 'Theme Editor',
-            description: 'Live theme customization',
+            description: 'Comprehensive theme editor with light/dark modes, palette generator, and WCAG accessibility checker',
             category: 'settings',
             sidebar: true,
             floating: true,
             default_expanded: false,
-            content_type: 'form',
-            data_sources: ['theme_config', 'css_variables']
+            content_type: 'interactive',
+            data_sources: ['theme_config', 'css_variables', 'color_palettes']
         },
         'log-settings': {
             title: 'Log Settings',
@@ -69,6 +99,16 @@ const panelConfig = {
             default_expanded: false,
             content_type: 'form',
             data_sources: ['log_config', 'console_state']
+        },
+        'tetra-settings': {
+            title: 'Tetra Analytics',
+            description: 'Control analytics tracking and view session statistics',
+            category: 'settings',
+            sidebar: true,
+            floating: true,
+            default_expanded: false,
+            content_type: 'interactive',
+            data_sources: ['tetra_config', 'tetra_buffer', 'session_info']
         },
         'publish-manager': {
             title: 'Publish Manager',

@@ -217,6 +217,8 @@ export class LogSettingsPanel extends BasePanel {
                     border-radius: 2px;
                     font-family: monospace;
                     font-size: 10px;
+                    white-space: nowrap;
+                    display: inline-block;
                 }
 
                 .status-indicator {
@@ -250,6 +252,7 @@ export class LogSettingsPanel extends BasePanel {
                     font-size: 11px;
                     font-weight: 500;
                     color: #495057;
+                    white-space: nowrap;
                 }
 
                 .filter-grid {

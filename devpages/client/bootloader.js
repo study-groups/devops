@@ -110,7 +110,26 @@ async function bootCore() {
     
     // Panel states are now handled directly by SidebarManager - no Redux complexity needed
     log.info('PANEL_RESTORATION', '✅ Panel restoration delegated to SidebarManager');
-    
+
+    // Initialize publish configurations from environment
+    try {
+        const { publishConfigThunks } = await import('./store/slices/publishConfigSlice.js');
+        await dispatch(publishConfigThunks.initializeFromEnv());
+        log.info('PUBLISH_CONFIG_INIT', '✅ Publish configurations initialized from environment');
+    } catch (error) {
+        log.warn('PUBLISH_CONFIG_INIT_FAILED', '⚠️ Failed to initialize publish configurations:', error);
+    }
+
+    // Initialize PathNavigator service
+    try {
+        const { initializePathNavigator } = await import('./services/PathNavigator.js');
+        const pathNavigator = initializePathNavigator(appStore);
+        window.APP.services.pathNavigator = pathNavigator;
+        log.info('PATH_NAVIGATOR_INIT', '✅ PathNavigator service initialized');
+    } catch (error) {
+        log.error('PATH_NAVIGATOR_INIT_FAILED', '❌ Failed to initialize PathNavigator:', error);
+    }
+
     log.info('STORE_INITIALIZED', '✅ Redux store initialized and available via direct imports');
     return { store: appStore, actions: appThunks };
 }
@@ -124,6 +143,15 @@ async function bootSecondary({ store, actions }) {
     services.appDispatch = appDispatch;
     const { ConsoleLogManager } = await import('./log/ConsoleLogManager.js');
     services.consoleLogManager = new ConsoleLogManager().initialize().exposeToWindow();
+
+    // Initialize services including inspector utilities
+    try {
+        const { initializeServices } = await import('./core/ServiceInitializer.js');
+        await initializeServices();
+        log.info('SERVICE_INITIALIZER', '✅ Services and utilities initialized');
+    } catch (error) {
+        log.error('SERVICE_INITIALIZER_FAILED', '❌ Failed to initialize services:', error);
+    }
     
     // Ensure the logger is ready before creating services that depend on it
     if (!window.APP?.services?.log?.createLogger) {
@@ -289,27 +317,39 @@ async function bootFinalize() {
     const urlParams = new URLSearchParams(window.location.search);
     const pathname = urlParams.get('pathname');
     if (pathname) {
-        console.log(`[PATHXXX] Bootloader finalize - Found deep link pathname: ${pathname}`);
         log.info('DEEP_LINK', `Found deep link pathname: ${pathname}`);
-        // Heuristic to determine if the path is a file or directory
-        const isDirectory = !/.+\.[^/]+$/.test(pathname);
-        console.log(`[PATHXXX] Bootloader finalize - Determined isDirectory: ${isDirectory}`);
-        
-        // Small delay to ensure all components are ready for the event
-        setTimeout(() => {
+
+        // Small delay to ensure all components are ready
+        setTimeout(async () => {
             try {
-                console.log(`[PATHXXX] Bootloader finalize - Dispatching navigateToPath for: '${pathname}' (${isDirectory ? 'directory' : 'file'})`);
-                // Navigate to the deep link path using the proper thunk
-                services.appStore.dispatch(pathThunks.navigateToPath({ pathname, isDirectory }));
-                console.log(`[PATHXXX] Bootloader finalize - Successfully dispatched navigateToPath`);
-                log.info('DEEP_LINK_NAVIGATION', `✅ Navigated to deep link: ${pathname} (${isDirectory ? 'directory' : 'file'})`);
+                // Try to use PathNavigator first (new system)
+                if (window.APP.services.pathNavigator) {
+                    log.info('DEEP_LINK_NAVIGATION', `Using PathNavigator for deep link: '${pathname}'`);
+                    await window.APP.services.pathNavigator.handleDeepLink(pathname);
+                    log.info('DEEP_LINK_NAVIGATION', `✅ Navigated to deep link: ${pathname}`);
+                } else {
+                    // Fallback to old system
+                    log.info('DEEP_LINK_NAVIGATION', `Using old system for deep link: '${pathname}'`);
+                    const isDirectory = !/.+\.[^/]+$/.test(pathname);
+                    services.appStore.dispatch(pathThunks.navigateToPath({ pathname, isDirectory }));
+                    log.info('DEEP_LINK_NAVIGATION', `✅ Navigated to deep link: ${pathname} (${isDirectory ? 'directory' : 'file'})`);
+                }
             } catch (error) {
-                console.error(`[PATHXXX] Bootloader finalize - Failed to navigate to deep link:`, error);
                 log.error('DEEP_LINK_NAVIGATION_FAILED', `❌ Failed to navigate to deep link ${pathname}:`, error);
+
+                // Fallback: navigate to root instead
+                log.info('DEEP_LINK_FALLBACK', 'Falling back to root directory');
+                try {
+                    if (window.APP.services.pathNavigator) {
+                        await window.APP.services.pathNavigator.navigate('/');
+                    } else {
+                        services.appStore.dispatch(pathThunks.navigateToPath({ pathname: '', isDirectory: true }));
+                    }
+                } catch (fallbackError) {
+                    log.error('DEEP_LINK_FALLBACK_FAILED', 'Even fallback to root failed:', fallbackError);
+                }
             }
         }, 100);
-    } else {
-        console.log(`[PATHXXX] Bootloader finalize - No pathname parameter found in URL`);
     }
     
     // Clean panels auto-loader removed - clean application

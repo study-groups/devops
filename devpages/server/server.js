@@ -28,6 +28,7 @@ import { PData } from '../pdata/PData.js';
 import pdataRoutes from './routes/pdataRoutes.js';
 import cssRoutes from './routes/css.js';
 import tetraRoutes from './routes/tetraRoutes.js';
+import spacesRouter from './routes/spaces.js';
 // import settingsRoutes from './routes/settings.js';
 // import s3Routes from './routes/s3.js';
 
@@ -164,6 +165,7 @@ app.use('/api/save', authMiddleware, express.text({ type: 'text/plain' }), expre
 app.use('/api/cli', express.json(), authMiddleware, cliRoutes);
 app.use('/api/pdata', authMiddleware, pdataRoutes);
 app.use('/api/tetra', tetraRoutes);
+app.use('/api/spaces', spacesRouter);
 // app.use('/api/s3', s3Routes);
 // app.use('/api/settings', settingsRoutes);
 app.use('/css', cssRoutes);

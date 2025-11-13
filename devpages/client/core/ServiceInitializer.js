@@ -3,9 +3,18 @@
  * Sets up window.APP.services with all core services
  */
 
-import { pluginRegistry } from '/client/preview/PluginRegistry.js';
-import { markdownRenderingService } from '/client/preview/MarkdownRenderingService.js';
-import { systemInfoAPI } from '/client/services/SystemInfoAPI.js';
+import { pluginRegistry } from '../preview/PluginRegistry.js';
+import { markdownRenderingService } from '../preview/MarkdownRenderingService.js';
+import { systemInfoAPI } from '../services/SystemInfoAPI.js';
+import { zIndexManager } from '../utils/ZIndexManager.js';
+import { panelStateManager } from './PanelStateManager.js';
+import { panelEventBus } from './PanelEventBus.js';
+import { publish, subscribe } from '../pubsub.js';
+
+// Phase 2: Inspector Utilities
+import devPagesDetector from '../utils/DevPagesDetector.js';
+import elementPicker from '../utils/ElementPicker.js';
+import boxModelRenderer from '../utils/BoxModelRenderer.js';
 
 const log = console; // Logger not available yet during initialization
 
@@ -40,10 +49,35 @@ export class ServiceInitializer {
         window.APP.services = {};
       }
 
+      // Register pubsub first (panelEventBus depends on it)
+      const pubsub = { publish, subscribe };
+      this.registerService('pubsub', pubsub);
+
+      // Initialize PanelEventBus with pubsub
+      panelEventBus.initialize(pubsub);
+
       // Register core services
       this.registerService('pluginRegistry', pluginRegistry);
       this.registerService('markdownRenderingService', markdownRenderingService);
       this.registerService('system', systemInfoAPI);
+      this.registerService('zIndexManager', zIndexManager);
+      this.registerService('panelStateManager', panelStateManager);
+
+      // Register panel event bus in window.APP.panels
+      if (!window.APP.panels) {
+        window.APP.panels = {};
+      }
+      window.APP.panels.eventBus = panelEventBus;
+
+      // Register inspector utilities in window.APP.utils
+      if (!window.APP.utils) {
+        window.APP.utils = {};
+      }
+      window.APP.utils.devPagesDetector = devPagesDetector;
+      window.APP.utils.elementPicker = elementPicker;
+      window.APP.utils.boxModelRenderer = boxModelRenderer;
+
+      log.info('[ServiceInitializer] Registered inspector utilities');
 
       // Initialize SystemInfoAPI
       systemInfoAPI.init();

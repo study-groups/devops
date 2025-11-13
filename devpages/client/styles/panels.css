@@ -12,6 +12,9 @@
  * - Panel states (collapsed, focused, etc.)
  * - Diagnostic and type-specific styles
  * - Responsive design
+ *
+ * Note: theme-editor-panel.css and dom-inspector-panel.css
+ * are bundled separately by the server in panels.bundle.css
  */
 
 /* ========================================

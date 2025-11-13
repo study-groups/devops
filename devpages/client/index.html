@@ -134,14 +134,31 @@
     <script>
         // Initialize Tetra client tracking
         if (window.TetraClientTracker) {
-            window.tetra = new TetraClientTracker({
+            // Load saved preferences from localStorage
+            const savedPrefs = (() => {
+                try {
+                    const saved = localStorage.getItem('tetraPreferences');
+                    const parsed = saved ? JSON.parse(saved) : {};
+                    console.log('[Tetra] Loaded preferences from localStorage:', parsed);
+                    return parsed;
+                } catch (error) {
+                    console.error('[Tetra] Failed to load preferences:', error);
+                    return {};
+                }
+            })();
+
+            // Merge saved preferences with defaults
+            const tetraConfig = {
                 environment: 'development',
-                enableConsoleLogging: true,
-                enableAnalytics: true,
-                enablePerformanceTracking: true,
+                enableConsoleLogging: savedPrefs.enableConsoleLogging !== undefined ? savedPrefs.enableConsoleLogging : true,
+                enableAnalytics: savedPrefs.enableAnalytics !== undefined ? savedPrefs.enableAnalytics : true,
+                enablePerformanceTracking: savedPrefs.enablePerformanceTracking !== undefined ? savedPrefs.enablePerformanceTracking : true,
+                enableMouseTracking: savedPrefs.enableMouseTracking !== undefined ? savedPrefs.enableMouseTracking : false,
                 logSearchQueries: false, // Don't log sensitive search data
                 includeEventsInFlush: false // Keep logs clean
-            });
+            };
+            console.log('[Tetra] Initializing with config:', tetraConfig);
+            window.tetra = new TetraClientTracker(tetraConfig);
 
             // Track feature usage
             document.addEventListener('DOMContentLoaded', function() {

@@ -5,7 +5,7 @@
  * for all server communication with proper PData token-based authentication.
  */
 
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query';
+import { createApi, fetchBaseQuery } from '/node_modules/@reduxjs/toolkit/dist/query/rtk-query.browser.mjs';
 
 // Base query configuration with PData token authentication
 const baseQuery = fetchBaseQuery({
