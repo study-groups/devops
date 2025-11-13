@@ -302,10 +302,10 @@ tdoc_render_compact() {
     fi
 
     # Fixed column widths for consistent alignment (tight one-liner)
-    # Adjusted to prevent wrapping on standard terminal widths
-    local name_width=34          # Name/title (expanded)
-    local type_width=22         # Type name (spec, guide, etc)
-    local module_width=16        # Module name (or empty)
+    # Optimized for 80-column terminals to prevent wrapping
+    local name_width=32          # Name/title
+    local type_width=18          # Type name (spec, guide, etc)
+    local module_width=12        # Module name (or empty)
 
     # Truncate display name if needed
     if [[ ${#display_name} -gt $name_width ]]; then
@@ -318,41 +318,30 @@ tdoc_render_compact() {
         is_fresh=$(awk "BEGIN {print ($recency_boost > 0.01) ? 1 : 0}")
     fi
 
-    # Build colored tags for normal mode (cycling through TDS MODE 8 colors)
-    local colored_tags_normal=""
+    # Build colored tags array for display
+    local -a colored_tags_array=()
     if [[ -n "$tags_json" ]]; then
-        # Use TDS MODE palette (blues) - falls back to ANSI if not loaded
-        local tag_palette=()
-        if [[ -n "${MODE_PRIMARY[0]}" ]]; then
-            tag_palette=("${MODE_PRIMARY[@]}")
-        else
-            tag_palette=(9 10 11 12 13 14 15 208)
-        fi
+        # Use simple cycling color scheme for tags
+        local tag_colors=(33 39 45 51 87 117 123 159)  # Blue/cyan spectrum
 
         local tag_index=0
         while IFS= read -r tag; do
             [[ -z "$tag" ]] && continue
 
-            # Cycle through 8 colors
-            local color_value="${tag_palette[$((tag_index % 8))]}"
-
-            if [[ -n "$colored_tags_normal" ]]; then
-                colored_tags_normal+=","
-            fi
-
-            # Check if hex (TDS) or numeric (ANSI)
-            if [[ "$color_value" =~ ^[0-9A-Fa-f]{6}$ ]]; then
-                # TDS hex - convert to RGB
-                local r=$((16#${color_value:0:2}))
-                local g=$((16#${color_value:2:2}))
-                local b=$((16#${color_value:4:2}))
-                colored_tags_normal+="\033[38;2;${r};${g};${b}m${tag}\033[0m"
-            else
-                # ANSI 256 foreground color
-                colored_tags_normal+="\033[38;5;${color_value}m${tag}\033[0m"
-            fi
+            # Cycle through colors
+            local color_num="${tag_colors[$((tag_index % 8))]}"
+            colored_tags_array+=("$(printf '\033[38;5;%dm%s\033[0m' "$color_num" "$tag")")
             ((tag_index++))
         done < <(echo "$tags_json" | grep -o '"[^"]*"' | tr -d '"')
+    fi
+
+    # Join colored tags with commas
+    local colored_tags_display=""
+    if [[ ${#colored_tags_array[@]} -gt 0 ]]; then
+        colored_tags_display="${colored_tags_array[0]}"
+        for ((i=1; i<${#colored_tags_array[@]}; i++)); do
+            colored_tags_display+=",${colored_tags_array[$i]}"
+        done
     fi
 
     # Render single line
@@ -388,9 +377,9 @@ tdoc_render_compact() {
                 printf "%-${module_width}s" ""
             fi
 
-            # Tags (colorized using pre-built colored_tags_normal)
-            if [[ -n "$colored_tags_normal" ]]; then
-                printf "%b" "$colored_tags_normal"
+            # Tags (colorized)
+            if [[ -n "$colored_tags_display" ]]; then
+                printf "%s" "$colored_tags_display"
             fi
 
             # Explicit newline in normal mode
