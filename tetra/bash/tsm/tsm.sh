@@ -62,10 +62,6 @@ tsm() {
             tetra_env_init "$@"
             ;;
         start)
-            # Auto-setup on macOS if needed
-            if [[ "$OSTYPE" == "darwin"* ]] && ! command -v setsid >/dev/null 2>&1; then
-                tetra_tsm_setup
-            fi
             tetra_tsm_start "$@"
             ;;
         stop)
@@ -110,7 +106,7 @@ tsm() {
                     echo "  -l         - Show detailed/long format with CPU, memory, paths"
                     ;;
                 *)
-                    echo "❌ Unknown option: $1"
+                    tsm_error "Unknown option: $1"
                     echo "Usage: tsm list [running|available|all|--all|pwd|-l]"
                     ;;
             esac
@@ -177,7 +173,7 @@ tsm() {
                     if tsm_validate_port_registry; then
                         echo "✅ Port registry validation passed"
                     else
-                        echo "❌ Port registry validation failed"
+                        tsm_error "Port registry validation failed"
                         return 1
                     fi
                     ;;
@@ -231,7 +227,7 @@ tsm() {
                     tsm_list_named_ports json
                     ;;
                 *)
-                    echo "Unknown ports subcommand: $subcommand" >&2
+                    tsm_error "Unknown ports subcommand: $subcommand"
                     echo "Usage: tsm ports [list|detailed|scan|overview|status|validate|set|remove|allocate|import|export|conflicts|env|json]" >&2
                     return 1
                     ;;
@@ -245,12 +241,11 @@ tsm() {
             tsm_daemon "$@"
             ;;
         repl)
-            # Modern bash/repl-based REPL
-            if [[ -f "$TETRA_SRC/bash/tsm/tsm_repl.sh" ]]; then
-                source "$TETRA_SRC/bash/tsm/tsm_repl.sh"
-                tsm_repl
+            # Modern bash/repl-based REPL (loaded via core/include.sh)
+            if declare -f tsm_repl_main >/dev/null 2>&1; then
+                tsm_repl_main
             else
-                echo "Error: TSM REPL not found at $TETRA_SRC/bash/tsm/tsm_repl.sh" >&2
+                echo "Error: TSM REPL not available (tsm_repl.sh not loaded)" >&2
                 return 1
             fi
             ;;
@@ -362,7 +357,7 @@ tsm_tview_dispatch() {
             tsm "$command" "$@"
             ;;
         *)
-            echo "TSM TView Error: Unknown command '$command'"
+            tsm_error "TSM TView: Unknown command '$command'"
             echo ""
             tsm_tview_commands
             return 1

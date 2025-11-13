@@ -19,6 +19,9 @@
 # Extensions (if present)
 [[ -f "$RAG_SRC/rag_extensions.sh" ]] && source "$RAG_SRC/rag_extensions.sh"
 
+# Source tree help registration
+[[ -f "$RAG_SRC/rag_tree.sh" ]] && source "$RAG_SRC/rag_tree.sh"
+
 # Register rag actions with action registry
 if [[ -f "$TETRA_SRC/bash/actions/registry.sh" ]]; then
     source "$TETRA_SRC/bash/actions/registry.sh"

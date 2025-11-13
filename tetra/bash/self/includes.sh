@@ -31,6 +31,9 @@ source "$MOD_SRC/install.sh"
 source "$MOD_SRC/backup.sh"
 source "$MOD_SRC/lint.sh"
 
+# Source tree help registration
+[[ -f "$MOD_SRC/self_tree.sh" ]] && source "$MOD_SRC/self_tree.sh"
+
 # Note: preflight.sh, audit_modules.sh, legacy.sh, organize_tests.sh
 # are standalone CLI scripts and are called directly, not sourced
 

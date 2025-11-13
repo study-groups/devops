@@ -3,6 +3,24 @@
 # TSM Configuration and Global State Management
 # No dependencies - can be loaded early
 
+# === HOMEBREW PREFIX DETECTION ===
+
+# Detect Homebrew installation prefix dynamically
+_tsm_detect_homebrew_prefix() {
+    if command -v brew >/dev/null 2>&1; then
+        brew --prefix 2>/dev/null
+    elif [[ -d "/opt/homebrew" ]]; then
+        echo "/opt/homebrew"
+    elif [[ -d "/usr/local" && -d "/usr/local/Cellar" ]]; then
+        echo "/usr/local"
+    else
+        echo ""
+    fi
+}
+
+# Set Homebrew prefix for use throughout TSM
+export HOMEBREW_PREFIX="${HOMEBREW_PREFIX:-$(_tsm_detect_homebrew_prefix)}"
+
 # TSM configuration constants
 if [[ -z "${TSM_DEFAULT_PORT:-}" ]]; then
     readonly TSM_DEFAULT_PORT=3000
@@ -36,7 +54,7 @@ _tsm_init_global_state() {
         # Mark global state as initialized
         export TSM_GLOBAL_STATE_INITIALIZED=true
     else
-        echo "Warning: TSM requires Bash 4.0+ for full functionality" >&2
+        tsm_warn "TSM requires Bash 4.0+ for full functionality"
         export TSM_GLOBAL_STATE_INITIALIZED=false
     fi
 }
@@ -94,7 +112,7 @@ tsm_validate_config() {
 
     # Check Bash version
     if [[ "${BASH_VERSION%%.*}" -lt 4 ]]; then
-        echo "ERROR: TSM requires Bash 4.0 or later (current: $BASH_VERSION)" >&2
+        tsm_error "TSM requires Bash 4.0 or later (current: $BASH_VERSION)"
         errors=$((errors + 1))
     fi
 
@@ -107,7 +125,7 @@ tsm_validate_config() {
             # Check for duplicates
             for seen_port in "${seen_ports[@]}"; do
                 if [[ "$seen_port" == "$port" ]]; then
-                    echo "ERROR: Port $port assigned to multiple services" >&2
+                    tsm_error "Port $port assigned to multiple services"
                     errors=$((errors + 1))
                 fi
             done
@@ -115,7 +133,7 @@ tsm_validate_config() {
 
             # Validate port range
             if [[ ! "$port" =~ ^[0-9]+$ ]] || [[ "$port" -lt 1 ]] || [[ "$port" -gt 65535 ]]; then
-                echo "ERROR: Invalid port number for $service: $port" >&2
+                tsm_error "Invalid port number for $service: $port"
                 errors=$((errors + 1))
             fi
         done

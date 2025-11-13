@@ -18,7 +18,7 @@ TSM_SYSTEM_SRC="$TETRA_SRC/bash/tsm/system"
 TSM_SERVICES_SRC="$TETRA_SRC/bash/tsm/services"
 TSM_PROCESS_SRC="$TETRA_SRC/bash/tsm/process"
 TSM_INTEGRATIONS_SRC="$TETRA_SRC/bash/tsm/integrations"
-TSM_INTERFACES_SRC="$TETRA_SRC/bash/tsm/interfaces"
+TSM_SRC="$TETRA_SRC/bash/tsm"
 
 # === PHASE 1: CORE FOUNDATION (no dependencies) ===
 source "$TSM_CORE_SRC/core.sh"           # Core functions
@@ -59,10 +59,10 @@ source "$TSM_PROCESS_SRC/lifecycle.sh"     # Process lifecycle
 source "$TSM_PROCESS_SRC/management.sh"    # CLI commands
 source "$TSM_PROCESS_SRC/list.sh"          # List commands - CRITICAL for tsm list
 
-# === PHASE 5: INTERFACE MODULES (depend on everything above) ===
-source "$TSM_INTERFACES_SRC/repl_v2.sh"    # REPL interface (bash/repl-based)
+# === PHASE 5: REPL MODULE (depends on everything above) ===
+source "$TSM_SRC/tsm_repl.sh"              # REPL entry point (bash/repl-based)
 
-# === PHASE 6: INTEGRATION MODULES (depend on core interfaces) ===
+# === PHASE 6: INTEGRATION MODULES (depend on core) ===
 source "$TSM_INTEGRATIONS_SRC/nginx.sh"    # Nginx integration
 source "$TSM_INTEGRATIONS_SRC/systemd.sh"  # Systemd integration
 source "$TSM_INTEGRATIONS_SRC/tview.sh"    # TView integration functions
@@ -74,4 +74,4 @@ if declare -f _tsm_init_global_state >/dev/null; then
 fi
 
 # Export module directories for runtime use
-export TSM_CORE_SRC TSM_SYSTEM_SRC TSM_SERVICES_SRC TSM_PROCESS_SRC TSM_INTEGRATIONS_SRC TSM_INTERFACES_SRC
+export TSM_SRC TSM_CORE_SRC TSM_SYSTEM_SRC TSM_SERVICES_SRC TSM_PROCESS_SRC TSM_INTEGRATIONS_SRC

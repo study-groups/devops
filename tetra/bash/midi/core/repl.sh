@@ -63,6 +63,11 @@ if [[ -f "$MIDI_SRC/core/status_display.sh" ]]; then
     source "$MIDI_SRC/core/status_display.sh"
 fi
 
+# Source map display functions
+if [[ -f "$MIDI_SRC/core/map_display.sh" ]]; then
+    source "$MIDI_SRC/core/map_display.sh"
+fi
+
 # Define missing color
 export TETRA_DIM='\033[2m'
 
@@ -79,6 +84,10 @@ REPL_VARIANT=""
 REPL_VARIANT_NAME=""
 REPL_LAST_CC=""
 REPL_LAST_VAL=""
+REPL_LAST_SEMANTIC=""
+REPL_LAST_SEMANTIC_VAL=""
+REPL_INPUT_DEVICE=""
+REPL_OUTPUT_DEVICE=""
 
 # OSC connection settings
 REPL_OSC_HOST="${REPL_OSC_HOST:-0.0.0.0}"
@@ -148,7 +157,136 @@ input_mode_handle_cli() {
                 echo "Error: Variant must be a, b, c, or d"
             fi
             ;;
-        load-map|load|map)
+        map)
+            # Multi-purpose map command
+            local subcmd="${args%% *}"
+            local subargs="${args#* }"
+            [[ "$subargs" == "$subcmd" ]] && subargs=""
+
+            case "$subcmd" in
+                ""|info|overview)
+                    # Show current map overview
+                    if [[ -f "$REPL_STATE_FILE" ]]; then
+                        local controller variant
+                        while IFS= read -r pair; do
+                            local key="${pair%%=*}"
+                            local value="${pair#*=}"
+                            case "$key" in
+                                controller) controller="$value" ;;
+                                variant) variant="$value" ;;
+                            esac
+                        done < <(tr ' ' '\n' < "$REPL_STATE_FILE")
+
+                        if [[ -n "$controller" ]]; then
+                            local map_file="$MIDI_MAPS_DIR/${controller}[0].json"
+                            if [[ -f "$map_file" ]]; then
+                                midi_map_overview "$map_file"
+                            else
+                                echo "Error: Map file not found: $map_file"
+                            fi
+                        else
+                            echo "No map currently loaded"
+                        fi
+                    else
+                        echo "REPL not initialized"
+                    fi
+                    ;;
+                list)
+                    # List hardware controls
+                    if [[ -f "$REPL_STATE_FILE" ]]; then
+                        local controller
+                        controller=$(grep "^controller=" "$REPL_STATE_FILE" 2>/dev/null | cut -d= -f2)
+                        if [[ -n "$controller" ]]; then
+                            local map_file="$MIDI_MAPS_DIR/${controller}[0].json"
+                            if [[ -f "$map_file" ]]; then
+                                midi_map_list_hardware "$map_file" "$subargs"
+                            else
+                                echo "Error: Map file not found: $map_file"
+                            fi
+                        else
+                            echo "No map currently loaded"
+                        fi
+                    else
+                        echo "REPL not initialized"
+                    fi
+                    ;;
+                show)
+                    # Show specific control
+                    if [[ -z "$subargs" ]]; then
+                        echo "Usage: map show <control>"
+                        return 0
+                    fi
+                    if [[ -f "$REPL_STATE_FILE" ]]; then
+                        local controller
+                        controller=$(grep "^controller=" "$REPL_STATE_FILE" 2>/dev/null | cut -d= -f2)
+                        if [[ -n "$controller" ]]; then
+                            local map_file="$MIDI_MAPS_DIR/${controller}[0].json"
+                            if [[ -f "$map_file" ]]; then
+                                midi_map_show_control "$map_file" "$subargs"
+                            else
+                                echo "Error: Map file not found: $map_file"
+                            fi
+                        else
+                            echo "No map currently loaded"
+                        fi
+                    else
+                        echo "REPL not initialized"
+                    fi
+                    ;;
+                variant)
+                    # Show variant mappings
+                    if [[ -z "$subargs" ]]; then
+                        echo "Usage: map variant <a|b|c|d>"
+                        return 0
+                    fi
+                    if [[ -f "$REPL_STATE_FILE" ]]; then
+                        local controller
+                        controller=$(grep "^controller=" "$REPL_STATE_FILE" 2>/dev/null | cut -d= -f2)
+                        if [[ -n "$controller" ]]; then
+                            local map_file="$MIDI_MAPS_DIR/${controller}[0].json"
+                            if [[ -f "$map_file" ]]; then
+                                midi_map_show_variant "$map_file" "$subargs"
+                            else
+                                echo "Error: Map file not found: $map_file"
+                            fi
+                        else
+                            echo "No map currently loaded"
+                        fi
+                    else
+                        echo "REPL not initialized"
+                    fi
+                    ;;
+                search)
+                    # Search for semantic name
+                    if [[ -z "$subargs" ]]; then
+                        echo "Usage: map search <term>"
+                        return 0
+                    fi
+                    if [[ -f "$REPL_STATE_FILE" ]]; then
+                        local controller
+                        controller=$(grep "^controller=" "$REPL_STATE_FILE" 2>/dev/null | cut -d= -f2)
+                        if [[ -n "$controller" ]]; then
+                            local map_file="$MIDI_MAPS_DIR/${controller}[0].json"
+                            if [[ -f "$map_file" ]]; then
+                                midi_map_search "$map_file" "$subargs"
+                            else
+                                echo "Error: Map file not found: $map_file"
+                            fi
+                        else
+                            echo "No map currently loaded"
+                        fi
+                    else
+                        echo "REPL not initialized"
+                    fi
+                    ;;
+                *)
+                    echo "Unknown map subcommand: $subcmd"
+                    echo "Usage: map [info|list|show|variant|search]"
+                    echo "Type 'help' for more information"
+                    ;;
+            esac
+            ;;
+        load-map|load)
             if [[ -z "$args" ]]; then
                 echo "Usage: load-map <name>"
                 echo "Available maps:"
@@ -215,6 +353,21 @@ input_mode_handle_cli() {
                         echo "Use: send note <note> <velocity>, send cc <controller> <value>, or send clear"
                         ;;
                 esac
+            fi
+            ;;
+        osc)
+            if [[ -z "$args" ]]; then
+                echo "Usage: osc <address> [args...]"
+                echo "       osc -t <host:port> <address> [args...]"
+                echo ""
+                echo "Send ad-hoc OSC messages for testing"
+                echo ""
+                echo "Examples:"
+                echo "  osc /tau/filter/cutoff 0.5"
+                echo "  osc /tau/envelope/attack 0.1 0.2"
+                echo "  osc -t localhost:5000 /synth/play 440"
+            else
+                "$MIDI_SRC/osc_send_raw.sh" $args
             fi
             ;;
         exit|quit|q)
@@ -330,13 +483,35 @@ midi_set_variant() {
 
 # Status display
 midi_repl_status_display() {
+    # Get MIDI service info if available
+    local midi_pid=""
+    local midi_uptime=""
+    local midi_map=""
+
+    if command -v tsm >/dev/null 2>&1; then
+        local tsm_info=$(tsm ls 2>/dev/null | grep "midi-${REPL_OSC_PORT}" | head -1)
+        if [[ -n "$tsm_info" ]]; then
+            midi_pid=$(echo "$tsm_info" | awk '{print $4}')
+            if [[ -n "$midi_pid" && "$midi_pid" =~ ^[0-9]+$ ]]; then
+                midi_uptime=$(ps -p "$midi_pid" -o etime= 2>/dev/null | tr -d ' ')
+                # Extract map file from command line
+                midi_map=$(ps -p "$midi_pid" -o command= 2>/dev/null | grep -o '/[^ ]*\.json' | xargs basename 2>/dev/null)
+            fi
+        fi
+    fi
+
     cat <<EOF
 ═══ MIDI Status ═══
-Controller: ${REPL_CONTROLLER:-none}
+Controller: ${REPL_CONTROLLER:-none}${REPL_INSTANCE:+ [${REPL_INSTANCE}]}
 ${REPL_VARIANT:+Variant: $REPL_VARIANT ($REPL_VARIANT_NAME)}
+${midi_map:+Map File: $midi_map}
+${REPL_INPUT_DEVICE:+Input Device: $REPL_INPUT_DEVICE}
+${REPL_OUTPUT_DEVICE:+Output Device: $REPL_OUTPUT_DEVICE}
 Log Mode: $MIDI_REPL_LOG_MODE
 ${REPL_LAST_CC:+Last CC: ${REPL_LAST_CC}=${REPL_LAST_VAL}}
 OSC: ${REPL_OSC_MULTICAST}:${REPL_OSC_PORT}
+${midi_pid:+Service PID: $midi_pid}
+${midi_uptime:+Uptime: $midi_uptime}
 Mode: $(input_mode_get)
 
 EOF
@@ -355,12 +530,25 @@ CLI Commands:
   status, s            Show MIDI status
   log [mode]           Set/toggle log mode (off/raw/semantic/both)
   variant <a-d>, v     Switch to variant a, b, c, or d
+
+Map Visualization:
+  map                  Show current map overview
+  map list             List all hardware controls
+  map show <control>   Show detailed info for control (e.g., map show p1)
+  map variant <a-d>    Show all mappings for variant
+  map search <term>    Search for semantic name
+
+Map Management:
   load-map <name>      Load a MIDI map file
   reload, r            Reload current map
   reload-config, rc    Reload config.toml
+
+Device Control:
   devices, dev         List available MIDI devices
   send note N VEL      Send MIDI note (e.g., send note 40 127)
   send cc N VAL        Send MIDI CC (e.g., send cc 7 64)
+  osc <addr> [args]    Send ad-hoc OSC message (e.g., osc /tau/cutoff 0.5)
+
   exit, quit, q        Exit REPL
 
 Mode Switching:
@@ -438,12 +626,16 @@ input_mode_build_prompt() {
                 variant_name) REPL_VARIANT_NAME="$value" ;;
                 last_cc) REPL_LAST_CC="$value" ;;
                 last_val) REPL_LAST_VAL="$value" ;;
+                last_semantic) REPL_LAST_SEMANTIC="$value" ;;
+                last_semantic_val) REPL_LAST_SEMANTIC_VAL="$value" ;;
+                input_device) REPL_INPUT_DEVICE="$value" ;;
+                output_device) REPL_OUTPUT_DEVICE="$value" ;;
             esac
         done < <(tr ' ' '\n' < "$REPL_STATE_FILE")
     fi
 
     # Build prompt components
-    local ctrl_part cc_part log_part conn_part mode_indicator
+    local ctrl_part cc_part sem_part log_part conn_part mode_indicator
 
     # Controller and variant
     if [[ -n "$REPL_CONTROLLER" && -n "$REPL_VARIANT" ]]; then
@@ -456,14 +648,21 @@ input_mode_build_prompt() {
         ctrl_part="${TETRA_DIM}[no-device]${TETRA_NC}"
     fi
 
-    # Last CC value
+    # Last CC value - show as raw MIDI data: CC40=50
     if [[ -n "$REPL_LAST_CC" && -n "$REPL_LAST_VAL" ]]; then
         local val_color="${TETRA_YELLOW}"
         [[ "$REPL_LAST_VAL" -lt 43 ]] && val_color="${TETRA_GREEN}"
         [[ "$REPL_LAST_VAL" -gt 84 ]] && val_color="${TETRA_RED}"
-        cc_part="${TETRA_YELLOW}[${REPL_LAST_CC}${TETRA_NC}=${val_color}${REPL_LAST_VAL}${TETRA_NC}${TETRA_YELLOW}]${TETRA_NC}"
+        cc_part="${TETRA_DIM}[CC${REPL_LAST_CC}${TETRA_NC}=${val_color}${REPL_LAST_VAL}${TETRA_NC}${TETRA_DIM}]${TETRA_NC}"
     else
         cc_part="${TETRA_DIM}[--]${TETRA_NC}"
+    fi
+
+    # Semantic mapping - dedicated magenta color for semantic names
+    if [[ -n "$REPL_LAST_SEMANTIC" && -n "$REPL_LAST_SEMANTIC_VAL" ]]; then
+        sem_part="${TETRA_MAGENTA}[${REPL_LAST_SEMANTIC}${TETRA_NC}=${TETRA_YELLOW}${REPL_LAST_SEMANTIC_VAL}${TETRA_NC}${TETRA_MAGENTA}]${TETRA_NC}"
+    else
+        sem_part=""
     fi
 
     # Log mode
@@ -481,8 +680,10 @@ input_mode_build_prompt() {
     [[ -n "$mode_indicator" ]] && mode_indicator=" $mode_indicator"
 
     # Return complete prompt string
-    printf '%b %b %b %b%b %b ' \
-        "$ctrl_part" "$cc_part" "$log_part" "$conn_part" \
+    printf '%b %b %b%b %b%b %b ' \
+        "$ctrl_part" "$cc_part" \
+        "${sem_part:+ }${sem_part}" \
+        "$log_part" "$conn_part" \
         "$mode_indicator" \
         "${TETRA_MAGENTA}>${TETRA_NC}"
 }
@@ -651,6 +852,11 @@ midi_repl() {
     mkdir -p "$(dirname "$REPL_HISTORY_FILE")"
     touch "$REPL_HISTORY_FILE"
 
+    # Clean up stale state files from crashed REPL sessions (older than 1 day)
+    find "${MIDI_DIR}/repl/" -name "state.*" -mtime +1 -delete 2>/dev/null || true
+    find "${MIDI_DIR}/repl/" -name "log_mode.*" -mtime +1 -delete 2>/dev/null || true
+    find "${MIDI_DIR}/repl/" -name "events.*" -mtime +1 -delete 2>/dev/null || true
+
     # Initialize log mode file
     echo "$MIDI_REPL_LOG_MODE" > "$REPL_LOG_MODE_FILE"
 
@@ -688,14 +894,15 @@ midi_repl() {
     printf '%bPress Enter to continue...%b' "${TETRA_DIM}" "${TETRA_NC}"
     read -r
 
+    # Temporarily disable job control notifications while starting background processes
+    # This suppresses "[1] 12345" messages without using disown (which would break cleanup)
+    set +m
+
     # Start background OSC listener
     {
         midi_repl_osc_listener "$osc_host" "$osc_port" 2>&1
     } &
     MIDI_REPL_LISTENER_PID=$!
-
-    # Disown to suppress job notifications
-    disown "$MIDI_REPL_LISTENER_PID" 2>/dev/null
 
     # Wait for listener to be ready
     sleep 0.3
@@ -709,7 +916,9 @@ midi_repl() {
         status_display_refresh_loop "$REPL_STATE_FILE" "$REPL_LOG_MODE_FILE" "$STATUS_DISPLAY_EVENTS_FILE"
     } &
     local STATUS_REFRESH_PID=$!
-    disown "$STATUS_REFRESH_PID" 2>/dev/null
+
+    # Re-enable job control for proper signal handling
+    set -m
 
     # Initial render
     status_display_render "$REPL_STATE_FILE" "$REPL_LOG_MODE_FILE" "$STATUS_DISPLAY_EVENTS_FILE"

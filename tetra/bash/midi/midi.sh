@@ -17,6 +17,9 @@ if [[ -z "$TETRA_SRC" ]]; then
     return 1
 fi
 
+# Source tree help registration
+[[ -f "$MIDI_SRC/midi_help_tree.sh" ]] && source "$MIDI_SRC/midi_help_tree.sh"
+
 # Helper: Send OSC control message
 midi_osc_send() {
     local address="$1"

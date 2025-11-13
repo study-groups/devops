@@ -113,10 +113,36 @@ tsm_start_any_command() {
         return 64
     }
 
+    # Resolve env file to absolute path and validate it exists
+    if [[ -n "$env_file" ]]; then
+        # Convert to absolute path if relative
+        if [[ "$env_file" != /* ]]; then
+            env_file="$PWD/$env_file"
+        fi
+
+        # Validate file exists
+        if [[ ! -f "$env_file" ]]; then
+            tsm_error "Environment file not found: $env_file"
+            return 1
+        fi
+
+        # Validate file is readable
+        if [[ ! -r "$env_file" ]]; then
+            tsm_error "Environment file not readable: $env_file"
+            return 1
+        fi
+    fi
+
     # Parse env file ONCE at the beginning (extracts PORT and NAME)
     local ENV_PORT="" ENV_NAME=""
     if [[ -n "$env_file" && -f "$env_file" ]]; then
-        eval "$(tsm_parse_env_file "$env_file")"
+        # Safe parsing without eval - read output line by line
+        while IFS='=' read -r key value; do
+            case "$key" in
+                ENV_PORT) ENV_PORT="$value" ;;
+                ENV_NAME) ENV_NAME="$value" ;;
+            esac
+        done < <(tsm_parse_env_file "$env_file")
     fi
 
     # Detect process type and resolve interpreter
@@ -159,7 +185,7 @@ tsm_start_any_command() {
 
     # Check if already running
     if tsm_process_exists "$name"; then
-        echo "❌ Process '$name' already running" >&2
+        tsm_error "Process '$name' already running"
         return 1
     fi
 
@@ -195,9 +221,9 @@ tsm_start_any_command() {
 
     [[ -n "$prehook_cmd" ]] && env_setup="$prehook_cmd"$'\n'
 
-    # Add user env file if specified
+    # Add user env file if specified - with error checking
     if [[ -n "$env_file" && -f "$env_file" ]]; then
-        env_setup="${env_setup}source '$env_file'"
+        env_setup="${env_setup}source '$env_file' || { echo 'tsm: Failed to source env file: $env_file' >&2; exit 1; }"$'\n'
     fi
 
     # Export socket path for socket-based services
@@ -205,18 +231,20 @@ tsm_start_any_command() {
         env_setup="${env_setup}"$'\n'"export TSM_SOCKET_PATH='$socket_path'"
     fi
 
-    # Start process
-    local setsid_cmd
-    setsid_cmd=$(tetra_tsm_get_setsid) || {
-        echo "tsm: setsid not available. Run 'tsm setup'" >&2
+    # Validate command for security
+    if ! _tsm_validate_command "$final_command"; then
+        echo "tsm: Command validation failed" >&2
         return 1
-    }
+    fi
 
     # Create wrapper error log to capture setup/bash errors
     local log_wrapper="$process_dir/wrapper.err"
 
+    # NOTE: setsid removed - to add back for better process isolation:
+    #   local setsid_cmd=$(tetra_tsm_get_setsid)
+    #   Then prefix bash with: $setsid_cmd bash -c ...
     (
-        $setsid_cmd bash -c "
+        bash -c "
             $env_setup
             $final_command </dev/null >>'${log_out}' 2>>'${log_err}' &
             echo \$! > '${pid_file}'
@@ -227,7 +255,7 @@ tsm_start_any_command() {
 
     # Verify started
     if [[ ! -f "$pid_file" ]]; then
-        echo "❌ Failed to start: $name (no PID file)" >&2
+        tsm_error "Failed to start: $name (no PID file)"
 
         # Show wrapper errors if any (env file errors, pre-hook failures, etc.)
         if [[ -f "$log_wrapper" && -s "$log_wrapper" ]]; then
@@ -241,7 +269,7 @@ tsm_start_any_command() {
 
     local pid=$(cat "$pid_file")
     if ! tsm_is_pid_alive "$pid"; then
-        echo "❌ Failed to start: $name (process died immediately)" >&2
+        tsm_error "Failed to start: $name (process died immediately)"
         echo >&2
 
         # Check for port conflict first
@@ -249,7 +277,7 @@ tsm_start_any_command() {
             local existing_pid=$(tsm_get_port_pid "$port")
             if [[ -n "$existing_pid" ]]; then
                 local process_cmd=$(ps -p $existing_pid -o args= 2>/dev/null | head -c 80 || echo "unknown")
-                echo "🔴 Port $port is already in use!" >&2
+                tsm_error "Port $port is already in use!"
                 echo "   Blocking process: PID $existing_pid" >&2
                 echo "   Command: $process_cmd" >&2
                 echo >&2

@@ -18,10 +18,15 @@ tetra_tsm_start_cli() {
     resolved_env_file="$(_tsm_auto_detect_env "$script" "$env_file")" || return $?
 
     # If we found an env file, parse it once to get PORT and NAME
-    local port env_name
+    local port env_name ENV_PORT="" ENV_NAME=""
     if [[ -n "$resolved_env_file" ]]; then
-        # Use tsm_parse_env_file to source once and extract both vars
-        eval "$(tsm_parse_env_file "$resolved_env_file")"
+        # Safe parsing without eval - read output line by line
+        while IFS='=' read -r key value; do
+            case "$key" in
+                ENV_PORT) ENV_PORT="$value" ;;
+                ENV_NAME) ENV_NAME="$value" ;;
+            esac
+        done < <(tsm_parse_env_file "$resolved_env_file")
         port="${ENV_PORT:-}"
         env_name="${ENV_NAME:-}"
     fi
@@ -132,9 +137,15 @@ tetra_tsm_start_command() {
         fi
 
         # Extract port and name from resolved env file if not provided
-        # Use tsm_parse_env_file to source once and extract both vars
+        # Safe parsing without eval - read output line by line
         if [[ -f "$resolved_env_file" ]]; then
-            eval "$(tsm_parse_env_file "$resolved_env_file")"
+            local ENV_PORT="" ENV_NAME=""
+            while IFS='=' read -r key value; do
+                case "$key" in
+                    ENV_PORT) ENV_PORT="$value" ;;
+                    ENV_NAME) ENV_NAME="$value" ;;
+                esac
+            done < <(tsm_parse_env_file "$resolved_env_file")
 
             # Use extracted values if not already set
             if [[ -z "$port" ]]; then
@@ -470,7 +481,7 @@ _tsm_kill_by_port() {
     local pids=($(lsof -ti :$port 2>/dev/null))
 
     if [[ ${#pids[@]} -eq 0 ]]; then
-        echo "❌ No processes found using port $port"
+        tsm_error "No processes found using port $port"
         return 1
     fi
 
@@ -516,7 +527,7 @@ _tsm_kill_by_name() {
                         echo "📋 Found TSM process: $proc_name (PID: $pid)"
                         if _tsm_kill_process "$pid" "$force"; then
                             echo "✅ Killed TSM process: $proc_name"
-                            rm -rf "$process_dir"
+                            _tsm_safe_remove_dir "$process_dir"
                             found=true
                         fi
                     fi
@@ -526,7 +537,7 @@ _tsm_kill_by_name() {
     fi
 
     if [[ "$found" == "false" ]]; then
-        echo "❌ No TSM-managed processes found with name '$name'"
+        tsm_error "No TSM-managed processes found with name '$name'"
         return 1
     fi
 
@@ -559,13 +570,13 @@ _tsm_kill_by_id() {
     fi
 
     if [[ -z "$process_name" || -z "$pid" ]]; then
-        echo "❌ No process found with TSM ID $id"
+        tsm_error "No process found with TSM ID $id"
         return 1
     fi
 
     if ! kill -0 "$pid" 2>/dev/null; then
-        echo "❌ Process with TSM ID $id is not running (PID $pid dead)"
-        rm -rf "$process_dir"
+        tsm_error "Process with TSM ID $id is not running (PID $pid dead)"
+        _tsm_safe_remove_dir "$process_dir"
         return 1
     fi
 
@@ -573,7 +584,7 @@ _tsm_kill_by_id() {
 
     if _tsm_kill_process "$pid" "$force"; then
         echo "✅ Killed process: $process_name (TSM ID: $id)"
-        rm -rf "$process_dir"
+        _tsm_safe_remove_dir "$process_dir"
         return 0
     else
         return 1
@@ -588,7 +599,7 @@ _tsm_kill_by_pid() {
     echo "🔍 Checking process PID $pid..."
 
     if ! kill -0 "$pid" 2>/dev/null; then
-        echo "❌ Process $pid not found or not accessible"
+        tsm_error "Process $pid not found or not accessible"
         return 1
     fi
 
@@ -628,7 +639,7 @@ _tsm_kill_process() {
     # Verify it's dead
     sleep 0.5
     if kill -0 "$pid" 2>/dev/null; then
-        echo "❌ Failed to kill PID $pid"
+        tsm_error "Failed to kill PID $pid"
         return 1
     fi
 

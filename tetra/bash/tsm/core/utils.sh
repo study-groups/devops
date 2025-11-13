@@ -124,8 +124,8 @@ tetra_tsm_get_setsid() {
     if [[ "$OSTYPE" == "darwin"* ]]; then
         if command -v setsid >/dev/null 2>&1; then
             echo "setsid"
-        elif [[ -x "/opt/homebrew/opt/util-linux/bin/setsid" ]]; then
-            echo "/opt/homebrew/opt/util-linux/bin/setsid"
+        elif [[ -n "$HOMEBREW_PREFIX" && -x "$HOMEBREW_PREFIX/opt/util-linux/bin/setsid" ]]; then
+            echo "$HOMEBREW_PREFIX/opt/util-linux/bin/setsid"
         else
             echo ""
         fi
@@ -142,12 +142,28 @@ tetra_tsm_get_next_id() {
 
     mkdir -p "$TSM_PROCESSES_DIR"
 
-    # Acquire exclusive lock
-    exec 200>"$lock_file"
-    if ! flock -x -w 5 200; then
-        echo "tsm: failed to acquire ID allocation lock (timeout after 5s)" >&2
-        exec 200>&-
-        return 1
+    # Acquire exclusive lock (with fallback if flock not available)
+    if command -v flock >/dev/null 2>&1; then
+        # Use flock if available (proper locking)
+        exec 200>"$lock_file"
+        if ! flock -x -w 5 200; then
+            echo "tsm: failed to acquire ID allocation lock (timeout after 5s)" >&2
+            exec 200>&-
+            return 1
+        fi
+    else
+        # Fallback: simple lock file without flock (macOS without util-linux)
+        # Not thread-safe but works for single-threaded use
+        local retries=50
+        while [[ -f "$lock_file" && $retries -gt 0 ]]; do
+            sleep 0.1
+            retries=$((retries - 1))
+        done
+        if [[ $retries -eq 0 ]]; then
+            echo "tsm: failed to acquire ID allocation lock (timeout)" >&2
+            return 1
+        fi
+        echo $$ > "$lock_file"
     fi
 
     # Check for PM2-style meta.json in subdirectories
@@ -190,8 +206,12 @@ tetra_tsm_get_next_id() {
     echo "Reserved at $(date +%s)" > "$placeholder_dir/.timestamp"
 
     # Release lock
-    flock -u 200
-    exec 200>&-
+    if command -v flock >/dev/null 2>&1; then
+        flock -u 200
+        exec 200>&-
+    else
+        rm -f "$lock_file"
+    fi
 
     echo "$next_id"
 }
@@ -331,5 +351,83 @@ tetra_tsm_extract_port() {
     return 1
 }
 
+# === SECURITY UTILITIES ===
+
+# Safe directory removal - prevents accidental damage
+_tsm_safe_remove_dir() {
+    local dir="$1"
+
+    # Validate directory path
+    if [[ -z "$dir" ]]; then
+        echo "tsm: Cannot remove empty directory path" >&2
+        return 1
+    fi
+
+    # Must be under TSM_PROCESSES_DIR
+    if [[ ! "$dir" =~ ^"$TSM_PROCESSES_DIR"/.+ ]]; then
+        echo "tsm: Invalid process directory path: $dir" >&2
+        return 1
+    fi
+
+    # Must exist and be a directory
+    if [[ -d "$dir" ]]; then
+        rm -rf "$dir"
+    fi
+    # Not an error if already gone
+    return 0
+}
+
+# Validate path for security - no shell metacharacters or suspicious patterns
+_tsm_validate_path() {
+    local path="$1"
+
+    # Must be absolute path
+    if [[ ! "$path" =~ ^/ ]]; then
+        echo "tsm: Path must be absolute: $path" >&2
+        return 1
+    fi
+
+    # Must exist
+    if [[ ! -d "$path" ]]; then
+        echo "tsm: Directory does not exist: $path" >&2
+        return 1
+    fi
+
+    # No shell metacharacters in path
+    if [[ "$path" =~ [\;\&\|\`\$\(\)] ]]; then
+        echo "tsm: Path contains invalid characters: $path" >&2
+        return 1
+    fi
+
+    return 0
+}
+
+# Validate command for security - basic sanity check
+_tsm_validate_command() {
+    local cmd="$1"
+
+    # Check for obviously malicious patterns
+    if [[ "$cmd" =~ (rm[[:space:]]+-rf[[:space:]]+/|eval[[:space:]]|source[[:space:]]+/dev/) ]]; then
+        echo "tsm: Command contains suspicious pattern: $cmd" >&2
+        return 1
+    fi
+
+    return 0
+}
+
+# Error and warning helpers for consistent messaging
+tsm_error() {
+    echo "tsm: $*" >&2
+}
+
+tsm_warn() {
+    echo "tsm: warning - $*" >&2
+}
+
 # Export utility functions
 export -f tsm_is_pid_alive
+export -f _tsm_safe_remove_dir
+export -f _tsm_validate_path
+export -f _tsm_validate_command
+export -f tsm_error
+export -f tsm_warn

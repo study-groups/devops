@@ -18,7 +18,7 @@ fi
 source "$ORG_SRC/tetra_org.sh"
 
 # Optional modules - warn if missing but continue
-for optional_module in "discovery.sh" "converter.sh" "compiler.sh" "org_help.sh" "actions.sh" "org_repl.sh"; do
+for optional_module in "discovery.sh" "converter.sh" "compiler.sh" "org_help.sh" "actions.sh" "org_action_explorer.sh" "org_repl.sh"; do
     if [[ -f "$ORG_SRC/$optional_module" ]]; then
         source "$ORG_SRC/$optional_module"
     else
@@ -166,6 +166,88 @@ org() {
             ;;
         apply)
             org_apply "$@"
+            ;;
+
+        # Secrets management
+        secrets)
+            # Load secrets manager
+            source "$ORG_SRC/secrets_manager.sh"
+
+            local secrets_action="${1:-list}"
+            shift || true
+
+            # Get active org if no org specified
+            local org_name="${1:-}"
+            if [[ -z "$org_name" ]]; then
+                org_name=$(org_active)
+                if [[ -z "$org_name" ]]; then
+                    echo "Error: No active organization. Use 'org switch <name>' or specify org name" >&2
+                    return 1
+                fi
+            else
+                shift || true
+            fi
+
+            case "$secrets_action" in
+                init)
+                    tetra_secrets_init "$org_name" "$@"
+                    ;;
+                validate)
+                    tetra_secrets_validate "$org_name" "$@"
+                    ;;
+                load)
+                    tetra_secrets_load "$org_name" "$@"
+                    ;;
+                list|ls)
+                    tetra_secrets_list "$org_name" "$@"
+                    ;;
+                copy)
+                    local target_org="$1"
+                    if [[ -z "$target_org" ]]; then
+                        echo "Error: Target organization required" >&2
+                        echo "Usage: org secrets copy <source_org> <target_org>" >&2
+                        return 1
+                    fi
+                    tetra_secrets_copy "$org_name" "$target_org"
+                    ;;
+                resolve)
+                    tetra_secrets_resolve "$org_name" "$@"
+                    ;;
+                help|--help|-h)
+                    cat << 'EOF'
+Tetra Secrets Management
+
+USAGE:
+    org secrets <command> [org_name] [options]
+
+COMMANDS:
+    init [org_name]              Initialize secrets.env for organization
+    validate [org_name]          Validate secrets file and permissions
+    load [org_name] [env]        Load secrets into current environment
+    list [org_name]              List secret keys (no values shown)
+    copy <src> <target>          Copy secrets between organizations
+    resolve [org_name] [file]    Resolve ${VAR} references in tetra.toml
+
+If org_name is not specified, the active organization is used.
+
+EXAMPLES:
+    org secrets list                     # List secrets for active org
+    org secrets validate pixeljam-arcade # Validate specific org
+    org secrets resolve                  # Output resolved TOML to stdout
+    org secrets resolve "" /tmp/out.toml # Save resolved TOML to file
+
+SECURITY:
+    - secrets.env contains actual secret values (600 permissions, gitignored)
+    - tetra.toml contains ${VAR_NAME} references (can be committed to git)
+    - Resolution happens at runtime using envsubst
+EOF
+                    ;;
+                *)
+                    echo "Unknown secrets command: $secrets_action"
+                    echo "Use 'org secrets help' for available commands"
+                    return 1
+                    ;;
+            esac
             ;;
 
         help|--help|-h)

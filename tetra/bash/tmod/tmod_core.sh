@@ -3,21 +3,31 @@
 # tmod Core Functions - Module management operations
 
 tmod_load_module() {
-    local module="$1"
-    local dev_flag="${2:-}"
-    
-    if [[ -z "$module" ]]; then
-        echo "Usage: load <module> [-dev]"
+    if [[ $# -eq 0 ]]; then
+        echo "Usage: load <module> [module2 ...] [-dev]"
         echo "Available modules:"
         tetra_get_unloaded_modules | sed 's/^/  /'
         return 1
     fi
-    
-    if [[ "$dev_flag" == "-dev" ]]; then
-        tetra_register_dev_modules
-    fi
-    
-    tetra_smart_load_module "$module"
+
+    # Check if -dev flag is present
+    local dev_flag=0
+    for arg in "$@"; do
+        if [[ "$arg" == "-dev" ]]; then
+            dev_flag=1
+            tetra_register_dev_modules
+            break
+        fi
+    done
+
+    # Load each module
+    local module
+    for module in "$@"; do
+        # Skip the -dev flag
+        [[ "$module" == "-dev" ]] && continue
+
+        tetra_smart_load_module "$module"
+    done
 }
 
 tmod_unload_module() {

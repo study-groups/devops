@@ -217,6 +217,20 @@ class TMCBridge {
             args: [{ type: 's', value: variantName }]
         }, broadcastAddr, this.oscPort);
 
+        // Broadcast MIDI device names
+        const inputName = this.midiInput?._input?.name || 'none';
+        const outputName = this.midiOutput?._output?.name || 'none';
+
+        this.udpPort.send({
+            address: '/midi/state/input_device',
+            args: [{ type: 's', value: inputName }]
+        }, broadcastAddr, this.oscPort);
+
+        this.udpPort.send({
+            address: '/midi/state/output_device',
+            args: [{ type: 's', value: outputName }]
+        }, broadcastAddr, this.oscPort);
+
         if (this.verbose) {
             console.error(`State: ${controller}[${instance}]:${variant} (${variantName})`);
         }

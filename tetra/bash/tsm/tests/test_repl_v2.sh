@@ -65,7 +65,7 @@ test_syntax() {
     echo ""
     echo "=== Testing Syntax ==="
 
-    if bash -n "$TETRA_SRC/bash/tsm/interfaces/repl_v2.sh" 2>/dev/null; then
+    if bash -n "$TETRA_SRC/bash/tsm/tsm_repl.sh" 2>/dev/null; then
         test_pass "repl_v2.sh has valid syntax"
     else
         test_fail "repl_v2.sh has syntax errors"
@@ -78,7 +78,7 @@ test_sourcing() {
     echo ""
     echo "=== Testing Sourcing ==="
 
-    if source "$TETRA_SRC/bash/tsm/interfaces/repl_v2.sh" 2>/dev/null; then
+    if source "$TETRA_SRC/bash/tsm/tsm_repl.sh" 2>/dev/null; then
         test_pass "repl_v2.sh sources without errors"
     else
         test_fail "repl_v2.sh failed to source"
@@ -98,7 +98,7 @@ test_slash_commands() {
     echo ""
     echo "=== Testing Slash Command Registration ==="
 
-    source "$TETRA_SRC/bash/tsm/interfaces/repl_v2.sh" 2>/dev/null
+    source "$TETRA_SRC/bash/tsm/tsm_repl.sh" 2>/dev/null
 
     local expected_commands=(
         "list" "ls" "kill" "last" "ps" "disk" "mem" "env"
@@ -127,7 +127,7 @@ test_prompt_builders() {
     echo ""
     echo "=== Testing Prompt Builders ==="
 
-    source "$TETRA_SRC/bash/tsm/interfaces/repl_v2.sh" 2>/dev/null
+    source "$TETRA_SRC/bash/tsm/tsm_repl.sh" 2>/dev/null
 
     if declare -f tsm_prompt_status >/dev/null; then
         test_pass "tsm_prompt_status function defined"
@@ -156,7 +156,7 @@ test_history_config() {
     echo ""
     echo "=== Testing History Configuration ==="
 
-    source "$TETRA_SRC/bash/tsm/interfaces/repl_v2.sh" 2>/dev/null
+    source "$TETRA_SRC/bash/tsm/tsm_repl.sh" 2>/dev/null
 
     if [[ -n "$REPL_HISTORY_BASE" ]]; then
         test_pass "REPL_HISTORY_BASE is set: $REPL_HISTORY_BASE"
@@ -176,7 +176,7 @@ test_helper_functions() {
     echo ""
     echo "=== Testing Helper Functions ==="
 
-    source "$TETRA_SRC/bash/tsm/interfaces/repl_v2.sh" 2>/dev/null
+    source "$TETRA_SRC/bash/tsm/tsm_repl.sh" 2>/dev/null
 
     if declare -f tsm_count_running >/dev/null; then
         test_pass "tsm_count_running function defined"
@@ -209,7 +209,7 @@ test_feature_parity() {
     local original_commands=$(grep -E '^\s+/[a-z]+' "$TETRA_SRC/bash/tsm/interfaces/repl.sh" | \
         grep -v '#!/' | sed 's/.*\/\([a-z]*\).*/\1/' | sort -u)
 
-    source "$TETRA_SRC/bash/tsm/interfaces/repl_v2.sh" 2>/dev/null
+    source "$TETRA_SRC/bash/tsm/tsm_repl.sh" 2>/dev/null
 
     local missing_count=0
     while IFS= read -r cmd; do

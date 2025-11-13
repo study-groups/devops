@@ -202,9 +202,19 @@ class OSCReplListener {
         this.lastEventTime = now;
         this.eventId++;
 
+        // Track last semantic for prompt
+        this.state.last_semantic = semantic;
+        this.state.last_semantic_val = value.toFixed(6);
+
         // Format: __EVENT__ id delta_ms elapsed_ms mapped variant semantic value
         const output = `__EVENT__ ${this.eventId} ${delta} ${elapsed} mapped ${variant} ${semantic} ${value.toFixed(6)}`;
         console.log(output);
+
+        // Update state for prompt
+        const stateStr = Object.entries(this.state)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(' ');
+        console.log(`__STATE__ ${stateStr}`);
 
         if (this.verbose) {
             console.error(`[${this.eventId}] Δ${delta}ms: ${semantic}=${value.toFixed(6)}`);

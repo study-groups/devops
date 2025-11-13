@@ -102,6 +102,14 @@ tetra_load_module() {
     TETRA_MODULE_LOADED[$module_name]=true
     [[ "${TETRA_DEBUG_BOOT:-false}" == "true" ]] && echo "BOOT: Module $module_name load COMPLETE" >> /tmp/boot_trace.log
 
+    # Auto-initialize help tree if module provides it
+    # Convention: {module}_tree_init() function registers help.{module} topics
+    local tree_init_fn="${module_name}_tree_init"
+    if declare -f "$tree_init_fn" >/dev/null 2>&1; then
+        [[ "${TETRA_DEBUG_BOOT:-false}" == "true" ]] && echo "BOOT: Calling $tree_init_fn" >> /tmp/boot_trace.log
+        "$tree_init_fn" 2>/dev/null || true
+    fi
+
     # Explicitly return success
     return 0
 }

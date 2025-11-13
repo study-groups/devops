@@ -31,12 +31,12 @@ tsm_audit() {
 
     # Check if directories exist
     if [[ ! -d "$TSM_SERVICES_AVAILABLE" ]]; then
-        echo "❌ Services available directory missing: $TSM_SERVICES_AVAILABLE"
+        tsm_error "Services available directory missing: $TSM_SERVICES_AVAILABLE"
         issues=$((issues + 1))
     fi
 
     if [[ ! -d "$TSM_SERVICES_ENABLED" ]]; then
-        echo "❌ Services enabled directory missing: $TSM_SERVICES_ENABLED"
+        tsm_error "Services enabled directory missing: $TSM_SERVICES_ENABLED"
         issues=$((issues + 1))
     fi
 
@@ -85,7 +85,7 @@ tsm_audit() {
             if [[ -f "$full_target_path" ]]; then
                 echo "   ✅ $service_name → $target"
             else
-                echo "   ❌ $service_name → $target (broken link)"
+                echo "   ❌ $service_name → $target (broken link)" # Keep emoji for visual clarity in audit report
                 issues=$((issues + 1))
             fi
         done
@@ -107,7 +107,7 @@ tsm_audit() {
         echo "   Available: $available_count services"
         echo "   Enabled: $enabled_count services"
     else
-        echo "❌ Audit completed - $issues issues found"
+        tsm_error "Audit completed - $issues issues found"
     fi
 
     return $issues
@@ -139,11 +139,11 @@ _audit_service_file() {
     done < "$service_file"
 
     if [[ "$has_name" == "false" ]]; then
-        echo "      ❌ Missing TSM_NAME"
+        echo "      ❌ Missing TSM_NAME" # Keep emoji for visual clarity in validation report
     fi
 
     if [[ "$has_command" == "false" ]]; then
-        echo "      ❌ Missing TSM_COMMAND"
+        echo "      ❌ Missing TSM_COMMAND" # Keep emoji for visual clarity in validation report
     fi
 
     if [[ -n "$port" ]]; then
@@ -197,7 +197,7 @@ _audit_ports() {
 
     # Report conflicts
     for conflict in "${conflicts[@]}"; do
-        echo "   ❌ $conflict"
+        echo "   ❌ $conflict" # Keep emoji for visual clarity in conflict report
     done
 }
 
@@ -214,7 +214,7 @@ tsm_enable() {
     local enabled_link="$TSM_SERVICES_ENABLED/${service_name}.tsm"
 
     if [[ ! -f "$available_file" ]]; then
-        echo "❌ Service not available: $service_name"
+        tsm_error "Service not available: $service_name"
         echo "   Expected: $available_file"
         return 1
     fi

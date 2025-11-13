@@ -36,7 +36,7 @@ fi
 
 # Test 3: Verify help command is registered
 echo "3. Checking help system..."
-source "$TETRA_SRC/bash/tsm/interfaces/repl_v2.sh" 2>/dev/null
+source "$TETRA_SRC/bash/tsm/tsm_repl.sh" 2>/dev/null
 
 if [[ -n "${REPL_SLASH_HANDLERS[help]:-}" ]]; then
     echo "   ✓ help command registered"

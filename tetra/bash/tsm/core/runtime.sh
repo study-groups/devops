@@ -80,10 +80,8 @@ tsm_resolve_interpreter() {
         bash)
             # Platform-specific bash location
             if [[ "$OSTYPE" == "darwin"* ]]; then
-                if [[ -x "/opt/homebrew/bin/bash" ]]; then
-                    echo "/opt/homebrew/bin/bash"
-                elif [[ -x "/usr/local/bin/bash" ]]; then
-                    echo "/usr/local/bin/bash"
+                if [[ -n "$HOMEBREW_PREFIX" && -x "$HOMEBREW_PREFIX/bin/bash" ]]; then
+                    echo "$HOMEBREW_PREFIX/bin/bash"
                 else
                     echo "/bin/bash"
                 fi
@@ -171,24 +169,26 @@ tsm_rewrite_command_with_interpreter() {
     local first_word="${command%% *}"
     local rest="${command#* }"
 
-    # If command is just the interpreter, return as-is
-    if [[ "$command" == "$first_word" ]]; then
-        echo "$interpreter"
-        return 0
-    fi
-
-    # Check if first word is already the interpreter or a path to it
+    # Check if first word is the interpreter name (node, python, etc) or a script file
     case "$first_word" in
         python*|node*|bash*|lua*|go*)
-            # Replace with resolved interpreter
-            echo "$interpreter $rest"
+            # Command starts with interpreter - replace with resolved interpreter
+            # e.g., "node app.js" -> "/path/to/node app.js"
+            if [[ "$command" == "$first_word" ]]; then
+                # Just the interpreter, no args
+                echo "$interpreter"
+            else
+                # Interpreter with args
+                echo "$interpreter $rest"
+            fi
             ;;
         *.py|*.js|*.sh|*.lua|*.go)
-            # Script file - prepend interpreter
+            # Script file without interpreter - prepend interpreter
+            # e.g., "server.js" -> "/path/to/node server.js"
             echo "$interpreter $command"
             ;;
         *)
-            # Unknown - return as-is
+            # Not a recognized pattern - return as-is
             echo "$command"
             ;;
     esac

@@ -47,7 +47,7 @@ echo "4. Checking legacy REPL is NOT loaded by default..."
 # Legacy REPL has a unique function name
 if declare -f tsm_repl_custom_ps >/dev/null 2>&1; then
     # Check if it's actually from v2 (which also has this function)
-    if grep -q "tsm_repl_custom_ps" "$TETRA_SRC/bash/tsm/interfaces/repl_v2.sh" 2>/dev/null; then
+    if grep -q "tsm_repl_custom_ps" "$TETRA_SRC/bash/tsm/interfaces/tsm_repl.sh" 2>/dev/null; then
         echo "   ✓ Legacy REPL not loaded (v2 is active)"
     else
         echo "   ⚠ Legacy REPL might be loaded (check manually)"
@@ -58,10 +58,10 @@ fi
 
 # Test 5: Check include.sh loads repl_v2
 echo "5. Checking include.sh configuration..."
-if grep -q "repl_v2.sh" "$TETRA_SRC/bash/tsm/core/include.sh"; then
-    echo "   ✓ include.sh loads repl_v2.sh"
+if grep -q "tsm_repl.sh" "$TETRA_SRC/bash/tsm/core/include.sh"; then
+    echo "   ✓ include.sh loads tsm_repl.sh"
 else
-    echo "   ✗ include.sh does NOT load repl_v2.sh"
+    echo "   ✗ include.sh does NOT load tsm_repl.sh"
     exit 1
 fi
 
@@ -91,7 +91,7 @@ fi
 
 # Test 8: Verify slash commands are registered
 echo "8. Checking slash command registration..."
-source "$TETRA_SRC/bash/tsm/interfaces/repl_v2.sh" 2>/dev/null
+source "$TETRA_SRC/bash/tsm/interfaces/tsm_repl.sh" 2>/dev/null
 if [[ ${#REPL_SLASH_HANDLERS[@]} -gt 10 ]]; then
     echo "   ✓ Slash commands registered (${#REPL_SLASH_HANDLERS[@]} commands)"
 else

@@ -4,9 +4,11 @@
 # Extracted from tsm_interface.sh during Phase 2 refactor
 # Functions handling process start/stop/restart operations
 
-# Load TSM logging wrapper
-TSM_DIR="${TSM_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-source "$TSM_DIR/tsm_log.sh" 2>/dev/null || true
+# NOTE: This is a library file loaded via core/include.sh
+# TSM_DIR and TSM_SRC are set by core/config.sh before this file is sourced
+
+# Load TSM logging wrapper if available
+[[ -f "$TSM_DIR/tsm_log.sh" ]] && source "$TSM_DIR/tsm_log.sh" 2>/dev/null || true
 
 # === CORE PROCESS STARTING ===
 
@@ -26,10 +28,19 @@ _tsm_start_process() {
     }
 
     local cd_cmd=""
-    [[ -n "$working_dir" ]] && cd_cmd="cd '$working_dir'"
+    if [[ -n "$working_dir" ]]; then
+        # Validate working directory for security
+        _tsm_validate_path "$working_dir" || return 1
+        cd_cmd="cd '$working_dir'"
+    fi
 
     local env_cmd=""
     [[ -n "$env_file" && -f "$env_file" ]] && env_cmd="source '$env_file'"
+
+    # Validate script path for security
+    if [[ -n "$script" ]]; then
+        _tsm_validate_command "$script" || return 1
+    fi
 
     (
         $setsid_cmd bash -c "
@@ -59,10 +70,19 @@ _tsm_start_command_process() {
     }
 
     local cd_cmd=""
-    [[ -n "$working_dir" ]] && cd_cmd="cd '$working_dir'"
+    if [[ -n "$working_dir" ]]; then
+        # Validate working directory for security
+        _tsm_validate_path "$working_dir" || return 1
+        cd_cmd="cd '$working_dir'"
+    fi
 
     local env_cmd=""
     [[ -n "$env_file" && -f "$env_file" ]] && env_cmd="source '$env_file'"
+
+    # Validate command for security
+    if [[ -n "$command" ]]; then
+        _tsm_validate_command "$command" || return 1
+    fi
 
     (
         $setsid_cmd bash -c "
@@ -123,6 +143,10 @@ tetra_tsm_start_python() {
     local logdir="$TSM_LOGS_DIR"
     local piddir="$TSM_PIDS_DIR"
 
+    # Validate directory and command for security
+    _tsm_validate_path "$start_dir" || return 1
+    _tsm_validate_command "$python_cmd" || return 1
+
     (
         $setsid_cmd bash -c "
             cd '$start_dir'
@@ -165,7 +189,7 @@ tetra_tsm_start_python() {
 }
 
 tetra_tsm_start_webserver() {
-    local dirname="${1:-/Users/mricos/tetra/public}"
+    local dirname="${1:-$TETRA_DIR/public}"
     local port="${2:-8888}"
 
     [[ -d "$dirname" ]] || {
@@ -292,12 +316,12 @@ tetra_tsm_delete_single() {
     fi
 
     # Remove process directory (contains meta.json and any other metadata)
-    rm -rf "$process_dir"
+    _tsm_safe_remove_dir "$process_dir"
 
     # Clean up any reserved ID placeholder for this process
     if [[ -n "$tsm_id" ]]; then
         local reserved_dir="$TSM_PROCESSES_DIR/.reserved-$tsm_id"
-        [[ -d "$reserved_dir" ]] && rm -rf "$reserved_dir"
+        [[ -d "$reserved_dir" ]] && _tsm_safe_remove_dir "$reserved_dir"
     fi
 
     # Clean up legacy TCS database files if they exist
@@ -382,6 +406,10 @@ _tsm_restart_unified() {
 
             local logdir="$TSM_LOGS_DIR"
             local piddir="$TSM_PIDS_DIR"
+
+            # Validate directory and command for security
+            _tsm_validate_path "$working_dir" || return 1
+            _tsm_validate_command "$script" || return 1
 
             (
                 $setsid_cmd bash -c "

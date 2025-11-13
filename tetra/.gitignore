@@ -9,6 +9,10 @@ gp2
 env/*.env
 !env/*.env.tmpl
 
+# Organization secrets - NEVER COMMIT
+orgs/*/secrets.env
+orgs/*/.resolved.toml
+
 # Debug and temporary files
 *.tmp
 .env*

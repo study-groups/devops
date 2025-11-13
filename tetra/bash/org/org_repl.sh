@@ -72,6 +72,7 @@ source "$ORG_SRC/action_runner.sh"  # Safe version - TTS disabled
 source "$ORG_SRC/org_help.sh" 2>/dev/null || true
 source "$ORG_SRC/org_tree.sh"  # Tree-based help structure
 source "$ORG_SRC/org_completion.sh"  # Tree-based completion
+source "$ORG_SRC/org_tes_viewer.sh"  # Enhanced TES viewer with SSH commands
 
 # Initialize org tree for thelp integration
 org_tree_init 2>/dev/null || true
@@ -178,11 +179,21 @@ _org_actions() {
 _org_cycle_env() {
     ORG_REPL_ENV_INDEX=$(( (ORG_REPL_ENV_INDEX + 1) % ${#ORG_REPL_ENVIRONMENTS[@]} ))
     ORG_REPL_ACTION_INDEX=0
+
+    # Display available actions for new environment
+    local env="${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}"
+    local mode="${ORG_REPL_MODES[$ORG_REPL_MODE_INDEX]}"
+    _org_display_available_actions "$env" "$mode"
 }
 
 _org_cycle_mode() {
     ORG_REPL_MODE_INDEX=$(( (ORG_REPL_MODE_INDEX + 1) % ${#ORG_REPL_MODES[@]} ))
     ORG_REPL_ACTION_INDEX=0
+
+    # Display available actions for new mode
+    local env="${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}"
+    local mode="${ORG_REPL_MODES[$ORG_REPL_MODE_INDEX]}"
+    _org_display_available_actions "$env" "$mode"
 }
 
 _org_cycle_action() {
@@ -305,6 +316,80 @@ _org_repl_build_prompt() {
 # TAB AND ESC HANDLERS
 # ============================================================================
 
+# Display action expansion with TES resolution
+_org_display_action_expansion() {
+    local action="$1"
+    local env="$2"
+    local mode="$3"
+
+    local verb="${action%%:*}"
+    local noun="${action##*:}"
+    local active_org=$(_org_active 2>/dev/null || echo "none")
+
+    # Clear screen above prompt and display expansion
+    echo "" >&2
+    echo "╭─ Action: $action ─────────────────────────────" >&2
+    echo "│" >&2
+    echo "│ Environment:  $env" >&2
+    echo "│ Mode:         $mode" >&2
+    echo "│" >&2
+    echo "│ TES Resolution:" >&2
+
+    # Get TES preview
+    local tes_preview=$(org_resolve_tes_preview "$action" "$env")
+    echo "$tes_preview" >&2
+
+    echo "│" >&2
+    echo "│ Variables:" >&2
+
+    # Check variable resolution
+    if [[ "$active_org" == "none" || "$active_org" == "[UNRESOLVED]" ]]; then
+        echo "│   active_org = [UNRESOLVED]" >&2
+    else
+        echo "│   active_org = $active_org ✓" >&2
+    fi
+
+    echo "│   TETRA_DIR  = $TETRA_DIR ✓" >&2
+
+    echo "│" >&2
+    echo "│ Action Details:" >&2
+    echo "│   Verb:       $verb (what to do)" >&2
+    echo "│   Noun:       $noun (target)" >&2
+    echo "│   Full Spec:  $verb:$noun @ $env in $mode mode" >&2
+
+    echo "╰───────────────────────────────────────────────" >&2
+    echo "" >&2
+}
+
+# Display all available actions for current env/mode
+_org_display_available_actions() {
+    local env="$1"
+    local mode="$2"
+
+    local actions=($(_org_actions))
+
+    echo "" >&2
+    echo "Available actions for $env / $mode:" >&2
+    echo "" >&2
+
+    local i=0
+    for action in "${actions[@]}"; do
+        local verb="${action%%:*}"
+        local noun="${action##*:}"
+        local marker="  "
+
+        # Mark current action
+        if [[ $i -eq $ORG_REPL_ACTION_INDEX ]]; then
+            marker="▶ "
+        fi
+
+        printf "%s%d. %-20s [%s → %s]\n" "$marker" "$((i+1))" "$action" "$verb" "$noun" >&2
+        ((i++))
+    done
+
+    echo "" >&2
+}
+
 _org_handle_tab() {
     # If in single-key mode, TAB copies current action to line and shows full TES spec
     if [[ "$ORG_REPL_SINGLE_KEY_MODE" == "true" ]]; then
@@ -382,6 +467,18 @@ _org_handle_tab() {
     fi
 
     # Normal mode: Browse forward through actions (stay in browse mode ▶)
+    # First display current action expansion, then cycle to next
+    local actions=($(_org_actions))
+    local current_action="${actions[$ORG_REPL_ACTION_INDEX]:-none}"
+    local env="${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}"
+    local mode="${ORG_REPL_MODES[$ORG_REPL_MODE_INDEX]}"
+
+    # Show expansion of current action
+    if [[ "$current_action" != "none" ]]; then
+        _org_display_action_expansion "$current_action" "$env" "$mode"
+    fi
+
+    # Cycle to next action
     _org_cycle_action
 
     # Clear the input line
@@ -397,6 +494,18 @@ _org_handle_tab() {
 
 _org_handle_shift_tab() {
     # Browse backward through actions (stay in browse mode ▶)
+    # First display current action expansion, then cycle to previous
+    local actions=($(_org_actions))
+    local current_action="${actions[$ORG_REPL_ACTION_INDEX]:-none}"
+    local env="${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}"
+    local mode="${ORG_REPL_MODES[$ORG_REPL_MODE_INDEX]}"
+
+    # Show expansion of current action
+    if [[ "$current_action" != "none" ]]; then
+        _org_display_action_expansion "$current_action" "$env" "$mode"
+    fi
+
+    # Cycle to previous action
     _org_cycle_action_backwards
 
     # Clear the input line
@@ -413,30 +522,41 @@ _org_handle_shift_tab() {
 _org_handle_space() {
     # Check if space is pressed as first character (empty input, cursor at 0)
     if [[ -z "$REPL_INPUT" && $REPL_CURSOR_POS -eq 0 ]]; then
-        # Enter single-key mode
-        ORG_REPL_SINGLE_KEY_MODE=true
+        # Show action explorer menu
+        local selected_action
+        selected_action=$(org_explore_actions)
+        local result=$?
 
-        # Don't insert the space, just rebuild prompt to show mode change
-        _org_repl_build_prompt
-        TCURSES_READLINE_PROMPT="$REPL_PROMPT"
+        if [[ $result -eq 0 && -n "$selected_action" ]]; then
+            # Action was selected - populate input line with it
+            REPL_INPUT="$selected_action"
+            REPL_CURSOR_POS=${#selected_action}
+
+            # Update the action index to match selected action
+            local actions=($(_org_actions))
+            local i=0
+            for action in "${actions[@]}"; do
+                if [[ "$action" == "$selected_action" ]]; then
+                    ORG_REPL_ACTION_INDEX=$i
+                    break
+                fi
+                ((i++))
+            done
+
+            # Enter execute mode (armed to run)
+            ORG_REPL_EXECUTE_MODE=true
+            _org_repl_build_prompt
+            TCURSES_READLINE_PROMPT="$REPL_PROMPT"
+        else
+            # Cancelled - just rebuild display
+            _org_repl_build_prompt
+            TCURSES_READLINE_PROMPT="$REPL_PROMPT"
+        fi
         return 0
     fi
 
-    # If already in single-key mode or not first char, insert space normally
-    if [[ "$ORG_REPL_SINGLE_KEY_MODE" == "false" ]]; then
-        # Normal mode: Select current action - switch to execute mode (◆)
-        ORG_REPL_EXECUTE_MODE=true
-
-        # Clear the input line
-        REPL_INPUT=""
-        REPL_CURSOR_POS=0
-
-        # Rebuild prompt to show ◆
-        _org_repl_build_prompt
-
-        # Update the global prompt variable so the readline loop uses the new prompt
-        TCURSES_READLINE_PROMPT="$REPL_PROMPT"
-    fi
+    # If not first char, insert space normally
+    return 1
 }
 
 _org_handle_esc() {
@@ -651,6 +771,43 @@ _org_repl_process_input() {
             _org_show_actions
             return 0
             ;;
+
+        # TOML viewing commands
+        view|v)
+            org_tes_view_all
+            return 0
+            ;;
+        view\ *|v\ *)
+            local section="${input#view }"
+            section="${section#v }"
+            org_toml_view_section "$section"
+            return 0
+            ;;
+        symbols)
+            org_toml_view_section "symbols"
+            return 0
+            ;;
+        connectors)
+            org_toml_view_section "connectors"
+            return 0
+            ;;
+        environments)
+            org_toml_view_section "environments"
+            return 0
+            ;;
+
+        # SSH commands
+        ssh\ *|connect\ *)
+            local symbol="${input#ssh }"
+            symbol="${symbol#connect }"
+            org_tes_connect "$symbol"
+            return 0
+            ;;
+        test\ *)
+            local symbol="${input#test }"
+            org_tes_test "$symbol"
+            return 0
+            ;;
     esac
 
     # Action (verb:noun format) - Use safe action runner (no TTS)
@@ -714,6 +871,16 @@ Navigation:
   action, a      Cycle action
   next, n        Cycle to next (action→mode→env)
 
+TOML Viewing (New!):
+  view, v        View all TES endpoints with full SSH commands
+  symbols        View [symbols] section (address mappings)
+  connectors     View [connectors] with ready-to-copy SSH commands
+  environments   View [environments] section
+
+Connection:
+  ssh <symbol>   Connect to endpoint (e.g., ssh @dev)
+  test <symbol>  Test connectivity to endpoint
+
 Commands:
   verb:noun      Execute action (e.g., view:toml, push:config)
   !command       Run shell command (prefix with !)
@@ -726,6 +893,12 @@ Commands:
 
 Note: This REPL is in takeover mode - commands are executed
 directly without / prefix. Use ! for shell commands.
+
+Examples:
+  view           Show all TES endpoints
+  connectors     Show SSH commands for all connectors
+  ssh @dev       Connect to dev environment
+  test @prod     Test connection to prod environment
 
 EOF
     else
@@ -830,3 +1003,5 @@ export -f _org_repl_process_input
 export -f _org_show_help
 export -f _org_show_actions
 export -f _org_static_completions
+export -f _org_display_action_expansion
+export -f _org_display_available_actions

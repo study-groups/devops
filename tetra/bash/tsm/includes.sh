@@ -25,6 +25,14 @@ export MOD_SRC MOD_DIR TSM_SRC TSM_DIR
 # Source the main TSM module (which handles all component loading)
 source "$MOD_SRC/tsm.sh"
 
+# Run TSM initialization (setup directories, check dependencies)
+if declare -f tetra_tsm_setup >/dev/null 2>&1; then
+    tetra_tsm_setup >/dev/null 2>&1 || true
+fi
+
+# Source tree help registration
+source "$MOD_SRC/tsm_tree.sh" 2>/dev/null || true
+
 # Register tsm actions with action registry
 if [[ -f "$TETRA_SRC/bash/actions/registry.sh" ]]; then
     source "$TETRA_SRC/bash/actions/registry.sh"

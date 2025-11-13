@@ -6,6 +6,66 @@
 # Source dependencies
 source "${TETRA_SRC}/bash/org/org_constants.sh"
 
+# TES Preview Resolution - lightweight version without execution
+# Returns: Multi-line string with TES endpoint information
+org_resolve_tes_preview() {
+    local action="$1"
+    local env="${2:-Local}"
+
+    local verb="${action%%:*}"
+    local noun="${action##*:}"
+    local active_org=$(org_active 2>/dev/null || echo "[UNRESOLVED]")
+
+    local output=""
+    local tes_symbol=""
+
+    case "$env" in
+        "Local")
+            tes_symbol="@local"
+            output+="│   Type:       local\n"
+            output+="│   Symbol:     $tes_symbol\n"
+            output+="│   SSH:        # Local environment - no SSH needed\n"
+            ;;
+
+        "Dev"|"Staging"|"Production")
+            local env_lower="${env,,}"
+            tes_symbol="@$env_lower"
+            output+="│   Type:       remote\n"
+            output+="│   Symbol:     $tes_symbol\n"
+
+            if [[ "$active_org" == "[UNRESOLVED]" || "$active_org" == "none" ]]; then
+                output+="│   SSH:        ⚠️  No active organization\n"
+            else
+                local toml_file="$TETRA_DIR/orgs/$active_org/tetra.toml"
+
+                if [[ ! -f "$toml_file" ]]; then
+                    output+="│   SSH:        ⚠️  tetra.toml not found\n"
+                else
+                    # Parse SSH config from TOML
+                    local ssh_host=$(grep -A10 "^\[$env_lower\]" "$toml_file" 2>/dev/null | grep "^host" | head -1 | cut -d'"' -f2)
+                    local ssh_user=$(grep -A10 "^\[$env_lower\]" "$toml_file" 2>/dev/null | grep "^user" | head -1 | cut -d'"' -f2)
+                    local ssh_port=$(grep -A10 "^\[$env_lower\]" "$toml_file" 2>/dev/null | grep "^port" | head -1 | awk '{print $3}')
+                    local ssh_key=$(grep -A10 "^\[$env_lower\]" "$toml_file" 2>/dev/null | grep "^identity" | head -1 | cut -d'"' -f2)
+
+                    if [[ -z "$ssh_host" || -z "$ssh_user" ]]; then
+                        output+="│   SSH:        ⚠️  Incomplete SSH config\n"
+                    else
+                        # Build SSH command
+                        local ssh_cmd="ssh"
+                        [[ -n "$ssh_key" ]] && ssh_cmd+=" -i ${ssh_key/#\~/$HOME}"
+                        [[ -n "$ssh_port" ]] && ssh_cmd+=" -p $ssh_port"
+                        ssh_cmd+=" $ssh_user@$ssh_host"
+
+                        output+="│   SSH:        $ssh_cmd\n"
+                    fi
+                fi
+            fi
+            ;;
+    esac
+
+    echo -e "$output"
+}
+
 # Action runner configuration
 ORG_TXNS_DIR="${TETRA_DIR}/org/txns"
 mkdir -p "$ORG_TXNS_DIR"

@@ -12,6 +12,16 @@
 # - Output history (/last) preserved
 # - Session analytics preserved
 
+# Ensure TSM is loaded first (provides the tsm command)
+if ! declare -f tsm >/dev/null 2>&1; then
+    if [[ -f "$TETRA_SRC/bash/tsm/tsm.sh" ]]; then
+        source "$TETRA_SRC/bash/tsm/tsm.sh"
+    else
+        echo "Error: TSM not loaded. Source tetra.sh first or run: source ~/tetra/tetra.sh" >&2
+        exit 1
+    fi
+fi
+
 # Source bash/repl library
 source "$TETRA_SRC/bash/repl/repl.sh"
 
@@ -643,7 +653,7 @@ REPL_HELP_TOPICS["examples"]="tsm_cmd_help_examples"
 # === OVERRIDE BASH/REPL INPUT PROCESSOR (Minimal Override) ===
 
 # Minimal override: let bash/repl handle slash commands and shell escapes,
-# but route non-slash commands to tsm in takeover mode
+# but route non-slash commands to tsm by default (TSM takeover mode)
 _tsm_define_input_processor() {
     repl_process_input() {
         local input="$1"
@@ -651,39 +661,36 @@ _tsm_define_input_processor() {
         # Handle empty input
         [[ -z "$input" ]] && return 0
 
-        # Route based on execution mode (using bash/repl's helper)
-        if repl_is_takeover; then
-            # TAKEOVER MODE: TSM commands by default
+        # TSM TAKEOVER MODE: TSM commands by default
+        # The repl library is now always in "hybrid" mode, but TSM overrides
+        # the input processor to make TSM commands the default
 
-            # Shell escape (!) - handle via bash/repl pattern
-            if [[ "${input:0:1}" == "!" ]]; then
-                eval "${input#!}"
-                return 0
-            fi
-
-            # Slash commands - delegate to bash/repl's dispatcher
-            # This will check REPL_SLASH_HANDLERS first, then built-ins
-            if [[ "$input" == /* ]]; then
-                repl_dispatch_slash "${input#/}"
-                return $?
-            fi
-
-            # Exit commands (built-in)
-            case "$input" in
-                exit|quit|q)
-                    return 1  # Signal exit
-                    ;;
-            esac
-
-            # Default: pass to tsm (our module command handler)
-            tsm $input
-            return 0
-        else
-            # AUGMENT MODE: shouldn't reach here for TSM, but delegate to bash/repl
-            # This would handle shell-by-default mode if we ever use it
-            eval "$input"
+        # Shell escape (!) - execute shell command
+        # SECURITY NOTE: This feature allows arbitrary command execution
+        # This is intentional for interactive REPL usage (similar to IPython's ! syntax)
+        # Only use this REPL in trusted environments with trusted users
+        if [[ "${input:0:1}" == "!" ]]; then
+            eval "${input#!}"
             return 0
         fi
+
+        # Slash commands - delegate to bash/repl's dispatcher
+        # This will check REPL_SLASH_HANDLERS first, then built-ins
+        if [[ "$input" == /* ]]; then
+            repl_dispatch_slash "${input#/}"
+            return $?
+        fi
+
+        # Exit commands (built-in)
+        case "$input" in
+            exit|quit|q)
+                return 1  # Signal exit
+                ;;
+        esac
+
+        # Default: pass to tsm (our module command handler)
+        tsm $input
+        return 0
     }
 }
 
@@ -698,11 +705,8 @@ tsm_repl_main() {
 
 
     # Define the input processor NOW, after all handlers are registered
+    # This overrides the default repl input processor to make TSM commands default
     _tsm_define_input_processor
-
-    # Set execution mode to takeover (REPL mode by default)
-    # In this mode: commands are TSM by default, !cmd for shell
-    repl_set_execution_mode "takeover"
 
     # Set history base
     REPL_HISTORY_BASE="${TETRA_DIR}/tsm/repl_history"

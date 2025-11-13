@@ -12,6 +12,7 @@ class TetraMetrics {
             enableConsoleLogging: config.enableConsoleLogging !== false,
             enableAnalytics: config.enableAnalytics !== false,
             enablePerformanceTracking: config.enablePerformanceTracking !== false,
+            enableMouseTracking: config.enableMouseTracking !== false,
             sessionTimeout: config.sessionTimeout || 30 * 60 * 1000, // 30 minutes
             bufferSize: config.bufferSize || 100,
             flushInterval: config.flushInterval || 10000, // 10 seconds
@@ -355,14 +356,16 @@ class TetraClientTracker extends TetraMetrics {
             }, 150);
         });
 
-        // Track mouse movements (heavily throttled)
-        let mouseTimer;
-        document.addEventListener('mousemove', (e) => {
-            if (mouseTimer) clearTimeout(mouseTimer);
-            mouseTimer = setTimeout(() => {
-                this.trackMouseMove(e.clientX, e.clientY);
-            }, 200);
-        });
+        // Track mouse movements (heavily throttled) - only if enabled
+        if (this.config.enableMouseTracking) {
+            let mouseTimer;
+            document.addEventListener('mousemove', (e) => {
+                if (mouseTimer) clearTimeout(mouseTimer);
+                mouseTimer = setTimeout(() => {
+                    this.trackMouseMove(e.clientX, e.clientY);
+                }, 200);
+            });
+        }
 
         // Track form interactions
         document.addEventListener('focus', (e) => {

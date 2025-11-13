@@ -280,12 +280,82 @@ tetra_secrets_copy() {
     return 0
 }
 
+# Resolve environment variables in TOML content
+# Expands ${VAR_NAME} references to their environment values
+tetra_secrets_resolve_toml() {
+    local toml_file="$1"
+    local output_file="${2:-}"
+
+    if [[ -z "$toml_file" ]]; then
+        echo "Error: TOML file path required" >&2
+        return 1
+    fi
+
+    if [[ ! -f "$toml_file" ]]; then
+        echo "Error: TOML file not found: $toml_file" >&2
+        return 1
+    fi
+
+    # Read the TOML and expand variables
+    local resolved_content
+    resolved_content=$(envsubst < "$toml_file")
+
+    # Output to file or stdout
+    if [[ -n "$output_file" ]]; then
+        echo "$resolved_content" > "$output_file"
+        echo "✅ Resolved TOML written to: $output_file"
+    else
+        echo "$resolved_content"
+    fi
+
+    return 0
+}
+
+# Load secrets and resolve TOML in one step
+# Returns resolved TOML content with secrets expanded
+tetra_secrets_resolve() {
+    local org_name="$1"
+    local output_file="${2:-}"
+
+    if [[ -z "$org_name" ]]; then
+        echo "Error: Organization name required" >&2
+        return 1
+    fi
+
+    local org_dir="$TETRA_DIR/orgs/$org_name"
+    local secrets_file="$org_dir/secrets.env"
+    local toml_file="$org_dir/tetra.toml"
+
+    if [[ ! -f "$secrets_file" ]]; then
+        echo "Error: Secrets file not found: $secrets_file" >&2
+        echo "Run: tetra org secrets init $org_name" >&2
+        return 1
+    fi
+
+    if [[ ! -f "$toml_file" ]]; then
+        echo "Error: TOML file not found: $toml_file" >&2
+        return 1
+    fi
+
+    # Load secrets into environment (in subshell to avoid polluting parent)
+    (
+        set -a
+        source "$secrets_file"
+        set +a
+
+        # Resolve TOML with loaded secrets
+        tetra_secrets_resolve_toml "$toml_file" "$output_file"
+    )
+}
+
 # Export functions
 export -f tetra_secrets_init
 export -f tetra_secrets_validate
 export -f tetra_secrets_load
 export -f tetra_secrets_list
 export -f tetra_secrets_copy
+export -f tetra_secrets_resolve_toml
+export -f tetra_secrets_resolve
 
 # CLI interface
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
@@ -310,6 +380,10 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
             shift
             tetra_secrets_copy "$@"
             ;;
+        resolve)
+            shift
+            tetra_secrets_resolve "$@"
+            ;;
         help|--help|-h)
             cat << EOF
 Tetra Secrets Manager
@@ -333,6 +407,10 @@ COMMANDS:
     copy <source_org> <target_org>
         Copy secrets from one organization to another
 
+    resolve <org_name> [output_file]
+        Load secrets.env and resolve ${VAR} references in tetra.toml
+        Output to file or stdout if no output_file specified
+
     help
         Show this help
 
@@ -342,11 +420,14 @@ EXAMPLES:
     secrets_manager.sh load my-org prod
     secrets_manager.sh list my-org
     secrets_manager.sh copy my-org my-org-staging
+    secrets_manager.sh resolve my-org                    # Output to stdout
+    secrets_manager.sh resolve my-org /tmp/resolved.toml # Save to file
 
 SECURITY NOTES:
     - Secrets files are created with 600 permissions (owner read/write only)
-    - Always add 'org/*/secrets.env' to .gitignore
+    - Always add 'orgs/*/secrets.env' to .gitignore
     - Never commit secrets to version control
+    - tetra.toml uses ${VAR_NAME} references, resolved at runtime from secrets.env
 EOF
             ;;
         *)

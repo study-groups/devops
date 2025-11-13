@@ -4,30 +4,8 @@
 # Extracted from tsm_interface.sh during Phase 2 refactor
 # Functions for validation, environment detection, and utility helpers
 
-# === SYSTEM SETUP ===
-
-tetra_tsm_setup() {
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        # Check if util-linux is available (provides setsid)
-        local util_linux_bin="/opt/homebrew/opt/util-linux/bin"
-        if [[ -d "$util_linux_bin" ]] && [[ ":$PATH:" != *":$util_linux_bin:"* ]]; then
-            echo "tsm: added util-linux to PATH for setsid support"
-            export PATH="$util_linux_bin:$PATH"
-        fi
-
-        if ! command -v setsid > /dev/null 2>&1; then
-            echo "tsm: warning - setsid not found. Install with: brew install util-linux" >&2
-        fi
-    fi
-
-    # Create required directories
-    local dirs=("$TSM_LOGS_DIR" "$TSM_PIDS_DIR" "$TSM_PROCESSES_DIR")
-    for dir in "${dirs[@]}"; do
-        mkdir -p "$dir"
-    done
-
-    echo "tsm: setup complete"
-}
+# NOTE: tetra_tsm_setup() is defined in core/setup.sh (canonical version)
+# This file focuses on validation functions only
 
 # === VALIDATION FUNCTIONS ===
 
@@ -186,7 +164,6 @@ tetra_tsm_reset_id() {
 }
 
 # Export validation functions
-export -f tetra_tsm_setup
 export -f _tsm_validate_script
 export -f _tsm_auto_detect_env
 export -f _tsm_validate_env_file

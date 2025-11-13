@@ -302,10 +302,10 @@ tdoc_render_compact() {
     fi
 
     # Fixed column widths for consistent alignment (tight one-liner)
-    # Optimized for 80-column terminals to prevent wrapping
-    local name_width=32          # Name/title
-    local type_width=18          # Type name (spec, guide, etc)
-    local module_width=12        # Module name (or empty)
+    # Optimized for 80-column terminals: ~4 (num) + 28 + 16 + 10 + tags = ~58 + tags < 80
+    local name_width=28          # Name/title
+    local type_width=16          # Type name (spec, guide, etc)
+    local module_width=10        # Module name (or empty)
 
     # Truncate display name if needed
     if [[ ${#display_name} -gt $name_width ]]; then
@@ -335,13 +335,22 @@ tdoc_render_compact() {
         done < <(echo "$tags_json" | grep -o '"[^"]*"' | tr -d '"')
     fi
 
-    # Join colored tags with commas
+    # Join colored tags with commas (limit to first 2-3 tags to prevent wrapping)
     local colored_tags_display=""
     if [[ ${#colored_tags_array[@]} -gt 0 ]]; then
+        # Show max 3 tags to keep under 80 columns
+        local max_tags=3
+        [[ ${#colored_tags_array[@]} -lt $max_tags ]] && max_tags=${#colored_tags_array[@]}
+
         colored_tags_display="${colored_tags_array[0]}"
-        for ((i=1; i<${#colored_tags_array[@]}; i++)); do
+        for ((i=1; i<$max_tags; i++)); do
             colored_tags_display+=",${colored_tags_array[$i]}"
         done
+
+        # Add indicator if there are more tags
+        if [[ ${#colored_tags_array[@]} -gt 3 ]]; then
+            colored_tags_display+="$(printf '\033[2m,+%d\033[0m' $((${#colored_tags_array[@]} - 3)))"
+        fi
     fi
 
     # Render single line

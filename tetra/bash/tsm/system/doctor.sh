@@ -70,10 +70,35 @@ truncate_middle() {
 
 # Check if lsof is available
 check_dependencies() {
+    local missing=()
+
+    # Check required dependencies
     if ! command -v lsof >/dev/null 2>&1; then
-        error "lsof command not found. Install with: brew install lsof"
-        return 1
+        error "✗ lsof not found (required for port scanning)"
+        missing+=("lsof")
+    else
+        success "✓ lsof available"
     fi
+
+    # Check optional but recommended dependencies (macOS)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        if ! command -v flock >/dev/null 2>&1 || ! command -v setsid >/dev/null 2>&1; then
+            warn "⚠ util-linux not in PATH (provides flock, setsid for better process management)"
+            echo "  Install with: brew install util-linux"
+            echo "  TSM will work without it but with reduced functionality"
+        else
+            success "✓ util-linux available (flock, setsid)"
+        fi
+    fi
+
+    [[ ${#missing[@]} -eq 0 ]] && return 0
+
+    echo
+    error "Missing required dependencies: ${missing[*]}"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "Install with: brew install ${missing[*]}"
+    fi
+    return 1
 }
 
 # Scan common development ports + TSM-managed ports
@@ -911,6 +936,17 @@ tsm_healthcheck() {
             ((errors++))
         fi
     done
+
+    # Check optional dependencies (macOS)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        if command -v flock >/dev/null 2>&1 && command -v setsid >/dev/null 2>&1; then
+            success "  [OK] util-linux: installed (flock, setsid)"
+        else
+            warn "  [OPTIONAL] util-linux: not in PATH"
+            fix_suggestions+=("Install util-linux: brew install util-linux OR run: bash \$TETRA_SRC/bash/tsm/install.sh")
+            ((warnings++))
+        fi
+    fi
 
     echo
 
