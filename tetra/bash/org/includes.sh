@@ -18,7 +18,7 @@ fi
 source "$ORG_SRC/tetra_org.sh"
 
 # Optional modules - warn if missing but continue
-for optional_module in "discovery.sh" "converter.sh" "compiler.sh" "org_help.sh" "actions.sh" "org_action_explorer.sh" "org_repl.sh"; do
+for optional_module in "discovery.sh" "converter.sh" "compiler.sh" "org_help.sh" "actions.sh" "org_repl.sh"; do
     if [[ -f "$ORG_SRC/$optional_module" ]]; then
         source "$ORG_SRC/$optional_module"
     else

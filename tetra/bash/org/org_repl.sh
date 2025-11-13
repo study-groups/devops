@@ -156,6 +156,11 @@ ORG_REPL_MODE_INDEX=0
 ORG_REPL_ACTION_INDEX=0
 ORG_REPL_ENVIRONMENTS=("${ORG_ENVIRONMENTS[@]}")
 ORG_REPL_MODES=("${ORG_MODES[@]}")
+
+# Export for subshells (action explorer needs these)
+export ORG_REPL_ENV_INDEX
+export ORG_REPL_MODE_INDEX
+export ORG_REPL_ACTION_INDEX
 ORG_REPL_EXECUTE_MODE=false  # false = ▶ browse, true = ◆ execute
 ORG_REPL_SINGLE_KEY_MODE=false  # true when space pressed as first char
 
@@ -520,38 +525,27 @@ _org_handle_shift_tab() {
 }
 
 _org_handle_space() {
-    # Check if space is pressed as first character (empty input, cursor at 0)
+    # Space key behavior: show available actions list
     if [[ -z "$REPL_INPUT" && $REPL_CURSOR_POS -eq 0 ]]; then
-        # Show action explorer menu
-        local selected_action
-        selected_action=$(org_explore_actions)
-        local result=$?
+        local env="${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}"
+        local mode="${ORG_REPL_MODES[$ORG_REPL_MODE_INDEX]}"
 
-        if [[ $result -eq 0 && -n "$selected_action" ]]; then
-            # Action was selected - populate input line with it
-            REPL_INPUT="$selected_action"
-            REPL_CURSOR_POS=${#selected_action}
+        # Just show inline list of actions
+        echo "" >&2
+        echo "Available actions for $env:$mode" >&2
+        echo "" >&2
 
-            # Update the action index to match selected action
-            local actions=($(_org_actions))
-            local i=0
-            for action in "${actions[@]}"; do
-                if [[ "$action" == "$selected_action" ]]; then
-                    ORG_REPL_ACTION_INDEX=$i
-                    break
-                fi
-                ((i++))
-            done
+        local actions=($(_org_actions))
+        local i=1
+        for action in "${actions[@]}"; do
+            printf "  %d) %s\n" "$i" "$action" >&2
+            ((i++))
+        done
 
-            # Enter execute mode (armed to run)
-            ORG_REPL_EXECUTE_MODE=true
-            _org_repl_build_prompt
-            TCURSES_READLINE_PROMPT="$REPL_PROMPT"
-        else
-            # Cancelled - just rebuild display
-            _org_repl_build_prompt
-            TCURSES_READLINE_PROMPT="$REPL_PROMPT"
-        fi
+        echo "" >&2
+        echo "Type action name or use TAB to cycle through them" >&2
+        echo "" >&2
+
         return 0
     fi
 
