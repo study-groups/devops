@@ -302,10 +302,10 @@ tdoc_render_compact() {
     fi
 
     # Fixed column widths for consistent alignment (tight one-liner)
-    # Optimized for 80-column terminals: ~4 (num) + 28 + 16 + 10 + tags = ~58 + tags < 80
-    local name_width=28          # Name/title
-    local type_width=16          # Type name (spec, guide, etc)
-    local module_width=10        # Module name (or empty)
+    # STRICT 80-column limit: 5 (num) + 24 + 14 + 8 + tags = ~51 + tags < 80
+    local name_width=24          # Name/title
+    local type_width=14          # Type name (spec, guide, etc)
+    local module_width=8         # Module name (or empty)
 
     # Truncate display name if needed
     if [[ ${#display_name} -gt $name_width ]]; then
@@ -328,6 +328,11 @@ tdoc_render_compact() {
         while IFS= read -r tag; do
             [[ -z "$tag" ]] && continue
 
+            # Truncate long tags to 12 chars
+            if [[ ${#tag} -gt 12 ]]; then
+                tag="${tag:0:9}..."
+            fi
+
             # Cycle through colors
             local color_num="${tag_colors[$((tag_index % 8))]}"
             colored_tags_array+=("$(printf '\033[38;5;%dm%s\033[0m' "$color_num" "$tag")")
@@ -335,11 +340,11 @@ tdoc_render_compact() {
         done < <(echo "$tags_json" | grep -o '"[^"]*"' | tr -d '"')
     fi
 
-    # Join colored tags with commas (limit to first 2-3 tags to prevent wrapping)
+    # Join colored tags with commas (limit to first 2 tags to prevent wrapping)
     local colored_tags_display=""
     if [[ ${#colored_tags_array[@]} -gt 0 ]]; then
-        # Show max 3 tags to keep under 80 columns
-        local max_tags=3
+        # Show max 2 tags to stay under 80 columns
+        local max_tags=2
         [[ ${#colored_tags_array[@]} -lt $max_tags ]] && max_tags=${#colored_tags_array[@]}
 
         colored_tags_display="${colored_tags_array[0]}"
@@ -348,8 +353,8 @@ tdoc_render_compact() {
         done
 
         # Add indicator if there are more tags
-        if [[ ${#colored_tags_array[@]} -gt 3 ]]; then
-            colored_tags_display+="$(printf '\033[2m,+%d\033[0m' $((${#colored_tags_array[@]} - 3)))"
+        if [[ ${#colored_tags_array[@]} -gt 2 ]]; then
+            colored_tags_display+="$(printf '\033[2m+%d\033[0m' $((${#colored_tags_array[@]} - 2)))"
         fi
     fi
 
