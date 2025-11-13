@@ -7,6 +7,8 @@
 : "${TAU_SRC:=$TETRA_SRC/bash/tau}"
 # Default to ~/tau (strong global pattern)
 : "${TAU_DIR:=$HOME/tau}"
+# TAU engine binary location (C engine)
+: "${TAU_ENGINE_DIR:=$HOME/src/mricos/demos/tau}"
 
 # TAU Configuration
 TAU_CONFIG="${TAU_CONFIG:-$TAU_DIR/config.toml}"
@@ -14,6 +16,8 @@ TAU_RUNTIME_DIR="$TAU_DIR/runtime"
 TAU_SOCKET="$TAU_RUNTIME_DIR/tau.sock"
 TAU_SAMPLES_DIR="$TAU_DIR/samples"
 TAU_SESSIONS_DIR="$TAU_DIR/sessions"
+TAU_BINARY="${TAU_ENGINE_DIR}/tau"
+TAU_SEND_BINARY="${TAU_ENGINE_DIR}/tau-send"
 
 # Global check
 if [[ -z "$TETRA_SRC" ]]; then
@@ -29,18 +33,13 @@ tau_send() {
         return 1
     fi
 
-    # Use tau-send if available (check multiple locations)
-    local tau_send_bin=""
-    if [[ -x "$TAU_SRC/tau-send" ]]; then
-        tau_send_bin="$TAU_SRC/tau-send"
-    elif [[ -x ~/src/mricos/demos/tau/tau-send ]]; then
-        tau_send_bin=~/src/mricos/demos/tau/tau-send
-    fi
-
-    if [[ -n "$tau_send_bin" ]]; then
-        "$tau_send_bin" "$command"
+    # Use tau-send binary (from TAU_ENGINE_DIR)
+    if [[ -x "$TAU_SEND_BINARY" ]]; then
+        "$TAU_SEND_BINARY" "$command"
     else
-        echo "$command" | socat - UNIX-SENDTO:"$TAU_SOCKET" 2>/dev/null
+        echo "Error: tau-send not found at $TAU_SEND_BINARY" >&2
+        echo "Set TAU_ENGINE_DIR to the tau C engine directory" >&2
+        return 1
     fi
 }
 
@@ -100,15 +99,10 @@ EOF
         start)
             echo "Starting tau audio engine service..."
 
-            # Build tau binary path - check both locations
-            local tau_binary=""
-            if [[ -x "$TAU_SRC/tau" ]]; then
-                tau_binary="$TAU_SRC/tau"
-            elif [[ -x ~/src/mricos/demos/tau/tau ]]; then
-                tau_binary=~/src/mricos/demos/tau/tau
-            else
-                echo "✗ tau binary not found. Please build it first."
-                echo "  cd ~/src/mricos/demos/tau && ./build.sh"
+            # Check if tau binary exists
+            if [[ ! -x "$TAU_BINARY" ]]; then
+                echo "✗ tau binary not found at: $TAU_BINARY"
+                echo "  Set TAU_ENGINE_DIR or build: cd $TAU_ENGINE_DIR && ./build.sh"
                 return 1
             fi
 
@@ -116,7 +110,7 @@ EOF
             mkdir -p "$TAU_RUNTIME_DIR"
 
             # Use TSM to start tau service
-            if tsm start --name tau "$tau_binary"; then
+            if tsm start --name tau "$TAU_BINARY"; then
                 echo "✓ tau audio engine started"
                 sleep 1
                 tau status
