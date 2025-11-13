@@ -302,12 +302,10 @@ tdoc_render_compact() {
     fi
 
     # Fixed column widths for consistent alignment (tight one-liner)
-    # Adjusted to fit 80-column terminal without wrapping
-    local name_width=28          # Name/title
-    local type_width=12          # Type name (spec, guide, etc)
-    local intent_width=10        # Intent (define, instruct, etc)
-    local lifecycle_width=10     # Lifecycle (Canonical, Stable, Working, Draft, Archived)
-    local module_width=10        # Module name (or empty)
+    # Adjusted to prevent wrapping on standard terminal widths
+    local name_width=34          # Name/title (expanded)
+    local type_width=22         # Type name (spec, guide, etc)
+    local module_width=16        # Module name (or empty)
 
     # Truncate display name if needed
     if [[ ${#display_name} -gt $name_width ]]; then
@@ -367,33 +365,12 @@ tdoc_render_compact() {
             printf "%s\n" "$display_name"
         fi
     else
-        # Normal mode: clean tabbed format
+        # Normal mode: clean compact format
         if [[ "$TDS_LOADED" == "true" ]]; then
             # Filename (left-aligned, padded to match name_width)
             tds_text_color "tdocs.list.path"
             printf "%-${name_width}s" "$display_name"
             printf "\033[0m"
-
-            # Lifecycle (using lifecycle_width)
-            if [[ -n "$lifecycle" ]]; then
-                local lifecycle_name=""
-                case "$lifecycle" in
-                    D) lifecycle_name="Draft" ;;
-                    W) lifecycle_name="Working" ;;
-                    S) lifecycle_name="Stable" ;;
-                    C) lifecycle_name="Canonical" ;;
-                    X) lifecycle_name="Archived" ;;
-                    *) lifecycle_name="$lifecycle" ;;
-                esac
-
-                local lifecycle_token="tdocs.lifecycle.${lifecycle}"
-                [[ -z "${TDS_COLOR_TOKENS[$lifecycle_token]:-}" ]] && lifecycle_token="text.secondary"
-                tds_text_color "$lifecycle_token"
-                printf "%-${lifecycle_width}s" "$lifecycle_name"
-                printf "\033[0m"
-            else
-                printf "%-${lifecycle_width}s" ""
-            fi
 
             # Type (using type_width)
             local type_token="tdocs.type.${type}"
@@ -402,49 +379,33 @@ tdoc_render_compact() {
             printf "%-${type_width}s" "${type:-scratch}"
             printf "\033[0m"
 
-            # Intent (using intent_width)
-            if [[ -n "$intent" ]]; then
-                local intent_token="tdocs.intent.${intent}"
-                [[ -z "${TDS_COLOR_TOKENS[$intent_token]:-}" ]] && intent_token="text.secondary"
-                tds_text_color "$intent_token"
-                printf "%-${intent_width}s" "$intent"
+            # Module (using module_width)
+            if [[ -n "$module" ]]; then
+                tds_text_color "tdocs.module"
+                printf "%-${module_width}s" "$module"
                 printf "\033[0m"
             else
-                printf "%-${intent_width}s" ""
+                printf "%-${module_width}s" ""
             fi
 
-            # Tags (plain text, no colors to avoid background color issues)
-            if [[ -n "$tags_display" ]]; then
-                printf "%s" "$tags_display"
+            # Tags (colorized using pre-built colored_tags_normal)
+            if [[ -n "$colored_tags_normal" ]]; then
+                printf "%b" "$colored_tags_normal"
             fi
 
             # Explicit newline in normal mode
             printf "\n"
         else
-            # Fallback without colors - clean tabbed format
+            # Fallback without colors - clean compact format
             printf "%-${name_width}s" "$display_name"
-
-            # Lifecycle
-            if [[ -n "$lifecycle" ]]; then
-                case "$lifecycle" in
-                    D) printf "%-${lifecycle_width}s" "Draft" ;;
-                    W) printf "%-${lifecycle_width}s" "Working" ;;
-                    S) printf "%-${lifecycle_width}s" "Stable" ;;
-                    C) printf "%-${lifecycle_width}s" "Canonical" ;;
-                    X) printf "%-${lifecycle_width}s" "Archived" ;;
-                    *) printf "%-${lifecycle_width}s" "$lifecycle" ;;
-                esac
-            else
-                printf "%-${lifecycle_width}s" ""
-            fi
 
             # Type
             printf "%-${type_width}s" "${type:-scratch}"
 
-            # Intent
-            [[ -n "$intent" ]] && printf "%-${intent_width}s" "$intent" || printf "%-${intent_width}s" ""
+            # Module
+            [[ -n "$module" ]] && printf "%-${module_width}s" "$module" || printf "%-${module_width}s" ""
 
-            # Tags
+            # Tags (plain text)
             [[ -n "$tags_display" ]] && printf "%s" "$tags_display"
 
             # Explicit newline in normal mode (fallback)
