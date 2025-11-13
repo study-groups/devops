@@ -302,10 +302,10 @@ tdoc_render_compact() {
     fi
 
     # Fixed column widths for consistent alignment (tight one-liner)
-    # STRICT 80-column limit: 5 (num) + 24 + 14 + 8 + tags = ~51 + tags < 80
-    local name_width=24          # Name/title
-    local type_width=14          # Type name (spec, guide, etc)
-    local module_width=8         # Module name (or empty)
+    # ULTRA STRICT 80-column limit: 5 (num) + 22 + 12 + 0 + tags = ~39 + tags < 80
+    local name_width=22          # Name/title
+    local type_width=12          # Type name (spec, guide, etc)
+    local module_width=0         # Module name (REMOVED to save space)
 
     # Truncate display name if needed
     if [[ ${#display_name} -gt $name_width ]]; then
@@ -380,16 +380,7 @@ tdoc_render_compact() {
             [[ -z "${TDS_COLOR_TOKENS[$type_token]:-}" ]] && type_token="text.secondary"
             tds_text_color "$type_token"
             printf "%-${type_width}s" "${type:-scratch}"
-            printf "\033[0m"
-
-            # Module (using module_width)
-            if [[ -n "$module" ]]; then
-                tds_text_color "tdocs.module"
-                printf "%-${module_width}s" "$module"
-                printf "\033[0m"
-            else
-                printf "%-${module_width}s" ""
-            fi
+            printf "\033[0m  "
 
             # Tags (colorized)
             if [[ -n "$colored_tags_display" ]]; then
@@ -403,10 +394,7 @@ tdoc_render_compact() {
             printf "%-${name_width}s" "$display_name"
 
             # Type
-            printf "%-${type_width}s" "${type:-scratch}"
-
-            # Module
-            [[ -n "$module" ]] && printf "%-${module_width}s" "$module" || printf "%-${module_width}s" ""
+            printf "%-${type_width}s  " "${type:-scratch}"
 
             # Tags (plain text)
             [[ -n "$tags_display" ]] && printf "%s" "$tags_display"
