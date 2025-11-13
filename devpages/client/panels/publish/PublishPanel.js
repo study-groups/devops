@@ -54,7 +54,7 @@ export class PublishPanel extends BasePanel {
         const state = appStore.getState();
         const configurations = selectAllConfigurations(state);
         const activeConfig = selectActiveConfigurationDecrypted(state);
-        const currentFile = state.file?.currentPathname || null;
+        const currentFile = state.file?.currentFile?.pathname || null;
 
         return `
             <div class="publish-panel-content">
@@ -272,7 +272,7 @@ export class PublishPanel extends BasePanel {
      */
     handleStoreChange() {
         const state = appStore.getState();
-        const currentFile = state.file?.currentPathname;
+        const currentFile = state.file?.currentFile?.pathname;
 
         // If current file changed, update status
         if (currentFile !== this.currentFile) {
@@ -287,7 +287,7 @@ export class PublishPanel extends BasePanel {
      */
     async loadPublishStatus() {
         const state = appStore.getState();
-        const currentFile = state.file?.currentPathname;
+        const currentFile = state.file?.currentFile?.pathname;
 
         if (!currentFile) {
             this.publishStatus = { isPublished: false, url: null };
@@ -309,7 +309,7 @@ export class PublishPanel extends BasePanel {
         if (this.isProcessing) return;
 
         const state = appStore.getState();
-        const currentFile = state.file?.currentPathname;
+        const currentFile = state.file?.currentFile?.pathname;
         const activeConfig = selectActiveConfigurationDecrypted(state);
 
         if (!currentFile || !activeConfig) {
@@ -373,7 +373,7 @@ export class PublishPanel extends BasePanel {
         if (this.isProcessing) return;
 
         const state = appStore.getState();
-        const currentFile = state.file?.currentPathname;
+        const currentFile = state.file?.currentFile?.pathname;
 
         if (!currentFile) {
             this.showError('Cannot unpublish', 'No file selected');

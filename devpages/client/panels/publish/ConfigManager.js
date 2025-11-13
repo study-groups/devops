@@ -25,6 +25,7 @@ export class ConfigManager {
         this.unsubscribe = null;
         this.editingId = null;
         this.formData = this.getEmptyFormData();
+        this.isSaving = false; // Prevent form updates during save
     }
 
     /**
@@ -91,6 +92,11 @@ export class ConfigManager {
      */
     subscribeToStore() {
         this.unsubscribe = appStore.subscribe(() => {
+            // Don't update form while saving to prevent clearing user input
+            if (this.isSaving) {
+                return;
+            }
+
             const state = appStore.getState();
             const managerState = selectConfigManagerState(state);
 
@@ -521,19 +527,47 @@ export class ConfigManager {
             return;
         }
 
+        // Set flag to prevent subscription from clearing form during save
+        this.isSaving = true;
+
+        let savedConfigId;
+
         if (this.editingId) {
             // Update existing configuration
             appStore.dispatch(publishConfigActions.updateConfiguration({
                 id: this.editingId,
                 updates: this.formData
             }));
+            savedConfigId = this.editingId;
         } else {
-            // Create new configuration
+            // Create new configuration - need to get the ID from the action
             appStore.dispatch(publishConfigActions.addConfiguration(this.formData));
+            // Get the newly created config ID
+            const newState = appStore.getState();
+            const configs = selectAllConfigurations(newState);
+            savedConfigId = configs[configs.length - 1]?.id;
         }
 
-        // Reset form and clear editing state
-        this.handleCancel();
+        // Clear test result
+        appStore.dispatch(publishConfigActions.clearTestResult());
+
+        // Update local state to keep the saved config in editing mode
+        // Do this BEFORE resetting isSaving to prevent subscription interference
+        this.editingId = savedConfigId;
+
+        // Re-enable subscription updates
+        this.isSaving = false;
+
+        // Now update the UI - subscription is now active and will handle form population
+        this.updateConfigList();
+
+        // Only dispatch startEditingConfig if we're not already editing this config
+        // This prevents the infinite loop
+        const state = appStore.getState();
+        const managerState = selectConfigManagerState(state);
+        if (managerState.editingConfigId !== savedConfigId) {
+            appStore.dispatch(publishConfigActions.startEditingConfig(savedConfigId));
+        }
     }
 
     /**

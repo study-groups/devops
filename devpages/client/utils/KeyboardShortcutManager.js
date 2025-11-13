@@ -93,17 +93,19 @@ class KeyboardShortcutManager {
 
     buildKeyCombo(event) {
         const parts = [];
-        
+
         if (event.ctrlKey || event.metaKey) parts.push('ctrl');
         if (event.altKey) parts.push('alt');
         if (event.shiftKey) parts.push('shift');
-        
+
         // Add the main key (not modifier keys)
-        const key = event.key.toLowerCase();
-        if (!['control', 'alt', 'shift', 'meta'].includes(key)) {
-            parts.push(key);
+        if (event.key) {
+            const key = event.key.toLowerCase();
+            if (!['control', 'alt', 'shift', 'meta'].includes(key)) {
+                parts.push(key);
+            }
         }
-        
+
         return parts.join('+');
     }
 

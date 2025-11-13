@@ -121,6 +121,7 @@ function initializeStore(preloadedState = {}) {
         settings: safeLoadPersistedState('settings', preloadedState.settings || {}),
         panels: safeLoadPersistedState('panels', preloadedState.panels || {}),
         ui: safeLoadPersistedState('ui', preloadedState.ui || {}),
+        publishConfig: safeLoadPersistedState('publishConfig', preloadedState.publishConfig || {}),
     };
 
     try {

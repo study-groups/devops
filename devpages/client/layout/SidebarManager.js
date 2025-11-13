@@ -47,6 +47,7 @@ export class SidebarManager {
             sidebarPanels: {},
             panelOrders: {}
         };
+        this.isRendering = false; // Prevent re-entrant rendering
     }
 
     /**
@@ -96,6 +97,11 @@ export class SidebarManager {
 
     subscribeToStore() {
         this.storeUnsubscribe = appStore.subscribe(() => {
+            // Prevent re-entrant calls during rendering
+            if (this.isRendering) {
+                return;
+            }
+
             const state = appStore.getState();
             const relevantState = {
                 panels: state.panels.panels,
@@ -104,19 +110,46 @@ export class SidebarManager {
                 activeCategory: state.ui.activeSidebarCategory
             };
 
-            if (JSON.stringify(relevantState) !== JSON.stringify(this.lastRenderedState)) {
+            // Safe stringify that handles circular references
+            let hasChanged = false;
+            try {
+                hasChanged = JSON.stringify(relevantState) !== JSON.stringify(this.lastRenderedState);
+            } catch (error) {
+                // If JSON.stringify fails (circular reference), do a shallow comparison
+                // Use console.warn instead of getLogger to avoid potential circular dispatch
+                console.warn('[SidebarManager] Failed to stringify state, using shallow comparison', error);
+                hasChanged = relevantState.panels !== this.lastRenderedState?.panels ||
+                            relevantState.sidebarPanels !== this.lastRenderedState?.sidebarPanels ||
+                            relevantState.panelOrders !== this.lastRenderedState?.panelOrders ||
+                            relevantState.activeCategory !== this.lastRenderedState?.activeCategory;
+            }
+
+            if (hasChanged) {
                 console.log('[SidebarManager] Store state changed, re-rendering...', {
                     oldState: this.lastRenderedState,
                     newState: relevantState
                 });
-                this.lastRenderedState = JSON.parse(JSON.stringify(relevantState));
+
+                // Safe deep clone that handles circular references
+                try {
+                    this.lastRenderedState = JSON.parse(JSON.stringify(relevantState));
+                } catch (error) {
+                    console.warn('[SidebarManager] Failed to deep clone state, using shallow clone', error);
+                    this.lastRenderedState = { ...relevantState };
+                }
+
                 this.activeCategory = relevantState.activeCategory || 'dev';
-                
+
                 // Use setTimeout to allow the Redux state to update before re-rendering
                 setTimeout(async () => {
                     console.log('[SidebarManager] Calling render and restoreFloatingPanels...');
-                    await this.render();
-                    await this.restoreFloatingPanels();
+                    this.isRendering = true;
+                    try {
+                        await this.render();
+                        await this.restoreFloatingPanels();
+                    } finally {
+                        this.isRendering = false;
+                    }
                 }, 0);
             }
         });
