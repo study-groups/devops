@@ -1,0 +1,637 @@
+# TES SSH Extension
+
+**Version:** 2.1
+**TCS Version:** 3.0
+**Date:** 2025-10-10
+**Status:** Extension Specification
+
+---
+
+## Related Documentation
+- [Tetra Core Specification](Tetra_Core_Specification.md) - Foundational concepts (TCS 3.0)
+- [TES Storage Extension](TES_Storage_Extension.md) - Cloud storage integration
+- [Module Convention](Tetra_Module_Convention.md) - Module integration patterns
+
+---
+
+## Abstract
+
+The TES SSH Extension builds on the [Tetra Core Specification (TCS 3.0)](Tetra_Core_Specification.md) to provide SSH-specific progressive resolution and dual-role authentication for remote deployments. This extension defines how tetra handles SSH connections, credentials, and remote operations while maintaining TCS 3.0 compliance.
+
+---
+
+  1. Core Concepts
+
+  1.1 Separation of Concerns
+
+  NH (NodeHolder) - PURE SUBSTRATE
+    • Fetch raw data from DigitalOcean API (doctl wrapper)
+    • NO transformation, NO cleaning, NO interpretation
+    • Output: digocean.json (unmodified API responses)
+
+  Tetra Discovery - SEMANTIC MAPPING
+    • Parse raw infrastructure data
+    • Interactive mapping to environments
+    • Generate: {org}.mapping.json
+
+  Tetra Converter - TOML GENERATION
+    • Use mapping file to create tetra.toml
+    • Generate [symbols] and [connectors] sections (TES)
+    • Output: {org}.toml with semantic symbols
+
+  Metaphor: NH is topography, Tetra draws the political map.
+
+  ---
+  2. Progressive Resolution
+
+  2.1 Resolution Hierarchy
+
+  | Level | Term      | Example                                   | Specifies
+  | Missing                                  |
+  |-------|-----------|-------------------------------------------|----------------------------------------
+  |------------------------------------------|
+  | 0     | Symbol    | @staging                                  | Deployment stage (semantic)
+  | Host, user, auth, path, operation        |
+  | 1     | Address   | 143.198.45.123                            | Network location (IP/host)
+  | User, auth, path, operation              |
+  | 2     | Channel   | dev@143.198.45.123                        | User + network location
+  | Auth method, validation, path, operation |
+  | 3     | Connector | root:dev@143.198.45.123 -i ~/.ssh/key     | Authenticated channel (dual-role)
+  | Validation status, resource path         |
+  | 4     | Handle    | Validated connector (pre-flight ✓)        | Channel is reachable
+  | Resource path, operation                 |
+  | 5     | Locator   | dev@143.198.45.123:~/.ssh/authorized_keys | Resource address (file/path on remote)
+  | Operation type (read/write)              |
+  | 6     | Binding   | write(Locator) or read(Locator)           | I/O operation + validated resource
+  | Execution context (where cmd runs)       |
+  | 7     | Plan      | ssh root:dev@... 'cat > ~/.ssh/...'       | Complete executable command
+  | Nothing - ready to execute               |
+
+  2.2 Key Definitions
+
+  Symbol = Human semantic label (@staging)Address = Machine-findable location (143.198.45.123)Channel =
+  User + Address (dev@143.198.45.123)Connector = Authenticated Channel with dual-role syntax
+  (root:dev@143.198.45.123 -i key)Handle = Validated Connector (pre-flight check passed)Locator = Handle +
+  Resource Path (dev@143.198.45.123:~/.ssh/authorized_keys)Binding = Locator + Operation + Validation
+  (write(Locator) with validation ✓)Plan = Binding + Execution Context (complete executable command)
+
+  ---
+  3. File Structure
+
+  3.1 NH Directory Structure
+
+  ~/nh/{org}/
+  ├── digocean.json    # SINGLE SOURCE OF TRUTH (raw from DO API)
+  └── init.sh          # Organization initialization
+
+  3.2 Tetra Directory Structure
+
+  ~/tetra/orgs/{org}/
+  ├── {org}.mapping.json     # Explicit infrastructure → environment mapping
+  ├── {org}.toml             # Semantic config with [symbols] and [connectors]
+  ├── services/              # Service definitions
+  ├── nginx/                 # Web server configs
+  └── deployment/            # Deployment strategies
+
+  ~/tetra/logs/
+  └── tetra.jsonl            # Unified action log (all modules)
+
+  3.3 Discovery Process
+
+  Discovery bridges raw infrastructure and semantic environments.
+
+  Command:
+    tetra org discover ~/nh/{org}/digocean.json
+
+  Workflow:
+    1. Parse digocean.json (droplets, IPs, domains, volumes)
+    2. Display discovered resources in human-readable tables
+    3. Auto-suggest environment mappings based on tags/DNS
+    4. User confirms or overrides suggestions interactively
+    5. Generate explicit mapping file
+
+  3.4 Mapping File Format
+
+  Location: /tmp/{org}_mapping.json (during discovery)
+            ~/tetra/orgs/{org}.mapping.json (persisted)
+
+  Structure:
+    {
+      "org_name": "pixeljam-arcade",
+      "discovered_at": "2025-10-10T19:30:00Z",
+      "source": "/Users/mricos/nh/pixeljam-arcade/digocean.json",
+      "environments": {
+        "local": {
+          "type": "localhost",
+          "address": "127.0.0.1"
+        },
+        "dev": {
+          "droplet_id": 437858577,
+          "droplet_name": "pxjam-arcade-dev01",
+          "address": "137.184.226.163",
+          "private_ip": "10.124.0.4",
+          "domain": "dev.pixeljamarcade.com"
+        },
+        "staging": {
+          "droplet_id": 381467504,
+          "droplet_name": "pxjam-arcade-qa01",
+          "address": "24.199.72.22",
+          "floating_ip": "24.199.72.22",
+          "domain": "qa.pixeljamarcade.com"
+        },
+        "prod": {
+          "droplet_id": 395274922,
+          "droplet_name": "pxjam-arcade-prod01",
+          "address": "164.90.247.44",
+          "floating_ip": "164.90.247.44",
+          "domain": "pixeljamarcade.com"
+        }
+      }
+    }
+
+  3.5 Tetra Configuration Format
+
+  Location: ~/tetra/orgs/{org}/{org}.toml
+
+  Structure:
+    [metadata]
+    name = "pixeljam-arcade"
+    tes_version = "2.1"
+    generated_at = "2025-10-10T19:30:00Z"
+
+    [symbols]
+    # TES Level 0: Semantic symbols map to addresses (Level 1)
+    "@local" = { type = "localhost", address = "127.0.0.1" }
+    "@dev" = { droplet = "pxjam-arcade-dev01", address = "137.184.226.163", type = "remote" }
+    "@staging" = { droplet = "pxjam-arcade-qa01", address = "24.199.72.22", type = "remote" }
+    "@prod" = { droplet = "pxjam-arcade-prod01", address = "164.90.247.44", type = "remote" }
+
+    [connectors]
+    # TES Level 3: Authenticated channels (dual-role: auth_user:work_user@host)
+    "@dev" = {
+        auth_user = "root",
+        work_user = "dev",
+        host = "137.184.226.163",
+        auth_key = "~/.ssh/id_rsa"
+    }
+    "@staging" = {
+        auth_user = "root",
+        work_user = "staging",
+        host = "24.199.72.22",
+        auth_key = "~/.ssh/id_rsa"
+    }
+    "@prod" = {
+        auth_user = "root",
+        work_user = "production",
+        host = "164.90.247.44",
+        auth_key = "~/.ssh/id_rsa"
+    }
+
+    [infrastructure]
+    # Reference data from discovery (read-only)
+    provider = "digitalocean"
+    region = "sfo3"
+
+    [environments.local]
+    description = "Local development environment"
+    domain = "localhost"
+
+    [environments.dev]
+    description = "Dev environment"
+    symbol = "@dev"
+    connector = "${connectors.@dev}"
+    server_ip = "137.184.226.163"
+    domain = "dev.pixeljamarcade.com"
+
+  ---
+  4. Dual-Role Authentication
+
+  4.1 Syntax
+
+  [auth_user[:work_user]]@host
+
+  Examples:
+  root@143.198.45.123           # Single user (auth=work=root)
+  root:dev@143.198.45.123       # Auth as root, operate as dev
+  staging:app@$paq              # Auth as staging, work as app user
+
+  4.2 Connector Structure
+
+  CONNECTOR = {
+    auth_user: string,      # SSH authentication user
+    work_user: string,      # Runtime user (defaults to auth_user if omitted)
+    host: string,           # IP or hostname
+    auth_key: path,         # SSH key for authentication
+  }
+
+  4.3 Command Pattern
+
+  ssh -i {auth_key} {auth_user}@{host} "sudo -u {work_user} <command>"
+                     ↑                              ↑
+                     root                          dev
+
+  ---
+  5. Action System
+
+  5.1 Action Lifecycle
+
+  Template (abstract) → Qualified (concrete) → Execute (safe)
+       declare              resolve              validate + run
+
+  5.2 Action Template (Abstract)
+
+  # Module declares what it CAN do
+  declare_action_template "rekey" \
+    "module=tkm" \
+    "inputs=source:locator,target:locator" \
+    "effects=display,log,audit"
+
+  5.3 Fully Qualified Action (Concrete)
+
+  # After user provides inputs and validation passes
+  ACTION_tkm_rekey_local_to_dev=(
+    [module]="tkm"
+    [verb]="rekey"
+    [noun]="local_to_dev"
+    [inputs]="binding_source,binding_target"
+    [validated]="true"
+    [ready]="true"
+  )
+
+  5.4 Naming Convention
+
+  # Pattern: mod.verb:noun
+
+  tkm.rekey:local_to_dev      # Fully qualified
+  deploy.push:staging         # One input resolved
+  tsm.start:devpages          # Service name as noun
+  show:demo                   # No module prefix (TUI context)
+
+  Operators:
+  - . separates module from verb (namespace)
+  - : pairs verb with noun (PAIR_SEP)
+
+  5.5 Action Signature
+
+  ACTION :: Input* → Output+ where Effect*
+
+  Components:
+    - Input: Source Locator (read from)
+    - Output: Target Locator (write to)
+    - Display: @tui[content] (where user sees progress)
+    - Effect: Log | Status | Metric | Audit
+
+  Examples:
+    show:demo :: () → @tui[content]
+
+    configure:demo :: () → @tui[content]
+      where Log(@app[stdout])
+
+    tkm.rekey :: (source:locator) → (target:locator)
+      where Display(@tui[content]) ∧ Log(@app[stdout]) ∧ Audit(@tetra[actions])
+
+  ---
+  6. Execution Example: tkm.rekey
+
+  6.1 Template → Qualified → Execute
+
+  Step 1: Template Declaration
+
+  # bash/tkm/actions.sh
+  declare_action_template "rekey" \
+    "module=tkm" \
+    "inputs=source:locator,target:locator"
+
+  Step 2: User Initiates (Context provides inputs)
+
+  # User action: tkm.rekey @local→@dev
+  # Context: (ENV=DEV, MODE=Deploy)
+
+  Step 3: Symbol Resolution
+
+  # Resolve @local (Symbol → Locator)
+  source_binding=$(resolve_symbol "@local")
+  # Result: Binding{
+  #   symbol: "@local",
+  #   locator: "/Users/mricos/.ssh/id_rsa.pub",
+  #   validated: true
+  # }
+
+  # Resolve @dev (Symbol → Connector → Locator)
+  target_binding=$(resolve_symbol "@dev")
+  # Result: Binding{
+  #   symbol: "@dev",
+  #   address: "143.198.45.123",
+  #   channel: "dev@143.198.45.123",
+  #   connector: "root:dev@143.198.45.123 -i ~/.ssh/tetra_keys/root_access",
+  #   locator: "/home/dev/.ssh/authorized_keys",
+  #   validated: true
+  # }
+
+  Step 4: Validate Bindings
+
+  # Pre-flight checks
+  validate_binding "$source_binding" || error "Source file not readable"
+  validate_binding "$target_binding" || error "Target SSH unreachable"
+
+  Step 5: Create Fully Qualified Action
+
+  ACTION_tkm_rekey_local_to_dev=(
+    [module]="tkm"
+    [verb]="rekey"
+    [noun]="local_to_dev"
+    [inputs]="$source_binding,$target_binding"
+    [validated]="true"
+    [ready]="true"
+  )
+
+  Step 6: Execute
+
+  execute_action "tkm.rekey:local_to_dev"
+
+  # Generates execution plan:
+  PLAN = scp -i ~/.ssh/tetra_keys/root_access \
+    /Users/mricos/.ssh/id_rsa.pub \
+    root@143.198.45.123:/tmp/new_key.pub \
+    && \
+    ssh -i ~/.ssh/tetra_keys/root_access \
+      root@143.198.45.123 \
+      "sudo -u dev cp /tmp/new_key.pub /home/dev/.ssh/authorized_keys && \
+       sudo -u dev chmod 600 /home/dev/.ssh/authorized_keys && \
+       rm /tmp/new_key.pub"
+
+  6.2 Resolution Trace
+
+  Symbol           @local                    @dev
+    ↓                                          ↓
+  Address          localhost                 143.198.45.123
+    ↓                                          ↓
+  Channel          user@localhost            dev@143.198.45.123
+    ↓                                          ↓
+  Connector        (local filesystem)        root:dev@143.198.45.123 -i key
+    ↓                                          ↓
+  Handle           ✓ validated               ✓ validated (SSH pre-flight)
+    ↓                                          ↓
+  Locator          ~/.ssh/id_rsa.pub         dev@143.198.45.123:~/.ssh/authorized_keys
+    ↓                                          ↓
+  Binding          read(Locator)             write(Locator) as dev
+    ↓                                          ↓
+  Plan             cat ~/.ssh/id_rsa.pub | ssh root:dev@143... 'sudo -u dev cat > ...'
+
+  ---
+  7. Unified Logging
+
+  7.1 Single Entry Point
+
+  # All modules use one function
+  tetra_log <module> <verb> <subject> <status> [metadata_json]
+
+  # Examples:
+  tetra_log tkm rekey "local_to_dev" try '{}'
+  tetra_log tkm rekey "local_to_dev" success '{"duration_ms":234}'
+  tetra_log tsm start "devpages-3000" success '{"pid":12345,"port":3000}'
+  tetra_log deploy push "staging" fail '{"error":"SSH timeout"}'
+
+  7.2 Log Format
+
+  # Single file: $TETRA_DIR/logs/tetra.jsonl
+  # JSON Lines format (one action per line)
+
+  {
+    "timestamp": "2025-10-03T14:23:45Z",
+    "module": "tkm",
+    "verb": "rekey",
+    "subject": "local_to_dev",
+    "status": "success",
+    "exec_at": "@local",
+    "metadata": {"duration_ms": 234}
+  }
+
+  7.3 Status Types
+
+  - try - Action initiated
+  - success - Action completed successfully
+  - fail - Action failed
+  - event - Non-try/fail event (crash, health check, etc.)
+
+  ---
+  8. Demo 012 Integration Example
+
+  8.1 Action Registry (demo/basic/012/action_registry.sh)
+
+  # Action template declarations
+  declare_action "show_demo" \
+      "verb=show" \
+      "noun=demo" \
+      "output=@tui[content]" \
+      "immediate=true"
+
+  declare_action "configure_demo" \
+      "verb=configure" \
+      "noun=demo" \
+      "output=@tui[content]" \
+      "effects=@app[stdout]" \
+      "immediate=false"
+
+  declare_action "test_demo" \
+      "verb=test" \
+      "noun=demo" \
+      "output=@tui[content]" \
+      "effects=@tui[footer],@app[stdout]" \
+      "immediate=false"
+
+  8.2 Functor: Context → Actions
+
+  # F: (ENV, MODE) ↦ Set[FullyQualifiedAction]
+
+  get_actions() {
+      local env="${ENVIRONMENTS[$ENV_INDEX]}"
+      local mode="${MODES[$MODE_INDEX]}"
+
+      case "$env:$mode" in
+          "APP:Learn")
+              echo "show:demo show:help"
+              ;;
+          "APP:Try")
+              echo "show:demo configure:demo show:help"
+              ;;
+          "DEV:"*)
+              echo "show:demo configure:demo test:demo show:config show:routes"
+              ;;
+      esac
+  }
+
+  8.3 Action Execution with Logging
+
+  execute_current_action() {
+      local action="${actions[$ACTION_INDEX]}"
+
+      # Log action attempt
+      tetra_log tui "${action%%:*}" "${action##*:}" try '{}'
+      local start_time=$(date +%s%3N)
+
+      # Validate (ensure fully qualified)
+      if ! validate_action "$action"; then
+          tetra_log tui "${action%%:*}" "${action##*:}" fail '{"error":"Validation failed"}'
+          return 1
+      fi
+
+      # Execute
+      local output=$(execute_action_impl "$action")
+      local exit_code=$?
+      local duration=$(($(date +%s%3N) - start_time))
+
+      if [[ $exit_code -eq 0 ]]; then
+          # Route output to declared targets
+          route_output "${action_def[output]}" "$output"
+
+          # Handle effects
+          if [[ -n "${action_def[effects]}" ]]; then
+              route_effects "${action_def[effects]}" "$action"
+          fi
+
+          # Log success
+          tetra_log tui "${action%%:*}" "${action##*:}" success "{\"duration_ms\":$duration}"
+      else
+          tetra_log tui "${action%%:*}" "${action##*:}" fail
+  "{\"duration_ms\":$duration,\"exit_code\":$exit_code}"
+      fi
+  }
+
+  8.4 Output vs Effects
+
+  # Primary output (one destination)
+  route_output() {
+      local output_target="$1"
+      local content="$2"
+
+      TUI_BUFFERS["$output_target"]="$content"
+  }
+
+  # Side effects (multiple destinations)
+  route_effects() {
+      local effects="$1"  # Comma-separated
+      local action="$2"
+
+      IFS=',' read -ra effect_list <<< "$effects"
+      for effect in "${effect_list[@]}"; do
+          case "$effect" in
+              @tui[footer])
+                  TUI_BUFFERS[@tui[footer]]="Completed: $action"
+                  ;;
+              @app[stdout])
+                  APP_STDOUT_STREAM+=("$(date '+%H:%M:%S') $action completed")
+                  ;;
+          esac
+      done
+  }
+
+  ---
+  9. Validation Requirements
+
+  9.1 Fully Qualified Check
+
+  is_fully_qualified() {
+      local action="$1"
+      local -n action_def="ACTION_${action//:/_}"
+
+      # Check all required inputs are resolved
+      if [[ -n "${action_def[inputs]}" ]]; then
+          # Has unresolved symbols?
+          if [[ "${action_def[inputs]}" =~ @[a-z]+$ ]]; then
+              return 1
+          fi
+      fi
+
+      # Check validation status
+      if [[ "${action_def[validated]}" != "true" ]]; then
+          return 1
+      fi
+
+      return 0
+  }
+
+  9.2 Pre-flight Validation
+
+  validate_binding() {
+      local binding="$1"
+
+      # Extract components
+      local symbol="${binding[symbol]}"
+      local connector="${binding[connector]}"
+      local locator="${binding[locator]}"
+
+      # Test connectivity
+      if [[ "$connector" =~ @ ]]; then
+          # Remote: test SSH
+          local host="${connector##*@}"
+          local user="${connector%%@*}"
+          timeout 5 ssh -o BatchMode=yes -o ConnectTimeout=5 "$user@$host" "echo ok" &>/dev/null
+          return $?
+      else
+          # Local: test file access
+          [[ -r "$locator" ]]
+          return $?
+      fi
+  }
+
+  ---
+  10. Query System
+
+  10.1 Log Queries
+
+  # View recent actions
+  tetra log --tail 20
+
+  # Filter by module
+  tetra log --module tkm
+
+  # Filter by status
+  tetra log --status fail
+
+  # Statistics
+  tetra log --stats
+
+  # Output:
+  # tkm.rekey         23/25 (92% success)
+  # deploy.push       45/50 (90% success)
+  # tsm.start        120/125 (96% success)
+
+  ---
+  11. Success Criteria
+
+  11.1 Type Safety
+
+  ✅ Cannot execute partial actions (missing inputs)✅ All inputs validated before execution✅ Clear error
+  messages for validation failures
+
+  11.2 Accountability
+
+  ✅ Every action logged to unified log✅ Success/failure tracking with metrics✅ Audit trail for
+  infrastructure changes
+
+  11.3 Clarity
+
+  ✅ Clear terminology (Symbol → Connector → Binding → Plan)✅ Fully qualified action names encode
+  context✅ Separation of Output (primary) vs Effects (side effects)
+
+  11.4 Compositionality
+
+  ✅ Functor from Context to Actions preserves structure✅ Actions compose via templates + qualification✅
+  Modules integrate via single logging API
+
+  ---
+  Appendix: Operator Reference
+
+  | Operator         | Symbol | Name        | Semantics           | Example        |
+  |------------------|--------|-------------|---------------------|----------------|
+  | Module separator | .      | DOT_SEP     | Module from verb    | tkm.rekey      |
+  | Pairing          | :      | PAIR_SEP    | Verb with noun      | rekey:keys     |
+  | Contract         | ::     | ENDPOINT_OP | Type signature      | ACTION :: Type |
+  | Flow             | →      | FLOW_OP     | Input to output     | @local → @dev  |
+  | Route            | @      | ROUTE_OP    | Target annotation   | @tui[content]  |
+  | Cross product    | ×      | CROSS_OP    | Context composition | ENV × MODE     |
+
+  ---
+  End of Specification
+
