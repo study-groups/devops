@@ -116,13 +116,23 @@ _spaces_resolve() {
         return 1
     fi
 
-    # Parse storage config
+    # Parse storage config - extract only from [storage.spaces] section
     local endpoint region access_key secret_key default_bucket
-    endpoint=$(grep -A20 '^\[storage\.spaces\]' "$toml_file" | grep '^endpoint' | cut -d'=' -f2 | tr -d ' "')
-    region=$(grep -A20 '^\[storage\.spaces\]' "$toml_file" | grep '^region' | cut -d'=' -f2 | tr -d ' "')
-    access_key=$(grep -A20 '^\[storage\.spaces\]' "$toml_file" | grep '^access_key' | cut -d'=' -f2 | tr -d ' "')
-    secret_key=$(grep -A20 '^\[storage\.spaces\]' "$toml_file" | grep '^secret_key' | cut -d'=' -f2 | tr -d ' "')
-    default_bucket=$(grep -A20 '^\[storage\.spaces\]' "$toml_file" | grep '^default_bucket' | cut -d'=' -f2 | tr -d ' "')
+
+    # Use awk to extract values only from the [storage.spaces] section
+    # Range pattern: from [storage.spaces] to next section header (but not the starting one)
+    local storage_section
+    storage_section=$(awk '/^\[storage\.spaces\]/ {found=1; next} found && /^\[/ {exit} found {print}' "$toml_file")
+
+    endpoint=$(echo "$storage_section" | grep '^endpoint' | head -1 | cut -d'=' -f2 | tr -d ' "')
+    region=$(echo "$storage_section" | grep '^region' | head -1 | cut -d'=' -f2 | tr -d ' "')
+    access_key=$(echo "$storage_section" | grep '^access_key' | head -1 | cut -d'=' -f2 | tr -d ' "')
+    secret_key=$(echo "$storage_section" | grep '^secret_key' | head -1 | cut -d'=' -f2 | tr -d ' "')
+    default_bucket=$(echo "$storage_section" | grep '^default_bucket' | head -1 | cut -d'=' -f2 | tr -d ' "')
+
+    # Expand environment variables in credentials (e.g., ${DO_SPACES_KEY})
+    access_key=$(eval echo "$access_key")
+    secret_key=$(eval echo "$secret_key")
 
     # Use default bucket if not specified
     if [[ -z "$bucket" ]]; then
