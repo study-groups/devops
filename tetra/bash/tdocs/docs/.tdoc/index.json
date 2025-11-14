@@ -1,0 +1,52 @@
+{
+  "module": "tdocs",
+  "documents": [
+    {
+  "timestamp": 1762000562,
+  "doc_path": "/Users/mricos/src/devops/tetra/bash/tdocs/docs/README.md",
+  "category": "other",
+  "type": "guide",
+  "tags": ["bug-fix", "plan", "refactor", "tdocs"],
+  "module": "tdocs",
+  "evidence_weight": "secondary",
+  "created": "2025-11-01T05:36:02Z",
+  "updated": "2025-11-01T05:36:02Z",
+  "status": "discovered",
+  "hash": "f7f3b56c62db3bc3bfc999f9b28037cade92aeeb7d2b7f1dffa2b46d9d75d673"
+}
+,
+    {
+  "timestamp": 1762316355,
+  "doc_path": "/Users/mricos/src/devops/tetra/bash/tdocs/docs/TDS_INTEGRATION.md",
+  "category": "other",
+  "type": "standard",
+  "tags": ["bug-fix", "plan", "refactor", "tdocs"],
+  "module": "tdocs",
+  "evidence_weight": "secondary",
+  "created": "2025-11-04T20:19:15Z",
+  "updated": "2025-11-04T20:19:15Z",
+  "status": "discovered",
+  "hash": "489a99e4c8054d26e748dce231762f9c3d3702a0b1d02f1b54ad45ca68a7b6c3",
+  "completeness_level": "",
+  "implements": [],
+  "integrates": []
+}
+,
+    {
+  "timestamp": 1762339823,
+  "doc_path": "/Users/mricos/src/devops/tetra/bash/tdocs/docs/PROMPT_DESIGN.md",
+  "category": "other",
+  "type": "guide",
+  "tags": ["tdocs"],
+  "module": "tdocs",
+  "evidence_weight": "secondary",
+  "created": "2025-11-05T02:50:23Z",
+  "updated": "2025-11-05T02:50:23Z",
+  "status": "discovered",
+  "hash": "c108abf438d3a81c67af9327da0e7dd4072aaf4822cadf4fb900ac758f3168e4",
+  "completeness_level": "",
+  "implements": [],
+  "integrates": []
+}
+  ]
+}

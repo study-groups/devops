@@ -1,0 +1,7 @@
+# Test file for TDS inline table rendering
+
+[connectors]
+# Format: [auth_user:]work_user@host with auth_key
+"@dev" = { auth_user = "root", work_user = "dev", host = "137.184.226.163", auth_key = "~/.ssh/id_rsa" }
+"@staging" = { auth_user = "root", work_user = "root", host = "24.199.72.22", auth_key = "~/.ssh/id_rsa" }
+"@prod" = { auth_user = "root", work_user = "prod", host = "164.90.247.44", auth_key = "~/.ssh/id_rsa" }
