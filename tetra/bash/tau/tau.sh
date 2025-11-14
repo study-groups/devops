@@ -109,6 +109,19 @@ EOF
             # Ensure runtime directory exists
             mkdir -p "$TAU_RUNTIME_DIR"
 
+            # Clean stale socket if present
+            if [[ -S "$TAU_SOCKET" ]]; then
+                # Test if socket is alive by sending STATUS command with timeout
+                if timeout 1 "$TAU_SEND_BINARY" "STATUS" &>/dev/null; then
+                    echo "✗ tau service already running"
+                    tau status
+                    return 0
+                else
+                    echo "Removing stale socket..."
+                    rm -f "$TAU_SOCKET"
+                fi
+            fi
+
             # Use TSM to start tau service
             if tsm start --name tau "$TAU_BINARY"; then
                 echo "✓ tau audio engine started"
