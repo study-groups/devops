@@ -774,7 +774,7 @@ tsm_clean_stale_processes() {
 
         if [[ ! -f "$meta_file" ]]; then
             warn "No meta.json in $name, removing entire directory"
-            rm -rf "$process_dir"
+            _tsm_safe_remove_dir "$process_dir"
             ((cleaned++))
             continue
         fi
@@ -785,7 +785,7 @@ tsm_clean_stale_processes() {
 
         if [[ -z "$pid" ]]; then
             warn "Invalid metadata (no PID) in $name, removing"
-            rm -rf "$process_dir"
+            _tsm_safe_remove_dir "$process_dir"
             ((cleaned++))
             continue
         fi
@@ -793,7 +793,7 @@ tsm_clean_stale_processes() {
         # Check if PID is alive
         if ! tsm_is_pid_alive "$pid"; then
             info "Cleaning stale process tracking: $name (PID $pid is dead)"
-            rm -rf "$process_dir"
+            _tsm_safe_remove_dir "$process_dir"
             ((cleaned++))
             continue
         fi
@@ -807,7 +807,7 @@ tsm_clean_stale_processes() {
                 actual_pid=$(lsof -ti :$port 2>/dev/null | head -1)
                 if [[ -n "$actual_pid" && "$actual_pid" != "$pid" ]]; then
                     warn "PID $pid alive but port $port has PID $actual_pid, removing stale tracking for $name"
-                    rm -rf "$process_dir"
+                    _tsm_safe_remove_dir "$process_dir"
                     ((cleaned++))
                     continue
                 fi

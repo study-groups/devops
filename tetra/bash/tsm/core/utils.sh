@@ -407,8 +407,14 @@ _tsm_validate_command() {
     local cmd="$1"
 
     # Check for obviously malicious patterns
-    if [[ "$cmd" =~ (rm[[:space:]]+-rf[[:space:]]+/|eval[[:space:]]|source[[:space:]]+/dev/) ]]; then
+    if [[ "$cmd" =~ (rm[[:space:]]+-rf[[:space:]]+/|eval[[:space:]]|source[[:space:]]+/dev/|;[[:space:]]*rm|&&[[:space:]]*rm|\|[[:space:]]*rm) ]]; then
         echo "tsm: Command contains suspicious pattern: $cmd" >&2
+        return 1
+    fi
+
+    # Check for shell metacharacters that could enable command injection
+    if [[ "$cmd" =~ (\$\(|\`|;[[:space:]]*[a-z]|&&|\|\||>>) ]]; then
+        echo "tsm: Command contains shell metacharacters: $cmd" >&2
         return 1
     fi
 

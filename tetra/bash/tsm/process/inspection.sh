@@ -403,12 +403,23 @@ tetra_tsm_ports() {
 }
 
 tetra_tsm_info() {
-    # Parse arguments
-    local pattern="" verbose=false
+    # Parse arguments with verbosity levels
+    # -v = level 1 (basic verbose)
+    # -vv = level 2 (more details)
+    # -vvv = level 3 (maximum detail)
+    local pattern="" verbosity=0
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            -vvv)
+                verbosity=3
+                shift
+                ;;
+            -vv)
+                verbosity=2
+                shift
+                ;;
             -v|--verbose)
-                verbose=true
+                verbosity=1
                 shift
                 ;;
             -*)
@@ -422,7 +433,7 @@ tetra_tsm_info() {
         esac
     done
 
-    [[ -n "$pattern" ]] || { echo "tsm: info <process|id> [--verbose]" >&2; return 64; }
+    [[ -n "$pattern" ]] || { echo "tsm: info <process|id> [-v|-vv|-vvv]" >&2; return 64; }
 
     # Colors
     local C_TITLE='\033[1;36m'     # Cyan bold
@@ -565,6 +576,23 @@ tetra_tsm_info() {
         printf "  ${C_LABEL}%-14s${C_NC} ${C_GRAY}none${C_NC}\n" "File:"
     fi
 
+    # Git metadata (PM2-style)
+    local git_branch git_revision git_comment
+    git_branch=$(jq -r '.git.branch // empty' "$meta_file" 2>/dev/null)
+    git_revision=$(jq -r '.git.revision // empty' "$meta_file" 2>/dev/null)
+    git_comment=$(jq -r '.git.comment // empty' "$meta_file" 2>/dev/null)
+
+    if [[ -n "$git_branch" ]]; then
+        echo ""
+        echo -e "${C_SECTION}REVISION CONTROL${C_NC}"
+        printf "  ${C_LABEL}%-14s${C_NC} ${C_VALUE}git${C_NC}\n" "Type:"
+        printf "  ${C_LABEL}%-14s${C_NC} ${C_VALUE}%s${C_NC}\n" "Branch:" "$git_branch"
+        printf "  ${C_LABEL}%-14s${C_NC} ${C_VALUE}%s${C_NC}\n" "Revision:" "$git_revision"
+        if [[ -n "$git_comment" ]]; then
+            printf "  ${C_LABEL}%-14s${C_NC} ${C_GRAY}%s${C_NC}\n" "Comment:" "$git_comment"
+        fi
+    fi
+
     echo ""
     echo -e "${C_SECTION}LOG FILES${C_NC}"
     local stdout_log="$TSM_PROCESSES_DIR/$name/current.out"
@@ -607,8 +635,8 @@ tetra_tsm_info() {
 
     printf "  ${C_GRAY}%-14s  Use 'tsm logs %s' to view logs${C_NC}\n" "" "$pattern"
 
-    # Verbose mode: show metadata and additional paths
-    if [[ "$verbose" == "true" ]]; then
+    # Verbosity level 1 (-v): Show metadata paths
+    if [[ $verbosity -ge 1 ]]; then
         echo ""
         echo -e "${C_SECTION}METADATA & PATHS${C_NC}"
         local meta_short=$(_tsm_shorten_path "$meta_file" "$max_path_width")
@@ -622,7 +650,10 @@ tetra_tsm_info() {
             local env_snap_short=$(_tsm_shorten_path "$TSM_PROCESSES_DIR/$name.env" "$max_path_width")
             printf "  ${C_LABEL}%-14s${C_NC} ${C_GRAY}%s${C_NC}\n" "env snapshot:" "$env_snap_short"
         fi
+    fi
 
+    # Verbosity level 2 (-vv): Add system resources and recent logs
+    if [[ $verbosity -ge 2 ]]; then
         echo ""
         echo -e "${C_SECTION}SYSTEM RESOURCES${C_NC}"
         local resources="$(_tsm_get_resource_summary)"
@@ -638,6 +669,17 @@ tetra_tsm_info() {
         if [[ -f "$stderr_log" && -s "$stderr_log" ]]; then
             echo -e "  ${C_ERROR}stderr:${C_NC}"
             tail -5 "$stderr_log" 2>/dev/null | sed 's/^/    /' || echo -e "    ${C_GRAY}(empty)${C_NC}"
+        fi
+    fi
+
+    # Verbosity level 3 (-vvv): Add full metadata JSON dump
+    if [[ $verbosity -ge 3 ]]; then
+        echo ""
+        echo -e "${C_SECTION}FULL METADATA (JSON)${C_NC}"
+        if [[ -f "$meta_file" ]]; then
+            jq '.' "$meta_file" 2>/dev/null | sed 's/^/  /' || echo -e "  ${C_ERROR}(failed to parse JSON)${C_NC}"
+        else
+            echo -e "  ${C_ERROR}(metadata file not found)${C_NC}"
         fi
     fi
 

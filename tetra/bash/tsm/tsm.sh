@@ -136,7 +136,13 @@ tsm() {
             tetra_tsm_show_service "$@"
             ;;
         startup)
-            tetra_tsm_startup "$@"
+            # Handle 'startup status' subcommand
+            if [[ "$1" == "status" ]]; then
+                shift
+                tetra_tsm_startup_status "$@"
+            else
+                tetra_tsm_startup "$@"
+            fi
             ;;
         info)
             tetra_tsm_info "$@"

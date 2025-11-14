@@ -157,6 +157,84 @@ EOF
 }
 
 # Start all enabled services
+# Show startup status (what services would start)
+tetra_tsm_startup_status() {
+    local enabled_dir="$TETRA_DIR/tsm/services-enabled"
+    local services_dir="$TETRA_DIR/tsm/services-available"
+
+    echo "🚀 TSM Startup Configuration"
+    echo
+
+    # Check if daemon is enabled
+    if command -v systemctl >/dev/null 2>&1; then
+        local daemon_status=$(systemctl is-enabled tsm.service 2>/dev/null || echo "not-installed")
+        case "$daemon_status" in
+            enabled)
+                echo "✅ Systemd daemon: enabled (will start on boot)"
+                ;;
+            disabled)
+                echo "⚪ Systemd daemon: disabled (will NOT start on boot)"
+                echo "   Run 'tsm daemon enable' to enable boot startup"
+                ;;
+            *)
+                echo "⚠️  Systemd daemon: not installed"
+                echo "   Run 'tsm daemon install @dev' to set up boot startup"
+                ;;
+        esac
+        echo
+    fi
+
+    # List enabled services
+    echo "📋 Services Configured for Autostart:"
+    if [[ ! -d "$enabled_dir" ]]; then
+        echo "  No services enabled"
+        echo "  Use 'tsm enable <service>' to enable services for autostart"
+        return 0
+    fi
+
+    local enabled_count=0
+    for service_link in "$enabled_dir"/*.tsm; do
+        [[ -L "$service_link" ]] || continue
+
+        local service_name=$(basename "$service_link" .tsm)
+        local service_file="$services_dir/${service_name}.tsm"
+
+        if [[ ! -f "$service_file" ]]; then
+            echo "  ⚠️  $service_name (service file missing)"
+            continue
+        fi
+
+        # Source to get details
+        local TSM_COMMAND="" TSM_PORT=""
+        (source "$service_file" 2>/dev/null)
+        local cmd="$TSM_COMMAND"
+        local port="$TSM_PORT"
+
+        local port_info=""
+        [[ -n "$port" ]] && port_info=" :$port"
+
+        # Check if currently running
+        local running_status=""
+        if tetra_tsm_is_running "$service_name" 2>/dev/null; then
+            running_status=" (currently running)"
+        fi
+
+        echo "  ✅ $service_name$port_info$running_status"
+        ((enabled_count++))
+    done
+
+    if [[ $enabled_count -eq 0 ]]; then
+        echo "  No services enabled"
+        echo "  Use 'tsm enable <service>' to enable services for autostart"
+    fi
+
+    echo
+    echo "Commands:"
+    echo "  tsm services --enabled     - Show enabled services with details"
+    echo "  tsm startup                - Start all enabled services now"
+    echo "  tsm daemon enable          - Enable boot startup (systemd)"
+}
+
 tetra_tsm_startup() {
     local enabled_dir="$TETRA_DIR/tsm/services-enabled"
 
@@ -330,22 +408,80 @@ tetra_tsm_disable() {
 tetra_tsm_list_services() {
     local services_dir="$TETRA_DIR/tsm/services-available"
     local enabled_dir="$TETRA_DIR/tsm/services-enabled"
-    local detail="${1:-}"
 
-    echo "📋 Saved Service Definitions:"
+    # Parse arguments
+    local detail=false
+    local filter="all"  # all, enabled, disabled, available
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -d|--detail)
+                detail=true
+                shift
+                ;;
+            --enabled)
+                filter="enabled"
+                shift
+                ;;
+            --disabled)
+                filter="disabled"
+                shift
+                ;;
+            --available)
+                filter="all"
+                shift
+                ;;
+            *)
+                echo "tsm: unknown flag '$1' for services command" >&2
+                echo "Usage: tsm services [--enabled|--disabled|--available] [-d|--detail]" >&2
+                return 64
+                ;;
+        esac
+    done
+
+    # Set title based on filter
+    case "$filter" in
+        enabled)
+            echo "📋 Enabled Services (Auto-start on Boot):"
+            ;;
+        disabled)
+            echo "📋 Disabled Services:"
+            ;;
+        *)
+            echo "📋 Saved Service Definitions:"
+            ;;
+    esac
+
     if [[ -d "$services_dir" ]]; then
         local found_services=false
+        local shown_count=0
+
         for service_file in "$services_dir"/*.tsm; do
             [[ -f "$service_file" ]] || continue
             found_services=true
 
             local service_name=$(basename "$service_file" .tsm)
+            local is_enabled=false
             local enabled_status=""
+
             if [[ -L "$enabled_dir/${service_name}.tsm" ]]; then
+                is_enabled=true
                 enabled_status=" ✅"
             else
                 enabled_status=" ⚪"
             fi
+
+            # Apply filter
+            case "$filter" in
+                enabled)
+                    [[ "$is_enabled" != "true" ]] && continue
+                    ;;
+                disabled)
+                    [[ "$is_enabled" == "true" ]] && continue
+                    ;;
+            esac
+
+            ((shown_count++))
 
             # Source service definition to get details
             local TSM_NAME="" TSM_COMMAND="" TSM_CWD="" TSM_ENV_FILE="" TSM_PORT="" TSM_DESCRIPTION=""
@@ -355,7 +491,7 @@ tetra_tsm_list_services() {
             local env="$TSM_ENV_FILE"
             local desc="$TSM_DESCRIPTION"
 
-            if [[ "$detail" == "--detail" || "$detail" == "-d" ]]; then
+            if [[ "$detail" == "true" ]]; then
                 echo "  📄 $service_name$enabled_status"
                 echo "      Command: $cmd"
                 [[ -n "$port" ]] && echo "      Port: $port"
@@ -371,14 +507,26 @@ tetra_tsm_list_services() {
 
         if [[ "$found_services" == "false" ]]; then
             echo "  No saved services found"
+        elif [[ $shown_count -eq 0 ]]; then
+            case "$filter" in
+                enabled)
+                    echo "  No enabled services found"
+                    echo "  Use 'tsm enable <service>' to enable services for autostart"
+                    ;;
+                disabled)
+                    echo "  No disabled services found"
+                    ;;
+            esac
         fi
     else
         echo "  Services directory not found: $services_dir"
     fi
 
     echo
-    echo "Legend: ✅ enabled for autostart, ⚪ disabled"
-    echo "Usage: tsm list-services [-d|--detail]"
+    if [[ "$filter" == "all" ]]; then
+        echo "Legend: ✅ enabled for autostart, ⚪ disabled"
+    fi
+    echo "Usage: tsm services [--enabled|--disabled|--available] [-d|--detail]"
 }
 
 # Show service details
@@ -428,6 +576,7 @@ tetra_tsm_show_service() {
 export -f tetra_tsm_save
 export -f _tsm_save_from_process
 export -f tetra_tsm_startup
+export -f tetra_tsm_startup_status
 export -f tetra_tsm_start_service
 export -f tetra_tsm_enable
 export -f tetra_tsm_disable

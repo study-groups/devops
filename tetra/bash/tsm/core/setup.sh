@@ -10,8 +10,19 @@ tetra_tsm_setup() {
     if [[ "$OSTYPE" == "darwin"* ]]; then
         local util_linux_bin=""
 
-        # Try multiple locations (ARM homebrew, Intel homebrew, custom prefix)
-        for prefix in "/opt/homebrew" "$HOMEBREW_PREFIX" "/usr/local"; do
+        # Try to detect Homebrew prefix dynamically first
+        local brew_prefix=""
+        if command -v brew >/dev/null 2>&1; then
+            brew_prefix=$(brew --prefix 2>/dev/null)
+        fi
+
+        # Try multiple locations in order of preference
+        local prefixes=()
+        [[ -n "$brew_prefix" ]] && prefixes+=("$brew_prefix")
+        [[ -n "$HOMEBREW_PREFIX" ]] && prefixes+=("$HOMEBREW_PREFIX")
+        prefixes+=("/opt/homebrew" "/usr/local")
+
+        for prefix in "${prefixes[@]}"; do
             if [[ -d "$prefix/opt/util-linux/bin" ]]; then
                 util_linux_bin="$prefix/opt/util-linux/bin"
                 break

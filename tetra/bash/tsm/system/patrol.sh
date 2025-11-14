@@ -17,7 +17,7 @@ tsm_patrol_silent() {
 
             # If no metadata, clean up directory
             if [[ ! -f "$meta_file" ]]; then
-                rm -rf "$process_dir"
+                _tsm_safe_remove_dir "$process_dir"
                 cleaned=$((cleaned + 1))
                 continue
             fi
@@ -58,7 +58,7 @@ tsm_patrol() {
             # If no metadata, clean up directory
             if [[ ! -f "$meta_file" ]]; then
                 [[ "$show_output" == "true" ]] && echo "🧹 Removing invalid process directory: $name"
-                rm -rf "$process_dir"
+                _tsm_safe_remove_dir "$process_dir"
                 cleaned=$((cleaned + 1))
                 continue
             fi

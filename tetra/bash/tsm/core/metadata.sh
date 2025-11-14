@@ -36,6 +36,10 @@ tsm_create_metadata() {
     # Create process directory
     mkdir -p "$process_dir"
 
+    # Capture git metadata
+    local git_json
+    git_json=$(_tsm_capture_git_metadata "$cwd")
+
     # Create metadata JSON
     jq -n \
         --arg tsm_id "$tsm_id" \
@@ -50,6 +54,7 @@ tsm_create_metadata() {
         --arg prehook "$prehook" \
         --arg service_type "$service_type" \
         --arg start_time "$start_time" \
+        --argjson git "$git_json" \
         '{
             tsm_id: ($tsm_id | tonumber),
             name: $name,
@@ -65,12 +70,13 @@ tsm_create_metadata() {
             status: "online",
             start_time: ($start_time | tonumber),
             restarts: 0,
-            unstable_restarts: 0
+            unstable_restarts: 0,
+            git: $git
         }' > "$meta_file"
 
     # Clean up ID reservation placeholder if it exists
     local placeholder_dir="$TSM_PROCESSES_DIR/.reserved-$tsm_id"
-    [[ -d "$placeholder_dir" ]] && rm -rf "$placeholder_dir"
+    [[ -d "$placeholder_dir" ]] && _tsm_safe_remove_dir "$placeholder_dir"
 
     echo "$tsm_id"
 }
@@ -203,9 +209,81 @@ tsm_remove_process() {
     local process_dir=$(tsm_get_process_dir "$name")
 
     if [[ -d "$process_dir" ]]; then
-        rm -rf "$process_dir"
+        _tsm_safe_remove_dir "$process_dir"
     fi
 }
+
+# === GIT METADATA FUNCTIONS ===
+
+# Check if a directory is in a git repository
+_tsm_is_git_repo() {
+    local dir="${1:-.}"
+    git -C "$dir" rev-parse --git-dir >/dev/null 2>&1
+}
+
+# Get current git branch name
+_tsm_get_git_branch() {
+    local dir="${1:-.}"
+    if _tsm_is_git_repo "$dir"; then
+        git -C "$dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo ""
+    fi
+}
+
+# Get git commit hash (short version)
+_tsm_get_git_revision() {
+    local dir="${1:-.}"
+    if _tsm_is_git_repo "$dir"; then
+        git -C "$dir" rev-parse --short HEAD 2>/dev/null || echo ""
+    fi
+}
+
+# Get git commit hash (full version)
+_tsm_get_git_revision_full() {
+    local dir="${1:-.}"
+    if _tsm_is_git_repo "$dir"; then
+        git -C "$dir" rev-parse HEAD 2>/dev/null || echo ""
+    fi
+}
+
+# Get last commit message
+_tsm_get_git_commit_message() {
+    local dir="${1:-.}"
+    if _tsm_is_git_repo "$dir"; then
+        git -C "$dir" log -1 --pretty=format:"%s" 2>/dev/null || echo ""
+    fi
+}
+
+# Capture all git metadata for a directory
+# Returns JSON object with git info or empty string if not a git repo
+_tsm_capture_git_metadata() {
+    local dir="${1:-.}"
+
+    if ! _tsm_is_git_repo "$dir"; then
+        echo "null"
+        return 0
+    fi
+
+    local branch revision comment
+    branch=$(_tsm_get_git_branch "$dir")
+    revision=$(_tsm_get_git_revision "$dir")
+    comment=$(_tsm_get_git_commit_message "$dir")
+
+    # Escape strings for JSON
+    branch=$(printf '%s' "$branch" | jq -R '.' 2>/dev/null || echo "\"$branch\"")
+    revision=$(printf '%s' "$revision" | jq -R '.' 2>/dev/null || echo "\"$revision\"")
+    comment=$(printf '%s' "$comment" | jq -R '.' 2>/dev/null || echo "\"$comment\"")
+
+    # Build JSON object
+    echo "{\"branch\": $branch, \"revision\": $revision, \"comment\": $comment}"
+}
+
+# Export git functions
+export -f _tsm_is_git_repo
+export -f _tsm_get_git_branch
+export -f _tsm_get_git_revision
+export -f _tsm_get_git_revision_full
+export -f _tsm_get_git_commit_message
+export -f _tsm_capture_git_metadata
 
 # === REMOVED: Legacy TCS 3.0 compatibility shims ===
 # Migration to PM2-style JSON metadata is complete
