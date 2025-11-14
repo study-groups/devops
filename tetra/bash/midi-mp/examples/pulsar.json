@@ -1,0 +1,57 @@
+{
+  "mode": "broadcast",
+  "description": "Pulsar - Energy wave visualization game",
+
+  "filter": {
+    "cc": [40, 41, 42, 43, 44, 45, 46, 47]
+  },
+
+  "transform": {
+    "/midi/raw/cc/1/40": {
+      "event": "pulsar.spawn",
+      "normalize": [0, 1]
+    },
+    "/midi/raw/cc/1/41": {
+      "event": "pulsar.frequency",
+      "normalize": [0.1, 2.0]
+    },
+    "/midi/raw/cc/1/42": {
+      "event": "pulsar.rotation",
+      "normalize": [-2.0, 2.0]
+    },
+    "/midi/raw/cc/1/43": {
+      "event": "pulsar.amplitude",
+      "normalize": [1, 15]
+    },
+    "/midi/raw/cc/1/44": {
+      "event": "pulsar.length",
+      "normalize": [1, 30]
+    },
+    "/midi/raw/cc/1/45": {
+      "event": "pulsar.x_position",
+      "normalize": [0, 160]
+    },
+    "/midi/raw/cc/1/46": {
+      "event": "pulsar.y_position",
+      "normalize": [0, 96]
+    },
+    "/midi/raw/cc/1/47": {
+      "event": "pulsar.valence",
+      "normalize": [0, 5]
+    }
+  },
+
+  "notes": {
+    "description": "Control mapping for Pulsar game",
+    "controls": {
+      "pot1 (CC40)": "Spawn trigger (0-1)",
+      "pot2 (CC41)": "Pulse frequency (0.1-2.0 Hz)",
+      "pot3 (CC42)": "Rotation speed (-2.0 to 2.0)",
+      "pot4 (CC43)": "Pulse amplitude (1-15)",
+      "pot5 (CC44)": "Arm length (1-30)",
+      "pot6 (CC45)": "X position (0-160)",
+      "pot7 (CC46)": "Y position (0-96)",
+      "pot8 (CC47)": "Color/valence (0-5)"
+    }
+  }
+}

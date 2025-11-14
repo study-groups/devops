@@ -1,0 +1,7 @@
+{
+  "mode": "broadcast",
+  "oscHost": "0.0.0.0",
+  "oscPort": 1983,
+  "outputPort": 2020,
+  "verbose": true
+}

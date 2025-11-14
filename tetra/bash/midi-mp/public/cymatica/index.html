@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cymatica - Real-time Cymatics Visualization</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Monaco', 'Consolas', monospace;
+      background: #000;
+      color: #0f0;
+      overflow: hidden;
+    }
+
+    #container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #header {
+      padding: 10px 20px;
+      background: rgba(0, 20, 0, 0.9);
+      border-bottom: 1px solid #0f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #title {
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 2px;
+    }
+
+    #status {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      font-size: 12px;
+    }
+
+    .status-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+
+    .status-indicator.connected {
+      background: #0f0;
+      box-shadow: 0 0 5px #0f0;
+    }
+
+    .status-indicator.disconnected {
+      background: #f00;
+    }
+
+    #canvas-container {
+      flex: 1;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #canvas {
+      max-width: 100%;
+      max-height: 100%;
+      border: 1px solid #0f0;
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+    }
+
+    #controls {
+      position: absolute;
+      top: 80px;
+      right: 20px;
+      background: rgba(0, 20, 0, 0.95);
+      border: 1px solid #0f0;
+      padding: 15px;
+      min-width: 250px;
+      max-height: calc(100vh - 100px);
+      overflow-y: auto;
+      font-size: 11px;
+    }
+
+    .control-group {
+      margin-bottom: 15px;
+    }
+
+    .control-label {
+      display: block;
+      margin-bottom: 5px;
+      color: #0f0;
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: 1px;
+    }
+
+    .control-value {
+      color: #0ff;
+      float: right;
+      font-weight: bold;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      margin-top: 5px;
+    }
+
+    .preset-buttons {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    button {
+      background: #003300;
+      color: #0f0;
+      border: 1px solid #0f0;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 10px;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: #0f0;
+      color: #000;
+    }
+
+    button:active {
+      transform: scale(0.95);
+    }
+
+    #info {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(0, 20, 0, 0.95);
+      border: 1px solid #0f0;
+      padding: 10px;
+      font-size: 10px;
+      max-width: 300px;
+    }
+
+    #info h3 {
+      margin-bottom: 8px;
+      font-size: 11px;
+      color: #0ff;
+    }
+
+    #info ul {
+      list-style: none;
+      line-height: 1.5;
+    }
+
+    #info ul li::before {
+      content: "› ";
+      color: #0f0;
+    }
+
+    .separator {
+      border-top: 1px solid #0f0;
+      margin: 15px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="header">
+      <div id="title">CYMATICA v1.0</div>
+      <div id="status">
+        <span>
+          <span class="status-indicator disconnected" id="ws-indicator"></span>
+          <span id="ws-status">Connecting...</span>
+        </span>
+        <span id="fps">FPS: 0</span>
+      </div>
+    </div>
+
+    <div id="canvas-container">
+      <canvas id="canvas" width="800" height="800"></canvas>
+
+      <div id="controls">
+        <h3 style="margin-bottom: 15px; color: #0ff;">CYMATICS PARAMETERS</h3>
+
+        <div class="control-group">
+          <label class="control-label">
+            Frequency <span class="control-value" id="freq-value">440 Hz</span>
+          </label>
+          <input type="range" id="frequency" min="20" max="2000" value="440" step="1">
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">
+            Amplitude <span class="control-value" id="amp-value">0.50</span>
+          </label>
+          <input type="range" id="amplitude" min="0" max="1" value="0.5" step="0.01">
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">
+            Pattern <span class="control-value" id="pattern-value">0.00</span>
+          </label>
+          <input type="range" id="pattern" min="0" max="1" value="0" step="0.01">
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">
+            Particle Density <span class="control-value" id="density-value">5000</span>
+          </label>
+          <input type="range" id="particle_density" min="100" max="10000" value="5000" step="100">
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">
+            Damping <span class="control-value" id="damping-value">0.50</span>
+          </label>
+          <input type="range" id="damping" min="0" max="1" value="0.5" step="0.01">
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">
+            Phase <span class="control-value" id="phase-value">0.00 rad</span>
+          </label>
+          <input type="range" id="phase" min="0" max="6.28318" value="0" step="0.01">
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">
+            Resonance <span class="control-value" id="resonance-value">0.50</span>
+          </label>
+          <input type="range" id="resonance" min="0" max="1" value="0.5" step="0.01">
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">
+            Waveform <span class="control-value" id="waveform-value">Sine</span>
+          </label>
+          <input type="range" id="waveform" min="0" max="4" value="0" step="1">
+        </div>
+
+        <div class="separator"></div>
+
+        <h3 style="margin-bottom: 10px; color: #0ff;">PRESETS</h3>
+        <div class="preset-buttons">
+          <button onclick="loadPreset('chladni')">Chladni</button>
+          <button onclick="loadPreset('ripple')">Ripple</button>
+          <button onclick="loadPreset('chaos')">Chaos</button>
+        </div>
+      </div>
+
+      <div id="info">
+        <h3>MIDI MAPPING (CC 40-47)</h3>
+        <ul>
+          <li>CC 40: Frequency</li>
+          <li>CC 41: Amplitude</li>
+          <li>CC 42: Pattern</li>
+          <li>CC 43: Density</li>
+          <li>CC 44: Damping</li>
+          <li>CC 45: Phase</li>
+          <li>CC 46: Resonance</li>
+          <li>CC 47: Waveform</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script src="cymatica.js"></script>
+</body>
+</html>

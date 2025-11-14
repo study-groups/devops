@@ -1,0 +1,43 @@
+{
+  "mode": "broadcast",
+  "oscHost": "0.0.0.0",
+  "oscPort": 2020,
+  "verbose": true,
+  "filter": {
+    "cc": [40, 41, 42, 43, 44, 45, 46, 47]
+  },
+  "transform": {
+    "/midi/raw/cc/1/40": {
+      "event": "pulsar.spawn",
+      "normalize": [0, 1]
+    },
+    "/midi/raw/cc/1/41": {
+      "event": "pulsar.frequency",
+      "normalize": [0.1, 2.0]
+    },
+    "/midi/raw/cc/1/42": {
+      "event": "pulsar.rotation",
+      "normalize": [-2.0, 2.0]
+    },
+    "/midi/raw/cc/1/43": {
+      "event": "pulsar.amplitude",
+      "normalize": [1, 15]
+    },
+    "/midi/raw/cc/1/44": {
+      "event": "pulsar.length",
+      "normalize": [1, 30]
+    },
+    "/midi/raw/cc/1/45": {
+      "event": "pulsar.x_position",
+      "normalize": [0, 160]
+    },
+    "/midi/raw/cc/1/46": {
+      "event": "pulsar.y_position",
+      "normalize": [0, 96]
+    },
+    "/midi/raw/cc/1/47": {
+      "event": "pulsar.valence",
+      "normalize": [0, 5]
+    }
+  }
+}

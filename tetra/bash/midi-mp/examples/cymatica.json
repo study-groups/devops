@@ -1,0 +1,44 @@
+{
+  "mode": "broadcast",
+  "oscHost": "0.0.0.0",
+  "oscPort": 1983,
+  "filter": {
+    "cc": [40, 41, 42, 43, 44, 45, 46, 47],
+    "channel": 1
+  },
+  "transform": {
+    "/midi/raw/cc/1/40": {
+      "event": "cymatics.frequency",
+      "normalize": [20, 2000]
+    },
+    "/midi/raw/cc/1/41": {
+      "event": "cymatics.amplitude",
+      "normalize": [0, 1]
+    },
+    "/midi/raw/cc/1/42": {
+      "event": "cymatics.pattern",
+      "normalize": [0, 1]
+    },
+    "/midi/raw/cc/1/43": {
+      "event": "cymatics.particle_density",
+      "normalize": [100, 10000]
+    },
+    "/midi/raw/cc/1/44": {
+      "event": "cymatics.damping",
+      "normalize": [0, 1]
+    },
+    "/midi/raw/cc/1/45": {
+      "event": "cymatics.phase",
+      "normalize": [0, 6.28318]
+    },
+    "/midi/raw/cc/1/46": {
+      "event": "cymatics.resonance",
+      "normalize": [0, 1]
+    },
+    "/midi/raw/cc/1/47": {
+      "event": "cymatics.waveform",
+      "normalize": [0, 4]
+    }
+  },
+  "verbose": true
+}

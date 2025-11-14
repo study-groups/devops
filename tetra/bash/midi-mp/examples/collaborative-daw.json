@@ -1,0 +1,47 @@
+{
+  "mode": "per-player",
+  "oscHost": "0.0.0.0",
+  "oscPort": 1983,
+  "routes": [
+    {
+      "player": "bassist",
+      "controls": {
+        "cc": [20, 21, 22, 23, 24, 25, 26, 27]
+      },
+      "channel": 2,
+      "transform": {
+        "/midi/raw/cc/2/20": "bass.volume",
+        "/midi/raw/cc/2/21": "bass.tone",
+        "/midi/raw/cc/2/22": "bass.attack",
+        "/midi/raw/cc/2/23": "bass.release"
+      }
+    },
+    {
+      "player": "drummer",
+      "controls": {
+        "cc": [30, 31, 32, 33, 34, 35, 36, 37]
+      },
+      "channel": 3,
+      "transform": {
+        "/midi/raw/cc/3/30": "drums.volume",
+        "/midi/raw/cc/3/31": "drums.reverb",
+        "/midi/raw/cc/3/32": "drums.snare_tune",
+        "/midi/raw/cc/3/33": "drums.kick_punch"
+      }
+    },
+    {
+      "player": "synth",
+      "controls": {
+        "cc": [40, 41, 42, 43, 44, 45, 46, 47]
+      },
+      "channel": 4,
+      "transform": {
+        "/midi/raw/cc/4/40": "synth.cutoff",
+        "/midi/raw/cc/4/41": "synth.resonance",
+        "/midi/raw/cc/4/42": "synth.attack",
+        "/midi/raw/cc/4/43": "synth.decay"
+      }
+    }
+  ],
+  "verbose": true
+}

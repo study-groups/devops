@@ -1,0 +1,24 @@
+{
+  "name": "midi-mp",
+  "version": "1.0.0",
+  "description": "MIDI Multiplayer Protocol - Route MIDI to multiple players/consumers",
+  "main": "router.js",
+  "scripts": {
+    "start": "node router.js examples/broadcast.json",
+    "cymatica": "node router.js examples/cymatica.json",
+    "vj": "node router.js examples/vj-split.json",
+    "collab": "node router.js examples/collaborative-daw.json"
+  },
+  "keywords": [
+    "midi",
+    "multiplayer",
+    "osc",
+    "routing",
+    "protocol"
+  ],
+  "author": "Tetra",
+  "license": "MIT",
+  "dependencies": {
+    "osc": "^2.4.4"
+  }
+}
