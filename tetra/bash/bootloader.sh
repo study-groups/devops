@@ -50,11 +50,15 @@ if [[ ! -d "$BOOT_DIR" ]]; then
 fi
 
 # Core is required, others are optional
-if ! source "$BOOT_DIR/boot_core.sh" 2>/tmp/tetra_boot_error.log; then
+# Use TETRA_DIR for error log (more reliable than /tmp)
+BOOT_ERROR_LOG="${TETRA_DIR}/logs/boot_error.log"
+mkdir -p "${TETRA_DIR}/logs" 2>/dev/null || true
+
+if ! source "$BOOT_DIR/boot_core.sh" 2>"$BOOT_ERROR_LOG"; then
     echo "TETRA BOOTSTRAP ERROR: Failed to load boot_core.sh" >&2
-    echo "  Error details in /tmp/tetra_boot_error.log" >&2
-    if [[ -s /tmp/tetra_boot_error.log ]]; then
-        echo "  Last error: $(tail -1 /tmp/tetra_boot_error.log)" >&2
+    echo "  Error details in $BOOT_ERROR_LOG" >&2
+    if [[ -s "$BOOT_ERROR_LOG" ]]; then
+        echo "  Last error: $(tail -1 "$BOOT_ERROR_LOG")" >&2
     fi
     return 1 2>/dev/null || exit 1
 fi
