@@ -238,8 +238,149 @@ org_action_refresh_config() {
 
 org_action_view_env() {
     local env="$1"
-    echo "Viewing environment: $env"
-    echo "Organization: $(org_active)"
+    local active_org=$(org_active)
+    local toml_path="$TETRA_DIR/orgs/$active_org/tetra.toml"
+
+    if [[ "$active_org" == "none" ]]; then
+        echo "ERROR: No active organization" >&2
+        return 1
+    fi
+
+    echo ""
+    if type tds_text_color &>/dev/null; then
+        tds_text_color "content.heading.h2"
+        printf "Environment: %s @ %s" "$env" "$active_org"
+        reset_color
+    else
+        echo "╭─ Environment: $env @ $active_org ───────────────"
+    fi
+    echo ""
+    echo ""
+
+    # Show TES resolution
+    if type tds_text_color &>/dev/null; then
+        tds_text_color "content.heading.h3"
+        echo "TES Resolution"
+        reset_color
+    else
+        echo "TES Resolution:"
+    fi
+    echo ""
+
+    local symbol="@${env,,}"
+    local env_lower="${env,,}"
+
+    if [[ "$env" == "Local" ]]; then
+        echo "  Symbol:       $symbol"
+        echo "  Type:         local"
+        echo "  Source:       $toml_path"
+        echo ""
+
+        # Show local environment section from tetra.toml
+        if [[ -f "$toml_path" ]]; then
+            if type tds_text_color &>/dev/null; then
+                tds_text_color "content.heading.h3"
+                echo "Configuration [environments.local]"
+                reset_color
+            else
+                echo "Configuration [environments.local]:"
+            fi
+            echo ""
+
+            # Extract and display [environments.local] section
+            awk '/^\[environments\.local\]$/,/^\[/ {
+                if (/^\[environments\.local\]$/) next
+                if (/^\[/ && !/^\[environments\.local\]/) exit
+                if (NF > 0 && !/^#/) print "  " $0
+            }' "$toml_path"
+            echo ""
+
+            # Show raw TOML lines for debugging
+            if type tds_text_color &>/dev/null; then
+                tds_text_color "content.text.muted"
+                echo "Raw TOML Lines:"
+                reset_color
+            else
+                echo "Raw TOML Lines:"
+            fi
+            echo ""
+            grep -A20 "^\[environments\.local\]" "$toml_path" | head -21 | while IFS= read -r line; do
+                echo "  $line"
+            done
+            echo ""
+        else
+            echo "  ERROR: tetra.toml not found at $toml_path"
+            echo ""
+        fi
+    else
+        # Remote environment
+        local ssh_cmd=$(org_tes_ssh_command "$symbol" "$toml_path" 2>/dev/null)
+
+        echo "  Symbol:       $symbol"
+        echo "  Type:         remote"
+
+        if [[ -n "$ssh_cmd" && "$ssh_cmd" != "bash" ]]; then
+            echo "  SSH:          $ssh_cmd"
+        else
+            echo "  SSH:          [UNRESOLVED]"
+        fi
+        echo ""
+
+        # Show what WOULD be fetched from remote
+        if type tds_text_color &>/dev/null; then
+            tds_text_color "content.heading.h3"
+            echo "Local Configuration [environments.${env_lower}]"
+            reset_color
+            tds_text_color "content.text.muted"
+            echo "(showing local copy - remote fetch not implemented yet)"
+            reset_color
+        else
+            echo "Local Configuration [environments.${env_lower}]:"
+            echo "(showing local copy - remote fetch not implemented yet)"
+        fi
+        echo ""
+
+        if [[ -f "$toml_path" ]]; then
+            # Extract and display the environment section
+            awk -v env="$env_lower" '
+                BEGIN { in_section=0 }
+                $0 ~ "^\\[environments\\." env "\\]$" { in_section=1; next }
+                /^\[/ && in_section { exit }
+                in_section && NF > 0 && !/^#/ { print "  " $0 }
+            ' "$toml_path"
+            echo ""
+
+            # Show raw TOML lines
+            if type tds_text_color &>/dev/null; then
+                tds_text_color "content.text.muted"
+                echo "Raw TOML Lines:"
+                reset_color
+            else
+                echo "Raw TOML Lines:"
+            fi
+            echo ""
+            grep -A20 "^\[environments\.$env_lower\]" "$toml_path" | head -21 | while IFS= read -r line; do
+                echo "  $line"
+            done
+            echo ""
+        else
+            echo "  ERROR: tetra.toml not found at $toml_path"
+            echo ""
+        fi
+
+        # Show TTS format for execution
+        if type tds_text_color &>/dev/null; then
+            tds_text_color "content.text.muted"
+            echo "TTS Transaction (if executed remotely):"
+            reset_color
+        else
+            echo "TTS Transaction (if executed remotely):"
+        fi
+        echo ""
+        echo "  Would execute:  $ssh_cmd \"cat /home/$env_lower/tetra/orgs/$active_org/tetra.toml\""
+        echo "  Would log to:   $TETRA_DIR/org/txns/$active_org/$(date +%Y-%m-%d).log"
+        echo ""
+    fi
 }
 
 org_action_check_connectivity() {
@@ -320,6 +461,47 @@ org_action_help_org() {
     echo "Type action name to execute, or !command for shell"
 }
 
+# ═══════════════════════════════════════════════════════════
+# NGINX DOCS ACTIONS
+# Authenticated doc subdomain management
+# ═══════════════════════════════════════════════════════════
+
+# Load nginx docs module
+if [[ -f "$TETRA_SRC/bash/org/nginx_docs.sh" ]]; then
+    source "$TETRA_SRC/bash/org/nginx_docs.sh"
+fi
+
+org_action_nginx_docs_generate() {
+    local doc_type="$1"
+    org_nginx_docs_generate "$doc_type"
+}
+
+org_action_nginx_docs_deploy() {
+    local doc_type="$1"
+    local env="${2:-prod}"
+    org_nginx_docs_deploy "$doc_type" "$env"
+}
+
+org_action_nginx_docs_list() {
+    org_nginx_docs_list
+}
+
+org_action_nginx_docs_show() {
+    local doc_type="$1"
+    org_nginx_docs_show "$doc_type"
+}
+
+org_action_nginx_docs_init() {
+    local doc_type="$1"
+    local subdomain="$2"
+    org_nginx_docs_init "$doc_type" "$subdomain"
+}
+
 # Export functions
 export -f org_get_actions
 export -f org_execute_action
+export -f org_action_nginx_docs_generate
+export -f org_action_nginx_docs_deploy
+export -f org_action_nginx_docs_list
+export -f org_action_nginx_docs_show
+export -f org_action_nginx_docs_init

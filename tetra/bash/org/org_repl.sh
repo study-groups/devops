@@ -617,6 +617,143 @@ repl_handle_single_key() {
 }
 
 # ============================================================================
+# CONTEXT-AWARE LIST
+# ============================================================================
+
+_org_context_aware_list() {
+    local env="${ORG_REPL_ENVIRONMENTS[$ORG_REPL_ENV_INDEX]}"
+    local mode="${ORG_REPL_MODES[$ORG_REPL_MODE_INDEX]}"
+    local actions=($(_org_actions))
+    local current_action="${actions[$ORG_REPL_ACTION_INDEX]:-none}"
+
+    echo ""
+
+    # Context-aware header
+    if type tds_text_color &>/dev/null; then
+        tds_text_color "content.heading.h3"
+        printf "Context: "
+        reset_color
+
+        tds_text_color "repl.env.${env,,}"
+        printf "%s" "$env"
+        reset_color
+
+        printf " × "
+
+        tds_text_color "repl.mode.${mode,,}"
+        printf "%s" "$mode"
+        reset_color
+
+        if [[ "$current_action" != "none" ]]; then
+            printf " → "
+            tds_text_color "repl.action.primary"
+            printf "%s" "$current_action"
+            reset_color
+        fi
+        echo ""
+    else
+        echo "Context: $env × $mode${current_action:+ → $current_action}"
+    fi
+    echo ""
+
+    # Show different content based on mode
+    case "$mode" in
+        "Inspect")
+            # In Inspect mode, show organizations and current view context
+            if [[ "$current_action" == "view:env" ]] || [[ "$current_action" == "view:"* ]]; then
+                org_list
+            else
+                # Show both organizations and available actions
+                org_list
+                echo ""
+                if type tds_text_color &>/dev/null; then
+                    tds_text_color "content.heading.h3"
+                    echo "Available Actions:"
+                    reset_color
+                else
+                    echo "Available Actions:"
+                fi
+                echo ""
+                local i=0
+                for action in "${actions[@]}"; do
+                    local marker="  "
+                    if [[ $i -eq $ORG_REPL_ACTION_INDEX ]]; then
+                        marker="▶ "
+                    fi
+                    printf "%s%d. %s\n" "$marker" "$((i+1))" "$action"
+                    ((i++))
+                done
+                echo ""
+            fi
+            ;;
+        "Transfer"|"Execute")
+            # In Transfer or Execute modes, show available actions with context
+            if type tds_text_color &>/dev/null; then
+                tds_text_color "content.heading.h3"
+                echo "Available Actions for $env:"
+                reset_color
+            else
+                echo "Available Actions for $env:"
+            fi
+            echo ""
+
+            local i=0
+            for action in "${actions[@]}"; do
+                local verb="${action%%:*}"
+                local noun="${action##*:}"
+                local marker="  "
+
+                # Mark current action
+                if [[ $i -eq $ORG_REPL_ACTION_INDEX ]]; then
+                    if type tds_text_color &>/dev/null; then
+                        tds_text_color "repl.feedback.arrow"
+                        marker="▶ "
+                        reset_color
+                    else
+                        marker="▶ "
+                    fi
+                fi
+
+                if type tds_text_color &>/dev/null; then
+                    printf "%s%d. " "$marker" "$((i+1))"
+                    tds_text_color "repl.action.primary"
+                    printf "%-20s" "$action"
+                    reset_color
+                    tds_text_color "content.text.muted"
+                    printf " [%s → %s]\n" "$verb" "$noun"
+                    reset_color
+                else
+                    printf "%s%d. %-20s [%s → %s]\n" "$marker" "$((i+1))" "$action" "$verb" "$noun"
+                fi
+                ((i++))
+            done
+            echo ""
+
+            # Show active organization
+            local active_org=$(_org_active)
+            if [[ "$active_org" != "none" ]]; then
+                if type tds_text_color &>/dev/null; then
+                    tds_text_color "content.text.muted"
+                    printf "Active: "
+                    reset_color
+                    tds_text_color "repl.org.active"
+                    printf "%s" "$active_org"
+                    reset_color
+                    echo ""
+                else
+                    echo "Active: $active_org"
+                fi
+            fi
+            echo ""
+            ;;
+        *)
+            # Fallback to basic organization list
+            org_list
+            ;;
+    esac
+}
+
+# ============================================================================
 # INPUT PROCESSOR
 # ============================================================================
 
@@ -822,7 +959,7 @@ _org_repl_process_input() {
     # Legacy commands
     case "$input" in
         list|ls)
-            org_list
+            _org_context_aware_list
             ;;
         active)
             org_active
@@ -999,3 +1136,4 @@ export -f _org_show_actions
 export -f _org_static_completions
 export -f _org_display_action_expansion
 export -f _org_display_available_actions
+export -f _org_context_aware_list
