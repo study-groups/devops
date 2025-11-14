@@ -248,7 +248,7 @@ tsm_start_any_command() {
             $env_setup
             $final_command </dev/null >>'${log_out}' 2>>'${log_err}' &
             echo \$! > '${pid_file}'
-        " 2>>'${log_wrapper}' &
+        " 2>>"${log_wrapper}" &
     )
 
     sleep 0.5
