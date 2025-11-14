@@ -1,0 +1,107 @@
+{
+  "game": "pulsar",
+  "description": "Pulsar control mapping - MIDI CC to TGP commands",
+  "version": "1.0.0",
+  "oscSource": {
+    "multicast": "224.0.0.1",
+    "port": 1983
+  },
+  "tgpSession": "pulsar",
+  "initialState": {
+    "currentSprite": null,
+    "mx": 80,
+    "my": 48,
+    "len0": 18,
+    "amp": 6,
+    "freq": 0.5,
+    "dtheta": 0.6,
+    "valence": 0
+  },
+  "initCommands": [
+    "INIT 160 96"
+  ],
+  "mappings": {
+    "cc.1.40": {
+      "description": "Spawn pulsar (trigger when value > 64)",
+      "type": "trigger",
+      "threshold": 64,
+      "command": "SPAWN_PULSAR {{state.mx}} {{state.my}} {{state.len0}} {{state.amp}} {{state.freq}} {{state.dtheta}} {{state.valence}}"
+    },
+    "cc.1.41": {
+      "description": "Pulse frequency (0.1-2.0 Hz)",
+      "type": "continuous",
+      "normalize": {
+        "from": [0, 127],
+        "to": [0.1, 2.0]
+      },
+      "state": "freq",
+      "command": "SET {{state.currentSprite}} freq {{value}}"
+    },
+    "cc.1.42": {
+      "description": "Rotation speed (-2.0 to 2.0, negative = CCW)",
+      "type": "continuous",
+      "normalize": {
+        "from": [0, 127],
+        "to": [-2.0, 2.0]
+      },
+      "state": "dtheta",
+      "command": "SET {{state.currentSprite}} dtheta {{value}}"
+    },
+    "cc.1.43": {
+      "description": "Pulse amplitude (1-15)",
+      "type": "continuous",
+      "normalize": {
+        "from": [0, 127],
+        "to": [1, 15]
+      },
+      "state": "amp",
+      "command": "SET {{state.currentSprite}} amp {{value:round}}"
+    },
+    "cc.1.44": {
+      "description": "Arm length (1-30)",
+      "type": "continuous",
+      "normalize": {
+        "from": [0, 127],
+        "to": [1, 30]
+      },
+      "state": "len0",
+      "command": "SET {{state.currentSprite}} len0 {{value:round}}"
+    },
+    "cc.1.45": {
+      "description": "X coordinate (0-160 microgrid units)",
+      "type": "continuous",
+      "normalize": {
+        "from": [0, 127],
+        "to": [0, 160]
+      },
+      "state": "mx",
+      "command": "SET {{state.currentSprite}} mx {{value:round}}"
+    },
+    "cc.1.46": {
+      "description": "Y coordinate (0-96 microgrid units)",
+      "type": "continuous",
+      "normalize": {
+        "from": [0, 127],
+        "to": [0, 96]
+      },
+      "state": "my",
+      "command": "SET {{state.currentSprite}} my {{value:round}}"
+    },
+    "cc.1.47": {
+      "description": "Color (0=Cyan, 1=Green, 2=Yellow, 3=Red, 4=Magenta, 5=Blue)",
+      "type": "continuous",
+      "normalize": {
+        "from": [0, 127],
+        "to": [0, 5]
+      },
+      "state": "valence",
+      "command": "SET {{state.currentSprite}} valence {{value:round}}"
+    },
+    "cc.1.48": {
+      "description": "Kill current sprite (trigger when value > 64)",
+      "type": "trigger",
+      "threshold": 64,
+      "command": "KILL {{state.currentSprite}}"
+    }
+  }
+}
