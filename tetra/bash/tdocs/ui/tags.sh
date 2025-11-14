@@ -302,9 +302,9 @@ tdoc_render_compact() {
     fi
 
     # Fixed column widths for consistent alignment (tight one-liner)
-    # ULTRA STRICT 80-column limit: 5 (num) + 22 + 12 + 0 + tags = ~39 + tags < 80
-    local name_width=22          # Name/title
-    local type_width=12          # Type name (spec, guide, etc)
+    # ULTRA STRICT 80-column limit: 5 (num) + 18 + 10 + 0 + tags = ~33 + tags < 80
+    local name_width=18          # Name/title
+    local type_width=10          # Type name (spec, guide, etc)
     local module_width=0         # Module name (REMOVED to save space)
 
     # Truncate display name if needed

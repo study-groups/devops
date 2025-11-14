@@ -378,6 +378,36 @@ tdocs audit-specs --missing"
     tree_insert "help.tdocs.audit-specs.--missing" flag \
         title="Show missing only" \
         help="Show only modules without specifications"
+
+    # Publish commands
+    tree_insert "help.tdocs.publish" command \
+        title="Publish documentation" \
+        description="Publish documentation to configured endpoint" \
+        help="Publish docs to Hugging Face Spaces or other targets" \
+        synopsis="tdocs publish <source> <target>" \
+        handler="tdocs_publish"
+
+    tree_insert "help.tdocs.nginx-config" command \
+        title="Generate nginx config" \
+        description="Generate nginx proxy configuration" \
+        help="Generate nginx configuration for reverse proxy" \
+        synopsis="tdocs nginx-config <target>" \
+        handler="tdocs_generate_nginx_config"
+
+    tree_insert "help.tdocs.publish-targets" command \
+        title="List publish targets" \
+        description="List available publish targets" \
+        help="Show configured publishing targets" \
+        synopsis="tdocs publish-targets" \
+        handler="tdocs_list_publish_targets"
+
+    # Colors command
+    tree_insert "help.tdocs.colors" command \
+        title="Color explorer" \
+        description="Interactive color explorer for TDS tokens" \
+        help="Explore and test TDS color tokens interactively" \
+        synopsis="tdocs colors" \
+        handler="tdocs_color_explorer"
 }
 
 # Module initialization
@@ -389,7 +419,7 @@ tdocs_module_init() {
     tdoc_index_init
 
     # Build help tree if tree module is loaded
-    if [[ -v TREE_TYPE ]]; then
+    if declare -p TREE_TYPE >/dev/null 2>&1; then
         _tdocs_build_help_tree
     fi
 }
