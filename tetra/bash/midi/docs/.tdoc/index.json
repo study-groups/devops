@@ -1,0 +1,49 @@
+{
+  "module": "midi",
+  "documents": [
+    {
+  "timestamp": 1762000554,
+  "doc_path": "/Users/mricos/src/devops/tetra/bash/midi/docs/CLI_PROMPT_GUIDE.md",
+  "category": "other",
+  "type": "guide",
+  "tags": ["midi"],
+  "module": "midi",
+  "evidence_weight": "secondary",
+  "created": "2025-11-01T05:35:55Z",
+  "updated": "2025-11-01T05:35:55Z",
+  "status": "discovered",
+  "hash": "2e90317e1f58d43384f3f883360e85b9a2de540c0589528094a1426ce0b69b4e"
+}
+,
+    {
+  "timestamp": 1762001314,
+  "doc_path": "/Users/mricos/src/devops/tetra/bash/midi/docs/PROMPT_STATE_DETECTION.md",
+  "category": "other",
+  "type": "guide",
+  "tags": ["midi", "refactor"],
+  "module": "midi",
+  "evidence_weight": "secondary",
+  "created": "2025-11-01T05:48:34Z",
+  "updated": "2025-11-01T05:48:34Z",
+  "status": "discovered",
+  "hash": "9af59605c4718ce103d99977ec029b16ae80c83c9b928d08ffcc186da4680141"
+}
+,
+    {
+  "timestamp": 1762340009,
+  "doc_path": "/Users/mricos/src/devops/tetra/bash/midi/node_modules/wolfy87-eventemitter/docs/api.md",
+  "category": "other",
+  "type": "guide",
+  "tags": ["midi"],
+  "module": "midi",
+  "evidence_weight": "secondary",
+  "created": "2025-11-05T02:53:30Z",
+  "updated": "2025-11-05T02:53:30Z",
+  "status": "discovered",
+  "hash": "0032d4c36dd141e7395cb8fe3098a25f7d60077194270167532d519358245aba",
+  "completeness_level": "",
+  "implements": [],
+  "integrates": []
+}
+  ]
+}

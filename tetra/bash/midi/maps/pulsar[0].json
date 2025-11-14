@@ -1,0 +1,29 @@
+{
+  "controller": "pulsar",
+  "instance": 0,
+  "description": "MIDI mapping for Pulsar game - maps controls to semantic parameters",
+  "default_variant": "a",
+  "hardware": {
+    "k1": { "type": "knob", "channel": 1, "cc": 40 },
+    "k2": { "type": "knob", "channel": 1, "cc": 41 },
+    "k3": { "type": "knob", "channel": 1, "cc": 42 },
+    "k4": { "type": "knob", "channel": 1, "cc": 43 },
+    "k5": { "type": "knob", "channel": 1, "cc": 44 },
+    "k6": { "type": "knob", "channel": 1, "cc": 45 },
+    "k7": { "type": "knob", "channel": 1, "cc": 46 },
+    "k8": { "type": "knob", "channel": 1, "cc": 47 }
+  },
+  "variants": {
+    "a": {
+      "name": "Pulsar Controls",
+      "description": "Main pulsar animation controls",
+      "mappings": {
+        "k1": { "semantic": "speed", "min": 0.0, "max": 1.0 },
+        "k2": { "semantic": "intensity", "min": 0.0, "max": 1.0 },
+        "k3": { "semantic": "x", "min": 0.0, "max": 1.0 },
+        "k4": { "semantic": "y", "min": 0.0, "max": 1.0 },
+        "k5": { "semantic": "size", "min": 0.0, "max": 1.0 }
+      }
+    }
+  }
+}
