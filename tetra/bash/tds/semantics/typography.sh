@@ -57,18 +57,176 @@ tds_render_paragraph() {
     local text="$1"
     local width="${2:-${COLUMNS:-80}}"
 
-    # Wrap text if needed
-    local wrapped_text="$text"
-    if [[ ${#text} -gt $width ]]; then
-        wrapped_text=$(echo "$text" | fmt -w "$width")
+    # Use ANSI-aware wrapping if text contains ANSI codes
+    if [[ "$text" =~ $'\033'\[ ]]; then
+        tds_wrap_ansi_text "$text" "$width"
+    else
+        # Simple wrapping for plain text
+        local wrapped_text="$text"
+        if [[ ${#text} -gt $width ]]; then
+            wrapped_text=$(echo "$text" | fmt -w "$width")
+        fi
+
+        # Apply color to each line
+        while IFS= read -r line; do
+            tds_text_color "text.primary"
+            echo "$line"
+            reset_color
+        done <<< "$wrapped_text"
+    fi
+}
+
+# ANSI-aware text wrapping that preserves formatting
+# Wraps text while preserving ANSI escape codes at correct positions
+# Args: text (with ANSI codes), width
+tds_wrap_ansi_text() {
+    local text="$1"
+    local width="$2"
+
+    # Check if we need wrapping using visual width
+    local visual_width
+    if command -v tds_visual_width >/dev/null 2>&1; then
+        visual_width=$(tds_visual_width "$text")
+    else
+        # Fallback: strip ANSI manually
+        local stripped=$(echo "$text" | sed 's/\x1b\[[0-9;]*m//g')
+        visual_width=${#stripped}
     fi
 
-    # Apply color to each line
-    while IFS= read -r line; do
-        tds_text_color "text.primary"
-        echo "$line"
-        reset_color
-    done <<< "$wrapped_text"
+    # No wrapping needed - output as-is
+    if [[ $visual_width -le $width ]]; then
+        echo "$text"
+        return
+    fi
+
+    # Parse text into segments: plain text chunks and ANSI codes
+    local -a segments=()
+    local -a is_ansi=()
+    local remaining="$text"
+
+    while [[ -n "$remaining" ]]; do
+        # Check for ANSI code at start
+        if [[ "$remaining" =~ ^($'\033'\[[0-9\;]*m) ]]; then
+            segments+=("${BASH_REMATCH[1]}")
+            is_ansi+=(1)
+            remaining="${remaining#${BASH_REMATCH[1]}}"
+        else
+            # Extract plain text until next ANSI or end
+            if [[ "$remaining" =~ ^([^$'\033']+) ]]; then
+                segments+=("${BASH_REMATCH[1]}")
+                is_ansi+=(0)
+                remaining="${remaining#${BASH_REMATCH[1]}}"
+            else
+                # Single character that's not part of ANSI
+                segments+=("${remaining:0:1}")
+                is_ansi+=(0)
+                remaining="${remaining:1}"
+            fi
+        fi
+    done
+
+    # Build words array with attached ANSI codes
+    local -a words=()
+    local current_word=""
+    local pending_ansi=""
+
+    for i in "${!segments[@]}"; do
+        local seg="${segments[$i]}"
+        local is_code="${is_ansi[$i]}"
+
+        if [[ $is_code -eq 1 ]]; then
+            # ANSI code - attach to pending or current word
+            if [[ -n "$current_word" ]]; then
+                current_word+="$seg"
+            else
+                pending_ansi+="$seg"
+            fi
+        else
+            # Plain text - split on spaces
+            local j=0
+            while [[ $j -lt ${#seg} ]]; do
+                local char="${seg:$j:1}"
+                if [[ "$char" == " " ]]; then
+                    # Space - finish current word if any
+                    if [[ -n "$current_word" ]]; then
+                        words+=("$current_word")
+                        current_word=""
+                    fi
+                    pending_ansi=""
+                else
+                    # Add character to word (with pending ANSI if starting new word)
+                    if [[ -z "$current_word" ]]; then
+                        current_word="$pending_ansi$char"
+                        pending_ansi=""
+                    else
+                        current_word+="$char"
+                    fi
+                fi
+                ((j++))
+            done
+        fi
+    done
+
+    # Add final word if any
+    if [[ -n "$current_word" ]]; then
+        words+=("$current_word")
+    fi
+
+    # Wrap words to lines
+    local current_line=""
+    local line_visual_len=0
+    local active_ansi_state=""
+
+    for word in "${words[@]}"; do
+        # Calculate visual length of word
+        local word_visual
+        if command -v tds_visual_width >/dev/null 2>&1; then
+            word_visual=$(tds_visual_width "$word")
+        else
+            local word_stripped=$(echo "$word" | sed 's/\x1b\[[0-9;]*m//g')
+            word_visual=${#word_stripped}
+        fi
+
+        # Check if adding word would exceed width (account for space if not first word)
+        local space_needed=0
+        [[ $line_visual_len -gt 0 ]] && space_needed=1
+
+        if [[ $line_visual_len -gt 0 ]] && [[ $((line_visual_len + space_needed + word_visual)) -gt $width ]]; then
+            # Print current line
+            echo "$current_line"
+            # Start new line with current ANSI state
+            current_line="$active_ansi_state$word"
+            line_visual_len=$word_visual
+        else
+            # Add to current line
+            if [[ $line_visual_len -gt 0 ]]; then
+                current_line+=" $word"
+                line_visual_len=$((line_visual_len + 1 + word_visual))
+            else
+                current_line="$active_ansi_state$word"
+                line_visual_len=$word_visual
+            fi
+        fi
+
+        # Track ANSI state for continuation
+        # Extract all ANSI codes from word to update state
+        local temp_word="$word"
+        while [[ "$temp_word" =~ ($'\033'\[([0-9\;]*)m) ]]; do
+            local code="${BASH_REMATCH[2]}"
+            if [[ "$code" == "0" ]] || [[ -z "$code" ]]; then
+                active_ansi_state=""
+            else
+                # Accumulate ANSI state
+                active_ansi_state+="${BASH_REMATCH[1]}"
+            fi
+            temp_word="${temp_word#*${BASH_REMATCH[1]}}"
+        done
+    done
+
+    # Print final line
+    if [[ -n "$current_line" ]]; then
+        echo "$current_line"
+    fi
 }
 
 # Render link

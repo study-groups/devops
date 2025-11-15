@@ -14,11 +14,16 @@ tds_process_inline_formatting() {
     local text="$1"
     local result=""
 
-    # Bold **text**
-    while [[ "$text" =~ (.*)\*\*([^*]+)\*\*(.*) ]]; do
-        result+="${BASH_REMATCH[1]}"
-        result+="$(printf "\033[1m"; tds_text_color "content.emphasis.bold"; printf "%s" "${BASH_REMATCH[2]}"; reset_color)"
-        text="${BASH_REMATCH[3]}"
+    # Bold **text** - simple greedy approach, process left to right
+    while [[ "$text" =~ \*\*([^*]+)\*\* ]]; do
+        local match="${BASH_REMATCH[0]}"
+        local bold="${BASH_REMATCH[1]}"
+        local before="${text%%"$match"*}"
+        local after="${text#*"$match"}"
+
+        result+="$before"
+        result+="$(printf "\033[1m"; tds_text_color "content.emphasis.bold"; printf "%s" "$bold"; reset_color)"
+        text="$after"
     done
     result+="$text"
     text="$result"
@@ -108,25 +113,32 @@ tds_render_markdown() {
             continue
         fi
 
-        # Process inline formatting
-        # This is tricky with sed and color codes, so we'll do it simpler
+        # Process inline formatting - build formatted line with ANSI codes
+        local formatted_line=""
 
-        # Bold **text** - find and highlight
-        while [[ "$line" =~ (.*)\*\*([^*]+)\*\*(.*) ]]; do
-            local before="${BASH_REMATCH[1]}"
-            local bold="${BASH_REMATCH[2]}"
-            local after="${BASH_REMATCH[3]}"
+        # Bold **text** - find and highlight, process left to right
+        while [[ "$line" =~ \*\*([^*]+)\*\* ]]; do
+            local match="${BASH_REMATCH[0]}"
+            local bold="${BASH_REMATCH[1]}"
+            local before="${line%%"$match"*}"
+            local after="${line#*"$match"}"
 
-            # Print before
-            tds_text_color "text.primary"
-            printf "%s" "$before"
+            # Add before text to formatted line
+            formatted_line+="$(tds_text_color "text.primary")$before$(reset_color)"
 
-            # Print bold
-            tds_render_emphasis "bold" "$bold"
+            # Add bold text to formatted line
+            formatted_line+="$(tds_render_emphasis "bold" "$bold" | tr -d '\n')"
 
             # Continue with after
             line="$after"
         done
+
+        # Add remaining text after bold processing with color
+        if [[ -n "$line" ]]; then
+            formatted_line+="$(tds_text_color "text.primary")$line$(reset_color)"
+        fi
+        line="$formatted_line"
+        formatted_line=""
 
         # Inline code `code` - find and highlight
         while [[ "$line" =~ (.*)\`([^\`]+)\`(.*) ]]; do
@@ -134,16 +146,20 @@ tds_render_markdown() {
             local code="${BASH_REMATCH[2]}"
             local after="${BASH_REMATCH[3]}"
 
-            # Print before
-            tds_text_color "text.primary"
-            printf "%s" "$before"
+            # Add before text to formatted line (already has color from previous step)
+            formatted_line+="$before"
 
-            # Print code
-            tds_render_emphasis "code" "$code"
+            # Add code text to formatted line
+            formatted_line+="$(tds_render_emphasis "code" "$code" | tr -d '\n')"
 
             # Continue with after
             line="$after"
         done
+
+        # Add remaining text after code processing (already has color from bold step)
+        formatted_line+="$line"
+        line="$formatted_line"
+        formatted_line=""
 
         # Links [text](url)
         while [[ "$line" =~ (.*)\[([^\]]+)\]\(([^\)]+)\)(.*) ]]; do
@@ -152,18 +168,21 @@ tds_render_markdown() {
             local url="${BASH_REMATCH[3]}"
             local after="${BASH_REMATCH[4]}"
 
-            # Print before
-            tds_text_color "text.primary"
-            printf "%s" "$before"
+            # Add before text to formatted line (already has color from previous steps)
+            formatted_line+="$before"
 
-            # Print link
-            tds_render_link "$link_text"
+            # Add link text to formatted line
+            formatted_line+="$(tds_render_link "$link_text" | tr -d '\n')"
 
             # Continue with after
             line="$after"
         done
 
-        # Normal text - use semantic paragraph renderer
+        # Add remaining text after link processing (already has color from bold step)
+        formatted_line+="$line"
+        line="$formatted_line"
+
+        # Now render the complete formatted line with wrapping
         if [[ -n "$line" ]]; then
             tds_render_paragraph "$line" "$TDS_MARKDOWN_WIDTH"
         else

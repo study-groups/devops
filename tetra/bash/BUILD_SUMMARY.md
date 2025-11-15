@@ -1,3 +1,12 @@
+---
+type: summary
+lifecycle: W
+module: BUILD_SUMMARY.md
+created: 2025-11-04
+updated: 2025-11-14
+tags: []
+---
+
 # Tetra Self Menu Integration - Build Summary
 
 **Date**: 2025-11-03
