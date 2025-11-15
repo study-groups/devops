@@ -14,6 +14,10 @@ tdocs_register_commands() {
     repl_register_slash_command "search" tdocs_cmd_search
     repl_register_slash_command "tag" tdocs_cmd_tag
     repl_register_slash_command "add" tdocs_cmd_add
+    repl_register_slash_command "init" tdocs_cmd_init
+    repl_register_slash_command "discover" tdocs_cmd_discover
+    repl_register_slash_command "browse" tdocs_cmd_browse
+    repl_register_slash_command "index" tdocs_cmd_index
 
     # Context commands
     repl_register_slash_command "filter" tdocs_cmd_filter
@@ -22,9 +26,11 @@ tdocs_register_commands() {
     # Utility commands
     repl_register_slash_command "audit" tdocs_cmd_audit
     repl_register_slash_command "scan" tdocs_cmd_scan
+    repl_register_slash_command "doctor" tdocs_cmd_doctor
     repl_register_slash_command "evidence" tdocs_cmd_evidence
     repl_register_slash_command "about" tdocs_cmd_about
     repl_register_slash_command "colors" tdocs_cmd_colors
+    repl_register_slash_command "chuck" tdocs_cmd_chuck
 
     # Module commands
     repl_register_slash_command "module" tdocs_cmd_module
@@ -35,6 +41,11 @@ tdocs_register_commands() {
     repl_register_slash_command "publish" tdocs_cmd_publish
     repl_register_slash_command "nginx-config" tdocs_cmd_nginx_config
     repl_register_slash_command "publish-targets" tdocs_cmd_publish_targets
+
+    # Review commands
+    repl_register_slash_command "review" tdocs_cmd_review
+    repl_register_slash_command "review-list" tdocs_cmd_review_list
+    repl_register_slash_command "review-batch" tdocs_cmd_review_batch
 }
 
 # Command: /ls [--core|--other] [--module NAME]
@@ -168,6 +179,60 @@ tdocs_cmd_add() {
 
     shift
     tdocs_add_doc "$doc" "$@"
+}
+
+# Command: /init <file> [OPTIONS]
+tdocs_cmd_init() {
+    local doc="${1:-}"
+
+    if [[ -z "$doc" ]]; then
+        echo "Usage: init <file> [OPTIONS]"
+        echo "  Initialize document with metadata (interactive or non-interactive)"
+        echo ""
+        echo "Options:"
+        echo "  --core          Mark as core document"
+        echo "  --other         Mark as other/working document"
+        echo "  --type TYPE     Document type (spec, guide, reference, etc.)"
+        echo "  --tags TAGS     Comma-separated tags"
+        echo "  --module NAME   Module association"
+        return 1
+    fi
+
+    tdocs_init_doc "$@"
+}
+
+# Command: /discover [--auto-init]
+tdocs_cmd_discover() {
+    tdocs_discover_docs "$@"
+}
+
+# Command: /browse
+tdocs_cmd_browse() {
+    echo "Error: Already in browse/REPL mode"
+    return 1
+}
+
+# Command: /index [--rebuild]
+tdocs_cmd_index() {
+    local action="${1:-status}"
+
+    case "$action" in
+        --rebuild)
+            tdocs_index_rebuild
+            ;;
+        --status|status|"")
+            tdocs_index_status
+            ;;
+        *)
+            echo "Usage: index [--rebuild|--status]"
+            return 1
+            ;;
+    esac
+}
+
+# Command: /chuck <subcommand>
+tdocs_cmd_chuck() {
+    tdoc_action_chuck "$@"
 }
 
 # Command: /filter {core|other|module=NAME|clear}
@@ -374,12 +439,103 @@ tdocs_cmd_publish_targets() {
     tdocs_list_publish_targets
 }
 
+# Command: /review [wip|all]
+tdocs_cmd_review() {
+    local mode="${1:-wip}"
+
+    case "$mode" in
+        wip|w)
+            tdocs_review_interactive "wip"
+            ;;
+        all|a)
+            tdocs_review_interactive "all"
+            ;;
+        --help|-h|help)
+            echo "Usage: review [mode]"
+            echo ""
+            echo "Interactive document review and organization."
+            echo ""
+            echo "Modes:"
+            echo "  wip   - WIP documents only (PLAN, STATUS, etc.) [default]"
+            echo "  all   - All markdown files"
+            echo ""
+            echo "Actions available during review:"
+            echo "  [a] Archive   - Move to archive with date/module structure"
+            echo "  [f] Formalize - Add tdocs metadata frontmatter"
+            echo "  [m] Move      - Relocate to different directory"
+            echo "  [k] Keep      - Leave as-is"
+            echo "  [d] Delete    - Remove file"
+            echo "  [n] Next      - Skip to next document"
+            echo "  [p] Prev      - Go back to previous document"
+            echo "  [v] View      - View full document in pager"
+            echo "  [q] Quit      - Exit review session"
+            echo ""
+            echo "Examples:"
+            echo "  review         - Review WIP documents interactively"
+            echo "  review all     - Review ALL markdown documents"
+            echo ""
+            echo "See also: help review"
+            ;;
+        *)
+            echo "Unknown review mode: $mode"
+            echo "Use: review help"
+            return 1
+            ;;
+    esac
+}
+
+# Command: /review-list [pattern]
+tdocs_cmd_review_list() {
+    if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]] || [[ "$1" == "help" ]]; then
+        echo "Usage: review-list [pattern]"
+        echo ""
+        echo "List WIP documents with statistics."
+        echo ""
+        echo "Examples:"
+        echo "  review-list              - List all WIP documents"
+        echo "  review-list '(COMPLETE)' - List only COMPLETE documents"
+        return 0
+    fi
+
+    local pattern="${1:-(PLAN|STATUS|REFACTOR|FIX|MIGRATION|PROPOSAL|DESIGN|COMPLETE|SUMMARY|CHANGES|IMPLEMENTATION|INTEGRATION)}"
+    tdocs_review_list "$pattern"
+}
+
+# Command: /review-batch [pattern]
+tdocs_cmd_review_batch() {
+    if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]] || [[ "$1" == "help" ]]; then
+        echo "Usage: review-batch [pattern]"
+        echo ""
+        echo "Batch archive documents matching pattern (DANGEROUS)."
+        echo ""
+        echo "Examples:"
+        echo "  review-batch '(COMPLETE|SUMMARY)' - Archive COMPLETE and SUMMARY docs"
+        return 0
+    fi
+
+    local pattern="${1:-(COMPLETE|SUMMARY)}"
+
+    echo "WARNING: This will batch archive all documents matching: $pattern"
+    read -p "Continue? [y/N]: " -n 1 -r confirm
+    echo ""
+
+    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+        tdocs_review_batch_archive "$pattern"
+    else
+        echo "Cancelled"
+    fi
+}
+
 export -f tdocs_register_commands
 export -f tdocs_cmd_ls
 export -f tdocs_cmd_view
 export -f tdocs_cmd_search
 export -f tdocs_cmd_tag
 export -f tdocs_cmd_add
+export -f tdocs_cmd_init
+export -f tdocs_cmd_discover
+export -f tdocs_cmd_browse
+export -f tdocs_cmd_index
 export -f tdocs_cmd_filter
 export -f tdocs_cmd_env
 export -f tdocs_cmd_audit
@@ -390,7 +546,11 @@ export -f tdocs_cmd_about
 export -f tdocs_cmd_module
 export -f tdocs_cmd_spec
 export -f tdocs_cmd_audit_specs
+export -f tdocs_cmd_chuck
 export -f tdocs_cmd_colors
 export -f tdocs_cmd_publish
 export -f tdocs_cmd_nginx_config
 export -f tdocs_cmd_publish_targets
+export -f tdocs_cmd_review
+export -f tdocs_cmd_review_list
+export -f tdocs_cmd_review_batch

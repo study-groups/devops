@@ -64,6 +64,7 @@ $(_tdocs_help_cmd "add <file>" "add metadata (smart defaults)")
 $(_tdocs_help_cmd "scan" "index all unindexed documents")
 $(_tdocs_help_cmd "doctor [--fix]" "check database health")
 $(_tdocs_help_cmd "audit" "find docs without metadata")
+$(_tdocs_help_cmd "review [wip|all]" "interactive doc review/organize")
 
 $(_tdocs_help_cmd "filter module <m>" "scope to module")
 $(_tdocs_help_cmd "filter type <t>" "filter by type")
@@ -92,7 +93,7 @@ $(_tdocs_help_example "midi module, spec|define, sorted by time" "[92 {midi} (sp
 
 Display format: filename  Lifecycle  type  intent  tags
 
-More: $(echo -e "${TETRA_CYAN}help <topic>${TETRA_NC}")  $(echo -e "${TETRA_GRAY}lifecycle, taxonomy, filter, types, doctor${TETRA_NC}")
+More: $(echo -e "${TETRA_CYAN}help <topic>${TETRA_NC}")  $(echo -e "${TETRA_GRAY}review, lifecycle, taxonomy, filter, types, doctor${TETRA_NC}")
 EOF
 }
 
@@ -394,6 +395,54 @@ EOF
 }
 
 # Taxonomy help - comprehensive reference
+tdocs_help_review() {
+    cat <<EOF
+$(_tdocs_help_section "tdocs review - interactive document organization")
+
+$(_tdocs_help_subsection "Usage:")
+  review [wip|all]
+
+$(_tdocs_help_subsection "Description:")
+Interactive document review and organization tool. Navigate through
+documents one-by-one with preview, and choose actions like archive,
+formalize, move, or delete.
+
+$(_tdocs_help_subsection "Modes:")
+  wip    Review WIP documents only (PLAN, STATUS, REFACTOR, etc.) [default]
+  all    Review ALL markdown files in the repository
+
+$(_tdocs_help_subsection "Actions:")
+  [a] Archive    Move to archive with date/module structure
+  [f] Formalize  Add tdocs metadata frontmatter
+  [m] Move       Relocate to different directory
+  [k] Keep       Leave as-is
+  [d] Delete     Remove file permanently
+  [n] Next       Skip to next document
+  [p] Prev       Go back to previous document
+  [v] View       View full document in pager
+  [q] Quit       Exit review session
+
+$(_tdocs_help_subsection "Features:")
+  • TDS-rendered markdown preview with proper wrapping
+  • Date and age display (e.g., "2025-10-30 (15 days ago)")
+  • Auto-detected document type and module
+  • Suggested archive paths based on date and module
+  • Bi-directional navigation (next/prev)
+
+$(_tdocs_help_subsection "Examples:")
+$(_tdocs_help_example "Review WIP documents" "review")
+$(_tdocs_help_example "Review all markdown files" "review all")
+$(_tdocs_help_example "List WIP documents without interaction" "review-list")
+$(_tdocs_help_example "Batch archive COMPLETE documents" "review-batch '(COMPLETE)'")
+
+$(_tdocs_help_subsection "Related Commands:")
+  review-list [pattern]   List WIP documents with statistics
+  review-batch [pattern]  Batch archive matching documents (DANGEROUS)
+
+See also: ${TETRA_CYAN}help lifecycle${TETRA_NC} for document lifecycle stages
+EOF
+}
+
 tdocs_help_taxonomy() {
     cat <<EOF
 $(_tdocs_help_section "DOCUMENT TAXONOMY")
@@ -476,12 +525,15 @@ tdocs_help_topic() {
         colors)
             tdocs_help_colors
             ;;
+        review)
+            tdocs_help_review
+            ;;
         "")
             tdocs_help_main
             ;;
         *)
             echo -e "${TETRA_CYAN}Help topic: $topic${TETRA_NC}"
-            echo "No detailed help available. Try: help [lifecycle|doctor|taxonomy|types|filter|rank|module|colors]"
+            echo "No detailed help available. Try: help [lifecycle|doctor|taxonomy|types|filter|rank|module|colors|review]"
             return 1
             ;;
     esac
@@ -490,6 +542,7 @@ tdocs_help_topic() {
 # Export functions
 export -f tdocs_help_main
 export -f tdocs_help_module
+export -f tdocs_help_review
 export -f tdocs_help_spec
 export -f tdocs_help_filter
 export -f tdocs_help_demo

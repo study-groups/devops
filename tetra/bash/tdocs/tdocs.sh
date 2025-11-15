@@ -53,6 +53,7 @@ source "$TDOCS_SRC/core/chuck.sh"
 source "$TDOCS_SRC/core/module_ops.sh"
 source "$TDOCS_SRC/core/ranking.sh"
 source "$TDOCS_SRC/core/scan.sh"
+source "$TDOCS_SRC/core/review.sh"
 source "$TDOCS_SRC/core/help.sh"
 source "$TDOCS_SRC/ui/tdocs_tokens.sh"
 source "$TDOCS_SRC/ui/tags.sh"
@@ -293,6 +294,23 @@ tdocs about --left-margin 10"
         examples="tdocs doctor
 tdocs doctor --fix
 tdocs doctor --summary"
+
+    # Review commands
+    tree_insert "help.tdocs.review" command \
+        title="Interactive review" \
+        description="Interactively manage documents (archive, formalize, move, delete)" \
+        help="Scan for documents and prompt for actions" \
+        synopsis="tdocs review [wip|all]" \
+        handler="tdocs_review_interactive" \
+        details="Walks through documents and prompts for: [v]iew in pager, [a]rchive, [f]ormalize (add metadata), [m]ove, [k]eep, [d]elete, [s]kip, or [q]uit." \
+        examples="tdocs review
+tdocs review wip
+tdocs review all"
+
+    tree_insert "help.tdocs.review.mode" option \
+        title="Review mode" \
+        help="Mode: wip (WIP docs only, default) or all (all markdown files)" \
+        completion_values="wip,all"
 
     # Chuck command
     tree_insert "help.tdocs.chuck" command \
