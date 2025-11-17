@@ -263,7 +263,7 @@ tetra_tsm_start() {
         return 0
     fi
 
-    local env_file="" port="" debug=false custom_name="" prehook=""
+    local env_file="" port="" debug=false custom_name="" prehook="" dry_run=false
     local command_args=()
 
     # Parse flags first
@@ -291,6 +291,10 @@ tetra_tsm_start() {
                 ;;
             --debug)
                 debug=true
+                shift
+                ;;
+            --dry-run)
+                dry_run=true
                 shift
                 ;;
             --*)
@@ -324,7 +328,7 @@ tetra_tsm_start() {
     # Use universal start for any command
     if declare -f tsm_start_any_command >/dev/null 2>&1; then
         local command_string="${command_args[*]}"
-        tsm_start_any_command "$command_string" "$env_file" "$port" "$custom_name" "$prehook"
+        tsm_start_any_command "$command_string" "$env_file" "$port" "$custom_name" "$prehook" "$dry_run"
     else
         # Fallback to old method if universal start not loaded
         local cmd_args=()

@@ -42,6 +42,10 @@ export TSM_PROCESSES_DIR="${TETRA_DIR}/tsm/runtime/processes"
 export TSM_PORTS_DIR="${TETRA_DIR}/tsm/runtime/ports"
 export TSM_ID_FILE="${TETRA_DIR}/tsm/runtime/next_id"
 
+# Multi-user support: Detect if running as root
+export TSM_IS_ROOT=$([[ $EUID -eq 0 ]] && echo 1 || echo 0)
+export TSM_CURRENT_USER="${USER}"
+
 # Global state initialization function
 _tsm_init_global_state() {
     # Only initialize if Bash 4+ (associative arrays)

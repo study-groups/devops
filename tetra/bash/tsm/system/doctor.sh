@@ -1039,6 +1039,27 @@ tetra_tsm_doctor() {
         "healthcheck"|"health")
             tsm_healthcheck
             ;;
+        "runtime")
+            # Runtime environment diagnostics
+            if declare -f tsm_runtime_info >/dev/null 2>&1; then
+                local runtime_type="$1"
+                if [[ -z "$runtime_type" ]]; then
+                    # Show all runtimes with diagnostic focus
+                    if declare -f _tsm_color >/dev/null 2>&1; then
+                        echo "$(_tsm_color cyan bold)Runtime Environment Diagnostics:$(_tsm_color reset)"
+                    else
+                        echo "Runtime Environment Diagnostics:"
+                    fi
+                    echo ""
+                    tsm_runtime_info_all
+                else
+                    tsm_runtime_info "$runtime_type"
+                fi
+            else
+                error "Runtime diagnostics not available (runtime_info.sh not loaded)"
+                return 1
+            fi
+            ;;
         "scan"|"ports"|"")
             scan_common_ports
             ;;

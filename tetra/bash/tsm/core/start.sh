@@ -107,6 +107,7 @@ tsm_start_any_command() {
     local explicit_port="$3"
     local explicit_name="$4"
     local explicit_prehook="$5"  # Optional: --pre-hook value
+    local dry_run="${6:-false}"  # Optional: --dry-run flag
 
     [[ -z "$command" ]] && {
         echo "tsm: command required" >&2
@@ -182,6 +183,12 @@ tsm_start_any_command() {
     # Generate name (pass parsed value to avoid re-reading)
     local name
     name=$(tsm_generate_process_name "$command" "$port" "$explicit_name" "$env_file" "$ENV_NAME")
+
+    # If dry-run, show what would execute and exit
+    if [[ "$dry_run" == "true" ]]; then
+        _tsm_show_dry_run_info "$command" "$final_command" "$name" "$port" "$interpreter" "$process_type" "$env_file" "$prehook_cmd" "$service_type"
+        return 0
+    fi
 
     # Check if already running
     if tsm_process_exists "$name"; then
@@ -351,6 +358,125 @@ tsm_start_any_command() {
     echo "$success_msg"
 }
 
+# Color helper - fallback to simple ANSI codes if color function not available
+_tsm_color_fallback() {
+    local color_name="$1"
+    local modifier="${2:-}"
+
+    if declare -f color >/dev/null 2>&1; then
+        color "$color_name" "$modifier"
+        return
+    fi
+
+    # Fallback to ANSI codes
+    case "$color_name" in
+        cyan)
+            [[ "$modifier" == "bold" ]] && echo -ne '\033[1;36m' || echo -ne '\033[0;36m'
+            ;;
+        green)
+            echo -ne '\033[0;32m'
+            ;;
+        yellow)
+            echo -ne '\033[1;33m'
+            ;;
+        red)
+            echo -ne '\033[0;31m'
+            ;;
+        blue)
+            [[ "$modifier" == "bold" ]] && echo -ne '\033[1;34m' || echo -ne '\033[0;34m'
+            ;;
+        gray)
+            echo -ne '\033[0;90m'
+            ;;
+        reset)
+            echo -ne '\033[0m'
+            ;;
+    esac
+}
+
+# Show dry-run information without executing
+_tsm_show_dry_run_info() {
+    local original_command="$1"
+    local final_command="$2"
+    local name="$3"
+    local port="$4"
+    local interpreter="$5"
+    local process_type="$6"
+    local env_file="$7"
+    local prehook_cmd="$8"
+    local service_type="$9"
+
+    echo "$(_tsm_color_fallback cyan bold)Dry-Run: TSM Start Preview$(_tsm_color_fallback reset)"
+    echo ""
+
+    echo "$(_tsm_color_fallback blue)Process Information:$(_tsm_color_fallback reset)"
+    echo "  Name: $(_tsm_color_fallback green)$name$(_tsm_color_fallback reset)"
+    if [[ "$port" != "none" ]]; then
+        echo "  Port: $(_tsm_color_fallback green)$port$(_tsm_color_fallback reset)"
+    else
+        echo "  Port: $(_tsm_color_fallback gray)none (PID-based service)$(_tsm_color_fallback reset)"
+    fi
+    echo "  Service Type: $service_type"
+    echo "  Working Directory: $PWD"
+    echo ""
+
+    echo "$(_tsm_color_fallback blue)Runtime Environment:$(_tsm_color_fallback reset)"
+    echo "  Process Type: $(_tsm_color_fallback cyan)$process_type$(_tsm_color_fallback reset)"
+    if [[ -n "$interpreter" && "$interpreter" != "$process_type" ]]; then
+        echo "  Interpreter: $(_tsm_color_fallback green)$interpreter$(_tsm_color_fallback reset)"
+    fi
+    echo ""
+
+    if [[ -n "$env_file" ]]; then
+        echo "$(_tsm_color_fallback blue)Environment File:$(_tsm_color_fallback reset)"
+        echo "  Path: $(_tsm_color_fallback yellow)$env_file$(_tsm_color_fallback reset)"
+        if [[ -f "$env_file" ]]; then
+            echo "  Status: $(_tsm_color_fallback green)✓ Found$(_tsm_color_fallback reset)"
+        else
+            echo "  Status: $(_tsm_color_fallback red)✗ Not found$(_tsm_color_fallback reset)"
+        fi
+        echo ""
+    fi
+
+    echo "$(_tsm_color_fallback blue)Pre-Hook:$(_tsm_color_fallback reset)"
+    if [[ -n "$prehook_cmd" ]]; then
+        echo "  $(_tsm_color_fallback green)WILL RUN:$(_tsm_color_fallback reset)"
+        echo "$prehook_cmd" | sed 's/^/    /'
+    else
+        echo "  $(_tsm_color_fallback gray)None$(_tsm_color_fallback reset)"
+    fi
+    echo ""
+
+    echo "$(_tsm_color_fallback blue)Command Execution:$(_tsm_color_fallback reset)"
+    echo "  Original: $(_tsm_color_fallback yellow)$original_command$(_tsm_color_fallback reset)"
+    if [[ "$original_command" != "$final_command" ]]; then
+        echo "  Resolved: $(_tsm_color_fallback green)$final_command$(_tsm_color_fallback reset)"
+    fi
+    echo ""
+
+    echo "$(_tsm_color_fallback blue)What Would Happen:$(_tsm_color_fallback reset)"
+    echo "  1. Create process directory: \$TSM_PROCESSES_DIR/$name"
+    echo "  2. Setup log files: current.out, current.err"
+    if [[ -n "$prehook_cmd" ]]; then
+        echo "  3. Run pre-hook (see above)"
+        echo "  4. Execute command in background"
+    else
+        echo "  3. Execute command in background (no pre-hook)"
+    fi
+    echo "  5. Capture PID and create metadata"
+    if [[ "$port" != "none" ]]; then
+        echo "  6. Track port allocation: $port → $name"
+    fi
+    echo ""
+
+    echo "$(_tsm_color_fallback gray)To actually start this process, run without --dry-run:$(_tsm_color_fallback reset)"
+    local cmd_preview="tsm start"
+    [[ -n "$env_file" ]] && cmd_preview+=" --env ${env_file##*/}"
+    [[ "$port" != "none" && -n "$explicit_port" ]] && cmd_preview+=" --port $port"
+    echo "  $cmd_preview $original_command"
+}
+
 export -f tsm_discover_port
 export -f tsm_generate_process_name
 export -f tsm_start_any_command
+export -f _tsm_show_dry_run_info

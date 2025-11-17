@@ -81,9 +81,16 @@ tsm() {
             ;;
         list|ls)
             # Route to list functions in organized structure
+            # Handle --user filter (root-only)
+            local filter_user=""
+            if [[ "$1" == "--user" ]]; then
+                filter_user="$2"
+                shift 2
+            fi
+
             case "${1:-running}" in
                 running|"")
-                    tsm_list_running
+                    tsm_list_running "$filter_user"
                     ;;
                 available|all|--all|-a)
                     tsm_list_available
@@ -95,7 +102,7 @@ tsm() {
                     tsm_list_long
                     ;;
                 help)
-                    echo "Usage: tsm list [running|available|all|pwd|-l]"
+                    echo "Usage: tsm list [running|available|all|pwd|-l] [--user <username>]"
                     echo ""
                     echo "Options:"
                     echo "  running    - Show only running services (default)"
@@ -104,6 +111,11 @@ tsm() {
                     echo "  --all, -a  - Show all services (alternative syntax)"
                     echo "  pwd        - Show running services with working directory"
                     echo "  -l         - Show detailed/long format with CPU, memory, paths"
+                    if [[ $TSM_IS_ROOT -eq 1 ]]; then
+                        echo ""
+                        echo "Multi-user options (root only):"
+                        echo "  --user <username>  - Filter processes by username"
+                    fi
                     ;;
                 *)
                     tsm_error "Unknown option: $1"
@@ -142,6 +154,16 @@ tsm() {
                 tetra_tsm_startup_status "$@"
             else
                 tetra_tsm_startup "$@"
+            fi
+            ;;
+        users)
+            # Show all users with active TSM instances (root only)
+            if [[ $TSM_IS_ROOT -eq 1 ]]; then
+                tsm_list_users
+            else
+                echo "Command 'tsm users' is only available when running as root"
+                echo "Run: sudo tsm users"
+                return 1
             fi
             ;;
         info)
@@ -260,6 +282,15 @@ tsm() {
             ;;
         ranges)
             tsm_show_port_ranges
+            ;;
+        runtime)
+            # Runtime environment information (loaded from core/runtime_info.sh)
+            if declare -f tetra_tsm_runtime >/dev/null 2>&1; then
+                tetra_tsm_runtime "$@"
+            else
+                echo "Error: Runtime info not available (runtime_info.sh not loaded)" >&2
+                return 1
+            fi
             ;;
         patterns)
             tetra_tsm_list_patterns "$@"

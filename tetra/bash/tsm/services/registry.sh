@@ -5,7 +5,7 @@
 # Replaces hardcoded values in tsm_patrol.sh and other TSM components
 
 # Port Range Definitions
-declare -A TSM_PORT_RANGES=(
+declare -gA TSM_PORT_RANGES=(
     ["dev"]="5000-5999"
     ["staging"]="6000-6999"
     ["proxy"]="7000-7999"
@@ -14,7 +14,7 @@ declare -A TSM_PORT_RANGES=(
 
 # Service Definitions
 # Format: [service-env]=port
-declare -A TSM_SERVICE_PORTS=(
+declare -gA TSM_SERVICE_PORTS=(
     # Arcade Service
     ["arcade-dev"]="5800"
     ["arcade-staging"]="6800"
@@ -51,7 +51,7 @@ declare -a TSM_IGNORE_PORTS=(
 )
 
 # Service Metadata
-declare -A TSM_SERVICE_META=(
+declare -gA TSM_SERVICE_META=(
     ["arcade"]="Web arcade gaming platform"
     ["devpages"]="Development documentation pages"
     ["pbase"]="Personal knowledge base"
@@ -60,7 +60,7 @@ declare -A TSM_SERVICE_META=(
 )
 
 # Service Commands - Default commands for each service type
-declare -A TSM_SERVICE_COMMANDS=(
+declare -gA TSM_SERVICE_COMMANDS=(
     ["tserve"]="python3 -m http.server"
     ["tetra"]="npm run dev"
     ["devpages"]="npm run dev"
@@ -69,7 +69,7 @@ declare -A TSM_SERVICE_COMMANDS=(
 )
 
 # Service Working Directories - Relative to project root
-declare -A TSM_SERVICE_DIRS=(
+declare -gA TSM_SERVICE_DIRS=(
     ["tserve"]="$TETRA_DIR/tserve"
     ["tetra"]="."
     ["devpages"]="."

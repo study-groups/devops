@@ -417,7 +417,7 @@ tsm_cmd_help() {
             return 0
         else
             echo -e "\033[0;31m✗\033[0m Unknown help topic: \033[1;33m$topic\033[0m"
-            echo -e "Available topics: \033[0;36mcommands\033[0m, \033[0;36msystem\033[0m, \033[0;36mrepl\033[0m, \033[0;36mexamples\033[0m"
+            echo -e "Available topics: \033[0;36mcommands\033[0m, \033[0;36msystem\033[0m, \033[0;36mrepl\033[0m, \033[0;36mexamples\033[0m, \033[0;36mnode-versions\033[0m, \033[0;36mruntimes\033[0m"
             echo ""
         fi
     fi
@@ -649,6 +649,25 @@ REPL_HELP_TOPICS["commands"]="tsm_cmd_help_commands"
 REPL_HELP_TOPICS["system"]="tsm_cmd_help_system"
 REPL_HELP_TOPICS["repl"]="tsm_cmd_help_repl"
 REPL_HELP_TOPICS["examples"]="tsm_cmd_help_examples"
+REPL_HELP_TOPICS["node-versions"]="tsm_cmd_help_node_versions"
+REPL_HELP_TOPICS["runtimes"]="tsm_cmd_help_runtimes"
+
+# Wrapper functions for markdown-based help topics
+tsm_cmd_help_node_versions() {
+    if declare -f tsm_help_topic_md >/dev/null 2>&1; then
+        tsm_help_topic_md "node-versions" "repl"
+    else
+        echo -e "\033[0;31m✗\033[0m Help topic not available (help_parser.sh not loaded)"
+    fi
+}
+
+tsm_cmd_help_runtimes() {
+    if declare -f tsm_help_topic_md >/dev/null 2>&1; then
+        tsm_help_topic_md "runtimes" "repl"
+    else
+        echo -e "\033[0;31m✗\033[0m Help topic not available (help_parser.sh not loaded)"
+    fi
+}
 
 # === OVERRIDE BASH/REPL INPUT PROCESSOR (Minimal Override) ===
 

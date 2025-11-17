@@ -29,12 +29,15 @@ source "$TSM_CORE_SRC/environment.sh"    # Environment handling
 source "$TSM_CORE_SRC/helpers.sh"        # Helper functions
 source "$TSM_CORE_SRC/setup.sh"          # Setup utilities
 source "$TSM_CORE_SRC/metadata.sh"       # PM2-style JSON metadata
+source "$TSM_CORE_SRC/multi_user.sh"     # Multi-user support (root cross-user visibility)
 source "$TSM_CORE_SRC/hooks.sh"          # Pre-hook system
 source "$TSM_CORE_SRC/runtime.sh"        # Interpreter resolution
+source "$TSM_CORE_SRC/runtime_info.sh"   # Runtime information queries
 source "$TSM_CORE_SRC/port_resolution.sh"  # Port ladder (5-step)
 source "$TSM_CORE_SRC/patterns.sh"       # Pattern management
 source "$TSM_CORE_SRC/start.sh"          # Universal start command
 source "$TSM_CORE_SRC/help.sh"           # Help system (contextual, colored)
+source "$TSM_CORE_SRC/help_parser.sh"    # Help markdown parser
 
 # === PHASE 2: SYSTEM MODULES (depend on core) ===
 source "$TSM_SYSTEM_SRC/ports.sh"              # Named port registry

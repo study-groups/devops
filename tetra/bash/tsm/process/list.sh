@@ -13,13 +13,22 @@ fi
 TSM_SERVICES_AVAILABLE="$TETRA_DIR/tsm/services-available"
 TSM_SERVICES_ENABLED="$TETRA_DIR/tsm/services-enabled"
 
-# Print table header
+# Print table header (multi-user aware)
 print_table_header() {
     text_color "00AAAA"
-    printf "%-3s %-25s %-10s %-5s %-5s %-8s %-8s %-8s\n" \
-        "ID" "Name" "Env" "PID" "Port" "Status" "Type" "Uptime"
-    printf "%-3s %-25s %-10s %-5s %-5s %-8s %-8s %-8s\n" \
-        "--" "-------------------------" "----------" "-----" "-----" "--------" "--------" "--------"
+    if [[ $TSM_IS_ROOT -eq 1 ]]; then
+        # Root: show USER column
+        printf "%-10s %-3s %-20s %-10s %-5s %-5s %-8s %-8s %-8s\n" \
+            "USER" "ID" "Name" "Env" "PID" "Port" "Status" "Type" "Uptime"
+        printf "%-10s %-3s %-20s %-10s %-5s %-5s %-8s %-8s %-8s\n" \
+            "----------" "--" "--------------------" "----------" "-----" "-----" "--------" "--------" "--------"
+    else
+        # Regular user: no USER column
+        printf "%-3s %-25s %-10s %-5s %-5s %-8s %-8s %-8s\n" \
+            "ID" "Name" "Env" "PID" "Port" "Status" "Type" "Uptime"
+        printf "%-3s %-25s %-10s %-5s %-5s %-8s %-8s %-8s\n" \
+            "--" "-------------------------" "----------" "-----" "-----" "--------" "--------" "--------"
+    fi
     reset_color
 }
 
@@ -127,62 +136,102 @@ get_service_info() {
     echo "$service_name|$env_file|$pid|$port|$status|$uptime"
 }
 
+# Helper: List processes from a single directory
+_tsm_list_processes_from_dir() {
+    local processes_dir="$1"
+    local owner_user="$2"  # Optional: username for multi-user display
+    local found_running=false
+
+    for process_dir in "$processes_dir"/*/; do
+        [[ -d "$process_dir" ]] || continue
+
+        local name=$(basename "$process_dir")
+        local meta_file="$process_dir/meta.json"
+        [[ -f "$meta_file" ]] || continue
+
+        # Read all metadata in one jq call (efficient!)
+        local metadata
+        metadata=$(jq -r '[.tsm_id, .pid, .port, .start_time, .env_file, .service_type] | @tsv' "$meta_file" 2>/dev/null)
+        [[ -z "$metadata" ]] && continue
+
+        read tsm_id pid port start_time env_file service_type <<< "$metadata"
+
+        # Verify process is still running
+        if tsm_is_pid_alive "$pid"; then
+            # Calculate uptime
+            local uptime=$(tsm_calculate_uptime "$start_time")
+
+            # Format env file (basename only)
+            local env_display="-"
+            if [[ -n "$env_file" && "$env_file" != "null" && "$env_file" != "" ]]; then
+                env_display=$(basename "$env_file" 2>/dev/null || echo "-")
+            fi
+
+            # Format port
+            [[ -z "$port" || "$port" == "none" || "$port" == "null" || "$port" == "0" ]] && port="-"
+
+            # Format service type
+            local type_display="${service_type:-pid}"
+
+            # Print with colors (format depends on root)
+            if [[ $TSM_IS_ROOT -eq 1 && -n "$owner_user" ]]; then
+                # Root: include USER column
+                printf "%-10s %-3s %-20s %-10s %-5s %-5s " "$owner_user" "$tsm_id" "$name" "$env_display" "$pid" "$port"
+            else
+                # Regular user: no USER column
+                printf "%-3s %-25s %-10s %-5s %-5s " "$tsm_id" "$name" "$env_display" "$pid" "$port"
+            fi
+
+            text_color "00AA00"; printf "%-8s" "online"; reset_color
+            printf " %-8s %-8s\n" "$type_display" "$uptime"
+
+            found_running=true
+        fi
+    done
+
+    return $([ "$found_running" = "true" ] && echo 0 || echo 1)
+}
+
 # List running services only (PM2-style: read from process directories)
 tsm_list_running() {
+    local filter_user="${1:-}"  # Optional: filter by username
+
     print_table_header
 
     local found_running=false
 
-    # Read from process directories
-    if [[ -d "$TSM_PROCESSES_DIR" ]]; then
-        for process_dir in "$TSM_PROCESSES_DIR"/*/; do
-            [[ -d "$process_dir" ]] || continue
+    # Multi-user support: scan all users if root, or just current user
+    if [[ $TSM_IS_ROOT -eq 1 ]]; then
+        # Root: scan all user homes
+        while IFS= read -r processes_dir; do
+            local owner=$(tsm_extract_username_from_path "$processes_dir")
 
-            local name=$(basename "$process_dir")
-            local meta_file="$process_dir/meta.json"
-            [[ -f "$meta_file" ]] || continue
-
-            # Read all metadata in one jq call (efficient!)
-            local metadata
-            metadata=$(jq -r '[.tsm_id, .pid, .port, .start_time, .env_file, .service_type] | @tsv' "$meta_file" 2>/dev/null)
-            [[ -z "$metadata" ]] && continue
-
-            read tsm_id pid port start_time env_file service_type <<< "$metadata"
-
-            # Verify process is still running
-            if tsm_is_pid_alive "$pid"; then
-                # Calculate uptime
-                local uptime=$(tsm_calculate_uptime "$start_time")
-
-                # Format env file (basename only)
-                local env_display="-"
-                if [[ -n "$env_file" && "$env_file" != "null" && "$env_file" != "" ]]; then
-                    env_display=$(basename "$env_file" 2>/dev/null || echo "-")
-                fi
-
-                # Format port
-                [[ -z "$port" || "$port" == "none" || "$port" == "null" || "$port" == "0" ]] && port="-"
-
-                # Format service type
-                local type_display="${service_type:-pid}"
-
-                # Print with colors
-                printf "%-3s %-25s %-10s %-5s %-5s " "$tsm_id" "$name" "$env_display" "$pid" "$port"
-                text_color "00AA00"; printf "%-8s" "online"; reset_color
-                printf " %-8s %-8s\n" "$type_display" "$uptime"
-
-                found_running=true
-            else
-                # Process died - mark as crashed and clean up
-                tsm_set_status "$name" "crashed"
+            # Apply user filter if specified
+            if [[ -n "$filter_user" && "$filter_user" != "$owner" ]]; then
+                continue
             fi
-        done
+
+            if _tsm_list_processes_from_dir "$processes_dir" "$owner"; then
+                found_running=true
+            fi
+        done < <(tsm_get_all_process_dirs)
+    else
+        # Regular user: only their own processes
+        if [[ -d "$TSM_PROCESSES_DIR" ]]; then
+            if _tsm_list_processes_from_dir "$TSM_PROCESSES_DIR" ""; then
+                found_running=true
+            fi
+        fi
     fi
 
     if [[ "$found_running" == "false" ]]; then
         echo ""
-        echo "No running services found."
-        echo "Start services with: tsm start <service-name>"
+        if [[ -n "$filter_user" ]]; then
+            echo "No running services found for user '$filter_user'."
+        else
+            echo "No running services found."
+            echo "Start services with: tsm start <service-name>"
+        fi
     fi
 }
 

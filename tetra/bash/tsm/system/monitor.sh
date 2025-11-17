@@ -10,7 +10,7 @@ TSM_MONITOR_TRIGGERS_FILE="${TSM_MONITOR_CONFIG_DIR}/triggers.conf"
 TSM_MONITOR_LOG_FILE="${TSM_LOGS_DIR}/tsm-monitor.log"
 
 # Default tetra token patterns
-declare -A DEFAULT_TETRA_PATTERNS=(
+declare -gA DEFAULT_TETRA_PATTERNS=(
     ["ADMIN_LOGIN"]="TETRA:(AUTH|USER):LOGIN.*admin"
     ["API_ERROR"]="TETRA:(ERROR|PERFORMANCE):.*status\":[45][0-9][0-9]"
     ["HIGH_RESPONSE_TIME"]="TETRA:PERFORMANCE:API_CALL.*responseTime\":[0-9]{4,}"
