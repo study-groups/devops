@@ -30,6 +30,7 @@ import cssRoutes from './routes/css.js';
 import tetraRoutes from './routes/tetraRoutes.js';
 import spacesRouter from './routes/spaces.js';
 import publishRouter from './routes/publish.js';
+import { TetraConfig } from './utils/tetraConfig.js';
 // import settingsRoutes from './routes/settings.js';
 // import s3Routes from './routes/s3.js';
 
@@ -73,6 +74,30 @@ try {
     console.error('[Server] CRITICAL: PData failed to initialize.', error);
 	process.exit(1);
 }
+
+// Initialize TETRA Configuration (async)
+(async () => {
+	if (process.env.TETRA_CONFIG && process.env.TETRA_SECRETS) {
+		try {
+			const tetraConfig = new TetraConfig(
+				process.env.TETRA_CONFIG,
+				process.env.TETRA_SECRETS
+			);
+			await tetraConfig.load();
+			app.locals.tetraConfig = tetraConfig;
+			console.log('[Server] TETRA config loaded successfully');
+
+			const configs = tetraConfig.getPublishingConfigs();
+			console.log(`[Server] TETRA: ${configs.length} publishing configs available`);
+		} catch (error) {
+			console.warn('[Server] TETRA config failed to load:', error.message);
+			console.warn('[Server] Publishing will use localStorage configs only');
+		}
+	} else {
+		console.warn('[Server] TETRA environment variables not set (TETRA_CONFIG, TETRA_SECRETS)');
+		console.warn('[Server] Publishing will use localStorage configs only');
+	}
+})();
 
 const s3ClientInstance = (() => {
     const requiredEnvVars = ['DO_SPACES_KEY', 'DO_SPACES_SECRET', 'DO_SPACES_REGION', 'DO_SPACES_ENDPOINT'];

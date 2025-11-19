@@ -49,7 +49,8 @@ const CSS_BUNDLES = {
         'client/styles/theme-editor-panel.css',
         'client/styles/dom-inspector-panel.css',
         'client/panels/publish/PublishPanelStyles.css',
-        'client/panels/publish/ConfigManagerStyles.css'
+        'client/panels/publish/ConfigManagerStyles.css',
+        'client/panels/TetraConfigPanelStyles.css'
     ]
 };
 

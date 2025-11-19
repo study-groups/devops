@@ -459,12 +459,12 @@ function escapeHtml(text) {
 /**
  * DELETE /api/publish
  * Unpublish a file (delete HTML from DO Spaces and update state).
- * Requires JSON body: { pathname: string } <- MARKDOWN pathname
+ * Requires JSON body: { pathname: string, config?: object } <- MARKDOWN pathname and optional custom config
  */
 router.delete('/', express.json(), async (req, res) => {
     const logPrefix = '[DELETE /api/publish v3]';
     const username = req.user?.username || '[unknown_user]';
-    const { pathname } = req.body; // Markdown pathname to unpublish
+    const { pathname, config } = req.body; // Markdown pathname to unpublish and optional custom config
 
     if (!pathname) {
         return res.status(400).json({ error: 'pathname (markdown path) is required in the request body.' });
@@ -472,7 +472,7 @@ router.delete('/', express.json(), async (req, res) => {
 
     let s3Key; // Define outside for logging in catch
     try {
-        console.log(`${logPrefix} User='${username}', Unpublishing Markdown path='${pathname}'`);
+        console.log(`${logPrefix} User='${username}', Unpublishing Markdown path='${pathname}', hasConfig=${!!config}`);
 
         // 1. Load State using PData
         const publishedState = await loadPublishedState(req, pathname);
@@ -492,10 +492,56 @@ router.delete('/', express.json(), async (req, res) => {
         }
         console.log(`${logPrefix} Permission granted for managing publish state of '${pathname}'.`);
 
+        // Use custom config if provided, otherwise fall back to environment variables
+        const s3Config = config || {
+            endpoint: DO_SPACES_ENDPOINT,
+            region: DO_SPACES_REGION,
+            bucket: DO_SPACES_BUCKET,
+            accessKey: DO_SPACES_KEY,
+            secretKey: DO_SPACES_SECRET
+        };
+
+        // Create S3 client with custom config if credentials provided
+        const clientToUse = (s3Config.accessKey && s3Config.secretKey)
+            ? (() => {
+                // Parse endpoint to ensure it doesn't include the bucket name
+                // Correct format: https://sfo3.digitaloceanspaces.com
+                // Incorrect format: https://bucket.sfo3.digitaloceanspaces.com
+                let cleanEndpoint = s3Config.endpoint;
+                try {
+                    const url = new URL(s3Config.endpoint);
+                    const hostname = url.hostname;
+
+                    // Check if hostname starts with bucket name (e.g., "devpages.sfo3.digitaloceanspaces.com")
+                    // Extract region-based endpoint (e.g., "sfo3.digitaloceanspaces.com")
+                    const parts = hostname.split('.');
+                    if (parts.length > 3 && parts[parts.length - 3] === s3Config.region) {
+                        // Rebuild URL without bucket prefix
+                        const regionalHost = parts.slice(-3).join('.');
+                        url.hostname = regionalHost;
+                        cleanEndpoint = url.toString().replace(/\/$/, ''); // Remove trailing slash
+                        console.log(`${logPrefix} Cleaned endpoint from ${s3Config.endpoint} to ${cleanEndpoint}`);
+                    }
+                } catch (error) {
+                    console.warn(`${logPrefix} Could not parse endpoint URL, using as-is:`, error.message);
+                }
+
+                return new S3Client({
+                    endpoint: cleanEndpoint,
+                    region: s3Config.region,
+                    credentials: {
+                        accessKeyId: s3Config.accessKey,
+                        secretAccessKey: s3Config.secretKey
+                    },
+                    forcePathStyle: false
+                });
+            })()
+            : s3Client; // Use default client if no custom credentials
+
         // 3. Delete HTML from S3
-        console.log(`${logPrefix} Deleting object from S3: Bucket='${DO_SPACES_BUCKET}', Key='${s3Key}'`);
-        const command = new DeleteObjectCommand({ Bucket: DO_SPACES_BUCKET, Key: s3Key });
-        await s3Client.send(command);
+        console.log(`${logPrefix} Deleting object from S3: Bucket='${s3Config.bucket}', Key='${s3Key}'`);
+        const command = new DeleteObjectCommand({ Bucket: s3Config.bucket, Key: s3Key });
+        await clientToUse.send(command);
         console.log(`${logPrefix} Successfully deleted object from S3.`);
 
         // 4. Update State File using PData

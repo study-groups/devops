@@ -468,4 +468,92 @@ function parseJourneyData(output) {
     return journey;
 }
 
+// === TETRA CONFIGURATION APIs ===
+
+/**
+ * GET /api/tetra/config/debug
+ * Get TETRA configuration debug info
+ */
+router.get('/config/debug', (req, res) => {
+    try {
+        const tetraConfig = req.app.locals.tetraConfig;
+
+        if (!tetraConfig) {
+            return res.json({
+                available: false,
+                error: 'TETRA config not initialized',
+                env: {
+                    TETRA_CONFIG: process.env.TETRA_CONFIG,
+                    TETRA_SECRETS: process.env.TETRA_SECRETS,
+                    TETRA_ORG: process.env.TETRA_ORG,
+                    TETRA_ROOT: process.env.TETRA_ROOT
+                }
+            });
+        }
+
+        const debugInfo = tetraConfig.getDebugInfo();
+        res.json({
+            available: true,
+            ...debugInfo,
+            env: {
+                TETRA_CONFIG: process.env.TETRA_CONFIG,
+                TETRA_SECRETS: process.env.TETRA_SECRETS,
+                TETRA_ORG: process.env.TETRA_ORG,
+                TETRA_ROOT: process.env.TETRA_ROOT
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/tetra/config/publishing
+ * Get publishing configurations from TETRA
+ */
+router.get('/config/publishing', (req, res) => {
+    try {
+        const tetraConfig = req.app.locals.tetraConfig;
+
+        if (!tetraConfig) {
+            return res.status(503).json({
+                error: 'TETRA config not available',
+                configs: []
+            });
+        }
+
+        const configs = tetraConfig.getPublishingConfigs();
+        res.json({ configs });
+    } catch (error) {
+        console.error('[Tetra API] Error getting publishing configs:', error);
+        res.status(500).json({ error: error.message, configs: [] });
+    }
+});
+
+/**
+ * POST /api/tetra/config/reload
+ * Reload TETRA configuration
+ */
+router.post('/config/reload', async (req, res) => {
+    try {
+        const tetraConfig = req.app.locals.tetraConfig;
+
+        if (!tetraConfig) {
+            return res.status(503).json({ error: 'TETRA config not available' });
+        }
+
+        await tetraConfig.load();
+        const debugInfo = tetraConfig.getDebugInfo();
+
+        res.json({
+            success: true,
+            message: 'Configuration reloaded',
+            ...debugInfo
+        });
+    } catch (error) {
+        console.error('[Tetra API] Error reloading config:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 export default router;
