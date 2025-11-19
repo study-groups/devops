@@ -16,13 +16,13 @@ THEME_SWITCH_CALLBACKS=()   # Registered callbacks
 PALETTE_BRIGHTNESS=4        # 0-7 brightness level
 
 # Legacy theme definitions (keep for backward compatibility)
-declare -A THEME_DARK=(
+declare -gA THEME_DARK=(
     [bg]="1E1E1E"
     [text]="FFFFFF"
     [accent]="87CEEB"
 )
 
-declare -A THEME_SOLARIZED_DARK=(
+declare -gA THEME_SOLARIZED_DARK=(
     [bg]="002B36"
     [text]="839496"
     [accent]="268BD2"

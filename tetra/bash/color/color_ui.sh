@@ -7,7 +7,7 @@ source "$COLORS_DIR/color_elements.sh"
 
 # Legacy UI assignments (kept for backward compatibility)
 # NEW: Element-based functions are preferred over these index-based assignments
-declare -A UI_ASSIGNMENTS=(
+declare -gA UI_ASSIGNMENTS=(
     [env_label]=0
     [env_selected]=0
     [env_other]=1

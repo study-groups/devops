@@ -5,16 +5,19 @@
 # and managing 8-color patterns for the 4 major tdocs semantic categories
 
 # Source required dependencies
+# Load TDS via module system if not already loaded
+if [[ "${TDS_LOADED}" != "true" ]] && [[ $(type -t tetra_load_module) == "function" ]]; then
+    tetra_load_module "tds"
+elif [[ "${TDS_LOADED}" != "true" ]]; then
+    # Fallback to direct sourcing if module system not available
+    TDS_SRC="${TDS_SRC:-$TETRA_SRC/bash/tds}"
+    if [[ -f "$TDS_SRC/includes.sh" ]]; then
+        source "$TDS_SRC/includes.sh"
+    fi
+fi
+
+# Ensure TDS_SRC is set for later use
 TDS_SRC="${TDS_SRC:-$TETRA_SRC/bash/tds}"
-COLOR_SRC="${COLOR_SRC:-$TETRA_SRC/bash/color}"
-
-if [[ -f "$COLOR_SRC/color_core.sh" ]]; then
-    source "$COLOR_SRC/color_core.sh"
-fi
-
-if [[ -f "$TDS_SRC/tds.sh" ]]; then
-    source "$TDS_SRC/tds.sh"
-fi
 
 # The 4 major tdocs semantic categories (NEW TAXONOMY)
 declare -gA TDOCS_SEMANTIC_CATEGORIES=(

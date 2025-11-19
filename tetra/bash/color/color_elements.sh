@@ -8,7 +8,7 @@ source "$COLORS_DIR/color_core.sh"
 source "$COLORS_DIR/color_palettes.sh"
 
 # Element color assignments by semantic name (using existing palette colors)
-declare -A ELEMENT_COLORS=(
+declare -gA ELEMENT_COLORS=(
     # Demo modules - use first color from each palette
     [demo_env]="00AA00"         # ENV_PRIMARY[0] - Green family
     [demo_mode]="0088FF"        # MODE_PRIMARY[0] - Blue family

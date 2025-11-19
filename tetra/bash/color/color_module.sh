@@ -10,7 +10,7 @@ source "$COLORS_DIR/color_palettes.sh"
 source "$COLORS_DIR/color_ui.sh"
 
 # Current color state (prevent collisions)
-declare -A CURRENT_COLOR_STATE=(
+declare -gA CURRENT_COLOR_STATE=(
     [verb_color]=""
     [noun_color]=""
 )
