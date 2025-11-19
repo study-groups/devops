@@ -80,6 +80,9 @@ fi
 # TDS initialized
 export TDS_LOADED=true
 
+# NOTE: Chroma is now a separate module at bash/chroma
+# It can be loaded via: tmod load chroma
+
 # Version info
 export TDS_VERSION="1.0.0"
 

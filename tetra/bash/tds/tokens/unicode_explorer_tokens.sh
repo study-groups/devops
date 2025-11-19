@@ -4,7 +4,7 @@
 # Design tokens for Unicode Explorer UI elements
 
 # Unicode Explorer-specific color tokens map semantic elements to palette references
-declare -A TDS_UNICODE_TOKENS=(
+declare -gA TDS_UNICODE_TOKENS=(
     # Slot display colors
     [uex.slot.primary]="mode:0"           # MODE_PRIMARY[0] - primary slots (1,2)
     [uex.slot.secondary]="mode:1"         # MODE_PRIMARY[1] - secondary slots (3,4)

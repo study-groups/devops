@@ -5,7 +5,7 @@
 
 # Color token definitions map semantic names to palette references
 # Format: "palette:index" where palette is env|mode|verbs|nouns, index is 0-7
-declare -A TDS_COLOR_TOKENS=(
+declare -gA TDS_COLOR_TOKENS=(
     # Structural tokens - main UI structure
     [structural.primary]="env:0"           # ENV_PRIMARY[0] - green
     [structural.secondary]="mode:0"        # MODE_PRIMARY[0] - blue

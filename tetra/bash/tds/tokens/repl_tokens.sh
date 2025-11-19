@@ -4,7 +4,7 @@
 # Design tokens for REPL UI elements (prompts, navigation, feedback)
 
 # REPL-specific color tokens map semantic REPL elements to palette references
-declare -A TDS_REPL_TOKENS=(
+declare -gA TDS_REPL_TOKENS=(
     # Environment cycle tokens (4 states: Local, Dev, Staging, Production)
     # Uses green palette (ENV_PRIMARY) with progression from bright to cautious
     [repl.env.local]="env:0"           # ENV_PRIMARY[0] - bright green (00AA00)

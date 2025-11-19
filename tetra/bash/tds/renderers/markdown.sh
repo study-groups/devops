@@ -40,15 +40,23 @@ tds_process_inline_formatting() {
     echo -n "$result"
 }
 
-# Render markdown file using semantic tokens
+# Render markdown from file or stdin using semantic tokens
 tds_render_markdown() {
     local file="$1"
     local in_code_block=false
     local code_fence=""
+    local code_content=""
+    local input_source
 
-    if [[ ! -f "$file" ]]; then
+    # Determine input source: stdin or file
+    if [[ -z "$file" || "$file" == "-" ]]; then
+        # Read from stdin
+        input_source="/dev/stdin"
+    elif [[ ! -f "$file" ]]; then
         echo "Error: File not found: $file" >&2
         return 1
+    else
+        input_source="$file"
     fi
 
     while IFS= read -r line; do
@@ -57,19 +65,52 @@ tds_render_markdown() {
             if [[ "$in_code_block" == false ]]; then
                 in_code_block=true
                 code_fence="${BASH_REMATCH[1]}"
-                tds_render_code_header "$code_fence"
+                code_content=""
+                # Don't render header yet for mermaid - we'll handle it specially
+                if [[ "$code_fence" != "mermaid" ]]; then
+                    tds_render_code_header "$code_fence"
+                fi
                 continue
             else
                 in_code_block=false
-                tds_render_code_footer
+                # Check if this is a mermaid flowchart block
+                if [[ "$code_fence" == "mermaid" && "$code_content" =~ flowchart ]]; then
+                    # Load mermaid renderer if available
+                    if [[ -f "${TDS_SRC}/renderers/mermaid_flowchart.sh" ]]; then
+                        source "${TDS_SRC}/renderers/mermaid_flowchart.sh"
+                        tds_render_mermaid_flowchart "$code_content"
+                    else
+                        # Fallback to regular code rendering
+                        tds_render_code_header "$code_fence"
+                        echo "$code_content"
+                        tds_render_code_footer
+                    fi
+                else
+                    # Regular code block
+                    if [[ "$code_fence" == "mermaid" ]]; then
+                        tds_render_code_header "$code_fence"
+                        echo "$code_content"
+                    fi
+                    tds_render_code_footer
+                fi
+                code_content=""
                 echo
                 continue
             fi
         fi
 
-        # Inside code block - render as-is with semantic color
+        # Inside code block - collect or render
         if [[ "$in_code_block" == true ]]; then
-            tds_render_code_line "$line" "$TDS_MARKDOWN_WIDTH"
+            if [[ "$code_fence" == "mermaid" ]]; then
+                # Collect mermaid content
+                if [[ -n "$code_content" ]]; then
+                    code_content+=$'\n'
+                fi
+                code_content+="$line"
+            else
+                # Regular code - render line by line
+                tds_render_code_line "$line" "$TDS_MARKDOWN_WIDTH"
+            fi
             continue
         fi
 
@@ -190,7 +231,7 @@ tds_render_markdown() {
         fi
 
         reset_color
-    done < "$file"
+    done < "$input_source"
 }
 
 # Markdown command interface (compatible with chroma)
@@ -241,10 +282,15 @@ EOF
         esac
     done
 
+    # If no file specified and stdin is a pipe, read from stdin
     if [[ -z "$file" ]]; then
-        echo "Error: No file specified" >&2
-        echo "Try: tds_markdown --help" >&2
-        return 1
+        if [[ -p /dev/stdin || ! -t 0 ]]; then
+            file="-"
+        else
+            echo "Error: No file specified" >&2
+            echo "Try: tds_markdown --help" >&2
+            return 1
+        fi
     fi
 
     if [[ "$use_pager" == true ]]; then
@@ -253,6 +299,9 @@ EOF
         tds_render_markdown "$file"
     fi
 }
+
+# Export functions
+export -f tds_render_markdown tds_markdown
 
 # Export for use as command
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
