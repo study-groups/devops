@@ -110,6 +110,16 @@ const panelConfig = {
             content_type: 'interactive',
             data_sources: ['tetra_config', 'tetra_buffer', 'session_info']
         },
+        'tetra-config': {
+            title: 'TETRA Config',
+            description: 'View and manage TETRA configuration from tetra.toml',
+            category: 'dev',
+            sidebar: true,
+            floating: true,
+            default_expanded: false,
+            content_type: 'interactive',
+            data_sources: ['tetra_toml', 'publishing_configs', 'secrets']
+        },
         'publish-manager': {
             title: 'Publish Manager',
             description: 'Deploy and publish content',

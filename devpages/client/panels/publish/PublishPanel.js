@@ -346,7 +346,7 @@ export class PublishPanel extends BasePanel {
             // Update progress: Publishing
             this.updateProgress(60, `🚀 Publishing to ${activeConfig.name}...`);
 
-            const result = await PublishAPI.publish(currentFile, htmlContent, true);
+            const result = await PublishAPI.publish(currentFile, htmlContent, true, activeConfig);
 
             // Update progress: Complete
             this.updateProgress(100, '✅ Upload complete!');
@@ -374,9 +374,15 @@ export class PublishPanel extends BasePanel {
 
         const state = appStore.getState();
         const currentFile = state.file?.currentFile?.pathname;
+        const activeConfig = selectActiveConfigurationDecrypted(state);
 
         if (!currentFile) {
             this.showError('Cannot unpublish', 'No file selected');
+            return;
+        }
+
+        if (!activeConfig) {
+            this.showError('Cannot unpublish', 'No configuration selected');
             return;
         }
 
@@ -384,7 +390,7 @@ export class PublishPanel extends BasePanel {
         this.hideError();
 
         try {
-            await PublishAPI.unpublish(currentFile);
+            await PublishAPI.unpublish(currentFile, activeConfig);
 
             this.publishStatus = { isPublished: false, url: null };
             this.refresh();

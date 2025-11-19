@@ -7,6 +7,7 @@ import { createModalTemplate } from './PublishModalTemplate.js';
 import { findEditor, ghostValue, loadStylesheet } from './PublishUtils.js';
 import { publishService } from '/client/services/PublishService.js';
 import { cssManager } from '/client/utils/CssManager.js';
+import { selectActiveConfigurationDecrypted } from '/client/store/slices/publishConfigSlice.js';
 
 const log = window.APP.services.log.createLogger('UI', 'PublishModal');
 
@@ -306,7 +307,9 @@ export class PublishModal {
 
       publishController = new AbortController();
 
-      const result = await PublishAPI.publish(currentFile, htmlContent, publishMode === 'spaces');
+      const activeConfig = selectActiveConfigurationDecrypted(state);
+
+      const result = await PublishAPI.publish(currentFile, htmlContent, publishMode === 'spaces', activeConfig);
 
       updateStatus('✅ Upload complete!', 100);
       
@@ -335,6 +338,7 @@ export class PublishModal {
 
     const state = appStore.getState();
     const currentFile = state.file?.currentPathname;
+    const activeConfig = selectActiveConfigurationDecrypted(state);
 
     if (!currentFile) {
       this.showError('No file selected for unpublishing');
@@ -345,12 +349,12 @@ export class PublishModal {
     this.hideError();
 
     try {
-      await PublishAPI.unpublish(currentFile);
-      
+      await PublishAPI.unpublish(currentFile, activeConfig);
+
       // Update status
       this.publishStatus = { isPublished: false, url: null };
       this.updatePublishStatus();
-      
+
       log.info('UNPUBLISH_SUCCESS', `Successfully unpublished: ${currentFile}`);
 
     } catch (error) {

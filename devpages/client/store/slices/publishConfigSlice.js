@@ -138,6 +138,23 @@ const publishConfigSlice = createSlice({
         },
 
         /**
+         * Add multiple configurations at once (for bulk loading like TETRA configs)
+         * Does NOT set defaults or trigger side effects
+         */
+        addConfigurationsBulk: (state, action) => {
+            const configs = action.payload;
+            if (Array.isArray(configs)) {
+                configs.forEach(config => {
+                    // Check if already exists
+                    const existingIndex = state.configurations.findIndex(c => c.id === config.id);
+                    if (existingIndex === -1) {
+                        state.configurations.push(config);
+                    }
+                });
+            }
+        },
+
+        /**
          * Update an existing configuration
          */
         updateConfiguration: (state, action) => {
@@ -357,6 +374,47 @@ export const publishConfigThunks = {
             console.error('[publishConfig] Failed to initialize from env:', error);
             // Initialize with empty state
             dispatch(publishConfigActions.initializeConfigurations(null));
+        }
+    },
+
+    /**
+     * Fetch TETRA configurations from tetra.toml
+     * These are read-only configs managed by TETRA
+     */
+    fetchTetraConfigs: () => async (dispatch, getState) => {
+        try {
+            const response = await fetch('/api/tetra/config/publishing');
+            const result = await response.json();
+
+            if (result.configs && Array.isArray(result.configs)) {
+                // Prepare all TETRA configs at once
+                const tetraConfigs = result.configs.map(config =>
+                    createConfiguration({
+                        id: `tetra-${config.id}`,
+                        name: config.name || config.id,
+                        endpoint: config.endpoint || '',
+                        region: config.region || '',
+                        bucket: config.bucket || '',
+                        accessKey: config.accessKey || '',
+                        secretKey: config.secretKey ? encryptSecret(config.secretKey) : '',
+                        prefix: config.prefix || '',
+                        baseUrl: config.baseUrl || '',
+                        themeUrl: config.themeUrl || '',
+                        themeName: config.theme || '',
+                        inlineCSS: config.inlineCss !== false,
+                        isDefault: false,
+                        source: 'tetra', // Mark as TETRA-managed
+                        readOnly: true   // Mark as read-only
+                    })
+                );
+
+                // Add all configs at once using bulk action
+                dispatch(publishConfigActions.addConfigurationsBulk(tetraConfigs));
+
+                console.log(`[publishConfig] Loaded ${result.configs.length} Tetra configs`);
+            }
+        } catch (error) {
+            console.error('[publishConfig] Failed to fetch Tetra configs:', error);
         }
     },
 

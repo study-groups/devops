@@ -1,0 +1,348 @@
+/**
+ * TetraConfigPanel Styles
+ */
+
+.tetra-config-panel {
+    padding: 20px;
+    height: 100%;
+    overflow-y: auto;
+    font-family: var(--font-mono, 'Courier New', monospace);
+    background: var(--bg-primary, #1e1e1e);
+    color: var(--text-primary, #e0e0e0);
+}
+
+/* Loading State */
+.tetra-config-panel .loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 16px;
+}
+
+.tetra-config-panel .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: #61dafb;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Header */
+.tetra-config-panel .config-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    background: var(--bg-secondary, #2d2d2d);
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.tetra-config-panel .status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.tetra-config-panel .status.status-success {
+    color: #4caf50;
+}
+
+.tetra-config-panel .status.status-error {
+    color: #f44336;
+}
+
+.tetra-config-panel .btn-reload {
+    padding: 8px 16px;
+    background: #61dafb;
+    color: #000;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.tetra-config-panel .btn-reload:hover {
+    background: #4fa8c5;
+}
+
+/* Sections */
+.tetra-config-panel .config-section {
+    background: var(--bg-secondary, #2d2d2d);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.tetra-config-panel .config-section h3 {
+    margin: 0 0 16px 0;
+    font-size: 18px;
+    color: #61dafb;
+}
+
+.tetra-config-panel .config-section h4 {
+    margin: 16px 0 8px 0;
+    font-size: 14px;
+    color: #999;
+}
+
+.tetra-config-panel .config-section.unavailable {
+    border: 2px solid #f44336;
+}
+
+/* Overview Grid */
+.tetra-config-panel .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+}
+
+.tetra-config-panel .info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tetra-config-panel .info-item label {
+    font-size: 12px;
+    color: #999;
+    text-transform: uppercase;
+}
+
+.tetra-config-panel .info-item .path {
+    font-size: 12px;
+    color: #61dafb;
+    word-break: break-all;
+}
+
+.tetra-config-panel .info-item .count {
+    font-size: 24px;
+    font-weight: bold;
+    color: #4caf50;
+}
+
+/* Environment Table */
+.tetra-config-panel .env-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+}
+
+.tetra-config-panel .env-table th {
+    text-align: left;
+    padding: 12px;
+    background: rgba(97, 218, 251, 0.1);
+    color: #61dafb;
+    font-size: 12px;
+    text-transform: uppercase;
+}
+
+.tetra-config-panel .env-table td {
+    padding: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tetra-config-panel .env-table tr.unset {
+    opacity: 0.5;
+}
+
+.tetra-config-panel .env-table td code {
+    color: #61dafb;
+}
+
+.tetra-config-panel .env-table td.value {
+    font-size: 12px;
+    color: #a0a0a0;
+}
+
+.tetra-config-panel .env-table td.status {
+    text-align: center;
+    width: 50px;
+}
+
+/* Secrets */
+.tetra-config-panel .secrets-info {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tetra-config-panel .secret-keys {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.tetra-config-panel .secret-key {
+    padding: 4px 12px;
+    background: rgba(97, 218, 251, 0.2);
+    color: #61dafb;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+/* Publishing Configs */
+.tetra-config-panel .publish-configs {
+    display: grid;
+    gap: 16px;
+}
+
+.tetra-config-panel .publish-config-card {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.tetra-config-panel .config-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.tetra-config-panel .config-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tetra-config-panel .config-icon {
+    font-size: 20px;
+}
+
+.tetra-config-panel .config-name {
+    font-size: 18px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.tetra-config-panel .config-symbol {
+    font-size: 14px;
+    color: #61dafb;
+    background: rgba(97, 218, 251, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.tetra-config-panel .config-type {
+    font-size: 12px;
+    color: #999;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.tetra-config-panel .config-description {
+    margin: 8px 0;
+    color: #999;
+    font-size: 14px;
+    font-style: italic;
+}
+
+.tetra-config-panel .config-details {
+    margin: 16px 0;
+}
+
+.tetra-config-panel .detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tetra-config-panel .detail-row:last-child {
+    border-bottom: none;
+}
+
+.tetra-config-panel .detail-row label {
+    color: #999;
+    font-size: 12px;
+}
+
+.tetra-config-panel .detail-row span {
+    color: #e0e0e0;
+    font-size: 12px;
+    text-align: right;
+}
+
+.tetra-config-panel .detail-row .secret {
+    font-family: monospace;
+    color: #61dafb;
+}
+
+.tetra-config-panel .config-source {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 11px;
+    color: #666;
+}
+
+.tetra-config-panel .config-source code {
+    color: #61dafb;
+}
+
+/* Error State */
+.tetra-config-panel .error-state {
+    text-align: center;
+    padding: 40px;
+}
+
+.tetra-config-panel .error-state h3 {
+    color: #f44336;
+    margin-bottom: 16px;
+}
+
+.tetra-config-panel .error-message {
+    color: #f44336;
+    margin: 16px 0;
+}
+
+.tetra-config-panel .help-text {
+    margin-top: 24px;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 16px;
+    border-radius: 4px;
+}
+
+.tetra-config-panel .help-text ul {
+    margin: 8px 0;
+    padding-left: 20px;
+}
+
+.tetra-config-panel .help-text li {
+    margin: 8px 0;
+}
+
+.tetra-config-panel .help-text code {
+    background: rgba(97, 218, 251, 0.2);
+    color: #61dafb;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+/* Empty State */
+.tetra-config-panel .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+}
+
+.tetra-config-panel .empty {
+    color: #999;
+    font-style: italic;
+}

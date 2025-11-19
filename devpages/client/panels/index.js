@@ -18,6 +18,7 @@ import './ThemeEditorPanel.js';
 import './DOMInspectorPanel.js';
 import './CSSInspectorPanel.js';
 import './TetraSettingsPanel.js';
+import './TetraConfigPanel.js';
 
 // Note: CSS is loaded via server bundles (/css/bundles/*.bundle.css)
 // Not imported directly in JavaScript modules

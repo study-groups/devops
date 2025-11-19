@@ -152,7 +152,7 @@ export class PublishAPI {
     }
   }
 
-  static async publish(pathname, htmlContent, bundleCss = true, onProgress = null) {
+  static async publish(pathname, htmlContent, bundleCss = true, config = null, onProgress = null) {
     // Validate request before sending
     try {
       this.validatePublishRequest(pathname, htmlContent, bundleCss);
@@ -161,38 +161,46 @@ export class PublishAPI {
       log.error('VALIDATION_FAILED', `Request validation failed: ${validationError.message}`);
       throw validationError;
     }
-    
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 25000);
 
     try {
       if (onProgress) onProgress('🔄 Validating content...');
-      
+
       const sizeMB = (htmlContent.length / (1024 * 1024)).toFixed(2);
       const sizeKB = Math.round(htmlContent.length / 1024);
-      log.info('PUBLISH_START', `Publishing ${sizeKB}KB to ${pathname}`);
-      
+      log.info('PUBLISH_START', `Publishing ${sizeKB}KB to ${pathname}${config ? ` with config ${config.name}` : ''}`);
+
       // Log the actual request being sent for debugging
       const requestBody = {
         pathname,
         htmlContent: htmlContent.substring(0, 200) + '...', // Truncated for logging
         bundleCss,
-        contentLength: htmlContent.length
+        contentLength: htmlContent.length,
+        hasConfig: !!config
       };
       log.debug('PUBLISH_PAYLOAD', `Request payload: ${JSON.stringify(requestBody, null, 2)}`);
-      
+
       if (onProgress) onProgress(`📤 Uploading ${sizeKB}KB...`);
-      
+
       const startTime = Date.now();
-      
+
+      const payload = {
+        pathname,
+        htmlContent,
+        bundleCss
+      };
+
+      // Add config if provided
+      if (config) {
+        payload.config = config;
+      }
+
       const response = await window.APP.services.globalFetch('/api/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pathname,
-          htmlContent,
-          bundleCss
-        }),
+        body: JSON.stringify(payload),
         signal: controller.signal
       });
 
@@ -278,21 +286,30 @@ export class PublishAPI {
     }
   }
 
-  static async unpublish(pathname) {
+  static async unpublish(pathname, config = null) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
+      log.info('UNPUBLISH_START', `Unpublishing ${pathname}${config ? ` with config ${config.name}` : ''}`);
+
+      const payload = { pathname };
+
+      // Add config if provided
+      if (config) {
+        payload.config = config;
+      }
+
       const response = await window.APP.services.globalFetch('/api/publish', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pathname }),
+        body: JSON.stringify(payload),
         signal: controller.signal
       });
 
       clearTimeout(timeoutId);
       const responseText = await response.text();
-      
+
       let data;
       try {
         data = JSON.parse(responseText);
@@ -304,6 +321,7 @@ export class PublishAPI {
         throw new Error(data.error || `Server error: ${response.status} ${response.statusText}`);
       }
 
+      log.info('UNPUBLISH_SUCCESS', `Successfully unpublished ${pathname}`);
       return { success: true };
     } catch (error) {
       clearTimeout(timeoutId);
