@@ -27,12 +27,23 @@ TDOCS_CACHE_DIR="${TDOCS_DIR}/cache"
 export TDOCS_SRC TDOCS_DIR TDOCS_DB_DIR TDOCS_CONFIG_DIR TDOCS_CACHE_DIR
 
 # Load dependencies
-TDS_SRC="${TDS_SRC:-$TETRA_SRC/bash/tds}"
-if [[ -f "$TDS_SRC/tds.sh" ]]; then
-    source "$TDS_SRC/tds.sh"
-else
-    echo "Warning: TDS not found at $TDS_SRC - color features disabled" >&2
+# Load TDS via module system if not already loaded
+if [[ "${TDS_LOADED}" != "true" ]] && [[ $(type -t tetra_load_module) == "function" ]]; then
+    tetra_load_module "tds" || {
+        echo "Warning: Failed to load TDS module - color features disabled" >&2
+    }
+elif [[ "${TDS_LOADED}" != "true" ]]; then
+    # Fallback to direct sourcing if module system not available
+    TDS_SRC="${TDS_SRC:-$TETRA_SRC/bash/tds}"
+    if [[ -f "$TDS_SRC/includes.sh" ]]; then
+        source "$TDS_SRC/includes.sh"
+    else
+        echo "Warning: TDS not found at $TDS_SRC - color features disabled" >&2
+    fi
 fi
+
+# Ensure TDS_SRC is set for later use
+TDS_SRC="${TDS_SRC:-$TETRA_SRC/bash/tds}"
 
 # Load tree-based help system
 if [[ -f "$TETRA_SRC/bash/tree/help.sh" ]]; then
