@@ -47,6 +47,8 @@ tetra_register_module "tdocs" "$TETRA_BASH/tdocs"
 tetra_register_module "melvin" "$TETRA_BASH/melvin"
 tetra_register_module "midi" "$TETRA_BASH/midi"
 tetra_register_module "tperf" "$TETRA_BASH/tperf"
+tetra_register_module "tds" "$TETRA_BASH/tds"
+tetra_register_module "chroma" "$TETRA_BASH/chroma"
 
 # Register external modules (lazy loaded)
 tetra_register_module "logtime" "$HOME/src/bash/logtime"
@@ -118,4 +120,10 @@ tetra_create_lazy_function "midi_repl" "midi"
 
 # TPerf module functions
 tetra_create_lazy_function "tperf" "tperf"
+
+# TDS module functions
+tetra_create_lazy_function "tds" "tds"
+
+# Chroma module functions
+tetra_create_lazy_function "chroma" "chroma"
 

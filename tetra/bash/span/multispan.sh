@@ -3,18 +3,18 @@
 # Multispan operations - Collections of cursors with semantic relationships
 
 # Global multispan storage (1-9 slots)
-declare -A SPAN_STORAGE_1=()
-declare -A SPAN_STORAGE_2=()
-declare -A SPAN_STORAGE_3=()
-declare -A SPAN_STORAGE_4=()
-declare -A SPAN_STORAGE_5=()
-declare -A SPAN_STORAGE_6=()
-declare -A SPAN_STORAGE_7=()
-declare -A SPAN_STORAGE_8=()
-declare -A SPAN_STORAGE_9=()
+declare -gA SPAN_STORAGE_1=()
+declare -gA SPAN_STORAGE_2=()
+declare -gA SPAN_STORAGE_3=()
+declare -gA SPAN_STORAGE_4=()
+declare -gA SPAN_STORAGE_5=()
+declare -gA SPAN_STORAGE_6=()
+declare -gA SPAN_STORAGE_7=()
+declare -gA SPAN_STORAGE_8=()
+declare -gA SPAN_STORAGE_9=()
 
 # Metadata for stored spans
-declare -A SPAN_METADATA=()
+declare -gA SPAN_METADATA=()
 
 # Create a new multispan collection
 multispan_create() {

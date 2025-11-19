@@ -12,7 +12,7 @@
 : "${TETRA_LOG_CONSOLE_COLOR:=1}" # 0=no color, 1=color (requires color module)
 
 # Log level priorities (for filtering)
-declare -A TETRA_LOG_LEVEL_PRIORITY=(
+declare -gA TETRA_LOG_LEVEL_PRIORITY=(
     ["DEBUG"]=0
     ["INFO"]=1
     ["WARN"]=2

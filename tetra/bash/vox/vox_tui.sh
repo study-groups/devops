@@ -4,7 +4,7 @@
 # Following demo/basic/013 color system patterns
 
 # Vox color elements (semantic, not state-based)
-declare -A VOX_ELEMENT_COLORS=(
+declare -gA VOX_ELEMENT_COLORS=(
     # Vox module elements
     [vox_action]="FF0044"     # Red/orange - action verbs (from VERBS_PRIMARY)
     [vox_voice]="AA00AA"      # Purple - voice profile names (from NOUNS_PRIMARY)

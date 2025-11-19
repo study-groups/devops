@@ -41,7 +41,7 @@ REPL_HISTORY_BASE=""            # Base history path set by module
 REPL_HISTORY_FILE=""            # History file (single file for hybrid mode)
 REPL_PROMPT_BUILDERS=()         # Registered prompt builders
 REPL_SLASH_COMMANDS=()          # Registered slash commands
-declare -A REPL_SLASH_HANDLERS  # command -> handler function
+declare -gA REPL_SLASH_HANDLERS  # command -> handler function
 
 # Terminal cleanup function
 _repl_cleanup() {

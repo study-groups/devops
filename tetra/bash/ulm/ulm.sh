@@ -10,7 +10,7 @@ ULM_LOGS_DIR="$ULM_DIR/logs"
 ULM_METRICS_DIR="$ULM_DIR/metrics"
 
 # Current policy defaults
-declare -A ULM_ATTENTION_WEIGHTS=(
+declare -gA ULM_ATTENTION_WEIGHTS=(
     ["functional"]=0.4
     ["structural"]=0.3
     ["temporal"]=0.2

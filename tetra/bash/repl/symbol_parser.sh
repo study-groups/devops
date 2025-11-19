@@ -3,7 +3,7 @@
 # Tokenizes input and extracts special symbols
 
 # Symbol handler registry
-declare -A REPL_SYMBOL_HANDLERS
+declare -gA REPL_SYMBOL_HANDLERS
 
 # Register a symbol handler
 repl_register_symbol() {

@@ -16,7 +16,6 @@ alias tm='tmod'
 # This keeps startup fast while providing instant command availability
 
 # Tetra Orchestrator launcher
-# Source and use the new tetra orchestrator
-if [[ -f "$TETRA_SRC/bash/tetra/tetra.sh" ]]; then
-    source "$TETRA_SRC/bash/tetra/tetra.sh"
-fi
+# NOTE: Removed auto-source to prevent circular dependency during boot
+# The tetra orchestrator can be manually sourced when needed:
+#   source "$TETRA_SRC/bash/tetra/tetra.sh"
