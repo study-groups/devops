@@ -37,6 +37,10 @@ chroma() {
     local file=""
     local use_pager=""  # Auto-detect: false for pipes, true for files
     local show_rules=false
+    local margin_top=0
+    local margin_right=0
+    local margin_bottom=0
+    local margin_left=0
 
     # Parse arguments
     [[ "${CHROMA_DEBUG:-0}" == "1" ]] && echo "[$(date +%T)] Starting argument parse loop" >> "$debug_log"
@@ -63,6 +67,50 @@ chroma() {
             --width|-w)
                 TDS_MARKDOWN_WIDTH="$2"
                 shift 2
+                ;;
+            --margin|-m)
+                # Parse margin: 1-4 values (like CSS)
+                # 1 value: all sides
+                # 2 values: top/bottom left/right
+                # 3 values: top left/right bottom
+                # 4 values: top right bottom left
+                local m1="$2"
+                local m2="${3:-}"
+                local m3="${4:-}"
+                local m4="${5:-}"
+
+                # Helper to check if value is numeric
+                _is_numeric() { [[ "$1" =~ ^[0-9]+$ ]]; }
+
+                if [[ -n "$m4" ]] && _is_numeric "$m4"; then
+                    # 4 values: top right bottom left
+                    margin_top="$m1"
+                    margin_right="$m2"
+                    margin_bottom="$m3"
+                    margin_left="$m4"
+                    shift 5
+                elif [[ -n "$m3" ]] && _is_numeric "$m3"; then
+                    # 3 values: top left/right bottom
+                    margin_top="$m1"
+                    margin_right="$m2"
+                    margin_bottom="$m3"
+                    margin_left="$m2"
+                    shift 4
+                elif [[ -n "$m2" ]] && _is_numeric "$m2"; then
+                    # 2 values: top/bottom left/right
+                    margin_top="$m1"
+                    margin_right="$m2"
+                    margin_bottom="$m1"
+                    margin_left="$m2"
+                    shift 3
+                else
+                    # 1 value: all sides
+                    margin_top="$m1"
+                    margin_right="$m1"
+                    margin_bottom="$m1"
+                    margin_left="$m1"
+                    shift 2
+                fi
                 ;;
             --preset)
                 # Load rule preset
@@ -102,6 +150,11 @@ Options:
   -p, --pager           Use pager for output (DEFAULT)
   -n, --no-pager        Disable pager (print to stdout)
   -w, --width N         Set line width (default: terminal width)
+  -m, --margin N...     Set margins (1-4 values like CSS)
+                        1 value:  all sides
+                        2 values: top/bottom left/right
+                        3 values: top left/right bottom
+                        4 values: top right bottom left
   -t, --theme NAME      Switch TDS theme (default, warm, cool, neutral, electric)
   --preset NAME         Load rule preset (markers, bookmarks, sections, all)
   --rule PATTERN        Add custom sed transformation rule
@@ -123,6 +176,9 @@ Examples:
   tsm help start | chroma                   View TSM help beautifully
   chroma -n documentation.md                Print to stdout (no pager)
   chroma -w 100 -t warm file.md             Custom width and theme
+  chroma --margin 2 4 2 5 file.md           Top:2 Right:4 Bottom:2 Left:5
+  chroma --margin 3 file.md                 3 blank lines/spaces all sides
+  chroma --margin 2 8 file.md               2 lines top/bottom, 8 spaces left/right
   chroma --preset markers file.md           Highlight TODO/FIXME markers
   chroma --rule "s/API/🔌 API/g" README.md  Custom transformation
   echo "# Test" | chroma -n                 Print to stdout, no pager
@@ -178,7 +234,14 @@ EOF
     fi
 
     [[ "${CHROMA_DEBUG:-0}" == "1" ]] && echo "[$(date +%T)] use_pager=$use_pager file='$file'" >> "$debug_log"
+    [[ "${CHROMA_DEBUG:-0}" == "1" ]] && echo "[$(date +%T)] margins: top=$margin_top right=$margin_right bottom=$margin_bottom left=$margin_left" >> "$debug_log"
     [[ "${CHROMA_DEBUG:-0}" == "1" ]] && echo "[$(date +%T)] About to call tds_markdown" >> "$debug_log"
+
+    # Export margins for TDS to use
+    export TDS_MARGIN_TOP="$margin_top"
+    export TDS_MARGIN_RIGHT="$margin_right"
+    export TDS_MARGIN_BOTTOM="$margin_bottom"
+    export TDS_MARGIN_LEFT="$margin_left"
 
     # Delegate to TDS markdown renderer (handles stdin automatically)
     if [[ "$use_pager" == true ]]; then
