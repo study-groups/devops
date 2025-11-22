@@ -417,6 +417,75 @@
     letter-spacing: 0.5px;
 }
 
+/* TDS Explanation Section */
+.tds-explanation {
+    padding: 12px;
+    background: rgba(33, 150, 243, 0.05);
+    border-left: 3px solid var(--color-mode-0, #0088FF);
+    margin: 8px;
+    border-radius: 2px;
+}
+
+.tds-concept {
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--devpages-panel-text);
+    font-family: var(--devpages-panel-font-mono);
+}
+
+.tds-concept strong {
+    color: var(--color-mode-0, #0088FF);
+}
+
+/* Palette Legend */
+.palette-legend {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding: 8px;
+    margin: 0 8px 8px 8px;
+}
+
+.palette-info {
+    padding: 8px;
+    background: var(--devpages-panel-bg-alt);
+    border-radius: 2px;
+    font-size: 10px;
+    line-height: 1.4;
+}
+
+.palette-info strong {
+    display: block;
+    font-size: 11px;
+    margin-bottom: 2px;
+    font-family: var(--devpages-panel-font-mono);
+}
+
+.palette-use {
+    margin-top: 4px;
+    color: var(--devpages-panel-text-muted);
+    font-size: 9px;
+}
+
+/* TDS Usage Info */
+.tds-usage {
+    padding: 8px 12px;
+    background: var(--devpages-panel-bg-alt);
+    margin: 8px;
+    border-radius: 2px;
+    font-size: 10px;
+    font-family: var(--devpages-panel-font-mono);
+    color: var(--devpages-panel-text-muted);
+}
+
+.tds-usage code {
+    background: var(--devpages-panel-bg);
+    padding: 2px 4px;
+    border-radius: 2px;
+    color: var(--color-verbs-3, #FFAA00);
+    font-weight: 600;
+}
+
 /* TDS Color Grid */
 .tds-color-grid {
     display: flex;
@@ -520,6 +589,17 @@
     padding: 4px 0;
     border-bottom: 2px solid var(--devpages-panel-border);
     font-family: var(--devpages-panel-font-mono);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.category-desc {
+    font-size: 9px;
+    font-weight: 500;
+    color: var(--devpages-panel-text-muted);
+    text-transform: none;
+    letter-spacing: normal;
 }
 
 .category-tokens {
@@ -630,4 +710,84 @@
     font-size: var(--devpages-panel-font-size-micro);
     color: var(--devpages-panel-text-muted);
     flex-shrink: 0;
+}
+
+/* Color Sections - Unified styling */
+.color-section {
+    padding: var(--space-4) var(--space-3);
+    border-bottom: 1px solid var(--devpages-panel-divider);
+}
+
+.color-section:last-child {
+    border-bottom: none;
+}
+
+.color-section-title {
+    font-family: var(--devpages-panel-font-sans);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--devpages-panel-text);
+    margin-bottom: var(--space-4);
+    text-align: center;
+}
+
+/* Clusters Section - Centered */
+.clusters-section {
+    background: var(--devpages-panel-bg-alt, transparent);
+}
+
+.cluster-grid-container {
+    display: flex;
+    justify-content: center;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* Flat Grid Sections */
+.flat-grid-section {
+    /* Inherits from .color-section */
+}
+
+/* Expanded Grid Layout (4 columns) */
+.flat-grid-expanded {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-3);
+}
+
+/* Expanded Item (container) */
+.expanded-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+/* Expanded Swatch (color box with no text) */
+.expanded-swatch {
+    height: 80px;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.expanded-item:hover .expanded-swatch {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Expanded Label (name in regular text) */
+.expanded-label {
+    font-family: var(--devpages-panel-font-sans);
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--devpages-panel-text);
+    line-height: 1.2;
+}
+
+/* Expanded Hex (hex value below name) */
+.expanded-hex {
+    font-family: var(--devpages-panel-font-mono);
+    font-size: 10px;
+    color: var(--devpages-panel-text-muted);
+    line-height: 1.2;
 }
