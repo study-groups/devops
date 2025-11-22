@@ -479,6 +479,25 @@
             flex: 1;
         }
 
+        /* Styled scrollbar for design panel */
+        .design-panel-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .design-panel-content::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+            border-radius: 4px;
+        }
+
+        .design-panel-content::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        .design-panel-content::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-primary);
+        }
+
         .token-group {
             margin-bottom: 1.5rem;
         }
@@ -533,17 +552,84 @@
             cursor: pointer;
         }
 
-        .copy-tokens-btn {
+        .font-select {
             width: 100%;
-            padding: 0.75rem;
-            background: var(--accent-secondary);
-            color: white;
-            border: 1px solid var(--accent-primary);
+            padding: 0.5rem;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            margin-top: 0.5rem;
+        }
+
+        .font-select:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        .font-input {
+            width: 100%;
+            padding: 0.5rem;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-family: 'Courier New', monospace;
+            margin-top: 0.5rem;
+        }
+
+        .font-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        .font-input::placeholder {
+            color: var(--text-secondary);
+            opacity: 0.5;
+        }
+
+        .add-font-btn {
+            width: 100%;
+            padding: 0.4rem;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            margin-top: 0.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .add-font-btn:hover {
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+        }
+
+        .design-panel-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .design-panel-btn {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid var(--border);
             border-radius: 4px;
             font-weight: 600;
+            font-size: 0.85rem;
             cursor: pointer;
             transition: all 0.2s ease;
-            margin-top: 1rem;
+        }
+
+        .copy-tokens-btn {
+            background: var(--accent-secondary);
+            color: white;
+            border-color: var(--accent-primary);
         }
 
         .copy-tokens-btn:hover {
@@ -553,6 +639,18 @@
         .copy-tokens-btn.copied {
             background: var(--success);
             border-color: var(--success);
+        }
+
+        .reset-tokens-btn {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-color: var(--border);
+        }
+
+        .reset-tokens-btn:hover {
+            background: var(--bg-primary);
+            border-color: var(--warning);
+            color: var(--warning);
         }
 
         @media (max-width: 1200px) {
@@ -1197,9 +1295,64 @@ melvin list MODULE    # See all modules</div>
                 </div>
             </div>
 
-            <button class="copy-tokens-btn" onclick="copyTokens()" id="copyTokensBtn">
-                Copy Tokens as CSS
-            </button>
+            <div class="token-group">
+                <div class="token-group-title">Fonts</div>
+
+                <div style="margin-bottom: 1rem; padding: 0.75rem; background: var(--bg-primary); border-radius: 4px; border: 1px solid var(--border);">
+                    <label style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-bottom: 0.5rem;">Add Google Font</label>
+                    <input type="text" class="font-input" id="fontCdnUrl" placeholder="https://fonts.googleapis.com/css2?family=...">
+                    <input type="text" class="font-input" id="fontFamily" placeholder="'Font Name', sans-serif">
+                    <button class="add-font-btn" onclick="addCustomFont()">Add Font to Page</button>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4;">
+                        Example: Visit <a href="https://fonts.google.com" target="_blank" style="color: var(--accent-primary);">fonts.google.com</a>, select a font, copy the CDN URL and font-family value
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 0.75rem;">
+                    <label style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Heading Font</label>
+                    <select class="font-select" onchange="updateFont('heading', this.value)" id="headingFont">
+                        <option value="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">System (Default)</option>
+                        <option value="'Courier New', monospace">Courier New</option>
+                        <option value="Monaco, monospace">Monaco</option>
+                        <option value="'SF Mono', monospace">SF Mono</option>
+                        <option value="'Roboto Mono', monospace">Roboto Mono</option>
+                        <option value="Georgia, serif">Georgia</option>
+                        <option value="'Times New Roman', serif">Times New Roman</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 0.75rem;">
+                    <label style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Body Font</label>
+                    <select class="font-select" onchange="updateFont('body', this.value)" id="bodyFont">
+                        <option value="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">System (Default)</option>
+                        <option value="'Courier New', monospace">Courier New</option>
+                        <option value="Monaco, monospace">Monaco</option>
+                        <option value="'SF Mono', monospace">SF Mono</option>
+                        <option value="'Roboto Mono', monospace">Roboto Mono</option>
+                        <option value="Georgia, serif">Georgia</option>
+                        <option value="Arial, sans-serif">Arial</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Code Font</label>
+                    <select class="font-select" onchange="updateFont('code', this.value)" id="codeFont">
+                        <option value="'Courier New', Monaco, monospace">Courier New (Default)</option>
+                        <option value="Monaco, monospace">Monaco</option>
+                        <option value="'SF Mono', monospace">SF Mono</option>
+                        <option value="'Roboto Mono', monospace">Roboto Mono</option>
+                        <option value="Consolas, monospace">Consolas</option>
+                        <option value="'Fira Code', monospace">Fira Code</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="design-panel-buttons">
+                <button class="design-panel-btn copy-tokens-btn" onclick="copyTokens()" id="copyTokensBtn">
+                    Copy CSS
+                </button>
+                <button class="design-panel-btn reset-tokens-btn" onclick="resetTokens()" id="resetTokensBtn">
+                    Reset
+                </button>
+            </div>
         </div>
     </div>
 
@@ -1528,6 +1681,27 @@ melvin list MODULE    # See all modules</div>
             panel.classList.toggle('visible');
         }
 
+        const defaultTokens = {
+            '--bg-primary': '#0d1117',
+            '--bg-secondary': '#161b22',
+            '--bg-tertiary': '#21262d',
+            '--text-primary': '#c9d1d9',
+            '--text-secondary': '#8b949e',
+            '--accent-primary': '#58a6ff',
+            '--accent-secondary': '#1f6feb',
+            '--success': '#3fb950',
+            '--warning': '#d29922',
+            '--error': '#f85149',
+            '--border': '#30363d',
+            '--highlight': '#388bfd26'
+        };
+
+        const defaultFonts = {
+            heading: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+            body: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+            code: "'Courier New', Monaco, monospace"
+        };
+
         function updateToken(tokenName, value) {
             document.documentElement.style.setProperty(tokenName, value);
             const displayId = 'token-' + tokenName.replace('--', '').replace(/-/g, '-');
@@ -1535,6 +1709,93 @@ melvin list MODULE    # See all modules</div>
             if (displayEl) {
                 displayEl.textContent = value;
             }
+
+            // Update corresponding color picker
+            const picker = document.querySelector(`input[onchange*="${tokenName}"]`);
+            if (picker) {
+                picker.value = value;
+            }
+        }
+
+        function updateFont(type, font) {
+            switch(type) {
+                case 'heading':
+                    document.querySelectorAll('h1, h2, h3, .step-number').forEach(el => {
+                        el.style.fontFamily = font;
+                    });
+                    break;
+                case 'body':
+                    document.body.style.fontFamily = font;
+                    break;
+                case 'code':
+                    document.querySelectorAll('code, .command-hint, .terminal-content, .token-name, .token-value').forEach(el => {
+                        el.style.fontFamily = font;
+                    });
+                    break;
+            }
+        }
+
+        function addCustomFont() {
+            const cdnUrl = document.getElementById('fontCdnUrl').value.trim();
+            const fontFamily = document.getElementById('fontFamily').value.trim();
+
+            if (!cdnUrl || !fontFamily) {
+                alert('Please enter both CDN URL and font-family value');
+                return;
+            }
+
+            // Add font link to document head
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = cdnUrl;
+            document.head.appendChild(link);
+
+            // Add to all dropdowns
+            const dropdowns = ['headingFont', 'bodyFont', 'codeFont'];
+            dropdowns.forEach(id => {
+                const select = document.getElementById(id);
+                const option = document.createElement('option');
+                option.value = fontFamily;
+                option.textContent = fontFamily.replace(/['"]/g, '') + ' (Custom)';
+                select.insertBefore(option, select.firstChild);
+            });
+
+            // Clear inputs and show feedback
+            document.getElementById('fontCdnUrl').value = '';
+            document.getElementById('fontFamily').value = '';
+            document.getElementById('fontCdnUrl').placeholder = '✓ Font added! Add another or select from dropdowns';
+
+            setTimeout(() => {
+                document.getElementById('fontCdnUrl').placeholder = 'https://fonts.googleapis.com/css2?family=...';
+            }, 3000);
+        }
+
+        function resetTokens() {
+            // Reset colors
+            Object.entries(defaultTokens).forEach(([token, value]) => {
+                updateToken(token, value);
+            });
+
+            // Reset fonts
+            document.getElementById('headingFont').value = defaultFonts.heading;
+            document.getElementById('bodyFont').value = defaultFonts.body;
+            document.getElementById('codeFont').value = defaultFonts.code;
+
+            updateFont('heading', defaultFonts.heading);
+            updateFont('body', defaultFonts.body);
+            updateFont('code', defaultFonts.code);
+
+            // Clear custom font inputs
+            document.getElementById('fontCdnUrl').value = '';
+            document.getElementById('fontFamily').value = '';
+
+            // Visual feedback
+            const btn = document.getElementById('resetTokensBtn');
+            const originalText = btn.textContent;
+            btn.textContent = 'Reset!';
+            setTimeout(() => {
+                btn.textContent = originalText;
+            }, 1000);
         }
 
         function copyTokens() {
