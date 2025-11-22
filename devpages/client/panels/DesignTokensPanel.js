@@ -74,7 +74,7 @@ export class DesignTokensPanel extends BasePanel {
                     ${this.renderTokens()}
                 </div>
                 <div class="dt-stats">
-                    <span id="tokens-count">${this.filteredTokens.length} tokens</span>
+                    <span id="tokens-count">${this.getTokenCountDisplay()}</span>
                 </div>
             </div>
         `;
@@ -309,35 +309,164 @@ export class DesignTokensPanel extends BasePanel {
     }
 
     renderColorGrid() {
-        const palettes = colorTokenService.getAllPaletteColors();
-        const paletteNames = ['env', 'mode', 'verbs', 'nouns'];
-        const stops = [0, 1, 2, 3, 4, 5, 6, 7];
+        const clusterStructure = colorTokenService.getClusterStructure();
+
+        // Clusters with 4 roles each
+        const clusters = ['success', 'warning', 'error', 'info', 'code'];
+        const roles = ['fg', 'bg', 'border', 'subtle'];
+
+        // Flat lists
+        const flatLists = ['surface', 'text'];
+
+        const clusterInfo = {
+            success: { name: 'SUCCESS', desc: 'Positive states', use: 'Success messages, completion, positive feedback' },
+            warning: { name: 'WARNING', desc: 'Caution states', use: 'Warnings, pending actions, attention needed' },
+            error: { name: 'ERROR', desc: 'Problem states', use: 'Errors, failures, destructive actions' },
+            info: { name: 'INFO', desc: 'Information states', use: 'Info messages, helper text, guidance' },
+            code: { name: 'CODE', desc: 'Technical content', use: 'Code syntax, technical elements, data' }
+        };
+
+        const roleInfo = {
+            fg: { name: 'FG', desc: 'Foreground/text color' },
+            bg: { name: 'BG', desc: 'Background/fill color' },
+            border: { name: 'BORDER', desc: 'Border/outline color' },
+            subtle: { name: 'SUBTLE', desc: 'Muted variant' }
+        };
 
         return `
-            <div class="tds-color-grid">
-                <div class="grid-header">
-                    <div class="grid-corner">Stop</div>
-                    ${paletteNames.map(name => `
-                        <div class="grid-col-header">${name.toUpperCase()}</div>
+            <!-- TEXT: First -->
+            <div class="color-section flat-grid-section">
+                <div class="color-section-title">Text</div>
+                <div class="flat-grid-expanded">
+                    ${Object.entries(clusterStructure['text']?.colors || {}).map(([key, color]) => `
+                        <div class="expanded-item" title="text.${key} = ${color}">
+                            <div class="expanded-swatch" style="background: ${color};"></div>
+                            <div class="expanded-label">${key}</div>
+                            <div class="expanded-hex">${color}</div>
+                        </div>
                     `).join('')}
                 </div>
-                ${stops.map(stop => `
-                    <div class="grid-row">
-                        <div class="grid-row-label">${stop}</div>
-                        ${paletteNames.map(palette => {
-                            const color = palettes[palette][stop];
+            </div>
+
+            <!-- SURFACE: Second -->
+            <div class="color-section flat-grid-section">
+                <div class="color-section-title">Surface</div>
+                <div class="flat-grid-expanded">
+                    ${(() => {
+                        const surfaceColors = clusterStructure['surface']?.colors || {};
+                        const surfaceOrder = ['bg', 'bg-alt', 'bg-elevated', 'surface', 'border', 'divider'];
+
+                        return surfaceOrder.map(key => {
+                            const color = surfaceColors[key];
                             return `
-                                <div class="grid-cell"
-                                     style="background: ${color};"
-                                     title="${palette}:${stop} = ${color}"
-                                     data-palette="${palette}"
-                                     data-stop="${stop}"
-                                     data-color="${color}">
+                                <div class="expanded-item" title="surface.${key} = ${color}">
+                                    <div class="expanded-swatch" style="background: ${color};"></div>
+                                    <div class="expanded-label">${key}</div>
+                                    <div class="expanded-hex">${color}</div>
+                                </div>
+                            `;
+                        }).join('');
+                    })()}
+                    ${(() => {
+                        const successBg = clusterStructure['success']?.colors?.bg;
+                        const warningBg = clusterStructure['warning']?.colors?.bg;
+                        const errorBg = clusterStructure['error']?.colors?.bg;
+                        const infoBg = clusterStructure['info']?.colors?.bg;
+
+                        return `
+                            <div class="expanded-item" title="success.bg = ${successBg}">
+                                <div class="expanded-swatch" style="background: ${successBg};"></div>
+                                <div class="expanded-label">bg-success</div>
+                                <div class="expanded-hex">${successBg}</div>
+                            </div>
+                            <div class="expanded-item" title="warning.bg = ${warningBg}">
+                                <div class="expanded-swatch" style="background: ${warningBg};"></div>
+                                <div class="expanded-label">bg-warning</div>
+                                <div class="expanded-hex">${warningBg}</div>
+                            </div>
+                            <div class="expanded-item" title="error.bg = ${errorBg}">
+                                <div class="expanded-swatch" style="background: ${errorBg};"></div>
+                                <div class="expanded-label">bg-error</div>
+                                <div class="expanded-hex">${errorBg}</div>
+                            </div>
+                            <div class="expanded-item" title="info.bg = ${infoBg}">
+                                <div class="expanded-swatch" style="background: ${infoBg};"></div>
+                                <div class="expanded-label">bg-info</div>
+                                <div class="expanded-hex">${infoBg}</div>
+                            </div>
+                        `;
+                    })()}
+                </div>
+            </div>
+
+            <!-- OTHER: Third -->
+            <div class="color-section flat-grid-section">
+                <div class="color-section-title">Other</div>
+                <div class="flat-grid-expanded">
+                    ${(() => {
+                        const surfaceColors = clusterStructure['surface']?.colors || {};
+                        const codeColors = clusterStructure['code']?.colors || {};
+
+                        return `
+                            <div class="expanded-item" title="code.bg = ${codeColors.bg}">
+                                <div class="expanded-swatch" style="background: ${codeColors.bg};"></div>
+                                <div class="expanded-label">code-bg</div>
+                                <div class="expanded-hex">${codeColors.bg}</div>
+                            </div>
+                            <div class="expanded-item" title="code.border = ${codeColors.border}">
+                                <div class="expanded-swatch" style="background: ${codeColors.border};"></div>
+                                <div class="expanded-label">code-border</div>
+                                <div class="expanded-hex">${codeColors.border}</div>
+                            </div>
+                            <div class="expanded-item" title="surface.selection = ${surfaceColors.selection}">
+                                <div class="expanded-swatch" style="background: ${surfaceColors.selection};"></div>
+                                <div class="expanded-label">selection</div>
+                                <div class="expanded-hex">${surfaceColors.selection}</div>
+                            </div>
+                            <div class="expanded-item" title="surface.highlight = ${surfaceColors.highlight}">
+                                <div class="expanded-swatch" style="background: ${surfaceColors.highlight};"></div>
+                                <div class="expanded-label">highlight</div>
+                                <div class="expanded-hex">${surfaceColors.highlight}</div>
+                            </div>
+                        `;
+                    })()}
+                </div>
+            </div>
+
+            <!-- SEMANTIC: Last (5x4 grid) -->
+            <div class="color-section clusters-section">
+                <div class="color-section-title">Semantic</div>
+                <div class="cluster-grid-container">
+                    <div class="tds-color-grid cluster-grid">
+                        <div class="grid-header">
+                            <div class="grid-corner">Role</div>
+                            ${roles.map(role => `
+                                <div class="grid-col-header" title="${roleInfo[role].desc}">${roleInfo[role].name}</div>
+                            `).join('')}
+                        </div>
+                        ${clusters.map(cluster => {
+                            const colors = clusterStructure[cluster]?.colors || {};
+                            return `
+                                <div class="grid-row">
+                                    <div class="grid-row-label">${clusterInfo[cluster].name}</div>
+                                    ${roles.map(role => {
+                                        const color = colors[role];
+                                        return `
+                                            <div class="grid-cell"
+                                                 style="background: ${color};"
+                                                 title="${cluster}.${role} = ${color}"
+                                                 data-cluster="${cluster}"
+                                                 data-role="${role}"
+                                                 data-color="${color}">
+                                                <span class="cell-label">${role}</span>
+                                            </div>
+                                        `;
+                                    }).join('')}
                                 </div>
                             `;
                         }).join('')}
                     </div>
-                `).join('')}
+                </div>
             </div>
         `;
     }
@@ -346,18 +475,36 @@ export class DesignTokensPanel extends BasePanel {
         const tokens = colorTokenService.getAllTokens();
         const grouped = this.groupTokens(tokens);
 
+        const categoryDescriptions = {
+            components: 'UI component color mappings (buttons, badges, panels)',
+            status: 'Status indicator colors (success, warning, error, info)',
+            inline: 'Inline element colors (text, links, code)',
+            layout: 'Surface and layout colors (backgrounds, borders)',
+            typography: 'Text hierarchy colors'
+        };
+
         return `
+            <div class="tds-explanation">
+                <div class="tds-concept">
+                    <strong>Semantic Tokens:</strong> High-level color names that map to cluster references.
+                    Use these in your code for meaningful, theme-independent color choices.
+                </div>
+            </div>
+
             <div class="tds-color-list">
                 ${Object.entries(grouped).map(([category, categoryTokens]) => `
                     <div class="token-category">
-                        <div class="category-header">${category}</div>
+                        <div class="category-header">
+                            ${category}
+                            ${categoryDescriptions[category] ? `<span class="category-desc">${categoryDescriptions[category]}</span>` : ''}
+                        </div>
                         <div class="category-tokens">
                             ${Object.entries(categoryTokens).map(([name, data]) => `
                                 <div class="token-item">
                                     <div class="token-swatch" style="background: ${data.hexValue};"></div>
                                     <div class="token-info">
                                         <div class="token-name">${name}</div>
-                                        <div class="token-ref">${data.paletteRef} → ${data.hexValue}</div>
+                                        <div class="token-ref">${data.clusterRef} → ${data.hexValue}</div>
                                     </div>
                                 </div>
                             `).join('')}
@@ -438,40 +585,81 @@ export class DesignTokensPanel extends BasePanel {
     async loadDesignTokens() {
         this.tokens = [];
 
-        // Load TDS color tokens
-        const tdsTokens = colorTokenService.getAllTokens();
-        for (const [name, data] of Object.entries(tdsTokens)) {
+        // Load semantic color tokens (32 colors)
+        const colorTokens = colorTokenService.getAllTokens();
+        for (const [name, data] of Object.entries(colorTokens)) {
             this.tokens.push({
                 variable: `--color-${name.replace(/\./g, '-')}`,
                 value: data.hexValue,
                 name: name,
                 category: 'Colors',
                 type: 'color',
-                paletteRef: data.paletteRef,
-                isHybrid: data.isHybrid
+                clusterRef: data.clusterRef
             });
         }
 
-        // Load other token types from CSS files
-        const tokenFiles = [
-            '/client/styles/design-tokens-typography.css',
-            '/client/styles/design-tokens-spacing.css',
-            '/client/styles/design-tokens-z-index.css'
-        ];
+        // Load typography tokens from theme (21 tokens)
+        const theme = colorTokenService.getThemeMetadata();
+        if (theme && theme.palettes) {
+            // Typography is in constants/themes.js, need to load from there
+            const { DEVPAGES_DARK } = await import('../constants/themes.js');
+            const currentTheme = this.currentTheme === 'default' ? DEVPAGES_DARK : DEVPAGES_DARK;
 
-        for (const file of tokenFiles) {
-            try {
-                const response = await fetch(`${file}?v=${Date.now()}`);
-                if (response.ok) {
-                    const cssText = await response.text();
-                    this.tokens.push(...this.parseTokensFromCSS(cssText));
-                }
-            } catch (error) {
-                console.warn(`Could not load ${file}:`, error);
+            if (currentTheme.typography) {
+                Object.entries(currentTheme.typography).forEach(([name, value]) => {
+                    this.tokens.push({
+                        variable: `--${name}`,
+                        value: value,
+                        name: name,
+                        category: 'Typography',
+                        type: this.getTypographyType(name)
+                    });
+                });
+            }
+
+            // Load spacing tokens from theme (12 tokens)
+            if (currentTheme.spacing) {
+                Object.entries(currentTheme.spacing).forEach(([name, value]) => {
+                    this.tokens.push({
+                        variable: `--space-${name}`,
+                        value: value,
+                        name: `space-${name}`,
+                        category: 'Spacing',
+                        type: 'spacing'
+                    });
+                });
             }
         }
 
         this.categories = new Set(this.tokens.map(t => t.category));
+    }
+
+    getTypographyType(name) {
+        if (name.includes('font-') || name.includes('family')) return 'font-family';
+        if (name.includes('size')) return 'font-size';
+        if (name.includes('weight')) return 'font-weight';
+        if (name.includes('leading') || name.includes('line')) return 'line-height';
+        return 'typography';
+    }
+
+    getTokenCountDisplay() {
+        // Count tokens by category
+        const colorCount = this.tokens.filter(t => t.category === 'Colors').length;
+        const typographyCount = this.tokens.filter(t => t.category === 'Typography').length;
+        const spacingCount = this.tokens.filter(t => t.category === 'Spacing').length;
+        const totalCount = colorCount + typographyCount + spacingCount;
+
+        if (this.currentFilter === 'all') {
+            return `${totalCount} tokens`;
+        } else if (this.currentFilter === 'Colors') {
+            return `${colorCount} colors`;
+        } else if (this.currentFilter === 'Typography') {
+            return `${typographyCount} tokens`;
+        } else if (this.currentFilter === 'Spacing') {
+            return `${spacingCount} tokens`;
+        } else {
+            return `${this.filteredTokens.length} tokens`;
+        }
     }
 
     parseTokensFromCSS(cssText) {
@@ -542,21 +730,6 @@ export class DesignTokensPanel extends BasePanel {
             container.innerHTML = this.renderTokens();
         }
     }
-
-    renderColorGrid() {
-        return `
-            <div class="color-grid">
-                ${this.filteredTokens.map(token => `
-                    <div 
-                        class="color-swatch" 
-                        style="background-color: ${token.value};" 
-                        title="${token.variable}: ${token.value}"
-                    ></div>
-                `).join('')}
-            </div>
-        `;
-    }
-
 
     // Add a method to get debug info for panel registry
     getDebugInfo() {
