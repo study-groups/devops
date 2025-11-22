@@ -8,7 +8,6 @@ notepads
 devpages-ux305.sh
 pj-md
 env-backup
-.sessions
 env.sh
 *.DIFF
 *.WORKING
@@ -19,7 +18,7 @@ ignore.txt
 *.1
 *.2
 *.3
-./*.dot
+*.dot
 pb.sh
 out
 out.txt
@@ -33,6 +32,11 @@ uploads
 data
 old
 colors.sh
+
+# Debug and temporary files
+*.png
+grep-out.txt
+archive-*
 
 backup/modules/gameClient.js
 backup/modules/pjaSdk.js
