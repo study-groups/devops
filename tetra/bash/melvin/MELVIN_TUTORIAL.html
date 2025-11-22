@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MELVIN Interactive Tutorial</title>
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/svg+xml" href="static/favicon.svg">
+    <link rel="icon" type="image/x-icon" href="static/favicon.ico">
+
     <style>
         * {
             margin: 0;
@@ -1222,7 +1227,16 @@ melvin list MODULE    # See all modules</div>
 
     <!-- Design Token FAB -->
     <button class="design-fab" onclick="toggleDesignPanel()" id="designFab">
-        ⚙
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="28" height="28">
+            <circle cx="50" cy="50" r="45" fill="#ffffff" opacity="0.15"/>
+            <rect x="25" y="30" width="18" height="18" rx="3" fill="#58a6ff"/>
+            <rect x="47" y="30" width="18" height="18" rx="3" fill="#3fb950"/>
+            <rect x="69" y="30" width="18" height="18" rx="3" fill="#d29922"/>
+            <rect x="25" y="52" width="18" height="18" rx="3" fill="#f85149"/>
+            <rect x="47" y="52" width="18" height="18" rx="3" fill="#c9d1d9"/>
+            <rect x="69" y="52" width="18" height="18" rx="3" fill="#8b949e"/>
+            <circle cx="50" cy="50" r="45" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.8"/>
+        </svg>
     </button>
 
     <div class="design-panel" id="designPanel">
@@ -1768,6 +1782,9 @@ melvin list MODULE    # See all modules</div>
             code: "'Courier New', Monaco, monospace"
         };
 
+        // Track loaded Google Fonts for copy/load functionality
+        const loadedGoogleFonts = [];
+
         function updateToken(tokenName, value) {
             document.documentElement.style.setProperty(tokenName, value);
             const displayId = 'token-' + tokenName.replace('--', '').replace(/-/g, '-');
@@ -1823,30 +1840,79 @@ melvin list MODULE    # See all modules</div>
                 return;
             }
 
+            // Validate Google Fonts URL
+            if (!cdnUrl.includes('fonts.googleapis.com')) {
+                alert('Please use a valid Google Fonts URL (fonts.googleapis.com)');
+                return;
+            }
+
             // Add font link to document head
             const link = document.createElement('link');
             link.rel = 'stylesheet';
             link.href = cdnUrl;
+            link.id = 'custom-font-' + Date.now(); // Unique ID to prevent duplicates
             document.head.appendChild(link);
 
-            // Add to all dropdowns
-            const dropdowns = ['headingFont', 'bodyFont', 'codeFont'];
-            dropdowns.forEach(id => {
-                const select = document.getElementById(id);
-                const option = document.createElement('option');
-                option.value = fontFamily;
-                option.textContent = fontFamily.replace(/['"]/g, '') + ' (Custom)';
-                select.insertBefore(option, select.firstChild);
-            });
+            // Wait for font to load before applying
+            link.onload = () => {
+                console.log('Font loaded successfully:', fontFamily);
 
-            // Clear inputs and show feedback
-            document.getElementById('fontCdnUrl').value = '';
-            document.getElementById('fontFamily').value = '';
-            document.getElementById('fontCdnUrl').placeholder = '✓ Font added! Add another or select from dropdowns';
+                // Store in loaded fonts tracker (avoid duplicates)
+                const existing = loadedGoogleFonts.find(f => f.fontFamily === fontFamily);
+                if (!existing) {
+                    loadedGoogleFonts.push({ cdnUrl, fontFamily });
+                }
 
-            setTimeout(() => {
-                document.getElementById('fontCdnUrl').placeholder = 'https://fonts.googleapis.com/css2?family=...';
-            }, 3000);
+                // Add to all dropdowns
+                const dropdowns = ['headingFont', 'bodyFont', 'codeFont'];
+                dropdowns.forEach(id => {
+                    const select = document.getElementById(id);
+
+                    // Check if option already exists
+                    const existingOption = Array.from(select.options).find(opt => opt.value === fontFamily);
+                    if (!existingOption) {
+                        const option = document.createElement('option');
+                        option.value = fontFamily;
+                        option.textContent = fontFamily.replace(/['"]/g, '') + ' (Custom)';
+                        select.insertBefore(option, select.firstChild);
+                    }
+                });
+
+                // Auto-select and apply the font to headings as a preview
+                const headingSelect = document.getElementById('headingFont');
+                headingSelect.value = fontFamily;
+                updateFont('heading', fontFamily);
+
+                // Visual feedback
+                const btn = document.querySelector('.add-font-btn');
+                const originalText = btn.textContent;
+                btn.textContent = '✓ Font Added & Applied!';
+                btn.style.background = 'var(--success)';
+                btn.style.borderColor = 'var(--success)';
+                btn.style.color = 'white';
+
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '';
+                    btn.style.borderColor = '';
+                    btn.style.color = '';
+                }, 1000);
+
+                // Clear inputs and show success
+                document.getElementById('fontCdnUrl').value = '';
+                document.getElementById('fontFamily').value = '';
+                document.getElementById('fontCdnUrl').placeholder = '✓ Font loaded! Add another or change dropdowns';
+
+                setTimeout(() => {
+                    document.getElementById('fontCdnUrl').placeholder = 'https://fonts.googleapis.com/css2?family=...';
+                }, 5000);
+            };
+
+            link.onerror = () => {
+                console.error('Failed to load font:', cdnUrl);
+                alert('Failed to load font. Please check the URL and try again.');
+                link.remove();
+            };
         }
 
         function resetTokens() {
@@ -1867,6 +1933,22 @@ melvin list MODULE    # See all modules</div>
             // Clear custom font inputs
             document.getElementById('fontCdnUrl').value = '';
             document.getElementById('fontFamily').value = '';
+
+            // Remove custom font options from dropdowns (but keep Google Fonts loaded in head)
+            const dropdowns = ['headingFont', 'bodyFont', 'codeFont'];
+            dropdowns.forEach(id => {
+                const select = document.getElementById(id);
+                const options = Array.from(select.options);
+                options.forEach(option => {
+                    if (option.textContent.includes('(Custom)')) {
+                        option.remove();
+                    }
+                });
+            });
+
+            // Clear loaded fonts tracker (but keep the <link> tags for persistence)
+            // Note: We don't remove the actual font links to avoid breaking pages that depend on them
+            loadedGoogleFonts.length = 0;
 
             // Visual feedback
             const btn = document.getElementById('resetTokensBtn');
@@ -1902,6 +1984,16 @@ melvin list MODULE    # See all modules</div>
                 cssOutput += `    ${token}: ${value};\n`;
             });
             cssOutput += '}\n\n';
+
+            // Add Google Fonts CDN URLs
+            if (loadedGoogleFonts.length > 0) {
+                cssOutput += '/* Google Fonts CDN */\n';
+                loadedGoogleFonts.forEach(font => {
+                    cssOutput += `/* @import url('${font.cdnUrl}'); */\n`;
+                    cssOutput += `/* GoogleFont: ${font.fontFamily} | ${font.cdnUrl} */\n`;
+                });
+                cssOutput += '\n';
+            }
 
             // Add font info
             cssOutput += '/* Fonts */\n';
@@ -1949,6 +2041,51 @@ melvin list MODULE    # See all modules</div>
                     }
                 }
 
+                // Extract and load Google Fonts
+                const googleFontRegex = /\/\*\s*GoogleFont:\s*([^|]+)\|\s*([^*]+)\*\//g;
+                let fontMatch;
+                const fontsToLoad = [];
+
+                while ((fontMatch = googleFontRegex.exec(cssText)) !== null) {
+                    const fontFamily = fontMatch[1].trim();
+                    const cdnUrl = fontMatch[2].trim();
+                    fontsToLoad.push({ fontFamily, cdnUrl });
+                }
+
+                // Load each Google Font
+                fontsToLoad.forEach(({ fontFamily, cdnUrl }) => {
+                    // Check if already loaded
+                    const alreadyLoaded = loadedGoogleFonts.find(f => f.fontFamily === fontFamily);
+                    const alreadyInHead = document.querySelector(`link[href="${cdnUrl}"]`);
+
+                    if (!alreadyLoaded && !alreadyInHead) {
+                        // Add font link to document head
+                        const link = document.createElement('link');
+                        link.rel = 'stylesheet';
+                        link.href = cdnUrl;
+                        link.id = 'custom-font-loaded-' + Date.now();
+                        document.head.appendChild(link);
+
+                        // Add to tracker
+                        loadedGoogleFonts.push({ fontFamily, cdnUrl });
+
+                        // Add to dropdowns
+                        const dropdowns = ['headingFont', 'bodyFont', 'codeFont'];
+                        dropdowns.forEach(id => {
+                            const select = document.getElementById(id);
+                            const existingOption = Array.from(select.options).find(opt => opt.value === fontFamily);
+                            if (!existingOption) {
+                                const option = document.createElement('option');
+                                option.value = fontFamily;
+                                option.textContent = fontFamily.replace(/['"]/g, '') + ' (Custom)';
+                                select.insertBefore(option, select.firstChild);
+                            }
+                        });
+
+                        console.log('Loaded Google Font from CSS:', fontFamily);
+                    }
+                });
+
                 // Extract font info from comments
                 const headingMatch = cssText.match(/\/\*\s*Heading:\s*([^*]+)\*\//);
                 const bodyMatch = cssText.match(/\/\*\s*Body:\s*([^*]+)\*\//);
@@ -1976,13 +2113,18 @@ melvin list MODULE    # See all modules</div>
                 const btn = document.getElementById('loadTokensBtn');
                 const originalText = btn.textContent;
                 const originalBg = btn.style.background;
-                btn.textContent = '✓ Loaded!';
+                const fontCount = fontsToLoad.length;
+                btn.textContent = fontCount > 0 ? `✓ Loaded! (${fontCount} font${fontCount > 1 ? 's' : ''})` : '✓ Loaded!';
                 btn.style.background = 'var(--success)';
+                btn.style.borderColor = 'var(--success)';
+                btn.style.color = 'white';
 
                 setTimeout(() => {
                     btn.textContent = originalText;
                     btn.style.background = originalBg;
-                }, 2000);
+                    btn.style.borderColor = '';
+                    btn.style.color = '';
+                }, 3000);
 
             } catch (err) {
                 console.error('Failed to parse CSS:', err);
@@ -2000,6 +2142,460 @@ melvin list MODULE    # See all modules</div>
                 panel.classList.remove('visible');
             }
         });
+
+        // IIFE: Element Design Token Selector with Shift-Click (1 second hold)
+        (function() {
+            let longPressTimer = null;
+            let progressTimer = null;
+            let currentElement = null;
+            let progressOverlay = null;
+            let startTime = 0;
+            const LONG_PRESS_DURATION = 1000; // 1 second
+
+            // Create progress overlay element
+            function createProgressOverlay() {
+                const overlay = document.createElement('div');
+                overlay.style.cssText = `
+                    position: fixed;
+                    pointer-events: none;
+                    border: 3px solid var(--accent-primary);
+                    border-radius: 4px;
+                    background: radial-gradient(circle, transparent 0%, rgba(88, 166, 255, 0.1) 100%);
+                    z-index: 10000;
+                    transition: opacity 0.2s;
+                `;
+                overlay.innerHTML = `
+                    <div style="
+                        position: absolute;
+                        top: -30px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        background: var(--bg-secondary);
+                        border: 2px solid var(--accent-primary);
+                        border-radius: 20px;
+                        padding: 4px 12px;
+                        font-size: 11px;
+                        font-family: 'Courier New', monospace;
+                        color: var(--accent-primary);
+                        white-space: nowrap;
+                    ">
+                        <span class="progress-text">0.0s / 1.0s</span>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+                return overlay;
+            }
+
+            // Update progress overlay position and progress
+            function updateProgressOverlay(element, progress) {
+                if (!progressOverlay) return;
+
+                const rect = element.getBoundingClientRect();
+                progressOverlay.style.left = rect.left + 'px';
+                progressOverlay.style.top = rect.top + 'px';
+                progressOverlay.style.width = rect.width + 'px';
+                progressOverlay.style.height = rect.height + 'px';
+
+                const elapsed = (progress * LONG_PRESS_DURATION / 100) / 1000;
+                const progressText = progressOverlay.querySelector('.progress-text');
+                if (progressText) {
+                    progressText.textContent = `${elapsed.toFixed(1)}s / 1.0s`;
+                }
+
+                // Update background to show progress
+                const alpha = Math.min(0.3, progress / 100 * 0.3);
+                progressOverlay.style.background = `radial-gradient(circle, rgba(88, 166, 255, ${alpha}) 0%, rgba(88, 166, 255, ${alpha * 0.3}) 100%)`;
+            }
+
+            // Generate XPath for element
+            function getXPath(element) {
+                if (element.id) {
+                    return `//*[@id="${element.id}"]`;
+                }
+                if (element === document.body) {
+                    return '/html/body';
+                }
+
+                let ix = 0;
+                const siblings = element.parentNode?.childNodes || [];
+                for (let i = 0; i < siblings.length; i++) {
+                    const sibling = siblings[i];
+                    if (sibling === element) {
+                        const parentPath = element.parentNode ? getXPath(element.parentNode) : '';
+                        return `${parentPath}/${element.tagName.toLowerCase()}[${ix + 1}]`;
+                    }
+                    if (sibling.nodeType === 1 && sibling.tagName === element.tagName) {
+                        ix++;
+                    }
+                }
+                return '';
+            }
+
+            // Extract design tokens from element
+            function extractDesignTokens(element) {
+                const computed = window.getComputedStyle(element);
+                const tokens = {
+                    element: {
+                        tag: element.tagName.toLowerCase(),
+                        classes: Array.from(element.classList).join(', ') || 'none',
+                        id: element.id || 'none',
+                        xpath: getXPath(element)
+                    },
+                    colors: {
+                        background: computed.backgroundColor,
+                        color: computed.color,
+                        borderColor: computed.borderTopColor
+                    },
+                    typography: {
+                        fontFamily: computed.fontFamily,
+                        fontSize: computed.fontSize,
+                        fontWeight: computed.fontWeight,
+                        lineHeight: computed.lineHeight,
+                        letterSpacing: computed.letterSpacing
+                    },
+                    spacing: {
+                        padding: computed.padding,
+                        margin: computed.margin
+                    },
+                    border: {
+                        width: computed.borderWidth,
+                        style: computed.borderStyle,
+                        radius: computed.borderRadius
+                    },
+                    layout: {
+                        display: computed.display,
+                        width: computed.width,
+                        height: computed.height
+                    }
+                };
+                return tokens;
+            }
+
+            // Display extracted tokens
+            function displayElementTokens(element, tokens) {
+                console.log('Selected Element Tokens:', tokens);
+
+                // Create or show element inspector panel
+                let inspectorPanel = document.getElementById('elementInspectorPanel');
+                if (!inspectorPanel) {
+                    inspectorPanel = createElementInspectorPanel();
+                }
+
+                // Populate panel with tokens
+                populateInspectorPanel(inspectorPanel, element, tokens);
+                inspectorPanel.classList.add('visible');
+                inspectorPanel.style.display = 'flex';
+            }
+
+            // Create element inspector panel
+            function createElementInspectorPanel() {
+                const panel = document.createElement('div');
+                panel.id = 'elementInspectorPanel';
+                panel.style.cssText = `
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    width: 600px;
+                    max-width: 90vw;
+                    max-height: 80vh;
+                    background: var(--bg-secondary);
+                    border: 2px solid var(--accent-primary);
+                    border-radius: 8px;
+                    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+                    display: none;
+                    flex-direction: column;
+                    z-index: 10001;
+                    overflow: hidden;
+                `;
+
+                panel.innerHTML = `
+                    <div class="inspector-header" style="
+                        padding: 1rem;
+                        background: var(--bg-tertiary);
+                        border-bottom: 1px solid var(--border);
+                        font-weight: 600;
+                        color: var(--text-primary);
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        cursor: move;
+                        user-select: none;
+                    ">
+                        <span>Element Design Tokens <span style="font-size: 0.7rem; color: var(--text-secondary); font-weight: normal;">(drag to move)</span></span>
+                        <span class="close-inspector" style="cursor: pointer; color: var(--text-secondary); font-size: 1.5rem; padding: 0 0.5rem;">×</span>
+                    </div>
+                    <div class="inspector-content" style="
+                        padding: 1rem;
+                        overflow-y: auto;
+                        flex: 1;
+                        font-size: 0.85rem;
+                    "></div>
+                `;
+
+                // Styled scrollbar
+                const style = document.createElement('style');
+                style.textContent = `
+                    #elementInspectorPanel .inspector-content::-webkit-scrollbar {
+                        width: 12px;
+                    }
+                    #elementInspectorPanel .inspector-content::-webkit-scrollbar-track {
+                        background: var(--bg-primary);
+                        border-radius: 6px;
+                        margin: 4px;
+                    }
+                    #elementInspectorPanel .inspector-content::-webkit-scrollbar-thumb {
+                        background: var(--accent-secondary);
+                        border-radius: 6px;
+                        border: 2px solid var(--bg-primary);
+                    }
+                    #elementInspectorPanel .inspector-content::-webkit-scrollbar-thumb:hover {
+                        background: var(--accent-primary);
+                    }
+                `;
+                document.head.appendChild(style);
+
+                panel.classList.add('visible');
+                panel.style.display = 'flex';
+
+                // Make draggable
+                makeDraggable(panel);
+
+                // Close button handler
+                panel.querySelector('.close-inspector').addEventListener('click', () => {
+                    closeInspectorPanel();
+                });
+
+                document.body.appendChild(panel);
+                return panel;
+            }
+
+            // Make panel draggable
+            function makeDraggable(panel) {
+                const header = panel.querySelector('.inspector-header');
+                let isDragging = false;
+                let currentX;
+                let currentY;
+                let initialX;
+                let initialY;
+
+                header.addEventListener('mousedown', (e) => {
+                    // Don't drag if clicking close button
+                    if (e.target.classList.contains('close-inspector')) return;
+
+                    isDragging = true;
+                    initialX = e.clientX - (parseInt(panel.style.left) || 0);
+                    initialY = e.clientY - (parseInt(panel.style.top) || 0);
+
+                    // Remove transform, use absolute positioning
+                    panel.style.transform = 'none';
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (isDragging) {
+                        e.preventDefault();
+                        currentX = e.clientX - initialX;
+                        currentY = e.clientY - initialY;
+
+                        panel.style.left = currentX + 'px';
+                        panel.style.top = currentY + 'px';
+                    }
+                });
+
+                document.addEventListener('mouseup', () => {
+                    isDragging = false;
+                });
+            }
+
+            // Close inspector panel
+            function closeInspectorPanel() {
+                const panel = document.getElementById('elementInspectorPanel');
+                if (panel) {
+                    panel.classList.remove('visible');
+                    panel.style.display = 'none';
+                }
+            }
+
+            // Populate inspector panel with token data
+            function populateInspectorPanel(panel, element, tokens) {
+                const content = panel.querySelector('.inspector-content');
+
+                let html = `
+                    <div style="margin-bottom: 1.5rem; padding: 1rem; background: var(--bg-primary); border-radius: 4px; border: 1px solid var(--border);">
+                        <div style="font-weight: 600; color: var(--accent-primary); margin-bottom: 0.5rem;">Element Info</div>
+                        <div style="font-family: 'Courier New', monospace; color: var(--text-secondary); font-size: 0.8rem;">
+                            <div style="margin-bottom: 0.5rem;"><strong>Tag:</strong> &lt;${tokens.element.tag}&gt;</div>
+                            <div style="margin-bottom: 0.5rem;"><strong>ID:</strong> ${tokens.element.id}</div>
+                            <div style="margin-bottom: 0.5rem;"><strong>Classes:</strong> ${tokens.element.classes}</div>
+                            <div style="margin-bottom: 0.5rem;">
+                                <strong>XPath:</strong>
+                                <div style="
+                                    background: var(--bg-secondary);
+                                    padding: 0.5rem;
+                                    border-radius: 3px;
+                                    margin-top: 0.25rem;
+                                    word-break: break-all;
+                                    color: var(--accent-primary);
+                                    font-size: 0.75rem;
+                                    border: 1px solid var(--border);
+                                    cursor: pointer;
+                                " onclick="navigator.clipboard.writeText('${tokens.element.xpath}').then(() => {
+                                    this.style.background = 'var(--success)';
+                                    this.style.color = 'white';
+                                    setTimeout(() => {
+                                        this.style.background = 'var(--bg-secondary)';
+                                        this.style.color = 'var(--accent-primary)';
+                                    }, 1000);
+                                })" title="Click to copy">${tokens.element.xpath}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // Colors section
+                html += createTokenSection('Colors', tokens.colors);
+
+                // Typography section
+                html += createTokenSection('Typography', tokens.typography);
+
+                // Spacing section
+                html += createTokenSection('Spacing', tokens.spacing);
+
+                // Border section
+                html += createTokenSection('Border', tokens.border);
+
+                // Layout section
+                html += createTokenSection('Layout', tokens.layout);
+
+                content.innerHTML = html;
+            }
+
+            // Create a token section
+            function createTokenSection(title, tokens) {
+                let html = `
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">${title}</div>
+                `;
+
+                for (const [key, value] of Object.entries(tokens)) {
+                    const isColor = title === 'Colors';
+                    const colorSwatch = isColor && value !== 'rgba(0, 0, 0, 0)' && value !== 'transparent'
+                        ? `<div style="width: 24px; height: 24px; background: ${value}; border: 1px solid var(--border); border-radius: 3px; flex-shrink: 0;"></div>`
+                        : '';
+
+                    html += `
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; padding: 0.5rem; background: var(--bg-tertiary); border-radius: 4px;">
+                            ${colorSwatch}
+                            <div style="flex: 1; min-width: 0;">
+                                <div style="font-size: 0.75rem; color: var(--text-secondary);">${key}</div>
+                                <div style="font-family: 'Courier New', monospace; font-size: 0.7rem; color: var(--accent-primary); overflow: hidden; text-overflow: ellipsis;">${value}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                html += '</div>';
+                return html;
+            }
+
+            // Handle shift-mousedown to show inspector
+            function handleShiftMouseDown(e) {
+                // Only activate with Shift held
+                if (!e.shiftKey) {
+                    return;
+                }
+
+                // Prevent on design panel elements
+                if (e.target.closest('#designPanel') ||
+                    e.target.closest('#elementInspectorPanel') ||
+                    e.target.closest('.design-fab')) {
+                    return;
+                }
+
+                e.preventDefault();
+                e.stopPropagation();
+
+                currentElement = e.target;
+                startTime = Date.now();
+
+                // Create progress overlay
+                progressOverlay = createProgressOverlay();
+                updateProgressOverlay(currentElement, 0);
+
+                // Start progress animation
+                let progress = 0;
+                progressTimer = setInterval(() => {
+                    progress = ((Date.now() - startTime) / LONG_PRESS_DURATION) * 100;
+                    updateProgressOverlay(currentElement, progress);
+
+                    if (progress >= 100) {
+                        clearInterval(progressTimer);
+                    }
+                }, 50);
+
+                // Set timer to show inspector
+                longPressTimer = setTimeout(() => {
+                    // Clear the timer reference
+                    longPressTimer = null;
+
+                    // Extract and display tokens
+                    const tokens = extractDesignTokens(currentElement);
+                    displayElementTokens(currentElement, tokens);
+
+                    // Cleanup progress overlay
+                    if (progressTimer) {
+                        clearInterval(progressTimer);
+                        progressTimer = null;
+                    }
+                    if (progressOverlay) {
+                        progressOverlay.remove();
+                        progressOverlay = null;
+                    }
+                }, LONG_PRESS_DURATION);
+            }
+
+            // Handle mouseup to cleanup progress indicators
+            function handleMouseUp(e) {
+                // If we were in the process of showing inspector, cancel it
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+                if (progressTimer) {
+                    clearInterval(progressTimer);
+                    progressTimer = null;
+                }
+                if (progressOverlay) {
+                    progressOverlay.remove();
+                    progressOverlay = null;
+                }
+
+                currentElement = null;
+            }
+
+            // Handle Escape key to close inspector
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeInspectorPanel();
+                }
+            });
+
+            // Handle click outside to close inspector
+            document.addEventListener('click', (e) => {
+                const panel = document.getElementById('elementInspectorPanel');
+                if (panel && panel.classList.contains('visible')) {
+                    if (!panel.contains(e.target)) {
+                        closeInspectorPanel();
+                    }
+                }
+            });
+
+            // Attach event listeners to document
+            document.addEventListener('mousedown', handleShiftMouseDown, true);
+            document.addEventListener('mouseup', handleMouseUp, true);
+
+            console.log('Design token inspector initialized: Shift-Hold (1 sec) to show, Escape/Click-outside/× to close');
+        })();
     </script>
 </body>
 </html>
