@@ -13,6 +13,43 @@ source "$RAG_SRC/core/stats_manager.sh" 2>/dev/null || true
 source "$RAG_SRC/bash/rag_prompts.sh"
 
 # ============================================================================
+# NO-FLOW COMMANDS
+# ============================================================================
+
+rag_cmd_quick() {
+    # Source main rag for rag_quick function
+    if declare -f rag_quick >/dev/null 2>&1; then
+        rag_quick "$@"
+    else
+        echo "Error: rag_quick not available" >&2
+        echo "Ensure RAG module is properly loaded" >&2
+        return 1
+    fi
+}
+
+rag_cmd_bundle() {
+    # Source main rag for rag_bundle function
+    if declare -f rag_bundle >/dev/null 2>&1; then
+        rag_bundle "$@"
+    else
+        echo "Error: rag_bundle not available" >&2
+        echo "Ensure RAG module is properly loaded" >&2
+        return 1
+    fi
+}
+
+rag_cmd_compare() {
+    # Source main rag for rag_compare function
+    if declare -f rag_compare >/dev/null 2>&1; then
+        rag_compare "$@"
+    else
+        echo "Error: rag_compare not available" >&2
+        echo "Ensure RAG module is properly loaded" >&2
+        return 1
+    fi
+}
+
+# ============================================================================
 # FLOW COMMANDS
 # ============================================================================
 
@@ -707,7 +744,13 @@ rag_cmd_help() {
     cat <<'EOF'
 RAG REPL Help
 
-Core Commands:
+No-Flow Commands (Quick & Easy):
+  /quick "<query>" <files...>   Quick Q&A without creating a flow
+  /q "<query>" <files...>       Alias for /quick
+  /bundle <files...>            Bundle files into MULTICAT format
+  /compare <file1> <file2>      Compare files for LLM review
+
+Flow Commands:
   /flow create "<desc>"   Create new flow
   /flow status            Show current flow status
   /flow resume [id]       Resume flow from checkpoint
@@ -749,7 +792,11 @@ Meta:
   /exit                   Exit REPL
   exit                    Exit REPL
 
-Quick Start:
+Quick Start (No Flow):
+  1. /quick "how does auth work" src/auth/*.js
+  2. Review output
+
+Quick Start (With Flow):
   1. /flow create "your question"
   2. /e add file.sh
   3. /assemble
@@ -769,6 +816,12 @@ rag_register_commands() {
         echo "Warning: bash/repl not loaded, cannot register commands" >&2
         return 1
     fi
+
+    # No-flow commands
+    repl_register_slash_command "quick" rag_cmd_quick
+    repl_register_slash_command "q" rag_cmd_quick  # Alias
+    repl_register_slash_command "bundle" rag_cmd_bundle
+    repl_register_slash_command "compare" rag_cmd_compare
 
     # Flow commands
     repl_register_slash_command "flow" rag_cmd_flow
@@ -817,6 +870,9 @@ rag_register_commands() {
 }
 
 # Export functions
+export -f rag_cmd_quick
+export -f rag_cmd_bundle
+export -f rag_cmd_compare
 export -f rag_cmd_flow
 export -f rag_cmd_evidence
 export -f rag_cmd_select

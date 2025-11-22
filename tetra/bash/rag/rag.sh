@@ -76,28 +76,43 @@ rag() {
         cat <<'EOF'
 Usage: rag <command> [args]
 
-Flow Commands:
-  flow start "<desc>"   Create new flow
-  flow status           Show current flow status
-  flow resume [id]      Resume flow from checkpoint
-  flow list             List all flows
+No-Flow Commands (Quick & Easy):
+  quick "<query>" <files...>    Quick Q&A without creating a flow
+  bundle <files...>             Bundle files into MULTICAT format
+  compare <file1> <file2>       Compare files for LLM review
+
+Flow Commands (Full Workflow):
+  flow start "<desc>"           Create new flow
+  flow status                   Show current flow status
+  flow resume [id]              Resume flow from checkpoint
+  flow list                     List all flows
 
 Context Commands:
-  select "<query>"      Select evidence using ULM
-  assemble              Assemble context to prompt.mdctx
-  plan                  Preview assembly plan
-  submit @qa            Submit to QA agent
+  select "<query>"              Select evidence using ULM
+  assemble                      Assemble context to prompt.mdctx
+  plan                          Preview assembly plan
+  submit @qa                    Submit to QA agent
 
-Legacy Commands:
-  repl                  Start interactive RAG REPL
-  mc <files...>         Create MULTICAT from files/directories
-  ms <file.mc>          Split MULTICAT back to files
-  mi <file.mc>          Show MULTICAT file info
-  status                Show RAG system status
-  help                  Show help
-  init                  Initialize RAG system
+Interactive Mode:
+  repl                          Start interactive RAG REPL
+
+MULTICAT Tools:
+  mc <files...>                 Create MULTICAT from files/directories
+  ms <file.mc>                  Split MULTICAT back to files
+  mi <file.mc>                  Show MULTICAT file info
+
+System:
+  status                        Show RAG system status
+  help                          Show help
+  init                          Initialize RAG system
 
 Examples:
+  # Quick usage (no flow)
+  rag quick "how does auth work" src/auth/*.js
+  rag bundle src/ --output context.mc
+  rag compare old.js new.js "which is better"
+
+  # Flow-based usage (full workflow)
   rag flow start "fix auth timeout"
   rag select "authentication error"
   rag assemble
@@ -112,6 +127,15 @@ EOF
     shift || true
 
     case "$action" in
+        "quick"|"q")
+            rag_quick "$@"
+            ;;
+        "bundle")
+            rag_bundle "$@"
+            ;;
+        "compare"|"diff")
+            rag_compare "$@"
+            ;;
         "flow")
             local subcommand="${1:-status}"
             shift || true
@@ -242,6 +266,283 @@ EOF
 }
 
 # Helper functions
+
+# Error message with helpful hints
+rag_error_with_hint() {
+    local error_msg="$1"
+    local hint="${2:-}"
+
+    echo "✗ $error_msg" >&2
+
+    if [[ -n "$hint" ]]; then
+        echo "" >&2
+        echo "$hint" >&2
+    fi
+}
+
+# No active flow error with suggestions
+rag_error_no_flow() {
+    rag_error_with_hint "No active flow" "To create a flow:
+  rag flow create \"your question\"
+
+Or use no-flow mode:
+  rag quick \"question\" file1.sh file2.js
+
+To resume an existing flow:
+  rag flow list      # See available flows
+  rag flow resume 1  # Resume by number"
+    return 1
+}
+
+# Quick Q&A without flow
+rag_quick() {
+    local query=""
+    local files=()
+    local agent="qa"
+    local save_to=""
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --agent)
+                agent="$2"
+                shift 2
+                ;;
+            --save)
+                save_to="$2"
+                shift 2
+                ;;
+            *)
+                if [[ -z "$query" ]]; then
+                    query="$1"
+                else
+                    files+=("$1")
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$query" ]]; then
+        echo "Usage: rag quick <query> [files...] [--agent <name>] [--save <file>]"
+        echo ""
+        echo "Examples:"
+        echo "  rag quick \"how does auth work\" src/auth/*.js"
+        echo "  rag quick \"explain parser\" core/parser.sh --agent claude"
+        echo "  rag quick \"review code\" src/ --save review.mc"
+        return 1
+    fi
+
+    if [[ ${#files[@]} -eq 0 ]]; then
+        rag_error_with_hint "No files specified" "Provide files to include in context:
+  rag quick \"$query\" file1.sh file2.js
+  rag quick \"$query\" src/*.js"
+        return 1
+    fi
+
+    # Create temporary context
+    local temp_mc="/tmp/rag-quick-$$.mc"
+    local temp_prompt="/tmp/rag-quick-$$-prompt.md"
+
+    # Generate MULTICAT
+    if ! mc "${files[@]}" > "$temp_mc" 2>/dev/null; then
+        echo "✗ Failed to create context from files" >&2
+        rm -f "$temp_mc"
+        return 1
+    fi
+
+    # Create prompt with query and context
+    cat > "$temp_prompt" <<EOF
+# Query
+
+$query
+
+# Context
+
+EOF
+    cat "$temp_mc" >> "$temp_prompt"
+
+    # Save or submit
+    if [[ -n "$save_to" ]]; then
+        mv "$temp_prompt" "$save_to"
+        rm -f "$temp_mc"
+        echo "✓ Context saved to: $save_to"
+        echo "  Files included: ${#files[@]}"
+        return 0
+    fi
+
+    # Submit to agent
+    if [[ "$agent" == "qa" ]] && [[ -f "$RAG_SRC/core/qa_submit.sh" ]]; then
+        source "$RAG_SRC/core/qa_submit.sh"
+        echo "Submitting to QA agent..."
+
+        # Use qa_query if available, otherwise show instructions
+        if command -v qa_query >/dev/null 2>&1; then
+            qa_query "$query" < "$temp_prompt"
+        else
+            echo "✓ Context assembled: $temp_prompt"
+            echo "  Copy to LLM manually or configure QA agent"
+            return 0
+        fi
+    else
+        echo "✓ Context assembled: $temp_prompt"
+        echo "  Files included: ${#files[@]}"
+        echo ""
+        echo "To submit manually:"
+        echo "  cat $temp_prompt | pbcopy    # Copy to clipboard"
+        echo "  # Or paste into your LLM interface"
+    fi
+
+    # Cleanup
+    rm -f "$temp_mc" "$temp_prompt"
+}
+
+# Bundle files into MULTICAT without flow
+rag_bundle() {
+    local output=""
+    local exclude=""
+    local files=()
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --output|-o)
+                output="$2"
+                shift 2
+                ;;
+            --exclude|-x)
+                exclude="$2"
+                shift 2
+                ;;
+            *)
+                files+=("$1")
+                shift
+                ;;
+        esac
+    done
+
+    if [[ ${#files[@]} -eq 0 ]]; then
+        echo "Usage: rag bundle <files...> [--output <file>] [--exclude <pattern>]"
+        echo ""
+        echo "Examples:"
+        echo "  rag bundle src/*.js --output context.mc"
+        echo "  rag bundle src/ --exclude tests/ --output bundle.mc"
+        return 1
+    fi
+
+    # Set default output
+    if [[ -z "$output" ]]; then
+        output="bundle-$(date +%Y%m%d-%H%M%S).mc"
+    fi
+
+    # Build mc command
+    local mc_args=()
+    if [[ -n "$exclude" ]]; then
+        mc_args+=("-x" "$exclude")
+    fi
+    mc_args+=("${files[@]}")
+
+    # Generate MULTICAT
+    if mc "${mc_args[@]}" > "$output"; then
+        local file_count=$(grep -c "^#MULTICAT_START" "$output" 2>/dev/null || echo "0")
+        echo "✓ Bundle created: $output"
+        echo "  Files included: $file_count"
+        echo "  Size: $(wc -c < "$output" | tr -d ' ') bytes"
+    else
+        echo "✗ Failed to create bundle" >&2
+        return 1
+    fi
+}
+
+# Compare files for LLM review
+rag_compare() {
+    local file1="$1"
+    local file2="$2"
+    local context="${3:-Which approach is better?}"
+    local output=""
+
+    shift 2 || true
+    shift || true
+
+    # Parse remaining arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --output|-o)
+                output="$2"
+                shift 2
+                ;;
+            --context|-c)
+                context="$2"
+                shift 2
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$file1" ]] || [[ -z "$file2" ]]; then
+        echo "Usage: rag compare <file1> <file2> [context] [--output <file>]"
+        echo ""
+        echo "Examples:"
+        echo "  rag compare old.js new.js \"which is better\""
+        echo "  rag compare v1/auth.js v2/auth.js --output review.md"
+        return 1
+    fi
+
+    if [[ ! -f "$file1" ]]; then
+        echo "✗ File not found: $file1" >&2
+        return 1
+    fi
+
+    if [[ ! -f "$file2" ]]; then
+        echo "✗ File not found: $file2" >&2
+        return 1
+    fi
+
+    # Set default output
+    if [[ -z "$output" ]]; then
+        output="/tmp/rag-compare-$$.md"
+    fi
+
+    # Generate comparison document
+    cat > "$output" <<EOF
+# Comparison Request
+
+$context
+
+## File 1: $file1
+
+\`\`\`
+$(cat "$file1")
+\`\`\`
+
+## File 2: $file2
+
+\`\`\`
+$(cat "$file2")
+\`\`\`
+
+## Diff
+
+\`\`\`diff
+$(diff -u "$file1" "$file2" || true)
+\`\`\`
+
+---
+
+Please analyze these files and provide your assessment.
+EOF
+
+    echo "✓ Comparison document created: $output"
+    echo "  File 1: $file1"
+    echo "  File 2: $file2"
+    echo ""
+    echo "To submit:"
+    echo "  cat $output | pbcopy    # Copy to clipboard"
+    echo "  # Or use: rag submit-file $output"
+}
+
 rag_status() {
     _tetra_status_header "RAG Tools"
 
@@ -288,42 +589,65 @@ rag_help() {
     cat <<'EOF'
 RAG Tools Help
 
-Core Commands:
-  rag flow create "<desc>"   Create new flow
-  rag flow status            Show current flow status
-  rag flow resume [id]       Resume flow from checkpoint
-  rag flow list              List all flows
+NO-FLOW COMMANDS (Quick & Easy):
+  rag quick "<query>" <files...>      Quick Q&A without creating a flow
+    --agent <name>                    Specify agent (default: qa)
+    --save <file>                     Save context instead of submitting
 
-Evidence Commands:
-  rag evidence add <file>    Add evidence file
-  rag evidence list          List evidence files
-  rag select "<query>"       Select evidence using query
+  rag bundle <files...>               Bundle files into MULTICAT format
+    --output <file>                   Output file (default: bundle-TIMESTAMP.mc)
+    --exclude <pattern>               Exclude files matching pattern
 
-Context Assembly:
-  rag assemble               Assemble context to prompt.mdctx
-  rag submit @qa             Submit to QA agent
+  rag compare <file1> <file2>         Compare files for LLM review
+    --context "<text>"                Custom comparison context
+    --output <file>                   Output file (default: /tmp/rag-compare-$$.md)
 
-MULTICAT Tools:
-  rag mc <files>             Create MULTICAT from files
-  rag ms <file.mc>           Split MULTICAT to files
-  rag mi <file.mc>           Show MULTICAT info
-  rag example                Generate sample MULTICAT format
+FLOW COMMANDS (Full Workflow):
+  rag flow create "<desc>"            Create new flow
+  rag flow status                     Show current flow status
+  rag flow resume [id]                Resume flow from checkpoint
+  rag flow list                       List all flows
 
-System:
-  rag repl                   Start interactive REPL
-  rag status                 Show system status
-  rag init                   Initialize RAG directories
-  rag help                   Show this help
+EVIDENCE COMMANDS:
+  rag evidence add <file>             Add evidence file
+  rag evidence list                   List evidence files
+  rag select "<query>"                Select evidence using query
 
-Quick Start:
+CONTEXT ASSEMBLY:
+  rag assemble                        Assemble context to prompt.mdctx
+  rag submit @qa                      Submit to QA agent
+
+MULTICAT TOOLS:
+  rag mc <files>                      Create MULTICAT from files
+  rag ms <file.mc>                    Split MULTICAT to files
+  rag mi <file.mc>                    Show MULTICAT info
+  rag example                         Generate sample MULTICAT format
+
+SYSTEM:
+  rag repl                            Start interactive REPL
+  rag status                          Show system status
+  rag init                            Initialize RAG directories
+  rag help                            Show this help
+
+QUICK START - No Flow:
+  1. rag quick "how does auth work" src/auth/*.js
+  2. Review output or saved file
+
+QUICK START - With Flow:
   1. rag flow create "your question"
   2. rag evidence add file.sh
   3. rag assemble
   4. rag submit @qa
 
+TIPS:
+  - Use 'rag quick' for one-off questions
+  - Use 'rag flow' for iterative workflows
+  - Use 'rag bundle' to prepare context for manual LLM interaction
+  - Use 'rag repl' for interactive sessions
+
 Interactive Mode:
   All commands available without 'rag' prefix in REPL
-  Example: 'flow create "question"' instead of 'rag flow create "question"'
+  Example: '/flow create "question"' or 'quick "question" files...'
 EOF
 }
 

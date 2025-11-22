@@ -4,6 +4,66 @@
 
 ---
 
+## Two Ways to Use RAG
+
+RAG supports **two workflows**: no-flow (quick & simple) and flow-based (full workflow).
+
+### No-Flow Commands (Recommended for Quick Tasks)
+
+Use these when you have a quick question and don't need flow state management:
+
+```bash
+# Quick Q&A
+rag quick "how does authentication work" src/auth/*.js
+rag quick "explain this parser" core/parser.sh --save context.md
+
+# Bundle files for manual LLM use
+rag bundle src/auth/ --output auth-context.mc
+rag bundle *.js --exclude tests/ --output bundle.mc
+
+# Compare files
+rag compare old-version.js new-version.js "which is better"
+rag compare v1/auth.js v2/auth.js --output review.md
+```
+
+**Benefits:**
+- No flow creation overhead
+- Immediate results
+- Perfect for one-off questions
+- Easy to save context for later
+
+**Usage:**
+```bash
+rag quick "<your question>" <files to include>
+rag bundle <files> --output <filename>
+rag compare <file1> <file2> ["comparison context"]
+```
+
+### Flow-Based Commands (Recommended for Complex Workflows)
+
+Use these for iterative development, debugging sessions, or when you need state management:
+
+```bash
+# Create a flow
+rag flow create "Fix authentication timeout bug"
+
+# Add evidence
+rag evidence add src/auth/login.js
+rag evidence add src/auth/session.js::100,200  # Line range
+
+# Assemble and submit
+rag assemble
+rag submit @qa
+```
+
+**Benefits:**
+- State tracking across iterations
+- Evidence management
+- Integration with knowledge base
+- Full audit trail
+
+---
+
 ## Status Line Indicators
 
 When using the "twoline" prompt mode (`/cli twoline`), you'll see status indicators in the top-right:
@@ -176,6 +236,28 @@ rag repl
 ---
 
 ## Common Workflows
+
+### 0. Quick Q&A (No Flow)
+
+```bash
+# CLI usage
+rag quick "how does authentication work" src/auth/*.js
+
+# REPL usage
+rag repl
+> /quick "how does authentication work" src/auth/*.js
+> /q "explain this function" utils/helper.js  # Short alias
+
+# Bundle files without flow
+> /bundle src/core/*.sh --output core-bundle.mc
+> /compare old.js new.js "review changes"
+```
+
+**When to use:**
+- One-off questions
+- Quick code review
+- Preparing context for manual LLM interaction
+- Learning/exploring codebase
 
 ### 1. Start a New Flow and Add Evidence
 
