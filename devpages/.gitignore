@@ -35,6 +35,7 @@ colors.sh
 
 # Debug and temporary files
 *.png
+out
 grep-out.txt
 archive-*
 
