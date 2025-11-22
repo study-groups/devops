@@ -2,6 +2,8 @@ import { BasePanel, panelRegistry } from '/client/panels/BasePanel.js';
 import { createIcon } from '/client/config/icon-system.js';
 import { appStore } from '../appState.js';
 import { uiActions } from '../store/uiSlice.js';
+import { colorTokenService } from '../services/ColorTokenService.js';
+import { ColorThemes } from '../styles/tokens/color-themes.js';
 
 /**
  * Design Tokens Panel for exploring and managing design system tokens
@@ -26,8 +28,10 @@ export class DesignTokensPanel extends BasePanel {
         this.filteredTokens = [];
         this.categories = new Set();
         this.currentView = 'list';
+        this.colorView = 'grid'; // 'grid' or 'list' for color display
         this.currentFilter = 'all';
         this.searchQuery = '';
+        this.currentTheme = colorTokenService.getTheme();
         
     }
 
@@ -54,6 +58,17 @@ export class DesignTokensPanel extends BasePanel {
                     <div class="dt-filter-group" id="token-category-filters">
                         ${this.renderCategoryFilters()}
                     </div>
+                    ${this.currentFilter === 'Colors' ? `
+                        <div class="dt-controls">
+                            <button class="dt-view-toggle ${this.colorView === 'grid' ? 'active' : ''}"
+                                    data-view="grid" id="view-toggle-grid">Grid</button>
+                            <button class="dt-view-toggle ${this.colorView === 'list' ? 'active' : ''}"
+                                    data-view="list" id="view-toggle-list">List</button>
+                            <select class="dt-theme-select" id="theme-selector">
+                                ${this.renderThemeOptions()}
+                            </select>
+                        </div>
+                    ` : ''}
                 </div>
                 <div class="dt-content" id="design-tokens-container">
                     ${this.renderTokens()}
@@ -63,6 +78,15 @@ export class DesignTokensPanel extends BasePanel {
                 </div>
             </div>
         `;
+    }
+
+    renderThemeOptions() {
+        const themes = ColorThemes.getAllThemes();
+        return themes.map(theme => `
+            <option value="${theme.id}" ${theme.id === this.currentTheme ? 'selected' : ''}>
+                ${theme.name} (${theme.temperature})
+            </option>
+        `).join('');
     }
 
     renderCategoryFilters() {
@@ -277,71 +301,87 @@ export class DesignTokensPanel extends BasePanel {
     }
 
     renderColorMatrix() {
-        // Separate palette colors from semantic colors
-        const paletteColors = {};
-        const semanticColors = [];
-        
-        this.filteredTokens.forEach(token => {
-            const parts = token.name.split('-');
-            
-            // Palette colors: primary-500, neutral-200, etc.
-            if (parts.length >= 2 && !isNaN(parts[1])) {
-                const family = parts[0];
-                const shade = parts[1];
-                
-                if (!paletteColors[family]) {
-                    paletteColors[family] = {};
-                }
-                paletteColors[family][shade] = token;
-            } else {
-                // Semantic colors: success, error, text-primary, background-default, etc.
-                semanticColors.push(token);
-            }
-        });
+        if (this.colorView === 'grid') {
+            return this.renderColorGrid();
+        } else {
+            return this.renderColorList();
+        }
+    }
 
-        // Get all unique shade values and sort them
-        const allShades = new Set();
-        Object.values(paletteColors).forEach(family => {
-            Object.keys(family).forEach(shade => allShades.add(shade));
-        });
-        const shades = Array.from(allShades).sort((a, b) => parseInt(a) - parseInt(b));
-        
-        // Get sorted families
-        const families = Object.keys(paletteColors).sort();
+    renderColorGrid() {
+        const palettes = colorTokenService.getAllPaletteColors();
+        const paletteNames = ['env', 'mode', 'verbs', 'nouns'];
+        const stops = [0, 1, 2, 3, 4, 5, 6, 7];
 
         return `
-            <div class="color-section">
-                <div class="color-section-title">Color Palette</div>
-                <div class="color-matrix" style="grid-template-columns: 32px repeat(${families.length}, 16px);">
-                    <div class="matrix-corner">↘</div>
-                    ${families.map(family => `<div class="matrix-col-label">${family}</div>`).join('')}
-                    ${shades.map(shade => `
-                        <div class="matrix-row-label">${shade}</div>
-                        ${families.map(family => {
-                            const token = paletteColors[family] && paletteColors[family][shade];
-                            return token ? 
-                                `<div class="color-cell" style="background: ${token.value};" title="${token.name}: ${token.value}"></div>` :
-                                `<div class="color-cell empty"></div>`;
+            <div class="tds-color-grid">
+                <div class="grid-header">
+                    <div class="grid-corner">Stop</div>
+                    ${paletteNames.map(name => `
+                        <div class="grid-col-header">${name.toUpperCase()}</div>
+                    `).join('')}
+                </div>
+                ${stops.map(stop => `
+                    <div class="grid-row">
+                        <div class="grid-row-label">${stop}</div>
+                        ${paletteNames.map(palette => {
+                            const color = palettes[palette][stop];
+                            return `
+                                <div class="grid-cell"
+                                     style="background: ${color};"
+                                     title="${palette}:${stop} = ${color}"
+                                     data-palette="${palette}"
+                                     data-stop="${stop}"
+                                     data-color="${color}">
+                                </div>
+                            `;
                         }).join('')}
-                    `).join('')}
-                </div>
-            </div>
-            
-            <div class="color-section">
-                <div class="color-section-title">Semantic Colors</div>
-                <div class="semantic-colors">
-                    ${semanticColors.map(token => `
-                        <div class="semantic-color-item">
-                            <div class="semantic-color-swatch" style="background: ${token.value};" title="${token.value}"></div>
-                            <div class="semantic-color-info">
-                                <div class="semantic-color-name">${token.name}</div>
-                                <div class="semantic-color-value">${token.value}</div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
+                    </div>
+                `).join('')}
             </div>
         `;
+    }
+
+    renderColorList() {
+        const tokens = colorTokenService.getAllTokens();
+        const grouped = this.groupTokens(tokens);
+
+        return `
+            <div class="tds-color-list">
+                ${Object.entries(grouped).map(([category, categoryTokens]) => `
+                    <div class="token-category">
+                        <div class="category-header">${category}</div>
+                        <div class="category-tokens">
+                            ${Object.entries(categoryTokens).map(([name, data]) => `
+                                <div class="token-item">
+                                    <div class="token-swatch" style="background: ${data.hexValue};"></div>
+                                    <div class="token-info">
+                                        <div class="token-name">${name}</div>
+                                        <div class="token-ref">${data.paletteRef} → ${data.hexValue}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    groupTokens(tokens) {
+        const grouped = {};
+
+        for (const [tokenName, data] of Object.entries(tokens)) {
+            const category = tokenName.split('.')[0];
+
+            if (!grouped[category]) {
+                grouped[category] = {};
+            }
+
+            grouped[category][tokenName] = data;
+        }
+
+        return grouped;
     }
 
     // Modify onMount to ensure element is created
@@ -362,7 +402,8 @@ export class DesignTokensPanel extends BasePanel {
 
     attachEventListeners() {
         if (!this.container) return;
-        
+
+        // Category filters
         const filtersContainer = this.container.querySelector('#token-category-filters');
         if (filtersContainer) {
             filtersContainer.addEventListener('click', (e) => {
@@ -373,17 +414,51 @@ export class DesignTokensPanel extends BasePanel {
                 }
             });
         }
+
+        // View toggle buttons
+        const viewToggles = this.container.querySelectorAll('.dt-view-toggle');
+        viewToggles.forEach(button => {
+            button.addEventListener('click', (e) => {
+                this.colorView = e.target.dataset.view;
+                this.updateTokensDisplay();
+            });
+        });
+
+        // Theme selector
+        const themeSelector = this.container.querySelector('#theme-selector');
+        if (themeSelector) {
+            themeSelector.addEventListener('change', (e) => {
+                this.currentTheme = e.target.value;
+                colorTokenService.setTheme(this.currentTheme);
+                this.updateTokensDisplay();
+            });
+        }
     }
 
     async loadDesignTokens() {
+        this.tokens = [];
+
+        // Load TDS color tokens
+        const tdsTokens = colorTokenService.getAllTokens();
+        for (const [name, data] of Object.entries(tdsTokens)) {
+            this.tokens.push({
+                variable: `--color-${name.replace(/\./g, '-')}`,
+                value: data.hexValue,
+                name: name,
+                category: 'Colors',
+                type: 'color',
+                paletteRef: data.paletteRef,
+                isHybrid: data.isHybrid
+            });
+        }
+
+        // Load other token types from CSS files
         const tokenFiles = [
-            '/client/styles/design-tokens-colors.css',
             '/client/styles/design-tokens-typography.css',
             '/client/styles/design-tokens-spacing.css',
             '/client/styles/design-tokens-z-index.css'
         ];
 
-        this.tokens = [];
         for (const file of tokenFiles) {
             try {
                 const response = await fetch(`${file}?v=${Date.now()}`);

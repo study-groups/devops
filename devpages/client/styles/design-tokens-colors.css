@@ -1,59 +1,141 @@
+/**
+ * TDS Color Tokens - Auto-generated CSS Variables
+ * Theme: default
+ *
+ * Four-palette system:
+ * - ENV: Environment & success states (greens/teals)
+ * - MODE: Structure & modes (blues/purples)
+ * - VERBS: Actions & warnings (reds/oranges)
+ * - NOUNS: Data & entities (purples/magentas)
+ */
+
 :root {
-    /* Primary Color Palette */
-    --color-primary-50: #e3f2fd;
-    --color-primary-100: #bbdefb;
-    --color-primary-200: #90caf9;
-    --color-primary-300: #64b5f6;
-    --color-primary-400: #42a5f5;
-    --color-primary-500: #2196f3;
-    --color-primary-600: #1e88e5;
-    --color-primary-700: #1976d2;
-    --color-primary-800: #1565c0;
-    --color-primary-900: #0d47a1;
+  /* Palette Colors - Raw stops (0-7) */
 
-    /* Secondary Color Palette */
-    --color-secondary-50: #e8f5e9;
-    --color-secondary-100: #c8e6c9;
-    --color-secondary-200: #a5d6a7;
-    --color-secondary-300: #81c784;
-    --color-secondary-400: #66bb6a;
-    --color-secondary-500: #4caf50;
-    --color-secondary-600: #43a047;
-    --color-secondary-700: #388e3c;
-    --color-secondary-800: #2e7d32;
-    --color-secondary-900: #1b5e20;
+  /* ENV Palette */
+  --color-env-0: #00AA00;
+  --color-env-1: #22DD22;
+  --color-env-2: #44AA44;
+  --color-env-3: #66FF66;
+  --color-env-4: #00DD88;
+  --color-env-5: #006644;
+  --color-env-6: #88FF00;
+  --color-env-7: #00AAAA;
 
-    /* Accent Colors */
-    --color-accent-red: #f44336;
-    --color-accent-pink: #e91e63;
-    --color-accent-purple: #9c27b0;
-    --color-accent-blue: #2196f3;
-    --color-accent-green: #4caf50;
+  /* MODE Palette */
+  --color-mode-0: #0088FF;
+  --color-mode-1: #0044AA;
+  --color-mode-2: #4400AA;
+  --color-mode-3: #000088;
+  --color-mode-4: #0066FF;
+  --color-mode-5: #4488AA;
+  --color-mode-6: #88AAFF;
+  --color-mode-7: #6688AA;
 
-    /* Neutral Colors */
-    --color-neutral-50: #fafafa;
-    --color-neutral-100: #f5f5f5;
-    --color-neutral-200: #eeeeee;
-    --color-neutral-300: #e0e0e0;
-    --color-neutral-400: #bdbdbd;
-    --color-neutral-500: #9e9e9e;
-    --color-neutral-600: #757575;
-    --color-neutral-700: #616161;
-    --color-neutral-800: #424242;
-    --color-neutral-900: #212121;
+  /* VERBS Palette */
+  --color-verbs-0: #FF0044;
+  --color-verbs-1: #FF6644;
+  --color-verbs-2: #AA4400;
+  --color-verbs-3: #FFAA00;
+  --color-verbs-4: #AA6600;
+  --color-verbs-5: #CC6633;
+  --color-verbs-6: #FFCC00;
+  --color-verbs-7: #FF4400;
 
-    /* Semantic Colors */
-    --color-success: var(--color-secondary-500);
-    --color-warning: #ff9800;
-    --color-error: var(--color-accent-red);
-    --color-info: var(--color-accent-blue);
+  /* NOUNS Palette */
+  --color-nouns-0: #AA00AA;
+  --color-nouns-1: #FF00FF;
+  --color-nouns-2: #8800AA;
+  --color-nouns-3: #CC44CC;
+  --color-nouns-4: #AA0088;
+  --color-nouns-5: #880088;
+  --color-nouns-6: #FF88FF;
+  --color-nouns-7: #CC00CC;
 
-    /* Text Colors */
-    --color-text-primary: var(--color-neutral-900);
-    --color-text-secondary: var(--color-neutral-700);
-    --color-text-disabled: var(--color-neutral-500);
+  /* Semantic Tokens - Structural */
+  --color-structural-primary: #00AA00; /* env:0 */
+  --color-structural-secondary: #0088FF; /* mode:0 */
+  --color-structural-accent: #FF0044; /* verbs:0 */
+  --color-structural-muted: #006644; /* env:5 */
+  --color-structural-separator: #88AAFF; /* mode:6 */
+  --color-structural-background: #000088; /* mode:3 */
+  --color-structural-surface: #88AAFF; /* mode:6 */
+  --color-structural-overlay: #0044AA; /* mode:1 */
 
-    /* Background Colors */
-    --color-background-default: var(--color-neutral-50);
-    --color-background-paper: var(--color-neutral-100);
+  /* Semantic Tokens - Text */
+  --color-text-primary: #6688AA; /* mode:7 */
+  --color-text-secondary: #88AAFF; /* mode:6 */
+  --color-text-tertiary: #88FF00; /* env:6 */
+  --color-text-muted: #4488AA; /* mode:5 */
+  --color-text-inverse: #0088FF; /* mode:0 */
+  --color-text-brand: #22DD22; /* env:1 */
+  --color-text-emphasis: #CC44CC; /* nouns:3 */
+
+  /* Semantic Tokens - Interactive */
+  --color-interactive-link: #0088FF; /* mode:0 */
+  --color-interactive-linkHover: #0066FF; /* mode:4 */
+  --color-interactive-linkVisited: #AA00AA; /* nouns:0 */
+  --color-interactive-active: #FFAA00; /* verbs:3 */
+  --color-interactive-hover: #FF6644; /* verbs:1 */
+  --color-interactive-selected: #66FF66; /* env:3 */
+  --color-interactive-focus: #0088FF; /* mode:0 */
+  --color-interactive-disabled: #4488AA; /* mode:5 */
+
+  /* Semantic Tokens - Status */
+  --color-status-success: #22DD22; /* env:1 */
+  --color-status-warning: #FFAA00; /* verbs:3 */
+  --color-status-error: #FF0044; /* verbs:0 */
+  --color-status-info: #0088FF; /* mode:0 */
+  --color-status-pending: #AA00AA; /* nouns:0 */
+
+  /* Semantic Tokens - Content Headings */
+  --color-content-heading-h1: #0088FF; /* mode:0 */
+  --color-content-heading-h2: #0044AA; /* mode:1 */
+  --color-content-heading-h3: #CC44CC; /* nouns:3 */
+  --color-content-heading-h4: #FF00FF; /* nouns:1 */
+  --color-content-heading-h5: #00AA00; /* env:0 */
+  --color-content-heading-h6: #006644; /* env:5 */
+
+  /* Semantic Tokens - Content Code */
+  --color-content-code-inline: #FF0044; /* verbs:0 */
+  --color-content-code-block: #0044AA; /* mode:1 */
+  --color-content-code-comment: #4488AA; /* mode:5 */
+  --color-content-code-keyword: #FFAA00; /* verbs:3 */
+  --color-content-code-string: #22DD22; /* env:1 */
+  --color-content-code-number: #CC44CC; /* nouns:3 */
+  --color-content-code-function: #0088FF; /* mode:0 */
+
+  /* Semantic Tokens - Content Misc */
+  --color-content-quote: #4488AA; /* mode:5 */
+  --color-content-list: #22DD22; /* env:1 */
+  --color-content-emphasis-bold: #FFAA00; /* verbs:3 */
+  --color-content-emphasis-italic: #22DD22; /* env:1 */
+  --color-content-emphasis-underline: #0088FF; /* mode:0 */
+  --color-content-link: #0088FF; /* mode:0 */
+  --color-content-hr: #4488AA; /* mode:5 */
+
+  /* Semantic Tokens - Components */
+  --color-components-button-primary: #0088FF; /* mode:0 */
+  --color-components-button-primaryHover: #0066FF; /* mode:4 */
+  --color-components-button-secondary: #00AA00; /* env:0 */
+  --color-components-button-secondaryHover: #44AA44; /* env:2 */
+  --color-components-button-danger: #FF0044; /* verbs:0 */
+  --color-components-button-dangerHover: #FF6644; /* verbs:1 */
+
+  --color-components-panel-bg: #000088; /* mode:3 */
+  --color-components-panel-border: #4488AA; /* mode:5 */
+  --color-components-panel-header: #0044AA; /* mode:1 */
+  --color-components-panel-toolbar: #4400AA; /* mode:2 */
+
+  --color-components-badge-default: #4488AA; /* mode:5 */
+  --color-components-badge-primary: #0088FF; /* mode:0 */
+  --color-components-badge-success: #00AA00; /* env:0 */
+  --color-components-badge-warning: #FFAA00; /* verbs:3 */
+  --color-components-badge-error: #FF0044; /* verbs:0 */
+  --color-components-badge-info: #0088FF; /* mode:0 */
+
+  --color-components-environment-local: #22DD22; /* env:1 */
+  --color-components-environment-dev: #00AA00; /* env:0 */
+  --color-components-environment-staging: #AA4400; /* verbs:2 */
+  --color-components-environment-prod: #FF0044; /* verbs:0 */
 }
