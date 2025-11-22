@@ -609,6 +609,50 @@
             color: var(--accent-primary);
         }
 
+        .font-example-toggle {
+            font-size: 0.75rem;
+            color: var(--accent-primary);
+            cursor: pointer;
+            margin-top: 0.5rem;
+            display: inline-block;
+            user-select: none;
+        }
+
+        .font-example-toggle:hover {
+            text-decoration: underline;
+        }
+
+        .font-example-content {
+            display: none;
+            margin-top: 0.5rem;
+            padding: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .font-example-content.expanded {
+            display: block;
+        }
+
+        .font-example-content ol {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+        }
+
+        .font-example-content li {
+            margin-bottom: 0.5rem;
+        }
+
+        .font-example-content code {
+            background: var(--bg-primary);
+            padding: 0.2rem 0.4rem;
+            border-radius: 2px;
+            font-size: 0.65rem;
+        }
+
         .design-panel-buttons {
             display: flex;
             gap: 0.5rem;
@@ -1303,8 +1347,27 @@ melvin list MODULE    # See all modules</div>
                     <input type="text" class="font-input" id="fontCdnUrl" placeholder="https://fonts.googleapis.com/css2?family=...">
                     <input type="text" class="font-input" id="fontFamily" placeholder="'Font Name', sans-serif">
                     <button class="add-font-btn" onclick="addCustomFont()">Add Font to Page</button>
-                    <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4;">
-                        Example: Visit <a href="https://fonts.google.com" target="_blank" style="color: var(--accent-primary);">fonts.google.com</a>, select a font, copy the CDN URL and font-family value
+
+                    <div class="font-example-toggle" onclick="toggleFontExample()">
+                        ▸ Show example
+                    </div>
+
+                    <div class="font-example-content" id="fontExampleContent">
+                        <strong>Example: Science Gothic</strong>
+                        <ol>
+                            <li>Visit <a href="https://fonts.google.com/specimen/Science+Gothic" target="_blank" style="color: var(--accent-primary);">fonts.google.com/specimen/Science+Gothic</a></li>
+                            <li>Click <strong>"Get font"</strong> button (top right)</li>
+                            <li>Click <strong>"Get embed code"</strong> in the sidebar</li>
+                            <li>Copy the URL from the <code>&lt;link&gt;</code> tag:<br>
+                                <code style="display: block; margin-top: 0.25rem; word-break: break-all;">https://fonts.googleapis.com/css2?family=Science+Gothic:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap</code>
+                            </li>
+                            <li>Copy the CSS font-family value:<br>
+                                <code style="display: block; margin-top: 0.25rem;">"Science Gothic", sans-serif</code>
+                            </li>
+                            <li>Paste both values into the fields above</li>
+                            <li>Click "Add Font to Page"</li>
+                            <li>Select "Science Gothic (Custom)" from any dropdown</li>
+                        </ol>
                     </div>
                 </div>
 
@@ -1348,6 +1411,9 @@ melvin list MODULE    # See all modules</div>
             <div class="design-panel-buttons">
                 <button class="design-panel-btn copy-tokens-btn" onclick="copyTokens()" id="copyTokensBtn">
                     Copy CSS
+                </button>
+                <button class="design-panel-btn copy-tokens-btn" onclick="loadTokens()" id="loadTokensBtn" style="background: var(--bg-tertiary); border-color: var(--border); color: var(--text-primary);">
+                    Load CSS
                 </button>
                 <button class="design-panel-btn reset-tokens-btn" onclick="resetTokens()" id="resetTokensBtn">
                     Reset
@@ -1735,6 +1801,19 @@ melvin list MODULE    # See all modules</div>
             }
         }
 
+        function toggleFontExample() {
+            const content = document.getElementById('fontExampleContent');
+            const toggle = document.querySelector('.font-example-toggle');
+
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                toggle.textContent = '▸ Show example';
+            } else {
+                content.classList.add('expanded');
+                toggle.textContent = '▾ Hide example';
+            }
+        }
+
         function addCustomFont() {
             const cdnUrl = document.getElementById('fontCdnUrl').value.trim();
             const fontFamily = document.getElementById('fontFamily').value.trim();
@@ -1822,7 +1901,17 @@ melvin list MODULE    # See all modules</div>
                 const value = style.getPropertyValue(token).trim();
                 cssOutput += `    ${token}: ${value};\n`;
             });
-            cssOutput += '}';
+            cssOutput += '}\n\n';
+
+            // Add font info
+            cssOutput += '/* Fonts */\n';
+            const headingFont = document.getElementById('headingFont').value;
+            const bodyFont = document.getElementById('bodyFont').value;
+            const codeFont = document.getElementById('codeFont').value;
+
+            cssOutput += `/* Heading: ${headingFont} */\n`;
+            cssOutput += `/* Body: ${bodyFont} */\n`;
+            cssOutput += `/* Code: ${codeFont} */\n`;
 
             // Copy to clipboard
             navigator.clipboard.writeText(cssOutput).then(() => {
@@ -1839,6 +1928,66 @@ melvin list MODULE    # See all modules</div>
                 console.error('Failed to copy:', err);
                 alert('Failed to copy tokens to clipboard');
             });
+        }
+
+        function loadTokens() {
+            const cssText = prompt('Paste the CSS (including :root { } and font comments):');
+
+            if (!cssText) return;
+
+            try {
+                // Extract color tokens
+                const tokenRegex = /--([a-z-]+):\s*([^;]+);/g;
+                let match;
+
+                while ((match = tokenRegex.exec(cssText)) !== null) {
+                    const tokenName = '--' + match[1];
+                    const value = match[2].trim();
+
+                    if (defaultTokens.hasOwnProperty(tokenName)) {
+                        updateToken(tokenName, value);
+                    }
+                }
+
+                // Extract font info from comments
+                const headingMatch = cssText.match(/\/\*\s*Heading:\s*([^*]+)\*\//);
+                const bodyMatch = cssText.match(/\/\*\s*Body:\s*([^*]+)\*\//);
+                const codeMatch = cssText.match(/\/\*\s*Code:\s*([^*]+)\*\//);
+
+                if (headingMatch) {
+                    const font = headingMatch[1].trim();
+                    document.getElementById('headingFont').value = font;
+                    updateFont('heading', font);
+                }
+
+                if (bodyMatch) {
+                    const font = bodyMatch[1].trim();
+                    document.getElementById('bodyFont').value = font;
+                    updateFont('body', font);
+                }
+
+                if (codeMatch) {
+                    const font = codeMatch[1].trim();
+                    document.getElementById('codeFont').value = font;
+                    updateFont('code', font);
+                }
+
+                // Visual feedback
+                const btn = document.getElementById('loadTokensBtn');
+                const originalText = btn.textContent;
+                const originalBg = btn.style.background;
+                btn.textContent = '✓ Loaded!';
+                btn.style.background = 'var(--success)';
+
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = originalBg;
+                }, 2000);
+
+            } catch (err) {
+                console.error('Failed to parse CSS:', err);
+                alert('Failed to parse CSS. Make sure it includes :root { } block and font comments.');
+            }
         }
 
         // Close design panel when clicking outside
