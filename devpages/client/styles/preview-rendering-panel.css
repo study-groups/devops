@@ -1,0 +1,293 @@
+/**
+ * Preview Rendering Panel Styles
+ *
+ * Styles for the Preview & Rendering settings panel
+ */
+
+.preview-rendering-panel {
+    padding: var(--spacing-md, 16px);
+    overflow-y: auto;
+    height: 100%;
+}
+
+/* Section Titles */
+.preview-rendering-panel .section-title {
+    font-size: var(--font-size-lg, 18px);
+    font-weight: var(--font-weight-semibold, 600);
+    margin-top: var(--spacing-lg, 24px);
+    margin-bottom: var(--spacing-md, 16px);
+    color: var(--color-text-emphasis, #1a1a1a);
+    border-bottom: 1px solid var(--color-border-subtle, #e5e5e5);
+    padding-bottom: var(--spacing-xs, 8px);
+}
+
+.preview-rendering-panel .section-title:first-child {
+    margin-top: 0;
+}
+
+/* Plugins List Section */
+.plugins-section {
+    margin-bottom: var(--spacing-lg, 24px);
+}
+
+.plugins-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm, 12px);
+}
+
+.plugin-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 12px);
+    padding: var(--spacing-sm, 12px);
+    background: var(--color-background-subtle, #f9f9f9);
+    border: 1px solid var(--color-border-default, #d5d5d5);
+    border-radius: var(--radius-md, 6px);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.plugin-toggle:hover {
+    background: var(--color-background-hover, #f0f0f0);
+    border-color: var(--color-border-emphasis, #999);
+}
+
+.plugin-toggle input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.plugin-icon {
+    font-size: 20px;
+    line-height: 1;
+}
+
+.plugin-label {
+    font-weight: var(--font-weight-medium, 500);
+    color: var(--color-text-default, #333);
+    flex: 1;
+}
+
+/* Plugin Settings Sections */
+.plugin-settings {
+    background: var(--color-background-subtle, #f9f9f9);
+    border: 1px solid var(--color-border-default, #d5d5d5);
+    border-radius: var(--radius-md, 6px);
+    padding: var(--spacing-md, 16px);
+    margin-bottom: var(--spacing-md, 16px);
+}
+
+/* Setting Groups */
+.setting-group {
+    margin-bottom: var(--spacing-md, 16px);
+}
+
+.setting-group:last-child {
+    margin-bottom: 0;
+}
+
+.setting-label {
+    display: block;
+    font-weight: var(--font-weight-medium, 500);
+    font-size: var(--font-size-sm, 14px);
+    color: var(--color-text-emphasis, #1a1a1a);
+    margin-bottom: var(--spacing-xs, 8px);
+}
+
+.setting-checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs, 8px);
+    font-weight: var(--font-weight-normal, 400);
+    color: var(--color-text-default, #333);
+    cursor: pointer;
+}
+
+.setting-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.setting-help {
+    display: block;
+    margin-top: var(--spacing-xs, 8px);
+    margin-left: calc(16px + var(--spacing-xs, 8px));
+    color: var(--color-text-subtle, #666);
+    font-size: var(--font-size-xs, 12px);
+    line-height: 1.4;
+}
+
+/* Select Inputs */
+.setting-select {
+    width: 100%;
+    padding: var(--spacing-xs, 8px);
+    border: 1px solid var(--color-border-default, #d5d5d5);
+    border-radius: var(--radius-sm, 4px);
+    background: var(--color-background-default, #fff);
+    color: var(--color-text-default, #333);
+    font-size: var(--font-size-sm, 14px);
+    cursor: pointer;
+}
+
+.setting-select:focus {
+    outline: none;
+    border-color: var(--color-accent-primary, #0066cc);
+    box-shadow: 0 0 0 2px var(--color-accent-primary-alpha, rgba(0, 102, 204, 0.1));
+}
+
+/* Number Inputs */
+.setting-input,
+.size-input {
+    padding: var(--spacing-xs, 8px);
+    border: 1px solid var(--color-border-default, #d5d5d5);
+    border-radius: var(--radius-sm, 4px);
+    background: var(--color-background-default, #fff);
+    color: var(--color-text-default, #333);
+    font-size: var(--font-size-sm, 14px);
+}
+
+.setting-input {
+    width: 100px;
+}
+
+.setting-input:focus,
+.size-input:focus {
+    outline: none;
+    border-color: var(--color-accent-primary, #0066cc);
+    box-shadow: 0 0 0 2px var(--color-accent-primary-alpha, rgba(0, 102, 204, 0.1));
+}
+
+/* Size Inputs Container */
+.size-inputs {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs, 8px);
+}
+
+.size-input {
+    width: 80px;
+}
+
+/* Actions Section */
+.preview-rendering-actions {
+    padding-top: var(--spacing-md, 16px);
+    border-top: 1px solid var(--color-border-default, #d5d5d5);
+}
+
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm, 12px);
+}
+
+/* Button Styles */
+.preview-rendering-panel .btn {
+    padding: var(--spacing-xs, 8px) var(--spacing-sm, 12px);
+    border-radius: var(--radius-sm, 4px);
+    font-size: var(--font-size-sm, 14px);
+    font-weight: var(--font-weight-medium, 500);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.preview-rendering-panel .btn-secondary {
+    background: var(--color-accent-primary, #0066cc);
+    color: #fff;
+    border-color: var(--color-accent-primary, #0066cc);
+}
+
+.preview-rendering-panel .btn-secondary:hover {
+    background: var(--color-accent-primary-hover, #0052a3);
+    border-color: var(--color-accent-primary-hover, #0052a3);
+}
+
+.preview-rendering-panel .btn-ghost {
+    background: transparent;
+    color: var(--color-text-default, #333);
+    border-color: var(--color-border-default, #d5d5d5);
+}
+
+.preview-rendering-panel .btn-ghost:hover {
+    background: var(--color-background-hover, #f0f0f0);
+    border-color: var(--color-border-emphasis, #999);
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .preview-rendering-panel .section-title {
+        color: var(--color-text-emphasis-dark, #e5e5e5);
+        border-bottom-color: var(--color-border-subtle-dark, #444);
+    }
+
+    .plugin-toggle {
+        background: var(--color-background-subtle-dark, #2a2a2a);
+        border-color: var(--color-border-default-dark, #444);
+    }
+
+    .plugin-toggle:hover {
+        background: var(--color-background-hover-dark, #333);
+        border-color: var(--color-border-emphasis-dark, #666);
+    }
+
+    .plugin-label {
+        color: var(--color-text-default-dark, #e5e5e5);
+    }
+
+    .plugin-settings {
+        background: var(--color-background-subtle-dark, #2a2a2a);
+        border-color: var(--color-border-default-dark, #444);
+    }
+
+    .setting-label {
+        color: var(--color-text-emphasis-dark, #e5e5e5);
+    }
+
+    .setting-checkbox {
+        color: var(--color-text-default-dark, #e5e5e5);
+    }
+
+    .setting-help {
+        color: var(--color-text-subtle-dark, #999);
+    }
+
+    .setting-select,
+    .setting-input,
+    .size-input {
+        background: var(--color-background-default-dark, #1a1a1a);
+        border-color: var(--color-border-default-dark, #444);
+        color: var(--color-text-default-dark, #e5e5e5);
+    }
+
+    .preview-rendering-actions {
+        border-top-color: var(--color-border-default-dark, #444);
+    }
+
+    .preview-rendering-panel .btn-ghost {
+        color: var(--color-text-default-dark, #e5e5e5);
+        border-color: var(--color-border-default-dark, #444);
+    }
+
+    .preview-rendering-panel .btn-ghost:hover {
+        background: var(--color-background-hover-dark, #333);
+        border-color: var(--color-border-emphasis-dark, #666);
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 500px) {
+    .preview-rendering-panel {
+        padding: var(--spacing-sm, 12px);
+    }
+
+    .action-buttons {
+        flex-direction: column;
+    }
+
+    .action-buttons .btn {
+        width: 100%;
+    }
+}
