@@ -139,12 +139,20 @@ export class PublishPanel extends BasePanel {
                         <input type="checkbox" id="bundle-css-checkbox" ${activeConfig && activeConfig.inlineCSS ? 'checked' : ''}>
                         <span>Bundle CSS inline</span>
                     </label>
-                    ${activeConfig && activeConfig.themeUrl ? `
-                        <label class="publish-option-checkbox">
-                            <input type="checkbox" id="use-external-theme-checkbox">
-                            <span>Use external theme</span>
-                        </label>
-                    ` : ''}
+
+                    <!-- Theme Picker -->
+                    <div class="theme-picker-section">
+                        <label class="config-label">Theme:</label>
+                        <select class="config-select theme-select" id="theme-select">
+                            <option value="">No theme</option>
+                            ${this.renderThemeOptions(activeConfig)}
+                        </select>
+                        <div class="theme-picker-info">
+                            <small style="color: #6b7280;">
+                                Themes from Theme Editor or custom CSS files
+                            </small>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Progress Indicator -->
@@ -264,6 +272,12 @@ export class PublishPanel extends BasePanel {
 
         if (openUrlBtn) {
             openUrlBtn.addEventListener('click', this.handleOpenUrl);
+        }
+
+        // Theme select
+        const themeSelect = this.container.querySelector('#theme-select');
+        if (themeSelect) {
+            themeSelect.addEventListener('change', this.handleThemeChange.bind(this));
         }
     }
 
@@ -546,6 +560,104 @@ export class PublishPanel extends BasePanel {
             if (btnText) btnText.style.display = processing ? 'none' : 'inline';
             if (btnSpinner) btnSpinner.style.display = processing ? 'inline' : 'none';
         });
+    }
+
+    /**
+     * Render theme options for dropdown
+     */
+    renderThemeOptions(activeConfig) {
+        // Load themes from registry (saved by ThemeManagementPanel)
+        const registry = JSON.parse(localStorage.getItem('theme-registry') || '[]');
+
+        // Current theme URL from config
+        const currentThemeUrl = activeConfig?.themeUrl || '';
+
+        let options = '';
+
+        // Add themes from registry
+        if (registry.length > 0) {
+            options += registry.map(theme => {
+                const themeUrl = `/api/files/content?pathname=${theme.cssPath}`;
+                const selected = currentThemeUrl.includes(theme.filename) ? 'selected' : '';
+                return `
+                    <option value="${theme.cssPath}" ${selected} data-theme-name="${theme.name}">
+                        ${theme.name} (${theme.mode})
+                    </option>
+                `;
+            }).join('');
+        }
+
+        // Add custom theme URL option if set but not in registry
+        if (currentThemeUrl && !registry.some(t => currentThemeUrl.includes(t.filename))) {
+            options += `
+                <option value="${currentThemeUrl}" selected>
+                    Custom: ${currentThemeUrl}
+                </option>
+            `;
+        }
+
+        return options;
+    }
+
+    /**
+     * Handle theme selection change
+     */
+    async handleThemeChange(event) {
+        const selectedThemePath = event.target.value;
+        const state = appStore.getState();
+        const activeConfig = selectActiveConfigurationDecrypted(state);
+
+        if (!activeConfig) {
+            log.warn('No active configuration to update theme');
+            return;
+        }
+
+        try {
+            // Update configuration with selected theme
+            const themeUrl = selectedThemePath ? `themes/${selectedThemePath}` : null;
+
+            appStore.dispatch(publishConfigActions.updateConfiguration({
+                id: activeConfig.id,
+                updates: {
+                    themeUrl: themeUrl
+                }
+            }));
+
+            log.info('Theme updated in publish configuration', { themeUrl });
+
+            // Optionally validate theme file exists
+            if (themeUrl) {
+                await this.validateTheme(themeUrl);
+            }
+        } catch (error) {
+            log.error('Error updating theme:', error);
+            this.showError('Theme Update Error', error.message);
+        }
+    }
+
+    /**
+     * Validate that theme file exists and is valid CSS
+     */
+    async validateTheme(themeUrl) {
+        try {
+            const response = await fetch(`/api/files/content?pathname=${themeUrl}`);
+            if (!response.ok) {
+                throw new Error(`Theme file not found: ${themeUrl}`);
+            }
+            const cssContent = await response.text();
+
+            // Basic CSS validation (check if it's not empty and has CSS-like content)
+            if (!cssContent || cssContent.trim().length === 0) {
+                throw new Error('Theme file is empty');
+            }
+
+            log.info('Theme validated successfully', { themeUrl });
+            return true;
+        } catch (error) {
+            log.error('Theme validation failed:', error);
+            this.showError('Theme Validation Error', `Could not validate theme: ${error.message}`);
+            return false;
+        }
     }
 
     /**
