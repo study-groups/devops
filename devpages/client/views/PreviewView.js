@@ -1,11 +1,12 @@
 /**
- * PreviewView.js - A self-contained view for rendering Markdown previews
- * This version is driven by the Redux store and integrates with the preview system.
+ * PreviewView.js - Iframe-based Markdown preview
+ * Renders preview in isolated iframe using PublishService for exact publish matching
  */
 
 import { ViewInterface } from '/client/layout/ViewInterface.js';
 import { appStore } from '/client/appState.js';
-import { renderMarkdown } from '/client/preview/renderer.js';
+import { publishService } from '/client/services/PublishService.js';
+import { themeService } from '/client/services/ThemeService.js';
 
 export class PreviewView extends ViewInterface {
     constructor(options = {}) {
@@ -15,157 +16,103 @@ export class PreviewView extends ViewInterface {
             ...options,
         });
 
-        this.previewContainer = null;
+        this.previewIframe = null;
         this.unsubscribe = null;
+        this.unsubscribeTheme = null;
         this.lastProcessedContent = null;
         this.isUpdating = false;
-        this.initializationAttempts = 0;
-        this.maxInitializationAttempts = 3;
-        this.isPreviewSystemInitialized = false;
     }
 
     render() {
         const container = document.createElement('div');
         container.className = 'preview-container';
-        container.innerHTML = '<div class="preview-placeholder">Ready to preview</div>';
+
+        // Create iframe for isolated preview rendering
+        const iframe = document.createElement('iframe');
+        iframe.id = 'preview-iframe';
+        iframe.className = 'preview-iframe';
+        iframe.setAttribute('title', 'Markdown Preview');
+
+        // Initial placeholder content
+        iframe.srcdoc = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preview</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 2rem;
+            color: #666;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="preview-placeholder">Ready to preview</div>
+</body>
+</html>`;
+
+        container.appendChild(iframe);
         return container;
     }
 
     async onMount(container) {
-        console.log('[PreviewView] Mounting preview view');
-        
-        // Enhanced initialization tracking
-        this.initializationAttempts++;
-        console.log(`[PreviewView] Initialization Attempt ${this.initializationAttempts}`);
+        console.log('[PreviewView] Mounting preview view with iframe');
 
-        // Comprehensive container validation with detailed logging
-        if (!container) {
-            console.error(`[PreviewView] No container provided (Attempt ${this.initializationAttempts})`);
-            
-            // Advanced fallback strategy
-            const fallbackContainers = [
-                document.getElementById('workspace-preview'),
-                document.querySelector('.preview-container'),
-                document.body
-            ];
-
-            for (const fallbackContainer of fallbackContainers) {
-                if (fallbackContainer) {
-                    console.warn(`[PreviewView] Using fallback container: ${fallbackContainer.id || fallbackContainer.className}`);
-                    return this.onMount(fallbackContainer);
-                }
+        // Create element if not exists
+        if (!this.element) {
+            this.element = this.render();
+            if (container && container.appendChild) {
+                container.appendChild(this.element);
+                console.log('[PreviewView] Element appended to container');
             }
-            
-            console.error('[PreviewView] No fallback containers found. Initialization aborted.');
+        }
+
+        // Get iframe reference
+        this.previewIframe = this.element.querySelector('#preview-iframe');
+
+        if (!this.previewIframe) {
+            console.error('[PreviewView] Failed to find preview iframe');
             return;
         }
 
-        // Defensive element creation with extensive logging
-        try {
-            if (!this.element) {
-                this.element = this.render();
-                console.log('[PreviewView] Element created via render()');
-                
-                // Ensure container is valid before appending
-                if (container && container.appendChild) {
-                    container.appendChild(this.element);
-                    console.log('[PreviewView] Element appended to container');
-                } else {
-                    console.error('[PreviewView] Invalid container or missing appendChild method');
-                }
-            }
-        } catch (renderError) {
-            console.error('[PreviewView] Error during element rendering:', renderError);
-            return;
-        }
-        
-        // Advanced preview container detection
-        // If the element itself has the preview-container class, use it directly
-        if (this.element.classList.contains('preview-container')) {
-            this.previewContainer = this.element;
-        } else {
-            this.previewContainer = this.element.querySelector('.preview-container');
-        }
-        
-        console.log('[PreviewView] Initialization Diagnostic Report:', {
-            containerProvided: !!container,
-            containerType: container?.constructor?.name,
-            elementCreated: !!this.element,
-            elementType: this.element?.constructor?.name,
-            previewContainerFound: !!this.previewContainer,
-            previewContainerType: this.previewContainer?.constructor?.name
+        console.log('[PreviewView] Iframe mounted successfully');
+
+        // Subscribe to store updates
+        this.subscribeToStoreUpdates();
+
+        // Subscribe to theme changes for instant preview updates
+        this.unsubscribeTheme = themeService.subscribe((theme) => {
+            console.log('[PreviewView] Theme changed callback received:', theme.id, theme.mode);
+            console.log('[PreviewView] Forcing preview regeneration...');
+            this.updatePreviewFromState(true); // Force update even if content unchanged
         });
 
-        // Comprehensive fallback container strategy
-        if (!this.previewContainer) {
-            console.warn(`[PreviewView] Creating robust fallback preview container (Attempt ${this.initializationAttempts})`);
-            this.previewContainer = document.createElement('div');
-            this.previewContainer.className = 'preview-container emergency-fallback';
-            this.previewContainer.innerHTML = `
-                <div class="preview-placeholder">
-                    Emergency Preview Initialization (Attempt ${this.initializationAttempts})
-                    <small>Check console for details</small>
-                </div>
-            `;
-            
-            // Multiple fallback append strategies
-            const appendStrategies = [
-                () => this.element && this.element.appendChild(this.previewContainer),
-                () => container.appendChild(this.previewContainer),
-                () => document.body.appendChild(this.previewContainer)
-            ];
-
-            for (const strategy of appendStrategies) {
-                try {
-                    strategy();
-                    console.log('[PreviewView] Successfully appended fallback container');
-                    break;
-                } catch (appendError) {
-                    console.warn('[PreviewView] Fallback container append strategy failed:', appendError);
-                }
-            }
-        }
-
-        // Rest of the method remains the same
-        this.loadCSS();
-        
-        try {
-            this.isPreviewSystemInitialized = await this.initializePreviewSystem();
-            console.log(`[PreviewView] Preview system initialization: ${this.isPreviewSystemInitialized}`);
-        } catch (error) {
-            console.error('[PreviewView] Failed to initialize preview system:', error);
-            
-            if (this.previewContainer) {
-                this.previewContainer.innerHTML = `
-                    <div class="preview-error">
-                        Preview system initialization failed
-                        <details>${error.message}</details>
-                    </div>
-                `;
-            } else {
-                console.error('[PreviewView] Cannot set error message: previewContainer is null');
-            }
-            return;
-        }
-        
-        this.subscribeToStateChanges();
-        this.updatePreviewFromState();
-        
-        console.log('[PreviewView] Preview view mounted successfully');
+        // Initial render - wait for theme to be ready
+        this.waitForThemeAndRender();
     }
 
-    async initializePreviewSystem() {
-        try {
-            // Simple initialization - just ensure the renderer is ready
-            console.log('[PreviewView] Initializing preview system...');
-            
-            // The renderer will initialize itself when needed
-            // No need for complex Redux initialization here
-            return true;
-        } catch (error) {
-            console.error('[PreviewView] Preview system initialization error:', error);
-            return false;
+    async waitForThemeAndRender() {
+        console.log('[PreviewView] Waiting for theme to be initialized...');
+
+        // Wait for ThemeService to be initialized with a theme
+        let attempts = 0;
+        const maxAttempts = 50; // 5 seconds max wait
+
+        while (attempts < maxAttempts) {
+            if (themeService.initialized && themeService.currentTheme) {
+                console.log('[PreviewView] Theme ready:', themeService.currentTheme.id);
+                this.updatePreviewFromState();
+                return;
+            }
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
         }
+
+        console.warn('[PreviewView] Theme initialization timeout, rendering anyway');
+        this.updatePreviewFromState();
     }
 
     onUnmount() {
@@ -173,189 +120,154 @@ export class PreviewView extends ViewInterface {
             this.unsubscribe();
             this.unsubscribe = null;
         }
+        if (this.unsubscribeTheme) {
+            this.unsubscribeTheme();
+            this.unsubscribeTheme = null;
+        }
         console.log('[PreviewView] Preview view unmounted');
     }
 
-    loadCSS() {
-        const cssPath = '/client/panels/styles/PreviewPanel.css';
-        if (!document.querySelector(`link[href="${cssPath}"]`)) {
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = cssPath;
-            document.head.appendChild(link);
-        }
-    }
-
-    subscribeToStateChanges() {
-        // Only subscribe if preview system is initialized
-        if (!this.isPreviewSystemInitialized) {
-            console.warn('[PreviewView] Cannot subscribe: Preview system not initialized');
-            return;
-        }
-
+    subscribeToStoreUpdates() {
+        // Subscribe to content changes
         this.unsubscribe = appStore.subscribe(() => {
             const state = appStore.getState();
-            const currentFileContent = state.file?.currentFile?.content || '';
-            
-            // Prevent recursive or simultaneous updates
-            if (currentFileContent && 
-                currentFileContent !== this.lastProcessedContent && 
-                !this.isUpdating) {
-                this.triggerPreviewUpdate(currentFileContent, state.file?.currentFile?.pathname);
+            const currentFile = state.file?.currentFile;
+
+            if (!currentFile) return;
+
+            const content = currentFile.content;
+            const filePath = currentFile.pathname;
+
+            // Avoid unnecessary updates
+            if (content === this.lastProcessedContent || this.isUpdating) {
+                return;
             }
+
+            // Trigger preview update
+            this.triggerPreviewUpdate(content, filePath);
         });
     }
 
-    async triggerPreviewUpdate(content, filePath) {
-        if (!content || this.isUpdating || !this.isPreviewSystemInitialized) return;
-        
+    async triggerPreviewUpdate(content, filePath, force = false) {
+        console.log('[PreviewView] triggerPreviewUpdate called, force:', force, 'isUpdating:', this.isUpdating);
+
+        if (!content || this.isUpdating || !this.previewIframe) {
+            console.log('[PreviewView] Aborting: no content:', !content, 'isUpdating:', this.isUpdating, 'no iframe:', !this.previewIframe);
+            return;
+        }
+
+        // Skip if content hasn't changed (unless forced)
+        if (!force && content === this.lastProcessedContent) {
+            console.log('[PreviewView] Content unchanged, skipping update');
+            return;
+        }
+
+        console.log('[PreviewView] Proceeding with preview update (force:', force, ')');
+
         try {
             this.isUpdating = true;
-            
-            // Use renderMarkdown directly like the working PreviewPanel
-            const result = await renderMarkdown(content, filePath);
-            
-            if (result && result.html && this.previewContainer) {
-                this.previewContainer.innerHTML = result.html;
-                console.log('[PreviewView] Content rendered successfully');
+
+            // Generate complete HTML document using PublishService
+            console.log('[PreviewView] Generating preview HTML...', {
+                contentLength: content?.length,
+                filePath,
+                hasTheme: !!themeService.currentTheme,
+                themeId: themeService.currentTheme?.id
+            });
+
+            const html = await publishService.generatePreviewHtml(
+                content,
+                filePath,
+                themeService.currentTheme
+            );
+
+            console.log('[PreviewView] Generated HTML length:', html?.length);
+            console.log('[PreviewView] HTML starts with:', html?.substring(0, 200));
+
+            // Update iframe srcdoc (browser handles the re-render)
+            // Force reload by clearing first if this is a forced update (theme change)
+            if (force) {
+                console.log('[PreviewView] Forcing iframe reload for theme change');
+                this.previewIframe.srcdoc = '';
+                // Small delay to ensure browser processes the clear
+                await new Promise(resolve => setTimeout(resolve, 10));
             }
-            
-            // Track last processed content to prevent recursive updates
+            this.previewIframe.srcdoc = html;
+
+            console.log('[PreviewView] Preview iframe srcdoc updated');
+
+            // Debug: Check iframe after a brief delay to see what actually rendered
+            setTimeout(() => {
+                const iframeDoc = this.previewIframe.contentDocument || this.previewIframe.contentWindow?.document;
+                if (iframeDoc) {
+                    console.log('[PreviewView] Iframe document exists');
+                    console.log('[PreviewView] Iframe <head> HTML:', iframeDoc.head?.innerHTML?.substring(0, 500));
+                    console.log('[PreviewView] Iframe <body> HTML:', iframeDoc.body?.innerHTML?.substring(0, 500));
+                    const styles = iframeDoc.querySelectorAll('style');
+                    console.log('[PreviewView] Number of <style> tags in iframe:', styles.length);
+                    styles.forEach((style, idx) => {
+                        console.log(`[PreviewView] Style tag ${idx} length:`, style.textContent?.length);
+                    });
+                } else {
+                    console.error('[PreviewView] Could not access iframe document!');
+                }
+            }, 100);
+
+            console.log('[PreviewView] Preview updated successfully');
+
+            // Track last processed content
             this.lastProcessedContent = content;
         } catch (error) {
-            console.error('[PreviewView] Failed to trigger preview update:', error);
-            if (this.previewContainer) {
-                this.previewContainer.innerHTML = '<div class="preview-error">Failed to update preview</div>';
-            }
+            console.error('[PreviewView] Failed to update preview:', error);
+
+            // Show error in iframe
+            this.previewIframe.srcdoc = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preview Error</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 2rem;
+            color: #e53e3e;
+        }
+        .error-details {
+            background: #fed7d7;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <h2>Preview Error</h2>
+    <p>Failed to render preview</p>
+    <div class="error-details">${error.message}</div>
+</body>
+</html>`;
         } finally {
-            // Reset updating flag after a short delay for async operations
+            // Reset updating flag after delay for async operations
             setTimeout(() => {
                 this.isUpdating = false;
             }, 100);
         }
     }
 
-    updatePreviewFromState() {
-        // Comprehensive null checks with detailed logging
-        console.log('[PreviewView] updatePreviewFromState called with:', {
-            element: !!this.element,
-            previewSystemInitialized: this.isPreviewSystemInitialized,
-            previewContainer: !!this.previewContainer
-        });
-
-        if (!this.element || !this.isPreviewSystemInitialized) {
-            console.error('[PreviewView] Element not initialized or preview system not ready');
-            return;
-        }
-
-        // Ensure preview container exists
-        if (!this.previewContainer) {
-            console.error('[PreviewView] Preview container not initialized');
-            
-            // Attempt to recreate preview container
-            this.previewContainer = this.element.querySelector('.preview-container');
-            
-            if (!this.previewContainer) {
-                console.warn('[PreviewView] Creating emergency preview container');
-                this.previewContainer = document.createElement('div');
-                this.previewContainer.className = 'preview-container';
-                this.previewContainer.innerHTML = '<div class="preview-placeholder">Preview initialization emergency fallback</div>';
-                
-                // Ensure element exists before appending
-                if (this.element) {
-                    this.element.appendChild(this.previewContainer);
-                } else {
-                    console.error('[PreviewView] Cannot append emergency container: element is null');
-                    return;
-                }
-            }
-        }
-
+    updatePreviewFromState(force = false) {
+        console.log('[PreviewView] updatePreviewFromState called, force:', force);
         const state = appStore.getState();
-        const previewState = state.preview;
-        
-        if (!previewState) {
-            this.previewContainer.innerHTML = '<div class="preview-placeholder">Initializing preview...</div>';
-            return;
-        }
-        
-        const { status, htmlContent, error, currentContent } = previewState;
+        const currentFile = state.file?.currentFile;
 
-        if (status === 'loading') {
-            this.previewContainer.innerHTML = '<div class="preview-placeholder">Loading preview...</div>';
+        if (!currentFile || !currentFile.content) {
+            console.log('[PreviewView] No content to preview');
             return;
         }
 
-        if (status === 'failed') {
-            this.previewContainer.innerHTML = `<div class="preview-error">Error: ${error || 'Unknown error'}</div>`;
-            return;
-        }
-
-        // Use currentContent if available, fallback to htmlContent
-        const contentToDisplay = currentContent || htmlContent;
-        if (!contentToDisplay) {
-            this.previewContainer.innerHTML = '<div class="preview-placeholder">No content to preview</div>';
-            return;
-        }
-
-        // Update the preview content
-        this.previewContainer.innerHTML = contentToDisplay;
-        
-        // Post-process the content (handle scripts, styles, etc.)
-        this.postProcessContent();
-    }
-
-    postProcessContent() {
-        if (!this.previewContainer) return;
-
-        // Ensure proper styling is applied
-        this.previewContainer.classList.add('preview-rendered');
-    }
-
-    // Public API methods
-    async syncContent() {
-        const state = appStore.getState();
-        const content = state.file?.currentFile?.content || '';
-        const filePath = state.file?.currentFile?.pathname || '';
-        
-        try {
-            // Prevent simultaneous updates
-            if (!this.isUpdating && this.isPreviewSystemInitialized && content) {
-                await this.triggerPreviewUpdate(content, filePath);
-                console.log('[PreviewView] Content synced successfully');
-            }
-        } catch (error) {
-            console.error('[PreviewView] Failed to sync content:', error);
-            if (this.previewContainer) {
-                this.previewContainer.innerHTML = '<div class="preview-error">Failed to sync preview</div>';
-            }
-        }
-    }
-
-    async refreshPreview() {
-        console.log('[PreviewView] Refreshing preview...');
-        await this.syncContent();
-    }
-
-    getPreviewContent() {
-        return this.previewContainer?.innerHTML || '';
-    }
-
-    setPreviewContent(content) {
-        if (this.previewContainer) {
-            this.previewContainer.innerHTML = content;
-        }
-    }
-
-    scrollToTop() {
-        if (this.previewContainer) {
-            this.previewContainer.scrollTop = 0;
-        }
-    }
-
-    scrollToBottom() {
-        if (this.previewContainer) {
-            this.previewContainer.scrollTop = this.previewContainer.scrollHeight;
-        }
+        console.log('[PreviewView] Calling triggerPreviewUpdate with force:', force);
+        this.triggerPreviewUpdate(currentFile.content, currentFile.pathname, force);
     }
 }

@@ -91,6 +91,16 @@ const publishConfigSlice = createSlice({
                 return;
             }
 
+            // Ensure ui property exists (state reconciliation for persisted state)
+            if (!state.ui) {
+                state.ui = {
+                    showConfigManager: false,
+                    editingConfigId: null,
+                    isTestingConnection: false,
+                    testResult: null
+                };
+            }
+
             const envConfig = action.payload;
 
             // If we have env config, create a default configuration from it
@@ -235,6 +245,15 @@ const publishConfigSlice = createSlice({
          * Toggle configuration manager visibility
          */
         toggleConfigManager: (state) => {
+            // Ensure ui exists (defensive programming for state rehydration)
+            if (!state.ui) {
+                state.ui = {
+                    showConfigManager: false,
+                    editingConfigId: null,
+                    isTestingConnection: false,
+                    testResult: null
+                };
+            }
             state.ui.showConfigManager = !state.ui.showConfigManager;
         },
 
@@ -242,6 +261,15 @@ const publishConfigSlice = createSlice({
          * Open configuration manager
          */
         openConfigManager: (state) => {
+            // Ensure ui exists (defensive programming for state rehydration)
+            if (!state.ui) {
+                state.ui = {
+                    showConfigManager: false,
+                    editingConfigId: null,
+                    isTestingConnection: false,
+                    testResult: null
+                };
+            }
             state.ui.showConfigManager = true;
         },
 
@@ -249,6 +277,15 @@ const publishConfigSlice = createSlice({
          * Close configuration manager
          */
         closeConfigManager: (state) => {
+            // Ensure ui exists (defensive programming for state rehydration)
+            if (!state.ui) {
+                state.ui = {
+                    showConfigManager: false,
+                    editingConfigId: null,
+                    isTestingConnection: false,
+                    testResult: null
+                };
+            }
             state.ui.showConfigManager = false;
             state.ui.editingConfigId = null;
         },
@@ -257,6 +294,15 @@ const publishConfigSlice = createSlice({
          * Start editing a configuration
          */
         startEditingConfig: (state, action) => {
+            // Ensure ui exists (defensive programming for state rehydration)
+            if (!state.ui) {
+                state.ui = {
+                    showConfigManager: false,
+                    editingConfigId: null,
+                    isTestingConnection: false,
+                    testResult: null
+                };
+            }
             state.ui.editingConfigId = action.payload;
             state.ui.showConfigManager = true;
         },
@@ -265,6 +311,15 @@ const publishConfigSlice = createSlice({
          * Stop editing a configuration
          */
         stopEditingConfig: (state) => {
+            // Ensure ui exists (defensive programming for state rehydration)
+            if (!state.ui) {
+                state.ui = {
+                    showConfigManager: false,
+                    editingConfigId: null,
+                    isTestingConnection: false,
+                    testResult: null
+                };
+            }
             state.ui.editingConfigId = null;
         },
 
@@ -272,6 +327,15 @@ const publishConfigSlice = createSlice({
          * Set connection test result
          */
         setTestResult: (state, action) => {
+            // Ensure ui exists (defensive programming for state rehydration)
+            if (!state.ui) {
+                state.ui = {
+                    showConfigManager: false,
+                    editingConfigId: null,
+                    isTestingConnection: false,
+                    testResult: null
+                };
+            }
             state.ui.testResult = action.payload;
             state.ui.isTestingConnection = false;
         },
@@ -280,6 +344,15 @@ const publishConfigSlice = createSlice({
          * Start connection test
          */
         startConnectionTest: (state) => {
+            // Ensure ui exists (defensive programming for state rehydration)
+            if (!state.ui) {
+                state.ui = {
+                    showConfigManager: false,
+                    editingConfigId: null,
+                    isTestingConnection: false,
+                    testResult: null
+                };
+            }
             state.ui.isTestingConnection = true;
             state.ui.testResult = null;
         },
@@ -288,6 +361,15 @@ const publishConfigSlice = createSlice({
          * Clear test result
          */
         clearTestResult: (state) => {
+            // Ensure ui exists (defensive programming for state rehydration)
+            if (!state.ui) {
+                state.ui = {
+                    showConfigManager: false,
+                    editingConfigId: null,
+                    isTestingConnection: false,
+                    testResult: null
+                };
+            }
             state.ui.testResult = null;
         }
     }

@@ -301,10 +301,8 @@ async function initializeRenderer() {
             if (info === 'mermaid') {
                 log.debug('PREVIEW', 'FENCE_RULE_MERMAID', '[FENCE RULE] Identified as Mermaid block.');
                 const code = token.content.trim();
-                const sanitizedCode = code
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;');
-                const outputHtml = `<div class="mermaid">${sanitizedCode}</div>`;
+                // Don't escape HTML for Mermaid - it needs raw content
+                const outputHtml = `<div class="mermaid">${code}</div>`;
                 log.debug('PREVIEW', 'FENCE_RULE_MERMAID_HTML', `[FENCE RULE] Returning Mermaid HTML: ${outputHtml.substring(0, 100)}...`);
                 return outputHtml;
             }
@@ -423,12 +421,13 @@ async function getMarkdownItInstance(markdownFilePath) {
     });
 
     // --- STATE-AWARE PLUGIN LOADING ---
-    const activePlugins = await getEnabledPlugins(); // Get plugins based on current state
-    log.info('PREVIEW', 'PLUGINS_LOADING', `Loading ${activePlugins.length} active plugins into markdown-it...`);
-    activePlugins.forEach(plugin => {
-        md.use(plugin.plugin, plugin.options || {});
-        log.debug('PREVIEW', 'PLUGIN_LOADED', `  -> Loaded plugin: ${plugin.id}`);
-    });
+    // Note: KaTeX and Mermaid are post-processed after markdown rendering
+    // They don't need markdown-it plugins
+    const state = appStore.getState();
+    const pluginsState = state.plugins?.plugins || {};
+    const enabledCount = Object.values(pluginsState).filter(p => p.enabled).length;
+
+    log.info('PREVIEW', 'PLUGINS_LOADING', `${enabledCount} plugins enabled in state (will be post-processed)`);
 
     // Setup highlighter if the plugin is active AND the library is loaded
     if (isPluginEnabled('highlight') && window.hljs) {

@@ -104,6 +104,69 @@
   --devpages-panel-hover-transition: 100ms ease;
 }
 
+/* === Dark Mode Overrides === */
+[data-theme="dark"] {
+  /* Panel Colors */
+  --devpages-panel-bg: #0f172a;
+  --devpages-panel-bg-alt: #1e293b;
+  --devpages-panel-border: #334155;
+  --devpages-panel-border-light: #1e293b;
+  --devpages-panel-text: #f1f5f9;
+  --devpages-panel-text-muted: #94a3b8;
+  --devpages-panel-text-subtle: #64748b;
+
+  /* Panel Header */
+  --devpages-panel-header-bg: #1e293b;
+  --devpages-panel-header-border: #334155;
+  --devpages-panel-header-text: #f1f5f9;
+
+  /* Panel Toolbar */
+  --devpages-panel-toolbar-bg: #1e293b;
+  --devpages-panel-toolbar-border: #334155;
+
+  /* Panel Table */
+  --devpages-panel-table-border: #334155;
+  --devpages-panel-table-hover: #334155;
+  --devpages-panel-table-stripe: #1e293b;
+
+  /* Ghost Button Variants */
+  --devpages-btn-ghost-bg: transparent;
+  --devpages-btn-ghost-border: transparent;
+  --devpages-btn-ghost-text: #94a3b8;
+  --devpages-btn-ghost-hover-bg: #334155;
+  --devpages-btn-ghost-hover-text: #f1f5f9;
+  --devpages-btn-ghost-active-bg: #475569;
+
+  /* Panel Input Fields */
+  --devpages-panel-input-border: #334155;
+  --devpages-panel-input-focus-border: #60a5fa;
+  --devpages-panel-input-bg: #1e293b;
+
+  /* Panel States */
+  --devpages-panel-expanded-bg: #1e3a5f;
+  --devpages-panel-collapsed-bg: #0f172a;
+  --devpages-panel-selected-bg: #1e40af;
+  --devpages-panel-selected-border: #60a5fa;
+
+  /* Type-specific colors (adjusted for dark mode) */
+  --devpages-type-string: #34d399;
+  --devpages-type-number: #f87171;
+  --devpages-type-boolean: #a78bfa;
+  --devpages-type-object: #60a5fa;
+  --devpages-type-array: #f472b6;
+  --devpages-type-null: #94a3b8;
+  --devpages-type-undefined: #64748b;
+
+  /* Type badge backgrounds */
+  --devpages-type-string-bg: #064e3b;
+  --devpages-type-number-bg: #7f1d1d;
+  --devpages-type-boolean-bg: #4c1d95;
+  --devpages-type-object-bg: #1e3a8a;
+  --devpages-type-array-bg: #831843;
+  --devpages-type-null-bg: #1e293b;
+  --devpages-type-undefined-bg: #0f172a;
+}
+
 /* === DevPages Panel Base Classes === */
 
 .devpages-panel {

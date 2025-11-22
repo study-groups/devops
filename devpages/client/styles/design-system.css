@@ -215,94 +215,14 @@ h6 {
 
 /* ===== THEME DEFINITIONS ===== */
 
-/* Light Theme (Default) */
-:root,
-[data-theme="light"] {
-  /* === Semantic Colors === */
-  --color-bg: var(--color-gray-100);
-  --color-bg-elevated: #ffffff;
-  --color-bg-alt: var(--color-gray-100);
-  --color-bg-muted: var(--color-gray-100);
-  --color-bg-hover: var(--color-gray-100);
-  
-  --color-fg: var(--color-gray-900);
-  --color-fg-alt: var(--color-gray-900);
-  --color-fg-muted: var(--color-gray-500);
-  
-  --color-border: var(--color-gray-100);
-  --color-border-secondary: var(--color-gray-100);
-  --color-border-hover: var(--color-gray-500);
-  
-  --color-primary: var(--color-blue-500);
-  --color-primary-hover: var(--color-blue-900);
-  --color-primary-active: var(--color-blue-900);
-  --color-primary-foreground: #ffffff;
-  --color-primary-background: var(--color-blue-100);
-  
-  --color-secondary: var(--color-gray-100);
-  --color-secondary-hover: var(--color-gray-100);
-  --color-secondary-active: var(--color-gray-100);
-  --color-secondary-foreground: var(--color-gray-900);
-  
-  --color-success: var(--color-green-500);
-  --color-success-background: var(--color-green-100);
-  --color-success-foreground: var(--color-green-900);
-  
-  --color-warning: var(--color-yellow-500);
-  --color-warning-background: var(--color-yellow-100);
-  --color-warning-foreground: var(--color-yellow-900);
-  
-  --color-error: var(--color-red-500);
-  --color-error-background: var(--color-red-100);
-  --color-error-foreground: var(--color-red-900);
-  
-  --color-info: var(--color-blue-500);
-  --color-info-background: var(--color-blue-100);
-  --color-info-foreground: var(--color-blue-900);
-}
-
-/* Dark Theme */
-[data-theme="dark"] {
-  --color-bg: var(--color-gray-900);
-  --color-bg-elevated: var(--color-gray-900);
-  --color-bg-alt: var(--color-gray-900);
-  --color-bg-muted: var(--color-gray-900);
-  --color-bg-hover: var(--color-gray-900);
-  
-  --color-fg: var(--color-gray-100);
-  --color-fg-alt: var(--color-gray-100);
-  --color-fg-muted: var(--color-gray-500);
-  
-  --color-border: var(--color-gray-900);
-  --color-border-secondary: var(--color-gray-900);
-  --color-border-hover: var(--color-gray-500);
-  
-  --color-primary: var(--color-blue-500);
-  --color-primary-hover: var(--color-blue-500);
-  --color-primary-active: var(--color-blue-100);
-  --color-primary-foreground: var(--color-gray-900);
-  --color-primary-background: var(--color-blue-900);
-  
-  --color-secondary: var(--color-gray-900);
-  --color-secondary-hover: var(--color-gray-900);
-  --color-secondary-active: var(--color-gray-900);
-  --color-secondary-foreground: var(--color-gray-100);
-  
-  --color-success: var(--color-green-500);
-  --color-success-background: var(--color-green-900);
-  --color-success-foreground: var(--color-green-100);
-  
-  --color-warning: var(--color-yellow-500);
-  --color-warning-background: var(--color-yellow-900);
-  --color-warning-foreground: var(--color-yellow-100);
-  
-  --color-error: var(--color-red-500);
-  --color-error-background: var(--color-red-900);
-  --color-error-foreground: var(--color-red-100);
-  
-  --color-info: var(--color-blue-500);
-  --color-info-background: var(--color-blue-900);
-  --color-info-foreground: var(--color-blue-100);
+/* Theme colors are now managed by ThemeService and applied dynamically */
+/* Minimal fallback colors to prevent FOUC (Flash of Unstyled Content) */
+:root {
+  /* Light theme fallback - will be overridden by ThemeService */
+  --color-bg: #ffffff;
+  --color-fg: #111827;
+  --color-primary: #3b82f6;
+  --color-border: #e5e7eb;
 }
 
 /* ===== DESIGN DENSITY SYSTEM ===== */

@@ -13,7 +13,48 @@
 import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
-    plugins: {},
+    plugins: {
+        mermaid: {
+            enabled: true,
+            settings: {
+                theme: 'default',
+                zoomEnabled: true,
+                panEnabled: true,
+                resizeEnabled: true,
+                defaultWidth: 800,
+                defaultHeight: 600
+            },
+            isLoaded: false
+        },
+        katex: {
+            enabled: true,
+            settings: {
+                displayMode: false,
+                trust: true,
+                strict: false
+            },
+            isLoaded: false
+        },
+        highlight: {
+            enabled: true,
+            settings: {},
+            isLoaded: false
+        },
+        svg: {
+            enabled: true,
+            settings: {
+                inlineEnabled: true,
+                sanitize: true,
+                maxSize: 2
+            },
+            isLoaded: false
+        },
+        graphviz: {
+            enabled: true,
+            settings: {},
+            isLoaded: false
+        }
+    },
     status: 'idle', // 'idle', 'loading', 'ready', 'error'
     error: null,
 };
@@ -75,7 +116,25 @@ const pluginSlice = createSlice({
                 state.plugins[pluginId].isLoaded = true;
             }
         },
-        
+
+        /**
+         * Sets the enabled state for a plugin.
+         * The persistence middleware will automatically save this change.
+         */
+        setPluginEnabled(state, action) {
+            const { pluginId, enabled } = action.payload;
+            if (state.plugins[pluginId]) {
+                state.plugins[pluginId].enabled = enabled;
+            } else {
+                // Auto-register if plugin doesn't exist
+                state.plugins[pluginId] = {
+                    enabled,
+                    settings: {},
+                    isLoaded: false
+                };
+            }
+        },
+
         /**
          * Resets the plugin state to its initial default.
          * The persistence middleware will automatically save the reset state.
@@ -84,12 +143,13 @@ const pluginSlice = createSlice({
     }
 });
 
-export const { 
-    setPluginsState, 
-    updatePluginSettings, 
-    registerPlugin, 
+export const {
+    setPluginsState,
+    updatePluginSettings,
+    registerPlugin,
     unregisterPlugin,
     setModuleLoaded,
+    setPluginEnabled,
     resetPluginState,
 } = pluginSlice.actions;
 

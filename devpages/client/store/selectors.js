@@ -47,10 +47,10 @@ export const getActiveCssFiles = (state) => state.settings.preview.activeCssFile
 export const getIsRootCssEnabled = (state) => state.settings.preview.enableRootCss;
 
 // ===== PLUGINS SELECTORS =====
-export const getAllPlugins = (state) => state.plugins;
-export const getPluginByName = (state, pluginName) => state.plugins[pluginName];
+export const getAllPlugins = (state) => state.plugins?.plugins || {};
+export const getPluginByName = (state, pluginName) => state.plugins?.plugins?.[pluginName];
 export const getIsPluginEnabled = (state, pluginName) =>
-  state.plugins[pluginName]?.enabled || false;
+  state.plugins?.plugins?.[pluginName]?.enabled !== false;
 
 // ===== SMARTCOPY SELECTORS =====
 export const getSmartCopyA = (state) => state.smartCopyA;

@@ -12,7 +12,7 @@ const defaultSettings = {
         cssFiles: [],
         activeCssFiles: [],
         enableRootCss: true,  // Default to true, will be loaded from localStorage via enhancedReducerUtils
-        bundleCss: true,      // Default to true, will be loaded from localStorage via enhancedReducerUtils  
+        bundleCss: true,      // Default to true, will be loaded from localStorage via enhancedReducerUtils
         cssPrefix: '',        // Default empty, will be loaded from localStorage via enhancedReducerUtils
         renderMode: 'direct',
         cssInjectionMode: 'inject', // Default to inject, will be loaded from localStorage via enhancedReducerUtils
@@ -22,6 +22,36 @@ const defaultSettings = {
     publish: {
         mode: 'local',        // Default to local, will be loaded from localStorage via enhancedReducerUtils
         bundleCss: true,
+    },
+    theme: {
+        // Current theme settings
+        mode: 'light',                    // 'light' | 'dark' | 'auto'
+        activeTheme: 'devpages-light',    // Active theme ID
+
+        // Theme preferences
+        autoSwitchTheme: false,           // Auto switch based on time
+        syncWithOS: false,                // Sync with OS dark mode preference
+        transitionDuration: 200,          // Theme transition duration (ms)
+
+        // Auto-switch schedule (if autoSwitchTheme is true)
+        schedule: {
+            lightThemeStart: '07:00',     // Time to switch to light theme
+            darkThemeStart: '19:00',      // Time to switch to dark theme
+        },
+
+        // Token overrides (applied on top of active theme)
+        tokenOverrides: {
+            colors: {},
+            typography: {},
+            spacing: {},
+        },
+
+        // Embed configuration
+        embedConfig: {
+            enabled: true,                // Enable theme in embeds/iframes
+            syncWithParent: true,         // Sync embed themes with parent
+            isolationMethod: 'shadow-dom', // 'shadow-dom' | 'iframe' | 'scoped-css'
+        },
     },
     currentContext: null,
     selectedOrg: 'pixeljam-arcade', // Default org
@@ -85,7 +115,58 @@ export const settingsThunks = {
     setPreviewCssFiles: (files) => (dispatch) => {
         dispatch(settingsActions.updateNestedSetting({ path: 'preview.cssFiles', value: files }));
     },
-    
+
+    // Theme management actions
+    setThemeMode: (mode) => (dispatch) => {
+        dispatch(settingsActions.updateNestedSetting({ path: 'theme.mode', value: mode }));
+    },
+
+    setActiveTheme: (themeId) => (dispatch) => {
+        dispatch(settingsActions.updateNestedSetting({ path: 'theme.activeTheme', value: themeId }));
+    },
+
+    toggleThemeMode: () => (dispatch, getState) => {
+        const currentMode = getState().settings.theme.mode;
+        const newMode = currentMode === 'light' ? 'dark' : 'light';
+        dispatch(settingsActions.updateNestedSetting({ path: 'theme.mode', value: newMode }));
+    },
+
+    setSyncWithOS: (enabled) => (dispatch) => {
+        dispatch(settingsActions.updateNestedSetting({ path: 'theme.syncWithOS', value: enabled }));
+    },
+
+    setAutoSwitchTheme: (enabled) => (dispatch) => {
+        dispatch(settingsActions.updateNestedSetting({ path: 'theme.autoSwitchTheme', value: enabled }));
+    },
+
+    updateThemeSchedule: (schedule) => (dispatch) => {
+        dispatch(settingsActions.updateNestedSetting({ path: 'theme.schedule', value: schedule }));
+    },
+
+    updateTokenOverride: (category, tokenName, value) => (dispatch, getState) => {
+        const overrides = getState().settings.theme.tokenOverrides[category] || {};
+        const updated = { ...overrides, [tokenName]: value };
+        dispatch(settingsActions.updateNestedSetting({
+            path: `theme.tokenOverrides.${category}`,
+            value: updated
+        }));
+    },
+
+    clearTokenOverrides: () => (dispatch) => {
+        dispatch(settingsActions.updateNestedSetting({
+            path: 'theme.tokenOverrides',
+            value: { colors: {}, typography: {}, spacing: {} }
+        }));
+    },
+
+    updateEmbedConfig: (updates) => (dispatch, getState) => {
+        const current = getState().settings.theme.embedConfig;
+        dispatch(settingsActions.updateNestedSetting({
+            path: 'theme.embedConfig',
+            value: { ...current, ...updates }
+        }));
+    },
+
     // Legacy compatibility - will be auto-persisted
     loadInitialSettings: () => (dispatch) => {
         // Settings are now automatically loaded from localStorage

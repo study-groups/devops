@@ -41,18 +41,19 @@
 
 /* ===== IFRAME STYLES (for preview mode) ===== */
 
-.preview-container iframe {
+.preview-iframe {
   width: 100%;
   height: 100%;
   border: none;
-  background-color: var(--color-bg-elevated);
-  
+  background-color: #ffffff;
+  display: block;
+
   /* Smooth loading transition */
   opacity: 0;
-  transition: opacity var(--transition-base);
+  transition: opacity 0.2s ease;
 }
 
-.preview-container iframe.loaded {
+.preview-iframe[srcdoc]:not([srcdoc=""]) {
   opacity: 1;
 }
 
