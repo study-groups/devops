@@ -533,6 +533,28 @@
             cursor: pointer;
         }
 
+        .copy-tokens-btn {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--accent-secondary);
+            color: white;
+            border: 1px solid var(--accent-primary);
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 1rem;
+        }
+
+        .copy-tokens-btn:hover {
+            background: var(--accent-primary);
+        }
+
+        .copy-tokens-btn.copied {
+            background: var(--success);
+            border-color: var(--success);
+        }
+
         @media (max-width: 1200px) {
             .container {
                 grid-template-columns: 1fr;
@@ -1174,6 +1196,10 @@ melvin list MODULE    # See all modules</div>
                     </div>
                 </div>
             </div>
+
+            <button class="copy-tokens-btn" onclick="copyTokens()" id="copyTokensBtn">
+                📋 Copy Tokens as CSS
+            </button>
         </div>
     </div>
 
@@ -1509,6 +1535,49 @@ melvin list MODULE    # See all modules</div>
             if (displayEl) {
                 displayEl.textContent = value;
             }
+        }
+
+        function copyTokens() {
+            const tokens = [
+                '--bg-primary',
+                '--bg-secondary',
+                '--bg-tertiary',
+                '--text-primary',
+                '--text-secondary',
+                '--accent-primary',
+                '--accent-secondary',
+                '--success',
+                '--warning',
+                '--error',
+                '--border',
+                '--highlight'
+            ];
+
+            const style = getComputedStyle(document.documentElement);
+
+            // Generate CSS custom properties
+            let cssOutput = ':root {\n';
+            tokens.forEach(token => {
+                const value = style.getPropertyValue(token).trim();
+                cssOutput += `    ${token}: ${value};\n`;
+            });
+            cssOutput += '}';
+
+            // Copy to clipboard
+            navigator.clipboard.writeText(cssOutput).then(() => {
+                const btn = document.getElementById('copyTokensBtn');
+                const originalText = btn.textContent;
+                btn.textContent = '✓ Copied!';
+                btn.classList.add('copied');
+
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy tokens to clipboard');
+            });
         }
 
         // Close design panel when clicking outside
