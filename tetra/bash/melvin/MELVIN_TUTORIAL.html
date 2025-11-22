@@ -1213,7 +1213,7 @@ melvin list MODULE    # See all modules</div>
                 { type: 'comment', text: '# Welcome! Ready to learn the tetra way?' },
                 { type: 'comment', text: '# Keep this browser tab open alongside your terminal' },
                 { type: 'comment', text: '# Click "Next" when ready to begin' }
-            ,
+            ],
             1: [
                 { type: 'prompt', text: '$ ', inline: true },
                 { type: 'command', text: 'cd ~/tetra' },
@@ -1228,7 +1228,7 @@ melvin list MODULE    # See all modules</div>
                 { type: 'output-success', text: '✓ MELVIN loaded' },
                 { type: 'output', text: 'Context: tetra' },
                 { type: 'output', text: 'Root: /Users/you/tetra' }
-            ,
+            ],
             2: [
                 { type: 'prompt', text: '$ ', inline: true },
                 { type: 'command', text: 'melvin health summary' },
@@ -1245,7 +1245,7 @@ melvin list MODULE    # See all modules</div>
                 { type: 'output-warning', text: '  UNKNOWN:      1 directories' },
                 { type: 'blank' },
                 { type: 'output', text: 'Total: 26 directories classified' }
-            ,
+            ],
             3: [
                 { type: 'prompt', text: '$ ', inline: true },
                 { type: 'command', text: 'melvin concepts' },
@@ -1263,7 +1263,7 @@ melvin list MODULE    # See all modules</div>
                 { type: 'output', text: 'bash_version         - Tetra ALWAYS runs in bash 5.2+...' },
                 { type: 'output', text: 'module_structure     - Standard file layout...' },
                 { type: 'output', text: 'tetra_self           - Introspection module...' }
-            ,
+            ],
             4: [
                 { type: 'prompt', text: '$ ', inline: true },
                 { type: 'command', text: 'melvin concepts strong_globals' },
@@ -1286,7 +1286,7 @@ melvin list MODULE    # See all modules</div>
                 { type: 'output-success', text: '  • bash/rag/includes.sh:7' },
                 { type: 'output-success', text: '  • bash/melvin/includes.sh:9' },
                 { type: 'output-success', text: '  • bash/chroma/includes.sh:5' }
-            ,
+            ],
             5: [
                 { type: 'prompt', text: '$ ', inline: true },
                 { type: 'command', text: 'melvin explain rag' },
@@ -1307,7 +1307,7 @@ melvin list MODULE    # See all modules</div>
                 { type: 'output', text: 'LOC: ~2500 lines' },
                 { type: 'output', text: 'Last modified: 2025-11-21' },
                 { type: 'output-success', text: 'Registered: ✓ boot_modules.sh:44' }
-            ,
+            ],
             6: [
                 { type: 'prompt', text: '$ ', inline: true },
                 { type: 'command', text: 'mkdir -p "$TETRA_SRC/bash/notes"' },
@@ -1324,7 +1324,7 @@ melvin list MODULE    # See all modules</div>
                 { type: 'output', text: 'EOF' },
                 { type: 'blank' },
                 { type: 'output-success', text: '✓ includes.sh created with strong globals pattern' }
-            ,
+            ],
             7: [
                 { type: 'prompt', text: '$ ', inline: true },
                 { type: 'command', text: 'cat > "$TETRA_SRC/bash/notes/notes.sh" <<\'EOF\'' },
@@ -1342,7 +1342,7 @@ melvin list MODULE    # See all modules</div>
                 { type: 'output', text: '' },
                 { type: 'output', text: 'export -f notes_init notes_add notes_list', highlight: true },
                 { type: 'output', text: 'EOF' }
-            ,
+            ],
             8: [
                 { type: 'prompt', text: '$ ', inline: true },
                 { type: 'command', text: 'cat > "$TETRA_SRC/bash/notes/actions.sh" <<\'EOF\'' },
@@ -1363,7 +1363,7 @@ melvin list MODULE    # See all modules</div>
                 { type: 'prompt', text: '$ ', inline: true },
                 { type: 'command', text: 'chmod +x "$TETRA_SRC/bash/notes"/*.sh' },
                 { type: 'output-success', text: '✓ Module structure complete!' }
-            ,
+            ],
             9: [
                 { type: 'prompt', text: '$ ', inline: true },
                 { type: 'command', text: 'melvin classify notes' },
@@ -1386,7 +1386,7 @@ melvin list MODULE    # See all modules</div>
                 { type: 'output', text: 'Recommendations:' },
                 { type: 'output', text: '  • Add README.md' },
                 { type: 'output', text: '  • Register in boot_modules.sh' }
-            ,
+            ],
             10: [
                 { type: 'prompt', text: '$ ', inline: true },
                 { type: 'command', text: 'source "$TETRA_SRC/bash/notes/includes.sh"' },
@@ -1405,7 +1405,7 @@ melvin list MODULE    # See all modules</div>
                 { type: 'output', text: '[2025-11-21 14:30:00 MELVIN helped me build this the tetra way!', highlight: true },
                 { type: 'blank' },
                 { type: 'output-success', text: '✓ Module works perfectly!' }
-            ,
+            ],
             11: [
                 { type: 'output-header', text: '🎉 Congratulations!' },
                 { type: 'blank' },
@@ -1430,7 +1430,7 @@ melvin list MODULE    # See all modules</div>
             const terminal = document.getElementById('terminal');
             terminal.innerHTML = '';
 
-            const content = terminalContent[step || ;
+            const content = terminalContent[step] || [];
 
             content.forEach((line, index) => {
                 setTimeout(() => {
@@ -1471,7 +1471,7 @@ melvin list MODULE    # See all modules</div>
             });
 
             // Show current step
-            const currentStepEl = document.querySelector(`[data-step="${currentStep}"`);
+            const currentStepEl = document.querySelector(`[data-step="${currentStep}"]`);
             if (currentStepEl) {
                 currentStepEl.classList.add('active');
             }
@@ -1551,7 +1551,7 @@ melvin list MODULE    # See all modules</div>
                 '--error',
                 '--border',
                 '--highlight'
-            ;
+            ];
 
             const style = getComputedStyle(document.documentElement);
 
