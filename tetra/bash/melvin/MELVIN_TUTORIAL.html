@@ -149,7 +149,7 @@
         }
 
         .you-try-header::before {
-            content: "→";
+            content: "▸";
             font-size: 1.2rem;
             font-weight: bold;
         }
@@ -190,9 +190,17 @@
         }
 
         .learn-box-header::before {
-            content: "ℹ";
-            font-size: 1.2rem;
+            content: "i";
+            font-size: 1rem;
             font-weight: bold;
+            font-style: italic;
+            border: 2px solid var(--accent-primary);
+            border-radius: 50%;
+            width: 1.2rem;
+            height: 1.2rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .learn-box ul {
@@ -583,13 +591,13 @@
     <div class="navigation">
         <button class="nav-button nav-prev" onclick="prevStep()" id="prevBtn" disabled>← Previous</button>
         <div class="progress" id="progress">Step 1 of 12</div>
-        <button class="nav-button nav-next" onclick="nextStep()" id="nextBtn">Next →</button>
+        <button class="nav-button nav-next" onclick="nextStep()" id="nextBtn">Next &gt;</button>
     </div>
 
     <div class="container">
         <!-- Narrative Panel (Left) -->
         <div class="panel narrative-panel">
-            <div class="panel-header">📖 Tutorial Guide</div>
+            <div class="panel-header">Tutorial Guide</div>
             <div class="narrative-content">
 
                 <!-- Step 0: Introduction -->
@@ -1063,7 +1071,7 @@ melvin list MODULE    # See all modules</div>
 
         <!-- Terminal Panel (Right) -->
         <div class="panel terminal-panel">
-            <div class="panel-header">💻 Terminal Output</div>
+            <div class="panel-header">Terminal Output</div>
             <div class="terminal-window">
                 <div class="terminal-titlebar">
                     <div class="terminal-dot dot-red"></div>
@@ -1080,7 +1088,7 @@ melvin list MODULE    # See all modules</div>
 
     <!-- Design Token FAB -->
     <button class="design-fab" onclick="toggleDesignPanel()" id="designFab">
-        🎨
+        T
     </button>
 
     <div class="design-panel" id="designPanel">
@@ -1198,7 +1206,7 @@ melvin list MODULE    # See all modules</div>
             </div>
 
             <button class="copy-tokens-btn" onclick="copyTokens()" id="copyTokensBtn">
-                📋 Copy Tokens as CSS
+                Copy Tokens as CSS
             </button>
         </div>
     </div>
@@ -1212,7 +1220,7 @@ melvin list MODULE    # See all modules</div>
             0: [
                 { type: 'comment', text: '# Welcome! Ready to learn the tetra way?' },
                 { type: 'comment', text: '# Keep this browser tab open alongside your terminal' },
-                { type: 'comment', text: '# Click "Next" when ready to begin →' }
+                { type: 'comment', text: '# Click "Next" when ready to begin' }
             ],
             1: [
                 { type: 'prompt', text: '$ ', inline: true },
@@ -1483,7 +1491,7 @@ melvin list MODULE    # See all modules</div>
             if (currentStep === totalSteps) {
                 document.getElementById('nextBtn').textContent = '✓ Complete';
             } else {
-                document.getElementById('nextBtn').textContent = 'Next →';
+                document.getElementById('nextBtn').textContent = 'Next &gt;';
             }
 
             // Update progress
