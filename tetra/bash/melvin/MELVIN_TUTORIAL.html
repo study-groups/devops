@@ -11,54 +11,75 @@
             box-sizing: border-box;
         }
 
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent-primary: #58a6ff;
+            --accent-secondary: #1f6feb;
+            --success: #3fb950;
+            --warning: #d29922;
+            --error: #f85149;
+            --border: #30363d;
+            --highlight: #388bfd26;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--bg-primary);
             min-height: 100vh;
-            padding: 2rem;
-            color: #333;
+            padding: 0;
+            color: var(--text-primary);
+            margin: 0;
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 2rem;
+            gap: 0;
             align-items: start;
+            padding: 1rem;
         }
 
         .panel {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
             overflow: hidden;
             min-height: 600px;
         }
 
+        .narrative-panel {
+            margin-right: 0.5rem;
+        }
+
+        .terminal-panel {
+            position: sticky;
+            top: 1rem;
+            margin-left: 0.5rem;
+            max-height: calc(100vh - 2rem);
+            overflow: hidden;
+        }
+
         .panel-header {
-            padding: 1rem 1.5rem;
+            padding: 0.75rem 1rem;
             font-weight: 600;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .narrative-panel .panel-header {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-        }
-
-        .terminal-panel .panel-header {
-            background: #2d2d2d;
-            color: #00ff00;
-            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            letter-spacing: 0.3px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
         }
 
         /* Narrative Styles */
         .narrative-content {
             padding: 2rem;
-            line-height: 1.8;
+            line-height: 1.7;
+            overflow-y: auto;
         }
 
         .step {
@@ -78,113 +99,136 @@
 
         .step-number {
             display: inline-block;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 0.3rem 0.8rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
+            background: var(--bg-tertiary);
+            color: var(--accent-primary);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
             font-weight: 600;
             margin-bottom: 1rem;
+            border: 1px solid var(--border);
+            font-family: 'Courier New', monospace;
         }
 
         .step h2 {
-            color: #2d3748;
+            color: var(--text-primary);
             margin-bottom: 1rem;
-            font-size: 1.5rem;
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+
+        .step h3 {
+            color: var(--text-primary);
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            font-weight: 600;
         }
 
         .step p {
             margin-bottom: 1rem;
-            color: #4a5568;
+            color: var(--text-secondary);
         }
 
         .you-try {
-            background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
-            border-left: 4px solid #e17055;
-            padding: 1.5rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--warning);
+            padding: 1.25rem;
             margin: 1.5rem 0;
-            border-radius: 8px;
+            border-radius: 6px;
         }
 
         .you-try-header {
             font-weight: 700;
-            color: #d63031;
-            margin-bottom: 0.5rem;
-            font-size: 1.1rem;
+            color: var(--warning);
+            margin-bottom: 0.75rem;
+            font-size: 1rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
 
         .you-try-header::before {
-            content: "👉";
-            font-size: 1.3rem;
+            content: "→";
+            font-size: 1.2rem;
+            font-weight: bold;
         }
 
         .you-try p {
-            color: #2d3748;
+            color: var(--text-secondary);
             margin-bottom: 0.5rem;
         }
 
         .command-hint {
-            background: rgba(0,0,0,0.1);
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
+            background: var(--bg-primary);
+            padding: 0.75rem 1rem;
+            border-radius: 4px;
             font-family: 'Courier New', monospace;
-            font-size: 0.9rem;
-            color: #2d3748;
+            font-size: 0.85rem;
+            color: var(--accent-primary);
             margin-top: 0.5rem;
+            border: 1px solid var(--border);
+            overflow-x: auto;
         }
 
         .learn-box {
-            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-            border-left: 4px solid #6c5ce7;
-            padding: 1.5rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--accent-secondary);
+            padding: 1.25rem;
             margin: 1.5rem 0;
-            border-radius: 8px;
+            border-radius: 6px;
         }
 
         .learn-box-header {
             font-weight: 700;
-            color: #6c5ce7;
-            margin-bottom: 0.5rem;
-            font-size: 1.1rem;
+            color: var(--accent-primary);
+            margin-bottom: 0.75rem;
+            font-size: 1rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
 
         .learn-box-header::before {
-            content: "💡";
-            font-size: 1.3rem;
+            content: "ℹ";
+            font-size: 1.2rem;
+            font-weight: bold;
         }
 
         .learn-box ul {
             margin-left: 1.5rem;
-            color: #2d3748;
+            color: var(--text-secondary);
         }
 
         .learn-box li {
-            margin-bottom: 0.3rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .learn-box p {
+            color: var(--text-secondary);
         }
 
         /* Terminal Styles */
         .terminal-window {
-            background: #1e1e1e;
+            background: var(--bg-primary);
             height: 100%;
             min-height: 600px;
+            max-height: calc(100vh - 2rem);
             font-family: 'Courier New', Monaco, monospace;
-            font-size: 14px;
+            font-size: 13px;
             position: relative;
+            display: flex;
+            flex-direction: column;
         }
 
         .terminal-titlebar {
-            background: #2d2d2d;
+            background: var(--bg-tertiary);
             padding: 0.5rem 1rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            border-bottom: 1px solid #444;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
         }
 
         .terminal-dot {
@@ -199,15 +243,15 @@
 
         .terminal-title {
             margin-left: 1rem;
-            color: #999;
-            font-size: 0.8rem;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
         }
 
         .terminal-content {
             padding: 1.5rem;
-            color: #d4d4d4;
+            color: var(--text-primary);
             overflow-y: auto;
-            max-height: calc(600px - 50px);
+            flex: 1;
         }
 
         .terminal-line {
@@ -226,40 +270,41 @@
         }
 
         .prompt {
-            color: #00ff00;
+            color: var(--success);
         }
 
         .command {
-            color: #4ec9b0;
+            color: var(--accent-primary);
         }
 
         .output {
-            color: #ce9178;
+            color: var(--text-secondary);
         }
 
         .output-header {
-            color: #569cd6;
+            color: var(--accent-primary);
             font-weight: bold;
         }
 
         .output-success {
-            color: #4ec9b0;
+            color: var(--success);
         }
 
         .output-warning {
-            color: #dcdcaa;
+            color: var(--warning);
         }
 
         .output-error {
-            color: #f48771;
+            color: var(--error);
         }
 
         .comment {
-            color: #6a9955;
+            color: var(--text-secondary);
+            opacity: 0.7;
         }
 
         .highlight {
-            background: rgba(255, 255, 0, 0.2);
+            background: var(--highlight);
             padding: 0 0.2rem;
         }
 
@@ -267,22 +312,25 @@
         .navigation {
             display: flex;
             gap: 1rem;
-            padding: 1.5rem 2rem;
-            background: white;
-            border-top: 1px solid #e2e8f0;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
+            align-items: center;
             position: sticky;
-            bottom: 0;
+            top: 0;
+            z-index: 100;
         }
 
         .nav-button {
-            flex: 1;
-            padding: 1rem 2rem;
-            border: none;
-            border-radius: 8px;
+            padding: 0.6rem 1.5rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
             font-weight: 600;
-            font-size: 1rem;
+            font-size: 0.9rem;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
         }
 
         .nav-button:disabled {
@@ -290,56 +338,199 @@
             cursor: not-allowed;
         }
 
-        .nav-prev {
-            background: #e2e8f0;
-            color: #2d3748;
-        }
-
         .nav-prev:hover:not(:disabled) {
-            background: #cbd5e0;
+            background: var(--bg-tertiary);
+            border-color: var(--accent-primary);
         }
 
         .nav-next {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--accent-secondary);
+            border-color: var(--accent-secondary);
             color: white;
         }
 
         .nav-next:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
         }
 
         .progress {
             text-align: center;
-            color: #718096;
-            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
             padding: 0.5rem;
+            flex: 1;
+            font-family: 'Courier New', monospace;
         }
 
         /* Header */
         .tutorial-header {
             text-align: center;
-            color: white;
-            margin-bottom: 2rem;
+            color: var(--text-primary);
+            padding: 2rem 1rem 1rem;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
         }
 
         .tutorial-header h1 {
-            font-size: 2.5rem;
+            font-size: 2rem;
             margin-bottom: 0.5rem;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            font-weight: 700;
+            color: var(--accent-primary);
         }
 
         .tutorial-header p {
-            font-size: 1.1rem;
-            opacity: 0.9;
+            font-size: 1rem;
+            color: var(--text-secondary);
         }
 
         code {
-            background: rgba(0,0,0,0.1);
+            background: var(--bg-tertiary);
             padding: 0.2rem 0.4rem;
             border-radius: 3px;
             font-family: 'Courier New', monospace;
             font-size: 0.9em;
+            color: var(--accent-primary);
+            border: 1px solid var(--border);
+        }
+
+        ul {
+            color: var(--text-secondary);
+        }
+
+        /* Design Token FAB */
+        .design-fab {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--accent-secondary);
+            border: 2px solid var(--accent-primary);
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .design-fab:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+        }
+
+        .design-panel {
+            position: fixed;
+            bottom: 5rem;
+            right: 2rem;
+            width: 320px;
+            max-height: 70vh;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            display: none;
+            flex-direction: column;
+            z-index: 999;
+            overflow: hidden;
+        }
+
+        .design-panel.visible {
+            display: flex;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .design-panel-header {
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .design-panel-close {
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+        }
+
+        .design-panel-content {
+            padding: 1rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .token-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .token-group-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+        }
+
+        .token-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .token-swatch {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .token-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .token-name {
+            font-size: 0.75rem;
+            font-family: 'Courier New', monospace;
+            color: var(--text-secondary);
+            margin-bottom: 0.15rem;
+        }
+
+        .token-value {
+            font-size: 0.7rem;
+            font-family: 'Courier New', monospace;
+            color: var(--accent-primary);
+        }
+
+        .token-picker {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
         }
 
         @media (max-width: 1200px) {
@@ -348,8 +539,15 @@
             }
 
             .terminal-panel {
-                position: sticky;
-                top: 2rem;
+                position: relative;
+                top: 0;
+                max-height: 600px;
+                margin-left: 0;
+                margin-top: 1rem;
+            }
+
+            .narrative-panel {
+                margin-right: 0;
             }
         }
     </style>
@@ -358,6 +556,12 @@
     <div class="tutorial-header">
         <h1>MELVIN Interactive Tutorial</h1>
         <p>Learn the Tetra Way: Build a Notes Module Step-by-Step</p>
+    </div>
+
+    <div class="navigation">
+        <button class="nav-button nav-prev" onclick="prevStep()" id="prevBtn" disabled>← Previous</button>
+        <div class="progress" id="progress">Step 1 of 12</div>
+        <button class="nav-button nav-next" onclick="nextStep()" id="nextBtn">Next →</button>
     </div>
 
     <div class="container">
@@ -833,11 +1037,6 @@ melvin list MODULE    # See all modules</div>
                 </div>
 
             </div>
-            <div class="navigation">
-                <button class="nav-button nav-prev" onclick="prevStep()" id="prevBtn" disabled>← Previous</button>
-                <div class="progress" id="progress">Step 1 of 12</div>
-                <button class="nav-button nav-next" onclick="nextStep()" id="nextBtn">Next →</button>
-            </div>
         </div>
 
         <!-- Terminal Panel (Right) -->
@@ -852,6 +1051,127 @@ melvin list MODULE    # See all modules</div>
                 </div>
                 <div class="terminal-content" id="terminal">
                     <!-- Terminal content will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Design Token FAB -->
+    <button class="design-fab" onclick="toggleDesignPanel()" id="designFab">
+        🎨
+    </button>
+
+    <div class="design-panel" id="designPanel">
+        <div class="design-panel-header">
+            <span>Design Tokens</span>
+            <span class="design-panel-close" onclick="toggleDesignPanel()">×</span>
+        </div>
+        <div class="design-panel-content">
+            <div class="token-group">
+                <div class="token-group-title">Background</div>
+                <div class="token-item">
+                    <input type="color" class="token-picker" value="#0d1117" onchange="updateToken('--bg-primary', this.value)">
+                    <div class="token-swatch" style="background: var(--bg-primary)"></div>
+                    <div class="token-info">
+                        <div class="token-name">--bg-primary</div>
+                        <div class="token-value" id="token-bg-primary">#0d1117</div>
+                    </div>
+                </div>
+                <div class="token-item">
+                    <input type="color" class="token-picker" value="#161b22" onchange="updateToken('--bg-secondary', this.value)">
+                    <div class="token-swatch" style="background: var(--bg-secondary)"></div>
+                    <div class="token-info">
+                        <div class="token-name">--bg-secondary</div>
+                        <div class="token-value" id="token-bg-secondary">#161b22</div>
+                    </div>
+                </div>
+                <div class="token-item">
+                    <input type="color" class="token-picker" value="#21262d" onchange="updateToken('--bg-tertiary', this.value)">
+                    <div class="token-swatch" style="background: var(--bg-tertiary)"></div>
+                    <div class="token-info">
+                        <div class="token-name">--bg-tertiary</div>
+                        <div class="token-value" id="token-bg-tertiary">#21262d</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="token-group">
+                <div class="token-group-title">Text</div>
+                <div class="token-item">
+                    <input type="color" class="token-picker" value="#c9d1d9" onchange="updateToken('--text-primary', this.value)">
+                    <div class="token-swatch" style="background: var(--text-primary)"></div>
+                    <div class="token-info">
+                        <div class="token-name">--text-primary</div>
+                        <div class="token-value" id="token-text-primary">#c9d1d9</div>
+                    </div>
+                </div>
+                <div class="token-item">
+                    <input type="color" class="token-picker" value="#8b949e" onchange="updateToken('--text-secondary', this.value)">
+                    <div class="token-swatch" style="background: var(--text-secondary)"></div>
+                    <div class="token-info">
+                        <div class="token-name">--text-secondary</div>
+                        <div class="token-value" id="token-text-secondary">#8b949e</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="token-group">
+                <div class="token-group-title">Accent</div>
+                <div class="token-item">
+                    <input type="color" class="token-picker" value="#58a6ff" onchange="updateToken('--accent-primary', this.value)">
+                    <div class="token-swatch" style="background: var(--accent-primary)"></div>
+                    <div class="token-info">
+                        <div class="token-name">--accent-primary</div>
+                        <div class="token-value" id="token-accent-primary">#58a6ff</div>
+                    </div>
+                </div>
+                <div class="token-item">
+                    <input type="color" class="token-picker" value="#1f6feb" onchange="updateToken('--accent-secondary', this.value)">
+                    <div class="token-swatch" style="background: var(--accent-secondary)"></div>
+                    <div class="token-info">
+                        <div class="token-name">--accent-secondary</div>
+                        <div class="token-value" id="token-accent-secondary">#1f6feb</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="token-group">
+                <div class="token-group-title">Status</div>
+                <div class="token-item">
+                    <input type="color" class="token-picker" value="#3fb950" onchange="updateToken('--success', this.value)">
+                    <div class="token-swatch" style="background: var(--success)"></div>
+                    <div class="token-info">
+                        <div class="token-name">--success</div>
+                        <div class="token-value" id="token-success">#3fb950</div>
+                    </div>
+                </div>
+                <div class="token-item">
+                    <input type="color" class="token-picker" value="#d29922" onchange="updateToken('--warning', this.value)">
+                    <div class="token-swatch" style="background: var(--warning)"></div>
+                    <div class="token-info">
+                        <div class="token-name">--warning</div>
+                        <div class="token-value" id="token-warning">#d29922</div>
+                    </div>
+                </div>
+                <div class="token-item">
+                    <input type="color" class="token-picker" value="#f85149" onchange="updateToken('--error', this.value)">
+                    <div class="token-swatch" style="background: var(--error)"></div>
+                    <div class="token-info">
+                        <div class="token-name">--error</div>
+                        <div class="token-value" id="token-error">#f85149</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="token-group">
+                <div class="token-group-title">Border</div>
+                <div class="token-item">
+                    <input type="color" class="token-picker" value="#30363d" onchange="updateToken('--border', this.value)">
+                    <div class="token-swatch" style="background: var(--border)"></div>
+                    <div class="token-info">
+                        <div class="token-name">--border</div>
+                        <div class="token-value" id="token-border">#30363d</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1175,6 +1495,32 @@ melvin list MODULE    # See all modules</div>
 
         // Initialize
         updateStep();
+
+        // Design Token Panel
+        function toggleDesignPanel() {
+            const panel = document.getElementById('designPanel');
+            panel.classList.toggle('visible');
+        }
+
+        function updateToken(tokenName, value) {
+            document.documentElement.style.setProperty(tokenName, value);
+            const displayId = 'token-' + tokenName.replace('--', '').replace(/-/g, '-');
+            const displayEl = document.getElementById(displayId);
+            if (displayEl) {
+                displayEl.textContent = value;
+            }
+        }
+
+        // Close design panel when clicking outside
+        document.addEventListener('click', (e) => {
+            const panel = document.getElementById('designPanel');
+            const fab = document.getElementById('designFab');
+            if (panel.classList.contains('visible') &&
+                !panel.contains(e.target) &&
+                !fab.contains(e.target)) {
+                panel.classList.remove('visible');
+            }
+        });
     </script>
 </body>
 </html>
