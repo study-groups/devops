@@ -8,6 +8,43 @@
 : "${TDS_MARKDOWN_PAGER:=less -R}"
 : "${TDS_MARKDOWN_WIDTH:=${COLUMNS:-80}}"
 
+# Margin configuration (set by chroma or other callers)
+: "${TDS_MARGIN_TOP:=0}"
+: "${TDS_MARGIN_RIGHT:=0}"
+: "${TDS_MARGIN_BOTTOM:=0}"
+: "${TDS_MARGIN_LEFT:=0}"
+
+# Helper: Add left margin to piped input
+# Usage: content | _tds_add_left_margin N
+_tds_add_left_margin() {
+    local margin="$1"
+    [[ "$margin" -eq 0 ]] && cat && return
+    while IFS= read -r line; do
+        printf "%*s%s\n" "$margin" "" "$line"
+    done
+}
+
+# Helper: Add top/bottom margins (static - only at start/end)
+# Usage: _tds_add_vertical_margins TOP BOTTOM < content
+_tds_add_vertical_margins() {
+    local top="$1"
+    local bottom="$2"
+
+    # Print top margin
+    for ((i=0; i<top; i++)); do
+        echo
+    done
+
+    # Print content
+    cat
+
+    # Print bottom margin
+    for ((i=0; i<bottom; i++)); do
+        echo
+    done
+}
+
+
 # Process inline formatting and return formatted string
 # Args: text
 tds_process_inline_formatting() {
@@ -293,10 +330,30 @@ EOF
         fi
     fi
 
+    # Apply margins if set
+    local margin_left="${TDS_MARGIN_LEFT:-0}"
+    local margin_right="${TDS_MARGIN_RIGHT:-0}"
+    local margin_top="${TDS_MARGIN_TOP:-0}"
+    local margin_bottom="${TDS_MARGIN_BOTTOM:-0}"
+
+    # Adjust content width if right margin is set
+    if [[ "$margin_right" -gt 0 ]]; then
+        local term_width=${COLUMNS:-80}
+        local adjusted_width=$((term_width - margin_left - margin_right))
+        [[ $adjusted_width -lt 40 ]] && adjusted_width=40
+        TDS_MARKDOWN_WIDTH="$adjusted_width"
+    fi
+
+    # Render with margins applied
     if [[ "$use_pager" == true ]]; then
-        tds_render_markdown "$file" | $TDS_MARKDOWN_PAGER
+        tds_render_markdown "$file" | \
+            _tds_add_left_margin "$margin_left" | \
+            _tds_add_vertical_margins "$margin_top" "$margin_bottom" | \
+            $TDS_MARKDOWN_PAGER
     else
-        tds_render_markdown "$file"
+        tds_render_markdown "$file" | \
+            _tds_add_left_margin "$margin_left" | \
+            _tds_add_vertical_margins "$margin_top" "$margin_bottom"
     fi
 }
 
