@@ -87,3 +87,6 @@ bash/*/test_*.sh
 bash/*/smart_hints.sh
 bash/*/tui_repl.sh
 bash/*/VERIFY_*.sh
+
+# Output files
+out
