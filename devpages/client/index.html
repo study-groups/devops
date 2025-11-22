@@ -11,22 +11,25 @@
 
     <!-- CSS Loading Strategy: Bundled for Performance -->
     <!-- Core Bundle: Critical foundation styles (load immediately) -->
-    <link rel="stylesheet" href="/css/bundles/core.bundle.css?v=3">
-    
+    <link rel="stylesheet" href="/css/bundles/core.bundle.css?v=3" data-scope="editor">
+
     <!-- Layout Bundle: Critical workspace layout (load immediately) -->
-    <link rel="stylesheet" href="/css/bundles/layout.bundle.css?v=3">
-    
+    <link rel="stylesheet" href="/css/bundles/layout.bundle.css?v=3" data-scope="editor">
+
     <!-- Features Bundle: Major features (load async) -->
-    <link rel="stylesheet" href="/css/bundles/features.bundle.css?v=3" media="print" onload="this.media='all'">
-    
+    <link rel="stylesheet" href="/css/bundles/features.bundle.css?v=3" media="print" onload="this.media='all'" data-scope="editor">
+
     <!-- Panels Bundle: Panel-specific styles (load immediately) -->
-    <link rel="stylesheet" href="/css/bundles/panels.bundle.css?v=4">
-    
+    <link rel="stylesheet" href="/css/bundles/panels.bundle.css?v=4" data-scope="editor">
+
     <!-- Design Tokens Panel CSS (fallback) -->
-    <link rel="stylesheet" href="/client/styles/design-tokens-panel.css">
-    
+    <link rel="stylesheet" href="/client/styles/design-tokens-panel.css" data-scope="editor">
+
+    <!-- Theme Management Panel CSS -->
+    <link rel="stylesheet" href="/client/styles/theme-management-panel.css" data-scope="editor">
+
     <!-- Log CSS -->
-    <link rel="stylesheet" href="/client/log/log-display.css">
+    <link rel="stylesheet" href="/client/log/log-display.css" data-scope="editor">
     
     
     <!-- Introspection System: Load for debugging and development -->
@@ -85,7 +88,7 @@
         }
     </script>
 </head>
-<body class="splash-active">
+<body class="splash-active theme-dark">
     <div id="devpages-splash">
         <div class="splash-content">
             <div class="splash-logo">DevPages</div>
@@ -96,14 +99,14 @@
     <nav class="top-bar top-bar-full">
         <div id="context-manager-container" class="nav-group context-selector"></div>
         <div id="view-controls-container" class="nav-group view-controls">
-            <button id="sidebar-toggle" class="top-bar-button" data-action="toggleSidebar" title="Toggle Sidebar"></button>
-            <button id="edit-toggle" class="top-bar-button" data-action="toggleEdit" title="Toggle Editor"></button>
-            <button id="preview-toggle" class="top-bar-button" data-action="togglePreview" title="Toggle Preview"></button>
-            <button id="log-toggle-btn" class="top-bar-button" data-action="toggleLogVisibility" title="Toggle Log"></button>
-            <button id="refresh-btn" class="top-bar-button" data-action="refreshPreview" title="Refresh Preview"></button>
+            <button id="sidebar-toggle" class="btn btn-ghost btn-sm" data-action="toggleSidebar" title="Toggle Sidebar"></button>
+            <button id="edit-toggle" class="btn btn-ghost btn-sm" data-action="toggleEdit" title="Toggle Editor"></button>
+            <button id="preview-toggle" class="btn btn-ghost btn-sm" data-action="togglePreview" title="Toggle Preview"></button>
+            <button id="log-toggle-btn" class="btn btn-ghost btn-sm" data-action="toggleLogVisibility" title="Toggle Log"></button>
+            <button id="refresh-btn" class="btn btn-ghost btn-sm" data-action="refreshPreview" title="Refresh Preview"></button>
         </div>
         <div class="nav-group right-group">
-            <button id="save-btn" class="top-bar-button" data-action="saveFile" title="Save File (Ctrl+S)" disabled>Save</button>
+            <button id="save-btn" class="btn btn-sm" data-action="saveFile" title="Save File (Ctrl+S)" disabled>Save</button>
             <div id="auth-component-container" class="auth-info"></div>
         </div>
     </nav>

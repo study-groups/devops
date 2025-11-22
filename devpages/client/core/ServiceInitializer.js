@@ -16,6 +16,15 @@ import devPagesDetector from '../utils/DevPagesDetector.js';
 import elementPicker from '../utils/ElementPicker.js';
 import boxModelRenderer from '../utils/BoxModelRenderer.js';
 
+// Phase 3: Source Tracker Services
+import sourceTracker from '../services/SourceTrackerService.js';
+import cssSourceParser from '../services/CSSSourceParser.js';
+import tokenTracer from '../services/TokenTracer.js';
+import sourceInferencer from '../services/SourceInferencer.js';
+import cascadeAnalyzer from '../services/CascadeAnalyzer.js';
+import editorLink from '../services/EditorLinkHandler.js';
+import sourceMetadataDecorator from '../services/SourceMetadataDecorator.js';
+
 const log = console; // Logger not available yet during initialization
 
 /**
@@ -78,6 +87,17 @@ export class ServiceInitializer {
       window.APP.utils.boxModelRenderer = boxModelRenderer;
 
       log.info('[ServiceInitializer] Registered inspector utilities');
+
+      // Register Source Tracker services
+      this.registerService('sourceTracker', sourceTracker);
+      this.registerService('cssSourceParser', cssSourceParser);
+      this.registerService('tokenTracer', tokenTracer);
+      this.registerService('sourceInferencer', sourceInferencer);
+      this.registerService('cascadeAnalyzer', cascadeAnalyzer);
+      this.registerService('editorLink', editorLink);
+      this.registerService('sourceMetadataDecorator', sourceMetadataDecorator);
+
+      log.info('[ServiceInitializer] Registered Source Tracker services');
 
       // Initialize SystemInfoAPI
       systemInfoAPI.init();

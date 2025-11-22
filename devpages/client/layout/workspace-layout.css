@@ -432,6 +432,38 @@
     max-width: 100%;
     background: var(--color-bg-alt);
     border-left: 1px solid var(--color-border);
+    height: 100%; /* Ensure full height */
+}
+
+/* Preview section - fill height */
+.preview-section {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Preview container and iframe - fill height */
+.preview-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.preview-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    flex: 1;
+}
+
+#preview-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
 }
 
 /* Hide preview when preview visibility is false */

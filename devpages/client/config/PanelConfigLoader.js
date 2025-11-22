@@ -80,15 +80,15 @@ const panelConfig = {
             content_type: 'interactive',
             data_sources: ['css_variables', 'theme_config']
         },
-        'theme-editor': {
-            title: 'Theme Editor',
-            description: 'Comprehensive theme editor with light/dark modes, palette generator, and WCAG accessibility checker',
+        'theme-management': {
+            title: 'Theme Manager',
+            description: 'Modern theme management with live preview, token editing, and export (v2.0)',
             category: 'settings',
             sidebar: true,
             floating: true,
             default_expanded: false,
             content_type: 'interactive',
-            data_sources: ['theme_config', 'css_variables', 'color_palettes']
+            data_sources: ['theme_config', 'css_variables', 'theme_service']
         },
         'log-settings': {
             title: 'Log Settings',
@@ -109,6 +109,16 @@ const panelConfig = {
             default_expanded: false,
             content_type: 'interactive',
             data_sources: ['tetra_config', 'tetra_buffer', 'session_info']
+        },
+        'preview-rendering': {
+            title: 'Preview & Rendering',
+            description: 'Control preview rendering features and plugins (Mermaid, KaTeX, SVG)',
+            category: 'settings',
+            sidebar: true,
+            floating: true,
+            default_expanded: false,
+            content_type: 'interactive',
+            data_sources: ['plugin_config', 'preview_settings']
         },
         'tetra-config': {
             title: 'TETRA Config',

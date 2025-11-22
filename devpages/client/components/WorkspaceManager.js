@@ -7,12 +7,14 @@ import { appStore } from '/client/appState.js';
 import { ZoneTopBar } from './ZoneTopBar.js';
 import { panelRegistry } from '../panels/BasePanel.js';
 import { DiagnosticPanel } from '../panels/DiagnosticPanel.js';
-import { ThemePanel } from '../panels/settings/ThemePanel.js';
+import { ThemeManagementPanel } from '../panels/ThemeManagementPanel.js';
 import { DesignTokensPanel } from '../panels/DesignTokensPanel.js';
 import { PublishPanel } from '../panels/publish/PublishPanel.js';
 import { FileBrowserPanel } from '../panels/dev/FileBrowserPanel.js';
 import { UIInspectorPanel } from '../panels/UIInspectorPanel.js';
+import { PreviewRenderingPanel } from '../panels/PreviewRenderingPanel.js';
 import { sidebarVisibilityController } from '../layout/SidebarVisibilityController.js';
+import { PreviewView } from '../views/PreviewView.js';
 
 
 class WorkspaceManager {
@@ -26,6 +28,7 @@ class WorkspaceManager {
         this.previewTopBar = null;
         this.sidebarTabs = new Map(); // Track sidebar content tabs
         this.panelsInitialized = false;
+        this.previewView = null; // Iframe-based preview view
     }
 
     initialize() {
@@ -100,10 +103,11 @@ class WorkspaceManager {
             // The registry will automatically use PanelConfigLoader for configuration
             panelRegistry.registerType('system-diagnostics', DiagnosticPanel);
             panelRegistry.registerType('design-tokens', DesignTokensPanel);
-            panelRegistry.registerType('theme-editor', ThemePanel);
+            panelRegistry.registerType('theme-management', ThemeManagementPanel);
             panelRegistry.registerType('publish-manager', PublishPanel);
             panelRegistry.registerType('file-browser', FileBrowserPanel);
             panelRegistry.registerType('ui-inspector', UIInspectorPanel);
+            panelRegistry.registerType('preview-rendering', PreviewRenderingPanel);
             
             // Register debug panels
             panelRegistry.registerType('panel-browser', DiagnosticPanel);
@@ -472,88 +476,56 @@ class WorkspaceManager {
     }
 
     createPreview(container, content, filePath) {
+        // Create wrapper structure with top bar
         container.innerHTML = `
             <div class="preview-section">
-                <div class="preview-container">
-                    <div style="color: var(--color-text-secondary); text-align: center; padding: 20px;">
-                        Rendering preview...
-                    </div>
-                </div>
             </div>
         `;
-        
+
         // Create programmable top bar
         this.previewTopBar = new ZoneTopBar(container, {
             title: '',
             showStats: true,
             showStatus: true
         });
-        
+
         // Insert top bar at the beginning
         const previewSection = container.querySelector('.preview-section');
         previewSection.insertBefore(this.previewTopBar.getElement(), previewSection.firstChild);
-        
+
         // Set initial stats and status
         this.previewTopBar
             .setStats({ 'mode': 'markdown' })
             .setStatus('loading', 'Rendering...');
-        
-        // Trigger markdown rendering
-        this.renderPreview(container, content, filePath);
+
+        // Create and mount iframe-based PreviewView
+        if (!this.previewView) {
+            this.previewView = new PreviewView();
+        }
+
+        // Mount preview view in the preview section
+        this.previewView.onMount(previewSection);
+
+        // Update top bar when preview updates
+        setTimeout(() => {
+            this.previewTopBar
+                .setStats({
+                    'mode': 'markdown',
+                    'size': content ? `${Math.round(content.length / 1024)}kb` : '0kb'
+                })
+                .setStatus('ready');
+        }, 200);
     }
 
     async renderPreview(container, content, filePath) {
-        const previewDiv = container.querySelector('.preview-container');
-        if (!previewDiv) return;
-        
-        try {
-            // Try to use the proper preview system
-            const { updatePreview } = await import('/client/preview/index.js');
-            
-            appStore.dispatch(updatePreview({ content, filePath })).then(() => {
-                console.log('[WorkspaceManager] Preview rendered successfully');
-                
-                // Update the preview container with rendered content
-                setTimeout(() => {
-                    const previewState = appStore.getState().preview;
-                    if (previewState?.htmlContent) {
-                        previewDiv.innerHTML = previewState.htmlContent;
-                        console.log('[WorkspaceManager] Preview content updated in UI');
-                        
-                        // Update preview top bar
-                        this.previewTopBar
-                            .setStats({ 
-                                'mode': 'markdown',
-                                'size': `${Math.round(previewState.htmlContent.length / 1024)}kb`
-                            })
-                            .setStatus('ready');
-                    }
-                }, 500);
-            }).catch(err => {
-                console.warn('[WorkspaceManager] Preview rendering failed, using fallback:', err.message);
-                this.previewTopBar.setStatus('error', 'Render failed');
-                this.renderFallbackPreview(previewDiv, content);
-            });
-        } catch (error) {
-            console.warn('[WorkspaceManager] Could not import preview system:', error.message);
-            this.previewTopBar.setStatus('error', 'System error');
-            this.renderFallbackPreview(previewDiv, content);
-        }
+        // Preview now updates automatically via Redux subscription in PreviewView
+        // This method kept for compatibility but does nothing
+        console.log('[WorkspaceManager] renderPreview called (handled by PreviewView)');
     }
 
     renderFallbackPreview(previewDiv, content) {
-        // Simple markdown-like rendering for immediate display
-        const simpleHtml = content
-            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-            .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
-            .replace(/\*(.*?)\*/gim, '<em>$1</em>')
-            .replace(/\n\n/gim, '</p><p>')
-            .replace(/\n/gim, '<br>');
-        
-        previewDiv.innerHTML = `<p>${simpleHtml}</p>`;
-        console.log('[WorkspaceManager] Fallback preview rendered');
+        // No longer needed - PreviewView handles all rendering
+        console.log('[WorkspaceManager] renderFallbackPreview called (deprecated)');
     }
 
     async updatePreviewFromEditor(content, filePath) {
