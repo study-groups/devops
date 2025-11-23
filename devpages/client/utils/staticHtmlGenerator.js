@@ -1,7 +1,7 @@
 import { appStore } from '/client/appState.js';
 import { logMessage } from '/client/log/index.js';
 import { cssManager, CSS_CONTEXT, generateCssSection } from '/client/utils/CssManager.js';
-import { renderMarkdown } from '/client/preview/renderer.js';
+import { markdownRenderingService } from '/client/preview/MarkdownRenderingService.js';
 
 // Helper for logging within this module
 function logStaticGen(message, level = 'debug') {
@@ -140,12 +140,20 @@ export async function generateStaticHtmlForPublish({
     
     try {
         // 1. Convert Markdown to HTML using the unified preview renderer
-        const { html: htmlContent } = await renderMarkdown(markdownSource, originalFilePath);
-        
-        if (!htmlContent) {
+        const state = appStore.getState();
+        const enabledPlugins = Object.entries(state.plugins?.plugins || {})
+            .filter(([_, plugin]) => plugin.enabled)
+            .map(([id, plugin]) => ({ id, ...plugin }));
+
+        const result = await markdownRenderingService.render(markdownSource, originalFilePath, {
+            mode: 'publish',
+            enabledPlugins
+        });
+
+        if (!result.html) {
             throw new Error('Markdown rendering returned empty content');
         }
-        logStaticGen(`Markdown rendered successfully (${htmlContent.length} chars)`);
+        logStaticGen(`Markdown rendered successfully (${result.html.length} chars)`);
         
         // 2. Determine CSS context based on publish mode
         const cssContext = publishMode === 'spaces' ? CSS_CONTEXT.PUBLISH_SPACES : CSS_CONTEXT.PUBLISH_LOCAL;
@@ -166,7 +174,7 @@ ${cssSection}
 </head>
 <body>
     <div class="markdown-content">
-${htmlContent}
+${result.html}
     </div>
 </body>
 </html>`;

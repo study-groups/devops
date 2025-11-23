@@ -7,12 +7,12 @@
 
 import { createAsyncThunk } from '/client/vendor/scripts/redux-toolkit.mjs';
 import { appStore } from '/client/appState.js';
-import { 
+import {
     renderMarkdown as renderMarkdownThunk,
     setHtmlContent,
     initializePreviewSystem as initializePreviewSystemThunk
 } from '/client/store/slices/previewSlice.js';
-import { renderMarkdown, postProcessRender } from './renderer.js';
+import { markdownRenderingService } from './MarkdownRenderingService.js';
 
 const log = window.APP.services.log.createLogger('Preview');
 
@@ -35,20 +35,34 @@ let isUpdating = false;
  */
 export const updatePreview = createAsyncThunk(
     'preview/updateContent',
-    async ({ content, filePath }, { dispatch }) => {
+    async ({ content, filePath }, { dispatch, getState }) => {
         // Prevent recursive or simultaneous updates
         if (isUpdating) return null;
-        
+
         try {
             isUpdating = true;
-            
-            const { html, frontMatter, externalScriptUrls, inlineScriptContents } = await renderMarkdown(content, filePath);
-            
-            dispatch(setHtmlContent(html));
-            
+
+            // Get enabled plugins from state
+            const state = getState();
+            const enabledPlugins = Object.entries(state.plugins?.plugins || {})
+                .filter(([_, plugin]) => plugin.enabled)
+                .map(([id, plugin]) => ({ id, ...plugin }));
+
+            const result = await markdownRenderingService.render(content, filePath, {
+                mode: 'preview',
+                enabledPlugins
+            });
+
+            dispatch(setHtmlContent(result.html));
+
             // The UI component will be responsible for post-processing
             // This thunk just provides the necessary data.
-            return { html, frontMatter, externalScriptUrls, inlineScriptContents };
+            return {
+                html: result.html,
+                frontMatter: result.frontMatter,
+                externalScriptUrls: result.scripts?.external || [],
+                inlineScriptContents: result.scripts?.inline || []
+            };
         } catch (error) {
             log.error('PREVIEW', 'UPDATE_ERROR', `Failed to update preview: ${error.message}`, error);
             throw error;
@@ -77,7 +91,7 @@ export function updatePreviewContent(content, filePath) {
 }
 
 // Export additional components for advanced use if necessary
-export { renderMarkdown, postProcessRender };
+export { markdownRenderingService };
 export { registerPlugin } from './plugins/index.js';
 
 // Re-export thunks from previewSlice for modular access

@@ -16,8 +16,8 @@
     font-weight: var(--font-weight-semibold, 600);
     margin-top: var(--spacing-lg, 24px);
     margin-bottom: var(--spacing-md, 16px);
-    color: var(--color-text-emphasis, #1a1a1a);
-    border-bottom: 1px solid var(--color-border-subtle, #e5e5e5);
+    color: var(--color-text, var(--color-text-emphasis));
+    border-bottom: 1px solid var(--color-border, var(--color-border-subtle));
     padding-bottom: var(--spacing-xs, 8px);
 }
 
@@ -41,16 +41,16 @@
     align-items: center;
     gap: var(--spacing-sm, 12px);
     padding: var(--spacing-sm, 12px);
-    background: var(--color-background-subtle, #f9f9f9);
-    border: 1px solid var(--color-border-default, #d5d5d5);
+    background: var(--color-bg-alt, var(--color-background-subtle));
+    border: 1px solid var(--color-border, var(--color-border-default));
     border-radius: var(--radius-md, 6px);
     cursor: pointer;
     transition: all 0.2s ease;
 }
 
 .plugin-toggle:hover {
-    background: var(--color-background-hover, #f0f0f0);
-    border-color: var(--color-border-emphasis, #999);
+    background: var(--color-bg-hover, var(--color-background-hover));
+    border-color: var(--color-border-emphasis, var(--color-border-emphasis));
 }
 
 .plugin-toggle input[type="checkbox"] {
@@ -66,14 +66,14 @@
 
 .plugin-label {
     font-weight: var(--font-weight-medium, 500);
-    color: var(--color-text-default, #333);
+    color: var(--color-text, var(--color-text-default));
     flex: 1;
 }
 
 /* Plugin Settings Sections */
 .plugin-settings {
-    background: var(--color-background-subtle, #f9f9f9);
-    border: 1px solid var(--color-border-default, #d5d5d5);
+    background: var(--color-bg-alt, var(--color-background-subtle));
+    border: 1px solid var(--color-border, var(--color-border-default));
     border-radius: var(--radius-md, 6px);
     padding: var(--spacing-md, 16px);
     margin-bottom: var(--spacing-md, 16px);
@@ -92,7 +92,7 @@
     display: block;
     font-weight: var(--font-weight-medium, 500);
     font-size: var(--font-size-sm, 14px);
-    color: var(--color-text-emphasis, #1a1a1a);
+    color: var(--color-text, var(--color-text-emphasis));
     margin-bottom: var(--spacing-xs, 8px);
 }
 
@@ -101,7 +101,7 @@
     align-items: center;
     gap: var(--spacing-xs, 8px);
     font-weight: var(--font-weight-normal, 400);
-    color: var(--color-text-default, #333);
+    color: var(--color-text, var(--color-text-default));
     cursor: pointer;
 }
 
@@ -115,7 +115,7 @@
     display: block;
     margin-top: var(--spacing-xs, 8px);
     margin-left: calc(16px + var(--spacing-xs, 8px));
-    color: var(--color-text-subtle, #666);
+    color: var(--color-text-muted, var(--color-text-subtle));
     font-size: var(--font-size-xs, 12px);
     line-height: 1.4;
 }
@@ -124,10 +124,10 @@
 .setting-select {
     width: 100%;
     padding: var(--spacing-xs, 8px);
-    border: 1px solid var(--color-border-default, #d5d5d5);
+    border: 1px solid var(--color-border, var(--color-border-default));
     border-radius: var(--radius-sm, 4px);
-    background: var(--color-background-default, #fff);
-    color: var(--color-text-default, #333);
+    background: var(--color-bg, var(--color-background-default));
+    color: var(--color-text, var(--color-text-default));
     font-size: var(--font-size-sm, 14px);
     cursor: pointer;
 }
@@ -142,10 +142,10 @@
 .setting-input,
 .size-input {
     padding: var(--spacing-xs, 8px);
-    border: 1px solid var(--color-border-default, #d5d5d5);
+    border: 1px solid var(--color-border, var(--color-border-default));
     border-radius: var(--radius-sm, 4px);
-    background: var(--color-background-default, #fff);
-    color: var(--color-text-default, #333);
+    background: var(--color-bg, var(--color-background-default));
+    color: var(--color-text, var(--color-text-default));
     font-size: var(--font-size-sm, 14px);
 }
 
@@ -174,7 +174,7 @@
 /* Actions Section */
 .preview-rendering-actions {
     padding-top: var(--spacing-md, 16px);
-    border-top: 1px solid var(--color-border-default, #d5d5d5);
+    border-top: 1px solid var(--color-border, var(--color-border-default));
 }
 
 .action-buttons {
@@ -207,75 +207,17 @@
 
 .preview-rendering-panel .btn-ghost {
     background: transparent;
-    color: var(--color-text-default, #333);
-    border-color: var(--color-border-default, #d5d5d5);
+    color: var(--color-text, var(--color-text-default));
+    border-color: var(--color-border, var(--color-border-default));
 }
 
 .preview-rendering-panel .btn-ghost:hover {
-    background: var(--color-background-hover, #f0f0f0);
-    border-color: var(--color-border-emphasis, #999);
+    background: var(--color-bg-hover, var(--color-background-hover));
+    border-color: var(--color-border-emphasis, var(--color-border-emphasis));
 }
 
-/* Dark Mode Support */
-@media (prefers-color-scheme: dark) {
-    .preview-rendering-panel .section-title {
-        color: var(--color-text-emphasis-dark, #e5e5e5);
-        border-bottom-color: var(--color-border-subtle-dark, #444);
-    }
-
-    .plugin-toggle {
-        background: var(--color-background-subtle-dark, #2a2a2a);
-        border-color: var(--color-border-default-dark, #444);
-    }
-
-    .plugin-toggle:hover {
-        background: var(--color-background-hover-dark, #333);
-        border-color: var(--color-border-emphasis-dark, #666);
-    }
-
-    .plugin-label {
-        color: var(--color-text-default-dark, #e5e5e5);
-    }
-
-    .plugin-settings {
-        background: var(--color-background-subtle-dark, #2a2a2a);
-        border-color: var(--color-border-default-dark, #444);
-    }
-
-    .setting-label {
-        color: var(--color-text-emphasis-dark, #e5e5e5);
-    }
-
-    .setting-checkbox {
-        color: var(--color-text-default-dark, #e5e5e5);
-    }
-
-    .setting-help {
-        color: var(--color-text-subtle-dark, #999);
-    }
-
-    .setting-select,
-    .setting-input,
-    .size-input {
-        background: var(--color-background-default-dark, #1a1a1a);
-        border-color: var(--color-border-default-dark, #444);
-        color: var(--color-text-default-dark, #e5e5e5);
-    }
-
-    .preview-rendering-actions {
-        border-top-color: var(--color-border-default-dark, #444);
-    }
-
-    .preview-rendering-panel .btn-ghost {
-        color: var(--color-text-default-dark, #e5e5e5);
-        border-color: var(--color-border-default-dark, #444);
-    }
-
-    .preview-rendering-panel .btn-ghost:hover {
-        background: var(--color-background-hover-dark, #333);
-        border-color: var(--color-border-emphasis-dark, #666);
-    }
-}
+/* Dark Mode Support - Handled by theme CSS variables */
+/* The theme system automatically updates --color-bg, --color-text, etc. based on active theme */
 
 /* Responsive adjustments */
 @media (max-width: 500px) {

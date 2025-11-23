@@ -47,10 +47,10 @@ const initialState = {
                 sanitize: true,
                 maxSize: 2
             },
-            isLoaded: false
+            isLoaded: true  // SVG is built-in, no library to load
         },
         graphviz: {
-            enabled: true,
+            enabled: false,  // Disabled by default - viz.js library needs to be installed
             settings: {},
             isLoaded: false
         }

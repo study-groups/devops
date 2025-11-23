@@ -15,6 +15,7 @@ import { UIInspectorPanel } from '../panels/UIInspectorPanel.js';
 import { PreviewRenderingPanel } from '../panels/PreviewRenderingPanel.js';
 import { sidebarVisibilityController } from '../layout/SidebarVisibilityController.js';
 import { PreviewView } from '../views/PreviewView.js';
+import { detectFileType } from '../utils/fileTypeDetector.js';
 
 
 class WorkspaceManager {
@@ -451,11 +452,14 @@ class WorkspaceManager {
         const editorSection = container.querySelector('.editor-section');
         editorSection.insertBefore(this.editorTopBar.getElement(), editorSection.firstChild);
         
-        // Set initial stats
+        // Detect file type
+        const fileType = detectFileType(fileName);
+
+        // Set initial stats with file type (no emoji, type first on left)
         this.editorTopBar.setStats({
+            'type': fileType.label,
             'chars': content.length,
-            'lines': content.split('\n').length,
-            'file': fileName
+            'lines': content.split('\n').length
         });
         
         // Set up editor functionality
@@ -493,18 +497,31 @@ class WorkspaceManager {
         const previewSection = container.querySelector('.preview-section');
         previewSection.insertBefore(this.previewTopBar.getElement(), previewSection.firstChild);
 
-        // Set initial stats and status
-        this.previewTopBar
-            .setStats({ 'mode': 'markdown' })
-            .setStatus('loading', 'Rendering...');
-
-        // Create and mount iframe-based PreviewView
+        // Create and mount iframe-based PreviewView FIRST
         if (!this.previewView) {
             this.previewView = new PreviewView();
         }
 
         // Mount preview view in the preview section
         this.previewView.onMount(previewSection);
+
+        // Set initial stats and status
+        this.previewTopBar
+            .setStats({ 'mode': 'markdown' })
+            .setStatus('loading', 'Rendering...');
+
+        // Add refresh button to preview top bar (after previewView is created)
+        this.previewTopBar.addAction({
+            id: 'refresh-preview',
+            label: '↻',
+            title: 'Refresh Preview',
+            className: 'refresh-btn',
+            onClick: () => {
+                if (this.previewView) {
+                    this.previewView.forceRefresh();
+                }
+            }
+        });
 
         // Update top bar when preview updates
         setTimeout(() => {

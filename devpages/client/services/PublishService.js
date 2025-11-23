@@ -5,7 +5,7 @@
 
 import { workspaceManager } from '../components/WorkspaceManager.js';
 import { appStore } from '/client/appState.js';
-import { renderMarkdown } from '/client/preview/renderer.js';
+import { markdownRenderingService } from '/client/preview/MarkdownRenderingService.js';
 import { getPanelLayoutState } from '/client/store/enhancedSelectors.js';
 import { selectActiveConfigurationDecrypted } from '/client/store/slices/publishConfigSlice.js';
 import { CSSManager } from '/client/preview/CSSManager.js';
@@ -29,21 +29,29 @@ class PublishService {
 
     console.log('[PublishService] generateDocumentHtml called:', { mode, filePath, hasOptions: !!options });
 
+    // Get enabled plugins from state
+    const state = appStore.getState();
+    const enabledPlugins = Object.entries(state.plugins?.plugins || {})
+        .filter(([_, plugin]) => plugin.enabled)
+        .map(([id, plugin]) => ({ id, ...plugin }));
+
     // Render markdown and extract frontmatter
-    const renderResult = await renderMarkdown(markdownContent, filePath);
+    const renderResult = await markdownRenderingService.render(markdownContent, filePath, {
+        mode,
+        enabledPlugins
+    });
     console.log('[PublishService] renderMarkdown result:', {
       hasHtml: !!renderResult.html,
       htmlLength: renderResult.html?.length,
       hasFrontMatter: !!renderResult.frontMatter
     });
 
-    // renderMarkdown returns an object with { html, head, frontMatter, ... }
+    // renderMarkdown returns an object with { html, frontMatter, scripts, styles, ... }
     const htmlContent = renderResult.html || '';
     const frontMatter = renderResult.frontMatter || {};
     console.log('[PublishService] Extracted htmlContent length:', htmlContent.length);
 
     // Get publish configuration (optional for preview)
-    const state = appStore.getState();
     const activeConfig = options.config || selectActiveConfigurationDecrypted(state);
 
     // Collect CSS sources in order of precedence
@@ -394,6 +402,105 @@ ${isPreview ? '' : `
     <footer style="margin-top: 3em; padding-top: 1em; border-top: 1px solid #eee; text-align: center; color: #666; font-size: 0.9em;">
         Published with DevPages
     </footer>`}
+${isPreview ? `
+    <script>
+      // Wait for all async plugins (Mermaid, KaTeX, Graphviz, etc.) to finish rendering
+      // then notify parent that preview is ready
+      (function() {
+        function notifyReady() {
+          window.parent.postMessage('preview-ready', '*');
+        }
+
+        // Track which plugins need to finish
+        const pluginChecks = [];
+
+        // Check for Mermaid diagrams
+        const mermaidElements = document.querySelectorAll('.mermaid');
+        if (mermaidElements.length > 0) {
+          pluginChecks.push(() => {
+            // Wait for Mermaid library to load AND render
+            if (!window.mermaid) return false;
+
+            // Check if all mermaid elements have SVG children with content
+            return Array.from(mermaidElements).every(el => {
+              const svg = el.querySelector('svg');
+              if (!svg) return false;
+
+              // Ensure SVG has actual content (not empty)
+              const hasElements = svg.children.length > 0;
+
+              // Check if SVG has rendered dimensions
+              try {
+                const bbox = svg.getBBox();
+                return hasElements && bbox.width > 0 && bbox.height > 0;
+              } catch (e) {
+                // getBBox can fail if SVG isn't ready
+                return false;
+              }
+            });
+          });
+        }
+
+        // Check for KaTeX math (waits for fonts/layout)
+        const katexElements = document.querySelectorAll('.katex');
+        if (katexElements.length > 0) {
+          pluginChecks.push(() => {
+            // KaTeX is sync but fonts may load async
+            // Check if any katex elements have zero dimensions (not rendered yet)
+            return Array.from(katexElements).every(el => el.offsetHeight > 0);
+          });
+        }
+
+        // Check for Graphviz diagrams
+        const graphvizElements = document.querySelectorAll('.graphviz, [data-graphviz]');
+        if (graphvizElements.length > 0) {
+          pluginChecks.push(() => {
+            // Check if SVG has been inserted
+            return Array.from(graphvizElements).every(el => el.querySelector('svg'));
+          });
+        }
+
+        // Generic check: wait for all images to load
+        const images = document.querySelectorAll('img');
+        if (images.length > 0) {
+          let imagesLoaded = 0;
+          const totalImages = images.length;
+
+          pluginChecks.push(() => imagesLoaded >= totalImages);
+
+          images.forEach(img => {
+            if (img.complete) {
+              imagesLoaded++;
+            } else {
+              img.addEventListener('load', () => imagesLoaded++);
+              img.addEventListener('error', () => imagesLoaded++);
+            }
+          });
+        }
+
+        // If no async content detected, still wait a bit for DOM to settle
+        if (pluginChecks.length === 0) {
+          setTimeout(notifyReady, 100);
+          return;
+        }
+
+        // Poll all checks until complete
+        let pollCount = 0;
+        const maxPolls = 40; // 40 * 50ms = 2 seconds max
+
+        const checkAll = setInterval(() => {
+          pollCount++;
+
+          const allReady = pluginChecks.every(check => check());
+
+          if (allReady || pollCount >= maxPolls) {
+            clearInterval(checkAll);
+            // Extra delay to ensure layout is completely stable after plugins render
+            setTimeout(notifyReady, 150);
+          }
+        }, 50);
+      })();
+    </script>` : ''}
 </body>
 </html>`;
 

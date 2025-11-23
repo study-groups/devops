@@ -45,16 +45,22 @@
   width: 100%;
   height: 100%;
   border: none;
-  background-color: #ffffff;
+  background-color: var(--color-bg, #ffffff);
   display: block;
 
-  /* Smooth loading transition */
+  /* Smooth loading transition - prevent flash and layout shift */
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s ease-in-out;
 }
 
-.preview-iframe[srcdoc]:not([srcdoc=""]) {
+/* Ready state - show when content is fully rendered (including Mermaid) */
+.preview-iframe.ready {
   opacity: 1;
+}
+
+/* Loading state - keep hidden during refresh */
+.preview-iframe.loading {
+  opacity: 0;
 }
 
 

@@ -40,16 +40,6 @@ const panelConfig = {
             content_type: 'tree',
             data_sources: ['file_system']
         },
-        'inspector-utilities': {
-            title: 'Inspector Utilities',
-            description: 'Element inspection tools (picker, box model, design tokens)',
-            category: 'dev',
-            sidebar: true,
-            floating: true,
-            default_expanded: false,
-            content_type: 'interactive',
-            data_sources: ['dom_elements', 'css_properties']
-        },
         'dom-inspector': {
             title: 'DOM Inspector',
             description: 'Full DOM tree explorer with element details and CSS inspection',
@@ -60,15 +50,15 @@ const panelConfig = {
             content_type: 'interactive',
             data_sources: ['dom_tree', 'css_properties', 'computed_styles']
         },
-        'css-inspector': {
-            title: 'CSS Inspector',
-            description: 'Focused CSS styles, rules, and layout inspection',
+        'css-debug': {
+            title: 'CSS Debug',
+            description: 'Advanced CSS debugging: z-index visualization, stacking contexts, stylesheet analysis, and DOM CSS knowledge',
             category: 'dev',
             sidebar: true,
             floating: true,
             default_expanded: false,
             content_type: 'interactive',
-            data_sources: ['css_properties', 'computed_styles', 'css_rules', 'css_variables']
+            data_sources: ['css_properties', 'computed_styles', 'css_rules', 'css_variables', 'stylesheets', 'stacking_contexts']
         },
         'design-tokens': {
             title: 'Design Tokens',
@@ -90,25 +80,39 @@ const panelConfig = {
             content_type: 'interactive',
             data_sources: ['theme_config', 'css_variables', 'theme_service']
         },
-        'log-settings': {
-            title: 'Log Settings',
-            description: 'Configure logging system and console output',
-            category: 'settings',
-            sidebar: true,
-            floating: true,
-            default_expanded: false,
-            content_type: 'form',
-            data_sources: ['log_config', 'console_state']
-        },
-        'tetra-settings': {
-            title: 'Tetra Analytics',
-            description: 'Control analytics tracking and view session statistics',
+        'debug-logging': {
+            title: 'Debug & Logging',
+            description: 'Unified TETRA analytics + app logging control (replaces Log Settings + Tetra Analytics)',
             category: 'settings',
             sidebar: true,
             floating: true,
             default_expanded: false,
             content_type: 'interactive',
-            data_sources: ['tetra_config', 'tetra_buffer', 'session_info']
+            data_sources: ['tetra_config', 'tetra_buffer', 'session_info', 'log_config', 'console_state']
+        },
+        'log-settings': {
+            title: 'Log Settings (DEPRECATED)',
+            description: '⚠️ DEPRECATED: Use Debug & Logging panel instead',
+            category: 'settings',
+            sidebar: true,
+            floating: true,
+            default_expanded: false,
+            content_type: 'form',
+            data_sources: ['log_config', 'console_state'],
+            deprecated: true,
+            replacement: 'debug-logging'
+        },
+        'tetra-settings': {
+            title: 'Tetra Analytics (DEPRECATED)',
+            description: '⚠️ DEPRECATED: Use Debug & Logging panel instead',
+            category: 'settings',
+            sidebar: true,
+            floating: true,
+            default_expanded: false,
+            content_type: 'interactive',
+            data_sources: ['tetra_config', 'tetra_buffer', 'session_info'],
+            deprecated: true,
+            replacement: 'debug-logging'
         },
         'preview-rendering': {
             title: 'Preview & Rendering',
