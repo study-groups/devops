@@ -1,359 +1,424 @@
 #!/usr/bin/env bash
+# tkm.sh - Tetra Key Manager
+#
+# Manages SSH keys in ~/.ssh/<org>/ and ~/.ssh/config
+# SSH config matches by HostName, not Host aliases
+#
+# Structure:
+#   ~/.ssh/<org>/dev_root      - root key for dev
+#   ~/.ssh/<org>/dev_dev       - dev user key for dev
+#   ~/.ssh/config              - IdentityFile entries per hostname
+#
+# Usage:
+#   ssh root@dev.example.com   - SSH picks right key automatically
+#   ssh dev@dev.example.com    - SSH picks right key automatically
 
-# Tetra Key Manager (TKM) - Main entry point
-# Manages SSH keys for tetra deployment network
+TKM_SRC="${TETRA_SRC}/bash/tkm"
+ORG_SRC="${TETRA_SRC}/bash/org"
 
-# TKM Directory Convention under TETRA_DIR
-# Following standard pattern: TETRA_DIR/tkm/{keys,config,logs,runs,temp,history}
-TKM_DIR="${TETRA_DIR}/tkm"
-TKM_KEYS_DIR="${TKM_DIR}/keys"
-TKM_CONFIG_DIR="${TKM_DIR}/config"
-TKM_LOGS_DIR="${TKM_DIR}/logs"
-TKM_RUNS_DIR="${TKM_DIR}/runs"
-TKM_TEMP_DIR="${TKM_DIR}/temp"
+# Source org module
+source "$ORG_SRC/org.sh"
 
-# Organization configuration
-TKM_ORGS_DIR="${TKM_DIR}/organizations"
-TKM_CURRENT_ORG_FILE="${TKM_DIR}/.current_org"
+# Source tkm modules
+source "$TKM_SRC/tkm_keys.sh"
+source "$TKM_SRC/tkm_config.sh"
+source "$TKM_SRC/tkm_remote.sh"
+source "$TKM_SRC/tkm_complete.sh"
 
-# TKM Module Source Directory
-TKM_SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# =============================================================================
+# PATHS
+# =============================================================================
 
-# Backward compatibility (deprecated)
-TKM_BASE_DIR="${TKM_DIR}"
+# Org name for directory
+tkm_org_name() {
+    local org=$(org_active 2>/dev/null)
+    [[ "$org" == "none" || -z "$org" ]] && return 1
+    echo "$org"
+}
 
-# Explicitly define TKM modules to source
-TKM_MODULES=(
-    "$TKM_SRC_DIR/tkm_utils.sh"
-    "$TKM_SRC_DIR/tkm_core.sh"
-    "$TKM_SRC_DIR/tkm_security.sh"
-    "$TKM_SRC_DIR/tkm_organizations.sh"
-    "$TKM_SRC_DIR/tkm_status.sh"
-    "$TKM_SRC_DIR/tkm_ssh_inspector.sh"
-    "$TKM_SRC_DIR/tkm_deploy.sh"
-    "$TKM_SRC_DIR/tkm_repl.sh"
-)
+# Keys directory: ~/.ssh/<org>/
+tkm_keys_dir() {
+    local org=$(tkm_org_name) || return 1
+    echo "$HOME/.ssh/$org"
+}
 
-# Controlled module sourcing
-tkm_source_modules() {
-    local verbose="${1:-false}"
-    
-    for module in "${TKM_MODULES[@]}"; do
-        if [[ -f "$module" ]]; then
-            source "$module"
-            [[ "$verbose" == "true" ]] && echo "✓ Sourced: $(basename "$module")"
+# Key path: ~/.ssh/<org>/<env>_<user>
+tkm_key_path() {
+    local env="$1"
+    local user="$2"
+    local dir=$(tkm_keys_dir) || return 1
+    echo "$dir/${env}_${user}"
+}
+
+# App user name for environment (from tetra.toml ssh_work_user, fallback to env name)
+tkm_app_user() {
+    local env="$1"
+    local work_user=$(_tkm_get_work_user "$env")
+    [[ -n "$work_user" ]] && echo "$work_user" || echo "$env"
+}
+
+# Expected keys for an environment
+tkm_expected_keys() {
+    local env="$1"
+    local app_user=$(tkm_app_user "$env")
+    echo "${env}_root"
+    echo "${env}_${app_user}"
+}
+
+# =============================================================================
+# DOCTOR
+# =============================================================================
+
+tkm_doctor() {
+    local org=$(tkm_org_name 2>/dev/null)
+
+    echo "TKM Doctor"
+    echo "=========="
+    echo ""
+
+    # 1. Org check
+    echo "Organization"
+    echo "------------"
+    if [[ -z "$org" ]]; then
+        echo "  [X] No active org"
+        echo "      Fix: org switch <name>"
+        return 1
+    fi
+    echo "  [OK] $org"
+    echo "  Keys: ~/.ssh/$org/"
+    echo ""
+
+    # 2. Environments
+    echo "Environments (from tetra.toml)"
+    echo "------------------------------"
+    local envs=$(org_env_names 2>/dev/null)
+    if [[ -z "$envs" ]]; then
+        echo "  [X] No environments"
+        return 1
+    fi
+
+    for env in $envs; do
+        [[ "$env" == "local" ]] && continue
+        local host=$(_tkm_get_host "$env")
+        if [[ -n "$host" ]]; then
+            echo "  $env: $host"
         else
-            echo "⚠ Module not found: $(basename "$module")" >&2
+            echo "  $env: [!] no host configured"
         fi
+    done
+    echo ""
+
+    # 3. Keys
+    echo "Keys (~/.ssh/$org/)"
+    echo "-------------------"
+    local keys_dir=$(tkm_keys_dir)
+    local missing=0
+    local found=0
+
+    if [[ ! -d "$keys_dir" ]]; then
+        echo "  [!] Directory doesn't exist"
+        echo "      Fix: tkm init"
+        missing=99
+    else
+        for env in $envs; do
+            [[ "$env" == "local" ]] && continue
+            for key in $(tkm_expected_keys "$env"); do
+                if [[ -f "$keys_dir/$key" ]]; then
+                    echo "  [OK] $key"
+                    ((found++))
+                else
+                    echo "  [--] $key"
+                    ((missing++))
+                fi
+            done
+        done
+    fi
+    echo ""
+
+    # 4. SSH Config
+    echo "SSH Config (~/.ssh/config)"
+    echo "--------------------------"
+    local missing_hosts=0
+
+    for env in $envs; do
+        [[ "$env" == "local" ]] && continue
+        local host=$(_tkm_get_host "$env")
+        [[ -z "$host" ]] && continue
+
+        if grep -q "^Host $host\$" ~/.ssh/config 2>/dev/null; then
+            echo "  [OK] $host"
+        else
+            echo "  [--] $host"
+            ((missing_hosts++))
+        fi
+    done
+    echo ""
+
+    # 5. Summary
+    echo "Summary"
+    echo "-------"
+    echo "  Keys: $found found, $missing missing"
+    echo "  Hosts: $missing_hosts missing in SSH config"
+    echo ""
+
+    if [[ $missing -gt 0 || $missing_hosts -gt 0 ]]; then
+        echo "Recommendations"
+        echo "---------------"
+        [[ $missing -gt 0 ]] && echo "  tkm gen all"
+        [[ $missing_hosts -gt 0 ]] && echo "  tkm config gen"
+    else
+        echo "Ready! Test with: tkm test"
+    fi
+}
+
+# =============================================================================
+# STATUS
+# =============================================================================
+
+tkm_status() {
+    local org=$(tkm_org_name 2>/dev/null)
+
+    echo "TKM Status"
+    echo "=========="
+    echo ""
+
+    if [[ -z "$org" ]]; then
+        echo "Org: (none)"
+        echo "Run: org switch <name>"
+        return 1
+    fi
+
+    echo "Org: $org"
+    echo "Keys: ~/.ssh/$org/"
+    echo ""
+
+    local keys_dir=$(tkm_keys_dir)
+    if [[ ! -d "$keys_dir" ]]; then
+        echo "No keys directory. Run: tkm init"
+        return 0
+    fi
+
+    echo "Keys:"
+    for key in "$keys_dir"/*; do
+        [[ -f "$key" && ! "$key" == *.pub && ! "$key" == *.revoked.* ]] || continue
+        local name=$(basename "$key")
+        local fp=$(ssh-keygen -l -f "${key}.pub" 2>/dev/null | awk '{print $2}')
+        printf "  %-20s %s\n" "$name" "${fp:0:25}"
     done
 }
 
-# Initialize TKM environment with enhanced logging and validation
+tkm_list() {
+    local keys_dir=$(tkm_keys_dir) || { echo "No active org"; return 1; }
+    [[ ! -d "$keys_dir" ]] && return 0
+
+    for key in "$keys_dir"/*; do
+        [[ -f "$key" && ! "$key" == *.pub && ! "$key" == *.revoked.* ]] || continue
+        basename "$key"
+    done
+}
+
+# =============================================================================
+# INIT
+# =============================================================================
+
 tkm_init() {
-    # Validate TETRA_DIR first
-    if [[ -z "$TETRA_DIR" ]]; then
-        echo "❌ Error: TETRA_DIR environment variable not set" >&2
-        return 1
-    fi
-    
-    if [[ ! -d "$TETRA_DIR" ]]; then
-        echo "❌ Error: TETRA_DIR directory does not exist: $TETRA_DIR" >&2
-        return 1
-    fi
-    
-    # Create TKM directory structure with comprehensive error handling
-    local required_dirs=(
-        "$TKM_KEYS_DIR/active"
-        "$TKM_KEYS_DIR/archived"
-        "$TKM_KEYS_DIR/pending"
-        "$TKM_CONFIG_DIR"
-        "$TKM_LOGS_DIR"
-        "$TKM_RUNS_DIR"
-        "$TKM_TEMP_DIR"
-        "$TKM_ORGS_DIR"
-    )
-    
-    local failed_dirs=()
-    for dir in "${required_dirs[@]}"; do
-        if ! mkdir -p "$dir"; then
-            failed_dirs+=("$dir")
-        fi
-    done
-    
-    if [[ ${#failed_dirs[@]} -gt 0 ]]; then
-        echo "❌ Failed to create directories:" >&2
-        printf '%s\n' "${failed_dirs[@]}" >&2
-        return 1
-    fi
-    
-    # Source modules during initialization
-    tkm_source_modules
-    
-    # Rest of the initialization logic remains similar to original...
-    local env_config="$TKM_CONFIG_DIR/environments.conf"
-    local tkm_config="$TKM_CONFIG_DIR/tkm.conf"
-    
-    # Configuration file creation logic remains the same...
-    
-    tkm_log "TKM initialized successfully at $TKM_BASE_DIR" "INFO"
-    
-    echo "✅ TKM initialized at $TKM_BASE_DIR"
-    echo "Directory structure:"
-    printf "  %s\n" "${required_dirs[@]#$TKM_BASE_DIR/}"
-    echo
-    echo "Next steps:"
-    echo "  • Run 'tkm repl' to start interactive mode"
-    echo "  • Run 'tkm info' to verify installation"
-    echo "  • Create organization: 'org add <n> <description>'"
+    local org=$(tkm_org_name) || { echo "No active org"; return 1; }
+    local keys_dir="$HOME/.ssh/$org"
+
+    mkdir -p "$keys_dir"
+    chmod 700 "$keys_dir"
+
+    echo "Initialized: $keys_dir"
+    echo ""
+    echo "Next: tkm gen all"
 }
 
-# Show TKM help
-_tkm_show_help() {
-    cat <<'EOF'
-TKM (Tetra Key Manager) - SSH key management for tetra deployments
+# =============================================================================
+# TEST
+# =============================================================================
 
-Usage: tkm <command> [args...]
+tkm_test() {
+    local target="${1:-all}"
 
-Commands:
-  init                     Initialize TKM environment
-  repl                     Start interactive REPL mode
-  
-Key Management:
-  generate <env|all>       Generate SSH keys for environment(s)
-  deploy <env|all>         Deploy keys to remote environment(s)
-  rotate <env>             Rotate keys for environment
-  revoke <env>             Revoke keys for environment
-  status [env]             Show key status
-  
-Organization Management:
-  org add <nh> <do> [user] [host]  Create new organization
-  org list                         List all organizations
-  org set <name>                   Set current organization
-  org current                      Show current organization
-  
-Environment Management:
-  envs                     Show environments for current org
-  info                     Show system information
-  
-Examples:
-  tkm org add pj pixeljam_arcade devops pj.example.com
-  tkm org set pj
-  tkm generate all
-  tkm deploy all
-  tkm status
-  tkm repl                 # Start interactive mode
+    echo "Testing SSH connectivity..."
+    echo ""
 
-Use 'tkm repl' for interactive mode with tab completion and history.
+    local envs
+    if [[ "$target" == "all" ]]; then
+        envs=$(org_env_names 2>/dev/null)
+    else
+        envs="$target"
+    fi
+
+    local pass=0
+    local fail=0
+
+    for env in $envs; do
+        [[ "$env" == "local" ]] && continue
+
+        local host=$(_tkm_get_host "$env")
+        [[ -z "$host" ]] && continue
+
+        local user=$(_tkm_get_auth_user "$env")
+        [[ -z "$user" ]] && user="root"
+
+        echo -n "  $user@$host: "
+        if ssh -o BatchMode=yes -o ConnectTimeout=5 "$user@$host" echo ok 2>/dev/null; then
+            ((pass++))
+        else
+            echo "FAILED"
+            ((fail++))
+        fi
+    done
+
+    echo ""
+    echo "Results: $pass passed, $fail failed"
+}
+
+# =============================================================================
+# HELPERS (use org's unified functions)
+# =============================================================================
+
+# Aliases to org helpers for consistency
+_tkm_get_host() { _org_get_host "$1"; }
+_tkm_get_auth_user() { _org_get_user "$1"; }
+_tkm_get_work_user() { _org_get_work_user "$1"; }
+
+# =============================================================================
+# FINGERPRINT
+# =============================================================================
+
+tkm_fingerprint() {
+    local target="${1:-}"
+
+    if [[ -z "$target" ]]; then
+        echo "Usage: tkm fingerprint <keyname|all>"
+        echo ""
+        echo "Show fingerprints for local keys"
+        return 1
+    fi
+
+    local keys_dir=$(tkm_keys_dir) || { echo "No active org"; return 1; }
+    [[ ! -d "$keys_dir" ]] && { echo "No keys directory"; return 1; }
+
+    if [[ "$target" == "all" ]]; then
+        echo "Fingerprints (~/.ssh/$(tkm_org_name)/)"
+        echo "================================"
+        echo ""
+        for key in "$keys_dir"/*; do
+            [[ -f "$key" && ! "$key" == *.pub && ! "$key" == *.revoked.* ]] || continue
+            local name=$(basename "$key")
+            local pub="${key}.pub"
+            if [[ -f "$pub" ]]; then
+                local fp=$(ssh-keygen -l -f "$pub" 2>/dev/null | awk '{print $2}')
+                printf "%-20s %s\n" "$name" "$fp"
+            fi
+        done
+    else
+        local keypath="$keys_dir/$target"
+        local pub="${keypath}.pub"
+
+        # Try with .pub if not found
+        [[ ! -f "$pub" && -f "$keypath" && "$keypath" == *.pub ]] && pub="$keypath"
+
+        if [[ ! -f "$pub" ]]; then
+            echo "Key not found: $target"
+            return 1
+        fi
+
+        ssh-keygen -l -f "$pub"
+    fi
+}
+
+# =============================================================================
+# HELP
+# =============================================================================
+
+tkm_help() {
+    cat << 'EOF'
+tkm - Tetra Key Manager
+
+USAGE
+    tkm [command] [args]
+
+COMMANDS
+    status, s           Show keys for current org
+    doctor              Audit setup
+    list, ls            List key names
+    init                Create ~/.ssh/<org>/ directory
+    test [env|all]      Test SSH connectivity
+
+KEY OPERATIONS
+    gen <env|all>       Generate keys + update SSH config
+    deploy <env|all>    Push public keys to servers
+    revoke <env>        Archive keys, remove SSH config
+    rotate <env>        Revoke + gen + deploy
+    fingerprint <key>   Show fingerprint for a key (or 'all')
+
+CONFIG
+    config              Show SSH config for current org
+    config gen          Generate SSH config entries
+    config edit         Edit ~/.ssh/config
+
+REMOTE KEYS
+    remote list <env> [user]        List keys on remote server
+    remote audit <env> [user]       Audit remote vs local keys
+    remote add <env> <user> <key>   Add key to remote
+    remote rm <env> <user> <sel>    Remove key (by index/fp/pattern)
+    remote clean <env> <user> <pat> Remove all keys matching pattern
+
+STRUCTURE
+    ~/.ssh/<org>/           Keys directory per org
+    ~/.ssh/<org>/dev_root   Root key for dev env
+    ~/.ssh/<org>/dev_dev    App user key for dev env
+    ~/.ssh/config           IdentityFile per hostname
+
+USAGE AFTER SETUP
+    ssh root@dev.example.com    # SSH auto-selects key
+    ssh dev@dev.example.com     # SSH auto-selects key
+    org ssh dev                 # Same as above
+
+WORKFLOW
+    org switch myorg
+    tkm init
+    tkm gen all
+    tkm deploy all      # Push keys to servers (needs initial access)
+    tkm test
 EOF
 }
 
-# Main TKM function dispatcher with more robust error handling
+# =============================================================================
+# MAIN
+# =============================================================================
+
 tkm() {
-    local action="${1:-help}"
-    shift || true
-    
-    # More robust module sourcing with error tracking
-    local module_errors=0
-    for module in "${TKM_MODULES[@]}"; do
-        if [[ -f "$module" ]]; then
-            source "$module" || ((module_errors++))
-        else
-            echo "⚠ Module not found: $(basename "$module")" >&2
-            ((module_errors++))
-        fi
-    done
-    
-    if [[ $module_errors -gt 0 ]]; then
-        echo "❌ Warning: $module_errors module(s) failed to load" >&2
-    fi
-    
-    case "$action" in
-        init)
-            tkm_init
-            ;;
-        repl)
-            tkm_repl_main "$@"
-            ;;
-        generate)
-            tkm_generate_keys "$@" || {
-                echo "❌ Key generation failed for: $*" >&2
-                return 1
-            }
-            ;;
-        deploy)
-            # Handle both key deployment and environment deployment
-            case "${1:-}" in
-                "keys"|"key")
-                    shift
-                    tkm_deploy_keys "$@" || {
-                        echo "❌ Key deployment failed for: $*" >&2
-                        return 1
-                    }
-                    ;;
-                "env"|"service"|"status"|"list"|*)
-                    tkm_deploy "$@" || {
-                        echo "❌ Environment deployment failed for: $*" >&2
-                        return 1
-                    }
-                    ;;
-            esac
-            ;;
-        rotate)
-            tkm_rotate_keys "$@" || {
-                echo "❌ Key rotation failed for: $*" >&2
-                return 1
-            }
-            ;;
-        status)
-            tkm_status "$@" || {
-                echo "❌ Status check failed for: $*" >&2
-                return 1
-            }
-            ;;
-        display)
-            tkm_status_display "$@" || {
-                echo "❌ Display failed for: $*" >&2
-                return 1
-            }
-            ;;
-        revoke)
-            tkm_revoke_keys "$@" || {
-                echo "❌ Key revocation failed for: $*" >&2
-                return 1
-            }
-            ;;
-        org)
-            _tkm_org_dispatch "$@" || {
-                echo "❌ Organization command failed for: $*" >&2
-                return 1
-            }
-            ;;
-        envs)
-            # Existing envs implementation
-            local current_org=$(tkm_org_current)
-            if [[ -n "$current_org" ]]; then
-                echo "Configured Environments (org: $current_org):"
-                echo "============================================"
-                local org_servers_file="$TKM_ORGS_DIR/$current_org/environments/servers.conf"
-                if [[ -f "$org_servers_file" ]]; then
-                    while IFS=: read -r env_name public_ip private_ip floating_ip user privileges specs; do
-                        [[ "$env_name" =~ ^#.*$ ]] && continue
-                        [[ -z "$env_name" ]] && continue
-                        local host="${floating_ip:-${public_ip:-${private_ip:-unknown}}}"
-                        printf "%-12s %s@%s (%s)\n" "$env_name" "$user" "$host" "$privileges"
-                    done < "$org_servers_file"
-                else
-                    echo "No environments configured for organization: $current_org"
-                fi
-            else
-                echo "No current organization set. Use 'tkm org set <n>' to select one."
-                return 1
-            fi
-            ;;
-        show-environments)
-            # Show environments configuration verbatim
-            local config_file="$TKM_CONFIG_DIR/environments.conf"
-            local current_org=$(tkm_org_current)
-            local org_servers_file="$TKM_ORGS_DIR/$current_org/environments/servers.conf"
-            
-            echo "=== Global Environments Configuration ($config_file) ==="
-            if [[ -f "$config_file" ]]; then
-                cat "$config_file"
-            else
-                echo "No global environments configuration found"
-            fi
-            
-            echo -e "\n=== Organization Servers Configuration ($org_servers_file) ==="
-            if [[ -f "$org_servers_file" ]]; then
-                cat "$org_servers_file"
-            else
-                echo "No organization servers configuration found"
-            fi
-            ;;
-        info)
-            tkm_repl_info || {
-                echo "❌ Info retrieval failed" >&2
-                return 1
-            }
-            ;;
-        help|--help|-h)
-            _tkm_show_help
-            ;;
+    local cmd="${1:-status}"
+    shift 2>/dev/null || true
+
+    case "$cmd" in
+        status|s)       tkm_status "$@" ;;
+        doctor|doc)     tkm_doctor "$@" ;;
+        list|ls)        tkm_list "$@" ;;
+        init)           tkm_init "$@" ;;
+        test)           tkm_test "$@" ;;
+        generate|gen)   tkm_generate "$@" ;;
+        deploy|dep)     tkm_deploy "$@" ;;
+        revoke|rev)     tkm_revoke "$@" ;;
+        rotate|rot)     tkm_rotate "$@" ;;
+        config|cfg)     tkm_config "$@" ;;
+        remote|rem)     tkm_remote "$@" ;;
+        fingerprint|fp) tkm_fingerprint "$@" ;;
+        help|h|--help|-h) tkm_help ;;
         *)
-            echo "❌ Unknown command: $action"
-            echo "Use 'tkm help' for available commands"
+            echo "Unknown: $cmd"
+            echo "Try: tkm help"
             return 1
             ;;
     esac
 }
 
-# Tetra-prefixed wrapper functions
-tetra_tkm() { tkm "$@"; }
-tetra_tkm_init() { tkm_init "$@"; }
-tetra_tkm_repl() { tkm repl "$@"; }
-tetra_tkm_generate() { tkm generate "$@"; }
-tetra_tkm_deploy() { tkm deploy "$@"; }
-tetra_tkm_rotate() { tkm rotate "$@"; }
-tetra_tkm_status() { tkm status "$@"; }
-tetra_tkm_revoke() { tkm revoke "$@"; }
-tetra_tkm_audit() { tkm_security_audit "$@"; }
-tetra_tkm_inspect() { tkm_ssh_inspect "$@"; }
+complete -F _tkm_complete tkm
 
-# === TKM MODULE DISCOVERY INTERFACE ===
-# Mandatory functions for module registry compliance
-
-# TKM Module Actions - Available commands/verbs
-tkm_module_actions() {
-    echo "init connect deploy keys status organizations inspect ssh generate rotate revoke audit help repl"
-}
-
-# TKM Module Properties - Available data/nouns
-tkm_module_properties() {
-    echo "keys organizations connections environments status history config security"
-}
-
-# TKM Module Information
-tkm_module_info() {
-    echo "TKM - Tetra Key Manager"
-    echo "Purpose: SSH key management for deployment network"
-    echo "Scope: Remote servers, organizations, deployment infrastructure"
-
-    # Show initialization status
-    if [[ -d "$TKM_BASE_DIR" ]]; then
-        echo "Status: Initialized"
-        local org_count=$(find "$TKM_ORGS_DIR" -type d -mindepth 1 -maxdepth 1 2>/dev/null | wc -l)
-        echo "Organizations: $org_count"
-    else
-        echo "Status: Not initialized"
-    fi
-
-    # Show current organization
-    if [[ -f "$TKM_CURRENT_ORG_FILE" ]]; then
-        local current_org=$(cat "$TKM_CURRENT_ORG_FILE")
-        echo "Current Organization: $current_org"
-    fi
-}
-
-# TKM Module Initialization
-tkm_module_init() {
-    # TKM has its own initialization process
-    echo "TKM module loaded successfully"
-
-    # Validate core functions are available
-    if ! declare -f tkm_init >/dev/null; then
-        echo "ERROR: TKM initialization failed - missing tkm_init function" >&2
-        return 1
-    fi
-}
-
-# Controlled auto-initialization with environment variable flag
-# Only show warning once per session
-if [[ -n "$TETRA_DIR" && ! -d "$TKM_BASE_DIR" && -z "$TKM_INIT_WARNING_SHOWN" ]]; then
-    if [[ "${TKM_AUTO_INIT:-false}" == "true" ]]; then
-        echo "🔧 TKM not initialized. Initializing now..."
-        tkm_init
-    else
-        echo "ℹ️ TKM not initialized. Run 'tkm init' or set TKM_AUTO_INIT=true" >&2
-        export TKM_INIT_WARNING_SHOWN=true
-    fi
-fi
+export -f tkm tkm_status tkm_doctor tkm_list tkm_init tkm_test tkm_help tkm_fingerprint
+export -f tkm_org_name tkm_keys_dir tkm_key_path tkm_app_user tkm_expected_keys
+export -f _tkm_get_host _tkm_get_auth_user _tkm_get_work_user
