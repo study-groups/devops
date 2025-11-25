@@ -1,12 +1,22 @@
 #!/usr/bin/env bash
-# Deploy module includes
+# deploy/includes.sh - Module loader for deploy
+# Follows tetra module pattern from MODULE_SYSTEM_SPECIFICATION.md
 
-# Module paths
-MOD_SRC="$TETRA_SRC/bash/deploy"
-MOD_DIR="${MOD_DIR:-$TETRA_DIR/deploy}"
+# Strong globals (per CLAUDE.md)
+MOD_SRC="${TETRA_SRC}/bash/deploy"
+MOD_DIR="${TETRA_DIR}/deploy"
 
-# Source main deploy module
-[[ -f "$MOD_SRC/deploy.sh" ]] && source "$MOD_SRC/deploy.sh"
+# Create runtime directories
+mkdir -p "$MOD_DIR"/{projects,logs,history}
 
-# Source tree help registration
-[[ -f "$MOD_SRC/deploy_tree.sh" ]] && source "$MOD_SRC/deploy_tree.sh"
+# Source dependencies
+source "${TETRA_SRC}/bash/org/org.sh"
+
+# Source deploy modules
+source "$MOD_SRC/deploy.sh"
+source "$MOD_SRC/deploy_projects.sh"
+source "$MOD_SRC/deploy_remote.sh"
+source "$MOD_SRC/deploy_complete.sh"
+
+# Register completion
+complete -F _deploy_complete deploy

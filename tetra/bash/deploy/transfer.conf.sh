@@ -1,7 +1,0 @@
-ENVIRONMENT=dev
-LOCAL_PROJECT_DIR=/Users/mricos/src/pixeljam/pja/arcade
-REMOTE_PROJECT_DIR=/home/${ENVIRONMENT}/src/pixeljam/pja/arcade
-REMOTE_USER=${ENVIRONMENT}
-REMOTE_HOST=${ENVIRONMENT}.pixeljamarcade.com
-LOCAL_ENV_FILE=$LOCAL_PROJECT_DIR/env/generated/${ENVIRONMENT}.env
-REMOTE_ENV_FILE=$REMOTE_PROJECT_DIR/env/generated/${ENVIRONMENT}.env
