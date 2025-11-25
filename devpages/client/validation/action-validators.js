@@ -1,5 +1,5 @@
 // Generated from meta-language/core/actionSchema.yaml
-// DO NOT EDIT MANUALLY - Run 'npm run generate-validators' to regenerate
+// Security validators added manually - regeneration will need to preserve these
 
 /**
  * Runtime action and event validators
@@ -10,6 +10,40 @@ class ActionValidationError extends Error {
         super(`Invalid action '${actionType}': ${message}`);
         this.actionType = actionType;
     }
+}
+
+// ===== SECURITY HELPERS =====
+
+/**
+ * Validate path for security issues (path traversal, system paths)
+ * @param {string} pathname - Path to validate
+ * @param {string} actionType - Action type for error messages
+ * @throws {ActionValidationError} If path is invalid
+ */
+function validatePathSecurity(pathname, actionType) {
+  if (!pathname || typeof pathname !== 'string') {
+    throw new ActionValidationError(actionType, 'pathname must be a non-empty string');
+  }
+
+  // Reject empty paths
+  if (!pathname.trim()) {
+    throw new ActionValidationError(actionType, 'pathname cannot be empty');
+  }
+
+  // Reject path traversal attempts
+  if (pathname.includes('../') || pathname.includes('..\\')) {
+    throw new ActionValidationError(actionType, 'path traversal not allowed');
+  }
+
+  // Reject absolute system paths (security measure)
+  const systemPaths = ['/etc/', '/System/', '/usr/', '/bin/', '/sbin/', 'C:\\Windows\\', 'C:\\System'];
+  for (const sysPath of systemPaths) {
+    if (pathname.startsWith(sysPath)) {
+      throw new ActionValidationError(actionType, 'system paths not allowed');
+    }
+  }
+
+  return true;
 }
 
 // ===== PAYLOAD VALIDATORS =====
@@ -24,61 +58,106 @@ export function validateFS_SET_TOP_DIRSPayload(payload) {
 
 export function validateFS_LOAD_LISTING_STARTPayload(payload) {
   // Validate payload for FS_LOAD_LISTING_START
-  // TODO: Add validation for type: { pathname: string }
+  if (!payload || typeof payload.pathname !== 'string') {
+    throw new ActionValidationError('FS_LOAD_LISTING_START', 'Payload must have pathname string');
+  }
+  validatePathSecurity(payload.pathname, 'FS_LOAD_LISTING_START');
   return true;
 }
 
 export function validateFS_LOAD_LISTING_SUCCESSPayload(payload) {
   // Validate payload for FS_LOAD_LISTING_SUCCESS
-  // TODO: Add validation for type: { pathname: string, dirs: string[], files: string[] }
+  if (!payload || typeof payload.pathname !== 'string') {
+    throw new ActionValidationError('FS_LOAD_LISTING_SUCCESS', 'Payload must have pathname string');
+  }
+  if (!Array.isArray(payload.dirs)) {
+    throw new ActionValidationError('FS_LOAD_LISTING_SUCCESS', 'Payload must have dirs array');
+  }
+  if (!Array.isArray(payload.files)) {
+    throw new ActionValidationError('FS_LOAD_LISTING_SUCCESS', 'Payload must have files array');
+  }
   return true;
 }
 
 export function validateFS_LOAD_LISTING_ERRORPayload(payload) {
   // Validate payload for FS_LOAD_LISTING_ERROR
-  // TODO: Add validation for type: { pathname: string, error: string }
+  if (!payload || typeof payload.pathname !== 'string') {
+    throw new ActionValidationError('FS_LOAD_LISTING_ERROR', 'Payload must have pathname string');
+  }
+  if (typeof payload.error !== 'string') {
+    throw new ActionValidationError('FS_LOAD_LISTING_ERROR', 'Payload must have error string');
+  }
   return true;
 }
 
 export function validateFS_LOAD_FILE_STARTPayload(payload) {
   // Validate payload for FS_LOAD_FILE_START
-  // TODO: Add validation for type: { pathname: string }
+  if (!payload || typeof payload.pathname !== 'string') {
+    throw new ActionValidationError('FS_LOAD_FILE_START', 'Payload must have pathname string');
+  }
+  validatePathSecurity(payload.pathname, 'FS_LOAD_FILE_START');
   return true;
 }
 
 export function validateFS_LOAD_FILE_SUCCESSPayload(payload) {
   // Validate payload for FS_LOAD_FILE_SUCCESS
-  // TODO: Add validation for type: { pathname: string, content: string }
+  if (!payload || typeof payload.pathname !== 'string') {
+    throw new ActionValidationError('FS_LOAD_FILE_SUCCESS', 'Payload must have pathname string');
+  }
+  if (typeof payload.content !== 'string') {
+    throw new ActionValidationError('FS_LOAD_FILE_SUCCESS', 'Payload must have content string');
+  }
   return true;
 }
 
 export function validateFS_LOAD_FILE_ERRORPayload(payload) {
   // Validate payload for FS_LOAD_FILE_ERROR
-  // TODO: Add validation for type: { pathname: string, error: string }
+  if (!payload || typeof payload.pathname !== 'string') {
+    throw new ActionValidationError('FS_LOAD_FILE_ERROR', 'Payload must have pathname string');
+  }
+  if (typeof payload.error !== 'string') {
+    throw new ActionValidationError('FS_LOAD_FILE_ERROR', 'Payload must have error string');
+  }
   return true;
 }
 
 export function validateFS_SAVE_FILE_STARTPayload(payload) {
   // Validate payload for FS_SAVE_FILE_START
-  // TODO: Add validation for type: { pathname: string }
+  if (!payload || typeof payload.pathname !== 'string') {
+    throw new ActionValidationError('FS_SAVE_FILE_START', 'Payload must have pathname string');
+  }
+  validatePathSecurity(payload.pathname, 'FS_SAVE_FILE_START');
   return true;
 }
 
 export function validateFS_SAVE_FILE_SUCCESSPayload(payload) {
   // Validate payload for FS_SAVE_FILE_SUCCESS
-  // TODO: Add validation for type: { pathname: string }
+  if (!payload || typeof payload.pathname !== 'string') {
+    throw new ActionValidationError('FS_SAVE_FILE_SUCCESS', 'Payload must have pathname string');
+  }
   return true;
 }
 
 export function validateFS_SAVE_FILE_ERRORPayload(payload) {
   // Validate payload for FS_SAVE_FILE_ERROR
-  // TODO: Add validation for type: { pathname: string, error: string }
+  if (!payload || typeof payload.pathname !== 'string') {
+    throw new ActionValidationError('FS_SAVE_FILE_ERROR', 'Payload must have pathname string');
+  }
+  if (typeof payload.error !== 'string') {
+    throw new ActionValidationError('FS_SAVE_FILE_ERROR', 'Payload must have error string');
+  }
   return true;
 }
 
 export function validateFS_SET_CURRENT_PATHPayload(payload) {
   // Validate payload for FS_SET_CURRENT_PATH
-  // TODO: Add validation for type: { pathname: string, isDirectory: boolean }
+  if (!payload || typeof payload.pathname !== 'string') {
+    throw new ActionValidationError('FS_SET_CURRENT_PATH', 'Payload must have pathname string');
+  }
+  if (typeof payload.isDirectory !== 'boolean') {
+    throw new ActionValidationError('FS_SET_CURRENT_PATH', 'Payload must have isDirectory boolean');
+  }
+  validatePathSecurity(payload.pathname, 'FS_SET_CURRENT_PATH');
   return true;
 }
 

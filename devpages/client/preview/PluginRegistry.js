@@ -220,6 +220,7 @@ export class PluginRegistry {
     /**
      * Process enabled plugins on an element
      * This is the main integration point for post-render plugin processing
+     * Handles both processing enabled plugins and cleaning up disabled ones
      *
      * @param {HTMLElement} element - Element to process
      * @returns {Promise<void>}
@@ -232,7 +233,26 @@ export class PluginRegistry {
             return;
         }
 
-        // Get enabled plugin IDs from Redux
+        // Process enabled plugins
+        await this.processPlugins(element);
+
+        // Cleanup disabled plugins
+        await this.cleanupDisabledPlugins(element);
+
+        log.info?.('PLUGIN', 'PROCESS_COMPLETE', 'Plugin processing complete');
+    }
+
+    /**
+     * Process all enabled plugins on an element
+     * @param {HTMLElement} element - Element to process
+     * @returns {Promise<void>}
+     */
+    async processPlugins(element) {
+        if (!element) {
+            log.warn?.('PLUGIN', 'NO_ELEMENT', 'No element provided for processing');
+            return;
+        }
+
         const state = appStore.getState();
         const allPlugins = getAllPlugins(state);
 
@@ -240,37 +260,73 @@ export class PluginRegistry {
             const isEnabled = getIsPluginEnabled(state, pluginId);
 
             if (isEnabled) {
-                // Plugin enabled - initialize if needed and process
-                let plugin = this.getPlugin(pluginId);
-
-                if (!plugin) {
-                    plugin = await this.initializePlugin(pluginId);
-                }
-
-                if (plugin && typeof plugin.process === 'function') {
-                    try {
-                        await plugin.process(element);
-                        log.info?.('PLUGIN', 'PROCESSED', `Processed: ${pluginId}`);
-                    } catch (error) {
-                        log.error?.('PLUGIN', 'PROCESS_ERROR', `Error processing ${pluginId}`, error);
-                    }
-                }
-            } else {
-                // Plugin disabled - cleanup if instance exists
-                const plugin = this.getPlugin(pluginId);
-
-                if (plugin && typeof plugin.cleanup === 'function') {
-                    try {
-                        plugin.cleanup(element);
-                        log.info?.('PLUGIN', 'CLEANUP', `Cleaned up: ${pluginId}`);
-                    } catch (error) {
-                        log.error?.('PLUGIN', 'CLEANUP_ERROR', `Error cleaning up ${pluginId}`, error);
-                    }
-                }
+                await this.processPlugin(pluginId, element);
             }
         }
+    }
 
-        log.info?.('PLUGIN', 'PROCESS_COMPLETE', 'Plugin processing complete');
+    /**
+     * Process a single plugin on an element
+     * @param {string} pluginId - Plugin identifier
+     * @param {HTMLElement} element - Element to process
+     * @returns {Promise<void>}
+     */
+    async processPlugin(pluginId, element) {
+        let plugin = this.getPlugin(pluginId);
+
+        if (!plugin) {
+            plugin = await this.initializePlugin(pluginId);
+        }
+
+        if (plugin && typeof plugin.process === 'function') {
+            try {
+                await plugin.process(element);
+                log.info?.('PLUGIN', 'PROCESSED', `Processed: ${pluginId}`);
+            } catch (error) {
+                log.error?.('PLUGIN', 'PROCESS_ERROR', `Error processing ${pluginId}`, error);
+            }
+        }
+    }
+
+    /**
+     * Cleanup all disabled plugins on an element
+     * @param {HTMLElement} element - Element to cleanup
+     * @returns {Promise<void>}
+     */
+    async cleanupDisabledPlugins(element) {
+        if (!element) {
+            return;
+        }
+
+        const state = appStore.getState();
+        const allPlugins = getAllPlugins(state);
+
+        for (const pluginId in allPlugins) {
+            const isEnabled = getIsPluginEnabled(state, pluginId);
+
+            if (!isEnabled) {
+                await this.cleanupPlugin(pluginId, element);
+            }
+        }
+    }
+
+    /**
+     * Cleanup a single plugin on an element
+     * @param {string} pluginId - Plugin identifier
+     * @param {HTMLElement} element - Element to cleanup
+     * @returns {Promise<void>}
+     */
+    async cleanupPlugin(pluginId, element) {
+        const plugin = this.getPlugin(pluginId);
+
+        if (plugin && typeof plugin.cleanup === 'function') {
+            try {
+                await plugin.cleanup(element);
+                log.info?.('PLUGIN', 'CLEANUP', `Cleaned up: ${pluginId}`);
+            } catch (error) {
+                log.error?.('PLUGIN', 'CLEANUP_ERROR', `Error cleaning up ${pluginId}`, error);
+            }
+        }
     }
 
     /**

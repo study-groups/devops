@@ -24,7 +24,15 @@ const CSS_BUNDLES = {
         'client/styles/sidebar.css'
     ],
     features: [
-        'client/log/log.css',
+        // Log CSS files (organized by concern)
+        // - log-layout: Container, columns, resizers
+        // - log-controls: Toolbar, buttons, CLI input
+        // - log-entries: Entry styling and expanded views
+        // - log-filters: Filter bar and filter chips
+        // - log-tokens: Token/badge styling and markdown
+        // - log-menu: Dropdown menu styling
+        // - log-utilities: Utility classes
+        // - log-header: Column headers (loaded separately in layout)
         'client/log/log-layout.css',
         'client/log/log-header.css',
         'client/log/log-controls.css',
@@ -49,10 +57,14 @@ const CSS_BUNDLES = {
         'client/styles/ui-inspector.css',
         'client/styles/theme-editor-panel.css',
         'client/styles/dom-inspector-panel.css',
-        'client/styles/css-debug-panel.css',
+        'client/styles/css-inspector-panel.css',
         'client/panels/publish/PublishPanelStyles.css',
         'client/panels/publish/ConfigManagerStyles.css',
         'client/panels/TetraConfigPanelStyles.css'
+    ],
+    content: [
+        'client/styles/8-content/markdown-base.css',
+        'client/styles/8-content/markdown-interactive.css'
     ]
 };
 
@@ -111,6 +123,18 @@ router.get('/bundles/panels.bundle.css', async (req, res) => {
         res.send(content);
     } catch (error) {
         res.status(500).send('/* Bundle error */');
+    }
+});
+
+router.get('/bundles/content.bundle.css', async (req, res) => {
+    try {
+        const content = await bundleFiles(CSS_BUNDLES.content);
+        res.set('Content-Type', 'text/css');
+        res.set('Cache-Control', 'public, max-age=3600');
+        res.send(content);
+    } catch (error) {
+        console.error('Error bundling content CSS:', error);
+        res.status(500).send('/* Error bundling content CSS */');
     }
 });
 
