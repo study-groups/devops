@@ -24,59 +24,163 @@ nh_doctl_status() {
 # FETCH INFRASTRUCTURE
 # =============================================================================
 
-nh_doctl_fetch() {
+# Resource types to fetch (name:command pairs)
+_NH_FETCH_RESOURCES=(
+    "Droplets:doctl compute droplet list --output json"
+    "Volumes:doctl compute volume list --output json"
+    "PrivateImages:doctl compute image list --public=false --output json"
+    "Domains:doctl compute domain list --output json"
+    "FloatingIPs:doctl compute floating-ip list --output json"
+    "LoadBalancers:doctl compute load-balancer list --output json"
+    "KubernetesClusters:doctl kubernetes cluster list --output json"
+)
+
+# Show what fetch would do without executing
+nh_doctl_fetch_dry() {
     local ctx="${DIGITALOCEAN_CONTEXT:-}"
 
+    echo "nh fetch --dry-run"
+    echo "==================="
+    echo ""
+    echo "Context:  ${ctx:-<not set>}"
+    echo "NH_DIR:   $NH_DIR"
+
+    if [[ -z "$ctx" ]]; then
+        echo ""
+        echo "ERROR: No context set. Run: nh switch <context>"
+        return 1
+    fi
+
+    local output_file="$NH_DIR/$ctx/digocean.json"
+    echo "Output:   $output_file"
+    echo ""
+
+    # Check if output dir exists
+    local output_dir="$(dirname "$output_file")"
+    if [[ -d "$output_dir" ]]; then
+        echo "Directory exists: $output_dir"
+    else
+        echo "Will create: $output_dir"
+    fi
+
+    # Check if file exists
+    if [[ -f "$output_file" ]]; then
+        local age=$(nh_json_age "$output_file")
+        echo "Existing file: $age days old (will be overwritten)"
+    else
+        echo "New file: will be created"
+    fi
+
+    echo ""
+    echo "Commands to execute:"
+    echo "--------------------"
+
+    for entry in "${_NH_FETCH_RESOURCES[@]}"; do
+        local name="${entry%%:*}"
+        local cmd="${entry#*:}"
+        printf "  %-20s %s\n" "$name:" "$cmd"
+    done
+
+    echo ""
+    echo "Output format: JSON array with objects keyed by resource type"
+    echo ""
+    echo "Run 'nh fetch' to execute (without --dry-run)"
+}
+
+# Fetch all infrastructure data from DigitalOcean
+nh_doctl_fetch() {
+    local dry_run=0
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --dry-run|-n)
+                dry_run=1
+                shift
+                ;;
+            *)
+                echo "Unknown option: $1"
+                echo "Usage: nh fetch [--dry-run|-n]"
+                return 1
+                ;;
+        esac
+    done
+
+    # Handle dry run
+    if [[ $dry_run -eq 1 ]]; then
+        nh_doctl_fetch_dry
+        return $?
+    fi
+
+    local ctx="${DIGITALOCEAN_CONTEXT:-}"
     [[ -z "$ctx" ]] && { echo "No context. Run: nh switch <context>"; return 1; }
 
     local output_file="$NH_DIR/$ctx/digocean.json"
+    local output_dir="$(dirname "$output_file")"
 
-    echo "Fetching infrastructure from DigitalOcean..."
+    echo "Fetching infrastructure from DigitalOcean"
+    echo "=========================================="
+    echo ""
     echo "Context: $ctx"
-    echo "Output: $output_file"
+    echo "Output:  $output_file"
     echo ""
 
-    mkdir -p "$(dirname "$output_file")"
+    # Create directory if needed
+    if [[ ! -d "$output_dir" ]]; then
+        echo "Creating: $output_dir"
+        mkdir -p "$output_dir"
+    fi
 
+    # Fetch each resource type
+    local total=${#_NH_FETCH_RESOURCES[@]}
+    local current=0
+    local json_parts=()
+
+    for entry in "${_NH_FETCH_RESOURCES[@]}"; do
+        ((current++))
+        local name="${entry%%:*}"
+        local cmd="${entry#*:}"
+
+        printf "[%d/%d] Fetching %s... " "$current" "$total" "$name"
+
+        local result
+        if result=$(eval "$cmd" 2>&1); then
+            json_parts+=("{ \"$name\": $result }")
+            echo "ok"
+        else
+            echo "failed"
+            echo "  Command: $cmd"
+            echo "  Error: $result"
+            json_parts+=("{ \"$name\": [] }")
+        fi
+    done
+
+    echo ""
+
+    # Combine into single JSON array
     {
         echo "["
-
-        echo '{ "Droplets": '
-        doctl compute droplet list --output json
-        echo '},'
-
-        echo '{ "Volumes": '
-        doctl compute volume list --output json
-        echo '},'
-
-        echo '{ "PrivateImages": '
-        doctl compute image list --public=false --output json
-        echo '},'
-
-        echo '{ "Domains": '
-        doctl compute domain list --output json
-        echo '},'
-
-        echo '{ "FloatingIPs": '
-        doctl compute floating-ip list --output json
-        echo '},'
-
-        echo '{ "LoadBalancers": '
-        doctl compute load-balancer list --output json
-        echo '},'
-
-        echo '{ "KubernetesClusters": '
-        doctl kubernetes cluster list --output json
-        echo '}'
-
+        local first=1
+        for part in "${json_parts[@]}"; do
+            [[ $first -eq 0 ]] && echo ","
+            echo "$part"
+            first=0
+        done
         echo "]"
     } > "$output_file"
 
-    local lines=$(wc -l < "$output_file")
-    echo "Wrote $lines lines to $output_file"
+    # Report results
+    local lines=$(wc -l < "$output_file" | tr -d ' ')
+    local size=$(du -h "$output_file" | cut -f1)
+    echo "Wrote: $output_file ($lines lines, $size)"
+    echo ""
 
     # Auto-load environment variables
+    echo "Loading environment variables..."
     nh_env_load
+
+    echo ""
+    echo "Done. Run 'nh servers' to see results."
 }
 
 # =============================================================================
@@ -206,5 +310,5 @@ EOF
 }
 
 # Export functions
-export -f nh_doctl_status nh_doctl_fetch nh_doctl_droplets nh_doctl_cat nh_doctl_clean
-export -f nh_doctl_age nh_doctl_resources nh_doctl_info
+export -f nh_doctl_status nh_doctl_fetch nh_doctl_fetch_dry nh_doctl_droplets nh_doctl_cat
+export -f nh_doctl_clean nh_doctl_age nh_doctl_resources nh_doctl_info
