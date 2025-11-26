@@ -40,7 +40,7 @@ _nh_complete_vars() {
 # List checklist section keys
 _nh_complete_checklist_sections() {
     # Ensure checklist is parsed
-    local checklist_file="${NH_SRC%/bash}/WORKSHEET.md"
+    local checklist_file="${NH_CHECKLIST:-${NH_SRC%/bash}/checklist.md}"
     if [[ -f "$checklist_file" && ${#NH_MD_ORDER[@]} -eq 0 ]]; then
         nh_md_parse "$checklist_file" >/dev/null 2>&1
     fi

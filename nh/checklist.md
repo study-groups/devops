@@ -213,7 +213,7 @@ nh help doctl       # Doctl subcommands
 └── <context>/
     ├── digocean.json       # Full infrastructure data
     ├── digocean.env        # Exported variables
-    ├── worksheet.env       # Worksheet progress
+    ├── checklist.env       # Checklist progress
     └── digocean_clean.json # Cleaned (after nh doctl clean)
 
 ~/.config/doctl/

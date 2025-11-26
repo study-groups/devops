@@ -2,7 +2,7 @@
 # nh_checklist.sh - Checklist State Management
 #
 # Manages checklist progress stored in ~/nh/<context>/checklist.env
-# Works with WORKSHEET.md parsed by nh_md.sh
+# Works with any markdown file parsed by nh_md.sh
 #
 # State format (checklist.env):
 #   CL_COMPLETED="01 02 03"

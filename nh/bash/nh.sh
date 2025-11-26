@@ -381,9 +381,10 @@ nh_md_cmd() {
 
 # Checklist-specific handler (convenience wrapper)
 _nh_cl_ensure_parsed() {
-    local cl_file="${NH_SRC%/bash}/WORKSHEET.md"
+    local cl_file="${NH_CHECKLIST:-${NH_SRC%/bash}/checklist.md}"
     if [[ ! -f "$cl_file" ]]; then
-        echo "WORKSHEET.md not found: $cl_file"
+        echo "Checklist not found: $cl_file"
+        echo "Set NH_CHECKLIST=/path/to/file.md"
         return 1
     fi
     if [[ ${#NH_MD_ORDER[@]} -eq 0 || "$NH_MD_FILE" != "$cl_file" ]]; then
