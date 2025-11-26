@@ -1,0 +1,210 @@
+#!/usr/bin/env bash
+# nh_doctl.sh - DigitalOcean API operations via doctl
+#
+# Fetches infrastructure data and stores as digocean.json
+
+# =============================================================================
+# STATUS
+# =============================================================================
+
+nh_doctl_status() {
+    echo "doctl Status"
+    echo "============"
+    echo ""
+    echo "NH_DIR: $NH_DIR"
+    echo "DIGITALOCEAN_CONTEXT: ${DIGITALOCEAN_CONTEXT:-not set}"
+    echo ""
+    echo "Available contexts:"
+    doctl auth list 2>/dev/null || echo "  (doctl not configured)"
+    echo ""
+    echo "Run: doctl auth init --context <name>"
+}
+
+# =============================================================================
+# FETCH INFRASTRUCTURE
+# =============================================================================
+
+nh_doctl_fetch() {
+    local ctx="${DIGITALOCEAN_CONTEXT:-}"
+
+    [[ -z "$ctx" ]] && { echo "No context. Run: nh switch <context>"; return 1; }
+
+    local output_file="$NH_DIR/$ctx/digocean.json"
+
+    echo "Fetching infrastructure from DigitalOcean..."
+    echo "Context: $ctx"
+    echo "Output: $output_file"
+    echo ""
+
+    mkdir -p "$(dirname "$output_file")"
+
+    {
+        echo "["
+
+        echo '{ "Droplets": '
+        doctl compute droplet list --output json
+        echo '},'
+
+        echo '{ "Volumes": '
+        doctl compute volume list --output json
+        echo '},'
+
+        echo '{ "PrivateImages": '
+        doctl compute image list --public=false --output json
+        echo '},'
+
+        echo '{ "Domains": '
+        doctl compute domain list --output json
+        echo '},'
+
+        echo '{ "FloatingIPs": '
+        doctl compute floating-ip list --output json
+        echo '},'
+
+        echo '{ "LoadBalancers": '
+        doctl compute load-balancer list --output json
+        echo '},'
+
+        echo '{ "KubernetesClusters": '
+        doctl kubernetes cluster list --output json
+        echo '}'
+
+        echo "]"
+    } > "$output_file"
+
+    local lines=$(wc -l < "$output_file")
+    echo "Wrote $lines lines to $output_file"
+
+    # Auto-load environment variables
+    nh_env_load
+}
+
+# =============================================================================
+# DROPLETS
+# =============================================================================
+
+nh_doctl_droplets() {
+    echo "Live droplets from DigitalOcean:"
+    echo ""
+
+    doctl compute droplet list --format ID,Name,PublicIPv4,PrivateIPv4,Memory,Region,Tags
+}
+
+# =============================================================================
+# CAT JSON
+# =============================================================================
+
+nh_doctl_cat() {
+    local ctx="${DIGITALOCEAN_CONTEXT:-}"
+
+    [[ -z "$ctx" ]] && { echo "No context set"; return 1; }
+
+    local json="$NH_DIR/$ctx/digocean.json"
+
+    [[ ! -f "$json" ]] && { echo "No data. Run: nh fetch"; return 1; }
+
+    jq . "$json"
+}
+
+# =============================================================================
+# CLEAN (remove verbose fields)
+# =============================================================================
+
+nh_doctl_clean() {
+    local ctx="${DIGITALOCEAN_CONTEXT:-}"
+    [[ -z "$ctx" ]] && { echo "No context set"; return 1; }
+
+    local json="$NH_DIR/$ctx/digocean.json"
+    local clean="$NH_DIR/$ctx/digocean_clean.json"
+
+    [[ ! -f "$json" ]] && { echo "No data. Run: nh fetch"; return 1; }
+
+    jq 'walk(
+        if type == "object" then
+            del(.sizes, .features, .regions) |
+            if .PrivateImages? then
+                .PrivateImages |= map(select(.slug | not))
+            else
+                .
+            end
+        else
+            .
+        end
+    )' "$json" > "$clean"
+
+    local lines=$(wc -l < "$clean")
+    echo "Cleaned JSON: $clean ($lines lines)"
+}
+
+# =============================================================================
+# AGE (show digocean.json age)
+# =============================================================================
+
+nh_doctl_age() {
+    local ctx="${DIGITALOCEAN_CONTEXT:-}"
+    [[ -z "$ctx" ]] && { echo "No context set"; return 1; }
+
+    local json="$NH_DIR/$ctx/digocean.json"
+    [[ ! -f "$json" ]] && { echo "No data. Run: nh fetch"; return 1; }
+
+    local age=$(nh_json_age "$json")
+    local modified
+    if stat -f "%Sm" "$json" >/dev/null 2>&1; then
+        modified=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$json")
+    else
+        modified=$(stat -c "%y" "$json" 2>/dev/null | cut -d. -f1)
+    fi
+
+    echo "digocean.json: $age days old"
+    echo "Last updated: $modified"
+    echo "Location: $json"
+
+    [[ $age -gt 7 ]] && echo "Consider: nh fetch"
+}
+
+# =============================================================================
+# RESOURCES (summary counts)
+# =============================================================================
+
+nh_doctl_resources() {
+    local ctx="${DIGITALOCEAN_CONTEXT:-}"
+    [[ -z "$ctx" ]] && { echo "No context set"; return 1; }
+
+    local json="$NH_DIR/$ctx/digocean.json"
+    [[ ! -f "$json" ]] && { echo "No data. Run: nh fetch"; return 1; }
+
+    echo "Resources in $ctx:"
+    jq -r '.[] | to_entries[] | select(.value | type == "array") |
+        "  \(.key): \(.value | length)"' "$json"
+}
+
+# =============================================================================
+# INFO (explain pipeline)
+# =============================================================================
+
+nh_doctl_info() {
+    local ctx="${DIGITALOCEAN_CONTEXT:-}"
+    local json="$NH_DIR/${ctx:-<context>}/digocean.json"
+
+    cat << EOF
+nh doctl info - Infrastructure Pipeline
+
+DATA FLOW
+    doctl API  ->  digocean.json  ->  env vars  ->  tetra.toml
+    (live)         (cached)          (shell)       (deployment)
+
+DIGOCEAN.JSON ($json)
+    Contains: Droplets, Volumes, Images, Domains, FloatingIPs, LBs, K8s
+    Created by: nh fetch (calls doctl compute * list --output json)
+    Used by: nh servers, nh env, nh ssh
+
+TETRA INTEGRATION
+    Import: org import nh ~/nh/<ctx>/digocean.json <org>
+    Output: ~/.tetra/orgs/<org>/sections/10-infrastructure.toml
+    Build:  org build <org>  ->  tetra.toml
+EOF
+}
+
+# Export functions
+export -f nh_doctl_status nh_doctl_fetch nh_doctl_droplets nh_doctl_cat nh_doctl_clean
+export -f nh_doctl_age nh_doctl_resources nh_doctl_info
