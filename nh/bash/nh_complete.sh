@@ -2,7 +2,7 @@
 # nh_complete.sh - Tab completion for nh command
 
 _NH_COMMANDS="status list switch create fetch servers show cat env ssh doctl md cl help"
-_NH_FETCH_OPTS="dry-run"
+_NH_FETCH_OPTS="dry-run help minimal full"
 _NH_ENV_SUBCMDS="show load short"
 _NH_SSH_SUBCMDS="status keys add"
 _NH_DOCTL_SUBCMDS="status droplets fetch clean age resources info"

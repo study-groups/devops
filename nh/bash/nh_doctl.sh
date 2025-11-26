@@ -24,16 +24,122 @@ nh_doctl_status() {
 # FETCH INFRASTRUCTURE
 # =============================================================================
 
-# Resource types to fetch (name:command pairs)
-_NH_FETCH_RESOURCES=(
-    "Droplets:doctl compute droplet list --output json"
-    "Volumes:doctl compute volume list --output json"
-    "PrivateImages:doctl compute image list --public=false --output json"
-    "Domains:doctl compute domain list --output json"
-    "FloatingIPs:doctl compute floating-ip list --output json"
-    "LoadBalancers:doctl compute load-balancer list --output json"
-    "KubernetesClusters:doctl kubernetes cluster list --output json"
+# All available doctl resources (category:name:command:description)
+# These are the main resources you can fetch from DigitalOcean
+_NH_DOCTL_ALL_RESOURCES=(
+    # Compute - core infrastructure
+    "compute:Droplets:doctl compute droplet list --output json:Virtual machines (VPS)"
+    "compute:Volumes:doctl compute volume list --output json:Block storage volumes"
+    "compute:Snapshots:doctl compute snapshot list --output json:Droplet and volume snapshots"
+    "compute:PrivateImages:doctl compute image list --public=false --output json:Custom images"
+
+    # Networking
+    "network:Domains:doctl compute domain list --output json:DNS domains"
+    "network:FloatingIPs:doctl compute floating-ip list --output json:Reserved/floating IPs"
+    "network:LoadBalancers:doctl compute load-balancer list --output json:Load balancers"
+    "network:Firewalls:doctl compute firewall list --output json:Cloud firewalls"
+    "network:VPCs:doctl vpcs list --output json:Virtual private clouds"
+
+    # Databases
+    "database:Databases:doctl databases list --output json:Managed databases (Postgres, MySQL, Redis)"
+
+    # Kubernetes
+    "kubernetes:KubernetesClusters:doctl kubernetes cluster list --output json:K8s clusters"
+
+    # Apps & Functions
+    "apps:Apps:doctl apps list --output json:App Platform applications"
+    "apps:Functions:doctl serverless namespaces list --output json:Serverless functions"
+
+    # Storage
+    "storage:Spaces:doctl compute cdn list --output json:Spaces CDN endpoints"
+    "storage:ContainerRegistry:doctl registry get --output json:Container registry"
+
+    # Account
+    "account:SSHKeys:doctl compute ssh-key list --output json:SSH keys"
+    "account:Projects:doctl projects list --output json:Projects"
 )
+
+# Default resources to fetch (balanced between useful and fast)
+_NH_FETCH_DEFAULT="Droplets,Volumes,Domains,FloatingIPs,LoadBalancers,Firewalls"
+
+# Currently configured resources (can be overridden by NH_FETCH_RESOURCES env var)
+_nh_fetch_get_resources() {
+    echo "${NH_FETCH_RESOURCES:-$_NH_FETCH_DEFAULT}"
+}
+
+# Get command for a resource name
+_nh_fetch_get_cmd() {
+    local name="$1"
+    for entry in "${_NH_DOCTL_ALL_RESOURCES[@]}"; do
+        local rname=$(echo "$entry" | cut -d: -f2)
+        if [[ "$rname" == "$name" ]]; then
+            echo "$entry" | cut -d: -f3
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Show all available resources and current configuration
+nh_doctl_fetch_help() {
+    local current=$(_nh_fetch_get_resources)
+
+    cat << 'EOF'
+nh fetch help - Available DigitalOcean Resources
+=================================================
+
+All resources that can be fetched from DigitalOcean API via doctl:
+
+EOF
+
+    local last_category=""
+    for entry in "${_NH_DOCTL_ALL_RESOURCES[@]}"; do
+        local category=$(echo "$entry" | cut -d: -f1)
+        local name=$(echo "$entry" | cut -d: -f2)
+        local cmd=$(echo "$entry" | cut -d: -f3)
+        local desc=$(echo "$entry" | cut -d: -f4)
+
+        # Print category header
+        if [[ "$category" != "$last_category" ]]; then
+            echo ""
+            printf "%-12s\n" "[$category]"
+            last_category="$category"
+        fi
+
+        # Check if enabled
+        local marker="  "
+        if [[ ",$current," == *",$name,"* ]]; then
+            marker="* "
+        fi
+
+        printf "  %s%-20s %s\n" "$marker" "$name" "$desc"
+    done
+
+    cat << EOF
+
+CURRENT CONFIGURATION
+  NH_FETCH_RESOURCES="${current}"
+  (* = will be fetched)
+
+PRESETS
+  minimal   Droplets,Domains
+  default   Droplets,Volumes,Domains,FloatingIPs,LoadBalancers,Firewalls
+  full      (all resources)
+
+EXAMPLES
+  nh fetch                              # Fetch current configuration
+  nh fetch dry-run                      # Preview without fetching
+  NH_FETCH_RESOURCES="Droplets,Domains" nh fetch   # Custom one-time
+  export NH_FETCH_RESOURCES="Droplets,Domains,Databases"  # Persist in shell
+
+DOCTL REFERENCE
+  doctl compute -h      # Compute resources (droplets, volumes, images)
+  doctl databases -h    # Database resources
+  doctl kubernetes -h   # Kubernetes resources
+  doctl apps -h         # App Platform
+  doctl vpcs -h         # VPC networking
+EOF
+}
 
 # Show what fetch would do without executing
 nh_doctl_fetch_dry() {
@@ -89,40 +195,54 @@ nh_doctl_fetch_dry() {
 
 # Fetch all infrastructure data from DigitalOcean
 nh_doctl_fetch() {
-    local dry_run=0
-
     # Parse arguments
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            dry-run)
-                dry_run=1
-                shift
-                ;;
-            *)
-                echo "Unknown option: $1"
-                echo "Usage: nh fetch [dry-run]"
-                return 1
-                ;;
-        esac
-    done
-
-    # Handle dry run
-    if [[ $dry_run -eq 1 ]]; then
-        nh_doctl_fetch_dry
-        return $?
-    fi
+    case "${1:-}" in
+        dry-run)
+            nh_doctl_fetch_dry
+            return $?
+            ;;
+        help)
+            nh_doctl_fetch_help
+            return $?
+            ;;
+        minimal)
+            NH_FETCH_RESOURCES="Droplets,Domains" nh_doctl_fetch
+            return $?
+            ;;
+        full)
+            # Build full list from all resources
+            local all_names=""
+            for entry in "${_NH_DOCTL_ALL_RESOURCES[@]}"; do
+                local name=$(echo "$entry" | cut -d: -f2)
+                [[ -n "$all_names" ]] && all_names+=","
+                all_names+="$name"
+            done
+            NH_FETCH_RESOURCES="$all_names" nh_doctl_fetch
+            return $?
+            ;;
+        "")
+            # Default - continue below
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: nh fetch [dry-run|help|minimal|full]"
+            return 1
+            ;;
+    esac
 
     local ctx="${DIGITALOCEAN_CONTEXT:-}"
     [[ -z "$ctx" ]] && { echo "No context. Run: nh switch <context>"; return 1; }
 
     local output_file="$NH_DIR/$ctx/digocean.json"
     local output_dir="$(dirname "$output_file")"
+    local resources=$(_nh_fetch_get_resources)
 
     echo "Fetching infrastructure from DigitalOcean"
     echo "=========================================="
     echo ""
-    echo "Context: $ctx"
-    echo "Output:  $output_file"
+    echo "Context:   $ctx"
+    echo "Output:    $output_file"
+    echo "Resources: $resources"
     echo ""
 
     # Create directory if needed
@@ -131,15 +251,20 @@ nh_doctl_fetch() {
         mkdir -p "$output_dir"
     fi
 
-    # Fetch each resource type
-    local total=${#_NH_FETCH_RESOURCES[@]}
+    # Convert comma-separated resources to array
+    IFS=',' read -ra resource_list <<< "$resources"
+    local total=${#resource_list[@]}
     local current=0
     local json_parts=()
 
-    for entry in "${_NH_FETCH_RESOURCES[@]}"; do
+    for name in "${resource_list[@]}"; do
         ((current++))
-        local name="${entry%%:*}"
-        local cmd="${entry#*:}"
+        local cmd=$(_nh_fetch_get_cmd "$name")
+
+        if [[ -z "$cmd" ]]; then
+            printf "[%d/%d] %s... unknown resource (skipped)\n" "$current" "$total" "$name"
+            continue
+        fi
 
         printf "[%d/%d] Fetching %s... " "$current" "$total" "$name"
 
@@ -149,7 +274,6 @@ nh_doctl_fetch() {
             echo "ok"
         else
             echo "failed"
-            echo "  Command: $cmd"
             echo "  Error: $result"
             json_parts+=("{ \"$name\": [] }")
         fi
@@ -310,5 +434,7 @@ EOF
 }
 
 # Export functions
-export -f nh_doctl_status nh_doctl_fetch nh_doctl_fetch_dry nh_doctl_droplets nh_doctl_cat
-export -f nh_doctl_clean nh_doctl_age nh_doctl_resources nh_doctl_info
+export -f nh_doctl_status nh_doctl_fetch nh_doctl_fetch_dry nh_doctl_fetch_help
+export -f _nh_fetch_get_resources _nh_fetch_get_cmd
+export -f nh_doctl_droplets nh_doctl_cat nh_doctl_clean
+export -f nh_doctl_age nh_doctl_resources nh_doctl_info
