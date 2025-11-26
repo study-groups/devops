@@ -39,8 +39,8 @@ _NH_FETCH_RESOURCES=(
 nh_doctl_fetch_dry() {
     local ctx="${DIGITALOCEAN_CONTEXT:-}"
 
-    echo "nh fetch --dry-run"
-    echo "==================="
+    echo "nh fetch dry-run"
+    echo "================"
     echo ""
     echo "Context:  ${ctx:-<not set>}"
     echo "NH_DIR:   $NH_DIR"
@@ -84,7 +84,7 @@ nh_doctl_fetch_dry() {
     echo ""
     echo "Output format: JSON array with objects keyed by resource type"
     echo ""
-    echo "Run 'nh fetch' to execute (without --dry-run)"
+    echo "Run 'nh fetch' to execute"
 }
 
 # Fetch all infrastructure data from DigitalOcean
@@ -94,13 +94,13 @@ nh_doctl_fetch() {
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --dry-run|-n)
+            dry-run)
                 dry_run=1
                 shift
                 ;;
             *)
                 echo "Unknown option: $1"
-                echo "Usage: nh fetch [--dry-run|-n]"
+                echo "Usage: nh fetch [dry-run]"
                 return 1
                 ;;
         esac

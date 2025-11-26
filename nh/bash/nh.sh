@@ -271,14 +271,13 @@ SUBCOMMANDS
     info        Explain data flow and tetra integration
 
 FETCH OPTIONS
-    nh fetch              Fetch all resources to digocean.json
-    nh fetch --dry-run    Show what would be fetched (no API calls)
-    nh fetch -n           Short form of --dry-run
+    nh fetch          Fetch all resources to digocean.json
+    nh fetch dry-run  Show what would be fetched (no API calls)
 
 WORKFLOW
     1. doctl auth init --context myorg
-    2. nh switch myorg && nh fetch --dry-run   # preview
-    3. nh fetch                                 # execute
+    2. nh switch myorg && nh fetch dry-run  # preview
+    3. nh fetch                              # execute
     4. org import nh ~/nh/myorg/digocean.json myorg  (tetra)
 EOF
 }

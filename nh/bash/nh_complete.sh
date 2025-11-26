@@ -2,6 +2,7 @@
 # nh_complete.sh - Tab completion for nh command
 
 _NH_COMMANDS="status list switch create fetch servers show cat env ssh doctl md cl help"
+_NH_FETCH_OPTS="dry-run"
 _NH_ENV_SUBCMDS="show load short"
 _NH_SSH_SUBCMDS="status keys add"
 _NH_DOCTL_SUBCMDS="status droplets fetch clean age resources info"
@@ -100,6 +101,9 @@ _nh_complete() {
                 # Include commands and step numbers (01-15)
                 local step_keys=$(_nh_complete_checklist_sections 2>/dev/null | grep -E '^[0-9]+$')
                 COMPREPLY=($(compgen -W "$_NH_CHECKLIST_SUBCMDS $step_keys" -- "$cur"))
+                ;;
+            fetch)
+                COMPREPLY=($(compgen -W "$_NH_FETCH_OPTS" -- "$cur"))
                 ;;
             help|h)
                 COMPREPLY=($(compgen -W "$_NH_HELP_SUBCMDS" -- "$cur"))
