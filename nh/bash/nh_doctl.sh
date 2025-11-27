@@ -235,6 +235,7 @@ nh_doctl_fetch() {
 
     local output_file="$NH_DIR/$ctx/digocean.json"
     local output_dir="$(dirname "$output_file")"
+    local backup_file="$NH_DIR/$ctx/digocean.json.bak"
     local resources=$(_nh_fetch_get_resources)
 
     echo "Fetching infrastructure from DigitalOcean"
@@ -249,6 +250,13 @@ nh_doctl_fetch() {
     if [[ ! -d "$output_dir" ]]; then
         echo "Creating: $output_dir"
         mkdir -p "$output_dir"
+    fi
+
+    # Backup existing file
+    if [[ -f "$output_file" ]]; then
+        cp "$output_file" "$backup_file"
+        echo "Backup:    digocean.json.bak"
+        echo ""
     fi
 
     # Convert comma-separated resources to array
