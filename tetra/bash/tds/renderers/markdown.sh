@@ -45,6 +45,50 @@ _tds_add_vertical_margins() {
 }
 
 
+# Render a single line of terminal output with semantic tokens
+# Determines line type by prefix and applies appropriate coloring
+# Args: line
+_tds_render_terminal_line() {
+    local line="$1"
+
+    # Determine line type by prefix and apply appropriate token
+    case "$line" in
+        '$'*|'>'*)
+            # Command line - prompt symbol + command
+            tds_text_color "content.terminal.prompt"
+            printf "    %s" "${line:0:1}"
+            tds_text_color "content.terminal.command"
+            printf "\033[1m%s\033[0m\n" "${line:1}"
+            ;;
+        '#'*)
+            # Comment line - dim
+            tds_text_color "content.terminal.comment"
+            printf "\033[2m    %s\033[0m\n" "$line"
+            ;;
+        '✓'*|'\[OK\]'*)
+            # Success output - green
+            tds_text_color "content.terminal.success"
+            printf "    %s\n" "$line"
+            ;;
+        '⚠'*|'\[WARN\]'*)
+            # Warning output - orange
+            tds_text_color "content.terminal.warning"
+            printf "    %s\n" "$line"
+            ;;
+        '✗'*|'\[ERR\]'*)
+            # Error output - red
+            tds_text_color "content.terminal.error"
+            printf "    %s\n" "$line"
+            ;;
+        *)
+            # Normal output
+            tds_text_color "content.terminal.output"
+            printf "    %s\n" "$line"
+            ;;
+    esac
+    reset_color
+}
+
 # Process inline formatting and return formatted string
 # Args: text
 tds_process_inline_formatting() {
@@ -97,16 +141,14 @@ tds_render_markdown() {
     fi
 
     while IFS= read -r line; do
-        # Code blocks (fenced)
-        if [[ "$line" =~ ^\`\`\`(.*)$ ]]; then
+        # Code blocks (fenced) - handle indented fences too
+        if [[ "$line" =~ ^([[:space:]]*)\`\`\`(.*)$ ]]; then
+            local fence_indent="${BASH_REMATCH[1]}"
             if [[ "$in_code_block" == false ]]; then
                 in_code_block=true
-                code_fence="${BASH_REMATCH[1]}"
+                code_fence="${BASH_REMATCH[2]}"
                 code_content=""
-                # Don't render header yet for mermaid - we'll handle it specially
-                if [[ "$code_fence" != "mermaid" ]]; then
-                    tds_render_code_header "$code_fence"
-                fi
+                # No header - just start collecting
                 continue
             else
                 in_code_block=false
@@ -117,26 +159,20 @@ tds_render_markdown() {
                         source "${TDS_SRC}/renderers/mermaid_flowchart.sh"
                         tds_render_mermaid_flowchart "$code_content"
                     else
-                        # Fallback to regular code rendering
-                        tds_render_code_header "$code_fence"
-                        echo "$code_content"
-                        tds_render_code_footer
+                        # Fallback - just output content
+                        tds_text_color "content.code.inline"
+                        printf "    %s\n" "$code_content"
+                        reset_color
                     fi
-                else
-                    # Regular code block
-                    if [[ "$code_fence" == "mermaid" ]]; then
-                        tds_render_code_header "$code_fence"
-                        echo "$code_content"
-                    fi
-                    tds_render_code_footer
                 fi
-                code_content=""
+                # Breathing room after code block
                 echo
+                code_content=""
                 continue
             fi
         fi
 
-        # Inside code block - collect or render
+        # Inside code block - render as indented colored text
         if [[ "$in_code_block" == true ]]; then
             if [[ "$code_fence" == "mermaid" ]]; then
                 # Collect mermaid content
@@ -144,10 +180,30 @@ tds_render_markdown() {
                     code_content+=$'\n'
                 fi
                 code_content+="$line"
+            elif [[ "$code_fence" == "terminal" ]]; then
+                # Terminal block - render with semantic tokens based on line prefix
+                _tds_render_terminal_line "$line"
             else
-                # Regular code - render line by line
-                tds_render_code_line "$line" "$TDS_MARKDOWN_WIDTH"
+                # Regular code - render indented with color
+                # Comments get dimmer color
+                if [[ "$line" =~ ^[[:space:]]*# ]]; then
+                    tds_text_color "text.secondary"
+                    printf "\033[2m    %s\033[0m\n" "$line"
+                else
+                    tds_text_color "content.code.inline"
+                    printf "    %s\n" "$line"
+                fi
+                reset_color
             fi
+            continue
+        fi
+
+        # Indented sub-items (notes under checkbox items)
+        if [[ "$line" =~ ^[[:space:]]+[-*+][[:space:]]+(.+)$ ]]; then
+            local content="${BASH_REMATCH[1]}"
+            tds_text_color "text.secondary"
+            printf "  • %s\n" "$content"
+            reset_color
             continue
         fi
 
@@ -162,6 +218,27 @@ tds_render_markdown() {
         # Horizontal rule
         if [[ "$line" =~ ^([-*_]){3,}$ ]]; then
             tds_render_hr "$TDS_MARKDOWN_WIDTH"
+            continue
+        fi
+
+        # Checkbox list items: - [ ] **01** Title or - [x] **01** Title
+        if [[ "$line" =~ ^([[:space:]]*)[-*+][[:space:]]+\[([[:space:]xX])\][[:space:]]+\*\*([0-9]+)\*\*[[:space:]]+(.+)$ ]]; then
+            local indent="${BASH_REMATCH[1]}"
+            local check="${BASH_REMATCH[2]}"
+            local number="${BASH_REMATCH[3]}"
+            local title="${BASH_REMATCH[4]}"
+            local indent_level=$((${#indent} / 2))
+            tds_render_checkbox_item "$check" "$number" "$title" "$indent_level"
+            continue
+        fi
+
+        # Simple checkbox list items: - [ ] Text (no number)
+        if [[ "$line" =~ ^([[:space:]]*)[-*+][[:space:]]+\[([[:space:]xX])\][[:space:]]+(.+)$ ]]; then
+            local indent="${BASH_REMATCH[1]}"
+            local check="${BASH_REMATCH[2]}"
+            local content="${BASH_REMATCH[3]}"
+            local indent_level=$((${#indent} / 2))
+            tds_render_checkbox_item "$check" "" "$content" "$indent_level"
             continue
         fi
 

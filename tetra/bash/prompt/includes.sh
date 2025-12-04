@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 
 # Prompt module includes
-# Follow tetra convention: MOD_DIR for data, MOD_SRC for source
-PROMPT_DIR="${PROMPT_DIR:-$TETRA_DIR/prompt}"
-PROMPT_SRC="${PROMPT_SRC:-$TETRA_SRC/bash/prompt}"
 
-# Create data directory if it doesn't exist
-[[ ! -d "$PROMPT_DIR" ]] && mkdir -p "$PROMPT_DIR"
+# Load module utilities
+source "$TETRA_SRC/bash/utils/module_init.sh"
+source "$TETRA_SRC/bash/utils/function_helpers.sh"
 
-# Export for subprocesses
-export PROMPT_DIR PROMPT_SRC
+# Initialize module with standard tetra conventions
+tetra_module_init_with_alias "prompt" "PROMPT"
 
 source "$PROMPT_SRC/prompt.sh"

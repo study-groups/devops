@@ -268,6 +268,59 @@ TETRA WORKS WITHOUT NODEHOLDER:
 EOF
 }
 
+# =============================================================================
+# IMPORT INTEGRATION
+# =============================================================================
+
+# Quick import from NodeHolder context
+# Usage: nh_quick_import <context> [org_name]
+nh_quick_import() {
+    local context="$1"
+    local org_name="${2:-$context}"
+
+    if [[ -z "$context" ]]; then
+        echo "Usage: nh_quick_import <context> [org_name]"
+        echo ""
+        echo "Imports digocean.json from NodeHolder context"
+        echo ""
+        echo "Example:"
+        echo "  nh_quick_import pixeljam-arcade"
+        echo "  nh_quick_import pixeljam-arcade pj"
+        return 1
+    fi
+
+    # Find the JSON file
+    local json_file=""
+
+    if nh_check_available; then
+        local nh_dir=$(nh_get_location)
+        json_file="$nh_dir/$context/digocean.json"
+    fi
+
+    # Also check ~/nh/<context>
+    if [[ ! -f "$json_file" && -f "$HOME/nh/$context/digocean.json" ]]; then
+        json_file="$HOME/nh/$context/digocean.json"
+    fi
+
+    if [[ ! -f "$json_file" ]]; then
+        echo "Error: digocean.json not found for context: $context" >&2
+        echo ""
+        echo "Checked:"
+        nh_check_available && echo "  $(nh_get_location)/$context/digocean.json"
+        echo "  ~/nh/$context/digocean.json"
+        return 1
+    fi
+
+    # Check age and warn
+    nh_suggest_refresh "$json_file" 30
+
+    # Source import functions
+    source "${NH_SRC:-$TETRA_SRC/bash/nh}/nh_import.sh"
+
+    # Run import
+    nh_import "$json_file" "$org_name"
+}
+
 # Export functions
 export -f nh_check_available
 export -f nh_get_location
@@ -278,3 +331,4 @@ export -f nh_status
 export -f nh_invoke_safe
 export -f nh_fetch_latest
 export -f nh_show_workflow
+export -f nh_quick_import

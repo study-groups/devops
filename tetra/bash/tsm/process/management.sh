@@ -527,7 +527,7 @@ _tsm_kill_by_name() {
                 local meta_file="${process_dir}meta.json"
                 if [[ -f "$meta_file" ]]; then
                     local pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
-                    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+                    if [[ -n "$pid" ]] && tsm_is_pid_alive "$pid"; then
                         echo "📋 Found TSM process: $proc_name (PID: $pid)"
                         if _tsm_kill_process "$pid" "$force"; then
                             echo "✅ Killed TSM process: $proc_name"
@@ -578,7 +578,7 @@ _tsm_kill_by_id() {
         return 1
     fi
 
-    if ! kill -0 "$pid" 2>/dev/null; then
+    if ! tsm_is_pid_alive "$pid"; then
         tsm_error "Process with TSM ID $id is not running (PID $pid dead)"
         _tsm_safe_remove_dir "$process_dir"
         return 1
@@ -602,7 +602,7 @@ _tsm_kill_by_pid() {
 
     echo "🔍 Checking process PID $pid..."
 
-    if ! kill -0 "$pid" 2>/dev/null; then
+    if ! tsm_is_pid_alive "$pid"; then
         tsm_error "Process $pid not found or not accessible"
         return 1
     fi
@@ -634,7 +634,7 @@ _tsm_kill_process() {
         sleep 1
 
         # Check if still running
-        if kill -0 "$pid" 2>/dev/null; then
+        if tsm_is_pid_alive "$pid"; then
             echo "⚠️  Process still running, force killing..."
             kill -9 "$pid" 2>/dev/null
         fi
@@ -642,7 +642,7 @@ _tsm_kill_process() {
 
     # Verify it's dead
     sleep 0.5
-    if kill -0 "$pid" 2>/dev/null; then
+    if tsm_is_pid_alive "$pid"; then
         tsm_error "Failed to kill PID $pid"
         return 1
     fi

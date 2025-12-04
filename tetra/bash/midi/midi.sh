@@ -76,16 +76,13 @@ EOF
         # Service management
         start)
             echo "Starting MIDI bridge service..."
-            # Build command with map from config if available
-            local map_arg=""
+            # Build command args
+            local config_arg=""
             if [[ -f "$MIDI_CONFIG" ]]; then
-                local default_map=$(grep "^default_map" "$MIDI_CONFIG" | cut -d'"' -f2 2>/dev/null)
-                if [[ -n "$default_map" ]]; then
-                    map_arg="-m $MIDI_MAPS_DIR/${default_map}.json"
-                fi
+                config_arg="-c $MIDI_CONFIG"
             fi
             # Use TSM with explicit port 1983 (OSC multicast port)
-            if tsm start --name midi --port 1983 node "$MIDI_SRC/midi.js" -v $map_arg; then
+            if tsm start --name midi --port 1983 node "$MIDI_SRC/midi.js" -v $config_arg; then
                 echo "✓ MIDI bridge started"
                 sleep 1
                 midi status

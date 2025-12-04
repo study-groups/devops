@@ -2,25 +2,30 @@
 # RAG Module Includes
 # Loads all RAG functionality for TCS-compliant integration
 
-: "${RAG_SRC:=$TETRA_SRC/bash/rag}"
+# Load module utilities
+source "$TETRA_SRC/bash/utils/module_init.sh"
+source "$TETRA_SRC/bash/utils/function_helpers.sh"
+
+# Initialize module with standard tetra conventions
+tetra_module_init_with_alias "rag" "RAG"
 
 # Core RAG functionality
-[[ -f "$RAG_SRC/rag.sh" ]] && source "$RAG_SRC/rag.sh"
+tetra_source_if_exists "$RAG_SRC/rag.sh"
 
 # TCS-compliant actions (for TUI integration)
-[[ -f "$RAG_SRC/actions.sh" ]] && source "$RAG_SRC/actions.sh"
+tetra_source_if_exists "$RAG_SRC/actions.sh"
 
 # Bash completion
-[[ -f "$RAG_SRC/rag_completion.sh" ]] && source "$RAG_SRC/rag_completion.sh"
+tetra_source_if_exists "$RAG_SRC/rag_completion.sh"
 
 # State management
-[[ -f "$RAG_SRC/state_manager.sh" ]] && source "$RAG_SRC/state_manager.sh"
+tetra_source_if_exists "$RAG_SRC/state_manager.sh"
 
 # Extensions (if present)
-[[ -f "$RAG_SRC/rag_extensions.sh" ]] && source "$RAG_SRC/rag_extensions.sh"
+tetra_source_if_exists "$RAG_SRC/rag_extensions.sh"
 
 # Source tree help registration
-[[ -f "$RAG_SRC/rag_tree.sh" ]] && source "$RAG_SRC/rag_tree.sh"
+tetra_source_if_exists "$RAG_SRC/rag_tree.sh"
 
 # Register rag actions with action registry
 if [[ -f "$TETRA_SRC/bash/actions/registry.sh" ]]; then

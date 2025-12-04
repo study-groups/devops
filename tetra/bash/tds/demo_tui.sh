@@ -9,7 +9,7 @@ source "$SCRIPT_DIR/tds.sh" 2>/dev/null
 
 # Demo state
 CURRENT_THEME_INDEX=0
-THEMES=(default tokyo-night neon)
+THEMES=(default warm cool neutral electric)
 CURRENT_VIEW="overview"
 VIEWS=(overview status panels borders colors)
 

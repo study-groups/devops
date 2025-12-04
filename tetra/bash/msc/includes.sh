@@ -3,18 +3,14 @@
 # MSC Module - Message Sequence Chart Generator
 # Entry point following Tetra Module Convention v2.0
 
-# Module globals (strong globals)
-MSC_SRC="${MSC_SRC:-$TETRA_SRC/bash/msc}"
-export MSC_SRC
+# Load module utilities
+source "$TETRA_SRC/bash/utils/module_init.sh"
+source "$TETRA_SRC/bash/utils/function_helpers.sh"
 
-MSC_DIR="${MSC_DIR:-$TETRA_DIR/msc}"
-export MSC_DIR
+# Initialize module with standard tetra conventions
+tetra_module_init_with_alias "msc" "MSC" "logs:exports"
 
 # Load core MSC library
 source "$MSC_SRC/msc.sh"
 source "$MSC_SRC/msc_layout.sh"
 source "$MSC_SRC/msc_render.sh"
-
-# Ensure module data directory exists
-mkdir -p "$MSC_DIR/logs"
-mkdir -p "$MSC_DIR/exports"

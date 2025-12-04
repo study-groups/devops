@@ -37,12 +37,3 @@ tetra_nvm_install() {
 }
 
 
-tetra_nvm_install_old(){
-  ver=${1:-"v0.39.1"}
-  echo "Using nvm: $ver"
-  mkdir -p $TETRA_NVM
-  echo "Installing nvm in $TETRA_NVM"
-  echo "Find latest here  https://github.com/nvm-sh/nvm/releases"
-  curl "https://raw.githubusercontent.com/nvm-sh/nvm/$ver/install.sh"  | bash
-  nvm install 'lts/*'
-}

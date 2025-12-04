@@ -3,6 +3,15 @@
 # TSM Core Module Loader
 # Loads all TSM modules using strong globals in dependency-ordered sequence
 
+# CRITICAL: Validate bash version >= 5.2
+# TSM uses modern bash 5.2+ features (nameref -n, [[ -v ]], etc.)
+if [[ "${BASH_VERSINFO[0]}" -lt 5 || ("${BASH_VERSINFO[0]}" -eq 5 && "${BASH_VERSINFO[1]}" -lt 2) ]]; then
+    echo "FATAL: TSM requires bash 5.2 or higher (current: $BASH_VERSION)" >&2
+    echo "Fix: brew install bash && add /opt/homebrew/bin/bash to /etc/shells" >&2
+    TSM_LOAD_FAILED=1
+    return
+fi
+
 # CRITICAL: Validate TETRA_SRC is set
 if [[ -z "${TETRA_SRC:-}" ]]; then
     echo "FATAL: TETRA_SRC is not set. TSM cannot load." >&2
@@ -23,6 +32,7 @@ TSM_SRC="$TETRA_SRC/bash/tsm"
 # === PHASE 1: CORE FOUNDATION (no dependencies) ===
 source "$TSM_CORE_SRC/core.sh"           # Core functions
 source "$TSM_CORE_SRC/config.sh"         # Configuration and global state
+source "$TSM_CORE_SRC/org_helpers.sh"    # Org-scoped service paths
 source "$TSM_CORE_SRC/utils.sh"          # Utility functions
 source "$TSM_CORE_SRC/validation.sh"     # Validation & helpers
 source "$TSM_CORE_SRC/environment.sh"    # Environment handling

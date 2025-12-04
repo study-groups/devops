@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 source ./core/state.sh
 source ./presets/phonemes.sh
 

@@ -13,6 +13,11 @@ declare -gA TDS_COLOR_TOKENS=(
     [structural.muted]="env:5"             # ENV_PRIMARY[5] - muted green
     [structural.separator]="mode:6"        # MODE_PRIMARY[6] - gray-blue
 
+    # Structural background tokens - for CSS web output (dark theme)
+    [structural.bg.primary]="mode:7"       # Darkest - page background
+    [structural.bg.secondary]="mode:6"     # Medium - panel background
+    [structural.bg.tertiary]="mode:5"      # Lighter - section background
+
     # Text tokens - content text hierarchy
     [text.primary]="mode:7"                # MODE_PRIMARY[7] - light text
     [text.secondary]="mode:6"              # MODE_PRIMARY[6] - medium text
@@ -57,6 +62,15 @@ declare -gA TDS_COLOR_TOKENS=(
     # Marker tokens - module visual markers
     [marker.primary]="mode:0"              # Primary marker color (changes with temperature)
     [marker.active]="verbs:3"              # Active/selected marker
+
+    # Terminal output tokens - for TUT tutorial rendering
+    [content.terminal.prompt]="env:3"      # Bright green - $ prompt
+    [content.terminal.command]="env:1"     # Green - commands
+    [content.terminal.output]="mode:6"     # Muted - normal output
+    [content.terminal.success]="env:1"     # Green - success messages
+    [content.terminal.warning]="verbs:3"   # Orange - warnings
+    [content.terminal.error]="verbs:0"     # Red - errors
+    [content.terminal.comment]="mode:5"    # Dim - comments
 )
 
 # Resolve color token to hex value

@@ -1,18 +1,15 @@
 #!/usr/bin/env bash
 # tetra-self module includes
 
-# Module paths
-MOD_SRC="$TETRA_SRC/bash/self"
-MOD_DIR="${MOD_DIR:-$TETRA_DIR/self}"
+# Load module utilities
+source "$TETRA_SRC/bash/utils/module_init.sh"
+source "$TETRA_SRC/bash/utils/function_helpers.sh"
 
-# Ensure module data directory exists
-mkdir -p "$MOD_DIR"
-mkdir -p "$MOD_DIR/db"
+# Initialize module with standard tetra conventions
+tetra_module_init_with_alias "self" "SELF" "db"
 
 # Source TCS 4.0 action registry if available
-if [[ -f "$TETRA_SRC/bash/actions/registry.sh" ]]; then
-    source "$TETRA_SRC/bash/actions/registry.sh"
-fi
+tetra_source_if_exists "$TETRA_SRC/bash/actions/registry.sh"
 
 # Source all components
 source "$MOD_SRC/self_log.sh"
@@ -32,7 +29,7 @@ source "$MOD_SRC/backup.sh"
 source "$MOD_SRC/lint.sh"
 
 # Source tree help registration
-[[ -f "$MOD_SRC/self_tree.sh" ]] && source "$MOD_SRC/self_tree.sh"
+tetra_source_if_exists "$MOD_SRC/self_tree.sh"
 
 # Note: preflight.sh, audit_modules.sh, legacy.sh, organize_tests.sh
 # are standalone CLI scripts and are called directly, not sourced

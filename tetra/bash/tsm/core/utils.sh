@@ -345,12 +345,6 @@ tetra_tsm_is_running() {
     tsm_is_pid_alive "$pid"
 }
 
-# Port discovery - deprecated, use tsm_discover_port() in start.sh instead
-tetra_tsm_extract_port() {
-    echo "DEPRECATED: Use tsm_discover_port() from start.sh" >&2
-    return 1
-}
-
 # === SECURITY UTILITIES ===
 
 # Safe directory removal - prevents accidental damage
@@ -421,13 +415,81 @@ _tsm_validate_command() {
     return 0
 }
 
-# Error and warning helpers for consistent messaging
-tsm_error() {
-    echo "tsm: $*" >&2
+# === PROCESS DIRECTORY ITERATOR ===
+# Iterate over all process directories with a callback
+
+tsm_foreach_process() {
+    local callback="$1"
+    shift
+    local callback_args=("$@")
+
+    [[ -d "$TSM_PROCESSES_DIR" ]] || return 0
+
+    for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+        [[ -d "$process_dir" ]] || continue
+        local name=$(basename "$process_dir")
+        [[ "$name" == .* ]] && continue  # Skip hidden dirs like .reserved-*
+
+        local meta_file="${process_dir}meta.json"
+        [[ -f "$meta_file" ]] || continue
+
+        "$callback" "$name" "$process_dir" "$meta_file" "${callback_args[@]}"
+    done
 }
 
-tsm_warn() {
-    echo "tsm: warning - $*" >&2
+# Find process by TSM ID, returns process name
+tsm_find_by_id() {
+    local target_id="$1"
+    local found_name=""
+
+    _find_callback() {
+        local name="$1" dir="$2" meta="$3" search_id="$4"
+        local tsm_id=$(jq -r '.tsm_id // empty' "$meta" 2>/dev/null)
+        if [[ "$tsm_id" == "$search_id" ]]; then
+            echo "$name"
+            return 1  # Signal to stop iteration
+        fi
+    }
+
+    tsm_foreach_process _find_callback "$target_id"
+}
+
+# Find process by PID, returns process name
+tsm_find_by_pid() {
+    local target_pid="$1"
+
+    _find_pid_callback() {
+        local name="$1" dir="$2" meta="$3" search_pid="$4"
+        local pid=$(jq -r '.pid // empty' "$meta" 2>/dev/null)
+        if [[ "$pid" == "$search_pid" ]]; then
+            echo "$name"
+            return 1
+        fi
+    }
+
+    tsm_foreach_process _find_pid_callback "$target_pid"
+}
+
+# Find process by port, returns process name
+tsm_find_by_port() {
+    local target_port="$1"
+
+    _find_port_callback() {
+        local name="$1" dir="$2" meta="$3" search_port="$4"
+        local port=$(jq -r '.port // empty' "$meta" 2>/dev/null)
+        if [[ "$port" == "$search_port" ]]; then
+            echo "$name"
+            return 1
+        fi
+    }
+
+    tsm_foreach_process _find_port_callback "$target_port"
+}
+
+# Get PID using port (from lsof)
+tsm_get_port_pid() {
+    local port="$1"
+    lsof -ti :"$port" 2>/dev/null | head -1
 }
 
 # Export utility functions
@@ -435,5 +497,8 @@ export -f tsm_is_pid_alive
 export -f _tsm_safe_remove_dir
 export -f _tsm_validate_path
 export -f _tsm_validate_command
-export -f tsm_error
-export -f tsm_warn
+export -f tsm_foreach_process
+export -f tsm_find_by_id
+export -f tsm_find_by_pid
+export -f tsm_find_by_port
+export -f tsm_get_port_pid

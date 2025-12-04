@@ -6,11 +6,7 @@
 : "${QA_DIR:=$TETRA_DIR/qa}"
 
 # Source dependencies
-if [[ -f "$RAG_SRC/core/flow_manager_ttm.sh" ]]; then
-    source "$RAG_SRC/core/flow_manager_ttm.sh"
-elif [[ -f "$RAG_SRC/core/flow_manager.sh" ]]; then
-    source "$RAG_SRC/core/flow_manager.sh"
-fi
+source "$RAG_SRC/core/flow_manager_ttm.sh"
 
 # Submit assembled context to QA (uses QA's current engine/model defaults)
 submit_to_qa() {

@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 
 # Utils module includes
-# Follow tetra convention: MOD_DIR for data, MOD_SRC for source
-UTILS_DIR="${UTILS_DIR:-$TETRA_DIR/utils}"
-UTILS_SRC="${UTILS_SRC:-$TETRA_SRC/bash/utils}"
 
-# Create data directory if it doesn't exist
+# Load module utilities (bootstrap - utils can't depend on itself for init)
+# Manually set paths since module_init.sh is in this directory
+UTILS_SRC="$TETRA_SRC/bash/utils"
+UTILS_DIR="$TETRA_DIR/utils"
 [[ ! -d "$UTILS_DIR" ]] && mkdir -p "$UTILS_DIR"
+export UTILS_SRC UTILS_DIR
 
-# Export for subprocesses
-export UTILS_DIR UTILS_SRC
+# Now source the utilities that other modules will use
+source "$UTILS_SRC/module_init.sh"
+source "$UTILS_SRC/function_helpers.sh"
+source "$UTILS_SRC/color_constants.sh"
 
 source "$UTILS_SRC/color.sh"
 source "$UTILS_SRC/dns.sh"

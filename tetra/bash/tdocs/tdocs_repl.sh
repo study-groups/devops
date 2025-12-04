@@ -30,6 +30,9 @@ source "$TDOCS_SRC/tdocs_commands.sh"
 # Load colored help system
 source "$TDOCS_SRC/core/help.sh"
 
+# Load REPL command handlers (extracted for maintainability)
+source "$TDOCS_SRC/repl_handlers.sh"
+
 # REPL state (filters, context)
 declare -a TDOCS_REPL_MODULES       # Array: (rag midi) or (*) or ("")
 declare -a TDOCS_REPL_TYPE          # Array: (spec guide investigation)
@@ -42,6 +45,8 @@ TDOCS_REPL_DOC_COUNT=0              # Cached filtered count
 TDOCS_REPL_TOTAL_COUNT=0            # Cached absolute total count
 TDOCS_REPL_STATE="find"             # State: find|edit|search|filter
 TDOCS_REPL_SEARCH_QUERY=""          # Last search query
+TDOCS_REPL_CONTEXT="global"         # Context: global or local
+TDOCS_REPL_CONTEXT_LOCKED=false     # Lock context (don't auto-switch)
 
 declare -a TDOCS_LAST_LIST          # Array of document paths from last ls
 
@@ -133,6 +138,103 @@ fi
 # Register tree-based completion with static fallback
 repl_register_tree_completion "help.tdocs" "_tdocs_static_completions"
 
+# ============================================================================
+# CONTEXT DETECTION AND MANAGEMENT
+# ============================================================================
+
+# Detect context (global vs local)
+tdocs_detect_context() {
+    # Check for .tdocs directory
+    if [[ -d ".tdocs" ]]; then
+        echo "local"
+        return 0
+    fi
+
+    # Check if we're in tetra source tree
+    if [[ "$PWD" == "$TETRA_SRC"* ]]; then
+        echo "global"
+        return 0
+    fi
+
+    # Default to global
+    echo "global"
+}
+
+# Initialize local context
+tdocs_init_local() {
+    local force="${1:-false}"
+
+    if [[ -d ".tdocs" ]] && [[ "$force" != "true" ]]; then
+        echo "Local context already exists in $PWD/.tdocs"
+        return 0
+    fi
+
+    echo "Initializing local tdocs context in $PWD..."
+
+    # Create directory structure
+    mkdir -p .tdocs/db
+    mkdir -p .tdocs/cache
+
+    # Create config
+    cat > .tdocs/config.json <<'EOF'
+{
+  "version": "1.0",
+  "scan_roots": ["."],
+  "exclude_patterns": ["node_modules", ".git", "vendor"],
+  "default_lifecycle": "W"
+}
+EOF
+
+    # Create empty index
+    cat > .tdocs/index.json <<'EOF'
+{
+  "files": {},
+  "scan_roots": ["."],
+  "last_scan": null
+}
+EOF
+
+    echo "Local context initialized at .tdocs/"
+    echo "Add to .gitignore: echo '.tdocs' >> .gitignore"
+}
+
+# Switch context
+tdocs_switch_context() {
+    local new_context="$1"
+
+    if ! tdoc_valid_context "$new_context"; then
+        echo "Invalid context: $new_context (must be 'global' or 'local')" >&2
+        return 1
+    fi
+
+    # Check if local context exists when switching to local
+    if [[ "$new_context" == "local" ]] && ! tdoc_has_local_context; then
+        echo "No local context found. Initialize with: tdocs init-local"
+        return 1
+    fi
+
+    TDOCS_REPL_CONTEXT="$new_context"
+    TDOCS_REPL_CONTEXT_LOCKED=true
+
+    # Update TDOCS_DB_DIR based on context
+    if [[ "$new_context" == "local" ]]; then
+        export TDOCS_DB_DIR="$PWD/.tdocs/db"
+    else
+        export TDOCS_DB_DIR="$TETRA_DIR/tdocs/db"
+    fi
+
+    # Reset counts to force refresh
+    TDOCS_REPL_DOC_COUNT=0
+    TDOCS_REPL_TOTAL_COUNT=0
+
+    echo "Switched to $new_context context"
+}
+
+# Get current context display name
+tdocs_get_context_display() {
+    tdoc_context_name "$TDOCS_REPL_CONTEXT"
+}
+
 # Count filtered documents
 tdocs_count_filtered() {
     local count=0
@@ -198,11 +300,15 @@ tdocs_count_total() {
 }
 
 # Build dynamic prompt with colors
-# Format: [total {modules} (type | intent)] [lifecycle] n :sort >
+# Format: [context:name total {modules} (type | intent)] [lifecycle] n :sort >
 _tdocs_repl_build_prompt() {
     local sort_mode="${TDOCS_REPL_SORT:-relevance}"
     local doc_count="${TDOCS_REPL_DOC_COUNT:-0}"
     local total_count="${TDOCS_REPL_TOTAL_COUNT:-0}"
+
+    # Get context info
+    local context="$TDOCS_REPL_CONTEXT"
+    local context_name=$(tdocs_get_context_display 2>/dev/null || echo "$context")
 
     # Update total count (cached - only calculate once at REPL start)
     if [[ "$total_count" -eq 0 ]]; then
@@ -325,13 +431,21 @@ _tdocs_repl_build_prompt() {
         sort_display="${count_color}${sort_mode}:${reset}"
     fi
 
-    # Build prompt: [total {modules} (type | intent)] [lifecycle] n :sort >
-    # Examples:
-    #   [92 {*} ()] [] 92 >
-    #   [92 {midi osc} (spec)] [W:183] 64 >
-    #   [92 {midi} (spec | define)] [C:3 S:12] 15 time:15 >
+    # Build context display - color coded by context
+    local context_display=""
+    if [[ "$context" == "local" ]]; then
+        context_display="${module_color}local:${context_name}${reset}"
+    else
+        context_display="${temporal_color}global:${context_name}${reset}"
+    fi
 
-    REPL_PROMPT="${bracket}[${reset}${count_color}${total_count}${reset} ${module_display} ${type_intent_display}${bracket}] ${reset}${bracket}[${reset}${lifecycle_breakdown}${bracket}] ${reset}${sort_display}${count_color}${doc_count}${reset} ${prompt_arrow}>${reset} "
+    # Build prompt: [context total {modules} (type | intent)] [lifecycle] n :sort >
+    # Examples:
+    #   [local:components 15 {*} ()] [W:15] 15 >
+    #   [global:tetra 92 {midi osc} (spec)] [W:183] 64 >
+    #   [local:src 20 {*} ()] [W:20] 20 >
+
+    REPL_PROMPT="${bracket}[${reset}${context_display} ${count_color}${total_count}${reset} ${module_display} ${type_intent_display}${bracket}] ${reset}${bracket}[${reset}${lifecycle_breakdown}${bracket}] ${reset}${sort_display}${count_color}${doc_count}${reset} ${prompt_arrow}>${reset} "
 }
 
 # ============================================================================
@@ -342,40 +456,18 @@ _tdocs_repl_process_input() {
     local input="$1"
 
     # Empty input - show current state
-    if [[ -z "$input" ]]; then
-        return 0
-    fi
+    [[ -z "$input" ]] && return 0
 
-    # Single-key sort toggles (r/t/l/a for relevance/time/level/alpha)
+    # Single-key sort toggles (r/t/l/a)
     if [[ "$input" =~ ^[rtla]$ ]]; then
-        case "$input" in
-            r)
-                TDOCS_REPL_SORT="relevance"
-                echo "Sort: relevance (recency + level + context)"
-                return 2  # Signal prompt refresh
-                ;;
-            t)
-                TDOCS_REPL_SORT="time"
-                echo "Sort: time (newest first)"
-                return 2
-                ;;
-            l)
-                TDOCS_REPL_SORT="level"
-                echo "Sort: level (highest completeness first)"
-                return 2
-                ;;
-            a)
-                TDOCS_REPL_SORT="alpha"
-                echo "Sort: alphabetical"
-                return 2
-                ;;
-        esac
+        _tdocs_handle_sort "$input"
+        return $?
     fi
 
-    # Shell command (!cmd for shell escape)
+    # Shell escape (!cmd)
     if [[ "$input" == !* ]]; then
-        eval "${input:1}"
-        return 0
+        _tdocs_handle_shell_escape "${input:1}"
+        return $?
     fi
 
     # Parse input into command and args
@@ -383,284 +475,52 @@ _tdocs_repl_process_input() {
     local args="${input#* }"
     [[ "$cmd" == "$input" ]] && args=""
 
-    # Parse command (takeover mode - no / prefix needed)
+    # Command dispatch
     case "$cmd" in
-        # Document listing
-        ls|list)
-            tdocs_cmd_ls $args
-            ;;
+        # Document operations
+        ls|list)        tdocs_cmd_ls $args ;;
+        view|v)         tdocs_cmd_view $args; return 0 ;;
+        search|s)       tdocs_cmd_search $args; return $? ;;
+        tag)            tdocs_cmd_tag $args ;;
+        add)            tdocs_cmd_add $args; TDOCS_REPL_DOC_COUNT=0 ;;
 
-        # View document
-        view|v)
-            tdocs_cmd_view $args
-            return 0  # Don't exit REPL on error
-            ;;
+        # Discovery and filtering
+        find)           _tdocs_handle_find "$args"; return $? ;;
+        filter|f)       _tdocs_handle_filter "$args"; return $? ;;
+        clear)          _tdocs_clear_filters; echo "Filters cleared"; return 2 ;;
 
-        # Search
-        search|s)
-            tdocs_cmd_search $args
-            local search_result=$?
-            # Return the result code from search (2 = prompt rebuild)
-            return $search_result
-            ;;
-
-        # Find - smart discovery (modules, types, or search)
-        find)
-            local find_args=($args)
-
-            if [[ ${#find_args[@]} -eq 0 ]]; then
-                # No args - show current filters
-                echo "Find mode: showing current context"
-                echo "Modules: ${TDOCS_REPL_MODULES[*]:-all}"
-                echo "Types: ${TDOCS_REPL_TYPE[*]:-all}"
-                echo ""
-                echo "Usage: find <modules/types/query...>"
-                echo "  find all            - Reset filters, show all documents"
-                echo "  find midi           - Filter by midi module"
-                echo "  find midi osc       - Filter by midi and osc modules"
-                echo "  find spec guide     - Filter by spec and guide types"
-                return 0
-            fi
-
-            # Handle special cases
-            if [[ "${find_args[0]}" == "all" ]] || [[ "${find_args[0]}" == "clear" ]] || [[ "${find_args[0]}" == "reset" ]]; then
-                # Reset all filters
-                TDOCS_REPL_MODULES=()
-                TDOCS_REPL_TYPE=()
-                TDOCS_REPL_INTENT=()
-                TDOCS_REPL_LIFECYCLE=()
-                TDOCS_REPL_LEVEL=""
-                TDOCS_REPL_TEMPORAL=""
-                TDOCS_REPL_DOC_COUNT=0
-                TDOCS_REPL_STATE="find"
-                TDOCS_REPL_SEARCH_QUERY=""
-                echo "Filters cleared - showing all documents"
-                echo ""
-                tdocs_cmd_ls
-                return 2  # Signal prompt rebuild
-            fi
-
-            # Detect if args are module names, types, or search query
-            local modules=()
-            local types=()
-            local search_terms=()
-
-            # Known modules and types for detection
-            local known_modules="rag midi tdocs repl tcurses tree tds tsm boot game org tgp osc"
-            local known_types="spec guide investigation reference plan summary scratch bug-fix refactor"
-
-            for arg in "${find_args[@]}"; do
-                # Normalize plural forms: remove trailing 's' if it makes a known type
-                local singular="$arg"
-                if [[ "$arg" == *s ]] && [[ " $known_types " == *" ${arg%s} "* ]]; then
-                    singular="${arg%s}"
-                fi
-
-                if [[ " $known_modules " == *" $arg "* ]]; then
-                    modules+=("$arg")
-                elif [[ " $known_types " == *" $singular "* ]]; then
-                    types+=("$singular")
-                else
-                    search_terms+=("$arg")
-                fi
-            done
-
-            # Apply filters and/or search
-            local did_filter=false
-            if [[ ${#modules[@]} -gt 0 ]]; then
-                TDOCS_REPL_MODULES=("${modules[@]}")
-                TDOCS_REPL_DOC_COUNT=0
-                TDOCS_REPL_STATE="find"
-                echo "Find: modules = ${modules[*]}"
-                did_filter=true
-            fi
-
-            if [[ ${#types[@]} -gt 0 ]]; then
-                TDOCS_REPL_TYPE=("${types[@]}")
-                TDOCS_REPL_DOC_COUNT=0
-                TDOCS_REPL_STATE="find"
-                echo "Find: types = ${types[*]}"
-                did_filter=true
-            fi
-
-            if [[ ${#search_terms[@]} -gt 0 ]]; then
-                # Perform search
-                local query="${search_terms[*]}"
-                tdocs_cmd_search "$query"
-                return $?
-            fi
-
-            # If we filtered, show the results
-            if [[ "$did_filter" == true ]]; then
-                echo ""
-                tdocs_cmd_ls
-            fi
-
-            return 2  # Signal prompt rebuild
-            ;;
-
-        # Filtering (legacy support)
-        filter|f)
-            local filter_args=($args)
-            local filter_type="${filter_args[0]}"
-            case "$filter_type" in
-                module|mod|m)
-                    # Support: filter module rag midi tdocs OR filter module rag,midi,tdocs
-                    local module_spec="${filter_args[@]:1}"
-                    # Replace spaces with commas if not already comma-separated
-                    if [[ ! "$module_spec" =~ , ]]; then
-                        module_spec="${module_spec// /,}"
-                    fi
-                    IFS=',' read -ra TDOCS_REPL_MODULES <<< "$module_spec"
-                    TDOCS_REPL_DOC_COUNT=0
-                    echo "Filter: modules = ${TDOCS_REPL_MODULES[*]}"
-                    return 2
-                    ;;
-                type|t)
-                    # Support: filter type spec guide OR filter type spec,guide
-                    local type_spec="${filter_args[@]:1}"
-                    if [[ ! "$type_spec" =~ , ]]; then
-                        type_spec="${type_spec// /,}"
-                    fi
-                    IFS=',' read -ra TDOCS_REPL_TYPE <<< "$type_spec"
-                    TDOCS_REPL_DOC_COUNT=0
-                    echo "Filter: type = ${TDOCS_REPL_TYPE[*]}"
-                    return 2
-                    ;;
-                intent|i)
-                    # Support: filter intent define instruct
-                    local intent_spec="${filter_args[@]:1}"
-                    if [[ ! "$intent_spec" =~ , ]]; then
-                        intent_spec="${intent_spec// /,}"
-                    fi
-                    IFS=',' read -ra TDOCS_REPL_INTENT <<< "$intent_spec"
-                    TDOCS_REPL_DOC_COUNT=0
-                    echo "Filter: intent = ${TDOCS_REPL_INTENT[*]}"
-                    return 2
-                    ;;
-                lifecycle|lc)
-                    # Support: filter lifecycle C S W
-                    local lifecycle_spec="${filter_args[@]:1}"
-                    if [[ ! "$lifecycle_spec" =~ , ]]; then
-                        lifecycle_spec="${lifecycle_spec// /,}"
-                    fi
-                    IFS=',' read -ra TDOCS_REPL_LIFECYCLE <<< "$lifecycle_spec"
-                    TDOCS_REPL_DOC_COUNT=0
-                    echo "Filter: lifecycle = ${TDOCS_REPL_LIFECYCLE[*]}"
-                    return 2
-                    ;;
-                level|l)
-                    TDOCS_REPL_LEVEL="${filter_args[1]}"
-                    TDOCS_REPL_DOC_COUNT=0
-                    echo "Filter: level = ${filter_args[1]}"
-                    return 2
-                    ;;
-                last:*|recent:*|time:*|date:*)
-                    # Temporal filter
-                    TDOCS_REPL_TEMPORAL="${filter_args[0]}"
-                    TDOCS_REPL_DOC_COUNT=0
-                    echo "Filter: temporal = ${filter_args[0]}"
-                    return 2
-                    ;;
-                clear|reset)
-                    TDOCS_REPL_MODULES=()
-                    TDOCS_REPL_TYPE=()
-                    TDOCS_REPL_INTENT=()
-                    TDOCS_REPL_LIFECYCLE=()
-                    TDOCS_REPL_LEVEL=""
-                    TDOCS_REPL_TEMPORAL=""
-                    TDOCS_REPL_DOC_COUNT=0
-                    echo "Filters cleared"
-                    return 2
-                    ;;
-                *)
-                    cat <<'EOF'
-Usage: filter [module|type|intent|lifecycle|level|temporal|clear] <value...>
-       filter module rag midi     filter type spec guide
-       filter intent define       filter lifecycle C S W
-       filter level L3+           filter last:7d
-       filter clear               clear all filters
-
-EASIER: Use find command instead!
-       find all                   show all documents (reset filters)
-       find midi osc              find midi and osc modules
-       find spec guide            find specs and guides
-       clear                      alias for filter clear
-
-Type: spec guide investigation reference plan summary scratch
-Intent: define instruct analyze document propose track
-Lifecycle: D (draft) W (working) S (stable) C (canonical) X (archived)
-Module: rag midi tdocs repl (or * for all, "" for system)
-Level: L0-L4, L3+, L2-L4
-Temporal: last:7d last:2w last:1m  recent:week  time:2025-11-01
-EOF
-                    ;;
-            esac
-            ;;
-
-        # Tagging
-        tag)
-            tdocs_cmd_tag $args
-            ;;
-
-        # Scan for documents
+        # Scanning and maintenance
         scan)
             tdocs_cmd_scan $args
-            # Reset document count cache after scan
             TDOCS_REPL_DOC_COUNT=0
-            return 2  # Signal prompt refresh
+            return 2
             ;;
-
-        # Doctor (health check)
         doctor)
             tdocs_cmd_doctor $args
-            # Reset document count cache after doctor fixes
             TDOCS_REPL_DOC_COUNT=0
             ;;
+        audit)          tdocs_cmd_audit ;;
+        audit-specs)    tdocs_cmd_audit_specs $args ;;
 
-        # Add document metadata
-        add)
-            tdocs_cmd_add $args
-            # Reset document count cache after adding
-            TDOCS_REPL_DOC_COUNT=0
-            ;;
+        # Context management
+        context)        _tdocs_handle_context "$args"; return $? ;;
+        init-local)     tdocs_init_local "$args" ;;
+        env)            tdocs_cmd_env ;;
+
+        # Module and spec operations
+        module)         tdocs_cmd_module $args ;;
+        spec)           tdocs_cmd_spec $args ;;
 
         # Evidence (context building)
-        evidence|e)
-            tdocs_cmd_evidence $args
-            ;;
+        evidence|e)     tdocs_cmd_evidence $args ;;
 
-        # Environment info
-        env)
-            tdocs_cmd_env
-            ;;
-
-        # Audit
-        audit)
-            tdocs_cmd_audit
-            ;;
-
-        # Module commands
-        module)
-            tdocs_cmd_module $args
-            ;;
-
-        spec)
-            tdocs_cmd_spec $args
-            ;;
-
-        audit-specs)
-            tdocs_cmd_audit_specs $args
-            ;;
-
-        # About
-        about)
-            tdocs_cmd_about
-            ;;
+        # Information
+        about)          tdocs_cmd_about ;;
+        levels)         _tdocs_show_levels_help ;;
+        help|h|\?)      tdocs_help_topic $args ;;
 
         # Demo
         demo)
-            # Run demo script
             local speed="${args:-medium}"
             if [[ -f "$TDOCS_SRC/demo_tdocs.sh" ]]; then
                 DEMO_SPEED="$speed" "$TDOCS_SRC/demo_tdocs.sh"
@@ -669,55 +529,16 @@ EOF
             fi
             ;;
 
-        # Levels legend
-        levels)
-            cat <<'EOF'
-Completeness Levels:
-  L0 None      No documentation or basic files only
-  L1 Minimal   Basic README, minimal docs
-  L2 Working   Functional with basic integration
-  L3 Complete  Full docs, tests, examples
-  L4 Exemplar  Gold standard with specs, full integration
-
-Examples: filter level L3+    filter level L2-L4
-EOF
-            ;;
-
-        # Clear filters (alias for filter clear)
-        clear)
-            TDOCS_REPL_MODULES=()
-            TDOCS_REPL_TYPE=()
-            TDOCS_REPL_INTENT=()
-            TDOCS_REPL_LIFECYCLE=()
-            TDOCS_REPL_LEVEL=""
-            TDOCS_REPL_TEMPORAL=""
-            TDOCS_REPL_DOC_COUNT=0
-            echo "Filters cleared"
-            return 2  # Signal prompt refresh
-            ;;
-
-        # Help
-        help|h|\?)
-            tdocs_help_topic $args
-            ;;
-
         # Exit
-        exit|quit|q)
-            return 1  # Signal exit
-            ;;
+        exit|quit|q)    return 1 ;;
 
-        # Unknown command
+        # Dynamic command dispatch
         *)
-            # Try to dispatch via slash commands if registered
-            if [[ -n "$cmd" ]]; then
-                # Check if it's a registered slash command
-                if declare -f "tdocs_cmd_${cmd}" >/dev/null 2>&1; then
-                    "tdocs_cmd_${cmd}" $args
-                else
-                    echo "Unknown command: $cmd"
-                    echo "Type 'help' for available commands, or press TAB for completions"
-                    return 0
-                fi
+            if [[ -n "$cmd" ]] && declare -f "tdocs_cmd_${cmd}" >/dev/null 2>&1; then
+                "tdocs_cmd_${cmd}" $args
+            else
+                echo "Unknown command: $cmd"
+                echo "Type 'help' for available commands, or press TAB for completions"
             fi
             ;;
     esac
@@ -735,8 +556,30 @@ tdocs_repl() {
     # Ensure module is initialized
     tdocs_module_init 2>/dev/null || true
 
+    # Auto-detect context
+    TDOCS_REPL_CONTEXT=$(tdocs_detect_context)
+
+    # Set TDOCS_DB_DIR based on context
+    if [[ "$TDOCS_REPL_CONTEXT" == "local" ]]; then
+        export TDOCS_DB_DIR="$PWD/.tdocs/db"
+        # Ensure local context exists
+        if [[ ! -d ".tdocs" ]]; then
+            echo "Local context detected but not initialized. Initializing..."
+            tdocs_init_local
+        fi
+
+        # Auto-scan local docs on REPL start
+        if [[ -d ".tdocs" ]]; then
+            echo "Scanning local docs..."
+            tdoc_scan_dir "." >/dev/null 2>&1
+            echo "Ready."
+        fi
+    else
+        export TDOCS_DB_DIR="$TETRA_DIR/tdocs/db"
+    fi
+
     # Register the tdocs module with the REPL system
-    repl_register_module "tdocs" "ls view search filter tag add scan evidence audit env colors"
+    repl_register_module "tdocs" "ls view search filter tag add scan evidence audit env colors context"
 
     # Register slash commands
     tdocs_register_commands
@@ -744,8 +587,12 @@ tdocs_repl() {
     # Set module context for help/completion
     repl_set_module_context "tdocs"
 
-    # Set history base
-    REPL_HISTORY_BASE="${TETRA_DIR}/tdocs/repl_history"
+    # Set history base (context-specific)
+    if [[ "$TDOCS_REPL_CONTEXT" == "local" ]]; then
+        REPL_HISTORY_BASE=".tdocs/repl_history"
+    else
+        REPL_HISTORY_BASE="${TETRA_DIR}/tdocs/repl_history"
+    fi
 
     # Set execution mode to takeover
     REPL_EXECUTION_MODE="takeover"
@@ -758,13 +605,23 @@ tdocs_repl() {
     repl_process_input() { _tdocs_repl_process_input "$@"; }
     export -f repl_build_prompt repl_process_input
 
-    # Show welcome message
-    cat <<'EOF'
+    # Show welcome message with context info
+    local context_msg=""
+    if [[ "$TDOCS_REPL_CONTEXT" == "local" ]]; then
+        context_msg="Context: Local project docs in $PWD"
+    else
+        context_msg="Context: Global tetra docs in $TETRA_DIR/tdocs"
+    fi
+
+    cat <<EOF
 ╔═══════════════════════════════════════════════════════════╗
 ║           tdocs - Interactive Document Browser            ║
 ╚═══════════════════════════════════════════════════════════╝
 
-Prompt Format: [total {modules} (type | intent)] [lifecycle] n >
+$context_msg
+
+Prompt Format: [context:name total {modules} (type | intent)] [lifecycle] n >
+  context    = local:dirname or global:tetra
   total      = all documents in database
   {modules}  = {*} for all, {midi osc} for specific, {} for none
   (type)     = document types: spec, guide, reference, etc.
@@ -774,8 +631,10 @@ Prompt Format: [total {modules} (type | intent)] [lifecycle] n >
   time:n     = sort prefix (relevance is default, not shown)
 
 Quick Start:
+  ls .                  List current directory (auto-switch to local)
   scan                  Index all documents
   ls                    List all documents
+  context local/global  Switch context
   find midi osc spec    Filter by modules and types
   clear                 Clear all filters
   r t a                 Toggle sort: relevance|time|alpha
@@ -799,6 +658,10 @@ EOF
 }
 
 # Export functions
+export -f tdocs_detect_context
+export -f tdocs_init_local
+export -f tdocs_switch_context
+export -f tdocs_get_context_display
 export -f tdocs_count_filtered
 export -f tdocs_count_total
 export -f _tdocs_repl_build_prompt

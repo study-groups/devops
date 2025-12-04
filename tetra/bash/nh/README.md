@@ -1,170 +1,149 @@
 # NodeHolder Bridge
 
-This directory is a **bridge** between NodeHolder and Tetra, not a duplication of functionality.
+Import DigitalOcean infrastructure from NodeHolder's `digocean.json` into Tetra org sections.
 
-## Architecture Philosophy
+## Quick Start
 
-### Single Source of Truth: `doctl` (DigitalOcean API)
+```bash
+# List droplets in a JSON file (dry run)
+org import list ~/nh/myorg/digocean.json
+
+# Import infrastructure (creates/updates sections/10-infrastructure.toml)
+org import nh ~/nh/myorg/digocean.json myorg
+
+# Edit other sections (storage, resources, etc.)
+$EDITOR ~/.tetra/orgs/myorg/sections/
+
+# Rebuild tetra.toml after edits
+org build myorg
+
+# Setup SSH keys
+org switch myorg
+tkm init && tkm gen all && tkm deploy all
+```
+
+## Architecture
 
 ```
 doctl (DigitalOcean API)
          ↓
-    NodeHolder
-    (../nh)
+    NodeHolder (../nh)         ← holds credentials
          ↓
-   digocean.json  ← THE BRIDGE
+   digocean.json               ← bridge contract
          ↓
-      Tetra
-    (./tetra)
+    nh_import.sh               ← this module
+         ↓
+   sections/10-infrastructure.toml  ← PARTIAL (only infra)
+         ↓
+    org build                  ← assembler
+         ↓
+   tetra.toml                  ← GENERATED (all sections)
 ```
 
-### Clean Separation
+**Key principles:**
+- Tetra has NO DigitalOcean credentials
+- `nh_import` only updates infrastructure section
+- Other sections (storage, resources) are preserved
+- `org build` assembles partials into final config
 
-**NodeHolder (../nh):**
-- Stores doctl API credentials
-- Fetches infrastructure from DigitalOcean
-- Outputs: `digocean.json`
+## Section Structure
 
-**Tetra (./tetra):**
-- NO doctl credentials
-- Converts `digocean.json` → `tetra.toml`
-- Manages deployments, secrets, environments
+```
+~/.tetra/orgs/<org>/
+├── tetra.toml              # GENERATED - never edit directly
+└── sections/
+    ├── 00-org.toml         # [org] identity
+    ├── 10-infrastructure.toml  # [environments.*] [connectors] ← nh import
+    ├── 20-storage.toml     # [storage.*] s3/spaces
+    ├── 30-resources.toml   # [resources.*] games, docs
+    ├── 40-services.toml    # [services.*] ports, apps
+    └── 50-deploy.toml      # [deploy] [domains]
+```
 
-**Bridge Contract:** `digocean.json` is the interface
+## Commands
 
-## What bash/nh Does
+### org commands
 
-✅ **Helper Functions:**
-- Check if NodeHolder is available
-- Validate digocean.json format
-- Check age of infrastructure data
-- Suggest when to refresh
-
-✅ **Workflow Documentation:**
-- Documents the nh ↔ tetra relationship
-- Provides helpful error messages
-- Shows examples
-
-✅ **Optional Integration:**
-- Can invoke NodeHolder commands (with user permission)
-- Provides workflow convenience
-
-## What bash/nh Does NOT Do
-
-❌ **NOT a Duplication:**
-- Does NOT store doctl credentials
-- Does NOT fetch from DigitalOcean directly
-- Does NOT duplicate NodeHolder code
-- Does NOT make Tetra dependent on NodeHolder
-
-## Usage
-
-### Check NodeHolder Status
 ```bash
-source bash/nh/nh_bridge.sh
-nh_status
+org init <name>                 # Create sections/ structure with templates
+org import nh <json> <name>     # Import infrastructure partial
+org import list <json>          # List droplets (dry run)
+org build [name]                # Assemble tetra.toml from sections/
+org sections [name]             # List section files
 ```
 
-### Validate digocean.json
+### Direct functions
+
 ```bash
-nh_validate_json ~/nh/myorg/digocean.json
+nh_import <json> <org> [no-build]  # Import, optionally skip auto-build
+nh_quick_import <context> [org]    # Import from NodeHolder context
+nh_list <json>                     # List droplets
 ```
 
-### Check if Data is Stale
+### Helper functions
+
 ```bash
-nh_suggest_refresh ~/nh/myorg/digocean.json 30  # 30 days
+nh_status                       # NodeHolder availability
+nh_validate_json <file>         # Validate JSON format
+nh_suggest_refresh <file> 30    # Warn if >30 days old
 ```
 
-### Fetch Latest (with confirmation)
-```bash
-nh_fetch_latest myorg
-```
+## Environment Detection
 
-### Show Workflow
-```bash
-nh_show_workflow
-```
+Droplets are auto-assigned to environments based on name/tags:
+
+| Pattern | Environment |
+|---------|-------------|
+| `*dev*`, `*development*` | dev |
+| `*staging*`, `*qa*` | staging |
+| `*prod*`, `*production*` | prod |
+
+Undetected droplets are listed for manual assignment.
 
 ## Complete Workflow
 
-### 1. Fetch Infrastructure (in NodeHolder)
 ```bash
-cd ../nh
-source bash/doctl.sh
-nh_doctl_get_all
-# Creates: ~/nh/<context>/digocean.json
-```
+# 1. Fetch infrastructure (in NodeHolder)
+cd ~/nh && nh_doctl_get_all
 
-### 2. Import to Tetra
-```bash
-org import nh ~/nh/myorg myorg
-# Interactive discovery
-# Creates org structure
-```
+# 2. Initialize org with sections
+org init myorg
 
-### 3. Configure Secrets
-```bash
-org secrets init myorg
-$EDITOR $TETRA_DIR/org/myorg/secrets.env
-org secrets validate myorg
-```
+# 3. Import infrastructure
+org import nh ~/nh/myorg/digocean.json myorg
 
-### 4. Compile and Deploy
-```bash
-org compile myorg
+# 4. Edit other sections
+$EDITOR ~/.tetra/orgs/myorg/sections/20-storage.toml
+$EDITOR ~/.tetra/orgs/myorg/sections/30-resources.toml
+
+# 5. Rebuild
+org build myorg
+
+# 6. Use
 org switch myorg
-org push myorg dev
+tkm init && tkm gen all && tkm deploy all
 ```
 
-## Refresh Workflow
+## Re-importing Infrastructure
 
-When infrastructure changes:
+When infrastructure changes, re-import safely:
 
 ```bash
-# 1. Update in NodeHolder
-cd ../nh
-nh_doctl_get_all
+# Fetch latest from DigitalOcean
+cd ~/nh && nh_doctl_get_all
 
-# 2. Refresh in Tetra
-org refresh myorg ~/nh/myorg/digocean.json
+# Re-import (only updates 10-infrastructure.toml)
+org import nh ~/nh/myorg/digocean.json myorg
+
+# Your storage, resources, services sections are preserved
 ```
-
-## Tetra Works Without NodeHolder
-
-Tetra can work completely independently:
-- Import any valid digocean.json from any source
-- Manually create organization configs
-- No dependency on NodeHolder installation
-
-NodeHolder is recommended but optional.
 
 ## Files
 
 ```
 bash/nh/
-├── README.md           # This file
-├── nh_bridge.sh       # Bridge helper functions
-└── includes.sh        # Module loader
+├── README.md        # This file
+├── nh_bridge.sh     # NodeHolder detection, validation
+├── nh_import.sh     # digocean.json → infrastructure partial
+└── includes.sh      # Module loader
 ```
-
-## Integration with Org REPL
-
-The org REPL integrates NodeHolder awareness:
-
-```bash
-org> import nh ~/nh/myorg myorg
-✓ NodeHolder directory found
-⚠️  digocean.json is 45 days old
-   Run: cd ../nh && nh_doctl_get_all
-   Continue with existing data? [y/N]
-
-org> refresh myorg
-✓ Checking for updates...
-  To fetch latest: nh_fetch_latest myorg
-```
-
-## See Also
-
-- NodeHolder repository: `../nh`
-- Org management: `bash/org/`
-- Workflow help: `org help workflow nodeholder-to-toml`

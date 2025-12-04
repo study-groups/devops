@@ -38,7 +38,11 @@ class OSCReplListener {
             variant: '',
             variant_name: '',
             last_cc: '',
-            last_val: ''
+            last_val: '',
+            last_semantic: '',
+            last_semantic_val: '',
+            input_device: '',
+            output_device: ''
         };
 
         // Dense logging with timing

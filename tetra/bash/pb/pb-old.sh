@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 pb() {
     local action=$1
     shift

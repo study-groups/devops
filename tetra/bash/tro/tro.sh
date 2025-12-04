@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Sensible Defaults Using TETRA Environment Variables
 HOTROD_DIR="${TETRA_DIR:-$HOME/.tetra}/hotrod"

@@ -71,6 +71,62 @@ fi
 # Define missing color
 export TETRA_DIM='\033[2m'
 
+# ============================================================================
+# HELPER FUNCTIONS (defined early for use throughout)
+# ============================================================================
+
+# Get the current map file path, or return error
+# Usage: local map_file; map_file=$(_get_current_map_file) || return
+_get_current_map_file() {
+    if [[ ! -f "$REPL_STATE_FILE" ]]; then
+        echo "REPL not initialized" >&2
+        return 1
+    fi
+
+    local controller
+    controller=$(grep "^controller=" "$REPL_STATE_FILE" 2>/dev/null | cut -d= -f2)
+
+    if [[ -z "$controller" ]]; then
+        echo "No map currently loaded" >&2
+        return 1
+    fi
+
+    local map_file="$MIDI_MAPS_DIR/${controller}[0].json"
+
+    if [[ ! -f "$map_file" ]]; then
+        echo "Map file not found: $map_file" >&2
+        return 1
+    fi
+
+    echo "$map_file"
+}
+
+# Get a single value from state file
+_get_state_value() {
+    local key="$1"
+    [[ -f "$REPL_STATE_FILE" ]] && grep "^${key}=" "$REPL_STATE_FILE" 2>/dev/null | cut -d= -f2
+}
+
+# Cleanup function for trap
+_midi_repl_cleanup() {
+    # Kill background processes
+    [[ -n "$MIDI_REPL_LISTENER_PID" ]] && kill "$MIDI_REPL_LISTENER_PID" 2>/dev/null
+    [[ -n "$MIDI_REPL_STATUS_PID" ]] && kill "$MIDI_REPL_STATUS_PID" 2>/dev/null
+
+    # Wait for processes to exit
+    wait "$MIDI_REPL_LISTENER_PID" 2>/dev/null || true
+    wait "$MIDI_REPL_STATUS_PID" 2>/dev/null || true
+
+    # Cleanup display
+    status_display_cleanup
+
+    # Remove temp files
+    rm -f "$REPL_STATE_FILE" "$REPL_LOG_MODE_FILE"
+
+    # Restore terminal
+    stty sane 2>/dev/null || true
+}
+
 # REPL configuration
 REPL_HISTORY_BASE="${MIDI_DIR}/repl/history"
 REPL_HISTORY_FILE="${REPL_HISTORY_BASE}.history"
@@ -125,7 +181,7 @@ input_mode_handle_cli() {
 
     case "$cmd" in
         help|h|\?)
-            midi_repl_help_cli
+            midi_repl_help "$args"
             ;;
         status|s)
             printf '\n' >&2
@@ -163,126 +219,29 @@ input_mode_handle_cli() {
             local subargs="${args#* }"
             [[ "$subargs" == "$subcmd" ]] && subargs=""
 
+            local map_file
             case "$subcmd" in
                 ""|info|overview)
-                    # Show current map overview
-                    if [[ -f "$REPL_STATE_FILE" ]]; then
-                        local controller variant
-                        while IFS= read -r pair; do
-                            local key="${pair%%=*}"
-                            local value="${pair#*=}"
-                            case "$key" in
-                                controller) controller="$value" ;;
-                                variant) variant="$value" ;;
-                            esac
-                        done < <(tr ' ' '\n' < "$REPL_STATE_FILE")
-
-                        if [[ -n "$controller" ]]; then
-                            local map_file="$MIDI_MAPS_DIR/${controller}[0].json"
-                            if [[ -f "$map_file" ]]; then
-                                midi_map_overview "$map_file"
-                            else
-                                echo "Error: Map file not found: $map_file"
-                            fi
-                        else
-                            echo "No map currently loaded"
-                        fi
-                    else
-                        echo "REPL not initialized"
-                    fi
+                    map_file=$(_get_current_map_file) && midi_map_overview "$map_file"
                     ;;
                 list)
-                    # List hardware controls
-                    if [[ -f "$REPL_STATE_FILE" ]]; then
-                        local controller
-                        controller=$(grep "^controller=" "$REPL_STATE_FILE" 2>/dev/null | cut -d= -f2)
-                        if [[ -n "$controller" ]]; then
-                            local map_file="$MIDI_MAPS_DIR/${controller}[0].json"
-                            if [[ -f "$map_file" ]]; then
-                                midi_map_list_hardware "$map_file" "$subargs"
-                            else
-                                echo "Error: Map file not found: $map_file"
-                            fi
-                        else
-                            echo "No map currently loaded"
-                        fi
-                    else
-                        echo "REPL not initialized"
-                    fi
+                    map_file=$(_get_current_map_file) && midi_map_list_hardware "$map_file" "$subargs"
                     ;;
                 show)
-                    # Show specific control
-                    if [[ -z "$subargs" ]]; then
-                        echo "Usage: map show <control>"
-                        return 0
-                    fi
-                    if [[ -f "$REPL_STATE_FILE" ]]; then
-                        local controller
-                        controller=$(grep "^controller=" "$REPL_STATE_FILE" 2>/dev/null | cut -d= -f2)
-                        if [[ -n "$controller" ]]; then
-                            local map_file="$MIDI_MAPS_DIR/${controller}[0].json"
-                            if [[ -f "$map_file" ]]; then
-                                midi_map_show_control "$map_file" "$subargs"
-                            else
-                                echo "Error: Map file not found: $map_file"
-                            fi
-                        else
-                            echo "No map currently loaded"
-                        fi
-                    else
-                        echo "REPL not initialized"
-                    fi
+                    [[ -z "$subargs" ]] && { echo "Usage: map show <control>"; return 0; }
+                    map_file=$(_get_current_map_file) && midi_map_show_control "$map_file" "$subargs"
                     ;;
                 variant)
-                    # Show variant mappings
-                    if [[ -z "$subargs" ]]; then
-                        echo "Usage: map variant <a|b|c|d>"
-                        return 0
-                    fi
-                    if [[ -f "$REPL_STATE_FILE" ]]; then
-                        local controller
-                        controller=$(grep "^controller=" "$REPL_STATE_FILE" 2>/dev/null | cut -d= -f2)
-                        if [[ -n "$controller" ]]; then
-                            local map_file="$MIDI_MAPS_DIR/${controller}[0].json"
-                            if [[ -f "$map_file" ]]; then
-                                midi_map_show_variant "$map_file" "$subargs"
-                            else
-                                echo "Error: Map file not found: $map_file"
-                            fi
-                        else
-                            echo "No map currently loaded"
-                        fi
-                    else
-                        echo "REPL not initialized"
-                    fi
+                    [[ -z "$subargs" ]] && { echo "Usage: map variant <a|b|c|d>"; return 0; }
+                    map_file=$(_get_current_map_file) && midi_map_show_variant "$map_file" "$subargs"
                     ;;
                 search)
-                    # Search for semantic name
-                    if [[ -z "$subargs" ]]; then
-                        echo "Usage: map search <term>"
-                        return 0
-                    fi
-                    if [[ -f "$REPL_STATE_FILE" ]]; then
-                        local controller
-                        controller=$(grep "^controller=" "$REPL_STATE_FILE" 2>/dev/null | cut -d= -f2)
-                        if [[ -n "$controller" ]]; then
-                            local map_file="$MIDI_MAPS_DIR/${controller}[0].json"
-                            if [[ -f "$map_file" ]]; then
-                                midi_map_search "$map_file" "$subargs"
-                            else
-                                echo "Error: Map file not found: $map_file"
-                            fi
-                        else
-                            echo "No map currently loaded"
-                        fi
-                    else
-                        echo "REPL not initialized"
-                    fi
+                    [[ -z "$subargs" ]] && { echo "Usage: map search <term>"; return 0; }
+                    map_file=$(_get_current_map_file) && midi_map_search "$map_file" "$subargs"
                     ;;
                 *)
                     echo "Unknown map subcommand: $subcmd"
                     echo "Usage: map [info|list|show|variant|search]"
-                    echo "Type 'help' for more information"
                     ;;
             esac
             ;;
@@ -309,6 +268,18 @@ input_mode_handle_cli() {
             node "$MIDI_SRC/midi.js" -l
             echo ""
             ;;
+        device)
+            if [[ -z "$args" ]]; then
+                echo "Usage: device <id|name>"
+                echo "       device 0          # Select first device"
+                echo "       device VMX8       # Select by name"
+                echo ""
+                echo "Use 'devices' to list available devices"
+            else
+                echo "Switching to device: $args"
+                midi_osc_send "/midi/control/device" "$args"
+            fi
+            ;;
         send)
             if [[ -z "$args" ]]; then
                 echo "Usage: send note <note> <velocity>"
@@ -325,7 +296,7 @@ input_mode_handle_cli() {
                         local note="${rest%% *}"
                         local velocity="${rest#* }"
                         if [[ -n "$note" && -n "$velocity" ]]; then
-                            node "$MIDI_SRC/osc_send.js" 239.1.1.1 1983 "/midi/out/note" 1 "$note" "$velocity"
+                            node "$MIDI_SRC/osc_send.js" "$REPL_OSC_MULTICAST" "$REPL_OSC_PORT" "/midi/out/note" 1 "$note" "$velocity"
                             echo "Sent: NOTE ch1 $note vel=$velocity"
                         else
                             echo "Usage: send note <note> <velocity>"
@@ -335,7 +306,7 @@ input_mode_handle_cli() {
                         local controller="${rest%% *}"
                         local value="${rest#* }"
                         if [[ -n "$controller" && -n "$value" ]]; then
-                            node "$MIDI_SRC/osc_send.js" 239.1.1.1 1983 "/midi/out/cc" 1 "$controller" "$value"
+                            node "$MIDI_SRC/osc_send.js" "$REPL_OSC_MULTICAST" "$REPL_OSC_PORT" "/midi/out/cc" 1 "$controller" "$value"
                             echo "Sent: CC ch1 $controller val=$value"
                         else
                             echo "Usage: send cc <controller> <value>"
@@ -343,9 +314,21 @@ input_mode_handle_cli() {
                         ;;
                     clear)
                         echo "Clearing all LEDs (notes 0-127)..."
-                        for note in {0..127}; do
-                            node "$MIDI_SRC/osc_send.js" 239.1.1.1 1983 "/midi/out/note" 1 "$note" 0 2>/dev/null
-                        done
+                        # Send all 128 note-off messages in a single node call
+                        node -e "
+                            const osc = require('osc');
+                            const dgram = require('dgram');
+                            const socket = dgram.createSocket('udp4');
+                            const port = new osc.UDPPort({ socket, metadata: true });
+                            port.open();
+                            for (let n = 0; n < 128; n++) {
+                                port.send({
+                                    address: '/midi/out/note',
+                                    args: [{ type: 'i', value: 1 }, { type: 'i', value: n }, { type: 'i', value: 0 }]
+                                }, '$REPL_OSC_MULTICAST', $REPL_OSC_PORT);
+                            }
+                            setTimeout(() => { socket.close(); process.exit(0); }, 100);
+                        " 2>/dev/null
                         echo "All LEDs cleared"
                         ;;
                     *)
@@ -517,88 +500,94 @@ Mode: $(input_mode_get)
 EOF
 }
 
-# Help display - CLI mode
-midi_repl_help_cli() {
-    cat <<EOF
+# Help system - hierarchical with tab completion
+# Usage: help [topic]  Topics: map, send, log, key
+midi_repl_help() {
+    local topic="${1:-}"
 
-═══════════════════════════════════════════════
-  MIDI REPL - CLI Commands
-═══════════════════════════════════════════════
+    case "$topic" in
+        ""|topics)
+            cat <<'EOF'
+MIDI REPL - Type 'help <topic>' for details
 
-CLI Commands:
-  help, h, ?           Show this help
-  status, s            Show MIDI status
-  log [mode]           Set/toggle log mode (off/raw/semantic/both)
-  variant <a-d>, v     Switch to variant a, b, c, or d
+  status, s      Show MIDI status
+  log [mode]     off|raw|semantic|both (or toggle)
+  variant <a-d>  Switch variant
+  map            Map info (help map for subcommands)
+  send           Send MIDI (help send)
+  devices        List MIDI devices
+  /key           Key mode (ESC to exit)
+  q              Quit
 
-Map Visualization:
-  map                  Show current map overview
-  map list             List all hardware controls
-  map show <control>   Show detailed info for control (e.g., map show p1)
-  map variant <a-d>    Show all mappings for variant
-  map search <term>    Search for semantic name
-
-Map Management:
-  load-map <name>      Load a MIDI map file
-  reload, r            Reload current map
-  reload-config, rc    Reload config.toml
-
-Device Control:
-  devices, dev         List available MIDI devices
-  send note N VEL      Send MIDI note (e.g., send note 40 127)
-  send cc N VAL        Send MIDI CC (e.g., send cc 7 64)
-  osc <addr> [args]    Send ad-hoc OSC message (e.g., osc /tau/cutoff 0.5)
-
-  exit, quit, q        Exit REPL
-
-Mode Switching:
-  /key                 Enter key-command mode
-  (in key mode) ESC    Return to CLI mode
-
-Key Commands (in key mode):
-  a, b, c, d           Switch variant (instant)
-  l                    Toggle log mode
-  s                    Show status
-  h, ?                 Help
-  q, Ctrl+D            Quit
-
-Examples:
-  variant b            Switch to variant B
-  load-map vmx8[0]     Load vmx8 controller map
-  log semantic         Show semantic events only
-  /key                 Switch to key mode
-  (press 'b')          Instant switch to variant B
-  (press ESC)          Return to CLI mode
-
+Topics: map, send, log, key
 EOF
+            ;;
+        map)
+            cat <<'EOF'
+map - MIDI mapping commands
+
+  map              Overview of current map
+  map list         List hardware controls
+  map show <ctrl>  Show control details (e.g., map show p1)
+  map variant <v>  Show variant mappings (a/b/c/d)
+  map search <s>   Search semantic names
+
+  load-map <name>  Load different map
+  reload           Reload current map
+EOF
+            ;;
+        send)
+            cat <<'EOF'
+send - Output MIDI messages
+
+  send note <n> <vel>  Send note (e.g., send note 40 127)
+  send cc <n> <val>    Send CC (e.g., send cc 7 64)
+  send clear           Turn off all LEDs (0-127)
+  osc <addr> [args]    Send OSC message
+EOF
+            ;;
+        log)
+            cat <<'EOF'
+log - Event logging control
+
+  log           Toggle: off→raw→semantic→both→off
+  log off       Disable logging
+  log raw       Show raw CC/note events
+  log semantic  Show mapped parameter names
+  log both      Show raw + semantic
+EOF
+            ;;
+        key)
+            cat <<'EOF'
+Key Mode - Single keystroke actions
+
+  /key       Enter key mode
+  ESC        Exit to CLI mode
+
+Keys:
+  a b c d    Switch variant
+  l          Cycle log mode
+  s          Status
+  h          Help
+  q          Quit
+EOF
+            ;;
+        *)
+            echo "Unknown topic: $topic"
+            echo "Topics: map, send, log, key"
+            ;;
+    esac
 }
 
-# Help display - Key mode
+# Help topics for tab completion
+_midi_help_topics() {
+    echo -e "map\nsend\nlog\nkey\ntopics"
+}
+
+# Key mode help (compact)
 midi_repl_help_key() {
     cat <<'EOF'
-═══════════════════════════════════════════════
-  MIDI REPL - Key-Command Mode
-═══════════════════════════════════════════════
-
-Single-Key Actions:
-
-  a b c d    Switch variant (instant)
-  l          Cycle log mode (off→raw→semantic→both→off)
-  s          Show status
-  h ?        This help
-  q Ctrl+D   Quit
-  ESC        Return to CLI mode
-
-Prompt Shows:
-  [device:variant] [CC#=val] [log:mode] host:port [KEY] >
-                                                   ^^^^^ mode indicator
-
-Color-Coded CC Values:
-  Green   = Low (0-42)
-  Yellow  = Mid (43-84)
-  Red     = High (85-127)
-
-Press ESC to return to CLI mode for full commands!
+Key Mode: a/b/c/d=variant l=log s=status h=help q=quit ESC=CLI
 EOF
 }
 
@@ -637,13 +626,16 @@ input_mode_build_prompt() {
     # Build prompt components
     local ctrl_part cc_part sem_part log_part conn_part mode_indicator
 
-    # Controller and variant
+    # Controller and variant - show device info when available
     if [[ -n "$REPL_CONTROLLER" && -n "$REPL_VARIANT" ]]; then
         ctrl_part="${TETRA_CYAN}[${REPL_CONTROLLER}"
         [[ "$REPL_INSTANCE" != "0" ]] && ctrl_part+="[$REPL_INSTANCE]"
         ctrl_part+=":${REPL_VARIANT}"
         [[ -n "$REPL_VARIANT_NAME" ]] && ctrl_part+=" ${REPL_VARIANT_NAME}"
         ctrl_part+="]${TETRA_NC}"
+    elif [[ -n "$REPL_INPUT_DEVICE" && "$REPL_INPUT_DEVICE" != "none" ]]; then
+        # Have device but no map loaded - show device name
+        ctrl_part="${TETRA_YELLOW}[${REPL_INPUT_DEVICE}]${TETRA_NC}"
     else
         ctrl_part="${TETRA_DIM}[no-device]${TETRA_NC}"
     fi
@@ -778,34 +770,39 @@ midi_repl_osc_listener() {
 _midi_static_completions() {
     cat <<'EOF'
 help
-h
-?
+help map
+help send
+help log
+help key
 status
-s
 log
+log off
+log raw
+log semantic
+log both
 variant
-v
-load-map
-load
+variant a
+variant b
+variant c
+variant d
 map
+map list
+map show
+map variant
+map search
+load-map
 reload
-r
 reload-config
-rc
 devices
-dev
+device
+send
+send note
+send cc
+send clear
+osc
 /key
 exit
 quit
-q
-off
-raw
-semantic
-both
-a
-b
-c
-d
 EOF
 
     # Dynamic: map names
@@ -863,45 +860,19 @@ midi_repl() {
     # Initialize tree-based completion
     _midi_repl_init_completion
 
-    # Clear screen for clean start
-    clear
-
-    # Initialize status display
-    status_display_init
-
-    # Show welcome banner
-    printf '%b╔════════════════════════════════════════════╗%b\n' "${TETRA_CYAN}" "${TETRA_NC}"
-    printf '%b║%b   MIDI REPL                                %b║%b\n' "${TETRA_CYAN}" "${TETRA_NC}" "${TETRA_CYAN}" "${TETRA_NC}"
-    printf '%b╚════════════════════════════════════════════╝%b\n' "${TETRA_CYAN}" "${TETRA_NC}"
-    printf '\n'
-    printf '%b✓ Connected to OSC:%b %s:%s\n' "${TETRA_GREEN}" "${TETRA_NC}" "$osc_multicast" "$osc_port"
-    printf '%b✓ Real-time status display enabled%b\n' "${TETRA_GREEN}" "${TETRA_NC}"
-    printf '\n'
-    printf '%bModes:%b\n' "${TETRA_YELLOW}" "${TETRA_NC}"
-    printf '  %bCLI Mode%b    - Type commands, use history, tab completion (default)\n' "${TETRA_GREEN}" "${TETRA_NC}"
-    printf '  %bKey Mode%b    - Type %b/key%b for instant single-key actions\n' "${TETRA_CYAN}" "${TETRA_NC}" "${TETRA_YELLOW}" "${TETRA_NC}"
-    printf '\n'
-    printf '%bQuick Start:%b\n' "${TETRA_DIM}" "${TETRA_NC}"
-    printf '  Type: %bhelp%b, %bstatus%b, %bvariant b%b (use TAB for completion)\n' "${TETRA_YELLOW}" "${TETRA_NC}" "${TETRA_YELLOW}" "${TETRA_NC}" "${TETRA_YELLOW}" "${TETRA_NC}"
-    printf '  Type %b/key%b then press %ba%b/%bb%b/%bc%b/%bd%b for instant variant switch\n' \
-        "${TETRA_YELLOW}" "${TETRA_NC}" \
-        "${TETRA_YELLOW}" "${TETRA_NC}" \
+    # Show compact welcome
+    printf '%bMIDI REPL%b %s:%s - type %bhelp%b, %b/key%b for key mode, %bq%b to quit\n' \
+        "${TETRA_CYAN}" "${TETRA_NC}" \
+        "$osc_multicast" "$osc_port" \
         "${TETRA_YELLOW}" "${TETRA_NC}" \
         "${TETRA_YELLOW}" "${TETRA_NC}" \
         "${TETRA_YELLOW}" "${TETRA_NC}"
-    printf '  Press %bESC%b to return to CLI mode\n' "${TETRA_YELLOW}" "${TETRA_NC}"
-    printf '\n'
-    printf '%bPress Enter to continue...%b' "${TETRA_DIM}" "${TETRA_NC}"
-    read -r
 
-    # Temporarily disable job control notifications while starting background processes
-    # This suppresses "[1] 12345" messages without using disown (which would break cleanup)
+    # Disable job control to suppress [1] 12345 notifications
     set +m
 
     # Start background OSC listener
-    {
-        midi_repl_osc_listener "$osc_host" "$osc_port" 2>&1
-    } &
+    midi_repl_osc_listener "$osc_host" "$osc_port" &
     MIDI_REPL_LISTENER_PID=$!
 
     # Wait for listener to be ready
@@ -912,28 +883,26 @@ midi_repl() {
     sleep 0.2
 
     # Start background status display refresh loop
-    {
-        status_display_refresh_loop "$REPL_STATE_FILE" "$REPL_LOG_MODE_FILE" "$STATUS_DISPLAY_EVENTS_FILE"
-    } &
-    local STATUS_REFRESH_PID=$!
+    status_display_refresh_loop "$REPL_STATE_FILE" "$REPL_LOG_MODE_FILE" "$STATUS_DISPLAY_EVENTS_FILE" &
+    MIDI_REPL_STATUS_PID=$!
 
-    # Re-enable job control for proper signal handling
+    # Re-enable job control
     set -m
+
+    # Initialize status display (sets scroll region)
+    status_display_init
 
     # Initial render
     status_display_render "$REPL_STATE_FILE" "$REPL_LOG_MODE_FILE" "$STATUS_DISPLAY_EVENTS_FILE"
 
     # Setup cleanup trap
-    trap "kill $MIDI_REPL_LISTENER_PID $STATUS_REFRESH_PID 2>/dev/null; wait $MIDI_REPL_LISTENER_PID $STATUS_REFRESH_PID 2>/dev/null || true; status_display_cleanup; rm -f '$REPL_STATE_FILE' '$REPL_LOG_MODE_FILE'; stty sane 2>/dev/null" EXIT INT TERM
+    trap '_midi_repl_cleanup' EXIT INT TERM
 
     # Run multimodal input loop
     input_mode_main_loop
 
-    # Cleanup
-    kill "$MIDI_REPL_LISTENER_PID" "$STATUS_REFRESH_PID" 2>/dev/null || true
-    wait "$MIDI_REPL_LISTENER_PID" "$STATUS_REFRESH_PID" 2>/dev/null || true
-    status_display_cleanup
-    rm -f "$REPL_STATE_FILE" "$REPL_LOG_MODE_FILE"
+    # Cleanup (also called by trap, but explicit for normal exit)
+    _midi_repl_cleanup
 }
 
 # Export functions
@@ -945,6 +914,10 @@ export -f input_mode_render_prompt
 export -f midi_toggle_log_mode
 export -f midi_set_variant
 export -f midi_repl_status_display
-export -f midi_repl_help_cli
+export -f midi_repl_help
 export -f midi_repl_help_key
+export -f _midi_help_topics
 export -f midi_repl_osc_listener
+export -f _get_current_map_file
+export -f _get_state_value
+export -f _midi_repl_cleanup

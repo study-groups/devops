@@ -89,6 +89,8 @@ apply_remap() {
 
 generate_example() {
   cat <<'EOF'
+Output in MULTICAT format: a single bash code fence containing the entire .mc file. No text before or after the code fence. Start immediately with ```bash and the first #MULTICAT_START.
+
 #MULTICAT_START
 # dir: ./scripts
 # file: deploy.sh

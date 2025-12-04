@@ -48,16 +48,17 @@ status_display_cleanup() {
     rm -f "$STATUS_DISPLAY_EVENTS_FILE"
 }
 
-# Add an event to the ring buffer
+# Add an event to the ring buffer (keeps last 4 events)
 status_display_add_event() {
     local event="$1"
+    local max_events=4
 
     # Append to file
     echo "$event" >> "$STATUS_DISPLAY_EVENTS_FILE"
 
-    # Keep only last 4 lines - use a unique temp file to avoid race conditions
+    # Keep only last N lines - use a unique temp file to avoid race conditions
     local temp_file="${STATUS_DISPLAY_EVENTS_FILE}.tmp.$$"
-    tail -4 "$STATUS_DISPLAY_EVENTS_FILE" > "$temp_file" && mv "$temp_file" "$STATUS_DISPLAY_EVENTS_FILE"
+    tail -$max_events "$STATUS_DISPLAY_EVENTS_FILE" > "$temp_file" && mv "$temp_file" "$STATUS_DISPLAY_EVENTS_FILE"
 }
 
 # Render the status display
@@ -72,7 +73,7 @@ status_display_render() {
     local status_start=$((term_height - STATUS_DISPLAY_HEIGHT))
 
     # Read state
-    local controller="" instance="" variant="" variant_name="" last_cc="" last_val=""
+    local controller="" instance="" variant="" variant_name="" input_device="" last_cc="" last_val=""
     if [[ -f "$state_file" ]]; then
         while IFS= read -r pair; do
             local key="${pair%%=*}"
@@ -82,6 +83,7 @@ status_display_render() {
                 instance) instance="$value" ;;
                 variant) variant="$value" ;;
                 variant_name) variant_name="$value" ;;
+                input_device) input_device="$value" ;;
                 last_cc) last_cc="$value" ;;
                 last_val) last_val="$value" ;;
             esac
@@ -97,34 +99,42 @@ status_display_render() {
     # Save cursor position
     tput sc 2>/dev/null || printf '\033[s'
 
-    # Build compact device status for d16 d16 format
-    local left_status="${controller:-none}"
-    [[ "$instance" != "0" && -n "$instance" ]] && left_status+="[$instance]"
-    [[ -n "$variant" ]] && left_status+=":${variant}"
-    [[ -n "$variant_name" ]] && left_status+=" ${variant_name}"
+    # Build status line: [device/controller] [CC=val] [log:mode]
+    local device_part cc_part
+    if [[ -n "$controller" ]]; then
+        device_part="${controller}"
+        [[ "$instance" != "0" && -n "$instance" ]] && device_part+="[$instance]"
+        [[ -n "$variant" ]] && device_part+=":${variant}"
+    elif [[ -n "$input_device" && "$input_device" != "none" ]]; then
+        device_part="${input_device}"
+    else
+        device_part="no-device"
+    fi
 
-    local right_status="log:${log_mode}"
+    if [[ -n "$last_cc" && -n "$last_val" ]]; then
+        cc_part="CC${last_cc}=${last_val}"
+    else
+        cc_part="--"
+    fi
 
-    # Pad/truncate to exactly 16 chars each
-    printf -v left_padded "%-16.16s" "$left_status"
-    printf -v right_padded "%-16.16s" "$right_status"
+    local status_text="${device_part} [${cc_part}] log:${log_mode}"
 
-    local status_line="${left_padded} ${right_padded}"
-
-    # Render status line at bottom
+    # Render separator with embedded status
     tput cup $status_start 0 2>/dev/null || true
-    printf "${TETRA_CYAN}━%.0s" $(seq 1 $term_width)
+    printf "${TETRA_CYAN}━━━${TETRA_NC} ${TETRA_GREEN}%s${TETRA_NC} ${TETRA_CYAN}" "$status_text"
+    # Fill rest of line with separator chars
+    local used_len=$((6 + ${#status_text}))  # 6 = "━━━ " + " "
+    local remaining=$((term_width - used_len))
+    [[ $remaining -gt 0 ]] && printf '━%.0s' $(seq 1 $remaining)
     printf "${TETRA_NC}"
 
-    tput cup $((status_start + 1)) 0 2>/dev/null || true
-    printf "${TETRA_GREEN}%-${term_width}s${TETRA_NC}" "$status_line"
-
-    # Render RAW event data lines - dimmed, maximum info density
-    local line_num=$((status_start + 2))
+    # Render event log lines - start right after separator
+    local line_num=$((status_start + 1))
     local event_count=0
+    local max_events=4  # Use all available lines for events
 
     if [[ -f "$events_file" && "$log_mode" != "off" ]]; then
-        while IFS= read -r event && [[ $event_count -lt 3 ]]; do
+        while IFS= read -r event && [[ $event_count -lt $max_events ]]; do
             tput cup $line_num 0 2>/dev/null || true
             printf "${TETRA_DIM}%-${term_width}s${TETRA_NC}" "$event"
             ((line_num++))
@@ -133,7 +143,7 @@ status_display_render() {
     fi
 
     # Fill remaining event lines with blanks
-    while [[ $event_count -lt 3 ]]; do
+    while [[ $event_count -lt $max_events ]]; do
         tput cup $line_num 0 2>/dev/null || true
         tput el 2>/dev/null || printf '\033[K'
         ((line_num++))
@@ -181,7 +191,6 @@ status_display_refresh_loop() {
 # Export functions
 export -f status_display_init
 export -f status_display_cleanup
-export -f status_display_clear
 export -f status_display_add_event
 export -f status_display_render
 export -f status_display_refresh_loop

@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Estovox Synth - Multivox Client</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #0a0a12;
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 { font-size: 24px; margin-bottom: 8px; }
+        .subtitle { color: #888; font-size: 14px; margin-bottom: 20px; }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+            background: #12121a;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #444;
+        }
+        .status-dot.connected { background: #22c55e; }
+        .status-dot.disconnected { background: #ef4444; }
+
+        .panel {
+            background: #12121a;
+            border: 1px solid #222;
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .panel h2 {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+        .control-group label {
+            display: block;
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+        .control-group input[type="range"] {
+            width: 100%;
+        }
+        .control-value {
+            font-size: 12px;
+            color: #aaa;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .bit-presets {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .bit-preset {
+            padding: 6px 12px;
+            background: #1a1a24;
+            border: 1px solid #333;
+            border-radius: 4px;
+            color: #ccc;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .bit-preset:hover { background: #222; border-color: #444; }
+        .bit-preset.active { background: #2563eb; border-color: #3b82f6; color: white; }
+
+        .vowel-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .vowel-btn {
+            width: 48px;
+            height: 48px;
+            border: 1px solid #333;
+            background: #1a1a24;
+            color: #ccc;
+            font-size: 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+        .vowel-btn:hover { background: #222; border-color: #555; }
+        .vowel-btn:active { background: #2563eb; }
+
+        #waveform {
+            width: 100%;
+            height: 100px;
+            background: #080810;
+            border-radius: 4px;
+            border: 1px solid #222;
+        }
+
+        .log {
+            font-family: monospace;
+            font-size: 11px;
+            background: #080810;
+            border-radius: 4px;
+            padding: 8px;
+            height: 120px;
+            overflow-y: auto;
+            color: #888;
+        }
+        .log-entry { margin-bottom: 2px; }
+        .log-entry.formant { color: #22c55e; }
+        .log-entry.error { color: #ef4444; }
+
+        button.primary {
+            padding: 8px 16px;
+            background: #2563eb;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        button.primary:hover { background: #1d4ed8; }
+        button.primary:disabled { background: #444; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Estovox Synth</h1>
+        <div class="subtitle">Formant voice synthesizer - receives parameters via Multivox WebSocket</div>
+
+        <div class="status-bar">
+            <div id="statusDot" class="status-dot disconnected"></div>
+            <span id="statusText">Disconnected</span>
+            <span style="margin-left: auto; color: #666; font-size: 12px;">
+                UDP → WS → AudioWorklet
+            </span>
+        </div>
+
+        <div class="panel">
+            <h2>Audio</h2>
+            <button id="startBtn" class="primary">Start Audio</button>
+            <span id="audioStatus" style="margin-left: 12px; color: #888; font-size: 12px;">
+                Click to enable Web Audio
+            </span>
+        </div>
+
+        <div class="panel">
+            <h2>Quantization Presets</h2>
+            <div class="bit-presets">
+                <button class="bit-preset" data-preset="sid">SID (4-bit DAC)</button>
+                <button class="bit-preset" data-preset="sam">SAM (50Hz ctrl)</button>
+                <button class="bit-preset active" data-preset="vocoder">Vocoder</button>
+                <button class="bit-preset" data-preset="lofi">Lo-Fi</button>
+                <button class="bit-preset" data-preset="clean">Clean</button>
+            </div>
+            <div style="margin-top: 12px; font-size: 11px; color: #666;">
+                <strong>Current:</strong>
+                <span id="quantInfo">outBits=8, paramBits=16, pitchBits=16, srDiv=1, ctrlDiv=1</span>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Manual Controls</h2>
+            <div class="controls">
+                <div class="control-group">
+                    <label>F1 (200-1000 Hz) <span id="f1Val" class="control-value">500</span></label>
+                    <input type="range" id="f1Slider" min="200" max="1000" value="500">
+                </div>
+                <div class="control-group">
+                    <label>F2 (500-3000 Hz) <span id="f2Val" class="control-value">1500</span></label>
+                    <input type="range" id="f2Slider" min="500" max="3000" value="1500">
+                </div>
+                <div class="control-group">
+                    <label>F3 (1500-4000 Hz) <span id="f3Val" class="control-value">2500</span></label>
+                    <input type="range" id="f3Slider" min="1500" max="4000" value="2500">
+                </div>
+                <div class="control-group">
+                    <label>F0/Pitch (50-400 Hz) <span id="f0Val" class="control-value">120</span></label>
+                    <input type="range" id="f0Slider" min="50" max="400" value="120">
+                </div>
+                <div class="control-group">
+                    <label>Noise <span id="noiseVal" class="control-value">0.00</span></label>
+                    <input type="range" id="noiseSlider" min="0" max="100" value="0">
+                </div>
+                <div class="control-group">
+                    <label>Volume <span id="volVal" class="control-value">0.30</span></label>
+                    <input type="range" id="volSlider" min="0" max="100" value="30">
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Quick Vowels</h2>
+            <div class="vowel-buttons">
+                <button class="vowel-btn" data-vowel="i">i</button>
+                <button class="vowel-btn" data-vowel="e">e</button>
+                <button class="vowel-btn" data-vowel="a">a</button>
+                <button class="vowel-btn" data-vowel="o">o</button>
+                <button class="vowel-btn" data-vowel="u">u</button>
+                <button class="vowel-btn" data-vowel="ə">ə</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Waveform</h2>
+            <canvas id="waveform" width="800" height="100"></canvas>
+        </div>
+
+        <div class="panel">
+            <h2>Message Log</h2>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { MultivoxClient } from './multivox-client.js';
+
+        // =====================================================================
+        // Vowel formant table (IPA)
+        // =====================================================================
+        const VOWELS = {
+            'i': { f1: 300, f2: 2300, f3: 3000 },
+            'e': { f1: 400, f2: 2000, f3: 2800 },
+            'a': { f1: 800, f2: 1200, f3: 2500 },
+            'o': { f1: 500, f2: 900, f3: 2500 },
+            'u': { f1: 350, f2: 700, f3: 2300 },
+            'ə': { f1: 500, f2: 1500, f3: 2500 }
+        };
+
+        // =====================================================================
+        // State
+        // =====================================================================
+        let audioContext = null;
+        let workletNode = null;
+        let analyser = null;
+        let audioRunning = false;
+        let volume = 0.3;
+
+        const state = {
+            f1: 500, f2: 1500, f3: 2500, f0: 120, noise: 0
+        };
+
+        // Quantization state
+        const quant = {
+            outBits: 8,      // Output DAC bit depth
+            paramBits: 16,   // Formant parameter bits
+            pitchBits: 16,   // F0 pitch bits
+            srDivider: 1,    // Sample rate divider (1=48kHz)
+            ctrlDivider: 1   // Control rate divider (1=audio rate)
+        };
+
+        // Presets for different eras/sounds
+        const QUANT_PRESETS = {
+            'sid': {
+                outBits: 4,       // 4-bit DAC (16 levels) - harsh!
+                paramBits: 16,    // Smooth params
+                pitchBits: 16,
+                srDivider: 2,     // 24kHz effective
+                ctrlDivider: 1,
+                desc: 'C64 SID chip: 4-bit DAC output crushing'
+            },
+            'sam': {
+                outBits: 8,
+                paramBits: 6,     // 64 formant levels
+                pitchBits: 6,     // 64 pitch levels
+                srDivider: 1,
+                ctrlDivider: 960, // 50Hz control rate (SAM frame rate)
+                desc: 'SAM 1982: 50Hz parameter update rate, stepped formants'
+            },
+            'vocoder': {
+                outBits: 8,
+                paramBits: 8,     // 256 formant levels
+                pitchBits: 8,
+                srDivider: 1,
+                ctrlDivider: 480, // 100Hz control rate
+                desc: 'Classic vocoder: ~100Hz band updates'
+            },
+            'lofi': {
+                outBits: 6,       // 64 amplitude levels
+                paramBits: 12,
+                pitchBits: 12,
+                srDivider: 4,     // 12kHz
+                ctrlDivider: 1,
+                desc: 'Lo-fi: 6-bit output, 12kHz sample rate'
+            },
+            'clean': {
+                outBits: 16,
+                paramBits: 16,
+                pitchBits: 16,
+                srDivider: 1,
+                ctrlDivider: 1,
+                desc: 'Modern: full resolution, no quantization'
+            }
+        };
+
+        // =====================================================================
+        // Logging
+        // =====================================================================
+        const logEl = document.getElementById('log');
+        function log(msg, type = '') {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry ' + type;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+            // Keep last 100 entries
+            while (logEl.children.length > 100) {
+                logEl.removeChild(logEl.firstChild);
+            }
+        }
+
+        // =====================================================================
+        // Quantization helper
+        // =====================================================================
+        function quantize(value, min, max, bits) {
+            const levels = (1 << bits) - 1;
+            const norm = (value - min) / (max - min);
+            const stepped = Math.round(norm * levels) / levels;
+            return min + stepped * (max - min);
+        }
+
+        // =====================================================================
+        // Audio setup (inline AudioWorklet for simplicity)
+        // =====================================================================
+        async function toggleAudio() {
+            if (audioRunning) {
+                // Stop audio
+                if (audioContext) {
+                    await audioContext.suspend();
+                }
+                audioRunning = false;
+                document.getElementById('startBtn').textContent = 'Start Audio';
+                document.getElementById('audioStatus').textContent = 'Audio paused';
+                log('Audio paused');
+                return;
+            }
+
+            // Start or resume audio
+            if (audioContext) {
+                await audioContext.resume();
+                audioRunning = true;
+                document.getElementById('startBtn').textContent = 'Stop Audio';
+                document.getElementById('audioStatus').textContent = 'Formant synth active';
+                log('Audio resumed');
+                return;
+            }
+
+            // First time init
+            audioContext = new AudioContext({ sampleRate: 48000 });
+
+            // Define processor inline as a blob
+            const processorCode = `
+                class FormantProcessor extends AudioWorkletProcessor {
+                    constructor() {
+                        super();
+                        // Formant targets and current (interpolated) values
+                        this.f1 = 500; this.f2 = 1500; this.f3 = 2500;
+                        this.f1_cur = 500; this.f2_cur = 1500; this.f3_cur = 2500;
+                        this.f0 = 120; this.f0_cur = 120;
+                        this.noise = 0;
+                        this.volume = 0.3;
+                        this.glotPhase = 0;
+
+                        // === QUANTIZATION CONFIG ===
+                        // Output bit depth (SID-style DAC crushing)
+                        this.outBits = 8;        // 4=harsh, 8=crunchy, 16=clean
+                        // Parameter bit depths (vocoder-style control quantization)
+                        this.paramBits = 16;     // Bits for f1/f2/f3 (16=smooth, 4=stepped)
+                        this.pitchBits = 16;     // Bits for f0 (16=smooth, 4=robotic pitch)
+                        // Sample rate divider (1=48kHz, 4=12kHz, etc)
+                        this.srDivider = 1;
+                        // Control rate divider (how often params update, 1=every sample)
+                        this.ctrlDivider = 1;
+                        this.ctrlCounter = 0;
+
+                        // Biquad state for each formant
+                        this.filters = [
+                            { x1: 0, x2: 0, y1: 0, y2: 0 },
+                            { x1: 0, x2: 0, y1: 0, y2: 0 },
+                            { x1: 0, x2: 0, y1: 0, y2: 0 }
+                        ];
+
+                        // For sample-and-hold in lo-fi modes
+                        this.heldSample = 0;
+                        // Held parameter values (for control rate reduction)
+                        this.heldF1 = 500; this.heldF2 = 1500; this.heldF3 = 2500; this.heldF0 = 120;
+
+                        this.port.onmessage = (e) => {
+                            const d = e.data;
+                            if (d.f1 !== undefined) this.f1 = d.f1;
+                            if (d.f2 !== undefined) this.f2 = d.f2;
+                            if (d.f3 !== undefined) this.f3 = d.f3;
+                            if (d.f0 !== undefined) this.f0 = d.f0;
+                            if (d.noise !== undefined) this.noise = d.noise;
+                            if (d.volume !== undefined) this.volume = d.volume;
+                            // Quantization controls
+                            if (d.outBits !== undefined) this.outBits = d.outBits;
+                            if (d.paramBits !== undefined) this.paramBits = d.paramBits;
+                            if (d.pitchBits !== undefined) this.pitchBits = d.pitchBits;
+                            if (d.srDivider !== undefined) this.srDivider = d.srDivider;
+                            if (d.ctrlDivider !== undefined) this.ctrlDivider = d.ctrlDivider;
+                            // Legacy: 'bits' sets output bits for backwards compat
+                            if (d.bits !== undefined) this.outBits = d.bits;
+                        };
+                    }
+
+                    quantize(value, min, max, bits) {
+                        const levels = (1 << bits) - 1;
+                        const norm = (value - min) / (max - min);
+                        const stepped = Math.round(norm * levels) / levels;
+                        return min + stepped * (max - min);
+                    }
+
+                    biquadBP(input, filter, freq, bw, sr) {
+                        const Q = freq / bw;
+                        const omega = 2 * Math.PI * freq / sr;
+                        const alpha = Math.sin(omega) / (2 * Q);
+                        const cosOmega = Math.cos(omega);
+                        const a0 = 1 + alpha;
+
+                        const b0 = alpha / a0;
+                        const b2 = -alpha / a0;
+                        const a1 = -2 * cosOmega / a0;
+                        const a2 = (1 - alpha) / a0;
+
+                        const out = b0 * input + b2 * filter.x2 - a1 * filter.y1 - a2 * filter.y2;
+                        filter.x2 = filter.x1;
+                        filter.x1 = input;
+                        filter.y2 = filter.y1;
+                        filter.y1 = out;
+                        return out;
+                    }
+
+                    // Quantize OUTPUT sample (SID-style DAC bit crushing)
+                    // This is the key: SID had 4-bit DAC, not 4-bit parameters
+                    crushSample(sample, bits) {
+                        const levels = (1 << bits) - 1;  // 4-bit = 15 levels
+                        // Clamp to -1..1, quantize, return
+                        const clamped = Math.max(-1, Math.min(1, sample));
+                        const normalized = (clamped + 1) / 2;  // 0..1
+                        const stepped = Math.round(normalized * levels) / levels;
+                        return (stepped * 2) - 1;  // back to -1..1
+                    }
+
+                    process(inputs, outputs, params) {
+                        const out = outputs[0][0];
+                        const sr = sampleRate;
+                        const lerpRate = 0.002;
+
+                        for (let i = 0; i < out.length; i++) {
+                            // === PARAMETER INTERPOLATION ===
+                            // Smooth interpolation at audio rate
+                            this.f1_cur += (this.f1 - this.f1_cur) * lerpRate;
+                            this.f2_cur += (this.f2 - this.f2_cur) * lerpRate;
+                            this.f3_cur += (this.f3 - this.f3_cur) * lerpRate;
+                            this.f0_cur += (this.f0 - this.f0_cur) * lerpRate;
+
+                            // === CONTROL RATE REDUCTION ===
+                            // Only update held params every ctrlDivider samples
+                            // This creates the "vocoder frame rate" effect
+                            this.ctrlCounter++;
+                            if (this.ctrlCounter >= this.ctrlDivider) {
+                                this.ctrlCounter = 0;
+                                // Quantize parameters to paramBits resolution
+                                this.heldF1 = this.quantize(this.f1_cur, 200, 1000, this.paramBits);
+                                this.heldF2 = this.quantize(this.f2_cur, 500, 3000, this.paramBits);
+                                this.heldF3 = this.quantize(this.f3_cur, 1500, 4000, this.paramBits);
+                                this.heldF0 = this.quantize(this.f0_cur, 50, 400, this.pitchBits);
+                            }
+
+                            // Use held (quantized) values for synthesis
+                            const qf1 = this.heldF1;
+                            const qf2 = this.heldF2;
+                            const qf3 = this.heldF3;
+                            const qf0 = this.heldF0;
+
+                            // Glottal pulse (simplified LF)
+                            const oq = 0.5;
+                            let glot;
+                            if (this.glotPhase < oq) {
+                                glot = 0.5 * (1 - Math.cos(Math.PI * this.glotPhase / oq));
+                            } else {
+                                glot = Math.exp(-5 * (this.glotPhase - oq) / (1 - oq));
+                            }
+                            this.glotPhase += qf0 / sr;
+                            if (this.glotPhase >= 1) this.glotPhase -= 1;
+
+                            // Noise
+                            const noise = (Math.random() * 2 - 1) * this.noise;
+
+                            // Source
+                            const source = (glot - 0.5) + noise;
+
+                            // Parallel formants
+                            const s1 = this.biquadBP(source, this.filters[0], qf1, 60, sr);
+                            const s2 = this.biquadBP(source, this.filters[1], qf2, 100, sr);
+                            const s3 = this.biquadBP(source, this.filters[2], qf3, 150, sr);
+
+                            let sample = (s1 + s2 * 0.7 + s3 * 0.4) * this.volume;
+
+                            // === OUTPUT BIT CRUSHING (SID-style DAC) ===
+                            if (this.outBits < 16) {
+                                sample = this.crushSample(sample, this.outBits);
+                            }
+
+                            // === SAMPLE RATE REDUCTION ===
+                            if (this.srDivider > 1) {
+                                if (i % this.srDivider === 0) {
+                                    this.heldSample = sample;
+                                }
+                                sample = this.heldSample;
+                            }
+
+                            out[i] = sample;
+                        }
+
+                        // Copy to second channel if stereo
+                        if (outputs[0][1]) {
+                            outputs[0][1].set(out);
+                        }
+
+                        return true;
+                    }
+                }
+                registerProcessor('formant-processor', FormantProcessor);
+            `;
+
+            const blob = new Blob([processorCode], { type: 'application/javascript' });
+            const url = URL.createObjectURL(blob);
+
+            await audioContext.audioWorklet.addModule(url);
+            URL.revokeObjectURL(url);
+
+            workletNode = new AudioWorkletNode(audioContext, 'formant-processor', {
+                numberOfInputs: 0,
+                numberOfOutputs: 1,
+                outputChannelCount: [2]
+            });
+
+            // Analyser for waveform
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 2048;
+
+            workletNode.connect(analyser);
+            analyser.connect(audioContext.destination);
+
+            // Send initial state
+            updateAudio();
+
+            audioRunning = true;
+            document.getElementById('startBtn').textContent = 'Stop Audio';
+            document.getElementById('audioStatus').textContent = 'Formant synth active';
+
+            log('Audio initialized (48kHz, FormantProcessor)');
+            drawWaveform();
+        }
+
+        function updateAudio() {
+            if (workletNode) {
+                workletNode.port.postMessage({
+                    f1: state.f1,
+                    f2: state.f2,
+                    f3: state.f3,
+                    f0: state.f0,
+                    noise: state.noise,
+                    volume: volume,
+                    // Quantization params
+                    outBits: quant.outBits,
+                    paramBits: quant.paramBits,
+                    pitchBits: quant.pitchBits,
+                    srDivider: quant.srDivider,
+                    ctrlDivider: quant.ctrlDivider
+                });
+            }
+            updateQuantInfo();
+        }
+
+        function updateQuantInfo() {
+            const el = document.getElementById('quantInfo');
+            if (el) {
+                el.textContent = `outBits=${quant.outBits}, paramBits=${quant.paramBits}, pitchBits=${quant.pitchBits}, srDiv=${quant.srDivider}, ctrlDiv=${quant.ctrlDivider}`;
+            }
+        }
+
+        function applyPreset(presetName) {
+            const preset = QUANT_PRESETS[presetName];
+            if (!preset) return;
+
+            quant.outBits = preset.outBits;
+            quant.paramBits = preset.paramBits;
+            quant.pitchBits = preset.pitchBits;
+            quant.srDivider = preset.srDivider;
+            quant.ctrlDivider = preset.ctrlDivider;
+
+            log(`Preset: ${presetName} - ${preset.desc}`);
+            updateAudio();
+        }
+
+        // =====================================================================
+        // Waveform visualization
+        // =====================================================================
+        const waveCanvas = document.getElementById('waveform');
+        const waveCtx = waveCanvas.getContext('2d');
+        let waveData = new Uint8Array(1024);
+
+        function drawWaveform() {
+            if (!analyser) {
+                requestAnimationFrame(drawWaveform);
+                return;
+            }
+
+            analyser.getByteTimeDomainData(waveData);
+
+            waveCtx.fillStyle = '#080810';
+            waveCtx.fillRect(0, 0, waveCanvas.width, waveCanvas.height);
+
+            waveCtx.strokeStyle = '#22c55e';
+            waveCtx.lineWidth = 1;
+            waveCtx.beginPath();
+
+            const sliceWidth = waveCanvas.width / waveData.length;
+            let x = 0;
+
+            for (let i = 0; i < waveData.length; i++) {
+                const v = waveData[i] / 128.0;
+                const y = (v * waveCanvas.height) / 2;
+
+                if (i === 0) {
+                    waveCtx.moveTo(x, y);
+                } else {
+                    waveCtx.lineTo(x, y);
+                }
+                x += sliceWidth;
+            }
+
+            waveCtx.stroke();
+
+            // Center line
+            waveCtx.strokeStyle = '#333';
+            waveCtx.beginPath();
+            waveCtx.moveTo(0, waveCanvas.height / 2);
+            waveCtx.lineTo(waveCanvas.width, waveCanvas.height / 2);
+            waveCtx.stroke();
+
+            requestAnimationFrame(drawWaveform);
+        }
+
+        // =====================================================================
+        // UI Controls
+        // =====================================================================
+        document.getElementById('startBtn').addEventListener('click', toggleAudio);
+
+        // Sliders
+        ['f1', 'f2', 'f3', 'f0'].forEach(param => {
+            const slider = document.getElementById(param + 'Slider');
+            const val = document.getElementById(param + 'Val');
+            slider.addEventListener('input', () => {
+                state[param] = parseInt(slider.value, 10);
+                val.textContent = slider.value;
+                updateAudio();
+            });
+        });
+
+        document.getElementById('noiseSlider').addEventListener('input', (e) => {
+            state.noise = parseInt(e.target.value, 10) / 100;
+            document.getElementById('noiseVal').textContent = state.noise.toFixed(2);
+            updateAudio();
+        });
+
+        document.getElementById('volSlider').addEventListener('input', (e) => {
+            volume = parseInt(e.target.value, 10) / 100;
+            document.getElementById('volVal').textContent = volume.toFixed(2);
+            updateAudio();
+        });
+
+        // Quantization presets
+        document.querySelectorAll('.bit-preset').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.bit-preset').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const presetName = btn.dataset.preset;
+                applyPreset(presetName);
+            });
+        });
+
+        // Vowel buttons
+        document.querySelectorAll('.vowel-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const vowel = btn.dataset.vowel;
+                const v = VOWELS[vowel];
+                if (v) {
+                    state.f1 = v.f1;
+                    state.f2 = v.f2;
+                    state.f3 = v.f3;
+                    document.getElementById('f1Slider').value = v.f1;
+                    document.getElementById('f2Slider').value = v.f2;
+                    document.getElementById('f3Slider').value = v.f3;
+                    document.getElementById('f1Val').textContent = v.f1;
+                    document.getElementById('f2Val').textContent = v.f2;
+                    document.getElementById('f3Val').textContent = v.f3;
+                    log(`Vowel: ${vowel} (f1=${v.f1}, f2=${v.f2}, f3=${v.f3})`, 'formant');
+                    updateAudio();
+                }
+            });
+        });
+
+        // =====================================================================
+        // Multivox WebSocket client
+        // =====================================================================
+        const client = new MultivoxClient();
+
+        client.onConnect = () => {
+            document.getElementById('statusDot').className = 'status-dot connected';
+            document.getElementById('statusText').textContent = 'Connected to Multivox';
+            log('Connected to Multivox server');
+        };
+
+        client.onDisconnect = () => {
+            document.getElementById('statusDot').className = 'status-dot disconnected';
+            document.getElementById('statusText').textContent = 'Disconnected';
+            log('Disconnected from Multivox');
+        };
+
+        client.onFormant = (params) => {
+            // Update state from received formant params
+            if (params.f1 !== undefined) {
+                state.f1 = params.f1;
+                document.getElementById('f1Slider').value = params.f1;
+                document.getElementById('f1Val').textContent = params.f1;
+            }
+            if (params.f2 !== undefined) {
+                state.f2 = params.f2;
+                document.getElementById('f2Slider').value = params.f2;
+                document.getElementById('f2Val').textContent = params.f2;
+            }
+            if (params.f3 !== undefined) {
+                state.f3 = params.f3;
+                document.getElementById('f3Slider').value = params.f3;
+                document.getElementById('f3Val').textContent = params.f3;
+            }
+            if (params.f0 !== undefined) {
+                state.f0 = params.f0;
+                document.getElementById('f0Slider').value = params.f0;
+                document.getElementById('f0Val').textContent = params.f0;
+            }
+            if (params.noise !== undefined) {
+                state.noise = params.noise;
+                document.getElementById('noiseSlider').value = params.noise * 100;
+                document.getElementById('noiseVal').textContent = params.noise.toFixed(2);
+            }
+            if (params.bits !== undefined) {
+                currentBits = params.bits;
+                document.querySelectorAll('.bit-preset').forEach(b => {
+                    b.classList.toggle('active', parseInt(b.dataset.bits) === params.bits);
+                });
+            }
+
+            log(`Formant: f1=${params.f1} f2=${params.f2} f3=${params.f3}`, 'formant');
+            updateAudio();
+        };
+
+        client.onError = (err) => {
+            log('WebSocket error', 'error');
+        };
+
+        // Connect on load
+        client.connect();
+
+        log('Estovox Synth initialized');
+        log('Waiting for Multivox connection...');
+    </script>
+</body>
+</html>

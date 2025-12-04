@@ -180,6 +180,9 @@ tsm_start_any_command() {
 
     [[ -z "$port" || "$port" == "none" ]] && port="none" && service_type="pid"
 
+    # Get port type from environment (set by service definition) or default to tcp
+    local port_type="${TSM_PORT_TYPE:-tcp}"
+
     # Generate name (pass parsed value to avoid re-reading)
     local name
     name=$(tsm_generate_process_name "$command" "$port" "$explicit_name" "$env_file" "$ENV_NAME")
@@ -220,7 +223,7 @@ tsm_start_any_command() {
     # Build pre-hook (priority: explicit > service def > auto-detected)
     local prehook_cmd
     if declare -f tsm_build_prehook >/dev/null 2>&1; then
-        prehook_cmd=$(tsm_build_prehook "$explicit_prehook" "$process_type" "")
+        prehook_cmd=$(tsm_build_prehook "$explicit_prehook" "$process_type" "${TSM_SERVICE_PREHOOK:-}")
     else
         # Fallback to old method if hooks.sh not loaded
         prehook_cmd=$(tsm_build_env_activation "$process_type")
@@ -323,7 +326,7 @@ tsm_start_any_command() {
         return 1
     fi
 
-    # Create JSON metadata with service_type
+    # Create JSON metadata with service_type and port_type
     local tsm_id=$(tsm_create_metadata \
         "$name" \
         "$pid" \
@@ -334,7 +337,8 @@ tsm_start_any_command() {
         "$process_type" \
         "$env_file" \
         "$explicit_prehook" \
-        "$service_type")
+        "$service_type" \
+        "$port_type")
 
     # Log success (construct JSON safely)
     local success_meta=$(jq -n --arg pid "$pid" --arg port "$port" --arg id "$tsm_id" \
@@ -358,40 +362,10 @@ tsm_start_any_command() {
     echo "$success_msg"
 }
 
-# Color helper - fallback to simple ANSI codes if color function not available
+# Use tsm_color from system/formatting.sh (unified color helper)
+# Alias for backward compatibility in this file
 _tsm_color_fallback() {
-    local color_name="$1"
-    local modifier="${2:-}"
-
-    if declare -f color >/dev/null 2>&1; then
-        color "$color_name" "$modifier"
-        return
-    fi
-
-    # Fallback to ANSI codes
-    case "$color_name" in
-        cyan)
-            [[ "$modifier" == "bold" ]] && echo -ne '\033[1;36m' || echo -ne '\033[0;36m'
-            ;;
-        green)
-            echo -ne '\033[0;32m'
-            ;;
-        yellow)
-            echo -ne '\033[1;33m'
-            ;;
-        red)
-            echo -ne '\033[0;31m'
-            ;;
-        blue)
-            [[ "$modifier" == "bold" ]] && echo -ne '\033[1;34m' || echo -ne '\033[0;34m'
-            ;;
-        gray)
-            echo -ne '\033[0;90m'
-            ;;
-        reset)
-            echo -ne '\033[0m'
-            ;;
-    esac
+    tsm_color "$@"
 }
 
 # Show dry-run information without executing

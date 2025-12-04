@@ -4,19 +4,12 @@
 # Machine Electronics Live Virtual Intelligence Network
 # Universal Bash Codebase Meta-Agent
 
-# TETRA_SRC should never be redefined - it points to the tetra project root
-# Use TETRA_BASH for the bash directory
-: "${TETRA_BASH:=$TETRA_SRC/bash}"
+# Load module utilities
+source "$TETRA_SRC/bash/utils/module_init.sh"
+source "$TETRA_SRC/bash/utils/function_helpers.sh"
 
-# Set MELVIN module variables with proper override guards
-: "${MELVIN_SRC:=$TETRA_BASH/melvin}"
-: "${MELVIN_DIR:=$TETRA_DIR/melvin}"
-
-# Export MELVIN module variables
-export MELVIN_SRC MELVIN_DIR
-
-# Create MELVIN runtime directory if it doesn't exist
-[[ ! -d "$MELVIN_DIR" ]] && mkdir -p "$MELVIN_DIR"
+# Initialize module with standard tetra conventions
+tetra_module_init_with_alias "melvin" "MELVIN"
 
 # Source the main MELVIN module (which loads all components)
 source "$MELVIN_SRC/melvin.sh"

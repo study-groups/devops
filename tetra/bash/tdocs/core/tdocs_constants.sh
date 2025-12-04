@@ -46,6 +46,24 @@ declare -gA TDOC_LIFECYCLE_EVIDENCE=(
 TDOC_DEFAULT_LIFECYCLE="W"
 
 # ============================================================================
+# CONTEXT MODES (Global vs Local)
+# ============================================================================
+
+# Context modes - where tdocs operates
+declare -ga TDOC_CONTEXTS=(
+    "global"  # Global tetra project docs ($TETRA_DIR/tdocs)
+    "local"   # Local project docs (.tdocs in PWD)
+)
+
+# Context detection markers
+TDOC_LOCAL_MARKER=".tdocs"              # Directory that marks local context
+TDOC_LOCAL_SCAN_ROOTS=(".")             # Scan roots for local context
+TDOC_GLOBAL_SCAN_ROOTS=("bash")         # Scan roots for global context
+
+# Default context (can be overridden)
+TDOC_DEFAULT_CONTEXT="global"
+
+# ============================================================================
 # DOCUMENT TYPES (Fixed - never evolve)
 # ============================================================================
 
@@ -211,10 +229,35 @@ tdoc_type_rank() {
     echo "${TDOC_TYPE_BASE_RANKS[$type]:-0.5}"
 }
 
-# Resolve type alias
+# Resolve type alias with validation and helpful error messages
 tdoc_resolve_type() {
     local type="$1"
-    echo "${TDOC_TYPE_ALIASES[$type]:-$type}"
+    local warn="${2:-true}"  # Optional: suppress warnings
+
+    # Check if already canonical
+    for valid in "${TDOC_TYPES[@]}"; do
+        if [[ "$type" == "$valid" ]]; then
+            echo "$type"
+            return 0
+        fi
+    done
+
+    # Check if it's an alias
+    if [[ -n "${TDOC_TYPE_ALIASES[$type]}" ]]; then
+        echo "${TDOC_TYPE_ALIASES[$type]}"
+        return 0
+    fi
+
+    # Invalid type - show warning and default to scratch
+    if [[ "$warn" == "true" ]]; then
+        echo "Warning: Invalid document type '$type'" >&2
+        echo "Valid types: ${TDOC_TYPES[*]}" >&2
+        echo "Aliases: ${!TDOC_TYPE_ALIASES[*]}" >&2
+        echo "Defaulting to 'scratch'" >&2
+    fi
+
+    echo "scratch"
+    return 1
 }
 
 # Validate lifecycle
@@ -246,6 +289,36 @@ tdoc_valid_mode() {
     return 1
 }
 
+# Validate context
+tdoc_valid_context() {
+    local context="$1"
+    for valid in "${TDOC_CONTEXTS[@]}"; do
+        [[ "$context" == "$valid" ]] && return 0
+    done
+    return 1
+}
+
+# Check if local context exists
+tdoc_has_local_context() {
+    [[ -d "$TDOC_LOCAL_MARKER" ]]
+}
+
+# Get context name from path
+tdoc_context_name() {
+    local context="$1"
+    case "$context" in
+        local)
+            basename "$PWD"
+            ;;
+        global)
+            echo "tetra"
+            ;;
+        *)
+            echo "$context"
+            ;;
+    esac
+}
+
 # Export all functions
 export -f tdoc_lifecycle_name
 export -f tdoc_lifecycle_multiplier
@@ -256,3 +329,6 @@ export -f tdoc_resolve_type
 export -f tdoc_valid_lifecycle
 export -f tdoc_valid_type
 export -f tdoc_valid_mode
+export -f tdoc_valid_context
+export -f tdoc_has_local_context
+export -f tdoc_context_name

@@ -5,16 +5,12 @@
 # No borders or vertical lines - focus on lanes, arrows, and readability
 
 # Source dependencies
+source "$TETRA_SRC/bash/utils/function_helpers.sh"
 source "${MSC_SRC}/msc.sh"
 source "${MSC_SRC}/msc_layout.sh"
 
 # Source color system if available
-if [[ -n "$TETRA_SRC" ]]; then
-    COLOR_SRC="${COLOR_SRC:-$TETRA_SRC/bash/color}"
-    if [[ -f "$COLOR_SRC/color_core.sh" ]]; then
-        source "$COLOR_SRC/color_core.sh"
-    fi
-fi
+tetra_source_if_exists "$TETRA_SRC/bash/color/color_core.sh"
 
 # ============================================================================
 # HEADER RENDERING
@@ -31,7 +27,7 @@ msc_render_header() {
         local centered=$(msc_center_text "$entity" "$width")
 
         # Apply color if available
-        if declare -f text_color &>/dev/null; then
+        if tetra_function_exists text_color; then
             output+="$(text_color "$color")${centered}$(reset_color)"
         else
             output+="$centered"

@@ -1,0 +1,248 @@
+{
+  "metadata": {
+    "title": "NH & Tetra Documentation",
+    "tagline": "Infrastructure Management & Bash Framework",
+    "description": "Reference documentation for NodeHolder (nh) infrastructure tool and Tetra bash framework",
+    "version": "1.0.0",
+    "author": "tetra",
+    "created": "2024-01-01T00:00:00Z"
+  },
+  "groups": [
+    {
+      "id": "nh",
+      "title": "NH - NodeHolder",
+      "topics": [
+        {
+          "id": "nh-overview",
+          "title": "NH Overview",
+          "description": "NodeHolder (nh) is an infrastructure management tool for DigitalOcean. It provides context-based server management, SSH operations, and environment variable handling.",
+          "content": [
+            {
+              "type": "code-block",
+              "code": "nh status              # Show current context\nnh switch myorg        # Switch context\nnh fetch               # Sync from DigitalOcean\nssh root@$server       # Connect using variables"
+            }
+          ]
+        },
+        {
+          "id": "nh-context",
+          "title": "Context Management",
+          "description": "Contexts isolate infrastructure configurations. Each context has its own server data and environment.",
+          "content": [
+            {
+              "type": "command-list",
+              "commands": [
+                { "code": "nh list", "description": "List available contexts" },
+                { "code": "nh switch <name>", "description": "Switch to context" },
+                { "code": "nh create <name>", "description": "Create new context" },
+                { "code": "nh link <short> <ctx>", "description": "Create shortname symlink" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "nh-servers",
+          "title": "Server Operations",
+          "description": "Work with servers in the current context.",
+          "content": [
+            {
+              "type": "command-list",
+              "commands": [
+                { "code": "nh servers", "description": "List servers with IPs" },
+                { "code": "nh show <server>", "description": "Show server details" },
+                { "code": "nh fetch", "description": "Fetch infrastructure from DO" },
+                { "code": "nh load", "description": "Load server IPs as variables" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "nh-ssh",
+          "title": "SSH Operations",
+          "description": "Manage SSH connections and keys.",
+          "content": [
+            {
+              "type": "command-list",
+              "commands": [
+                { "code": "nh ssh <server>", "description": "Connect to server" },
+                { "code": "nh ssh status", "description": "Show ssh-agent status" },
+                { "code": "nh ssh keys", "description": "List loaded keys" },
+                { "code": "nh keys match", "description": "Find local key matching DO" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "nh-env",
+          "title": "Environment Variables",
+          "description": "Server IPs are exported as shell variables for easy access.",
+          "content": [
+            {
+              "type": "code-block",
+              "code": "nh load                # Load $server_name variables\nnh alias make pxjam    # Create short aliases\nssh root@$paq          # Use alias variable"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tetra",
+      "title": "Tetra Framework",
+      "topics": [
+        {
+          "id": "tetra-overview",
+          "title": "Tetra Overview",
+          "description": "Tetra is a modular bash framework. It requires bash 5.2+ and provides infrastructure for building CLI tools.",
+          "content": [
+            {
+              "type": "code-block",
+              "code": "source ~/tetra/tetra.sh   # Bootstrap tetra\nTETRA_SRC=~/tetra/bash    # Source directory\nTETRA_DIR=~/.tetra        # Data directory"
+            }
+          ]
+        },
+        {
+          "id": "tetra-boot",
+          "title": "Boot System",
+          "description": "Tetra's bootloader manages module loading and initialization.",
+          "content": [
+            {
+              "type": "command-list",
+              "commands": [
+                { "code": "bootloader.sh", "description": "Main entry point" },
+                { "code": "boot/boot_core.sh", "description": "Core boot functions" },
+                { "code": "boot/boot_log.sh", "description": "Boot logging" },
+                { "code": "boot/aliases.sh", "description": "Shell aliases" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "tetra-modules",
+          "title": "Core Modules",
+          "content": [
+            {
+              "type": "module-grid",
+              "modules": [
+                { "name": "tsm", "description": "Service manager for processes" },
+                { "name": "tdocs", "description": "Documentation system" },
+                { "name": "rag", "description": "RAG pipeline for AI" },
+                { "name": "org", "description": "Organization management" },
+                { "name": "ttm", "description": "Transaction manager" },
+                { "name": "chroma", "description": "Color and theming" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "tetra-tree",
+          "title": "Tree System",
+          "description": "Hierarchical data structures with tab completion.",
+          "content": [
+            {
+              "type": "command-list",
+              "commands": [
+                { "code": "tree/core.sh", "description": "Core tree operations" },
+                { "code": "tree/builders.sh", "description": "Tree building utilities" },
+                { "code": "tree/complete.sh", "description": "Tab completion" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "tetra-services",
+          "title": "TSM - Service Manager",
+          "description": "Manage background services and processes.",
+          "content": [
+            {
+              "type": "code-block",
+              "code": "tsm start myservice    # Start a service\ntsm stop myservice     # Stop a service\ntsm status             # Show all services\ntsm doctor             # Health check"
+            }
+          ]
+        },
+        {
+          "id": "tetra-docs",
+          "title": "TDocs - Documentation",
+          "description": "Integrated documentation system with REPL.",
+          "content": [
+            {
+              "type": "code-block",
+              "code": "tdocs search keyword   # Search documentation\ntdocs index            # Build index\ntdocs preview          # Preview docs"
+            }
+          ]
+        },
+        {
+          "id": "tetra-rag",
+          "title": "RAG System",
+          "description": "Retrieval-Augmented Generation for AI workflows.",
+          "content": [
+            {
+              "type": "command-list",
+              "commands": [
+                { "code": "rag/core/assembler.sh", "description": "Context assembly" },
+                { "code": "rag/core/evidence_manager.sh", "description": "Evidence handling" },
+                { "code": "rag/core/prompt_manager.sh", "description": "Prompt templates" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "tetra-deploy",
+          "title": "Deployment",
+          "description": "Tools for deploying to remote servers.",
+          "content": [
+            {
+              "type": "command-list",
+              "commands": [
+                { "code": "deploy/", "description": "Deployment scripts" },
+                { "code": "nginx/", "description": "Nginx configuration" },
+                { "code": "hotrod/", "description": "Tunnel management" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "tetra-color",
+          "title": "Color & Theming",
+          "description": "Terminal color management and themes.",
+          "content": [
+            {
+              "type": "command-list",
+              "commands": [
+                { "code": "color/", "description": "Color definitions" },
+                { "code": "chroma/", "description": "Advanced theming" },
+                { "code": "tds/", "description": "Design system" }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "workflow",
+      "title": "Workflows",
+      "topics": [
+        {
+          "id": "workflow-bootstrap",
+          "title": "Bootstrap Workflow",
+          "description": "Setting up new servers with nh and tetra.",
+          "content": [
+            {
+              "type": "code-block",
+              "code": "# 1. Setup context\nnh switch myorg\nnh fetch\n\n# 2. Import to tetra\norg import nh ~/nh/myorg/digocean.json myorg\n\n# 3. Deploy\norg switch myorg\ntkm init && tkm gen all\ntkm deploy all"
+            }
+          ]
+        },
+        {
+          "id": "workflow-daily",
+          "title": "Daily Operations",
+          "description": "Common daily tasks.",
+          "content": [
+            {
+              "type": "code-block",
+              "code": "# Quick server access\nnh switch myorg\nnh load\nssh root@$myserver\n\n# Check health\nnh doctor\ntsm status"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

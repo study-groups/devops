@@ -46,62 +46,17 @@ _tdoc_indent_preview() {
     done
 }
 
-# Convert markdown bold (**text**) to ANSI bold with color
-# Usage: _tdoc_render_bold "Some **bold** text"
-_tdoc_render_bold() {
-    local line="$1"
-
-    # Replace **text** with ANSI bold + color (bold + green)
-    # Use perl for reliable non-greedy matching
-    if command -v perl >/dev/null 2>&1; then
-        echo "$line" | perl -pe 's/\*\*(.+?)\*\*/\033[1;32m$1\033[0m/g'
-    else
-        # Fallback: simple sed (may not handle all edge cases)
-        echo "$line" | sed -E 's/\*\*([^*]+)\*\*/\x1b[1;32m\1\x1b[0m/g'
-    fi
-}
-
-# Apply markdown heading styles
-# Usage: _tdoc_style_heading "### Some Heading"
-_tdoc_style_heading() {
-    local line="$1"
-
-    # H1: # Title -> Bold + Cyan (bright and colorful)
-    if [[ "$line" =~ ^#[[:space:]](.+)$ ]]; then
-        local text="${BASH_REMATCH[1]}"
-        echo -e "\033[1;36m${text}\033[0m"  # Bold + cyan
-        return 0
-    fi
-
-    # H2: ## Subtitle -> Bold + Italic (magenta)
-    if [[ "$line" =~ ^##[[:space:]](.+)$ ]]; then
-        local text="${BASH_REMATCH[1]}"
-        echo -e "\033[1;3;35m${text}\033[0m"  # Bold + italic + magenta
-        return 0
-    fi
-
-    # H3: ### Heading -> Italic (yellow)
-    if [[ "$line" =~ ^###[[:space:]](.+)$ ]]; then
-        local text="${BASH_REMATCH[1]}"
-        echo -e "\033[3;33m${text}\033[0m"  # Italic + yellow
-        return 0
-    fi
-
-    # Not a heading, return as-is
-    echo "$line"
-}
-
-# Format preview content with fmt and limit to width
-# Usage: _tdoc_format_preview_content <file> <max_lines>
-_tdoc_format_preview_content() {
+# Extract preview content (first N lines, skip frontmatter)
+# Usage: _tdoc_extract_preview_content <file> <max_lines>
+# Note: Rendering is now delegated to chroma/TDS
+_tdoc_extract_preview_content() {
     local file="$1"
     local max_lines="${2:-5}"
-    local fmt_width="${3:-70}"
 
     local in_frontmatter=false
     local line_count=0
 
-    # Process content lines (skip frontmatter, style headings)
+    # Extract content lines (skip frontmatter)
     while IFS= read -r line && (( line_count < max_lines )); do
         # Skip frontmatter
         if [[ "$line" == "---" ]]; then
@@ -123,19 +78,7 @@ _tdoc_format_preview_content() {
             continue
         fi
 
-        # Check if it's a heading and style it
-        if [[ "$line" =~ ^#{1,3}[[:space:]] ]]; then
-            _tdoc_style_heading "$line"
-        else
-            # Regular line - handle bold markdown and wrap if too long
-            local processed_line="$(_tdoc_render_bold "$line")"
-            if [[ ${#line} -gt $fmt_width ]]; then
-                echo "$processed_line" | fmt -w "$fmt_width"
-            else
-                echo "$processed_line"
-            fi
-        fi
-
+        echo "$line"
         ((line_count++))
     done < "$file"
 }
@@ -165,10 +108,14 @@ tdoc_preview_doc() {
 
     # Render document if requested
     if [[ "$show_content" == "true" ]]; then
-        if [[ "$TDS_LOADED" == "true" ]] && command -v tds_render_markdown >/dev/null 2>&1; then
+        # Delegate to chroma for beautiful markdown rendering
+        if command -v chroma >/dev/null 2>&1; then
+            chroma --no-pager "$file"
+        elif command -v tds_render_markdown >/dev/null 2>&1; then
+            # Fallback to TDS if chroma not available
             tds_render_markdown "$file"
         else
-            # Fallback to plain cat
+            # Last resort: plain cat
             cat "$file"
         fi
     fi
@@ -281,22 +228,19 @@ tdoc_render_list_with_preview() {
             printf "%s\n" "$truncated_path" | _tdoc_indent_preview
         fi
 
-        # Show first 5 lines of document content (DIMMED, indented, formatted)
+        # Show first 5 lines of document content (rendered via chroma)
         if [[ -f "$doc_path" ]]; then
-            # Content text is dimmed/muted
-            if [[ "$TDS_LOADED" == "true" ]]; then
-                tds_text_color "text.muted"  # Dimmed
+            # Extract preview and render via chroma (no pager, dimmed)
+            if command -v chroma >/dev/null 2>&1; then
+                _tdoc_extract_preview_content "$doc_path" 5 | chroma --no-pager -w "$fmt_width" | _tdoc_indent_preview
+            elif command -v tds_render_markdown >/dev/null 2>&1; then
+                # Fallback to TDS
+                _tdoc_extract_preview_content "$doc_path" 5 | tds_render_markdown | _tdoc_indent_preview
             else
-                printf "\033[2m"  # Dim ANSI code
-            fi
-
-            # Format and indent preview content
-            _tdoc_format_preview_content "$doc_path" 5 "$fmt_width" | _tdoc_indent_preview
-
-            if [[ "$TDS_LOADED" == "true" ]]; then
-                reset_color
-            else
-                printf "\033[0m"  # Reset
+                # Last resort: plain text with dimming
+                tds_text_color "text.muted" 2>/dev/null || true
+                _tdoc_extract_preview_content "$doc_path" 5 | _tdoc_indent_preview
+                reset_color 2>/dev/null || true
             fi
         fi
 

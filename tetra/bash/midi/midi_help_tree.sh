@@ -18,12 +18,25 @@ midi_tree_init() {
         title="MIDI Control System" \
         description="MIDI controller mapping and real-time event processing"
 
-    # Help command
+    # Help command with subtopics
     tree_insert "$ns.help" "command" \
         title="Show help information" \
         description="Display MIDI REPL commands and usage" \
-        usage="help" \
-        aliases="h ?"
+        usage="help [topic]" \
+        aliases="h ?" \
+        completion_values="map send log key topics"
+
+    tree_insert "$ns.help.map" "topic" \
+        title="Map commands help"
+
+    tree_insert "$ns.help.send" "topic" \
+        title="Send commands help"
+
+    tree_insert "$ns.help.log" "topic" \
+        title="Log mode help"
+
+    tree_insert "$ns.help.key" "topic" \
+        title="Key mode help"
 
     # Status command
     tree_insert "$ns.status" "command" \

@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
-# TKM module includes - load only the main tkm.sh file
-# The tkm.sh file will handle loading other components as needed
-source "$(dirname "${BASH_SOURCE[0]}")/tkm.sh"
+# TKM module includes - Tetra Kubernetes Manager
+
+# Load module utilities
+source "$TETRA_SRC/bash/utils/module_init.sh"
+source "$TETRA_SRC/bash/utils/function_helpers.sh"
+
+# Initialize module with standard tetra conventions
+tetra_module_init_with_alias "tkm" "TKM"
+
+source "$TKM_SRC/tkm.sh"

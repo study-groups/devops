@@ -320,7 +320,15 @@ tdocs_cmd_audit() {
 
 # Command: /scan [--dry-run]
 tdocs_cmd_scan() {
-    tdocs_scan_docs "$@"
+    local context="${TDOCS_REPL_CONTEXT:-global}"
+
+    if [[ "$context" == "local" ]]; then
+        # Use new content-addressed scanning for local context
+        tdoc_scan_dir "."
+    else
+        # Use legacy scanning for global context
+        tdocs_scan_docs "$@"
+    fi
 }
 
 # Command: /doctor [--fix|--summary]

@@ -10,6 +10,14 @@
 # Source TTM
 source "$TETRA_SRC/bash/ttm/ttm.sh"
 
+# Source flow status helpers
+source "$RAG_SRC/core/flow_status_helpers.sh"
+
+# Source session manager if available
+if [[ -f "$RAG_SRC/core/session_manager.sh" ]]; then
+    source "$RAG_SRC/core/session_manager.sh"
+fi
+
 # Get RAG directory (project-local by default, global if --global flag)
 get_rag_dir() {
     local scope="${1:-local}"
@@ -122,6 +130,19 @@ EOF
     # Create evidence subdirectory for RAG pattern
     mkdir -p "$flow_dir/ctx/evidence"
 
+    # Enrich state.json with flow-specific metadata
+    local state_file="$flow_dir/state.json"
+    local temp_file=$(mktemp)
+    jq '. + {
+        "outcome": null,
+        "artifacts": [],
+        "lessons": [],
+        "tags": [],
+        "effort_minutes": 0,
+        "token_usage": 0,
+        "flow_type": "inquiry"
+    }' "$state_file" > "$temp_file" && mv "$temp_file" "$state_file"
+
     echo "Flow created: $flow_id"
     echo "Prompt: $description"
     echo "Directory: $flow_dir"
@@ -134,6 +155,11 @@ EOF
 
     # Initialize evidence variables for the new flow
     flow_init_evidence_vars "$flow_id"
+
+    # Add flow to current session if session manager is available
+    if command -v session_add_flow >/dev/null 2>&1; then
+        session_add_flow "$flow_id" 2>/dev/null || true
+    fi
 
     echo "$flow_id"
 }
@@ -191,6 +217,7 @@ flow_transition() {
 # Show flow status (wraps txn_state with pretty printing)
 flow_status() {
     local flow_id="${1:-}"
+    local show_summary="${2:-false}"
 
     if [[ -z "$flow_id" ]]; then
         flow_id=$(flow_active)
@@ -201,46 +228,116 @@ flow_status() {
         return 0
     fi
 
+    local flow_dir=$(txn_dir "$flow_id")
     local state=$(txn_state "$flow_id")
 
-    if command -v jq >/dev/null 2>&1; then
-        local description=$(echo "$state" | jq -r '.description')
-        local stage=$(echo "$state" | jq -r '.stage')
-        local iteration=$(echo "$state" | jq -r '.iteration')
-        local agent=$(echo "$state" | jq -r '.agent')
-        local target=$(echo "$state" | jq -r '.target')
-        local ctx_digest=$(echo "$state" | jq -r '.ctx_digest // "none"')
-        local last_checkpoint=$(echo "$state" | jq -r '.last_checkpoint')
+    # Get terminal width (default 80 if tput fails)
+    local term_width=$(tput cols 2>/dev/null || echo 80)
+    local max_width=$((term_width > 120 ? 120 : term_width))
 
-        echo "Flow: $flow_id (active)"
-        echo "Description: $description"
-        echo "Stage: $stage"
-        echo "Iteration: $iteration"
-        echo "Agent: $agent"
-        echo "Target: $target"
-        echo "Context digest: ${ctx_digest:0:16}..."
-        echo "Last updated: $last_checkpoint"
-        echo ""
-        echo "Directories:"
-        echo "  RAG_DIR=$TTM_DIR"
-        echo "  TXNS_DIR=$TTM_TXNS_DIR"
-        echo "  flow=$flow_id"
-    else
+    # Color helpers
+    local c_label="${TC_LABEL:-\033[38;5;244m}"
+    local c_value="${TC_BRIGHT_WHITE:-\033[38;5;255m}"
+    local c_dim="${TC_MUTED:-\033[38;5;240m}"
+    local c_path="${TC_COMMAND:-\033[38;5;110m}"
+    local c_reset="${TC_RESET:-\033[0m}"
+
+    if ! command -v jq >/dev/null 2>&1; then
         echo "Flow status:"
         echo "$state"
+        return 0
     fi
+
+    # Parse state into global vars (FLOW_DESCRIPTION, FLOW_STAGE, etc.)
+    _flow_parse_state "$state"
+
+    # Get computed values
+    local evidence_count=$(_flow_count_evidence "$flow_dir")
+    local token_estimate=$(_flow_estimate_tokens "$flow_dir")
+    local rel_path=$(_flow_relative_path "$flow_dir")
+    local c_stage=$(_flow_get_stage_color "$FLOW_STAGE")
+
+    # Print header with outcome badge
+    _flow_print_header "$flow_id" "$FLOW_OUTCOME" "$FLOW_STAGE"
+
+    echo -e "${c_label}Desc:${c_reset} $FLOW_DESCRIPTION"
+    echo -e "${c_label}Stage:${c_reset} ${c_stage}$FLOW_STAGE${c_reset}  ${c_label}Iter:${c_reset} $FLOW_ITERATION  ${c_label}Agent:${c_reset} $FLOW_AGENT  ${c_label}Target:${c_reset} $FLOW_TARGET"
+
+    # Show outcome if DONE
+    if [[ "$FLOW_STAGE" == "DONE" && "$FLOW_OUTCOME" != "none" ]]; then
+        local outcome_color=$(_flow_get_stage_color "$FLOW_STAGE")
+        echo -e "${c_label}Outcome:${c_reset} ${outcome_color}$FLOW_OUTCOME${c_reset}"
+    fi
+
+    # Show tags if present
+    if [[ -n "$FLOW_TAGS" ]]; then
+        echo -e "${c_label}Tags:${c_reset} ${c_dim}$FLOW_TAGS${c_reset}"
+    fi
+
+    # Print metrics line (evidence count, token estimate)
+    _flow_print_metrics "$evidence_count" "$token_estimate"
+
+    # Show effort if recorded
+    if [[ $FLOW_EFFORT -gt 0 ]]; then
+        echo -e "${c_label}Effort:${c_reset} ${c_value}${FLOW_EFFORT}${c_reset} minutes"
+    fi
+
+    # QA link if exists
+    if [[ "$FLOW_QA_ID" != "none" ]]; then
+        echo -e "${c_label}QA ID:${c_reset} ${c_value}$FLOW_QA_ID${c_reset} ${c_dim}(use: a 0 or /qa view $FLOW_QA_ID)${c_reset}"
+    fi
+
+    # Show summary if requested or if answer exists
+    if [[ "$show_summary" == "true" ]] || [[ -f "$flow_dir/build/answer.md" ]]; then
+        _flow_print_separator $((max_width - 2))
+
+        # Show prompt summary
+        if [[ -f "$flow_dir/ctx/010_prompt.user.md" ]]; then
+            echo -e "${c_label}Prompt:${c_reset}"
+            local prompt_text=$(grep -v "^<!--" "$flow_dir/ctx/010_prompt.user.md" | grep -v "^$" | head -n 3)
+            echo "$prompt_text" | sed 's/^/  /'
+            echo ""
+        fi
+
+        # Show answer, artifacts, lessons using helpers
+        _flow_print_answer_summary "$flow_dir" "$rel_path"
+        _flow_print_artifacts "$state"
+        _flow_print_lessons "$state"
+    fi
+
+    echo ""
+    echo -e "${c_label}Directories:${c_reset}"
+    echo -e "  ${c_path}$rel_path/ctx/${c_reset}"
+    echo -e "  ${c_path}$rel_path/ctx/evidence/${c_reset}"
+    echo -e "  ${c_path}$rel_path/build/${c_reset}"
+}
+
+# Show detailed flow inspection (with token count, summaries, QA link)
+flow_inspect() {
+    flow_status "$1" true
 }
 
 # List all flows (wraps TTM query functions)
 flow_list() {
     local filter_stage="${1:-}"
+    local show_global="${2:-false}"
 
-    if [[ ! -d "$TTM_TXNS_DIR" ]]; then
-        echo "No flows found"
+    # Determine scope
+    local current_scope="$RAG_SCOPE"
+    local flows_dir="$TTM_TXNS_DIR"
+    local scope_label="Local"
+
+    if [[ "$show_global" == "true" ]]; then
+        flows_dir="$(get_rag_dir global)/flows"
+        scope_label="Global"
+    fi
+
+    if [[ ! -d "$flows_dir" ]]; then
+        echo "No $scope_label flows found"
         return 0
     fi
 
-    echo "Flows:"
+    echo "$scope_label Flows:"
     echo "────────────────────────────────────────────────────────"
 
     local active_flow=$(txn_active)
@@ -248,12 +345,18 @@ flow_list() {
 
     # Build array of flows for indexed access
     local flow_dirs=()
-    for flow_dir in "$TTM_TXNS_DIR"/*; do
+    for flow_dir in "$flows_dir"/*; do
         [[ -d "$flow_dir" ]] || continue
         local flow_id=$(basename "$flow_dir")
         [[ "$flow_id" == "active" ]] && continue
         flow_dirs+=("$flow_dir")
     done
+
+    if [[ ${#flow_dirs[@]} -eq 0 ]]; then
+        echo "  (none)"
+        echo ""
+        return 0
+    fi
 
     # Display flows with index
     for flow_dir in "${flow_dirs[@]}"; do
@@ -285,6 +388,17 @@ flow_list() {
 
     echo ""
     echo "Tip: Use '/flow resume <number>' to resume by index"
+    if [[ "$show_global" != "true" ]]; then
+        echo "     Use '/flow list --global' to see global flows"
+    fi
+}
+
+# List both local and global flows
+flow_list_all() {
+    echo ""
+    flow_list "" false
+    echo ""
+    flow_list "" true
 }
 
 # Resume flow from checkpoint (accepts index number or flow ID)
@@ -390,6 +504,114 @@ flow_checkpoint() {
         >> "$flow_dir/events.ndjson"
 
     flow_transition "$stage" "$flow_id"
+}
+
+# Complete flow with enriched metadata
+flow_complete() {
+    local flow_id="${1:-}"
+    local outcome="success"
+    local lesson=""
+    local artifact=""
+    local tag=""
+    local effort=0
+
+    # Parse options
+    shift || true
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --outcome|-o)
+                outcome="$2"
+                shift 2
+                ;;
+            --lesson|-l)
+                lesson="$2"
+                shift 2
+                ;;
+            --artifact|-a)
+                artifact="$2"
+                shift 2
+                ;;
+            --tag|-t)
+                tag="$2"
+                shift 2
+                ;;
+            --effort|-e)
+                effort="$2"
+                shift 2
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$flow_id" ]]; then
+        flow_id=$(flow_active)
+    fi
+
+    if [[ -z "$flow_id" ]]; then
+        echo "Error: No active flow" >&2
+        return 1
+    fi
+
+    local flow_dir=$(txn_dir "$flow_id")
+    local state_file="$flow_dir/state.json"
+
+    if [[ ! -f "$state_file" ]]; then
+        echo "Error: state.json not found for flow $flow_id" >&2
+        return 1
+    fi
+
+    # Build jq update expression
+    local jq_expr=". + {\"outcome\": \"$outcome\"}"
+
+    # Add lesson if provided
+    if [[ -n "$lesson" ]]; then
+        jq_expr="$jq_expr | .lessons += [\"$lesson\"]"
+    fi
+
+    # Add artifact if provided
+    if [[ -n "$artifact" ]]; then
+        jq_expr="$jq_expr | .artifacts += [\"$artifact\"]"
+    fi
+
+    # Add tag if provided
+    if [[ -n "$tag" ]]; then
+        jq_expr="$jq_expr | .tags += [\"$tag\"]"
+    fi
+
+    # Add effort if provided
+    if [[ $effort -gt 0 ]]; then
+        jq_expr="$jq_expr | .effort_minutes = $effort"
+    fi
+
+    # Update state.json
+    local temp_file=$(mktemp)
+    jq "$jq_expr" "$state_file" > "$temp_file" && mv "$temp_file" "$state_file"
+
+    # Log completion event
+    echo "{\"ts\":\"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\",\"event\":\"flow_complete\",\"outcome\":\"$outcome\",\"effort\":$effort}" \
+        >> "$flow_dir/events.ndjson"
+
+    # Transition to DONE
+    flow_transition "DONE" "$flow_id"
+
+    # Show outcome badge
+    local badge=""
+    case "$outcome" in
+        success) badge="✓" ;;
+        partial) badge="⚠" ;;
+        abandoned) badge="○" ;;
+        failed) badge="✗" ;;
+        *) badge="•" ;;
+    esac
+
+    echo ""
+    echo "$badge Flow completed: $flow_id"
+    echo "  Outcome: $outcome"
+    [[ -n "$lesson" ]] && echo "  Lesson: $lesson"
+    [[ -n "$artifact" ]] && echo "  Artifact: $artifact"
+    [[ $effort -gt 0 ]] && echo "  Effort: ${effort} minutes"
 }
 
 # Add evidence to flow (wraps txn_add_ctx)
@@ -505,6 +727,7 @@ export -f flow_status
 export -f flow_list
 export -f flow_resume
 export -f flow_checkpoint
+export -f flow_complete
 export -f flow_add_evidence
 export -f flow_list_evidence
 export -f flow_init_evidence_vars

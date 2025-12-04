@@ -18,6 +18,7 @@ RAG_MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # RAG modules to source (REPL modules loaded on-demand via 'rag repl')
 RAG_MODULES=(
+    "$RAG_MODULE_DIR/core/error.sh"
     "$RAG_MODULE_DIR/bash/rag_selector.sh"
     "$RAG_MODULE_DIR/bash/aliases.sh"
     "$RAG_MODULE_DIR/bash/rag_tools.sh"
@@ -50,6 +51,16 @@ rag_source_modules() {
     if [[ ${#failed_modules[@]} -gt 0 ]]; then
         echo "⚠ RAG module loaded with ${#failed_modules[@]} warning(s)" >&2
     fi
+
+    # Load QA module and its submodules so 'a' and 'qq' are available
+    # RAG depends on QA for answer retrieval functionality
+    if [[ -f "$TETRA_SRC/bash/qa/qa.sh" ]] && [[ "${QA_MODULES_LOADED:-false}" != "true" ]]; then
+        source "$TETRA_SRC/bash/qa/qa.sh"
+        qa_source_modules 2>/dev/null || true
+        export QA_MODULES_LOADED=true
+        [[ "$verbose" == "true" ]] && echo "✓ Loaded QA module (enables 'a' and 'qq')"
+    fi
+
     return 0
 }
 
@@ -76,27 +87,38 @@ rag() {
         cat <<'EOF'
 Usage: rag <command> [args]
 
-No-Flow Commands (Quick & Easy):
+HIERARCHY
+  Session → Flow → Evidence → Answer
+    └─ Workspace    └─ Mini inquiry   └─ Context    └─ Result
+
+QUICK MODE
   quick "<query>" <files...>    Quick Q&A without creating a flow
-  bundle <files...>             Bundle files into MULTICAT format
-  compare <file1> <file2>       Compare files for LLM review
+  q "<query>" <files...>        Alias for quick
 
-Flow Commands (Full Workflow):
-  flow start "<desc>"           Create new flow
-  flow status                   Show current flow status
-  flow resume [id]              Resume flow from checkpoint
+INTERACTIVE MODE
+  repl                          Start RAG REPL (recommended)
+
+SESSION COMMANDS
+  session create "<desc>"       Create workspace
+  session list                  List all sessions
+  session resume <id>           Resume session by ID or index
+  session status                Show current session
+
+FLOW COMMANDS (Mini Inquiries)
+  flow create "<desc>"          Create mini inquiry (10-30 min)
+  flow status                   Show current flow
   flow list                     List all flows
+  flow resume <id>              Resume flow by ID or index
+  flow complete                 Mark complete with outcome
 
-Context Commands:
+CONTEXT COMMANDS
   select "<query>"              Select evidence using ULM
   assemble                      Assemble context to prompt.mdctx
-  plan                          Preview assembly plan
   submit @qa                    Submit to QA agent
 
-Interactive Mode:
-  repl                          Start interactive RAG REPL
-
-MULTICAT Tools:
+TOOLS
+  bundle <files...>             Bundle files into MULTICAT format
+  compare <file1> <file2>       Compare files for LLM review
   mc <files...>                 Create MULTICAT from files/directories
   ms <file.mc>                  Split MULTICAT back to files
   mi <file.mc>                  Show MULTICAT file info
@@ -136,6 +158,33 @@ EOF
         "compare"|"diff")
             rag_compare "$@"
             ;;
+        "session")
+            local subcommand="${1:-status}"
+            shift || true
+
+            # Source session manager
+            source "$RAG_SRC/core/session_manager.sh"
+
+            case "$subcommand" in
+                "create"|"start")
+                    session_create "$@"
+                    ;;
+                "status")
+                    session_status "$@"
+                    ;;
+                "resume"|"switch")
+                    session_resume "$@"
+                    ;;
+                "list")
+                    session_list "$@"
+                    ;;
+                *)
+                    echo "Unknown session subcommand: $subcommand"
+                    echo "Available: create, status, resume, list"
+                    return 1
+                    ;;
+            esac
+            ;;
         "flow")
             local subcommand="${1:-status}"
             shift || true
@@ -144,7 +193,7 @@ EOF
             source "$RAG_SRC/core/flow_manager_ttm.sh"
 
             case "$subcommand" in
-                "start")
+                "create"|"start")
                     flow_create "$@"
                     ;;
                 "status")
@@ -156,9 +205,12 @@ EOF
                 "list")
                     flow_list "$@"
                     ;;
+                "complete")
+                    flow_complete "$@"
+                    ;;
                 *)
                     echo "Unknown flow subcommand: $subcommand"
-                    echo "Available: start, status, resume, list"
+                    echo "Available: create, status, resume, list, complete"
                     return 1
                     ;;
             esac
@@ -265,34 +317,7 @@ EOF
     esac
 }
 
-# Helper functions
-
-# Error message with helpful hints
-rag_error_with_hint() {
-    local error_msg="$1"
-    local hint="${2:-}"
-
-    echo "✗ $error_msg" >&2
-
-    if [[ -n "$hint" ]]; then
-        echo "" >&2
-        echo "$hint" >&2
-    fi
-}
-
-# No active flow error with suggestions
-rag_error_no_flow() {
-    rag_error_with_hint "No active flow" "To create a flow:
-  rag flow create \"your question\"
-
-Or use no-flow mode:
-  rag quick \"question\" file1.sh file2.js
-
-To resume an existing flow:
-  rag flow list      # See available flows
-  rag flow resume 1  # Resume by number"
-    return 1
-}
+# Helper functions now in core/error.sh
 
 # Quick Q&A without flow
 rag_quick() {
@@ -334,10 +359,10 @@ rag_quick() {
     fi
 
     if [[ ${#files[@]} -eq 0 ]]; then
-        rag_error_with_hint "No files specified" "Provide files to include in context:
+        rag_error "$ERR_INVALID_ARG" "No files specified" "Provide files to include in context:
   rag quick \"$query\" file1.sh file2.js
   rag quick \"$query\" src/*.js"
-        return 1
+        return $?
     fi
 
     # Create temporary context

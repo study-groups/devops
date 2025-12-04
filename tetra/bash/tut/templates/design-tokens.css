@@ -1,0 +1,379 @@
+/* Design Token Editor - FAB and Panel Styles */
+
+/* Floating Action Button */
+.design-fab {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--accent-secondary);
+    border: 2px solid var(--accent-primary);
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 1000;
+}
+
+.design-fab:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+}
+
+/* Design Panel */
+.design-panel {
+    position: fixed;
+    bottom: 5rem;
+    right: 2rem;
+    width: 320px;
+    max-height: 70vh;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    display: none;
+    flex-direction: column;
+    z-index: 999;
+    overflow: hidden;
+}
+
+.design-panel.visible {
+    display: flex;
+    animation: designPanelSlideUp 0.3s ease;
+}
+
+@keyframes designPanelSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.design-panel-header {
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.design-panel-close {
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+}
+
+.design-panel-content {
+    padding: 1rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* Styled scrollbar for design panel */
+.design-panel-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.design-panel-content::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+    border-radius: 4px;
+}
+
+.design-panel-content::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+
+.design-panel-content::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-primary);
+}
+
+/* Token Groups and Items */
+.token-group {
+    margin-bottom: 1.5rem;
+}
+
+.token-group-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+}
+
+.token-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.token-swatch {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.token-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.token-name {
+    font-size: 0.75rem;
+    font-family: 'Courier New', monospace;
+    color: var(--text-secondary);
+    margin-bottom: 0.15rem;
+}
+
+.token-value {
+    font-size: 0.7rem;
+    font-family: 'Courier New', monospace;
+    color: var(--accent-primary);
+}
+
+.token-picker {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Font Controls */
+.font-select {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    margin-top: 0.5rem;
+}
+
+.font-select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.font-input {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-family: 'Courier New', monospace;
+    margin-top: 0.5rem;
+}
+
+.font-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.font-input::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.5;
+}
+
+.add-font-btn {
+    width: 100%;
+    padding: 0.4rem;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    margin-top: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.add-font-btn:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+/* Font Example Toggle */
+.font-example-toggle {
+    font-size: 0.75rem;
+    color: var(--accent-primary);
+    cursor: pointer;
+    margin-top: 0.5rem;
+    display: inline-block;
+    user-select: none;
+}
+
+.font-example-toggle:hover {
+    text-decoration: underline;
+}
+
+.font-example-content {
+    display: none;
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.font-example-content.expanded {
+    display: block;
+}
+
+.font-example-content ol {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+}
+
+.font-example-content li {
+    margin-bottom: 0.5rem;
+}
+
+.font-example-content code {
+    background: var(--bg-primary);
+    padding: 0.2rem 0.4rem;
+    border-radius: 2px;
+    font-size: 0.65rem;
+}
+
+/* Panel Action Buttons */
+.design-panel-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.design-panel-btn {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.copy-tokens-btn {
+    background: var(--accent-secondary);
+    color: white;
+    border-color: var(--accent-primary);
+}
+
+.copy-tokens-btn:hover {
+    background: var(--accent-primary);
+}
+
+.copy-tokens-btn.copied {
+    background: var(--success);
+    border-color: var(--success);
+}
+
+.load-tokens-btn {
+    background: var(--bg-tertiary);
+    border-color: var(--border);
+    color: var(--text-primary);
+}
+
+.load-tokens-btn:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+.reset-tokens-btn {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--border);
+}
+
+.reset-tokens-btn:hover {
+    background: var(--bg-primary);
+    border-color: var(--warning);
+    color: var(--warning);
+}
+
+/* Element Inspector Panel */
+#elementInspectorPanel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    max-width: 90vw;
+    max-height: 80vh;
+    background: var(--bg-secondary);
+    border: 2px solid var(--accent-primary);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    display: none;
+    flex-direction: column;
+    z-index: 10001;
+    overflow: hidden;
+}
+
+#elementInspectorPanel.visible {
+    display: flex;
+}
+
+#elementInspectorPanel .inspector-header {
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: move;
+    user-select: none;
+}
+
+#elementInspectorPanel .inspector-content {
+    padding: 1rem;
+    overflow-y: auto;
+    flex: 1;
+    font-size: 0.85rem;
+}
+
+#elementInspectorPanel .inspector-content::-webkit-scrollbar {
+    width: 12px;
+}
+
+#elementInspectorPanel .inspector-content::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+    border-radius: 6px;
+    margin: 4px;
+}
+
+#elementInspectorPanel .inspector-content::-webkit-scrollbar-thumb {
+    background: var(--accent-secondary);
+    border-radius: 6px;
+    border: 2px solid var(--bg-primary);
+}
+
+#elementInspectorPanel .inspector-content::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-primary);
+}

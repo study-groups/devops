@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 
 # python module includes
-# Follow tetra convention: MOD_DIR for data, MOD_SRC for source
-PYTHON_DIR="${PYTHON_DIR:-$TETRA_DIR/python}"
-PYTHON_SRC="${PYTHON_SRC:-$TETRA_SRC/bash/python}"
 
-# Create data directory if it doesn't exist
-[[ ! -d "$PYTHON_DIR" ]] && mkdir -p "$PYTHON_DIR"
+# Load module utilities
+source "$TETRA_SRC/bash/utils/module_init.sh"
+source "$TETRA_SRC/bash/utils/function_helpers.sh"
 
-# Export for subprocesses
-export PYTHON_DIR PYTHON_SRC
+# Initialize module with standard tetra conventions
+tetra_module_init_with_alias "python" "PYTHON"
 
 source "$PYTHON_SRC/python.sh"

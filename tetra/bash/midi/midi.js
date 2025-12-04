@@ -24,6 +24,9 @@ class TMCBridge {
         this.verbose = options.verbose || false;
         this.running = true;
 
+        // Config file (loads device settings, default map, etc.)
+        this.configFile = options.configFile || null;
+
         // Map support
         this.mapFile = options.mapFile || null;
         this.mapData = null;
@@ -32,6 +35,8 @@ class TMCBridge {
         this.syntaxMapping = new Map();    // "p1" -> {semantic, min, max}
 
         this.midiInput = null;
+        this.midiInputName = 'none';
+        this.midiOutputName = 'none';
         this.midiOutput = null;
         this.socket = null;
         this.udpPort = null;
@@ -187,39 +192,13 @@ class TMCBridge {
     }
 
     broadcastState() {
-        if (!this.udpPort || !this.mapData) return;
+        if (!this.udpPort) return;
 
-        const controller = this.mapData.controller;
-        const instance = this.mapData.instance;
-        const variant = this.currentVariant;
-        const variantName = this.mapData.variants[variant]?.name || variant;
-
-        // Broadcast state metadata
         const broadcastAddr = this.oscMulticast;
 
-        this.udpPort.send({
-            address: '/midi/state/controller',
-            args: [{ type: 's', value: controller }]
-        }, broadcastAddr, this.oscPort);
-
-        this.udpPort.send({
-            address: '/midi/state/instance',
-            args: [{ type: 'i', value: instance }]
-        }, broadcastAddr, this.oscPort);
-
-        this.udpPort.send({
-            address: '/midi/state/variant',
-            args: [{ type: 's', value: variant }]
-        }, broadcastAddr, this.oscPort);
-
-        this.udpPort.send({
-            address: '/midi/state/variant_name',
-            args: [{ type: 's', value: variantName }]
-        }, broadcastAddr, this.oscPort);
-
-        // Broadcast MIDI device names
-        const inputName = this.midiInput?._input?.name || 'none';
-        const outputName = this.midiOutput?._output?.name || 'none';
+        // Always broadcast device names (even without a map)
+        const inputName = this.midiInputName;
+        const outputName = this.midiOutputName;
 
         this.udpPort.send({
             address: '/midi/state/input_device',
@@ -231,8 +210,38 @@ class TMCBridge {
             args: [{ type: 's', value: outputName }]
         }, broadcastAddr, this.oscPort);
 
-        if (this.verbose) {
-            console.error(`State: ${controller}[${instance}]:${variant} (${variantName})`);
+        // Broadcast map info only if a map is loaded
+        if (this.mapData) {
+            const controller = this.mapData.controller;
+            const instance = this.mapData.instance;
+            const variant = this.currentVariant;
+            const variantName = this.mapData.variants[variant]?.name || variant;
+
+            this.udpPort.send({
+                address: '/midi/state/controller',
+                args: [{ type: 's', value: controller }]
+            }, broadcastAddr, this.oscPort);
+
+            this.udpPort.send({
+                address: '/midi/state/instance',
+                args: [{ type: 'i', value: instance }]
+            }, broadcastAddr, this.oscPort);
+
+            this.udpPort.send({
+                address: '/midi/state/variant',
+                args: [{ type: 's', value: variant }]
+            }, broadcastAddr, this.oscPort);
+
+            this.udpPort.send({
+                address: '/midi/state/variant_name',
+                args: [{ type: 's', value: variantName }]
+            }, broadcastAddr, this.oscPort);
+
+            if (this.verbose) {
+                console.error(`State: ${controller}[${instance}]:${variant} (${variantName})`);
+            }
+        } else if (this.verbose) {
+            console.error(`State: no map loaded, device: ${inputName}`);
         }
     }
 
@@ -320,6 +329,12 @@ class TMCBridge {
             }
         } else if (address === '/midi/control/status') {
             this.broadcastState();
+        } else if (address === '/midi/control/device') {
+            const deviceId = args[0];
+            if (this.switchDevice(deviceId)) {
+                this.log(`Device switched to: ${deviceId}`);
+                console.error(`✓ Device: ${this.midiInputName}`);
+            }
         } else if (address.startsWith('/midi/out/')) {
             // Handle MIDI output: /midi/out/note, /midi/out/cc, etc.
             this.handleMidiOutput(address, args);
@@ -412,6 +427,7 @@ class TMCBridge {
         if (inputIndex >= 0 && inputIndex < inputs.length) {
             const inputName = inputs[inputIndex];
             this.midiInput = new easymidi.Input(inputName);
+            this.midiInputName = inputName;
             this.log(`Opened MIDI input: ${inputName}`);
 
             // Register event handlers
@@ -443,10 +459,99 @@ class TMCBridge {
         if (outputIndex >= 0 && outputIndex < outputs.length) {
             const outputName = outputs[outputIndex];
             this.midiOutput = new easymidi.Output(outputName);
+            this.midiOutputName = outputName;
             this.log(`Opened MIDI output: ${outputName}`);
         } else if (outputIndex >= 0) {
             console.error(`ERROR: Output device ${outputIndex} not found`);
         }
+    }
+
+    switchDevice(deviceId) {
+        const inputs = easymidi.getInputs();
+        const outputs = easymidi.getOutputs();
+
+        // Resolve device (name or ID)
+        let inputIndex = deviceId;
+        if (typeof deviceId === 'string') {
+            // Try exact match first, then case-insensitive
+            inputIndex = this.findDeviceByName(inputs, deviceId);
+            if (inputIndex < 0) {
+                console.error(`ERROR: Device "${deviceId}" not found`);
+                console.error(`Available: ${inputs.join(', ')}`);
+                return false;
+            }
+        } else {
+            inputIndex = parseInt(deviceId, 10);
+        }
+
+        if (inputIndex < 0 || inputIndex >= inputs.length) {
+            console.error(`ERROR: Device ${inputIndex} not found (have ${inputs.length} devices)`);
+            return false;
+        }
+
+        // Close existing input if open
+        if (this.midiInput) {
+            try {
+                this.midiInput.close();
+            } catch (e) {
+                // Ignore close errors
+            }
+            this.midiInput = null;
+            this.midiInputName = null;
+        }
+
+        // Close existing output if open
+        if (this.midiOutput) {
+            try {
+                this.midiOutput.close();
+            } catch (e) {
+                // Ignore close errors
+            }
+            this.midiOutput = null;
+            this.midiOutputName = null;
+        }
+
+        // Open new input
+        const inputName = inputs[inputIndex];
+        try {
+            this.midiInput = new easymidi.Input(inputName);
+            this.midiInputName = inputName;
+            this.log(`Opened MIDI input: ${inputName}`);
+
+            // Register event handlers
+            this.midiInput.on('noteon', (msg) => this.handleMidiEvent('noteon', msg));
+            this.midiInput.on('noteoff', (msg) => this.handleMidiEvent('noteoff', msg));
+            this.midiInput.on('cc', (msg) => this.handleMidiEvent('cc', msg));
+            this.midiInput.on('program', (msg) => this.handleMidiEvent('program', msg));
+            this.midiInput.on('pitchbend', (msg) => this.handleMidiEvent('pitchbend', msg));
+        } catch (err) {
+            console.error(`ERROR: Failed to open input ${inputName}: ${err.message}`);
+            return false;
+        }
+
+        // Open new output (use same index, or find matching name)
+        let outputIndex = inputIndex < outputs.length ? inputIndex : -1;
+        // Try to find output with same name as input
+        const matchingOutput = outputs.findIndex(o => o === inputName);
+        if (matchingOutput >= 0) {
+            outputIndex = matchingOutput;
+        }
+
+        if (outputIndex >= 0 && outputIndex < outputs.length) {
+            const outputName = outputs[outputIndex];
+            try {
+                this.midiOutput = new easymidi.Output(outputName);
+                this.midiOutputName = outputName;
+                this.log(`Opened MIDI output: ${outputName}`);
+            } catch (err) {
+                console.error(`ERROR: Failed to open output ${outputName}: ${err.message}`);
+                // Continue without output
+            }
+        }
+
+        // Broadcast updated state
+        this.broadcastState();
+        return true;
     }
 
     handleMidiEvent(type, msg) {
@@ -782,6 +887,11 @@ function main() {
                 options.variant = args[++i];
                 break;
 
+            case '-c':
+            case '--config':
+                options.configFile = args[++i];
+                break;
+
             case '-v':
             case '--verbose':
                 options.verbose = true;
@@ -794,8 +904,9 @@ Usage: midi.js [OPTIONS]
 
 Options:
   -l, --list              List available MIDI devices and exit
-  -i, --input DEVICE      MIDI input device (ID or name)
-  -o, --output DEVICE     MIDI output device (ID or name)
+  -c, --config FILE       Load config file (device, map, OSC settings)
+  -i, --input DEVICE      MIDI input device (ID or name, overrides config)
+  -o, --output DEVICE     MIDI output device (ID or name, overrides config)
   -m, --map FILE          Load map file (enables semantic mapping)
   --variant VARIANT       Set initial variant (a/b/c/d, default from map)
   -s, --socket PATH       Unix socket path for communication (legacy)

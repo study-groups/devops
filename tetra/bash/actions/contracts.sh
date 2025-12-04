@@ -2,6 +2,9 @@
 # TAS Contract Validation
 # Implements semantic contract validation for TAS actions
 
+# Source dependencies
+source "$TETRA_SRC/bash/utils/function_helpers.sh"
+
 # Global contract state
 declare -g CONFIRMED=false
 declare -g DRYRUN_MODE=false
@@ -43,7 +46,7 @@ contract_validate() {
             ;;
         *)
             # Unknown contract - check if custom contract handler exists
-            if declare -f "contract_validate_${contract}" &>/dev/null; then
+            if tetra_function_exists "contract_validate_${contract}"; then
                 "contract_validate_${contract}"
             else
                 echo "Warning: Unknown contract: $contract (skipping)" >&2
@@ -246,7 +249,7 @@ contract_register() {
         return 1
     fi
 
-    if ! declare -f "$validator_fn" &>/dev/null; then
+    if ! tetra_function_exists "$validator_fn"; then
         echo "Error: Validator function not found: $validator_fn" >&2
         return 1
     fi

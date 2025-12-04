@@ -4,6 +4,14 @@
 # Design: Simple, fast, predictable
 # Principle: TETRA_SRC is a strong global that MUST be set
 
+# Bash version check - require 5.2+
+if [[ "${BASH_VERSINFO[0]}" -lt 5 ]] || [[ "${BASH_VERSINFO[0]}" -eq 5 && "${BASH_VERSINFO[1]}" -lt 2 ]]; then
+    echo "Error: tetra requires bash 5.2 or higher" >&2
+    echo "Current version: ${BASH_VERSION}" >&2
+    echo "Please upgrade bash or ensure you're running in a bash 5.2+ environment" >&2
+    return 1 2>/dev/null || exit 1
+fi
+
 # Note: Can't use unified_log.sh yet since we need TETRA_SRC to be valid first
 # Early errors go to stderr, structured logging happens after boot_core loads
 
@@ -93,14 +101,59 @@ else
     export TETRA_BOOT_TIME_MS=$((TETRA_BOOT_TIME_NS / 1000000))
 fi
 
+# Restore directory if TETRA_RESTORE_DIR is set (from reload)
+if [[ -n "${TETRA_RESTORE_DIR:-}" && -d "$TETRA_RESTORE_DIR" ]]; then
+    cd "$TETRA_RESTORE_DIR"
+    unset TETRA_RESTORE_DIR
+fi
+
 # Mark as loaded
 export TETRA_BOOTLOADER_LOADED=$$
 
-# Reload function - simple and clean
+# Reload function - use exec bash for true fresh shell simulation
 tetra_reload() {
-    echo "Reloading Tetra..."
+    local use_exec="${1:-true}"  # Default to exec mode
+
+    if [[ "$use_exec" == "false" || "$use_exec" == "soft" ]]; then
+        # Soft mode: in-place reload without exec
+        tetra_reload_soft
+        return $?
+    fi
+
+    echo "Reloading Tetra (starting fresh bash shell)..."
+
+    # Check if we're in an interactive shell
+    if [[ $- == *i* ]]; then
+        # Save current directory to restore after exec
+        local current_dir="$PWD"
+
+        # Interactive shell: use exec to replace current shell with fresh one
+        # This is the ONLY way to truly simulate a new shell
+        # Use TETRA_RESTORE_DIR to return to current directory after reload
+        # IMPORTANT: Use $SHELL (user's configured shell) not bare 'bash'
+        # to avoid /bin/sh parsing exported bash 5.2+ functions
+        TETRA_RESTORE_DIR="$current_dir" exec "$SHELL" --login
+    else
+        # Non-interactive: do best-effort cleanup and re-source
+        echo "Warning: Non-interactive shell detected, doing in-place reload"
+        echo "For full reload in interactive mode, use: exec bash --login"
+
+        tetra_reload_soft
+    fi
+}
+
+# Alternative: soft reload that just re-sources without exec
+tetra_reload_soft() {
+    echo "Soft reloading Tetra (functions may persist)..."
+
+    # Unset module state
     unset TETRA_BOOTLOADER_LOADED
+    unset TETRA_MODULE_LOADERS
+    unset TETRA_MODULE_LOADED
+
+    # Reload
     source "$TETRA_SRC/bash/bootloader.sh"
+    echo "Tetra soft-reloaded"
 }
 
 alias ttr='tetra_reload'

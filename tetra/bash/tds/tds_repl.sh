@@ -421,27 +421,8 @@ tds_repl_temp_preview() {
 
 # Help
 tds_repl_help() {
-    local dim_color
-    dim_color=$(tds_text_color "content.dim" | cat)
-    local reset
-    reset=$(reset_color | cat)
-    local heading
-    heading=$(tds_text_color "content.heading.h2" | cat)
-
-    cat <<EOF
-
-${heading}TDS${reset} - Tetra Design System
-
-${heading}CATEGORIES${reset}
-  Themes      show switch temp info
-  Palettes    palette show
-  Tokens      list resolve
-  Colors      hex semantic
-
-${dim_color}Try:${reset} switch warm → palette mode → switch cool → palette mode
-${dim_color}Tip:${reset} Use 'action noun' or 'action:noun'
-
-EOF
+    # Just delegate to main help
+    _tds_cmd_help
 }
 
 # ============================================================================
@@ -450,149 +431,145 @@ EOF
 
 # Generate completion words based on current input context
 _tds_repl_generate_completions() {
-    # Get current input and cursor position from global state
     local input="${REPL_INPUT:-}"
     local cursor="${REPL_CURSOR_POS:-0}"
 
-    # Debug logging if enabled
-    if [[ "${TDS_COMPLETION_DEBUG:-0}" == "1" ]]; then
-        echo "[TDS_COMPLETION] input='$input' cursor=$cursor" >&2
-    fi
+    # Parse: count words to determine context
+    local -a words
+    read -ra words <<< "$input"
+    local word_count=${#words[@]}
 
-    # Parse input to determine context
-    local verb noun
-    if [[ "$input" =~ ^([a-z]+):(.*)$ ]]; then
-        # Colon format: verb:noun
-        verb="${BASH_REMATCH[1]}"
-        noun="${BASH_REMATCH[2]}"
-    elif [[ "$input" =~ ^([a-z]+)[[:space:]]+(.*)$ ]]; then
-        # Space format: verb noun (partial)
-        verb="${BASH_REMATCH[1]}"
-        noun="${BASH_REMATCH[2]}"
-    elif [[ "$input" =~ ^([a-z]+)$ ]]; then
-        # Just verb, no space yet
-        verb="$input"
-        noun=""
+    # Check if input ends with space (ready for next word)
+    local ends_with_space=false
+    [[ "$input" =~ [[:space:]]$ ]] && ends_with_space=true
+
+    # Determine completion context
+    local completing_word=1  # Which word are we completing? (1=verb, 2=noun, 3+=args)
+    if [[ $word_count -eq 0 ]]; then
+        completing_word=1
+    elif [[ "$ends_with_space" == true ]]; then
+        completing_word=$((word_count + 1))
     else
-        verb=""
-        noun=""
+        completing_word=$word_count
     fi
 
-    if [[ "${TDS_COMPLETION_DEBUG:-0}" == "1" ]]; then
-        echo "[TDS_COMPLETION] verb='$verb' noun='$noun'" >&2
-    fi
+    local verb="${words[0]:-}"
+    local noun="${words[1]:-}"
 
-    # If we have a verb, complete the noun
-    if [[ -n "$verb" && " $input " =~ " " ]]; then
-        case "$verb" in
-            palette)
-                # Complete palette names with hints and categories
-                if command -v repl_set_completion_hint >/dev/null 2>&1; then
-                    repl_set_completion_hint "env" "Palette • Environment colors (states, contexts)"
-                    repl_set_completion_hint "mode" "Palette • Mode indicators and UI states"
-                    repl_set_completion_hint "verbs" "Palette • Action and verb colors"
-                    repl_set_completion_hint "nouns" "Palette • Entity and noun colors"
-                fi
-                if command -v repl_set_completion_category >/dev/null 2>&1; then
-                    repl_set_completion_category "env" "Palette"
-                    repl_set_completion_category "mode" "Palette"
-                    repl_set_completion_category "verbs" "Palette"
-                    repl_set_completion_category "nouns" "Palette"
-                fi
-                echo "env"
-                echo "mode"
-                echo "verbs"
-                echo "nouns"
-                ;;
-            switch|info)
-                # Complete theme names
-                for theme in "${!TDS_THEME_REGISTRY[@]}"; do
-                    echo "$theme"
-                done | sort
-                ;;
-            temp)
-                # Complete temperature themes
-                echo "warm"
-                echo "cool"
-                echo "neutral"
-                echo "electric"
-                ;;
-            show)
-                # Complete show targets
-                echo "themes"
-                echo "palettes"
-                echo "temps"
-                ;;
-            list)
-                # Complete list targets
-                echo "tokens"
-                ;;
-            validate)
-                # Complete validate targets
-                echo "tokens"
-                ;;
-            preview)
-                # Complete preview targets
-                echo "themes"
-                ;;
-        esac
-    else
-        # Complete top-level commands (verbs)
-        # Also set hints and categories for each command
-        if command -v repl_set_completion_hint >/dev/null 2>&1; then
-            repl_set_completion_hint "help" "TDS • Show available commands and usage"
-            repl_set_completion_hint "show" "TDS • Display themes, palettes, or temps"
-            repl_set_completion_hint "switch" "TDS • Switch to a different theme"
-            repl_set_completion_hint "palette" "Palette • Show color palette (env/mode/verbs/nouns)"
-            repl_set_completion_hint "list" "TDS • List all available tokens"
-            repl_set_completion_hint "resolve" "TDS • Resolve token to hex value"
-            repl_set_completion_hint "validate" "TDS • Validate token mappings"
-            repl_set_completion_hint "hex" "TDS • Display hex color swatch"
-            repl_set_completion_hint "semantic" "TDS • Test semantic color rendering"
-            repl_set_completion_hint "temp" "TDS • Preview temperature theme"
-            repl_set_completion_hint "info" "TDS • Show theme information"
-            repl_set_completion_hint "preview" "TDS • Preview all themes"
+    # Set up hints helper
+    _tds_hint() {
+        command -v repl_set_completion_hint >/dev/null 2>&1 && repl_set_completion_hint "$1" "$2"
+    }
 
-            # Hidden command - always set hint but only echo when user types 'se'
-            repl_set_completion_hint "self" "REPL • Introspection (hidden)"
-        fi
+    case $completing_word in
+        1)
+            # Complete verbs (operations)
+            _tds_hint "get" "Read/inspect a property"
+            _tds_hint "set" "Modify a property"
+            _tds_hint "validate" "Check correctness"
+            _tds_hint "create" "Create new theme"
+            _tds_hint "delete" "Remove theme"
+            _tds_hint "copy" "Duplicate theme"
+            _tds_hint "edit" "Open in editor"
+            _tds_hint "path" "Show file path"
+            _tds_hint "help" "Show help"
 
-        # Set categories for commands
-        if command -v repl_set_completion_category >/dev/null 2>&1; then
-            repl_set_completion_category "help" "TDS"
-            repl_set_completion_category "show" "TDS"
-            repl_set_completion_category "switch" "TDS"
-            repl_set_completion_category "palette" "Palette"
-            repl_set_completion_category "list" "TDS"
-            repl_set_completion_category "resolve" "TDS"
-            repl_set_completion_category "validate" "TDS"
-            repl_set_completion_category "hex" "TDS"
-            repl_set_completion_category "semantic" "TDS"
-            repl_set_completion_category "temp" "TDS"
-            repl_set_completion_category "info" "TDS"
-            repl_set_completion_category "preview" "TDS"
-            repl_set_completion_category "self" "REPL"
-        fi
+            echo "get"
+            echo "set"
+            echo "validate"
+            echo "create"
+            echo "delete"
+            echo "copy"
+            echo "edit"
+            echo "path"
+            echo "help"
+            ;;
 
-        echo "help"
-        echo "show"
-        echo "switch"
-        echo "palette"
-        echo "list"
-        echo "resolve"
-        echo "validate"
-        echo "hex"
-        echo "semantic"
-        echo "temp"
-        echo "info"
-        echo "preview"
+        2)
+            # Complete nouns based on verb
+            case "$verb" in
+                get)
+                    _tds_hint "theme" "Active theme + palette preview"
+                    _tds_hint "themes" "List all themes"
+                    _tds_hint "palette" "Color palette (env/mode/verbs/nouns)"
+                    _tds_hint "palettes" "List palette names"
+                    _tds_hint "token" "Resolve single token"
+                    _tds_hint "tokens" "List all tokens"
+                    _tds_hint "hex" "Color swatch"
+                    echo "theme"
+                    echo "themes"
+                    echo "palette"
+                    echo "palettes"
+                    echo "token"
+                    echo "tokens"
+                    echo "hex"
+                    ;;
+                set)
+                    _tds_hint "theme" "Switch to theme"
+                    echo "theme"
+                    ;;
+                validate)
+                    _tds_hint "theme" "Check theme loads"
+                    _tds_hint "tokens" "Check token mappings"
+                    echo "theme"
+                    echo "tokens"
+                    ;;
+                create|delete|edit|path)
+                    _tds_hint "theme" "Theme file"
+                    echo "theme"
+                    ;;
+                copy)
+                    _tds_hint "theme" "Copy theme"
+                    echo "theme"
+                    ;;
+            esac
+            ;;
 
-        # Include 'self' only if user has typed 's' or 'se'
-        # The completion system will filter based on prefix match
-        if [[ "$verb" == s* ]] || [[ -z "$verb" ]]; then
-            echo "self"
-        fi
-    fi
+        3)
+            # Complete args based on verb+noun
+            case "$verb $noun" in
+                "set theme"|"validate theme"|"delete theme"|"edit theme"|"path theme")
+                    # Complete with theme names
+                    for theme in "${!TDS_THEME_REGISTRY[@]}"; do
+                        echo "$theme"
+                    done | sort
+                    ;;
+                "get palette")
+                    _tds_hint "env" "Environment colors"
+                    _tds_hint "mode" "Mode indicators"
+                    _tds_hint "verbs" "Action colors"
+                    _tds_hint "nouns" "Entity colors"
+                    echo "env"
+                    echo "mode"
+                    echo "verbs"
+                    echo "nouns"
+                    ;;
+                "copy theme")
+                    # Source theme
+                    for theme in "${!TDS_THEME_REGISTRY[@]}"; do
+                        echo "$theme"
+                    done | sort
+                    ;;
+                "get theme")
+                    # Optional -v flag or theme name
+                    _tds_hint "-v" "Verbose output"
+                    echo "-v"
+                    for theme in "${!TDS_THEME_REGISTRY[@]}"; do
+                        echo "$theme"
+                    done | sort
+                    ;;
+            esac
+            ;;
+
+        4)
+            # Fourth word - only for copy theme <src> <dst>
+            case "$verb $noun" in
+                "copy theme")
+                    # Destination - no completion (user types new name)
+                    ;;
+            esac
+            ;;
+    esac
 }
 
 # ============================================================================
@@ -603,128 +580,33 @@ _tds_repl_process_input() {
     local input="$1"
 
     # Strip ANSI escape codes that might have leaked into input
-    # This removes sequences like \033[?25l (cursor visibility)
-    # Use a more careful pattern to avoid removing actual text
     input=$(echo -n "$input" | sed $'s/\033\\[[0-9;?]*[A-Za-z]//g')
 
-    # Trim leading and trailing whitespace
-    input="${input#"${input%%[![:space:]]*}"}"  # trim leading
-    input="${input%"${input##*[![:space:]]}"}"  # trim trailing
-
-    # Debug: show exact input with visible spaces
-    if [[ "${TDS_REPL_DEBUG:-0}" == "1" ]]; then
-        echo "[DEBUG] input='$input' len=${#input}" >&2
-        echo "[DEBUG] input_hex=$(echo -n "$input" | od -A n -t x1)" >&2
-    fi
+    # Trim whitespace
+    input="${input#"${input%%[![:space:]]*}"}"
+    input="${input%"${input##*[![:space:]]}"}"
 
     # Handle exit
     case "$input" in
         exit|quit|q) return 1 ;;
+        "") return 0 ;;  # Empty input
     esac
 
-    # Parse verb:noun or "verb noun" pattern
-    local verb noun
-    if [[ "$input" =~ ^([a-z]+):(.*)$ ]]; then
-        # Colon format: verb:noun
-        verb="${BASH_REMATCH[1]}"
-        noun="${BASH_REMATCH[2]}"
-        if [[ "${TDS_REPL_DEBUG:-0}" == "1" ]]; then
-            echo "[PARSE] Matched colon format: verb='$verb' noun='$noun'" >&2
-        fi
-    elif [[ "$input" =~ ^([a-z]+)[[:space:]]+(.+)$ ]]; then
-        # Space format: verb noun
-        verb="${BASH_REMATCH[1]}"
-        noun="${BASH_REMATCH[2]}"
-        if [[ "${TDS_REPL_DEBUG:-0}" == "1" ]]; then
-            echo "[PARSE] Matched space format: verb='$verb' noun='$noun'" >&2
-        fi
-    else
-        # Single word command or unrecognized format
-        verb=""
-        noun=""
-        if [[ "${TDS_REPL_DEBUG:-0}" == "1" ]]; then
-            echo "[PARSE] No match! input='$input'" >&2
-        fi
-    fi
+    # Handle REPL-specific commands
+    case "$input" in
+        self)
+            if command -v repl_meta_show >/dev/null 2>&1; then
+                repl_meta_show
+            else
+                echo "REPL metadata not available"
+            fi
+            return 0
+            ;;
+    esac
 
-    # Process verb:noun commands
-    if [[ -n "$verb" && -n "$noun" ]]; then
-
-        case "$verb" in
-            # Theme management
-            show)
-                case "$noun" in
-                    themes) tds_repl_show_themes ;;
-                    palettes) tds_repl_show_palettes ;;
-                    temps) tds_repl_show_temperatures ;;
-                    *) echo "Unknown show target: $noun" ;;
-                esac
-                ;;
-
-            switch) tds_repl_switch_theme "$noun" ;;
-            preview)
-                case "$noun" in
-                    themes) tds_repl_preview_themes ;;
-                    *) echo "Unknown preview target: $noun" ;;
-                esac
-                ;;
-            info) tds_repl_theme_info "$noun" ;;
-
-            # Palettes
-            palette) tds_repl_show_palette "$noun" ;;
-
-            # Tokens
-            list)
-                case "$noun" in
-                    tokens) tds_repl_list_tokens ;;
-                    *) echo "Unknown list target: $noun" ;;
-                esac
-                ;;
-            resolve) tds_repl_resolve_token "$noun" ;;
-            validate)
-                case "$noun" in
-                    tokens) tds_repl_validate_tokens ;;
-                    *) echo "Unknown validate target: $noun" ;;
-                esac
-                ;;
-
-            # Colors
-            hex) tds_repl_show_hex "$noun" ;;
-            semantic) tds_repl_test_semantic "$noun" ;;
-
-            # Temperature
-            temp) tds_repl_temp_preview "$noun" ;;
-
-            *)
-                echo "Unknown command: $input"
-                echo "Type 'help' for available commands"
-                ;;
-        esac
-    else
-        # Handle single-word commands
-        case "$input" in
-            help) tds_repl_help ;;
-            self)
-                if command -v repl_meta_show >/dev/null 2>&1; then
-                    repl_meta_show
-                else
-                    echo "REPL metadata system not available"
-                fi
-                ;;
-            "self edit"|"self:edit")
-                if command -v repl_meta_edit >/dev/null 2>&1; then
-                    repl_meta_edit
-                else
-                    echo "REPL metadata system not available"
-                fi
-                ;;
-            "") ;; # Empty input, do nothing
-            *)
-                echo "Unknown command: $input"
-                echo "Type 'help' for available commands"
-                ;;
-        esac
-    fi
+    # Delegate to main tds command (same verb-noun syntax)
+    # shellcheck disable=SC2086
+    tds $input
 
     return 0
 }
@@ -764,10 +646,48 @@ _tds_repl_build_prompt() {
 }
 
 # ============================================================================
+# LIVE PREVIEW HOOK
+# ============================================================================
+
+# Preview hook for completion menu - applies theme temporarily when navigating
+_tds_completion_preview() {
+    local match="$1"
+    local verb="$2"
+
+    # Check if match looks like a theme name (exists in registry)
+    # This avoids complex input parsing - if we're completing a valid theme, show preview
+    if [[ -n "${TDS_THEME_REGISTRY[$match]+x}" ]]; then
+        # Try to switch theme silently (if invalid, it just fails)
+        if TDS_QUIET_LOAD=1 tds_switch_theme "$match" 2>/dev/null; then
+            # Generate color swatch preview for status line
+            local preview=""
+            # Show 4 sample colors from ENV_PRIMARY palette
+            if [[ -v ENV_PRIMARY ]]; then
+                for i in 0 1 2 3; do
+                    local hex="${ENV_PRIMARY[$i]:-}"
+                    if [[ -n "$hex" ]]; then
+                        # Background color block
+                        preview+=$(printf '\033[48;2;%d;%d;%dm  \033[0m' \
+                            "$((16#${hex:1:2}))" \
+                            "$((16#${hex:3:2}))" \
+                            "$((16#${hex:5:2}))")
+                    fi
+                done
+            fi
+            # Add theme name after swatches for visibility
+            REPL_COMPLETION_PREVIEW_TEXT="${preview} [${match}]"
+        fi
+    fi
+}
+
+# ============================================================================
 # MAIN ENTRY POINT
 # ============================================================================
 
 tds_repl() {
+    # Save original theme to restore on exit
+    local original_theme=$(tds_active_theme)
+
     # Set execution mode
     REPL_EXECUTION_MODE="takeover"
 
@@ -789,6 +709,10 @@ tds_repl() {
         repl_set_completion_generator "_tds_repl_generate_completions"
     fi
 
+    # Register preview hook for live theme preview
+    REPL_COMPLETION_PREVIEW_HOOK="_tds_completion_preview"
+    export REPL_COMPLETION_PREVIEW_HOOK
+
     # Show welcome message
     echo
     tds_text_color "content.heading.h1"
@@ -803,8 +727,12 @@ tds_repl() {
 
     # Run REPL
     repl_run
+
+    # Clean up - restore original theme if user cancelled
+    # (If they selected a theme, it's already applied)
 }
 
 # Export functions
 export -f _tds_repl_generate_completions
+export -f _tds_completion_preview
 export -f tds_repl

@@ -9,25 +9,32 @@ if [[ -f "$TETRA_SRC/bash/color/color_core.sh" ]]; then
     source "$TETRA_SRC/bash/color/color_palettes.sh"
 fi
 
+# Load TDS semantic colors if available
+if [[ -f "$TETRA_SRC/bash/tds/core/semantic_colors.sh" ]]; then
+    source "$TETRA_SRC/bash/tds/core/semantic_colors.sh"
+fi
+
 # Setup service directories
 TSM_SERVICES_AVAILABLE="$TETRA_DIR/tsm/services-available"
 TSM_SERVICES_ENABLED="$TETRA_DIR/tsm/services-enabled"
 
-# Print table header (multi-user aware)
+# Print table header (multi-user aware, with ORG column)
+# Designed to fit 79 columns
+# Type: tcp, udp, ws, sock, pipe, pid
 print_table_header() {
     text_color "00AAAA"
     if [[ $TSM_IS_ROOT -eq 1 ]]; then
-        # Root: show USER column
-        printf "%-10s %-3s %-20s %-10s %-5s %-5s %-8s %-8s %-8s\n" \
-            "USER" "ID" "Name" "Env" "PID" "Port" "Status" "Type" "Uptime"
-        printf "%-10s %-3s %-20s %-10s %-5s %-5s %-8s %-8s %-8s\n" \
-            "----------" "--" "--------------------" "----------" "-----" "-----" "--------" "--------" "--------"
+        # Root: show USER + ORG columns
+        printf "%-8s  %3s  %-6s  %-18s  %6s  %5s  %-4s  %-6s  %s\n" \
+            "USER" "ID" "ORG" "Name" "PID" "Port" "Type" "Status" "Up"
+        printf "%-8s  %3s  %-6s  %-18s  %6s  %5s  %-4s  %-6s  %s\n" \
+            "--------" "---" "------" "------------------" "------" "-----" "----" "------" "------"
     else
-        # Regular user: no USER column
-        printf "%-3s %-25s %-10s %-5s %-5s %-8s %-8s %-8s\n" \
-            "ID" "Name" "Env" "PID" "Port" "Status" "Type" "Uptime"
-        printf "%-3s %-25s %-10s %-5s %-5s %-8s %-8s %-8s\n" \
-            "--" "-------------------------" "----------" "-----" "-----" "--------" "--------" "--------"
+        # Regular user: ORG column but no USER column
+        printf "%3s  %-6s  %-22s  %6s  %5s  %-4s  %-6s  %s\n" \
+            "ID" "ORG" "Name" "PID" "Port" "Type" "Status" "Up"
+        printf "%3s  %-6s  %-22s  %6s  %5s  %-4s  %-6s  %s\n" \
+            "---" "------" "----------------------" "------" "-----" "----" "------" "------"
     fi
     reset_color
 }
@@ -89,7 +96,7 @@ get_service_info() {
             fi
         fi
 
-        if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+        if [[ -n "$pid" ]] && tsm_is_pid_alive "$pid"; then
             status="online"
 
             # Calculate uptime
@@ -149,17 +156,21 @@ _tsm_list_processes_from_dir() {
         local meta_file="$process_dir/meta.json"
         [[ -f "$meta_file" ]] || continue
 
-        # Read all metadata in one jq call (efficient!)
+        # Read all metadata in one jq call (efficient!) - now includes org
         local metadata
-        metadata=$(jq -r '[.tsm_id, .pid, .port, .start_time, .env_file, .service_type] | @tsv' "$meta_file" 2>/dev/null)
+        metadata=$(jq -r '[.tsm_id, .pid, .port, (.port_type // "tcp"), .start_time, .env_file, .service_type, (.org // "none")] | @tsv' "$meta_file" 2>/dev/null)
         [[ -z "$metadata" ]] && continue
 
-        read tsm_id pid port start_time env_file service_type <<< "$metadata"
+        read tsm_id pid port port_type start_time env_file service_type org <<< "$metadata"
 
         # Verify process is still running
         if tsm_is_pid_alive "$pid"; then
             # Calculate uptime
             local uptime=$(tsm_calculate_uptime "$start_time")
+
+            # Get org short name for display (6 chars max)
+            local org_display
+            org_display=$(tsm_get_org_short_name "$org" 2>/dev/null || echo "$org")
 
             # Format env file (basename only)
             local env_display="-"
@@ -167,23 +178,52 @@ _tsm_list_processes_from_dir() {
                 env_display=$(basename "$env_file" 2>/dev/null || echo "-")
             fi
 
-            # Format port
-            [[ -z "$port" || "$port" == "none" || "$port" == "null" || "$port" == "0" ]] && port="-"
+            # Format port (just the number)
+            local port_display="-"
+            [[ -n "$port" && "$port" != "none" && "$port" != "null" && "$port" != "0" ]] && port_display="$port"
 
-            # Format service type
-            local type_display="${service_type:-pid}"
+            # Type is the protocol: tcp, udp, ws, sock, pipe, pid
+            local type_display="$port_type"
+            [[ "$port_display" == "-" ]] && type_display="pid"
+
+            # Check if service definition exists (search org → none → system)
+            local service_name="${name%%-*}"
+            local service_file
+            service_file=$(tsm_find_service_file "$service_name" 2>/dev/null)
+            local has_service=true
+            [[ -z "$service_file" ]] && has_service=false
 
             # Print with colors (format depends on root)
             if [[ $TSM_IS_ROOT -eq 1 && -n "$owner_user" ]]; then
-                # Root: include USER column
-                printf "%-10s %-3s %-20s %-10s %-5s %-5s " "$owner_user" "$tsm_id" "$name" "$env_display" "$pid" "$port"
+                # Root: include USER + ORG columns (name field 16 chars + 2 for marker)
+                printf "%-8s  %3s  %-6s  %-16s" "$owner_user" "$tsm_id" "$org_display" "$name"
+                if [[ "$has_service" == "false" ]]; then
+                    if declare -f tds_color >/dev/null 2>&1; then
+                        printf " "; tds_color "muted" "~"
+                    else
+                        text_color "666666"; printf " ~"; reset_color
+                    fi
+                else
+                    printf "  "
+                fi
+                printf "  %6s  %5s  %-4s  " "$pid" "$port_display" "$type_display"
             else
-                # Regular user: no USER column
-                printf "%-3s %-25s %-10s %-5s %-5s " "$tsm_id" "$name" "$env_display" "$pid" "$port"
+                # Regular user: ORG column but no USER column (name field 20 chars + 2 for marker)
+                printf "%3s  %-6s  %-20s" "$tsm_id" "$org_display" "$name"
+                if [[ "$has_service" == "false" ]]; then
+                    if declare -f tds_color >/dev/null 2>&1; then
+                        printf " "; tds_color "muted" "~"
+                    else
+                        text_color "666666"; printf " ~"; reset_color
+                    fi
+                else
+                    printf "  "
+                fi
+                printf "  %6s  %5s  %-4s  " "$pid" "$port_display" "$type_display"
             fi
 
-            text_color "00AA00"; printf "%-8s" "online"; reset_color
-            printf " %-8s %-8s\n" "$type_display" "$uptime"
+            text_color "00AA00"; printf "%-6s" "online"; reset_color
+            printf "  %s\n" "$uptime"
 
             found_running=true
         fi
@@ -272,25 +312,7 @@ tsm_list_all() {
     tsm_list_available
 }
 
-# Truncate path in the middle to fit within width
-_tsm_truncate_path() {
-    local path="$1"
-    local max_width="$2"
-
-    local path_len=${#path}
-
-    if [[ $path_len -le $max_width ]]; then
-        echo "$path"
-        return
-    fi
-
-    # Calculate how much to keep on each side
-    local keep=$((max_width - 3))  # Reserve 3 chars for "..."
-    local left=$((keep / 2))
-    local right=$((keep - left))
-
-    echo "${path:0:$left}...${path: -$right}"
-}
+# Use tsm_truncate_path from system/formatting.sh
 
 # List running services in long/detailed format
 tsm_list_long() {
@@ -466,7 +488,7 @@ tsm_list_pwd() {
                 fi
 
                 # Truncate path if needed
-                path_display=$(_tsm_truncate_path "$path_display" "$path_width")
+                path_display=$(tsm_truncate_path "$path_display" "$path_width")
 
                 # Print compact format
                 printf "%-3s %-25s %-6s %-5s %s\n" "$tsm_id" "$name" "$type_display" "$uptime" "$path_display"

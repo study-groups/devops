@@ -299,9 +299,137 @@ tas_exec() {
     fi
 }
 
+# Execute a conditional expression
+# Usage: conditional_exec conditional_string
+# Returns: Exit code of executed branch
+conditional_exec() {
+    local input="$1"
+
+    if [[ -z "$input" ]]; then
+        echo "Error: conditional_exec requires input" >&2
+        return 1
+    fi
+
+    # Parse conditional
+    if ! tas_parse_conditional "$input"; then
+        return 1
+    fi
+
+    echo "Conditional: $TAS_CONDITION" >&2
+    echo "  True branch:  $TAS_CONDITION_TRUE" >&2
+    echo "  False branch: $TAS_CONDITION_FALSE" >&2
+    echo "" >&2
+
+    # Execute condition
+    echo "Evaluating condition..." >&2
+    tas_exec "$TAS_CONDITION" >/dev/null 2>&1
+    local status=$?
+
+    if [[ $status -eq 0 ]]; then
+        echo "Condition succeeded (exit 0), executing true branch" >&2
+        tas_dispatch "$TAS_CONDITION_TRUE"
+    else
+        echo "Condition failed (exit $status), executing false branch" >&2
+        tas_dispatch "$TAS_CONDITION_FALSE"
+    fi
+}
+
+# Execute actions in parallel with fail-fast
+# Usage: parallel_exec parallel_string
+# Returns: 0 if all succeed, first failure exit code otherwise
+parallel_exec() {
+    local input="$1"
+
+    if [[ -z "$input" ]]; then
+        echo "Error: parallel_exec requires input" >&2
+        return 1
+    fi
+
+    # Parse parallel actions
+    if ! tas_parse_parallel "$input"; then
+        return 1
+    fi
+
+    local total=${#TAS_PARALLEL_ACTIONS[@]}
+    echo "Parallel execution: $total actions" >&2
+    echo "" >&2
+
+    # Create temp directory for status tracking
+    local tmpdir=$(mktemp -d)
+    local pids=()
+
+    # Launch all actions in background
+    for i in "${!TAS_PARALLEL_ACTIONS[@]}"; do
+        local action="${TAS_PARALLEL_ACTIONS[$i]}"
+        echo "  [$((i+1))/$total] Launching: $action" >&2
+        (
+            tas_exec "$action" >/dev/null 2>&1
+            echo $? > "$tmpdir/$i.status"
+        ) &
+        pids+=($!)
+    done
+
+    echo "" >&2
+    echo "Monitoring for completion..." >&2
+
+    # Monitor for first failure (fail-fast)
+    local failed_idx=-1
+    local failed_status=0
+
+    while true; do
+        local running=0
+
+        for i in "${!pids[@]}"; do
+            local pid=${pids[$i]}
+
+            # Skip if already processed
+            [[ -z "$pid" ]] && continue
+
+            # Check if still running
+            if kill -0 "$pid" 2>/dev/null; then
+                ((running++))
+            else
+                # Process finished - check status
+                wait "$pid" 2>/dev/null
+                local status=$?
+
+                if [[ $status -ne 0 ]]; then
+                    # Fail-fast: kill remaining processes
+                    echo "  Action $((i+1)) failed (exit $status)" >&2
+                    failed_idx=$i
+                    failed_status=$status
+
+                    echo "  Killing remaining processes..." >&2
+                    for other_pid in "${pids[@]}"; do
+                        [[ -n "$other_pid" ]] && kill "$other_pid" 2>/dev/null
+                    done
+
+                    rm -rf "$tmpdir"
+                    return $failed_status
+                fi
+
+                echo "  Action $((i+1)) completed successfully" >&2
+                unset 'pids[$i]'
+            fi
+        done
+
+        # All done?
+        if [[ $running -eq 0 ]]; then
+            break
+        fi
+
+        sleep 0.1
+    done
+
+    rm -rf "$tmpdir"
+    echo "" >&2
+    echo "✓ All $total actions completed successfully" >&2
+    return 0
+}
+
 # Main TAS dispatcher
 # Usage: tas_dispatch input
-# Detects if input is pipeline or single action and routes accordingly
+# Detects if input is pipeline, conditional, parallel, or single action
 tas_dispatch() {
     local input="$1"
 
@@ -310,8 +438,17 @@ tas_dispatch() {
         return 1
     fi
 
-    # Check if pipeline
-    if tas_is_pipeline "$input"; then
+    # Validate no mixed operators
+    if ! tas_validate_operators "$input"; then
+        return 1
+    fi
+
+    # Route to appropriate executor (order matters: conditional > parallel > pipeline > single)
+    if tas_is_conditional "$input"; then
+        conditional_exec "$input"
+    elif tas_is_parallel "$input"; then
+        parallel_exec "$input"
+    elif tas_is_pipeline "$input"; then
         pipeline_exec "$input"
     else
         tas_exec "$input"
@@ -323,3 +460,5 @@ export -f pipeline_exec
 export -f execute_stage
 export -f tas_exec
 export -f tas_dispatch
+export -f conditional_exec
+export -f parallel_exec

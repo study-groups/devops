@@ -11,11 +11,7 @@ if [[ -f "$RAG_SRC/core/stats_manager.sh" ]]; then
     source "$RAG_SRC/core/stats_manager.sh"
 fi
 
-if [[ -f "$RAG_SRC/core/flow_manager_ttm.sh" ]]; then
-    source "$RAG_SRC/core/flow_manager_ttm.sh"
-elif [[ -f "$RAG_SRC/core/flow_manager.sh" ]]; then
-    source "$RAG_SRC/core/flow_manager.sh"
-fi
+source "$RAG_SRC/core/flow_manager_ttm.sh"
 
 # Default prompt mode
 RAG_PROMPT_MODE="${RAG_PROMPT_MODE:-normal}"

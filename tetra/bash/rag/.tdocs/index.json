@@ -1,0 +1,244 @@
+{
+  "version": "1.0",
+  "last_scan": "2025-11-24T14:40:39Z",
+  "scan_roots": [
+    "."
+  ],
+  "exclude": [
+    "node_modules",
+    ".git",
+    "vendor",
+    ".tdocs"
+  ],
+  "by_hash": {
+    "c4b61e3cba65": {
+      "path": "./cdp/CDP_RAG_FLOW_GUIDE.md",
+      "updated": "2025-11-24T14:10:36Z",
+      "size": 13591
+    },
+    "d084d5841ef0": {
+      "path": "./cdp/README.md",
+      "updated": "2025-11-24T14:10:36Z",
+      "size": 9848
+    },
+    "98523a33ac4e": {
+      "path": "./REFACTOR_SUMMARY.md",
+      "updated": "2025-11-24T14:10:36Z",
+      "size": 10491
+    },
+    "4f1a01e49a5b": {
+      "path": "./IMPLEMENTATION_SUMMARY.md",
+      "updated": "2025-11-24T14:10:37Z",
+      "size": 7892
+    },
+    "621a215ace1f": {
+      "path": "./SESSION_SUMMARY_2025-11-23.md",
+      "updated": "2025-11-24T14:10:37Z",
+      "size": 8243
+    },
+    "9a75253de4c5": {
+      "path": "./NEXT.md",
+      "updated": "2025-11-24T14:10:37Z",
+      "size": 10490
+    },
+    "1b9769e71a0f": {
+      "path": "./DEMO_README.md",
+      "updated": "2025-11-24T14:10:37Z",
+      "size": 6426
+    },
+    "9e835ef8e044": {
+      "path": "./ENHANCEMENTS_SUMMARY.md",
+      "updated": "2025-11-24T14:10:37Z",
+      "size": 7651
+    },
+    "ae1fa5e33003": {
+      "path": "./.rag/flows/first-flow-20251016T030323/ctx/000_policy.system.md",
+      "updated": "2025-11-24T14:10:37Z",
+      "size": 280
+    },
+    "6a0707eaf4e6": {
+      "path": "./.rag/flows/first-flow-20251016T030323/ctx/evidence/100_flow_manager_sh.evidence.md",
+      "updated": "2025-11-24T14:10:37Z",
+      "size": 2977
+    },
+    "74a24dee5a2c": {
+      "path": "./.rag/flows/first-flow-20251016T030323/ctx/010_request.user.md",
+      "updated": "2025-11-24T14:10:37Z",
+      "size": 275
+    },
+    "4fff43a68754": {
+      "path": "./.rag/flows/first-flow-20251016T030323/build/answer.md",
+      "updated": "2025-11-24T14:10:37Z",
+      "size": 2357
+    },
+    "8a127127b572": {
+      "path": "./docs/EVIDENCE_REFINED.md",
+      "updated": "2025-11-24T14:10:37Z",
+      "size": 13346
+    },
+    "67821226d906": {
+      "path": "./docs/archive/HELP_REFACTOR_SUMMARY.md",
+      "updated": "2025-11-24T14:10:37Z",
+      "size": 4136
+    },
+    "a4ee45e024a9": {
+      "path": "./docs/archive/REPL_FIXES_20251016.md",
+      "updated": "2025-11-24T14:10:37Z",
+      "size": 3544
+    },
+    "28d96d6e6a01": {
+      "path": "./docs/archive/RAG_CLEANUP_TOPICS.md",
+      "updated": "2025-11-24T14:10:37Z",
+      "size": 8970
+    },
+    "aaa3fe76cdae": {
+      "path": "./docs/EVIDENCE_QUICK_REFERENCE.md",
+      "updated": "2025-11-24T14:10:38Z",
+      "size": 10473
+    },
+    "118cae101803": {
+      "path": "./docs/FLOW_QUICK_REFERENCE.md",
+      "updated": "2025-11-24T14:10:38Z",
+      "size": 2961
+    },
+    "a71bf654a18b": {
+      "path": "./docs/COLORS.md",
+      "updated": "2025-11-24T14:10:38Z",
+      "size": 3096
+    },
+    "962ad1bbad54": {
+      "path": "./docs/HISTORY_COMPLETION_GUIDE.md",
+      "updated": "2025-11-24T14:10:38Z",
+      "size": 7194
+    },
+    "0d1694fcfbbb": {
+      "path": "./docs/README.md",
+      "updated": "2025-11-24T14:10:38Z",
+      "size": 12890
+    },
+    "ccdddffe96a2": {
+      "path": "./docs/QUICK_START_HISTORY_COMPLETION.md",
+      "updated": "2025-11-24T14:10:38Z",
+      "size": 2827
+    },
+    "3f31deec743d": {
+      "path": "./docs/REPL_FEATURES.md",
+      "updated": "2025-11-24T14:10:38Z",
+      "size": 5158
+    },
+    "553d458cfd2f": {
+      "path": "./docs/QA_INTEGRATION_SUMMARY.md",
+      "updated": "2025-11-24T14:10:38Z",
+      "size": 3168
+    },
+    "e9d718043599": {
+      "path": "./docs/QUICK_REFERENCE.md",
+      "updated": "2025-11-24T14:10:38Z",
+      "size": 4995
+    },
+    "bd9398dfc50d": {
+      "path": "./docs/FLOW_WALKTHROUGH.md",
+      "updated": "2025-11-24T14:10:38Z",
+      "size": 6051
+    },
+    "d64e9740a0dc": {
+      "path": "./docs/CONTEXT_DESIGN.md",
+      "updated": "2025-11-24T14:10:38Z",
+      "size": 7026
+    },
+    "92843b33e759": {
+      "path": "./docs/QUICK_START.md",
+      "updated": "2025-11-24T14:10:38Z",
+      "size": 13343
+    },
+    "f525f5abc59c": {
+      "path": "./ACTIONS_README.md",
+      "updated": "2025-11-24T14:10:38Z",
+      "size": 3321
+    },
+    "8b9a0b358e06": {
+      "path": "./REPL_MODES.md",
+      "updated": "2025-11-24T14:10:38Z",
+      "size": 4350
+    },
+    "f966eea2261e": {
+      "path": "./SESSION_SUMMARY.md",
+      "updated": "2025-11-24T14:10:39Z",
+      "size": 9183
+    },
+    "17876d84c9fc": {
+      "path": "./RAG_REVIEW_2025.md",
+      "updated": "2025-11-24T14:10:39Z",
+      "size": 16890
+    },
+    "538ef78fd81a": {
+      "path": "./REFACTOR_PHASE1_COMPLETE.md",
+      "updated": "2025-11-24T14:10:39Z",
+      "size": 4158
+    },
+    "89b0b75d3389": {
+      "path": "./CLAUDE.md",
+      "updated": "2025-11-24T14:10:39Z",
+      "size": 51
+    },
+    "a10f5531cfee": {
+      "path": "./SESSION_REFACTOR_SUMMARY.md",
+      "updated": "2025-11-24T14:40:38Z",
+      "size": 8404
+    },
+    "db394734cfb4": {
+      "path": "./docs/SESSION_QUICK_REFERENCE.md",
+      "updated": "2025-11-24T14:40:38Z",
+      "size": 2209
+    },
+    "cd65ada2ef6b": {
+      "path": "./docs/FLOW_QUICK_REFERENCE.md",
+      "updated": "2025-11-24T14:40:38Z",
+      "size": 4624
+    },
+    "c7afc38cd08c": {
+      "path": "./SESSION_SUMMARY_FLOW_SEMANTICS.md",
+      "updated": "2025-11-24T14:40:39Z",
+      "size": 9912
+    }
+  },
+  "by_path": {
+    "./cdp/CDP_RAG_FLOW_GUIDE.md": "c4b61e3cba65",
+    "./cdp/README.md": "d084d5841ef0",
+    "./REFACTOR_SUMMARY.md": "98523a33ac4e",
+    "./IMPLEMENTATION_SUMMARY.md": "4f1a01e49a5b",
+    "./SESSION_SUMMARY_2025-11-23.md": "621a215ace1f",
+    "./NEXT.md": "9a75253de4c5",
+    "./DEMO_README.md": "1b9769e71a0f",
+    "./ENHANCEMENTS_SUMMARY.md": "9e835ef8e044",
+    "./.rag/flows/first-flow-20251016T030323/ctx/000_policy.system.md": "ae1fa5e33003",
+    "./.rag/flows/first-flow-20251016T030323/ctx/evidence/100_flow_manager_sh.evidence.md": "6a0707eaf4e6",
+    "./.rag/flows/first-flow-20251016T030323/ctx/010_request.user.md": "74a24dee5a2c",
+    "./.rag/flows/first-flow-20251016T030323/build/answer.md": "4fff43a68754",
+    "./docs/EVIDENCE_REFINED.md": "8a127127b572",
+    "./docs/archive/HELP_REFACTOR_SUMMARY.md": "67821226d906",
+    "./docs/archive/REPL_FIXES_20251016.md": "a4ee45e024a9",
+    "./docs/archive/RAG_CLEANUP_TOPICS.md": "28d96d6e6a01",
+    "./docs/EVIDENCE_QUICK_REFERENCE.md": "aaa3fe76cdae",
+    "./docs/COLORS.md": "a71bf654a18b",
+    "./docs/HISTORY_COMPLETION_GUIDE.md": "962ad1bbad54",
+    "./docs/README.md": "0d1694fcfbbb",
+    "./docs/QUICK_START_HISTORY_COMPLETION.md": "ccdddffe96a2",
+    "./docs/REPL_FEATURES.md": "3f31deec743d",
+    "./docs/QA_INTEGRATION_SUMMARY.md": "553d458cfd2f",
+    "./docs/QUICK_REFERENCE.md": "e9d718043599",
+    "./docs/FLOW_WALKTHROUGH.md": "bd9398dfc50d",
+    "./docs/CONTEXT_DESIGN.md": "d64e9740a0dc",
+    "./docs/QUICK_START.md": "92843b33e759",
+    "./ACTIONS_README.md": "f525f5abc59c",
+    "./REPL_MODES.md": "8b9a0b358e06",
+    "./SESSION_SUMMARY.md": "f966eea2261e",
+    "./RAG_REVIEW_2025.md": "17876d84c9fc",
+    "./REFACTOR_PHASE1_COMPLETE.md": "538ef78fd81a",
+    "./CLAUDE.md": "89b0b75d3389",
+    "./SESSION_REFACTOR_SUMMARY.md": "a10f5531cfee",
+    "./docs/SESSION_QUICK_REFERENCE.md": "db394734cfb4",
+    "./docs/FLOW_QUICK_REFERENCE.md": "cd65ada2ef6b",
+    "./SESSION_SUMMARY_FLOW_SEMANTICS.md": "c7afc38cd08c"
+  }
+}

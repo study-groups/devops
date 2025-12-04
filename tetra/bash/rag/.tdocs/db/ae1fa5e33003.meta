@@ -1,0 +1,15 @@
+hash: ae1fa5e33003
+content_hash: ae1fa5e3300385154c5691aeb641c4b1b9989be44f19dd8e8e814fd3aa5795db
+fm_hash: 
+current_path: ./.rag/flows/first-flow-20251016T030323/ctx/000_policy.system.md
+type: scratch
+lifecycle: W
+tags:
+created: 2025-11-24T14:10:37Z
+updated: 2025-11-24T14:10:37Z
+first_seen: 2025-11-24T14:10:37Z
+size: 280
+lines: 12
+paths:
+  - path: ./.rag/flows/first-flow-20251016T030323/ctx/000_policy.system.md
+    seen: 2025-11-24T14:10:37Z

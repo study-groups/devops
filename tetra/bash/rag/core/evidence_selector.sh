@@ -7,11 +7,7 @@
 : "${TETRA_SRC:=$HOME/tetra}"
 
 # Source flow manager for directory helpers
-if [[ -f "$RAG_SRC/core/flow_manager_ttm.sh" ]]; then
-    source "$RAG_SRC/core/flow_manager_ttm.sh"
-elif [[ -f "$RAG_SRC/core/flow_manager.sh" ]]; then
-    source "$RAG_SRC/core/flow_manager.sh"
-fi
+source "$RAG_SRC/core/flow_manager_ttm.sh"
 
 # Select evidence using ULM query
 select_evidence() {

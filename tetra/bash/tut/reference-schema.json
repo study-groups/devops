@@ -1,0 +1,336 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TUT Reference Documentation Schema",
+  "description": "Schema for scrollable reference documentation with topic sections",
+  "version": "1.0.0",
+  "type": "object",
+  "required": ["metadata", "groups"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["title", "description"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Main page title"
+        },
+        "tagline": {
+          "type": "string",
+          "description": "Subtitle or tagline shown under title"
+        },
+        "description": {
+          "type": "string",
+          "description": "Page description for SEO/preview"
+        },
+        "version": {
+          "type": "string",
+          "description": "Documentation version"
+        },
+        "author": {
+          "type": "string"
+        },
+        "created": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "theme": {
+      "type": "object",
+      "description": "Optional theme customization",
+      "properties": {
+        "accentColor": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Primary accent color (hex)"
+        },
+        "headingColor": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        }
+      }
+    },
+    "groups": {
+      "type": "array",
+      "description": "Navigation groups containing topic sections",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "topics"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$",
+            "description": "Group identifier for navigation"
+          },
+          "title": {
+            "type": "string",
+            "description": "Group title shown in sidebar"
+          },
+          "collapsed": {
+            "type": "boolean",
+            "default": false,
+            "description": "Start collapsed in sidebar"
+          },
+          "topics": {
+            "type": "array",
+            "description": "Topic sections within this group",
+            "items": {
+              "$ref": "#/definitions/topic"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "topic": {
+      "type": "object",
+      "required": ["id", "title", "content"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Unique section ID (used for anchor links)"
+        },
+        "title": {
+          "type": "string",
+          "description": "Section heading"
+        },
+        "description": {
+          "type": "string",
+          "description": "Introductory paragraph"
+        },
+        "content": {
+          "type": "array",
+          "description": "Content blocks for this topic",
+          "items": {
+            "oneOf": [
+              { "$ref": "#/definitions/paragraph" },
+              { "$ref": "#/definitions/commandList" },
+              { "$ref": "#/definitions/codeBlock" },
+              { "$ref": "#/definitions/moduleGrid" },
+              { "$ref": "#/definitions/list" },
+              { "$ref": "#/definitions/table" },
+              { "$ref": "#/definitions/apiEndpoint" },
+              { "$ref": "#/definitions/apiFunction" }
+            ]
+          }
+        }
+      }
+    },
+    "paragraph": {
+      "type": "object",
+      "required": ["type", "text"],
+      "properties": {
+        "type": { "const": "paragraph" },
+        "text": { "type": "string" }
+      }
+    },
+    "commandList": {
+      "type": "object",
+      "required": ["type", "commands"],
+      "properties": {
+        "type": { "const": "command-list" },
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code", "description"],
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "The command syntax"
+              },
+              "description": {
+                "type": "string",
+                "description": "What the command does"
+              }
+            }
+          }
+        }
+      }
+    },
+    "codeBlock": {
+      "type": "object",
+      "required": ["type", "code"],
+      "properties": {
+        "type": { "const": "code-block" },
+        "language": {
+          "type": "string",
+          "default": "bash"
+        },
+        "code": {
+          "type": "string",
+          "description": "Code content (can include newlines)"
+        },
+        "caption": {
+          "type": "string",
+          "description": "Optional caption below code"
+        }
+      }
+    },
+    "moduleGrid": {
+      "type": "object",
+      "required": ["type", "modules"],
+      "properties": {
+        "type": { "const": "module-grid" },
+        "modules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "description"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Module/card name"
+              },
+              "description": {
+                "type": "string",
+                "description": "Brief description"
+              },
+              "link": {
+                "type": "string",
+                "description": "Optional link URL"
+              }
+            }
+          }
+        }
+      }
+    },
+    "list": {
+      "type": "object",
+      "required": ["type", "items"],
+      "properties": {
+        "type": { "const": "list" },
+        "ordered": {
+          "type": "boolean",
+          "default": false
+        },
+        "items": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "table": {
+      "type": "object",
+      "required": ["type", "headers", "rows"],
+      "properties": {
+        "type": { "const": "table" },
+        "headers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "apiEndpoint": {
+      "type": "object",
+      "required": ["type", "method", "path"],
+      "description": "REST API endpoint documentation",
+      "properties": {
+        "type": { "const": "api-endpoint" },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+          "description": "HTTP method"
+        },
+        "path": {
+          "type": "string",
+          "description": "URL path with parameters like /users/:id"
+        },
+        "summary": {
+          "type": "string",
+          "description": "Brief description of the endpoint"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "type"],
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "type": "string" },
+              "required": { "type": "boolean", "default": false },
+              "description": { "type": "string" }
+            }
+          }
+        },
+        "requestBody": {
+          "type": "object",
+          "properties": {
+            "contentType": { "type": "string", "default": "application/json" },
+            "example": { "type": "string" }
+          }
+        },
+        "responses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["status"],
+            "properties": {
+              "status": { "type": "integer" },
+              "description": { "type": "string" },
+              "example": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "apiFunction": {
+      "type": "object",
+      "required": ["type", "name", "signature"],
+      "description": "Function/method API documentation",
+      "properties": {
+        "type": { "const": "api-function" },
+        "name": {
+          "type": "string",
+          "description": "Function name"
+        },
+        "signature": {
+          "type": "string",
+          "description": "Full function signature"
+        },
+        "summary": {
+          "type": "string",
+          "description": "Brief description"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "type"],
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "type": "string" },
+              "default": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string" },
+            "description": { "type": "string" }
+          }
+        },
+        "example": {
+          "type": "string",
+          "description": "Usage example code"
+        }
+      }
+    }
+  }
+}

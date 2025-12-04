@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Port information aggregation
 
 # Appends port information to the shared data file for later processing.

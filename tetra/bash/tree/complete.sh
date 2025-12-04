@@ -1,79 +1,19 @@
 #!/usr/bin/env bash
-# bash/tree/complete.sh - Tab-completion from tree structure
+# bash/tree/complete.sh - COMPATIBILITY SHIM
+#
+# This file sources bash/nav/nav.sh which includes completion functions.
+# tree_complete, tree_complete_values, tree_build_path_from_words all work.
+#
+# For new code, prefer: nav_complete, nav_complete_values, nav_build_path, nav_options
 
-# Source core if not already loaded
-if ! declare -F tree_children >/dev/null 2>&1; then
-    source "${BASH_SOURCE[0]%/*}/core.sh"
-fi
+TREE_COMPLETE_SRC="${TREE_COMPLETE_SRC:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 
-# Generate completions for a tree path
-# Usage: tree_complete <current_path> [current_word]
-tree_complete() {
-    local path="$1"
-    local current_word="${2:-}"
+# Source core (which sources nav)
+source "$TREE_COMPLETE_SRC/core.sh"
 
-    # Normalize path
-    path=$(tree_normalize_path "$path")
+# Additional shims for functions that were in complete.sh
 
-    # Get children of this path
-    local children
-    children=$(tree_children "$path")
-
-    # Extract just the last segment (leaf name) for completion
-    local completions=()
-    for child in $children; do
-        local leaf="${child##*.}"
-        completions+=("$leaf")
-    done
-
-    # Filter by current word if provided
-    if [[ -n "$current_word" ]]; then
-        local filtered=()
-        for comp in "${completions[@]}"; do
-            if [[ "$comp" == "$current_word"* ]]; then
-                filtered+=("$comp")
-            fi
-        done
-        completions=("${filtered[@]}")
-    fi
-
-    printf '%s\n' "${completions[@]}"
-}
-
-# Generate completions with type filter
-# Usage: tree_complete_by_type <path> <type> [current_word]
-tree_complete_by_type() {
-    local path="$1"
-    local type="$2"
-    local current_word="${3:-}"
-
-    path=$(tree_normalize_path "$path")
-
-    local children
-    children=$(tree_children "$path" --type "$type")
-
-    local completions=()
-    for child in $children; do
-        local leaf="${child##*.}"
-        completions+=("$leaf")
-    done
-
-    if [[ -n "$current_word" ]]; then
-        local filtered=()
-        for comp in "${completions[@]}"; do
-            if [[ "$comp" == "$current_word"* ]]; then
-                filtered+=("$comp")
-            fi
-        done
-        completions=("${filtered[@]}")
-    fi
-
-    printf '%s\n' "${completions[@]}"
-}
-
-# Generate bash completion function for a tree namespace
-# Usage: tree_generate_completion <namespace> <command_name>
-# Example: tree_generate_completion "help.tdoc" "tdoc"
+# Generate bash completion function (compatibility)
 tree_generate_completion() {
     local namespace="$1"
     local command_name="$2"
@@ -82,109 +22,55 @@ tree_generate_completion() {
 # Generated completion for $command_name
 _${command_name}_complete() {
     local cur="\${COMP_WORDS[COMP_CWORD]}"
-    local prev="\${COMP_WORDS[COMP_CWORD-1]}"
     local path="$namespace"
 
-    # Build path from command words
     if [[ \${COMP_CWORD} -gt 1 ]]; then
-        local i
         for ((i=1; i<\${COMP_CWORD}; i++)); do
-            local word="\${COMP_WORDS[\$i]}"
-            # Skip flags
-            [[ "\$word" == -* ]] && continue
-            path="\$path.\$word"
+            [[ "\${COMP_WORDS[\$i]}" == -* ]] && continue
+            path="\$path.\${COMP_WORDS[\$i]}"
         done
     fi
 
-    # Get completions from tree
-    local completions
-    completions=\$(tree_complete "\$path" "\$cur")
-
-    COMPREPLY=(\$(compgen -W "\$completions" -- "\$cur"))
+    COMPREPLY=(\$(compgen -W "\$(nav_complete "\$path" "\$cur")" -- "\$cur"))
 }
 
 complete -F _${command_name}_complete $command_name
 EOF
 }
 
-# Interactive completion helper
-# Shows completions with descriptions
-# Usage: tree_complete_interactive <path>
+# Interactive completion display (compatibility)
 tree_complete_interactive() {
-    local path=$(tree_normalize_path "$1")
-
-    local children
-    children=$(tree_children "$path")
+    local path=$(nav_normalize_path "$1")
+    local children=$(nav_children "$path")
 
     if [[ -z "$children" ]]; then
-        echo "No completions available for: $path"
+        echo "No completions for: $path"
         return 1
     fi
 
-    echo "Available options for: $path"
+    echo "Options for: $path"
     echo ""
 
     for child in $children; do
         local leaf="${child##*.}"
-        local type=$(tree_type "$child")
-        local title=$(tree_get "$child" "title")
-        local help=$(tree_get "$child" "help")
-
-        # Format output
-        printf "  %-20s  %-10s  %s\n" "$leaf" "[$type]" "${title:-$help}"
+        local type=$(nav_type "$child")
+        local title=$(nav_get "$child" "title")
+        printf "  %-20s  [%-8s]  %s\n" "$leaf" "$type" "$title"
     done
 }
 
-# Get completion values from metadata
-# Some nodes have static completion lists in metadata
-# Usage: tree_complete_values <path>
-tree_complete_values() {
-    local path=$(tree_normalize_path "$1")
+# Completion by type (compatibility)
+tree_complete_by_type() {
+    local path=$(nav_normalize_path "$1")
+    local type="$2"
+    local current="${3:-}"
 
-    # Check if node has completion_values metadata
-    local values=$(tree_get "$path" "completion_values")
-    if [[ -n "$values" ]]; then
-        echo "$values" | tr ',' '\n'
-        return 0
-    fi
-
-    # Check if node has completion_fn metadata
-    local fn=$(tree_get "$path" "completion_fn")
-    if [[ -n "$fn" ]] && declare -F "$fn" >/dev/null 2>&1; then
-        "$fn"
-        return 0
-    fi
-
-    # Default: complete from children
-    tree_complete "$path"
+    for child in $(nav_children "$path" --type "$type"); do
+        local leaf="${child##*.}"
+        if [[ -z "$current" ]] || [[ "$leaf" == "$current"* ]]; then
+            echo "$leaf"
+        fi
+    done
 }
 
-# Utility: Build completion path from COMP_WORDS
-# Usage: tree_build_path_from_words <namespace>
-# Call inside bash completion function
-tree_build_path_from_words() {
-    local namespace="$1"
-    local path="$namespace"
-
-    if [[ ${COMP_CWORD} -gt 1 ]]; then
-        local i
-        for ((i=1; i<${COMP_CWORD}; i++)); do
-            local word="${COMP_WORDS[$i]}"
-            # Skip flags/options
-            [[ "$word" == -* ]] && continue
-            # Skip if looks like a value
-            [[ "$word" == *=* ]] && continue
-            path="$path.$word"
-        done
-    fi
-
-    echo "$path"
-}
-
-# Export functions
-export -f tree_complete
-export -f tree_complete_by_type
-export -f tree_generate_completion
-export -f tree_complete_interactive
-export -f tree_complete_values
-export -f tree_build_path_from_words
+export -f tree_generate_completion tree_complete_interactive tree_complete_by_type

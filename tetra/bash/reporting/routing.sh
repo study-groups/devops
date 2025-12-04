@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # routing.sh
 # Enhanced system routing and service summary tool.

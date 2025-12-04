@@ -3,18 +3,12 @@
 # Game Module - Entry Point
 # Following Tetra Module Convention v2.0
 
-# Global check
-if [[ -z "$TETRA_SRC" ]]; then
-    echo "Error: TETRA_SRC must be set" >&2
-    return 1
-fi
+# Load module utilities
+source "$TETRA_SRC/bash/utils/module_init.sh"
+source "$TETRA_SRC/bash/utils/function_helpers.sh"
 
-# Module paths (strong globals)
-GAME_SRC="${GAME_SRC:-$TETRA_SRC/bash/game}"
-export GAME_SRC
-
-GAME_DIR="${GAME_DIR:-$TETRA_DIR/game}"
-export GAME_DIR
+# Initialize module with standard tetra conventions
+tetra_module_init_with_alias "game" "GAME"
 
 # Source main module file
 source "$GAME_SRC/game.sh"

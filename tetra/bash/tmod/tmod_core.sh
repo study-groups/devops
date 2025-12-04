@@ -20,28 +20,72 @@ tmod_load_module() {
         fi
     done
 
-    # Load each module
+    # Load each module (reload if already loaded)
     local module
     for module in "$@"; do
         # Skip the -dev flag
         [[ "$module" == "-dev" ]] && continue
 
-        tetra_smart_load_module "$module"
+        # If already loaded, reload it
+        if [[ "${TETRA_MODULE_LOADED[$module]}" == "true" ]]; then
+            tmod_reload_module "$module"
+        else
+            tetra_smart_load_module "$module"
+        fi
     done
 }
 
 tmod_unload_module() {
     local module="$1"
-    
+
     if [[ -z "$module" ]]; then
         echo "Usage: unload <module>"
         echo "Loaded modules:"
         tetra_get_loaded_modules | sed 's/^/  /'
         return 1
     fi
-    
+
     echo "Unloading module: $module"
     tetra_remove_module "$module"
+}
+
+tmod_reload_module() {
+    local module="$1"
+
+    if [[ -z "$module" ]]; then
+        echo "Usage: tmod reload <module>"
+        echo "Loaded modules:"
+        tetra_get_loaded_modules | sed 's/^/  /'
+        return 1
+    fi
+
+    # Check for module-specific reload function first
+    local reload_fn="${module}_reload"
+    if declare -F "$reload_fn" &>/dev/null; then
+        echo "Reloading $module (using ${reload_fn})..."
+        "$reload_fn"
+        return $?
+    fi
+
+    # Fall back to re-sourcing includes.sh
+    local module_path="${TETRA_SRC}/bash/${module}/includes.sh"
+
+    if [[ ! -f "$module_path" ]]; then
+        echo "Error: Module includes not found: $module_path" >&2
+        return 1
+    fi
+
+    echo "Reloading $module (re-sourcing includes.sh)..."
+    source "$module_path"
+    local rc=$?
+
+    if [[ $rc -eq 0 ]]; then
+        echo "Module '$module' reloaded"
+    else
+        echo "Error reloading module '$module'" >&2
+    fi
+
+    return $rc
 }
 
 # Format module list with checkmarks for loaded modules
@@ -124,55 +168,24 @@ tmod_find_modules() {
 
 tmod_help() {
     local module="$1"
-    
+
     if [[ -z "$module" ]]; then
-        cat <<'EOF'
+        cat <<EOF
 tmod - Tetra Module Manager
 
-Usage: tmod <command> [args]
+  TETRA_DIR  $TETRA_DIR
+  TETRA_SRC  $TETRA_SRC
 
-Commands:
-  repl|r                     Enter interactive REPL mode
-  load|l <module> [-dev]     Load a module (auto-registers if needed)
-  unload|rm <module>         Mark module as unloaded
-  list|ls [filter] [-dev]    List modules by status/category
-  find|f <pattern> [-dev]    Search modules by name/description
-  help|h [module]            Show help (general or for specific module)
-  status|st                  Show module system status
-  enable|e|on <module>       Enable module for future sessions
-  disable|d|off <module>     Disable module for future sessions
-  config|c                   Show persistent module configuration
-  dev                        Development module operations
-  fix                        Fix missing includes.sh files
-  index                      Rebuild module index
+REGULAR USE
+  status             Show module system status
+  list [filter]      List modules (all/loaded/unloaded/category)
+  load <module>      Load a module
+  help [module]      Show help for a module
 
-List Filters:
-  all (default)  - All modules with status
-  loaded         - Only loaded modules
-  unloaded       - Only unloaded modules
-  available      - All discoverable modules
-  registered     - Only registered modules
-  category       - Group by category (core, deployment, ai, etc.)
-
-Flags:
-  -dev           - Include development modules from ~/src/bash, wip/, etc.
-
-Examples:
-  tmod repl                  # Enter interactive mode
-  tmod list category         # Show modules by category
-  tmod load tsm              # Load tsm module
-  tmod find "service"        # Find service-related modules
-  tmod help tsm              # Get help for tsm module
-  tmod on tkm                # Enable tkm for future sessions
-  tmod off nvm               # Disable nvm for future sessions
-  tmod config                # Show current module configuration
-
-Interactive Mode:
-  tmod repl                  # Start REPL
-  > load tsm                 # Commands without 'tmod' prefix
-  > list loaded              # Tab completion available
-  > help                     # REPL-specific help
-  > exit                     # Leave REPL
+ALL COMMANDS
+  Modules   status list load unload find help
+  Config    enable disable config
+  Dev       dev fix index repl
 EOF
     else
         tetra_module_help "$module"

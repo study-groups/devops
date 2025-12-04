@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 for package in $(brew list); do
     echo -n "$package: "

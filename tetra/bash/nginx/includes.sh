@@ -3,28 +3,18 @@
 # Nginx Module Includes - Standard tetra module entry point
 # Controls nginx reverse proxy and spaces proxy functionality
 
-# Follow tetra convention: MOD_SRC for source code, MOD_DIR for runtime data
-# Per CLAUDE.md: "MOD_SRC is a strong global. A module can count on it."
-MOD_SRC="$TETRA_SRC/bash/nginx"
-MOD_DIR="$TETRA_DIR/nginx"
+# Load module utilities
+source "$TETRA_SRC/bash/utils/module_init.sh"
+source "$TETRA_SRC/bash/utils/function_helpers.sh"
 
-# Backward compatibility
-NGINX_SRC="$MOD_SRC"
-NGINX_DIR="$MOD_DIR"
-
-# Create runtime directories if they don't exist
-[[ ! -d "$MOD_DIR" ]] && mkdir -p "$MOD_DIR"
-[[ ! -d "$MOD_DIR/conf.d" ]] && mkdir -p "$MOD_DIR/conf.d"
-[[ ! -d "$MOD_DIR/logs" ]] && mkdir -p "$MOD_DIR/logs"
-
-# Export for subprocesses
-export MOD_SRC MOD_DIR NGINX_SRC NGINX_DIR
+# Initialize module with standard tetra conventions
+tetra_module_init_with_alias "nginx" "NGINX" "conf.d:logs"
 
 # Source the main nginx module
 source "$MOD_SRC/nginx.sh"
 
 # Source nginx helpers
-source "$MOD_SRC/nginx_helpers.sh"
+tetra_source_if_exists "$MOD_SRC/nginx_helpers.sh"
 
 # Register nginx actions with action registry
 if [[ -f "$TETRA_SRC/bash/actions/registry.sh" ]]; then

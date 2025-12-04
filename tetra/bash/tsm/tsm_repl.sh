@@ -48,7 +48,7 @@ tsm_count_running() {
         local meta_file="${process_dir}meta.json"
         if [[ -f "$meta_file" ]]; then
             local pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
-            if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+            if [[ -n "$pid" ]] && tsm_is_pid_alive "$pid"; then
                 ((count++))
             fi
         fi
@@ -171,7 +171,7 @@ tsm_cmd_kill() {
         fi
 
         # Not TSM-managed - check if it's a running PID
-        if kill -0 "$args" 2>/dev/null; then
+        if tsm_is_pid_alive "$args"; then
             echo "🔍 PID $args is running but not managed by TSM"
             echo -n "Kill this process? [y/N] "
             read -r response

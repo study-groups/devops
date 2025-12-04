@@ -39,17 +39,6 @@ tetra_ssh_info() {
     echo
 }
 
-function _tetra_ssh_status_old() {
-    if pgrep -x ssh-agent >/dev/null; then
-        echo "SSH Agent is running."
-        echo "Keys added:"
-        ssh-add -l
-    else
-        echo "SSH Agent is not running."
-        echo "To start the SSH Agent, use 'tetra_ssh_start'."
-    fi
-}
-
 tetra_ssh_status () 
 { 
     if pgrep -x ssh-agent > /dev/null; then

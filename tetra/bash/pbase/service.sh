@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # pdata.sh - Bash wrapper for pdata service management
 # Requires TETRA_DIR, PBASE_DIR to be set

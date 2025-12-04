@@ -10,7 +10,88 @@
 # Load TSM logging wrapper if available
 [[ -f "$TSM_DIR/tsm_log.sh" ]] && source "$TSM_DIR/tsm_log.sh" 2>/dev/null || true
 
-# === CORE PROCESS STARTING ===
+# === UNIFIED PROCESS SPAWNING ===
+# Single implementation for spawning background processes
+# All other start functions should use this
+
+_tsm_spawn_process() {
+    local command="$1"
+    local name="$2"
+    local working_dir="$3"
+    local env_setup="${4:-}"        # Pre-hook + env file sourcing
+    local use_exec="${5:-true}"     # Whether to use exec (default true)
+    local process_dir="${6:-}"      # PM2-style process dir (optional)
+
+    # Determine log/pid locations
+    local log_out log_err pid_file log_wrapper
+    if [[ -n "$process_dir" ]]; then
+        # PM2-style: logs in process directory
+        mkdir -p "$process_dir"
+        log_out="$process_dir/current.out"
+        log_err="$process_dir/current.err"
+        pid_file="$process_dir/${name}.pid"
+        log_wrapper="$process_dir/wrapper.err"
+    else
+        # Legacy: separate log/pid directories
+        log_out="$TSM_LOGS_DIR/$name.out"
+        log_err="$TSM_LOGS_DIR/$name.err"
+        pid_file="$TSM_PIDS_DIR/$name.pid"
+        log_wrapper="$TSM_LOGS_DIR/$name.wrapper.err"
+    fi
+
+    # Build cd command if working_dir specified
+    local cd_cmd=""
+    if [[ -n "$working_dir" ]]; then
+        _tsm_validate_path "$working_dir" || return 1
+        cd_cmd="cd '$working_dir' || exit 1"
+    fi
+
+    # Validate command for security
+    [[ -n "$command" ]] && { _tsm_validate_command "$command" || return 1; }
+
+    # Build the exec prefix
+    local exec_prefix=""
+    [[ "$use_exec" == "true" ]] && exec_prefix="exec "
+
+    # Spawn the process
+    # NOTE: setsid removed for simplicity - add back if needed:
+    #   local setsid_cmd=$(tetra_tsm_get_setsid)
+    #   $setsid_cmd bash -c "..." &
+    (
+        bash -c "
+            $cd_cmd
+            $env_setup
+            ${exec_prefix}${command} </dev/null >>'${log_out}' 2>>'${log_err}' &
+            echo \$! > '${pid_file}'
+        " 2>>"${log_wrapper}" &
+    )
+
+    sleep 0.5
+
+    # Return pid file path for caller to read
+    echo "$pid_file"
+}
+
+# Check if spawn succeeded and return PID
+_tsm_verify_spawn() {
+    local pid_file="$1"
+    local name="$2"
+
+    if [[ ! -f "$pid_file" ]]; then
+        tsm_error "Failed to start: $name (no PID file)"
+        return 1
+    fi
+
+    local pid=$(cat "$pid_file")
+    if ! tsm_is_pid_alive "$pid"; then
+        tsm_error "Failed to start: $name (process died immediately)"
+        return 1
+    fi
+
+    echo "$pid"
+}
+
+# === LEGACY WRAPPERS (delegate to unified function) ===
 
 _tsm_start_process() {
     local script="$1"
@@ -18,40 +99,12 @@ _tsm_start_process() {
     local env_file="$3"
     local working_dir="$4"
 
-    local logdir="$TSM_LOGS_DIR"
-    local piddir="$TSM_PIDS_DIR"
+    local env_setup=""
+    [[ -n "$env_file" && -f "$env_file" ]] && env_setup="source '$env_file' || exit 1"
 
-    local setsid_cmd
-    setsid_cmd=$(tetra_tsm_get_setsid) || {
-        echo "tsm: setsid not available. Run 'tsm setup' or 'brew install util-linux' on macOS" >&2
-        return 1
-    }
-
-    local cd_cmd=""
-    if [[ -n "$working_dir" ]]; then
-        # Validate working directory for security
-        _tsm_validate_path "$working_dir" || return 1
-        cd_cmd="cd '$working_dir'"
-    fi
-
-    local env_cmd=""
-    [[ -n "$env_file" && -f "$env_file" ]] && env_cmd="source '$env_file'"
-
-    # Validate script path for security
-    if [[ -n "$script" ]]; then
-        _tsm_validate_command "$script" || return 1
-    fi
-
-    (
-        $setsid_cmd bash -c "
-            $cd_cmd
-            $env_cmd
-            exec '$script' </dev/null >>'$logdir/$name.out' 2>>'$logdir/$name.err' &
-            echo \$! > '$piddir/$name.pid'
-        " &
-    )
-
-    sleep 0.5
+    local pid_file
+    pid_file=$(_tsm_spawn_process "'$script'" "$name" "$working_dir" "$env_setup" "true" "")
+    [[ -n "$pid_file" ]] || return 1
 }
 
 _tsm_start_command_process() {
@@ -60,40 +113,12 @@ _tsm_start_command_process() {
     local env_file="$3"
     local working_dir="$4"
 
-    local logdir="$TSM_LOGS_DIR"
-    local piddir="$TSM_PIDS_DIR"
+    local env_setup=""
+    [[ -n "$env_file" && -f "$env_file" ]] && env_setup="source '$env_file' || exit 1"
 
-    local setsid_cmd
-    setsid_cmd=$(tetra_tsm_get_setsid) || {
-        echo "tsm: setsid not available. Run 'tsm setup' or 'brew install util-linux' on macOS" >&2
-        return 1
-    }
-
-    local cd_cmd=""
-    if [[ -n "$working_dir" ]]; then
-        # Validate working directory for security
-        _tsm_validate_path "$working_dir" || return 1
-        cd_cmd="cd '$working_dir'"
-    fi
-
-    local env_cmd=""
-    [[ -n "$env_file" && -f "$env_file" ]] && env_cmd="source '$env_file'"
-
-    # Validate command for security
-    if [[ -n "$command" ]]; then
-        _tsm_validate_command "$command" || return 1
-    fi
-
-    (
-        $setsid_cmd bash -c "
-            $cd_cmd
-            $env_cmd
-            exec $command </dev/null >>'$logdir/$name.out' 2>>'$logdir/$name.err' &
-            echo \$! > '$piddir/$name.pid'
-        " &
-    )
-
-    sleep 0.5
+    local pid_file
+    pid_file=$(_tsm_spawn_process "$command" "$name" "$working_dir" "$env_setup" "false" "")
+    [[ -n "$pid_file" ]] || return 1
 }
 
 # === SPECIALIZED PROCESS TYPES ===
@@ -359,18 +384,20 @@ tetra_tsm_restart_single() {
     fi
 
     # Extract metadata from JSON
-    local script port type tsm_id cwd
+    local script port type tsm_id cwd env_file prehook
     script=$(jq -r '.command // empty' "$meta_file")
     port=$(jq -r '.port // empty' "$meta_file")
     type=$(jq -r '.process_type // empty' "$meta_file")
     tsm_id=$(jq -r '.tsm_id // empty' "$meta_file")
     cwd=$(jq -r '.cwd // empty' "$meta_file")
+    env_file=$(jq -r '.env_file // empty' "$meta_file")
+    prehook=$(jq -r '.prehook // empty' "$meta_file")
 
     # Stop if running
     tetra_tsm_is_running "$name" && tetra_tsm_stop_single "$name" "true"
 
     # Restart based on type
-    _tsm_restart_unified "$name" "$script" "$port" "$type" "$tsm_id" "$cwd"
+    _tsm_restart_unified "$name" "$script" "$port" "$type" "$tsm_id" "$cwd" "$env_file" "$prehook"
 }
 
 tetra_tsm_restart_by_id() {
@@ -392,6 +419,12 @@ _tsm_restart_unified() {
     local type="$4"
     local preserve_id="$5"
     local cwd="$6"
+    local env_file="$7"
+    local prehook="$8"
+
+    # Convert empty strings to empty for proper handling
+    [[ "$env_file" == "null" || "$env_file" == "" ]] && env_file=""
+    [[ "$prehook" == "null" || "$prehook" == "" ]] && prehook=""
 
     case "$type" in
         python)
@@ -472,37 +505,58 @@ _tsm_restart_unified() {
 
             echo "tsm: restarted '$name' (TSM ID: $preserve_id, PID: $pid)"
             ;;
-        command)
-            _tsm_start_command_process "$script" "$name" "" "$cwd" || {
-                echo "tsm: failed to restart '$name'" >&2
-                return 1
-            }
+        command|node)
+            # Restart command/node processes with proper env_file and prehook support
+            local process_dir="$TSM_PROCESSES_DIR/$name"
+            local log_out="$process_dir/current.out"
+            local log_err="$process_dir/current.err"
+            local pid_file="$process_dir/${name}.pid"
+            local log_wrapper="$process_dir/wrapper.err"
 
-            local pid
-            pid=$(cat "$TSM_PIDS_DIR/$name.pid")
+            # Build environment setup (prehook + env file)
+            local env_setup=""
+
+            # Add pre-hook if specified
+            if [[ -n "$prehook" ]]; then
+                if declare -f tsm_build_prehook >/dev/null 2>&1; then
+                    env_setup=$(tsm_build_prehook "$prehook" "$type" "")
+                else
+                    env_setup="$prehook"
+                fi
+                env_setup="${env_setup}"$'\n'
+            fi
+
+            # Add env file if specified
+            if [[ -n "$env_file" && -f "$env_file" ]]; then
+                env_setup="${env_setup}source '$env_file' || { echo 'tsm: Failed to source env file: $env_file' >&2; exit 1; }"$'\n'
+            fi
+
+            # Start the process with environment setup
+            (
+                cd "$cwd" || exit 1
+                bash -c "
+                    $env_setup
+                    $script </dev/null >>'${log_out}' 2>>'${log_err}' &
+                    echo \$! > '${pid_file}'
+                " 2>>"${log_wrapper}" &
+            )
+
+            sleep 0.5
+
+            # Verify it started
+            if [[ ! -f "$pid_file" ]]; then
+                echo "tsm: failed to restart '$name' (no PID file)" >&2
+                return 1
+            fi
+
+            local pid=$(cat "$pid_file")
+            if ! tsm_is_pid_alive "$pid"; then
+                echo "tsm: failed to restart '$name' (process died immediately)" >&2
+                return 1
+            fi
 
             # Update existing metadata for restart
             local meta_file=$(tsm_get_meta_file "$name")
-            local temp_file="${meta_file}.tmp"
-            jq --arg pid "$pid" \
-               --arg start_time "$(date +%s)" \
-               '.pid = ($pid | tonumber) | .start_time = ($start_time | tonumber) | .status = "online" | .restarts += 1' \
-               "$meta_file" > "$temp_file" && mv "$temp_file" "$meta_file"
-
-            echo "tsm: restarted '$name' (TSM ID: $preserve_id, PID: $pid, Port: $port)"
-            ;;
-        node)
-            # Node processes - similar to command but tracked as node type
-            _tsm_start_command_process "$script" "$name" "" "$cwd" || {
-                echo "tsm: failed to restart '$name'" >&2
-                return 1
-            }
-
-            local pid
-            pid=$(cat "$TSM_PIDS_DIR/$name.pid")
-
-            # Update JSON metadata for restart
-            local meta_file="$TSM_PROCESSES_DIR/$name/meta.json"
             local temp_file="${meta_file}.tmp"
             jq --arg pid "$pid" \
                --arg start_time "$(date +%s)" \

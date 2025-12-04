@@ -3,6 +3,49 @@
 # TDS Typography System
 # Semantic text rendering using color tokens
 
+# Render checkbox list item with number and title
+# Args: check (space or x), number (optional), title, indent_level
+# Format: [ ] 01 Title  or  [x] 01 Title
+tds_render_checkbox_item() {
+    local check="$1"
+    local number="$2"
+    local title="$3"
+    local indent_level="${4:-0}"
+
+    # Build indent string
+    local indent_str=""
+    for ((i=0; i<indent_level; i++)); do indent_str="  $indent_str"; done
+
+    printf "%s" "$indent_str"
+
+    # Checkbox - dim for unchecked, bright for checked
+    if [[ "$check" =~ [xX] ]]; then
+        tds_text_color "interactive.success"
+        printf "[x]"
+    else
+        tds_text_color "text.secondary"
+        printf "[ ]"
+    fi
+    reset_color
+    printf " "
+
+    # Number (if provided) - bold accent color
+    if [[ -n "$number" ]]; then
+        tds_text_color "content.emphasis.bold"
+        printf "\033[1m%s\033[0m" "$number"
+        reset_color
+        printf " "
+    fi
+
+    # Title - primary text color
+    tds_text_color "content.heading.h3"
+    printf "%s\n" "$title"
+    reset_color
+
+    # Breathing room after heading
+    echo
+}
+
 # Render heading at specified level
 # Args: level (1-6), text
 tds_render_heading() {
@@ -527,3 +570,11 @@ tds_render_code_footer() {
     printf "└─\n"
     reset_color
 }
+
+# Export typography functions
+export -f tds_render_checkbox_item
+export -f tds_render_heading tds_render_emphasis tds_render_link
+export -f tds_render_quote tds_render_hr tds_render_paragraph
+export -f tds_render_list_item tds_render_list_item_with_inline
+export -f tds_render_ordered_list_item tds_render_ordered_list_item_with_inline
+export -f tds_render_code_header tds_render_code_line tds_render_code_footer

@@ -7,10 +7,9 @@
 TDS_ACTIVE_THEME="${TDS_ACTIVE_THEME:-default}"
 
 # Theme registry - maps theme names to loader functions
+# Note: Only register themes that have actual loader implementations
 declare -gA TDS_THEME_REGISTRY=(
     [default]="tds_load_theme_default"
-    [tokyo-night]="tds_load_theme_tokyo_night"
-    [neon]="tds_load_theme_neon"
 )
 
 # Theme metadata (populated by theme loaders)

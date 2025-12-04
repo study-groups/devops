@@ -37,28 +37,8 @@ tetra_console_success() { echo -e "${TETRA_GREEN}$1${TETRA_NC}"; }
 tetra_console_info() { echo -e "${TETRA_CYAN}$1${TETRA_NC}"; }
 tetra_console_debug() { echo -e "${TETRA_GRAY}$1${TETRA_NC}"; }
 
-# Legacy aliases (deprecated - use tetra_console_* or unified logging)
-# These will be removed in a future version
-tetra_log() {
-    echo "[DEPRECATED] tetra_log() is deprecated. Use tetra_console_log() for console output or tetra_log_info() for unified logging" >&2
-    tetra_console_log "$1"
-}
-tetra_warn() {
-    echo "[DEPRECATED] tetra_warn() is deprecated. Use tetra_console_warn() for console output or tetra_log_warn() for unified logging" >&2
-    tetra_console_warn "$1"
-}
-tetra_error() {
-    echo "[DEPRECATED] tetra_error() is deprecated. Use tetra_console_error() for console output or tetra_log_error() for unified logging" >&2
-    tetra_console_error "$1"
-}
-tetra_success() {
-    echo "[DEPRECATED] tetra_success() is deprecated. Use tetra_console_success() for console output or tetra_log_success() for unified logging" >&2
-    tetra_console_success "$1"
-}
-tetra_info() {
-    echo "[DEPRECATED] tetra_info() is deprecated. Use tetra_console_info() for console output or tetra_log_info() for unified logging" >&2
-    tetra_console_info "$1"
-}
+# Note: Legacy tetra_log/warn/error/success/info functions removed
+# Use tetra_console_* for console output or tetra_log_* for unified logging
 
 # Colorize specific status values
 tetra_status_color() {

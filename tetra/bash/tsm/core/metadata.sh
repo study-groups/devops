@@ -27,11 +27,15 @@ tsm_create_metadata() {
     local env_file="$8"
     local prehook="${9:-}"  # Optional: pre-hook used
     local service_type="${10:-pid}"  # Service type: port|socket|pid
+    local port_type="${11:-tcp}"  # Port protocol: tcp|udp|ws|none
 
     local tsm_id=$(tsm_get_next_id)
     local start_time=$(date +%s)
     local process_dir=$(tsm_get_process_dir "$name")
     local meta_file=$(tsm_get_meta_file "$name")
+
+    # Capture org at process start (immutable)
+    local org="${TETRA_ORG:-none}"
 
     # Create process directory
     mkdir -p "$process_dir"
@@ -43,6 +47,7 @@ tsm_create_metadata() {
     # Create metadata JSON
     jq -n \
         --arg tsm_id "$tsm_id" \
+        --arg org "$org" \
         --arg name "$name" \
         --arg pid "$pid" \
         --arg command "$command" \
@@ -53,14 +58,17 @@ tsm_create_metadata() {
         --arg env_file "$env_file" \
         --arg prehook "$prehook" \
         --arg service_type "$service_type" \
+        --arg port_type "$port_type" \
         --arg start_time "$start_time" \
         --argjson git "$git_json" \
         '{
             tsm_id: ($tsm_id | tonumber),
+            org: $org,
             name: $name,
             pid: ($pid | tonumber),
             command: $command,
             port: ($port | tonumber? // $port),
+            port_type: $port_type,
             cwd: $cwd,
             interpreter: $interpreter,
             process_type: $type,
@@ -104,6 +112,52 @@ tsm_read_metadata_json() {
     else
         return 1
     fi
+}
+
+# === EFFICIENT BATCH METADATA ACCESSORS ===
+# Read multiple fields in one jq call (efficient!)
+
+# Read core process info: tsm_id, pid, port, status
+tsm_read_core_info() {
+    local name="$1"
+    local meta_file=$(tsm_get_meta_file "$name")
+    [[ -f "$meta_file" ]] || return 1
+    jq -r '[.tsm_id, .pid, .port, .status] | @tsv' "$meta_file" 2>/dev/null
+}
+
+# Read extended info: tsm_id, pid, port, port_type, start_time, env_file, service_type
+tsm_read_extended_info() {
+    local name="$1"
+    local meta_file=$(tsm_get_meta_file "$name")
+    [[ -f "$meta_file" ]] || return 1
+    jq -r '[.tsm_id, .pid, .port, (.port_type // "tcp"), .start_time, (.env_file // ""), (.service_type // "pid")] | @tsv' "$meta_file" 2>/dev/null
+}
+
+# Read runtime info: interpreter, command, cwd
+tsm_read_runtime_info() {
+    local name="$1"
+    local meta_file=$(tsm_get_meta_file "$name")
+    [[ -f "$meta_file" ]] || return 1
+    jq -r '[(.interpreter // "bash"), .command, .cwd] | @tsv' "$meta_file" 2>/dev/null
+}
+
+# Get specific fields as shell variables (use with: eval "$(tsm_meta_vars name field1 field2)")
+tsm_meta_vars() {
+    local name="$1"
+    shift
+    local fields=("$@")
+    local meta_file=$(tsm_get_meta_file "$name")
+
+    [[ -f "$meta_file" ]] || return 1
+
+    for field in "${fields[@]}"; do
+        local value=$(jq -r ".${field} // empty" "$meta_file" 2>/dev/null)
+        # Escape for safe eval
+        value="${value//\\/\\\\}"
+        value="${value//\"/\\\"}"
+        value="${value//\$/\\\$}"
+        echo "${field}=\"${value}\""
+    done
 }
 
 # Update metadata field

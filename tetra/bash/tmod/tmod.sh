@@ -31,6 +31,9 @@ tmod() {
         unload|remove|rm)
             tmod_unload_module "$@"
             ;;
+        reload|rl)
+            tmod_reload_module "$@"
+            ;;
         list|ls)
             tmod_list_modules "$@"
             ;;
@@ -77,14 +80,14 @@ _tmod_completion() {
     
     case "$COMP_CWORD" in
         1)
-            COMPREPLY=($(compgen -W "repl load unload list find help status dev fix index" -- "$cur"))
+            COMPREPLY=($(compgen -W "repl load unload reload list find help status dev fix index" -- "$cur"))
             ;;
         2)
             case "$cmd" in
                 load|l)
                     COMPREPLY=($(compgen -W "$(tetra_get_unloaded_modules)" -- "$cur"))
                     ;;
-                unload|remove|rm)
+                unload|remove|rm|reload|rl)
                     COMPREPLY=($(compgen -W "$(tetra_get_loaded_modules)" -- "$cur"))
                     ;;
                 list|ls)

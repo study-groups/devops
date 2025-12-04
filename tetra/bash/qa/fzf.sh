@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Directory containing Q&A files
 #QA_DIR="/home/mricos/.qa"

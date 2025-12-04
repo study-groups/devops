@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # mcinfo.sh
 # Summarizes a multicat file by listing each file block's directory and filename, plus a total count.
 

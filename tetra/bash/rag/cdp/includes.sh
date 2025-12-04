@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
-# CDP Module Entry Point
-# Follows Tetra Module Convention 2.0
+# CDP Module Entry Point - Chrome DevTools Protocol
+# Submodule of RAG
 
-# Module source directory
-CDP_MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Load module utilities
+source "$TETRA_SRC/bash/utils/module_init.sh"
+source "$TETRA_SRC/bash/utils/function_helpers.sh"
+
+# Initialize as submodule of RAG
+CDP_SRC="$TETRA_SRC/bash/rag/cdp"
+CDP_DIR="$TETRA_DIR/rag/cdp"
+[[ ! -d "$CDP_DIR" ]] && mkdir -p "$CDP_DIR"
+export CDP_SRC CDP_DIR
 
 # Source core CDP functionality
-source "$CDP_MODULE_DIR/cdp_paths.sh"
-source "$CDP_MODULE_DIR/cdp.sh"
+source "$CDP_SRC/cdp_paths.sh"
+source "$CDP_SRC/cdp.sh"
 
 # Source actions if in TUI environment
-if declare -f declare_action >/dev/null 2>&1; then
-    source "$CDP_MODULE_DIR/actions.sh"
-fi
-
-echo "CDP module loaded"
+tetra_call_if_exists declare_action && source "$CDP_SRC/actions.sh"

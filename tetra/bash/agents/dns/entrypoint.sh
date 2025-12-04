@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 IP=${1:-"XYZplaceholdermedia.com"}
 DELAY=${2:-30}
 OLD_IP=""

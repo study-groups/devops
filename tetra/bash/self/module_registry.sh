@@ -3,6 +3,9 @@
 # Tetra Module Registry - Universal module discovery and management
 # Enforces mandatory discovery interface contract for all registered modules
 
+# Source dependencies
+source "$TETRA_SRC/bash/utils/function_helpers.sh"
+
 # Global module registry arrays
 declare -gA TETRA_MODULES=()           # module_name → status
 declare -gA TETRA_MODULE_PATHS=()      # module_name → source_path
@@ -29,13 +32,13 @@ tetra_module_register() {
     # Only validate discovery interface for active status
     if [[ "$status" == "$MODULE_STATUS_ACTIVE" ]]; then
         # Validate mandatory discovery interface
-        if ! declare -f "${module_name}_module_actions" >/dev/null; then
+        if ! tetra_function_exists "${module_name}_module_actions"; then
             echo "ERROR: Module '$module_name' missing mandatory ${module_name}_module_actions() function" >&2
             echo "       All registered modules must implement discovery interface" >&2
             return 1
         fi
 
-        if ! declare -f "${module_name}_module_properties" >/dev/null; then
+        if ! tetra_function_exists "${module_name}_module_properties"; then
             echo "ERROR: Module '$module_name' missing mandatory ${module_name}_module_properties() function" >&2
             echo "       All registered modules must implement discovery interface" >&2
             return 1
@@ -103,7 +106,7 @@ tetra_module_discover() {
     # Show discovery interface if module is active
     if [[ "$status" == "$MODULE_STATUS_ACTIVE" ]]; then
         echo "Actions:"
-        if declare -f "${module_name}_module_actions" >/dev/null; then
+        if tetra_function_exists "${module_name}_module_actions"; then
             "${module_name}_module_actions" | sed 's/^/  /'
         else
             echo "  (discovery interface not available)"
@@ -111,7 +114,7 @@ tetra_module_discover() {
 
         echo ""
         echo "Properties:"
-        if declare -f "${module_name}_module_properties" >/dev/null; then
+        if tetra_function_exists "${module_name}_module_properties"; then
             "${module_name}_module_properties" | sed 's/^/  /'
         else
             echo "  (discovery interface not available)"
@@ -226,7 +229,7 @@ tetra_module_actions() {
         return 1
     fi
 
-    if declare -f "${module_name}_module_actions" >/dev/null; then
+    if tetra_function_exists "${module_name}_module_actions"; then
         "${module_name}_module_actions"
     else
         echo "Module '$module_name' does not implement actions discovery" >&2
@@ -250,7 +253,7 @@ tetra_module_properties() {
         return 1
     fi
 
-    if declare -f "${module_name}_module_properties" >/dev/null; then
+    if tetra_function_exists "${module_name}_module_properties"; then
         "${module_name}_module_properties"
     else
         echo "Module '$module_name' does not implement properties discovery" >&2
@@ -279,8 +282,8 @@ tetra_module_validate_registry() {
 
         if [[ "$status" == "$MODULE_STATUS_ACTIVE" ]]; then
             # Validate discovery interface for active modules
-            if declare -f "${module_name}_module_actions" >/dev/null && \
-               declare -f "${module_name}_module_properties" >/dev/null; then
+            if tetra_function_exists "${module_name}_module_actions" && \
+               tetra_function_exists "${module_name}_module_properties"; then
                 echo "✅ Valid"
                 ((valid_modules++))
             else

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # NGINX Data Collection and Reporting
 
 # Collects NGINX configuration data and populates port information.

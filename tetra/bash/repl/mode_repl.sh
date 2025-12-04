@@ -6,6 +6,7 @@
 : "${TETRA_SRC:?TETRA_SRC must be set}"
 
 # Source dependencies
+source "$TETRA_SRC/bash/utils/function_helpers.sh"
 source "$TETRA_SRC/bash/tetra/modes/matrix.sh"
 source "$TETRA_SRC/bash/repl/temperature_loader.sh"
 source "$TETRA_SRC/bash/tetra/rendering/keychord.sh"
@@ -160,7 +161,7 @@ mode_repl_process_input() {
     esac
 
     # Delegate to module's REPL
-    if declare -f "${module}_repl_process" >/dev/null 2>&1; then
+    if tetra_function_exists "${module}_repl_process"; then
         ${module}_repl_process "$input"
     else
         echo "Module $module does not have REPL implementation"

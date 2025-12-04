@@ -51,10 +51,14 @@ tetra_register_module() {
 # Function to load a module on demand
 tetra_load_module() {
     local module_name="$1"
-    
-    if [[ "${TETRA_MODULE_LOADED[$module_name]}" == "true" ]]; then
+    local force="${2:-false}"
+
+    if [[ "$force" != "true" && "${TETRA_MODULE_LOADED[$module_name]}" == "true" ]]; then
         return 0  # Already loaded
     fi
+
+    # Force reload: unset loaded flag
+    TETRA_MODULE_LOADED[$module_name]=false
     
     local loader_path="${TETRA_MODULE_LOADERS[$module_name]}"
     if [[ -z "$loader_path" ]]; then

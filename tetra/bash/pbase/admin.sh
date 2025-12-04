@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # admin.sh - pdata administration functions
 # User, file, capability, and audit management

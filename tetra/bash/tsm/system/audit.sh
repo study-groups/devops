@@ -282,7 +282,7 @@ tsm_list_available() {
             if [[ -f "$process_file" ]]; then
                 pid=$(grep -o "pid=[0-9]*" "$process_file" 2>/dev/null | cut -d'=' -f2)
 
-                if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+                if [[ -n "$pid" ]] && tsm_is_pid_alive "$pid"; then
                     status="online"
 
                     # Calculate uptime

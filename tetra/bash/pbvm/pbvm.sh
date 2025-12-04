@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 if [ -z "$PBVM_ROOT" ]; then
     echo "Error: PBVM_ROOT is not set."
     return 1

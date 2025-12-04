@@ -239,6 +239,31 @@ repl_reset_completion() {
     REPL_COMPLETION_WORD_END=""
 }
 
+# Preview hook - called when selection changes in completion menu
+# Set REPL_COMPLETION_PREVIEW_HOOK to a function name to enable live preview
+# The function receives: selected_match, verb (from input context)
+# Can set REPL_COMPLETION_PREVIEW_TEXT to display preview text in status line
+# Example: REPL_COMPLETION_PREVIEW_HOOK="_my_preview_fn"
+declare -g REPL_COMPLETION_PREVIEW_HOOK="${REPL_COMPLETION_PREVIEW_HOOK:-}"
+declare -g REPL_COMPLETION_PREVIEW_TEXT=""
+
+# Call preview hook if set
+_repl_call_preview_hook() {
+    local match="$1"
+    REPL_COMPLETION_PREVIEW_TEXT=""  # Reset preview text
+    if [[ -n "$REPL_COMPLETION_PREVIEW_HOOK" ]]; then
+        # Check if function exists (works for both declared and exported functions)
+        if type "$REPL_COMPLETION_PREVIEW_HOOK" &>/dev/null; then
+            # Extract verb from current input for context
+            local verb=""
+            if [[ "$REPL_INPUT" =~ ^([a-z]+) ]]; then
+                verb="${BASH_REMATCH[1]}"
+            fi
+            "$REPL_COMPLETION_PREVIEW_HOOK" "$match" "$verb"
+        fi
+    fi
+}
+
 # Interactive completion menu with arrow key navigation
 # Returns: selected index (via REPL_COMPLETION_INDEX)
 repl_interactive_completion_menu() {
@@ -255,18 +280,31 @@ repl_interactive_completion_menu() {
     local menu_lines
     local max_menu_lines=0
 
+    # Save terminal state and ensure raw mode for arrow key capture
+    local saved_stty
+    saved_stty=$(stty -g 2>/dev/null)
+    stty -echo -icanon min 1 time 0 2>/dev/null
+
     # Hide cursor (redirect tput output to stderr)
     tput civis >&2 2>/dev/null || printf '\033[?25l' >&2
 
-    # Position menu based on setting
-    if [[ "$REPL_COMPLETION_MENU_POSITION" == "below" ]]; then
-        # Draw menu below (move cursor to next line first)
-        echo "" >&2
-    else
-        # For menu above, we'll draw it and track how many lines
-        # No need to save cursor - we'll calculate positions
-        :
+    # Get current cursor row to establish scroll region
+    # This prevents arrow keys from scrolling the terminal
+    local cursor_row=1
+    if [[ -t 2 ]]; then
+        # Query cursor position using ANSI DSR
+        local pos
+        printf '\033[6n' >&2
+        IFS=';' read -rs -d R -t 1 pos </dev/tty 2>/dev/null
+        cursor_row="${pos#*[}"
+        cursor_row="${cursor_row:-1}"
     fi
+
+    # Save prompt line position - menu will draw below it
+    # The draw function handles newlines internally
+
+    # Call preview hook BEFORE initial draw so preview text is available
+    _repl_call_preview_hook "${REPL_COMPLETION_MATCHES[$selected]}"
 
     # Draw initial menu and get line count
     _repl_draw_completion_menu_and_return_lines "$selected"
@@ -283,9 +321,9 @@ repl_interactive_completion_menu() {
             "$TCURSES_KEY_UP")
                 # Move up - don't advance cursor
                 selected=$(( (selected - 1 + count) % count ))
+                _repl_call_preview_hook "${REPL_COMPLETION_MATCHES[$selected]}"
                 _repl_redraw_completion_menu "$max_menu_lines" "$selected"
                 menu_lines=$REPL_MENU_LINES
-                # Update max if new menu is larger
                 if [[ $menu_lines -gt $max_menu_lines ]]; then
                     max_menu_lines=$menu_lines
                 fi
@@ -294,11 +332,41 @@ repl_interactive_completion_menu() {
             "$TCURSES_KEY_DOWN")
                 # Move down - don't advance cursor
                 selected=$(( (selected + 1) % count ))
+                _repl_call_preview_hook "${REPL_COMPLETION_MATCHES[$selected]}"
                 _repl_redraw_completion_menu "$max_menu_lines" "$selected"
                 menu_lines=$REPL_MENU_LINES
-                # Update max if new menu is larger
                 if [[ $menu_lines -gt $max_menu_lines ]]; then
                     max_menu_lines=$menu_lines
+                fi
+                ;;
+
+            "$TCURSES_KEY_LEFT")
+                # Move left one column (subtract rows)
+                local rows=$(( (count + 2) / 3 ))
+                local new_idx=$((selected - rows))
+                if ((new_idx >= 0)); then
+                    selected=$new_idx
+                    _repl_call_preview_hook "${REPL_COMPLETION_MATCHES[$selected]}"
+                    _repl_redraw_completion_menu "$max_menu_lines" "$selected"
+                    menu_lines=$REPL_MENU_LINES
+                    if [[ $menu_lines -gt $max_menu_lines ]]; then
+                        max_menu_lines=$menu_lines
+                    fi
+                fi
+                ;;
+
+            "$TCURSES_KEY_RIGHT")
+                # Move right one column (add rows)
+                local rows=$(( (count + 2) / 3 ))
+                local new_idx=$((selected + rows))
+                if ((new_idx < count)); then
+                    selected=$new_idx
+                    _repl_call_preview_hook "${REPL_COMPLETION_MATCHES[$selected]}"
+                    _repl_redraw_completion_menu "$max_menu_lines" "$selected"
+                    menu_lines=$REPL_MENU_LINES
+                    if [[ $menu_lines -gt $max_menu_lines ]]; then
+                        max_menu_lines=$menu_lines
+                    fi
                 fi
                 ;;
 
@@ -318,6 +386,7 @@ repl_interactive_completion_menu() {
             "$TCURSES_KEY_TAB")
                 # TAB cycles through selections but doesn't advance cursor yet
                 selected=$(( (selected + 1) % count ))
+                _repl_call_preview_hook "${REPL_COMPLETION_MATCHES[$selected]}"
                 _repl_redraw_completion_menu "$max_menu_lines" "$selected"
                 menu_lines=$REPL_MENU_LINES
                 if [[ $menu_lines -gt $max_menu_lines ]]; then
@@ -333,19 +402,21 @@ repl_interactive_completion_menu() {
         esac
     done
 
-    # Clear menu - delete lines to reclaim space and return prompt to original position
-    _repl_delete_completion_lines "$max_menu_lines"
+    # Clear menu - move up to prompt line and clear below
+    # menu_lines to get back to prompt line (menu starts with newline)
+    printf '\033[%dA' "$menu_lines" >&2
+    printf '\033[J' >&2                        # Clear from cursor to end of screen
 
-    # Show cursor (redirect tput output to stderr)
+    # Show cursor
     tput cnorm >&2 2>/dev/null || printf '\033[?25h' >&2
 
-    # Clear the line and redraw the prompt immediately
-    printf '\r' >&2                    # Move to start of line
-    printf '\033[K' >&2                # Clear to end of line
+    # Restore terminal state
+    [[ -n "$saved_stty" ]] && stty "$saved_stty" 2>/dev/null
+
+    # Redraw prompt
     if command -v tcurses_readline_redraw >/dev/null 2>&1; then
         tcurses_readline_redraw "${TCURSES_READLINE_PROMPT:-"> "}"
     else
-        # Fallback: manually redraw
         printf '%s%s' "${TCURSES_READLINE_PROMPT:-"> "}" "$REPL_INPUT" >&2
     fi
 
@@ -359,14 +430,18 @@ repl_interactive_completion_menu() {
             echo "[APPLY] word_start=$REPL_COMPLETION_WORD_START word_end=$REPL_COMPLETION_WORD_END" >&2
         fi
 
-        REPL_INPUT="${REPL_INPUT:0:$REPL_COMPLETION_WORD_START}${match}${REPL_INPUT:$REPL_COMPLETION_WORD_END}"
-        REPL_CURSOR_POS=$((REPL_COMPLETION_WORD_START + ${#match}))
-        REPL_COMPLETION_WORD_END=$((REPL_COMPLETION_WORD_START + ${#match}))
+        # Add trailing space so TAB can complete next parameter
+        REPL_INPUT="${REPL_INPUT:0:$REPL_COMPLETION_WORD_START}${match} ${REPL_INPUT:$REPL_COMPLETION_WORD_END}"
+        REPL_CURSOR_POS=$((REPL_COMPLETION_WORD_START + ${#match} + 1))
+        REPL_COMPLETION_WORD_END=$((REPL_COMPLETION_WORD_START + ${#match} + 1))
 
         if [[ "${TCURSES_COMPLETION_DEBUG:-0}" == "1" ]]; then
             echo "[APPLY] REPL_INPUT after='$REPL_INPUT'" >&2
         fi
     fi
+
+    # Reset completion state after menu closes
+    repl_reset_completion
 }
 
 # Delete N lines starting at row R, following the provided pattern exactly
@@ -478,16 +553,48 @@ _repl_draw_completion_menu_and_return_lines() {
     local selected="$1"
     local count=${#REPL_COMPLETION_MATCHES[@]}
 
-    # Print newline and header
+    # Get hint for selected item to show in status line
+    local selected_match="${REPL_COMPLETION_MATCHES[$selected]}"
+    local hint=""
+    ( hint="${REPL_COMPLETION_HINTS[$selected_match]:-}" ) 2>/dev/null && :
+
+    # Print newline
     echo "" >&2
 
-    if [[ -n "$REPL_COMPLETION_ORIGINAL" ]]; then
-        printf "  +- Completions for '%s' [v2]\n" "$REPL_COMPLETION_ORIGINAL" >&2
-    else
-        printf "  +- Available commands [v2]\n" >&2
+    # Status line: selected item, hint, and minimal nav help
+    local hint_text=""
+    if [[ -n "$hint" ]]; then
+        if [[ "$hint" =~ ^([^•]+)•(.+)$ ]]; then
+            hint_text="${BASH_REMATCH[2]}"
+        else
+            hint_text="$hint"
+        fi
     fi
-    printf "  +----------------------------------------------------\n" >&2
-    printf "  \033[2m↑/↓: navigate  ENTER: select  q: cancel\033[0m\n" >&2
+
+    # Format: "  selected: hint [preview]" left-aligned, "(← → ↑ ↓ | ESC)" right-aligned to col 60
+    local nav_hint="(← → ↑ ↓ | ESC)"
+    local nav_len=${#nav_hint}
+
+    # Build status line with optional preview text
+    printf "  \033[1m%s\033[0m" "$selected_match" >&2
+    if [[ -n "$hint_text" ]]; then
+        printf "\033[2m: %s\033[0m" "$hint_text" >&2
+    fi
+
+    # Show preview text if set (e.g., color swatches)
+    if [[ -n "$REPL_COMPLETION_PREVIEW_TEXT" ]]; then
+        printf " %s" "$REPL_COMPLETION_PREVIEW_TEXT" >&2
+    fi
+
+    # Calculate padding for right-aligned nav hint
+    # Note: We approximate since preview text may contain ANSI codes
+    local visible_len=$((4 + ${#selected_match} + ${#hint_text}))
+    [[ -n "$hint_text" ]] && visible_len=$((visible_len + 2))  # ": "
+    local pad_len=$((60 - nav_len - visible_len))
+    ((pad_len < 2)) && pad_len=2
+    local padding=$(printf '%*s' "$pad_len" '')
+
+    printf "%s\033[2m%s\033[0m\n" "$padding" "$nav_hint" >&2
     echo "" >&2
 
     # Draw list items in 3-column layout
@@ -519,35 +626,8 @@ _repl_draw_completion_menu_and_return_lines() {
 
     echo "" >&2
 
-    # Show notes for currently selected item only (replaces instruction area)
-    local selected_match="${REPL_COMPLETION_MATCHES[$selected]}"
-    # Safely access associative arrays - suppress errors if array doesn't exist
-    # or has issues with special characters (bash export -f limitation)
-    local hint=""
-    local category=""
-    ( hint="${REPL_COMPLETION_HINTS[$selected_match]:-}" ) 2>/dev/null && :
-    ( category="${REPL_COMPLETION_CATEGORIES[$selected_match]:-}" ) 2>/dev/null && :
-
-
-    if [[ -n "$hint" ]]; then
-        # Parse hint to extract category prefix
-        if [[ "$hint" =~ ^([^•]+)•(.+)$ ]]; then
-            local cat_prefix="${BASH_REMATCH[1]}"
-            local description="${BASH_REMATCH[2]}"
-            printf "  \033[2;36m┌─\033[0m \033[1m%s\033[0m\n" "$selected_match" >&2
-            printf "  \033[2;36m│\033[0m \033[2m%s•%s\033[0m\n" "$cat_prefix" "$description" >&2
-        else
-            printf "  \033[2;36m┌─\033[0m \033[1m%s\033[0m\n" "$selected_match" >&2
-            printf "  \033[2;36m│\033[0m \033[2m%s\033[0m\n" "$hint" >&2
-        fi
-        echo "" >&2
-    fi
-
-    # Calculate total lines: blank(1) + header(1) + footer(1) + nav_help(1) + blank(1) + rows + blank(1) + (hint ? 3 : 0)
-    local total_lines=$((6 + rows))
-    if [[ -n "$hint" ]]; then
-        total_lines=$((total_lines + 3))
-    fi
+    # Calculate total lines: blank(1) + status_line(1) + blank(1) + rows + blank(1)
+    local total_lines=$((4 + rows))
 
     # Debug output if enabled
     if [[ "${TCURSES_COMPLETION_DEBUG:-0}" == "1" ]]; then
@@ -568,9 +648,19 @@ _repl_redraw_completion_menu() {
         echo "[REDRAW] Moving up $old_lines lines and clearing" >&2
     fi
 
-    # Move cursor up to start of menu and clear
-    # Use printf directly to stderr to ensure atomic output
-    printf "\033[%dA\033[J" "$old_lines" >&2
+    # Move cursor up: old_lines (menu) to get back to prompt line
+    # The menu starts with a newline, so cursor ends up old_lines below prompt
+    printf "\033[%dA" "$old_lines" >&2
+
+    # Clear from cursor to end of screen
+    printf "\033[J" >&2
+
+    # Redraw prompt first
+    if command -v tcurses_readline_redraw >/dev/null 2>&1; then
+        tcurses_readline_redraw "${TCURSES_READLINE_PROMPT:-"> "}"
+    else
+        printf '%s%s' "${TCURSES_READLINE_PROMPT:-"> "}" "$REPL_INPUT" >&2
+    fi
 
     # Redraw menu (line count stored in REPL_MENU_LINES)
     _repl_draw_completion_menu_and_return_lines "$selected"

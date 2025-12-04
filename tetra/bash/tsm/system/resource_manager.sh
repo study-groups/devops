@@ -94,7 +94,7 @@ tsm_wait_for_process() {
 
         # Wait with timeout
         local count=0
-        while [[ $count -lt $timeout ]] && kill -0 "$pid" 2>/dev/null; do
+        while [[ $count -lt $timeout ]] && tsm_is_pid_alive "$pid"; do
             sleep 1
             count=$((count + 1))
         done
@@ -104,7 +104,7 @@ tsm_wait_for_process() {
         TSM_PROCESS_COUNT=$((TSM_PROCESS_COUNT - 1))
 
         # Force kill if still running
-        if kill -0 "$pid" 2>/dev/null; then
+        if tsm_is_pid_alive "$pid"; then
             kill -TERM "$pid" 2>/dev/null || true
             sleep 1
             kill -KILL "$pid" 2>/dev/null || true
@@ -118,7 +118,7 @@ tsm_cleanup_finished_processes() {
     for process_id in "${!TSM_ACTIVE_PROCESSES[@]}"; do
         local pid=${TSM_ACTIVE_PROCESSES[$process_id]}
 
-        if ! kill -0 "$pid" 2>/dev/null; then
+        if ! tsm_is_pid_alive "$pid"; then
             unset TSM_ACTIVE_PROCESSES[$process_id]
             TSM_PROCESS_COUNT=$((TSM_PROCESS_COUNT - 1))
             cleaned=$((cleaned + 1))
@@ -148,7 +148,7 @@ tsm_cleanup_all_processes() {
         local pid=${TSM_ACTIVE_PROCESSES[$process_id]}
 
         # Graceful termination first
-        if kill -0 "$pid" 2>/dev/null; then
+        if tsm_is_pid_alive "$pid"; then
             kill -TERM "$pid" 2>/dev/null || true
         fi
     done
@@ -160,7 +160,7 @@ tsm_cleanup_all_processes() {
     for process_id in "${!TSM_ACTIVE_PROCESSES[@]}"; do
         local pid=${TSM_ACTIVE_PROCESSES[$process_id]}
 
-        if kill -0 "$pid" 2>/dev/null; then
+        if tsm_is_pid_alive "$pid"; then
             kill -KILL "$pid" 2>/dev/null || true
         fi
     done

@@ -1,0 +1,16 @@
+{
+  "name": "multivox",
+  "version": "0.1.0",
+  "description": "Voice coordination server for estovox - UDP/WebSocket bridge",
+  "main": "multivox.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node multivox.js",
+    "test": "echo 'Test: echo {\"t\":\"test\"} | nc -u -w0 localhost 4004'"
+  },
+  "dependencies": {
+    "ws": "^8.14.0"
+  },
+  "author": "tetra",
+  "license": "MIT"
+}

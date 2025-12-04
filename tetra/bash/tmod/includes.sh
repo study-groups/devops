@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
 
-# tmod module includes
-# Follow tetra convention: MOD_DIR for data, MOD_SRC for source
-TMOD_DIR="${TMOD_DIR:-$TETRA_DIR/tmod}"
-TMOD_SRC="${TMOD_SRC:-$TETRA_SRC/bash/tmod}"
+# tmod module includes - Module manager for tetra
+# Load module utilities
+source "$TETRA_SRC/bash/utils/module_init.sh"
+source "$TETRA_SRC/bash/utils/function_helpers.sh"
 
-# Create data directory if it doesn't exist
-[[ ! -d "$TMOD_DIR" ]] && mkdir -p "$TMOD_DIR"
-
-# Export for subprocesses
-export TMOD_DIR TMOD_SRC
+# Initialize module with standard tetra conventions
+tetra_module_init_with_alias "tmod" "TMOD"
 
 source "$TMOD_SRC/tmod.sh"

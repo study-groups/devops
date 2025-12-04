@@ -1,0 +1,140 @@
+# pixeljam-arcade Organization Configuration (Flattened Format)
+# Generated from multi-section format on 2025-11-13T10:34:48Z
+# TES v2.1 compliant - Self-contained environments
+
+[metadata]
+source_json = "/Users/mricos/nh/pixeljam-arcade/digocean.json"
+type = "digitalocean-managed"
+source_mapping = "/tmp/pixeljam-arcade_mapping.json"
+generated_at = "2025-10-10T09:32:23Z"
+tes_version = "2.1"
+description = "pixeljam-arcade infrastructure managed via DigitalOcean"
+name = "pixeljam-arcade"
+
+# ═══════════════════════════════════════════════════════════
+# ENVIRONMENTS - Complete Deployment Targets
+# Each environment is self-contained with all connection info
+# ═══════════════════════════════════════════════════════════
+
+[environments.local]
+symbol = "@local"
+type = "local"
+address = "127.0.0.1"
+description = "Local development environment"
+domain = "localhost"
+url = "http://localhost:3000"
+app_port = 3000
+node_env = "development"
+
+[environments.dev]
+symbol = "@dev"
+type = "remote"
+description = "Dev environment"
+domain = "dev.pixeljamarcade.com"
+url = "https://dev.pixeljamarcade.com"
+app_port = 3000
+node_env = "dev"
+private_ip = "10.124.0.4"
+server_ip = "137.184.226.163"
+ssh_host = "137.184.226.163"
+ssh_auth_user = "root"
+ssh_work_user = "dev"
+ssh_key = "~/.ssh/id_rsa"
+ssh_port = 22
+
+[environments.staging]
+symbol = "@staging"
+type = "remote"
+address = "24.199.72.22"
+description = "Staging environment"
+domain = "qa.pixeljamarcade.com"
+url = "https://qa.pixeljamarcade.com"
+app_port = 4000
+node_env = "staging"
+private_ip = "10.124.0.2"
+server_ip = "24.199.72.22"
+ssh_host = "24.199.72.22"
+ssh_auth_user = "root"
+ssh_work_user = "root"
+ssh_key = "~/.ssh/id_rsa"
+ssh_port = 22
+
+[environments.prod]
+symbol = "@prod"
+type = "remote"
+address = "164.90.247.44"
+description = "Prod environment"
+domain = "pixeljamarcade.com"
+url = "https://pixeljamarcade.com"
+app_port = 5000
+node_env = "prod"
+private_ip = "10.124.0.3"
+server_ip = "164.90.247.44"
+ssh_host = "164.90.247.44"
+ssh_auth_user = "root"
+ssh_work_user = "prod"
+ssh_key = "~/.ssh/id_rsa"
+ssh_port = 22
+
+# ═══════════════════════════════════════════════════════════
+# INFRASTRUCTURE - Read-only Reference Data
+# Provider metadata - not used for connections
+# ═══════════════════════════════════════════════════════════
+
+[infrastructure]
+provider = "digitalocean"
+
+[domains]
+prod = "pixeljamarcade.com"
+dev = "dev.pixeljamarcade.com"
+base_domain = "pixeljamarcade.com"
+staging = "qa.pixeljamarcade.com"
+
+[storage.spaces]
+symbol = "@spaces"
+endpoint = "https://sfo3.digitaloceanspaces.com"
+region = "sfo3"
+default_bucket = "pja-games"
+backend = "digitalocean-spaces"
+access_key = "${DO_SPACES_KEY}"
+secret_key = "${DO_SPACES_SECRET}"
+
+# ═══════════════════════════════════════════════════════════
+# PUBLISHING - Document Publishing Targets
+# DevPages publishing configurations with S3/Spaces support
+# ═══════════════════════════════════════════════════════════
+
+[publishing.tau]
+symbol = "@tau"
+type = "spaces"
+bucket = "pja-docs"
+endpoint = "https://sfo3.digitaloceanspaces.com"
+region = "sfo3"
+prefix = "tau/"
+base_url = "https://pja-docs.pixeljamarcade.com/"
+access_key = "${DO_SPACES_KEY}"
+secret_key = "${DO_SPACES_SECRET}"
+theme = "default"
+inline_css = true
+description = "Tau project documentation"
+
+[publishing.games]
+symbol = "@games"
+type = "spaces"
+bucket = "pja-games"
+endpoint = "https://sfo3.digitaloceanspaces.com"
+region = "sfo3"
+prefix = "docs/"
+base_url = "https://pja-games.sfo3.cdn.digitaloceanspaces.com/"
+access_key = "${DO_SPACES_KEY}"
+secret_key = "${DO_SPACES_SECRET}"
+theme = "default"
+inline_css = true
+description = "Game project documentation"
+
+[publishing.dev]
+symbol = "@dev"
+type = "local"
+path = "/tmp/published-docs"
+description = "Local development publishing (file system)"
+

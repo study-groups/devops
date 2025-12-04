@@ -6,12 +6,7 @@
 : "${RAG_SRC:=$TETRA_SRC/bash/rag}"
 
 # Source dependencies
-if [[ -f "$RAG_SRC/core/flow_manager_ttm.sh" ]]; then
-    source "$RAG_SRC/core/flow_manager_ttm.sh"
-elif [[ -f "$RAG_SRC/core/flow_manager.sh" ]]; then
-    # Fallback to legacy flow_manager for backward compatibility during migration
-    source "$RAG_SRC/core/flow_manager.sh"
-fi
+source "$RAG_SRC/core/flow_manager_ttm.sh"
 
 # Estimate tokens from bytes (rough: 1 token ≈ 4 bytes)
 estimate_tokens() {

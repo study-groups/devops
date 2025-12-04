@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Systemd Data Collection and Reporting
 
 command_exists() {

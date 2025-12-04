@@ -1,0 +1,685 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Terminal Tutorial Schema",
+  "description": "Data-driven format for interactive terminal tutorials",
+  "version": "1.0.0",
+  "type": "object",
+  "required": ["metadata", "steps"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["title", "description", "version"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Main tutorial title"
+        },
+        "subtitle": {
+          "type": "string",
+          "description": "Optional subtitle or tagline"
+        },
+        "description": {
+          "type": "string",
+          "description": "Brief tutorial description"
+        },
+        "version": {
+          "type": "string",
+          "description": "Semantic version (e.g., 1.0.0)"
+        },
+        "author": {
+          "type": "string",
+          "description": "Tutorial author"
+        },
+        "created": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "updated": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Searchable tags"
+        },
+        "difficulty": {
+          "enum": ["beginner", "intermediate", "advanced"],
+          "description": "Overall difficulty level"
+        },
+        "estimatedTime": {
+          "type": "integer",
+          "description": "Estimated completion time in minutes"
+        },
+        "prerequisites": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Required knowledge or completed tutorials"
+        },
+        "context": {
+          "type": "object",
+          "description": "Environment context for the tutorial",
+          "properties": {
+            "shell": {
+              "type": "string",
+              "default": "bash",
+              "description": "Required shell (bash, zsh, etc.)"
+            },
+            "shellVersion": {
+              "type": "string",
+              "description": "Minimum shell version (e.g., 5.2+)"
+            },
+            "requiredCommands": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Commands that must be available"
+            },
+            "environmentVars": {
+              "type": "object",
+              "additionalProperties": { "type": "string" },
+              "description": "Required environment variables"
+            },
+            "workingDirectory": {
+              "type": "string",
+              "description": "Expected starting directory"
+            }
+          }
+        }
+      }
+    },
+    "theme": {
+      "type": "object",
+      "description": "Visual customization (optional, uses defaults if not specified)",
+      "properties": {
+        "colors": {
+          "type": "object",
+          "description": "Color palette overrides",
+          "properties": {
+            "bgPrimary": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+            "bgSecondary": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+            "bgTertiary": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+            "textPrimary": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+            "textSecondary": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+            "accentPrimary": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+            "accentSecondary": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+            "success": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+            "warning": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+            "error": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+            "border": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+          }
+        },
+        "fonts": {
+          "type": "object",
+          "description": "Font stack overrides",
+          "properties": {
+            "heading": { "type": "string" },
+            "body": { "type": "string" },
+            "code": { "type": "string" }
+          }
+        },
+        "customCSS": {
+          "type": "string",
+          "description": "Additional CSS to inject"
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Tutorial steps (ordered)",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "content"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$",
+            "description": "Unique step identifier (lowercase, hyphen-separated)"
+          },
+          "title": {
+            "type": "string",
+            "description": "Step title"
+          },
+          "subtitle": {
+            "type": "string",
+            "description": "Optional subtitle"
+          },
+          "content": {
+            "type": "array",
+            "description": "Content blocks for the narrative panel",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": ["type", "text"],
+                  "properties": {
+                    "type": { "const": "paragraph" },
+                    "text": { "type": "string" },
+                    "markdown": { "type": "boolean", "default": false }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "items"],
+                  "properties": {
+                    "type": { "const": "list" },
+                    "title": { "type": "string" },
+                    "items": { "type": "array", "items": { "type": "string" } },
+                    "ordered": { "type": "boolean", "default": false }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "title", "content"],
+                  "properties": {
+                    "type": { "enum": ["learn-box", "you-try", "info-box", "warning-box", "danger-box"] },
+                    "title": { "type": "string" },
+                    "content": {
+                      "type": "array",
+                      "description": "Nested content blocks"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "commands"],
+                  "properties": {
+                    "type": { "const": "command-block" },
+                    "description": { "type": "string" },
+                    "commands": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    },
+                    "copyable": { "type": "boolean", "default": true },
+                    "runnable": { "type": "boolean", "default": false }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "language", "code"],
+                  "properties": {
+                    "type": { "const": "code-block" },
+                    "language": { "type": "string" },
+                    "code": { "type": "string" },
+                    "caption": { "type": "string" },
+                    "highlight": {
+                      "type": "array",
+                      "items": { "type": "integer" },
+                      "description": "Line numbers to highlight"
+                    },
+                    "copyable": { "type": "boolean", "default": true }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "url"],
+                  "properties": {
+                    "type": { "const": "image" },
+                    "url": { "type": "string" },
+                    "alt": { "type": "string" },
+                    "caption": { "type": "string" },
+                    "width": { "type": "string" }
+                  }
+                }
+              ]
+            }
+          },
+          "terminal": {
+            "type": "array",
+            "description": "Terminal output simulation or recording",
+            "items": {
+              "type": "object",
+              "required": ["type", "content"],
+              "properties": {
+                "type": {
+                  "enum": [
+                    "prompt",
+                    "command",
+                    "output",
+                    "output-success",
+                    "output-warning",
+                    "output-error",
+                    "output-header",
+                    "comment",
+                    "blank"
+                  ]
+                },
+                "content": { "type": "string" },
+                "inline": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Render inline (e.g., prompt + command on same line)"
+                },
+                "highlight": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Highlight this line"
+                },
+                "delay": {
+                  "type": "integer",
+                  "description": "Delay in ms before showing this line",
+                  "default": 100
+                },
+                "timestamp": {
+                  "type": "number",
+                  "description": "For recorded sessions: relative timestamp in seconds"
+                },
+                "copyable": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Add copy button for this line"
+                }
+              }
+            }
+          },
+          "recording": {
+            "type": "object",
+            "description": "For script-recorded sessions (alternative to terminal array)",
+            "properties": {
+              "scriptFile": {
+                "type": "string",
+                "description": "Path to typescript file from 'script' command"
+              },
+              "timingFile": {
+                "type": "string",
+                "description": "Path to timing file (script -t output)"
+              },
+              "startTime": {
+                "type": "number",
+                "description": "Start time offset in seconds"
+              },
+              "endTime": {
+                "type": "number",
+                "description": "End time offset in seconds"
+              },
+              "speed": {
+                "type": "number",
+                "default": 1.0,
+                "description": "Playback speed multiplier"
+              },
+              "annotations": {
+                "type": "array",
+                "description": "Commentary overlays at specific timestamps",
+                "items": {
+                  "type": "object",
+                  "required": ["timestamp", "text"],
+                  "properties": {
+                    "timestamp": {
+                      "type": "number",
+                      "description": "Time in seconds when annotation appears"
+                    },
+                    "text": { "type": "string" },
+                    "type": {
+                      "enum": ["note", "highlight", "warning", "tip"],
+                      "default": "note"
+                    },
+                    "duration": {
+                      "type": "number",
+                      "description": "How long annotation stays visible (seconds)",
+                      "default": 3
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "details": {
+            "type": "object",
+            "description": "Advanced/behind-the-scenes content for curious learners",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "default": false,
+                "description": "Whether to show details toggle for this step"
+              },
+              "title": {
+                "type": "string",
+                "default": "Under the Hood",
+                "description": "Title for the details section"
+              },
+              "icon": {
+                "type": "string",
+                "default": "🔍",
+                "description": "Icon for the details toggle"
+              },
+              "displayMode": {
+                "enum": ["margin-note", "inline-expandable", "sidebar", "modal"],
+                "default": "margin-note",
+                "description": "How to display the details"
+              },
+              "collapsed": {
+                "type": "boolean",
+                "default": true,
+                "description": "Whether details start collapsed"
+              },
+              "sections": {
+                "type": "array",
+                "description": "Detail sections with different types of advanced content",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": ["type", "title", "content"],
+                      "properties": {
+                        "type": { "const": "explanation" },
+                        "title": { "type": "string" },
+                        "content": { "type": "string" },
+                        "level": {
+                          "enum": ["beginner", "intermediate", "advanced"],
+                          "description": "Complexity level indicator"
+                        },
+                        "markdown": { "type": "boolean", "default": true }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": ["type", "title", "file"],
+                      "properties": {
+                        "type": { "const": "code-dive" },
+                        "title": { "type": "string" },
+                        "file": {
+                          "type": "string",
+                          "description": "Path to source file to examine"
+                        },
+                        "lines": {
+                          "type": "array",
+                          "items": { "type": "integer" },
+                          "description": "Line numbers to highlight"
+                        },
+                        "explanation": { "type": "string" },
+                        "showLink": {
+                          "type": "boolean",
+                          "default": true,
+                          "description": "Show link to open file"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": ["type", "title", "content"],
+                      "properties": {
+                        "type": { "const": "architecture" },
+                        "title": { "type": "string" },
+                        "content": { "type": "string" },
+                        "diagram": {
+                          "type": "string",
+                          "description": "ASCII art diagram or URL to image"
+                        },
+                        "markdown": { "type": "boolean", "default": true }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": ["type", "title", "content"],
+                      "properties": {
+                        "type": { "const": "gotcha" },
+                        "title": { "type": "string" },
+                        "content": { "type": "string" },
+                        "severity": {
+                          "enum": ["info", "warning", "critical"],
+                          "default": "warning"
+                        },
+                        "example": {
+                          "type": "object",
+                          "properties": {
+                            "wrong": {
+                              "type": "string",
+                              "description": "Incorrect approach"
+                            },
+                            "right": {
+                              "type": "string",
+                              "description": "Correct approach"
+                            },
+                            "explanation": { "type": "string" }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": ["type", "title"],
+                      "properties": {
+                        "type": { "const": "further-reading" },
+                        "title": { "type": "string" },
+                        "links": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["text"],
+                            "properties": {
+                              "text": { "type": "string" },
+                              "url": { "type": "string" },
+                              "conceptId": {
+                                "type": "string",
+                                "description": "Link to another concept/tutorial"
+                              },
+                              "stepId": {
+                                "type": "string",
+                                "description": "Link to another step in this tutorial"
+                              },
+                              "internal": { "type": "boolean", "default": true }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": ["type", "title", "content"],
+                      "properties": {
+                        "type": { "const": "performance" },
+                        "title": { "type": "string" },
+                        "content": { "type": "string" },
+                        "metrics": {
+                          "type": "object",
+                          "description": "Performance implications",
+                          "properties": {
+                            "complexity": { "type": "string" },
+                            "memory": { "type": "string" },
+                            "diskIO": { "type": "string" }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": ["type", "title", "content"],
+                      "properties": {
+                        "type": { "const": "history" },
+                        "title": { "type": "string" },
+                        "content": { "type": "string" },
+                        "date": { "type": "string" },
+                        "markdown": { "type": "boolean", "default": true }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": ["type", "title", "content"],
+                      "properties": {
+                        "type": { "const": "comparison" },
+                        "title": { "type": "string" },
+                        "content": { "type": "string" },
+                        "approaches": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": { "type": "string" },
+                              "pros": { "type": "array", "items": { "type": "string" } },
+                              "cons": { "type": "array", "items": { "type": "string" } }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "validation": {
+            "type": "object",
+            "description": "Optional step validation (check if user completed correctly)",
+            "properties": {
+              "type": {
+                "enum": ["command", "file-exists", "output-match", "env-var", "custom"],
+                "description": "Type of validation check"
+              },
+              "check": {
+                "type": "string",
+                "description": "What to validate (depends on type)"
+              },
+              "expected": {
+                "type": "string",
+                "description": "Expected result"
+              },
+              "hint": {
+                "type": "string",
+                "description": "Hint if validation fails"
+              },
+              "required": {
+                "type": "boolean",
+                "default": false,
+                "description": "Whether passing validation is required to continue"
+              }
+            }
+          },
+          "interactivity": {
+            "type": "object",
+            "description": "Interactive elements (quizzes, exercises)",
+            "properties": {
+              "quiz": {
+                "type": "object",
+                "properties": {
+                  "question": { "type": "string" },
+                  "options": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "minItems": 2
+                  },
+                  "answer": {
+                    "type": "integer",
+                    "description": "Index of correct answer (0-based)"
+                  },
+                  "explanation": { "type": "string" },
+                  "multiSelect": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Allow multiple correct answers"
+                  },
+                  "answers": {
+                    "type": "array",
+                    "items": { "type": "integer" },
+                    "description": "Indices of correct answers (if multiSelect)"
+                  }
+                }
+              },
+              "exercise": {
+                "type": "object",
+                "properties": {
+                  "prompt": { "type": "string" },
+                  "hint": { "type": "string" },
+                  "solution": { "type": "string" },
+                  "showSolution": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Whether to show solution button"
+                  }
+                }
+              }
+            }
+          },
+          "navigation": {
+            "type": "object",
+            "description": "Step navigation behavior",
+            "properties": {
+              "canSkip": {
+                "type": "boolean",
+                "default": true,
+                "description": "Whether user can skip this step"
+              },
+              "requireCompletion": {
+                "type": "boolean",
+                "default": false,
+                "description": "Whether step must be completed to proceed"
+              },
+              "autoAdvance": {
+                "type": "boolean",
+                "default": false,
+                "description": "Automatically advance after validation passes"
+              },
+              "autoAdvanceDelay": {
+                "type": "integer",
+                "default": 2000,
+                "description": "Delay before auto-advance (ms)"
+              }
+            }
+          }
+        }
+      }
+    },
+    "timeline": {
+      "type": "object",
+      "description": "For recorded sessions with timeline scrubbing",
+      "properties": {
+        "duration": {
+          "type": "number",
+          "description": "Total duration in seconds"
+        },
+        "markers": {
+          "type": "array",
+          "description": "Timeline markers for navigation",
+          "items": {
+            "type": "object",
+            "required": ["time", "label"],
+            "properties": {
+              "time": {
+                "type": "number",
+                "description": "Time position in seconds"
+              },
+              "label": { "type": "string" },
+              "stepId": {
+                "type": "string",
+                "description": "Associated step ID"
+              },
+              "color": {
+                "type": "string",
+                "description": "Marker color (CSS color)"
+              }
+            }
+          }
+        },
+        "chapters": {
+          "type": "array",
+          "description": "Group steps into chapters",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": { "type": "string" },
+              "startTime": { "type": "number" },
+              "endTime": { "type": "number" },
+              "stepIds": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "glossary": {
+      "type": "object",
+      "description": "Terms and definitions (for hover tooltips)",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "term": { "type": "string" },
+          "definition": { "type": "string" },
+          "url": { "type": "string" }
+        }
+      }
+    }
+  }
+}

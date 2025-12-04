@@ -1,0 +1,213 @@
+<!-- Design Token Editor - FAB Button -->
+<button class="design-fab" onclick="toggleDesignPanel()" id="designFab">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="28" height="28">
+        <circle cx="50" cy="50" r="45" fill="#ffffff" opacity="0.15"/>
+        <rect x="25" y="30" width="18" height="18" rx="3" fill="#58a6ff"/>
+        <rect x="47" y="30" width="18" height="18" rx="3" fill="#3fb950"/>
+        <rect x="69" y="30" width="18" height="18" rx="3" fill="#d29922"/>
+        <rect x="25" y="52" width="18" height="18" rx="3" fill="#f85149"/>
+        <rect x="47" y="52" width="18" height="18" rx="3" fill="#c9d1d9"/>
+        <rect x="69" y="52" width="18" height="18" rx="3" fill="#8b949e"/>
+        <circle cx="50" cy="50" r="45" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.8"/>
+    </svg>
+</button>
+
+<!-- Design Token Panel -->
+<div class="design-panel" id="designPanel">
+    <div class="design-panel-header">
+        <span>Design Tokens</span>
+        <span class="design-panel-close" onclick="toggleDesignPanel()">&times;</span>
+    </div>
+    <div class="design-panel-content">
+        <!-- Background Colors -->
+        <div class="token-group">
+            <div class="token-group-title">Background</div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#0d1117" onchange="updateToken('--bg-primary', this.value)">
+                <div class="token-swatch" style="background: var(--bg-primary)"></div>
+                <div class="token-info">
+                    <div class="token-name">--bg-primary</div>
+                    <div class="token-value" id="token-bg-primary">#0d1117</div>
+                </div>
+            </div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#161b22" onchange="updateToken('--bg-secondary', this.value)">
+                <div class="token-swatch" style="background: var(--bg-secondary)"></div>
+                <div class="token-info">
+                    <div class="token-name">--bg-secondary</div>
+                    <div class="token-value" id="token-bg-secondary">#161b22</div>
+                </div>
+            </div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#21262d" onchange="updateToken('--bg-tertiary', this.value)">
+                <div class="token-swatch" style="background: var(--bg-tertiary)"></div>
+                <div class="token-info">
+                    <div class="token-name">--bg-tertiary</div>
+                    <div class="token-value" id="token-bg-tertiary">#21262d</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Text Colors -->
+        <div class="token-group">
+            <div class="token-group-title">Text</div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#c9d1d9" onchange="updateToken('--text-primary', this.value)">
+                <div class="token-swatch" style="background: var(--text-primary)"></div>
+                <div class="token-info">
+                    <div class="token-name">--text-primary</div>
+                    <div class="token-value" id="token-text-primary">#c9d1d9</div>
+                </div>
+            </div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#8b949e" onchange="updateToken('--text-secondary', this.value)">
+                <div class="token-swatch" style="background: var(--text-secondary)"></div>
+                <div class="token-info">
+                    <div class="token-name">--text-secondary</div>
+                    <div class="token-value" id="token-text-secondary">#8b949e</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Accent Colors -->
+        <div class="token-group">
+            <div class="token-group-title">Accent</div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#58a6ff" onchange="updateToken('--accent-primary', this.value)">
+                <div class="token-swatch" style="background: var(--accent-primary)"></div>
+                <div class="token-info">
+                    <div class="token-name">--accent-primary</div>
+                    <div class="token-value" id="token-accent-primary">#58a6ff</div>
+                </div>
+            </div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#1f6feb" onchange="updateToken('--accent-secondary', this.value)">
+                <div class="token-swatch" style="background: var(--accent-secondary)"></div>
+                <div class="token-info">
+                    <div class="token-name">--accent-secondary</div>
+                    <div class="token-value" id="token-accent-secondary">#1f6feb</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Colors -->
+        <div class="token-group">
+            <div class="token-group-title">Status</div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#3fb950" onchange="updateToken('--success', this.value)">
+                <div class="token-swatch" style="background: var(--success)"></div>
+                <div class="token-info">
+                    <div class="token-name">--success</div>
+                    <div class="token-value" id="token-success">#3fb950</div>
+                </div>
+            </div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#d29922" onchange="updateToken('--warning', this.value)">
+                <div class="token-swatch" style="background: var(--warning)"></div>
+                <div class="token-info">
+                    <div class="token-name">--warning</div>
+                    <div class="token-value" id="token-warning">#d29922</div>
+                </div>
+            </div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#f85149" onchange="updateToken('--error', this.value)">
+                <div class="token-swatch" style="background: var(--error)"></div>
+                <div class="token-info">
+                    <div class="token-name">--error</div>
+                    <div class="token-value" id="token-error">#f85149</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Border Color -->
+        <div class="token-group">
+            <div class="token-group-title">Border</div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#30363d" onchange="updateToken('--border', this.value)">
+                <div class="token-swatch" style="background: var(--border)"></div>
+                <div class="token-info">
+                    <div class="token-name">--border</div>
+                    <div class="token-value" id="token-border">#30363d</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fonts -->
+        <div class="token-group">
+            <div class="token-group-title">Fonts</div>
+
+            <div style="margin-bottom: 1rem; padding: 0.75rem; background: var(--bg-primary); border-radius: 4px; border: 1px solid var(--border);">
+                <label style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-bottom: 0.5rem;">Add Google Font</label>
+                <input type="text" class="font-input" id="fontCdnUrl" placeholder="https://fonts.googleapis.com/css2?family=...">
+                <input type="text" class="font-input" id="fontFamily" placeholder="'Font Name', sans-serif">
+                <button class="add-font-btn" onclick="addCustomFont()">Add Font to Page</button>
+
+                <div class="font-example-toggle" onclick="toggleFontExample()">
+                    &#9656; Show example
+                </div>
+
+                <div class="font-example-content" id="fontExampleContent">
+                    <strong>Example: Science Gothic</strong>
+                    <ol>
+                        <li>Visit <a href="https://fonts.google.com/specimen/Science+Gothic" target="_blank" style="color: var(--accent-primary);">fonts.google.com/specimen/Science+Gothic</a></li>
+                        <li>Click <strong>"Get font"</strong> button (top right)</li>
+                        <li>Click <strong>"Get embed code"</strong> in the sidebar</li>
+                        <li>Copy the URL from the <code>&lt;link&gt;</code> tag</li>
+                        <li>Copy the CSS font-family value</li>
+                        <li>Paste both values into the fields above</li>
+                        <li>Click "Add Font to Page"</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 0.75rem;">
+                <label style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Heading Font</label>
+                <select class="font-select" onchange="updateFont('heading', this.value)" id="headingFont">
+                    <option value="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">System (Default)</option>
+                    <option value="'Courier New', monospace">Courier New</option>
+                    <option value="Monaco, monospace">Monaco</option>
+                    <option value="'SF Mono', monospace">SF Mono</option>
+                    <option value="'Roboto Mono', monospace">Roboto Mono</option>
+                    <option value="Georgia, serif">Georgia</option>
+                    <option value="'Times New Roman', serif">Times New Roman</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 0.75rem;">
+                <label style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Body Font</label>
+                <select class="font-select" onchange="updateFont('body', this.value)" id="bodyFont">
+                    <option value="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">System (Default)</option>
+                    <option value="'Courier New', monospace">Courier New</option>
+                    <option value="Monaco, monospace">Monaco</option>
+                    <option value="'SF Mono', monospace">SF Mono</option>
+                    <option value="'Roboto Mono', monospace">Roboto Mono</option>
+                    <option value="Georgia, serif">Georgia</option>
+                    <option value="Arial, sans-serif">Arial</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Code Font</label>
+                <select class="font-select" onchange="updateFont('code', this.value)" id="codeFont">
+                    <option value="'Courier New', Monaco, monospace">Courier New (Default)</option>
+                    <option value="Monaco, monospace">Monaco</option>
+                    <option value="'SF Mono', monospace">SF Mono</option>
+                    <option value="'Roboto Mono', monospace">Roboto Mono</option>
+                    <option value="Consolas, monospace">Consolas</option>
+                    <option value="'Fira Code', monospace">Fira Code</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="design-panel-buttons">
+            <button class="design-panel-btn copy-tokens-btn" onclick="copyTokens()" id="copyTokensBtn">
+                Copy CSS
+            </button>
+            <button class="design-panel-btn load-tokens-btn" onclick="loadTokens()" id="loadTokensBtn">
+                Load CSS
+            </button>
+            <button class="design-panel-btn reset-tokens-btn" onclick="resetTokens()" id="resetTokensBtn">
+                Reset
+            </button>
+        </div>
+    </div>
+</div>

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Environment Reporting
 
 process_env_report() {

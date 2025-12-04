@@ -3,9 +3,8 @@
 # TTS transaction wrapper for actions
 
 # Source dependencies
-if [[ -f "$TETRA_SRC/bash/actions/registry.sh" ]]; then
-    source "$TETRA_SRC/bash/actions/registry.sh"
-fi
+source "$TETRA_SRC/bash/utils/function_helpers.sh"
+tetra_source_if_exists "$TETRA_SRC/bash/actions/registry.sh"
 
 # Execute an action (with optional TTS transaction)
 # Usage: action_exec module.action [@endpoint] [args...]
@@ -49,9 +48,9 @@ action_exec() {
     local direct_fn="${module}_${action}"
 
     local fn_to_call=""
-    if declare -f "$impl_fn" >/dev/null 2>&1; then
+    if tetra_function_exists "$impl_fn"; then
         fn_to_call="$impl_fn"
-    elif declare -f "$direct_fn" >/dev/null 2>&1; then
+    elif tetra_function_exists "$direct_fn"; then
         fn_to_call="$direct_fn"
     else
         echo "Error: Implementation function not found: $impl_fn or $direct_fn" >&2

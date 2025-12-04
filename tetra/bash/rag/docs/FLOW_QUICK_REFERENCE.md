@@ -1,14 +1,25 @@
 # RAG Flow - Quick Reference Card
 
+## What is a Flow?
+
+A **flow** is a **mini inquiry** - a lightweight, focused investigation (typically 10-30 minutes):
+- **Question** → **Evidence** → **Answer**
+- Not a multi-day project tracker
+- Curated context with clear outcome
+- Captures lessons learned for future reference
+
+Flows track ephemeral inquiries, not long-running workflows.
+
 ## Essential Commands
 
 ### Flow Commands (use `/f` alias)
 ```bash
 /f help                    # Show beautiful flow guide table
-/f create "description"    # Create new flow
+/f create "description"    # Create new flow (mini inquiry)
 /f status                  # Show current flow status
 /f list                    # List all flows
 /f resume [flow-id]        # Resume a flow
+/f complete                # Mark flow complete with outcome
 ```
 
 ### Evidence Commands (use `/e` alias)
@@ -29,9 +40,36 @@
 | ASSEMBLE | Dark Purple   | `/f submit`                         |
 | SUBMIT   | Orange        | `/f apply`                          |
 | APPLY    | Bright Orange | `/f validate`                       |
-| VALIDATE | Red           | `/f fold` or DONE                   |
-| DONE     | Green         | Success! Flow complete              |
-| FAIL     | Red           | `/f resume` to retry                |
+| VALIDATE | Red           | `/f fold` or `/f complete`          |
+| DONE ✓   | Green         | Inquiry complete with outcome       |
+| DONE ⚠   | Yellow        | Partially successful                |
+| DONE ○   | Gray          | Abandoned (recorded for reference)  |
+| FAIL ✗   | Red           | Failed, `/f resume` to retry        |
+
+## Completing a Flow
+
+When your inquiry is done, capture the outcome and lessons:
+
+```bash
+# Simple completion (defaults to success)
+/f complete
+
+# With outcome and metadata
+/f complete --outcome success \
+            --lesson "Token limit was main constraint" \
+            --artifact "build/answer.md" \
+            --tag "quick-win" \
+            --effort 15
+
+# Outcomes: success | partial | abandoned | failed
+```
+
+The flow tracks:
+- **Outcome**: How it ended (✓ success, ⚠ partial, ○ abandoned, ✗ failed)
+- **Lessons**: What you learned (for future inquiries)
+- **Artifacts**: Files produced (answers, patches, notes)
+- **Tags**: Semantic labels (bug-fix, refactor, etc.)
+- **Effort**: Time spent in minutes
 
 ## Evidence Selectors
 
@@ -54,30 +92,35 @@ After adding evidence:
 
 Use them: `cat $e1`, `grep pattern $e2`, `diff $e1 $e3`
 
-## Common Workflow
+## Common Workflow (Mini Inquiry)
 
 ```bash
 # 1. Start
 rag repl
 
-# 2. View guide
-/f help
+# 2. Create mini inquiry
+/f create "How does the parser handle edge cases?"
 
-# 3. Create flow
-/f create "Fix parser bug"
+# 3. Add evidence (curated context)
+/e add core/parser.sh::100,200#parser
+/e add tests/parser_test.sh#test
 
-# 4. Add evidence
-/e add core/parser.sh::100,200#bug
-/e add tests/parser_test.sh
-
-# 5. Verify
+# 4. Verify evidence
 /e list
 cat $e1
 
-# 6. Check status
-/f status
+# 5. Review and iterate
+/f status                  # Check current state
+# ... add more evidence as needed ...
 
-# 7. Continue with flow stages...
+# 6. Complete with outcome
+/f complete --outcome success \
+            --lesson "Parser uses recursive descent" \
+            --artifact "build/answer.md" \
+            --tag "architecture" \
+            --effort 20
+
+# Result: Flow:first-inquiry-20251124... ✓ (DONE)
 ```
 
 ## Tips

@@ -2,15 +2,12 @@
 
 # QA Module Includes - Controls what gets loaded for QA functionality
 
-# Follow tetra convention: MOD_DIR for data, MOD_SRC for source
-QA_DIR="${QA_DIR:-$TETRA_DIR/qa}"
-QA_SRC="${QA_SRC:-$TETRA_SRC/bash/qa}"
+# Load module utilities
+source "$TETRA_SRC/bash/utils/module_init.sh"
+source "$TETRA_SRC/bash/utils/function_helpers.sh"
 
-# Create data directory if it doesn't exist
-[[ ! -d "$QA_DIR" ]] && mkdir -p "$QA_DIR"
-
-# Export for subprocesses
-export QA_DIR QA_SRC
+# Initialize module with standard tetra conventions
+tetra_module_init_with_alias "qa" "QA"
 
 # Source the main QA module
 source "$QA_SRC/qa.sh"

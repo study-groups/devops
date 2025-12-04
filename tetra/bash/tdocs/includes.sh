@@ -3,15 +3,12 @@
 # tdocs module includes
 # Entry point for the tdocs (Tetra Document Manager) module
 
-TDOCS_MOD_DIR="$(dirname "${BASH_SOURCE[0]}")"
-TDOCS_SRC="$TDOCS_MOD_DIR"
+# Load module utilities
+source "$TETRA_SRC/bash/utils/module_init.sh"
+source "$TETRA_SRC/bash/utils/function_helpers.sh"
 
-# Strong globals (following Tetra convention)
-: "${TDOCS_SRC:=$TETRA_SRC/bash/tdocs}"
-: "${TDOCS_DIR:=$TETRA_DIR/tdocs}"
-
-# Export for runtime use
-export TDOCS_SRC TDOCS_DIR
+# Initialize module with standard tetra conventions
+tetra_module_init_with_alias "tdocs" "TDOCS"
 
 # Source UI components (colors first for TDS integration)
 source "$TDOCS_SRC/ui/colors.sh"

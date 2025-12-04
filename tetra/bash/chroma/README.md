@@ -94,7 +94,7 @@ chroma --clear-rules
 For advanced usage in scripts:
 
 ```bash
-source $TETRA_SRC/bash/tds/chroma.sh
+source $TETRA_SRC/bash/chroma/chroma.sh
 
 # Register transformation rule
 chroma_register_rule "highlight_api" "s/API:/🔌 API:/g"
@@ -181,7 +181,7 @@ chroma --rule "s/\[x\]/✓/g" CHECKLIST.md
 
 ```bash
 #!/usr/bin/env bash
-source $TETRA_SRC/bash/tds/chroma.sh
+source $TETRA_SRC/bash/chroma/chroma.sh
 
 # Generate and render markdown
 generate_report | chroma -p
@@ -240,7 +240,9 @@ chroma [OPTIONS] [FILE|-]
 
 Options:
   -p, --pager           Use pager for output
+  -n, --no-pager        Disable pager (print to stdout)
   -w, --width N         Set line width
+  -m, --margin N [H]    Set margins (N lines top, H spaces left/right)
   -t, --theme NAME      Switch TDS theme
   --preset NAME         Load rule preset
   --rule PATTERN        Add custom sed transformation

@@ -7,6 +7,10 @@ if [[ -f "$TETRA_SRC/bash/trs/trs.sh" ]]; then
     source "$TETRA_SRC/bash/trs/trs.sh"
 fi
 
+if [[ -f "$TETRA_SRC/bash/actions/trs_integration.sh" ]]; then
+    source "$TETRA_SRC/bash/actions/trs_integration.sh"
+fi
+
 # Soft delete a file or directory
 # Usage: soft_delete target [reason]
 # Returns: Path to trash directory
@@ -42,11 +46,27 @@ soft_delete() {
     local basename=$(basename "$target")
     local trash_path="$trash_dir/$basename"
 
-    # If it's a TRS record in canonical location, make module explicit
-    if $is_trs_record && [[ "$target" =~ $TETRA_DIR/([^/]+)/db/ ]]; then
-        # Use trs_move to handle module naming
-        trash_path=$(trs_move "$target" "$trash_dir" 2>&1)
-        local move_status=$?
+    # If it's a TRS record in canonical location, make module/org explicit
+    if $is_trs_record; then
+        if [[ "$target" =~ $TETRA_DIR/orgs/([^/]+)/db/ ]]; then
+            # Org-scoped TRS record - make org explicit
+            local org="${BASH_REMATCH[1]}"
+            trash_path=$(trs_noncanonical_path "$target" "$trash_dir")
+            mv "$target" "$trash_path"
+            local move_status=$?
+        elif [[ "$target" =~ $TETRA_DIR/([^/]+)/db/ ]]; then
+            # Module-scoped TRS record - use trs_move if available
+            if type trs_move &>/dev/null; then
+                trash_path=$(trs_move "$target" "$trash_dir" 2>&1)
+                local move_status=$?
+            else
+                mv "$target" "$trash_path"
+                local move_status=$?
+            fi
+        else
+            mv "$target" "$trash_path"
+            local move_status=$?
+        fi
     else
         # Regular move
         mv "$target" "$trash_path"

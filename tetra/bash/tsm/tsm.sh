@@ -17,6 +17,11 @@ _tsm_load_components() {
     # Load TSM using full include now that fork issues are resolved
     source "$MOD_SRC/core/include.sh"
 
+    # Load remote TSM wrapper (requires org system)
+    if [[ -f "$MOD_SRC/remote/includes.sh" ]]; then
+        source "$MOD_SRC/remote/includes.sh" 2>/dev/null || true
+    fi
+
     # Initialize TSM module after all components loaded
     if declare -f tsm_module_init >/dev/null; then
         tsm_module_init
@@ -146,6 +151,9 @@ tsm() {
             ;;
         show)
             tetra_tsm_show_service "$@"
+            ;;
+        edit)
+            tetra_tsm_edit "$@"
             ;;
         startup)
             # Handle 'startup status' subcommand
@@ -448,12 +456,12 @@ tsm_tview_list() {
 # === TSM HELP FUNCTIONS ===
 
 _tsm_show_simple_help() {
-    # Colors
-    local C_TITLE='\033[1;36m'
-    local C_CAT='\033[1;34m'
-    local C_CMD='\033[0;36m'
-    local C_GRAY='\033[0;90m'
-    local C_NC='\033[0m'
+    # Use centralized color constants
+    local C_TITLE="${TC_TITLE:-\033[1;36m}"
+    local C_CAT="${TC_CATEGORY:-\033[1;34m}"
+    local C_CMD="${TC_COMMAND:-\033[0;36m}"
+    local C_GRAY="${TC_GRAY:-\033[0;90m}"
+    local C_NC="${TC_RESET:-\033[0m}"
 
     cat <<EOF
 $(echo -e "${C_TITLE}TSM${C_NC}") - Tetra Service Manager

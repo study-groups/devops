@@ -9,63 +9,69 @@ if [[ -f "$TETRA_SRC/bash/color/color_core.sh" ]]; then
     source "$TETRA_SRC/bash/color/color_palettes.sh"
 fi
 
-# Helper functions using tetra color palette
-log() {
-    text_color "0088FF"
-    printf "[DOCTOR] %s" "$1"
-    reset_color
-    echo
-}
-warn() {
-    text_color "FFAA00"
-    printf "%s" "$1"
-    reset_color
-    echo
-}
-error() {
-    text_color "FF0044"
-    printf "%s" "$1"
-    reset_color
-    echo
-}
-success() {
-    text_color "00AA00"
-    printf "%s" "$1"
-    reset_color
-    echo
-}
-info() {
-    text_color "00AAAA"
-    printf "%s" "$1"
-    reset_color
-    echo
-}
+# === DOCTOR-SPECIFIC OUTPUT HELPERS ===
+# Prefixed to avoid shadowing global functions
+# These use [DOCTOR] prefix for log messages
 
-# Truncate string with ellipsis in middle to fit width
-truncate_middle() {
-    local str="$1"
-    local max_width="${2:-40}"
-
-    # If string fits, return as-is
-    if [[ ${#str} -le $max_width ]]; then
-        echo "$str"
-        return
+_tsm_doctor_log() {
+    if declare -f text_color >/dev/null 2>&1; then
+        text_color "0088FF"
+        printf "[DOCTOR] %s" "$1"
+        reset_color
+    else
+        printf "[DOCTOR] %s" "$1"
     fi
+    echo
+}
 
-    # Calculate how much to show on each side (leave 3 chars for "...")
-    local side_width=$(( (max_width - 3) / 2 ))
-    local start_width=$side_width
-    local end_width=$side_width
-
-    # If odd number, give extra char to end
-    if [[ $(( (max_width - 3) % 2 )) -eq 1 ]]; then
-        end_width=$((end_width + 1))
+_tsm_doctor_warn() {
+    if declare -f text_color >/dev/null 2>&1; then
+        text_color "FFAA00"
+        printf "%s" "$1"
+        reset_color
+    else
+        printf "%s" "$1"
     fi
+    echo
+}
 
-    # Extract start and end, join with ellipsis
-    local start="${str:0:$start_width}"
-    local end="${str: -$end_width}"
-    echo "${start}...${end}"
+_tsm_doctor_error() {
+    if declare -f text_color >/dev/null 2>&1; then
+        text_color "FF0044"
+        printf "%s" "$1"
+        reset_color
+    else
+        printf "%s" "$1"
+    fi
+    echo
+}
+
+_tsm_doctor_success() {
+    if declare -f text_color >/dev/null 2>&1; then
+        text_color "00AA00"
+        printf "%s" "$1"
+        reset_color
+    else
+        printf "%s" "$1"
+    fi
+    echo
+}
+
+_tsm_doctor_info() {
+    if declare -f text_color >/dev/null 2>&1; then
+        text_color "00AAAA"
+        printf "%s" "$1"
+        reset_color
+    else
+        printf "%s" "$1"
+    fi
+    echo
+}
+
+# Use unified truncation from formatting.sh (tsm_truncate_middle)
+# Local alias for backward compatibility within this file
+_tsm_doctor_truncate() {
+    tsm_truncate_middle "$@"
 }
 
 # Check if lsof is available
@@ -74,37 +80,85 @@ check_dependencies() {
 
     # Check required dependencies
     if ! command -v lsof >/dev/null 2>&1; then
-        error "✗ lsof not found (required for port scanning)"
+        _tsm_doctor_error "✗ lsof not found (required for port scanning)"
         missing+=("lsof")
     else
-        success "✓ lsof available"
+        _tsm_doctor_success "✓ lsof available"
     fi
 
     # Check optional but recommended dependencies (macOS)
     if [[ "$OSTYPE" == "darwin"* ]]; then
         if ! command -v flock >/dev/null 2>&1 || ! command -v setsid >/dev/null 2>&1; then
-            warn "⚠ util-linux not in PATH (provides flock, setsid for better process management)"
+            _tsm_doctor_warn "⚠ util-linux not in PATH (provides flock, setsid for better process management)"
             echo "  Install with: brew install util-linux"
             echo "  TSM will work without it but with reduced functionality"
         else
-            success "✓ util-linux available (flock, setsid)"
+            _tsm_doctor_success "✓ util-linux available (flock, setsid)"
         fi
     fi
 
     [[ ${#missing[@]} -eq 0 ]] && return 0
 
     echo
-    error "Missing required dependencies: ${missing[*]}"
+    _tsm_doctor_error "Missing required dependencies: ${missing[*]}"
     if [[ "$OSTYPE" == "darwin"* ]]; then
         echo "Install with: brew install ${missing[*]}"
     fi
     return 1
 }
 
+# Scan UDP ports (for services like OSC multicast)
+scan_udp_ports() {
+    local port="$1"
+
+    _tsm_doctor_log "Scanning UDP ports..."
+    echo
+
+    if [[ -n "$port" ]]; then
+        # Scan specific UDP port
+        _tsm_doctor_log "Checking UDP port $port..."
+        local result=$(lsof -iUDP:$port -P -n 2>/dev/null)
+        if [[ -n "$result" ]]; then
+            echo "$result"
+        else
+            _tsm_doctor_info "UDP port $port: no listeners found"
+        fi
+        return 0
+    fi
+
+    # Scan all UDP ports in use
+    local udp_ports=$(lsof -iUDP -P -n 2>/dev/null | awk 'NR>1 {print $0}')
+
+    if [[ -z "$udp_ports" ]]; then
+        _tsm_doctor_info "No UDP ports in use"
+        return 0
+    fi
+
+    printf "%-10s %-8s %-20s %s\n" "PROTOCOL" "PID" "PORT" "COMMAND"
+    printf "%-10s %-8s %-20s %s\n" "--------" "---" "----" "-------"
+
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        local cmd=$(echo "$line" | awk '{print $1}')
+        local pid=$(echo "$line" | awk '{print $2}')
+        local proto=$(echo "$line" | awk '{print $8}')
+        local addr=$(echo "$line" | awk '{print $9}')
+
+        # Filter to show meaningful entries
+        [[ "$proto" == "UDP" ]] || continue
+
+        printf "%-10s %-8s %-20s %s\n" "$proto" "$pid" "$addr" "$cmd"
+    done <<< "$udp_ports"
+
+    echo
+    _tsm_doctor_info "UDP services (like OSC multicast) don't bind TCP ports"
+    _tsm_doctor_info "midi.js broadcasts to 239.1.1.1:1983 (multicast)"
+}
+
 # Scan common development ports + TSM-managed ports
 scan_common_ports() {
     # Scan all ports in development range (1024-10000) that are actually in use
-    log "Scanning development ports (1024-10000)..."
+    _tsm_doctor_log "Scanning development ports (1024-10000)..."
 
     # Get all listening ports in the range using lsof
     local ports=()
@@ -118,7 +172,7 @@ scan_common_ports() {
 
     # If no ports found in range, show common defaults as reference
     if [[ ${#ports[@]} -eq 0 ]]; then
-        log "No ports in use in range 1024-10000"
+        _tsm_doctor_log "No ports in use in range 1024-10000"
         echo
         return 0
     fi
@@ -159,7 +213,7 @@ scan_common_ports() {
 
         # All ports in this list are USED (we got them from lsof)
         local cmd_full=$(ps -p $pid -o args= 2>/dev/null || echo "unknown")
-        local cmd=$(truncate_middle "$cmd_full" $cmd_width)
+        local cmd=$(_tsm_doctor_truncate "$cmd_full" $cmd_width)
         printf "%-6s " "$port"
         text_color "FF0044"; printf "%-8s" "USED"; reset_color
         printf " %-5s %-8s %s\n" "$is_tsm_managed" "$pid" "$cmd"
@@ -172,22 +226,22 @@ scan_port() {
     local port="$1"
 
     if [[ ! "$port" =~ ^[0-9]+$ ]]; then
-        error "Invalid port number: $port"
+        _tsm_doctor_error "Invalid port number: $port"
         return 1
     fi
 
-    log "Scanning port $port..."
+    _tsm_doctor_log "Scanning port $port..."
 
     local result=$(tsm_get_port_pid "$port")
     if [[ -n "$result" ]]; then
         local pid="$result"
         local process_full=$(ps -p $pid -o comm= 2>/dev/null || echo "unknown")
-        local process=$(truncate_middle "$process_full" 30)
+        local process=$(_tsm_doctor_truncate "$process_full" 30)
         local cmd_full=$(ps -p $pid -o args= 2>/dev/null || echo "unknown")
-        local cmd=$(truncate_middle "$cmd_full" 60)
+        local cmd=$(_tsm_doctor_truncate "$cmd_full" 60)
         local user=$(ps -p $pid -o user= 2>/dev/null || echo "unknown")
 
-        warn "Port $port is in use"
+        _tsm_doctor_warn "Port $port is in use"
         echo "  PID:     $pid"
         echo "  Process: $process"
         echo "  User:    $user"
@@ -196,17 +250,17 @@ scan_port() {
 
         # Check if it's a TSM process
         if tsm list 2>/dev/null | grep -q "$pid"; then
-            info "This is a TSM-managed process"
+            _tsm_doctor_info "This is a TSM-managed process"
             echo "  Use: tsm stop <process-name>"
         else
-            info "This is NOT a TSM-managed process"
+            _tsm_doctor_info "This is NOT a TSM-managed process"
             echo "  Use: tsm doctor --kill $port"
             echo "  Or:  kill $pid"
         fi
 
         return 1
     else
-        success "Port $port is free"
+        _tsm_doctor_success "Port $port is free"
         return 0
     fi
 }
@@ -217,23 +271,23 @@ kill_port_process() {
     local force="$2"
 
     if [[ ! "$port" =~ ^[0-9]+$ ]]; then
-        error "Invalid port number: $port"
+        _tsm_doctor_error "Invalid port number: $port"
         return 1
     fi
 
     local result=$(tsm_get_port_pid "$port")
     if [[ -z "$result" ]]; then
-        info "Port $port is already free"
+        _tsm_doctor_info "Port $port is already free"
         return 0
     fi
 
     local pid="$result"
     local process_full=$(ps -p $pid -o comm= 2>/dev/null || echo "unknown")
-    local process=$(truncate_middle "$process_full" 30)
+    local process=$(_tsm_doctor_truncate "$process_full" 30)
     local cmd_full=$(ps -p $pid -o args= 2>/dev/null || echo "unknown")
-    local cmd=$(truncate_middle "$cmd_full" 60)
+    local cmd=$(_tsm_doctor_truncate "$cmd_full" 60)
 
-    log "Found process using port $port:"
+    _tsm_doctor_log "Found process using port $port:"
     echo "  PID:     $pid"
     echo "  Process: $process"
     echo "  Command: $cmd"
@@ -241,7 +295,7 @@ kill_port_process() {
 
     # Check if it's a TSM process
     if tsm list 2>/dev/null | grep -q "$pid"; then
-        warn "This is a TSM-managed process. Use 'tsm stop <process-name>' instead."
+        _tsm_doctor_warn "This is a TSM-managed process. Use 'tsm stop <process-name>' instead."
         return 1
     fi
 
@@ -250,39 +304,39 @@ kill_port_process() {
         echo -n "Kill process $pid using port $port? (y/N): "
         read -r response
         if [[ ! "$response" =~ ^[Yy]$ ]]; then
-            info "Cancelled"
+            _tsm_doctor_info "Cancelled"
             return 0
         fi
     fi
 
     # Try graceful kill first
-    log "Sending SIGTERM to process $pid..."
+    _tsm_doctor_log "Sending SIGTERM to process $pid..."
     if kill "$pid" 2>/dev/null; then
         sleep 2
 
         # Check if still running
         if tsm_is_pid_alive "$pid"; then
-            warn "Process still running, sending SIGKILL..."
+            _tsm_doctor_warn "Process still running, sending SIGKILL..."
             kill -9 "$pid" 2>/dev/null
             sleep 1
         fi
 
         # Verify it's gone
         if ! tsm_is_pid_alive "$pid"; then
-            success "Process $pid killed successfully"
+            _tsm_doctor_success "Process $pid killed successfully"
 
             # Double-check port is free
             if [[ -z "$(lsof -ti :$port 2>/dev/null)" ]]; then
-                success "Port $port is now free"
+                _tsm_doctor_success "Port $port is now free"
             else
-                warn "Port $port still shows as in use (may take a moment to clear)"
+                _tsm_doctor_warn "Port $port still shows as in use (may take a moment to clear)"
             fi
         else
-            error "Failed to kill process $pid"
+            _tsm_doctor_error "Failed to kill process $pid"
             return 1
         fi
     else
-        error "Failed to send signal to process $pid"
+        _tsm_doctor_error "Failed to send signal to process $pid"
         return 1
     fi
 }
@@ -291,45 +345,45 @@ kill_port_process() {
 diagnose_env_loading() {
     local env_file="${1:-env/local.env}"
 
-    log "Diagnosing environment file loading: $env_file"
+    _tsm_doctor_log "Diagnosing environment file loading: $env_file"
     echo
 
     # Check if file exists
     if [[ ! -f "$env_file" ]]; then
-        error "Environment file not found: $env_file"
+        _tsm_doctor_error "Environment file not found: $env_file"
         echo "  Checked from: $(pwd)"
         echo "  Try: tetra env init local"
         return 1
     fi
 
-    success "Environment file exists: $env_file"
+    _tsm_doctor_success "Environment file exists: $env_file"
 
     # Check file permissions
     if [[ ! -r "$env_file" ]]; then
-        error "Environment file is not readable"
+        _tsm_doctor_error "Environment file is not readable"
         echo "  Try: chmod 644 $env_file"
         return 1
     fi
 
-    success "Environment file is readable"
+    _tsm_doctor_success "Environment file is readable"
 
     # Check for PORT variable
     if grep -q "^export PORT=" "$env_file"; then
         local port_value=$(grep "^export PORT=" "$env_file" | cut -d'=' -f2)
-        success "PORT variable found: $port_value"
+        _tsm_doctor_success "PORT variable found: $port_value"
 
         # Check if that port is available
         local port_num="${port_value//[^0-9]/}"
         if [[ -n "$port_num" ]]; then
             if scan_port "$port_num" >/dev/null 2>&1; then
-                success "Target port $port_num is available"
+                _tsm_doctor_success "Target port $port_num is available"
             else
-                warn "Target port $port_num is in use - this may cause TSM to use fallback port"
+                _tsm_doctor_warn "Target port $port_num is in use - this may cause TSM to use fallback port"
                 scan_port "$port_num"
             fi
         fi
     else
-        warn "No PORT variable found in $env_file"
+        _tsm_doctor_warn "No PORT variable found in $env_file"
         echo "  TSM may default to port 3000"
         echo "  Add: export PORT=4000"
     fi
@@ -338,24 +392,24 @@ diagnose_env_loading() {
     local required_vars=("NODE_ENV" "PD_DIR")
     for var in "${required_vars[@]}"; do
         if grep -q "^export $var=" "$env_file"; then
-            success "$var variable found"
+            _tsm_doctor_success "$var variable found"
         else
-            warn "$var variable not found in $env_file"
+            _tsm_doctor_warn "$var variable not found in $env_file"
         fi
     done
 
     # Test sourcing the file
-    log "Testing environment file sourcing..."
+    _tsm_doctor_log "Testing environment file sourcing..."
     # Source once and capture both validation and variable output
     local env_output
     if env_output=$(source "$env_file" 2>&1 && env | grep -E "^(PORT|NODE_ENV|PD_DIR)="); then
-        success "Environment file sources without errors"
+        _tsm_doctor_success "Environment file sources without errors"
 
         # Show extracted variables
         echo "  Extracted variables:"
         echo "$env_output" | sed 's/^/    /'
     else
-        error "Environment file has syntax errors"
+        _tsm_doctor_error "Environment file has syntax errors"
         echo "  Try: bash -n $env_file"
     fi
 }
@@ -376,12 +430,12 @@ tsm_diagnose_startup_failure() {
     if [[ -n "$existing_pid" ]]; then
         local process_name_full process_name process_cmd_full process_cmd user_name
         process_name_full=$(ps -p $existing_pid -o comm= 2>/dev/null | tr -d ' ' || echo "unknown")
-        process_name=$(truncate_middle "$process_name_full" 30)
+        process_name=$(_tsm_doctor_truncate "$process_name_full" 30)
         process_cmd_full=$(ps -p $existing_pid -o args= 2>/dev/null || echo "unknown")
-        process_cmd=$(truncate_middle "$process_cmd_full" 80)
+        process_cmd=$(_tsm_doctor_truncate "$process_cmd_full" 80)
         user_name=$(ps -p $existing_pid -o user= 2>/dev/null | tr -d ' ' || echo "unknown")
 
-        error "Port $port is already in use"
+        _tsm_doctor_error "Port $port is already in use"
         echo "  PID:     $existing_pid" >&2
         echo "  Process: $process_name" >&2
         echo "  User:    $user_name" >&2
@@ -403,10 +457,10 @@ tsm_diagnose_startup_failure() {
         fi
 
         if [[ -n "$tsm_process_name" ]]; then
-            info "This is a TSM-managed process: $tsm_process_name"
+            _tsm_doctor_info "This is a TSM-managed process: $tsm_process_name"
             echo "  Run: tsm stop $tsm_process_name" >&2
         else
-            info "This is NOT a TSM-managed process"
+            _tsm_doctor_info "This is NOT a TSM-managed process"
             echo "  Run: tsm doctor kill $port    # Interactive kill" >&2
             echo "  Or:  kill $existing_pid       # Manual kill" >&2
         fi
@@ -417,15 +471,15 @@ tsm_diagnose_startup_failure() {
     # Check environment file if specified
     if [[ -n "$env_file" ]]; then
         if [[ ! -f "$env_file" ]]; then
-            error "Environment file not found: $env_file"
+            _tsm_doctor_error "Environment file not found: $env_file"
             echo "  Run: tetra env init <environment-name>" >&2
             echo >&2
         elif [[ ! -r "$env_file" ]]; then
-            error "Environment file not readable: $env_file"
+            _tsm_doctor_error "Environment file not readable: $env_file"
             echo "  Run: chmod 644 $env_file" >&2
             echo >&2
         else
-            success "Environment file exists and is readable: $env_file"
+            _tsm_doctor_success "Environment file exists and is readable: $env_file"
         fi
     fi
 
@@ -435,11 +489,11 @@ tsm_diagnose_startup_failure() {
         local executable="${cmd_parts[0]}"
 
         if ! command -v "$executable" >/dev/null 2>&1; then
-            error "Command not found: $executable"
+            _tsm_doctor_error "Command not found: $executable"
             echo "  Make sure '$executable' is installed and in PATH" >&2
             echo >&2
         else
-            success "Command executable found: $executable"
+            _tsm_doctor_success "Command executable found: $executable"
         fi
     fi
 
@@ -449,7 +503,7 @@ tsm_diagnose_startup_failure() {
         local recent_errors
         recent_errors=$(tail -20 "$log_file" 2>/dev/null | grep -i "error\|failed\|cannot\|permission" | tail -3)
         if [[ -n "$recent_errors" ]]; then
-            warn "Recent errors found in log file:"
+            _tsm_doctor_warn "Recent errors found in log file:"
             echo "$recent_errors" | sed 's/^/  /' >&2
             echo "  Full log: $log_file" >&2
             echo >&2
@@ -460,7 +514,7 @@ tsm_diagnose_startup_failure() {
     local available_space
     available_space=$(df -h "$TETRA_DIR" 2>/dev/null | awk 'NR==2 {print $4}' || echo "unknown")
     if [[ "$available_space" != "unknown" ]]; then
-        info "Available disk space: $available_space"
+        _tsm_doctor_info "Available disk space: $available_space"
     fi
 
     return 0
@@ -488,7 +542,7 @@ tsm_scan_orphaned_processes() {
         esac
     done
 
-    log "Scanning for potentially orphaned TSM processes..."
+    _tsm_doctor_log "Scanning for potentially orphaned TSM processes..."
     echo
 
     # Get all currently tracked TSM processes
@@ -550,7 +604,7 @@ tsm_scan_orphaned_processes() {
         if [[ "$json_output" == "true" ]]; then
             tsm_json_success "No potentially orphaned processes found" "{\"orphans\": [], \"count\": 0}"
         else
-            success "No potentially orphaned processes found"
+            _tsm_doctor_success "No potentially orphaned processes found"
         fi
         return 0
     fi
@@ -603,7 +657,7 @@ tsm_scan_orphaned_processes() {
         done
 
         echo
-        info "These processes might be orphaned TSM processes"
+        _tsm_doctor_info "These processes might be orphaned TSM processes"
         echo "Actions you can take:"
         echo "  tsm doctor kill <port>     # Kill process using specific port"
         echo "  kill <pid>                 # Kill specific process"
@@ -644,7 +698,7 @@ tsm_validate_command() {
         local existing_pid=$(tsm_get_port_pid "$port")
         if [[ -n "$existing_pid" ]]; then
             local process_cmd_full=$(ps -p $existing_pid -o args= 2>/dev/null || echo "unknown")
-            local process_cmd=$(truncate_middle "$process_cmd_full" 60)
+            local process_cmd=$(_tsm_doctor_truncate "$process_cmd_full" 60)
             validation_errors+=("Port $port is already in use by PID $existing_pid ($process_cmd)")
         else
             validation_info+=("Port $port is available")
@@ -711,13 +765,13 @@ tsm_validate_command() {
         echo "  ]"
         echo "}"
     else
-        log "Pre-flight validation results:"
+        _tsm_doctor_log "Pre-flight validation results:"
         echo
 
         # Show errors
         if [[ ${#validation_errors[@]} -gt 0 ]]; then
             for error in "${validation_errors[@]}"; do
-                error "$error"
+                _tsm_doctor_error "$error"
             done
             echo
         fi
@@ -725,7 +779,7 @@ tsm_validate_command() {
         # Show warnings
         if [[ ${#validation_warnings[@]} -gt 0 ]]; then
             for warning in "${validation_warnings[@]}"; do
-                warn "$warning"
+                _tsm_doctor_warn "$warning"
             done
             echo
         fi
@@ -733,15 +787,15 @@ tsm_validate_command() {
         # Show info
         if [[ ${#validation_info[@]} -gt 0 ]]; then
             for info in "${validation_info[@]}"; do
-                success "$info"
+                _tsm_doctor_success "$info"
             done
             echo
         fi
 
         if [[ ${#validation_errors[@]} -eq 0 ]]; then
-            success "✅ Validation passed - ready to start"
+            _tsm_doctor_success "✅ Validation passed - ready to start"
         else
-            error "❌ Validation failed - ${#validation_errors[@]} error(s) found"
+            _tsm_doctor_error "❌ Validation failed - ${#validation_errors[@]} error(s) found"
         fi
     fi
 
@@ -756,10 +810,10 @@ tsm_clean_stale_processes() {
     local total=0
     local aggressive="${1:-false}"
 
-    log "Cleaning up stale TSM process tracking files..."
+    _tsm_doctor_log "Cleaning up stale TSM process tracking files..."
 
     if [[ ! -d "$TSM_PROCESSES_DIR" ]]; then
-        success "No process tracking directory found"
+        _tsm_doctor_success "No process tracking directory found"
         return 0
     fi
 
@@ -773,7 +827,7 @@ tsm_clean_stale_processes() {
         ((total++))
 
         if [[ ! -f "$meta_file" ]]; then
-            warn "No meta.json in $name, removing entire directory"
+            _tsm_doctor_warn "No meta.json in $name, removing entire directory"
             _tsm_safe_remove_dir "$process_dir"
             ((cleaned++))
             continue
@@ -784,7 +838,7 @@ tsm_clean_stale_processes() {
         pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
 
         if [[ -z "$pid" ]]; then
-            warn "Invalid metadata (no PID) in $name, removing"
+            _tsm_doctor_warn "Invalid metadata (no PID) in $name, removing"
             _tsm_safe_remove_dir "$process_dir"
             ((cleaned++))
             continue
@@ -792,7 +846,7 @@ tsm_clean_stale_processes() {
 
         # Check if PID is alive
         if ! tsm_is_pid_alive "$pid"; then
-            info "Cleaning stale process tracking: $name (PID $pid is dead)"
+            _tsm_doctor_info "Cleaning stale process tracking: $name (PID $pid is dead)"
             _tsm_safe_remove_dir "$process_dir"
             ((cleaned++))
             continue
@@ -806,7 +860,7 @@ tsm_clean_stale_processes() {
                 local actual_pid
                 actual_pid=$(lsof -ti :$port 2>/dev/null | head -1)
                 if [[ -n "$actual_pid" && "$actual_pid" != "$pid" ]]; then
-                    warn "PID $pid alive but port $port has PID $actual_pid, removing stale tracking for $name"
+                    _tsm_doctor_warn "PID $pid alive but port $port has PID $actual_pid, removing stale tracking for $name"
                     _tsm_safe_remove_dir "$process_dir"
                     ((cleaned++))
                     continue
@@ -828,7 +882,7 @@ tsm_clean_stale_processes() {
         ((total++))
 
         if [[ -z "$pid" ]]; then
-            warn "Invalid process file (no PID): $process_name"
+            _tsm_doctor_warn "Invalid process file (no PID): $process_name"
             rm -f "$process_file"
             cleaned=$((cleaned + 1))
             continue
@@ -836,7 +890,7 @@ tsm_clean_stale_processes() {
 
         # Check if process is still running
         if ! tsm_is_pid_alive "$pid"; then
-            info "Cleaning stale process tracking: $process_name (PID $pid no longer exists)"
+            _tsm_doctor_info "Cleaning stale process tracking: $process_name (PID $pid no longer exists)"
             rm -f "$process_file"
             rm -f "$TSM_PIDS_DIR/$process_name.pid" 2>/dev/null
             cleaned=$((cleaned + 1))
@@ -847,11 +901,11 @@ tsm_clean_stale_processes() {
 
     echo ""
     if [[ $total -eq 0 ]]; then
-        success "No process tracking files found"
+        _tsm_doctor_success "No process tracking files found"
     elif [[ $cleaned -eq 0 ]]; then
-        success "No stale process files found ($kept valid processes)"
+        _tsm_doctor_success "No stale process files found ($kept valid processes)"
     else
-        success "Cleaned up $cleaned stale process files ($kept kept)"
+        _tsm_doctor_success "Cleaned up $cleaned stale process files ($kept kept)"
     fi
 
     return 0
@@ -863,24 +917,24 @@ tsm_healthcheck() {
     local warnings=0
     local fix_suggestions=()
 
-    log "TSM Health Check"
+    _tsm_doctor_log "TSM Health Check"
     echo "==================="
     echo
 
     # Check TETRA core variables
-    log "Core Environment:"
+    _tsm_doctor_log "Core Environment:"
     if [[ -n "${TETRA_SRC:-}" ]]; then
-        success "  [OK] TETRA_SRC=$TETRA_SRC"
+        _tsm_doctor_success "  [OK] TETRA_SRC=$TETRA_SRC"
     else
-        error "  [ERROR] TETRA_SRC not set"
+        _tsm_doctor_error "  [ERROR] TETRA_SRC not set"
         fix_suggestions+=("Run: source ~/tetra/tetra.sh")
         ((errors++))
     fi
 
     if [[ -n "${TETRA_DIR:-}" ]]; then
-        success "  [OK] TETRA_DIR=$TETRA_DIR"
+        _tsm_doctor_success "  [OK] TETRA_DIR=$TETRA_DIR"
     else
-        error "  [ERROR] TETRA_DIR not set"
+        _tsm_doctor_error "  [ERROR] TETRA_DIR not set"
         fix_suggestions+=("Run: source ~/tetra/tetra.sh")
         ((errors++))
     fi
@@ -888,13 +942,13 @@ tsm_healthcheck() {
     echo
 
     # Check TSM runtime variables
-    log "TSM Runtime Variables:"
+    _tsm_doctor_log "TSM Runtime Variables:"
     local tsm_vars=("TSM_PROCESSES_DIR" "TSM_LOGS_DIR" "TSM_PIDS_DIR" "TSM_PORTS_DIR")
     for var in "${tsm_vars[@]}"; do
         if [[ -n "${!var:-}" ]]; then
-            success "  [OK] $var=${!var}"
+            _tsm_doctor_success "  [OK] $var=${!var}"
         else
-            error "  [ERROR] $var not set"
+            _tsm_doctor_error "  [ERROR] $var not set"
             fix_suggestions+=("TSM not properly initialized. Run: source $TETRA_SRC/bash/tsm/tsm.sh")
             ((errors++))
         fi
@@ -903,16 +957,16 @@ tsm_healthcheck() {
     echo
 
     # Check runtime directories exist
-    log "Runtime Directories:"
+    _tsm_doctor_log "Runtime Directories:"
     for var in "${tsm_vars[@]}"; do
         local dir_path="${!var:-}"
         if [[ -z "$dir_path" ]]; then
-            warn "  [WARN] $var: skipped (not set)"
+            _tsm_doctor_warn "  [WARN] $var: skipped (not set)"
             ((warnings++))
         elif [[ -d "$dir_path" ]]; then
-            success "  [OK] $var: exists"
+            _tsm_doctor_success "  [OK] $var: exists"
         else
-            warn "  [WARN] $var: missing"
+            _tsm_doctor_warn "  [WARN] $var: missing"
             fix_suggestions+=("Create with: mkdir -p $dir_path")
             ((warnings++))
         fi
@@ -921,13 +975,13 @@ tsm_healthcheck() {
     echo
 
     # Check dependencies
-    log "Dependencies:"
+    _tsm_doctor_log "Dependencies:"
     local deps=("lsof" "jq" "ps" "kill")
     for dep in "${deps[@]}"; do
         if command -v "$dep" >/dev/null 2>&1; then
-            success "  [OK] $dep: installed"
+            _tsm_doctor_success "  [OK] $dep: installed"
         else
-            error "  [ERROR] $dep: not found"
+            _tsm_doctor_error "  [ERROR] $dep: not found"
             if [[ "$dep" == "lsof" ]]; then
                 fix_suggestions+=("Install: brew install lsof")
             elif [[ "$dep" == "jq" ]]; then
@@ -940,9 +994,9 @@ tsm_healthcheck() {
     # Check optional dependencies (macOS)
     if [[ "$OSTYPE" == "darwin"* ]]; then
         if command -v flock >/dev/null 2>&1 && command -v setsid >/dev/null 2>&1; then
-            success "  [OK] util-linux: installed (flock, setsid)"
+            _tsm_doctor_success "  [OK] util-linux: installed (flock, setsid)"
         else
-            warn "  [OPTIONAL] util-linux: not in PATH"
+            _tsm_doctor_warn "  [OPTIONAL] util-linux: not in PATH"
             fix_suggestions+=("Install util-linux: brew install util-linux OR run: bash \$TETRA_SRC/bash/tsm/install.sh")
             ((warnings++))
         fi
@@ -951,10 +1005,10 @@ tsm_healthcheck() {
     echo
 
     # Check for running processes vs tracked processes
-    log "Process Tracking:"
+    _tsm_doctor_log "Process Tracking:"
     if [[ -n "${TSM_PROCESSES_DIR:-}" && -d "${TSM_PROCESSES_DIR:-}" ]]; then
         local meta_count=$(find "$TSM_PROCESSES_DIR" -name "*.meta" -o -name "meta.json" 2>/dev/null | wc -l | tr -d ' ')
-        info "  Tracked processes: $meta_count"
+        _tsm_doctor_info "  Tracked processes: $meta_count"
 
         # Check for stale tracking
         local stale=0
@@ -971,51 +1025,51 @@ tsm_healthcheck() {
             done
 
             if [[ $stale -gt 0 ]]; then
-                warn "  [WARN] Stale process files: $stale"
+                _tsm_doctor_warn "  [WARN] Stale process files: $stale"
                 fix_suggestions+=("Clean stale processes: tsm doctor clean")
                 ((warnings++))
             else
-                success "  [OK] No stale process files"
+                _tsm_doctor_success "  [OK] No stale process files"
             fi
         fi
     else
-        warn "  [WARN] Cannot check (TSM_PROCESSES_DIR not available)"
+        _tsm_doctor_warn "  [WARN] Cannot check (TSM_PROCESSES_DIR not available)"
         ((warnings++))
     fi
 
     echo
 
     # Check for orphaned processes
-    log "Orphaned Processes:"
+    _tsm_doctor_log "Orphaned Processes:"
     if command -v lsof >/dev/null 2>&1; then
         local orphan_count=$(ps -eo pid,args | grep -E "python.*http.server|node.*server" | grep -v grep | wc -l | tr -d ' ')
         if [[ $orphan_count -gt 0 ]]; then
-            warn "  [WARN] Potential orphans: $orphan_count"
+            _tsm_doctor_warn "  [WARN] Potential orphans: $orphan_count"
             fix_suggestions+=("Check orphans: tsm doctor orphans")
             ((warnings++))
         else
-            success "  [OK] No obvious orphans"
+            _tsm_doctor_success "  [OK] No obvious orphans"
         fi
     fi
 
     echo
 
     # Summary
-    log "Summary:"
+    _tsm_doctor_log "Summary:"
     if [[ $errors -eq 0 && $warnings -eq 0 ]]; then
-        success "  All checks passed"
+        _tsm_doctor_success "  All checks passed"
         return 0
     elif [[ $errors -eq 0 ]]; then
-        warn "  $warnings warning(s) found"
+        _tsm_doctor_warn "  $warnings warning(s) found"
     else
-        error "  $errors error(s), $warnings warning(s) found"
+        _tsm_doctor_error "  $errors error(s), $warnings warning(s) found"
     fi
 
     echo
 
     # Show fix suggestions
     if [[ ${#fix_suggestions[@]} -gt 0 ]]; then
-        log "Suggested Fixes:"
+        _tsm_doctor_log "Suggested Fixes:"
         for suggestion in "${fix_suggestions[@]}"; do
             echo "  -> $suggestion"
         done
@@ -1056,7 +1110,7 @@ tetra_tsm_doctor() {
                     tsm_runtime_info "$runtime_type"
                 fi
             else
-                error "Runtime diagnostics not available (runtime_info.sh not loaded)"
+                _tsm_doctor_error "Runtime diagnostics not available (runtime_info.sh not loaded)"
                 return 1
             fi
             ;;
@@ -1066,7 +1120,7 @@ tetra_tsm_doctor() {
         "port")
             local port="$1"
             if [[ -z "$port" ]]; then
-                error "Port number required"
+                _tsm_doctor_error "Port number required"
                 echo "Usage: tsm doctor port <port-number>"
                 return 1
             fi
@@ -1076,7 +1130,7 @@ tetra_tsm_doctor() {
             local port="$1"
             local force="$2"
             if [[ -z "$port" ]]; then
-                error "Port number required"
+                _tsm_doctor_error "Port number required"
                 echo "Usage: tsm doctor kill <port-number> [--force]"
                 return 1
             fi
@@ -1131,7 +1185,7 @@ tetra_tsm_doctor() {
             if declare -f tsm_reconcile_ports >/dev/null 2>&1; then
                 tsm_reconcile_ports
             else
-                error "Port reconciliation not available (ports_double.sh not loaded)"
+                _tsm_doctor_error "Port reconciliation not available (ports_double.sh not loaded)"
                 return 1
             fi
             ;;
@@ -1139,7 +1193,7 @@ tetra_tsm_doctor() {
             if declare -f tsm_show_declared_ports >/dev/null 2>&1; then
                 tsm_show_declared_ports
             else
-                error "Port registry not available (ports_double.sh not loaded)"
+                _tsm_doctor_error "Port registry not available (ports_double.sh not loaded)"
                 return 1
             fi
             ;;
@@ -1147,9 +1201,12 @@ tetra_tsm_doctor() {
             if declare -f tsm_show_actual_ports >/dev/null 2>&1; then
                 tsm_show_actual_ports
             else
-                error "Port scanning not available (ports_double.sh not loaded)"
+                _tsm_doctor_error "Port scanning not available (ports_double.sh not loaded)"
                 return 1
             fi
+            ;;
+        "udp")
+            scan_udp_ports "$@"
             ;;
         "help"|"-h"|"--help")
             cat <<EOF
@@ -1157,8 +1214,9 @@ TSM Doctor - Port diagnostics and conflict resolution
 
 Usage:
   tsm doctor healthcheck         Run comprehensive health check (TSM env, deps, processes)
-  tsm doctor [scan]              Scan common development ports
-  tsm doctor port <number>       Check specific port
+  tsm doctor [scan]              Scan common development ports (TCP)
+  tsm doctor udp [port]          Scan UDP ports (OSC, multicast services)
+  tsm doctor port <number>       Check specific TCP port
   tsm doctor kill <port> [--force]  Kill process using port
   tsm doctor env [file]          Diagnose environment file loading
   tsm doctor orphans [--json]    Find potentially orphaned TSM processes
@@ -1192,7 +1250,7 @@ Common Issues:
 EOF
             ;;
         *)
-            error "Unknown subcommand: $subcommand"
+            _tsm_doctor_error "Unknown subcommand: $subcommand"
             echo "Use 'tsm doctor help' for usage information"
             return 1
             ;;

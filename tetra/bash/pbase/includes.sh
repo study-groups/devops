@@ -1,19 +1,24 @@
 #!/usr/bin/env bash
 # pbase Module - PData Service Management
 
-PBASE_MOD_SRC="${PBASE_MOD_SRC:-$TETRA_SRC/bash/pbase}"
+# Load module utilities
+source "$TETRA_SRC/bash/utils/module_init.sh"
+source "$TETRA_SRC/bash/utils/function_helpers.sh"
+
+# Initialize module with standard tetra conventions
+tetra_module_init_with_alias "pbase" "PBASE"
 
 # Load service management
-source "$PBASE_MOD_SRC/service.sh"
+source "$PBASE_SRC/service.sh"
 
 # Load admin functions
-source "$PBASE_MOD_SRC/admin.sh"
+source "$PBASE_SRC/admin.sh"
 
 # Load actions
-source "$PBASE_MOD_SRC/actions.sh"
+source "$PBASE_SRC/actions.sh"
 
 # Load REPL
-source "$PBASE_MOD_SRC/pbase_repl.sh" 2>/dev/null || true
+tetra_source_silent "$PBASE_SRC/pbase_repl.sh"
 
 # Main pbase command - launches REPL by default
 pbase() {

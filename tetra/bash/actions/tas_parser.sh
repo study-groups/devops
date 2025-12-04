@@ -336,6 +336,129 @@ tas_is_pipeline() {
     [[ "$input" == *\|* ]]
 }
 
+# Check if input is a conditional (contains ? and :)
+# Usage: tas_is_conditional string
+# Returns: 0 if conditional, 1 if not
+tas_is_conditional() {
+    local input="$1"
+
+    [[ "$input" == *" ? "* && "$input" == *" : "* ]]
+}
+
+# Check if input is parallel (contains &)
+# Usage: tas_is_parallel string
+# Returns: 0 if parallel, 1 if not
+tas_is_parallel() {
+    local input="$1"
+
+    [[ "$input" == *" & "* ]]
+}
+
+# Check for mixed operators (not allowed in v1.1)
+# Usage: tas_has_mixed_operators string
+# Returns: 0 if mixed (error), 1 if single operator type
+tas_has_mixed_operators() {
+    local input="$1"
+    local op_count=0
+
+    [[ "$input" == *\|* ]] && ((op_count++))
+    [[ "$input" == *" & "* ]] && ((op_count++))
+    [[ "$input" == *" ? "* ]] && ((op_count++))
+
+    [[ $op_count -gt 1 ]]
+}
+
+# Validate operator usage
+# Usage: tas_validate_operators string
+# Returns: 0 if valid, 1 if invalid (mixed operators)
+tas_validate_operators() {
+    local input="$1"
+
+    if tas_has_mixed_operators "$input"; then
+        echo "Error: Mixed operators not supported. Use one of: | (pipeline), & (parallel), ? : (conditional)" >&2
+        return 1
+    fi
+
+    return 0
+}
+
+# Conditional parsing globals
+declare -g TAS_CONDITION=""
+declare -g TAS_CONDITION_TRUE=""
+declare -g TAS_CONDITION_FALSE=""
+
+# Parse conditional expression
+# Usage: tas_parse_conditional string
+# Sets: TAS_CONDITION, TAS_CONDITION_TRUE, TAS_CONDITION_FALSE
+tas_parse_conditional() {
+    local input="$1"
+
+    if [[ -z "$input" ]]; then
+        echo "Error: tas_parse_conditional requires input" >&2
+        return 1
+    fi
+
+    # Reset globals
+    TAS_CONDITION=""
+    TAS_CONDITION_TRUE=""
+    TAS_CONDITION_FALSE=""
+
+    if ! tas_is_conditional "$input"; then
+        echo "Error: Not a conditional expression" >&2
+        return 1
+    fi
+
+    # Split on " ? " and " : "
+    # Format: condition ? true_branch : false_branch
+    TAS_CONDITION="${input%% \? *}"
+    local rest="${input#* \? }"
+    TAS_CONDITION_TRUE="${rest%% : *}"
+    TAS_CONDITION_FALSE="${rest#* : }"
+
+    # Trim whitespace
+    TAS_CONDITION=$(echo "$TAS_CONDITION" | xargs)
+    TAS_CONDITION_TRUE=$(echo "$TAS_CONDITION_TRUE" | xargs)
+    TAS_CONDITION_FALSE=$(echo "$TAS_CONDITION_FALSE" | xargs)
+
+    return 0
+}
+
+# Parallel parsing globals
+declare -ga TAS_PARALLEL_ACTIONS=()
+
+# Parse parallel expression
+# Usage: tas_parse_parallel string
+# Sets: TAS_PARALLEL_ACTIONS array
+tas_parse_parallel() {
+    local input="$1"
+
+    if [[ -z "$input" ]]; then
+        echo "Error: tas_parse_parallel requires input" >&2
+        return 1
+    fi
+
+    # Reset globals
+    TAS_PARALLEL_ACTIONS=()
+
+    if ! tas_is_parallel "$input"; then
+        echo "Error: Not a parallel expression" >&2
+        return 1
+    fi
+
+    # Split on " & "
+    IFS='&' read -ra TAS_PARALLEL_ACTIONS <<< "$input"
+
+    # Trim each action
+    local -a trimmed=()
+    for action in "${TAS_PARALLEL_ACTIONS[@]}"; do
+        trimmed+=("$(echo "$action" | xargs)")
+    done
+
+    TAS_PARALLEL_ACTIONS=("${trimmed[@]}")
+
+    return 0
+}
+
 # Export globals
 export TAS_MODULE
 export TAS_ACTION
@@ -345,6 +468,12 @@ export TAS_ENDPOINT
 export TAS_IS_PLURAL
 export TAS_RAW_INPUT
 export TAS_PIPELINE_STAGES
+
+# Export new globals
+export TAS_CONDITION
+export TAS_CONDITION_TRUE
+export TAS_CONDITION_FALSE
+export TAS_PARALLEL_ACTIONS
 
 # Export functions
 export -f tas_parse
@@ -358,3 +487,9 @@ export -f tas_parse_and_validate
 export -f tas_is_tas_syntax
 export -f tas_parse_pipeline
 export -f tas_is_pipeline
+export -f tas_is_conditional
+export -f tas_is_parallel
+export -f tas_has_mixed_operators
+export -f tas_validate_operators
+export -f tas_parse_conditional
+export -f tas_parse_parallel
