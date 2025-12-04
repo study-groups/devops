@@ -148,12 +148,14 @@ tds_bg_color() {
     bg_only "$hex"
 }
 
-# Apply color swatch from token (fg+bg same)
+# Apply color swatch from token (fg+bg same) - prints block and resets
 tds_color_swatch() {
     local token="$1"
     local state="${2:-normal}"
     local hex=$(tds_resolve_color "$token" "$state")
     color_swatch "$hex"
+    printf "   "
+    reset_color
 }
 
 # Show all defined tokens with their resolved colors
@@ -164,37 +166,41 @@ tds_show_tokens() {
 
     echo "Structural Tokens:"
     for key in structural.primary structural.secondary structural.accent structural.muted structural.separator; do
-        printf "  %-30s " "$key"
-        tds_color_swatch "$key"
-        printf " %s → %s\n" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
+        printf "  %-30s" "$key"
+        tds_text_color "$key"
+        printf "%s → %s" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
         reset_color
+        echo
     done
     echo
 
     echo "Text Tokens:"
     for key in text.primary text.secondary text.tertiary text.muted; do
-        printf "  %-30s " "$key"
-        tds_color_swatch "$key"
-        printf " %s → %s\n" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
+        printf "  %-30s" "$key"
+        tds_text_color "$key"
+        printf "%s → %s" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
         reset_color
+        echo
     done
     echo
 
     echo "Interactive Tokens:"
     for key in interactive.link interactive.active interactive.hover interactive.selected; do
-        printf "  %-30s " "$key"
-        tds_color_swatch "$key"
-        printf " %s → %s\n" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
+        printf "  %-30s" "$key"
+        tds_text_color "$key"
+        printf "%s → %s" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
         reset_color
+        echo
     done
     echo
 
     echo "Status Tokens:"
     for key in status.success status.warning status.error status.info; do
-        printf "  %-30s " "$key"
-        tds_color_swatch "$key"
-        printf " %s → %s\n" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
+        printf "  %-30s" "$key"
+        tds_text_color "$key"
+        printf "%s → %s" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
         reset_color
+        echo
     done
     echo
 
@@ -202,10 +208,11 @@ tds_show_tokens() {
     for key in content.heading.h1 content.heading.h2 content.heading.h3 content.heading.h4 \
                content.code.inline content.code.block content.quote content.emphasis.bold \
                content.emphasis.italic content.link content.hr; do
-        printf "  %-30s " "$key"
-        tds_color_swatch "$key"
-        printf " %s → %s\n" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
+        printf "  %-30s" "$key"
+        tds_text_color "$key"
+        printf "%s → %s" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
         reset_color
+        echo
     done
     echo
 }

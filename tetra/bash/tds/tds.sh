@@ -381,6 +381,84 @@ _tds_cmd_set_theme() {
     tds_switch_theme "$theme"
 }
 
+# Set individual palette color (in-memory only)
+_tds_cmd_set_palette() {
+    local palette="$1"
+    local index="$2"
+    local hex="$3"
+
+    if [[ -z "$palette" || -z "$index" || -z "$hex" ]]; then
+        echo "Usage: tds set palette <name> <index> <hex>"
+        echo "Example: tds set palette env 0 #ff0000"
+        echo "Palettes: env, mode, verbs, nouns"
+        return 1
+    fi
+
+    # Validate hex format
+    if [[ ! "$hex" =~ ^#[0-9a-fA-F]{6}$ ]]; then
+        echo "Invalid hex color: $hex (expected #RRGGBB)"
+        return 1
+    fi
+
+    # Validate index is a number
+    if [[ ! "$index" =~ ^[0-9]+$ ]]; then
+        echo "Invalid index: $index (expected number)"
+        return 1
+    fi
+
+    # Map palette name to array
+    local array_name
+    case "${palette,,}" in
+        env)   array_name="ENV_PRIMARY" ;;
+        mode)  array_name="MODE_PRIMARY" ;;
+        verbs) array_name="VERBS_PRIMARY" ;;
+        nouns) array_name="NOUNS_PRIMARY" ;;
+        *)
+            echo "Unknown palette: $palette"
+            echo "Palettes: env, mode, verbs, nouns"
+            return 1
+            ;;
+    esac
+
+    # Set the value using nameref
+    declare -n arr="$array_name"
+    local old_value="${arr[$index]:-}"
+    arr[$index]="$hex"
+
+    echo "Set ${array_name}[$index]: ${old_value:-<empty>} → $hex"
+    echo "(in-memory only, reset on theme switch)"
+}
+
+# Set token mapping (in-memory only)
+_tds_cmd_set_token() {
+    local token="$1"
+    local ref="$2"
+
+    if [[ -z "$token" || -z "$ref" ]]; then
+        echo "Usage: tds set token <name> <reference>"
+        echo "Example: tds set token status.ok env:2"
+        echo "Reference format: palette:index (e.g., env:0, mode:3)"
+        return 1
+    fi
+
+    # Validate reference format (palette:index or direct hex)
+    if [[ ! "$ref" =~ ^(env|mode|verbs|nouns):[0-9]+$ && ! "$ref" =~ ^#[0-9a-fA-F]{6}$ ]]; then
+        echo "Invalid reference: $ref"
+        echo "Expected: palette:index (e.g., env:0) or #RRGGBB"
+        return 1
+    fi
+
+    local old_value="${TDS_COLOR_TOKENS[$token]:-}"
+    TDS_COLOR_TOKENS[$token]="$ref"
+
+    if [[ -n "$old_value" ]]; then
+        echo "Set $token: $old_value → $ref"
+    else
+        echo "Created $token: $ref"
+    fi
+    echo "(in-memory only, reset on theme switch)"
+}
+
 _tds_cmd_get_themes() {
     tds_list_themes
 }
@@ -469,6 +547,11 @@ _tds_cmd_list_palettes() {
     echo
 }
 
+# Alias: get palettes -> list palettes
+_tds_cmd_get_palettes() {
+    _tds_cmd_list_palettes
+}
+
 # Token operations
 _tds_cmd_get_token() {
     local token="$1"
@@ -513,24 +596,48 @@ _tds_cmd_list_tokens() {
         return
     fi
 
-    local categories=()
+    # Collect unique categories using associative array
+    local -A seen_cats=()
     for token in "${!TDS_COLOR_TOKENS[@]}"; do
-        local category="${token%%.*}"
-        if [[ ! " ${categories[*]} " =~ " ${category} " ]]; then
-            categories+=("$category")
-        fi
+        seen_cats["${token%%.*}"]=1
     done
-    IFS=$'\n' categories=($(sort <<<"${categories[*]}"))
-    unset IFS
+
+    # Sort categories
+    local categories
+    mapfile -t categories < <(printf '%s\n' "${!seen_cats[@]}" | sort)
 
     for category in "${categories[@]}"; do
         echo "── $category ──"
-        for token in $(printf '%s\n' "${!TDS_COLOR_TOKENS[@]}" | grep "^${category}\." | sort); do
+        # Get sorted tokens for this category
+        local tokens
+        mapfile -t tokens < <(printf '%s\n' "${!TDS_COLOR_TOKENS[@]}" | grep "^${category}\." | sort)
+        for token in "${tokens[@]}"; do
             local ref="${TDS_COLOR_TOKENS[$token]}"
-            printf "  %-30s → %s\n" "$token" "$ref"
+            # Resolve to hex and show colored swatch
+            local hex=""
+            hex=$(tds_resolve_color "$token" 2>/dev/null)
+            if [[ -n "$hex" && "$hex" =~ ^[0-9a-fA-F]{6}$ ]]; then
+                local r=$((16#${hex:0:2}))
+                local g=$((16#${hex:2:2}))
+                local b=$((16#${hex:4:2}))
+                # Use tput for color swatch
+                local r5=$(( r * 5 / 255 ))
+                local g5=$(( g * 5 / 255 ))
+                local b5=$(( b * 5 / 255 ))
+                local color256=$(( 16 + 36*r5 + 6*g5 + b5 ))
+                local swatch="$(tput setaf $color256)██$(tput sgr0)"
+                printf "  %s %-30s → %s\n" "$swatch" "$token" "$ref"
+            else
+                printf "     %-30s → %s\n" "$token" "$ref"
+            fi
         done
         echo
     done
+}
+
+# Alias: get tokens -> list tokens
+_tds_cmd_get_tokens() {
+    _tds_cmd_list_tokens
 }
 
 _tds_cmd_validate_tokens() {
@@ -620,6 +727,217 @@ _tds_cmd_path_theme() {
     tds_path_theme "$name"
 }
 
+# Save current in-memory state as a new theme
+_tds_cmd_save_theme() {
+    local name="$1"
+    if [[ -z "$name" ]]; then
+        echo "Usage: tds save theme <name>"
+        echo "Saves current palette/token state as a new theme file"
+        return 1
+    fi
+
+    # Validate name (alphanumeric, underscore, hyphen)
+    if [[ ! "$name" =~ ^[a-zA-Z][a-zA-Z0-9_-]*$ ]]; then
+        echo "Invalid theme name: $name"
+        echo "Use letters, numbers, underscore, hyphen (start with letter)"
+        return 1
+    fi
+
+    local tds_src="${TDS_SRC:-$TETRA_SRC/bash/tds}"
+    local theme_file="$tds_src/themes/${name}.sh"
+
+    # Check if exists
+    if [[ -f "$theme_file" ]]; then
+        echo "Theme already exists: $name"
+        echo "Use 'tds delete theme $name' first, or choose a different name"
+        return 1
+    fi
+
+    # Generate theme file
+    cat > "$theme_file" <<EOF
+#!/usr/bin/env bash
+# Theme: $name
+# Generated by: tds save theme
+# Date: $(date '+%Y-%m-%d %H:%M:%S')
+# Base: $(tds_active_theme)
+
+_tds_load_${name}() {
+    # Palette: ENV_PRIMARY (environment/success colors)
+    ENV_PRIMARY=(
+$(for i in "${!ENV_PRIMARY[@]}"; do printf '        "%s"  # %d\n' "${ENV_PRIMARY[$i]}" "$i"; done)
+    )
+
+    # Palette: MODE_PRIMARY (mode indicator colors)
+    MODE_PRIMARY=(
+$(for i in "${!MODE_PRIMARY[@]}"; do printf '        "%s"  # %d\n' "${MODE_PRIMARY[$i]}" "$i"; done)
+    )
+
+    # Palette: VERBS_PRIMARY (action/verb colors)
+    VERBS_PRIMARY=(
+$(for i in "${!VERBS_PRIMARY[@]}"; do printf '        "%s"  # %d\n' "${VERBS_PRIMARY[$i]}" "$i"; done)
+    )
+
+    # Palette: NOUNS_PRIMARY (entity/noun colors)
+    NOUNS_PRIMARY=(
+$(for i in "${!NOUNS_PRIMARY[@]}"; do printf '        "%s"  # %d\n' "${NOUNS_PRIMARY[$i]}" "$i"; done)
+    )
+}
+
+# Register theme
+tds_register_theme "$name" "_tds_load_${name}"
+EOF
+
+    echo "✓ Saved theme: $name"
+    echo "  File: $theme_file"
+    echo "  Use 'tds set theme $name' to activate"
+    echo "  Use 'tds edit theme $name' to customize"
+}
+
+# Doctor - health check and diagnostics
+_tds_cmd_doctor() {
+    # Get terminal width, default to 80
+    local term_width=${COLUMNS:-80}
+    local label_width=18
+    local value_width=$((term_width - label_width - 4))
+
+    echo
+    echo "═══ TDS Doctor ═══"
+    echo
+
+    local tds_src="${TDS_SRC:-$TETRA_SRC/bash/tds}"
+    local tds_dir="${TDS_DIR:-$TETRA_DIR/tds}"
+
+    # Paths
+    echo "── Paths ──"
+    printf "  %-${label_width}s %s\n" "TDS_SRC:" "$tds_src"
+    printf "  %-${label_width}s %s\n" "TDS_DIR:" "$tds_dir"
+    printf "  %-${label_width}s %s\n" "TETRA_SRC:" "${TETRA_SRC:-<not set>}"
+    printf "  %-${label_width}s %s\n" "TETRA_DIR:" "${TETRA_DIR:-<not set>}"
+    echo
+
+    # Theme status
+    echo "── Themes ──"
+    local theme_count=${#TDS_THEME_REGISTRY[@]}
+    local active=$(tds_active_theme 2>/dev/null || echo "<none>")
+    printf "  %-${label_width}s %s\n" "Active:" "$active"
+    printf "  %-${label_width}s %d\n" "Registered:" "$theme_count"
+    if [[ $theme_count -gt 0 ]]; then
+        local themes_list=$(printf '%s ' "${!TDS_THEME_REGISTRY[@]}" | sort)
+        printf "  %-${label_width}s %s\n" "Available:" "$themes_list"
+    fi
+
+    # Theme files
+    local theme_dir="$tds_src/themes"
+    if [[ -d "$theme_dir" ]]; then
+        local file_count=$(find "$theme_dir" -name "*.sh" ! -name "theme_registry.sh" 2>/dev/null | wc -l | tr -d ' ')
+        printf "  %-${label_width}s %d files\n" "Theme files:" "$file_count"
+    else
+        printf "  %-${label_width}s %s\n" "Theme dir:" "✗ not found"
+    fi
+    echo
+
+    # Palettes
+    echo "── Palettes ──"
+    for name in ENV_PRIMARY MODE_PRIMARY VERBS_PRIMARY NOUNS_PRIMARY; do
+        declare -n arr="$name" 2>/dev/null
+        local short_name="${name%_PRIMARY}"
+        if [[ -v arr ]]; then
+            printf "  %-${label_width}s %d colors" "$short_name:" "${#arr[@]}"
+            [[ -n "${arr[0]:-}" ]] && printf " (%s)" "${arr[0]}"
+            echo
+        else
+            printf "  %-${label_width}s %s\n" "$short_name:" "✗ undefined"
+        fi
+    done
+    echo
+
+    # Tokens
+    echo "── Tokens ──"
+    local token_count=${#TDS_COLOR_TOKENS[@]}
+    printf "  %-${label_width}s %d\n" "Count:" "$token_count"
+    if [[ $token_count -gt 0 ]]; then
+        local -A seen_cats=()
+        for token in "${!TDS_COLOR_TOKENS[@]}"; do
+            seen_cats["${token%%.*}"]=1
+        done
+        local sorted_cats=$(printf '%s ' "${!seen_cats[@]}" | tr ' ' '\n' | sort | tr '\n' ' ')
+        printf "  %-${label_width}s %s\n" "Categories:" "$sorted_cats"
+    fi
+    echo
+
+    # Semantic colors
+    echo "── Semantic ──"
+    local semantic_count=${#TDS_SEMANTIC_COLORS[@]}
+    printf "  %-${label_width}s %d\n" "Colors:" "$semantic_count"
+    echo
+
+    # Validation
+    echo "── Health Check ──"
+    local issues=0
+
+    # Check TETRA_SRC
+    if [[ -z "$TETRA_SRC" ]]; then
+        echo "  ✗ TETRA_SRC not set"
+        ((issues++))
+    elif [[ ! -d "$TETRA_SRC" ]]; then
+        echo "  ✗ TETRA_SRC directory not found: $TETRA_SRC"
+        ((issues++))
+    else
+        echo "  ✓ TETRA_SRC valid"
+    fi
+
+    # Check theme registry
+    if [[ $theme_count -eq 0 ]]; then
+        echo "  ✗ No themes registered"
+        ((issues++))
+    else
+        echo "  ✓ Theme registry loaded ($theme_count themes)"
+    fi
+
+    # Check active theme
+    if [[ -z "$active" || "$active" == "<none>" ]]; then
+        echo "  ✗ No active theme"
+        ((issues++))
+    else
+        echo "  ✓ Active theme: $active"
+    fi
+
+    # Check palettes populated
+    local palette_issues=0
+    for name in ENV_PRIMARY MODE_PRIMARY VERBS_PRIMARY NOUNS_PRIMARY; do
+        declare -n arr="$name" 2>/dev/null
+        if [[ ! -v arr ]] || [[ ${#arr[@]} -eq 0 ]]; then
+            ((palette_issues++))
+        fi
+    done
+    if [[ $palette_issues -gt 0 ]]; then
+        echo "  ✗ $palette_issues palettes empty or undefined"
+        ((issues++))
+    else
+        echo "  ✓ All palettes populated"
+    fi
+
+    # Check tokens
+    if [[ $token_count -eq 0 ]]; then
+        echo "  ⚠ No tokens defined (optional)"
+    else
+        echo "  ✓ Tokens defined ($token_count)"
+    fi
+
+    echo
+    if [[ $issues -eq 0 ]]; then
+        echo "Status: ✓ Healthy"
+    else
+        echo "Status: ✗ $issues issue(s) found"
+    fi
+    echo
+    echo "── Quick Reference ──"
+    echo "  tds get tokens        List all tokens"
+    echo "  tds get palettes      List palette names"
+    echo "  tds get themes        List available themes"
+    echo
+}
+
 # Help
 _tds_cmd_help() {
     cat <<'EOF'
@@ -628,52 +946,39 @@ TDS - Tetra Design System
 
 USAGE: tds <verb> <noun> [args]
 
-VERBS
-  get        Read/inspect a property
-  set        Modify a property
-  validate   Check correctness
-  create     Create new theme
-  delete     Remove theme
-  copy       Duplicate theme
-  edit       Open in editor
-  path       Show file path
+COMMANDS                                        COMPLETIONS
+  get theme [-v]          Show active theme     <themes>
+  get themes              List all themes
+  get palette [name]      Show palette colors   env|mode|verbs|nouns
+  get palettes            List palette names
+  get token <name>        Resolve to hex        <tokens>
+  get tokens              List all tokens
+  get hex <color>         Show color swatch     #RRGGBB
 
-NOUNS
-  theme      Active theme (get/set/validate)
-  themes     All themes (get)
-  palette    Color palette (get) - env/mode/verbs/nouns
-  palettes   Palette names (get)
-  token      Single token (get)
-  tokens     All tokens (get/validate)
-  hex        Raw hex color (get)
+  set theme <name>        Switch theme          <themes>
+  set palette <p> <i> <#> Set palette color     env|mode|verbs|nouns 0-7
+  set token <name> <ref>  Set token mapping     <tokens> palette:index
+
+  validate theme [name]   Check theme loads     <themes>
+  validate tokens         Check token mappings
+
+  create theme <name>    Create from template
+  delete theme <name>    Delete custom theme   <custom-themes>
+  copy theme <s> <d>     Copy theme            <themes>
+  edit theme [name]      Open in $EDITOR       <themes>
+  path theme [name]      Show file path        <themes>
+  save theme <name>      Save current state    (new name)
+
+  doctor                 Health check & diagnostics
+  help                   This help
+  repl                   Interactive explorer
 
 EXAMPLES
-  tds get theme              Active theme + palette preview
-  tds get theme -v           Full theme info
-  tds set theme warm         Switch to warm theme
-  tds get themes             List all available themes
-  tds validate theme warm    Check theme loads correctly
-
-  tds get palette env        Show env palette
-  tds get palette            Show all palettes
-  tds get palettes           List palette names
-
-  tds get token X            Resolve token X to hex
-  tds get tokens             List all tokens
-  tds validate tokens        Check all token mappings
-
-  tds get hex #3b82f6        Show color swatch
-
-  tds create theme <name>    Create from template
-  tds delete theme <name>    Delete custom theme
-  tds copy theme <src> <dst> Copy theme
-  tds edit theme [name]      Edit in $EDITOR
-  tds path theme [name]      Show file path
-
-TOOLS
-  tds repl                   Interactive explorer
-  tds help                   This help
-
+  tds get theme            Show active theme with palette preview
+  tds set theme warm       Switch to warm theme
+  tds set palette env 0 #ff0000   Change env[0] to red (in-memory)
+  tds set token status.ok env:2   Remap token (in-memory)
+  tds save theme mytheme   Save current state as new theme
 EOF
 }
 
@@ -690,6 +995,7 @@ tds() {
     # Handle special commands first
     case "$arg1" in
         repl) tds_repl; return ;;
+        doctor) _tds_cmd_doctor; return ;;
         help|--help|-h|"") _tds_cmd_help; return ;;
     esac
 
@@ -699,11 +1005,11 @@ tds() {
 
     # Validate operation
     case "$op" in
-        get|set|list|validate|create|delete|copy|edit|path)
+        get|set|validate|create|delete|copy|edit|path|save)
             ;;
         *)
             echo "Unknown operation: $op"
-            echo "Operations: get, set, list, validate, create, delete, copy, edit, path"
+            echo "Operations: get, set, validate, create, delete, copy, edit, path, save"
             echo "Try: tds help"
             return 1
             ;;

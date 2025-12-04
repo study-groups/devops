@@ -64,46 +64,51 @@ tds_show_repl_tokens() {
 
     echo "Environment Tokens (cycle with Ctrl+E):"
     for key in repl.env.local repl.env.dev repl.env.staging repl.env.production; do
-        printf "  %-30s " "$key"
-        tds_color_swatch "$key"
-        printf " %s → %s\n" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
+        printf "  %-30s" "$key"
+        tds_text_color "$key"
+        printf "%s → %s" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
         reset_color
+        echo
     done
     echo
 
     echo "Mode Tokens (cycle with Ctrl+X,M):"
     for key in repl.mode.inspect repl.mode.transfer repl.mode.execute; do
-        printf "  %-30s " "$key"
-        tds_color_swatch "$key"
-        printf " %s → %s\n" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
+        printf "  %-30s" "$key"
+        tds_text_color "$key"
+        printf "%s → %s" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
         reset_color
+        echo
     done
     echo
 
     echo "Action Tokens:"
     for key in repl.action.primary repl.action.secondary repl.action.none; do
-        printf "  %-30s " "$key"
-        tds_color_swatch "$key"
-        printf " %s → %s\n" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
+        printf "  %-30s" "$key"
+        tds_text_color "$key"
+        printf "%s → %s" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
         reset_color
+        echo
     done
     echo
 
     echo "Prompt Structure Tokens:"
     for key in repl.prompt.bracket repl.prompt.separator repl.prompt.arrow; do
-        printf "  %-30s " "$key"
-        tds_color_swatch "$key"
-        printf " %s → %s\n" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
+        printf "  %-30s" "$key"
+        tds_text_color "$key"
+        printf "%s → %s" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
         reset_color
+        echo
     done
     echo
 
     echo "Feedback Tokens:"
     for key in repl.feedback.env repl.feedback.mode repl.feedback.action repl.feedback.arrow; do
-        printf "  %-30s " "$key"
-        tds_color_swatch "$key"
-        printf " %s → %s\n" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
+        printf "  %-30s" "$key"
+        tds_text_color "$key"
+        printf "%s → %s" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
         reset_color
+        echo
     done
     echo
 }
