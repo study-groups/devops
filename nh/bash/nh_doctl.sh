@@ -60,7 +60,8 @@ _NH_DOCTL_ALL_RESOURCES=(
 )
 
 # Default resources to fetch (balanced between useful and fast)
-_NH_FETCH_DEFAULT="Droplets,Volumes,Domains,FloatingIPs,LoadBalancers,Firewalls"
+# SSHKeys included to support bootstrap key detection for tkm
+_NH_FETCH_DEFAULT="Droplets,Volumes,Domains,FloatingIPs,LoadBalancers,Firewalls,SSHKeys"
 
 # Currently configured resources (can be overridden by NH_FETCH_RESOURCES env var)
 _nh_fetch_get_resources() {
@@ -307,12 +308,11 @@ nh_doctl_fetch() {
     echo "Wrote: $output_file ($lines lines, $size)"
     echo ""
 
-    # Auto-load environment variables
-    echo "Loading environment variables..."
-    nh_env_load
-
     echo ""
-    echo "Done. Run 'nh servers' to see results."
+    echo "Done. Next steps:"
+    echo "  nh servers          # View servers"
+    echo "  nh load             # Load IP variables into shell"
+    echo "  nh alias make pxjam # Create short aliases"
 }
 
 # =============================================================================

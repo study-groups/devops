@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # nh_complete.sh - Tab completion for nh command
 
-_NH_COMMANDS="status list switch create fetch servers show cat env ssh doctl md cl help"
+_NH_COMMANDS="status list switch create link unlink doctor fetch servers show cat load alias keys env ssh doctl md cl help"
 _NH_FETCH_OPTS="dry-run help minimal full"
-_NH_ENV_SUBCMDS="show load short"
+_NH_ENV_SUBCMDS="show load"
+_NH_ALIAS_SUBCMDS="make show clear"
 _NH_SSH_SUBCMDS="status keys add"
+_NH_KEYS_SUBCMDS="list match bootstrap scenarios help"
+_NH_KEYS_SCENARIOS="lost-laptop new-dev rotate compromised locked-out new-server"
 _NH_DOCTL_SUBCMDS="status droplets fetch clean age resources info"
-_NH_HELP_SUBCMDS="env ssh doctl md cl"
+_NH_HELP_SUBCMDS="env alias ssh keys doctl md cl"
 _NH_MD_SUBCMDS="list show keys"
 _NH_CHECKLIST_SUBCMDS="browse check uncheck status reset env list keys"
 
@@ -18,6 +21,15 @@ _nh_complete_contexts() {
         local name=$(basename "$dir")
         [[ "$name" == "json" ]] && continue
         echo "$name"
+    done
+}
+
+# List symlinks only (for unlink completion)
+_nh_complete_symlinks() {
+    [[ ! -d "$NH_DIR" ]] && return
+    for item in "$NH_DIR"/*/; do
+        [[ -L "${item%/}" ]] || continue
+        basename "$item"
     done
 }
 
@@ -79,14 +91,28 @@ _nh_complete() {
             switch|sw)
                 COMPREPLY=($(compgen -W "$(_nh_complete_contexts)" -- "$cur"))
                 ;;
+            link)
+                # First arg: complete with contexts (as target)
+                COMPREPLY=($(compgen -W "$(_nh_complete_contexts)" -- "$cur"))
+                ;;
+            unlink)
+                # Complete with symlinks only
+                COMPREPLY=($(compgen -W "$(_nh_complete_symlinks)" -- "$cur"))
+                ;;
             show|info)
                 COMPREPLY=($(compgen -W "$(_nh_complete_servers)" -- "$cur"))
                 ;;
             env)
                 COMPREPLY=($(compgen -W "$_NH_ENV_SUBCMDS" -- "$cur"))
                 ;;
+            alias|a)
+                COMPREPLY=($(compgen -W "$_NH_ALIAS_SUBCMDS" -- "$cur"))
+                ;;
             ssh)
                 COMPREPLY=($(compgen -W "$_NH_SSH_SUBCMDS $(_nh_complete_servers)" -- "$cur"))
+                ;;
+            keys|k)
+                COMPREPLY=($(compgen -W "$_NH_KEYS_SUBCMDS" -- "$cur"))
                 ;;
             doctl)
                 COMPREPLY=($(compgen -W "$_NH_DOCTL_SUBCMDS" -- "$cur"))
@@ -115,10 +141,27 @@ _nh_complete() {
     # Third arg
     if [[ $COMP_CWORD -eq 3 ]]; then
         case "$cmd" in
-            env)
+            link)
+                # Second arg for link: complete with real contexts (not symlinks)
+                local real_contexts=$(_nh_complete_contexts | while read -r ctx; do
+                    [[ ! -L "$NH_DIR/$ctx" ]] && echo "$ctx"
+                done)
+                COMPREPLY=($(compgen -W "$real_contexts" -- "$cur"))
+                ;;
+            keys|k)
+                # For scenarios, complete with scenario names
                 case "$subcmd" in
-                    short)
-                        COMPREPLY=($(compgen -W "$(_nh_complete_servers | cut -c1-3 | sort -u)" -- "$cur"))
+                    scenarios|sc)
+                        COMPREPLY=($(compgen -W "$_NH_KEYS_SCENARIOS" -- "$cur"))
+                        ;;
+                esac
+                ;;
+            alias|a)
+                # For make/show, suggest server name prefixes
+                case "$subcmd" in
+                    make|m|show|s)
+                        # Get unique prefixes (first part before _)
+                        COMPREPLY=($(compgen -W "$(_nh_complete_servers | cut -d_ -f1 | sort -u)" -- "$cur"))
                         ;;
                 esac
                 ;;

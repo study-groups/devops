@@ -22,6 +22,7 @@ NH_DIR="${NH_DIR:-$HOME/nh}"
 source "$NH_SRC/nh_doctl.sh"
 source "$NH_SRC/nh_env.sh"
 source "$NH_SRC/nh_ssh.sh"
+source "$NH_SRC/nh_keys.sh"
 source "$NH_SRC/nh_md.sh"
 source "$NH_SRC/nh_checklist.sh"
 source "$NH_SRC/nh_complete.sh"
@@ -41,15 +42,32 @@ nh_context_list() {
 
     [[ ! -d "$NH_DIR" ]] && { echo "No contexts found"; return 1; }
 
+    # Build map of targets -> symlinks
+    declare -A symlinks
+    for item in "$NH_DIR"/*/; do
+        [[ -L "${item%/}" ]] || continue
+        local link_name=$(basename "$item")
+        local target=$(readlink "${item%/}")
+        target="${target%/}"  # strip trailing slash
+        target="${target##*/}"  # basename only
+        symlinks[$target]+=" $link_name"
+    done
+
+    # List real directories with their symlinks
     for dir in "$NH_DIR"/*/; do
         [[ -d "$dir" ]] || continue
+        [[ -L "${dir%/}" ]] && continue  # skip symlinks themselves
         local name=$(basename "$dir")
-        [[ "$name" == "json" ]] && continue  # Skip json subdir
+        [[ "$name" == "json" ]] && continue
 
-        if [[ "$name" == "$current" ]]; then
-            printf "* %s\n" "$name"
+        local marker="  "
+        [[ "$name" == "$current" ]] && marker="* "
+
+        local aliases="${symlinks[$name]}"
+        if [[ -n "$aliases" ]]; then
+            printf "%s%s [%s]\n" "$marker" "$name" "${aliases# }"
         else
-            printf "  %s\n" "$name"
+            printf "%s%s\n" "$marker" "$name"
         fi
     done
 }
@@ -89,6 +107,191 @@ nh_create() {
     mkdir -p "$ctx_dir"
     echo "Created: $ctx_dir"
     echo "Next: nh switch $name && nh fetch"
+}
+
+# Create symlink alias for context
+nh_link() {
+    local short="$1"
+    local target="$2"
+
+    [[ -z "$short" || -z "$target" ]] && {
+        echo "Usage: nh link <shortname> <context>"
+        echo "Example: nh link pj pixeljam-arcade"
+        return 1
+    }
+
+    [[ ! "$short" =~ ^[a-zA-Z0-9_-]+$ ]] && { echo "Invalid shortname"; return 1; }
+
+    local target_dir="$NH_DIR/$target"
+    local link_path="$NH_DIR/$short"
+
+    [[ ! -d "$target_dir" ]] && { echo "Context not found: $target"; return 1; }
+    [[ -e "$link_path" ]] && { echo "Already exists: $short"; return 1; }
+
+    ln -s "$target" "$link_path"
+    echo "Created: $short -> $target"
+}
+
+# Remove symlink alias
+nh_unlink() {
+    local short="$1"
+
+    [[ -z "$short" ]] && {
+        echo "Usage: nh unlink <shortname>"
+        return 1
+    }
+
+    local link_path="$NH_DIR/$short"
+
+    [[ ! -L "$link_path" ]] && { echo "Not a symlink: $short"; return 1; }
+
+    rm "$link_path"
+    echo "Removed: $short"
+}
+
+# =============================================================================
+# DOCTOR (health check)
+# =============================================================================
+
+nh_doctor() {
+    local errors=0
+    local warnings=0
+
+    echo "nh doctor"
+    echo "========="
+    echo ""
+
+    # 1. NH_DIR exists
+    printf "%-30s" "NH_DIR"
+    if [[ -d "$NH_DIR" ]]; then
+        echo "ok ($NH_DIR)"
+    else
+        echo "MISSING"
+        ((errors++))
+    fi
+
+    # 2. doctl installed
+    printf "%-30s" "doctl"
+    if command -v doctl &>/dev/null; then
+        local ver=$(doctl version 2>/dev/null | head -1 | awk '{print $3}')
+        echo "ok ($ver)"
+    else
+        echo "NOT INSTALLED"
+        ((errors++))
+    fi
+
+    # 3. doctl authenticated
+    printf "%-30s" "doctl auth"
+    if doctl account get &>/dev/null; then
+        echo "ok"
+    else
+        echo "NOT AUTHENTICATED"
+        echo "  → Run: doctl auth init --context <name>"
+        ((errors++))
+    fi
+
+    # 4. Context set
+    printf "%-30s" "DIGITALOCEAN_CONTEXT"
+    local ctx="${DIGITALOCEAN_CONTEXT:-}"
+    if [[ -n "$ctx" ]]; then
+        echo "ok ($ctx)"
+    else
+        echo "NOT SET"
+        echo "  → Run: nh switch <context>"
+        ((errors++))
+    fi
+
+    # 5. Context directory exists
+    if [[ -n "$ctx" ]]; then
+        printf "%-30s" "Context directory"
+        local ctx_dir="$NH_DIR/$ctx"
+        if [[ -d "$ctx_dir" ]]; then
+            echo "ok"
+        else
+            echo "MISSING"
+            echo "  → Run: nh create $ctx"
+            ((errors++))
+        fi
+
+        # 6. digocean.json exists
+        printf "%-30s" "digocean.json"
+        local json="$ctx_dir/digocean.json"
+        if [[ -f "$json" ]]; then
+            local age=$(nh_json_age "$json")
+            if [[ $age -gt 7 ]]; then
+                echo "STALE ($age days old)"
+                echo "  → Run: nh fetch"
+                ((warnings++))
+            else
+                echo "ok ($age days old)"
+            fi
+        else
+            echo "MISSING"
+            echo "  → Run: nh fetch"
+            ((errors++))
+        fi
+
+        # 7. Server count
+        printf "%-30s" "Servers in JSON"
+        if [[ -f "$json" ]]; then
+            local count=$(jq '[.[] | select(.Droplets) | .Droplets[]] | length' "$json" 2>/dev/null)
+            if [[ "${count:-0}" -gt 0 ]]; then
+                echo "ok ($count)"
+            else
+                echo "NONE"
+                ((warnings++))
+            fi
+        else
+            echo "- (no JSON)"
+        fi
+
+        # 8. Variables loaded
+        printf "%-30s" "Variables loaded"
+        local loaded=$(nh_env_count 2>/dev/null)
+        if [[ "${loaded:-0}" -gt 0 ]]; then
+            echo "ok ($loaded)"
+        else
+            echo "NOT LOADED"
+            echo "  → Run: nh load"
+            ((warnings++))
+        fi
+
+        # 9. Aliases file
+        printf "%-30s" "Aliases"
+        local alias_file="$ctx_dir/aliases.env"
+        if [[ -f "$alias_file" ]]; then
+            local alias_count=$(grep -c '^export' "$alias_file" 2>/dev/null || echo 0)
+            echo "ok ($alias_count)"
+        else
+            echo "none (optional)"
+        fi
+    fi
+
+    # 10. SSH agent
+    printf "%-30s" "ssh-agent"
+    if [[ -n "${SSH_AUTH_SOCK:-}" ]] && ssh-add -l &>/dev/null; then
+        local key_count=$(ssh-add -l 2>/dev/null | wc -l | tr -d ' ')
+        echo "ok ($key_count keys)"
+    elif [[ -n "${SSH_AUTH_SOCK:-}" ]]; then
+        echo "RUNNING (no keys)"
+        echo "  → Run: ssh-add ~/.ssh/id_ed25519"
+        ((warnings++))
+    else
+        echo "NOT RUNNING"
+        echo "  → Run: eval \$(ssh-agent)"
+        ((warnings++))
+    fi
+
+    # Summary
+    echo ""
+    if [[ $errors -eq 0 && $warnings -eq 0 ]]; then
+        echo "All checks passed."
+    else
+        [[ $errors -gt 0 ]] && echo "Errors: $errors"
+        [[ $warnings -gt 0 ]] && echo "Warnings: $warnings"
+    fi
+
+    return $errors
 }
 
 # =============================================================================
@@ -199,20 +402,46 @@ nh - NodeHolder Infrastructure Management
 
 USAGE: nh [command] [args]
 
+PIPELINE
+    fetch  →  digocean.json  →  load  →  $server_vars  →  alias  →  $paq
+    (sync)    (cached data)     (IPs)    (full names)     (short)   (abbrev)
+
 COMMANDS
     status          Current context and stats (default)
     list            List available contexts
     switch <name>   Switch to context
     create <name>   Create new context
+    link <s> <ctx>  Create shortname symlink
+    unlink <s>      Remove shortname symlink
+    doctor          Health check
+
     fetch           Fetch infrastructure from DigitalOcean
     servers         List servers with IPs
     show <server>   Show server details
     cat             Show raw digocean.json
+
+    load            Load server IPs as variables ($servername=IP)
+    alias           Manage short aliases (nh help alias)
+    keys            DO-registered SSH keys (nh help keys)
+
     env             Environment variable commands (nh help env)
     ssh             SSH commands (nh help ssh)
     doctl           DigitalOcean CLI commands (nh help doctl)
     md <file>       Navigate any markdown file (nh help md)
     cl              Checklist with progress tracking (nh help cl)
+
+TYPICAL WORKFLOW
+    nh switch myorg          # Set context
+    nh fetch                 # Sync from DigitalOcean (includes SSH keys)
+    nh load                  # Load $server_name variables
+    nh alias make pxjam      # Create $paq, $pad, etc.
+    ssh root@$paq            # Connect using alias
+
+BOOTSTRAP NEW SERVERS (with tetra/tkm)
+    nh keys match            # Find local key matching DO
+    org import nh ~/nh/myorg/digocean.json myorg
+    org switch myorg && tkm init && tkm gen all
+    tkm deploy all --key $(nh keys bootstrap)
 
 Run 'nh help <command>' for subcommand details.
 EOF
@@ -226,13 +455,42 @@ USAGE: nh env [subcommand]
 
 SUBCOMMANDS
     show            Show all exported variables (default)
-    load            Load variables from digocean.json
-    short <prefix>  Generate short variable names
+    load            Load variables from digocean.json (same as: nh load)
 
 EXAMPLES
     nh env              Show current variables
-    nh env load         Reload from JSON
-    nh env short pxj    Generate short names for pxj* servers
+    nh load             Load server IP variables
+EOF
+}
+
+nh_help_alias() {
+    cat << 'EOF'
+nh alias - Short variable aliases
+
+Creates abbreviated variable names from full server names:
+    pxjam_arcade_qa01  →  $paq   (p + a + q)
+    pxjam_arcade_dev01 →  $pad   (p + a + d)
+
+Suffixes:
+    _private  →  adds 'p'  ($paqp = private IP)
+    _floating →  adds 'f'  ($paqf = floating IP)
+
+USAGE: nh alias [command] [prefix]
+
+COMMANDS
+    (none)          Show currently loaded aliases
+    show <prefix>   Preview aliases without loading
+    make <prefix>   Create and load aliases
+    clear           Unset all aliases
+
+EXAMPLES
+    nh alias show pxjam   # Preview what aliases would be created
+    nh alias make pxjam   # Create and load aliases
+    nh alias              # Show current aliases
+    nh alias clear        # Remove all aliases
+
+FILES
+    ~/.nh/<context>/aliases.env   # Persisted aliases
 EOF
 }
 
@@ -465,12 +723,16 @@ nh() {
         list|ls|l)          nh_context_list ;;
         switch|sw)          nh_switch "$@" ;;
         create|new)         nh_create "$@" ;;
+        link)               nh_link "$@" ;;
+        unlink)             nh_unlink "$@" ;;
+        doctor)             nh_doctor ;;
 
         # Infrastructure
         fetch|refresh)      nh_doctl_fetch "$@" ;;
         servers|srv)        nh_servers ;;
         show|info)          nh_show "$@" ;;
         cat)                nh_doctl_cat ;;
+        load)               nh_env_load && echo "Loaded $(nh_env_count) server variables" ;;
 
         # Environment
         env)
@@ -479,10 +741,13 @@ nh() {
             case "$subcmd" in
                 show|"")    nh_env_show ;;
                 load)       nh_env_load ;;
-                short)      nh_env_short "$@" ;;
+                short)      nh_env_short "$@" ;;  # deprecated
                 *)          nh_env_show "$subcmd" ;;
             esac
             ;;
+
+        # Aliases (short variable names)
+        alias|a)            nh_alias "$@" ;;
 
         # SSH
         ssh)
@@ -496,6 +761,9 @@ nh() {
                 *)          nh_ssh_connect "$subcmd" "$@" ;;
             esac
             ;;
+
+        # DO-registered keys (bootstrap helpers)
+        keys|k)         nh_keys "$@" ;;
 
         # Doctl
         doctl)
@@ -522,7 +790,9 @@ nh() {
             local topic="${1:-}"
             case "$topic" in
                 env)        nh_help_env ;;
+                alias)      nh_help_alias ;;
                 ssh)        nh_help_ssh ;;
+                keys)       nh_keys_help ;;
                 doctl)      nh_help_doctl ;;
                 md)         nh_help_md ;;
                 cl)         nh_help_cl ;;
@@ -543,7 +813,7 @@ nh() {
 complete -F _nh_complete nh
 
 # Export functions
-export -f nh nh_status nh_context nh_context_list nh_switch nh_create
+export -f nh nh_status nh_context nh_context_list nh_switch nh_create nh_link nh_unlink nh_doctor
 export -f nh_servers nh_show nh_json_age
-export -f nh_help nh_help_env nh_help_ssh nh_help_doctl nh_help_md nh_help_cl
+export -f nh_help nh_help_env nh_help_alias nh_help_ssh nh_help_doctl nh_help_md nh_help_cl
 export -f nh_md_cmd nh_checklist _nh_cl_ensure_parsed
