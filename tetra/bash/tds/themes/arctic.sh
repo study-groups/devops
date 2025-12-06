@@ -1,21 +1,37 @@
 #!/usr/bin/env bash
-# TDS Theme: Cool (Blue/Cyan Temperature)
-# Used by: logs module
+# TDS Theme: Arctic (Reference Implementation)
 #
 # PALETTE STRUCTURE:
-#   ENV   - ALTERNATE: cyan ↔ blue
-#   MODE  - STATUS: error/warning/success/info + dims
-#   VERBS - ACTIONS + ACCENT
-#   NOUNS - GRADIENT: slate dark→light
+#   ENV_PRIMARY   - ALTERNATE: two bright hue families (A↔B)
+#   MODE_PRIMARY  - STATUS: error/warning/success/info + dim versions
+#   VERBS_PRIMARY - ACTIONS: primary/secondary/destructive/constructive + ACCENT
+#   NOUNS_PRIMARY - GRADIENT: intensity ramp dark→light
+#
+# ENV - ALTERNATE pattern:
+#   [0] A primary   [1] B primary
+#   [2] A light     [3] B light
+#   [4] A muted     [5] B muted
+#   [6] A dim       [7] B dim
+#
+# MODE - STATUS pattern:
+#   [0] error       [1] warning     [2] success     [3] info
+#   [4] error-dim   [5] warning-dim [6] success-dim [7] info-dim
+#
+# VERBS - ACTIONS + ACCENT pattern:
+#   [0] primary     [1] secondary   [2] destructive [3] constructive
+#   [4] accent      [5] highlight   [6] focus       [7] muted
+#
+# NOUNS - GRADIENT pattern:
+#   [0] darkest → [7] lightest
 
-tds_theme_cool() {
+tds_theme_arctic() {
     # Theme metadata
-    THEME_NAME="cool"
-    THEME_DESCRIPTION="Cool blue/cyan temperature for logs module"
+    THEME_NAME="arctic"
+    THEME_DESCRIPTION="Arctic blue/cyan - reference implementation"
     THEME_TEMPERATURE="cool"
 
     # ========================================================================
-    # BASE PALETTE
+    # BASE PALETTE - Arctic tones
     # ========================================================================
 
     # Cyan family (ENV hue A)
@@ -40,15 +56,15 @@ tds_theme_cool() {
     local sky_500="#0ea5e9"
     local sky_700="#0369a1"
 
-    # Action colors (VERBS) - cool tinted
-    local action_primary="#0ea5e9"      # sky
-    local action_secondary="#6366f1"    # indigo
-    local action_destructive="#ef4444"  # red
-    local action_constructive="#22c55e" # green
-    local action_accent="#8b5cf6"       # violet
-    local action_highlight="#f472b6"    # pink
-    local action_focus="#38bdf8"        # sky light
-    local action_muted="#64748b"        # slate
+    # Action colors (VERBS) - arctic tinted
+    local action_primary="#0ea5e9"      # sky - primary action
+    local action_secondary="#6366f1"    # indigo - secondary
+    local action_destructive="#ef4444"  # red - destructive
+    local action_constructive="#22c55e" # green - constructive
+    local action_accent="#8b5cf6"       # violet - accent
+    local action_highlight="#f472b6"    # pink - highlight
+    local action_focus="#38bdf8"        # sky light - focus
+    local action_muted="#64748b"        # slate - muted
 
     # Slate family (NOUNS gradient)
     local slate_900="#0f172a"
@@ -75,7 +91,7 @@ tds_theme_cool() {
     )
 
     # ========================================================================
-    # MODE_PRIMARY - STATUS + dims
+    # MODE_PRIMARY - STATUS: error/warning/success/info + dims
     # ========================================================================
     MODE_PRIMARY=(
         "$red_500"     # 0: error
@@ -103,7 +119,7 @@ tds_theme_cool() {
     )
 
     # ========================================================================
-    # NOUNS_PRIMARY - GRADIENT
+    # NOUNS_PRIMARY - GRADIENT: dark→light
     # ========================================================================
     NOUNS_PRIMARY=(
         "$slate_900"   # 0: darkest
@@ -116,11 +132,12 @@ tds_theme_cool() {
         "$slate_50"    # 7: lightest
     )
 
+    # Apply semantic colors using palette arrays
     tds_apply_semantic_colors
 }
 
 # Register theme
-tds_register_theme "cool" "tds_theme_cool" "Cool blue temperature for logs"
+tds_register_theme "arctic" "tds_theme_arctic" "Arctic blue - reference implementation"
 
 # Export
-export -f tds_theme_cool
+export -f tds_theme_arctic

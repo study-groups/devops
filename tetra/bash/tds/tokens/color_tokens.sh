@@ -2,75 +2,137 @@
 
 # TDS Color Token System
 # Three-layer indirection: Semantic Role → Color Token → Palette Reference → Hex Value
+#
+# PALETTE STRUCTURE:
+#   ENV   - ALTERNATE: two hue families [0-3]=A, [1,3,5,7]=B variants
+#   MODE  - STATUS: [0]=error [1]=warning [2]=success [3]=info [4-7]=dim versions
+#   VERBS - ACTIONS: [0]=primary [1]=secondary [2]=destructive [3]=constructive
+#                    [4]=accent [5]=highlight [6]=focus [7]=muted
+#   NOUNS - GRADIENT: [0]=darkest → [7]=lightest
 
 # Color token definitions map semantic names to palette references
 # Format: "palette:index" where palette is env|mode|verbs|nouns, index is 0-7
 declare -gA TDS_COLOR_TOKENS=(
-    # Structural tokens - main UI structure
-    [structural.primary]="env:0"           # ENV_PRIMARY[0] - green
-    [structural.secondary]="mode:0"        # MODE_PRIMARY[0] - blue
-    [structural.accent]="verbs:0"          # VERBS_PRIMARY[0] - red/orange
-    [structural.muted]="env:5"             # ENV_PRIMARY[5] - muted green
-    [structural.separator]="mode:6"        # MODE_PRIMARY[6] - gray-blue
+    # =========================================================================
+    # STATUS tokens (MODE palette)
+    # =========================================================================
+    [status.error]="mode:0"
+    [status.warning]="mode:1"
+    [status.success]="mode:2"
+    [status.info]="mode:3"
+    [status.error.dim]="mode:4"
+    [status.warning.dim]="mode:5"
+    [status.success.dim]="mode:6"
+    [status.info.dim]="mode:7"
 
-    # Structural background tokens - for CSS web output (dark theme)
-    [structural.bg.primary]="mode:7"       # Darkest - page background
-    [structural.bg.secondary]="mode:6"     # Medium - panel background
-    [structural.bg.tertiary]="mode:5"      # Lighter - section background
+    # =========================================================================
+    # ACTION tokens (VERBS palette)
+    # =========================================================================
+    [action.primary]="verbs:0"
+    [action.secondary]="verbs:1"
+    [action.destructive]="verbs:2"
+    [action.constructive]="verbs:3"
+    [action.accent]="verbs:4"
+    [action.highlight]="verbs:5"
+    [action.focus]="verbs:6"
+    [action.muted]="verbs:7"
 
-    # Text tokens - content text hierarchy
-    [text.primary]="mode:7"                # MODE_PRIMARY[7] - light text
-    [text.secondary]="mode:6"              # MODE_PRIMARY[6] - medium text
-    [text.tertiary]="env:6"                # ENV_PRIMARY[6] - subtle text
-    [text.muted]="mode:5"                  # MODE_PRIMARY[5] - very subtle
+    # =========================================================================
+    # TEXT tokens (NOUNS gradient)
+    # =========================================================================
+    [text.darkest]="nouns:0"
+    [text.dark]="nouns:1"
+    [text.dim]="nouns:2"
+    [text.muted]="nouns:3"
+    [text.subtle]="nouns:4"
+    [text.light]="nouns:5"
+    [text.pale]="nouns:6"
+    [text.brightest]="nouns:7"
 
-    # Interactive tokens - clickable/navigable elements
-    [interactive.link]="mode:0"            # MODE_PRIMARY[0] - blue
-    [interactive.active]="verbs:3"         # VERBS_PRIMARY[3] - bright orange
-    [interactive.hover]="verbs:1"          # VERBS_PRIMARY[1] - lighter red
-    [interactive.selected]="env:3"         # ENV_PRIMARY[3] - bright green
+    # Aliases for common usage
+    [text.primary]="nouns:7"           # brightest for primary text
+    [text.secondary]="nouns:5"         # light for secondary
+    [text.tertiary]="nouns:3"          # muted for tertiary
 
-    # Status tokens - state indicators
-    [status.success]="env:1"               # ENV_PRIMARY[1] - bright green
-    [status.warning]="verbs:3"             # VERBS_PRIMARY[3] - orange
-    [status.error]="verbs:0"               # VERBS_PRIMARY[0] - red
-    [status.info]="mode:0"                 # MODE_PRIMARY[0] - blue
+    # =========================================================================
+    # ENVIRONMENT tokens (ENV alternate palette)
+    # =========================================================================
+    [env.a.primary]="env:0"
+    [env.b.primary]="env:1"
+    [env.a.light]="env:2"
+    [env.b.light]="env:3"
+    [env.a.muted]="env:4"
+    [env.b.muted]="env:5"
+    [env.a.dim]="env:6"
+    [env.b.dim]="env:7"
 
-    # Content type tokens - specific content rendering
-    [content.heading.h1]="mode:0"          # Blue - top level
-    [content.heading.h2]="mode:1"          # Darker blue
-    [content.heading.h3]="nouns:3"         # Light purple
-    [content.heading.h4]="nouns:1"         # Bright magenta
-    [content.code.inline]="verbs:0"        # Red - inline code
-    [content.code.block]="mode:1"          # Blue - code blocks
-    [content.quote]="mode:5"               # Gray - blockquotes
-    [content.list]="env:1"                 # Green - list markers
-    [content.emphasis.bold]="verbs:3"      # Orange - bold text
-    [content.emphasis.italic]="env:1"      # Bright green - italic
-    [content.link]="mode:0"                # Blue - links
-    [content.hr]="mode:5"                  # Gray - horizontal rules
+    # =========================================================================
+    # STRUCTURAL tokens (mapped to new structure)
+    # =========================================================================
+    [structural.primary]="env:0"       # ENV hue A
+    [structural.secondary]="env:1"     # ENV hue B
+    [structural.accent]="verbs:4"      # accent color
+    [structural.muted]="nouns:3"       # muted gray
+    [structural.separator]="nouns:2"   # dim gray
 
-    # Action tokens - module.action syntax
-    [action.module]="env:0"                # Module name (green - nouns/data)
-    [action.separator]="mode:6"            # Dot separator (muted)
-    [action.name]="verbs:0"                # Action name (red/orange - verbs)
-    [action.param]="mode:1"                # Parameters (blue)
-    [action.description]="mode:6"          # Help text (muted)
-    [action.tes.prefix]="verbs:3"          # @ symbol (orange)
-    [action.tes.endpoint]="nouns:1"        # Endpoint name (magenta - target)
+    # Structural background tokens
+    [structural.bg.primary]="nouns:0"  # darkest
+    [structural.bg.secondary]="nouns:1" # dark
+    [structural.bg.tertiary]="nouns:2" # dim
 
-    # Marker tokens - module visual markers
-    [marker.primary]="mode:0"              # Primary marker color (changes with temperature)
-    [marker.active]="verbs:3"              # Active/selected marker
+    # =========================================================================
+    # INTERACTIVE tokens
+    # =========================================================================
+    [interactive.link]="verbs:0"       # primary action color
+    [interactive.active]="verbs:4"     # accent
+    [interactive.hover]="verbs:5"      # highlight
+    [interactive.focus]="verbs:6"      # focus
+    [interactive.selected]="verbs:0"   # primary
+    [interactive.disabled]="verbs:7"   # muted
 
-    # Terminal output tokens - for TUT tutorial rendering
-    [content.terminal.prompt]="env:3"      # Bright green - $ prompt
-    [content.terminal.command]="env:1"     # Green - commands
-    [content.terminal.output]="mode:6"     # Muted - normal output
-    [content.terminal.success]="env:1"     # Green - success messages
-    [content.terminal.warning]="verbs:3"   # Orange - warnings
-    [content.terminal.error]="verbs:0"     # Red - errors
-    [content.terminal.comment]="mode:5"    # Dim - comments
+    # =========================================================================
+    # CONTENT tokens
+    # =========================================================================
+    [content.heading.h1]="env:0"       # ENV hue A - top level
+    [content.heading.h2]="env:1"       # ENV hue B
+    [content.heading.h3]="verbs:0"     # primary action
+    [content.heading.h4]="verbs:1"     # secondary action
+    [content.code.inline]="verbs:4"    # accent
+    [content.code.block]="verbs:1"     # secondary
+    [content.quote]="nouns:3"          # muted
+    [content.list]="verbs:3"           # constructive (green)
+    [content.emphasis.bold]="verbs:5"  # highlight
+    [content.emphasis.italic]="env:2"  # ENV A light
+    [content.link]="verbs:0"           # primary action
+    [content.hr]="nouns:2"             # dim
+
+    # =========================================================================
+    # TERMINAL tokens (for TUT rendering)
+    # =========================================================================
+    [content.terminal.prompt]="verbs:3"    # constructive (green)
+    [content.terminal.command]="verbs:0"   # primary
+    [content.terminal.output]="nouns:5"    # light gray
+    [content.terminal.success]="mode:2"    # success (green)
+    [content.terminal.warning]="mode:1"    # warning (amber)
+    [content.terminal.error]="mode:0"      # error (red)
+    [content.terminal.comment]="nouns:3"   # muted
+
+    # =========================================================================
+    # MODULE/ACTION syntax tokens
+    # =========================================================================
+    [action.module]="env:0"            # ENV hue A
+    [action.separator]="nouns:2"       # dim
+    [action.name]="verbs:0"            # primary action
+    [action.param]="verbs:1"           # secondary
+    [action.description]="nouns:3"     # muted
+    [action.tes.prefix]="verbs:4"      # accent
+    [action.tes.endpoint]="verbs:5"    # highlight
+
+    # =========================================================================
+    # MARKER tokens
+    # =========================================================================
+    [marker.primary]="verbs:0"         # primary action
+    [marker.active]="verbs:4"          # accent
 )
 
 # Resolve color token to hex value
@@ -164,8 +226,9 @@ tds_show_tokens() {
     echo "====================="
     echo
 
-    echo "Structural Tokens:"
-    for key in structural.primary structural.secondary structural.accent structural.muted structural.separator; do
+    echo "Status Tokens (MODE palette):"
+    for key in status.error status.warning status.success status.info \
+               status.error.dim status.warning.dim status.success.dim status.info.dim; do
         printf "  %-30s" "$key"
         tds_text_color "$key"
         printf "%s → %s" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
@@ -174,8 +237,9 @@ tds_show_tokens() {
     done
     echo
 
-    echo "Text Tokens:"
-    for key in text.primary text.secondary text.tertiary text.muted; do
+    echo "Action Tokens (VERBS palette):"
+    for key in action.primary action.secondary action.destructive action.constructive \
+               action.accent action.highlight action.focus action.muted; do
         printf "  %-30s" "$key"
         tds_text_color "$key"
         printf "%s → %s" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
@@ -184,8 +248,8 @@ tds_show_tokens() {
     done
     echo
 
-    echo "Interactive Tokens:"
-    for key in interactive.link interactive.active interactive.hover interactive.selected; do
+    echo "Text Tokens (NOUNS gradient):"
+    for key in text.darkest text.dark text.dim text.muted text.subtle text.light text.pale text.brightest; do
         printf "  %-30s" "$key"
         tds_text_color "$key"
         printf "%s → %s" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
@@ -194,20 +258,9 @@ tds_show_tokens() {
     done
     echo
 
-    echo "Status Tokens:"
-    for key in status.success status.warning status.error status.info; do
-        printf "  %-30s" "$key"
-        tds_text_color "$key"
-        printf "%s → %s" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"
-        reset_color
-        echo
-    done
-    echo
-
-    echo "Content Tokens:"
-    for key in content.heading.h1 content.heading.h2 content.heading.h3 content.heading.h4 \
-               content.code.inline content.code.block content.quote content.emphasis.bold \
-               content.emphasis.italic content.link content.hr; do
+    echo "Environment Tokens (ENV alternate):"
+    for key in env.a.primary env.b.primary env.a.light env.b.light \
+               env.a.muted env.b.muted env.a.dim env.b.dim; do
         printf "  %-30s" "$key"
         tds_text_color "$key"
         printf "%s → %s" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key")"

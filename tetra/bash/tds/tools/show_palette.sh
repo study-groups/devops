@@ -10,15 +10,11 @@ show_hex_color() {
     local hex="$1"
     local label="$2"
 
-    # Strip # if present
-    hex="${hex#\#}"
-
-    # Show the color as background
-    printf "\e[48;2;%d;%d;%dm   \e[0m " \
-        "0x${hex:0:2}" "0x${hex:2:2}" "0x${hex:4:2}"
-
-    # Show hex and label
-    printf "#%s  %s\n" "$hex" "$label"
+    # Use TDS color functions (256-color mode for compatibility)
+    bg_only "$hex"
+    printf "   "
+    reset_color
+    printf " #%s  %s\n" "${hex#\#}" "$label"
 }
 
 show_palette_array() {

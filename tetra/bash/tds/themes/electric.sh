@@ -1,118 +1,119 @@
 #!/usr/bin/env bash
-# TDS Theme: Electric (Purple/Magenta Temperature)
+# TDS Theme: Electric (Violet/Fuchsia Temperature)
 # Used by: deploy module
-# Creates energetic, action-oriented atmosphere for deployment
+#
+# PALETTE STRUCTURE:
+#   ENV   - ALTERNATE: violet ↔ fuchsia
+#   MODE  - STATUS: error/warning/success/info + dims
+#   VERBS - ACTIONS + ACCENT
+#   NOUNS - GRADIENT: zinc dark→light
 
 tds_theme_electric() {
     # Theme metadata
     THEME_NAME="electric"
-    THEME_DESCRIPTION="Electric purple/magenta temperature for deploy module"
+    THEME_DESCRIPTION="Electric violet/fuchsia temperature for deploy module"
     THEME_TEMPERATURE="electric"
 
     # ========================================================================
-    # BASE PALETTE - Electric tones
+    # BASE PALETTE
     # ========================================================================
 
-    # Primary electric (violet)
-    PALETTE_PRIMARY_100="#ede9fe"      # Pale violet
-    PALETTE_PRIMARY_200="#ddd6fe"      # Light violet
-    PALETTE_PRIMARY_300="#c4b5fd"      # Violet
-    PALETTE_PRIMARY_400="#a78bfa"      # Bright violet
-    PALETTE_PRIMARY_500="#8b5cf6"      # Deep violet (primary)
-    PALETTE_PRIMARY_600="#7c3aed"      # Dark violet
-    PALETTE_PRIMARY_700="#6d28d9"      # Darker violet
-    PALETTE_PRIMARY_800="#5b21b6"      # Deep purple
-    PALETTE_PRIMARY_900="#4c1d95"      # Almost black purple
+    # Violet family (ENV hue A)
+    local violet_900="#4c1d95"
+    local violet_700="#6d28d9"
+    local violet_500="#8b5cf6"
+    local violet_300="#c4b5fd"
 
-    # Secondary electric (purple)
-    PALETTE_SECONDARY_100="#fae8ff"    # Pale fuchsia
-    PALETTE_SECONDARY_200="#f5d0fe"    # Light fuchsia
-    PALETTE_SECONDARY_300="#f0abfc"    # Fuchsia
-    PALETTE_SECONDARY_400="#e879f9"    # Bright fuchsia
-    PALETTE_SECONDARY_500="#d946ef"    # Deep fuchsia (secondary)
-    PALETTE_SECONDARY_600="#c026d3"    # Dark fuchsia
-    PALETTE_SECONDARY_700="#a21caf"    # Darker fuchsia
-    PALETTE_SECONDARY_800="#86198f"    # Deep magenta
-    PALETTE_SECONDARY_900="#701a75"    # Dark magenta
+    # Fuchsia family (ENV hue B)
+    local fuchsia_900="#701a75"
+    local fuchsia_700="#a21caf"
+    local fuchsia_500="#d946ef"
+    local fuchsia_300="#f0abfc"
 
-    # Accent electric (pink)
-    PALETTE_ACCENT_100="#fce7f3"       # Pale pink
-    PALETTE_ACCENT_200="#fbcfe8"       # Light pink
-    PALETTE_ACCENT_300="#f9a8d4"       # Pink
-    PALETTE_ACCENT_400="#f472b6"       # Bright pink
-    PALETTE_ACCENT_500="#ec4899"       # Deep pink (accent)
-    PALETTE_ACCENT_600="#db2777"       # Dark pink
-    PALETTE_ACCENT_700="#be185d"       # Darker pink
-    PALETTE_ACCENT_800="#9f1239"       # Deep rose
-    PALETTE_ACCENT_900="#881337"       # Dark rose
+    # Status colors (MODE)
+    local red_500="#ef4444"
+    local red_700="#b91c1c"
+    local amber_500="#f59e0b"
+    local amber_700="#b45309"
+    local green_500="#22c55e"
+    local green_700="#15803d"
+    local purple_500="#a855f7"
+    local purple_700="#7e22ce"
 
-    # Neutrals (purple-tinted grays)
-    PALETTE_NEUTRAL_100="#fafaf9"      # Almost white
-    PALETTE_NEUTRAL_200="#f5f3ff"      # Very light purple-gray
-    PALETTE_NEUTRAL_300="#e9d5ff"      # Light purple-gray
-    PALETTE_NEUTRAL_400="#d8b4fe"      # Medium light
-    PALETTE_NEUTRAL_500="#a78bfa"      # Medium purple-gray
-    PALETTE_NEUTRAL_600="#7c3aed"      # Medium dark
-    PALETTE_NEUTRAL_700="#6d28d9"      # Dark purple-gray
-    PALETTE_NEUTRAL_800="#5b21b6"      # Darker
-    PALETTE_NEUTRAL_900="#4c1d95"      # Almost black
+    # Action colors (VERBS) - electric tinted
+    local action_primary="#d946ef"      # fuchsia
+    local action_secondary="#a855f7"    # purple
+    local action_destructive="#ef4444"  # red
+    local action_constructive="#22c55e" # green
+    local action_accent="#06b6d4"       # cyan (complementary)
+    local action_highlight="#f0abfc"    # fuchsia light
+    local action_focus="#c4b5fd"        # violet light
+    local action_muted="#71717a"        # zinc
 
-    # State colors (electric variants)
-    PALETTE_SUCCESS="#10b981"          # Green (contrast)
-    PALETTE_WARNING="#f59e0b"          # Amber (contrast)
-    PALETTE_ERROR="#ef4444"            # Red
-    PALETTE_INFO="#d946ef"             # Fuchsia
+    # Zinc family (NOUNS gradient)
+    local zinc_900="#18181b"
+    local zinc_700="#3f3f46"
+    local zinc_600="#52525b"
+    local zinc_500="#71717a"
+    local zinc_400="#a1a1aa"
+    local zinc_300="#d4d4d8"
+    local zinc_200="#e4e4e7"
+    local zinc_50="#fafafa"
 
     # ========================================================================
-    # PALETTE ARRAYS - Map to TDS token system
+    # ENV_PRIMARY - ALTERNATE: Violet ↔ Fuchsia
     # ========================================================================
-
-    # ENV_PRIMARY - Used for environment indicators and success states
     ENV_PRIMARY=(
-        "$PALETTE_PRIMARY_500"   # 0: Deep violet (primary electric)
-        "$PALETTE_PRIMARY_400"   # 1: Bright violet
-        "$PALETTE_PRIMARY_300"   # 2: Violet
-        "$PALETTE_PRIMARY_600"   # 3: Dark violet
-        "$PALETTE_NEUTRAL_500"   # 4: Medium purple-gray
-        "$PALETTE_NEUTRAL_600"   # 5: Medium dark
-        "$PALETTE_NEUTRAL_700"   # 6: Dark purple-gray
-        "$PALETTE_NEUTRAL_100"   # 7: Almost white
+        "$violet_500"  # 0: A primary
+        "$fuchsia_500" # 1: B primary
+        "$violet_300"  # 2: A light
+        "$fuchsia_300" # 3: B light
+        "$violet_700"  # 4: A muted
+        "$fuchsia_700" # 5: B muted
+        "$violet_900"  # 6: A dim
+        "$fuchsia_900" # 7: B dim
     )
 
-    # MODE_PRIMARY - Used for mode indicators and structural elements
+    # ========================================================================
+    # MODE_PRIMARY - STATUS + dims
+    # ========================================================================
     MODE_PRIMARY=(
-        "$PALETTE_SECONDARY_500" # 0: Deep fuchsia (secondary)
-        "$PALETTE_SECONDARY_400" # 1: Bright fuchsia
-        "$PALETTE_SECONDARY_300" # 2: Fuchsia
-        "$PALETTE_SECONDARY_600" # 3: Dark fuchsia
-        "$PALETTE_NEUTRAL_400"   # 4: Medium light
-        "$PALETTE_NEUTRAL_500"   # 5: Medium purple-gray
-        "$PALETTE_NEUTRAL_600"   # 6: Medium dark
-        "$PALETTE_NEUTRAL_200"   # 7: Very light purple-gray
+        "$red_500"     # 0: error
+        "$amber_500"   # 1: warning
+        "$green_500"   # 2: success
+        "$purple_500"  # 3: info (electric tint)
+        "$red_700"     # 4: error-dim
+        "$amber_700"   # 5: warning-dim
+        "$green_700"   # 6: success-dim
+        "$purple_700"  # 7: info-dim
     )
 
-    # VERBS_PRIMARY - Used for actions and interactive elements
+    # ========================================================================
+    # VERBS_PRIMARY - ACTIONS + ACCENT
+    # ========================================================================
     VERBS_PRIMARY=(
-        "$PALETTE_ERROR"         # 0: Red (errors)
-        "$PALETTE_ACCENT_500"    # 1: Deep pink
-        "$PALETTE_ACCENT_400"    # 2: Bright pink
-        "$PALETTE_WARNING"       # 3: Amber (for warnings)
-        "$PALETTE_PRIMARY_400"   # 4: Bright violet
-        "$PALETTE_NEUTRAL_600"   # 5: Medium dark
-        "$PALETTE_NEUTRAL_700"   # 6: Dark
-        "$PALETTE_NEUTRAL_300"   # 7: Light purple-gray
+        "$action_primary"      # 0: primary
+        "$action_secondary"    # 1: secondary
+        "$action_destructive"  # 2: destructive
+        "$action_constructive" # 3: constructive
+        "$action_accent"       # 4: accent
+        "$action_highlight"    # 5: highlight
+        "$action_focus"        # 6: focus
+        "$action_muted"        # 7: muted
     )
 
-    # NOUNS_PRIMARY - Used for data/noun elements
+    # ========================================================================
+    # NOUNS_PRIMARY - GRADIENT
+    # ========================================================================
     NOUNS_PRIMARY=(
-        "$PALETTE_ACCENT_500"    # 0: Deep pink
-        "$PALETTE_ACCENT_400"    # 1: Bright pink
-        "$PALETTE_SECONDARY_400" # 2: Bright fuchsia
-        "$PALETTE_PRIMARY_400"   # 3: Bright violet
-        "$PALETTE_NEUTRAL_300"   # 4: Light purple-gray
-        "$PALETTE_NEUTRAL_400"   # 5: Medium light
-        "$PALETTE_NEUTRAL_500"   # 6: Medium purple-gray
-        "$PALETTE_NEUTRAL_200"   # 7: Very light
+        "$zinc_900"    # 0: darkest
+        "$zinc_700"    # 1: dark
+        "$zinc_600"    # 2: medium-dark
+        "$zinc_500"    # 3: medium
+        "$zinc_400"    # 4: medium-light
+        "$zinc_300"    # 5: light
+        "$zinc_200"    # 6: pale
+        "$zinc_50"     # 7: lightest
     )
 
     # Apply semantic colors using palette arrays

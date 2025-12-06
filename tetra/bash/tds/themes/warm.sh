@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # TDS Theme: Warm (Amber/Orange Temperature)
 # Used by: org module
-# Creates warm, inviting atmosphere for organization management
+#
+# PALETTE STRUCTURE:
+#   ENV   - ALTERNATE: amber ↔ orange
+#   MODE  - STATUS: error/warning/success/info + dims
+#   VERBS - ACTIONS + ACCENT
+#   NOUNS - GRADIENT: stone dark→light
 
-# Source guard - prevent multiple sourcing
+# Source guard
 [[ "${__TDS_THEME_WARM_LOADED:-}" == "true" ]] && return 0
 __TDS_THEME_WARM_LOADED=true
 
@@ -14,114 +19,107 @@ tds_theme_warm() {
     THEME_TEMPERATURE="warm"
 
     # ========================================================================
-    # BASE PALETTE - Warm tones
+    # BASE PALETTE
     # ========================================================================
 
-    # Primary warm colors
-    PALETTE_PRIMARY_100="#fef3c7"      # Pale amber
-    PALETTE_PRIMARY_200="#fde68a"      # Light amber
-    PALETTE_PRIMARY_300="#fcd34d"      # Amber
-    PALETTE_PRIMARY_400="#fbbf24"      # Rich amber
-    PALETTE_PRIMARY_500="#f59e0b"      # Deep amber (primary)
-    PALETTE_PRIMARY_600="#d97706"      # Dark amber
-    PALETTE_PRIMARY_700="#b45309"      # Darker amber
-    PALETTE_PRIMARY_800="#92400e"      # Deep amber brown
-    PALETTE_PRIMARY_900="#78350f"      # Almost brown
+    # Amber family (ENV hue A)
+    local amber_900="#78350f"
+    local amber_700="#b45309"
+    local amber_500="#f59e0b"
+    local amber_300="#fcd34d"
 
-    # Secondary warm (orange)
-    PALETTE_SECONDARY_100="#fed7aa"    # Pale orange
-    PALETTE_SECONDARY_200="#fdba74"    # Light orange
-    PALETTE_SECONDARY_300="#fb923c"    # Orange
-    PALETTE_SECONDARY_400="#f97316"    # Bright orange
-    PALETTE_SECONDARY_500="#ea580c"    # Deep orange (secondary)
-    PALETTE_SECONDARY_600="#c2410c"    # Dark orange
-    PALETTE_SECONDARY_700="#9a3412"    # Darker orange
-    PALETTE_SECONDARY_800="#7c2d12"    # Deep orange brown
-    PALETTE_SECONDARY_900="#431407"    # Almost maroon
+    # Orange family (ENV hue B)
+    local orange_900="#7c2d12"
+    local orange_700="#c2410c"
+    local orange_500="#f97316"
+    local orange_300="#fdba74"
 
-    # Accent warm (red-orange)
-    PALETTE_ACCENT_100="#fecaca"       # Pale red
-    PALETTE_ACCENT_200="#fca5a5"       # Light red
-    PALETTE_ACCENT_300="#f87171"       # Red
-    PALETTE_ACCENT_400="#ef4444"       # Bright red
-    PALETTE_ACCENT_500="#dc2626"       # Deep red (accent)
-    PALETTE_ACCENT_600="#b91c1c"       # Dark red
-    PALETTE_ACCENT_700="#991b1b"       # Darker red
-    PALETTE_ACCENT_800="#7f1d1d"       # Deep maroon
-    PALETTE_ACCENT_900="#450a0a"       # Almost black
+    # Status colors (MODE)
+    local red_500="#ef4444"
+    local red_700="#b91c1c"
+    local yellow_500="#eab308"
+    local yellow_700="#a16207"
+    local green_500="#22c55e"
+    local green_700="#15803d"
+    local amber_info="#f59e0b"
+    local amber_info_dim="#b45309"
 
-    # Neutrals (warm grays)
-    PALETTE_NEUTRAL_100="#fafaf9"      # Almost white
-    PALETTE_NEUTRAL_200="#f5f5f4"      # Very light warm gray
-    PALETTE_NEUTRAL_300="#e7e5e4"      # Light warm gray
-    PALETTE_NEUTRAL_400="#d6d3d1"      # Medium light
-    PALETTE_NEUTRAL_500="#a8a29e"      # Medium warm gray
-    PALETTE_NEUTRAL_600="#78716c"      # Medium dark
-    PALETTE_NEUTRAL_700="#57534e"      # Dark warm gray
-    PALETTE_NEUTRAL_800="#44403c"      # Darker
-    PALETTE_NEUTRAL_900="#292524"      # Almost black
+    # Action colors (VERBS) - warm tinted
+    local action_primary="#f97316"      # orange
+    local action_secondary="#f59e0b"    # amber
+    local action_destructive="#ef4444"  # red
+    local action_constructive="#22c55e" # green
+    local action_accent="#f472b6"       # pink
+    local action_highlight="#fb923c"    # orange light
+    local action_focus="#fbbf24"        # amber light
+    local action_muted="#78716c"        # stone
 
-    # State colors (warm variants)
-    PALETTE_SUCCESS="#16a34a"          # Warm green
-    PALETTE_WARNING="#ea580c"          # Orange
-    PALETTE_ERROR="#dc2626"            # Red
-    PALETTE_INFO="#f59e0b"             # Amber
+    # Stone family (NOUNS gradient)
+    local stone_900="#1c1917"
+    local stone_700="#44403c"
+    local stone_600="#57534e"
+    local stone_500="#78716c"
+    local stone_400="#a8a29e"
+    local stone_300="#d6d3d1"
+    local stone_200="#e7e5e4"
+    local stone_50="#fafaf9"
 
     # ========================================================================
-    # PALETTE ARRAYS - Map to TDS token system
+    # ENV_PRIMARY - ALTERNATE: Amber ↔ Orange
     # ========================================================================
-    # The TDS token system expects these 4 palette arrays (8 colors each)
-    # We map warm colors to create a cohesive warm temperature aesthetic
-
-    # ENV_PRIMARY - Used for environment indicators and success states
     ENV_PRIMARY=(
-        "$PALETTE_PRIMARY_500"   # 0: Deep amber (primary warm)
-        "$PALETTE_PRIMARY_400"   # 1: Rich amber
-        "$PALETTE_PRIMARY_300"   # 2: Amber
-        "$PALETTE_PRIMARY_600"   # 3: Dark amber
-        "$PALETTE_NEUTRAL_500"   # 4: Medium warm gray
-        "$PALETTE_NEUTRAL_600"   # 5: Medium dark gray
-        "$PALETTE_NEUTRAL_700"   # 6: Dark warm gray
-        "$PALETTE_NEUTRAL_100"   # 7: Almost white
+        "$amber_500"   # 0: A primary
+        "$orange_500"  # 1: B primary
+        "$amber_300"   # 2: A light
+        "$orange_300"  # 3: B light
+        "$amber_700"   # 4: A muted
+        "$orange_700"  # 5: B muted
+        "$amber_900"   # 6: A dim
+        "$orange_900"  # 7: B dim
     )
 
-    # MODE_PRIMARY - Used for mode indicators and structural elements
+    # ========================================================================
+    # MODE_PRIMARY - STATUS + dims
+    # ========================================================================
     MODE_PRIMARY=(
-        "$PALETTE_SECONDARY_500" # 0: Deep orange (secondary)
-        "$PALETTE_SECONDARY_400" # 1: Bright orange
-        "$PALETTE_SECONDARY_300" # 2: Orange
-        "$PALETTE_SECONDARY_600" # 3: Dark orange
-        "$PALETTE_NEUTRAL_400"   # 4: Medium light gray
-        "$PALETTE_NEUTRAL_500"   # 5: Medium warm gray
-        "$PALETTE_NEUTRAL_600"   # 6: Medium dark gray
-        "$PALETTE_NEUTRAL_200"   # 7: Very light warm gray
+        "$red_500"         # 0: error
+        "$yellow_500"      # 1: warning
+        "$green_500"       # 2: success
+        "$amber_info"      # 3: info (warm tint)
+        "$red_700"         # 4: error-dim
+        "$yellow_700"      # 5: warning-dim
+        "$green_700"       # 6: success-dim
+        "$amber_info_dim"  # 7: info-dim
     )
 
-    # VERBS_PRIMARY - Used for actions and interactive elements
+    # ========================================================================
+    # VERBS_PRIMARY - ACTIONS + ACCENT
+    # ========================================================================
     VERBS_PRIMARY=(
-        "$PALETTE_ACCENT_500"    # 0: Deep red (accent)
-        "$PALETTE_ACCENT_400"    # 1: Bright red
-        "$PALETTE_ACCENT_300"    # 2: Red
-        "$PALETTE_SECONDARY_500" # 3: Deep orange (for warnings)
-        "$PALETTE_PRIMARY_400"   # 4: Rich amber
-        "$PALETTE_NEUTRAL_600"   # 5: Medium dark
-        "$PALETTE_NEUTRAL_700"   # 6: Dark
-        "$PALETTE_NEUTRAL_300"   # 7: Light warm gray
+        "$action_primary"      # 0: primary
+        "$action_secondary"    # 1: secondary
+        "$action_destructive"  # 2: destructive
+        "$action_constructive" # 3: constructive
+        "$action_accent"       # 4: accent
+        "$action_highlight"    # 5: highlight
+        "$action_focus"        # 6: focus
+        "$action_muted"        # 7: muted
     )
 
-    # NOUNS_PRIMARY - Used for data/noun elements
+    # ========================================================================
+    # NOUNS_PRIMARY - GRADIENT
+    # ========================================================================
     NOUNS_PRIMARY=(
-        "$PALETTE_PRIMARY_400"   # 0: Rich amber
-        "$PALETTE_PRIMARY_300"   # 1: Amber
-        "$PALETTE_SECONDARY_400" # 2: Bright orange
-        "$PALETTE_ACCENT_300"    # 3: Red
-        "$PALETTE_NEUTRAL_300"   # 4: Light warm gray
-        "$PALETTE_NEUTRAL_400"   # 5: Medium light
-        "$PALETTE_NEUTRAL_500"   # 6: Medium warm gray
-        "$PALETTE_NEUTRAL_200"   # 7: Very light
+        "$stone_900"   # 0: darkest
+        "$stone_700"   # 1: dark
+        "$stone_600"   # 2: medium-dark
+        "$stone_500"   # 3: medium
+        "$stone_400"   # 4: medium-light
+        "$stone_300"   # 5: light
+        "$stone_200"   # 6: pale
+        "$stone_50"    # 7: lightest
     )
 
-    # Apply semantic colors using palette arrays
     tds_apply_semantic_colors
 }
 

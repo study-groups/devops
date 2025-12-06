@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # TDS Theme: Neutral (Green/Gray Temperature)
 # Used by: tsm module
-# Creates balanced, operational atmosphere for service management
+#
+# PALETTE STRUCTURE:
+#   ENV   - ALTERNATE: green ↔ emerald
+#   MODE  - STATUS: error/warning/success/info + dims
+#   VERBS - ACTIONS + ACCENT
+#   NOUNS - GRADIENT: gray dark→light
 
 tds_theme_neutral() {
     # Theme metadata
@@ -10,112 +15,107 @@ tds_theme_neutral() {
     THEME_TEMPERATURE="neutral"
 
     # ========================================================================
-    # BASE PALETTE - Neutral tones
+    # BASE PALETTE
     # ========================================================================
 
-    # Primary neutral (sage green)
-    PALETTE_PRIMARY_100="#dcfce7"      # Pale green
-    PALETTE_PRIMARY_200="#bbf7d0"      # Light green
-    PALETTE_PRIMARY_300="#86efac"      # Green
-    PALETTE_PRIMARY_400="#4ade80"      # Bright green
-    PALETTE_PRIMARY_500="#22c55e"      # Deep green (primary)
-    PALETTE_PRIMARY_600="#16a34a"      # Dark green
-    PALETTE_PRIMARY_700="#15803d"      # Darker green
-    PALETTE_PRIMARY_800="#166534"      # Deep forest
-    PALETTE_PRIMARY_900="#14532d"      # Almost black green
+    # Green family (ENV hue A)
+    local green_900="#14532d"
+    local green_700="#15803d"
+    local green_500="#22c55e"
+    local green_300="#86efac"
 
-    # Secondary neutral (emerald)
-    PALETTE_SECONDARY_100="#d1fae5"    # Pale emerald
-    PALETTE_SECONDARY_200="#a7f3d0"    # Light emerald
-    PALETTE_SECONDARY_300="#6ee7b7"    # Emerald
-    PALETTE_SECONDARY_400="#34d399"    # Bright emerald
-    PALETTE_SECONDARY_500="#10b981"    # Deep emerald (secondary)
-    PALETTE_SECONDARY_600="#059669"    # Dark emerald
-    PALETTE_SECONDARY_700="#047857"    # Darker emerald
-    PALETTE_SECONDARY_800="#065f46"    # Deep teal
-    PALETTE_SECONDARY_900="#064e3b"    # Dark teal
+    # Emerald family (ENV hue B)
+    local emerald_900="#064e3b"
+    local emerald_700="#047857"
+    local emerald_500="#10b981"
+    local emerald_300="#6ee7b7"
 
-    # Accent neutral (teal)
-    PALETTE_ACCENT_100="#ccfbf1"       # Pale teal
-    PALETTE_ACCENT_200="#99f6e4"       # Light teal
-    PALETTE_ACCENT_300="#5eead4"       # Teal
-    PALETTE_ACCENT_400="#2dd4bf"       # Bright teal
-    PALETTE_ACCENT_500="#14b8a6"       # Deep teal (accent)
-    PALETTE_ACCENT_600="#0d9488"       # Dark teal
-    PALETTE_ACCENT_700="#0f766e"       # Darker teal
-    PALETTE_ACCENT_800="#115e59"       # Deep teal
-    PALETTE_ACCENT_900="#134e4a"       # Dark teal
+    # Status colors (MODE)
+    local red_500="#ef4444"
+    local red_700="#b91c1c"
+    local amber_500="#f59e0b"
+    local amber_700="#b45309"
+    local green_status="#22c55e"
+    local green_status_dim="#15803d"
+    local teal_500="#14b8a6"
+    local teal_700="#0f766e"
 
-    # Neutrals (true grays - balanced)
-    PALETTE_NEUTRAL_100="#f9fafb"      # Almost white
-    PALETTE_NEUTRAL_200="#f3f4f6"      # Very light gray
-    PALETTE_NEUTRAL_300="#e5e7eb"      # Light gray
-    PALETTE_NEUTRAL_400="#d1d5db"      # Medium light
-    PALETTE_NEUTRAL_500="#9ca3af"      # Medium gray
-    PALETTE_NEUTRAL_600="#6b7280"      # Medium dark
-    PALETTE_NEUTRAL_700="#4b5563"      # Dark gray
-    PALETTE_NEUTRAL_800="#374151"      # Darker
-    PALETTE_NEUTRAL_900="#1f2937"      # Almost black
+    # Action colors (VERBS) - neutral tinted
+    local action_primary="#10b981"      # emerald
+    local action_secondary="#14b8a6"    # teal
+    local action_destructive="#ef4444"  # red
+    local action_constructive="#22c55e" # green
+    local action_accent="#8b5cf6"       # violet
+    local action_highlight="#34d399"    # emerald light
+    local action_focus="#2dd4bf"        # teal light
+    local action_muted="#6b7280"        # gray
 
-    # State colors (neutral variants)
-    PALETTE_SUCCESS="#22c55e"          # Green
-    PALETTE_WARNING="#f59e0b"          # Amber
-    PALETTE_ERROR="#ef4444"            # Red
-    PALETTE_INFO="#10b981"             # Emerald
+    # Gray family (NOUNS gradient - true neutrals)
+    local gray_900="#111827"
+    local gray_700="#374151"
+    local gray_600="#4b5563"
+    local gray_500="#6b7280"
+    local gray_400="#9ca3af"
+    local gray_300="#d1d5db"
+    local gray_200="#e5e7eb"
+    local gray_50="#f9fafb"
 
     # ========================================================================
-    # PALETTE ARRAYS - Map to TDS token system
+    # ENV_PRIMARY - ALTERNATE: Green ↔ Emerald
     # ========================================================================
-
-    # ENV_PRIMARY - Used for environment indicators and success states
     ENV_PRIMARY=(
-        "$PALETTE_PRIMARY_500"   # 0: Deep green (primary neutral)
-        "$PALETTE_PRIMARY_400"   # 1: Bright green
-        "$PALETTE_PRIMARY_300"   # 2: Green
-        "$PALETTE_PRIMARY_600"   # 3: Dark green
-        "$PALETTE_NEUTRAL_500"   # 4: Medium gray
-        "$PALETTE_NEUTRAL_600"   # 5: Medium dark gray
-        "$PALETTE_NEUTRAL_700"   # 6: Dark gray
-        "$PALETTE_NEUTRAL_100"   # 7: Almost white
+        "$green_500"   # 0: A primary
+        "$emerald_500" # 1: B primary
+        "$green_300"   # 2: A light
+        "$emerald_300" # 3: B light
+        "$green_700"   # 4: A muted
+        "$emerald_700" # 5: B muted
+        "$green_900"   # 6: A dim
+        "$emerald_900" # 7: B dim
     )
 
-    # MODE_PRIMARY - Used for mode indicators and structural elements
+    # ========================================================================
+    # MODE_PRIMARY - STATUS + dims
+    # ========================================================================
     MODE_PRIMARY=(
-        "$PALETTE_SECONDARY_500" # 0: Deep emerald (secondary)
-        "$PALETTE_SECONDARY_400" # 1: Bright emerald
-        "$PALETTE_SECONDARY_300" # 2: Emerald
-        "$PALETTE_SECONDARY_600" # 3: Dark emerald
-        "$PALETTE_NEUTRAL_400"   # 4: Medium light gray
-        "$PALETTE_NEUTRAL_500"   # 5: Medium gray
-        "$PALETTE_NEUTRAL_600"   # 6: Medium dark gray
-        "$PALETTE_NEUTRAL_200"   # 7: Very light gray
+        "$red_500"           # 0: error
+        "$amber_500"         # 1: warning
+        "$green_status"      # 2: success
+        "$teal_500"          # 3: info
+        "$red_700"           # 4: error-dim
+        "$amber_700"         # 5: warning-dim
+        "$green_status_dim"  # 6: success-dim
+        "$teal_700"          # 7: info-dim
     )
 
-    # VERBS_PRIMARY - Used for actions and interactive elements
+    # ========================================================================
+    # VERBS_PRIMARY - ACTIONS + ACCENT
+    # ========================================================================
     VERBS_PRIMARY=(
-        "$PALETTE_ERROR"         # 0: Red (errors)
-        "$PALETTE_WARNING"       # 1: Amber (warnings)
-        "$PALETTE_ACCENT_400"    # 2: Bright teal
-        "$PALETTE_ACCENT_500"    # 3: Deep teal
-        "$PALETTE_PRIMARY_400"   # 4: Bright green
-        "$PALETTE_NEUTRAL_600"   # 5: Medium dark
-        "$PALETTE_NEUTRAL_700"   # 6: Dark
-        "$PALETTE_NEUTRAL_300"   # 7: Light gray
+        "$action_primary"      # 0: primary
+        "$action_secondary"    # 1: secondary
+        "$action_destructive"  # 2: destructive
+        "$action_constructive" # 3: constructive
+        "$action_accent"       # 4: accent
+        "$action_highlight"    # 5: highlight
+        "$action_focus"        # 6: focus
+        "$action_muted"        # 7: muted
     )
 
-    # NOUNS_PRIMARY - Used for data/noun elements
+    # ========================================================================
+    # NOUNS_PRIMARY - GRADIENT
+    # ========================================================================
     NOUNS_PRIMARY=(
-        "$PALETTE_ACCENT_500"    # 0: Deep teal
-        "$PALETTE_ACCENT_400"    # 1: Bright teal
-        "$PALETTE_SECONDARY_400" # 2: Bright emerald
-        "$PALETTE_PRIMARY_400"   # 3: Bright green
-        "$PALETTE_NEUTRAL_300"   # 4: Light gray
-        "$PALETTE_NEUTRAL_400"   # 5: Medium light
-        "$PALETTE_NEUTRAL_500"   # 6: Medium gray
-        "$PALETTE_NEUTRAL_200"   # 7: Very light
+        "$gray_900"    # 0: darkest
+        "$gray_700"    # 1: dark
+        "$gray_600"    # 2: medium-dark
+        "$gray_500"    # 3: medium
+        "$gray_400"    # 4: medium-light
+        "$gray_300"    # 5: light
+        "$gray_200"    # 6: pale
+        "$gray_50"     # 7: lightest
     )
 
-    # Apply semantic colors using palette arrays
     tds_apply_semantic_colors
 }
 
