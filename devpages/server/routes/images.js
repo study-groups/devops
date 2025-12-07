@@ -69,14 +69,14 @@ function findImageReferences(content, targetImage) {
 
 // Generate the image index markdown
 async function generateImageIndex() {
-    const mdDir = process.env.MD_DIR || '.';
+    const mdDir = process.env.MD_DIR || (process.env.PD_DIR ? path.join(process.env.PD_DIR, 'data') : '.');
     const indexPath = path.join(mdDir, 'images', 'index.md');
-    
+
     try {
         // Get all images in uploads directory
         const files = await fs.readdir(uploadsDirectory);
         const images = files.filter(f => /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(f));
-        
+
         // Get all markdown files recursively
         async function getMarkdownFiles(dir) {
             const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -86,15 +86,23 @@ async function generateImageIndex() {
             }));
             return files.flat().filter(f => f.endsWith('.md') && !f.includes('/images/'));
         }
-        
+
         const mdFiles = await getMarkdownFiles(mdDir);
-        
-        // Count references for each image
+
+        // Count references for each image and get file stats
         const imageStats = {};
         for (const image of images) {
-            imageStats[image] = { count: 0, refs: [] };
+            const imagePath = path.join(uploadsDirectory, image);
+            const stat = await fs.stat(imagePath);
+
+            imageStats[image] = {
+                count: 0,
+                refs: [],
+                mtime: stat.mtime,
+                size: stat.size
+            };
             const imageUrl = `/uploads/${image}`;
-            
+
             for (const mdFile of mdFiles) {
                 try {
                     const content = await fs.readFile(mdFile, 'utf8');
@@ -117,25 +125,41 @@ async function generateImageIndex() {
             }
         }
         
+        // Helper function to calculate orphan status
+        const getOrphanStatus = (mtime, refCount) => {
+            if (refCount > 0) return null;
+            const now = new Date();
+            const fileDate = new Date(mtime);
+            const daysSinceModified = Math.floor((now - fileDate) / (1000 * 60 * 60 * 24));
+            return daysSinceModified;
+        };
+
+        // Helper function to format file size
+        const formatSize = (bytes) => {
+            if (bytes < 1024) return `${bytes}B`;
+            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+            return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+        };
+
         // Generate markdown content with thumbnails
         let content = `
 # Image Index
 
 [Delete Unused Images](/api/images/delete-unused)
 
-| Thumbnail | Image Info | References | Actions |
-|-----------|------------|------------|---------|
+| Thumbnail | Image Info | References | Status | Actions |
+|-----------|------------|------------|--------|---------|
 `;
-        
+
         for (const [image, stats] of Object.entries(imageStats)) {
             const imageUrl = `/uploads/${image}`;
-            
+
             // Log the image and stats for debugging
             console.log('Processing image:', image);
             console.log('Image stats:', stats);
 
             // Convert references to string
-            const files = stats.refs.length > 0 
+            const files = stats.refs.length > 0
                 ? stats.refs.map(ref => {
                     const dirParam = ref.dirPath ? `&dir=${encodeURIComponent(ref.dirPath)}` : '';
                     const refString = `[${String(ref.displayPath)}](/?file=${encodeURIComponent(String(ref.displayPath))}${dirParam}) (${String(ref.count)})`;
@@ -143,7 +167,7 @@ async function generateImageIndex() {
                     return refString;
                 }).join('<br>')
                 : 'No references';
-            
+
             // Create thumbnail cell
             let thumbnailCell;
             if (image.toLowerCase().endsWith('.svg')) {
@@ -151,17 +175,23 @@ async function generateImageIndex() {
             } else {
                 thumbnailCell = `<img src="${String(imageUrl)}" alt="${String(image)}" style="max-width:100px; max-height:100px;"><br>${String(image)}`;
             }
-            
+
             // Create image info
-            const imageInfo = `**Name**: ${String(image)}<br>**Used**: ${String(stats.count)} times`;
-            
+            const imageInfo = `**Name**: ${String(image)}<br>**Size**: ${formatSize(stats.size)}<br>**Used**: ${String(stats.count)} times`;
+
+            // Create status info
+            const orphanDays = getOrphanStatus(stats.mtime, stats.count);
+            const statusInfo = orphanDays !== null
+                ? `Orphaned: ${orphanDays} days`
+                : 'In use';
+
             // Create delete button
-            const deleteButton = `<button class="delete-btn" data-action="delete-image" data-image-name="${encodeURIComponent(String(image))}" onclick="return false;">Delete</button>`;
-            
+            const deleteButton = `<button class="delete-btn" data-action="delete-image" data-image-name="${encodeURIComponent(String(image))}">Delete</button>`;
+
             // Log the final row for debugging
-            const row = `| ${thumbnailCell} | ${imageInfo} | ${files} | ${deleteButton} |\n`;
+            const row = `| ${thumbnailCell} | ${imageInfo} | ${files} | ${statusInfo} | ${deleteButton} |\n`;
             console.log('Table row:', row);
-            
+
             // Add row to table
             content += row;
         }
@@ -236,7 +266,7 @@ router.get('/delete/:image', async (req, res) => {
 // Delete all unused images
 router.get('/delete-unused', async (req, res) => {
     try {
-        const mdDir = process.env.MD_DIR || '.';
+        const mdDir = process.env.MD_DIR || (process.env.PD_DIR ? path.join(process.env.PD_DIR, 'data') : '.');
         const files = await fs.readdir(uploadsDirectory);
         const images = files.filter(f => /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(f));
         
@@ -301,44 +331,108 @@ router.post('/generate-index', async (req, res) => {
 router.post('/delete', async (req, res) => {
     try {
         const { url } = req.body;
-        
+
         if (!url) {
             return res.status(400).json({ error: 'Image URL is required' });
         }
-        
+
         // Extract filename from URL
         let filename = url.split('/').pop();
-        
+
         // Make sure the filename is valid
         if (!filename || filename.includes('..')) {
             return res.status(400).json({ error: 'Invalid image filename' });
         }
-        
+
         // Ensure we're only deleting from uploads directory
         const imagePath = path.join(uploadsDirectory, filename);
-        
+
         console.log(`Attempting to delete image: ${imagePath}`);
-        
+
         // Check if file exists
         try {
             await fs.access(imagePath);
         } catch (error) {
             return res.status(404).json({ error: 'Image file not found' });
         }
-        
+
         // Delete the file
         await fs.unlink(imagePath);
-        
+
         console.log(`Successfully deleted image: ${filename}`);
-        
+
         // Update the image index
         generateImageIndex().catch(err => {
             console.error('Error updating image index after deletion:', err);
         });
-        
+
         return res.json({ success: true, message: 'Image deleted successfully' });
     } catch (error) {
         console.error('Error deleting image:', error);
+        return res.status(500).json({ error: error.message });
+    }
+});
+
+// Get image statistics
+router.get('/stats', async (req, res) => {
+    try {
+        const mdDir = process.env.MD_DIR || (process.env.PD_DIR ? path.join(process.env.PD_DIR, 'data') : '.');
+
+        // Get all images in uploads directory
+        const files = await fs.readdir(uploadsDirectory);
+        const images = files.filter(f => /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(f));
+
+        // Get all markdown files recursively
+        async function getMarkdownFiles(dir) {
+            const entries = await fs.readdir(dir, { withFileTypes: true });
+            const files = await Promise.all(entries.map(entry => {
+                const res = path.resolve(dir, entry.name);
+                return entry.isDirectory() ? getMarkdownFiles(res) : res;
+            }));
+            return files.flat().filter(f => f.endsWith('.md') && !f.includes('/images/'));
+        }
+
+        const mdFiles = await getMarkdownFiles(mdDir);
+
+        let totalImages = images.length;
+        let unusedImages = 0;
+        let orphanedImages = 0;
+
+        for (const image of images) {
+            const imagePath = path.join(uploadsDirectory, image);
+            const stat = await fs.stat(imagePath);
+            let totalRefs = 0;
+            const imageUrl = `/uploads/${image}`;
+
+            for (const mdFile of mdFiles) {
+                try {
+                    const content = await fs.readFile(mdFile, 'utf8');
+                    totalRefs += findImageReferences(content, imageUrl);
+                } catch (err) {
+                    console.error(`Error reading file ${mdFile}:`, err);
+                }
+            }
+
+            if (totalRefs === 0) {
+                unusedImages++;
+
+                // Check if orphaned (unused for more than 7 days)
+                const now = new Date();
+                const fileDate = new Date(stat.mtime);
+                const daysSinceModified = Math.floor((now - fileDate) / (1000 * 60 * 60 * 24));
+                if (daysSinceModified > 7) {
+                    orphanedImages++;
+                }
+            }
+        }
+
+        return res.json({
+            total: totalImages,
+            unused: unusedImages,
+            orphaned: orphanedImages
+        });
+    } catch (error) {
+        console.error('Error getting image stats:', error);
         return res.status(500).json({ error: error.message });
     }
 });
