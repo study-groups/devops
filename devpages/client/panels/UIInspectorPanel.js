@@ -427,17 +427,7 @@ export class UIInspectorPanel extends BasePanel {
     }
 
     attachEventListeners() {
-        // Find the correct container
-        let container;
-        if (this.element) {
-            container = this.element;
-        } else if (this.sidebarContainer) {
-            container = this.sidebarContainer;
-        } else {
-            container = document.querySelector(`#panel-instance-${this.id}`);
-        }
-
-        // Ensure we have a valid container
+        const container = this.getContainer();
         if (!container) {
             console.warn('[UIInspectorPanel] No container found for attaching listeners');
             return;
@@ -461,13 +451,8 @@ export class UIInspectorPanel extends BasePanel {
     }
 
     attachCollapseListeners() {
-        // Find the correct container
-        let container;
-        if (this.element) {
-            container = this.element;
-        } else if (this.sidebarContainer) {
-            container = this.sidebarContainer;
-        } else {
+        const container = this.getContainer();
+        if (!container) {
             console.warn('[UIInspectorPanel] No container found for collapse listeners');
             return;
         }
@@ -499,17 +484,7 @@ export class UIInspectorPanel extends BasePanel {
     }
 
     refresh() {
-        // Find the correct container
-        let container;
-        if (this.element) {
-            container = this.element;
-        } else if (this.sidebarContainer) {
-            container = this.sidebarContainer;
-        } else {
-            container = document.querySelector(`#panel-instance-${this.id}`);
-        }
-
-        // Ensure we have a valid container
+        const container = this.getContainer();
         if (!container) {
             console.warn('[UIInspectorPanel] No container found for refreshing');
             return;
@@ -680,6 +655,14 @@ export class UIInspectorPanel extends BasePanel {
             clearInterval(this.refreshInterval);
             this.refreshInterval = null;
         }
+    }
+
+    /**
+     * Get the container element where our content lives
+     * STANDARD PATTERN - queries .panel-body first
+     */
+    getContainer() {
+        return this.element?.querySelector('.panel-body') || this.element || this.container;
     }
 
     onDestroy() {

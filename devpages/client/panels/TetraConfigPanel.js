@@ -311,21 +311,20 @@ export class TetraConfigPanel extends BasePanel {
     }
 
     attachListeners() {
-        if (!this.element) return;
+        const container = this.getContainer();
+        if (!container) return;
 
-        const reloadButtons = this.element.querySelectorAll('.btn-reload');
+        const reloadButtons = container.querySelectorAll('.btn-reload');
         reloadButtons.forEach(btn => {
             btn.addEventListener('click', () => this.handleReload());
         });
     }
 
     refresh() {
-        if (this.element) {
-            const panelBody = this.element.querySelector('.panel-body');
-            if (panelBody) {
-                panelBody.innerHTML = this.renderContent();
-                this.attachListeners();
-            }
+        const panelBody = this.getContainer();
+        if (panelBody) {
+            panelBody.innerHTML = this.renderContent();
+            this.attachListeners();
         }
     }
 
@@ -347,6 +346,14 @@ export class TetraConfigPanel extends BasePanel {
             this.error = error.message;
             this.refresh();
         }
+    }
+
+    /**
+     * Get the container element where our content lives
+     * STANDARD PATTERN - queries .panel-body first
+     */
+    getContainer() {
+        return this.element?.querySelector('.panel-body') || this.element || this.container;
     }
 
     destroy() {

@@ -32,10 +32,6 @@ export class DiagnosticPanel extends BasePanel {
                         <span>↻</span>
                         <span>Refresh</span>
                     </button>
-                    <label class="devpages-flex-center devpages-flex-gap-sm">
-                        <input type="checkbox" id="auto-refresh" class="devpages-input-compact" />
-                        <span class="devpages-text-muted">Auto-refresh (5s)</span>
-                    </label>
                 </div>
 
                 <!-- Diagnostic Sections -->
@@ -212,13 +208,8 @@ export class DiagnosticPanel extends BasePanel {
     }
 
     attachCollapseListeners() {
-        // Find the correct container
-        let container;
-        if (this.element) {
-            container = this.element;
-        } else if (this.sidebarContainer) {
-            container = this.sidebarContainer;
-        } else {
+        const container = this.getContainer();
+        if (!container) {
             console.warn('[DiagnosticPanel] No container found for collapse listeners');
             return;
         }
@@ -250,17 +241,7 @@ export class DiagnosticPanel extends BasePanel {
     }
 
     attachDiagnosticListeners() {
-        // Find the correct container
-        let container;
-        if (this.element) {
-            container = this.element;
-        } else if (this.sidebarContainer) {
-            container = this.sidebarContainer;
-        } else {
-            container = document.querySelector(`#panel-instance-${this.id}`);
-        }
-
-        // Ensure we have a valid container
+        const container = this.getContainer();
         if (!container) {
             console.warn('[DiagnosticPanel] No container found for attaching listeners');
             return;
@@ -268,33 +249,14 @@ export class DiagnosticPanel extends BasePanel {
 
         // Find buttons within the container
         const refreshBtn = container.querySelector('#refresh-diagnostics');
-        const autoRefreshCheckbox = container.querySelector('#auto-refresh');
 
         refreshBtn?.addEventListener('click', () => {
             this.refreshDiagnostics();
         });
-
-        autoRefreshCheckbox?.addEventListener('change', (e) => {
-            if (e.target.checked) {
-                this.startAutoRefresh();
-            } else {
-                this.stopAutoRefresh();
-            }
-        });
     }
 
     refreshDiagnostics() {
-        // Find the correct container
-        let container;
-        if (this.element) {
-            container = this.element;
-        } else if (this.sidebarContainer) {
-            container = this.sidebarContainer;
-        } else {
-            container = document.querySelector(`#panel-instance-${this.id}`);
-        }
-
-        // Ensure we have a valid container
+        const container = this.getContainer();
         if (!container) {
             console.warn('[DiagnosticPanel] No container found for refreshing diagnostics');
             return;
@@ -371,19 +333,6 @@ export class DiagnosticPanel extends BasePanel {
         }
     }
 
-    startAutoRefresh() {
-        this.stopAutoRefresh(); // Clear any existing interval
-        this.refreshInterval = setInterval(() => {
-            this.refreshDiagnostics();
-        }, 5000);
-    }
-
-    stopAutoRefresh() {
-        if (this.refreshInterval) {
-            clearInterval(this.refreshInterval);
-            this.refreshInterval = null;
-        }
-    }
 
     addDiagnosticStyles() {
         if (document.getElementById('diagnostic-panel-styles')) return;
@@ -1145,8 +1094,20 @@ export class DiagnosticPanel extends BasePanel {
         document.head.appendChild(style);
     }
 
+    /**
+     * Get the container element where our content lives
+     * STANDARD PATTERN - queries .panel-body first
+     */
+    getContainer() {
+        return this.element?.querySelector('.panel-body') || this.element || this.container;
+    }
+
     onDestroy() {
-        this.stopAutoRefresh();
+        // Cleanup on destroy
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+            this.refreshInterval = null;
+        }
         super.onDestroy();
     }
 }

@@ -208,7 +208,6 @@ export class PublishPanel extends BasePanel {
      */
     async onMount(container) {
         super.onMount(container);
-        this.container = container || this.element;
 
         // Subscribe to Redux store updates
         this.unsubscribe = appStore.subscribe(() => this.handleStoreChange());
@@ -234,16 +233,17 @@ export class PublishPanel extends BasePanel {
      * Attach all event listeners
      */
     attachEventListeners() {
-        if (!this.container) return;
+        const container = this.getContainer();
+        if (!container) return;
 
-        const publishBtn = this.container.querySelector('#publish-btn');
-        const unpublishBtn = this.container.querySelector('#unpublish-btn');
-        const configSelect = this.container.querySelector('#config-select');
-        const configManageBtn = this.container.querySelector('#config-manage-btn');
-        const createFirstConfigBtn = this.container.querySelector('#create-first-config-btn');
-        const testSetupBtn = this.container.querySelector('#test-setup-btn');
-        const copyUrlBtn = this.container.querySelector('#copy-url-btn');
-        const openUrlBtn = this.container.querySelector('#open-url-btn');
+        const publishBtn = container.querySelector('#publish-btn');
+        const unpublishBtn = container.querySelector('#unpublish-btn');
+        const configSelect = container.querySelector('#config-select');
+        const configManageBtn = container.querySelector('#config-manage-btn');
+        const createFirstConfigBtn = container.querySelector('#create-first-config-btn');
+        const testSetupBtn = container.querySelector('#test-setup-btn');
+        const copyUrlBtn = container.querySelector('#copy-url-btn');
+        const openUrlBtn = container.querySelector('#open-url-btn');
 
         if (publishBtn) {
             publishBtn.addEventListener('click', this.handlePublish);
@@ -275,7 +275,7 @@ export class PublishPanel extends BasePanel {
         }
 
         // Theme select
-        const themeSelect = this.container.querySelector('#theme-select');
+        const themeSelect = container.querySelector('#theme-select');
         if (themeSelect) {
             themeSelect.addEventListener('change', this.handleThemeChange.bind(this));
         }
@@ -469,7 +469,8 @@ export class PublishPanel extends BasePanel {
             await navigator.clipboard.writeText(this.publishStatus.url);
             log.info('COPY_URL_SUCCESS', 'URL copied to clipboard');
 
-            const btn = this.container.querySelector('#copy-url-btn');
+            const container = this.getContainer();
+            const btn = container?.querySelector('#copy-url-btn');
             if (btn) {
                 const originalText = btn.textContent;
                 btn.textContent = '✓';
@@ -496,8 +497,9 @@ export class PublishPanel extends BasePanel {
         this.progressPercent = percent;
         this.statusMessage = message;
 
-        const progressBar = this.container?.querySelector('#progress-bar');
-        const progressMessage = this.container?.querySelector('#progress-message');
+        const container = this.getContainer();
+        const progressBar = container?.querySelector('#progress-bar');
+        const progressMessage = container?.querySelector('#progress-message');
 
         if (progressBar) {
             progressBar.style.width = `${percent}%`;
@@ -512,7 +514,8 @@ export class PublishPanel extends BasePanel {
      * Show/hide progress section
      */
     showProgress(show) {
-        const progressSection = this.container?.querySelector('#progress-section');
+        const container = this.getContainer();
+        const progressSection = container?.querySelector('#progress-section');
         if (progressSection) {
             progressSection.style.display = show ? 'block' : 'none';
         }
@@ -522,9 +525,10 @@ export class PublishPanel extends BasePanel {
      * Show error message
      */
     showError(title, message) {
-        const errorSection = this.container?.querySelector('#error-section');
-        const errorTitle = this.container?.querySelector('#error-title');
-        const errorMessage = this.container?.querySelector('#error-message');
+        const container = this.getContainer();
+        const errorSection = container?.querySelector('#error-section');
+        const errorTitle = container?.querySelector('#error-title');
+        const errorMessage = container?.querySelector('#error-message');
 
         if (errorTitle) errorTitle.textContent = title;
         if (errorMessage) errorMessage.textContent = message;
@@ -535,7 +539,8 @@ export class PublishPanel extends BasePanel {
      * Hide error message
      */
     hideError() {
-        const errorSection = this.container?.querySelector('#error-section');
+        const container = this.getContainer();
+        const errorSection = container?.querySelector('#error-section');
         if (errorSection) {
             errorSection.style.display = 'none';
         }
@@ -547,8 +552,9 @@ export class PublishPanel extends BasePanel {
     setProcessing(processing) {
         this.isProcessing = processing;
 
-        const publishBtn = this.container?.querySelector('#publish-btn');
-        const unpublishBtn = this.container?.querySelector('#unpublish-btn');
+        const container = this.getContainer();
+        const publishBtn = container?.querySelector('#publish-btn');
+        const unpublishBtn = container?.querySelector('#unpublish-btn');
 
         [publishBtn, unpublishBtn].forEach(btn => {
             if (!btn) return;
@@ -661,11 +667,20 @@ export class PublishPanel extends BasePanel {
     }
 
     /**
+     * Get the container element where our content lives
+     * STANDARD PATTERN - queries .panel-body first
+     */
+    getContainer() {
+        return this.element?.querySelector('.panel-body') || this.element || this.container;
+    }
+
+    /**
      * Refresh panel content
      */
     refresh() {
-        if (this.container) {
-            this.container.innerHTML = this.renderContent();
+        const container = this.getContainer();
+        if (container) {
+            container.innerHTML = this.renderContent();
             this.attachEventListeners();
         }
     }

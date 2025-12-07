@@ -17,12 +17,11 @@ import './DiagnosticPanel.js'; // Updated: Auto-refresh removed
 import './UIInspectorPanel.js';
 import './ThemeManagementPanel.js'; // New v2.0 theme manager
 import './DOMInspectorPanel.js';
-import './CSSDebugPanel.js'; // Advanced CSS debugging with z-index visualization
+import './CSSInspectorPanel.js'; // Advanced CSS inspection with z-index visualization
 import './TetraConfigPanel.js';
 import './PreviewRenderingPanel.js'; // Preview & rendering settings
 
 // Legacy panels (deprecated - kept for backwards compatibility)
-import './settings/LogSettingsPanel.js'; // DEPRECATED: Use DebugLoggingPanel instead
 import './TetraSettingsPanel.js'; // DEPRECATED: Use DebugLoggingPanel instead
 
 // Note: CSS is loaded via server bundles (/css/bundles/*.bundle.css)

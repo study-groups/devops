@@ -1,14 +1,14 @@
 /**
- * PreviewRenderingPanel.js
- *
- * Panel for controlling preview rendering features including plugins like
- * Mermaid, KaTeX, SVG, and syntax highlighting.
+ * PreviewRenderingPanel v2 - Updated for new architecture
+ * Works with consolidated PluginRegistry and MarkdownRenderingService
  */
 
 import { BasePanel, panelRegistry } from './BasePanel.js';
-import { appStore } from '/client/appState.js';
-import { updatePluginSettings, setPluginEnabled, registerPlugin } from '/client/store/slices/pluginSlice.js';
-import { getIsPluginEnabled } from '/client/store/selectors.js';
+import { appStore } from '/appState.js';
+import { updatePluginSettings, setPluginEnabled } from '/store/slices/pluginSlice.js';
+import { getIsPluginEnabled } from '/store/selectors.js';
+import { clearCache } from '/store/slices/previewSlice.js';
+import { pluginRegistry } from '/client/preview/PluginRegistry.js';
 
 const log = window.APP?.services?.log?.createLogger('PreviewRenderingPanel');
 
@@ -25,12 +25,11 @@ export class PreviewRenderingPanel extends BasePanel {
         });
 
         this.unsubscribe = null;
-        log?.info('PANEL', 'INITIALIZED', 'Preview Rendering Panel created');
+        log?.info('PANEL', 'INITIALIZED', 'Preview Rendering Panel created (v2)');
     }
 
     /**
      * Override renderContent to provide initial panel content
-     * This is called by BasePanel.createElement() during mount
      */
     renderContent() {
         const state = appStore.getState();
@@ -43,6 +42,7 @@ export class PreviewRenderingPanel extends BasePanel {
                 ${this.renderKaTeXSettings(plugins.katex)}
                 ${this.renderSVGSettings(plugins.svg)}
                 ${this.renderActions()}
+                ${this.renderDebugInfo()}
             </div>
         `;
     }
@@ -78,6 +78,7 @@ export class PreviewRenderingPanel extends BasePanel {
                 ${this.renderKaTeXSettings(plugins.katex)}
                 ${this.renderSVGSettings(plugins.svg)}
                 ${this.renderActions()}
+                ${this.renderDebugInfo()}
             </div>
         `;
 
@@ -382,10 +383,37 @@ export class PreviewRenderingPanel extends BasePanel {
     }
 
     /**
+     * Render debug info section
+     */
+    renderDebugInfo() {
+        const debugInfo = pluginRegistry.getDebugInfo();
+        const hasInfo = debugInfo && debugInfo.length > 0;
+
+        if (!hasInfo) {
+            return '';
+        }
+
+        return `
+            <section class="preview-debug-info">
+                <h4 class="section-title">Debug Info</h4>
+                <div class="debug-info-list">
+                    ${debugInfo.map(info => `
+                        <div class="debug-item">
+                            <strong>${info.id}</strong>:
+                            ${info.enabledInStore ? '✓ Enabled' : '✗ Disabled'}
+                            ${info.initialized ? '(Initialized)' : '(Not initialized)'}
+                        </div>
+                    `).join('')}
+                </div>
+            </section>
+        `;
+    }
+
+    /**
      * Attach event listeners to interactive elements
      */
     attachEventListeners() {
-        const panelElement = this.element;
+        const panelElement = this.getContainer();
         if (!panelElement) return;
 
         // Plugin toggle checkboxes
@@ -421,7 +449,7 @@ export class PreviewRenderingPanel extends BasePanel {
     /**
      * Handle settings changes
      */
-    handleSettingChange(pluginId, setting, inputElement) {
+    async handleSettingChange(pluginId, setting, inputElement) {
         let value;
 
         if (inputElement.type === 'checkbox') {
@@ -439,15 +467,26 @@ export class PreviewRenderingPanel extends BasePanel {
                 pluginId,
                 enabled: value
             }));
+
+            // Reload plugin with new state
+            if (value) {
+                await pluginRegistry.initializePlugin(pluginId);
+            } else {
+                await pluginRegistry.unloadPlugin(pluginId);
+            }
         } else {
             log?.info('PLUGIN', 'SETTING_CHANGE', `${pluginId}.${setting} = ${value}`);
             appStore.dispatch(updatePluginSettings({
                 pluginId,
                 settings: { [setting]: value }
             }));
+
+            // Reload plugin with new settings
+            await pluginRegistry.reloadPlugin(pluginId);
         }
 
-        // Refresh preview after settings change
+        // Clear preview cache and refresh
+        appStore.dispatch(clearCache());
         this.refreshPreview();
     }
 
@@ -455,8 +494,13 @@ export class PreviewRenderingPanel extends BasePanel {
      * Refresh the preview
      */
     refreshPreview() {
+        // Clear cache to force re-render
+        appStore.dispatch(clearCache());
+
+        // Dispatch custom event for preview refresh
         const event = new CustomEvent('preview:refresh');
         window.dispatchEvent(event);
+
         log?.info('PANEL', 'REFRESH', 'Preview refresh requested');
     }
 
@@ -501,7 +545,7 @@ Inline: $E = mc^2$`;
     /**
      * Reset all settings to defaults
      */
-    resetSettings() {
+    async resetSettings() {
         const defaultSettings = {
             mermaid: {
                 enabled: true,
@@ -540,7 +584,7 @@ Inline: $E = mc^2$`;
             }
         };
 
-        Object.entries(defaultSettings).forEach(([pluginId, config]) => {
+        for (const [pluginId, config] of Object.entries(defaultSettings)) {
             appStore.dispatch(setPluginEnabled({
                 pluginId,
                 enabled: config.enabled
@@ -549,11 +593,24 @@ Inline: $E = mc^2$`;
                 pluginId,
                 settings: config.settings
             }));
-        });
+
+            // Reload plugin
+            if (config.enabled) {
+                await pluginRegistry.reloadPlugin(pluginId);
+            }
+        }
 
         this.render();
         this.refreshPreview();
         log?.info('PANEL', 'RESET', 'All settings reset to defaults');
+    }
+
+    /**
+     * Get the container element where our content lives
+     * STANDARD PATTERN - queries .panel-body first
+     */
+    getContainer() {
+        return this.element?.querySelector('.panel-body') || this.element || this.container;
     }
 
     /**
@@ -583,4 +640,4 @@ if (typeof window !== 'undefined') {
     window.APP.panels.PreviewRenderingPanel = PreviewRenderingPanel;
 }
 
-console.log('[PreviewRenderingPanel] Module loaded and registered');
+console.log('[PreviewRenderingPanel v2] Module loaded and registered');

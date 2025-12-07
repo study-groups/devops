@@ -548,10 +548,11 @@ export class DesignTokensPanel extends BasePanel {
     }
 
     attachEventListeners() {
-        if (!this.container) return;
+        const container = this.getContainer();
+        if (!container) return;
 
         // Category filters
-        const filtersContainer = this.container.querySelector('#token-category-filters');
+        const filtersContainer = container.querySelector('#token-category-filters');
         if (filtersContainer) {
             filtersContainer.addEventListener('click', (e) => {
                 const button = e.target.closest('.dt-filter-btn');
@@ -563,7 +564,7 @@ export class DesignTokensPanel extends BasePanel {
         }
 
         // View toggle buttons
-        const viewToggles = this.container.querySelectorAll('.dt-view-toggle');
+        const viewToggles = container.querySelectorAll('.dt-view-toggle');
         viewToggles.forEach(button => {
             button.addEventListener('click', (e) => {
                 this.colorView = e.target.dataset.view;
@@ -572,7 +573,7 @@ export class DesignTokensPanel extends BasePanel {
         });
 
         // Theme selector
-        const themeSelector = this.container.querySelector('#theme-selector');
+        const themeSelector = container.querySelector('#theme-selector');
         if (themeSelector) {
             themeSelector.addEventListener('change', (e) => {
                 this.currentTheme = e.target.value;
@@ -699,11 +700,12 @@ export class DesignTokensPanel extends BasePanel {
     }
 
     updateTokensDisplay() {
-        if (!this.container) return;
-        
-        const container = this.container.querySelector('#design-tokens-container');
-        const statsContainer = this.container.querySelector('#tokens-count');
-        const filtersContainer = this.container.querySelector('#token-category-filters');
+        const panelContainer = this.getContainer();
+        if (!panelContainer) return;
+
+        const container = panelContainer.querySelector('#design-tokens-container');
+        const statsContainer = panelContainer.querySelector('#tokens-count');
+        const filtersContainer = panelContainer.querySelector('#token-category-filters');
 
         this.filteredTokens = this.tokens.filter(token => 
             (this.currentFilter === 'all' || token.category === this.currentFilter) &&
@@ -729,6 +731,14 @@ export class DesignTokensPanel extends BasePanel {
             container.classList.toggle('list-view', !isColorGrid && !isNameValueGrid);
             container.innerHTML = this.renderTokens();
         }
+    }
+
+    /**
+     * Get the container element where our content lives
+     * STANDARD PATTERN - queries .panel-body first
+     */
+    getContainer() {
+        return this.element?.querySelector('.panel-body') || this.element || this.container;
     }
 
     // Add a method to get debug info for panel registry

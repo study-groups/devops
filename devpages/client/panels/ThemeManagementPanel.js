@@ -545,8 +545,12 @@ export class ThemeManagementPanel extends BasePanel {
         });
     }
 
+    /**
+     * Get the container element where our content lives
+     * STANDARD PATTERN - queries .panel-body first
+     */
     getContainer() {
-        return this.container || this.element?.querySelector('.panel-body') || this.element;
+        return this.element?.querySelector('.panel-body') || this.element || this.container;
     }
 
     updateDisplay() {
