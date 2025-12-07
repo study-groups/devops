@@ -1,0 +1,17 @@
+hash: b2f119b8d08b
+content_hash: b2f119b8d08b437c61ca7009938a2c7f5d47e5d3e0cdcf090d52c05cbad61fac
+fm_hash: 
+current_path: ./docs/reference/manual/06-tetra-access.md
+type: scratch
+lifecycle: W
+tags:
+created: 2025-11-24T13:40:25Z
+updated: 2025-11-24T13:40:44Z
+first_seen: 2025-11-24T13:40:25Z
+size: 4338
+lines: 160
+paths:
+  - path: ./archive/legacy/TETRA-ACCESS.md
+    seen: 2025-11-24T13:40:25Z
+  - path: ./docs/reference/manual/06-tetra-access.md
+    seen: 2025-11-24T13:40:44Z

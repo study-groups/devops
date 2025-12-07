@@ -1,8 +1,8 @@
 # TRS - Tetra Record Specification
 
-**Version**: 1.0
+**Version**: 1.1
 **Status**: Specification
-**Date**: 2025-11-02
+**Date**: 2025-11-28
 
 ## Overview
 
@@ -40,6 +40,37 @@ Outside canonical location, the module name becomes **explicit** (first segment 
 ├── 1760229927.vox.audio.sally.mp3  # Module "vox" explicit
 ├── 1760229930.rag.evidence.code.md # Module "rag" explicit
 └── 1760230000.org.message.sent.json # Module "org" explicit
+```
+
+### Org-Scoped Records (v1.1)
+
+For multi-tenant organizations, TRS supports org-scoped canonical locations:
+
+**Path**: `$TETRA_DIR/orgs/<org>/db/`
+**Format**: `timestamp.type.kind[.kind2...].format`
+
+The org name is implicit from the directory path, similar to modules.
+
+**Example**:
+```bash
+$TETRA_DIR/orgs/pixeljam-arcade/db/
+├── 1760229927.deploy.staging.toml      # Org "pixeljam-arcade" implicit
+├── 1760229930.deploy.prod.toml
+└── 1760230000.config.backup.json
+
+$TETRA_DIR/orgs/another-project/db/
+├── 1760230100.deploy.dev.toml          # Org "another-project" implicit
+```
+
+**Non-canonical org-scoped records** include the org name explicitly:
+```bash
+/tmp/tetra/removed/1760230000/
+└── 1760230000.pixeljam-arcade.deploy.staging.toml  # Org now explicit
+```
+
+**Query across all orgs**:
+```bash
+find "$TETRA_DIR"/orgs/*/db/ -name "*.deploy.*.toml"
 ```
 
 ## Filename Structure

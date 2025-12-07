@@ -1,0 +1,15 @@
+hash: e081fd0b25d5
+content_hash: e081fd0b25d533f0ae610355b152726395d287c8f9deebe3908ecbc5986c58f9
+fm_hash: 
+current_path: ./bash/nginx/INVESTIGATION_GUIDE.md
+type: scratch
+lifecycle: W
+tags:
+created: 2025-11-24T13:42:57Z
+updated: 2025-11-24T13:42:57Z
+first_seen: 2025-11-24T13:42:57Z
+size: 9548
+lines: 337
+paths:
+  - path: ./bash/nginx/INVESTIGATION_GUIDE.md
+    seen: 2025-11-24T13:42:57Z

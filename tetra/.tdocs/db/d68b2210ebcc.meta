@@ -1,0 +1,17 @@
+hash: d68b2210ebcc
+content_hash: d68b2210ebcc6f69ceccfbe7c2fde71a3d6af4abe136b266f3c3e8cf5cedf2df
+fm_hash: 
+current_path: ./docs/reference/manual/03-tetra-summary.md
+type: scratch
+lifecycle: W
+tags:
+created: 2025-11-24T13:40:24Z
+updated: 2025-11-24T13:40:44Z
+first_seen: 2025-11-24T13:40:24Z
+size: 1753
+lines: 54
+paths:
+  - path: ./archive/legacy/tetra-summary.md
+    seen: 2025-11-24T13:40:24Z
+  - path: ./docs/reference/manual/03-tetra-summary.md
+    seen: 2025-11-24T13:40:44Z

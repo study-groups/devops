@@ -1,0 +1,17 @@
+hash: 1c394729c018
+content_hash: 1c394729c0184fa151732d29bf67ca47efc98f1713b2ccd42ef7d1f5d554e3b0
+fm_hash: 1262f5353963
+current_path: ./docs/reference/manual/08-development-progress.md
+type: scratch
+lifecycle: W
+tags:
+created: 2025-11-24T13:40:24Z
+updated: 2025-11-24T13:40:44Z
+first_seen: 2025-11-24T13:40:24Z
+size: 5233
+lines: 129
+paths:
+  - path: ./archive/legacy/next.md
+    seen: 2025-11-24T13:40:24Z
+  - path: ./docs/reference/manual/08-development-progress.md
+    seen: 2025-11-24T13:40:44Z

@@ -1,8 +1,8 @@
 # TAS - Tetra Action Specification
 
-**Version**: 1.0
+**Version**: 1.1
 **Status**: Specification
-**Date**: 2025-11-02
+**Date**: 2025-11-28
 
 ## Overview
 
@@ -278,6 +278,56 @@ resolve_module() {
 }
 ```
 
+## Org Context
+
+TAS actions execute within an **org context** when working with multi-tenant organizations. The org context determines where TRS records are written.
+
+### Setting Org Context
+
+```bash
+# Method 1: Environment variable
+export TAS_ORG="pixeljam-arcade"
+
+# Method 2: org command
+org switch pixeljam-arcade
+
+# Method 3: Programmatic
+tas_set_org "pixeljam-arcade"
+```
+
+### Context Resolution
+
+```bash
+tas_get_org() {
+    # Priority order:
+    # 1. TAS_ORG environment variable
+    # 2. org_active() function result
+    # 3. TETRA_ORG environment variable
+}
+```
+
+### TRS Record Paths
+
+**With org context:**
+```bash
+$TETRA_DIR/orgs/pixeljam-arcade/db/1760230000.deploy.staging.toml
+```
+
+**Without org context (module-scoped):**
+```bash
+$TETRA_DIR/vox/db/1760230000.audio.sally.mp3
+```
+
+### Non-Canonical Paths (on failure/cancel)
+
+When artifacts move to non-canonical locations, the org name becomes explicit in the filename:
+
+```bash
+/tmp/tetra/cancelled/pipeline-456/1760230000.pixeljam-arcade.deploy.staging.toml
+/tmp/tetra/failed/pipeline-789/1760230000.pixeljam-arcade.message.sent.json
+/tmp/tetra/removed/1760230000/1760230000.pixeljam-arcade.config.old.json
+```
+
 ## Integration with TES (Endpoints)
 
 TAS actions execute AT TES endpoints:
@@ -300,25 +350,30 @@ TES handles resolving `@prod` → SSH connection → executable plan.
 
 ## Integration with TRS (Records)
 
-TAS actions write TRS-compliant records:
+TAS actions write TRS-compliant records. The location depends on org context.
 
 ```bash
 /send:message @prod
 ```
 
-**Creates** (in canonical location):
+**With org context** (e.g., `TAS_ORG=pixeljam-arcade`):
+```bash
+$TETRA_DIR/orgs/pixeljam-arcade/db/1760230000.message.sent.json
+```
+
+**Without org context** (module-scoped):
 ```bash
 $TETRA_DIR/org/db/1760230000.message.sent.json
 ```
 
-**Format**: `timestamp.type.kind.format` (module "org" implicit from path)
+**Format**: `timestamp.type.kind.format` (org/module implicit from path)
 
-**If pipeline cancelled**, moves to non-canonical:
+**If pipeline cancelled**, moves to non-canonical with explicit org:
 ```bash
-/tmp/tetra/cancelled/pipeline-456/1760230000.org.message.sent.json
+/tmp/tetra/cancelled/pipeline-456/1760230000.pixeljam-arcade.message.sent.json
 ```
 
-**Format**: `timestamp.module.type.kind.format` (module now explicit)
+**Format**: `timestamp.org.type.kind.format` (org now explicit)
 
 ## Action Registry
 
@@ -637,19 +692,117 @@ TAS integrates with TDS (Tetra Design System) for semantic coloring:
 - ✗ Delete files directly (use soft delete via `/rm`)
 - ✗ Hard-code endpoints (use TES resolution)
 
+## Conditional Execution
+
+Execute different actions based on the result of a condition.
+
+### Syntax
+
+```bash
+/condition:check ? /success:action : /failure:action
+```
+
+**Components**:
+- `?` - Conditional operator (ternary)
+- First action - Condition to evaluate
+- Second action - Execute if condition succeeds (exit 0)
+- Third action - Execute if condition fails (exit non-zero)
+
+### Examples
+
+```bash
+# Health check with fallback
+/query:health @prod ? /log:healthy : /alert:failure
+
+# Conditional restart
+/check:status ? /log:ok : /restart:service
+
+# Deploy or rollback
+/validate:config ? /deploy:config @prod : /rollback:config @prod
+```
+
+### Semantics
+
+1. Parse and validate all three actions
+2. Execute condition action
+3. If exit code 0: execute success action
+4. If exit code non-zero: execute failure action
+5. Return exit code of executed branch
+
+**Note**: Operator nesting is NOT supported. Each expression uses one operator type only.
+
+## Parallel Execution
+
+Execute multiple actions simultaneously with fail-fast behavior.
+
+### Syntax
+
+```bash
+/action:a & /action:b & /action:c
+```
+
+**Components**:
+- `&` - Parallel operator
+- Actions separated by `&` execute concurrently
+
+### Examples
+
+```bash
+# Deploy frontend and backend in parallel
+/deploy:frontend @prod & /deploy:backend @prod
+
+# Run multiple health checks
+/check:api & /check:db & /check:cache
+
+# Parallel builds
+/build:web & /build:mobile & /build:desktop
+```
+
+### Semantics (Fail-Fast)
+
+1. Parse and validate all actions
+2. Launch all actions as background jobs
+3. Monitor for first failure
+4. On any failure: kill remaining jobs immediately
+5. Return exit code of failed job (or 0 if all succeed)
+
+### Interrupt Handling
+
+If Ctrl-C pressed during parallel execution:
+1. SIGTERM sent to all background jobs
+2. Wait for graceful shutdown (1 second)
+3. SIGKILL any remaining jobs
+4. Clean up artifacts atomically
+5. Exit with code 130
+
+## Operator Precedence
+
+When parsing TAS expressions:
+
+```
+Precedence (lowest to highest):
+1. Conditional (?)   - Evaluated first, splits expression
+2. Parallel (&)      - Concurrent execution
+3. Pipeline (|)      - Sequential composition
+4. Action (/)        - Atomic execution
+```
+
+**Important**: Operator mixing is NOT supported in v1.1. Each expression uses one operator type:
+
+```bash
+# Valid
+/a ? /b : /c
+/a | /b | /c
+/a & /b & /c
+
+# Invalid (mixing operators)
+/a ? /b | /c : /d    # Error: cannot mix ? and |
+/a | /b & /c         # Error: cannot mix | and &
+```
+
 ## Future Extensions
 
 ### Potential Additions
-
-**Conditional execution**:
-```bash
-/query:status ? /restart:service : /log:healthy
-```
-
-**Parallel execution**:
-```bash
-/deploy:frontend @prod & /deploy:backend @prod
-```
 
 **Variables**:
 ```bash
@@ -662,7 +815,13 @@ $users = /query:users
 /deploy::async:largefile @cdn
 ```
 
-These are explorations, not part of v1.0 specification.
+**Nested operators** (requires explicit grouping):
+```bash
+(/a & /b) | /c       # Parallel then pipe
+/a ? (/b | /c) : /d  # Conditional with pipeline
+```
+
+These are explorations, not part of v1.1 specification.
 
 ## See Also
 

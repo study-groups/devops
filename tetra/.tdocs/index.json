@@ -1,0 +1,2780 @@
+{
+  "version": "1.0",
+  "last_scan": "2025-11-24T13:43:07Z",
+  "scan_roots": [
+    "."
+  ],
+  "exclude": [
+    "node_modules",
+    ".git",
+    "vendor",
+    ".tdocs"
+  ],
+  "by_hash": {
+    "6e794f9c662b": {
+      "path": "./demo/docs/changes.md",
+      "updated": "2025-11-24T13:40:23Z",
+      "size": 7258
+    },
+    "20b79b57e16a": {
+      "path": "./demo/docs/TUI_LANDSCAPE_ANALYSIS.md",
+      "updated": "2025-11-24T13:40:21Z",
+      "size": 27141
+    },
+    "9b4a6bc2045b": {
+      "path": "./demo/docs/action-def.md",
+      "updated": "2025-11-24T13:40:21Z",
+      "size": 3591
+    },
+    "0fbe991c468a": {
+      "path": "./demo/docs/README_TUI.md",
+      "updated": "2025-11-24T13:40:21Z",
+      "size": 8482
+    },
+    "a944f8f97435": {
+      "path": "./demo/docs/next.md",
+      "updated": "2025-11-24T13:40:22Z",
+      "size": 6739
+    },
+    "0469bb119c32": {
+      "path": "./demo/docs/toy-model.md",
+      "updated": "2025-11-24T13:40:22Z",
+      "size": 6960
+    },
+    "4f9a9c44c70f": {
+      "path": "./demo/docs/formula.md",
+      "updated": "2025-11-24T13:40:22Z",
+      "size": 2225
+    },
+    "5bda5176e39a": {
+      "path": "./demo/docs/step-def.md",
+      "updated": "2025-11-24T13:40:22Z",
+      "size": 5238
+    },
+    "acd85d971803": {
+      "path": "./demo/docs/linear-algebra.md",
+      "updated": "2025-11-24T13:40:22Z",
+      "size": 5545
+    },
+    "682268520532": {
+      "path": "./demo/docs/separation.md",
+      "updated": "2025-11-24T13:40:23Z",
+      "size": 5500
+    },
+    "cbe3685b46ce": {
+      "path": "./demo/docs/CANONICAL_TUI_DESIGN.md",
+      "updated": "2025-11-24T13:40:23Z",
+      "size": 21218
+    },
+    "c9b84e5b0b97": {
+      "path": "./demo/docs/tui-syntax.md",
+      "updated": "2025-11-24T13:40:23Z",
+      "size": 5889
+    },
+    "cebfb39ebf3d": {
+      "path": "./CONSOLIDATION_REPORT.md",
+      "updated": "2025-11-24T13:40:23Z",
+      "size": 12029
+    },
+    "969117305f75": {
+      "path": "./tools/README.md",
+      "updated": "2025-11-24T13:40:23Z",
+      "size": 4015
+    },
+    "ccaab8044723": {
+      "path": "./BOOTLOADER_REFACTOR.md",
+      "updated": "2025-11-24T13:40:24Z",
+      "size": 4055
+    },
+    "6f64220a6f5a": {
+      "path": "./REFACTOR_SUMMARY.md",
+      "updated": "2025-11-24T13:40:24Z",
+      "size": 10763
+    },
+    "211e680b5baf": {
+      "path": "./docs/reference/manual/05-tetra-intro.md",
+      "updated": "2025-11-24T13:40:44Z",
+      "size": 1205
+    },
+    "1c394729c018": {
+      "path": "./docs/reference/manual/08-development-progress.md",
+      "updated": "2025-11-24T13:40:44Z",
+      "size": 5233
+    },
+    "d68b2210ebcc": {
+      "path": "./docs/reference/manual/03-tetra-summary.md",
+      "updated": "2025-11-24T13:40:44Z",
+      "size": 1753
+    },
+    "57adc8ea4ddd": {
+      "path": "./archive/legacy/tetra.md",
+      "updated": "2025-11-24T13:40:24Z",
+      "size": 1339
+    },
+    "9be606739181": {
+      "path": "./archive/legacy/README.md",
+      "updated": "2025-11-24T13:40:24Z",
+      "size": 2624
+    },
+    "b2f119b8d08b": {
+      "path": "./docs/reference/manual/06-tetra-access.md",
+      "updated": "2025-11-24T13:40:44Z",
+      "size": 4338
+    },
+    "07fb448487fb": {
+      "path": "./docs/reference/manual/04-tetra-help.md",
+      "updated": "2025-11-24T13:40:44Z",
+      "size": 1863
+    },
+    "d5a1a9572d67": {
+      "path": "./archive/docs/docs_legacy/pids.md",
+      "updated": "2025-11-24T13:40:25Z",
+      "size": 1722
+    },
+    "b1c6ade6fead": {
+      "path": "./archive/docs/docs_legacy/pm_start.md",
+      "updated": "2025-11-24T13:40:25Z",
+      "size": 3560
+    },
+    "47fa4650f0eb": {
+      "path": "./docs/reference/manual/07-tpm-process-manager.md",
+      "updated": "2025-11-24T13:40:44Z",
+      "size": 6702
+    },
+    "c17b140fc965": {
+      "path": "./archive/docs/docs_legacy/pids2.md",
+      "updated": "2025-11-24T13:40:25Z",
+      "size": 283
+    },
+    "fe3e06dd2a19": {
+      "path": "./archive/docs/docs_legacy/env.md",
+      "updated": "2025-11-24T13:40:25Z",
+      "size": 4626
+    },
+    "dc94dd963712": {
+      "path": "./archive/docs/docs_legacy/pm.md",
+      "updated": "2025-11-24T13:40:25Z",
+      "size": 3363
+    },
+    "a22a4eb81482": {
+      "path": "./archive/docs/docs_legacy/tpm-file-structure.md",
+      "updated": "2025-11-24T13:40:25Z",
+      "size": 4573
+    },
+    "0687c79ed72a": {
+      "path": "./archive/docs/docs_legacy/entrypoint.md",
+      "updated": "2025-11-24T13:40:26Z",
+      "size": 3315
+    },
+    "37abd78b2a4d": {
+      "path": "./archive/docs/docs_archive/org-system/Organization_Compilation_System.md",
+      "updated": "2025-11-24T13:40:26Z",
+      "size": 24413
+    },
+    "ed78bdf4822e": {
+      "path": "./archive/docs/docs_archive/README.md",
+      "updated": "2025-11-24T13:40:26Z",
+      "size": 2292
+    },
+    "ca7e7de3c10d": {
+      "path": "./archive/docs/docs_archive/repl-design/REPL_ARCHITECTURE.md",
+      "updated": "2025-11-24T13:40:26Z",
+      "size": 11407
+    },
+    "3dfa40c1c562": {
+      "path": "./archive/docs/docs_archive/repl-design/REPL_Progressive_Enhancement.md",
+      "updated": "2025-11-24T13:40:26Z",
+      "size": 8025
+    },
+    "ff392eb7494d": {
+      "path": "./archive/docs/docs_archive/implementations/CDP_AGENT_IMPLEMENTATION_SUMMARY.md",
+      "updated": "2025-11-24T13:40:26Z",
+      "size": 13241
+    },
+    "468a33a67849": {
+      "path": "./archive/docs/docs_archive/2025-logging-refactor/LOGGING_CODE_SMELLS_FIXED.md",
+      "updated": "2025-11-24T13:40:26Z",
+      "size": 5393
+    },
+    "54dd6045b82d": {
+      "path": "./archive/docs/docs_archive/2025-logging-refactor/LOGGING_REFACTOR_SUMMARY.md",
+      "updated": "2025-11-24T13:40:26Z",
+      "size": 14887
+    },
+    "07e4141be7ce": {
+      "path": "./archive/docs/docs_archive/2025-logging-refactor/LOGGING_SYSTEM_SUMMARY.md",
+      "updated": "2025-11-24T13:40:27Z",
+      "size": 12508
+    },
+    "2dabb4a2150f": {
+      "path": "./archive/docs/docs_archive/2025-logging-refactor/MODULE_LOGGING_INTEGRATION_GUIDE.md",
+      "updated": "2025-11-24T13:40:27Z",
+      "size": 14610
+    },
+    "d5b5172ddea4": {
+      "path": "./archive/docs/docs_archive/proposals/PROVISIONAL_TTM_PLAN.md",
+      "updated": "2025-11-24T13:40:28Z",
+      "size": 10669
+    },
+    "075f327ccaa8": {
+      "path": "./archive/docs/docs_archive/proposals/PROVISIONAL_TUI_PLAN.md",
+      "updated": "2025-11-24T13:40:28Z",
+      "size": 8354
+    },
+    "7f7f9605802f": {
+      "path": "./archive/bash/formant_archive/STATE_MACHINE_DESIGN.md",
+      "updated": "2025-11-24T13:40:28Z",
+      "size": 5877
+    },
+    "c56b53668efb": {
+      "path": "./archive/bash/formant_archive/ESTOVOX_LANGUAGE.md",
+      "updated": "2025-11-24T13:40:28Z",
+      "size": 9089
+    },
+    "fb58c87085fc": {
+      "path": "./archive/bash/formant_archive/ESTO_FORMAT.md",
+      "updated": "2025-11-24T13:40:28Z",
+      "size": 8202
+    },
+    "03038bb3ddfc": {
+      "path": "./archive/bash/formant_archive/STATUS.md",
+      "updated": "2025-11-24T13:40:28Z",
+      "size": 8434
+    },
+    "92fffe17d971": {
+      "path": "./archive/bash/formant_archive/QUICKSTART.md",
+      "updated": "2025-11-24T13:40:28Z",
+      "size": 4758
+    },
+    "c2655c2753c4": {
+      "path": "./archive/bash/formant_archive/VAD_IMPLEMENTATION.md",
+      "updated": "2025-11-24T13:40:28Z",
+      "size": 8017
+    },
+    "56da79d84303": {
+      "path": "./archive/bash/formant_archive/NEURAL_VOICE_CLONING.md",
+      "updated": "2025-11-24T13:40:29Z",
+      "size": 11209
+    },
+    "04bbdcaf4a92": {
+      "path": "./archive/bash/formant_archive/RUN_DEMOS.md",
+      "updated": "2025-11-24T13:40:29Z",
+      "size": 1356
+    },
+    "54543aa2ef45": {
+      "path": "./archive/bash/formant_archive/CONTROL_SIGNALS.md",
+      "updated": "2025-11-24T13:40:29Z",
+      "size": 10209
+    },
+    "d96779eb50a0": {
+      "path": "./archive/bash/formant_archive/CELP_DESIGN.md",
+      "updated": "2025-11-24T13:40:29Z",
+      "size": 12369
+    },
+    "63ffdf9be465": {
+      "path": "./archive/bash/formant_archive/CELP_QUICKSTART.md",
+      "updated": "2025-11-24T13:40:29Z",
+      "size": 4538
+    },
+    "63ce605cb65f": {
+      "path": "./archive/bash/game_docs_archive/DEV_MODE.md",
+      "updated": "2025-11-24T13:40:29Z",
+      "size": 5831
+    },
+    "8d54f91cf66b": {
+      "path": "./archive/bash/game_docs_archive/PLASMA_FIELD_STATUS.md",
+      "updated": "2025-11-24T13:40:29Z",
+      "size": 4753
+    },
+    "96647f06bf00": {
+      "path": "./archive/bash/game_docs_archive/STATE_SYSTEM.md",
+      "updated": "2025-11-24T13:40:29Z",
+      "size": 6134
+    },
+    "8d681c525d19": {
+      "path": "./archive/bash/game_docs_archive/REFACTOR_SUMMARY.md",
+      "updated": "2025-11-24T13:40:30Z",
+      "size": 7220
+    },
+    "dd09c7a33fa2": {
+      "path": "./archive/bash/game_docs_archive/IMPLEMENTATION_SUMMARY.md",
+      "updated": "2025-11-24T13:40:30Z",
+      "size": 8063
+    },
+    "b36a18d4d491": {
+      "path": "./archive/bash/game_docs_archive/REFACTOR_COMPLETE.md",
+      "updated": "2025-11-24T13:40:30Z",
+      "size": 5169
+    },
+    "d7881a957028": {
+      "path": "./archive/bash/game_docs_archive/QUADRAPOLE_IMPLEMENTATION.md",
+      "updated": "2025-11-24T13:40:30Z",
+      "size": 6530
+    },
+    "07e2e0570fed": {
+      "path": "./archive/bash/game_docs_archive/STATUS.md",
+      "updated": "2025-11-24T13:40:30Z",
+      "size": 3689
+    },
+    "240a67790b2f": {
+      "path": "./archive/bash/game_docs_archive/HELP_SYSTEM_REFACTOR.md",
+      "updated": "2025-11-24T13:40:30Z",
+      "size": 5988
+    },
+    "f1cdecab53ce": {
+      "path": "./archive/bash/game_docs_archive/FIXES.md",
+      "updated": "2025-11-24T13:40:30Z",
+      "size": 1285
+    },
+    "38c708f532d5": {
+      "path": "./archive/bash/game_docs_archive/GLYPHGRID_INTEGRATION.md",
+      "updated": "2025-11-24T13:40:30Z",
+      "size": 10301
+    },
+    "81c6a8cb1bfb": {
+      "path": "./archive/bash/game_docs_archive/NUMBERED_PANELS.md",
+      "updated": "2025-11-24T13:40:31Z",
+      "size": 9256
+    },
+    "8aa04adecaed": {
+      "path": "./archive/bash/game_docs_archive/MODULE_AUDIT.md",
+      "updated": "2025-11-24T13:40:31Z",
+      "size": 7713
+    },
+    "f3f6d474c159": {
+      "path": "./archive/bash/game_docs_archive/COMPLETE_SUMMARY.md",
+      "updated": "2025-11-24T13:40:31Z",
+      "size": 7061
+    },
+    "9ef9b0cc903a": {
+      "path": "./archive/bash/game_docs_archive/QUICK_START_REFACTOR.md",
+      "updated": "2025-11-24T13:40:31Z",
+      "size": 4905
+    },
+    "6c3a6586ac43": {
+      "path": "./archive/bash/game_docs_archive/x.md",
+      "updated": "2025-11-24T13:40:32Z",
+      "size": 15121
+    },
+    "93785fdad5f2": {
+      "path": "./archive/bash/game_docs_archive/TEST_STICKY_BOTTOM.md",
+      "updated": "2025-11-24T13:40:32Z",
+      "size": 1331
+    },
+    "708691de78b7": {
+      "path": "./archive/bash/game_docs_archive/REPL_IMPLEMENTATION_SUMMARY.md",
+      "updated": "2025-11-24T13:40:32Z",
+      "size": 8978
+    },
+    "838002ed053a": {
+      "path": "./archive/bash/game_docs_archive/PAIR_DYNAMICS.md",
+      "updated": "2025-11-24T13:40:32Z",
+      "size": 10790
+    },
+    "4854e2cef241": {
+      "path": "./archive/bash/tcurses_archive_014/ARCHITECTURE.md",
+      "updated": "2025-11-24T13:40:32Z",
+      "size": 6726
+    },
+    "e204487ae317": {
+      "path": "./archive/bash/tcurses_archive_014/ROBUSTNESS_GUIDE.md",
+      "updated": "2025-11-24T13:40:32Z",
+      "size": 6405
+    },
+    "c62285308e99": {
+      "path": "./archive/bash/tcurses_archive_014/INPUT_STATE_MACHINE.md",
+      "updated": "2025-11-24T13:40:32Z",
+      "size": 2875
+    },
+    "cca4d4077268": {
+      "path": "./archive/bash/tcurses_archive_014/README.md",
+      "updated": "2025-11-24T13:40:33Z",
+      "size": 10955
+    },
+    "c5a487be3988": {
+      "path": "./archive/bash/tcurses_archive_014/DEBUGGING.md",
+      "updated": "2025-11-24T13:40:33Z",
+      "size": 6771
+    },
+    "70e7032df27b": {
+      "path": "./archive/demos/basic_all/013/TES_IMPLEMENTATION.md",
+      "updated": "2025-11-24T13:40:33Z",
+      "size": 9247
+    },
+    "28b4cf015515": {
+      "path": "./archive/demos/basic_all/013/LIFECYCLE_CHANGES.md",
+      "updated": "2025-11-24T13:40:33Z",
+      "size": 4057
+    },
+    "7759e93fe9bf": {
+      "path": "./archive/demos/basic_all/013/README.md",
+      "updated": "2025-11-24T13:40:33Z",
+      "size": 7461
+    },
+    "04009e750b37": {
+      "path": "./archive/demos/basic_all/014/HEADER_ANIMATION.md",
+      "updated": "2025-11-24T13:40:33Z",
+      "size": 5772
+    },
+    "fe1b1c595c12": {
+      "path": "./archive/demos/basic_all/014/REFACTOR_SUMMARY.md",
+      "updated": "2025-11-24T13:40:33Z",
+      "size": 3962
+    },
+    "b30a11b0e169": {
+      "path": "./archive/demos/basic_all/014/GAMEPAD.md",
+      "updated": "2025-11-24T13:40:33Z",
+      "size": 5368
+    },
+    "8cf139e722f1": {
+      "path": "./archive/demos/basic_all/014/docs/TERMINAL_REPL_HISTORY.md",
+      "updated": "2025-11-24T13:40:34Z",
+      "size": 20988
+    },
+    "902dfd920655": {
+      "path": "./archive/demos/basic_all/014/bash/tcurses/README.md",
+      "updated": "2025-11-24T13:40:34Z",
+      "size": 4182
+    },
+    "5a1091e2d12e": {
+      "path": "./archive/demos/basic_all/014/README.md",
+      "updated": "2025-11-24T13:40:34Z",
+      "size": 3206
+    },
+    "e5d4c83fa6ef": {
+      "path": "./archive/demos/basic_all/014/FIXES.md",
+      "updated": "2025-11-24T13:40:34Z",
+      "size": 5053
+    },
+    "d69c759b7b4c": {
+      "path": "./archive/demos/basic_all/014/TERMINAL_INPUT_FIX.md",
+      "updated": "2025-11-24T13:40:34Z",
+      "size": 5225
+    },
+    "e1393135677a": {
+      "path": "./archive/demos/basic_all/014/DRY_RUN.md",
+      "updated": "2025-11-24T13:40:34Z",
+      "size": 3519
+    },
+    "de1bc8f36b83": {
+      "path": "./archive/demos/basic_all/014/TCURSES_SUMMARY.md",
+      "updated": "2025-11-24T13:40:34Z",
+      "size": 7334
+    },
+    "e37441b1eaa6": {
+      "path": "./archive/demos/ARCHIVED.md",
+      "updated": "2025-11-24T13:40:34Z",
+      "size": 4489
+    },
+    "bf90a59305e2": {
+      "path": "./archive/demos/basic_010/ARCHIVED.md",
+      "updated": "2025-11-24T13:40:35Z",
+      "size": 1283
+    },
+    "eae9cda82e9e": {
+      "path": "./archive/demos/basic_010/claude.md",
+      "updated": "2025-11-24T13:40:35Z",
+      "size": 1133
+    },
+    "75597114b1c6": {
+      "path": "./IMPLEMENTATION_SUMMARY.md",
+      "updated": "2025-11-24T13:40:35Z",
+      "size": 12169
+    },
+    "c6b516544e41": {
+      "path": "./config/README.md",
+      "updated": "2025-11-24T13:40:35Z",
+      "size": 4366
+    },
+    "d2d8acb78f6d": {
+      "path": "./PHASE1_COMPLETE.md",
+      "updated": "2025-11-24T13:40:35Z",
+      "size": 10524
+    },
+    "1bf6e0084d47": {
+      "path": "./.rag/flows/meta-rag-20251029T062325/ctx/010_prompt.user.md",
+      "updated": "2025-11-24T13:40:35Z",
+      "size": 81
+    },
+    "058dcd346ae1": {
+      "path": "./.rag/flows/meta-rag-20251029T062325/ctx/010_request.md",
+      "updated": "2025-11-24T13:40:35Z",
+      "size": 125
+    },
+    "ae1fa5e33003": {
+      "path": "./bash/rag/.rag/flows/first-flow-20251016T030323/ctx/000_policy.system.md",
+      "updated": "2025-11-24T13:42:18Z",
+      "size": 280
+    },
+    "4d0736882672": {
+      "path": "./server/README.md",
+      "updated": "2025-11-24T13:40:36Z",
+      "size": 9109
+    },
+    "ac92302ed030": {
+      "path": "./server/api/tetra-api-architecture.md",
+      "updated": "2025-11-24T13:40:36Z",
+      "size": 12260
+    },
+    "19f13fbc1d66": {
+      "path": "./docs/specifications/TES_Storage_Extension.md",
+      "updated": "2025-11-24T13:40:37Z",
+      "size": 8611
+    },
+    "4c19844c163d": {
+      "path": "./docs/specifications/TES_Agent_Extension.md",
+      "updated": "2025-11-24T13:40:37Z",
+      "size": 16860
+    },
+    "eedea980473d": {
+      "path": "./docs/specifications/TES_SSH_Extension.md",
+      "updated": "2025-11-24T13:40:37Z",
+      "size": 19408
+    },
+    "dbaef46c674b": {
+      "path": "./docs/specifications/TRS_SPECIFICATION.md",
+      "updated": "2025-11-24T13:40:37Z",
+      "size": 13407
+    },
+    "bf04c0f5c80a": {
+      "path": "./docs/specifications/TCS_4.0_LOGGING_STANDARD.md",
+      "updated": "2025-11-24T13:40:37Z",
+      "size": 13529
+    },
+    "99ed3940098d": {
+      "path": "./docs/specifications/TES_Bash_Agent_Extension.md",
+      "updated": "2025-11-24T13:40:37Z",
+      "size": 14639
+    },
+    "79c864b113bf": {
+      "path": "./docs/specifications/TTS_TETRA_TRANSACTION_STANDARD.md",
+      "updated": "2025-11-24T13:40:38Z",
+      "size": 11613
+    },
+    "63a403253edc": {
+      "path": "./docs/specifications/TAS_SPECIFICATION.md",
+      "updated": "2025-11-24T13:40:38Z",
+      "size": 14823
+    },
+    "8a939bb19bb5": {
+      "path": "./docs/analysis/TUI_REFACTOR_ANALYSIS.md",
+      "updated": "2025-11-24T13:40:38Z",
+      "size": 38162
+    },
+    "236347101a59": {
+      "path": "./docs/analysis/INTERACTIVE_UI_PATTERNS.md",
+      "updated": "2025-11-24T13:40:38Z",
+      "size": 36704
+    },
+    "1c34a39b6ccc": {
+      "path": "./docs/theory/language.md",
+      "updated": "2025-11-24T13:40:38Z",
+      "size": 4197
+    },
+    "eeca504589cb": {
+      "path": "./docs/theory/geometry.md",
+      "updated": "2025-11-24T13:40:38Z",
+      "size": 5139
+    },
+    "2cb78a3bc772": {
+      "path": "./docs/theory/symbols.md",
+      "updated": "2025-11-24T13:40:39Z",
+      "size": 8414
+    },
+    "0118dec8bdb3": {
+      "path": "./docs/theory/alternatives.md",
+      "updated": "2025-11-24T13:40:39Z",
+      "size": 10687
+    },
+    "e9d1d03284fe": {
+      "path": "./docs/theory/adjoints.md",
+      "updated": "2025-11-24T13:40:39Z",
+      "size": 7195
+    },
+    "128f4c5b926f": {
+      "path": "./docs/theory/paths.md",
+      "updated": "2025-11-24T13:40:39Z",
+      "size": 10238
+    },
+    "8e1850e5faf1": {
+      "path": "./docs/theory/random.md",
+      "updated": "2025-11-24T13:40:39Z",
+      "size": 15440
+    },
+    "1da2a63df74e": {
+      "path": "./docs/theory/tetrascript.md",
+      "updated": "2025-11-24T13:40:39Z",
+      "size": 8604
+    },
+    "be768b75bd6b": {
+      "path": "./docs/theory/types.md",
+      "updated": "2025-11-24T13:40:39Z",
+      "size": 10066
+    },
+    "164cdbc8504d": {
+      "path": "./docs/README.md",
+      "updated": "2025-11-24T13:40:39Z",
+      "size": 10175
+    },
+    "70bea1c148d0": {
+      "path": "./docs/architecture/TETRA_TRINITY.md",
+      "updated": "2025-11-24T13:40:40Z",
+      "size": 13089
+    },
+    "f6c6548cc36f": {
+      "path": "./docs/guides/INSTRUCTIONS_README.md",
+      "updated": "2025-11-24T13:40:40Z",
+      "size": 8065
+    },
+    "9733ef6752dd": {
+      "path": "./docs/guides/MODULE_SYSTEM_SPECIFICATION.md",
+      "updated": "2025-11-24T13:40:40Z",
+      "size": 14929
+    },
+    "dcdcf1369952": {
+      "path": "./docs/guides/MODULE_COMPLETENESS_CRITERIA.md",
+      "updated": "2025-11-24T13:40:41Z",
+      "size": 15195
+    },
+    "e4b0380e2e70": {
+      "path": "./docs/guides/INSTRUCTIONS_CORE_SPECIFICATION.md",
+      "updated": "2025-11-24T13:40:41Z",
+      "size": 19955
+    },
+    "cc9f38c8d43e": {
+      "path": "./docs/guides/INSTRUCTIONS_TES.md",
+      "updated": "2025-11-24T13:40:41Z",
+      "size": 15222
+    },
+    "4e1567f05f58": {
+      "path": "./docs/guides/INSTRUCTIONS_DEVELOPER_GUIDE.md",
+      "updated": "2025-11-24T13:40:41Z",
+      "size": 21926
+    },
+    "1055489304e6": {
+      "path": "./docs/guides/README_DOCS.md",
+      "updated": "2025-11-24T13:40:41Z",
+      "size": 7273
+    },
+    "8c8a904c8519": {
+      "path": "./docs/workflow/tetra-comprehensive-workflow.md",
+      "updated": "2025-11-24T13:40:42Z",
+      "size": 15754
+    },
+    "56f07e94d666": {
+      "path": "./docs/reference/development/terminology.md",
+      "updated": "2025-11-24T13:40:42Z",
+      "size": 4909
+    },
+    "df1c0c0799b4": {
+      "path": "./docs/reference/development/code-requests.md",
+      "updated": "2025-11-24T13:40:42Z",
+      "size": 3935
+    },
+    "b799dba011bf": {
+      "path": "./docs/reference/MODULE_SPEC_TEMPLATE.md",
+      "updated": "2025-11-24T13:40:42Z",
+      "size": 12847
+    },
+    "9ea3c43a6068": {
+      "path": "./docs/reference/tsm/testing.md",
+      "updated": "2025-11-24T13:40:42Z",
+      "size": 8095
+    },
+    "d6a00a97f633": {
+      "path": "./docs/reference/tsm/README.md",
+      "updated": "2025-11-24T13:40:42Z",
+      "size": 5209
+    },
+    "a91d4bb20635": {
+      "path": "./docs/reference/tsm/architecture-review.md",
+      "updated": "2025-11-24T13:40:42Z",
+      "size": 16996
+    },
+    "b519990d2ff9": {
+      "path": "./docs/reference/tsm/daemon-setup.md",
+      "updated": "2025-11-24T13:40:43Z",
+      "size": 7216
+    },
+    "2fae928c03c8": {
+      "path": "./docs/reference/tdoc-system-design.md",
+      "updated": "2025-11-24T13:40:43Z",
+      "size": 6811
+    },
+    "24825a5c6ec8": {
+      "path": "./docs/reference/historical/tview_architecture.md",
+      "updated": "2025-11-24T13:40:43Z",
+      "size": 10111
+    },
+    "c7c1e5c91698": {
+      "path": "./docs/reference/historical/TETRA_CONSOLIDATION_PLAN.md",
+      "updated": "2025-11-24T13:40:43Z",
+      "size": 27677
+    },
+    "621840a9625a": {
+      "path": "./docs/reference/historical/changes.md",
+      "updated": "2025-11-24T13:40:43Z",
+      "size": 40675
+    },
+    "f269d2b9e2a4": {
+      "path": "./docs/reference/tsm-migration-commands.md",
+      "updated": "2025-11-24T13:40:43Z",
+      "size": 4206
+    },
+    "a3fbe7410247": {
+      "path": "./docs/reference/manual/01-system-overview.md",
+      "updated": "2025-11-24T13:40:43Z",
+      "size": 5972
+    },
+    "6042becb093f": {
+      "path": "./docs/reference/manual/10-organization-management-and-tdash.md",
+      "updated": "2025-11-24T13:40:44Z",
+      "size": 7739
+    },
+    "cc630da00af2": {
+      "path": "./docs/reference/manual/02-tsm-service-manager.md",
+      "updated": "2025-11-24T13:40:44Z",
+      "size": 7110
+    },
+    "73a1020c59b7": {
+      "path": "./docs/reference/manual/09-tetra-environment-management.md",
+      "updated": "2025-11-24T13:40:44Z",
+      "size": 7394
+    },
+    "feed005e674e": {
+      "path": "./docs/reference/tsm-migration-mapping.md",
+      "updated": "2025-11-24T13:40:45Z",
+      "size": 7432
+    },
+    "87037b669369": {
+      "path": "./docs/reference/11-nodeholder-tetra-integration.md",
+      "updated": "2025-11-24T13:40:45Z",
+      "size": 11188
+    },
+    "db43a06a3d35": {
+      "path": "./docs/reference/tsm-minimal-refactor.md",
+      "updated": "2025-11-24T13:40:45Z",
+      "size": 5976
+    },
+    "7cfb0ccc8e10": {
+      "path": "./docs/reference/errors/TSM_ERROR_REPORT.md",
+      "updated": "2025-11-24T13:40:46Z",
+      "size": 3873
+    },
+    "e4be7abc2057": {
+      "path": "./docs/reference/module-system.md",
+      "updated": "2025-11-24T13:40:46Z",
+      "size": 8529
+    },
+    "76c032664318": {
+      "path": "./docs/reference/TUBES_INTEGRATION_EXAMPLE.md",
+      "updated": "2025-11-24T13:40:46Z",
+      "size": 21951
+    },
+    "cf9a5e2d8ed8": {
+      "path": "./bash/tree/SUMMARY.md",
+      "updated": "2025-11-24T13:40:46Z",
+      "size": 4855
+    },
+    "8cf005e1da23": {
+      "path": "./bash/tree/README.md",
+      "updated": "2025-11-24T13:40:46Z",
+      "size": 9939
+    },
+    "b2fec6e7900b": {
+      "path": "./bash/tree/QUICK_REFERENCE_EXTERNAL.md",
+      "updated": "2025-11-24T13:40:46Z",
+      "size": 4932
+    },
+    "f441c5f7f29d": {
+      "path": "./bash/tree/QUICK_REFERENCE.md",
+      "updated": "2025-11-24T13:40:46Z",
+      "size": 5047
+    },
+    "10de60a70134": {
+      "path": "./bash/tree/INTEGRATION_EXAMPLE.md",
+      "updated": "2025-11-24T13:40:47Z",
+      "size": 5452
+    },
+    "c5e913b7a5f0": {
+      "path": "./bash/tree/TAB_COMPLETION_GUIDE.md",
+      "updated": "2025-11-24T13:40:47Z",
+      "size": 10160
+    },
+    "9557cba79b68": {
+      "path": "./bash/tree/EXTERNAL_PROJECT_GUIDE.md",
+      "updated": "2025-11-24T13:40:47Z",
+      "size": 13961
+    },
+    "be0362359fa0": {
+      "path": "./bash/chroma/README.md",
+      "updated": "2025-11-24T13:40:47Z",
+      "size": 6337
+    },
+    "b8091ddfe242": {
+      "path": "./bash/chroma/flowchart-example.md",
+      "updated": "2025-11-24T13:40:47Z",
+      "size": 5068
+    },
+    "1e337fcea394": {
+      "path": "./bash/boot/README_AUTOLOAD.md",
+      "updated": "2025-11-24T13:40:47Z",
+      "size": 6349
+    },
+    "2b071807137f": {
+      "path": "./bash/archive/docs/2025-11/game/COMPLETION_SUMMARY.md",
+      "updated": "2025-11-24T13:40:47Z",
+      "size": 2610
+    },
+    "6c52f694795b": {
+      "path": "./bash/archive/docs/2025-11/game/TGP_COMPLETE.md",
+      "updated": "2025-11-24T13:40:48Z",
+      "size": 9478
+    },
+    "afdc3c80a270": {
+      "path": "./bash/BASH_ARRAY_RULES.md",
+      "updated": "2025-11-24T13:40:48Z",
+      "size": 3251
+    },
+    "51c3cde6f986": {
+      "path": "./bash/midi/TMC_PURGE_PLAN.md",
+      "updated": "2025-11-24T13:40:48Z",
+      "size": 8661
+    },
+    "8940c6e224a6": {
+      "path": "./bash/midi/DUAL_MODE_USAGE.md",
+      "updated": "2025-11-24T13:40:48Z",
+      "size": 6452
+    },
+    "715117d37722": {
+      "path": "./bash/midi/CHANGES_v2.md",
+      "updated": "2025-11-24T13:40:48Z",
+      "size": 4251
+    },
+    "0b57f9bd85ff": {
+      "path": "./bash/midi/MAPPING_AND_OSC_SUMMARY.md",
+      "updated": "2025-11-24T13:40:48Z",
+      "size": 9509
+    },
+    "f89bf0ae7d9c": {
+      "path": "./bash/midi/REPL_REDESIGN.md",
+      "updated": "2025-11-24T13:40:48Z",
+      "size": 5601
+    },
+    "923c3f0f177c": {
+      "path": "./bash/midi/MAPPING_MODEL.md",
+      "updated": "2025-11-24T13:40:48Z",
+      "size": 5388
+    },
+    "9f6ee3d13095": {
+      "path": "./bash/midi/OSC_API.md",
+      "updated": "2025-11-24T13:40:49Z",
+      "size": 6450
+    },
+    "03370214efb4": {
+      "path": "./bash/midi/COMPLETION_FIX.md",
+      "updated": "2025-11-24T13:40:49Z",
+      "size": 5135
+    },
+    "c92a29ac36a3": {
+      "path": "./bash/midi/REFACTORING_SUMMARY.md",
+      "updated": "2025-11-24T13:40:50Z",
+      "size": 9398
+    },
+    "13f7aa3c4316": {
+      "path": "./bash/midi/USAGE.md",
+      "updated": "2025-11-24T13:40:50Z",
+      "size": 5694
+    },
+    "7ead8bc1941f": {
+      "path": "./bash/midi/STATUS.md",
+      "updated": "2025-11-24T13:40:50Z",
+      "size": 4228
+    },
+    "801d9bd12318": {
+      "path": "./bash/midi/QUICKSTART.md",
+      "updated": "2025-11-24T13:40:50Z",
+      "size": 5945
+    },
+    "e725c34acbcf": {
+      "path": "./bash/midi/docs/OSC_C_EXAMPLE.md",
+      "updated": "2025-11-24T13:40:50Z",
+      "size": 10898
+    },
+    "ba75d3675bac": {
+      "path": "./bash/midi/docs/PROMPT_USAGE.md",
+      "updated": "2025-11-24T13:40:50Z",
+      "size": 8434
+    },
+    "2e90317e1f58": {
+      "path": "./bash/midi/docs/CLI_PROMPT_GUIDE.md",
+      "updated": "2025-11-24T13:40:50Z",
+      "size": 11470
+    },
+    "206f2775149e": {
+      "path": "./bash/midi/docs/REPL_MENTAL_MODEL.md",
+      "updated": "2025-11-24T13:40:51Z",
+      "size": 18893
+    },
+    "385256b8c5a4": {
+      "path": "./bash/midi/docs/OSC_PROTOCOL.md",
+      "updated": "2025-11-24T13:40:51Z",
+      "size": 12553
+    },
+    "9af59605c471": {
+      "path": "./bash/midi/docs/PROMPT_STATE_DETECTION.md",
+      "updated": "2025-11-24T13:40:51Z",
+      "size": 14225
+    },
+    "ae1ee94ffd7e": {
+      "path": "./bash/midi/ARCHITECTURE_EXPLAINED.md",
+      "updated": "2025-11-24T13:40:51Z",
+      "size": 14660
+    },
+    "5c00b95ae6b5": {
+      "path": "./bash/midi/METRONOME_DESIGN.md",
+      "updated": "2025-11-24T13:40:51Z",
+      "size": 6452
+    },
+    "88b9e7c2845c": {
+      "path": "./bash/midi/README.md",
+      "updated": "2025-11-24T13:40:51Z",
+      "size": 12184
+    },
+    "26603cdc8e9b": {
+      "path": "./bash/midi/PROMPT_REFACTOR_COMPLETE.md",
+      "updated": "2025-11-24T13:40:52Z",
+      "size": 9328
+    },
+    "2eade7f9274b": {
+      "path": "./bash/midi/TRANSPORT_ARCHITECTURE.md",
+      "updated": "2025-11-24T13:40:52Z",
+      "size": 9302
+    },
+    "de407c954514": {
+      "path": "./bash/midi/MIDI_STATUS.md",
+      "updated": "2025-11-24T13:40:52Z",
+      "size": 4887
+    },
+    "510cadca959f": {
+      "path": "./bash/midi/DUAL_MODE_REPL_REFACTOR.md",
+      "updated": "2025-11-24T13:40:52Z",
+      "size": 12493
+    },
+    "b26261525885": {
+      "path": "./bash/midi/DUAL_MODE_IMPLEMENTATION_SUMMARY.md",
+      "updated": "2025-11-24T13:40:52Z",
+      "size": 8446
+    },
+    "9f4365c70677": {
+      "path": "./bash/midi/REPL_FIXES_SUMMARY.md",
+      "updated": "2025-11-24T13:40:52Z",
+      "size": 6624
+    },
+    "bc5093542521": {
+      "path": "./bash/midi/PORTS.md",
+      "updated": "2025-11-24T13:40:52Z",
+      "size": 7289
+    },
+    "66d3a03fe9fb": {
+      "path": "./bash/midi/TREE_COMPLETION_SUMMARY.md",
+      "updated": "2025-11-24T13:40:53Z",
+      "size": 6773
+    },
+    "6d5c0a443d38": {
+      "path": "./bash/midi/NEW_ARCHITECTURE.md",
+      "updated": "2025-11-24T13:40:53Z",
+      "size": 6508
+    },
+    "4deb90e37289": {
+      "path": "./bash/ttm/IMPLEMENTATION_SUMMARY.md",
+      "updated": "2025-11-24T13:40:53Z",
+      "size": 7090
+    },
+    "4d75f3d9a9ac": {
+      "path": "./bash/ttm/README.md",
+      "updated": "2025-11-24T13:40:53Z",
+      "size": 5147
+    },
+    "ebd67871802c": {
+      "path": "./bash/ttm/QUICK_START.md",
+      "updated": "2025-11-24T13:40:53Z",
+      "size": 3042
+    },
+    "9f24a971e4ff": {
+      "path": "./bash/nh/README.md",
+      "updated": "2025-11-24T13:40:53Z",
+      "size": 3319
+    },
+    "04430d46e70f": {
+      "path": "./bash/melvin/REFACTOR_COMPLETE.md",
+      "updated": "2025-11-24T13:40:54Z",
+      "size": 9710
+    },
+    "e536ca4e67aa": {
+      "path": "./bash/melvin/README.md",
+      "updated": "2025-11-24T13:40:54Z",
+      "size": 5503
+    },
+    "7744a82df8ac": {
+      "path": "./bash/melvin/MELVIN_WALKTHROUGH.md",
+      "updated": "2025-11-24T13:40:54Z",
+      "size": 12013
+    },
+    "ce10f1b20374": {
+      "path": "./bash/melvin/knowledge/README.md",
+      "updated": "2025-11-24T13:40:54Z",
+      "size": 4445
+    },
+    "48cbef89eb30": {
+      "path": "./bash/melvin/REFACTOR_PLAN.md",
+      "updated": "2025-11-24T13:40:55Z",
+      "size": 18376
+    },
+    "c37dd370e668": {
+      "path": "./bash/tui/README.md",
+      "updated": "2025-11-24T13:40:55Z",
+      "size": 9988
+    },
+    "a497a7b337d4": {
+      "path": "./bash/org/ORG_REPL_README.md",
+      "updated": "2025-11-24T13:40:55Z",
+      "size": 11769
+    },
+    "9b885c7ba1f1": {
+      "path": "./bash/org/VERBOSE_FIX_COMPLETE.md",
+      "updated": "2025-11-24T13:40:55Z",
+      "size": 3186
+    },
+    "8e3195f6d3ac": {
+      "path": "./bash/org/CODE_REVIEW_REPORT.md",
+      "updated": "2025-11-24T13:40:55Z",
+      "size": 13350
+    },
+    "363034d15fd4": {
+      "path": "./bash/org/CORRECT_REPL_IMPLEMENTATION.md",
+      "updated": "2025-11-24T13:41:00Z",
+      "size": 4941
+    },
+    "d6b87b6588ed": {
+      "path": "./bash/org/SOLUTION_SUMMARY.md",
+      "updated": "2025-11-24T13:41:19Z",
+      "size": 4654
+    },
+    "ff063adad443": {
+      "path": "./bash/org/ACTION_TAB_COMPLETION.md",
+      "updated": "2025-11-24T13:41:19Z",
+      "size": 9557
+    },
+    "131681484c31": {
+      "path": "./bash/org/TAB_COMPLETION_FIX.md",
+      "updated": "2025-11-24T13:41:19Z",
+      "size": 3840
+    },
+    "7dfc46b46ce3": {
+      "path": "./bash/org/REFACTOR_SUMMARY.md",
+      "updated": "2025-11-24T13:41:19Z",
+      "size": 5773
+    },
+    "c62fed9f740f": {
+      "path": "./bash/org/RLWRAP_INTEGRATION.md",
+      "updated": "2025-11-24T13:41:19Z",
+      "size": 6831
+    },
+    "0a26934320b4": {
+      "path": "./bash/org/IMPLEMENTATION_COMPLETE.md",
+      "updated": "2025-11-24T13:41:19Z",
+      "size": 11302
+    },
+    "2b307b9c60e1": {
+      "path": "./bash/org/FINAL_SOLUTION.md",
+      "updated": "2025-11-24T13:41:19Z",
+      "size": 4119
+    },
+    "860a1f27cd0c": {
+      "path": "./bash/org/RLWRAP_SOLUTION.md",
+      "updated": "2025-11-24T13:41:20Z",
+      "size": 3171
+    },
+    "aa33c7f0d3ef": {
+      "path": "./bash/org/USE_ORG_REPL.md",
+      "updated": "2025-11-24T13:41:20Z",
+      "size": 2658
+    },
+    "793b5726e63c": {
+      "path": "./bash/org/README_TDOC.md",
+      "updated": "2025-11-24T13:41:20Z",
+      "size": 6189
+    },
+    "c5c1e85f91e1": {
+      "path": "./bash/org/REFACTORING_NOTES.md",
+      "updated": "2025-11-24T13:41:21Z",
+      "size": 9332
+    },
+    "b54dc0aef78c": {
+      "path": "./bash/org/docs/README.md",
+      "updated": "2025-11-24T13:41:21Z",
+      "size": 5209
+    },
+    "50519e8bb3e8": {
+      "path": "./bash/org/ORG_ENHANCED_REPL.md",
+      "updated": "2025-11-24T13:41:21Z",
+      "size": 3669
+    },
+    "f8a029496aa7": {
+      "path": "./bash/org/README.md",
+      "updated": "2025-11-24T13:41:21Z",
+      "size": 4361
+    },
+    "75ba7bad069a": {
+      "path": "./bash/org/MULTI_ENV_README.md",
+      "updated": "2025-11-24T13:41:21Z",
+      "size": 9206
+    },
+    "6982c6a06fef": {
+      "path": "./bash/org/CODE_REVIEW_FIXES.md",
+      "updated": "2025-11-24T13:41:22Z",
+      "size": 9946
+    },
+    "865307d55910": {
+      "path": "./bash/org/README_SECRETS_RESOLUTION.md",
+      "updated": "2025-11-24T13:41:22Z",
+      "size": 5662
+    },
+    "4260a68a25c7": {
+      "path": "./bash/org/VIEW_ENV_SEMANTICS.md",
+      "updated": "2025-11-24T13:41:22Z",
+      "size": 8980
+    },
+    "47c152fd68d9": {
+      "path": "./bash/org/REPL_FIXES.md",
+      "updated": "2025-11-24T13:41:22Z",
+      "size": 4219
+    },
+    "197fd703f8e9": {
+      "path": "./bash/org/INTEGRATION_SUMMARY.md",
+      "updated": "2025-11-24T13:41:22Z",
+      "size": 5373
+    },
+    "f80087a6be89": {
+      "path": "./bash/org/QUICK_REFERENCE.md",
+      "updated": "2025-11-24T13:41:22Z",
+      "size": 1789
+    },
+    "4df4434c2d44": {
+      "path": "./bash/org/INLINE_TABLE_ENHANCEMENT.md",
+      "updated": "2025-11-24T13:41:23Z",
+      "size": 1835
+    },
+    "a3cd813ddb7d": {
+      "path": "./bash/org/COMPLETION_FIXES_SUMMARY.md",
+      "updated": "2025-11-24T13:41:23Z",
+      "size": 8490
+    },
+    "2f1f8667272f": {
+      "path": "./bash/org/TAB_COMPLETION_GUIDE.md",
+      "updated": "2025-11-24T13:41:23Z",
+      "size": 5823
+    },
+    "aa09c5f737ce": {
+      "path": "./bash/deploy/README.md",
+      "updated": "2025-11-24T13:41:23Z",
+      "size": 3353
+    },
+    "cb43da046c7c": {
+      "path": "./bash/INSTALL_CONVENTION.md",
+      "updated": "2025-11-24T13:41:23Z",
+      "size": 3491
+    },
+    "0ce2c9e9cf7f": {
+      "path": "./bash/pbase/README.md",
+      "updated": "2025-11-24T13:41:23Z",
+      "size": 6409
+    },
+    "094f151cb704": {
+      "path": "./bash/tsm/TSM_SPECIFICATION.md",
+      "updated": "2025-11-24T13:41:23Z",
+      "size": 18643
+    },
+    "f8ed78fd2081": {
+      "path": "./bash/tsm/TSM_REPL_MODERNIZATION.md",
+      "updated": "2025-11-24T13:41:24Z",
+      "size": 10976
+    },
+    "298ef0a58d8e": {
+      "path": "./bash/tsm/TSM_ARCHITECTURE.md",
+      "updated": "2025-11-24T13:41:24Z",
+      "size": 9745
+    },
+    "a8ffe29175eb": {
+      "path": "./bash/tsm/TSM_PROCESS_SUMMARY.md",
+      "updated": "2025-11-24T13:41:24Z",
+      "size": 11853
+    },
+    "bb2b897b7268": {
+      "path": "./bash/tsm/tests/TEST_SUITE.md",
+      "updated": "2025-11-24T13:41:24Z",
+      "size": 7304
+    },
+    "2b3fcaf94c75": {
+      "path": "./bash/tsm/tests/README.md",
+      "updated": "2025-11-24T13:41:24Z",
+      "size": 791
+    },
+    "a8317434d934": {
+      "path": "./bash/tsm/README.md",
+      "updated": "2025-11-24T13:41:24Z",
+      "size": 15879
+    },
+    "7f0cdc4712b3": {
+      "path": "./bash/tsm/TSM_REPL_FIX.md",
+      "updated": "2025-11-24T13:41:24Z",
+      "size": 8874
+    },
+    "5222d58df7fc": {
+      "path": "./bash/tsm/TSM_CLEANUP_TODO.md",
+      "updated": "2025-11-24T13:41:25Z",
+      "size": 10644
+    },
+    "89df36a36717": {
+      "path": "./bash/tsm/help/tsm_help.md",
+      "updated": "2025-11-24T13:41:25Z",
+      "size": 18408
+    },
+    "7fa379398d73": {
+      "path": "./bash/spaces/README_FIX.md",
+      "updated": "2025-11-24T13:41:26Z",
+      "size": 3132
+    },
+    "2510b33c5ffa": {
+      "path": "./bash/spaces/QUICKSTART.md",
+      "updated": "2025-11-24T13:41:26Z",
+      "size": 3916
+    },
+    "3a8c3d7fad3c": {
+      "path": "./bash/spaces/README.md",
+      "updated": "2025-11-24T13:41:26Z",
+      "size": 3098
+    },
+    "f6f42486fbc4": {
+      "path": "./bash/spaces/README_DEPLOY.md",
+      "updated": "2025-11-24T13:41:26Z",
+      "size": 10085
+    },
+    "be00eb324cce": {
+      "path": "./bash/repl/TAB_COMPLETION_WORKING.md",
+      "updated": "2025-11-24T13:41:26Z",
+      "size": 5824
+    },
+    "5bbf43d67c47": {
+      "path": "./bash/repl/TREE_COMPLETION_COMPLETE.md",
+      "updated": "2025-11-24T13:41:26Z",
+      "size": 9694
+    },
+    "87586a3be6bb": {
+      "path": "./bash/repl/FIXES_SUMMARY.md",
+      "updated": "2025-11-24T13:41:26Z",
+      "size": 2104
+    },
+    "71e7d1c38c7d": {
+      "path": "./bash/repl/ARCHITECTURE_CLARIFICATION.md",
+      "updated": "2025-11-24T13:41:27Z",
+      "size": 6721
+    },
+    "d0338162edd9": {
+      "path": "./bash/repl/REPL_REFACTOR_PLAN.md",
+      "updated": "2025-11-24T13:41:27Z",
+      "size": 9542
+    },
+    "d77599a8d6ed": {
+      "path": "./bash/repl/experiments/SUMMARY.md",
+      "updated": "2025-11-24T13:41:27Z",
+      "size": 1828
+    },
+    "251fdd2c86ad": {
+      "path": "./bash/repl/FINAL_SOLUTION.md",
+      "updated": "2025-11-24T13:41:27Z",
+      "size": 6270
+    },
+    "34cc7665d9c0": {
+      "path": "./bash/repl/REPL_TAB_COMPLETION_COMPLETE.md",
+      "updated": "2025-11-24T13:41:27Z",
+      "size": 4959
+    },
+    "6eb815b5fd0d": {
+      "path": "./bash/repl/docs/TUI_VS_REPL.md",
+      "updated": "2025-11-24T13:41:27Z",
+      "size": 4390
+    },
+    "c02f996fee90": {
+      "path": "./bash/repl/TETRA_WAY.md",
+      "updated": "2025-11-24T13:41:28Z",
+      "size": 16492
+    },
+    "77a1d7418d9b": {
+      "path": "./bash/repl/README.md",
+      "updated": "2025-11-24T13:41:28Z",
+      "size": 15305
+    },
+    "14b11294850a": {
+      "path": "./bash/repl/TAB_COMPLETION_SURVEY.md",
+      "updated": "2025-11-24T13:41:28Z",
+      "size": 8471
+    },
+    "f14db2df5574": {
+      "path": "./bash/repl/SYMBOL_FIXES_20251017.md",
+      "updated": "2025-11-24T13:41:28Z",
+      "size": 4591
+    },
+    "8f51ce81cd52": {
+      "path": "./bash/repl/TAB_COMPLETION_ROOT_CAUSE.md",
+      "updated": "2025-11-24T13:41:28Z",
+      "size": 5574
+    },
+    "c95a97812ff4": {
+      "path": "./bash/repl/SYMBOL_REPL_FIXES.md",
+      "updated": "2025-11-24T13:41:28Z",
+      "size": 2891
+    },
+    "db1f2c358dca": {
+      "path": "./bash/repl/TREPL_README.md",
+      "updated": "2025-11-24T13:41:28Z",
+      "size": 6192
+    },
+    "62d21393a70b": {
+      "path": "./bash/repl/SESSION_COMPLETE.md",
+      "updated": "2025-11-24T13:41:28Z",
+      "size": 5835
+    },
+    "31b3caefbc22": {
+      "path": "./bash/repl/REPL_SYSTEM_SURVEY.md",
+      "updated": "2025-11-24T13:41:29Z",
+      "size": 8493
+    },
+    "c087cf705e1c": {
+      "path": "./bash/repl/RLWRAP_USAGE.md",
+      "updated": "2025-11-24T13:41:29Z",
+      "size": 6215
+    },
+    "72ea591bd61f": {
+      "path": "./bash/repl/TREPL_IMPLEMENTATION_SUMMARY.md",
+      "updated": "2025-11-24T13:41:29Z",
+      "size": 10845
+    },
+    "d4d1fbbcda00": {
+      "path": "./bash/repl/TEST_TREE_COMPLETION.md",
+      "updated": "2025-11-24T13:41:30Z",
+      "size": 2832
+    },
+    "2d3fd351b704": {
+      "path": "./bash/repl/TEMP_FALLBACK.md",
+      "updated": "2025-11-24T13:41:30Z",
+      "size": 1421
+    },
+    "10f06e222ea7": {
+      "path": "./bash/repl/NATIVE_TAB_COMPLETION_COMPLETE.md",
+      "updated": "2025-11-24T13:41:30Z",
+      "size": 7112
+    },
+    "3a5a0cce7584": {
+      "path": "./bash/repl/NO_BIN_SOLUTION.md",
+      "updated": "2025-11-24T13:41:30Z",
+      "size": 5937
+    },
+    "3a27654a25a9": {
+      "path": "./bash/repl/TUI_REPL_SOLUTION.md",
+      "updated": "2025-11-24T13:41:30Z",
+      "size": 9731
+    },
+    "6e3dae78ab99": {
+      "path": "./bash/repl/DOCUMENTATION_HARMONIZATION.md",
+      "updated": "2025-11-24T13:41:30Z",
+      "size": 5647
+    },
+    "b852a1f8c119": {
+      "path": "./bash/repl/TAB_COMPLETION_SOLUTION.md",
+      "updated": "2025-11-24T13:41:31Z",
+      "size": 10197
+    },
+    "47ae6b0450f9": {
+      "path": "./bash/repl/QUICK_START.md",
+      "updated": "2025-11-24T13:41:31Z",
+      "size": 2013
+    },
+    "d37a587ae202": {
+      "path": "./bash/thelp/README.md",
+      "updated": "2025-11-24T13:41:31Z",
+      "size": 4636
+    },
+    "ca8d22bb54f4": {
+      "path": "./bash/estovox/ARCHITECTURE.md",
+      "updated": "2025-11-24T13:41:31Z",
+      "size": 9239
+    },
+    "4abe69d26eab": {
+      "path": "./bash/estovox/COMMANDS.md",
+      "updated": "2025-11-24T13:41:31Z",
+      "size": 7780
+    },
+    "f1ca7e65121f": {
+      "path": "./bash/estovox/QUICKSTART.md",
+      "updated": "2025-11-24T13:41:31Z",
+      "size": 3553
+    },
+    "182f993d9450": {
+      "path": "./bash/estovox/README.md",
+      "updated": "2025-11-24T13:41:32Z",
+      "size": 6822
+    },
+    "976079bbdad7": {
+      "path": "./bash/estovox/TUI_GUIDE.md",
+      "updated": "2025-11-24T13:41:32Z",
+      "size": 12630
+    },
+    "edc484ffa7bc": {
+      "path": "./bash/tetraboard/docs/concepts/exm-vs-a-framework.md",
+      "updated": "2025-11-24T13:41:32Z",
+      "size": 11079
+    },
+    "0fcb1f876582": {
+      "path": "./bash/tmod/tests/README.md",
+      "updated": "2025-11-24T13:41:32Z",
+      "size": 774
+    },
+    "b54cb9072afd": {
+      "path": "./bash/tkm/TKM_REKEYING_REFACTOR.md",
+      "updated": "2025-11-24T13:41:32Z",
+      "size": 17516
+    },
+    "7b9b263a5235": {
+      "path": "./bash/qa/VIEWER_GUIDE.md",
+      "updated": "2025-11-24T13:41:32Z",
+      "size": 4184
+    },
+    "069df297cb53": {
+      "path": "./bash/qa/TESTING_GUIDE.md",
+      "updated": "2025-11-24T13:42:09Z",
+      "size": 5188
+    },
+    "d760e2d7889d": {
+      "path": "./bash/utils/LOGGING_QUICK_START.md",
+      "updated": "2025-11-24T13:42:09Z",
+      "size": 7092
+    },
+    "7913a3840f96": {
+      "path": "./bash/game/QUICKSTART_GLYPHGRID.md",
+      "updated": "2025-11-24T13:42:09Z",
+      "size": 3424
+    },
+    "b880f136dfa4": {
+      "path": "./bash/game/ARCHITECTURE.md",
+      "updated": "2025-11-24T13:42:09Z",
+      "size": 18614
+    },
+    "74df189e9272": {
+      "path": "./bash/game/TGP_PULSAR_SUMMARY.md",
+      "updated": "2025-11-24T13:42:09Z",
+      "size": 5720
+    },
+    "7e950b7ef489": {
+      "path": "./bash/game/GAMEPAD_QUICK_START.md",
+      "updated": "2025-11-24T13:42:09Z",
+      "size": 5762
+    },
+    "ba637f4a53a5": {
+      "path": "./bash/game/docs/QUADRUPOLE_MECHANICS.md",
+      "updated": "2025-11-24T13:42:09Z",
+      "size": 7172
+    },
+    "417a9842781c": {
+      "path": "./bash/game/docs/MODULE_REORGANIZATION.md",
+      "updated": "2025-11-24T13:42:10Z",
+      "size": 8700
+    },
+    "3a8258fdeb9f": {
+      "path": "./bash/game/README.md",
+      "updated": "2025-11-24T13:42:10Z",
+      "size": 466
+    },
+    "f2e087811f98": {
+      "path": "./bash/game/GAMEPAD_SETUP.md",
+      "updated": "2025-11-24T13:42:10Z",
+      "size": 4223
+    },
+    "31ee2fb74aed": {
+      "path": "./bash/game/GAMEPAD_FIFO_PROTOCOL.md",
+      "updated": "2025-11-24T13:42:11Z",
+      "size": 5164
+    },
+    "8b2bb54bae52": {
+      "path": "./bash/game/TETRA_GAME_SPECIFICATION.md",
+      "updated": "2025-11-24T13:42:11Z",
+      "size": 15993
+    },
+    "0c46a9f19d64": {
+      "path": "./bash/game/REPL_ARCHITECTURE.md",
+      "updated": "2025-11-24T13:42:11Z",
+      "size": 9876
+    },
+    "55394c066fc2": {
+      "path": "./bash/game/TGP_INTEGRATION_PLAN.md",
+      "updated": "2025-11-24T13:42:11Z",
+      "size": 2993
+    },
+    "31a2acf10e71": {
+      "path": "./bash/game/QUADRUPOLE_QUICKSTART.md",
+      "updated": "2025-11-24T13:42:11Z",
+      "size": 4895
+    },
+    "2d3a175ab028": {
+      "path": "./bash/game/GAMEPLAY_CONCEPTS.md",
+      "updated": "2025-11-24T13:42:11Z",
+      "size": 6987
+    },
+    "29ebd3702b45": {
+      "path": "./bash/game/engine/CLIENT_SERVER_MODE.md",
+      "updated": "2025-11-24T13:42:12Z",
+      "size": 7430
+    },
+    "29ef34b2b599": {
+      "path": "./bash/game/engine/PLAY_MODE_INSTRUCTIONS.md",
+      "updated": "2025-11-24T13:42:12Z",
+      "size": 6546
+    },
+    "f1fbf56e3f3e": {
+      "path": "./bash/game/engine/scripts/README.md",
+      "updated": "2025-11-24T13:42:12Z",
+      "size": 3418
+    },
+    "aed4b7aa90fb": {
+      "path": "./bash/game/engine/OSC_IMPLEMENTATION_GUIDE.md",
+      "updated": "2025-11-24T13:42:12Z",
+      "size": 16046
+    },
+    "79caa14ec56f": {
+      "path": "./bash/game/games/estoface/ARTICULATION_EXAMPLES.md",
+      "updated": "2025-11-24T13:42:12Z",
+      "size": 6830
+    },
+    "4b40521da4b7": {
+      "path": "./bash/game/games/estoface/voice_cloning/README.md",
+      "updated": "2025-11-24T13:42:12Z",
+      "size": 4431
+    },
+    "b19ab0bb3a11": {
+      "path": "./bash/game/games/estoface/REPL_TUI_ARCHITECTURE.md",
+      "updated": "2025-11-24T13:42:12Z",
+      "size": 5896
+    },
+    "135c2212da90": {
+      "path": "./bash/game/games/estoface/README.md",
+      "updated": "2025-11-24T13:42:13Z",
+      "size": 1965
+    },
+    "31b8c1106b69": {
+      "path": "./bash/game/games/estoface/ACOUSTIC_MODEL.md",
+      "updated": "2025-11-24T13:42:13Z",
+      "size": 8683
+    },
+    "f4ccf26645ab": {
+      "path": "./bash/game/games/estoface/IMPROVEMENTS.md",
+      "updated": "2025-11-24T13:42:13Z",
+      "size": 5449
+    },
+    "705c67b587f8": {
+      "path": "./bash/game/games/estoface/HELP_SYSTEM.md",
+      "updated": "2025-11-24T13:42:13Z",
+      "size": 2545
+    },
+    "a1efd0da1146": {
+      "path": "./bash/game/games/estoface/FACIAL_MODELING.md",
+      "updated": "2025-11-24T13:42:13Z",
+      "size": 12009
+    },
+    "e0ef1a68052f": {
+      "path": "./bash/game/games/pulsar/OSC_MIGRATION_SUMMARY.md",
+      "updated": "2025-11-24T13:42:13Z",
+      "size": 3645
+    },
+    "51c365b99c9a": {
+      "path": "./bash/game/games/pulsar/README_TGP.md",
+      "updated": "2025-11-24T13:42:13Z",
+      "size": 6667
+    },
+    "c0d8121ed276": {
+      "path": "./bash/game/games/pulsar/README_OSC.md",
+      "updated": "2025-11-24T13:42:14Z",
+      "size": 4485
+    },
+    "5514ad3df446": {
+      "path": "./bash/game/games/formant/REFERENCE.md",
+      "updated": "2025-11-24T13:42:14Z",
+      "size": 12183
+    },
+    "1721a012bf68": {
+      "path": "./bash/game/games/formant/PROJECT_STATUS.md",
+      "updated": "2025-11-24T13:42:14Z",
+      "size": 11128
+    },
+    "09056f543398": {
+      "path": "./bash/game/games/formant/ARCHITECTURE.md",
+      "updated": "2025-11-24T13:42:14Z",
+      "size": 20284
+    },
+    "45075fcd004f": {
+      "path": "./bash/game/games/formant/README.md",
+      "updated": "2025-11-24T13:42:14Z",
+      "size": 13820
+    },
+    "fb94157c363e": {
+      "path": "./bash/game/games/formant/meters/README.md",
+      "updated": "2025-11-24T13:42:14Z",
+      "size": 1264
+    },
+    "acea6879b040": {
+      "path": "./bash/game/games/formant/FORMANT_REPL.md",
+      "updated": "2025-11-24T13:42:15Z",
+      "size": 6847
+    },
+    "3c00ef9e4d23": {
+      "path": "./bash/game/PULSAR_REPL.md",
+      "updated": "2025-11-24T13:42:15Z",
+      "size": 8791
+    },
+    "e03183802be9": {
+      "path": "./bash/game/QUICK_START.md",
+      "updated": "2025-11-24T13:42:15Z",
+      "size": 5127
+    },
+    "2aad7335b024": {
+      "path": "./bash/TUI_ARCHITECTURE_SUMMARY.md",
+      "updated": "2025-11-24T13:42:15Z",
+      "size": 19788
+    },
+    "f12367c5af04": {
+      "path": "./bash/docs/README.md",
+      "updated": "2025-11-24T13:42:16Z",
+      "size": 1069
+    },
+    "ed2f333644b6": {
+      "path": "./bash/tds/test_markdown.md",
+      "updated": "2025-11-24T13:42:16Z",
+      "size": 593
+    },
+    "b5c7811d2349": {
+      "path": "./bash/tds/next.md",
+      "updated": "2025-11-24T13:42:16Z",
+      "size": 7194
+    },
+    "78d762e35b54": {
+      "path": "./bash/tds/COMPLETION_SYSTEM_COMPLETE.md",
+      "updated": "2025-11-24T13:42:16Z",
+      "size": 6146
+    },
+    "d70994661ff5": {
+      "path": "./bash/tds/TDS_REPL_README.md",
+      "updated": "2025-11-24T13:42:16Z",
+      "size": 7149
+    },
+    "27b470264d28": {
+      "path": "./bash/tds/semantics/MARKDOWN_ARCHITECTURE.md",
+      "updated": "2025-11-24T13:42:16Z",
+      "size": 5878
+    },
+    "8b5c8981e905": {
+      "path": "./bash/tds/README.md",
+      "updated": "2025-11-24T13:42:17Z",
+      "size": 5413
+    },
+    "c1a54980df86": {
+      "path": "./bash/tds/THEMES.md",
+      "updated": "2025-11-24T13:42:17Z",
+      "size": 8537
+    },
+    "a31105076137": {
+      "path": "./bash/BUILD_SUMMARY.md",
+      "updated": "2025-11-24T13:42:17Z",
+      "size": 14755
+    },
+    "c4b61e3cba65": {
+      "path": "./bash/rag/cdp/CDP_RAG_FLOW_GUIDE.md",
+      "updated": "2025-11-24T13:42:17Z",
+      "size": 13591
+    },
+    "d084d5841ef0": {
+      "path": "./bash/rag/cdp/README.md",
+      "updated": "2025-11-24T13:42:17Z",
+      "size": 9848
+    },
+    "98523a33ac4e": {
+      "path": "./bash/rag/REFACTOR_SUMMARY.md",
+      "updated": "2025-11-24T13:42:17Z",
+      "size": 10491
+    },
+    "4f1a01e49a5b": {
+      "path": "./bash/rag/IMPLEMENTATION_SUMMARY.md",
+      "updated": "2025-11-24T13:42:18Z",
+      "size": 7892
+    },
+    "12dea64779ad": {
+      "path": "./bash/rag/NEXT.md",
+      "updated": "2025-11-24T13:42:18Z",
+      "size": 9486
+    },
+    "1b9769e71a0f": {
+      "path": "./bash/rag/DEMO_README.md",
+      "updated": "2025-11-24T13:42:18Z",
+      "size": 6426
+    },
+    "6a0707eaf4e6": {
+      "path": "./bash/rag/.rag/flows/first-flow-20251016T030323/ctx/evidence/100_flow_manager_sh.evidence.md",
+      "updated": "2025-11-24T13:42:18Z",
+      "size": 2977
+    },
+    "74a24dee5a2c": {
+      "path": "./bash/rag/.rag/flows/first-flow-20251016T030323/ctx/010_request.user.md",
+      "updated": "2025-11-24T13:42:18Z",
+      "size": 275
+    },
+    "4fff43a68754": {
+      "path": "./bash/rag/.rag/flows/first-flow-20251016T030323/build/answer.md",
+      "updated": "2025-11-24T13:42:18Z",
+      "size": 2357
+    },
+    "67821226d906": {
+      "path": "./bash/rag/docs/archive/HELP_REFACTOR_SUMMARY.md",
+      "updated": "2025-11-24T13:42:18Z",
+      "size": 4136
+    },
+    "a4ee45e024a9": {
+      "path": "./bash/rag/docs/archive/REPL_FIXES_20251016.md",
+      "updated": "2025-11-24T13:42:19Z",
+      "size": 3544
+    },
+    "28d96d6e6a01": {
+      "path": "./bash/rag/docs/archive/RAG_CLEANUP_TOPICS.md",
+      "updated": "2025-11-24T13:42:19Z",
+      "size": 8970
+    },
+    "aaa3fe76cdae": {
+      "path": "./bash/rag/docs/EVIDENCE_QUICK_REFERENCE.md",
+      "updated": "2025-11-24T13:42:19Z",
+      "size": 10473
+    },
+    "118cae101803": {
+      "path": "./bash/rag/docs/FLOW_QUICK_REFERENCE.md",
+      "updated": "2025-11-24T13:42:51Z",
+      "size": 2961
+    },
+    "a71bf654a18b": {
+      "path": "./bash/rag/docs/COLORS.md",
+      "updated": "2025-11-24T13:42:52Z",
+      "size": 3096
+    },
+    "962ad1bbad54": {
+      "path": "./bash/rag/docs/HISTORY_COMPLETION_GUIDE.md",
+      "updated": "2025-11-24T13:42:52Z",
+      "size": 7194
+    },
+    "0d1694fcfbbb": {
+      "path": "./bash/rag/docs/README.md",
+      "updated": "2025-11-24T13:42:52Z",
+      "size": 12890
+    },
+    "ccdddffe96a2": {
+      "path": "./bash/rag/docs/QUICK_START_HISTORY_COMPLETION.md",
+      "updated": "2025-11-24T13:42:52Z",
+      "size": 2827
+    },
+    "3f31deec743d": {
+      "path": "./bash/rag/docs/REPL_FEATURES.md",
+      "updated": "2025-11-24T13:42:52Z",
+      "size": 5158
+    },
+    "553d458cfd2f": {
+      "path": "./bash/rag/docs/QA_INTEGRATION_SUMMARY.md",
+      "updated": "2025-11-24T13:42:52Z",
+      "size": 3168
+    },
+    "e9d718043599": {
+      "path": "./bash/rag/docs/QUICK_REFERENCE.md",
+      "updated": "2025-11-24T13:42:52Z",
+      "size": 4995
+    },
+    "bd9398dfc50d": {
+      "path": "./bash/rag/docs/FLOW_WALKTHROUGH.md",
+      "updated": "2025-11-24T13:42:52Z",
+      "size": 6051
+    },
+    "d64e9740a0dc": {
+      "path": "./bash/rag/docs/CONTEXT_DESIGN.md",
+      "updated": "2025-11-24T13:42:52Z",
+      "size": 7026
+    },
+    "92843b33e759": {
+      "path": "./bash/rag/docs/QUICK_START.md",
+      "updated": "2025-11-24T13:42:53Z",
+      "size": 13343
+    },
+    "f525f5abc59c": {
+      "path": "./bash/rag/ACTIONS_README.md",
+      "updated": "2025-11-24T13:42:53Z",
+      "size": 3321
+    },
+    "8b9a0b358e06": {
+      "path": "./bash/rag/REPL_MODES.md",
+      "updated": "2025-11-24T13:42:53Z",
+      "size": 4350
+    },
+    "f966eea2261e": {
+      "path": "./bash/rag/SESSION_SUMMARY.md",
+      "updated": "2025-11-24T13:42:53Z",
+      "size": 9183
+    },
+    "17876d84c9fc": {
+      "path": "./bash/rag/RAG_REVIEW_2025.md",
+      "updated": "2025-11-24T13:42:53Z",
+      "size": 16890
+    },
+    "538ef78fd81a": {
+      "path": "./bash/rag/REFACTOR_PHASE1_COMPLETE.md",
+      "updated": "2025-11-24T13:42:53Z",
+      "size": 4158
+    },
+    "89b0b75d3389": {
+      "path": "./bash/rag/CLAUDE.md",
+      "updated": "2025-11-24T13:42:53Z",
+      "size": 51
+    },
+    "ef3f79233d80": {
+      "path": "./bash/tcurses/COMPLETION_FIX_2025_11_04.md",
+      "updated": "2025-11-24T13:42:53Z",
+      "size": 3186
+    },
+    "2e4588a4cd09": {
+      "path": "./bash/tcurses/README.md",
+      "updated": "2025-11-24T13:42:54Z",
+      "size": 9887
+    },
+    "6e541e68be7d": {
+      "path": "./bash/tubes/IMPLEMENTATION_SUMMARY.md",
+      "updated": "2025-11-24T13:42:54Z",
+      "size": 9702
+    },
+    "77931853ec70": {
+      "path": "./bash/tubes/README.md",
+      "updated": "2025-11-24T13:42:54Z",
+      "size": 8223
+    },
+    "68982d57656e": {
+      "path": "./bash/tubes/QUICK_START.md",
+      "updated": "2025-11-24T13:42:54Z",
+      "size": 3204
+    },
+    "608cff01fc9d": {
+      "path": "./bash/tetra/ARCHITECTURE.md",
+      "updated": "2025-11-24T13:42:54Z",
+      "size": 8728
+    },
+    "f2038d8335e9": {
+      "path": "./bash/tetra/PHASE2_COMPLETE.md",
+      "updated": "2025-11-24T13:42:54Z",
+      "size": 7559
+    },
+    "480e864739b8": {
+      "path": "./bash/tetra/REFACTOR_COMPLETE.md",
+      "updated": "2025-11-24T13:42:54Z",
+      "size": 6471
+    },
+    "e63b8f0bafb2": {
+      "path": "./bash/tetra/PHASE1_COMPLETE.md",
+      "updated": "2025-11-24T13:42:54Z",
+      "size": 5688
+    },
+    "3d88a844f4f4": {
+      "path": "./bash/tetra/QUICKSTART.md",
+      "updated": "2025-11-24T13:42:55Z",
+      "size": 2388
+    },
+    "a12474da6af4": {
+      "path": "./bash/tetra/BUILD_SUMMARY.md",
+      "updated": "2025-11-24T13:42:55Z",
+      "size": 6680
+    },
+    "f0e1cc18d9e6": {
+      "path": "./bash/tetra/MODE_REPL_QUICKSTART.md",
+      "updated": "2025-11-24T13:42:55Z",
+      "size": 5655
+    },
+    "ed7d85de3d73": {
+      "path": "./bash/tetra/MODE_MODULE_REPL_COMPLETE.md",
+      "updated": "2025-11-24T13:42:56Z",
+      "size": 10067
+    },
+    "9e368a67af0a": {
+      "path": "./bash/logs/README.md",
+      "updated": "2025-11-24T13:42:56Z",
+      "size": 9940
+    },
+    "fe51356551bc": {
+      "path": "./bash/logs/MODULE_SUMMARY.md",
+      "updated": "2025-11-24T13:42:56Z",
+      "size": 11332
+    },
+    "ee4d2b572ac0": {
+      "path": "./bash/logs/QUICK_REFERENCE.md",
+      "updated": "2025-11-24T13:42:56Z",
+      "size": 1814
+    },
+    "656065190965": {
+      "path": "./bash/watchdog/README.md",
+      "updated": "2025-11-24T13:42:56Z",
+      "size": 1943
+    },
+    "a85e79efa246": {
+      "path": "./bash/INDEX.md",
+      "updated": "2025-11-24T13:42:56Z",
+      "size": 10935
+    },
+    "71897e7d75fc": {
+      "path": "./bash/vox/INTERACTIVE_ESTO.md",
+      "updated": "2025-11-24T13:42:56Z",
+      "size": 12616
+    },
+    "7ebbf077c0a1": {
+      "path": "./bash/vox/ESTO_SYNTAX_REFERENCE.md",
+      "updated": "2025-11-24T13:42:56Z",
+      "size": 7101
+    },
+    "354acc3e305f": {
+      "path": "./bash/vox/NEXT.md",
+      "updated": "2025-11-24T13:42:56Z",
+      "size": 8017
+    },
+    "b7d6ec826c8d": {
+      "path": "./bash/vox/README.md",
+      "updated": "2025-11-24T13:42:57Z",
+      "size": 11729
+    },
+    "5d9e28b130e2": {
+      "path": "./bash/vox/DRY_RUN.md",
+      "updated": "2025-11-24T13:42:57Z",
+      "size": 6330
+    },
+    "446d4d6aa00b": {
+      "path": "./bash/vox/examples/README.md",
+      "updated": "2025-11-24T13:42:57Z",
+      "size": 7481
+    },
+    "1a6fc059f480": {
+      "path": "./bash/vox/REPL.md",
+      "updated": "2025-11-24T13:42:57Z",
+      "size": 8996
+    },
+    "64b84cbf32c3": {
+      "path": "./bash/nginx/REPL_USAGE.md",
+      "updated": "2025-11-24T13:42:57Z",
+      "size": 7204
+    },
+    "e081fd0b25d5": {
+      "path": "./bash/nginx/INVESTIGATION_GUIDE.md",
+      "updated": "2025-11-24T13:42:57Z",
+      "size": 9548
+    },
+    "37c0a2a41a61": {
+      "path": "./bash/nginx/README_DOCS_PUBLISHING.md",
+      "updated": "2025-11-24T13:42:57Z",
+      "size": 8731
+    },
+    "d5ab58202db4": {
+      "path": "./bash/nginx/README.md",
+      "updated": "2025-11-24T13:42:57Z",
+      "size": 1563
+    },
+    "fd012509a14a": {
+      "path": "./bash/nginx/README_SPACES.md",
+      "updated": "2025-11-24T13:42:58Z",
+      "size": 4116
+    },
+    "4675ff1e3103": {
+      "path": "./bash/self/LEGACY_CODE_REMEDIATION.md",
+      "updated": "2025-11-24T13:42:58Z",
+      "size": 8127
+    },
+    "d85c9ba6ba8c": {
+      "path": "./bash/self/docs/ARCHITECTURE.md",
+      "updated": "2025-11-24T13:42:58Z",
+      "size": 7580
+    },
+    "68eff7b2dd0f": {
+      "path": "./bash/self/docs/TASKS.md",
+      "updated": "2025-11-24T13:42:58Z",
+      "size": 18982
+    },
+    "9a23f0457f7c": {
+      "path": "./bash/self/README.md",
+      "updated": "2025-11-24T13:42:58Z",
+      "size": 8300
+    },
+    "13c2865c3dcf": {
+      "path": "./bash/midi-mp/IMPLEMENTATION_SUMMARY.md",
+      "updated": "2025-11-24T13:42:58Z",
+      "size": 6342
+    },
+    "17a49061b759": {
+      "path": "./bash/midi-mp/CYMATICA.md",
+      "updated": "2025-11-24T13:42:58Z",
+      "size": 7192
+    },
+    "97dba547ab3b": {
+      "path": "./bash/midi-mp/README.md",
+      "updated": "2025-11-24T13:42:58Z",
+      "size": 11655
+    },
+    "8405f09213ce": {
+      "path": "./bash/midi-mp/STARTUP.md",
+      "updated": "2025-11-24T13:42:59Z",
+      "size": 8873
+    },
+    "0daf05125b92": {
+      "path": "./bash/midi-mp/CLOUD_SETUP.md",
+      "updated": "2025-11-24T13:42:59Z",
+      "size": 14311
+    },
+    "cde2964ea71c": {
+      "path": "./bash/actions/QUICKSTART.md",
+      "updated": "2025-11-24T13:42:59Z",
+      "size": 4055
+    },
+    "7effa6de787e": {
+      "path": "./bash/actions/README.md",
+      "updated": "2025-11-24T13:42:59Z",
+      "size": 8435
+    },
+    "cebe70de5601": {
+      "path": "./bash/actions/GET_STARTED.md",
+      "updated": "2025-11-24T13:42:59Z",
+      "size": 4192
+    },
+    "a5841df08f56": {
+      "path": "./bash/msc/README.md",
+      "updated": "2025-11-24T13:42:59Z",
+      "size": 7300
+    },
+    "20e1e8771036": {
+      "path": "./bash/tdocs/IMPLEMENTATION_STATUS.md",
+      "updated": "2025-11-24T13:43:00Z",
+      "size": 8540
+    },
+    "3e5e2292dfac": {
+      "path": "./bash/tdocs/FLOW_AND_SEMANTICS.md",
+      "updated": "2025-11-24T13:43:00Z",
+      "size": 9868
+    },
+    "611c421f5702": {
+      "path": "./bash/tdocs/REFACTOR_PHASE2_NEXT.md",
+      "updated": "2025-11-24T13:43:00Z",
+      "size": 10459
+    },
+    "40e3c9459d02": {
+      "path": "./bash/tdocs/archive/session_docs_20251123/SEMANTIC_MODEL_SUMMARY.md",
+      "updated": "2025-11-24T13:43:00Z",
+      "size": 6199
+    },
+    "fa04dfe8f178": {
+      "path": "./bash/tdocs/archive/session_docs_20251123/IMPLEMENTATION_SUMMARY.md",
+      "updated": "2025-11-24T13:43:00Z",
+      "size": 7901
+    },
+    "b5434d55eaf8": {
+      "path": "./bash/tdocs/archive/session_docs_20251123/TDOCS_REFINEMENT_SUMMARY.md",
+      "updated": "2025-11-24T13:43:01Z",
+      "size": 9388
+    },
+    "a293b38085fb": {
+      "path": "./bash/tdocs/archive/session_docs_20251123/IMPLEMENTATION_PROGRESS.md",
+      "updated": "2025-11-24T13:43:01Z",
+      "size": 6545
+    },
+    "80457322b3ab": {
+      "path": "./bash/tdocs/archive/session_docs_20251123/REPL_FIX_ROOT_CAUSE.md",
+      "updated": "2025-11-24T13:43:01Z",
+      "size": 6115
+    },
+    "6760cc2765fd": {
+      "path": "./bash/tdocs/archive/session_docs_20251123/PROMPT_REFACTOR_PROPOSAL.md",
+      "updated": "2025-11-24T13:43:01Z",
+      "size": 4707
+    },
+    "8db38f32f370": {
+      "path": "./bash/tdocs/archive/session_docs_20251123/REPL_IMPROVEMENTS.md",
+      "updated": "2025-11-24T13:43:01Z",
+      "size": 4840
+    },
+    "b764d61418b7": {
+      "path": "./bash/tdocs/archive/session_docs_20251123/COMPLETION_IMPLEMENTATION_SUMMARY.md",
+      "updated": "2025-11-24T13:43:01Z",
+      "size": 7957
+    },
+    "b4b0ce8b76f2": {
+      "path": "./bash/tdocs/archive/session_docs_20251123/LIFECYCLE_REFACTOR_STATUS.md",
+      "updated": "2025-11-24T13:43:01Z",
+      "size": 4639
+    },
+    "1f9f23f31283": {
+      "path": "./bash/tdocs/archive/session_docs_20251123/SESSION_SUMMARY.md",
+      "updated": "2025-11-24T13:43:01Z",
+      "size": 13807
+    },
+    "f57122144d6a": {
+      "path": "./bash/tdocs/archive/session_docs_20251123/COMPLETION_FIX_SUMMARY.md",
+      "updated": "2025-11-24T13:43:02Z",
+      "size": 3488
+    },
+    "53944523bc24": {
+      "path": "./bash/tdocs/archive/session_docs_20251123/REPL_FIXES.md",
+      "updated": "2025-11-24T13:43:02Z",
+      "size": 6034
+    },
+    "7e4c4aeeb62d": {
+      "path": "./bash/tdocs/archive/session_docs_20251123/LIFECYCLE_IMPLEMENTATION_COMPLETE.md",
+      "updated": "2025-11-24T13:43:02Z",
+      "size": 9049
+    },
+    "21bb44e7a21f": {
+      "path": "./bash/tdocs/archive/session_docs_20251123/NAVIGATION_PLAN.md",
+      "updated": "2025-11-24T13:43:02Z",
+      "size": 7895
+    },
+    "2f1ab3656c58": {
+      "path": "./bash/tdocs/archive/session_docs_20251123/TAKEOVER_REFACTOR_SUMMARY.md",
+      "updated": "2025-11-24T13:43:02Z",
+      "size": 6282
+    },
+    "a80e2a7cbb20": {
+      "path": "./bash/tdocs/archive/session_docs_20251123/DEBUG_TDOCS.md",
+      "updated": "2025-11-24T13:43:02Z",
+      "size": 2587
+    },
+    "5f94a9752dd9": {
+      "path": "./bash/tdocs/PHASE2_COMPLETE.md",
+      "updated": "2025-11-24T13:43:02Z",
+      "size": 11257
+    },
+    "cb959f7a3c61": {
+      "path": "./bash/tdocs/METADATA_DESIGN.md",
+      "updated": "2025-11-24T13:43:02Z",
+      "size": 9077
+    },
+    "a0e18abc0623": {
+      "path": "./bash/tdocs/REFACTOR_PHASE1_SUMMARY.md",
+      "updated": "2025-11-24T13:43:03Z",
+      "size": 7421
+    },
+    "4aab32a499c0": {
+      "path": "./bash/tdocs/CONTEXT_REFERENCE.md",
+      "updated": "2025-11-24T13:43:03Z",
+      "size": 3570
+    },
+    "0c6c866df1a2": {
+      "path": "./bash/tdocs/DEMO_README.md",
+      "updated": "2025-11-24T13:43:03Z",
+      "size": 1489
+    },
+    "ababc319aca5": {
+      "path": "./bash/tdocs/CONTEXT_GUIDE.md",
+      "updated": "2025-11-24T13:43:03Z",
+      "size": 4058
+    },
+    "834449cc2040": {
+      "path": "./bash/tdocs/docs/README.md",
+      "updated": "2025-11-24T13:43:03Z",
+      "size": 10954
+    },
+    "c108abf438d3": {
+      "path": "./bash/tdocs/docs/PROMPT_DESIGN.md",
+      "updated": "2025-11-24T13:43:03Z",
+      "size": 2978
+    },
+    "1499fdae63f8": {
+      "path": "./bash/tdocs/docs/TDS_INTEGRATION.md",
+      "updated": "2025-11-24T13:43:03Z",
+      "size": 4459
+    },
+    "aae036f81232": {
+      "path": "./bash/tdocs/docs/TDOCS_RAG_INTEGRATION.md",
+      "updated": "2025-11-24T13:43:03Z",
+      "size": 8181
+    },
+    "6b77f038b5ed": {
+      "path": "./bash/tdocs/docs/REVIEW_GUIDE.md",
+      "updated": "2025-11-24T13:43:04Z",
+      "size": 7315
+    },
+    "af432490f85a": {
+      "path": "./bash/tdocs/docs/COLOR_TOKENS_REFERENCE.md",
+      "updated": "2025-11-24T13:43:04Z",
+      "size": 5010
+    },
+    "b8a34d9fcd76": {
+      "path": "./bash/tdocs/docs/ARRAY_HANDLING.md",
+      "updated": "2025-11-24T13:43:05Z",
+      "size": 5952
+    },
+    "8b3ee109f240": {
+      "path": "./bash/tdocs/docs/SEMANTIC_MODEL.md",
+      "updated": "2025-11-24T13:43:05Z",
+      "size": 7891
+    },
+    "64145fab4707": {
+      "path": "./bash/tdocs/README.md",
+      "updated": "2025-11-24T13:43:05Z",
+      "size": 3389
+    },
+    "57be0afb06fe": {
+      "path": "./bash/tdocs/COMMAND_RATIONALIZATION.md",
+      "updated": "2025-11-24T13:43:05Z",
+      "size": 4495
+    },
+    "4eb2fb88882b": {
+      "path": "./bash/tdocs/QUICK_TEST.md",
+      "updated": "2025-11-24T13:43:05Z",
+      "size": 2791
+    },
+    "2ae0e12181ea": {
+      "path": "./bash/tdocs/TAB_COMPLETION_GUIDE.md",
+      "updated": "2025-11-24T13:43:05Z",
+      "size": 7890
+    },
+    "ee9162649f6e": {
+      "path": "./bash/QUICK_REFERENCE.md",
+      "updated": "2025-11-24T13:43:05Z",
+      "size": 9135
+    },
+    "486fbaad0533": {
+      "path": "./bash/tau/README.md",
+      "updated": "2025-11-24T13:43:05Z",
+      "size": 5037
+    },
+    "859dfae40638": {
+      "path": "./bash/tgp/TGP_SPECIFICATION.md",
+      "updated": "2025-11-24T13:43:05Z",
+      "size": 14183
+    },
+    "0b7eac94fdea": {
+      "path": "./bash/tgp/README.md",
+      "updated": "2025-11-24T13:43:06Z",
+      "size": 8064
+    },
+    "6bba3080dcb1": {
+      "path": "./orgs/nodeholder/README.md",
+      "updated": "2025-11-24T13:43:06Z",
+      "size": 3655
+    },
+    "99e824ca6b08": {
+      "path": "./DEPLOYMENT_GUIDE.md",
+      "updated": "2025-11-24T13:43:06Z",
+      "size": 12573
+    },
+    "01c7a6491119": {
+      "path": "./ORG_MODULE_FIX_SUMMARY.md",
+      "updated": "2025-11-24T13:43:06Z",
+      "size": 3109
+    },
+    "8fa43812432a": {
+      "path": "./TUI_CONSOLIDATION_SUMMARY.md",
+      "updated": "2025-11-24T13:43:06Z",
+      "size": 7245
+    },
+    "9eb031dbf359": {
+      "path": "./MIGRATION_GUIDE.md",
+      "updated": "2025-11-24T13:43:06Z",
+      "size": 13736
+    },
+    "5c65695e9729": {
+      "path": "./PLAN.md",
+      "updated": "2025-11-24T13:43:06Z",
+      "size": 49379
+    },
+    "64e5251c0c4f": {
+      "path": "./FUNCTION_VIOLATIONS_REPORT.md",
+      "updated": "2025-11-24T13:43:07Z",
+      "size": 10064
+    },
+    "be3f7b2aef93": {
+      "path": "./CONTINUATION_PLAN.md",
+      "updated": "2025-11-24T13:43:07Z",
+      "size": 17502
+    }
+  },
+  "by_path": {
+    "./demo/cframe/README.md": "6e794f9c662b",
+    "./demo/bframe/README.md": "6e794f9c662b",
+    "./demo/docs/TUI_LANDSCAPE_ANALYSIS.md": "20b79b57e16a",
+    "./demo/docs/action-def.md": "9b4a6bc2045b",
+    "./demo/docs/README_TUI.md": "0fbe991c468a",
+    "./demo/docs/next.md": "a944f8f97435",
+    "./demo/docs/toy-model.md": "0469bb119c32",
+    "./demo/docs/formula.md": "4f9a9c44c70f",
+    "./demo/docs/step-def.md": "5bda5176e39a",
+    "./demo/docs/linear-algebra.md": "acd85d971803",
+    "./demo/docs/changes.md": "6e794f9c662b",
+    "./demo/docs/separation.md": "682268520532",
+    "./demo/docs/CANONICAL_TUI_DESIGN.md": "cbe3685b46ce",
+    "./demo/docs/tui-syntax.md": "c9b84e5b0b97",
+    "./CONSOLIDATION_REPORT.md": "cebfb39ebf3d",
+    "./tools/README.md": "969117305f75",
+    "./BOOTLOADER_REFACTOR.md": "ccaab8044723",
+    "./REFACTOR_SUMMARY.md": "6f64220a6f5a",
+    "./archive/legacy/tetra-intro.md": "211e680b5baf",
+    "./archive/legacy/next.md": "1c394729c018",
+    "./archive/legacy/tetra-summary.md": "d68b2210ebcc",
+    "./archive/legacy/tetra.md": "57adc8ea4ddd",
+    "./archive/legacy/README.md": "9be606739181",
+    "./archive/legacy/TETRA-ACCESS.md": "b2f119b8d08b",
+    "./archive/legacy/tetra-help.md": "07fb448487fb",
+    "./archive/docs/docs_legacy/pids.md": "d5a1a9572d67",
+    "./archive/docs/docs_legacy/pm_start.md": "b1c6ade6fead",
+    "./archive/docs/docs_legacy/tpm-LATEST.md": "47fa4650f0eb",
+    "./archive/docs/docs_legacy/pids2.md": "c17b140fc965",
+    "./archive/docs/docs_legacy/env.md": "fe3e06dd2a19",
+    "./archive/docs/docs_legacy/pm.md": "dc94dd963712",
+    "./archive/docs/docs_legacy/tpm-file-structure.md": "a22a4eb81482",
+    "./archive/docs/docs_legacy/entrypoint.md": "0687c79ed72a",
+    "./archive/docs/docs_archive/org-system/Organization_Compilation_System.md": "37abd78b2a4d",
+    "./archive/docs/docs_archive/README.md": "ed78bdf4822e",
+    "./archive/docs/docs_archive/repl-design/REPL_ARCHITECTURE.md": "ca7e7de3c10d",
+    "./archive/docs/docs_archive/repl-design/REPL_Progressive_Enhancement.md": "3dfa40c1c562",
+    "./archive/docs/docs_archive/implementations/CDP_AGENT_IMPLEMENTATION_SUMMARY.md": "ff392eb7494d",
+    "./archive/docs/docs_archive/2025-logging-refactor/LOGGING_CODE_SMELLS_FIXED.md": "468a33a67849",
+    "./archive/docs/docs_archive/2025-logging-refactor/LOGGING_REFACTOR_SUMMARY.md": "54dd6045b82d",
+    "./archive/docs/docs_archive/2025-logging-refactor/LOGGING_SYSTEM_SUMMARY.md": "07e4141be7ce",
+    "./archive/docs/docs_archive/2025-logging-refactor/MODULE_LOGGING_INTEGRATION_GUIDE.md": "2dabb4a2150f",
+    "./archive/docs/docs_archive/proposals/PROVISIONAL_TTM_PLAN.md": "d5b5172ddea4",
+    "./archive/docs/docs_archive/proposals/PROVISIONAL_TUI_PLAN.md": "075f327ccaa8",
+    "./archive/bash/formant_archive/STATE_MACHINE_DESIGN.md": "7f7f9605802f",
+    "./archive/bash/formant_archive/ESTOVOX_LANGUAGE.md": "c56b53668efb",
+    "./archive/bash/formant_archive/ESTO_FORMAT.md": "fb58c87085fc",
+    "./archive/bash/formant_archive/STATUS.md": "03038bb3ddfc",
+    "./archive/bash/formant_archive/QUICKSTART.md": "92fffe17d971",
+    "./archive/bash/formant_archive/VAD_IMPLEMENTATION.md": "c2655c2753c4",
+    "./archive/bash/formant_archive/NEURAL_VOICE_CLONING.md": "56da79d84303",
+    "./archive/bash/formant_archive/RUN_DEMOS.md": "04bbdcaf4a92",
+    "./archive/bash/formant_archive/CONTROL_SIGNALS.md": "54543aa2ef45",
+    "./archive/bash/formant_archive/CELP_DESIGN.md": "d96779eb50a0",
+    "./archive/bash/formant_archive/CELP_QUICKSTART.md": "63ffdf9be465",
+    "./archive/bash/game_docs_archive/DEV_MODE.md": "63ce605cb65f",
+    "./archive/bash/game_docs_archive/PLASMA_FIELD_STATUS.md": "8d54f91cf66b",
+    "./archive/bash/game_docs_archive/STATE_SYSTEM.md": "96647f06bf00",
+    "./archive/bash/game_docs_archive/REFACTOR_SUMMARY.md": "8d681c525d19",
+    "./archive/bash/game_docs_archive/IMPLEMENTATION_SUMMARY.md": "dd09c7a33fa2",
+    "./archive/bash/game_docs_archive/REFACTOR_COMPLETE.md": "b36a18d4d491",
+    "./archive/bash/game_docs_archive/QUADRAPOLE_IMPLEMENTATION.md": "d7881a957028",
+    "./archive/bash/game_docs_archive/STATUS.md": "07e2e0570fed",
+    "./archive/bash/game_docs_archive/HELP_SYSTEM_REFACTOR.md": "240a67790b2f",
+    "./archive/bash/game_docs_archive/FIXES.md": "f1cdecab53ce",
+    "./archive/bash/game_docs_archive/GLYPHGRID_INTEGRATION.md": "38c708f532d5",
+    "./archive/bash/game_docs_archive/NUMBERED_PANELS.md": "81c6a8cb1bfb",
+    "./archive/bash/game_docs_archive/MODULE_AUDIT.md": "8aa04adecaed",
+    "./archive/bash/game_docs_archive/COMPLETE_SUMMARY.md": "f3f6d474c159",
+    "./archive/bash/game_docs_archive/QUICK_START_REFACTOR.md": "9ef9b0cc903a",
+    "./archive/bash/game_docs_archive/x.md": "6c3a6586ac43",
+    "./archive/bash/game_docs_archive/TEST_STICKY_BOTTOM.md": "93785fdad5f2",
+    "./archive/bash/game_docs_archive/REPL_IMPLEMENTATION_SUMMARY.md": "708691de78b7",
+    "./archive/bash/game_docs_archive/PAIR_DYNAMICS.md": "838002ed053a",
+    "./archive/bash/tcurses_archive_014/ARCHITECTURE.md": "4854e2cef241",
+    "./archive/bash/tcurses_archive_014/ROBUSTNESS_GUIDE.md": "e204487ae317",
+    "./archive/bash/tcurses_archive_014/INPUT_STATE_MACHINE.md": "c62285308e99",
+    "./archive/bash/tcurses_archive_014/README.md": "cca4d4077268",
+    "./archive/bash/tcurses_archive_014/DEBUGGING.md": "c5a487be3988",
+    "./archive/demos/basic_all/013/TES_IMPLEMENTATION.md": "70e7032df27b",
+    "./archive/demos/basic_all/013/LIFECYCLE_CHANGES.md": "28b4cf015515",
+    "./archive/demos/basic_all/013/README.md": "7759e93fe9bf",
+    "./archive/demos/basic_all/014/HEADER_ANIMATION.md": "04009e750b37",
+    "./archive/demos/basic_all/014/REFACTOR_SUMMARY.md": "fe1b1c595c12",
+    "./archive/demos/basic_all/014/GAMEPAD.md": "b30a11b0e169",
+    "./archive/demos/basic_all/014/docs/TERMINAL_REPL_HISTORY.md": "8cf139e722f1",
+    "./archive/demos/basic_all/014/bash/tcurses/README.md": "902dfd920655",
+    "./archive/demos/basic_all/014/README.md": "5a1091e2d12e",
+    "./archive/demos/basic_all/014/FIXES.md": "e5d4c83fa6ef",
+    "./archive/demos/basic_all/014/TERMINAL_INPUT_FIX.md": "d69c759b7b4c",
+    "./archive/demos/basic_all/014/DRY_RUN.md": "e1393135677a",
+    "./archive/demos/basic_all/014/TCURSES_SUMMARY.md": "de1bc8f36b83",
+    "./archive/demos/ARCHIVED.md": "e37441b1eaa6",
+    "./archive/demos/basic_010/ARCHIVED.md": "bf90a59305e2",
+    "./archive/demos/basic_010/claude.md": "eae9cda82e9e",
+    "./IMPLEMENTATION_SUMMARY.md": "75597114b1c6",
+    "./config/README.md": "c6b516544e41",
+    "./PHASE1_COMPLETE.md": "d2d8acb78f6d",
+    "./.rag/flows/meta-rag-20251029T062325/ctx/010_prompt.user.md": "1bf6e0084d47",
+    "./.rag/flows/meta-rag-20251029T062325/ctx/010_request.md": "058dcd346ae1",
+    "./.rag/flows/meta-rag-20251029T062325/ctx/000_policy.md": "ae1fa5e33003",
+    "./server/README.md": "4d0736882672",
+    "./server/api/tetra-api-architecture.md": "ac92302ed030",
+    "./docs/specifications/TES_Storage_Extension.md": "19f13fbc1d66",
+    "./docs/specifications/TES_Agent_Extension.md": "4c19844c163d",
+    "./docs/specifications/TES_SSH_Extension.md": "eedea980473d",
+    "./docs/specifications/TRS_SPECIFICATION.md": "dbaef46c674b",
+    "./docs/specifications/TCS_4.0_LOGGING_STANDARD.md": "bf04c0f5c80a",
+    "./docs/specifications/TES_Bash_Agent_Extension.md": "99ed3940098d",
+    "./docs/specifications/TTS_TETRA_TRANSACTION_STANDARD.md": "79c864b113bf",
+    "./docs/specifications/TAS_SPECIFICATION.md": "63a403253edc",
+    "./docs/analysis/TUI_REFACTOR_ANALYSIS.md": "8a939bb19bb5",
+    "./docs/analysis/INTERACTIVE_UI_PATTERNS.md": "236347101a59",
+    "./docs/theory/language.md": "1c34a39b6ccc",
+    "./docs/theory/geometry.md": "eeca504589cb",
+    "./docs/theory/symbols.md": "2cb78a3bc772",
+    "./docs/theory/alternatives.md": "0118dec8bdb3",
+    "./docs/theory/adjoints.md": "e9d1d03284fe",
+    "./docs/theory/paths.md": "128f4c5b926f",
+    "./docs/theory/random.md": "8e1850e5faf1",
+    "./docs/theory/tetrascript.md": "1da2a63df74e",
+    "./docs/theory/types.md": "be768b75bd6b",
+    "./docs/README.md": "164cdbc8504d",
+    "./docs/architecture/TETRA_TRINITY.md": "70bea1c148d0",
+    "./docs/guides/INSTRUCTIONS_README.md": "f6c6548cc36f",
+    "./docs/guides/MODULE_SYSTEM_SPECIFICATION.md": "9733ef6752dd",
+    "./docs/guides/MODULE_COMPLETENESS_CRITERIA.md": "dcdcf1369952",
+    "./docs/guides/INSTRUCTIONS_CORE_SPECIFICATION.md": "e4b0380e2e70",
+    "./docs/guides/INSTRUCTIONS_TES.md": "cc9f38c8d43e",
+    "./docs/guides/INSTRUCTIONS_DEVELOPER_GUIDE.md": "4e1567f05f58",
+    "./docs/guides/README_DOCS.md": "1055489304e6",
+    "./docs/workflow/tetra-comprehensive-workflow.md": "8c8a904c8519",
+    "./docs/reference/development/terminology.md": "56f07e94d666",
+    "./docs/reference/development/code-requests.md": "df1c0c0799b4",
+    "./docs/reference/MODULE_SPEC_TEMPLATE.md": "b799dba011bf",
+    "./docs/reference/tsm/testing.md": "9ea3c43a6068",
+    "./docs/reference/tsm/README.md": "d6a00a97f633",
+    "./docs/reference/tsm/architecture-review.md": "a91d4bb20635",
+    "./docs/reference/tsm/daemon-setup.md": "b519990d2ff9",
+    "./docs/reference/tdoc-system-design.md": "2fae928c03c8",
+    "./docs/reference/historical/tview_architecture.md": "24825a5c6ec8",
+    "./docs/reference/historical/TETRA_CONSOLIDATION_PLAN.md": "c7c1e5c91698",
+    "./docs/reference/historical/changes.md": "621840a9625a",
+    "./docs/reference/tsm-migration-commands.md": "f269d2b9e2a4",
+    "./docs/reference/manual/01-system-overview.md": "a3fbe7410247",
+    "./docs/reference/manual/10-organization-management-and-tdash.md": "6042becb093f",
+    "./docs/reference/manual/04-tetra-help.md": "07fb448487fb",
+    "./docs/reference/manual/02-tsm-service-manager.md": "cc630da00af2",
+    "./docs/reference/manual/06-tetra-access.md": "b2f119b8d08b",
+    "./docs/reference/manual/03-tetra-summary.md": "d68b2210ebcc",
+    "./docs/reference/manual/05-tetra-intro.md": "211e680b5baf",
+    "./docs/reference/manual/07-tpm-process-manager.md": "47fa4650f0eb",
+    "./docs/reference/manual/08-development-progress.md": "1c394729c018",
+    "./docs/reference/manual/09-tetra-environment-management.md": "73a1020c59b7",
+    "./docs/reference/tsm-migration-mapping.md": "feed005e674e",
+    "./docs/reference/11-nodeholder-tetra-integration.md": "87037b669369",
+    "./docs/reference/tsm-minimal-refactor.md": "db43a06a3d35",
+    "./docs/reference/errors/TSM_ERROR_REPORT.md": "7cfb0ccc8e10",
+    "./docs/reference/module-system.md": "e4be7abc2057",
+    "./docs/reference/TUBES_INTEGRATION_EXAMPLE.md": "76c032664318",
+    "./bash/tree/SUMMARY.md": "cf9a5e2d8ed8",
+    "./bash/tree/README.md": "8cf005e1da23",
+    "./bash/tree/QUICK_REFERENCE_EXTERNAL.md": "b2fec6e7900b",
+    "./bash/tree/QUICK_REFERENCE.md": "f441c5f7f29d",
+    "./bash/tree/INTEGRATION_EXAMPLE.md": "10de60a70134",
+    "./bash/tree/TAB_COMPLETION_GUIDE.md": "c5e913b7a5f0",
+    "./bash/tree/EXTERNAL_PROJECT_GUIDE.md": "9557cba79b68",
+    "./bash/chroma/README.md": "be0362359fa0",
+    "./bash/chroma/flowchart-example.md": "b8091ddfe242",
+    "./bash/boot/README_AUTOLOAD.md": "1e337fcea394",
+    "./bash/archive/docs/2025-11/game/COMPLETION_SUMMARY.md": "2b071807137f",
+    "./bash/archive/docs/2025-11/game/TGP_COMPLETE.md": "6c52f694795b",
+    "./bash/BASH_ARRAY_RULES.md": "afdc3c80a270",
+    "./bash/midi/TMC_PURGE_PLAN.md": "51c3cde6f986",
+    "./bash/midi/DUAL_MODE_USAGE.md": "8940c6e224a6",
+    "./bash/midi/CHANGES_v2.md": "715117d37722",
+    "./bash/midi/MAPPING_AND_OSC_SUMMARY.md": "0b57f9bd85ff",
+    "./bash/midi/REPL_REDESIGN.md": "f89bf0ae7d9c",
+    "./bash/midi/MAPPING_MODEL.md": "923c3f0f177c",
+    "./bash/midi/OSC_API.md": "9f6ee3d13095",
+    "./bash/midi/COMPLETION_FIX.md": "03370214efb4",
+    "./bash/midi/REFACTORING_SUMMARY.md": "c92a29ac36a3",
+    "./bash/midi/USAGE.md": "13f7aa3c4316",
+    "./bash/midi/STATUS.md": "7ead8bc1941f",
+    "./bash/midi/QUICKSTART.md": "801d9bd12318",
+    "./bash/midi/docs/OSC_C_EXAMPLE.md": "e725c34acbcf",
+    "./bash/midi/docs/PROMPT_USAGE.md": "ba75d3675bac",
+    "./bash/midi/docs/CLI_PROMPT_GUIDE.md": "2e90317e1f58",
+    "./bash/midi/docs/REPL_MENTAL_MODEL.md": "206f2775149e",
+    "./bash/midi/docs/OSC_PROTOCOL.md": "385256b8c5a4",
+    "./bash/midi/docs/PROMPT_STATE_DETECTION.md": "9af59605c471",
+    "./bash/midi/ARCHITECTURE_EXPLAINED.md": "ae1ee94ffd7e",
+    "./bash/midi/METRONOME_DESIGN.md": "5c00b95ae6b5",
+    "./bash/midi/README.md": "88b9e7c2845c",
+    "./bash/midi/PROMPT_REFACTOR_COMPLETE.md": "26603cdc8e9b",
+    "./bash/midi/TRANSPORT_ARCHITECTURE.md": "2eade7f9274b",
+    "./bash/midi/MIDI_STATUS.md": "de407c954514",
+    "./bash/midi/DUAL_MODE_REPL_REFACTOR.md": "510cadca959f",
+    "./bash/midi/DUAL_MODE_IMPLEMENTATION_SUMMARY.md": "b26261525885",
+    "./bash/midi/REPL_FIXES_SUMMARY.md": "9f4365c70677",
+    "./bash/midi/PORTS.md": "bc5093542521",
+    "./bash/midi/TREE_COMPLETION_SUMMARY.md": "66d3a03fe9fb",
+    "./bash/midi/NEW_ARCHITECTURE.md": "6d5c0a443d38",
+    "./bash/ttm/IMPLEMENTATION_SUMMARY.md": "4deb90e37289",
+    "./bash/ttm/README.md": "4d75f3d9a9ac",
+    "./bash/ttm/QUICK_START.md": "ebd67871802c",
+    "./bash/nh/README.md": "9f24a971e4ff",
+    "./bash/melvin/REFACTOR_COMPLETE.md": "04430d46e70f",
+    "./bash/melvin/README.md": "e536ca4e67aa",
+    "./bash/melvin/MELVIN_WALKTHROUGH.md": "7744a82df8ac",
+    "./bash/melvin/knowledge/README.md": "ce10f1b20374",
+    "./bash/melvin/REFACTOR_PLAN.md": "48cbef89eb30",
+    "./bash/tui/README.md": "c37dd370e668",
+    "./bash/org/ORG_REPL_README.md": "a497a7b337d4",
+    "./bash/org/VERBOSE_FIX_COMPLETE.md": "9b885c7ba1f1",
+    "./bash/org/CODE_REVIEW_REPORT.md": "8e3195f6d3ac",
+    "./bash/org/CORRECT_REPL_IMPLEMENTATION.md": "363034d15fd4",
+    "./bash/org/SOLUTION_SUMMARY.md": "d6b87b6588ed",
+    "./bash/org/ACTION_TAB_COMPLETION.md": "ff063adad443",
+    "./bash/org/TAB_COMPLETION_FIX.md": "131681484c31",
+    "./bash/org/REFACTOR_SUMMARY.md": "7dfc46b46ce3",
+    "./bash/org/RLWRAP_INTEGRATION.md": "c62fed9f740f",
+    "./bash/org/IMPLEMENTATION_COMPLETE.md": "0a26934320b4",
+    "./bash/org/FINAL_SOLUTION.md": "2b307b9c60e1",
+    "./bash/org/RLWRAP_SOLUTION.md": "860a1f27cd0c",
+    "./bash/org/USE_ORG_REPL.md": "aa33c7f0d3ef",
+    "./bash/org/README_TDOC.md": "793b5726e63c",
+    "./bash/org/REFACTORING_NOTES.md": "c5c1e85f91e1",
+    "./bash/org/docs/README.md": "b54dc0aef78c",
+    "./bash/org/ORG_ENHANCED_REPL.md": "50519e8bb3e8",
+    "./bash/org/README.md": "f8a029496aa7",
+    "./bash/org/MULTI_ENV_README.md": "75ba7bad069a",
+    "./bash/org/CODE_REVIEW_FIXES.md": "6982c6a06fef",
+    "./bash/org/README_SECRETS_RESOLUTION.md": "865307d55910",
+    "./bash/org/VIEW_ENV_SEMANTICS.md": "4260a68a25c7",
+    "./bash/org/REPL_FIXES.md": "47c152fd68d9",
+    "./bash/org/INTEGRATION_SUMMARY.md": "197fd703f8e9",
+    "./bash/org/QUICK_REFERENCE.md": "f80087a6be89",
+    "./bash/org/INLINE_TABLE_ENHANCEMENT.md": "4df4434c2d44",
+    "./bash/org/COMPLETION_FIXES_SUMMARY.md": "a3cd813ddb7d",
+    "./bash/org/TAB_COMPLETION_GUIDE.md": "2f1f8667272f",
+    "./bash/deploy/README.md": "aa09c5f737ce",
+    "./bash/INSTALL_CONVENTION.md": "cb43da046c7c",
+    "./bash/pbase/README.md": "0ce2c9e9cf7f",
+    "./bash/tsm/TSM_SPECIFICATION.md": "094f151cb704",
+    "./bash/tsm/TSM_REPL_MODERNIZATION.md": "f8ed78fd2081",
+    "./bash/tsm/TSM_ARCHITECTURE.md": "298ef0a58d8e",
+    "./bash/tsm/TSM_PROCESS_SUMMARY.md": "a8ffe29175eb",
+    "./bash/tsm/tests/TEST_SUITE.md": "bb2b897b7268",
+    "./bash/tsm/tests/README.md": "2b3fcaf94c75",
+    "./bash/tsm/README.md": "a8317434d934",
+    "./bash/tsm/TSM_REPL_FIX.md": "7f0cdc4712b3",
+    "./bash/tsm/TSM_CLEANUP_TODO.md": "5222d58df7fc",
+    "./bash/tsm/help/tsm_help.md": "89df36a36717",
+    "./bash/spaces/README_FIX.md": "7fa379398d73",
+    "./bash/spaces/QUICKSTART.md": "2510b33c5ffa",
+    "./bash/spaces/README.md": "3a8c3d7fad3c",
+    "./bash/spaces/README_DEPLOY.md": "f6f42486fbc4",
+    "./bash/repl/TAB_COMPLETION_WORKING.md": "be00eb324cce",
+    "./bash/repl/TREE_COMPLETION_COMPLETE.md": "5bbf43d67c47",
+    "./bash/repl/FIXES_SUMMARY.md": "87586a3be6bb",
+    "./bash/repl/ARCHITECTURE_CLARIFICATION.md": "71e7d1c38c7d",
+    "./bash/repl/REPL_REFACTOR_PLAN.md": "d0338162edd9",
+    "./bash/repl/experiments/SUMMARY.md": "d77599a8d6ed",
+    "./bash/repl/FINAL_SOLUTION.md": "251fdd2c86ad",
+    "./bash/repl/REPL_TAB_COMPLETION_COMPLETE.md": "34cc7665d9c0",
+    "./bash/repl/docs/TUI_VS_REPL.md": "6eb815b5fd0d",
+    "./bash/repl/TETRA_WAY.md": "c02f996fee90",
+    "./bash/repl/README.md": "77a1d7418d9b",
+    "./bash/repl/TAB_COMPLETION_SURVEY.md": "14b11294850a",
+    "./bash/repl/SYMBOL_FIXES_20251017.md": "f14db2df5574",
+    "./bash/repl/TAB_COMPLETION_ROOT_CAUSE.md": "8f51ce81cd52",
+    "./bash/repl/SYMBOL_REPL_FIXES.md": "c95a97812ff4",
+    "./bash/repl/TREPL_README.md": "db1f2c358dca",
+    "./bash/repl/SESSION_COMPLETE.md": "62d21393a70b",
+    "./bash/repl/REPL_SYSTEM_SURVEY.md": "31b3caefbc22",
+    "./bash/repl/RLWRAP_USAGE.md": "c087cf705e1c",
+    "./bash/repl/TREPL_IMPLEMENTATION_SUMMARY.md": "72ea591bd61f",
+    "./bash/repl/TEST_TREE_COMPLETION.md": "d4d1fbbcda00",
+    "./bash/repl/TEMP_FALLBACK.md": "2d3fd351b704",
+    "./bash/repl/NATIVE_TAB_COMPLETION_COMPLETE.md": "10f06e222ea7",
+    "./bash/repl/NO_BIN_SOLUTION.md": "3a5a0cce7584",
+    "./bash/repl/TUI_REPL_SOLUTION.md": "3a27654a25a9",
+    "./bash/repl/DOCUMENTATION_HARMONIZATION.md": "6e3dae78ab99",
+    "./bash/repl/TAB_COMPLETION_SOLUTION.md": "b852a1f8c119",
+    "./bash/repl/QUICK_START.md": "47ae6b0450f9",
+    "./bash/thelp/README.md": "d37a587ae202",
+    "./bash/estovox/ARCHITECTURE.md": "ca8d22bb54f4",
+    "./bash/estovox/COMMANDS.md": "4abe69d26eab",
+    "./bash/estovox/QUICKSTART.md": "f1ca7e65121f",
+    "./bash/estovox/README.md": "182f993d9450",
+    "./bash/estovox/TUI_GUIDE.md": "976079bbdad7",
+    "./bash/tetraboard/docs/concepts/exm-vs-a-framework.md": "edc484ffa7bc",
+    "./bash/tmod/tests/README.md": "0fcb1f876582",
+    "./bash/tkm/TKM_REKEYING_REFACTOR.md": "b54cb9072afd",
+    "./bash/qa/VIEWER_GUIDE.md": "7b9b263a5235",
+    "./bash/qa/TESTING_GUIDE.md": "069df297cb53",
+    "./bash/utils/LOGGING_QUICK_START.md": "d760e2d7889d",
+    "./bash/game/QUICKSTART_GLYPHGRID.md": "7913a3840f96",
+    "./bash/game/ARCHITECTURE.md": "b880f136dfa4",
+    "./bash/game/TGP_PULSAR_SUMMARY.md": "74df189e9272",
+    "./bash/game/GAMEPAD_QUICK_START.md": "7e950b7ef489",
+    "./bash/game/docs/QUADRUPOLE_MECHANICS.md": "ba637f4a53a5",
+    "./bash/game/docs/MODULE_REORGANIZATION.md": "417a9842781c",
+    "./bash/game/README.md": "3a8258fdeb9f",
+    "./bash/game/GAMEPAD_SETUP.md": "f2e087811f98",
+    "./bash/game/GAMEPAD_FIFO_PROTOCOL.md": "31ee2fb74aed",
+    "./bash/game/TETRA_GAME_SPECIFICATION.md": "8b2bb54bae52",
+    "./bash/game/REPL_ARCHITECTURE.md": "0c46a9f19d64",
+    "./bash/game/TGP_INTEGRATION_PLAN.md": "55394c066fc2",
+    "./bash/game/QUADRUPOLE_QUICKSTART.md": "31a2acf10e71",
+    "./bash/game/GAMEPLAY_CONCEPTS.md": "2d3a175ab028",
+    "./bash/game/engine/CLIENT_SERVER_MODE.md": "29ebd3702b45",
+    "./bash/game/engine/PLAY_MODE_INSTRUCTIONS.md": "29ef34b2b599",
+    "./bash/game/engine/scripts/README.md": "f1fbf56e3f3e",
+    "./bash/game/engine/OSC_IMPLEMENTATION_GUIDE.md": "aed4b7aa90fb",
+    "./bash/game/games/estoface/ARTICULATION_EXAMPLES.md": "79caa14ec56f",
+    "./bash/game/games/estoface/voice_cloning/README.md": "4b40521da4b7",
+    "./bash/game/games/estoface/REPL_TUI_ARCHITECTURE.md": "b19ab0bb3a11",
+    "./bash/game/games/estoface/README.md": "135c2212da90",
+    "./bash/game/games/estoface/ACOUSTIC_MODEL.md": "31b8c1106b69",
+    "./bash/game/games/estoface/IMPROVEMENTS.md": "f4ccf26645ab",
+    "./bash/game/games/estoface/HELP_SYSTEM.md": "705c67b587f8",
+    "./bash/game/games/estoface/FACIAL_MODELING.md": "a1efd0da1146",
+    "./bash/game/games/pulsar/OSC_MIGRATION_SUMMARY.md": "e0ef1a68052f",
+    "./bash/game/games/pulsar/README_TGP.md": "51c365b99c9a",
+    "./bash/game/games/pulsar/README_OSC.md": "c0d8121ed276",
+    "./bash/game/games/formant/REFERENCE.md": "5514ad3df446",
+    "./bash/game/games/formant/PROJECT_STATUS.md": "1721a012bf68",
+    "./bash/game/games/formant/ARCHITECTURE.md": "09056f543398",
+    "./bash/game/games/formant/README.md": "45075fcd004f",
+    "./bash/game/games/formant/meters/README.md": "fb94157c363e",
+    "./bash/game/games/formant/FORMANT_REPL.md": "acea6879b040",
+    "./bash/game/PULSAR_REPL.md": "3c00ef9e4d23",
+    "./bash/game/QUICK_START.md": "e03183802be9",
+    "./bash/TUI_ARCHITECTURE_SUMMARY.md": "2aad7335b024",
+    "./bash/docs/README.md": "f12367c5af04",
+    "./bash/tds/test_markdown.md": "ed2f333644b6",
+    "./bash/tds/next.md": "b5c7811d2349",
+    "./bash/tds/COMPLETION_SYSTEM_COMPLETE.md": "78d762e35b54",
+    "./bash/tds/TDS_REPL_README.md": "d70994661ff5",
+    "./bash/tds/semantics/MARKDOWN_ARCHITECTURE.md": "27b470264d28",
+    "./bash/tds/README.md": "8b5c8981e905",
+    "./bash/tds/THEMES.md": "c1a54980df86",
+    "./bash/BUILD_SUMMARY.md": "a31105076137",
+    "./bash/rag/cdp/CDP_RAG_FLOW_GUIDE.md": "c4b61e3cba65",
+    "./bash/rag/cdp/README.md": "d084d5841ef0",
+    "./bash/rag/REFACTOR_SUMMARY.md": "98523a33ac4e",
+    "./bash/rag/IMPLEMENTATION_SUMMARY.md": "4f1a01e49a5b",
+    "./bash/rag/NEXT.md": "12dea64779ad",
+    "./bash/rag/DEMO_README.md": "1b9769e71a0f",
+    "./bash/rag/.rag/flows/first-flow-20251016T030323/ctx/000_policy.system.md": "ae1fa5e33003",
+    "./bash/rag/.rag/flows/first-flow-20251016T030323/ctx/evidence/100_flow_manager_sh.evidence.md": "6a0707eaf4e6",
+    "./bash/rag/.rag/flows/first-flow-20251016T030323/ctx/010_request.user.md": "74a24dee5a2c",
+    "./bash/rag/.rag/flows/first-flow-20251016T030323/build/answer.md": "4fff43a68754",
+    "./bash/rag/docs/archive/HELP_REFACTOR_SUMMARY.md": "67821226d906",
+    "./bash/rag/docs/archive/REPL_FIXES_20251016.md": "a4ee45e024a9",
+    "./bash/rag/docs/archive/RAG_CLEANUP_TOPICS.md": "28d96d6e6a01",
+    "./bash/rag/docs/EVIDENCE_QUICK_REFERENCE.md": "aaa3fe76cdae",
+    "./bash/rag/docs/FLOW_QUICK_REFERENCE.md": "118cae101803",
+    "./bash/rag/docs/COLORS.md": "a71bf654a18b",
+    "./bash/rag/docs/HISTORY_COMPLETION_GUIDE.md": "962ad1bbad54",
+    "./bash/rag/docs/README.md": "0d1694fcfbbb",
+    "./bash/rag/docs/QUICK_START_HISTORY_COMPLETION.md": "ccdddffe96a2",
+    "./bash/rag/docs/REPL_FEATURES.md": "3f31deec743d",
+    "./bash/rag/docs/QA_INTEGRATION_SUMMARY.md": "553d458cfd2f",
+    "./bash/rag/docs/QUICK_REFERENCE.md": "e9d718043599",
+    "./bash/rag/docs/FLOW_WALKTHROUGH.md": "bd9398dfc50d",
+    "./bash/rag/docs/CONTEXT_DESIGN.md": "d64e9740a0dc",
+    "./bash/rag/docs/QUICK_START.md": "92843b33e759",
+    "./bash/rag/ACTIONS_README.md": "f525f5abc59c",
+    "./bash/rag/REPL_MODES.md": "8b9a0b358e06",
+    "./bash/rag/SESSION_SUMMARY.md": "f966eea2261e",
+    "./bash/rag/RAG_REVIEW_2025.md": "17876d84c9fc",
+    "./bash/rag/REFACTOR_PHASE1_COMPLETE.md": "538ef78fd81a",
+    "./bash/rag/CLAUDE.md": "89b0b75d3389",
+    "./bash/tcurses/COMPLETION_FIX_2025_11_04.md": "ef3f79233d80",
+    "./bash/tcurses/README.md": "2e4588a4cd09",
+    "./bash/tubes/IMPLEMENTATION_SUMMARY.md": "6e541e68be7d",
+    "./bash/tubes/README.md": "77931853ec70",
+    "./bash/tubes/QUICK_START.md": "68982d57656e",
+    "./bash/tetra/ARCHITECTURE.md": "608cff01fc9d",
+    "./bash/tetra/PHASE2_COMPLETE.md": "f2038d8335e9",
+    "./bash/tetra/REFACTOR_COMPLETE.md": "480e864739b8",
+    "./bash/tetra/PHASE1_COMPLETE.md": "e63b8f0bafb2",
+    "./bash/tetra/QUICKSTART.md": "3d88a844f4f4",
+    "./bash/tetra/BUILD_SUMMARY.md": "a12474da6af4",
+    "./bash/tetra/MODE_REPL_QUICKSTART.md": "f0e1cc18d9e6",
+    "./bash/tetra/MODE_MODULE_REPL_COMPLETE.md": "ed7d85de3d73",
+    "./bash/logs/README.md": "9e368a67af0a",
+    "./bash/logs/MODULE_SUMMARY.md": "fe51356551bc",
+    "./bash/logs/QUICK_REFERENCE.md": "ee4d2b572ac0",
+    "./bash/watchdog/README.md": "656065190965",
+    "./bash/INDEX.md": "a85e79efa246",
+    "./bash/vox/INTERACTIVE_ESTO.md": "71897e7d75fc",
+    "./bash/vox/ESTO_SYNTAX_REFERENCE.md": "7ebbf077c0a1",
+    "./bash/vox/NEXT.md": "354acc3e305f",
+    "./bash/vox/README.md": "b7d6ec826c8d",
+    "./bash/vox/DRY_RUN.md": "5d9e28b130e2",
+    "./bash/vox/examples/README.md": "446d4d6aa00b",
+    "./bash/vox/REPL.md": "1a6fc059f480",
+    "./bash/nginx/REPL_USAGE.md": "64b84cbf32c3",
+    "./bash/nginx/INVESTIGATION_GUIDE.md": "e081fd0b25d5",
+    "./bash/nginx/README_DOCS_PUBLISHING.md": "37c0a2a41a61",
+    "./bash/nginx/README.md": "d5ab58202db4",
+    "./bash/nginx/README_SPACES.md": "fd012509a14a",
+    "./bash/self/LEGACY_CODE_REMEDIATION.md": "4675ff1e3103",
+    "./bash/self/docs/ARCHITECTURE.md": "d85c9ba6ba8c",
+    "./bash/self/docs/TASKS.md": "68eff7b2dd0f",
+    "./bash/self/README.md": "9a23f0457f7c",
+    "./bash/midi-mp/IMPLEMENTATION_SUMMARY.md": "13c2865c3dcf",
+    "./bash/midi-mp/CYMATICA.md": "17a49061b759",
+    "./bash/midi-mp/README.md": "97dba547ab3b",
+    "./bash/midi-mp/STARTUP.md": "8405f09213ce",
+    "./bash/midi-mp/CLOUD_SETUP.md": "0daf05125b92",
+    "./bash/actions/QUICKSTART.md": "cde2964ea71c",
+    "./bash/actions/README.md": "7effa6de787e",
+    "./bash/actions/GET_STARTED.md": "cebe70de5601",
+    "./bash/msc/README.md": "a5841df08f56",
+    "./bash/tdocs/IMPLEMENTATION_STATUS.md": "20e1e8771036",
+    "./bash/tdocs/FLOW_AND_SEMANTICS.md": "3e5e2292dfac",
+    "./bash/tdocs/REFACTOR_PHASE2_NEXT.md": "611c421f5702",
+    "./bash/tdocs/archive/session_docs_20251123/SEMANTIC_MODEL_SUMMARY.md": "40e3c9459d02",
+    "./bash/tdocs/archive/session_docs_20251123/IMPLEMENTATION_SUMMARY.md": "fa04dfe8f178",
+    "./bash/tdocs/archive/session_docs_20251123/TDOCS_REFINEMENT_SUMMARY.md": "b5434d55eaf8",
+    "./bash/tdocs/archive/session_docs_20251123/IMPLEMENTATION_PROGRESS.md": "a293b38085fb",
+    "./bash/tdocs/archive/session_docs_20251123/REPL_FIX_ROOT_CAUSE.md": "80457322b3ab",
+    "./bash/tdocs/archive/session_docs_20251123/PROMPT_REFACTOR_PROPOSAL.md": "6760cc2765fd",
+    "./bash/tdocs/archive/session_docs_20251123/REPL_IMPROVEMENTS.md": "8db38f32f370",
+    "./bash/tdocs/archive/session_docs_20251123/COMPLETION_IMPLEMENTATION_SUMMARY.md": "b764d61418b7",
+    "./bash/tdocs/archive/session_docs_20251123/LIFECYCLE_REFACTOR_STATUS.md": "b4b0ce8b76f2",
+    "./bash/tdocs/archive/session_docs_20251123/SESSION_SUMMARY.md": "1f9f23f31283",
+    "./bash/tdocs/archive/session_docs_20251123/COMPLETION_FIX_SUMMARY.md": "f57122144d6a",
+    "./bash/tdocs/archive/session_docs_20251123/REPL_FIXES.md": "53944523bc24",
+    "./bash/tdocs/archive/session_docs_20251123/LIFECYCLE_IMPLEMENTATION_COMPLETE.md": "7e4c4aeeb62d",
+    "./bash/tdocs/archive/session_docs_20251123/NAVIGATION_PLAN.md": "21bb44e7a21f",
+    "./bash/tdocs/archive/session_docs_20251123/TAKEOVER_REFACTOR_SUMMARY.md": "2f1ab3656c58",
+    "./bash/tdocs/archive/session_docs_20251123/DEBUG_TDOCS.md": "a80e2a7cbb20",
+    "./bash/tdocs/PHASE2_COMPLETE.md": "5f94a9752dd9",
+    "./bash/tdocs/METADATA_DESIGN.md": "cb959f7a3c61",
+    "./bash/tdocs/REFACTOR_PHASE1_SUMMARY.md": "a0e18abc0623",
+    "./bash/tdocs/CONTEXT_REFERENCE.md": "4aab32a499c0",
+    "./bash/tdocs/DEMO_README.md": "0c6c866df1a2",
+    "./bash/tdocs/CONTEXT_GUIDE.md": "ababc319aca5",
+    "./bash/tdocs/docs/README.md": "834449cc2040",
+    "./bash/tdocs/docs/PROMPT_DESIGN.md": "c108abf438d3",
+    "./bash/tdocs/docs/TDS_INTEGRATION.md": "1499fdae63f8",
+    "./bash/tdocs/docs/TDOCS_RAG_INTEGRATION.md": "aae036f81232",
+    "./bash/tdocs/docs/REVIEW_GUIDE.md": "6b77f038b5ed",
+    "./bash/tdocs/docs/COLOR_TOKENS_REFERENCE.md": "af432490f85a",
+    "./bash/tdocs/docs/ARRAY_HANDLING.md": "b8a34d9fcd76",
+    "./bash/tdocs/docs/SEMANTIC_MODEL.md": "8b3ee109f240",
+    "./bash/tdocs/README.md": "64145fab4707",
+    "./bash/tdocs/COMMAND_RATIONALIZATION.md": "57be0afb06fe",
+    "./bash/tdocs/QUICK_TEST.md": "4eb2fb88882b",
+    "./bash/tdocs/TAB_COMPLETION_GUIDE.md": "2ae0e12181ea",
+    "./bash/QUICK_REFERENCE.md": "ee9162649f6e",
+    "./bash/tau/README.md": "486fbaad0533",
+    "./bash/tgp/TGP_SPECIFICATION.md": "859dfae40638",
+    "./bash/tgp/README.md": "0b7eac94fdea",
+    "./orgs/nodeholder/README.md": "6bba3080dcb1",
+    "./DEPLOYMENT_GUIDE.md": "99e824ca6b08",
+    "./ORG_MODULE_FIX_SUMMARY.md": "01c7a6491119",
+    "./TUI_CONSOLIDATION_SUMMARY.md": "8fa43812432a",
+    "./MIGRATION_GUIDE.md": "9eb031dbf359",
+    "./PLAN.md": "5c65695e9729",
+    "./FUNCTION_VIOLATIONS_REPORT.md": "64e5251c0c4f",
+    "./CONTINUATION_PLAN.md": "be3f7b2aef93"
+  }
+}

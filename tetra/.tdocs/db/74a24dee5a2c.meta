@@ -1,0 +1,15 @@
+hash: 74a24dee5a2c
+content_hash: 74a24dee5a2ca20d706c6d1fc9e5a1fa68828d922667c4d6fa6acda13d20037f
+fm_hash: 
+current_path: ./bash/rag/.rag/flows/first-flow-20251016T030323/ctx/010_request.user.md
+type: scratch
+lifecycle: W
+tags:
+created: 2025-11-24T13:42:18Z
+updated: 2025-11-24T13:42:18Z
+first_seen: 2025-11-24T13:42:18Z
+size: 275
+lines: 7
+paths:
+  - path: ./bash/rag/.rag/flows/first-flow-20251016T030323/ctx/010_request.user.md
+    seen: 2025-11-24T13:42:18Z

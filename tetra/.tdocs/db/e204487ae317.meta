@@ -1,0 +1,15 @@
+hash: e204487ae317
+content_hash: e204487ae317fe1e9851508481424a3d2b2b71c29b1d37de6ec9f0ad33e75ccf
+fm_hash: 
+current_path: ./archive/bash/tcurses_archive_014/ROBUSTNESS_GUIDE.md
+type: scratch
+lifecycle: W
+tags:
+created: 2025-11-24T13:40:32Z
+updated: 2025-11-24T13:40:32Z
+first_seen: 2025-11-24T13:40:32Z
+size: 6405
+lines: 243
+paths:
+  - path: ./archive/bash/tcurses_archive_014/ROBUSTNESS_GUIDE.md
+    seen: 2025-11-24T13:40:32Z

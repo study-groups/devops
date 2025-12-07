@@ -1,0 +1,19 @@
+hash: 6e794f9c662b
+content_hash: 6e794f9c662b860ebc8afd1f2ca3bdecb307d94928a57a8c7219e62c4a4fe3ea
+fm_hash: 
+current_path: ./demo/docs/changes.md
+type: scratch
+lifecycle: W
+tags:
+created: 2025-11-24T13:40:21Z
+updated: 2025-11-24T13:40:23Z
+first_seen: 2025-11-24T13:40:21Z
+size: 7258
+lines: 192
+paths:
+  - path: ./demo/cframe/README.md
+    seen: 2025-11-24T13:40:21Z
+  - path: ./demo/bframe/README.md
+    seen: 2025-11-24T13:40:21Z
+  - path: ./demo/docs/changes.md
+    seen: 2025-11-24T13:40:23Z

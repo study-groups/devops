@@ -1,0 +1,17 @@
+hash: 47fa4650f0eb
+content_hash: 47fa4650f0ebb782dc1a12546bf3ba7a9e82655f17942524ea3f5bceeb17442d
+fm_hash: 
+current_path: ./docs/reference/manual/07-tpm-process-manager.md
+type: scratch
+lifecycle: W
+tags:
+created: 2025-11-24T13:40:25Z
+updated: 2025-11-24T13:40:44Z
+first_seen: 2025-11-24T13:40:25Z
+size: 6702
+lines: 275
+paths:
+  - path: ./archive/docs/docs_legacy/tpm-LATEST.md
+    seen: 2025-11-24T13:40:25Z
+  - path: ./docs/reference/manual/07-tpm-process-manager.md
+    seen: 2025-11-24T13:40:44Z

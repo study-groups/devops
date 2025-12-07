@@ -1,0 +1,17 @@
+hash: ae1fa5e33003
+content_hash: ae1fa5e3300385154c5691aeb641c4b1b9989be44f19dd8e8e814fd3aa5795db
+fm_hash: 
+current_path: ./bash/rag/.rag/flows/first-flow-20251016T030323/ctx/000_policy.system.md
+type: scratch
+lifecycle: W
+tags:
+created: 2025-11-24T13:40:36Z
+updated: 2025-11-24T13:42:18Z
+first_seen: 2025-11-24T13:40:36Z
+size: 280
+lines: 12
+paths:
+  - path: ./.rag/flows/meta-rag-20251029T062325/ctx/000_policy.md
+    seen: 2025-11-24T13:40:36Z
+  - path: ./bash/rag/.rag/flows/first-flow-20251016T030323/ctx/000_policy.system.md
+    seen: 2025-11-24T13:42:18Z

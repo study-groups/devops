@@ -1,0 +1,17 @@
+hash: 07fb448487fb
+content_hash: 07fb448487fb37c337f4d16b5862289f01472d3f244d9abd6356e0b2f73cfbed
+fm_hash: 
+current_path: ./docs/reference/manual/04-tetra-help.md
+type: scratch
+lifecycle: W
+tags:
+created: 2025-11-24T13:40:25Z
+updated: 2025-11-24T13:40:44Z
+first_seen: 2025-11-24T13:40:25Z
+size: 1863
+lines: 49
+paths:
+  - path: ./archive/legacy/tetra-help.md
+    seen: 2025-11-24T13:40:25Z
+  - path: ./docs/reference/manual/04-tetra-help.md
+    seen: 2025-11-24T13:40:44Z

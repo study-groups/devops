@@ -1,12 +1,12 @@
 {
   "metadata": {
-    "title": "TSM Tutorial",
+    "title": "TSM Guide",
     "subtitle": "Master the Tetra Service Manager",
     "description": "Learn how to use TSM (Tetra Service Manager) to manage long-running services, allocate ports, and monitor processes in the tetra ecosystem.",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "author": "Tetra Team",
     "created": "2025-11-25T00:00:00Z",
-    "tags": ["tsm", "service-manager", "process-management", "ports"],
+    "tags": ["tsm", "service-manager", "process-management", "ports", "guide"],
     "difficulty": "beginner",
     "estimatedTime": 30,
     "prerequisites": [

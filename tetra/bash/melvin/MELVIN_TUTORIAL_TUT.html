@@ -1,0 +1,2545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MELVIN Interactive Tutorial</title>
+
+    <style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg-primary: #0d1117;
+    --bg-secondary: #161b22;
+    --bg-tertiary: #21262d;
+    --text-primary: #c9d1d9;
+    --text-secondary: #8b949e;
+    --accent-primary: #58a6ff;
+    --accent-secondary: #1f6feb;
+    --success: #3fb950;
+    --warning: #d29922;
+    --error: #f85149;
+    --border: #30363d;
+    --highlight: #388bfd26;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+    background: var(--bg-primary);
+    min-height: 100vh;
+    padding: 0;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.container {
+    max-width: 1600px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    align-items: start;
+    padding: 1rem;
+}
+
+.panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    min-height: 600px;
+}
+
+.narrative-panel {
+    margin-right: 0.5rem;
+}
+
+.terminal-panel {
+    position: sticky;
+    top: 1rem;
+    margin-left: 0.5rem;
+    max-height: calc(100vh - 2rem);
+    overflow: hidden;
+}
+
+.panel-header {
+    padding: 0.75rem 1rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 0.3px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+}
+
+/* Narrative Styles */
+.narrative-content {
+    padding: 2rem;
+    line-height: 1.7;
+    overflow-y: auto;
+}
+
+.step {
+    margin-bottom: 3rem;
+    display: none;
+}
+
+.step.active {
+    display: block;
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.step-number {
+    display: inline-block;
+    background: var(--bg-tertiary);
+    color: var(--accent-primary);
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border);
+    font-family: 'Courier New', monospace;
+}
+
+.step h2 {
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.step h3 {
+    color: var(--text-primary);
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.step p {
+    margin-bottom: 1rem;
+    color: var(--text-secondary);
+}
+
+.subtitle {
+    font-style: italic;
+    font-size: 0.95rem;
+}
+
+.you-try {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--warning);
+    padding: 1.25rem;
+    margin: 1.5rem 0;
+    border-radius: 6px;
+}
+
+.you-try-header {
+    font-weight: 700;
+    color: var(--warning);
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.you-try-header::before {
+    content: "→";
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.you-try p {
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.command-hint {
+    background: var(--bg-primary);
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: var(--accent-primary);
+    margin-top: 0.5rem;
+    border: 1px solid var(--border);
+    overflow-x: auto;
+}
+
+.learn-box {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--accent-secondary);
+    padding: 1.25rem;
+    margin: 1.5rem 0;
+    border-radius: 6px;
+}
+
+.learn-box-header {
+    font-weight: 700;
+    color: var(--accent-primary);
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.learn-box-header::before {
+    content: "ℹ";
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.learn-box ul {
+    margin-left: 1.5rem;
+    color: var(--text-secondary);
+}
+
+.learn-box li {
+    margin-bottom: 0.4rem;
+}
+
+.learn-box p {
+    color: var(--text-secondary);
+}
+
+.warning-box {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--warning);
+    padding: 1.25rem;
+    margin: 1.5rem 0;
+    border-radius: 6px;
+}
+
+.warning-box-header {
+    font-weight: 700;
+    color: var(--warning);
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.warning-box-header::before {
+    content: "⚠";
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+/* Details Section */
+.details-section {
+    margin: 2rem 0;
+    border: 1px solid var(--accent-secondary);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.details-section.collapsed .details-content {
+    display: none;
+}
+
+.details-toggle {
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.details-toggle:hover {
+    background: var(--bg-primary);
+}
+
+.details-icon {
+    font-size: 1.2rem;
+}
+
+.details-title {
+    flex: 1;
+    font-weight: 600;
+    color: var(--accent-primary);
+}
+
+.details-arrow {
+    color: var(--text-secondary);
+    transition: transform 0.3s;
+}
+
+.details-section:not(.collapsed) .details-arrow {
+    transform: rotate(180deg);
+}
+
+.details-content {
+    padding: 1.5rem;
+    background: var(--bg-secondary);
+}
+
+.details-content h4 {
+    color: var(--accent-primary);
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.details-content p {
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    line-height: 1.6;
+}
+
+.detail-explanation,
+.detail-code-dive,
+.detail-architecture,
+.detail-gotcha,
+.detail-performance {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+}
+
+.detail-gotcha {
+    border-left: 3px solid var(--warning);
+}
+
+/* Terminal Styles */
+.terminal-window {
+    background: var(--bg-primary);
+    height: 100%;
+    min-height: 600px;
+    max-height: calc(100vh - 2rem);
+    font-family: 'Courier New', Monaco, monospace;
+    font-size: 13px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.terminal-titlebar {
+    background: var(--bg-tertiary);
+    padding: 0.5rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.terminal-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.dot-red { background: #ff5f56; }
+.dot-yellow { background: #ffbd2e; }
+.dot-green { background: #27c93f; }
+
+.terminal-title {
+    margin-left: 1rem;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+.terminal-content {
+    padding: 1.5rem;
+    color: var(--text-primary);
+    overflow-y: auto;
+    flex: 1;
+}
+
+.terminal-line {
+    margin-bottom: 0.5rem;
+    display: none;
+}
+
+.terminal-line.visible {
+    display: block;
+    animation: terminalFadeIn 0.3s ease-in;
+}
+
+@keyframes terminalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.prompt {
+    color: var(--success);
+}
+
+.command {
+    color: var(--accent-primary);
+}
+
+.output {
+    color: var(--text-secondary);
+}
+
+.output-header {
+    color: var(--accent-primary);
+    font-weight: bold;
+}
+
+.output-success {
+    color: var(--success);
+}
+
+.output-warning {
+    color: var(--warning);
+}
+
+.output-error {
+    color: var(--error);
+}
+
+.comment {
+    color: var(--text-secondary);
+    opacity: 0.7;
+}
+
+.highlight {
+    background: var(--highlight);
+    padding: 0 0.2rem;
+}
+
+/* Navigation */
+.navigation {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.nav-button {
+    padding: 0.6rem 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.nav-button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.nav-prev:hover:not(:disabled) {
+    background: var(--bg-tertiary);
+    border-color: var(--accent-primary);
+}
+
+.nav-next {
+    background: var(--accent-secondary);
+    border-color: var(--accent-secondary);
+    color: white;
+}
+
+.nav-next:hover:not(:disabled) {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+.progress {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    padding: 0.5rem;
+    flex: 1;
+    font-family: 'Courier New', monospace;
+}
+
+/* Header */
+.tutorial-header {
+    text-align: center;
+    color: var(--text-primary);
+    padding: 2rem 1rem 1rem;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+}
+
+.tutorial-header h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+    color: var(--accent-primary);
+}
+
+.tutorial-header p {
+    font-size: 1rem;
+    color: var(--text-secondary);
+}
+
+code {
+    background: var(--bg-tertiary);
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+    color: var(--accent-primary);
+    border: 1px solid var(--border);
+}
+
+ul {
+    color: var(--text-secondary);
+}
+
+@media (max-width: 1200px) {
+    .container {
+        grid-template-columns: 1fr;
+    }
+
+    .terminal-panel {
+        position: relative;
+        top: 0;
+        max-height: 600px;
+        margin-left: 0;
+        margin-top: 1rem;
+    }
+
+    .narrative-panel {
+        margin-right: 0;
+    }
+}
+    </style>
+    <style>
+/* Design Token Editor - FAB and Panel Styles */
+
+/* Floating Action Button */
+.design-fab {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--accent-secondary);
+    border: 2px solid var(--accent-primary);
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 1000;
+}
+
+.design-fab:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+}
+
+/* Design Panel */
+.design-panel {
+    position: fixed;
+    bottom: 5rem;
+    right: 2rem;
+    width: 320px;
+    max-height: 70vh;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    display: none;
+    flex-direction: column;
+    z-index: 999;
+    overflow: hidden;
+}
+
+.design-panel.visible {
+    display: flex;
+    animation: designPanelSlideUp 0.3s ease;
+}
+
+@keyframes designPanelSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.design-panel-header {
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.design-panel-close {
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+}
+
+.design-panel-content {
+    padding: 1rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* Styled scrollbar for design panel */
+.design-panel-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.design-panel-content::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+    border-radius: 4px;
+}
+
+.design-panel-content::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+
+.design-panel-content::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-primary);
+}
+
+/* Token Groups and Items */
+.token-group {
+    margin-bottom: 1.5rem;
+}
+
+.token-group-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+}
+
+.token-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.token-swatch {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.token-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.token-name {
+    font-size: 0.75rem;
+    font-family: 'Courier New', monospace;
+    color: var(--text-secondary);
+    margin-bottom: 0.15rem;
+}
+
+.token-value {
+    font-size: 0.7rem;
+    font-family: 'Courier New', monospace;
+    color: var(--accent-primary);
+}
+
+.token-picker {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Font Controls */
+.font-select {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    margin-top: 0.5rem;
+}
+
+.font-select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.font-input {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-family: 'Courier New', monospace;
+    margin-top: 0.5rem;
+}
+
+.font-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.font-input::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.5;
+}
+
+.add-font-btn {
+    width: 100%;
+    padding: 0.4rem;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    margin-top: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.add-font-btn:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+/* Font Example Toggle */
+.font-example-toggle {
+    font-size: 0.75rem;
+    color: var(--accent-primary);
+    cursor: pointer;
+    margin-top: 0.5rem;
+    display: inline-block;
+    user-select: none;
+}
+
+.font-example-toggle:hover {
+    text-decoration: underline;
+}
+
+.font-example-content {
+    display: none;
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.font-example-content.expanded {
+    display: block;
+}
+
+.font-example-content ol {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+}
+
+.font-example-content li {
+    margin-bottom: 0.5rem;
+}
+
+.font-example-content code {
+    background: var(--bg-primary);
+    padding: 0.2rem 0.4rem;
+    border-radius: 2px;
+    font-size: 0.65rem;
+}
+
+/* Panel Action Buttons */
+.design-panel-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.design-panel-btn {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.copy-tokens-btn {
+    background: var(--accent-secondary);
+    color: white;
+    border-color: var(--accent-primary);
+}
+
+.copy-tokens-btn:hover {
+    background: var(--accent-primary);
+}
+
+.copy-tokens-btn.copied {
+    background: var(--success);
+    border-color: var(--success);
+}
+
+.load-tokens-btn {
+    background: var(--bg-tertiary);
+    border-color: var(--border);
+    color: var(--text-primary);
+}
+
+.load-tokens-btn:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+.reset-tokens-btn {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--border);
+}
+
+.reset-tokens-btn:hover {
+    background: var(--bg-primary);
+    border-color: var(--warning);
+    color: var(--warning);
+}
+
+/* Element Inspector Panel */
+#elementInspectorPanel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    max-width: 90vw;
+    max-height: 80vh;
+    background: var(--bg-secondary);
+    border: 2px solid var(--accent-primary);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    display: none;
+    flex-direction: column;
+    z-index: 10001;
+    overflow: hidden;
+}
+
+#elementInspectorPanel.visible {
+    display: flex;
+}
+
+#elementInspectorPanel .inspector-header {
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: move;
+    user-select: none;
+}
+
+#elementInspectorPanel .inspector-content {
+    padding: 1rem;
+    overflow-y: auto;
+    flex: 1;
+    font-size: 0.85rem;
+}
+
+#elementInspectorPanel .inspector-content::-webkit-scrollbar {
+    width: 12px;
+}
+
+#elementInspectorPanel .inspector-content::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+    border-radius: 6px;
+    margin: 4px;
+}
+
+#elementInspectorPanel .inspector-content::-webkit-scrollbar-thumb {
+    background: var(--accent-secondary);
+    border-radius: 6px;
+    border: 2px solid var(--bg-primary);
+}
+
+#elementInspectorPanel .inspector-content::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-primary);
+}
+    </style>
+    <style>
+        :root {
+        }
+    </style>
+</head>
+<body>
+    <div class="tutorial-header">
+        <h1>MELVIN Interactive Tutorial</h1>
+        <p>Learn the Tetra Way: Build a Notes Module Step-by-Step</p>
+    </div>
+    <div class="navigation">
+        <button class="nav-button nav-prev" onclick="prevStep()" id="prevBtn" disabled>← Previous</button>
+        <div class="progress" id="progress">Step 1 of 12</div>
+        <button class="nav-button nav-next" onclick="nextStep()" id="nextBtn">Next →</button>
+    </div>
+    <div class="container">
+        <div class="panel narrative-panel">
+            <div class="panel-header">Tutorial Guide</div>
+            <div class="narrative-content">
+                <div class="step active" data-step="0">
+                    <span class="step-number">Step 1</span>
+                    <h2>Welcome to the MELVIN Tutorial</h2>
+                    <p>In this interactive tutorial, you'll learn how to use MELVIN (Machine Electronics Live Virtual Intelligence Network) to build a new tetra module the right way.</p>
+                    <p><strong>What you'll learn:</strong></p>
+                    <ul style="margin-left: 2rem; margin-bottom: 1rem;">
+                        <li>How to bootstrap MELVIN in your terminal</li>
+                        <li>Understanding tetra's architecture patterns</li>
+                        <li>Strong globals, no dotfiles, and module types</li>
+                        <li>Building a complete module with MELVIN's guidance</li>
+                    </ul>
+                    <div class="learn-box">
+                        <div class="learn-box-header">Prerequisites</div>
+                        <p>Before starting, make sure you have:</p>
+                        <ul>
+                            <li>Bash 5.2+ installed</li>
+                            <li>Tetra cloned and accessible at ~/tetra</li>
+                            <li>A terminal window open</li>
+                        </ul>
+                    </div>
+                    <p>The right panel shows a simulated terminal. As you progress through the tutorial, you'll see commands and their output appear there. You should follow along in your real terminal!</p>
+                </div>
+
+                <div class="step" data-step="1">
+                    <span class="step-number">Step 2</span>
+                    <h2>Bootstrap MELVIN</h2>
+                    <p>Every tetra session starts the same way: source the tetra environment. This sets up all the strong globals (like `TETRA_SRC` and `TETRA_DIR`) that modules depend on.</p>
+                    <div class="you-try">
+                        <div class="you-try-header">You Try</div>
+                        <p>In your terminal, navigate to the tetra directory and source tetra.sh:</p>
+                        <div class="command-hint">
+cd ~/tetra<br>
+source ~/tetra/tetra.sh
+                        </div>
+                    </div>
+                    <p>Now that tetra is loaded, let's load MELVIN. MELVIN is itself a tetra module, so we source its includes.sh file.</p>
+                    <div class="you-try">
+                        <div class="you-try-header">You Try</div>
+                        <p>Load MELVIN:</p>
+                        <div class="command-hint">
+source "$TETRA_SRC/bash/melvin/includes.sh"
+                        </div>
+                    </div>
+                    <div class="learn-box">
+                        <div class="learn-box-header">What Just Happened?</div>
+                        <ul>
+                            <li>`TETRA_SRC` points to your tetra source code</li>
+                            <li>`TETRA_DIR` points to runtime data (separate from code!)</li>
+                            <li>MELVIN auto-detected the "tetra" context</li>
+                            <li>Tetra-specific knowledge loaded automatically</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="step" data-step="2">
+                    <span class="step-number">Step 3</span>
+                    <h2>Understand Current Architecture</h2>
+                    <p>Before building anything new, let's understand what's already there. MELVIN's `health summary` command classifies all modules in the codebase.</p>
+                    <div class="you-try">
+                        <div class="you-try-header">You Try</div>
+                        <p>Run the health check:</p>
+                        <div class="command-hint">
+melvin health summary
+                        </div>
+                    </div>
+                    <div class="learn-box">
+                        <div class="learn-box-header">Understanding Module Types</div>
+                        <p>MELVIN classifies modules into four types:</p>
+                        <ul>
+                            <li>LIBRARY: Has only includes.sh (provides functions, no CLI)</li>
+                            <li>MODULE: Has actions.sh (provides user commands)</li>
+                            <li>APP: Has *_tui.sh (provides TUI interface)</li>
+                            <li>APP+MODULE: Has both actions and TUI</li>
+                        </ul>
+                    </div>
+                    <p>We're going to build a MODULE - something with user-facing commands for managing developer notes.</p>
+                </div>
+
+                <div class="step" data-step="3">
+                    <span class="step-number">Step 4</span>
+                    <h2>Learn the Tetra Way</h2>
+                    <p>Tetra has strong opinions about how modules should be structured. These aren't arbitrary rules - they ensure consistency, testability, and maintainability.</p>
+                    <div class="you-try">
+                        <div class="you-try-header">You Try</div>
+                        <p>List all available concepts:</p>
+                        <div class="command-hint">
+melvin concepts
+                        </div>
+                    </div>
+                    <p>You'll see concepts like `strong_globals`, `no_dotfiles`, `lazy_loading`, and more. These are the patterns you need to follow.</p>
+                    <div class="learn-box">
+                        <div class="learn-box-header">Key Concepts Preview</div>
+                        <ul>
+                            <li>strong_globals: Every module declares MOD_SRC and MOD_DIR</li>
+                            <li>no_dotfiles: NEVER use hidden config files</li>
+                            <li>dual_directory: Code in TETRA_SRC, data in TETRA_DIR</li>
+                            <li>module_structure: Standard file layout</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="step" data-step="4">
+                    <span class="step-number">Step 5</span>
+                    <h2>Deep Dive: Strong Globals</h2>
+                    <p>The most important pattern is strong_globals. Let's understand it deeply because you'll use it in every module you build.</p>
+                    <div class="you-try">
+                        <div class="you-try-header">You Try</div>
+                        <p>Get detailed explanation:</p>
+                        <div class="command-hint">
+melvin concepts strong_globals
+                        </div>
+                    </div>
+                    <p>MELVIN will show you:</p>
+                    <ul style="margin-left: 2rem; margin-bottom: 1rem;">
+                        <li>Why TETRA_SRC must always be set</li>
+                        <li>The pattern: `: "${MOD_SRC:=$TETRA_SRC/bash/modname}"`</li>
+                        <li>Real examples from the codebase</li>
+                        <li>Why we separate source (MOD_SRC) from data (MOD_DIR)</li>
+                    </ul>
+                    <div class="learn-box">
+                        <div class="learn-box-header">The Pattern You'll Use</div>
+                        <p>For our notes module, we'll write:</p>
+                    </div>
+                </div>
+
+                <div class="step" data-step="5">
+                    <span class="step-number">Step 6</span>
+                    <h2>Study a Similar Module</h2>
+                    <p>Learning by example is powerful. Let's look at the RAG module - it's a well-structured MODULE that we can learn from.</p>
+                    <div class="you-try">
+                        <div class="you-try-header">You Try</div>
+                        <p>Get detailed analysis of the RAG module:</p>
+                        <div class="command-hint">
+melvin explain rag
+                        </div>
+                    </div>
+                    <p>MELVIN shows you everything about the module:</p>
+                    <ul style="margin-left: 2rem; margin-bottom: 1rem;">
+                        <li>Its classification (MODULE)</li>
+                        <li>Which strong globals it defines (RAG_SRC, RAG_DIR)</li>
+                        <li>What functions it exports</li>
+                        <li>Whether it's registered in the boot system</li>
+                        <li>Lines of code and last modification date</li>
+                    </ul>
+                    <div class="learn-box">
+                        <div class="learn-box-header">Module Anatomy</div>
+                        <p>Notice the RAG module has:</p>
+                        <ul>
+                            <li>includes.sh: Entry point, defines globals</li>
+                            <li>rag.sh: Core functions</li>
+                            <li>actions.sh: CLI interface (makes it a MODULE)</li>
+                            <li>rag_repl.sh: Optional interactive mode</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="step" data-step="6">
+                    <span class="step-number">Step 7</span>
+                    <h2>Create the Module Structure</h2>
+                    <p>Now you know the patterns. Let's create our `notes` module. We'll start with the directory and the most important file: `includes.sh`</p>
+                    <div class="you-try">
+                        <div class="you-try-header">You Try</div>
+                        <p>Create the module directory:</p>
+                        <div class="command-hint">
+mkdir -p "$TETRA_SRC/bash/notes"
+                        </div>
+                    </div>
+                    <p>Now create `includes.sh` - this is your module's entry point. It must define strong globals and source the core file.</p>
+                    <div class="you-try">
+                        <div class="you-try-header">You Try</div>
+                        <p>Create includes.sh with strong globals pattern:</p>
+                    </div>
+                </div>
+
+                <div class="step" data-step="7">
+                    <span class="step-number">Step 8</span>
+                    <h2>Add Core Functions</h2>
+                    <p>The `notes.sh` file contains your module's core logic. We'll keep it simple but functional.</p>
+                    <div class="you-try">
+                        <div class="you-try-header">You Try</div>
+                        <p>Create notes.sh with basic functions:</p>
+                    </div>
+                    <div class="learn-box">
+                        <div class="learn-box-header">Notice the Pattern</div>
+                        <ul>
+                            <li>Functions prefixed with module name: `notes_*`</li>
+                            <li>Data stored in `$NOTES_DIR` (not in source!)</li>
+                            <li>Functions exported with `export -f`</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="step" data-step="8">
+                    <span class="step-number">Step 9</span>
+                    <h2>Add Actions Interface</h2>
+                    <p>The `actions.sh` file is what makes this a MODULE. It provides the user-facing CLI interface.</p>
+                    <div class="you-try">
+                        <div class="you-try-header">You Try</div>
+                        <p>Create actions.sh with command dispatcher:</p>
+                    </div>
+                    <p>Make the files executable:</p>
+                    <div class="you-try">
+                        <div class="you-try-header">You Try</div>
+                        <div class="command-hint">
+chmod +x "$TETRA_SRC/bash/notes"/*.sh
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step" data-step="9">
+                    <span class="step-number">Step 10</span>
+                    <h2>Verify with MELVIN</h2>
+                    <p>Now for the moment of truth! Let's see if MELVIN recognizes our module as a proper MODULE.</p>
+                    <div class="you-try">
+                        <div class="you-try-header">You Try</div>
+                        <p>Classify your new module:</p>
+                        <div class="command-hint">
+melvin classify notes
+                        </div>
+                    </div>
+                    <p>MELVIN should classify it as a MODULE because it found `includes.sh` and `actions.sh`. Success!</p>
+                    <p>Now let's get a detailed health report:</p>
+                    <div class="you-try">
+                        <div class="you-try-header">You Try</div>
+                        <p>Get health check for notes module:</p>
+                        <div class="command-hint">
+melvin health notes
+                        </div>
+                    </div>
+                    <div class="learn-box">
+                        <div class="learn-box-header">MELVIN's Recommendations</div>
+                        <p>MELVIN might suggest:</p>
+                        <ul>
+                            <li>Add README.md for documentation</li>
+                            <li>Register in boot_modules.sh for lazy loading</li>
+                            <li>Consider adding notes_repl.sh for interactive mode</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="step" data-step="10">
+                    <span class="step-number">Step 11</span>
+                    <h2>Test Your Module</h2>
+                    <p>Let's actually use the module! First, source it to make it available:</p>
+                    <div class="you-try">
+                        <div class="you-try-header">You Try</div>
+                        <p>Load your module:</p>
+                        <div class="command-hint">
+source "$TETRA_SRC/bash/notes/includes.sh"
+                        </div>
+                    </div>
+                    <p>Now initialize the notes system:</p>
+                    <div class="you-try">
+                        <div class="you-try-header">You Try</div>
+                        <div class="command-hint">
+notes init
+                        </div>
+                    </div>
+                    <p>Add your first note:</p>
+                    <div class="you-try">
+                        <div class="you-try-header">You Try</div>
+                        <div class="command-hint">
+notes add "MELVIN helped me build this the tetra way!"
+                        </div>
+                    </div>
+                    <p>List your notes:</p>
+                    <div class="you-try">
+                        <div class="you-try-header">You Try</div>
+                        <div class="command-hint">
+notes list
+                        </div>
+                    </div>
+                    <div class="learn-box">
+                        <div class="learn-box-header">It Works!</div>
+                        <p>Your module is fully functional and follows all tetra patterns:</p>
+                        <ul>
+                            <li>✓ Strong globals (NOTES_SRC, NOTES_DIR)</li>
+                            <li>✓ Dual directory (code vs data separation)</li>
+                            <li>✓ Module structure (includes.sh, notes.sh, actions.sh)</li>
+                            <li>✓ Proper classification (MODULE type)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="step" data-step="11">
+                    <span class="step-number">Step 12</span>
+                    <h2>You've Learned the Tetra Way!</h2>
+                    <p>Congratulations! You've successfully built a tetra module using MELVIN as your guide.</p>
+                    <div class="learn-box">
+                        <div class="learn-box-header">What You Mastered</div>
+                        <ul>
+                            <li>Strong Globals: MOD_SRC and MOD_DIR pattern</li>
+                            <li>Module Types: Understanding LIBRARY vs MODULE vs APP</li>
+                            <li>File Structure: includes.sh, core.sh, actions.sh</li>
+                            <li>MELVIN Commands: health, explain, classify, concepts</li>
+                            <li>Tetra Philosophy: No dotfiles, dual directories, explicit exports</li>
+                        </ul>
+                    </div>
+                    <p>Next Steps - Take your module further:</p>
+                    <ul style="margin-left: 2rem; margin-bottom: 1rem;">
+                        <li>Add `notes_repl.sh` for interactive mode</li>
+                        <li>Create `README.md` documentation</li>
+                        <li>Register in `bash/boot/boot_modules.sh` for lazy loading</li>
+                        <li>Add tests in `tests/` directory</li>
+                    </ul>
+                    <div class="you-try">
+                        <div class="you-try-header">Explore More</div>
+                        <p>Try these MELVIN commands:</p>
+                        <div class="command-hint">
+melvin repl           # Interactive exploration<br>
+melvin stats          # Your learning progress<br>
+melvin concepts       # Review all patterns<br>
+melvin list MODULE    # See all modules
+                        </div>
+                    </div>
+                    <p>MELVIN: Machine Electronics Live Virtual Intelligence Network - Precision above all.</p>
+                </div>
+
+            </div>
+        </div>
+        <div class="panel terminal-panel">
+            <div class="panel-header">Terminal Output</div>
+            <div class="terminal-window">
+                <div class="terminal-titlebar">
+                    <div class="terminal-dot dot-red"></div>
+                    <div class="terminal-dot dot-yellow"></div>
+                    <div class="terminal-dot dot-green"></div>
+                    <div class="terminal-title">bash - tutorial</div>
+                </div>
+                <div class="terminal-content" id="terminal"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Design Token Editor -->
+<!-- Design Token Editor - FAB Button -->
+<button class="design-fab" onclick="toggleDesignPanel()" id="designFab">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="28" height="28">
+        <circle cx="50" cy="50" r="45" fill="#ffffff" opacity="0.15"/>
+        <rect x="25" y="30" width="18" height="18" rx="3" fill="#58a6ff"/>
+        <rect x="47" y="30" width="18" height="18" rx="3" fill="#3fb950"/>
+        <rect x="69" y="30" width="18" height="18" rx="3" fill="#d29922"/>
+        <rect x="25" y="52" width="18" height="18" rx="3" fill="#f85149"/>
+        <rect x="47" y="52" width="18" height="18" rx="3" fill="#c9d1d9"/>
+        <rect x="69" y="52" width="18" height="18" rx="3" fill="#8b949e"/>
+        <circle cx="50" cy="50" r="45" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.8"/>
+    </svg>
+</button>
+
+<!-- Design Token Panel -->
+<div class="design-panel" id="designPanel">
+    <div class="design-panel-header">
+        <span>Design Tokens</span>
+        <span class="design-panel-close" onclick="toggleDesignPanel()">&times;</span>
+    </div>
+    <div class="design-panel-content">
+        <!-- Background Colors -->
+        <div class="token-group">
+            <div class="token-group-title">Background</div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#0d1117" onchange="updateToken('--bg-primary', this.value)">
+                <div class="token-swatch" style="background: var(--bg-primary)"></div>
+                <div class="token-info">
+                    <div class="token-name">--bg-primary</div>
+                    <div class="token-value" id="token-bg-primary">#0d1117</div>
+                </div>
+            </div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#161b22" onchange="updateToken('--bg-secondary', this.value)">
+                <div class="token-swatch" style="background: var(--bg-secondary)"></div>
+                <div class="token-info">
+                    <div class="token-name">--bg-secondary</div>
+                    <div class="token-value" id="token-bg-secondary">#161b22</div>
+                </div>
+            </div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#21262d" onchange="updateToken('--bg-tertiary', this.value)">
+                <div class="token-swatch" style="background: var(--bg-tertiary)"></div>
+                <div class="token-info">
+                    <div class="token-name">--bg-tertiary</div>
+                    <div class="token-value" id="token-bg-tertiary">#21262d</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Text Colors -->
+        <div class="token-group">
+            <div class="token-group-title">Text</div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#c9d1d9" onchange="updateToken('--text-primary', this.value)">
+                <div class="token-swatch" style="background: var(--text-primary)"></div>
+                <div class="token-info">
+                    <div class="token-name">--text-primary</div>
+                    <div class="token-value" id="token-text-primary">#c9d1d9</div>
+                </div>
+            </div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#8b949e" onchange="updateToken('--text-secondary', this.value)">
+                <div class="token-swatch" style="background: var(--text-secondary)"></div>
+                <div class="token-info">
+                    <div class="token-name">--text-secondary</div>
+                    <div class="token-value" id="token-text-secondary">#8b949e</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Accent Colors -->
+        <div class="token-group">
+            <div class="token-group-title">Accent</div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#58a6ff" onchange="updateToken('--accent-primary', this.value)">
+                <div class="token-swatch" style="background: var(--accent-primary)"></div>
+                <div class="token-info">
+                    <div class="token-name">--accent-primary</div>
+                    <div class="token-value" id="token-accent-primary">#58a6ff</div>
+                </div>
+            </div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#1f6feb" onchange="updateToken('--accent-secondary', this.value)">
+                <div class="token-swatch" style="background: var(--accent-secondary)"></div>
+                <div class="token-info">
+                    <div class="token-name">--accent-secondary</div>
+                    <div class="token-value" id="token-accent-secondary">#1f6feb</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Colors -->
+        <div class="token-group">
+            <div class="token-group-title">Status</div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#3fb950" onchange="updateToken('--success', this.value)">
+                <div class="token-swatch" style="background: var(--success)"></div>
+                <div class="token-info">
+                    <div class="token-name">--success</div>
+                    <div class="token-value" id="token-success">#3fb950</div>
+                </div>
+            </div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#d29922" onchange="updateToken('--warning', this.value)">
+                <div class="token-swatch" style="background: var(--warning)"></div>
+                <div class="token-info">
+                    <div class="token-name">--warning</div>
+                    <div class="token-value" id="token-warning">#d29922</div>
+                </div>
+            </div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#f85149" onchange="updateToken('--error', this.value)">
+                <div class="token-swatch" style="background: var(--error)"></div>
+                <div class="token-info">
+                    <div class="token-name">--error</div>
+                    <div class="token-value" id="token-error">#f85149</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Border Color -->
+        <div class="token-group">
+            <div class="token-group-title">Border</div>
+            <div class="token-item">
+                <input type="color" class="token-picker" value="#30363d" onchange="updateToken('--border', this.value)">
+                <div class="token-swatch" style="background: var(--border)"></div>
+                <div class="token-info">
+                    <div class="token-name">--border</div>
+                    <div class="token-value" id="token-border">#30363d</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fonts -->
+        <div class="token-group">
+            <div class="token-group-title">Fonts</div>
+
+            <div style="margin-bottom: 1rem; padding: 0.75rem; background: var(--bg-primary); border-radius: 4px; border: 1px solid var(--border);">
+                <label style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-bottom: 0.5rem;">Add Google Font</label>
+                <input type="text" class="font-input" id="fontCdnUrl" placeholder="https://fonts.googleapis.com/css2?family=...">
+                <input type="text" class="font-input" id="fontFamily" placeholder="'Font Name', sans-serif">
+                <button class="add-font-btn" onclick="addCustomFont()">Add Font to Page</button>
+
+                <div class="font-example-toggle" onclick="toggleFontExample()">
+                    &#9656; Show example
+                </div>
+
+                <div class="font-example-content" id="fontExampleContent">
+                    <strong>Example: Science Gothic</strong>
+                    <ol>
+                        <li>Visit <a href="https://fonts.google.com/specimen/Science+Gothic" target="_blank" style="color: var(--accent-primary);">fonts.google.com/specimen/Science+Gothic</a></li>
+                        <li>Click <strong>"Get font"</strong> button (top right)</li>
+                        <li>Click <strong>"Get embed code"</strong> in the sidebar</li>
+                        <li>Copy the URL from the <code>&lt;link&gt;</code> tag</li>
+                        <li>Copy the CSS font-family value</li>
+                        <li>Paste both values into the fields above</li>
+                        <li>Click "Add Font to Page"</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 0.75rem;">
+                <label style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Heading Font</label>
+                <select class="font-select" onchange="updateFont('heading', this.value)" id="headingFont">
+                    <option value="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">System (Default)</option>
+                    <option value="'Courier New', monospace">Courier New</option>
+                    <option value="Monaco, monospace">Monaco</option>
+                    <option value="'SF Mono', monospace">SF Mono</option>
+                    <option value="'Roboto Mono', monospace">Roboto Mono</option>
+                    <option value="Georgia, serif">Georgia</option>
+                    <option value="'Times New Roman', serif">Times New Roman</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 0.75rem;">
+                <label style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Body Font</label>
+                <select class="font-select" onchange="updateFont('body', this.value)" id="bodyFont">
+                    <option value="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">System (Default)</option>
+                    <option value="'Courier New', monospace">Courier New</option>
+                    <option value="Monaco, monospace">Monaco</option>
+                    <option value="'SF Mono', monospace">SF Mono</option>
+                    <option value="'Roboto Mono', monospace">Roboto Mono</option>
+                    <option value="Georgia, serif">Georgia</option>
+                    <option value="Arial, sans-serif">Arial</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Code Font</label>
+                <select class="font-select" onchange="updateFont('code', this.value)" id="codeFont">
+                    <option value="'Courier New', Monaco, monospace">Courier New (Default)</option>
+                    <option value="Monaco, monospace">Monaco</option>
+                    <option value="'SF Mono', monospace">SF Mono</option>
+                    <option value="'Roboto Mono', monospace">Roboto Mono</option>
+                    <option value="Consolas, monospace">Consolas</option>
+                    <option value="'Fira Code', monospace">Fira Code</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="design-panel-buttons">
+            <button class="design-panel-btn copy-tokens-btn" onclick="copyTokens()" id="copyTokensBtn">
+                Copy CSS
+            </button>
+            <button class="design-panel-btn load-tokens-btn" onclick="loadTokens()" id="loadTokensBtn">
+                Load CSS
+            </button>
+            <button class="design-panel-btn reset-tokens-btn" onclick="resetTokens()" id="resetTokensBtn">
+                Reset
+            </button>
+        </div>
+    </div>
+</div>
+    <script>
+        let currentStep = 0;
+        const totalSteps = 12 - 1;
+
+        const terminalContent = {
+            0: [
+                { type: 'comment', text: "# Welcome! Ready to learn the tetra way?" },
+                { type: 'comment', text: "# Keep this browser tab open alongside your terminal" },
+                { type: 'comment', text: "# Click \"Next\" when ready to begin" }
+            ],
+            1: [
+                { type: 'prompt', text: "$ ", inline: true },
+                { type: 'command', text: "cd ~/tetra" },
+                { type: 'prompt', text: "$ ", inline: true },
+                { type: 'command', text: "source ~/tetra/tetra.sh" },
+                { type: 'output-success', text: "✓ Tetra initialized" },
+                { type: 'output', text: "TETRA_SRC=/Users/you/tetra" },
+                { type: 'output', text: "TETRA_DIR=/Users/you/tetra_dir" },
+                { type: 'blank', text: "" },
+                { type: 'prompt', text: "$ ", inline: true },
+                { type: 'command', text: "source \"$TETRA_SRC/bash/melvin/includes.sh\"" },
+                { type: 'output-success', text: "✓ MELVIN loaded" },
+                { type: 'output', text: "Context: tetra" },
+                { type: 'output', text: "Root: /Users/you/tetra" }
+            ],
+            2: [
+                { type: 'prompt', text: "$ ", inline: true },
+                { type: 'command', text: "melvin health summary" },
+                { type: 'blank', text: "" },
+                { type: 'output-header', text: "MELVIN Health Summary" },
+                { type: 'output-header', text: "=====================" },
+                { type: 'output', text: "Modules found in: /Users/you/tetra/bash" },
+                { type: 'blank', text: "" },
+                { type: 'output', text: "Type Counts:" },
+                { type: 'output-success', text: "  LIBRARY:      8 modules" },
+                { type: 'output-success', text: "  MODULE:      12 modules (with actions.sh)" },
+                { type: 'output-success', text: "  APP:          3 modules (with TUI)" },
+                { type: 'output-success', text: "  APP+MODULE:   2 modules" },
+                { type: 'output-warning', text: "  UNKNOWN:      1 directories" },
+                { type: 'blank', text: "" },
+                { type: 'output', text: "Total: 26 directories classified" }
+            ],
+            3: [
+                { type: 'prompt', text: "$ ", inline: true },
+                { type: 'command', text: "melvin concepts" },
+                { type: 'blank', text: "" },
+                { type: 'output-header', text: "Available Concepts:" },
+                { type: 'output-header', text: "===================" },
+                { type: 'blank', text: "" },
+                { type: 'output', text: "strong_globals        - TETRA_SRC must always be set..." },
+                { type: 'output', text: "no_dotfiles          - NEVER use . (dot) files in tetra..." },
+                { type: 'output', text: "lazy_loading         - Modules registered but not loaded..." },
+                { type: 'output', text: "dual_directory       - Code vs data separation..." },
+                { type: 'output', text: "includes_guard       - Override guards pattern..." },
+                { type: 'output', text: "module_types         - LIBRARY, MODULE, APP, APP+MODULE" },
+                { type: 'output', text: "boot_chain           - Bootstrap sequence..." },
+                { type: 'output', text: "bash_version         - Tetra ALWAYS runs in bash 5.2+..." },
+                { type: 'output', text: "module_structure     - Standard file layout..." },
+                { type: 'output', text: "tetra_self           - Introspection module..." }
+            ],
+            4: [
+                { type: 'prompt', text: "$ ", inline: true },
+                { type: 'command', text: "melvin concepts strong_globals" },
+                { type: 'blank', text: "" },
+                { type: 'output-header', text: "Concept: strong_globals" },
+                { type: 'output-header', text: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" },
+                { type: 'blank', text: "" },
+                { type: 'output', text: "TETRA_SRC is the bedrock - it MUST be set for anything to work." },
+                { type: 'blank', text: "" },
+                { type: 'output', text: "Every module follows this pattern:" },
+                { type: 'output', text: "  : \"${MOD_SRC:=$TETRA_SRC/bash/modname}\"", highlight: true },
+                { type: 'output', text: "  : \"${MOD_DIR:=$TETRA_DIR/modname}\"", highlight: true },
+                { type: 'output', text: "  export MOD_SRC MOD_DIR", highlight: true },
+                { type: 'blank', text: "" },
+                { type: 'output', text: "Why?" },
+                { type: 'output', text: "  • MOD_SRC = source code (read-only, in git)" },
+                { type: 'output', text: "  • MOD_DIR = runtime data (read-write, ephemeral)" },
+                { type: 'blank', text: "" },
+                { type: 'output', text: "Examples from codebase:" },
+                { type: 'output-success', text: "  • bash/rag/includes.sh:7" },
+                { type: 'output-success', text: "  • bash/melvin/includes.sh:9" },
+                { type: 'output-success', text: "  • bash/chroma/includes.sh:5" }
+            ],
+            5: [
+                { type: 'prompt', text: "$ ", inline: true },
+                { type: 'command', text: "melvin explain rag" },
+                { type: 'blank', text: "" },
+                { type: 'output-header', text: "bash/rag: MODULE" },
+                { type: 'output', text: "  Has actions.sh (with REPL)" },
+                { type: 'blank', text: "" },
+                { type: 'output', text: "Description:" },
+                { type: 'output', text: "  RAG (Retrieval-Augmented Generation) system" },
+                { type: 'blank', text: "" },
+                { type: 'output', text: "Features: includes actions repl" },
+                { type: 'output-success', text: "Strong globals: RAG_SRC RAG_DIR ✓" },
+                { type: 'output', text: "Exported functions:" },
+                { type: 'output', text: "  - rag_repl" },
+                { type: 'output', text: "  - tetra_rag_search" },
+                { type: 'output', text: "  - tetra_rag_chunks" },
+                { type: 'blank', text: "" },
+                { type: 'output', text: "LOC: ~2500 lines" },
+                { type: 'output', text: "Last modified: 2025-11-21" },
+                { type: 'output-success', text: "Registered: ✓ boot_modules.sh:44" }
+            ],
+            6: [
+                { type: 'prompt', text: "$ ", inline: true },
+                { type: 'command', text: "mkdir -p \"$TETRA_SRC/bash/notes\"" },
+                { type: 'blank', text: "" },
+                { type: 'prompt', text: "$ ", inline: true },
+                { type: 'command', text: "cat > \"$TETRA_SRC/bash/notes/includes.sh\" <<'EOF'" },
+                { type: 'output', text: "#!/usr/bin/env bash" },
+                { type: 'output', text: "" },
+                { type: 'output', text: ": \"${NOTES_SRC:=$TETRA_SRC/bash/notes}\"", highlight: true },
+                { type: 'output', text: ": \"${NOTES_DIR:=$TETRA_DIR/notes}\"", highlight: true },
+                { type: 'output', text: "export NOTES_SRC NOTES_DIR", highlight: true },
+                { type: 'output', text: "" },
+                { type: 'output', text: "source \"$NOTES_SRC/notes.sh\"" },
+                { type: 'output', text: "EOF" },
+                { type: 'blank', text: "" },
+                { type: 'output-success', text: "✓ includes.sh created with strong globals pattern" }
+            ],
+            7: [
+                { type: 'prompt', text: "$ ", inline: true },
+                { type: 'command', text: "cat > \"$TETRA_SRC/bash/notes/notes.sh\" <<'EOF'" },
+                { type: 'output', text: "#!/usr/bin/env bash" },
+                { type: 'output', text: "" },
+                { type: 'output', text: "notes_init() {" },
+                { type: 'output', text: "  mkdir -p \"$NOTES_DIR\"", highlight: true },
+                { type: 'output', text: "  echo \"Notes initialized at: $NOTES_DIR\"" },
+                { type: 'output', text: "}" },
+                { type: 'output', text: "" },
+                { type: 'output', text: "notes_add() {" },
+                { type: 'output', text: "  local timestamp=$(date +\"%Y-%m-%d %H:%M:%S\")" },
+                { type: 'output', text: "  echo \"[$timestamp] $1\" >> \"$NOTES_DIR/notes.log\"", highlight: true },
+                { type: 'output', text: "}" },
+                { type: 'output', text: "" },
+                { type: 'output', text: "export -f notes_init notes_add notes_list", highlight: true },
+                { type: 'output', text: "EOF" }
+            ],
+            8: [
+                { type: 'prompt', text: "$ ", inline: true },
+                { type: 'command', text: "cat > \"$TETRA_SRC/bash/notes/actions.sh\" <<'EOF'" },
+                { type: 'output', text: "#!/usr/bin/env bash" },
+                { type: 'output', text: "" },
+                { type: 'output', text: "notes() {", highlight: true },
+                { type: 'output', text: "  local action=\"${1:-list}\"" },
+                { type: 'output', text: "  shift || true" },
+                { type: 'output', text: "  case \"$action\" in" },
+                { type: 'output', text: "    init) notes_init \"$@\" ;;" },
+                { type: 'output', text: "    add|a) notes_add \"$@\" ;;" },
+                { type: 'output', text: "    list|l) notes_list \"$@\" ;;" },
+                { type: 'output', text: "    *) echo \"Unknown: $action\"; return 1 ;;" },
+                { type: 'output', text: "  esac" },
+                { type: 'output', text: "}" },
+                { type: 'output', text: "EOF" },
+                { type: 'blank', text: "" },
+                { type: 'prompt', text: "$ ", inline: true },
+                { type: 'command', text: "chmod +x \"$TETRA_SRC/bash/notes\"/*.sh" },
+                { type: 'output-success', text: "✓ Module structure complete!" }
+            ],
+            9: [
+                { type: 'prompt', text: "$ ", inline: true },
+                { type: 'command', text: "melvin classify notes" },
+                { type: 'blank', text: "" },
+                { type: 'output-header', text: "bash/notes: MODULE" },
+                { type: 'blank', text: "" },
+                { type: 'output', text: "Classification reasoning:" },
+                { type: 'output-success', text: "  ✓ Has includes.sh" },
+                { type: 'output-success', text: "  ✓ Has actions.sh" },
+                { type: 'output', text: "  ○ No REPL file (*_repl.sh)" },
+                { type: 'output', text: "  ○ No TUI file (*_tui.sh)" },
+                { type: 'blank', text: "" },
+                { type: 'output-success', text: "Type: MODULE ✓" },
+                { type: 'blank', text: "" },
+                { type: 'prompt', text: "$ ", inline: true },
+                { type: 'command', text: "melvin health notes" },
+                { type: 'blank', text: "" },
+                { type: 'output-success', text: "Strong globals: NOTES_SRC NOTES_DIR ✓" },
+                { type: 'output-warning', text: "Boot registered: ✗ (not in boot_modules.sh)" },
+                { type: 'output', text: "Recommendations:" },
+                { type: 'output', text: "  • Add README.md" },
+                { type: 'output', text: "  • Register in boot_modules.sh" }
+            ],
+            10: [
+                { type: 'prompt', text: "$ ", inline: true },
+                { type: 'command', text: "source \"$TETRA_SRC/bash/notes/includes.sh\"" },
+                { type: 'output-success', text: "✓ Module loaded" },
+                { type: 'blank', text: "" },
+                { type: 'prompt', text: "$ ", inline: true },
+                { type: 'command', text: "notes init" },
+                { type: 'output', text: "Notes initialized at: /Users/you/tetra_dir/notes" },
+                { type: 'blank', text: "" },
+                { type: 'prompt', text: "$ ", inline: true },
+                { type: 'command', text: "notes add \"MELVIN helped me build this the tetra way!\"" },
+                { type: 'output-success', text: "Note added." },
+                { type: 'blank', text: "" },
+                { type: 'prompt', text: "$ ", inline: true },
+                { type: 'command', text: "notes list" },
+                { type: 'output', text: "[2025-11-21 14:30:00] MELVIN helped me build this the tetra way!", highlight: true },
+                { type: 'blank', text: "" },
+                { type: 'output-success', text: "✓ Module works perfectly!" }
+            ],
+            11: [
+                { type: 'output-header', text: "Congratulations!" },
+                { type: 'blank', text: "" },
+                { type: 'output-success', text: "You built a complete tetra module following all patterns:" },
+                { type: 'output-success', text: "  ✓ Strong globals (NOTES_SRC, NOTES_DIR)" },
+                { type: 'output-success', text: "  ✓ Module structure (includes.sh, notes.sh, actions.sh)" },
+                { type: 'output-success', text: "  ✓ Proper classification (MODULE type)" },
+                { type: 'output-success', text: "  ✓ Dual directory separation" },
+                { type: 'output-success', text: "  ✓ Function exports" },
+                { type: 'blank', text: "" },
+                { type: 'comment', text: "# Keep exploring with MELVIN:" },
+                { type: 'prompt', text: "$ ", inline: true },
+                { type: 'command', text: "melvin repl" },
+                { type: 'comment', text: "# Try other modules, learn more patterns!" },
+                { type: 'blank', text: "" },
+                { type: 'output', text: "MELVIN: Machine Electronics Live Virtual Intelligence Network" },
+                { type: 'output', text: "Precision above all." }
+            ]
+        };
+
+
+function renderTerminal(step) {
+    const terminal = document.getElementById('terminal');
+    terminal.innerHTML = '';
+
+    const content = terminalContent[step] || [];
+
+    content.forEach((line, index) => {
+        setTimeout(() => {
+            const lineDiv = document.createElement('div');
+            lineDiv.className = `terminal-line ${line.type}`;
+
+            if (line.type === 'blank') {
+                lineDiv.innerHTML = '&nbsp;';
+            } else if (line.inline) {
+                const span = document.createElement('span');
+                span.textContent = line.text;
+                lineDiv.appendChild(span);
+                lineDiv.style.display = 'inline';
+            } else {
+                if (line.highlight) {
+                    const span = document.createElement('span');
+                    span.className = 'highlight';
+                    span.textContent = line.text;
+                    lineDiv.appendChild(span);
+                } else {
+                    lineDiv.textContent = line.text;
+                }
+            }
+
+            terminal.appendChild(lineDiv);
+            lineDiv.classList.add('visible');
+
+            // Auto-scroll to bottom
+            terminal.scrollTop = terminal.scrollHeight;
+        }, index * 100);
+    });
+}
+
+function updateStep() {
+    // Hide all steps
+    document.querySelectorAll('.step').forEach(step => {
+        step.classList.remove('active');
+    });
+
+    // Show current step
+    const currentStepEl = document.querySelector(`[data-step="${currentStep}"]`);
+    if (currentStepEl) {
+        currentStepEl.classList.add('active');
+    }
+
+    // Update buttons
+    document.getElementById('prevBtn').disabled = currentStep === 0;
+    document.getElementById('nextBtn').disabled = currentStep === totalSteps;
+
+    if (currentStep === totalSteps) {
+        document.getElementById('nextBtn').textContent = '✓ Complete';
+    } else {
+        document.getElementById('nextBtn').textContent = 'Next →';
+    }
+
+    // Update progress
+    document.getElementById('progress').textContent = `Step ${currentStep + 1} of ${totalSteps + 1}`;
+
+    // Update terminal
+    renderTerminal(currentStep);
+
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function nextStep() {
+    if (currentStep < totalSteps) {
+        currentStep++;
+        updateStep();
+    }
+}
+
+function prevStep() {
+    if (currentStep > 0) {
+        currentStep--;
+        updateStep();
+    }
+}
+
+function toggleDetails(element) {
+    const section = element.closest('.details-section');
+    section.classList.toggle('collapsed');
+}
+
+// Keyboard navigation
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' && currentStep < totalSteps) {
+        nextStep();
+    } else if (e.key === 'ArrowLeft' && currentStep > 0) {
+        prevStep();
+    }
+});
+
+// Initialize
+updateStep();
+
+        // Design Token Editor
+// Design Token Editor - JavaScript
+
+// Default tokens for reset
+const defaultTokens = {
+    '--bg-primary': '#0d1117',
+    '--bg-secondary': '#161b22',
+    '--bg-tertiary': '#21262d',
+    '--text-primary': '#c9d1d9',
+    '--text-secondary': '#8b949e',
+    '--accent-primary': '#58a6ff',
+    '--accent-secondary': '#1f6feb',
+    '--success': '#3fb950',
+    '--warning': '#d29922',
+    '--error': '#f85149',
+    '--border': '#30363d',
+    '--highlight': '#388bfd26'
+};
+
+const defaultFonts = {
+    heading: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    body: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    code: "'Courier New', Monaco, monospace"
+};
+
+// Track loaded Google Fonts
+const loadedGoogleFonts = [];
+
+// Toggle design panel visibility
+function toggleDesignPanel() {
+    const panel = document.getElementById('designPanel');
+    panel.classList.toggle('visible');
+}
+
+// Update a CSS custom property
+function updateToken(tokenName, value) {
+    document.documentElement.style.setProperty(tokenName, value);
+    const displayId = 'token-' + tokenName.replace('--', '').replace(/-/g, '-');
+    const displayEl = document.getElementById(displayId);
+    if (displayEl) {
+        displayEl.textContent = value;
+    }
+
+    // Update corresponding color picker
+    const picker = document.querySelector(`input[onchange*="${tokenName}"]`);
+    if (picker) {
+        picker.value = value;
+    }
+}
+
+// Update font for a specific element type
+function updateFont(type, font) {
+    switch(type) {
+        case 'heading':
+            document.querySelectorAll('h1, h2, h3, .step-number').forEach(el => {
+                el.style.fontFamily = font;
+            });
+            break;
+        case 'body':
+            document.body.style.fontFamily = font;
+            break;
+        case 'code':
+            document.querySelectorAll('code, .command-hint, .terminal-content, .token-name, .token-value').forEach(el => {
+                el.style.fontFamily = font;
+            });
+            break;
+    }
+}
+
+// Toggle font example visibility
+function toggleFontExample() {
+    const content = document.getElementById('fontExampleContent');
+    const toggle = document.querySelector('.font-example-toggle');
+
+    if (content.classList.contains('expanded')) {
+        content.classList.remove('expanded');
+        toggle.innerHTML = '&#9656; Show example';
+    } else {
+        content.classList.add('expanded');
+        toggle.innerHTML = '&#9662; Hide example';
+    }
+}
+
+// Add a custom Google Font
+function addCustomFont() {
+    const cdnUrl = document.getElementById('fontCdnUrl').value.trim();
+    const fontFamily = document.getElementById('fontFamily').value.trim();
+
+    if (!cdnUrl || !fontFamily) {
+        alert('Please enter both CDN URL and font-family value');
+        return;
+    }
+
+    // Validate Google Fonts URL
+    if (!cdnUrl.includes('fonts.googleapis.com')) {
+        alert('Please use a valid Google Fonts URL (fonts.googleapis.com)');
+        return;
+    }
+
+    // Add font link to document head
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = cdnUrl;
+    link.id = 'custom-font-' + Date.now();
+    document.head.appendChild(link);
+
+    // Wait for font to load before applying
+    link.onload = () => {
+        console.log('Font loaded successfully:', fontFamily);
+
+        // Store in loaded fonts tracker
+        const existing = loadedGoogleFonts.find(f => f.fontFamily === fontFamily);
+        if (!existing) {
+            loadedGoogleFonts.push({ cdnUrl, fontFamily });
+        }
+
+        // Add to all dropdowns
+        const dropdowns = ['headingFont', 'bodyFont', 'codeFont'];
+        dropdowns.forEach(id => {
+            const select = document.getElementById(id);
+            if (!select) return;
+
+            const existingOption = Array.from(select.options).find(opt => opt.value === fontFamily);
+            if (!existingOption) {
+                const option = document.createElement('option');
+                option.value = fontFamily;
+                option.textContent = fontFamily.replace(/['"]/g, '') + ' (Custom)';
+                select.insertBefore(option, select.firstChild);
+            }
+        });
+
+        // Auto-select and apply the font to headings
+        const headingSelect = document.getElementById('headingFont');
+        if (headingSelect) {
+            headingSelect.value = fontFamily;
+            updateFont('heading', fontFamily);
+        }
+
+        // Visual feedback
+        const btn = document.querySelector('.add-font-btn');
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Font Added & Applied!';
+        btn.style.background = 'var(--success)';
+        btn.style.borderColor = 'var(--success)';
+        btn.style.color = 'white';
+
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '';
+            btn.style.borderColor = '';
+            btn.style.color = '';
+        }, 1000);
+
+        // Clear inputs
+        document.getElementById('fontCdnUrl').value = '';
+        document.getElementById('fontFamily').value = '';
+    };
+
+    link.onerror = () => {
+        console.error('Failed to load font:', cdnUrl);
+        alert('Failed to load font. Please check the URL and try again.');
+        link.remove();
+    };
+}
+
+// Reset all tokens to defaults
+function resetTokens() {
+    // Reset colors
+    Object.entries(defaultTokens).forEach(([token, value]) => {
+        updateToken(token, value);
+    });
+
+    // Reset fonts
+    const headingFont = document.getElementById('headingFont');
+    const bodyFont = document.getElementById('bodyFont');
+    const codeFont = document.getElementById('codeFont');
+
+    if (headingFont) headingFont.value = defaultFonts.heading;
+    if (bodyFont) bodyFont.value = defaultFonts.body;
+    if (codeFont) codeFont.value = defaultFonts.code;
+
+    updateFont('heading', defaultFonts.heading);
+    updateFont('body', defaultFonts.body);
+    updateFont('code', defaultFonts.code);
+
+    // Clear custom font inputs
+    const fontCdnUrl = document.getElementById('fontCdnUrl');
+    const fontFamily = document.getElementById('fontFamily');
+    if (fontCdnUrl) fontCdnUrl.value = '';
+    if (fontFamily) fontFamily.value = '';
+
+    // Visual feedback
+    const btn = document.getElementById('resetTokensBtn');
+    if (btn) {
+        const originalText = btn.textContent;
+        btn.textContent = 'Reset!';
+        setTimeout(() => {
+            btn.textContent = originalText;
+        }, 1000);
+    }
+}
+
+// Copy current tokens as CSS
+function copyTokens() {
+    const tokens = [
+        '--bg-primary', '--bg-secondary', '--bg-tertiary',
+        '--text-primary', '--text-secondary',
+        '--accent-primary', '--accent-secondary',
+        '--success', '--warning', '--error',
+        '--border', '--highlight'
+    ];
+
+    const style = getComputedStyle(document.documentElement);
+
+    // Generate CSS custom properties
+    let cssOutput = ':root {\n';
+    tokens.forEach(token => {
+        const value = style.getPropertyValue(token).trim();
+        cssOutput += `    ${token}: ${value};\n`;
+    });
+    cssOutput += '}\n\n';
+
+    // Add Google Fonts CDN URLs
+    if (loadedGoogleFonts.length > 0) {
+        cssOutput += '/* Google Fonts CDN */\n';
+        loadedGoogleFonts.forEach(font => {
+            cssOutput += `/* @import url('${font.cdnUrl}'); */\n`;
+            cssOutput += `/* GoogleFont: ${font.fontFamily} | ${font.cdnUrl} */\n`;
+        });
+        cssOutput += '\n';
+    }
+
+    // Add font info
+    cssOutput += '/* Fonts */\n';
+    const headingFont = document.getElementById('headingFont');
+    const bodyFont = document.getElementById('bodyFont');
+    const codeFont = document.getElementById('codeFont');
+
+    if (headingFont) cssOutput += `/* Heading: ${headingFont.value} */\n`;
+    if (bodyFont) cssOutput += `/* Body: ${bodyFont.value} */\n`;
+    if (codeFont) cssOutput += `/* Code: ${codeFont.value} */\n`;
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(cssOutput).then(() => {
+        const btn = document.getElementById('copyTokensBtn');
+        if (btn) {
+            const originalText = btn.textContent;
+            btn.textContent = '✓ Copied!';
+            btn.classList.add('copied');
+
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.classList.remove('copied');
+            }, 2000);
+        }
+    }).catch(err => {
+        console.error('Failed to copy:', err);
+        alert('Failed to copy tokens to clipboard');
+    });
+}
+
+// Load tokens from pasted CSS
+function loadTokens() {
+    const cssText = prompt('Paste the CSS (including :root { } and font comments):');
+
+    if (!cssText) return;
+
+    try {
+        // Extract color tokens
+        const tokenRegex = /--([a-z-]+):\s*([^;]+);/g;
+        let match;
+
+        while ((match = tokenRegex.exec(cssText)) !== null) {
+            const tokenName = '--' + match[1];
+            const value = match[2].trim();
+
+            if (defaultTokens.hasOwnProperty(tokenName)) {
+                updateToken(tokenName, value);
+            }
+        }
+
+        // Extract and load Google Fonts
+        const googleFontRegex = /\/\*\s*GoogleFont:\s*([^|]+)\|\s*([^*]+)\*\//g;
+        let fontMatch;
+        const fontsToLoad = [];
+
+        while ((fontMatch = googleFontRegex.exec(cssText)) !== null) {
+            const fontFamily = fontMatch[1].trim();
+            const cdnUrl = fontMatch[2].trim();
+            fontsToLoad.push({ fontFamily, cdnUrl });
+        }
+
+        // Load extracted Google Fonts
+        fontsToLoad.forEach(font => {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = font.cdnUrl;
+            link.id = 'custom-font-' + Date.now();
+            document.head.appendChild(link);
+
+            const existing = loadedGoogleFonts.find(f => f.fontFamily === font.fontFamily);
+            if (!existing) {
+                loadedGoogleFonts.push(font);
+            }
+
+            // Add to dropdowns
+            link.onload = () => {
+                const dropdowns = ['headingFont', 'bodyFont', 'codeFont'];
+                dropdowns.forEach(id => {
+                    const select = document.getElementById(id);
+                    if (!select) return;
+
+                    const existingOption = Array.from(select.options).find(opt => opt.value === font.fontFamily);
+                    if (!existingOption) {
+                        const option = document.createElement('option');
+                        option.value = font.fontFamily;
+                        option.textContent = font.fontFamily.replace(/['"]/g, '') + ' (Custom)';
+                        select.insertBefore(option, select.firstChild);
+                    }
+                });
+            };
+        });
+
+        // Extract font preferences from comments
+        const headingMatch = cssText.match(/\/\*\s*Heading:\s*(.+?)\s*\*\//);
+        const bodyMatch = cssText.match(/\/\*\s*Body:\s*(.+?)\s*\*\//);
+        const codeMatch = cssText.match(/\/\*\s*Code:\s*(.+?)\s*\*\//);
+
+        if (headingMatch) {
+            const font = headingMatch[1].trim();
+            const headingFont = document.getElementById('headingFont');
+            if (headingFont) {
+                headingFont.value = font;
+                updateFont('heading', font);
+            }
+        }
+
+        if (bodyMatch) {
+            const font = bodyMatch[1].trim();
+            const bodyFont = document.getElementById('bodyFont');
+            if (bodyFont) {
+                bodyFont.value = font;
+                updateFont('body', font);
+            }
+        }
+
+        if (codeMatch) {
+            const font = codeMatch[1].trim();
+            const codeFont = document.getElementById('codeFont');
+            if (codeFont) {
+                codeFont.value = font;
+                updateFont('code', font);
+            }
+        }
+
+        // Visual feedback
+        const btn = document.getElementById('loadTokensBtn');
+        if (btn) {
+            const originalText = btn.textContent;
+            const fontCount = fontsToLoad.length;
+            btn.textContent = fontCount > 0 ? `✓ Loaded! (${fontCount} font${fontCount > 1 ? 's' : ''})` : '✓ Loaded!';
+            btn.style.background = 'var(--success)';
+            btn.style.borderColor = 'var(--success)';
+            btn.style.color = 'white';
+
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.style.background = '';
+                btn.style.borderColor = '';
+                btn.style.color = '';
+            }, 3000);
+        }
+
+    } catch (err) {
+        console.error('Failed to parse CSS:', err);
+        alert('Failed to parse CSS. Make sure it includes :root { } block and font comments.');
+    }
+}
+
+// Close design panel when clicking outside
+document.addEventListener('click', (e) => {
+    const panel = document.getElementById('designPanel');
+    const fab = document.getElementById('designFab');
+    if (panel && panel.classList.contains('visible') &&
+        !panel.contains(e.target) &&
+        !fab.contains(e.target)) {
+        panel.classList.remove('visible');
+    }
+});
+
+// ============================================
+// Element Design Token Inspector (Shift-Hold)
+// ============================================
+(function() {
+    let longPressTimer = null;
+    let progressTimer = null;
+    let currentElement = null;
+    let progressOverlay = null;
+    let startTime = 0;
+    const LONG_PRESS_DURATION = 1000; // 1 second
+
+    // Create progress overlay element
+    function createProgressOverlay() {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            pointer-events: none;
+            border: 3px solid var(--accent-primary);
+            border-radius: 4px;
+            background: radial-gradient(circle, transparent 0%, rgba(88, 166, 255, 0.1) 100%);
+            z-index: 10000;
+            transition: opacity 0.2s;
+        `;
+        overlay.innerHTML = `
+            <div style="
+                position: absolute;
+                top: -30px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: var(--bg-secondary);
+                border: 2px solid var(--accent-primary);
+                border-radius: 20px;
+                padding: 4px 12px;
+                font-size: 11px;
+                font-family: 'Courier New', monospace;
+                color: var(--accent-primary);
+                white-space: nowrap;
+            ">
+                <span class="progress-text">0.0s / 1.0s</span>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        return overlay;
+    }
+
+    // Update progress overlay position and progress
+    function updateProgressOverlay(element, progress) {
+        if (!progressOverlay) return;
+
+        const rect = element.getBoundingClientRect();
+        progressOverlay.style.left = rect.left + 'px';
+        progressOverlay.style.top = rect.top + 'px';
+        progressOverlay.style.width = rect.width + 'px';
+        progressOverlay.style.height = rect.height + 'px';
+
+        const elapsed = (progress * LONG_PRESS_DURATION / 100) / 1000;
+        const progressText = progressOverlay.querySelector('.progress-text');
+        if (progressText) {
+            progressText.textContent = `${elapsed.toFixed(1)}s / 1.0s`;
+        }
+
+        const alpha = Math.min(0.3, progress / 100 * 0.3);
+        progressOverlay.style.background = `radial-gradient(circle, rgba(88, 166, 255, ${alpha}) 0%, rgba(88, 166, 255, ${alpha * 0.3}) 100%)`;
+    }
+
+    // Generate XPath for element
+    function getXPath(element) {
+        if (element.id) {
+            return `//*[@id="${element.id}"]`;
+        }
+        if (element === document.body) {
+            return '/html/body';
+        }
+
+        let ix = 0;
+        const siblings = element.parentNode?.childNodes || [];
+        for (let i = 0; i < siblings.length; i++) {
+            const sibling = siblings[i];
+            if (sibling === element) {
+                const parentPath = element.parentNode ? getXPath(element.parentNode) : '';
+                return `${parentPath}/${element.tagName.toLowerCase()}[${ix + 1}]`;
+            }
+            if (sibling.nodeType === 1 && sibling.tagName === element.tagName) {
+                ix++;
+            }
+        }
+        return '';
+    }
+
+    // Extract design tokens from element
+    function extractDesignTokens(element) {
+        const computed = window.getComputedStyle(element);
+        return {
+            element: {
+                tag: element.tagName.toLowerCase(),
+                classes: Array.from(element.classList).join(', ') || 'none',
+                id: element.id || 'none',
+                xpath: getXPath(element)
+            },
+            colors: {
+                background: computed.backgroundColor,
+                color: computed.color,
+                borderColor: computed.borderTopColor
+            },
+            typography: {
+                fontFamily: computed.fontFamily,
+                fontSize: computed.fontSize,
+                fontWeight: computed.fontWeight,
+                lineHeight: computed.lineHeight,
+                letterSpacing: computed.letterSpacing
+            },
+            spacing: {
+                padding: computed.padding,
+                margin: computed.margin
+            },
+            border: {
+                width: computed.borderWidth,
+                style: computed.borderStyle,
+                radius: computed.borderRadius
+            },
+            layout: {
+                display: computed.display,
+                width: computed.width,
+                height: computed.height
+            }
+        };
+    }
+
+    // Display extracted tokens
+    function displayElementTokens(element, tokens) {
+        console.log('Selected Element Tokens:', tokens);
+
+        let inspectorPanel = document.getElementById('elementInspectorPanel');
+        if (!inspectorPanel) {
+            inspectorPanel = createElementInspectorPanel();
+        }
+
+        populateInspectorPanel(inspectorPanel, element, tokens);
+        inspectorPanel.classList.add('visible');
+        inspectorPanel.style.display = 'flex';
+    }
+
+    // Create element inspector panel
+    function createElementInspectorPanel() {
+        const panel = document.createElement('div');
+        panel.id = 'elementInspectorPanel';
+
+        panel.innerHTML = `
+            <div class="inspector-header">
+                <span>Element Design Tokens <span style="font-size: 0.7rem; color: var(--text-secondary); font-weight: normal;">(drag to move)</span></span>
+                <span class="close-inspector" style="cursor: pointer; color: var(--text-secondary); font-size: 1.5rem; padding: 0 0.5rem;">&times;</span>
+            </div>
+            <div class="inspector-content"></div>
+        `;
+
+        makeDraggable(panel);
+
+        panel.querySelector('.close-inspector').addEventListener('click', () => {
+            closeInspectorPanel();
+        });
+
+        document.body.appendChild(panel);
+        return panel;
+    }
+
+    // Make panel draggable
+    function makeDraggable(panel) {
+        const header = panel.querySelector('.inspector-header');
+        let isDragging = false;
+        let initialX, initialY;
+
+        header.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('close-inspector')) return;
+
+            isDragging = true;
+            initialX = e.clientX - (parseInt(panel.style.left) || 0);
+            initialY = e.clientY - (parseInt(panel.style.top) || 0);
+            panel.style.transform = 'none';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                e.preventDefault();
+                panel.style.left = (e.clientX - initialX) + 'px';
+                panel.style.top = (e.clientY - initialY) + 'px';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+    }
+
+    // Close inspector panel
+    function closeInspectorPanel() {
+        const panel = document.getElementById('elementInspectorPanel');
+        if (panel) {
+            panel.classList.remove('visible');
+            panel.style.display = 'none';
+        }
+    }
+
+    // Populate inspector panel with token data
+    function populateInspectorPanel(panel, element, tokens) {
+        const content = panel.querySelector('.inspector-content');
+
+        let html = `
+            <div style="margin-bottom: 1.5rem; padding: 1rem; background: var(--bg-primary); border-radius: 4px; border: 1px solid var(--border);">
+                <div style="font-weight: 600; color: var(--accent-primary); margin-bottom: 0.5rem;">Element Info</div>
+                <div style="font-family: 'Courier New', monospace; color: var(--text-secondary); font-size: 0.8rem;">
+                    <div style="margin-bottom: 0.5rem;"><strong>Tag:</strong> &lt;${tokens.element.tag}&gt;</div>
+                    <div style="margin-bottom: 0.5rem;"><strong>ID:</strong> ${tokens.element.id}</div>
+                    <div style="margin-bottom: 0.5rem;"><strong>Classes:</strong> ${tokens.element.classes}</div>
+                    <div style="margin-bottom: 0.5rem;">
+                        <strong>XPath:</strong>
+                        <div style="
+                            background: var(--bg-secondary);
+                            padding: 0.5rem;
+                            border-radius: 3px;
+                            margin-top: 0.25rem;
+                            word-break: break-all;
+                            color: var(--accent-primary);
+                            font-size: 0.75rem;
+                            border: 1px solid var(--border);
+                            cursor: pointer;
+                        " onclick="navigator.clipboard.writeText('${tokens.element.xpath}').then(() => {
+                            this.style.background = 'var(--success)';
+                            this.style.color = 'white';
+                            setTimeout(() => {
+                                this.style.background = 'var(--bg-secondary)';
+                                this.style.color = 'var(--accent-primary)';
+                            }, 1000);
+                        })" title="Click to copy">${tokens.element.xpath}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        html += createTokenSection('Colors', tokens.colors);
+        html += createTokenSection('Typography', tokens.typography);
+        html += createTokenSection('Spacing', tokens.spacing);
+        html += createTokenSection('Border', tokens.border);
+        html += createTokenSection('Layout', tokens.layout);
+
+        content.innerHTML = html;
+    }
+
+    // Create a token section
+    function createTokenSection(title, tokens) {
+        let html = `
+            <div style="margin-bottom: 1.5rem;">
+                <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">${title}</div>
+        `;
+
+        for (const [key, value] of Object.entries(tokens)) {
+            const isColor = title === 'Colors';
+            const colorSwatch = isColor && value !== 'rgba(0, 0, 0, 0)' && value !== 'transparent'
+                ? `<div style="width: 24px; height: 24px; background: ${value}; border: 1px solid var(--border); border-radius: 3px; flex-shrink: 0;"></div>`
+                : '';
+
+            html += `
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; padding: 0.5rem; background: var(--bg-tertiary); border-radius: 4px;">
+                    ${colorSwatch}
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">${key}</div>
+                        <div style="font-family: 'Courier New', monospace; font-size: 0.7rem; color: var(--accent-primary); overflow: hidden; text-overflow: ellipsis;">${value}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    // Handle shift-mousedown to show inspector
+    function handleShiftMouseDown(e) {
+        if (!e.shiftKey) return;
+
+        if (e.target.closest('#designPanel') ||
+            e.target.closest('#elementInspectorPanel') ||
+            e.target.closest('.design-fab')) {
+            return;
+        }
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        currentElement = e.target;
+        startTime = Date.now();
+
+        progressOverlay = createProgressOverlay();
+        updateProgressOverlay(currentElement, 0);
+
+        let progress = 0;
+        progressTimer = setInterval(() => {
+            progress = ((Date.now() - startTime) / LONG_PRESS_DURATION) * 100;
+            updateProgressOverlay(currentElement, progress);
+
+            if (progress >= 100) {
+                clearInterval(progressTimer);
+            }
+        }, 50);
+
+        longPressTimer = setTimeout(() => {
+            longPressTimer = null;
+
+            const tokens = extractDesignTokens(currentElement);
+            displayElementTokens(currentElement, tokens);
+
+            if (progressTimer) {
+                clearInterval(progressTimer);
+                progressTimer = null;
+            }
+            if (progressOverlay) {
+                progressOverlay.remove();
+                progressOverlay = null;
+            }
+        }, LONG_PRESS_DURATION);
+    }
+
+    // Handle mouseup to cleanup
+    function handleMouseUp(e) {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+        if (progressTimer) {
+            clearInterval(progressTimer);
+            progressTimer = null;
+        }
+        if (progressOverlay) {
+            progressOverlay.remove();
+            progressOverlay = null;
+        }
+        currentElement = null;
+    }
+
+    // Handle Escape key to close inspector
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeInspectorPanel();
+        }
+    });
+
+    // Inspector is sticky - only closes via X button or Escape key
+    // (click outside no longer closes it)
+
+    // Attach event listeners
+    document.addEventListener('mousedown', handleShiftMouseDown, true);
+    document.addEventListener('mouseup', handleMouseUp, true);
+
+    console.log('Design token inspector initialized: Shift-Hold (1 sec) to show, Escape/Click-outside/× to close');
+})();
+    </script>
+</body>
+</html>

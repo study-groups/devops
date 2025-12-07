@@ -1,0 +1,15 @@
+hash: 1bf6e0084d47
+content_hash: 1bf6e0084d47f735d3776d6c6afd4edfd6cbc3d2f2327832c5b5332869ab8767
+fm_hash: 
+current_path: ./.rag/flows/meta-rag-20251029T062325/ctx/010_prompt.user.md
+type: scratch
+lifecycle: W
+tags:
+created: 2025-11-24T13:40:35Z
+updated: 2025-11-24T13:40:35Z
+first_seen: 2025-11-24T13:40:35Z
+size: 81
+lines: 3
+paths:
+  - path: ./.rag/flows/meta-rag-20251029T062325/ctx/010_prompt.user.md
+    seen: 2025-11-24T13:40:35Z
