@@ -1,5 +1,5 @@
 // Get a dedicated logger for this module
-const log = window.APP.services.log.createLogger('FrontmatterParser');
+const log = window.APP?.services?.log?.createLogger('FrontmatterParser') || console;
 
 /**
  * Enhanced frontmatter parser with better error handling and type coercion

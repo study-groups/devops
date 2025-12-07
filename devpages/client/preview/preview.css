@@ -50,17 +50,22 @@
 
   /* Smooth loading transition - prevent flash and layout shift */
   opacity: 0;
-  transition: opacity 0.2s ease-in-out;
+  /* No transition by default - only transition when becoming ready */
+  transition: none;
 }
 
 /* Ready state - show when content is fully rendered (including Mermaid) */
 .preview-iframe.ready {
   opacity: 1;
+  /* Smooth fade-in when becoming ready */
+  transition: opacity 0.2s ease-in-out;
 }
 
-/* Loading state - keep hidden during refresh */
+/* Loading state - keep hidden during refresh with instant hide */
 .preview-iframe.loading {
   opacity: 0;
+  /* Instant hide when entering loading state */
+  transition: none;
 }
 
 
