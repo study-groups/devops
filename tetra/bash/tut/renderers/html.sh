@@ -23,12 +23,22 @@ _tut_render_html() {
         output_file="${TUT_DIR}/generated/$(basename "$basename").html"
     fi
 
-    echo "Generating HTML: $json_file -> $output_file"
+    # Show what we're doing
+    printf "  Type:   "; _tut_accent "guide"; echo
+    printf "  Source: "; _tut_accent "$(basename "$json_file")"; echo
+    printf "          "; _tut_dim "$json_file"; echo
 
     # Generate HTML
     _html_generate "$json_file" > "$output_file"
 
-    echo "✓ Generated: $output_file"
+    # Stats
+    local step_count=$(_tut_step_count "$json_file")
+    local size=$(du -h "$output_file" | cut -f1)
+
+    printf "  Output: "; _tut_accent "$(basename "$output_file")"; echo
+    printf "          "; _tut_dim "$output_file"; echo
+    printf "  Stats:  %s steps, %s\n" "$step_count" "$size"
+    echo
 }
 
 _html_generate() {
@@ -36,42 +46,67 @@ _html_generate() {
 
     local title=$(_tut_meta "$json_file" "title")
     local subtitle=$(_tut_meta "$json_file" "subtitle" "")
+    local version=$(_tut_meta "$json_file" "version" "0.0.0")
+    local author=$(_tut_meta "$json_file" "author" "")
+    local source_file=$(basename "$json_file")
+    local build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
     # HTML head
-    cat <<'HTML_HEAD'
+    cat <<HTML_HEAD
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="tut">
+    <meta name="tut:source" content="$source_file">
+    <meta name="tut:version" content="$version">
+    <meta name="tut:built" content="$build_time">
+    <meta name="tut:type" content="tutorial">
+    <meta name="tut:author" content="$author">
 HTML_HEAD
 
     echo "    <title>$title</title>"
     echo ""
 
     # Base styles
-    if [[ -f "$TUT_SRC/templates/html/base-styles.css" ]]; then
-        echo "    <style>"
-        cat "$TUT_SRC/templates/html/base-styles.css"
-        echo "    </style>"
-    elif [[ -f "$TUT_SRC/templates/base-styles.css" ]]; then
+    if [[ -f "$TUT_SRC/templates/base-styles.css" ]]; then
         echo "    <style>"
         cat "$TUT_SRC/templates/base-styles.css"
         echo "    </style>"
     fi
 
-    # Design token editor styles (opt-in feature)
-    local include_design_tokens=$(_tut_feature "$json_file" "designTokenEditor" "false")
-    if [[ "$include_design_tokens" == "true" ]]; then
-        if [[ -f "$TUT_SRC/templates/html/design-tokens.css" ]]; then
+    # Mindmap module styles
+    if [[ -f "$TUT_SRC/templates/mindmap/mindmap.css" ]]; then
+        echo "    <style>"
+        echo "    /* TUT Mindmap Module */"
+        cat "$TUT_SRC/templates/mindmap/mindmap.css"
+        echo "    </style>"
+    fi
+
+    # TDS theme CSS (if theme.tds is specified)
+    local tds_theme=$(_tut_meta "$json_file" "theme.tds" "")
+    if [[ -n "$tds_theme" && "$tds_theme" != "null" ]]; then
+        # Source TDS CSS export if available
+        if [[ -f "$TETRA_SRC/bash/tds/exports/css_export.sh" ]]; then
+            source "$TETRA_SRC/bash/tds/exports/css_export.sh"
+            # Switch to requested theme and export CSS
+            if type -t tds_switch_theme &>/dev/null; then
+                tds_switch_theme "$tds_theme" 2>/dev/null
+            fi
             echo "    <style>"
-            cat "$TUT_SRC/templates/html/design-tokens.css"
-            echo "    </style>"
-        elif [[ -f "$TUT_SRC/templates/design-tokens.css" ]]; then
-            echo "    <style>"
-            cat "$TUT_SRC/templates/design-tokens.css"
+            echo "        /* TDS Theme: $tds_theme */"
+            tds_export_css_root "            "
             echo "    </style>"
         fi
+    fi
+
+    # Design token editor styles (opt-in feature)
+    local include_design_tokens=$(_tut_feature "$json_file" "designTokenEditor" "false")
+    if [[ "$include_design_tokens" == "true" && -f "$TUT_SRC/templates/design-tokens.css" ]]; then
+        echo "    <style>"
+        cat "$TUT_SRC/templates/design-tokens.css"
+        echo "    </style>"
     fi
 
     # Theme overrides
@@ -132,14 +167,10 @@ HTML_TERMINAL
     echo "    </div>"
 
     # Design token editor HTML
-    if [[ "$include_design_tokens" == "true" ]]; then
+    if [[ "$include_design_tokens" == "true" && -f "$TUT_SRC/templates/design-tokens.html" ]]; then
         echo ""
         echo "    <!-- Design Token Editor -->"
-        if [[ -f "$TUT_SRC/templates/html/design-tokens.html" ]]; then
-            cat "$TUT_SRC/templates/html/design-tokens.html"
-        elif [[ -f "$TUT_SRC/templates/design-tokens.html" ]]; then
-            cat "$TUT_SRC/templates/design-tokens.html"
-        fi
+        cat "$TUT_SRC/templates/design-tokens.html"
     fi
 
     # JavaScript
@@ -201,6 +232,9 @@ _html_render_content() {
             code-block)
                 _html_render_code_block "$json_file" "$step_idx" "$j"
                 ;;
+            mindmap)
+                _html_render_mindmap "$json_file" "$step_idx" "$j"
+                ;;
         esac
     done
 }
@@ -219,7 +253,7 @@ _html_render_list() {
     local tag="ul"
     [[ "$ordered" == "true" ]] && tag="ol"
 
-    echo "                    <$tag style=\"margin-left: 2rem; margin-bottom: 1rem;\">"
+    echo "                    <$tag class=\"content-list\">"
     while IFS= read -r item; do
         echo "                        <li>$item</li>"
     done < <(_tut_list_items "$json_file" "$step_idx" "$block_idx")
@@ -308,6 +342,62 @@ _html_render_code_block() {
     echo "                    </div>"
 }
 
+_html_render_mindmap() {
+    local json_file="$1"
+    local step_idx="$2"
+    local block_idx="$3"
+
+    local center_label=$(_tut_content "$json_file" "$step_idx" "$block_idx" "center.label")
+    local center_sub=$(_tut_content "$json_file" "$step_idx" "$block_idx" "center.sub" "")
+    local title=$(_tut_content "$json_file" "$step_idx" "$block_idx" "title" "")
+
+    # Count spokes
+    local spoke_count=$(jq ".steps[$step_idx].content[$block_idx].spokes | length" "$json_file")
+
+    echo "                    <div class=\"mindmap\">"
+    echo "                        <div class=\"mindmap-container\" data-spokes=\"$spoke_count\">"
+
+    # Center node
+    echo "                            <div class=\"mindmap-center\">"
+    echo "                                <div class=\"mindmap-center-label\">$center_label</div>"
+    [[ -n "$center_sub" && "$center_sub" != "null" ]] && \
+        echo "                                <div class=\"mindmap-center-sub\">$center_sub</div>"
+    echo "                            </div>"
+
+    # Spoke nodes
+    for ((s=0; s<spoke_count; s++)); do
+        local spoke_label=$(jq -r ".steps[$step_idx].content[$block_idx].spokes[$s].label" "$json_file")
+        local spoke_sub=$(jq -r ".steps[$step_idx].content[$block_idx].spokes[$s].sub // empty" "$json_file")
+        local spoke_path=$(jq -r ".steps[$step_idx].content[$block_idx].spokes[$s].path // empty" "$json_file")
+        local spoke_desc=$(jq -r ".steps[$step_idx].content[$block_idx].spokes[$s].description // empty" "$json_file")
+
+        echo "                            <div class=\"mindmap-spoke\">"
+        echo "                                <div class=\"mindmap-spoke-label\">$spoke_label</div>"
+        [[ -n "$spoke_sub" ]] && \
+            echo "                                <div class=\"mindmap-spoke-sub\">$spoke_sub</div>"
+
+        # Expandable detail section
+        if [[ -n "$spoke_path" || -n "$spoke_desc" ]]; then
+            echo "                                <div class=\"mindmap-spoke-detail\">"
+            [[ -n "$spoke_path" ]] && \
+                echo "                                    <div class=\"mindmap-spoke-detail-path\">$spoke_path</div>"
+            [[ -n "$spoke_desc" ]] && \
+                echo "                                    <div class=\"mindmap-spoke-detail-desc\">$spoke_desc</div>"
+            echo "                                </div>"
+        fi
+
+        echo "                            </div>"
+    done
+
+    echo "                        </div>"
+
+    # Caption
+    [[ -n "$title" && "$title" != "null" ]] && \
+        echo "                        <div class=\"mindmap-title\">$title</div>"
+
+    echo "                    </div>"
+}
+
 _html_render_details() {
     local json_file="$1"
     local step_idx="$2"
@@ -382,21 +472,22 @@ _html_render_javascript() {
     echo ""
 
     # Base script
-    if [[ -f "$TUT_SRC/templates/html/base-script.js" ]]; then
-        cat "$TUT_SRC/templates/html/base-script.js"
-    elif [[ -f "$TUT_SRC/templates/base-script.js" ]]; then
+    if [[ -f "$TUT_SRC/templates/base-script.js" ]]; then
         cat "$TUT_SRC/templates/base-script.js"
     fi
 
+    # Mindmap module script
+    if [[ -f "$TUT_SRC/templates/mindmap/mindmap.js" ]]; then
+        echo ""
+        echo "        // TUT Mindmap Module"
+        cat "$TUT_SRC/templates/mindmap/mindmap.js"
+    fi
+
     # Design token editor script
-    if [[ "$include_design_tokens" == "true" ]]; then
+    if [[ "$include_design_tokens" == "true" && -f "$TUT_SRC/templates/design-tokens.js" ]]; then
         echo ""
         echo "        // Design Token Editor"
-        if [[ -f "$TUT_SRC/templates/html/design-tokens.js" ]]; then
-            cat "$TUT_SRC/templates/html/design-tokens.js"
-        elif [[ -f "$TUT_SRC/templates/design-tokens.js" ]]; then
-            cat "$TUT_SRC/templates/design-tokens.js"
-        fi
+        cat "$TUT_SRC/templates/design-tokens.js"
     fi
 
     echo "    </script>"

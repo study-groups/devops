@@ -1,0 +1,450 @@
+{
+  "metadata": {
+    "title": "Deploy Guide",
+    "subtitle": "Learn tetra's project deployment system",
+    "version": "0.1.0",
+    "author": "tetra",
+    "theme": {
+      "primary": "#2563eb",
+      "accent": "#3b82f6"
+    }
+  },
+  "steps": [
+    {
+      "id": "intro",
+      "title": "Understanding Deploy",
+      "subtitle": "The orchestrator for your projects",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "Deploy is tetra's project deployment system. It coordinates five concepts to get your code running on remote servers. Click any spoke to explore:"
+        },
+        {
+          "type": "mindmap",
+          "title": "Authority flows outward: Org \u2192 Projects \u2192 Services",
+          "center": {
+            "label": "Deploy",
+            "sub": "orchestrator"
+          },
+          "spokes": [
+            {
+              "label": "Org",
+              "sub": "where it runs",
+              "path": "$TETRA_DIR/orgs/{org}/tetra.toml",
+              "description": "Environment policy: hosts, domains, SSH users. The foundation that defines where code can be deployed."
+            },
+            {
+              "label": "Project Registry",
+              "sub": "what belongs",
+              "path": "$TETRA_DIR/orgs/{org}/projects/{name}.toml",
+              "description": "Maps project names to source paths, git repos, and deployment hooks. The catalog of deployable units."
+            },
+            {
+              "label": "Service Manifests",
+              "sub": "what runs",
+              "path": "{project_path}/services/*.tsm",
+              "description": "Shell-sourceable files defining TSM processes: command, port, proxy type. Lives with source code."
+            },
+            {
+              "label": "Env Files",
+              "sub": "config values",
+              "path": "{project_path}/env/{env}.env",
+              "description": "Per-environment variables (gitignored). Pushed atomically with backup. Secrets stay local."
+            },
+            {
+              "label": "Runtime State",
+              "sub": "what's running",
+              "path": "$TETRA_DIR/tsm/runtime/processes/",
+              "description": "Live process info managed by TSM. PID files, logs, health status. Ephemeral, not configured."
+            }
+          ]
+        },
+        {
+          "type": "learn-box",
+          "title": "Key Insight",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Authority flows from Org down to Services. Later sources can override earlier ones, but the Org sets the boundaries."
+            }
+          ]
+        }
+      ],
+      "terminal": [
+        { "type": "comment", "content": "# Deploy orchestrates your projects" },
+        { "type": "blank" },
+        { "type": "prompt", "content": "$ " },
+        { "type": "command", "content": "deploy status" },
+        { "type": "blank" },
+        { "type": "output", "content": "Org: mycompany" },
+        { "type": "output", "content": "Projects: 3 registered" },
+        { "type": "output", "content": "Environments: dev, staging, prod" }
+      ]
+    },
+    {
+      "id": "project-types",
+      "title": "Project Types",
+      "subtitle": "Static sites vs services",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "Deploy handles two types of projects. The type determines how nginx is configured:"
+        },
+        {
+          "type": "list",
+          "title": "Static Projects",
+          "items": [
+            "HTML, CSS, JavaScript files",
+            "Served directly by nginx",
+            "No running processes needed",
+            "Example: marketing site, documentation"
+          ]
+        },
+        {
+          "type": "list",
+          "title": "Service Projects",
+          "items": [
+            "Long-running processes (Node, Python, etc.)",
+            "Nginx reverse proxy to localhost port",
+            "Managed by TSM (tetra service manager)",
+            "Example: API server, WebSocket service"
+          ]
+        },
+        {
+          "type": "you-try",
+          "title": "Check Project Type",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Look at a project's type in its TOML:"
+            },
+            {
+              "type": "command-block",
+              "commands": ["deploy project show myproject"]
+            }
+          ]
+        }
+      ],
+      "terminal": [
+        { "type": "prompt", "content": "$ " },
+        { "type": "command", "content": "deploy project show website" },
+        { "type": "blank" },
+        { "type": "output-header", "content": "Project: website" },
+        { "type": "output", "content": "  Type: static" },
+        { "type": "output", "content": "  Path: ~/src/website" },
+        { "type": "output", "content": "  Envs: dev, prod" },
+        { "type": "blank" },
+        { "type": "prompt", "content": "$ " },
+        { "type": "command", "content": "deploy project show api" },
+        { "type": "blank" },
+        { "type": "output-header", "content": "Project: api" },
+        { "type": "output", "content": "  Type: service" },
+        { "type": "output", "content": "  Path: ~/src/api" },
+        { "type": "output", "content": "  Services: api.tsm, worker.tsm" }
+      ]
+    },
+    {
+      "id": "registering",
+      "title": "Registering Projects",
+      "subtitle": "Add your code to deploy",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "Before deploying, register your project. This creates a TOML file that points to your source code:"
+        },
+        {
+          "type": "command-block",
+          "commands": ["deploy project add <name> <path>"]
+        },
+        {
+          "type": "paragraph",
+          "text": "Deploy auto-detects the project type by looking for a services/ directory."
+        },
+        {
+          "type": "learn-box",
+          "title": "What Gets Created",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "A minimal TOML file at $TETRA_DIR/orgs/{org}/projects/{name}.toml with:"
+            },
+            {
+              "type": "list",
+              "items": [
+                "Project name and path",
+                "Auto-detected type (static or service)",
+                "Default environment list"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "you-try",
+          "title": "Register Your First Project",
+          "content": [
+            {
+              "type": "command-block",
+              "commands": [
+                "deploy project add mysite ~/src/mysite",
+                "deploy project show mysite"
+              ]
+            }
+          ]
+        }
+      ],
+      "terminal": [
+        { "type": "prompt", "content": "$ " },
+        { "type": "command", "content": "deploy project add mysite ~/src/mysite" },
+        { "type": "blank" },
+        { "type": "output-success", "content": "Created: $TETRA_DIR/orgs/mycompany/projects/mysite.toml" },
+        { "type": "output", "content": "  Type detected: static" },
+        { "type": "output", "content": "  Environments: dev, staging, prod" },
+        { "type": "blank" },
+        { "type": "prompt", "content": "$ " },
+        { "type": "command", "content": "deploy project list" },
+        { "type": "blank" },
+        { "type": "output", "content": "mysite    static   ~/src/mysite" },
+        { "type": "output", "content": "api       service  ~/src/api" }
+      ]
+    },
+    {
+      "id": "service-manifests",
+      "title": "Service Manifests",
+      "subtitle": "Define how processes run",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "For service-type projects, create shell-sourceable .tsm files in a services/ directory:"
+        },
+        {
+          "type": "code-block",
+          "language": "bash",
+          "code": "# services/api.tsm\nTSM_NAME=\"api\"\nTSM_COMMAND=\"node server.js\"\nTSM_PORT=3001\nTSM_PROXY=\"subdomain\""
+        },
+        {
+          "type": "learn-box",
+          "title": "TSM Variables",
+          "content": [
+            {
+              "type": "list",
+              "items": [
+                "TSM_NAME - Service identifier",
+                "TSM_COMMAND - How to start it",
+                "TSM_PORT - Port number (optional)",
+                "TSM_PROXY - subdomain, path, or none",
+                "TSM_HEALTH - Health check endpoint"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "you-try",
+          "title": "Create a Service Manifest",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Create services/api.tsm in your project, then verify:"
+            },
+            {
+              "type": "command-block",
+              "commands": ["deploy project services myapi"]
+            }
+          ]
+        }
+      ],
+      "terminal": [
+        { "type": "comment", "content": "# services/api.tsm defines how the service runs" },
+        { "type": "blank" },
+        { "type": "prompt", "content": "$ " },
+        { "type": "command", "content": "cat ~/src/myapi/services/api.tsm" },
+        { "type": "blank" },
+        { "type": "output", "content": "TSM_NAME=\"api\"" },
+        { "type": "output", "content": "TSM_COMMAND=\"node server.js\"" },
+        { "type": "output", "content": "TSM_PORT=3001" },
+        { "type": "output", "content": "TSM_PROXY=\"subdomain\"" },
+        { "type": "blank" },
+        { "type": "prompt", "content": "$ " },
+        { "type": "command", "content": "deploy project services myapi" },
+        { "type": "blank" },
+        { "type": "output", "content": "api      port:3001  proxy:subdomain  node server.js" }
+      ]
+    },
+    {
+      "id": "env-files",
+      "title": "Environment Files",
+      "subtitle": "Managing secrets and config",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "Environment-specific variables live in env/{env}.env files. These should be gitignored - they contain secrets."
+        },
+        {
+          "type": "code-block",
+          "language": "bash",
+          "code": "# env/dev.env\nPORT=3001\nDATABASE_URL=postgres://dev.db/myapp\nAPI_KEY=dev-secret-key"
+        },
+        {
+          "type": "warning-box",
+          "title": "Security",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Add env/*.env to .gitignore. These files contain secrets that should never be committed."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Deploy can push env files to servers atomically with backup:"
+        },
+        {
+          "type": "command-block",
+          "commands": [
+            "deploy env push myapi dev",
+            "deploy push myapi dev --with-env"
+          ]
+        }
+      ],
+      "terminal": [
+        { "type": "prompt", "content": "$ " },
+        { "type": "command", "content": "deploy env status myapi" },
+        { "type": "blank" },
+        { "type": "output", "content": "  local.env  \u2713 exists" },
+        { "type": "output", "content": "  dev.env    \u2713 exists" },
+        { "type": "output", "content": "  prod.env   \u2717 missing" },
+        { "type": "blank" },
+        { "type": "prompt", "content": "$ " },
+        { "type": "command", "content": "deploy env push myapi dev" },
+        { "type": "blank" },
+        { "type": "output", "content": "Backing up remote env/dev.env..." },
+        { "type": "output-success", "content": "Pushed env/dev.env to dev server" }
+      ]
+    },
+    {
+      "id": "deploying",
+      "title": "Deploying",
+      "subtitle": "Push your code to production",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "With project registered and services defined, deploy with a single command:"
+        },
+        {
+          "type": "command-block",
+          "commands": ["deploy push <project> <env> [--with-env]"]
+        },
+        {
+          "type": "learn-box",
+          "title": "What Happens",
+          "content": [
+            {
+              "type": "list",
+              "ordered": true,
+              "items": [
+                "Load project TOML, validate env",
+                "If --with-env: sync env file",
+                "Git clone/pull on remote",
+                "Run post_pull hook (build)",
+                "For services: TSM stop/start each",
+                "Generate nginx proxy configs",
+                "Reload nginx",
+                "Health check (if defined)"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "you-try",
+          "title": "Deploy with Preview",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Always preview first with --dry-run:"
+            },
+            {
+              "type": "command-block",
+              "commands": [
+                "deploy push --dry-run myapi dev",
+                "deploy push myapi dev --with-env"
+              ]
+            }
+          ]
+        }
+      ],
+      "terminal": [
+        { "type": "prompt", "content": "$ " },
+        { "type": "command", "content": "deploy push myapi dev --with-env" },
+        { "type": "blank" },
+        { "type": "output", "content": "[1/8] Loading project: myapi" },
+        { "type": "output", "content": "[2/8] Syncing env file..." },
+        { "type": "output-success", "content": "      \u2713 env/dev.env pushed" },
+        { "type": "output", "content": "[3/8] Git pull on dev server..." },
+        { "type": "output-success", "content": "      \u2713 Already up to date" },
+        { "type": "output", "content": "[4/8] Running post_pull hook..." },
+        { "type": "output", "content": "      npm install && npm run build" },
+        { "type": "output", "content": "[5/8] Starting services..." },
+        { "type": "output-success", "content": "      \u2713 api started (port 3001)" },
+        { "type": "output", "content": "[6/8] Generating nginx config..." },
+        { "type": "output", "content": "[7/8] Reloading nginx..." },
+        { "type": "output", "content": "[8/8] Health check..." },
+        { "type": "output-success", "content": "      \u2713 api.dev.example.com healthy" },
+        { "type": "blank" },
+        { "type": "output-success", "content": "Deployment complete!" }
+      ]
+    },
+    {
+      "id": "troubleshooting",
+      "title": "Troubleshooting",
+      "subtitle": "When things go wrong",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "Deploy provides diagnostic tools to help identify issues:"
+        },
+        {
+          "type": "command-block",
+          "commands": [
+            "deploy doctor",
+            "deploy project show <name>",
+            "deploy tsm <env> list",
+            "deploy nginx <env> test"
+          ]
+        },
+        {
+          "type": "learn-box",
+          "title": "Common Issues",
+          "content": [
+            {
+              "type": "list",
+              "items": [
+                "No active org - run: org switch <name>",
+                "Project not found - run: deploy project add",
+                "Service won't start - check env file exists",
+                "Nginx fails - check TSM service is running"
+              ]
+            }
+          ]
+        }
+      ],
+      "terminal": [
+        { "type": "prompt", "content": "$ " },
+        { "type": "command", "content": "deploy doctor" },
+        { "type": "blank" },
+        { "type": "output-header", "content": "Deploy Health Check" },
+        { "type": "output-success", "content": "  \u2713 Org active: mycompany" },
+        { "type": "output-success", "content": "  \u2713 SSH keys deployed" },
+        { "type": "output-success", "content": "  \u2713 Projects: 3 registered" },
+        { "type": "output-warning", "content": "  ! dev: 1 service stopped" },
+        { "type": "blank" },
+        { "type": "prompt", "content": "$ " },
+        { "type": "command", "content": "deploy tsm dev list" },
+        { "type": "blank" },
+        { "type": "output-success", "content": "api      running  port:3001" },
+        { "type": "output-error", "content": "worker   stopped  " }
+      ]
+    }
+  ],
+  "features": {
+    "designTokenEditor": true
+  }
+}

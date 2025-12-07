@@ -73,12 +73,14 @@ function initNavigation() {
 function handleNavClick(e) {
     const navLinks = document.querySelectorAll(Selectors.navLink);
     const sidebar = document.querySelector(Selectors.sidebar);
+    const toggle = document.querySelector('.mobile-nav-toggle');
 
     navLinks.forEach(l => l.classList.remove(StateClasses.active));
     e.currentTarget.classList.add(StateClasses.active);
 
     if (isMobile()) {
         sidebar.classList.remove(StateClasses.open);
+        if (toggle) toggle.style.display = '';
     }
 }
 
@@ -134,23 +136,35 @@ function initMobileMenu() {
     const sidebar = document.querySelector(Selectors.sidebar);
     const sidebarHeader = document.querySelector(Selectors.sidebarHeader);
 
-    if (!sidebar || !sidebarHeader) return;
+    if (!sidebar) return;
 
-    sidebarHeader.addEventListener('click', () => {
-        if (isMobile()) {
-            sidebar.classList.toggle(StateClasses.open);
-        }
+    // Create mobile toggle button
+    const toggle = document.createElement('button');
+    toggle.className = 'mobile-nav-toggle';
+    toggle.textContent = 'Topics';
+    toggle.setAttribute('aria-label', 'Open navigation');
+    document.body.appendChild(toggle);
+
+    // Open sidebar
+    toggle.addEventListener('click', () => {
+        sidebar.classList.add(StateClasses.open);
+        toggle.style.display = 'none';
     });
 
-    document.addEventListener('click', (e) => {
-        if (isMobile() && !sidebar.contains(e.target)) {
-            sidebar.classList.remove(StateClasses.open);
-        }
-    });
+    // Close sidebar (click header or X)
+    if (sidebarHeader) {
+        sidebarHeader.addEventListener('click', () => {
+            if (isMobile()) {
+                sidebar.classList.remove(StateClasses.open);
+                toggle.style.display = '';
+            }
+        });
+    }
 
     window.addEventListener('resize', () => {
         if (!isMobile()) {
             sidebar.classList.remove(StateClasses.open);
+            toggle.style.display = '';
         }
         Config.clearCache();
     });
@@ -168,13 +182,13 @@ function initCollapsibleGroups() {
 }
 
 function handleGroupTitleClick(e) {
-    if (isMobile()) return;
-
     const group = e.currentTarget.closest(Selectors.navGroup);
     if (!group) return;
 
     toggleNavGroup(group, !group.classList.contains(StateClasses.collapsed));
-    saveGroupStates();
+    if (!isMobile()) {
+        saveGroupStates();
+    }
 }
 
 function toggleNavGroup(group, collapse) {

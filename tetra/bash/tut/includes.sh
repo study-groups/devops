@@ -11,7 +11,16 @@ source "$TETRA_SRC/bash/utils/function_helpers.sh"
 # Initialize module with standard tetra conventions
 tetra_module_init_with_alias "tut" "TUT" "generated"
 
+# Load TDS for colored output (optional, degrades gracefully)
+if [[ -f "$TETRA_SRC/bash/tds/tds.sh" ]]; then
+    source "$TETRA_SRC/bash/tds/tds.sh"
+    TUT_HAS_TDS=1
+else
+    TUT_HAS_TDS=0
+fi
+
 # Core utilities
+source "$TUT_SRC/core/output.sh"
 source "$TUT_SRC/core/validators.sh"
 source "$TUT_SRC/core/parser.sh"
 

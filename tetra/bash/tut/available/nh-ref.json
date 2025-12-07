@@ -1,0 +1,294 @@
+{
+  "metadata": {
+    "title": "Nodeholder Reference",
+    "tagline": "DigitalOcean Infrastructure Management",
+    "description": "Reference for Nodeholder (nh) and nh_bridge - infrastructure management and Tetra integration",
+    "version": "0.0.1",
+    "author": "tetra",
+    "created": "2024-01-01T00:00:00Z",
+    "updated": "2025-12-05T14:26:10Z"
+  },
+  "groups": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "topics": [
+        {
+          "id": "architecture",
+          "title": "Architecture",
+          "description": "Two components work together: Nodeholder (standalone) fetches from DigitalOcean, nh_bridge imports into Tetra.",
+          "content": [
+            {
+              "type": "code-block",
+              "code": "doctl (DigitalOcean API)\n       |\n  Nodeholder ($NH_SRC)     <- credentials, fetch\n       |\n  digocean.json            <- bridge contract\n       |\n  nh_bridge (tetra)        <- import to org\n       |\n  tetra.toml               <- deployment config"
+            },
+            {
+              "type": "list",
+              "items": [
+                "NH_SRC: Nodeholder source (~/src/devops/nh)",
+                "NH_DIR: Nodeholder data/contexts (~/nh)",
+                "NHB_SRC: nh_bridge module in Tetra"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "quickstart",
+          "title": "Quick Start",
+          "description": "Get infrastructure from DigitalOcean into Tetra.",
+          "content": [
+            {
+              "type": "code-block",
+              "code": "# 1. Fetch from DigitalOcean (in Nodeholder)\nsource $NH_SRC/bash/nh.sh\nnh fetch\n\n# 2. Import to Tetra (in Tetra)\ntmod load nh_bridge\nnhb import ~/nh/myorg/digocean.json myorg\n\n# 3. Use\norg switch myorg\nssh root@$staging"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nodeholder",
+      "title": "Nodeholder (nh)",
+      "topics": [
+        {
+          "id": "nh-init",
+          "title": "Initialization",
+          "description": "Load Nodeholder into your shell.",
+          "content": [
+            {
+              "type": "code-block",
+              "code": "# Source from context init file\nsource ~/nh/myorg/init.sh\n\n# Or source directly\nexport DIGITALOCEAN_CONTEXT=myorg\nsource $NH_SRC/init.sh"
+            }
+          ]
+        },
+        {
+          "id": "nh-context",
+          "title": "Context Management",
+          "description": "Contexts isolate infrastructure by organization.",
+          "content": [
+            {
+              "type": "command-list",
+              "commands": [
+                {
+                  "code": "nh status",
+                  "description": "Show current context"
+                },
+                {
+                  "code": "nh list",
+                  "description": "List all contexts"
+                },
+                {
+                  "code": "nh switch <ctx>",
+                  "description": "Switch context"
+                },
+                {
+                  "code": "nh create <ctx>",
+                  "description": "Create new context"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "nh-fetch",
+          "title": "Fetching Infrastructure",
+          "description": "Sync with DigitalOcean API.",
+          "content": [
+            {
+              "type": "command-list",
+              "commands": [
+                {
+                  "code": "nh fetch",
+                  "description": "Fetch droplets, domains, keys from DO"
+                },
+                {
+                  "code": "nh servers",
+                  "description": "List servers with IPs"
+                },
+                {
+                  "code": "nh show <server>",
+                  "description": "Show server details"
+                },
+                {
+                  "code": "nh cat",
+                  "description": "Show raw digocean.json"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "nh-env",
+          "title": "Environment Variables",
+          "description": "Export server IPs as shell variables.",
+          "content": [
+            {
+              "type": "command-list",
+              "commands": [
+                {
+                  "code": "nh env load",
+                  "description": "Export $servername variables"
+                },
+                {
+                  "code": "nh env show",
+                  "description": "Show without loading"
+                },
+                {
+                  "code": "nh alias make <prefix>",
+                  "description": "Create short aliases ($paq, $pad)"
+                },
+                {
+                  "code": "nh alias show <prefix>",
+                  "description": "Preview aliases"
+                }
+              ]
+            },
+            {
+              "type": "code-block",
+              "code": "# Load and use\nnh env load\nssh root@$myserver\n\n# Create short aliases\nnh alias make pxjam\nssh root@$paq  # pxjam_arcade_qa -> paq"
+            }
+          ]
+        },
+        {
+          "id": "nh-ssh",
+          "title": "SSH Operations",
+          "description": "Connect to servers.",
+          "content": [
+            {
+              "type": "command-list",
+              "commands": [
+                {
+                  "code": "nh ssh <server>",
+                  "description": "SSH to server by name"
+                },
+                {
+                  "code": "ssh root@$server",
+                  "description": "Use exported variable"
+                },
+                {
+                  "code": "nh keys",
+                  "description": "List DO-registered SSH keys"
+                },
+                {
+                  "code": "nh keys match",
+                  "description": "Find local key matching DO"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nhbridge",
+      "title": "nh_bridge (nhb)",
+      "topics": [
+        {
+          "id": "nhb-load",
+          "title": "Loading the Module",
+          "description": "Load nh_bridge into Tetra.",
+          "content": [
+            {
+              "type": "code-block",
+              "code": "tmod load nh_bridge\nnhb help"
+            }
+          ]
+        },
+        {
+          "id": "nhb-commands",
+          "title": "Commands",
+          "description": "Import infrastructure into Tetra orgs.",
+          "content": [
+            {
+              "type": "command-list",
+              "commands": [
+                {
+                  "code": "nhb status",
+                  "description": "Show NH_SRC, NH_DIR, contexts"
+                },
+                {
+                  "code": "nhb list <json>",
+                  "description": "Preview droplets + env mappings"
+                },
+                {
+                  "code": "nhb import <json> <org>",
+                  "description": "Import to tetra org"
+                },
+                {
+                  "code": "nhb quick <ctx>",
+                  "description": "Import from $NH_DIR/<ctx>/"
+                },
+                {
+                  "code": "nhb validate <json>",
+                  "description": "Check JSON format"
+                },
+                {
+                  "code": "nhb workflow",
+                  "description": "Show architecture docs"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "nhb-envmap",
+          "title": "Environment Mapping",
+          "description": "Override auto-detection with env-map.conf.",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Create env-map.conf alongside digocean.json to map droplet names to environments."
+            },
+            {
+              "type": "code-block",
+              "code": "# ~/nh/myorg/env-map.conf\ndo4=staging\ndo4n2=prod,staging    # one droplet, multiple envs\nmyserver=dev"
+            },
+            {
+              "type": "paragraph",
+              "text": "Without env-map.conf, nhb auto-detects from droplet names: *prod*, *staging*, *dev*."
+            }
+          ]
+        },
+        {
+          "id": "nhb-workflow",
+          "title": "Full Workflow",
+          "description": "End-to-end: DigitalOcean to deployment.",
+          "content": [
+            {
+              "type": "code-block",
+              "code": "# 1. Fetch (Nodeholder)\ncd $NH_SRC && source bash/nh.sh\nnh switch myorg\nnh fetch\n\n# 2. Map environments\nvim ~/nh/myorg/env-map.conf\n\n# 3. Import (Tetra)\ntmod load nh_bridge\nnhb list ~/nh/myorg/digocean.json\nnhb import ~/nh/myorg/digocean.json myorg\n\n# 4. Deploy\norg switch myorg\ntkm init && tkm gen all"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "files",
+      "title": "File Structure",
+      "collapsed": true,
+      "topics": [
+        {
+          "id": "nh-files",
+          "title": "Nodeholder Files",
+          "description": "Key files in $NH_SRC and $NH_DIR.",
+          "content": [
+            {
+              "type": "code-block",
+              "code": "$NH_SRC (~/src/devops/nh)\n├── bash/\n│   ├── nh.sh           # Main command\n│   ├── nh_env.sh       # Environment/alias\n│   ├── nh_doctl.sh     # DO API fetch\n│   └── nh_ssh.sh       # SSH operations\n└── init.sh             # Bootstrap\n\n$NH_DIR (~/nh)\n└── <context>/\n    ├── init.sh         # Context init\n    ├── digocean.json   # Infrastructure data\n    ├── digocean.env    # Generated exports\n    ├── aliases.env     # Short aliases\n    └── env-map.conf    # Env overrides (for nhb)"
+            }
+          ]
+        },
+        {
+          "id": "nhb-files",
+          "title": "nh_bridge Files",
+          "description": "Bridge module in Tetra.",
+          "content": [
+            {
+              "type": "code-block",
+              "code": "$TETRA_SRC/bash/nh_bridge/\n├── includes.sh       # Module loader\n├── nhb.sh            # Main nhb command\n├── nhb_bridge.sh     # Status, validation\n├── nhb_import.sh     # Import logic\n└── nhb_complete.sh   # Tab completion"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

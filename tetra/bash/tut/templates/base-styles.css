@@ -5,18 +5,21 @@
 }
 
 :root {
-    --bg-primary: #0d1117;
-    --bg-secondary: #161b22;
-    --bg-tertiary: #21262d;
-    --text-primary: #c9d1d9;
-    --text-secondary: #8b949e;
-    --accent-primary: #58a6ff;
-    --accent-secondary: #1f6feb;
-    --success: #3fb950;
-    --warning: #d29922;
-    --error: #f85149;
-    --border: #30363d;
-    --highlight: #388bfd26;
+    /* Unified token defaults - matches reference-styles.css and design-tokens.js */
+    --bg-primary: #1a1a2e;
+    --bg-secondary: #16213e;
+    --bg-tertiary: #0d1b2a;
+    --text-primary: #c0c0d0;
+    --text-secondary: #8a8aa0;
+    --text-title: #eaeaea;
+    --text-code: #ff6b6b;
+    --accent-primary: #e94560;
+    --accent-secondary: #3b82c4;
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --error: #f87171;
+    --border: #2a2a4a;
+    --highlight: rgba(233, 69, 96, 0.15);
 }
 
 body {
@@ -293,17 +296,15 @@ body {
     line-height: 1.6;
 }
 
-.detail-explanation,
-.detail-code-dive,
-.detail-architecture,
-.detail-gotcha,
-.detail-performance {
+/* Detail sections - base styling for all types */
+[class^="detail-"] {
     margin-bottom: 1.5rem;
     padding: 1rem;
     background: var(--bg-tertiary);
     border-radius: 4px;
 }
 
+/* Special styling for gotcha/warning sections */
 .detail-gotcha {
     border-left: 3px solid var(--warning);
 }
@@ -497,6 +498,14 @@ code {
 ul {
     color: var(--text-secondary);
 }
+
+/* Content lists (generated from JSON) */
+.content-list {
+    margin-left: 2rem;
+    margin-bottom: 1rem;
+}
+
+/* Mindmap component is now in templates/mindmap/mindmap.css */
 
 @media (max-width: 1200px) {
     .container {

@@ -6,53 +6,6 @@
 
 :root {
     /* -------------------------------------------------------------------------
-       PRIMITIVE TOKENS - Raw values
-       ------------------------------------------------------------------------- */
-
-    /* Color Palette - Neutrals */
-    --color-neutral-0: #000000;
-    --color-neutral-50: #0a0a12;
-    --color-neutral-100: #0d1b2a;
-    --color-neutral-150: #121a2e;
-    --color-neutral-200: #16213e;
-    --color-neutral-250: #1a1a2e;
-    --color-neutral-300: #1e2a4a;
-    --color-neutral-400: #2a2a4a;
-    --color-neutral-500: #3a3a5a;
-    --color-neutral-600: #5a5a7a;
-    --color-neutral-700: #8a8aa0;
-    --color-neutral-800: #a0a0b0;
-    --color-neutral-900: #c0c0d0;
-    --color-neutral-950: #e0e0ea;
-    --color-neutral-1000: #eaeaea;
-
-    /* Color Palette - Primary (configurable accent) */
-    --color-primary-100: #3d1a24;
-    --color-primary-200: #5c1f30;
-    --color-primary-300: #8b2942;
-    --color-primary-400: #c43c58;
-    --color-primary-500: #e94560;
-    --color-primary-600: #ff6b6b;
-    --color-primary-700: #ff8a8a;
-
-    /* Color Palette - Secondary (Blue) */
-    --color-secondary-100: #0a1628;
-    --color-secondary-200: #0f3460;
-    --color-secondary-300: #1a4a7a;
-    --color-secondary-400: #2563a0;
-    --color-secondary-500: #3b82c4;
-    --color-secondary-600: #60a5fa;
-
-    /* Color Palette - Accent (Cyan/Teal) */
-    --color-accent-400: #14b8a6;
-    --color-accent-500: #2dd4bf;
-
-    /* Color Palette - Status */
-    --color-success-500: #4ade80;
-    --color-warning-500: #fbbf24;
-    --color-error-500: #f87171;
-
-    /* -------------------------------------------------------------------------
        TYPOGRAPHY TOKENS
        ------------------------------------------------------------------------- */
 
@@ -124,28 +77,48 @@
     --layout-content-max-width: 900px;
     --breakpoint-md: 768px;
 
+    /* Sidebar position: 'left' or 'right' (FAB-editable) */
+    --layout-sidebar-position: right;
+
     /* =========================================================================
-       SEMANTIC TOKENS - Use these in components
+       SEMANTIC TOKENS - Standard names for FAB compatibility
+       These are the tokens the Design Token Editor modifies in real-time
        ========================================================================= */
 
-    --bg-app: var(--color-neutral-250);
-    --bg-surface: var(--color-neutral-200);
-    --bg-surface-raised: var(--color-secondary-200);
-    --bg-code: var(--color-neutral-100);
+    /* Background tokens (FAB-editable) */
+    --bg-primary: #1a1a2e;                   /* page background */
+    --bg-secondary: #16213e;                 /* topic sections, sidebar */
+    --bg-tertiary: #0d1b2a;                  /* cards, code blocks, module grid */
     --bg-hover: rgba(233, 69, 96, 0.05);
     --bg-active: rgba(233, 69, 96, 0.10);
 
-    --text-primary: var(--color-neutral-1000);
-    --text-secondary: var(--color-neutral-800);
-    --text-tertiary: var(--color-neutral-700);
-    --text-muted: var(--color-neutral-600);
-    --text-code: var(--color-primary-600);
-    --text-heading: var(--color-primary-500);
-    --text-link: var(--color-primary-500);
+    /* Text tokens (FAB-editable) */
+    --text-title: #eaeaea;                   /* page title, section titles, nav titles */
+    --text-primary: #c0c0d0;                 /* body text, paragraphs, lists, inline code */
+    --text-secondary: #8a8aa0;               /* nav links, muted text */
+    --text-code: #ff6b6b;                    /* code blocks (pre > code) */
 
-    --border-default: var(--color-neutral-400);
-    --border-subtle: var(--color-neutral-300);
-    --border-accent: var(--color-primary-500);
+    /* Accent tokens (FAB-editable) */
+    --accent-primary: #e94560;               /* links, highlights */
+    --accent-secondary: #3b82c4;             /* secondary accent */
+
+    /* Status tokens (FAB-editable) */
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --error: #f87171;
+
+    /* Border tokens (FAB-editable) */
+    --border: #2a2a4a;                       /* general borders, dividers */
+    --border-subtle: #1e2a4a;                /* subtle separators */
+
+    /* Highlight token (FAB-editable) */
+    --highlight: rgba(233, 69, 96, 0.15);
+
+    /* Section style tokens (FAB-editable) */
+    --section-border-width: 0 0 0 4px;       /* left-only by default */
+    --section-border-radius: 8px;            /* roundedness */
+    --section-border-color: var(--accent-primary);  /* topic section accent */
+    --section-border-style: solid;
 }
 
 /* =============================================================================
@@ -161,6 +134,7 @@
 html {
     scroll-behavior: smooth;
     scroll-padding-top: var(--space-5);
+    color-scheme: dark;
 }
 
 body {
@@ -168,18 +142,60 @@ body {
     font-size: var(--font-size-base);
     line-height: var(--line-height-relaxed);
     color: var(--text-primary);
-    background: var(--bg-app);
+    background: var(--bg-primary);
     min-height: 100vh;
+}
+
+/* =============================================================================
+   SCROLLBAR STYLING (Dark Theme)
+   ============================================================================= */
+
+/* WebKit browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #3a3a5a;
+    border-radius: 5px;
+    border: 2px solid var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #5a5a7a;
+}
+
+::-webkit-scrollbar-corner {
+    background: var(--bg-secondary);
+}
+
+/* Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #3a3a5a var(--bg-secondary);
 }
 
 /* =============================================================================
    LAYOUT
    ============================================================================= */
 
+/* Default: sidebar on right */
 .content {
     margin-right: var(--layout-sidebar-width);
     padding: var(--space-10) var(--space-16);
     max-width: var(--layout-content-max-width);
+}
+
+/* Sidebar on left variant */
+body[data-sidebar-position="left"] .content {
+    margin-right: 0;
+    margin-left: var(--layout-sidebar-width);
 }
 
 /* =============================================================================
@@ -189,20 +205,47 @@ body {
 .page-header {
     margin-bottom: var(--space-10);
     padding-bottom: var(--space-5);
-    border-bottom: 2px solid var(--border-accent);
+    border-bottom: 2px solid var(--accent-primary);
 }
 
 .page-title {
     font-size: var(--font-size-3xl);
     font-weight: var(--font-weight-bold);
+    font-family: var(--font-family-sans);
     line-height: var(--line-height-tight);
     margin-bottom: var(--space-2);
-    color: #d4a5a5;
+    color: var(--text-title);
 }
 
 .page-tagline {
     color: var(--text-secondary);
     font-size: var(--font-size-md);
+}
+
+/* =============================================================================
+   HEADING STYLES - Consistent across H1, H2, H3
+   ============================================================================= */
+
+h1, h2, h3 {
+    font-family: var(--font-family-sans);
+    color: var(--text-title);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+h1 {
+    font-size: var(--font-size-2xl);
+    margin-bottom: var(--space-4);
+}
+
+h2 {
+    font-size: var(--font-size-xl);
+    margin-bottom: var(--space-3);
+}
+
+h3 {
+    font-size: var(--font-size-lg);
+    margin-bottom: var(--space-2);
 }
 
 /* =============================================================================
@@ -212,22 +255,71 @@ body {
 .topic-section {
     margin-bottom: var(--space-10);
     padding: var(--space-6);
-    background: var(--bg-surface);
-    border-radius: var(--radius-lg);
-    border-left: 4px solid var(--border-accent);
+    background: var(--bg-secondary);
+    border-radius: var(--section-border-radius);
+    border-width: var(--section-border-width);
+    border-style: var(--section-border-style);
+    border-color: var(--section-border-color);
 }
 
 .section-title {
     font-size: var(--font-size-xl);
     font-weight: var(--font-weight-semibold);
+    font-family: var(--font-family-sans);
     line-height: var(--line-height-snug);
     margin-bottom: var(--space-4);
-    color: var(--text-heading);
+    color: var(--text-title);
 }
 
 .section-description {
     margin-bottom: var(--space-4);
-    color: var(--text-secondary);
+    color: var(--text-primary);
+}
+
+/* =============================================================================
+   LIST STYLES
+   ============================================================================= */
+
+.topic-section ul,
+.topic-section ol {
+    margin: var(--space-3) 0;
+    padding-left: var(--space-6);
+    color: var(--text-primary);
+}
+
+.topic-section ul {
+    list-style-type: disc;
+}
+
+.topic-section ol {
+    list-style-type: decimal;
+}
+
+.topic-section li {
+    margin-bottom: var(--space-2);
+    padding-left: var(--space-2);
+    line-height: var(--line-height-relaxed);
+}
+
+.topic-section li::marker {
+    color: var(--accent-primary);
+}
+
+/* Nested lists */
+.topic-section ul ul,
+.topic-section ol ol,
+.topic-section ul ol,
+.topic-section ol ul {
+    margin-top: var(--space-2);
+    margin-bottom: var(--space-1);
+}
+
+.topic-section ul ul {
+    list-style-type: circle;
+}
+
+.topic-section ul ul ul {
+    list-style-type: square;
 }
 
 /* =============================================================================
@@ -254,7 +346,7 @@ body {
 .command-code {
     font-family: var(--font-family-mono);
     font-size: 0.9em;
-    background: var(--bg-code);
+    background: var(--bg-tertiary);
     color: var(--text-code);
     padding: var(--space-1) var(--space-2);
     border-radius: var(--radius-base);
@@ -263,7 +355,7 @@ body {
 }
 
 .command-desc {
-    color: var(--text-tertiary);
+    color: var(--text-secondary);
     font-size: var(--font-size-sm);
 }
 
@@ -271,17 +363,31 @@ body {
    CODE BLOCKS
    ============================================================================= */
 
+/* Inline code */
 code {
     font-family: var(--font-family-mono);
     font-size: 0.9em;
-    background: var(--bg-code);
-    color: var(--text-code);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
     padding: var(--space-1) var(--space-2);
     border-radius: var(--radius-base);
+    cursor: pointer;
+    transition: background var(--duration-fast) var(--ease-out);
 }
 
+code:hover {
+    background: var(--bg-secondary);
+}
+
+code.copied {
+    background: var(--success);
+    color: white;
+}
+
+/* Code blocks */
 pre, .code-block {
-    background: var(--bg-code);
+    position: relative;
+    background: var(--bg-tertiary);
     padding: var(--space-4);
     border-radius: var(--radius-md);
     margin: var(--space-4) 0;
@@ -291,7 +397,44 @@ pre, .code-block {
 pre code, .code-block code {
     background: transparent;
     padding: 0;
-    color: var(--text-primary);
+    color: var(--text-code);
+}
+
+/* Copy button for code blocks */
+.code-copy-btn {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-base);
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    font-family: var(--font-family-sans);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--duration-normal) var(--ease-out),
+                background var(--duration-normal) var(--ease-out),
+                color var(--duration-normal) var(--ease-out);
+}
+
+pre:hover .code-copy-btn,
+.code-block:hover .code-copy-btn {
+    opacity: 1;
+}
+
+.code-copy-btn:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+}
+
+.code-copy-btn.copied {
+    background: var(--success);
+    border-color: var(--success);
+    color: white;
+    opacity: 1;
 }
 
 /* =============================================================================
@@ -306,7 +449,7 @@ pre code, .code-block code {
 }
 
 .module-card {
-    background: var(--bg-surface-raised);
+    background: var(--bg-tertiary);
     padding: var(--space-4);
     border-radius: var(--radius-md);
     text-align: center;
@@ -322,7 +465,7 @@ pre code, .code-block code {
 .module-name {
     font-family: var(--font-family-mono);
     font-weight: var(--font-weight-semibold);
-    color: var(--text-heading);
+    color: var(--accent-primary);
     margin-bottom: var(--space-2);
 }
 
@@ -335,29 +478,56 @@ pre code, .code-block code {
    SIDEBAR NAVIGATION
    ============================================================================= */
 
+/* Default: sidebar on right */
 .sidebar {
     position: fixed;
     top: 0;
     right: 0;
     width: var(--layout-sidebar-width);
     height: 100vh;
-    background: var(--bg-surface);
-    border-left: 1px solid var(--border-default);
+    background: var(--bg-secondary);
+    border-left: 1px solid var(--border);
     overflow-y: auto;
     padding: var(--space-5) 0;
     z-index: 300;
 }
 
+/* Sidebar on left variant */
+body[data-sidebar-position="left"] .sidebar {
+    right: auto;
+    left: 0;
+    border-left: none;
+    border-right: 1px solid var(--border);
+}
+
+/* Sidebar-specific scrollbar (slightly thinner) */
+.sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: #3a3a5a;
+    border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: #5a5a7a;
+}
+
 .sidebar-header {
     padding: 0 var(--space-5) var(--space-5);
-    border-bottom: 1px solid var(--border-default);
+    border-bottom: 1px solid var(--border);
     margin-bottom: var(--space-2);
 }
 
 .sidebar-title {
     font-size: var(--font-size-lg);
     font-weight: var(--font-weight-semibold);
-    color: var(--text-primary);
+    color: var(--text-title);
 }
 
 /* Navigation Groups */
@@ -372,7 +542,7 @@ pre code, .code-block code {
     font-weight: var(--font-weight-semibold);
     text-transform: uppercase;
     letter-spacing: 0.025em;
-    color: var(--text-heading);
+    color: var(--accent-primary);
     background: transparent;
     border: none;
     cursor: pointer;
@@ -420,15 +590,15 @@ pre code, .code-block code {
 }
 
 .nav-link:hover {
-    color: var(--text-primary);
+    color: var(--text-title);
     background: var(--bg-hover);
-    border-left-color: var(--border-accent);
+    border-left-color: var(--accent-primary);
 }
 
 .nav-link.active {
-    color: var(--text-link);
+    color: var(--accent-primary);
     background: var(--bg-active);
-    border-left-color: var(--border-accent);
+    border-left-color: var(--accent-primary);
 }
 
 /* =============================================================================
@@ -437,7 +607,7 @@ pre code, .code-block code {
 
 .api-endpoint,
 .api-function {
-    background: var(--bg-code);
+    background: var(--bg-tertiary);
     border-radius: var(--radius-md);
     padding: var(--space-4);
     margin: var(--space-4) 0;
@@ -476,7 +646,7 @@ pre code, .code-block code {
 
 .function-signature {
     font-size: var(--font-size-base);
-    color: var(--text-heading);
+    color: var(--accent-primary);
     background: transparent;
 }
 
@@ -494,12 +664,61 @@ pre code, .code-block code {
 .function-example h5 {
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
-    color: var(--text-tertiary);
+    color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-bottom: var(--space-2);
 }
 
+/* =============================================================================
+   DATA TABLES
+   ============================================================================= */
+
+table {
+    width: 100%;
+    font-size: var(--font-size-sm);
+    border-collapse: collapse;
+    margin: var(--space-4) 0;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+table th {
+    text-align: left;
+    padding: var(--space-3) var(--space-4);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-title);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+table td {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: top;
+    color: var(--text-primary);
+}
+
+table tr:last-child td {
+    border-bottom: none;
+}
+
+table tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* First column styling - bold for labels/keys */
+table td:first-child {
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-title);
+    white-space: nowrap;
+}
+
+/* Params table (API docs) */
 .params-table {
     width: 100%;
     font-size: var(--font-size-sm);
@@ -509,9 +728,9 @@ pre code, .code-block code {
 .params-table th {
     text-align: left;
     padding: var(--space-2);
-    background: var(--bg-surface);
-    border-bottom: 1px solid var(--border-default);
-    color: var(--text-tertiary);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
     font-weight: var(--font-weight-medium);
 }
 
@@ -523,7 +742,7 @@ pre code, .code-block code {
 
 .required-badge {
     font-size: var(--font-size-xs);
-    background: var(--color-primary-500);
+    background: var(--accent-primary);
     color: white;
     padding: 0.125rem 0.375rem;
     border-radius: var(--radius-sm);
@@ -588,24 +807,112 @@ pre code, .code-block code {
         margin-right: 0;
         padding: var(--space-6);
     }
+
+    /* Hidden by default, shown via JS toggle */
     .sidebar {
         position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        top: auto;
+        inset: 0;
         width: 100%;
-        height: auto;
-        max-height: 50vh;
-        border-left: none;
-        border-top: 1px solid var(--border-default);
-        transform: translateY(calc(100% - 50px));
-        transition: transform var(--duration-slow) var(--ease-out);
+        height: 100%;
+        max-height: 100vh;
+        background: var(--bg-primary);
+        border: none;
+        border-radius: 0;
+        z-index: 500;
+        display: none;
+        flex-direction: column;
     }
+
     .sidebar.open {
-        transform: translateY(0);
+        display: flex;
     }
+
     .sidebar-header {
         cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--space-4) var(--space-5);
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border);
     }
+
+    .sidebar-header::after {
+        content: '✕';
+        font-size: 1.25rem;
+        color: var(--text-secondary);
+    }
+
+    .sidebar-title {
+        font-size: var(--font-size-base);
+    }
+
+    .nav-group-title {
+        padding: var(--space-3) var(--space-4);
+    }
+
+    .nav-link {
+        padding: var(--space-3) var(--space-4) var(--space-3) var(--space-6);
+    }
+
+    /* Floating Topics button */
+    .mobile-nav-toggle {
+        display: flex;
+        position: fixed;
+        top: var(--space-4);
+        right: var(--space-4);
+        padding: var(--space-2) var(--space-4);
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        color: var(--text-primary);
+        font-size: var(--font-size-sm);
+        font-weight: var(--font-weight-semibold);
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        z-index: 400;
+    }
+
+    .mobile-nav-toggle:hover {
+        background: var(--accent-primary);
+        border-color: var(--accent-primary);
+        color: white;
+    }
+
+    .sidebar.open + .mobile-nav-toggle,
+    .sidebar.open ~ .mobile-nav-toggle {
+        display: none;
+    }
+}
+
+/* Hide mobile toggle on desktop */
+@media (min-width: 769px) {
+    .mobile-nav-toggle {
+        display: none;
+    }
+}
+
+/* =============================================================================
+   DOCUMENT FOOTER - Build metadata
+   ============================================================================= */
+
+.doc-footer {
+    display: flex;
+    margin-top: var(--space-12);
+    padding: var(--space-4) 0;
+    border-top: 1px solid var(--border);
+    gap: var(--space-4);
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    font-family: var(--font-family-mono);
+}
+
+.doc-footer span::after {
+    content: "•";
+    margin-left: var(--space-4);
+    opacity: 0.5;
+}
+
+.doc-footer span:last-child::after {
+    content: "";
 }

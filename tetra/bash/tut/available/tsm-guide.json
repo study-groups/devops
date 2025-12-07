@@ -1,0 +1,941 @@
+{
+  "metadata": {
+    "title": "TSM Guide",
+    "subtitle": "Master the Tetra Service Manager",
+    "description": "Learn how to use TSM (Tetra Service Manager) to manage long-running services, allocate ports, and monitor processes in the tetra ecosystem.",
+    "version": "1.1.0",
+    "author": "Tetra Team",
+    "created": "2025-11-25T00:00:00Z",
+    "tags": ["tsm", "service-manager", "process-management", "ports", "guide"],
+    "difficulty": "beginner",
+    "estimatedTime": 30,
+    "prerequisites": [
+      "Completed Tetra bootstrap",
+      "Basic understanding of bash",
+      "Familiarity with long-running processes"
+    ],
+    "context": {
+      "shell": "bash",
+      "shellVersion": "5.2+",
+      "requiredCommands": ["source", "ps", "kill", "netstat"],
+      "environmentVars": {
+        "TETRA_SRC": "Path to tetra source",
+        "TETRA_DIR": "Path to tetra runtime data"
+      },
+      "workingDirectory": "~/tetra"
+    }
+  },
+  "theme": {
+    "colors": {
+      "accentPrimary": "#667eea",
+      "accentSecondary": "#764ba2"
+    }
+  },
+  "steps": [
+    {
+      "id": "welcome",
+      "title": "Welcome to TSM",
+      "subtitle": "The Tetra Service Manager",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "TSM (Tetra Service Manager) is tetra's built-in process orchestrator. It manages long-running services, allocates named ports, handles logging, and monitors process health."
+        },
+        {
+          "type": "paragraph",
+          "text": "Unlike systemd or supervisord, TSM is lightweight, bash-native, and deeply integrated with tetra's architecture patterns."
+        },
+        {
+          "type": "learn-box",
+          "title": "What You'll Learn",
+          "content": [
+            {
+              "type": "list",
+              "items": [
+                "How to start and stop services with TSM",
+                "Understanding service definitions and manifests",
+                "Port allocation and named ports",
+                "Log management and monitoring",
+                "Process inspection and health checks"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "info-box",
+          "title": "Prerequisites",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Before starting, ensure you have:"
+            },
+            {
+              "type": "list",
+              "items": [
+                "Tetra installed and sourced",
+                "A terminal window open",
+                "Basic familiarity with bash commands"
+              ]
+            }
+          ]
+        }
+      ],
+      "terminal": [
+        { "type": "comment", "content": "# Welcome to TSM - Tetra Service Manager" },
+        { "type": "comment", "content": "# Let's learn how to manage services the tetra way" },
+        { "type": "blank", "content": "" },
+        { "type": "comment", "content": "# TSM provides:" },
+        { "type": "output", "content": "  ✓ Service lifecycle management (start/stop/restart)" },
+        { "type": "output", "content": "  ✓ Named port allocation" },
+        { "type": "output", "content": "  ✓ Structured logging" },
+        { "type": "output", "content": "  ✓ Health monitoring" },
+        { "type": "output", "content": "  ✓ Multi-user support" }
+      ]
+    },
+    {
+      "id": "bootstrap-tsm",
+      "title": "Bootstrap TSM",
+      "subtitle": "Load the TSM module",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "TSM is a tetra module, so we load it the standard way: source its includes.sh file. This sets up TSM_SRC and TSM_DIR globals and initializes the service manager."
+        },
+        {
+          "type": "you-try",
+          "title": "Load TSM",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "First, ensure tetra is loaded, then source TSM:"
+            },
+            {
+              "type": "command-block",
+              "commands": [
+                "cd ~/tetra",
+                "source ~/tetra/tetra.sh",
+                "source \"$TETRA_SRC/bash/tsm/includes.sh\""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "TSM is now loaded! Let's verify it's working by checking the help."
+        },
+        {
+          "type": "you-try",
+          "title": "Check TSM Help",
+          "content": [
+            {
+              "type": "command-block",
+              "commands": ["tsm help"]
+            }
+          ]
+        }
+      ],
+      "terminal": [
+        { "type": "prompt", "content": "$ ", "inline": true },
+        { "type": "command", "content": "cd ~/tetra" },
+        { "type": "prompt", "content": "$ ", "inline": true },
+        { "type": "command", "content": "source ~/tetra/tetra.sh" },
+        { "type": "output-success", "content": "✓ Tetra initialized" },
+        { "type": "output", "content": "TETRA_SRC=/Users/you/tetra" },
+        { "type": "output", "content": "TETRA_DIR=/Users/you/tetra_dir" },
+        { "type": "blank", "content": "" },
+        { "type": "prompt", "content": "$ ", "inline": true },
+        { "type": "command", "content": "source \"$TETRA_SRC/bash/tsm/includes.sh\"" },
+        { "type": "output-success", "content": "✓ TSM loaded" },
+        { "type": "output", "content": "TSM_SRC=/Users/you/tetra/bash/tsm" },
+        { "type": "output", "content": "TSM_DIR=/Users/you/tetra_dir/tsm" },
+        { "type": "blank", "content": "" },
+        { "type": "prompt", "content": "$ ", "inline": true },
+        { "type": "command", "content": "tsm help" },
+        { "type": "output-header", "content": "TSM - Tetra Service Manager" },
+        { "type": "output", "content": "Usage: tsm <command> [args]" },
+        { "type": "blank", "content": "" },
+        { "type": "output", "content": "Service Lifecycle:" },
+        { "type": "output", "content": "  start <service>      Start a service" },
+        { "type": "output", "content": "  stop <id>            Stop a service" },
+        { "type": "output", "content": "  restart <id>         Restart a service" },
+        { "type": "output", "content": "  list                 List running services" }
+      ],
+      "details": {
+        "enabled": true,
+        "title": "Under the Hood",
+        "icon": "🔍",
+        "displayMode": "margin-note",
+        "collapsed": true,
+        "sections": [
+          {
+            "type": "explanation",
+            "title": "What happens when TSM loads?",
+            "content": "The includes.sh file sets TSM_SRC and TSM_DIR, creates runtime directories, and sources tsm.sh which loads all TSM components in dependency order: core utilities, process management, port resolution, logging, and monitoring.",
+            "level": "intermediate"
+          },
+          {
+            "type": "code-dive",
+            "title": "Strong globals pattern",
+            "file": "bash/tsm/includes.sh",
+            "lines": [9, 10, 23],
+            "explanation": "Notice TSM follows the strong globals pattern: MOD_SRC for source code, MOD_DIR for runtime data. It also maintains backward compatibility with TSM_SRC/TSM_DIR."
+          },
+          {
+            "type": "architecture",
+            "title": "TSM directory structure",
+            "content": "TSM uses dual directories:\n\n**TSM_SRC** (source code, in git):\n  - bash/tsm/core/        # Core functionality\n  - bash/tsm/process/     # Process management\n  - bash/tsm/system/      # System integration\n  - bash/tsm/services/    # Service definitions\n\n**TSM_DIR** (runtime data, ephemeral):\n  - tsm/runtime/processes/  # Process metadata\n  - tsm/logs/               # Service logs\n  - tsm/sockets/            # Unix domain sockets\n\nThis separation allows git to track code while ignoring runtime state.",
+            "diagram": "See directory tree above"
+          }
+        ]
+      }
+    },
+    {
+      "id": "list-services",
+      "title": "List Available Services",
+      "subtitle": "Discover what services TSM knows about",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "TSM manages services defined in the services/ directory. Each service has a definition file that specifies how to start it, what ports it needs, and other metadata."
+        },
+        {
+          "type": "you-try",
+          "title": "List Available Services",
+          "content": [
+            {
+              "type": "command-block",
+              "commands": ["tsm list available"]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "You'll see services like 'chroma' (vector database), 'devpages' (dev server), and others that are available to start."
+        }
+      ],
+      "terminal": [
+        { "type": "prompt", "content": "$ ", "inline": true },
+        { "type": "command", "content": "tsm list available" },
+        { "type": "blank", "content": "" },
+        { "type": "output-header", "content": "Available Services:" },
+        { "type": "output-header", "content": "═══════════════════" },
+        { "type": "blank", "content": "" },
+        { "type": "output-success", "content": "chroma          Vector database for RAG" },
+        { "type": "output", "content": "  Port: chroma-api (default 8000)" },
+        { "type": "output", "content": "  Command: chroma run --path $CHROMA_DIR/data" },
+        { "type": "blank", "content": "" },
+        { "type": "output-success", "content": "devpages        Development page server" },
+        { "type": "output", "content": "  Port: devpages-http (default 8080)" },
+        { "type": "output", "content": "  Command: python -m http.server" },
+        { "type": "blank", "content": "" },
+        { "type": "output", "content": "Total: 2 services available" }
+      ],
+      "details": {
+        "enabled": true,
+        "title": "Under the Hood",
+        "icon": "🔍",
+        "displayMode": "margin-note",
+        "collapsed": true,
+        "sections": [
+          {
+            "type": "explanation",
+            "title": "Service definitions",
+            "content": "Services are defined in bash/tsm/services/definitions.sh. Each service has:\n- A unique name\n- Start command\n- Named port(s)\n- Health check endpoint\n- Log location\n- Restart policy",
+            "level": "intermediate"
+          },
+          {
+            "type": "code-dive",
+            "title": "Example service definition",
+            "file": "bash/tsm/services/definitions.sh",
+            "lines": [15, 30],
+            "explanation": "Service definitions use associative arrays. The register_service function adds them to TSM's registry."
+          },
+          {
+            "type": "gotcha",
+            "title": "Service vs Process",
+            "content": "TSM distinguishes between:\n- **Service**: A definition (how to start something)\n- **Process**: A running instance of a service\n\nOne service can have multiple processes (think: scaled workers).",
+            "severity": "info"
+          }
+        ]
+      }
+    },
+    {
+      "id": "start-service",
+      "title": "Start a Service",
+      "subtitle": "Launch a managed process",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "Starting a service with TSM is simple: tsm start <service-name>. TSM will allocate ports, set up logging, and manage the process lifecycle."
+        },
+        {
+          "type": "you-try",
+          "title": "Start a Service",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Let's start the chroma service (if you have it installed):"
+            },
+            {
+              "type": "command-block",
+              "commands": ["tsm start chroma"]
+            }
+          ]
+        },
+        {
+          "type": "learn-box",
+          "title": "What TSM Does",
+          "content": [
+            {
+              "type": "list",
+              "items": [
+                "Allocates the named port 'chroma-api'",
+                "Creates a unique process ID",
+                "Stores process metadata in TSM_DIR/runtime/processes/",
+                "Redirects stdout/stderr to TSM_DIR/logs/",
+                "Starts the service in the background",
+                "Registers the process for monitoring"
+              ]
+            }
+          ]
+        }
+      ],
+      "terminal": [
+        { "type": "prompt", "content": "$ ", "inline": true },
+        { "type": "command", "content": "tsm start chroma" },
+        { "type": "blank", "content": "" },
+        { "type": "output", "content": "Starting service: chroma" },
+        { "type": "output", "content": "Allocating port chroma-api → 8000" },
+        { "type": "output", "content": "Process ID: tsm-chroma-1732567890" },
+        { "type": "output", "content": "Log: /Users/you/tetra_dir/tsm/logs/chroma-1732567890.log" },
+        { "type": "blank", "content": "" },
+        { "type": "output-success", "content": "✓ Service started successfully" },
+        { "type": "output", "content": "PID: 12345" },
+        { "type": "output", "content": "Port: http://localhost:8000" },
+        { "type": "blank", "content": "" },
+        { "type": "comment", "content": "# Check if it's running:" },
+        { "type": "prompt", "content": "$ ", "inline": true },
+        { "type": "command", "content": "tsm list" },
+        { "type": "blank", "content": "" },
+        { "type": "output-header", "content": "Running Services:" },
+        { "type": "output", "content": "ID                      SERVICE   PID    PORT   STATUS   UPTIME" },
+        { "type": "output-success", "content": "tsm-chroma-1732567890  chroma    12345  8000   healthy  5s", "highlight": true }
+      ],
+      "details": {
+        "enabled": true,
+        "title": "Under the Hood",
+        "icon": "🔍",
+        "displayMode": "margin-note",
+        "collapsed": true,
+        "sections": [
+          {
+            "type": "explanation",
+            "title": "Process metadata",
+            "content": "When TSM starts a service, it creates a metadata file in TSM_DIR/runtime/processes/<id>.json containing:\n- Service name\n- PID\n- Port allocations\n- Start time\n- Command line\n- Environment variables\n- Log paths\n\nThis metadata persists across terminal sessions.",
+            "level": "intermediate"
+          },
+          {
+            "type": "architecture",
+            "title": "Port allocation strategy",
+            "content": "TSM uses **named ports** instead of hardcoding numbers:\n\n1. Service requests port by name (e.g., 'chroma-api')\n2. TSM checks system/ports.sh for default\n3. If port is in use, TSM finds next available\n4. Allocation is recorded in TSM_DIR/runtime/ports.db\n5. Service is started with PORT env var set\n\nThis prevents port conflicts and makes configuration explicit.",
+            "diagram": "Named port → Default number → Availability check → Allocation"
+          },
+          {
+            "type": "gotcha",
+            "title": "Background processes",
+            "content": "TSM uses bash's job control to manage background processes. The process is started with nohup and redirected to logs. TSM monitors it via PID file, not job ID.",
+            "severity": "info",
+            "example": {
+              "wrong": "chroma run &",
+              "right": "nohup chroma run </dev/null >>log 2>&1 &",
+              "explanation": "TSM ensures processes survive terminal closure and have proper I/O redirection"
+            }
+          },
+          {
+            "type": "performance",
+            "title": "Startup time",
+            "content": "TSM startup overhead is minimal (~50ms) because it's pure bash. Compare to systemd (300ms+) or Docker (1s+). Services start at native speed.",
+            "metrics": {
+              "complexity": "O(1) - constant time process spawn",
+              "memory": "~2MB per process (metadata only)",
+              "diskIO": "1 write (metadata file)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "inspect-process",
+      "title": "Inspect Running Processes",
+      "subtitle": "View process details and metadata",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "TSM provides detailed inspection of running processes. You can view metadata, logs, resource usage, and health status."
+        },
+        {
+          "type": "you-try",
+          "title": "Inspect a Process",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Use the process ID from the previous step:"
+            },
+            {
+              "type": "command-block",
+              "commands": ["tsm show tsm-chroma-1732567890"]
+            }
+          ]
+        }
+      ],
+      "terminal": [
+        { "type": "prompt", "content": "$ ", "inline": true },
+        { "type": "command", "content": "tsm show tsm-chroma-1732567890" },
+        { "type": "blank", "content": "" },
+        { "type": "output-header", "content": "Process Details:" },
+        { "type": "output-header", "content": "═══════════════" },
+        { "type": "blank", "content": "" },
+        { "type": "output", "content": "ID:         tsm-chroma-1732567890" },
+        { "type": "output", "content": "Service:    chroma" },
+        { "type": "output", "content": "PID:        12345" },
+        { "type": "output-success", "content": "Status:     healthy" },
+        { "type": "output", "content": "Uptime:     2m 15s" },
+        { "type": "blank", "content": "" },
+        { "type": "output", "content": "Ports:" },
+        { "type": "output", "content": "  chroma-api → localhost:8000" },
+        { "type": "blank", "content": "" },
+        { "type": "output", "content": "Resources:" },
+        { "type": "output", "content": "  CPU:    2.3%" },
+        { "type": "output", "content": "  Memory: 145MB" },
+        { "type": "blank", "content": "" },
+        { "type": "output", "content": "Logs:" },
+        { "type": "output", "content": "  /Users/you/tetra_dir/tsm/logs/chroma-1732567890.log" }
+      ],
+      "details": {
+        "enabled": true,
+        "title": "Under the Hood",
+        "icon": "🔍",
+        "displayMode": "margin-note",
+        "collapsed": true,
+        "sections": [
+          {
+            "type": "explanation",
+            "title": "Health checks",
+            "content": "TSM performs periodic health checks:\n1. PID exists (via kill -0)\n2. Port is listening (via netstat)\n3. HTTP endpoint returns 200 (if configured)\n4. No recent crashes (log parsing)\n\nHealth status: healthy, degraded, unhealthy, crashed",
+            "level": "advanced"
+          },
+          {
+            "type": "code-dive",
+            "title": "Resource monitoring",
+            "file": "bash/tsm/system/monitor.sh",
+            "lines": [45, 60],
+            "explanation": "TSM uses ps to get CPU/memory stats. For more detailed monitoring, it can integrate with system tools like top or htop."
+          }
+        ]
+      }
+    },
+    {
+      "id": "view-logs",
+      "title": "View Service Logs",
+      "subtitle": "Access stdout and stderr",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "Every service managed by TSM has its output captured to structured log files. You can view logs with tsm logs or tail them in real-time."
+        },
+        {
+          "type": "you-try",
+          "title": "View Logs",
+          "content": [
+            {
+              "type": "command-block",
+              "commands": [
+                "tsm logs tsm-chroma-1732567890",
+                "tsm logs tsm-chroma-1732567890 --follow"
+              ]
+            }
+          ]
+        }
+      ],
+      "terminal": [
+        { "type": "prompt", "content": "$ ", "inline": true },
+        { "type": "command", "content": "tsm logs tsm-chroma-1732567890" },
+        { "type": "blank", "content": "" },
+        { "type": "output", "content": "[2025-11-25 10:30:00] Starting Chroma server" },
+        { "type": "output", "content": "[2025-11-25 10:30:01] Loading data from /Users/you/tetra_dir/chroma/data" },
+        { "type": "output-success", "content": "[2025-11-25 10:30:02] Server listening on port 8000" },
+        { "type": "output", "content": "[2025-11-25 10:30:05] Collection 'tetra-docs' loaded (1234 vectors)" },
+        { "type": "blank", "content": "" },
+        { "type": "comment", "content": "# Use --follow to tail logs in real-time:" },
+        { "type": "prompt", "content": "$ ", "inline": true },
+        { "type": "command", "content": "tsm logs tsm-chroma-1732567890 --follow" },
+        { "type": "output", "content": "[2025-11-25 10:32:15] Query received: similarity search" },
+        { "type": "output", "content": "[2025-11-25 10:32:16] Returned 10 results in 45ms" }
+      ],
+      "details": {
+        "enabled": true,
+        "title": "Under the Hood",
+        "icon": "🔍",
+        "displayMode": "margin-note",
+        "collapsed": true,
+        "sections": [
+          {
+            "type": "explanation",
+            "title": "Structured logging",
+            "content": "TSM logs are timestamped and can be queried. The tsm_logs_query.sh module provides grep-like functionality:\n\ntsm logs <id> --since '5m ago'\ntsm logs <id> --level ERROR\ntsm logs <id> --grep 'startup'",
+            "level": "intermediate"
+          },
+          {
+            "type": "architecture",
+            "title": "Log rotation",
+            "content": "TSM implements log rotation:\n- Max file size: 10MB (configurable)\n- Rotated logs: <id>.log.1, <id>.log.2, etc.\n- Max rotations: 5 (keeps last 50MB)\n- Old logs compressed with gzip\n\nPatrol system runs cleanup daily.",
+            "diagram": "Active log → Rotation → Compression → Cleanup"
+          }
+        ]
+      }
+    },
+    {
+      "id": "port-management",
+      "title": "Port Management",
+      "subtitle": "Understanding named ports",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "TSM uses 'named ports' instead of hardcoded port numbers. This makes services portable and prevents conflicts."
+        },
+        {
+          "type": "you-try",
+          "title": "List Ports",
+          "content": [
+            {
+              "type": "command-block",
+              "commands": ["tsm ports"]
+            }
+          ]
+        },
+        {
+          "type": "learn-box",
+          "title": "Named Port Benefits",
+          "content": [
+            {
+              "type": "list",
+              "items": [
+                "Services request by name, not number",
+                "TSM allocates from available pool",
+                "Prevents port conflicts automatically",
+                "Environment-specific overrides (dev vs prod)",
+                "Clear service inventory"
+              ]
+            }
+          ]
+        }
+      ],
+      "terminal": [
+        { "type": "prompt", "content": "$ ", "inline": true },
+        { "type": "command", "content": "tsm ports" },
+        { "type": "blank", "content": "" },
+        { "type": "output-header", "content": "Named Port Allocations:" },
+        { "type": "output-header", "content": "══════════════════════" },
+        { "type": "blank", "content": "" },
+        { "type": "output", "content": "NAME              PORT   STATUS      PROCESS" },
+        { "type": "output-success", "content": "chroma-api        8000   LISTENING   tsm-chroma-1732567890" },
+        { "type": "output", "content": "devpages-http     8080   available   -" },
+        { "type": "output", "content": "rag-api           8001   available   -" },
+        { "type": "blank", "content": "" },
+        { "type": "comment", "content": "# Allocate a specific port:" },
+        { "type": "prompt", "content": "$ ", "inline": true },
+        { "type": "command", "content": "tsm port assign my-service 9000" },
+        { "type": "output-success", "content": "✓ Port my-service → 9000 reserved" }
+      ],
+      "details": {
+        "enabled": true,
+        "title": "Under the Hood",
+        "icon": "🔍",
+        "displayMode": "margin-note",
+        "collapsed": true,
+        "sections": [
+          {
+            "type": "explanation",
+            "title": "Port resolution algorithm",
+            "content": "When a service requests a named port:\n1. Look up default in system/ports.sh\n2. Check if default is available (netstat)\n3. If taken, increment and retry (8000 → 8001 → 8002...)\n4. Record allocation in TSM_DIR/runtime/ports.db\n5. Set $PORT environment variable\n6. Return allocated port to caller",
+            "level": "advanced"
+          },
+          {
+            "type": "code-dive",
+            "title": "Port database",
+            "file": "bash/tsm/system/ports.sh",
+            "lines": [120, 145],
+            "explanation": "ports.db is a simple text format: name:port:process_id:timestamp. TSM uses file locking to prevent race conditions."
+          },
+          {
+            "type": "gotcha",
+            "title": "Port cleanup",
+            "content": "When a process stops, TSM should release its port. If TSM crashes, stale allocations may remain. Use 'tsm ports cleanup' to remove allocations for dead processes.",
+            "severity": "warning",
+            "example": {
+              "wrong": "Manual /etc/hosts editing",
+              "right": "tsm ports cleanup && tsm start <service>",
+              "explanation": "Let TSM manage port state, don't fight it"
+            }
+          },
+          {
+            "type": "comparison",
+            "title": "Port strategies",
+            "content": "Different approaches to port management:",
+            "approaches": [
+              {
+                "name": "Hardcoded",
+                "pros": ["Simple", "Predictable"],
+                "cons": ["Conflicts", "Not portable", "Hard to scale"]
+              },
+              {
+                "name": "Random allocation",
+                "pros": ["No conflicts", "Automatic"],
+                "cons": ["Unpredictable", "Hard to debug", "No names"]
+              },
+              {
+                "name": "Named ports (TSM)",
+                "pros": ["Readable", "Conflict-free", "Portable", "Documented"],
+                "cons": ["Requires registry", "Slightly more complex"]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "stop-service",
+      "title": "Stop a Service",
+      "subtitle": "Graceful and forceful shutdown",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "Stopping services with TSM is clean and safe. TSM sends SIGTERM first (graceful), waits, then SIGKILL if needed (forceful)."
+        },
+        {
+          "type": "you-try",
+          "title": "Stop a Service",
+          "content": [
+            {
+              "type": "command-block",
+              "commands": ["tsm stop tsm-chroma-1732567890"]
+            }
+          ]
+        },
+        {
+          "type": "warning-box",
+          "title": "Graceful Shutdown",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "TSM waits 10 seconds for graceful shutdown. Services should handle SIGTERM to clean up resources (close files, flush buffers, etc.)."
+            }
+          ]
+        }
+      ],
+      "terminal": [
+        { "type": "prompt", "content": "$ ", "inline": true },
+        { "type": "command", "content": "tsm stop tsm-chroma-1732567890" },
+        { "type": "blank", "content": "" },
+        { "type": "output", "content": "Stopping process: tsm-chroma-1732567890" },
+        { "type": "output", "content": "Sending SIGTERM to PID 12345..." },
+        { "type": "output", "content": "Waiting for graceful shutdown (10s timeout)..." },
+        { "type": "blank", "content": "" },
+        { "type": "output-success", "content": "✓ Process stopped gracefully" },
+        { "type": "output", "content": "Releasing port chroma-api (8000)" },
+        { "type": "output", "content": "Cleaning up metadata" },
+        { "type": "blank", "content": "" },
+        { "type": "comment", "content": "# Verify it stopped:" },
+        { "type": "prompt", "content": "$ ", "inline": true },
+        { "type": "command", "content": "tsm list" },
+        { "type": "output", "content": "No running services" }
+      ],
+      "details": {
+        "enabled": true,
+        "title": "Under the Hood",
+        "icon": "🔍",
+        "displayMode": "margin-note",
+        "collapsed": true,
+        "sections": [
+          {
+            "type": "explanation",
+            "title": "Shutdown sequence",
+            "content": "TSM's stop process:\n1. Send SIGTERM (signal 15)\n2. Poll PID every 500ms\n3. After 10s timeout, send SIGKILL (signal 9)\n4. Remove process metadata file\n5. Release allocated ports\n6. Mark logs as archived\n7. Trigger cleanup hooks",
+            "level": "intermediate"
+          },
+          {
+            "type": "gotcha",
+            "title": "Zombie processes",
+            "content": "If a parent process doesn't wait() for its children, they become zombies (defunct). TSM monitors for this and warns. Services should properly manage child processes or use process groups.",
+            "severity": "warning"
+          },
+          {
+            "type": "further-reading",
+            "title": "Related Topics",
+            "links": [
+              { "text": "Process lifecycle management", "conceptId": "process-lifecycle" },
+              { "text": "Signal handling in bash", "url": "https://www.gnu.org/software/bash/manual/html_node/Signals.html", "internal": false }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "restart-service",
+      "title": "Restart Services",
+      "subtitle": "Update running services",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "Restarting is simply stop + start with the same configuration. Useful after config changes or code updates."
+        },
+        {
+          "type": "you-try",
+          "title": "Restart a Service",
+          "content": [
+            {
+              "type": "command-block",
+              "commands": [
+                "tsm restart tsm-chroma-1732567890"
+              ]
+            }
+          ]
+        }
+      ],
+      "terminal": [
+        { "type": "prompt", "content": "$ ", "inline": true },
+        { "type": "command", "content": "tsm restart tsm-chroma-1732567890" },
+        { "type": "blank", "content": "" },
+        { "type": "output", "content": "Restarting process: tsm-chroma-1732567890" },
+        { "type": "output", "content": "Stopping..." },
+        { "type": "output-success", "content": "✓ Stopped" },
+        { "type": "output", "content": "Starting..." },
+        { "type": "output-success", "content": "✓ Started with new PID: 12456" }
+      ]
+    },
+    {
+      "id": "advanced-features",
+      "title": "Advanced Features",
+      "subtitle": "Multi-user, monitoring, and integrations",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "TSM includes advanced features for production use:"
+        },
+        {
+          "type": "learn-box",
+          "title": "Production Features",
+          "content": [
+            {
+              "type": "list",
+              "items": [
+                "Multi-user support (user namespaces)",
+                "Resource limits (CPU, memory)",
+                "Automatic restart on failure",
+                "Health monitoring and alerting",
+                "Systemd integration (optional)",
+                "Remote management via SSH"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "code-block",
+          "language": "bash",
+          "code": "# Multi-user example\nexport TSM_USER=alice\ntsm start myservice  # Runs as alice\n\n# Resource limits\ntsm start myservice --memory 512M --cpu 50%\n\n# Auto-restart\ntsm start myservice --restart always\n\n# Remote management\ntsm remote host1 list",
+          "caption": "Advanced TSM usage"
+        }
+      ],
+      "terminal": [
+        { "type": "comment", "content": "# Multi-user TSM" },
+        { "type": "prompt", "content": "$ ", "inline": true },
+        { "type": "command", "content": "tsm users" },
+        { "type": "output-header", "content": "TSM Users:" },
+        { "type": "output-success", "content": "alice    3 processes" },
+        { "type": "output-success", "content": "bob      1 process" },
+        { "type": "blank", "content": "" },
+        { "type": "comment", "content": "# Monitor all services" },
+        { "type": "prompt", "content": "$ ", "inline": true },
+        { "type": "command", "content": "tsm monitor" },
+        { "type": "output", "content": "ID                      CPU   MEM    STATUS" },
+        { "type": "output-success", "content": "tsm-chroma-1732567890   2.3%  145MB  healthy" },
+        { "type": "output-success", "content": "tsm-devpages-1732567891 0.1%  12MB   healthy" }
+      ],
+      "details": {
+        "enabled": true,
+        "title": "Under the Hood",
+        "icon": "🔍",
+        "displayMode": "margin-note",
+        "collapsed": true,
+        "sections": [
+          {
+            "type": "architecture",
+            "title": "Multi-user implementation",
+            "content": "TSM uses separate directories per user:\n\nTSM_DIR/\n  alice/\n    runtime/processes/\n    logs/\n  bob/\n    runtime/processes/\n    logs/\n\nEach user has isolated namespace for process IDs, ports, and logs. Root can view all users.",
+            "diagram": "See directory tree above"
+          },
+          {
+            "type": "explanation",
+            "title": "Auto-restart mechanism",
+            "content": "TSM's patrol system (system/patrol.sh) runs every 60 seconds:\n1. Check all processes with restart policy\n2. Detect crashed processes (PID gone)\n3. Check restart count and backoff\n4. Restart with exponential backoff (1s, 2s, 4s, 8s...)\n5. Alert if restart limit exceeded",
+            "level": "advanced"
+          },
+          {
+            "type": "performance",
+            "title": "Resource overhead",
+            "content": "TSM itself is lightweight:\n- Process spawning: <50ms\n- Monitoring overhead: <1% CPU\n- Memory per process: ~2MB metadata\n- Disk: ~10KB metadata + logs\n\nCompare to Docker (100MB+ per container) or systemd (complex unit files).",
+            "metrics": {
+              "complexity": "O(n) monitoring loop",
+              "memory": "2MB * num_processes",
+              "diskIO": "1 write per minute (health checks)"
+            }
+          },
+          {
+            "type": "history",
+            "title": "Why TSM exists",
+            "content": "TSM was created because:\n1. systemd too heavy for dev environments\n2. Docker overkill for simple processes\n3. Wanted bash-native solution\n4. Needed tight tetra integration\n5. Named ports solve real pain point\n\nTSM is opinionated but practical.",
+            "date": "2024-03"
+          }
+        ]
+      }
+    },
+    {
+      "id": "conclusion",
+      "title": "Mastering TSM",
+      "subtitle": "You're now a TSM expert!",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "Congratulations! You've learned how to use TSM to manage services, allocate ports, view logs, and monitor processes."
+        },
+        {
+          "type": "learn-box",
+          "title": "What You Learned",
+          "content": [
+            {
+              "type": "list",
+              "items": [
+                "Loading TSM and listing services",
+                "Starting and stopping services",
+                "Named port allocation system",
+                "Log viewing and management",
+                "Process inspection and monitoring",
+                "Advanced features (multi-user, auto-restart)"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Next steps:"
+        },
+        {
+          "type": "list",
+          "items": [
+            "Create your own service definition",
+            "Integrate TSM with systemd for production",
+            "Explore tsm_repl for interactive management",
+            "Read the source: bash/tsm/README.md"
+          ]
+        },
+        {
+          "type": "info-box",
+          "title": "Quick Reference",
+          "content": [
+            {
+              "type": "command-block",
+              "commands": [
+                "tsm help",
+                "tsm list [available]",
+                "tsm start <service>",
+                "tsm stop <id>",
+                "tsm logs <id> [--follow]",
+                "tsm ports",
+                "tsm monitor",
+                "tsm repl"
+              ],
+              "description": "Essential TSM commands"
+            }
+          ]
+        }
+      ],
+      "terminal": [
+        { "type": "output-header", "content": "🎉 Congratulations!" },
+        { "type": "blank", "content": "" },
+        { "type": "output-success", "content": "You've mastered TSM - Tetra Service Manager" },
+        { "type": "blank", "content": "" },
+        { "type": "output", "content": "Key concepts learned:" },
+        { "type": "output-success", "content": "  ✓ Service lifecycle (start/stop/restart)" },
+        { "type": "output-success", "content": "  ✓ Named port system" },
+        { "type": "output-success", "content": "  ✓ Log management" },
+        { "type": "output-success", "content": "  ✓ Process monitoring" },
+        { "type": "blank", "content": "" },
+        { "type": "comment", "content": "# Keep learning:" },
+        { "type": "prompt", "content": "$ ", "inline": true },
+        { "type": "command", "content": "tsm repl" },
+        { "type": "output", "content": "TSM REPL - Interactive service manager" },
+        { "type": "output", "content": "Type 'help' for commands, 'exit' to quit" },
+        { "type": "blank", "content": "" },
+        { "type": "output", "content": "TSM: Tetra Service Manager" },
+        { "type": "output", "content": "Manage services the tetra way. 🚀" }
+      ]
+    }
+  ],
+  "timeline": {
+    "duration": 1800,
+    "markers": [
+      { "time": 0, "label": "Welcome", "stepId": "welcome" },
+      { "time": 120, "label": "Bootstrap", "stepId": "bootstrap-tsm" },
+      { "time": 300, "label": "List Services", "stepId": "list-services" },
+      { "time": 480, "label": "Start Service", "stepId": "start-service" },
+      { "time": 720, "label": "Inspect", "stepId": "inspect-process" },
+      { "time": 900, "label": "Logs", "stepId": "view-logs" },
+      { "time": 1080, "label": "Ports", "stepId": "port-management" },
+      { "time": 1260, "label": "Stop Service", "stepId": "stop-service" },
+      { "time": 1440, "label": "Advanced", "stepId": "advanced-features" },
+      { "time": 1620, "label": "Complete", "stepId": "conclusion" }
+    ],
+    "chapters": [
+      {
+        "title": "Getting Started",
+        "startTime": 0,
+        "endTime": 480,
+        "stepIds": ["welcome", "bootstrap-tsm", "list-services", "start-service"]
+      },
+      {
+        "title": "Managing Services",
+        "startTime": 480,
+        "endTime": 1260,
+        "stepIds": ["inspect-process", "view-logs", "port-management", "stop-service"]
+      },
+      {
+        "title": "Advanced Usage",
+        "startTime": 1260,
+        "endTime": 1800,
+        "stepIds": ["advanced-features", "conclusion"]
+      }
+    ]
+  },
+  "glossary": {
+    "service": {
+      "term": "Service",
+      "definition": "A definition of how to start and manage a long-running process"
+    },
+    "process": {
+      "term": "Process",
+      "definition": "A running instance of a service with a unique ID and PID"
+    },
+    "named-port": {
+      "term": "Named Port",
+      "definition": "A human-readable port identifier (e.g., 'chroma-api') that TSM maps to a number"
+    },
+    "process-id": {
+      "term": "Process ID",
+      "definition": "TSM's unique identifier for a process (format: tsm-<service>-<timestamp>)"
+    },
+    "pid": {
+      "term": "PID",
+      "definition": "Operating system process ID (numeric)"
+    }
+  }
+}

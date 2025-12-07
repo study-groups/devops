@@ -3,6 +3,19 @@
 # TUT Reference Documentation Renderer
 # Generates scrollable reference docs from JSON definitions
 
+# Convert inline markdown to HTML
+# Supports: `code`, **bold**, *italic*
+_tut_ref_md_to_html() {
+    local text="$1"
+    # Convert backticks to <code>
+    text=$(echo "$text" | sed 's/`\([^`]*\)`/<code>\1<\/code>/g')
+    # Convert **bold** to <strong>
+    text=$(echo "$text" | sed 's/\*\*\([^*]*\)\*\*/<strong>\1<\/strong>/g')
+    # Convert *italic* to <em>
+    text=$(echo "$text" | sed 's/\*\([^*]*\)\*/<em>\1<\/em>/g')
+    echo "$text"
+}
+
 # Render reference documentation as HTML
 # Usage: tut_render_reference <json_file> [output_file]
 _tut_render_reference() {
@@ -26,22 +39,50 @@ _tut_render_reference() {
     # Ensure output directory exists
     mkdir -p "$(dirname "$output_file")"
 
-    echo "Generating reference doc: $json_file -> $output_file"
+    # Show what we're doing
+    printf "  Type:   "; _tut_accent "reference"; echo
+    printf "  Source: "; _tut_accent "$(basename "$json_file")"; echo
+    printf "          "; _tut_dim "$json_file"; echo
 
     # Generate HTML
     _tut_ref_generate_html "$json_file" > "$output_file"
 
+    # Stats
     local group_count=$(jq '.groups | length' "$json_file")
     local topic_count=$(jq '[.groups[].topics[]] | length' "$json_file")
-    echo "Generated: $output_file ($group_count groups, $topic_count topics)"
+    local size=$(du -h "$output_file" | cut -f1)
+
+    printf "  Output: "; _tut_accent "$(basename "$output_file")"; echo
+    printf "          "; _tut_dim "$output_file"; echo
+    printf "  Stats:  %s groups, %s topics, %s\n" "$group_count" "$topic_count" "$size"
+    echo
 }
 
 # Internal: Generate complete HTML document
 _tut_ref_generate_html() {
     local json_file="$1"
 
+    # Verify required templates exist
+    local ref_css="$TUT_SRC/templates/reference/reference-styles.css"
+    local ref_js="$TUT_SRC/templates/reference/reference-script.js"
+    local fab_css="$TUT_SRC/templates/design-tokens.css"
+    local fab_js="$TUT_SRC/templates/design-tokens.js"
+    local fab_html="$TUT_SRC/templates/design-tokens.html"
+
+    for tmpl in "$ref_css" "$ref_js" "$fab_css" "$fab_js" "$fab_html"; do
+        if [[ ! -f "$tmpl" ]]; then
+            echo "Error: Missing template: $tmpl" >&2
+            return 1
+        fi
+    done
+
     local title=$(jq -r '.metadata.title // "Documentation"' "$json_file")
     local tagline=$(jq -r '.metadata.tagline // ""' "$json_file")
+    local version=$(jq -r '.metadata.version // "0.0.0"' "$json_file")
+    local author=$(jq -r '.metadata.author // ""' "$json_file")
+    local sidebar_position=$(jq -r '.metadata.sidebar_position // "right"' "$json_file")
+    local source_file=$(basename "$json_file")
+    local build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
     # HTML header
     cat <<EOF
@@ -50,12 +91,21 @@ _tut_ref_generate_html() {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="tut">
+    <meta name="tut:source" content="$source_file">
+    <meta name="tut:version" content="$version">
+    <meta name="tut:built" content="$build_time">
+    <meta name="tut:type" content="reference">
+    <meta name="tut:author" content="$author">
     <title>$title</title>
     <style>
-$(cat "$TUT_SRC/templates/reference/reference-styles.css")
+$(cat "$ref_css")
+
+/* Design Token Editor Styles */
+$(cat "$fab_css")
     </style>
 </head>
-<body>
+<body data-sidebar-position="$sidebar_position">
     <main class="content">
         <header class="page-header">
             <h1 class="page-title">$title</h1>
@@ -69,17 +119,32 @@ EOF
     # Generate topic sections
     _tut_ref_generate_sections "$json_file"
 
+    # Version footer (only visible in design mode via ?design=true)
+    cat <<EOF
+        <footer class="doc-footer" id="docFooter">
+            <span class="doc-version">v$version</span>
+            <span class="doc-source">$source_file</span>
+            <span class="doc-built">$build_time</span>
+        </footer>
+EOF
+
     echo "    </main>"
     echo ""
 
     # Generate sidebar navigation
     _tut_ref_generate_sidebar "$json_file"
 
+    # Design Token FAB
+    cat "$fab_html"
+
     # JavaScript
     cat <<EOF
 
     <script>
-$(cat "$TUT_SRC/templates/reference/reference-script.js")
+$(cat "$ref_js")
+
+// Design Token Editor
+$(cat "$fab_js")
     </script>
 </body>
 </html>
@@ -116,7 +181,7 @@ _tut_ref_generate_topic() {
             <h2 class="section-title">$topic_title</h2>
 EOF
 
-    [[ -n "$topic_desc" ]] && echo "            <p class=\"section-description\">$topic_desc</p>"
+    [[ -n "$topic_desc" ]] && echo "            <p class=\"section-description\">$(_tut_ref_md_to_html "$topic_desc")</p>"
 
     # Generate content blocks
     local content_count=$(jq ".groups[$group_idx].topics[$topic_idx].content | length" "$json_file")
@@ -127,7 +192,7 @@ EOF
         case "$content_type" in
             paragraph)
                 local text=$(jq -r ".groups[$group_idx].topics[$topic_idx].content[$c].text" "$json_file")
-                echo "            <p>$text</p>"
+                echo "            <p>$(_tut_ref_md_to_html "$text")</p>"
                 ;;
             command-list)
                 _tut_ref_render_command_list "$json_file" "$group_idx" "$topic_idx" "$c"
@@ -222,7 +287,7 @@ _tut_ref_render_list() {
     local item_count=$(jq ".groups[$g].topics[$t].content[$c].items | length" "$json_file")
     for ((i=0; i<item_count; i++)); do
         local item=$(jq -r ".groups[$g].topics[$t].content[$c].items[$i]" "$json_file")
-        echo "                <li>$item</li>"
+        echo "                <li>$(_tut_ref_md_to_html "$item")</li>"
     done
 
     echo "            </$tag>"
@@ -239,7 +304,7 @@ _tut_ref_render_table() {
     local header_count=$(jq ".groups[$g].topics[$t].content[$c].headers | length" "$json_file")
     for ((i=0; i<header_count; i++)); do
         local header=$(jq -r ".groups[$g].topics[$t].content[$c].headers[$i]" "$json_file")
-        echo "                    <th>$header</th>"
+        echo "                    <th>$(_tut_ref_md_to_html "$header")</th>"
     done
 
     echo "                </tr></thead>"
@@ -251,7 +316,7 @@ _tut_ref_render_table() {
         local col_count=$(jq ".groups[$g].topics[$t].content[$c].rows[$r] | length" "$json_file")
         for ((col=0; col<col_count; col++)); do
             local cell=$(jq -r ".groups[$g].topics[$t].content[$c].rows[$r][$col]" "$json_file")
-            echo "                    <td>$cell</td>"
+            echo "                    <td>$(_tut_ref_md_to_html "$cell")</td>"
         done
         echo "                </tr>"
     done
