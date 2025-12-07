@@ -89,7 +89,9 @@ Complete guide from DigitalOcean account to tetra deployment.
 
   # This creates:
   #   ~/nh/myorg/digocean.json    - Full infrastructure snapshot
-  #   ~/nh/myorg/digocean.env     - Exported IP variables
+
+  # Then load variables into shell:
+  nh load
   ```
 
 ## Phase 4: Working with Infrastructure
@@ -111,14 +113,20 @@ Complete guide from DigitalOcean account to tetra deployment.
   # Show all exported variables
   nh env
 
-  # Variables are auto-loaded on switch:
+  # Variables are loaded via 'nh load' or auto-loaded on 'nh switch':
   #   $servername           - Public IP
   #   $servername_private   - Private IP
   #   $servername_floating  - Floating IP (if assigned)
 
-  # Generate short aliases
-  nh env short myorg
-  # myorg_prod_web -> mpw
+  # Create short aliases (first letter of each part)
+  nh alias make myorg
+  # myorg_prod_web -> $mpw
+
+  # Preview without loading
+  nh alias show myorg
+
+  # View current aliases
+  nh alias
   ```
 
 - [ ] **12** SSH Access
@@ -183,8 +191,11 @@ DigitalOcean API
        v  (nh fetch)
 digocean.json  ~/nh/<context>/digocean.json
        |
-       v  (nh env load)
+       v  (nh load)
 Shell Variables  $server, $server_private
+       |
+       v  (nh alias make)
+Short Aliases   $paq, $pad, $pap
        |
        v  (org import nh)
 10-infrastructure.toml  ~/.tetra/orgs/<org>/sections/
@@ -201,18 +212,21 @@ Deployed Infrastructure
 nh status           # Current context and stats
 nh servers          # List servers with IPs
 nh fetch            # Refresh from DigitalOcean
+nh load             # Load server IP variables
+nh alias make pfx   # Create short aliases
 nh ssh <server>     # SSH to server
 nh doctl info       # Explain data pipeline
 nh help             # Full command list
-nh help doctl       # Doctl subcommands
+nh help alias       # Alias subcommands
 ```
 
 ### Files
 ```
 ~/nh/
 └── <context>/
-    ├── digocean.json       # Full infrastructure data
-    ├── digocean.env        # Exported variables
+    ├── digocean.json       # Full infrastructure data (nh fetch)
+    ├── digocean.env        # Full variable exports (nh load)
+    ├── aliases.env         # Short aliases (nh alias make)
     ├── checklist.env       # Checklist progress
     └── digocean_clean.json # Cleaned (after nh doctl clean)
 
@@ -232,6 +246,8 @@ nh help doctl       # Doctl subcommands
 ```bash
 # When infrastructure changes at DigitalOcean:
 nh fetch                    # Pull fresh data
+nh load                     # Reload variables
+nh alias make myorg         # Recreate short aliases
 nh servers                  # Verify changes
 org import nh ~/nh/myorg/digocean.json myorg  # Re-import
 org build myorg             # Rebuild tetra.toml

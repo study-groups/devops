@@ -1,0 +1,781 @@
+/* =============================================================================
+   DESIGN TOKENS
+   Fine-grained semantic tokens for NH & Tetra documentation
+   ============================================================================= */
+
+:root {
+    /* -------------------------------------------------------------------------
+       PRIMITIVE TOKENS - Raw values (don't use directly in components)
+       ------------------------------------------------------------------------- */
+
+    /* Color Palette - Neutrals */
+    --color-neutral-0: #000000;
+    --color-neutral-50: #0a0a12;
+    --color-neutral-100: #0d1b2a;
+    --color-neutral-150: #121a2e;
+    --color-neutral-200: #16213e;
+    --color-neutral-250: #1a1a2e;
+    --color-neutral-300: #1e2a4a;
+    --color-neutral-400: #2a2a4a;
+    --color-neutral-500: #3a3a5a;
+    --color-neutral-600: #5a5a7a;
+    --color-neutral-700: #8a8aa0;
+    --color-neutral-800: #a0a0b0;
+    --color-neutral-900: #c0c0d0;
+    --color-neutral-950: #e0e0ea;
+    --color-neutral-1000: #eaeaea;
+
+    /* Color Palette - Primary (Red/Pink) */
+    --color-primary-100: #3d1a24;
+    --color-primary-200: #5c1f30;
+    --color-primary-300: #8b2942;
+    --color-primary-400: #c43c58;
+    --color-primary-500: #e94560;
+    --color-primary-600: #ff6b6b;
+    --color-primary-700: #ff8a8a;
+    --color-primary-800: #ffb3b3;
+    --color-primary-900: #ffd6d6;
+
+    /* Color Palette - Secondary (Blue) */
+    --color-secondary-100: #0a1628;
+    --color-secondary-200: #0f3460;
+    --color-secondary-300: #1a4a7a;
+    --color-secondary-400: #2563a0;
+    --color-secondary-500: #3b82c4;
+    --color-secondary-600: #60a5fa;
+
+    /* Color Palette - Accent (Cyan/Teal) */
+    --color-accent-400: #14b8a6;
+    --color-accent-500: #2dd4bf;
+    --color-accent-600: #5eead4;
+
+    /* Color Palette - Success */
+    --color-success-400: #22c55e;
+    --color-success-500: #4ade80;
+
+    /* Color Palette - Warning */
+    --color-warning-400: #f59e0b;
+    --color-warning-500: #fbbf24;
+
+    /* Color Palette - Alpha (transparency) */
+    --alpha-5: 0.05;
+    --alpha-10: 0.10;
+    --alpha-20: 0.20;
+    --alpha-50: 0.50;
+    --alpha-80: 0.80;
+
+    /* -------------------------------------------------------------------------
+       TYPOGRAPHY TOKENS
+       ------------------------------------------------------------------------- */
+
+    /* Font Families */
+    --font-family-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    --font-family-mono: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'Consolas', monospace;
+
+    /* Font Sizes - Scale (1.25 ratio) */
+    --font-size-2xs: 0.64rem;   /* 10.24px */
+    --font-size-xs: 0.8rem;     /* 12.8px */
+    --font-size-sm: 0.85rem;    /* 13.6px */
+    --font-size-base: 1rem;     /* 16px */
+    --font-size-md: 1.1rem;     /* 17.6px */
+    --font-size-lg: 1.25rem;    /* 20px */
+    --font-size-xl: 1.5rem;     /* 24px */
+    --font-size-2xl: 1.875rem;  /* 30px */
+    --font-size-3xl: 2.5rem;    /* 40px */
+    --font-size-4xl: 3rem;      /* 48px */
+
+    /* Font Weights */
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+
+    /* Line Heights */
+    --line-height-none: 1;
+    --line-height-tight: 1.25;
+    --line-height-snug: 1.375;
+    --line-height-normal: 1.5;
+    --line-height-relaxed: 1.625;
+    --line-height-loose: 2;
+
+    /* Letter Spacing */
+    --letter-spacing-tighter: -0.05em;
+    --letter-spacing-tight: -0.025em;
+    --letter-spacing-normal: 0;
+    --letter-spacing-wide: 0.025em;
+    --letter-spacing-wider: 0.05em;
+    --letter-spacing-widest: 0.1em;
+
+    /* -------------------------------------------------------------------------
+       SPACING TOKENS
+       ------------------------------------------------------------------------- */
+
+    --space-0: 0;
+    --space-1: 0.25rem;   /* 4px */
+    --space-2: 0.5rem;    /* 8px */
+    --space-3: 0.75rem;   /* 12px */
+    --space-4: 1rem;      /* 16px */
+    --space-5: 1.25rem;   /* 20px */
+    --space-6: 1.5rem;    /* 24px */
+    --space-8: 2rem;      /* 32px */
+    --space-10: 2.5rem;   /* 40px */
+    --space-12: 3rem;     /* 48px */
+    --space-16: 4rem;     /* 64px */
+    --space-20: 5rem;     /* 80px */
+    --space-24: 6rem;     /* 96px */
+
+    /* -------------------------------------------------------------------------
+       SIZING TOKENS
+       ------------------------------------------------------------------------- */
+
+    --size-px: 1px;
+    --size-0: 0;
+    --size-1: 0.25rem;
+    --size-2: 0.5rem;
+    --size-3: 0.75rem;
+    --size-4: 1rem;
+    --size-6: 1.5rem;
+    --size-8: 2rem;
+    --size-12: 3rem;
+    --size-16: 4rem;
+    --size-24: 6rem;
+    --size-32: 8rem;
+    --size-48: 12rem;
+    --size-64: 16rem;
+    --size-full: 100%;
+    --size-screen: 100vh;
+
+    /* -------------------------------------------------------------------------
+       BORDER TOKENS
+       ------------------------------------------------------------------------- */
+
+    /* Border Widths */
+    --border-width-0: 0;
+    --border-width-1: 1px;
+    --border-width-2: 2px;
+    --border-width-3: 3px;
+    --border-width-4: 4px;
+
+    /* Border Radius */
+    --radius-none: 0;
+    --radius-sm: 0.125rem;   /* 2px */
+    --radius-base: 0.25rem;  /* 4px */
+    --radius-md: 0.375rem;   /* 6px */
+    --radius-lg: 0.5rem;     /* 8px */
+    --radius-xl: 0.75rem;    /* 12px */
+    --radius-2xl: 1rem;      /* 16px */
+    --radius-full: 9999px;
+
+    /* -------------------------------------------------------------------------
+       SHADOW TOKENS
+       ------------------------------------------------------------------------- */
+
+    --shadow-none: none;
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.25);
+    --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.3);
+    --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.35);
+    --shadow-glow-primary: 0 4px 12px rgba(233, 69, 96, 0.2);
+    --shadow-glow-secondary: 0 4px 12px rgba(15, 52, 96, 0.3);
+
+    /* -------------------------------------------------------------------------
+       TRANSITION TOKENS
+       ------------------------------------------------------------------------- */
+
+    /* Durations */
+    --duration-instant: 0ms;
+    --duration-fast: 100ms;
+    --duration-normal: 200ms;
+    --duration-slow: 300ms;
+    --duration-slower: 500ms;
+
+    /* Timing Functions */
+    --ease-linear: linear;
+    --ease-in: cubic-bezier(0.4, 0, 1, 1);
+    --ease-out: cubic-bezier(0, 0, 0.2, 1);
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    /* -------------------------------------------------------------------------
+       Z-INDEX TOKENS
+       ------------------------------------------------------------------------- */
+
+    --z-below: -1;
+    --z-base: 0;
+    --z-raised: 10;
+    --z-dropdown: 100;
+    --z-sticky: 200;
+    --z-fixed: 300;
+    --z-overlay: 400;
+    --z-modal: 500;
+    --z-popover: 600;
+    --z-tooltip: 700;
+
+    /* -------------------------------------------------------------------------
+       LAYOUT TOKENS
+       ------------------------------------------------------------------------- */
+
+    --layout-sidebar-width: 280px;
+    --layout-sidebar-width-compact: 240px;
+    --layout-content-max-width: 900px;
+    --layout-header-height: 80px;
+    --layout-mobile-drawer-peek: 50px;
+
+    /* -------------------------------------------------------------------------
+       BREAKPOINT TOKENS (for reference, used in media queries)
+       ------------------------------------------------------------------------- */
+
+    --breakpoint-sm: 640px;
+    --breakpoint-md: 768px;
+    --breakpoint-lg: 1024px;
+    --breakpoint-xl: 1280px;
+
+    /* ==========================================================================
+       SEMANTIC TOKENS - Use these in components
+       ========================================================================== */
+
+    /* -------------------------------------------------------------------------
+       BACKGROUND SEMANTIC TOKENS
+       ------------------------------------------------------------------------- */
+
+    --bg-app: var(--color-neutral-250);
+    --bg-surface: var(--color-neutral-200);
+    --bg-surface-raised: var(--color-secondary-200);
+    --bg-surface-sunken: var(--color-neutral-100);
+    --bg-code: var(--color-neutral-100);
+    --bg-hover: rgba(233, 69, 96, var(--alpha-5));
+    --bg-active: rgba(233, 69, 96, var(--alpha-10));
+    --bg-selected: rgba(233, 69, 96, var(--alpha-10));
+
+    /* -------------------------------------------------------------------------
+       TEXT SEMANTIC TOKENS
+       ------------------------------------------------------------------------- */
+
+    --text-primary: var(--color-neutral-1000);
+    --text-secondary: var(--color-neutral-800);
+    --text-tertiary: var(--color-neutral-700);
+    --text-muted: var(--color-neutral-600);
+    --text-disabled: var(--color-neutral-500);
+    --text-inverse: var(--color-neutral-50);
+    --text-link: var(--color-primary-500);
+    --text-link-hover: var(--color-primary-600);
+    --text-code: var(--color-primary-600);
+    --text-heading: var(--color-primary-500);
+
+    /* -------------------------------------------------------------------------
+       BORDER SEMANTIC TOKENS
+       ------------------------------------------------------------------------- */
+
+    --border-default: var(--color-neutral-400);
+    --border-subtle: var(--color-neutral-300);
+    --border-strong: var(--color-neutral-500);
+    --border-focus: var(--color-primary-500);
+    --border-accent: var(--color-primary-500);
+
+    /* -------------------------------------------------------------------------
+       INTERACTIVE SEMANTIC TOKENS
+       ------------------------------------------------------------------------- */
+
+    --interactive-primary: var(--color-primary-500);
+    --interactive-primary-hover: var(--color-primary-600);
+    --interactive-primary-active: var(--color-primary-400);
+    --interactive-secondary: var(--color-secondary-400);
+    --interactive-secondary-hover: var(--color-secondary-500);
+
+    /* -------------------------------------------------------------------------
+       COMPONENT-SPECIFIC TOKENS
+       ------------------------------------------------------------------------- */
+
+    /* Header */
+    --header-border-width: var(--border-width-2);
+    --header-margin-bottom: var(--space-10);
+    --header-padding-bottom: var(--space-5);
+
+    /* Section Card */
+    --section-padding: var(--space-6);
+    --section-margin-bottom: var(--space-10);
+    --section-border-radius: var(--radius-lg);
+    --section-border-left-width: var(--border-width-4);
+    --section-bg: var(--bg-surface);
+
+    /* Sidebar */
+    --sidebar-bg: var(--bg-surface);
+    --sidebar-border-width: var(--border-width-1);
+    --sidebar-padding-y: var(--space-5);
+    --sidebar-padding-x: var(--space-5);
+
+    /* Nav Group */
+    --nav-group-title-padding-y: var(--space-3);
+    --nav-group-title-padding-x: var(--space-5);
+    --nav-group-title-font-size: var(--font-size-sm);
+    --nav-group-margin-bottom: var(--space-2);
+
+    /* Nav Link */
+    --nav-link-padding-y: var(--space-2);
+    --nav-link-padding-x: var(--space-5);
+    --nav-link-padding-left: var(--space-8);
+    --nav-link-font-size: var(--font-size-sm);
+    --nav-link-border-width: var(--border-width-3);
+
+    /* Code Block */
+    --code-padding-inline: var(--space-2);
+    --code-padding-block: var(--space-1);
+    --code-border-radius: var(--radius-base);
+    --code-font-size: 0.9em;
+
+    /* Pre Block */
+    --pre-padding: var(--space-4);
+    --pre-border-radius: var(--radius-md);
+    --pre-margin-y: var(--space-4);
+
+    /* Module Card */
+    --card-padding: var(--space-4);
+    --card-border-radius: var(--radius-md);
+    --card-gap: var(--space-4);
+    --card-min-width: 140px;
+    --card-hover-translate: -2px;
+
+    /* List Item */
+    --list-item-padding-y: var(--space-2);
+    --list-item-border-width: var(--border-width-1);
+
+    /* Command List */
+    --command-list-gap: var(--space-3);
+    --command-code-min-width: 200px;
+    --command-desc-color: var(--text-tertiary);
+
+    /* Scrollbar */
+    --scrollbar-width: 6px;
+    --scrollbar-radius: var(--radius-sm);
+}
+
+/* =============================================================================
+   RESET
+   ============================================================================= */
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: var(--space-0);
+    padding: var(--space-0);
+}
+
+/* =============================================================================
+   BASE STYLES
+   ============================================================================= */
+
+html {
+    scroll-behavior: smooth;
+    scroll-padding-top: var(--space-5);
+}
+
+body {
+    font-family: var(--font-family-sans);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-normal);
+    line-height: var(--line-height-relaxed);
+    color: var(--text-primary);
+    background: var(--bg-app);
+    min-height: var(--size-screen);
+}
+
+/* =============================================================================
+   LAYOUT
+   ============================================================================= */
+
+.content {
+    margin-right: var(--layout-sidebar-width);
+    padding: var(--space-10) var(--space-16);
+    max-width: var(--layout-content-max-width);
+}
+
+/* =============================================================================
+   HEADER
+   ============================================================================= */
+
+header {
+    margin-bottom: var(--header-margin-bottom);
+    padding-bottom: var(--header-padding-bottom);
+    border-bottom: var(--header-border-width) solid var(--border-accent);
+}
+
+header h1 {
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-tight);
+    margin-bottom: var(--space-2);
+    color: #d4a5a5;
+}
+
+.tagline {
+    color: var(--text-secondary);
+    font-size: var(--font-size-md);
+}
+
+/* =============================================================================
+   SECTIONS
+   ============================================================================= */
+
+.topic-section {
+    margin-bottom: var(--section-margin-bottom);
+    padding: var(--section-padding);
+    background: var(--section-bg);
+    border-radius: var(--section-border-radius);
+    border-left: var(--section-border-left-width) solid var(--border-accent);
+}
+
+.topic-section h2 {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-snug);
+    margin-bottom: var(--space-4);
+    color: var(--text-heading);
+}
+
+.topic-section p {
+    margin-bottom: var(--space-4);
+    color: var(--text-secondary);
+}
+
+.topic-section ul {
+    list-style: none;
+    margin-left: var(--space-0);
+}
+
+.topic-section li {
+    padding: var(--list-item-padding-y) var(--space-0);
+    border-bottom: var(--list-item-border-width) solid var(--border-subtle);
+}
+
+.topic-section li:last-child {
+    border-bottom: var(--border-width-0);
+}
+
+/* =============================================================================
+   COMMAND LIST
+   ============================================================================= */
+
+.command-list {
+    list-style: none;
+    margin: var(--space-0);
+    padding: var(--space-0);
+}
+
+.command-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--command-list-gap);
+    padding: var(--list-item-padding-y) var(--space-0);
+    border-bottom: var(--list-item-border-width) solid var(--border-subtle);
+}
+
+.command-item:last-child {
+    border-bottom: var(--border-width-0);
+}
+
+.command-code {
+    font-family: var(--font-family-mono);
+    font-size: var(--code-font-size);
+    background: var(--bg-code);
+    color: var(--text-code);
+    padding: var(--code-padding-block) var(--code-padding-inline);
+    border-radius: var(--code-border-radius);
+    min-width: var(--command-code-min-width);
+    flex-shrink: 0;
+}
+
+.command-desc {
+    color: var(--command-desc-color);
+    font-size: var(--font-size-sm);
+}
+
+/* =============================================================================
+   CODE
+   ============================================================================= */
+
+code {
+    font-family: var(--font-family-mono);
+    font-size: var(--code-font-size);
+    background: var(--bg-code);
+    color: var(--text-code);
+    padding: var(--code-padding-block) var(--code-padding-inline);
+    border-radius: var(--code-border-radius);
+}
+
+pre {
+    background: var(--bg-code);
+    padding: var(--pre-padding);
+    border-radius: var(--pre-border-radius);
+    margin: var(--pre-margin-y) var(--space-0);
+    overflow-x: auto;
+}
+
+pre code {
+    background: transparent;
+    padding: var(--space-0);
+    color: var(--text-primary);
+}
+
+/* =============================================================================
+   MODULE GRID
+   ============================================================================= */
+
+.module-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(var(--card-min-width), 1fr));
+    gap: var(--card-gap);
+    margin-top: var(--space-4);
+}
+
+.module-card {
+    background: var(--bg-surface-raised);
+    padding: var(--card-padding);
+    border-radius: var(--card-border-radius);
+    text-align: center;
+    transition:
+        transform var(--duration-normal) var(--ease-out),
+        box-shadow var(--duration-normal) var(--ease-out);
+}
+
+.module-card:hover {
+    transform: translateY(var(--card-hover-translate));
+    box-shadow: var(--shadow-glow-primary);
+}
+
+.module-card h4,
+.module-name {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-heading);
+    margin-bottom: var(--space-2);
+}
+
+.module-card p,
+.module-desc {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin: var(--space-0);
+}
+
+/* =============================================================================
+   SIDEBAR
+   ============================================================================= */
+
+.sidebar {
+    position: fixed;
+    top: var(--space-0);
+    right: var(--space-0);
+    width: var(--layout-sidebar-width);
+    height: var(--size-screen);
+    background: var(--sidebar-bg);
+    border-left: var(--sidebar-border-width) solid var(--border-default);
+    overflow-y: auto;
+    padding: var(--sidebar-padding-y) var(--space-0);
+    z-index: var(--z-fixed);
+}
+
+.sidebar-header {
+    padding: var(--space-0) var(--sidebar-padding-x) var(--sidebar-padding-y);
+    border-bottom: var(--border-width-1) solid var(--border-default);
+    margin-bottom: var(--space-2);
+}
+
+.sidebar-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+}
+
+/* =============================================================================
+   NAVIGATION GROUPS
+   ============================================================================= */
+
+.nav-group {
+    margin-bottom: var(--nav-group-margin-bottom);
+}
+
+.nav-group-title {
+    width: var(--size-full);
+    padding: var(--nav-group-title-padding-y) var(--nav-group-title-padding-x);
+    font-size: var(--nav-group-title-font-size);
+    font-weight: var(--font-weight-semibold);
+    font-family: var(--font-family-sans);
+    text-transform: uppercase;
+    letter-spacing: var(--letter-spacing-wide);
+    color: var(--text-heading);
+    background: transparent;
+    border: var(--border-width-0);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background var(--duration-normal) var(--ease-out);
+}
+
+.nav-group-title:hover {
+    background: var(--bg-hover);
+}
+
+.nav-group-title::after {
+    content: '\25BC';
+    font-size: var(--font-size-2xs);
+    transition: transform var(--duration-normal) var(--ease-out);
+}
+
+.nav-group.collapsed .nav-group-title::after {
+    transform: rotate(-90deg);
+}
+
+.nav-list {
+    list-style: none;
+    overflow: hidden;
+    max-height: 500px;
+    transition: max-height var(--duration-slow) var(--ease-out);
+}
+
+.nav-group.collapsed .nav-list {
+    max-height: var(--space-0);
+}
+
+.nav-list li {
+    border: var(--border-width-0);
+    padding: var(--space-0);
+}
+
+.nav-list a {
+    display: block;
+    padding: var(--nav-link-padding-y) var(--nav-link-padding-x) var(--nav-link-padding-y) var(--nav-link-padding-left);
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: var(--nav-link-font-size);
+    border-left: var(--nav-link-border-width) solid transparent;
+    transition:
+        color var(--duration-normal) var(--ease-out),
+        background var(--duration-normal) var(--ease-out),
+        border-color var(--duration-normal) var(--ease-out);
+}
+
+.nav-list a:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+    border-left-color: var(--border-accent);
+}
+
+.nav-list a.active {
+    color: var(--text-link);
+    background: var(--bg-active);
+    border-left-color: var(--border-accent);
+}
+
+/* =============================================================================
+   SCROLLBAR
+   ============================================================================= */
+
+.sidebar::-webkit-scrollbar {
+    width: var(--scrollbar-width);
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: var(--sidebar-bg);
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: var(--border-default);
+    border-radius: var(--scrollbar-radius);
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: var(--interactive-primary);
+}
+
+/* =============================================================================
+   RESPONSIVE - TABLET
+   ============================================================================= */
+
+@media (max-width: 1024px) {
+    :root {
+        --layout-sidebar-width: var(--layout-sidebar-width-compact);
+    }
+
+    .content {
+        padding: var(--space-8) var(--space-10);
+    }
+}
+
+/* =============================================================================
+   RESPONSIVE - MOBILE
+   ============================================================================= */
+
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        top: auto;
+        bottom: var(--space-0);
+        left: var(--space-0);
+        right: var(--space-0);
+        width: var(--size-full);
+        height: auto;
+        max-height: 50vh;
+        border-left: var(--border-width-0);
+        border-top: var(--border-width-1) solid var(--border-default);
+        transform: translateY(calc(100% - var(--layout-mobile-drawer-peek)));
+        transition: transform var(--duration-slow) var(--ease-out);
+    }
+
+    .sidebar.open {
+        transform: translateY(0);
+    }
+
+    .sidebar-header {
+        cursor: pointer;
+    }
+
+    .sidebar-header::after {
+        content: '\25B2';
+        float: right;
+        transition: transform var(--duration-slow) var(--ease-out);
+    }
+
+    .sidebar.open .sidebar-header::after {
+        transform: rotate(180deg);
+    }
+
+    .content {
+        margin-right: var(--space-0);
+        padding: var(--space-5);
+        padding-bottom: calc(var(--layout-mobile-drawer-peek) + var(--space-5));
+    }
+
+    header h1 {
+        font-size: var(--font-size-2xl);
+    }
+
+    .module-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .topic-section {
+        padding: var(--space-4);
+    }
+}
+
+/* =============================================================================
+   PRINT
+   ============================================================================= */
+
+@media print {
+    .sidebar {
+        display: none;
+    }
+
+    .content {
+        margin-right: var(--space-0);
+        max-width: var(--size-full);
+    }
+
+    .topic-section {
+        break-inside: avoid;
+    }
+}

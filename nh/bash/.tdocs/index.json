@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "last_scan": "2025-12-04T22:37:48Z",
+  "scan_roots": [
+    "."
+  ],
+  "exclude": [
+    "node_modules",
+    ".git",
+    "vendor",
+    ".tdocs"
+  ],
+  "by_hash": {
+    "5351555493a9": {
+      "path": "./specs.md",
+      "updated": "2025-12-04T22:37:48Z",
+      "size": 1696
+    }
+  },
+  "by_path": {
+    "./specs.md": "5351555493a9"
+  }
+}

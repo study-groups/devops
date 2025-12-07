@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NH & Tetra Documentation</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="content">
+        <header class="page-header">
+            <h1 class="page-title">NH & Tetra Documentation</h1>
+            <p class="page-tagline">Infrastructure Management & Bash Framework</p>
+        </header>
+
+        <!-- NH Section -->
+        <section id="nh-overview" class="topic-section">
+            <h2 class="section-title">NH Overview</h2>
+            <p class="section-description">NodeHolder (nh) is an infrastructure management tool for DigitalOcean. It provides context-based server management, SSH operations, and environment variable handling.</p>
+            <pre class="code-block"><code>nh status              # Show current context
+nh switch myorg        # Switch context
+nh fetch               # Sync from DigitalOcean
+ssh root@$server       # Connect using variables</code></pre>
+        </section>
+
+        <section id="nh-context" class="topic-section">
+            <h2 class="section-title">Context Management</h2>
+            <p class="section-description">Contexts isolate infrastructure configurations. Each context has its own server data and environment.</p>
+            <ul class="command-list">
+                <li class="command-item"><code class="command-code">nh list</code> <span class="command-desc">List available contexts</span></li>
+                <li class="command-item"><code class="command-code">nh switch &lt;name&gt;</code> <span class="command-desc">Switch to context</span></li>
+                <li class="command-item"><code class="command-code">nh create &lt;name&gt;</code> <span class="command-desc">Create new context</span></li>
+                <li class="command-item"><code class="command-code">nh link &lt;short&gt; &lt;ctx&gt;</code> <span class="command-desc">Create shortname symlink</span></li>
+            </ul>
+        </section>
+
+        <section id="nh-servers" class="topic-section">
+            <h2 class="section-title">Server Operations</h2>
+            <p class="section-description">Work with servers in the current context.</p>
+            <ul class="command-list">
+                <li class="command-item"><code class="command-code">nh servers</code> <span class="command-desc">List servers with IPs</span></li>
+                <li class="command-item"><code class="command-code">nh show &lt;server&gt;</code> <span class="command-desc">Show server details</span></li>
+                <li class="command-item"><code class="command-code">nh fetch</code> <span class="command-desc">Fetch infrastructure from DO</span></li>
+                <li class="command-item"><code class="command-code">nh load</code> <span class="command-desc">Load server IPs as variables</span></li>
+            </ul>
+        </section>
+
+        <section id="nh-ssh" class="topic-section">
+            <h2 class="section-title">SSH Operations</h2>
+            <p class="section-description">Manage SSH connections and keys.</p>
+            <ul class="command-list">
+                <li class="command-item"><code class="command-code">nh ssh &lt;server&gt;</code> <span class="command-desc">Connect to server</span></li>
+                <li class="command-item"><code class="command-code">nh ssh status</code> <span class="command-desc">Show ssh-agent status</span></li>
+                <li class="command-item"><code class="command-code">nh ssh keys</code> <span class="command-desc">List loaded keys</span></li>
+                <li class="command-item"><code class="command-code">nh keys match</code> <span class="command-desc">Find local key matching DO</span></li>
+            </ul>
+        </section>
+
+        <section id="nh-env" class="topic-section">
+            <h2 class="section-title">Environment Variables</h2>
+            <p class="section-description">Server IPs are exported as shell variables for easy access.</p>
+            <pre class="code-block"><code>nh load                # Load $server_name variables
+nh alias make pxjam    # Create short aliases
+ssh root@$paq          # Use alias variable</code></pre>
+        </section>
+
+        <!-- Tetra Section -->
+        <section id="tetra-overview" class="topic-section">
+            <h2 class="section-title">Tetra Overview</h2>
+            <p class="section-description">Tetra is a modular bash framework. It requires bash 5.2+ and provides infrastructure for building CLI tools.</p>
+            <pre class="code-block"><code>source ~/tetra/tetra.sh   # Bootstrap tetra
+TETRA_SRC=~/tetra/bash    # Source directory
+TETRA_DIR=~/.tetra        # Data directory</code></pre>
+        </section>
+
+        <section id="tetra-boot" class="topic-section">
+            <h2 class="section-title">Boot System</h2>
+            <p class="section-description">Tetra's bootloader manages module loading and initialization.</p>
+            <ul class="command-list">
+                <li class="command-item"><code class="command-code">bootloader.sh</code> <span class="command-desc">Main entry point</span></li>
+                <li class="command-item"><code class="command-code">boot/boot_core.sh</code> <span class="command-desc">Core boot functions</span></li>
+                <li class="command-item"><code class="command-code">boot/boot_log.sh</code> <span class="command-desc">Boot logging</span></li>
+                <li class="command-item"><code class="command-code">boot/aliases.sh</code> <span class="command-desc">Shell aliases</span></li>
+            </ul>
+        </section>
+
+        <section id="tetra-modules" class="topic-section">
+            <h2 class="section-title">Core Modules</h2>
+            <div class="module-grid">
+                <div class="module-card">
+                    <h4 class="module-name">tsm</h4>
+                    <p class="module-desc">Service manager for processes</p>
+                </div>
+                <div class="module-card">
+                    <h4 class="module-name">tdocs</h4>
+                    <p class="module-desc">Documentation system</p>
+                </div>
+                <div class="module-card">
+                    <h4 class="module-name">rag</h4>
+                    <p class="module-desc">RAG pipeline for AI</p>
+                </div>
+                <div class="module-card">
+                    <h4 class="module-name">org</h4>
+                    <p class="module-desc">Organization management</p>
+                </div>
+                <div class="module-card">
+                    <h4 class="module-name">ttm</h4>
+                    <p class="module-desc">Transaction manager</p>
+                </div>
+                <div class="module-card">
+                    <h4 class="module-name">chroma</h4>
+                    <p class="module-desc">Color and theming</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="tetra-tree" class="topic-section">
+            <h2 class="section-title">Tree System</h2>
+            <p class="section-description">Hierarchical data structures with tab completion.</p>
+            <ul class="command-list">
+                <li class="command-item"><code class="command-code">tree/core.sh</code> <span class="command-desc">Core tree operations</span></li>
+                <li class="command-item"><code class="command-code">tree/builders.sh</code> <span class="command-desc">Tree building utilities</span></li>
+                <li class="command-item"><code class="command-code">tree/complete.sh</code> <span class="command-desc">Tab completion</span></li>
+            </ul>
+        </section>
+
+        <section id="tetra-services" class="topic-section">
+            <h2 class="section-title">TSM - Service Manager</h2>
+            <p class="section-description">Manage background services and processes.</p>
+            <pre class="code-block"><code>tsm start myservice    # Start a service
+tsm stop myservice     # Stop a service
+tsm status             # Show all services
+tsm doctor             # Health check</code></pre>
+        </section>
+
+        <section id="tetra-docs" class="topic-section">
+            <h2 class="section-title">TDocs - Documentation</h2>
+            <p class="section-description">Integrated documentation system with REPL.</p>
+            <pre class="code-block"><code>tdocs search keyword   # Search documentation
+tdocs index            # Build index
+tdocs preview          # Preview docs</code></pre>
+        </section>
+
+        <section id="tetra-rag" class="topic-section">
+            <h2 class="section-title">RAG System</h2>
+            <p class="section-description">Retrieval-Augmented Generation for AI workflows.</p>
+            <ul class="command-list">
+                <li class="command-item"><code class="command-code">rag/core/assembler.sh</code> <span class="command-desc">Context assembly</span></li>
+                <li class="command-item"><code class="command-code">rag/core/evidence_manager.sh</code> <span class="command-desc">Evidence handling</span></li>
+                <li class="command-item"><code class="command-code">rag/core/prompt_manager.sh</code> <span class="command-desc">Prompt templates</span></li>
+            </ul>
+        </section>
+
+        <section id="tetra-deploy" class="topic-section">
+            <h2 class="section-title">Deployment</h2>
+            <p class="section-description">Tools for deploying to remote servers.</p>
+            <ul class="command-list">
+                <li class="command-item"><code class="command-code">deploy/</code> <span class="command-desc">Deployment scripts</span></li>
+                <li class="command-item"><code class="command-code">nginx/</code> <span class="command-desc">Nginx configuration</span></li>
+                <li class="command-item"><code class="command-code">hotrod/</code> <span class="command-desc">Tunnel management</span></li>
+            </ul>
+        </section>
+
+        <section id="tetra-color" class="topic-section">
+            <h2 class="section-title">Color & Theming</h2>
+            <p class="section-description">Terminal color management and themes.</p>
+            <ul class="command-list">
+                <li class="command-item"><code class="command-code">color/</code> <span class="command-desc">Color definitions</span></li>
+                <li class="command-item"><code class="command-code">chroma/</code> <span class="command-desc">Advanced theming</span></li>
+                <li class="command-item"><code class="command-code">tds/</code> <span class="command-desc">Design system</span></li>
+            </ul>
+        </section>
+
+        <!-- Workflow Section -->
+        <section id="workflow-bootstrap" class="topic-section">
+            <h2 class="section-title">Bootstrap Workflow</h2>
+            <p class="section-description">Setting up new servers with nh and tetra.</p>
+            <pre class="code-block"><code># 1. Setup context
+nh switch myorg
+nh fetch
+
+# 2. Import to tetra
+org import nh ~/nh/myorg/digocean.json myorg
+
+# 3. Deploy
+org switch myorg
+tkm init && tkm gen all
+tkm deploy all</code></pre>
+        </section>
+
+        <section id="workflow-daily" class="topic-section">
+            <h2 class="section-title">Daily Operations</h2>
+            <p class="section-description">Common daily tasks.</p>
+            <pre class="code-block"><code># Quick server access
+nh switch myorg
+nh load
+ssh root@$myserver
+
+# Check health
+nh doctor
+tsm status</code></pre>
+        </section>
+    </main>
+
+    <nav class="sidebar" role="navigation" aria-label="Documentation navigation">
+        <div class="sidebar-header">
+            <span class="sidebar-title">Topics</span>
+        </div>
+
+        <div class="nav-group" data-group="nh">
+            <button class="nav-group-title" aria-expanded="true" aria-controls="nh-nav">
+                NH - NodeHolder
+            </button>
+            <ul class="nav-list" id="nh-nav">
+                <li class="nav-item"><a class="nav-link" href="#nh-overview">Overview</a></li>
+                <li class="nav-item"><a class="nav-link" href="#nh-context">Context Management</a></li>
+                <li class="nav-item"><a class="nav-link" href="#nh-servers">Server Operations</a></li>
+                <li class="nav-item"><a class="nav-link" href="#nh-ssh">SSH Operations</a></li>
+                <li class="nav-item"><a class="nav-link" href="#nh-env">Environment Variables</a></li>
+            </ul>
+        </div>
+
+        <div class="nav-group" data-group="tetra">
+            <button class="nav-group-title" aria-expanded="true" aria-controls="tetra-nav">
+                Tetra Framework
+            </button>
+            <ul class="nav-list" id="tetra-nav">
+                <li class="nav-item"><a class="nav-link" href="#tetra-overview">Overview</a></li>
+                <li class="nav-item"><a class="nav-link" href="#tetra-boot">Boot System</a></li>
+                <li class="nav-item"><a class="nav-link" href="#tetra-modules">Core Modules</a></li>
+                <li class="nav-item"><a class="nav-link" href="#tetra-tree">Tree System</a></li>
+                <li class="nav-item"><a class="nav-link" href="#tetra-services">TSM Services</a></li>
+                <li class="nav-item"><a class="nav-link" href="#tetra-docs">TDocs</a></li>
+                <li class="nav-item"><a class="nav-link" href="#tetra-rag">RAG System</a></li>
+                <li class="nav-item"><a class="nav-link" href="#tetra-deploy">Deployment</a></li>
+                <li class="nav-item"><a class="nav-link" href="#tetra-color">Color & Theming</a></li>
+            </ul>
+        </div>
+
+        <div class="nav-group" data-group="workflow">
+            <button class="nav-group-title" aria-expanded="true" aria-controls="workflow-nav">
+                Workflows
+            </button>
+            <ul class="nav-list" id="workflow-nav">
+                <li class="nav-item"><a class="nav-link" href="#workflow-bootstrap">Bootstrap</a></li>
+                <li class="nav-item"><a class="nav-link" href="#workflow-daily">Daily Operations</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <script src="script.js"></script>
+</body>
+</html>
