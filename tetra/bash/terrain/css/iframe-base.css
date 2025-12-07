@@ -1,0 +1,130 @@
+/**
+ * Terrain Iframe Base Styles
+ * Shared foundation for all *.iframe.html files
+ *
+ * Usage: Include this file in your iframe HTML:
+ *   <link rel="stylesheet" href="css/iframe-base.css">
+ *
+ * Tokens are injected by parent via postMessage when iframe reports ready.
+ * These fallbacks ensure the iframe looks correct even before injection.
+ */
+
+/* CSS Token Fallbacks - overridden by parent injection */
+:root {
+    /* Surfaces */
+    --surface-void: #0a0a0a;
+    --surface-panel: #1a1a1a;
+    --surface-elevated: #2a2a2a;
+    --surface-hover: #333333;
+
+    /* Edges */
+    --edge-subtle: #333333;
+    --edge-visible: #444444;
+    --edge-active: #555555;
+
+    /* Ink (Text) */
+    --ink-primary: #ffffff;
+    --ink-secondary: #aaaaaa;
+    --ink-muted: #666666;
+    --ink-code: #e0e0e0;
+
+    /* Signals */
+    --signal-primary: #4a9eff;
+    --signal-secondary: #8b5cf6;
+    --signal-success: #00ff00;
+    --signal-error: #ff4444;
+    --signal-warning: #ffaa00;
+
+    /* Typography */
+    --font-primary: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-secondary: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-code: 'SF Mono', 'Monaco', 'Courier New', monospace;
+
+    /* Curves */
+    --curve-sm: 4px;
+    --curve-md: 8px;
+    --curve-lg: 12px;
+
+    /* Gaps */
+    --gap-xs: 4px;
+    --gap-sm: 8px;
+    --gap-md: 12px;
+    --gap-lg: 16px;
+    --gap-xl: 32px;
+
+    /* Tempo */
+    --tempo-fast: 0.15s ease;
+    --tempo-normal: 0.3s ease;
+    --tempo-slow: 0.5s ease;
+}
+
+/* Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Dark scrollbars matching parent */
+::-webkit-scrollbar {
+    width: 6px;
+    background: var(--surface-void);
+}
+
+::-webkit-scrollbar-track {
+    background: var(--surface-void);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--edge-visible);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--edge-active);
+}
+
+/* Firefox scrollbar */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--edge-visible) var(--surface-void);
+}
+
+/* Base body styles */
+body {
+    background: var(--surface-panel);
+    color: var(--ink-primary);
+    font-family: var(--font-code);
+    font-size: 12px;
+    line-height: 1.5;
+    min-height: 100vh;
+}
+
+/* Common utility classes */
+.hidden {
+    display: none !important;
+}
+
+.text-muted {
+    color: var(--ink-muted);
+}
+
+.text-secondary {
+    color: var(--ink-secondary);
+}
+
+.text-primary {
+    color: var(--signal-primary);
+}
+
+.text-success {
+    color: var(--signal-success);
+}
+
+.text-error {
+    color: var(--signal-error);
+}
+
+.text-warning {
+    color: var(--signal-warning);
+}

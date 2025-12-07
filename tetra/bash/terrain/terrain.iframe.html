@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TERRAIN IFRAME APP</title>
+    <style>
+        /* CSS Token Fallbacks - overridden by parent injection */
+        :root {
+            --surface-void: #0a0a0a;
+            --surface-panel: #1a1a1a;
+            --surface-elevated: #2a2a2a;
+            --edge-subtle: #333333;
+            --edge-visible: #444444;
+            --ink-primary: #ffffff;
+            --ink-secondary: #aaaaaa;
+            --ink-muted: #666666;
+            --signal-primary: #4a9eff;
+            --signal-success: #00ff00;
+            --signal-error: #ff4444;
+            --font-code: 'SF Mono', 'Monaco', 'Courier New', monospace;
+            --curve-sm: 4px;
+            --gap-sm: 8px;
+            --gap-md: 12px;
+            --tempo-fast: 0.15s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Dark scrollbars matching parent */
+        ::-webkit-scrollbar {
+            width: 6px;
+            background: var(--surface-void);
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--surface-void);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--edge-visible);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--edge-visible);
+        }
+
+        body {
+            background: var(--surface-panel);
+            color: var(--ink-primary);
+            font-family: var(--font-code);
+            font-size: 12px;
+            padding: 16px;
+            min-height: 100vh;
+        }
+        h3 {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            color: var(--signal-primary);
+        }
+        .status {
+            margin-bottom: 16px;
+        }
+        .status-label {
+            color: var(--ink-muted);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .status-value {
+            color: var(--signal-primary);
+            font-weight: 700;
+        }
+        .status-value.connected {
+            color: var(--signal-success);
+        }
+        .message-log {
+            background: var(--surface-void);
+            border: 1px solid var(--edge-subtle);
+            border-radius: var(--curve-sm);
+            padding: var(--gap-sm);
+            max-height: 180px;
+            overflow-y: auto;
+            font-size: 10px;
+        }
+        .message-log-title {
+            font-size: 10px;
+            color: var(--ink-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: var(--gap-sm);
+        }
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid var(--surface-elevated);
+            color: var(--ink-secondary);
+        }
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        .log-entry .type {
+            color: var(--signal-primary);
+            font-weight: 700;
+        }
+        .actions {
+            margin-top: 16px;
+            display: flex;
+            gap: var(--gap-sm);
+        }
+        .action-btn {
+            background: transparent;
+            border: 1px solid var(--edge-visible);
+            color: var(--ink-primary);
+            padding: var(--gap-sm) 16px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            border-radius: var(--curve-sm);
+            font-family: inherit;
+            transition: var(--tempo-fast);
+        }
+        .action-btn:hover {
+            border-color: var(--signal-primary);
+            color: var(--signal-primary);
+        }
+    </style>
+</head>
+<body>
+    <h3>TERRAIN IFRAME APP</h3>
+
+    <div class="status">
+        <span class="status-label">Status: </span>
+        <span class="status-value" id="status">Initializing...</span>
+    </div>
+
+    <div class="message-log-title">Message Log</div>
+    <div class="message-log" id="log">
+        <div class="log-entry">Waiting for messages...</div>
+    </div>
+
+    <div class="actions">
+        <button class="action-btn" onclick="sendPing()">Send Ping</button>
+        <button class="action-btn" onclick="sendState()">Send State</button>
+        <button class="action-btn" onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <script src="js/terrain.js"></script>
+    <script>
+        const logEl = document.getElementById('log');
+        const statusEl = document.getElementById('status');
+
+        function addLog(direction, data) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = '<span class="type">' + direction + '</span> ' +
+                JSON.stringify(data);
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function clearLog() {
+            logEl.innerHTML = '';
+        }
+
+        function sendPing() {
+            Terrain.Iframe.send({ type: 'ping', timestamp: Date.now() });
+            addLog('OUT', { type: 'ping' });
+        }
+
+        function sendState() {
+            const state = Terrain.Iframe.getState();
+            Terrain.Iframe.send({ type: 'state', data: state });
+            addLog('OUT', { type: 'state', data: state });
+        }
+
+        // Initialize terrain.js iframe communication
+        Terrain.Iframe.init({
+            onMessage: function(data) {
+                addLog('IN', data);
+            },
+            onReady: function() {
+                statusEl.textContent = 'Connected';
+                statusEl.classList.add('connected');
+                logEl.innerHTML = '';
+                addLog('SYS', { event: 'connected' });
+
+                // Notify parent we're ready
+                Terrain.Iframe.send({ type: 'ready', from: 'terrain.iframe' });
+            }
+        });
+
+        // Extend getState for this iframe
+        Terrain.Iframe.getState = function() {
+            return {
+                ready: true,
+                title: document.title,
+                timestamp: Date.now()
+            };
+        };
+    </script>
+</body>
+</html>

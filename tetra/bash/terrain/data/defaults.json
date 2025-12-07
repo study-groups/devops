@@ -1,0 +1,41 @@
+{
+  "version": "1.0.0",
+  "projects": [
+    {
+      "id": "terrain",
+      "title": "Terrain",
+      "desc": "Create spaces.",
+      "link": "/projects/index.html",
+      "iframeSrc": "terrain.iframe.html",
+      "status": "draft",
+      "x": 101,
+      "y": 155,
+      "hidden": false,
+      "token": "gridranger"
+    },
+    {
+      "id": "synthetic-iris",
+      "title": "Synthetic Iris",
+      "desc": "Generative plant genetics",
+      "link": "./synthetic-iris/index.html",
+      "status": "draft",
+      "x": 102,
+      "y": 352,
+      "hidden": false,
+      "token": "gridranger"
+    }
+  ],
+  "toastPresets": {
+    "fav1": {
+      "toastNavigator": false,
+      "toast3dNavigator": false,
+      "toastRealworld": false,
+      "toastModifiers": false,
+      "toastDesignTokens": false,
+      "toastFonts": false,
+      "toastProjects": false,
+      "toastStorage": false
+    },
+    "fav2": null
+  }
+}

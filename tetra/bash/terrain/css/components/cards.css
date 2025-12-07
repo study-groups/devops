@@ -1,0 +1,490 @@
+/**
+ * Terrain Project Cards Styles
+ * Two modes: small (default) and open (expanded CLI interface)
+ */
+
+.project-card {
+    position: absolute;
+    background: var(--surface-panel);
+    border: 1px solid var(--edge-subtle);
+    border-radius: var(--curve-sm);
+    min-width: 280px;
+    max-width: 320px;
+    cursor: move;
+    transition: var(--tempo-fast);
+    user-select: none;
+    overflow: hidden;
+}
+
+.project-card:hover {
+    border-color: var(--edge-visible);
+    box-shadow: var(--depth-sm);
+}
+
+.project-card.dragging {
+    opacity: 0.7;
+    z-index: 999;
+}
+
+.project-card.hidden {
+    display: none;
+}
+
+.project-card.selected {
+    border-color: var(--signal-primary);
+    box-shadow: 0 0 0 2px var(--signal-primary),
+                var(--depth-md);
+}
+
+.project-card.editing {
+    border-color: var(--signal-primary);
+    box-shadow: var(--depth-lg);
+    z-index: 998;
+    min-width: 320px;
+}
+
+/* ================================
+   CARD HEADER - Always visible
+   ================================ */
+.project-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--gap-md) var(--gap-lg);
+    background: var(--surface-panel);
+}
+
+.project-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink-primary);
+    letter-spacing: 0.3px;
+    font-family: var(--font-secondary);
+    margin: 0;
+}
+
+.project-header-actions {
+    display: flex;
+    gap: var(--gap-xs);
+}
+
+.project-cli-toggle,
+.project-close-btn {
+    display: none;
+    background: transparent;
+    border: 1px solid var(--edge-visible);
+    color: var(--ink-muted);
+    width: 24px;
+    height: 24px;
+    border-radius: var(--curve-sm);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    transition: var(--tempo-fast);
+}
+
+.project-close-btn {
+    font-size: 16px;
+}
+
+.project-cli-toggle:hover {
+    border-color: var(--signal-primary);
+    color: var(--signal-primary);
+}
+
+.project-cli-toggle.active {
+    background: var(--signal-primary);
+    border-color: var(--signal-primary);
+    color: var(--surface-void);
+}
+
+.project-close-btn:hover {
+    border-color: var(--signal-error);
+    color: var(--signal-error);
+}
+
+.project-card.expanded .project-cli-toggle,
+.project-card.expanded .project-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ================================
+   SMALL MODE - View
+   ================================ */
+.project-card-view {
+    display: block;
+    padding: 0 var(--gap-lg) var(--gap-lg);
+}
+
+.project-card.editing .project-card-view,
+.project-card.expanded .project-card-view {
+    display: none;
+}
+
+.project-desc {
+    font-size: 12px;
+    color: var(--ink-secondary);
+    line-height: 1.5;
+    margin-bottom: var(--gap-md);
+    font-family: var(--font-primary);
+}
+
+.project-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--gap-sm);
+}
+
+.project-open-btn {
+    background: transparent;
+    color: var(--signal-primary);
+    font-size: 11px;
+    font-weight: 700;
+    padding: var(--gap-sm) var(--gap-md);
+    border: 1px solid var(--signal-primary);
+    border-radius: var(--curve-sm);
+    transition: var(--tempo-fast);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-family: var(--font-primary);
+    cursor: pointer;
+}
+
+.project-open-btn:hover {
+    background: var(--signal-primary);
+    color: var(--surface-void);
+}
+
+.project-card-edit-trigger {
+    background: transparent;
+    border: 1px solid var(--edge-visible);
+    color: var(--ink-muted);
+    padding: 4px 8px;
+    border-radius: var(--curve-sm);
+    cursor: pointer;
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: var(--tempo-fast);
+    font-family: inherit;
+}
+
+.project-card-edit-trigger:hover {
+    border-color: var(--signal-primary);
+    color: var(--signal-primary);
+}
+
+/* ================================
+   OPEN MODE - CLI Interface
+   ================================ */
+.project-card-open {
+    display: none;
+}
+
+.project-card.expanded {
+    min-width: 520px;
+    max-width: 640px;
+    z-index: 997;
+    cursor: default;
+}
+
+.project-card.expanded .project-card-open {
+    display: block;
+}
+
+.project-card.expanded.selected {
+    box-shadow: 0 0 0 2px var(--signal-primary),
+                var(--depth-lg);
+}
+
+/* CLI Container */
+.cli-container {
+    border-bottom: 1px solid var(--edge-subtle);
+}
+
+.cli-container.cli-hidden {
+    display: none;
+}
+
+/* CLI Status Line - Shown when CLI is hidden */
+.cli-status-line {
+    display: flex;
+    align-items: center;
+    gap: var(--gap-sm);
+    padding: var(--gap-xs) var(--gap-md);
+    background: var(--surface-void);
+    border-bottom: 1px solid var(--edge-subtle);
+    font-family: var(--font-code);
+    font-size: 10px;
+    color: var(--ink-muted);
+}
+
+.cli-status-line.cli-hidden {
+    display: none;
+}
+
+.cli-status-indicator {
+    font-size: 8px;
+    color: var(--signal-success);
+}
+
+.cli-status-indicator.status-active {
+    color: var(--signal-primary);
+}
+
+.cli-status-indicator.status-error {
+    color: var(--signal-error);
+}
+
+.cli-status-indicator.status-waiting {
+    color: var(--signal-warning);
+}
+
+.cli-status-text {
+    color: var(--ink-secondary);
+}
+
+/* CLI Main Input - Top of open mode */
+.cli-input-main {
+    display: flex;
+    align-items: center;
+    padding: var(--gap-sm) var(--gap-md);
+    background: var(--surface-void);
+    border-bottom: 1px solid var(--edge-subtle);
+    gap: var(--gap-sm);
+}
+
+.cli-input-main .cli-prompt {
+    color: var(--signal-primary);
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.cli-input-main .cli-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--ink-primary);
+    font-size: 13px;
+    font-family: var(--font-code);
+    outline: none;
+    padding: var(--gap-xs) 0;
+}
+
+.cli-input-main .cli-input::placeholder {
+    color: var(--ink-muted);
+}
+
+.cli-input-main .cli-target {
+    background: var(--surface-elevated);
+    border: 1px solid var(--edge-subtle);
+    color: var(--ink-secondary);
+    font-size: 10px;
+    font-family: var(--font-code);
+    padding: 4px 8px;
+    border-radius: var(--curve-sm);
+    cursor: pointer;
+}
+
+.cli-input-main .cli-target:focus {
+    outline: none;
+    border-color: var(--signal-primary);
+}
+
+/* CLI Log */
+.cli-log {
+    height: 120px;
+    overflow-y: auto;
+    padding: var(--gap-sm) var(--gap-md);
+    background: var(--surface-void);
+    font-family: var(--font-code);
+    font-size: 11px;
+    border-bottom: 1px solid var(--edge-subtle);
+}
+
+.cli-log::-webkit-scrollbar {
+    width: 6px;
+    background: var(--surface-void);
+}
+
+.cli-log::-webkit-scrollbar-track {
+    background: var(--surface-void);
+}
+
+.cli-log::-webkit-scrollbar-thumb {
+    background: var(--edge-visible);
+    border-radius: 3px;
+}
+
+.cli-log::-webkit-scrollbar-thumb:hover {
+    background: var(--edge-active);
+}
+
+.cli-entry {
+    padding: 3px 0;
+    line-height: 1.5;
+    color: var(--ink-secondary);
+    word-break: break-all;
+}
+
+.cli-prefix {
+    display: inline-block;
+    width: 16px;
+    font-weight: 700;
+}
+
+.cli-in {
+    color: var(--ink-secondary);
+}
+
+.cli-in .cli-prefix {
+    color: var(--signal-primary);
+}
+
+.cli-out {
+    color: var(--ink-muted);
+}
+
+.cli-out .cli-prefix {
+    color: var(--signal-success);
+}
+
+.cli-cmd {
+    color: var(--ink-primary);
+}
+
+.cli-cmd .cli-prefix {
+    color: var(--ink-primary);
+}
+
+.cli-sys {
+    color: var(--signal-warning);
+}
+
+.cli-sys .cli-prefix {
+    color: var(--signal-warning);
+}
+
+.cli-err {
+    color: var(--signal-error);
+}
+
+.cli-err .cli-prefix {
+    color: var(--signal-error);
+}
+
+/* Iframe Container in Open Mode */
+.project-card-open .project-iframe-container {
+    background: var(--surface-void);
+    border: none;
+    border-radius: 0;
+    margin: 0;
+}
+
+.project-iframe {
+    width: 100%;
+    height: 200px;
+    border: none;
+    display: block;
+    background: var(--surface-void);
+}
+
+/* ================================
+   EDIT MODE
+   ================================ */
+.project-card-edit {
+    display: none;
+    padding: 0 var(--gap-lg) var(--gap-lg);
+}
+
+.project-card.editing .project-card-edit {
+    display: block;
+}
+
+.project-card-edit label {
+    display: block;
+    font-size: 8px;
+    color: var(--ink-muted);
+    margin-bottom: var(--gap-xs);
+    margin-top: var(--gap-sm);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+}
+
+.project-card-edit input,
+.project-card-edit select {
+    width: 100%;
+    background: var(--surface-elevated);
+    border: 1px solid var(--edge-subtle);
+    color: var(--ink-primary);
+    padding: var(--gap-sm);
+    border-radius: var(--curve-sm);
+    font-size: 10px;
+    font-family: var(--font-code);
+    margin-bottom: var(--gap-xs);
+}
+
+.project-card-edit input:focus,
+.project-card-edit select:focus {
+    outline: none;
+    border-color: var(--signal-primary);
+}
+
+.project-card-edit-actions {
+    display: flex;
+    gap: var(--gap-xs);
+    margin-top: var(--gap-md);
+}
+
+.project-card-edit-actions button {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--edge-visible);
+    color: var(--ink-primary);
+    padding: var(--gap-sm);
+    border-radius: var(--curve-sm);
+    cursor: pointer;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: var(--tempo-fast);
+    font-family: inherit;
+}
+
+.project-card-edit-actions button:hover {
+    border-color: var(--signal-primary);
+    color: var(--signal-primary);
+}
+
+.project-card-edit-actions button.save {
+    border-color: var(--signal-success);
+    color: var(--signal-success);
+}
+
+.project-card-edit-actions button.cancel {
+    border-color: var(--signal-error);
+    color: var(--signal-error);
+}
+
+/* Token validation */
+.token-input {
+    border-color: var(--signal-warning) !important;
+}
+
+.project-card-edit .token-error {
+    font-size: 8px;
+    color: var(--signal-error);
+    margin-top: calc(var(--gap-xs) * -1);
+    margin-bottom: var(--gap-sm);
+    display: none;
+}
+
+.project-card-edit .token-error.show {
+    display: block;
+}

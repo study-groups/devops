@@ -1,0 +1,3585 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Projects Canvas</title>
+
+    <!-- Font CDN Links - Editable via config -->
+    <link id="font-primary-link" rel="stylesheet" href="">
+    <link id="font-secondary-link" rel="stylesheet" href="">
+    <link id="font-code-link" rel="stylesheet" href="">
+
+    <style>
+        :root {
+            /* Primary Palette - Core UI */
+            --p1: #0a0a0a;  /* Deep black */
+            --p2: #1a1a1a;  /* Dark grey */
+            --p3: #2a2a2a;  /* Medium grey */
+            --p4: #3a3a3a;  /* Light grey */
+            --p5: #ffffff;  /* White */
+            --p6: #ff4444;  /* Alert red */
+            --p7: #00ff00;  /* Success green */
+            --p8: #0088ff;  /* Primary blue */
+
+            /* Secondary Palette - Accents */
+            --s1: #ff6b35;  /* Tomato */
+            --s2: #4a9eff;  /* Bright blue */
+            --s3: #ffd700;  /* Gold */
+            --s4: #00ffaa;  /* Cyan */
+            --s5: #ff00ff;  /* Magenta */
+            --s6: #88ff88;  /* Light green */
+            --s7: #ffaa00;  /* Orange */
+            --s8: #aa88ff;  /* Purple */
+
+            /* Tertiary Palette - Utility */
+            --t1: #111111;  /* Grid dark */
+            --t2: #222222;  /* Border */
+            --t3: #444444;  /* Border light */
+            --t4: #666666;  /* Text muted */
+            --t5: #888888;  /* Text secondary */
+            --t6: #aaaaaa;  /* Text light */
+            --t7: #cccccc;  /* Text bright */
+            --t8: #eeeeee;  /* Text brightest */
+
+            /* Design Tokens - Conceptual Elements */
+            --surface-void: var(--p1);
+            --surface-panel: var(--p2);
+            --surface-elevated: var(--p3);
+            --surface-hover: var(--p4);
+
+            --edge-subtle: var(--t2);
+            --edge-visible: var(--t3);
+            --edge-active: var(--s2);
+
+            --ink-primary: var(--p5);
+            --ink-secondary: var(--t6);
+            --ink-muted: var(--t4);
+            --ink-code: var(--s4);
+
+            --signal-primary: var(--s2);
+            --signal-secondary: var(--s1);
+            --signal-success: var(--p7);
+            --signal-error: var(--p6);
+            --signal-warning: var(--s3);
+
+            --depth-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+            --depth-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+            --depth-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+
+            --curve-sm: 4px;
+            --curve-md: 8px;
+            --curve-lg: 12px;
+            --curve-full: 9999px;
+
+            --gap-xs: 4px;
+            --gap-sm: 8px;
+            --gap-md: 16px;
+            --gap-lg: 24px;
+            --gap-xl: 32px;
+
+            --tempo-fast: 0.15s ease;
+            --tempo-normal: 0.3s ease;
+            --tempo-slow: 0.5s ease;
+
+            /* Typography */
+            --font-primary: 'SF Mono', 'Monaco', 'Courier New', monospace;
+            --font-secondary: 'SF Mono', 'Monaco', 'Courier New', monospace;
+            --font-code: 'Courier New', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            font-family: var(--font-primary);
+            background: var(--surface-void);
+            color: var(--ink-primary);
+        }
+
+        #canvas {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            cursor: grab;
+            overflow: hidden;
+        }
+
+        #canvas:active {
+            cursor: grabbing;
+        }
+
+        #canvas-content {
+            position: absolute;
+            transform-origin: 0 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+
+        .greeting {
+            position: absolute;
+            top: var(--gap-xl);
+            left: var(--gap-xl);
+            background: var(--signal-secondary);
+            padding: var(--gap-md) var(--gap-lg);
+            border-radius: var(--curve-sm);
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            box-shadow: var(--depth-md);
+            z-index: 1000;
+            transition: var(--tempo-normal);
+            font-family: var(--font-primary);
+        }
+
+        .greeting.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .project-card {
+            position: absolute;
+            background: var(--surface-panel);
+            border: 1px solid var(--edge-subtle);
+            border-radius: var(--curve-sm);
+            padding: var(--gap-lg);
+            min-width: 280px;
+            max-width: 320px;
+            cursor: move;
+            transition: var(--tempo-fast);
+            user-select: none;
+        }
+
+        .project-card:hover {
+            border-color: var(--edge-visible);
+            box-shadow: var(--depth-sm);
+        }
+
+        .project-card.dragging {
+            opacity: 0.7;
+            z-index: 999;
+        }
+
+        .project-card.hidden {
+            display: none;
+        }
+
+        .project-card.editing {
+            border-color: var(--signal-primary);
+            box-shadow: var(--depth-lg);
+            z-index: 998;
+            min-width: 320px;
+        }
+
+        .project-card-view {
+            display: block;
+        }
+
+        .project-card.editing .project-card-view {
+            display: none;
+        }
+
+        .project-card-edit {
+            display: none;
+        }
+
+        .project-card.editing .project-card-edit {
+            display: block;
+        }
+
+        .project-card-edit label {
+            display: block;
+            font-size: 8px;
+            color: var(--ink-muted);
+            margin-bottom: var(--gap-xs);
+            margin-top: var(--gap-sm);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+        }
+
+        .project-card-edit input,
+        .project-card-edit select {
+            width: 100%;
+            background: var(--surface-elevated);
+            border: 1px solid var(--edge-subtle);
+            color: var(--ink-primary);
+            padding: var(--gap-sm);
+            border-radius: var(--curve-sm);
+            font-size: 10px;
+            font-family: var(--font-code);
+            margin-bottom: var(--gap-xs);
+        }
+
+        .project-card-edit input:focus,
+        .project-card-edit select:focus {
+            outline: none;
+            border-color: var(--signal-primary);
+        }
+
+        .project-card-edit-actions {
+            display: flex;
+            gap: var(--gap-xs);
+            margin-top: var(--gap-md);
+        }
+
+        .project-card-edit-actions button {
+            flex: 1;
+            background: transparent;
+            border: 1px solid var(--edge-visible);
+            color: var(--ink-primary);
+            padding: var(--gap-sm);
+            border-radius: var(--curve-sm);
+            cursor: pointer;
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: var(--tempo-fast);
+            font-family: inherit;
+        }
+
+        .project-card-edit-actions button:hover {
+            border-color: var(--signal-primary);
+            color: var(--signal-primary);
+        }
+
+        .project-card-edit-actions button.save {
+            border-color: var(--signal-success);
+            color: var(--signal-success);
+        }
+
+        .project-card-edit-actions button.cancel {
+            border-color: var(--signal-error);
+            color: var(--signal-error);
+        }
+
+        .project-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: var(--gap-sm);
+            color: var(--ink-primary);
+            letter-spacing: 0.3px;
+            font-family: var(--font-secondary);
+        }
+
+        .project-desc {
+            font-size: 12px;
+            color: var(--ink-secondary);
+            line-height: 1.5;
+            margin-bottom: var(--gap-md);
+            font-family: var(--font-primary);
+        }
+
+        .project-link {
+            display: inline-block;
+            color: var(--signal-primary);
+            text-decoration: none;
+            font-size: 11px;
+            font-weight: 700;
+            padding: var(--gap-sm) var(--gap-md);
+            border: 1px solid var(--signal-primary);
+            border-radius: var(--curve-sm);
+            transition: var(--tempo-fast);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: var(--font-primary);
+        }
+
+        .project-link:hover {
+            background: var(--signal-primary);
+            color: var(--p1);
+        }
+
+        .project-card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: var(--gap-sm);
+            margin-top: var(--gap-sm);
+        }
+
+        .project-card-edit-trigger {
+            background: transparent;
+            border: 1px solid var(--edge-visible);
+            color: var(--ink-muted);
+            padding: 4px 8px;
+            border-radius: var(--curve-sm);
+            cursor: pointer;
+            font-size: 8px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: var(--tempo-fast);
+            font-family: inherit;
+        }
+
+        .project-card-edit-trigger:hover {
+            border-color: var(--signal-primary);
+            color: var(--signal-primary);
+        }
+
+        .fab {
+            position: fixed;
+            bottom: var(--gap-lg);
+            right: var(--gap-lg);
+            width: 64px;
+            height: 64px;
+            background: var(--surface-void);
+            border: 2px solid var(--signal-primary);
+            border-radius: var(--curve-sm);
+            cursor: pointer;
+            box-shadow: var(--depth-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: var(--signal-primary);
+            transition: var(--tempo-fast);
+            z-index: 1001;
+            font-weight: 900;
+        }
+
+        @media (max-width: 768px) {
+            .fab {
+                width: 48px;
+                height: 48px;
+                font-size: 16px;
+            }
+        }
+
+        .fab:hover {
+            background: var(--signal-primary);
+            color: var(--surface-void);
+            border-color: var(--signal-primary);
+        }
+
+        .fab:active {
+            transform: scale(0.95);
+        }
+
+
+        .config-panel {
+            position: fixed;
+            bottom: 100px;
+            right: var(--gap-lg);
+            background: var(--surface-void);
+            border: 2px solid var(--edge-visible);
+            border-radius: var(--curve-sm);
+            padding: var(--gap-lg);
+            min-width: 320px;
+            max-width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: var(--depth-lg);
+            transform: translateY(20px);
+            opacity: 0;
+            pointer-events: none;
+            transition: var(--tempo-normal);
+        }
+
+        .config-panel.active {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .config-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--gap-md);
+            border-bottom: 1px solid var(--edge-subtle);
+            padding-bottom: var(--gap-sm);
+        }
+
+        .config-panel h3 {
+            margin: 0;
+            font-size: 12px;
+            color: var(--ink-primary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 900;
+        }
+
+        .config-quick-actions {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: var(--gap-xs);
+            margin-bottom: var(--gap-md);
+        }
+
+        .config-quick-actions button {
+            background: transparent;
+            border: 1px solid var(--edge-visible);
+            color: var(--ink-primary);
+            padding: 4px var(--gap-sm);
+            border-radius: var(--curve-sm);
+            cursor: pointer;
+            font-size: 8px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: var(--tempo-fast);
+            min-height: 20px;
+        }
+
+        .config-quick-actions button:hover {
+            border-color: var(--signal-primary);
+            color: var(--signal-primary);
+        }
+
+        .config-quick-actions button:active {
+            background: var(--signal-primary);
+            color: var(--surface-void);
+        }
+
+        .config-preset-actions {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: var(--gap-xs);
+            margin: 0 var(--gap-sm) var(--gap-md) var(--gap-sm);
+        }
+
+        .config-preset-actions button {
+            background: transparent;
+            border: 1px solid var(--edge-visible);
+            color: var(--ink-primary);
+            padding: 2px var(--gap-xs);
+            border-radius: var(--curve-sm);
+            cursor: pointer;
+            font-size: 7px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: var(--tempo-fast);
+            min-height: 14px;
+            position: relative;
+        }
+
+        .config-preset-actions button:hover {
+            border-color: var(--signal-primary);
+            color: var(--signal-primary);
+        }
+
+        .config-preset-actions button:active {
+            background: var(--signal-primary);
+            color: var(--surface-void);
+        }
+
+        .config-preset-actions button.long-pressing {
+            background: var(--signal-warning);
+            border-color: var(--signal-warning);
+            color: var(--surface-void);
+        }
+
+        .config-preset-actions button.saved {
+            border-color: var(--signal-success);
+        }
+
+        .config-section {
+            margin-bottom: var(--gap-lg);
+        }
+
+        .config-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .config-item {
+            margin-bottom: var(--gap-md);
+        }
+
+        .config-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .config-item label {
+            display: block;
+            font-size: 10px;
+            color: var(--ink-muted);
+            margin-bottom: var(--gap-xs);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+        }
+
+        .config-item button {
+            background: transparent;
+            border: 1px solid var(--edge-visible);
+            color: var(--ink-primary);
+            padding: var(--gap-xs) var(--gap-sm);
+            border-radius: var(--curve-sm);
+            cursor: pointer;
+            font-size: 9px;
+            width: 100%;
+            transition: var(--tempo-fast);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-family: inherit;
+            min-height: 24px;
+        }
+
+        .config-item button:hover {
+            border-color: var(--signal-primary);
+            color: var(--signal-primary);
+        }
+
+        .config-item button.active {
+            background: transparent;
+            color: var(--signal-primary);
+            border-color: var(--signal-primary);
+        }
+
+        .config-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            margin-bottom: var(--gap-sm);
+        }
+
+        .config-section-header h4 {
+            font-size: 10px;
+            color: var(--ink-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 700;
+        }
+
+        .config-section-header .collapse-icon {
+            font-size: 10px;
+            color: var(--ink-muted);
+            transition: var(--tempo-fast);
+        }
+
+        .config-section-header .collapse-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .config-section-content {
+            max-height: 1000px;
+            overflow: hidden;
+            transition: max-height 0.6s ease;
+        }
+
+        .config-section-content.collapsed {
+            max-height: 0;
+        }
+
+        .config-item select {
+            width: 100%;
+            background: var(--surface-panel);
+            border: 1px solid var(--edge-subtle);
+            color: var(--ink-primary);
+            padding: var(--gap-sm);
+            border-radius: var(--curve-sm);
+            font-size: 10px;
+            font-family: var(--font-code);
+            transition: var(--tempo-fast);
+            cursor: pointer;
+        }
+
+        .config-item select:focus {
+            outline: none;
+            border-color: var(--signal-primary);
+        }
+
+        .config-item select:hover {
+            border-color: var(--edge-visible);
+        }
+
+        .config-item input[type="range"] {
+            width: 100%;
+            height: 2px;
+            background: var(--edge-subtle);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .config-item input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--signal-primary);
+            cursor: pointer;
+            border-radius: 0;
+        }
+
+        .config-item input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: var(--signal-primary);
+            cursor: pointer;
+            border-radius: 0;
+        }
+
+        .config-item .value-display {
+            font-size: 11px;
+            color: var(--signal-primary);
+            margin-top: var(--gap-xs);
+            font-weight: 700;
+        }
+
+        .config-item input[type="text"],
+        .config-item input[type="number"],
+        .config-item textarea {
+            width: 100%;
+            background: var(--surface-panel);
+            border: 1px solid var(--edge-subtle);
+            color: var(--ink-primary);
+            padding: var(--gap-sm);
+            border-radius: var(--curve-sm);
+            font-size: 10px;
+            font-family: var(--font-code);
+            transition: var(--tempo-fast);
+        }
+
+        .config-item input[type="text"]:focus,
+        .config-item input[type="number"]:focus,
+        .config-item textarea:focus {
+            outline: none;
+            border-color: var(--signal-primary);
+        }
+
+        .config-item textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .toast {
+            position: fixed;
+            background: var(--surface-void);
+            border: 1px solid var(--edge-visible);
+            border-radius: var(--curve-sm);
+            padding: var(--gap-md);
+            font-size: 10px;
+            color: var(--ink-secondary);
+            font-family: var(--font-code);
+            z-index: 999;
+            box-shadow: var(--depth-md);
+            transition: all var(--tempo-normal);
+        }
+
+        .toast.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Right stack toasts - dynamically positioned */
+        .toast-stack-right {
+            right: var(--gap-lg);
+        }
+
+        /* Left stack toasts - dynamically positioned */
+        .toast-stack-left {
+            left: var(--gap-lg);
+        }
+
+        #toast-design-tokens {
+            max-width: 300px;
+        }
+
+        #toast-fonts {
+            max-width: 300px;
+        }
+
+        #toast-navigator {
+            min-width: 200px;
+            max-width: 200px;
+        }
+
+        #toast-navigator .token-row {
+            font-family: var(--font-code);
+            font-size: 9px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #toast-navigator .nav-label {
+            display: inline-block;
+            min-width: 42px;
+        }
+
+        #toast-navigator .nav-value {
+            font-variant-numeric: tabular-nums;
+        }
+
+        #toast-3d-navigator,
+        #toast-realworld {
+            min-width: 200px;
+        }
+
+        .toast-content {
+            font-size: 9px;
+            line-height: 1.4;
+            transition: var(--tempo-normal);
+        }
+
+        .toast.stacked .toast-content {
+            display: none;
+        }
+
+        .toast.stacked .toast-title {
+            margin-bottom: 0;
+        }
+
+        .toast-title {
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: var(--gap-sm);
+            color: var(--ink-primary);
+            font-size: 10px;
+            min-height: 14px;
+            transition: var(--tempo-normal);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .help-btn {
+            background: transparent;
+            border: 1px solid var(--edge-visible);
+            color: var(--ink-primary);
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            line-height: 1;
+            opacity: 0.7;
+            transition: var(--tempo-normal);
+        }
+
+        .help-btn:hover {
+            background: var(--edge-visible);
+            border-color: var(--edge-active);
+            opacity: 1;
+        }
+
+        .token-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2px;
+        }
+
+        .token-name {
+            color: var(--ink-code);
+        }
+
+        .token-value {
+            color: var(--ink-muted);
+            font-family: var(--font-code);
+        }
+
+        .coord-axis {
+            font-weight: 700;
+        }
+
+        .coord-x { color: var(--p6); }
+        .coord-y { color: var(--p7); }
+        .coord-z { color: var(--s2); }
+
+        .add-project-btn {
+            position: fixed;
+            bottom: var(--gap-lg);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--surface-void);
+            border: 2px solid var(--edge-visible);
+            color: var(--ink-primary);
+            padding: var(--gap-md) var(--gap-lg);
+            border-radius: var(--curve-sm);
+            cursor: pointer;
+            font-size: 11px;
+            transition: var(--tempo-fast);
+            z-index: 1000;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: inherit;
+        }
+
+        .add-project-btn:hover {
+            background: var(--surface-elevated);
+            border-color: var(--edge-active);
+        }
+
+        .add-project-btn.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .config-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .config-panel::-webkit-scrollbar-track {
+            background: var(--surface-void);
+        }
+
+        .config-panel::-webkit-scrollbar-thumb {
+            background: var(--edge-visible);
+            border-radius: 0;
+        }
+
+        .config-panel::-webkit-scrollbar-thumb:hover {
+            background: var(--edge-active);
+        }
+
+        /* Popup/Modal System */
+        .popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: var(--tempo-normal);
+        }
+
+        .popup-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .popup-content {
+            background: var(--surface-void);
+            border: 2px solid var(--edge-visible);
+            border-radius: var(--curve-md);
+            padding: var(--gap-xl);
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            transform: scale(0.9);
+            transition: var(--tempo-normal);
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.2) rgba(0, 0, 0, 0.8);
+        }
+
+        .popup-content::-webkit-scrollbar {
+            width: 2px;
+        }
+
+        .popup-content::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.8);
+        }
+
+        .popup-content::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 0;
+        }
+
+        .popup-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.35);
+        }
+
+        .popup-overlay.active .popup-content {
+            transform: scale(1);
+        }
+
+        .popup-content h2 {
+            font-size: 18px;
+            color: var(--signal-primary);
+            margin-bottom: var(--gap-md);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 900;
+        }
+
+        .popup-content p {
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--ink-secondary);
+            margin-bottom: var(--gap-md);
+        }
+
+        .popup-content strong {
+            color: var(--ink-primary);
+        }
+
+        .popup-content .close-btn {
+            background: transparent;
+            border: 1px solid var(--edge-visible);
+            color: var(--ink-primary);
+            padding: var(--gap-sm) var(--gap-lg);
+            border-radius: var(--curve-sm);
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: var(--tempo-fast);
+            font-family: inherit;
+            margin-top: var(--gap-md);
+        }
+
+        .popup-content .close-btn:hover {
+            border-color: var(--signal-primary);
+            color: var(--signal-primary);
+        }
+
+        .json-viewer::-webkit-scrollbar {
+            width: 2px;
+            height: 2px;
+        }
+
+        .json-viewer::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.8);
+        }
+
+        .json-viewer::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 0;
+        }
+
+        .json-viewer::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.35);
+        }
+
+        .json-viewer::-webkit-scrollbar-corner {
+            background: rgba(0, 0, 0, 0.8);
+        }
+
+        /* Firefox scrollbar styling */
+        .json-viewer {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.2) rgba(0, 0, 0, 0.8);
+        }
+
+        .config-manager-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--gap-md);
+            border-bottom: 1px solid var(--edge-subtle);
+            padding-bottom: var(--gap-md);
+        }
+
+        .config-manager-header h2 {
+            margin: 0;
+            font-size: 18px;
+            color: var(--signal-primary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 900;
+        }
+
+        .config-manager-actions {
+            display: flex;
+            gap: var(--gap-sm);
+            align-items: center;
+        }
+
+        .config-manager-btn {
+            background: transparent;
+            border: 1px solid var(--edge-visible);
+            color: var(--ink-primary);
+            padding: var(--gap-xs) var(--gap-md);
+            border-radius: var(--curve-sm);
+            cursor: pointer;
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: var(--tempo-fast);
+            font-family: inherit;
+        }
+
+        .config-manager-btn:hover {
+            border-color: var(--signal-primary);
+            color: var(--signal-primary);
+        }
+
+        .config-manager-btn:active {
+            background: var(--signal-primary);
+            color: var(--surface-void);
+        }
+
+        .close-popup-btn {
+            background: transparent;
+            border: 1px solid var(--edge-visible);
+            color: var(--ink-primary);
+            width: 24px;
+            height: 24px;
+            border-radius: var(--curve-sm);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            transition: var(--tempo-fast);
+            font-family: inherit;
+        }
+
+        .close-popup-btn:hover {
+            border-color: var(--signal-primary);
+            color: var(--signal-primary);
+        }
+
+        .json-viewer {
+            width: 100%;
+            min-height: 400px;
+            max-height: 60vh;
+            background: rgba(0, 0, 0, 0.5);
+            border: none;
+            padding: var(--gap-lg);
+            border-radius: 0;
+            font-family: var(--font-code);
+            font-size: 13px;
+            line-height: 1.8;
+            overflow-y: auto;
+            overflow-x: auto;
+        }
+
+        .json-tree {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .json-key {
+            color: #61afef;
+            font-weight: 600;
+        }
+
+        .json-string {
+            color: #98c379;
+        }
+
+        .json-number {
+            color: #d19a66;
+        }
+
+        .json-boolean {
+            color: #c678dd;
+        }
+
+        .json-null {
+            color: #e06c75;
+        }
+
+        .json-expandable {
+            cursor: pointer;
+            user-select: none;
+            display: inline-block;
+            width: 14px;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.5);
+            font-weight: bold;
+            margin-right: 4px;
+        }
+
+        .json-expandable:hover {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .json-line {
+            margin-left: 20px;
+            position: relative;
+        }
+
+        .json-line.collapsed > .json-children {
+            display: none;
+        }
+
+        .json-bracket {
+            color: rgba(255, 255, 255, 0.6);
+            font-weight: bold;
+        }
+
+        .json-comma {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .json-children {
+            margin-left: 0;
+        }
+
+        .json-line-content {
+            display: inline;
+        }
+
+        /* Loading Screen */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: var(--surface-void);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 1;
+            transition: opacity 0.4s ease;
+            pointer-events: all;
+        }
+
+        .loading-overlay.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-text {
+            font-family: var(--font-primary);
+            font-size: 22pt;
+            font-weight: 700;
+            color: var(--signal-primary);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 0.4;
+            }
+            50% {
+                opacity: 1;
+            }
+        }
+
+        /* Projects Toast Styles */
+        .project-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            padding: 4px;
+            border: 1px solid transparent;
+            border-radius: 2px;
+            transition: var(--tempo-fast);
+            font-size: 9px;
+        }
+
+        .project-item:hover {
+            background: var(--surface-elevated);
+            border-color: var(--edge-subtle);
+        }
+
+        .project-item-left {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .project-item-right {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 7px;
+            color: var(--ink-muted);
+            flex-shrink: 0;
+        }
+
+        .project-checkbox {
+            width: 10px;
+            height: 10px;
+            border: 1px solid var(--edge-visible);
+            border-radius: 0;
+            background: transparent;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--tempo-fast);
+        }
+
+        .project-checkbox.checked {
+            background: var(--signal-primary);
+            border-color: var(--signal-primary);
+        }
+
+        .project-checkbox.checked::after {
+            content: '✓';
+            color: var(--surface-void);
+            font-size: 8px;
+            font-weight: 900;
+        }
+
+        .project-name {
+            color: var(--ink-primary);
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .project-status {
+            padding: 2px 4px;
+            background: var(--surface-elevated);
+            border-radius: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .project-status.draft {
+            color: var(--ink-muted);
+        }
+
+        .project-status.live {
+            color: var(--signal-success);
+        }
+
+        .project-position {
+            color: var(--ink-muted);
+            font-family: var(--font-code);
+        }
+
+        .token-input {
+            border-color: var(--signal-warning) !important;
+        }
+
+        .project-card-edit .token-error {
+            font-size: 8px;
+            color: var(--signal-error);
+            margin-top: calc(var(--gap-xs) * -1);
+            margin-bottom: var(--gap-sm);
+            display: none;
+        }
+
+        .project-card-edit .token-error.show {
+            display: block;
+        }
+
+        /* Storage Toast Styles */
+        .storage-stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            font-size: 9px;
+            border-bottom: 1px solid var(--edge-subtle);
+        }
+
+        .storage-stat:last-child {
+            border-bottom: none;
+        }
+
+        .storage-stat-label {
+            color: var(--ink-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+        }
+
+        .storage-stat-value {
+            color: var(--ink-primary);
+            font-family: var(--font-code);
+            font-weight: 700;
+        }
+
+        .storage-key-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 3px 0;
+            font-size: 8px;
+        }
+
+        .storage-key-name {
+            color: var(--ink-secondary);
+            font-family: var(--font-code);
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .storage-key-size {
+            color: var(--ink-muted);
+            font-family: var(--font-code);
+            margin-left: var(--gap-sm);
+        }
+
+        .nuclear-button {
+            width: 100%;
+            background: transparent;
+            border: 2px solid var(--signal-error);
+            color: var(--signal-error);
+            padding: var(--gap-sm);
+            border-radius: var(--curve-sm);
+            cursor: pointer;
+            font-size: 9px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: var(--tempo-fast);
+            font-family: inherit;
+            margin-top: var(--gap-md);
+        }
+
+        .nuclear-button:hover {
+            background: var(--signal-error);
+            color: var(--surface-void);
+        }
+
+        .storage-section-title {
+            font-size: 8px;
+            color: var(--ink-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-top: var(--gap-md);
+            margin-bottom: var(--gap-xs);
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-text">LOADING</div>
+    </div>
+
+    <div class="greeting" id="greeting">HI.</div>
+
+    <div id="canvas">
+        <canvas id="grid-canvas"></canvas>
+        <div id="canvas-content"></div>
+    </div>
+
+    <button class="add-project-btn" id="home-btn" onclick="goHome()">HOME</button>
+    <button class="add-project-btn hidden" id="add-project-btn" onclick="addProject()" style="left: calc(50% + 80px);">+ ADD</button>
+
+    <!-- Right side toasts - Stacked -->
+    <div class="toast toast-stack-right" id="toast-navigator">
+        <div class="toast-title">NAVIGATOR</div>
+        <div class="toast-content">
+            <div class="token-row">
+                <span class="nav-label">Scale</span>
+                <span class="nav-value" id="scale-display">1.00</span>x
+            </div>
+            <div class="token-row">
+                <span class="nav-label">Position</span>
+                (<span class="nav-value" id="x-display">0</span>, <span class="nav-value" id="y-display">0</span>)
+            </div>
+            <div class="token-row">
+                <span class="nav-label">Grid</span>
+                <span class="nav-value" id="grid-display">50</span>px
+            </div>
+        </div>
+    </div>
+
+    <div class="toast toast-stack-right" id="toast-3d-navigator">
+        <div class="toast-title">
+            3D NAVIGATOR
+            <button class="help-btn" onclick="showWelcomePopup()">?</button>
+        </div>
+        <div class="toast-content">
+            <div class="token-row">
+                <span class="coord-axis coord-x">X:</span>
+                <span id="coord-x">0.00</span>
+            </div>
+            <div class="token-row">
+                <span class="coord-axis coord-y">Y:</span>
+                <span id="coord-y">0.00</span>
+            </div>
+            <div class="token-row">
+                <span class="coord-axis coord-z">Z:</span>
+                <span id="coord-z">1.000</span>
+            </div>
+            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--edge-subtle);">
+                <div class="token-row">
+                    <span class="token-name">XY plane</span>
+                </div>
+                <div class="token-row">
+                    <span class="token-name">Z = depth</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast toast-stack-right" id="toast-realworld">
+        <div class="toast-title">REAL WORLD</div>
+        <div class="toast-content">
+            <div class="token-row">
+                <span class="token-name">Unit Cube:</span>
+                <span id="unit-cube-size">1.0</span>m
+            </div>
+            <div class="token-row">
+                <span class="token-name">Grid Unit:</span>
+                <span id="real-grid-unit">0.050</span>m
+            </div>
+            <div class="token-row">
+                <span class="token-name">View Size:</span>
+                <span id="view-size">?</span>m²
+            </div>
+            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--edge-subtle);">
+                <div class="token-row">
+                    <span class="token-name" style="font-size: 8px;">1 unit = <span id="unit-meters">1.0</span>m</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast toast-stack-right" id="toast-modifiers">
+        <div class="toast-title">MODIFIERS</div>
+        <div class="toast-content">
+            <div class="token-row">
+                <span class="token-name">Stack Control:</span>
+                <span id="mod-stack-value">8</span>
+            </div>
+            <div class="token-row">
+                <span class="token-name">Mode:</span>
+                <span id="mod-stack-mode">spread</span>
+            </div>
+            <div style="margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--edge-subtle); font-size: 7px; opacity: 0.7;">
+                <div>Ctrl+Shift+Scroll</div>
+                <div>Ctrl+Shift+↑/↓</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Left side toasts - Stacked -->
+    <div class="toast toast-stack-left" id="toast-design-tokens">
+        <div class="toast-title">DESIGN TOKENS</div>
+        <div class="toast-content">
+            <div class="token-row" style="cursor: pointer;" onclick="editToken('--surface-void', '#0a0a0a')">
+                <span class="token-name">surface-void</span>
+                <span class="token-value" id="token-surface-void">#0a0a0a</span>
+            </div>
+            <div class="token-row" style="cursor: pointer;" onclick="editToken('--signal-primary', '#4a9eff')">
+                <span class="token-name">signal-primary</span>
+                <span class="token-value" id="token-signal-primary">#4a9eff</span>
+            </div>
+            <div class="token-row" style="cursor: pointer;" onclick="editToken('--ink-primary', '#ffffff')">
+                <span class="token-name">ink-primary</span>
+                <span class="token-value" id="token-ink-primary">#ffffff</span>
+            </div>
+            <div class="token-row">
+                <span class="token-name">gap-md</span>
+                <span class="token-value" id="token-gap-md">16px</span>
+            </div>
+            <div class="token-row">
+                <span class="token-name">tempo-normal</span>
+                <span class="token-value" id="token-tempo-normal">0.3s</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast toast-stack-left" id="toast-fonts">
+        <div class="toast-title">TYPOGRAPHY</div>
+        <div class="toast-content">
+            <div class="token-row">
+                <span class="token-name">font-primary</span>
+            </div>
+            <div style="margin-bottom: 6px; color: var(--ink-primary); font-family: var(--font-primary);">
+                The quick brown fox
+            </div>
+            <div class="token-row">
+                <span class="token-name">font-secondary</span>
+            </div>
+            <div style="margin-bottom: 6px; color: var(--ink-primary); font-family: var(--font-secondary);">
+                The quick brown fox
+            </div>
+            <div class="token-row">
+                <span class="token-name">font-code</span>
+            </div>
+            <div style="color: var(--ink-code); font-family: var(--font-code);">
+                const x = 123;
+            </div>
+        </div>
+    </div>
+
+    <div class="toast toast-stack-left" id="toast-projects">
+        <div class="toast-title">PROJECTS</div>
+        <div class="toast-content" id="toast-projects-content">
+            <!-- Projects list dynamically populated -->
+        </div>
+    </div>
+
+    <div class="toast toast-stack-left" id="toast-storage">
+        <div class="toast-title">STORAGE</div>
+        <div class="toast-content" id="toast-storage-content">
+            <!-- Storage stats dynamically populated -->
+        </div>
+    </div>
+
+    <button class="fab">⚙</button>
+
+    <!-- Popup System -->
+    <div class="popup-overlay" id="popup-overlay" onclick="closePopup()">
+        <div class="popup-content" onclick="event.stopPropagation()">
+            <div id="popup-body"></div>
+        </div>
+    </div>
+
+    <div class="config-panel" id="config-panel">
+        <div class="config-header">
+            <h3>CONFIG</h3>
+        </div>
+
+        <div class="config-quick-actions">
+            <button onclick="collapseAllSections()">COLLAPSE</button>
+            <button onclick="expandAllSections()">EXPAND</button>
+            <button onclick="exportSettings()">?</button>
+        </div>
+
+        <!-- UI Toggles Section -->
+        <div class="config-section">
+            <div class="config-section-header" onclick="toggleSection(this)">
+                <h4>UI ELEMENTS</h4>
+                <span class="collapse-icon">▼</span>
+            </div>
+            <div class="config-section-content">
+                <div class="config-item">
+                    <button id="toggle-greeting" class="active" onclick="toggleElement('greeting')">GREETING</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-projects" class="active" onclick="toggleProjects()">PROJECTS</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-grid" class="active" onclick="toggleGrid()">GRID</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-home-btn" class="active" onclick="toggleElement('home-btn')">HOME BTN</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-add-btn" onclick="toggleElement('add-project-btn')">ADD BTN</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-origin-axes" onclick="toggleOriginAxes()">ORIGIN AXES</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info Toasts Section -->
+        <div class="config-section">
+            <div class="config-section-header" onclick="toggleSection(this)">
+                <h4>TOASTS</h4>
+                <span class="collapse-icon">▼</span>
+            </div>
+            <div class="config-section-content">
+                <div class="config-preset-actions">
+                    <button onclick="applyToastPreset('all')">ALL</button>
+                    <button onclick="applyToastPreset('none')">NONE</button>
+                    <button id="fav1-btn" class="saved">FAV1</button>
+                    <button id="fav2-btn">FAV2</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-toast-navigator" class="active" onclick="toggleElement('toast-navigator')">NAVIGATOR</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-toast-3d-navigator" class="active" onclick="toggleElement('toast-3d-navigator')">3D NAV</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-toast-realworld" class="active" onclick="toggleElement('toast-realworld')">REAL WORLD</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-toast-modifiers" class="active" onclick="toggleElement('toast-modifiers')">MODIFIERS</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-toast-design-tokens" class="active" onclick="toggleElement('toast-design-tokens')">TOKENS</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-toast-fonts" class="active" onclick="toggleElement('toast-fonts')">FONTS</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-toast-projects" class="active" onclick="toggleElement('toast-projects')">PROJECTS</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-toast-storage" class="active" onclick="toggleElement('toast-storage')">STORAGE</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Typography Section -->
+        <div class="config-section">
+            <div class="config-section-header" onclick="toggleSection(this)">
+                <h4>TYPOGRAPHY</h4>
+                <span class="collapse-icon">▼</span>
+            </div>
+            <div class="config-section-content">
+                <div class="config-item">
+                    <label>Primary Font</label>
+                    <select id="font-primary-select" onchange="applyFontFromDropdown('primary')">
+                        <option value="'SF Mono', 'Monaco', 'Courier New', monospace">SF Mono</option>
+                        <option value="'Inter', sans-serif|https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap">Inter</option>
+                        <option value="'Roboto Mono', monospace|https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap">Roboto Mono</option>
+                        <option value="'JetBrains Mono', monospace|https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap">JetBrains Mono</option>
+                        <option value="'Fira Code', monospace|https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap">Fira Code</option>
+                    </select>
+                </div>
+                <div class="config-item">
+                    <label>Secondary Font</label>
+                    <select id="font-secondary-select" onchange="applyFontFromDropdown('secondary')">
+                        <option value="'SF Mono', 'Monaco', 'Courier New', monospace">SF Mono</option>
+                        <option value="'Inter', sans-serif|https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap">Inter</option>
+                        <option value="'Roboto Mono', monospace|https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap">Roboto Mono</option>
+                        <option value="'JetBrains Mono', monospace|https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap">JetBrains Mono</option>
+                        <option value="'Fira Code', monospace|https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap">Fira Code</option>
+                    </select>
+                </div>
+                <div class="config-item">
+                    <label>Code Font</label>
+                    <select id="font-code-select" onchange="applyFontFromDropdown('code')">
+                        <option value="'Courier New', monospace">Courier New</option>
+                        <option value="'Inter', sans-serif|https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap">Inter</option>
+                        <option value="'Roboto Mono', monospace|https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap">Roboto Mono</option>
+                        <option value="'JetBrains Mono', monospace|https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap">JetBrains Mono</option>
+                        <option value="'Fira Code', monospace|https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap">Fira Code</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3D Navigation Section -->
+        <div class="config-section">
+            <div class="config-section-header" onclick="toggleSection(this)">
+                <h4>3D SPACE</h4>
+                <span class="collapse-icon">▼</span>
+            </div>
+            <div class="config-section-content">
+                <div class="config-item">
+                    <label>Min Z</label>
+                    <input type="range" id="min-scale" min="0.001" max="0.1" step="0.001" value="0.001">
+                    <div class="value-display"><span id="min-scale-val">0.001</span>x</div>
+                </div>
+                <div class="config-item">
+                    <label>Max Z</label>
+                    <input type="range" id="max-scale" min="1" max="100" step="1" value="10">
+                    <div class="value-display"><span id="max-scale-val">10</span>x</div>
+                </div>
+                <div class="config-item">
+                    <label>Grid Size</label>
+                    <input type="range" id="grid-size" min="10" max="200" step="10" value="50">
+                    <div class="value-display"><span id="grid-size-val">50</span>px</div>
+                </div>
+                <div class="config-item">
+                    <label>Unit Cube (meters)</label>
+                    <input type="number" id="unit-cube-meters" value="1.0" step="0.1" min="0.001">
+                    <div class="value-display">1 unit = <span id="unit-cube-val">1.0</span>m</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions Section -->
+        <div class="config-section">
+            <div class="config-section-header" onclick="toggleSection(this)">
+                <h4>ACTIONS</h4>
+                <span class="collapse-icon">▼</span>
+            </div>
+            <div class="config-section-content">
+                <div class="config-item">
+                    <button onclick="resetView()">RESET VIEW</button>
+                </div>
+                <div class="config-item">
+                    <button onclick="resetAll()">RESET ALL</button>
+                </div>
+                <div class="config-item">
+                    <button onclick="saveSettings()">SAVE</button>
+                </div>
+                <div class="config-item">
+                    <button onclick="showWelcomePopup()">HELP</button>
+                </div>
+                <div class="config-item">
+                    <button onclick="toggleConfig()">CLOSE</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stack Spacing Section -->
+        <div class="config-section">
+            <div class="config-section-header" onclick="toggleSection(this)">
+                <h4>STACK</h4>
+                <span class="collapse-icon">▼</span>
+            </div>
+            <div class="config-section-content">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap-md);">
+                    <div class="config-item" style="margin: 0;">
+                        <label>Spread</label>
+                        <input type="range" id="stack-spacing" min="-50" max="100" step="1" value="8" style="width: 100%;">
+                        <div class="value-display"><span id="stack-spacing-val">8</span> <span id="stack-mode">spread</span></div>
+                    </div>
+                    <div class="config-item" style="margin: 0;">
+                        <label>Stop</label>
+                        <input type="range" id="stack-stop" min="0" max="100" step="1" value="0" style="width: 100%;">
+                        <div class="value-display"><span id="stack-stop-val">0</span>%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Factory function to get fresh default state
+        function getDefaultState() {
+            return {
+                canvas: {
+                    translateX: 0,
+                    translateY: 0,
+                    scale: 1,
+                    minScale: 0.001,
+                    maxScale: 10,
+                    baseGridSize: 50
+                },
+                realWorld: {
+                    unitCubeMeters: 1.0
+                },
+                stacking: {
+                    spacing: 8,
+                    stop: 0
+                },
+                toastPresets: {
+                    fav1: {
+                        toastNavigator: false,
+                        toast3dNavigator: false,
+                        toastRealworld: false,
+                        toastModifiers: false,
+                        toastDesignTokens: false,
+                        toastFonts: false,
+                        toastProjects: false,
+                        toastStorage: false
+                    },
+                    fav2: null
+                },
+                ui: {
+                    greeting: true,
+                    projects: true,
+                    grid: true,
+                    homeButton: true,
+                    addButton: false,
+                    toastNavigator: false,
+                    toast3dNavigator: false,
+                    toastRealworld: false,
+                    toastModifiers: false,
+                    toastDesignTokens: false,
+                    toastFonts: false,
+                    toastProjects: false,
+                    toastStorage: false,
+                    showOriginAxes: false
+                },
+                panelPosition: {
+                    x: null,
+                    y: null
+                },
+                configSections: {
+                    allCollapsed: true
+                },
+                fonts: {
+                    primary: {
+                        cdn: '',
+                        family: "'SF Mono', 'Monaco', 'Courier New', monospace"
+                    },
+                    secondary: {
+                        cdn: '',
+                        family: "'SF Mono', 'Monaco', 'Courier New', monospace"
+                    },
+                    code: {
+                        cdn: '',
+                        family: "'Courier New', monospace"
+                    }
+                },
+                projects: [
+                    {
+                        title: 'Terrain',
+                        desc: 'Create spaces.',
+                        link: '/projects/index.html',
+                        status: 'draft',
+                        x: 101,
+                        y: 155,
+                        hidden: false,
+                        token: 'gridranger'
+                    },
+                    {
+                        title: 'Synthetic Iris',
+                        desc: 'Generative plant genetics',
+                        link: './synthetic-iris/index.html',
+                        status: 'draft',
+                        x: 102,
+                        y: 352,
+                        hidden: false,
+                        token: 'gridranger'
+                    }
+                ]
+            };
+        }
+
+        // App State Management
+        const appState = {
+            canvas: {
+                translateX: 0,
+                translateY: 0,
+                scale: 1,  // This is Z-depth in 3D space
+                minScale: 0.001,
+                maxScale: 10,
+                baseGridSize: 50
+            },
+            realWorld: {
+                unitCubeMeters: 1.0  // 1 unit cube = X meters
+            },
+            stacking: {
+                spacing: 8,  // Gap between stacked toasts in pixels
+                stop: 0      // Stop point percentage (0-100)
+            },
+            toastPresets: {
+                fav1: {
+                    toastNavigator: false,
+                    toast3dNavigator: false,
+                    toastRealworld: false,
+                    toastModifiers: false,
+                    toastDesignTokens: false,
+                    toastFonts: false,
+                    toastProjects: false,
+                    toastStorage: false
+                },
+                fav2: null
+            },
+            ui: {
+                greeting: true,
+                projects: true,
+                grid: true,
+                homeButton: true,
+                addButton: false,
+                toastNavigator: false,
+                toast3dNavigator: false,
+                toastRealworld: false,
+                toastModifiers: false,
+                toastDesignTokens: false,
+                toastFonts: false,
+                toastProjects: false,
+                toastStorage: false,
+                showOriginAxes: false
+            },
+            panelPosition: {
+                x: null,
+                y: null
+            },
+            configSections: {
+                allCollapsed: true
+            },
+            fonts: {
+                primary: {
+                    cdn: '',
+                    family: "'SF Mono', 'Monaco', 'Courier New', monospace"
+                },
+                secondary: {
+                    cdn: '',
+                    family: "'SF Mono', 'Monaco', 'Courier New', monospace"
+                },
+                code: {
+                    cdn: '',
+                    family: "'Courier New', monospace"
+                }
+            },
+            projects: [
+                {
+                    title: 'Terrain',
+                    desc: 'Create spaces.',
+                    link: '/projects/index.html',
+                    status: 'draft',
+                    x: 101,
+                    y: 155,
+                    hidden: false,
+                    token: 'gridranger'
+                },
+                {
+                    title: 'Synthetic Iris',
+                    desc: 'Generative plant genetics',
+                    link: './synthetic-iris/index.html',
+                    status: 'draft',
+                    x: 102,
+                    y: 352,
+                    hidden: false,
+                    token: 'gridranger'
+                }
+            ]
+        };
+
+        const canvas = document.getElementById('canvas');
+        const canvasContent = document.getElementById('canvas-content');
+        const gridCanvas = document.getElementById('grid-canvas');
+        const ctx = gridCanvas.getContext('2d');
+
+        let isPanning = false;
+        let startX, startY;
+
+        // Initialize canvas size
+        function resizeCanvas() {
+            gridCanvas.width = window.innerWidth;
+            gridCanvas.height = window.innerHeight;
+            drawGrid();
+            updateToastStacking();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Draw infinite grid with scale-aware spacing
+        function drawGrid() {
+            if (!appState.ui.grid) {
+                ctx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+                return;
+            }
+
+            ctx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+
+            const { translateX, translateY, scale, baseGridSize } = appState.canvas;
+
+            let effectiveGridSize = baseGridSize * scale;
+            let gridMultiplier = 1;
+
+            if (effectiveGridSize < 5) {
+                gridMultiplier = Math.ceil(5 / effectiveGridSize);
+                effectiveGridSize *= gridMultiplier;
+            } else if (effectiveGridSize > 200) {
+                gridMultiplier = 0.1;
+                effectiveGridSize *= gridMultiplier;
+            }
+
+            const actualGridSize = effectiveGridSize;
+            const offsetX = (translateX * scale) % actualGridSize;
+            const offsetY = (translateY * scale) % actualGridSize;
+
+            const opacity = scale > 0.1 ? 0.1 : 0.05;
+            const lineWidth = scale > 0.5 ? 1 : 0.5;
+
+            ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
+            ctx.lineWidth = lineWidth;
+
+            for (let x = offsetX; x < gridCanvas.width; x += actualGridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, gridCanvas.height);
+                ctx.stroke();
+            }
+
+            for (let y = offsetY; y < gridCanvas.height; y += actualGridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(gridCanvas.width, y);
+                ctx.stroke();
+            }
+
+            // Origin axes (X = red, Y = green) - togglable
+            if (appState.ui.showOriginAxes) {
+                const originX = translateX * scale;
+                const originY = translateY * scale;
+
+                if (originX >= 0 && originX <= gridCanvas.width) {
+                    ctx.strokeStyle = 'rgba(255, 68, 68, 0.3)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(originX, 0);
+                    ctx.lineTo(originX, gridCanvas.height);
+                    ctx.stroke();
+                }
+
+                if (originY >= 0 && originY <= gridCanvas.height) {
+                    ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(0, originY);
+                    ctx.lineTo(gridCanvas.width, originY);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // Project card management
+        function createProjectCard(project, index) {
+            const card = document.createElement('div');
+            card.className = 'project-card';
+            card.style.left = project.x + 'px';
+            card.style.top = project.y + 'px';
+            card.dataset.index = index;
+
+            card.innerHTML = `
+                <div class="project-card-view">
+                    <div class="project-title">${project.title}</div>
+                    <div class="project-desc">${project.desc}</div>
+                    <div class="project-card-footer">
+                        <a href="${project.link}" class="project-link" onclick="event.stopPropagation()">OPEN →</a>
+                        <button class="project-card-edit-trigger" onclick="event.stopPropagation(); editProjectCard(${index})">Edit</button>
+                    </div>
+                </div>
+                <div class="project-card-edit">
+                    <label>Title</label>
+                    <input type="text" class="edit-title" value="${project.title}">
+
+                    <label>Description</label>
+                    <input type="text" class="edit-desc" value="${project.desc}">
+
+                    <label>Link</label>
+                    <input type="text" class="edit-link" value="${project.link}">
+
+                    <label>Status</label>
+                    <select class="edit-status">
+                        <option value="draft" ${project.status === 'draft' ? 'selected' : ''}>Draft</option>
+                        <option value="live" ${project.status === 'live' ? 'selected' : ''}>Live</option>
+                    </select>
+
+                    <label>Token (enter to save changes)</label>
+                    <input type="password" class="edit-token token-input" placeholder="Enter token..." value="">
+                    <div class="token-error">Invalid token.</div>
+
+                    <div class="project-card-edit-actions">
+                        <button class="cancel" onclick="cancelCardEdit(${index})">Cancel</button>
+                        <button class="save" onclick="saveCardEdit(${index})">Save</button>
+                    </div>
+                </div>
+            `;
+
+            // Apply hidden state from individual project or global UI state
+            if (!appState.ui.projects || project.hidden) {
+                card.classList.add('hidden');
+            }
+
+            card.addEventListener('mousedown', (e) => {
+                if (e.target.classList.contains('project-link')) return;
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON') return;
+                if (card.classList.contains('editing')) return;
+
+                e.stopPropagation();
+
+                card.classList.add('dragging');
+                const { scale } = appState.canvas;
+                const startCardX = e.clientX / scale - parseFloat(card.style.left);
+                const startCardY = e.clientY / scale - parseFloat(card.style.top);
+
+                function moveCard(e) {
+                    const newX = e.clientX / scale - startCardX;
+                    const newY = e.clientY / scale - startCardY;
+                    card.style.left = newX + 'px';
+                    card.style.top = newY + 'px';
+
+                    // Update project position in state
+                    appState.projects[index].x = newX;
+                    appState.projects[index].y = newY;
+                }
+
+                function stopMove() {
+                    card.classList.remove('dragging');
+                    document.removeEventListener('mousemove', moveCard);
+                    document.removeEventListener('mouseup', stopMove);
+                    updateProjectsToast();
+                    saveSettings();
+                }
+
+                document.addEventListener('mousemove', moveCard);
+                document.addEventListener('mouseup', stopMove);
+            });
+
+            canvasContent.appendChild(card);
+        }
+
+        appState.projects.forEach((project, index) => createProjectCard(project, index));
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.project-card')) return;
+            isPanning = true;
+            startX = e.clientX - appState.canvas.translateX;
+            startY = e.clientY - appState.canvas.translateY;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isPanning) return;
+            appState.canvas.translateX = e.clientX - startX;
+            appState.canvas.translateY = e.clientY - startY;
+            updateTransform();
+        });
+
+        document.addEventListener('mouseup', () => {
+            isPanning = false;
+        });
+
+        // Track scroll direction toggle for broken trackpads
+        let scrollToggle = false;
+
+        // Keyboard controls for toast stacking
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey) {
+                let delta = 0;
+                if (e.key === 'ArrowUp' || e.key === '[') {
+                    delta = 5; // Spread (up arrow = spread)
+                    e.preventDefault();
+                } else if (e.key === 'ArrowDown' || e.key === ']') {
+                    delta = -5; // Compact (down arrow = compact)
+                    e.preventDefault();
+                }
+
+                if (delta !== 0) {
+                    appState.stacking.spacing = Math.max(-50, Math.min(100, appState.stacking.spacing + delta));
+
+                    const stackSlider = document.getElementById('stack-spacing');
+                    if (stackSlider) {
+                        stackSlider.value = appState.stacking.spacing;
+                        document.getElementById('stack-spacing-val').textContent = Math.abs(appState.stacking.spacing);
+                        const mode = appState.stacking.spacing < 0 ? 'deck' :
+                                    appState.stacking.spacing === 0 ? 'stack' : 'spread';
+                        document.getElementById('stack-mode').textContent = mode;
+                    }
+
+                    updateModifierDisplay();
+                    updateToastStacking();
+                    saveSettings();
+                }
+            }
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+
+            // Ctrl+Shift+Scroll controls toast stacking
+            if (e.ctrlKey && e.shiftKey) {
+                // Try deltaY first, fallback to deltaX if deltaY is always 0/-0
+                let rawDelta = e.deltaY;
+                let usingDeltaX = false;
+
+                // If deltaY is stuck at 0/-0, try deltaX (horizontal scroll)
+                if (Math.abs(rawDelta) < 0.1 && Math.abs(e.deltaX) > 0.1) {
+                    rawDelta = e.deltaX;
+                    usingDeltaX = true;
+                }
+
+                // Calculate delta based on scroll magnitude
+                const magnitude = Math.abs(rawDelta);
+                let delta;
+
+                if (rawDelta > 0) {
+                    // Positive = compact (decrease spacing)
+                    delta = magnitude < 1 ? -1 : Math.floor(-magnitude / 3);
+                } else if (rawDelta < 0) {
+                    // Negative = spread (increase spacing)
+                    delta = magnitude < 1 ? 1 : Math.ceil(magnitude / 3);
+                } else {
+                    // Exactly 0, skip
+                    return;
+                }
+
+                const oldSpacing = appState.stacking.spacing;
+                const newSpacing = appState.stacking.spacing + delta;
+                appState.stacking.spacing = Math.max(-50, Math.min(100, newSpacing));
+
+                // Update config panel slider if it exists
+                const stackSlider = document.getElementById('stack-spacing');
+                if (stackSlider) {
+                    stackSlider.value = appState.stacking.spacing;
+                    document.getElementById('stack-spacing-val').textContent = Math.abs(appState.stacking.spacing);
+                    const mode = appState.stacking.spacing < 0 ? 'deck' :
+                                appState.stacking.spacing === 0 ? 'stack' : 'spread';
+                    document.getElementById('stack-mode').textContent = mode;
+                }
+
+                updateModifierDisplay();
+                updateToastStacking();
+                saveSettings();
+                return;
+            }
+
+            const mouseX = e.clientX;
+            const mouseY = e.clientY;
+
+            const { translateX, translateY, scale, minScale, maxScale } = appState.canvas;
+
+            const worldX = (mouseX - translateX) / scale;
+            const worldY = (mouseY - translateY) / scale;
+
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            const newScale = scale * delta;
+            appState.canvas.scale = Math.max(minScale, Math.min(maxScale, newScale));
+
+            appState.canvas.translateX = mouseX - worldX * appState.canvas.scale;
+            appState.canvas.translateY = mouseY - worldY * appState.canvas.scale;
+
+            updateTransform();
+        });
+
+        function updateTransform() {
+            const { translateX, translateY, scale } = appState.canvas;
+            canvasContent.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+            drawGrid();
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            const { translateX, translateY, scale, baseGridSize } = appState.canvas;
+            const { unitCubeMeters } = appState.realWorld;
+
+            // Basic scale display
+            document.getElementById('scale-display').textContent = scale.toFixed(3);
+            document.getElementById('x-display').textContent = Math.round(translateX);
+            document.getElementById('y-display').textContent = Math.round(translateY);
+            document.getElementById('grid-display').textContent = Math.round(baseGridSize * scale);
+
+            // 3D Navigator - treating scale as Z position
+            // X = horizontal translation (normalized to unit space)
+            const worldX = -translateX / baseGridSize;
+            const worldY = -translateY / baseGridSize;
+            const worldZ = scale;
+
+            document.getElementById('coord-x').textContent = worldX.toFixed(2);
+            document.getElementById('coord-y').textContent = worldY.toFixed(2);
+            document.getElementById('coord-z').textContent = worldZ.toFixed(3);
+
+            // Real World calculations
+            // 1 unit cube = unitCubeMeters meters
+            // Grid cell size in screen pixels = baseGridSize
+            // Current grid cell in meters = (baseGridSize / baseGridSize) * unitCubeMeters * scale
+            const realGridUnitMeters = unitCubeMeters * scale;
+
+            document.getElementById('unit-cube-size').textContent = unitCubeMeters.toFixed(1);
+            document.getElementById('real-grid-unit').textContent = realGridUnitMeters.toFixed(3);
+            document.getElementById('unit-meters').textContent = unitCubeMeters.toFixed(1);
+
+            // Calculate visible area in real-world units
+            const viewWidthUnits = window.innerWidth / (baseGridSize * scale);
+            const viewHeightUnits = window.innerHeight / (baseGridSize * scale);
+            const viewWidthMeters = viewWidthUnits * unitCubeMeters;
+            const viewHeightMeters = viewHeightUnits * unitCubeMeters;
+            const viewAreaM2 = viewWidthMeters * viewHeightMeters;
+
+            document.getElementById('view-size').textContent =
+                viewAreaM2 < 1 ? viewAreaM2.toFixed(4) : viewAreaM2.toFixed(2);
+        }
+
+        function updateModifierDisplay() {
+            const spacing = appState.stacking.spacing;
+            document.getElementById('mod-stack-value').textContent = spacing;
+            const mode = spacing < 0 ? 'deck' : spacing === 0 ? 'stack' : 'spread';
+            document.getElementById('mod-stack-mode').textContent = mode;
+        }
+
+        const DEFAULT_TOKEN = 'gridranger'; // Default token for all projects
+
+        // Get token for a specific project (from project config or default)
+        function getProjectToken(project) {
+            return project.token || DEFAULT_TOKEN;
+        }
+
+        function updateStorageToast() {
+            const content = document.getElementById('toast-storage-content');
+            if (!content) return;
+
+            // Calculate total size
+            let totalSize = 0;
+            const keys = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+                const size = new Blob([value]).size;
+                totalSize += size;
+                keys.push({ key, size });
+            }
+
+            // Sort keys by size descending
+            keys.sort((a, b) => b.size - a.size);
+
+            // Format bytes
+            const formatBytes = (bytes) => {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+            };
+
+            content.innerHTML = `
+                <div class="storage-stat">
+                    <span class="storage-stat-label">Total Size</span>
+                    <span class="storage-stat-value">${formatBytes(totalSize)}</span>
+                </div>
+                <div class="storage-stat">
+                    <span class="storage-stat-label">Keys</span>
+                    <span class="storage-stat-value">${localStorage.length}</span>
+                </div>
+
+                <div class="storage-section-title">Breakdown</div>
+                ${keys.map(({ key, size }) => `
+                    <div class="storage-key-item">
+                        <span class="storage-key-name">${key}</span>
+                        <span class="storage-key-size">${formatBytes(size)}</span>
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        function resetToDefaults() {
+            showConfirm(
+                '🔄 RESET TO DEFAULTS\n\n' +
+                'This will reset all settings to factory defaults:\n' +
+                '• Canvas position and zoom\n' +
+                '• Project cards\n' +
+                '• Font configurations\n' +
+                '• Toast preferences\n' +
+                '• All customizations\n\n' +
+                'Your current settings will be overwritten.\n\n' +
+                'Are you sure?',
+                () => {
+                    console.log('[RESET] Starting reset to defaults...');
+                    console.log('[RESET] Before clear - localStorage keys:', Object.keys(localStorage));
+
+                    // NUCLEAR OPTION: Clear everything first
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    console.log('[RESET] After clear - localStorage keys:', Object.keys(localStorage));
+
+                    // Get fresh defaults and save to localStorage
+                    const defaults = getDefaultState();
+                    console.log('[RESET] Fresh defaults:', defaults);
+                    console.log('[RESET] Default projects:', defaults.projects);
+
+                    localStorage.setItem('projects-canvas-settings', JSON.stringify(defaults));
+                    console.log('[RESET] Saved to localStorage');
+
+                    // Verify it was saved
+                    const verify = localStorage.getItem('projects-canvas-settings');
+                    console.log('[RESET] Verification read:', verify);
+
+                    // Add timestamp to force cache bust
+                    localStorage.setItem('reset-timestamp', Date.now().toString());
+
+                    showAlert('Settings have been reset to defaults. The page will now reload.', () => {
+                        console.log('[RESET] Reloading page with cache bust');
+                        // Hard reload with cache bust
+                        window.location.href = window.location.href.split('?')[0] + '?t=' + Date.now();
+                    });
+                }
+            );
+        }
+
+        function updateProjectsToast() {
+            const content = document.getElementById('toast-projects-content');
+            if (!content) return;
+
+            content.innerHTML = '';
+
+            appState.projects.forEach((project, index) => {
+                // Read visibility from saved state, not DOM
+                const isVisible = !project.hidden;
+
+                const item = document.createElement('div');
+                item.className = 'project-item';
+
+                item.innerHTML = `
+                    <div class="project-item-left">
+                        <div class="project-checkbox ${isVisible ? 'checked' : ''}" onclick="toggleProjectVisibility(${index})"></div>
+                        <span class="project-name">${project.title}</span>
+                    </div>
+                    <div class="project-item-right">
+                        <span class="project-status ${project.status || 'draft'}">${project.status || 'draft'}</span>
+                        <span class="project-position">(${Math.round(project.x)}, ${Math.round(project.y)})</span>
+                    </div>
+                `;
+
+                content.appendChild(item);
+            });
+        }
+
+        function toggleProjectVisibility(index) {
+            const cards = document.querySelectorAll('.project-card');
+            const card = cards[index];
+            if (card) {
+                card.classList.toggle('hidden');
+                // Save hidden state to appState
+                appState.projects[index].hidden = card.classList.contains('hidden');
+                saveSettings();
+                updateProjectsToast();
+            }
+        }
+
+        function editProjectCard(index) {
+            // Close any other editing cards
+            document.querySelectorAll('.project-card.editing').forEach(c => {
+                c.classList.remove('editing');
+            });
+
+            // Open this card for editing
+            const cards = document.querySelectorAll('.project-card');
+            const card = cards[index];
+            if (card) {
+                card.classList.add('editing');
+                // Make sure card is visible
+                if (card.classList.contains('hidden')) {
+                    card.classList.remove('hidden');
+                    appState.ui.projects = true;
+                    applyUIState();
+                }
+            }
+        }
+
+        // deleteProjectCard removed - projects can only be edited, not deleted
+
+        function cancelCardEdit(index) {
+            const cards = document.querySelectorAll('.project-card');
+            const card = cards[index];
+            if (card) {
+                card.classList.remove('editing');
+                // Clear token error
+                const errorEl = card.querySelector('.token-error');
+                if (errorEl) errorEl.classList.remove('show');
+                // Clear token input
+                const tokenInput = card.querySelector('.edit-token');
+                if (tokenInput) tokenInput.value = '';
+            }
+        }
+
+        function saveCardEdit(index) {
+            const cards = document.querySelectorAll('.project-card');
+            const card = cards[index];
+            if (!card) return;
+
+            const project = appState.projects[index];
+            const token = card.querySelector('.edit-token').value;
+            const errorEl = card.querySelector('.token-error');
+
+            // Check token against project's required token or default
+            const requiredToken = getProjectToken(project);
+            if (token !== requiredToken) {
+                errorEl.classList.add('show');
+                return;
+            }
+
+            // Get values from form
+            const title = card.querySelector('.edit-title').value;
+            const desc = card.querySelector('.edit-desc').value;
+            const link = card.querySelector('.edit-link').value;
+            const status = card.querySelector('.edit-status').value;
+
+            // Update project in state
+            appState.projects[index].title = title;
+            appState.projects[index].desc = desc;
+            appState.projects[index].link = link;
+            appState.projects[index].status = status;
+            // Token stays the same (stored in appState.projects[index].token)
+
+            // Recreate all cards to ensure everything is in sync
+            canvasContent.innerHTML = '';
+            appState.projects.forEach((proj, idx) => createProjectCard(proj, idx));
+
+            // Save and update toast
+            saveSettings();
+            updateProjectsToast();
+        }
+
+        function goHome() {
+            appState.canvas.translateX = 0;
+            appState.canvas.translateY = 0;
+            appState.canvas.scale = 1;
+            updateTransform();
+        }
+
+        function resetView() {
+            appState.canvas.translateX = 0;
+            appState.canvas.translateY = 0;
+            appState.canvas.scale = 1;
+            updateTransform();
+        }
+
+        function resetAll() {
+            // CLEAR localStorage entirely
+            localStorage.clear();
+
+            // Reset to defaults
+            appState.canvas.translateX = 0;
+            appState.canvas.translateY = 0;
+            appState.canvas.scale = 1;
+
+            // Reset projects to defaults
+            appState.projects = [
+                {
+                    title: 'Terrain',
+                    desc: 'Create spaces.',
+                    link: '/projects/index.html',
+                    status: 'draft',
+                    x: 101,
+                    y: 155,
+                    hidden: false
+                },
+                {
+                    title: 'Synthetic Iris',
+                    desc: 'Generative plant genetics',
+                    link: './synthetic-iris/index.html',
+                    status: 'draft',
+                    x: 102,
+                    y: 352,
+                    hidden: false
+                }
+            ];
+
+            // Recreate project cards
+            canvasContent.innerHTML = '';
+            appState.projects.forEach((project, index) => createProjectCard(project, index));
+
+            // Minimal default: HI., Grid, Projects, and FAB
+            appState.ui.greeting = true;
+            appState.ui.projects = true;
+            appState.ui.grid = true;
+            appState.ui.homeButton = true;
+            appState.ui.addButton = false;
+            appState.ui.toastNavigator = false;
+            appState.ui.toast3dNavigator = false;
+            appState.ui.toastRealworld = false;
+            appState.ui.toastModifiers = false;
+            appState.ui.toastDesignTokens = false;
+            appState.ui.toastFonts = false;
+            appState.ui.toastProjects = false;
+            appState.ui.toastStorage = false;
+
+            applyUIState();
+            updateTransform();
+            updateToggleButtons();
+            saveSettings();
+
+            // Reload page to ensure clean state
+            location.reload();
+        }
+
+        function collapseAllSections() {
+            const sections = document.querySelectorAll('.config-section');
+            sections.forEach(section => {
+                const content = section.querySelector('.config-section-content');
+                const icon = section.querySelector('.collapse-icon');
+                if (content && icon) {
+                    content.classList.add('collapsed');
+                    icon.classList.add('collapsed');
+                }
+            });
+            appState.configSections.allCollapsed = true;
+            saveSettings();
+        }
+
+        function expandAllSections() {
+            const sections = document.querySelectorAll('.config-section');
+            sections.forEach(section => {
+                const content = section.querySelector('.config-section-content');
+                const icon = section.querySelector('.collapse-icon');
+                if (content && icon) {
+                    content.classList.remove('collapsed');
+                    icon.classList.remove('collapsed');
+                }
+            });
+            appState.configSections.allCollapsed = false;
+            saveSettings();
+        }
+
+        function applyConfigSectionState() {
+            const sections = document.querySelectorAll('.config-section');
+            sections.forEach(section => {
+                const content = section.querySelector('.config-section-content');
+                const icon = section.querySelector('.collapse-icon');
+                if (content && icon) {
+                    if (appState.configSections.allCollapsed) {
+                        content.classList.add('collapsed');
+                        icon.classList.add('collapsed');
+                    } else {
+                        content.classList.remove('collapsed');
+                        icon.classList.remove('collapsed');
+                    }
+                }
+            });
+        }
+
+        function addProject() {
+            const title = prompt('Project name:');
+            if (!title) return;
+            const desc = prompt('Short description:');
+            const link = prompt('Link (e.g., /projects/myproject.html):');
+
+            if (title && link) {
+                const { translateX, translateY, scale } = appState.canvas;
+                const project = {
+                    title,
+                    desc: desc || 'No description',
+                    link,
+                    x: -translateX / scale + Math.random() * 600 + 200,
+                    y: -translateY / scale + Math.random() * 400 + 200
+                };
+                appState.projects.push(project);
+                createProjectCard(project);
+            }
+        }
+
+        function toggleConfig() {
+            const panel = document.getElementById('config-panel');
+            const isOpening = !panel.classList.contains('active');
+            panel.classList.toggle('active');
+
+            // Apply saved section state when opening
+            if (isOpening) {
+                applyConfigSectionState();
+            }
+        }
+
+        // Section collapse/expand
+        function toggleSection(header) {
+            const icon = header.querySelector('.collapse-icon');
+            const content = header.nextElementSibling;
+
+            icon.classList.toggle('collapsed');
+            content.classList.toggle('collapsed');
+        }
+
+        // Font dropdown handler
+        function applyFontFromDropdown(type) {
+            const select = document.getElementById(`font-${type}-select`);
+            const value = select.value;
+
+            const parts = value.split('|');
+            const family = parts[0];
+            const cdn = parts[1] || '';
+
+            appState.fonts[type].family = family;
+            appState.fonts[type].cdn = cdn;
+
+            if (cdn) {
+                document.getElementById(`font-${type}-link`).href = cdn;
+            }
+
+            document.documentElement.style.setProperty(`--font-${type}`, family);
+            saveSettings();
+        }
+
+        // Edit design token (simple prompt-based for now)
+        function editToken(tokenName, currentValue) {
+            const newValue = prompt(`Edit ${tokenName}:`, currentValue);
+            if (newValue && newValue !== currentValue) {
+                document.documentElement.style.setProperty(tokenName, newValue);
+
+                // Update display
+                const displayId = 'token-' + tokenName.replace('--', '').replace(/-/g, '-');
+                const element = document.getElementById(displayId);
+                if (element) {
+                    element.textContent = newValue;
+                }
+
+                saveSettings();
+            }
+        }
+
+        function toggleElement(elementId) {
+            const element = document.getElementById(elementId);
+            const button = document.getElementById(`toggle-${elementId}`);
+
+            if (elementId.startsWith('toast-')) {
+                const stateKey = 'toast' + elementId.split('-').slice(1).map((word, i) =>
+                    i === 0 ? word.charAt(0).toUpperCase() + word.slice(1) :
+                    word.charAt(0).toUpperCase() + word.slice(1)
+                ).join('');
+                appState.ui[stateKey] = !appState.ui[stateKey];
+                element.classList.toggle('hidden', !appState.ui[stateKey]);
+                button.classList.toggle('active', appState.ui[stateKey]);
+                setTimeout(() => updateToastStacking(), 50);
+            } else if (elementId === 'home-btn') {
+                appState.ui.homeButton = !appState.ui.homeButton;
+                element.classList.toggle('hidden', !appState.ui.homeButton);
+                button.classList.toggle('active', appState.ui.homeButton);
+            } else if (elementId === 'add-project-btn') {
+                appState.ui.addButton = !appState.ui.addButton;
+                element.classList.toggle('hidden', !appState.ui.addButton);
+                button.classList.toggle('active', appState.ui.addButton);
+            } else if (elementId === 'greeting') {
+                appState.ui.greeting = !appState.ui.greeting;
+                element.classList.toggle('hidden', !appState.ui.greeting);
+                button.classList.toggle('active', appState.ui.greeting);
+            }
+        }
+
+        function toggleProjects() {
+            appState.ui.projects = !appState.ui.projects;
+            const cards = document.querySelectorAll('.project-card');
+            cards.forEach(card => {
+                card.classList.toggle('hidden', !appState.ui.projects);
+            });
+            document.getElementById('toggle-projects').classList.toggle('active', appState.ui.projects);
+        }
+
+        function toggleGrid() {
+            appState.ui.grid = !appState.ui.grid;
+            drawGrid();
+            document.getElementById('toggle-grid').classList.toggle('active', appState.ui.grid);
+        }
+
+        function toggleOriginAxes() {
+            appState.ui.showOriginAxes = !appState.ui.showOriginAxes;
+            drawGrid();
+            document.getElementById('toggle-origin-axes').classList.toggle('active', appState.ui.showOriginAxes);
+        }
+
+        // Popup System
+        function showPopup(htmlContent) {
+            document.getElementById('popup-body').innerHTML = htmlContent;
+            document.getElementById('popup-overlay').classList.add('active');
+        }
+
+        function closePopup() {
+            document.getElementById('popup-overlay').classList.remove('active');
+        }
+
+        function showConfirm(message, onConfirm, onCancel) {
+            const content = `
+                <div style="text-align: center;">
+                    <p style="white-space: pre-line; line-height: 1.6; margin-bottom: var(--gap-lg);">${message}</p>
+                    <div style="display: flex; gap: var(--gap-sm); justify-content: center;">
+                        <button id="confirm-cancel-btn" class="config-manager-btn" style="border-color: var(--signal-error); color: var(--signal-error);">Cancel</button>
+                        <button id="confirm-ok-btn" class="config-manager-btn" style="border-color: var(--signal-success); color: var(--signal-success);">Confirm</button>
+                    </div>
+                </div>
+            `;
+            showPopup(content);
+
+            setTimeout(() => {
+                document.getElementById('confirm-ok-btn').addEventListener('click', () => {
+                    closePopup();
+                    if (onConfirm) onConfirm();
+                });
+                document.getElementById('confirm-cancel-btn').addEventListener('click', () => {
+                    closePopup();
+                    if (onCancel) onCancel();
+                });
+            }, 50);
+        }
+
+        function showPrompt(message, onSubmit, onCancel) {
+            const content = `
+                <div style="text-align: center;">
+                    <p style="white-space: pre-line; line-height: 1.6; margin-bottom: var(--gap-md);">${message}</p>
+                    <input type="text" id="prompt-input" style="
+                        width: 100%;
+                        background: var(--surface-panel);
+                        border: 1px solid var(--edge-visible);
+                        color: var(--ink-primary);
+                        padding: var(--gap-sm);
+                        border-radius: var(--curve-sm);
+                        font-size: 12px;
+                        font-family: var(--font-code);
+                        margin-bottom: var(--gap-md);
+                    ">
+                    <div style="display: flex; gap: var(--gap-sm); justify-content: center;">
+                        <button id="prompt-cancel-btn" class="config-manager-btn" style="border-color: var(--signal-error); color: var(--signal-error);">Cancel</button>
+                        <button id="prompt-ok-btn" class="config-manager-btn" style="border-color: var(--signal-success); color: var(--signal-success);">OK</button>
+                    </div>
+                </div>
+            `;
+            showPopup(content);
+
+            setTimeout(() => {
+                const input = document.getElementById('prompt-input');
+                input.focus();
+
+                const submitHandler = () => {
+                    closePopup();
+                    if (onSubmit) onSubmit(input.value);
+                };
+
+                document.getElementById('prompt-ok-btn').addEventListener('click', submitHandler);
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') submitHandler();
+                });
+                document.getElementById('prompt-cancel-btn').addEventListener('click', () => {
+                    closePopup();
+                    if (onCancel) onCancel();
+                });
+            }, 50);
+        }
+
+        function showAlert(message, onClose) {
+            const content = `
+                <div style="text-align: center;">
+                    <p style="white-space: pre-line; line-height: 1.6; margin-bottom: var(--gap-lg);">${message}</p>
+                    <button id="alert-ok-btn" class="config-manager-btn">OK</button>
+                </div>
+            `;
+            showPopup(content);
+
+            setTimeout(() => {
+                document.getElementById('alert-ok-btn').addEventListener('click', () => {
+                    closePopup();
+                    if (onClose) onClose();
+                });
+            }, 50);
+        }
+
+        function showWelcomePopup() {
+            const content = `
+                <h2>3D SPACE NAVIGATOR</h2>
+
+                <p><strong>Axes:</strong></p>
+                <p>• <strong style="color: var(--p6);">X:</strong> Horizontal (pan left/right)</p>
+                <p>• <strong style="color: var(--p7);">Y:</strong> Vertical (pan up/down)</p>
+                <p>• <strong style="color: var(--s2);">Z:</strong> Depth (zoom in/out)</p>
+
+                <p><strong>Zoom as Movement:</strong></p>
+                <p>Zooming changes your Z-position in 3D space. The grid scales proportionally as you move through depth.</p>
+
+                <p><strong>Real-World Scale:</strong></p>
+                <p>Unit Cube setting maps virtual units to physical measurements. At Z=1 with 1.0m setting, each grid square = 1 meter.</p>
+
+                <p><strong>Controls:</strong></p>
+                <p>• Pan: Click and drag canvas</p>
+                <p>• Zoom: Scroll wheel</p>
+                <p>• Move projects: Drag cards</p>
+            `;
+            showPopup(content);
+        }
+
+        function exportSettings() {
+            openConfigManager();
+        }
+
+        function openConfigManager() {
+            console.log('[CONFIG] Opening Configuration Manager...');
+
+            // Get the current localStorage data and parse JSON values
+            const localStorageData = {};
+            let totalSize = 0;
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+
+                // Try to parse JSON values
+                try {
+                    localStorageData[key] = JSON.parse(value);
+                } catch (e) {
+                    localStorageData[key] = value;
+                }
+
+                totalSize += new Blob([value]).size;
+            }
+
+            console.log('[CONFIG] localStorage data (parsed):', localStorageData);
+            console.log('[CONFIG] Total keys:', Object.keys(localStorageData).length);
+
+            // Format bytes
+            const formatBytes = (bytes) => {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+            };
+
+            const content = `
+                <div class="config-manager-header">
+                    <h2>CONFIGURATION MANAGER</h2>
+                    <div class="config-manager-actions">
+                        <button class="config-manager-btn" id="copy-json-btn">COPY</button>
+                        <button class="close-popup-btn" onclick="closePopup()">×</button>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; margin-bottom: var(--gap-md); padding: var(--gap-sm); background: var(--surface-elevated); border-radius: var(--curve-sm);">
+                    <div style="font-size: 10px;">
+                        <span style="color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700;">Storage:</span>
+                        <span style="color: var(--ink-primary); font-family: var(--font-code); font-weight: 700; margin-left: var(--gap-xs);">${formatBytes(totalSize)}</span>
+                        <span style="color: var(--ink-muted); margin: 0 var(--gap-xs);">•</span>
+                        <span style="color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700;">Keys:</span>
+                        <span style="color: var(--ink-primary); font-family: var(--font-code); font-weight: 700; margin-left: var(--gap-xs);">${localStorage.length}</span>
+                    </div>
+                </div>
+
+                <div id="json-viewer" class="json-viewer"></div>
+
+                <button class="nuclear-button" id="nuclear-delete-btn" style="margin-top: var(--gap-md);">🔄 RESET TO DEFAULTS</button>
+            `;
+            showPopup(content);
+
+            // Build JSON tree
+            function buildJsonTree(data, container) {
+                console.log('[TREE] buildJsonTree called with data:', data);
+                console.log('[TREE] container:', container);
+
+                const tree = document.createElement('div');
+                tree.className = 'json-tree';
+                console.log('[TREE] Created tree element');
+
+                function createNode(key, value, isLast = false) {
+                    console.log('[NODE] Creating node - key:', key, 'value type:', typeof value);
+                    const line = document.createElement('div');
+                    line.className = 'json-line';
+
+                    const lineContent = document.createElement('div');
+                    lineContent.className = 'json-line-content';
+
+                    if (value !== null && typeof value === 'object') {
+                        const isArray = Array.isArray(value);
+                        const isEmpty = Object.keys(value).length === 0;
+                        const expandIcon = document.createElement('span');
+                        expandIcon.className = 'json-expandable';
+                        expandIcon.textContent = '▼';
+
+                        if (key !== null) {
+                            const keySpan = document.createElement('span');
+                            keySpan.className = 'json-key';
+                            keySpan.textContent = `"${key}"`;
+                            lineContent.appendChild(keySpan);
+                            lineContent.appendChild(document.createTextNode(': '));
+                        }
+
+                        const openBracket = document.createElement('span');
+                        openBracket.className = 'json-bracket';
+                        openBracket.textContent = isArray ? '[' : '{';
+
+                        const closeBracket = document.createElement('span');
+                        closeBracket.className = 'json-bracket';
+                        closeBracket.textContent = isArray ? ']' : '}';
+
+                        if (!isEmpty) {
+                            lineContent.insertBefore(expandIcon, lineContent.firstChild);
+                            lineContent.appendChild(openBracket);
+
+                            const children = document.createElement('div');
+                            children.className = 'json-children';
+
+                            const entries = Object.entries(value);
+                            entries.forEach(([k, v], idx) => {
+                                children.appendChild(createNode(k, v, idx === entries.length - 1));
+                            });
+
+                            const closeLine = document.createElement('div');
+                            closeLine.appendChild(closeBracket);
+                            if (!isLast) {
+                                const comma = document.createElement('span');
+                                comma.className = 'json-comma';
+                                comma.textContent = ',';
+                                closeLine.appendChild(comma);
+                            }
+                            children.appendChild(closeLine);
+
+                            line.appendChild(lineContent);
+                            line.appendChild(children);
+
+                            // Start collapsed by default
+                            line.classList.add('collapsed');
+                            expandIcon.textContent = '▶';
+
+                            expandIcon.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                line.classList.toggle('collapsed');
+                                expandIcon.textContent = line.classList.contains('collapsed') ? '▶' : '▼';
+                            });
+                        } else {
+                            lineContent.appendChild(openBracket);
+                            lineContent.appendChild(closeBracket);
+                            if (!isLast) {
+                                const comma = document.createElement('span');
+                                comma.className = 'json-comma';
+                                comma.textContent = ',';
+                                lineContent.appendChild(comma);
+                            }
+                            line.appendChild(lineContent);
+                        }
+                    } else {
+                        if (key !== null) {
+                            const keySpan = document.createElement('span');
+                            keySpan.className = 'json-key';
+                            keySpan.textContent = `"${key}"`;
+                            lineContent.appendChild(keySpan);
+                            lineContent.appendChild(document.createTextNode(': '));
+                        }
+
+                        const valueSpan = document.createElement('span');
+                        if (typeof value === 'string') {
+                            valueSpan.className = 'json-string';
+                            valueSpan.textContent = `"${value}"`;
+                        } else if (typeof value === 'number') {
+                            valueSpan.className = 'json-number';
+                            valueSpan.textContent = value;
+                        } else if (typeof value === 'boolean') {
+                            valueSpan.className = 'json-boolean';
+                            valueSpan.textContent = value;
+                        } else if (value === null) {
+                            valueSpan.className = 'json-null';
+                            valueSpan.textContent = 'null';
+                        }
+                        lineContent.appendChild(valueSpan);
+
+                        if (!isLast) {
+                            const comma = document.createElement('span');
+                            comma.className = 'json-comma';
+                            comma.textContent = ',';
+                            lineContent.appendChild(comma);
+                        }
+
+                        line.appendChild(lineContent);
+                    }
+
+                    return line;
+                }
+
+                tree.appendChild(createNode(null, data, true));
+                console.log('[TREE] Tree element children:', tree.children.length);
+                container.appendChild(tree);
+                console.log('[TREE] Tree appended to container');
+            }
+
+            // Setup event handlers after popup opens
+            setTimeout(() => {
+                const jsonViewer = document.getElementById('json-viewer');
+                const copyBtn = document.getElementById('copy-json-btn');
+                const nuclearBtn = document.getElementById('nuclear-delete-btn');
+
+                console.log('[TREE] Building JSON tree...');
+                console.log('[TREE] jsonViewer element:', jsonViewer);
+                console.log('[TREE] jsonViewer width:', jsonViewer ? jsonViewer.offsetWidth : 'N/A');
+                console.log('[TREE] jsonViewer height:', jsonViewer ? jsonViewer.offsetHeight : 'N/A');
+
+                // Build the tree
+                buildJsonTree(localStorageData, jsonViewer);
+
+                console.log('[TREE] JSON tree built. Children count:', jsonViewer.children.length);
+                console.log('[TREE] First child class:', jsonViewer.children[0] ? jsonViewer.children[0].className : 'N/A');
+
+                // Copy button
+                copyBtn.addEventListener('click', () => {
+                    const jsonString = JSON.stringify(localStorageData, null, 2);
+                    navigator.clipboard.writeText(jsonString).then(() => {
+                        copyBtn.textContent = 'COPIED!';
+                        setTimeout(() => copyBtn.textContent = 'COPY', 1500);
+                    });
+                });
+
+                // Reset button
+                nuclearBtn.addEventListener('click', () => {
+                    resetToDefaults();
+                });
+            }, 100);
+        }
+
+        // Toast preset functions
+        function applyToastPreset(preset) {
+            if (preset === 'all') {
+                appState.ui.toastNavigator = true;
+                appState.ui.toast3dNavigator = true;
+                appState.ui.toastRealworld = true;
+                appState.ui.toastModifiers = true;
+                appState.ui.toastDesignTokens = true;
+                appState.ui.toastFonts = true;
+                appState.ui.toastProjects = true;
+                appState.ui.toastStorage = true;
+            } else if (preset === 'none') {
+                appState.ui.toastNavigator = false;
+                appState.ui.toast3dNavigator = false;
+                appState.ui.toastRealworld = false;
+                appState.ui.toastModifiers = false;
+                appState.ui.toastDesignTokens = false;
+                appState.ui.toastFonts = false;
+                appState.ui.toastProjects = false;
+                appState.ui.toastStorage = false;
+            } else if (preset === 'fav1' && appState.toastPresets.fav1) {
+                Object.assign(appState.ui, {
+                    toastNavigator: appState.toastPresets.fav1.toastNavigator,
+                    toast3dNavigator: appState.toastPresets.fav1.toast3dNavigator,
+                    toastRealworld: appState.toastPresets.fav1.toastRealworld,
+                    toastModifiers: appState.toastPresets.fav1.toastModifiers,
+                    toastDesignTokens: appState.toastPresets.fav1.toastDesignTokens,
+                    toastFonts: appState.toastPresets.fav1.toastFonts,
+                    toastProjects: appState.toastPresets.fav1.toastProjects,
+                    toastStorage: appState.toastPresets.fav1.toastStorage
+                });
+            } else if (preset === 'fav2' && appState.toastPresets.fav2) {
+                Object.assign(appState.ui, {
+                    toastNavigator: appState.toastPresets.fav2.toastNavigator,
+                    toast3dNavigator: appState.toastPresets.fav2.toast3dNavigator,
+                    toastRealworld: appState.toastPresets.fav2.toastRealworld,
+                    toastModifiers: appState.toastPresets.fav2.toastModifiers,
+                    toastDesignTokens: appState.toastPresets.fav2.toastDesignTokens,
+                    toastFonts: appState.toastPresets.fav2.toastFonts,
+                    toastProjects: appState.toastPresets.fav2.toastProjects,
+                    toastStorage: appState.toastPresets.fav2.toastStorage
+                });
+            }
+
+            applyUIState();
+            updateToggleButtons();
+            saveSettings();
+        }
+
+        function saveToastPreset(preset) {
+            appState.toastPresets[preset] = {
+                toastNavigator: appState.ui.toastNavigator,
+                toast3dNavigator: appState.ui.toast3dNavigator,
+                toastRealworld: appState.ui.toastRealworld,
+                toastModifiers: appState.ui.toastModifiers,
+                toastDesignTokens: appState.ui.toastDesignTokens,
+                toastFonts: appState.ui.toastFonts,
+                toastProjects: appState.ui.toastProjects,
+                toastStorage: appState.ui.toastStorage
+            };
+
+            const btn = document.getElementById(`${preset}-btn`);
+            btn.classList.add('saved');
+            saveSettings();
+            console.log(`Saved ${preset} preset`);
+        }
+
+        // Long-press functionality
+        const longPressHandlers = {};
+
+        function setupLongPress(elementId, callback, duration = 800) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+
+            let pressTimer;
+
+            const startPress = (e) => {
+                e.preventDefault();
+                element.classList.add('long-pressing');
+                pressTimer = setTimeout(() => {
+                    element.classList.remove('long-pressing');
+                    callback();
+                }, duration);
+            };
+
+            const cancelPress = () => {
+                clearTimeout(pressTimer);
+                element.classList.remove('long-pressing');
+            };
+
+            const handleClick = (e) => {
+                clearTimeout(pressTimer);
+                element.classList.remove('long-pressing');
+                // If it was a quick click (not a long press), apply the preset
+                const preset = elementId.replace('-btn', '');
+                applyToastPreset(preset);
+            };
+
+            element.addEventListener('mousedown', startPress);
+            element.addEventListener('mouseup', cancelPress);
+            element.addEventListener('mouseleave', cancelPress);
+            element.addEventListener('click', handleClick);
+
+            element.addEventListener('touchstart', startPress);
+            element.addEventListener('touchend', cancelPress);
+            element.addEventListener('touchcancel', cancelPress);
+
+            longPressHandlers[elementId] = { startPress, cancelPress, handleClick };
+        }
+
+        function applyUIState() {
+            document.getElementById('greeting').classList.toggle('hidden', !appState.ui.greeting);
+            document.getElementById('home-btn').classList.toggle('hidden', !appState.ui.homeButton);
+            document.getElementById('add-project-btn').classList.toggle('hidden', !appState.ui.addButton);
+            document.getElementById('toast-navigator').classList.toggle('hidden', !appState.ui.toastNavigator);
+            document.getElementById('toast-3d-navigator').classList.toggle('hidden', !appState.ui.toast3dNavigator);
+            document.getElementById('toast-realworld').classList.toggle('hidden', !appState.ui.toastRealworld);
+            document.getElementById('toast-modifiers').classList.toggle('hidden', !appState.ui.toastModifiers);
+            document.getElementById('toast-design-tokens').classList.toggle('hidden', !appState.ui.toastDesignTokens);
+            document.getElementById('toast-fonts').classList.toggle('hidden', !appState.ui.toastFonts);
+            document.getElementById('toast-projects').classList.toggle('hidden', !appState.ui.toastProjects);
+            document.getElementById('toast-storage').classList.toggle('hidden', !appState.ui.toastStorage);
+
+            const cards = document.querySelectorAll('.project-card');
+            cards.forEach(card => card.classList.toggle('hidden', !appState.ui.projects));
+
+            drawGrid();
+            updateProjectsToast();
+            updateStorageToast();
+            setTimeout(() => updateToastStacking(), 50);
+        }
+
+        function updateToggleButtons() {
+            document.getElementById('toggle-greeting').classList.toggle('active', appState.ui.greeting);
+            document.getElementById('toggle-projects').classList.toggle('active', appState.ui.projects);
+            document.getElementById('toggle-grid').classList.toggle('active', appState.ui.grid);
+            document.getElementById('toggle-home-btn').classList.toggle('active', appState.ui.homeButton);
+            document.getElementById('toggle-add-btn').classList.toggle('active', appState.ui.addButton);
+            document.getElementById('toggle-origin-axes').classList.toggle('active', appState.ui.showOriginAxes);
+            document.getElementById('toggle-toast-navigator').classList.toggle('active', appState.ui.toastNavigator);
+            document.getElementById('toggle-toast-3d-navigator').classList.toggle('active', appState.ui.toast3dNavigator);
+            document.getElementById('toggle-toast-realworld').classList.toggle('active', appState.ui.toastRealworld);
+            document.getElementById('toggle-toast-modifiers').classList.toggle('active', appState.ui.toastModifiers);
+            document.getElementById('toggle-toast-design-tokens').classList.toggle('active', appState.ui.toastDesignTokens);
+            document.getElementById('toggle-toast-fonts').classList.toggle('active', appState.ui.toastFonts);
+            document.getElementById('toggle-toast-projects').classList.toggle('active', appState.ui.toastProjects);
+            document.getElementById('toggle-toast-storage').classList.toggle('active', appState.ui.toastStorage);
+        }
+
+        function applyFont(type) {
+            const cdnInput = document.getElementById(`font-${type}-cdn`);
+            const nameInput = document.getElementById(`font-${type}-name`);
+
+            const cdn = cdnInput.value.trim();
+            const family = nameInput.value.trim();
+
+            if (!family) {
+                alert('Please provide a font family name');
+                return;
+            }
+
+            appState.fonts[type].cdn = cdn;
+            appState.fonts[type].family = family;
+
+            if (cdn) {
+                document.getElementById(`font-${type}-link`).href = cdn;
+            }
+
+            document.documentElement.style.setProperty(`--font-${type}`, family);
+            console.log(`Applied ${type} font: ${family}`);
+        }
+
+        function applyRealWorldScale() {
+            const input = document.getElementById('unit-cube-meters');
+            const value = parseFloat(input.value);
+
+            if (isNaN(value) || value <= 0) {
+                alert('Please provide a valid positive number');
+                return;
+            }
+
+            appState.realWorld.unitCubeMeters = value;
+            document.getElementById('unit-cube-val').textContent = value.toFixed(1);
+            updateDisplay();
+            console.log(`Applied real-world scale: 1 unit = ${value}m`);
+        }
+
+        document.getElementById('min-scale').addEventListener('input', (e) => {
+            appState.canvas.minScale = parseFloat(e.target.value);
+            document.getElementById('min-scale-val').textContent = appState.canvas.minScale.toFixed(3);
+        });
+
+        document.getElementById('max-scale').addEventListener('input', (e) => {
+            appState.canvas.maxScale = parseFloat(e.target.value);
+            document.getElementById('max-scale-val').textContent = appState.canvas.maxScale.toFixed(1);
+        });
+
+        document.getElementById('grid-size').addEventListener('input', (e) => {
+            appState.canvas.baseGridSize = parseInt(e.target.value);
+            document.getElementById('grid-size-val').textContent = appState.canvas.baseGridSize;
+            drawGrid();
+        });
+
+        document.getElementById('stack-spacing').addEventListener('input', (e) => {
+            appState.stacking.spacing = parseInt(e.target.value);
+            document.getElementById('stack-spacing-val').textContent = Math.abs(appState.stacking.spacing);
+
+            // Update mode text
+            const mode = appState.stacking.spacing < 0 ? 'deck' :
+                        appState.stacking.spacing === 0 ? 'stack' : 'spread';
+            document.getElementById('stack-mode').textContent = mode;
+
+            updateModifierDisplay();
+            updateToastStacking();
+        });
+
+        document.getElementById('stack-stop').addEventListener('input', (e) => {
+            appState.stacking.stop = parseInt(e.target.value);
+            document.getElementById('stack-stop-val').textContent = appState.stacking.stop;
+            updateToastStacking();
+        });
+
+        // Toast stacking system - bottom-up stacking (stacks from top edge)
+        function updateToastStacking() {
+            const spacing = appState.stacking.spacing;
+            const fabHeight = 64; // FAB button height
+            const fabMargin = 24; // FAB bottom margin (var(--gap-lg))
+            const bottomMargin = fabHeight + fabMargin + 8; // Start above FAB with small gap
+            const titleOnlyHeight = 22; // Height when only title visible
+
+            // Right stack - build from bottom up, stacking by top edge
+            const rightToasts = [
+                { id: 'toast-modifiers', visible: appState.ui.toastModifiers },
+                { id: 'toast-realworld', visible: appState.ui.toastRealworld },
+                { id: 'toast-3d-navigator', visible: appState.ui.toast3dNavigator },
+                { id: 'toast-navigator', visible: appState.ui.toastNavigator }
+            ];
+
+            let currentBottom = bottomMargin;
+            rightToasts.forEach(toast => {
+                const element = document.getElementById(toast.id);
+                if (element) {
+                    if (toast.visible && !element.classList.contains('hidden')) {
+                        element.style.top = 'auto';
+                        element.style.bottom = currentBottom + 'px';
+
+                        if (spacing < 0) {
+                            // Deck mode: show only titles
+                            element.classList.add('stacked');
+                            currentBottom += titleOnlyHeight + spacing;
+                        } else {
+                            // Normal/spread mode: show full content
+                            element.classList.remove('stacked');
+                            const elementHeight = element.offsetHeight;
+                            currentBottom += elementHeight + spacing;
+                        }
+                    } else {
+                        element.style.top = 'auto';
+                        element.style.bottom = currentBottom + 'px';
+                    }
+                }
+            });
+
+            // Left stack - build from bottom up, stacking by top edge
+            const leftToasts = [
+                { id: 'toast-storage', visible: appState.ui.toastStorage },
+                { id: 'toast-projects', visible: appState.ui.toastProjects },
+                { id: 'toast-fonts', visible: appState.ui.toastFonts },
+                { id: 'toast-design-tokens', visible: appState.ui.toastDesignTokens }
+            ];
+
+            currentBottom = bottomMargin;
+            leftToasts.forEach(toast => {
+                const element = document.getElementById(toast.id);
+                if (element) {
+                    if (toast.visible && !element.classList.contains('hidden')) {
+                        element.style.top = 'auto';
+                        element.style.bottom = currentBottom + 'px';
+
+                        if (spacing < 0) {
+                            // Deck mode: show only titles
+                            element.classList.add('stacked');
+                            currentBottom += titleOnlyHeight + spacing;
+                        } else {
+                            // Normal/spread mode: show full content
+                            element.classList.remove('stacked');
+                            const elementHeight = element.offsetHeight;
+                            currentBottom += elementHeight + spacing;
+                        }
+                    } else {
+                        element.style.top = 'auto';
+                        element.style.bottom = currentBottom + 'px';
+                    }
+                }
+            });
+        }
+
+        // FAB click handler
+        const fab = document.querySelector('.fab');
+        fab.addEventListener('click', toggleConfig);
+
+        // Make config panel draggable
+        const configPanel = document.getElementById('config-panel');
+        let isDraggingPanel = false;
+        let panelStartX, panelStartY;
+
+        const configHeader = configPanel.querySelector('h3');
+        configHeader.style.cursor = 'move';
+        configHeader.style.userSelect = 'none';
+
+        configHeader.addEventListener('mousedown', (e) => {
+            isDraggingPanel = true;
+            const rect = configPanel.getBoundingClientRect();
+            panelStartX = e.clientX - rect.left;
+            panelStartY = e.clientY - rect.top;
+            configHeader.style.cursor = 'grabbing';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDraggingPanel) return;
+
+            appState.panelPosition.x = e.clientX - panelStartX;
+            appState.panelPosition.y = e.clientY - panelStartY;
+
+            configPanel.style.position = 'fixed';
+            configPanel.style.right = 'auto';
+            configPanel.style.bottom = 'auto';
+            configPanel.style.left = appState.panelPosition.x + 'px';
+            configPanel.style.top = appState.panelPosition.y + 'px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDraggingPanel) {
+                isDraggingPanel = false;
+                configHeader.style.cursor = 'move';
+                saveSettings(); // Save position after drag
+            }
+        });
+
+        // LocalStorage Functions
+        function saveSettings() {
+            const settings = {
+                canvas: appState.canvas,
+                realWorld: appState.realWorld,
+                stacking: appState.stacking,
+                toastPresets: appState.toastPresets,
+                ui: appState.ui,
+                panelPosition: appState.panelPosition,
+                configSections: appState.configSections,
+                fonts: appState.fonts,
+                projects: appState.projects
+            };
+            localStorage.setItem('projects-canvas-settings', JSON.stringify(settings));
+            console.log('Settings saved to localStorage');
+        }
+
+        function loadSettings() {
+            const saved = localStorage.getItem('projects-canvas-settings');
+            console.log('[LOAD] localStorage raw value:', saved);
+            console.log('[LOAD] localStorage length:', localStorage.length);
+            console.log('[LOAD] All localStorage keys:', Object.keys(localStorage));
+
+            if (!saved) {
+                console.log('[LOAD] No saved settings found - using defaults');
+                return;
+            }
+
+            try {
+                const settings = JSON.parse(saved);
+                console.log('[LOAD] Parsed settings:', settings);
+                console.log('[LOAD] Projects in settings:', settings.projects);
+
+                // Restore canvas settings
+                if (settings.canvas) {
+                    Object.assign(appState.canvas, settings.canvas);
+                }
+
+                // Restore real world settings
+                if (settings.realWorld) {
+                    Object.assign(appState.realWorld, settings.realWorld);
+                }
+
+                // Restore stacking settings
+                if (settings.stacking) {
+                    Object.assign(appState.stacking, settings.stacking);
+                    document.getElementById('stack-spacing').value = settings.stacking.spacing;
+                }
+
+                // Restore toast presets
+                if (settings.toastPresets) {
+                    Object.assign(appState.toastPresets, settings.toastPresets);
+                    // Update button states
+                    if (appState.toastPresets.fav1) {
+                        document.getElementById('fav1-btn').classList.add('saved');
+                    }
+                    if (appState.toastPresets.fav2) {
+                        document.getElementById('fav2-btn').classList.add('saved');
+                    }
+                }
+
+                // Restore UI state
+                if (settings.ui) {
+                    Object.assign(appState.ui, settings.ui);
+                }
+
+                // Restore fonts
+                if (settings.fonts) {
+                    Object.assign(appState.fonts, settings.fonts);
+                    // Apply fonts
+                    ['primary', 'secondary', 'code'].forEach(type => {
+                        const font = settings.fonts[type];
+                        if (font.cdn) {
+                            document.getElementById(`font-${type}-link`).href = font.cdn;
+                        }
+                        document.documentElement.style.setProperty(`--font-${type}`, font.family);
+                    });
+                }
+
+                // Restore projects
+                if (settings.projects) {
+                    console.log('[LOAD] Restoring projects from localStorage:', settings.projects);
+                    appState.projects = settings.projects;
+                    // Clear and recreate project cards
+                    document.getElementById('canvas-content').innerHTML = '';
+                    console.log('[LOAD] Creating', appState.projects.length, 'project cards');
+                    appState.projects.forEach((project, index) => {
+                        console.log('[LOAD] Creating card for project:', project.title);
+                        createProjectCard(project, index);
+                    });
+                } else {
+                    console.log('[LOAD] No projects in settings, keeping defaults');
+                }
+
+                // Restore panel position
+                if (settings.panelPosition && settings.panelPosition.x !== null) {
+                    appState.panelPosition = settings.panelPosition;
+                    configPanel.style.position = 'fixed';
+                    configPanel.style.right = 'auto';
+                    configPanel.style.bottom = 'auto';
+                    configPanel.style.left = settings.panelPosition.x + 'px';
+                    configPanel.style.top = settings.panelPosition.y + 'px';
+                }
+
+                // Restore config section collapse state
+                if (settings.configSections) {
+                    Object.assign(appState.configSections, settings.configSections);
+                }
+
+                // Apply all UI states
+                applyUIState();
+                updateTransform();
+                updateToggleButtons();
+
+                console.log('Settings loaded from localStorage');
+            } catch (e) {
+                console.error('Error loading settings:', e);
+            }
+        }
+
+        // Auto-save on important changes
+        window.addEventListener('beforeunload', saveSettings);
+
+        // Initialize real world scale input
+        document.getElementById('unit-cube-meters').value = appState.realWorld.unitCubeMeters;
+        document.getElementById('unit-cube-val').textContent = appState.realWorld.unitCubeMeters.toFixed(1);
+
+        // FORCE RESET ON NEXT LOAD - Disabled after successful reset
+        const FORCE_RESET_NOW = false; // Set to true to force a reset on next load
+        if (FORCE_RESET_NOW) {
+            console.log('[FORCE RESET] Applying factory defaults...');
+            localStorage.clear();
+            sessionStorage.clear();
+            const defaults = getDefaultState();
+            localStorage.setItem('projects-canvas-settings', JSON.stringify(defaults));
+            console.log('[FORCE RESET] Defaults applied:', defaults);
+            console.log('[FORCE RESET] Default projects:', defaults.projects);
+        }
+
+        // Load saved settings on startup
+        loadSettings();
+
+        // Apply UI state (handles both loaded settings and defaults)
+        applyUIState();
+        updateToggleButtons();
+
+        // Initialize stacking
+        updateDisplay();
+        setTimeout(() => {
+            updateToastStacking();
+        }, 100); // Small delay to ensure elements are rendered
+
+        // Initialize long-press handlers for favorite buttons
+        setupLongPress('fav1-btn', () => saveToastPreset('fav1'));
+        setupLongPress('fav2-btn', () => saveToastPreset('fav2'));
+
+        // Initialize toast content
+        updateProjectsToast();
+        updateStorageToast();
+
+        // Hide loading screen after everything is initialized
+        setTimeout(() => {
+            const loadingOverlay = document.getElementById('loading-overlay');
+            loadingOverlay.classList.add('fade-out');
+            // Remove from DOM after fade completes
+            setTimeout(() => {
+                loadingOverlay.remove();
+            }, 400);
+        }, 200); // Wait for toasts to position
+    </script>
+</body>
+</html>

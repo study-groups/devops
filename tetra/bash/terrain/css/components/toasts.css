@@ -1,0 +1,297 @@
+/**
+ * Terrain Toast Styles
+ */
+
+.toast {
+    position: fixed;
+    background: var(--surface-void);
+    border: 1px solid var(--edge-visible);
+    border-radius: var(--curve-sm);
+    padding: var(--gap-md);
+    font-size: 10px;
+    color: var(--ink-secondary);
+    font-family: var(--font-code);
+    z-index: 999;
+    box-shadow: var(--depth-md);
+    transition: bottom 0.35s ease-out,
+                opacity 0.2s ease;
+}
+
+.toast.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Stack positioning */
+.toast-stack-right {
+    right: var(--gap-lg);
+}
+
+.toast-stack-left {
+    left: var(--gap-lg);
+}
+
+/* Toast sizing */
+#toast-design-tokens,
+#toast-fonts {
+    max-width: 300px;
+}
+
+#toast-navigator {
+    min-width: 200px;
+    max-width: 200px;
+}
+
+#toast-3d-navigator,
+#toast-realworld {
+    min-width: 200px;
+}
+
+/* Toast content */
+.toast-content {
+    font-size: 9px;
+    line-height: 1.4;
+}
+
+/* Stacked mode (deck) */
+.toast.stacked .toast-content {
+    display: none;
+}
+
+.toast.stacked .toast-title {
+    margin-bottom: 0;
+}
+
+/* Toast title */
+.toast-title {
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: var(--gap-sm);
+    color: var(--ink-primary);
+    font-size: 10px;
+    min-height: 14px;
+    transition: var(--tempo-normal);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Help button in title */
+.help-btn {
+    background: transparent;
+    border: 1px solid var(--edge-visible);
+    color: var(--ink-primary);
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 1;
+    opacity: 0.7;
+    transition: var(--tempo-normal);
+}
+
+.help-btn:hover {
+    background: var(--edge-visible);
+    border-color: var(--edge-active);
+    opacity: 1;
+}
+
+/* Token rows */
+.token-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2px;
+}
+
+.token-name {
+    color: var(--ink-code);
+}
+
+.token-value {
+    color: var(--ink-muted);
+    font-family: var(--font-code);
+}
+
+/* Navigator specific */
+#toast-navigator .token-row {
+    font-family: var(--font-code);
+    font-size: 9px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#toast-navigator .nav-label {
+    display: inline-block;
+    min-width: 42px;
+}
+
+#toast-navigator .nav-value {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Coord colors */
+.coord-axis {
+    font-weight: 700;
+}
+
+.coord-x { color: var(--p6); }
+.coord-y { color: var(--p7); }
+.coord-z { color: var(--s2); }
+
+/* Projects toast */
+.project-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    padding: 4px;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    transition: var(--tempo-fast);
+    font-size: 9px;
+}
+
+.project-item:hover {
+    background: var(--surface-elevated);
+    border-color: var(--edge-subtle);
+}
+
+.project-item-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+
+.project-item-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 7px;
+    color: var(--ink-muted);
+    flex-shrink: 0;
+}
+
+.project-checkbox {
+    width: 10px;
+    height: 10px;
+    border: 1px solid var(--edge-visible);
+    border-radius: 0;
+    background: transparent;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--tempo-fast);
+}
+
+.project-checkbox.checked {
+    background: var(--signal-primary);
+    border-color: var(--signal-primary);
+}
+
+.project-checkbox.checked::after {
+    content: '\2713';
+    color: var(--surface-void);
+    font-size: 8px;
+    font-weight: 900;
+}
+
+.project-name {
+    color: var(--ink-primary);
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.project-status {
+    padding: 2px 4px;
+    background: var(--surface-elevated);
+    border-radius: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.project-status.draft {
+    color: var(--ink-muted);
+}
+
+.project-status.live {
+    color: var(--signal-success);
+}
+
+.project-position {
+    color: var(--ink-muted);
+    font-family: var(--font-code);
+}
+
+/* Storage toast */
+.storage-stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 9px;
+    border-bottom: 1px solid var(--edge-subtle);
+}
+
+.storage-stat:last-child {
+    border-bottom: none;
+}
+
+.storage-stat-label {
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+}
+
+.storage-stat-value {
+    color: var(--ink-primary);
+    font-family: var(--font-code);
+    font-weight: 700;
+}
+
+.storage-key-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 0;
+    font-size: 8px;
+}
+
+.storage-key-name {
+    color: var(--ink-secondary);
+    font-family: var(--font-code);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.storage-key-size {
+    color: var(--ink-muted);
+    font-family: var(--font-code);
+    margin-left: var(--gap-sm);
+}
+
+.storage-section-title {
+    font-size: 8px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+    margin-top: var(--gap-md);
+    margin-bottom: var(--gap-xs);
+}

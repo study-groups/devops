@@ -1,0 +1,275 @@
+/**
+ * Terrain Core Styles
+ * Base styles and layout
+ */
+
+/* ═══════════════════════════════════════════════════════════════
+   RESET & BASE
+   ═══════════════════════════════════════════════════════════════ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    overflow: hidden;
+    font-family: var(--font-primary);
+    background: var(--surface-void);
+    color: var(--ink-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CANVAS
+   ═══════════════════════════════════════════════════════════════ */
+
+#canvas {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    cursor: grab;
+    overflow: hidden;
+}
+
+#canvas:active {
+    cursor: grabbing;
+}
+
+#canvas-content {
+    position: absolute;
+    transform-origin: 0 0;
+    width: 100%;
+    height: 100%;
+}
+
+canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LOADING OVERLAY
+   ═══════════════════════════════════════════════════════════════ */
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: var(--surface-void);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 1;
+    transition: opacity 0.4s ease;
+    pointer-events: all;
+}
+
+.loading-overlay.fade-out {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.loading-text {
+    font-family: var(--font-primary);
+    font-size: 22pt;
+    font-weight: 700;
+    color: var(--signal-primary);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BUTTONS - Home & Add
+   ═══════════════════════════════════════════════════════════════ */
+
+.add-project-btn {
+    position: fixed;
+    bottom: var(--gap-lg);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface-void);
+    border: 2px solid var(--edge-visible);
+    color: var(--ink-primary);
+    padding: var(--gap-md) var(--gap-lg);
+    border-radius: var(--curve-sm);
+    cursor: pointer;
+    font-size: 11px;
+    transition: var(--tempo-fast);
+    z-index: 1000;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-family: inherit;
+}
+
+.add-project-btn:hover {
+    background: var(--surface-elevated);
+    border-color: var(--edge-active);
+}
+
+.add-project-btn.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FAB (Floating Action Button)
+   ═══════════════════════════════════════════════════════════════ */
+
+.fab {
+    position: fixed;
+    bottom: var(--gap-lg);
+    right: var(--gap-lg);
+    width: 64px;
+    height: 64px;
+    background: var(--surface-void);
+    border: 2px solid var(--signal-primary);
+    border-radius: var(--curve-sm);
+    cursor: pointer;
+    box-shadow: var(--depth-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: var(--signal-primary);
+    transition: var(--tempo-fast);
+    z-index: 1001;
+    font-weight: 900;
+}
+
+@media (max-width: 768px) {
+    .fab {
+        width: 48px;
+        height: 48px;
+        font-size: 16px;
+    }
+}
+
+.fab:hover {
+    background: var(--signal-primary);
+    color: var(--surface-void);
+    border-color: var(--signal-primary);
+}
+
+.fab:active {
+    transform: scale(0.95);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   POPUP/MODAL SYSTEM
+   ═══════════════════════════════════════════════════════════════ */
+
+.popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    opacity: 0;
+    pointer-events: none;
+    transition: var(--tempo-normal);
+}
+
+.popup-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.popup-content {
+    background: var(--surface-void);
+    border: 2px solid var(--edge-visible);
+    border-radius: var(--curve-md);
+    padding: var(--gap-xl);
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    transform: scale(0.9);
+    transition: var(--tempo-normal);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) rgba(0, 0, 0, 0.8);
+}
+
+.popup-content::-webkit-scrollbar {
+    width: 2px;
+}
+
+.popup-content::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+.popup-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 0;
+}
+
+.popup-overlay.active .popup-content {
+    transform: scale(1);
+}
+
+.popup-content h2 {
+    font-size: 18px;
+    color: var(--signal-primary);
+    margin-bottom: var(--gap-md);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 900;
+}
+
+.popup-content p {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink-secondary);
+    margin-bottom: var(--gap-md);
+}
+
+.popup-content strong {
+    color: var(--ink-primary);
+}
+
+.popup-content .close-btn {
+    background: transparent;
+    border: 1px solid var(--edge-visible);
+    color: var(--ink-primary);
+    padding: var(--gap-sm) var(--gap-lg);
+    border-radius: var(--curve-sm);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: var(--tempo-fast);
+    font-family: inherit;
+    margin-top: var(--gap-md);
+}
+
+.popup-content .close-btn:hover {
+    border-color: var(--signal-primary);
+    color: var(--signal-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FONT CDN LINKS (for dynamic font loading)
+   ═══════════════════════════════════════════════════════════════ */
+
+#font-primary-link,
+#font-secondary-link,
+#font-code-link {
+    /* These are placeholder link elements for dynamic font loading */
+}

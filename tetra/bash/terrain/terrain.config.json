@@ -1,0 +1,49 @@
+{
+    "version": "1.0.0",
+    "skin": "default",
+    "skins": {
+        "default": {
+            "name": "Default",
+            "description": "Standard project cards with static discovery",
+            "discovery": {
+                "type": "static",
+                "source": "data/defaults.json"
+            },
+            "card": {
+                "showCli": false,
+                "showEdit": true,
+                "showStatus": true
+            },
+            "tokens": null
+        },
+        "tetra-deploy": {
+            "name": "Tetra Deploy",
+            "description": "Deployment targets discovered from tetra-deploy.toml files",
+            "discovery": {
+                "type": "toml",
+                "pattern": "**/tetra-deploy.toml",
+                "configPath": "deploy/targets.json"
+            },
+            "card": {
+                "showCli": true,
+                "showEdit": false,
+                "showStatus": true
+            },
+            "tokens": null
+        },
+        "minimal": {
+            "name": "Minimal",
+            "description": "Compact cards without CLI or editing",
+            "discovery": {
+                "type": "static",
+                "source": "data/defaults.json"
+            },
+            "card": {
+                "showCli": false,
+                "showEdit": false,
+                "showStatus": false
+            },
+            "tokens": "css/skins/minimal-tokens.css"
+        }
+    }
+}
