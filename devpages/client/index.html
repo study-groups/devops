@@ -6,7 +6,11 @@
     <meta name="app-version" content="v0.13m1">
     <title>DevPages</title>
     <link rel="icon" type="image/x-icon" href="/client/favicon.ico">
-    
+
+    <!-- CRITICAL: Synchronous theme initialization MUST run BEFORE CSS loads -->
+    <!-- This ensures CSS variables are set before CSS bundles parse -->
+    <script src="/client/services/ThemeInitializer.js"></script>
+
     <!-- All CSS is now loaded via bundles. Preloads are no longer necessary. -->
 
     <!-- CSS Loading Strategy: Bundled for Performance -->
@@ -88,7 +92,8 @@
         }
     </script>
 </head>
-<body class="splash-active theme-dark">
+<body class="splash-active">
+    <!-- Body theme class is set by ThemeInitializer.js in head -->
     <div id="devpages-splash">
         <div class="splash-content">
             <div class="splash-logo">DevPages</div>
@@ -130,7 +135,8 @@
     </div>
 
     <!-- Log/Terminal (Bottom) -->
-    <div id="log-container" class="log-hidden"></div>
+    <!-- Default: log-visible to match Redux default logVisible: true -->
+    <div id="log-container" class="log-visible"></div>
 
     <!-- Tetra Analytics -->
     <script src="/tetra/tetra.js"></script>

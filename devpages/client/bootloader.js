@@ -15,6 +15,8 @@
 import { appInitializer } from './core/AppInitializer.js'; // Ensure this runs first
 import './log/UnifiedLogging.js'; // Import for side effects: initializes window.APP.services.log
 import { installConsoleReplacement } from './log/ConsoleReplacement.js'; // Console replacement with source location tracking
+import './services/ThemeService.js'; // Import for side effects: initializes theme system early
+import './components/ConfirmModal.js'; // Import for side effects: registers window.APP.services.confirmModal
 import { eventBus } from './eventBus.js';
 import { showFatalError } from './utils/uiError.js';
 import { createGlobalFetch } from './services/fetcher.js';

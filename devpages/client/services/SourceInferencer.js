@@ -21,6 +21,7 @@ export class SourceInferencer {
     this.patterns = {
       // Panels
       panelTypes: {
+        'debug-logging': { file: 'client/panels/DebugLoggingPanel.js', component: 'DebugLoggingPanel' },
         'dom-inspector': { file: 'client/panels/DOMInspectorPanel.js', component: 'DOMInspectorPanel' },
         'css-inspector': { file: 'client/panels/CSSInspectorPanel.js', component: 'CSSInspectorPanel' },
         'ui-inspector': { file: 'client/panels/UIInspectorPanel.js', component: 'UIInspectorPanel' },
@@ -30,7 +31,8 @@ export class SourceInferencer {
         'publish': { file: 'client/panels/publish/PublishPanel.js', component: 'PublishPanel' },
         'tetra-config': { file: 'client/panels/TetraConfigPanel.js', component: 'TetraConfigPanel' },
         'tetra-settings': { file: 'client/panels/TetraSettingsPanel.js', component: 'TetraSettingsPanel' },
-        'diagnostic': { file: 'client/panels/DiagnosticPanel.js', component: 'DiagnosticPanel' }
+        'diagnostic': { file: 'client/panels/DiagnosticPanel.js', component: 'DiagnosticPanel' },
+        'system-diagnostics': { file: 'client/panels/DiagnosticPanel.js', component: 'DiagnosticPanel' }
       },
 
       // Components by class prefix

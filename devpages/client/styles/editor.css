@@ -26,6 +26,13 @@
     outline: none;
 }
 
+/* Drag and drop visual feedback */
+.editor-textarea.drag-over {
+    border: 2px dashed var(--color-accent, #4a90e2) !important;
+    background-color: var(--color-bg-highlight, rgba(74, 144, 226, 0.05)) !important;
+    cursor: copy !important;
+}
+
 .editor-info-bar {
     display: flex;
     justify-content: flex-end;

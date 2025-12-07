@@ -13,18 +13,18 @@
   --devpages-panel-gap: var(--space-1);               /* 4px - compact gaps */
   --devpages-panel-gap-sm: var(--space-0-5);          /* 2px - minimal gaps */
   
-  /* Panel Colors */
+  /* Panel Colors - reference theme variables (ThemeInitializer sets these before CSS loads) */
   --devpages-panel-bg: var(--color-bg-elevated);
-  --devpages-panel-bg-alt: #fafafa;
-  --devpages-panel-border: #e5e7eb;
-  --devpages-panel-border-light: #f3f4f6;
-  --devpages-panel-text: var(--color-fg);
-  --devpages-panel-text-muted: #6b7280;
-  --devpages-panel-text-subtle: #9ca3af;
+  --devpages-panel-bg-alt: var(--color-bg-alt);
+  --devpages-panel-border: var(--color-border);
+  --devpages-panel-border-light: var(--color-divider);
+  --devpages-panel-text: var(--color-text);
+  --devpages-panel-text-muted: var(--color-text-secondary);
+  --devpages-panel-text-subtle: var(--color-text-muted);
   
   /* Panel Header */
   --devpages-panel-header-height: 24px;               /* Ultra compact header */
-  --devpages-panel-header-bg: #f9fafb;
+  --devpages-panel-header-bg: var(--color-bg-alt);
   --devpages-panel-header-border: var(--devpages-panel-border);
   --devpages-panel-header-text: var(--devpages-panel-text);
   
@@ -38,8 +38,8 @@
   --devpages-panel-table-header-height: 22px;         /* Ultra minimal header */
   --devpages-panel-table-cell-padding: var(--space-0-5) var(--space-1);
   --devpages-panel-table-border: var(--devpages-panel-border-light);
-  --devpages-panel-table-hover: #f8fafc;
-  --devpages-panel-table-stripe: #fdfdfd;
+  --devpages-panel-table-hover: var(--color-bg-alt);
+  --devpages-panel-table-stripe: var(--color-bg);
   
   /* Panel Buttons */
   --devpages-panel-btn-height: 16px;                  /* Ultra compact buttons */
@@ -51,16 +51,16 @@
   --devpages-btn-ghost-bg: transparent;
   --devpages-btn-ghost-border: transparent;
   --devpages-btn-ghost-text: var(--devpages-panel-text-muted);
-  --devpages-btn-ghost-hover-bg: #f3f4f6;
+  --devpages-btn-ghost-hover-bg: var(--color-bg-alt);
   --devpages-btn-ghost-hover-text: var(--devpages-panel-text);
-  --devpages-btn-ghost-active-bg: #e5e7eb;
+  --devpages-btn-ghost-active-bg: var(--color-border);
   
   /* Panel Input Fields */
   --devpages-panel-input-height: 18px;                /* Ultra compact inputs */
   --devpages-panel-input-padding: 0 var(--space-1);
   --devpages-panel-input-font-size: 10px;
   --devpages-panel-input-border: var(--devpages-panel-border);
-  --devpages-panel-input-focus-border: #3b82f6;
+  --devpages-panel-input-focus-border: var(--color-primary-default);
   --devpages-panel-input-bg: var(--color-bg-elevated);
   
   /* Panel Typography */
@@ -70,10 +70,10 @@
   --devpages-panel-line-height-tight: 1.2;
   
   /* Panel States */
-  --devpages-panel-expanded-bg: #eff6ff;
+  --devpages-panel-expanded-bg: var(--color-info-bg);
   --devpages-panel-collapsed-bg: var(--devpages-panel-bg);
-  --devpages-panel-selected-bg: #dbeafe;
-  --devpages-panel-selected-border: #3b82f6;
+  --devpages-panel-selected-bg: var(--color-selection);
+  --devpages-panel-selected-border: var(--color-primary-default);
   
   /* Panel Badges */
   --devpages-panel-badge-height: 16px;
@@ -82,22 +82,22 @@
   --devpages-panel-badge-border-radius: var(--radius-sm);
   
   /* Type-specific colors */
-  --devpages-type-string: #059669;
-  --devpages-type-number: #dc2626;
-  --devpages-type-boolean: #7c3aed;
-  --devpages-type-object: #1d4ed8;
-  --devpages-type-array: #be185d;
-  --devpages-type-null: #6b7280;
-  --devpages-type-undefined: #9ca3af;
-  
+  --devpages-type-string: var(--color-success-border);
+  --devpages-type-number: var(--color-error-border);
+  --devpages-type-boolean: var(--color-code-fg);
+  --devpages-type-object: var(--color-info-border);
+  --devpages-type-array: var(--color-primary-default);
+  --devpages-type-null: var(--color-text-secondary);
+  --devpages-type-undefined: var(--color-text-muted);
+
   /* Type badge backgrounds */
-  --devpages-type-string-bg: #ecfdf5;
-  --devpages-type-number-bg: #fef2f2;
-  --devpages-type-boolean-bg: #f3e8ff;
-  --devpages-type-object-bg: #dbeafe;
-  --devpages-type-array-bg: #fce7f3;
-  --devpages-type-null-bg: #f3f4f6;
-  --devpages-type-undefined-bg: #f9fafb;
+  --devpages-type-string-bg: var(--color-success-bg);
+  --devpages-type-number-bg: var(--color-error-bg);
+  --devpages-type-boolean-bg: var(--color-code-bg);
+  --devpages-type-object-bg: var(--color-info-bg);
+  --devpages-type-array-bg: var(--color-info-bg);
+  --devpages-type-null-bg: var(--color-bg-alt);
+  --devpages-type-undefined-bg: var(--color-bg-alt);
   
   /* Panel Animations */
   --devpages-panel-transition: var(--transition-fast);

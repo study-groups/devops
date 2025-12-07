@@ -79,9 +79,10 @@ class WorkspaceManager {
         }
         
         // Only act when file content changes
-        if (fileContent && fileContent !== this.lastFileContent) {
+        if (fileContent !== undefined && (fileContent !== this.lastFileContent || filePath !== this.lastFilePath)) {
             console.log(`[WorkspaceManager] New file content detected: ${filePath} (${fileContent.length} chars)`);
             this.setupWorkspaceForFile(fileContent, filePath);
+            this.updateEditorContent(fileContent);
             this.lastFileContent = fileContent;
             this.lastFilePath = filePath;
         }
@@ -469,13 +470,121 @@ class WorkspaceManager {
             textarea.addEventListener('input', () => {
                 // Update Redux state
                 appStore.dispatch({ type: 'editor/setContent', payload: textarea.value });
-                
+
                 // Update stats in real-time
                 this.editorTopBar.setStats({
                     'chars': textarea.value.length,
                     'lines': textarea.value.split('\n').length
                 });
             });
+
+            // Setup paste handler for images
+            this.setupImagePasteHandler(textarea);
+
+            // Setup drag and drop handler for images
+            this.setupImageDragDropHandler(textarea);
+        }
+    }
+
+    setupImagePasteHandler(textarea) {
+        textarea.addEventListener('paste', async (e) => {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+
+            for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                    e.preventDefault();
+                    const file = item.getAsFile();
+                    if (file) {
+                        await this.uploadAndInsertImage(textarea, file);
+                    }
+                }
+            }
+        });
+    }
+
+    setupImageDragDropHandler(textarea) {
+        // Prevent default drag behaviors
+        textarea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            textarea.classList.add('drag-over');
+        });
+
+        textarea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            textarea.classList.remove('drag-over');
+        });
+
+        textarea.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            textarea.classList.remove('drag-over');
+
+            const files = e.dataTransfer?.files;
+            if (!files || files.length === 0) return;
+
+            for (const file of files) {
+                if (file.type.startsWith('image/')) {
+                    await this.uploadAndInsertImage(textarea, file);
+                }
+            }
+        });
+    }
+
+    async uploadAndInsertImage(textarea, file) {
+        const originalCursorPos = textarea.selectionStart;
+        const originalBorder = textarea.style.border;
+
+        try {
+            console.log('[WorkspaceManager] Uploading image:', file.name);
+            textarea.style.border = '2px dashed orange';
+            textarea.style.cursor = 'wait';
+
+            // Upload the image
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const response = await fetch('/api/images/upload', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                throw new Error(`Upload failed: ${response.status}`);
+            }
+
+            const result = await response.json();
+            const imageUrl = result.url;
+
+            console.log('[WorkspaceManager] Image uploaded:', imageUrl);
+
+            // Insert markdown at cursor position with width styling
+            const textBefore = textarea.value.substring(0, originalCursorPos);
+            const textAfter = textarea.value.substring(originalCursorPos);
+            const fileName = file.name || 'Image';
+            const markdownToInsert = `\n<img src="${imageUrl}" alt="${fileName}" style="width: 40%; max-width: 600px; margin: auto; display: block;">\n`;
+
+            textarea.value = `${textBefore}${markdownToInsert}${textAfter}`;
+
+            // Update cursor position
+            const newCursorPos = originalCursorPos + markdownToInsert.length;
+            textarea.setSelectionRange(newCursorPos, newCursorPos);
+
+            // Trigger input event to update state
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+
+            // Reset styling
+            textarea.style.border = originalBorder;
+            textarea.style.cursor = 'text';
+
+        } catch (error) {
+            console.error('[WorkspaceManager] Image upload failed:', error);
+            alert(`Image upload failed: ${error.message}`);
+            textarea.style.border = originalBorder;
+            textarea.style.cursor = 'text';
         }
     }
 
@@ -598,6 +707,23 @@ class WorkspaceManager {
     }
 
 
+
+    updateEditorContent(content) {
+        // Update the editor textarea when file content changes
+        const textarea = document.getElementById('md-editor');
+        if (textarea && textarea.value !== content) {
+            console.log('[WorkspaceManager] Updating editor content');
+            textarea.value = content;
+
+            // Update stats if available
+            if (this.editorTopBar) {
+                this.editorTopBar.setStats({
+                    'chars': content.length,
+                    'lines': content.split('\n').length
+                });
+            }
+        }
+    }
 
     async loadPanelConfigurations() {
         // Log any API request attempts

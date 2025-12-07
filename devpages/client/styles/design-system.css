@@ -217,13 +217,8 @@ h6 {
 
 /* Theme colors are now managed by ThemeService and applied dynamically */
 /* Minimal fallback colors to prevent FOUC (Flash of Unstyled Content) */
-:root {
-  /* Light theme fallback - will be overridden by ThemeService */
-  --color-bg: #ffffff;
-  --color-fg: #111827;
-  --color-primary: #3b82f6;
-  --color-border: #e5e7eb;
-}
+/* Color variables removed - now set by ThemeInitializer.js in <head> */
+/* This prevents CSS :root from overriding inline styles */
 
 /* ===== DESIGN DENSITY SYSTEM ===== */
 

@@ -303,14 +303,24 @@ export class TopBarController {
             {
                 selector: '#log-toggle-btn',
                 active: ui.logVisible !== false, // Default to true
-                title: (ui.logVisible !== false) ? 'Hide Log (Alt+L)' : 'Show Log (Alt+L)'
+                title: (ui.logVisible !== false) ? 'Hide Log (Alt+L)' : 'Show Log (Alt+L)',
+                debug: { 'ui.logVisible': ui.logVisible, 'active': ui.logVisible !== false }
             }
         ];
         
-        buttonUpdates.forEach(({ selector, active, title }) => {
+        buttonUpdates.forEach(({ selector, active, title, debug }) => {
             const button = document.querySelector(selector);
             if (button) {
                 const currentlyActive = button.classList.contains('active');
+                if (selector === '#log-toggle-btn') {
+                    console.log('[TopBarController.updateButtonStates] 🔍 LOG BUTTON:', {
+                        selector,
+                        debug,
+                        currentlyActive,
+                        willSetActive: active,
+                        title
+                    });
+                }
                 if (currentlyActive !== active) {
                     button.classList.toggle('active', active);
                 }

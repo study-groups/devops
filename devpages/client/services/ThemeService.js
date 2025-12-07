@@ -41,8 +41,32 @@ class ThemeService {
     // Migrate legacy storage keys
     migrateLegacyKeys();
 
-    // Load saved theme or default
-    await this.loadSavedTheme();
+    // Check if ThemeInitializer already set up the theme
+    const isPreInitialized = document.documentElement.getAttribute('data-theme-initialized') === 'true';
+
+    if (isPreInitialized) {
+      console.log('[ThemeService] Theme already initialized by ThemeInitializer');
+
+      // Load the theme object that was pre-initialized
+      const preInitThemeId = window.__initializedThemeId || DEFAULT_THEME_ID;
+      const theme = await this.getTheme(preInitThemeId);
+
+      if (theme) {
+        this.currentTheme = theme;
+        this.currentMode = window.__initializedThemeMode || theme.mode;
+        console.log('[ThemeService] Using pre-initialized theme:', theme.id);
+        // Apply full theme tokens (semantic mappings, typography, spacing, etc.)
+        // skipSave prevents overwriting storage since ThemeInitializer already loaded from storage
+        this.applyTheme(theme, { skipSave: true });
+      } else {
+        console.warn('[ThemeService] Pre-initialized theme not found, loading default');
+        await this.loadSavedTheme();
+      }
+    } else {
+      // No pre-initialization, do full theme load
+      console.log('[ThemeService] No pre-initialization detected, loading theme');
+      await this.loadSavedTheme();
+    }
 
     // Setup OS theme change listener
     this.setupOSThemeListener();
@@ -193,6 +217,13 @@ class ThemeService {
     if (theme.embed && theme.embed.enabled) {
       this.broadcastThemeToEmbeds(theme);
     }
+
+    // Force browser to recalculate styles by toggling a class
+    // This ensures CSS variables are fully applied to all elements
+    document.body.classList.add('theme-recalc');
+    requestAnimationFrame(() => {
+      document.body.classList.remove('theme-recalc');
+    });
 
     console.log(`[ThemeService] Applied theme: ${theme.name} (${theme.id})`);
   }

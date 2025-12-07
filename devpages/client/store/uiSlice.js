@@ -8,7 +8,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 
 // --- Default UI Settings ---
-const initialState = {
+export const uiInitialState = {
     theme: 'light',
     // Remove viewMode
     logVisible: true,
@@ -36,6 +36,8 @@ const initialState = {
     },
     // Panel states moved to panelSlice for unified management
 };
+
+const initialState = uiInitialState;
 
 // --- Create Standard Redux Toolkit Slice ---
 const uiSlice = createSlice({

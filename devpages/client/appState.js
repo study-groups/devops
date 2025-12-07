@@ -25,7 +25,7 @@ import pathReducer from './store/slices/pathSlice.js';
 import pathV2Reducer from './store/slices/pathSlice.v2.js';
 import { settingsReducer } from './store/slices/settingsSlice.js';
 import logReducer from './store/slices/logSlice.js';
-import { uiReducer } from './store/uiSlice.js';
+import { uiReducer, uiInitialState } from './store/uiSlice.js';
 import { contextSettingsReducer } from './store/slices/contextSettingsSlice.js';
 import fileReducer from './store/slices/fileSlice.js';
 import { previewReducer } from './store/slices/previewSlice.js';
@@ -93,12 +93,20 @@ export { appStore, dispatch, initializeStore };
 function safeLoadPersistedState(key, defaultState = {}) {
     try {
         const persistedState = storageService.getItem(key);
-        console.log(`[AppState] Loading persisted state for ${key}:`, {
-            persistedState,
-            defaultState,
-            merged: persistedState ? { ...defaultState, ...persistedState } : defaultState
-        });
-        return persistedState ? { ...defaultState, ...persistedState } : defaultState;
+        const result = persistedState ? { ...defaultState, ...persistedState } : defaultState;
+
+        if (key === 'ui') {
+            console.log(`[AppState.safeLoadPersistedState] 🔍 LOADING '${key}':`, {
+                'persistedState from localStorage': persistedState,
+                'defaultState': defaultState,
+                'defaultState.logVisible': defaultState?.logVisible,
+                'persistedState?.logVisible': persistedState?.logVisible,
+                'merged result': result,
+                'result.logVisible': result?.logVisible
+            });
+        }
+
+        return result;
     } catch (error) {
         console.warn(`[AppState] Failed to load persisted state for ${key}:`, error);
         return defaultState;
@@ -116,11 +124,20 @@ function initializeStore(preloadedState = {}) {
     }
 
     // Comprehensive state loading with fallback
+    // CRITICAL: Use actual slice initialState as defaults, not empty objects
+    const loadedUI = safeLoadPersistedState('ui', preloadedState.ui || uiInitialState);
+    console.log('[AppState.initializeStore] 🔍 LOADING UI STATE:', {
+        'uiInitialState.logVisible': uiInitialState.logVisible,
+        'preloadedState.ui': preloadedState.ui,
+        'loadedUI': loadedUI,
+        'loadedUI.logVisible': loadedUI?.logVisible
+    });
+
     const initialState = {
         ...preloadedState,
         settings: safeLoadPersistedState('settings', preloadedState.settings || {}),
         panels: safeLoadPersistedState('panels', preloadedState.panels || {}),
-        ui: safeLoadPersistedState('ui', preloadedState.ui || {}),
+        ui: loadedUI,
         publishConfig: safeLoadPersistedState('publishConfig', preloadedState.publishConfig || {}),
     };
 

@@ -530,13 +530,13 @@ button:not(.btn):focus-visible {
 /* Dirty state */
 #save-btn.is-dirty {
   background-color: transparent;
-  border: 1px solid var(--color-blue-500); /* Hairline ghost border */
-  color: var(--color-blue-500);
+  border: 1px solid var(--color-primary-default); /* Hairline ghost border */
+  color: var(--color-primary-default);
 }
 
 #save-btn.is-dirty:hover {
-  background-color: var(--color-blue-100);
-  color: var(--color-blue-900);
+  background-color: var(--color-primary-subtle);
+  color: var(--color-text);
 }
 
 /* Disabled state should override others */

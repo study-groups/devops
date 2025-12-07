@@ -7,10 +7,11 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: var(--color-bg);
+    background: #808080; /* Neutral gray background */
     display: flex;
-    align-items: center;
+    align-items: flex-start; /* Changed from center to flex-start */
     justify-content: center;
+    padding-top: 33vh; /* Position content at top 1/3 of screen */
     z-index: 10000;
     font-family: var(--font-family-sans, system-ui, -apple-system, sans-serif);
     transition: opacity 0.3s ease-out;
@@ -23,7 +24,7 @@
 
 .splash-content {
     text-align: center;
-    color: var(--color-fg);
+    color: #1e3a8a; /* Dark blue text on gray background */
 }
 
 .splash-logo {
@@ -35,7 +36,7 @@
 
 .splash-version {
     font-size: 1rem;
-    color: var(--color-fg-muted);
+    color: rgba(30, 58, 138, 0.7); /* Semi-transparent dark blue for version */
     font-weight: 400;
 }
 
@@ -58,7 +59,7 @@ body.splash-active main {
     display: inline-block;
     width: 20px;
     height: 20px;
-    border: 2px solid var(--color-fg-muted);
+    border: 2px solid rgba(255, 255, 255, 0.5); /* White border for gray background */
     border-radius: 50%;
     border-top-color: transparent;
     animation: splash-spin 1s ease-in-out infinite;
@@ -74,7 +75,7 @@ body.splash-active main {
 .splash-progress {
     width: 200px;
     height: 4px;
-    background: var(--color-border);
+    background: rgba(255, 255, 255, 0.2); /* Light track on gray */
     border-radius: 2px;
     margin: 1rem auto 0;
     overflow: hidden;
@@ -82,7 +83,7 @@ body.splash-active main {
 
 .splash-progress-bar {
     height: 100%;
-    background: var(--color-primary);
+    background: #ffffff; /* White progress bar */
     border-radius: 2px;
     transform: translateX(-100%);
     transition: transform 0.3s ease;
@@ -92,7 +93,7 @@ body.splash-active main {
 .splash-status {
     margin-top: 0.5rem;
     font-size: 0.9rem;
-    color: var(--color-fg-muted);
+    color: rgba(255, 255, 255, 0.7); /* Semi-transparent white */
     opacity: 0.8;
 }
 

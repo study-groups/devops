@@ -5,12 +5,16 @@
  */
 
 import { createSlice } from '@reduxjs/toolkit';
+import { storageService } from '/client/services/storageService.js';
+
+// Load persisted state from localStorage
+const persistedState = storageService.getItem('log') || {};
 
 const initialState = {
     entries: [],
     discoveredTypes: [],
-    activeFilters: [],
-    searchTerm: '',
+    activeFilters: persistedState.activeFilters || [],
+    searchTerm: persistedState.searchTerm || '',
     isInitialized: false,
 };
 

@@ -8,7 +8,7 @@
 import { storageService } from '/client/services/storageService.js';
 import { debounce } from '/client/utils/debounce.js';
 
-const PERSISTED_SLICES = ['panels', 'ui', 'settings', 'publishConfig'];
+const PERSISTED_SLICES = ['panels', 'ui', 'settings', 'publishConfig', 'log'];
 
 const debouncedSave = debounce((state) => {
     try {
@@ -35,6 +35,14 @@ export const persistenceMiddleware = store => next => action => {
     const sliceName = actionType.split('/')[0];
 
     if (PERSISTED_SLICES.includes(sliceName)) {
+        if (sliceName === 'ui') {
+            console.log('[PersistenceMiddleware] 🔍 UI ACTION TRIGGERED:', {
+                action: actionType,
+                payload: action.payload,
+                'state.ui.logVisible BEFORE save': state.ui?.logVisible,
+                willSaveIn: '1000ms (debounced)'
+            });
+        }
         debouncedSave(state);
     }
 

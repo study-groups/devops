@@ -895,6 +895,13 @@
     outline: none;
 }
 
+/* Drag and drop visual feedback for images */
+.markdown-editor.drag-over {
+    border: 2px dashed var(--color-accent, #4a90e2) !important;
+    background: var(--color-bg-highlight, rgba(74, 144, 226, 0.05)) !important;
+    cursor: copy !important;
+}
+
 /* File Browser Section */
 .file-browser-section {
     padding: 16px;

@@ -69,16 +69,19 @@ export class EditorView extends ViewInterface {
             this.stateUnsubscribe();
             this.stateUnsubscribe = null;
         }
-        
+
         // Remove event listeners
         if (this.textarea) {
             this.textarea.removeEventListener('input', this.handleInput);
             this.textarea.removeEventListener('keydown', this.handleKeydown);
             this.textarea.removeEventListener('paste', this.handlePaste);
+            this.textarea.removeEventListener('dragover', this.handleDragOver);
+            this.textarea.removeEventListener('dragleave', this.handleDragLeave);
+            this.textarea.removeEventListener('drop', this.handleDrop);
         }
 
         // Redux state subscriptions are automatically cleaned up by stateUnsubscribe
-        
+
         console.log('EditorView unmounted and cleaned up');
     }
     
@@ -210,6 +213,14 @@ export class EditorView extends ViewInterface {
         this.handlePaste = this.handlePaste.bind(this);
         this.textarea.addEventListener('paste', this.handlePaste);
 
+        // Drag and drop handling for images
+        this.handleDragOver = this.handleDragOver.bind(this);
+        this.handleDragLeave = this.handleDragLeave.bind(this);
+        this.handleDrop = this.handleDrop.bind(this);
+        this.textarea.addEventListener('dragover', this.handleDragOver);
+        this.textarea.addEventListener('dragleave', this.handleDragLeave);
+        this.textarea.addEventListener('drop', this.handleDrop);
+
         // Redux state subscriptions are handled in subscribeToStateChanges()
         // No need for manual event subscriptions
     }
@@ -259,12 +270,50 @@ export class EditorView extends ViewInterface {
                 const file = item.getAsFile();
                 if (file) {
                     try {
-                        const imageUrl = await uploadImage(file);
+                        const result = await uploadImage(file);
+                        const imageUrl = result.url || result;
                         this.insertAtCursor(`![Image](${imageUrl})`);
+                        logMessage('Image uploaded successfully', 'info');
                     } catch (error) {
                         console.error('Failed to upload image:', error);
                         logMessage('Failed to upload image', 'error');
                     }
+                }
+            }
+        }
+    }
+
+    handleDragOver(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.textarea.classList.add('drag-over');
+    }
+
+    handleDragLeave(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.textarea.classList.remove('drag-over');
+    }
+
+    async handleDrop(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.textarea.classList.remove('drag-over');
+
+        const files = event.dataTransfer?.files;
+        if (!files || files.length === 0) return;
+
+        for (const file of files) {
+            if (file.type.startsWith('image/')) {
+                try {
+                    logMessage('Uploading dropped image...', 'info');
+                    const result = await uploadImage(file);
+                    const imageUrl = result.url || result;
+                    this.insertAtCursor(`![${file.name}](${imageUrl})\n`);
+                    logMessage('Image uploaded successfully', 'info');
+                } catch (error) {
+                    console.error('Failed to upload image:', error);
+                    logMessage(`Failed to upload image: ${error.message}`, 'error');
                 }
             }
         }

@@ -88,8 +88,9 @@ export class PreviewView extends ViewInterface {
             return;
         }
 
-        // Listen for ready message from iframe (after all plugins render)
+        // Listen for messages from iframe
         window.addEventListener('message', (event) => {
+            // Handle preview ready message
             if (event.data === 'preview-ready' && this.previewIframe) {
                 // Only show if currently in loading state (prevents stale messages)
                 if (this.previewIframe.classList.contains('loading')) {
@@ -103,6 +104,12 @@ export class PreviewView extends ViewInterface {
                         }
                     }, 50);
                 }
+            }
+
+            // Handle reload current file request from markdown utilities
+            if (event.data && event.data.type === 'reload-current-file') {
+                log.info?.('VIEW', 'RELOAD_REQUEST', 'Markdown utility requested file reload');
+                this.reloadCurrentFile();
             }
         });
 
@@ -254,9 +261,11 @@ export class PreviewView extends ViewInterface {
 
             log.info?.('VIEW', 'UPDATE_IFRAME', 'Generating preview HTML');
 
-            // Hide iframe during update to prevent layout shift from async plugins
-            this.previewIframe.classList.remove('ready');
+            // Keep iframe hidden during update to prevent layout shift from async plugins
+            // First add loading class (which sets transition:none), then remove ready
+            // This ensures the fade-out happens instantly
             this.previewIframe.classList.add('loading');
+            this.previewIframe.classList.remove('ready');
 
             // Use PublishService for complete HTML document with theme
             const html = await publishService.generatePreviewHtml(
@@ -306,6 +315,37 @@ export class PreviewView extends ViewInterface {
 
         // Trigger update
         this.updatePreviewFromState(true);
+    }
+
+    /**
+     * Reload the current file from server
+     * Called by markdown utilities after performing server-side actions
+     */
+    async reloadCurrentFile() {
+        log.info?.('VIEW', 'RELOAD_FILE', 'Reloading current file from server');
+
+        const state = appStore.getState();
+        const currentPathname = state.path?.currentPathname;
+
+        if (!currentPathname) {
+            log.warn?.('VIEW', 'NO_FILE', 'No current file to reload');
+            return;
+        }
+
+        // Import necessary modules
+        const { pathThunks } = await import('/client/store/slices/pathSlice.js');
+
+        // Clear cache and reload the file
+        appStore.dispatch(clearCache());
+        this.lastProcessedContent = null;
+
+        // Navigate to the same file (this will reload it)
+        await appStore.dispatch(pathThunks.navigateToPath({
+            pathname: currentPathname,
+            isDirectory: false
+        }));
+
+        log.info?.('VIEW', 'RELOAD_COMPLETE', 'File reloaded successfully');
     }
 
     showError(message) {

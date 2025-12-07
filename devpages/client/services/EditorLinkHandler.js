@@ -13,6 +13,7 @@
  * - Self-registering to window.APP.services
  *
  * Supported editors:
+ * - DevPages: http://localhost:4000/?pathname=/path/to/file (default)
  * - VS Code: vscode://file/path:line:column
  * - VS Code Insiders: vscode-insiders://file/path:line:column
  * - Sublime Text: subl://open?url=file://path&line=line
@@ -21,9 +22,22 @@
 
 export class EditorLinkHandler {
   constructor() {
-    this.defaultEditor = 'vscode'; // Default to VS Code
+    this.defaultEditor = 'devpages'; // Default to DevPages itself
     this.projectRoot = null; // Auto-detect or configure
+    this.devpagesHost = 'http://localhost:4000'; // DevPages host
+    this.pathnamePrefix = '/users/mike/devpages'; // Pathname prefix for files
+
     this.editors = {
+      devpages: {
+        name: 'DevPages',
+        protocol: 'http',
+        formatUrl: (path, line, column) => {
+          // Format: http://localhost:4000/?pathname=/users/mike/devpages/client/panels/MyPanel.js
+          const fullPath = this.resolvePathForDevPages(path);
+          const url = `${this.devpagesHost}/?pathname=${encodeURIComponent(fullPath)}`;
+          return url;
+        }
+      },
       vscode: {
         name: 'VS Code',
         protocol: 'vscode',
@@ -71,19 +85,27 @@ export class EditorLinkHandler {
         const state = store.getState();
         const editor = state.settings?.sourceTracker?.editor;
         const projectRoot = state.settings?.sourceTracker?.projectRoot;
+        const devpagesHost = state.settings?.sourceTracker?.devpagesHost;
+        const pathnamePrefix = state.settings?.sourceTracker?.pathnamePrefix;
 
         if (editor) this.defaultEditor = editor;
         if (projectRoot) this.projectRoot = projectRoot;
+        if (devpagesHost) this.devpagesHost = devpagesHost;
+        if (pathnamePrefix) this.pathnamePrefix = pathnamePrefix;
       }
 
       // Fallback to localStorage
       const savedEditor = localStorage.getItem('devpages_sourcetracker_editor');
       const savedRoot = localStorage.getItem('devpages_sourcetracker_projectroot');
+      const savedHost = localStorage.getItem('devpages_sourcetracker_host');
+      const savedPrefix = localStorage.getItem('devpages_sourcetracker_prefix');
 
       if (savedEditor) this.defaultEditor = savedEditor;
       if (savedRoot) this.projectRoot = savedRoot;
+      if (savedHost) this.devpagesHost = savedHost;
+      if (savedPrefix) this.pathnamePrefix = savedPrefix;
 
-      console.log(`[EditorLinkHandler] Loaded settings: editor=${this.defaultEditor}, root=${this.projectRoot || 'auto'}`);
+      console.log(`[EditorLinkHandler] Loaded settings: editor=${this.defaultEditor}, host=${this.devpagesHost}, prefix=${this.pathnamePrefix}`);
     } catch (error) {
       console.warn('[EditorLinkHandler] Failed to load settings:', error);
     }
@@ -146,6 +168,44 @@ export class EditorLinkHandler {
   }
 
   /**
+   * Set DevPages host URL
+   * @param {string} host - Host URL (e.g., 'http://localhost:4000')
+   * @returns {boolean} Success
+   */
+  setDevPagesHost(host) {
+    this.devpagesHost = host;
+
+    // Save to localStorage
+    try {
+      localStorage.setItem('devpages_sourcetracker_host', host);
+    } catch (error) {
+      console.warn('[EditorLinkHandler] Failed to save DevPages host:', error);
+    }
+
+    console.log(`[EditorLinkHandler] DevPages host set to: ${host}`);
+    return true;
+  }
+
+  /**
+   * Set pathname prefix for DevPages links
+   * @param {string} prefix - Pathname prefix (e.g., '/users/mike/devpages')
+   * @returns {boolean} Success
+   */
+  setPathnamePrefix(prefix) {
+    this.pathnamePrefix = prefix;
+
+    // Save to localStorage
+    try {
+      localStorage.setItem('devpages_sourcetracker_prefix', prefix);
+    } catch (error) {
+      console.warn('[EditorLinkHandler] Failed to save pathname prefix:', error);
+    }
+
+    console.log(`[EditorLinkHandler] Pathname prefix set to: ${prefix}`);
+    return true;
+  }
+
+  /**
    * Resolve relative path to absolute path
    * @param {string} path - Relative path (e.g., client/panels/MyPanel.js)
    * @returns {string} Absolute path
@@ -186,6 +246,24 @@ export class EditorLinkHandler {
   }
 
   /**
+   * Resolve relative path for DevPages (with pathname prefix)
+   * @param {string} path - Relative path (e.g., client/panels/MyPanel.js)
+   * @returns {string} Full path with prefix
+   */
+  resolvePathForDevPages(path) {
+    if (!path) return '';
+
+    // If already starts with prefix, return as-is
+    if (path.startsWith(this.pathnamePrefix)) return path;
+
+    // Ensure no leading slash on path
+    const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+
+    // Combine prefix and path
+    return `${this.pathnamePrefix}/${cleanPath}`;
+  }
+
+  /**
    * Generate editor link for a file
    * @param {string} filePath - File path
    * @param {number} [line] - Line number (optional)
@@ -215,9 +293,16 @@ export class EditorLinkHandler {
     if (!url) return false;
 
     try {
-      // Try to open using window.location (works for protocol handlers)
-      window.location.href = url;
-      console.log(`[EditorLinkHandler] Opened: ${url}`);
+      // For DevPages (HTTP), navigate directly in same tab
+      if (this.defaultEditor === 'devpages') {
+        window.location.href = url;
+        console.log(`[EditorLinkHandler] Navigating to: ${url}`);
+      } else {
+        // For external editors (vscode://, etc.), try to trigger protocol handler
+        // Use window.location for protocol handlers
+        window.location.href = url;
+        console.log(`[EditorLinkHandler] Opening in ${this.defaultEditor}: ${url}`);
+      }
       return true;
     } catch (error) {
       console.error('[EditorLinkHandler] Failed to open file:', error);
@@ -335,6 +420,7 @@ export class EditorLinkHandler {
     const id = editorId || this.defaultEditor;
 
     const helpText = {
+      devpages: `DevPages (default) opens files within DevPages itself. Configure host and pathname prefix using:\n  editorLink.setDevPagesHost('http://localhost:4000')\n  editorLink.setPathnamePrefix('/users/mike/devpages')`,
       vscode: 'VS Code supports the vscode:// protocol by default. Make sure VS Code is installed and set as the default handler for vscode:// links.',
       'vscode-insiders': 'VS Code Insiders supports the vscode-insiders:// protocol by default. Make sure VS Code Insiders is installed.',
       sublime: 'Sublime Text requires the subl:// protocol handler to be set up manually. See: https://github.com/dhoulb/subl',
@@ -353,6 +439,8 @@ export class EditorLinkHandler {
     return {
       defaultEditor: this.defaultEditor,
       projectRoot: this.projectRoot || 'not set',
+      devpagesHost: this.devpagesHost,
+      pathnamePrefix: this.pathnamePrefix,
       availableEditors: Object.keys(this.editors).length
     };
   }

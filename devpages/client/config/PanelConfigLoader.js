@@ -50,9 +50,9 @@ const panelConfig = {
             content_type: 'interactive',
             data_sources: ['dom_tree', 'css_properties', 'computed_styles']
         },
-        'css-debug': {
-            title: 'CSS Debug',
-            description: 'Advanced CSS debugging: z-index visualization, stacking contexts, stylesheet analysis, and DOM CSS knowledge',
+        'css-inspector': {
+            title: 'CSS Inspector',
+            description: 'Advanced CSS inspection: z-index visualization, stacking contexts, stylesheet analysis, and DOM CSS knowledge',
             category: 'dev',
             sidebar: true,
             floating: true,
