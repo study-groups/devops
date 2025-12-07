@@ -48,11 +48,11 @@ import { LogBuffer } from './LogBuffer.js';
 import { CallerInfo } from './CallerInfo.js';
 
 // Central logging functions (from LogCore.js, renamed from core.js)
-import { 
-  log, 
-  logDebug, 
-  logInfo, 
-  logWarn, 
+import {
+  log,
+  logDebug,
+  logInfo,
+  logWarn,
   logError,
   createLogger,
   setLogDisplayInstance,
@@ -60,6 +60,10 @@ import {
   canonicalLevel,
   canonicalType
 } from './LogCore.js';
+
+// Logging utilities (modularized from LogCore)
+import { LogRateLimiter, logRateLimiter } from './LogRateLimiter.js';
+import { LogConsoleOutput, logConsoleOutput } from './LogConsoleOutput.js';
 
 /**
  * @deprecated Use `log({ message, level, type })` instead.
@@ -152,6 +156,14 @@ export {
   LEVELS,
   canonicalLevel,
   canonicalType
+};
+
+// === LOGGING UTILITIES ===
+export {
+  LogRateLimiter,
+  logRateLimiter,
+  LogConsoleOutput,
+  logConsoleOutput
 };
 
 // Export the deprecated logMessage function for backward compatibility

@@ -178,8 +178,8 @@ class Logger {
     };
     
     // Bridge to existing systems
-    this.consoleManager = options.consoleManager || window.consoleLogManager;
-    this.logPanel = options.logPanel || window.logPanelInstance;
+    this.consoleManager = options.consoleManager || window.APP?.services?.consoleLogManager;
+    this.logPanel = options.logPanel || window.APP?.services?.logPanelInstance;
     
     console.log(`[DevPages.logging] Logger created for ${this.type}${this.source ? `-${this.source}` : ''}`);
   }

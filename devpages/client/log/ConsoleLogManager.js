@@ -1,7 +1,10 @@
 /**
  * @file ConsoleLogManager.js
  * @description Manages the console logging functionality for the application.
- * This service is exposed globally via the `window.APP.services.console` namespace.
+ * This service is exposed globally via the `window.APP.services.consoleLogManager` namespace.
+ *
+ * NOTE: This service no longer maintains its own buffer. It reads from Redux store instead,
+ * providing a facade over the centralized log state.
  */
 
 // Import the consolidated BaseLogEntry class
@@ -15,54 +18,22 @@ class ConsoleLogFilter {
   constructor(config = {}) {
     this.config = { enabled: true, ...config };
   }
-  
+
   setEnabled(enabled) {
     this.config.enabled = enabled;
   }
-  
+
   shouldDisplay(entry) {
     return this.config.enabled;
   }
 }
 
-class ConsoleLogBuffer {
-  constructor(maxSize = 2000) {
-    this.maxSize = maxSize;
-    this.entries = [];
-  }
-  
-  add(entry) {
-    this.entries.unshift(entry);
-    if (this.entries.length > this.maxSize) {
-      this.entries = this.entries.slice(0, this.maxSize);
-    }
-  }
-  
-  getEntries() {
-    return this.entries;
-  }
-  
-  clear() {
-    this.entries = [];
-  }
-  
-  size() {
-    return this.entries.length;
-  }
-}
-
-class ConsoleCallerInfo {
-  static capture(skipFrames = 0) {
-    return { file: 'unknown', line: 0, function: 'unknown' };
-  }
-}
-
 /**
- * Core console log management class that orchestrates the console logging system
+ * Core console log management class that orchestrates the console logging system.
+ * Acts as a facade over Redux store for log entries.
  */
 export class ConsoleLogManager {
   constructor(options = {}) {
-    this.buffer = new ConsoleLogBuffer(options.bufferSize || 2000);
     this.filter = new ConsoleLogFilter();
     this.enabled = true;
     this.showTimestamps = false;
@@ -72,6 +43,8 @@ export class ConsoleLogManager {
     this.proxiedConsole = null;
     this.showStackTraces = false;
     this.showCompactStack = true;
+    // Store reference to appStore when available
+    this.store = null;
   }
 
   /**
@@ -131,33 +104,16 @@ export class ConsoleLogManager {
       window.APP.services = window.APP.services || {};
       window.APP.log = window.APP.log || {};
       
-      // Core manager instances
+      // Core manager instance - standardized on window.APP.services
       window.APP.services.consoleLogManager = this;
-      window.APP.services.logManager = this; // Legacy alias
-      
-      // Console logging control functions
-      window.APP.log.isEnabled = () => this.isLoggingEnabled();
-      window.APP.log.enable = (persist) => this.enableLogging(persist);
-      window.APP.log.disable = (persist) => this.disableLogging(persist);
-      
-      // Buffer management functions
-      window.APP.log.getBuffer = () => this.getLogBuffer();
-      window.APP.log.getBufferSize = () => this.getLogBufferSize();
-      window.APP.log.clearBuffer = () => this.clearLogBuffer();
-      
-      // Legacy window functions for backwards compatibility (deprecated)
-      window.discoveredTypes = new Set();
-      window.consoleLogManager = this;
-      window.APP.services.logManager = this;
+
+      // Convenience methods on window.APP.services for easy access
       window.APP.services.isConsoleLoggingEnabled = () => this.isLoggingEnabled();
       window.APP.services.enableConsoleLogging = (persist) => this.enableLogging(persist);
       window.APP.services.disableConsoleLogging = (persist) => this.disableLogging(persist);
       window.APP.services.getLogBuffer = () => this.getLogBuffer();
-      window.getLogBufferSize = () => this.getLogBufferSize();
+      window.APP.services.getLogBufferSize = () => this.getLogBufferSize();
       window.APP.services.clearLogBuffer = () => this.clearLogBuffer();
-      
-      // Type discovery sets (legacy - prefer using consoleLogManager.buffer methods)
-      // window.getDiscoveredTypes = () => Array.from(window.discoveredTypes || new Set());
       
       // Signal that config is ready
       window.__logConfigReady = true;
@@ -210,27 +166,44 @@ export class ConsoleLogManager {
   }
 
   /**
-   * Get the current console log buffer
+   * Get the current console log buffer from Redux store
    */
   getLogBuffer() {
-    return this.buffer.getEntries();
+    // Read from Redux store instead of local buffer
+    if (!this.store && typeof window !== 'undefined' && window.APP?.services?.store) {
+      this.store = window.APP.services.store;
+    }
+
+    if (this.store) {
+      const state = this.store.getState();
+      return state.log?.entries || [];
+    }
+
+    return [];
   }
 
   /**
-   * Clear the console log buffer
+   * Clear the console log buffer in Redux store
    */
   clearLogBuffer() {
-    this.buffer.clear();
+    if (!this.store && typeof window !== 'undefined' && window.APP?.services?.store) {
+      this.store = window.APP.services.store;
+    }
+
+    if (this.store) {
+      // Import clearEntries action dynamically to avoid circular dependency
+      import('./../../store/slices/logSlice.js').then(({ clearEntries }) => {
+        this.store.dispatch(clearEntries());
+      });
+    }
+
     return this;
   }
 
   /**
-   * Get the current buffer size
+   * Get the current buffer size from Redux store
    */
   getLogBufferSize() {
-    return this.buffer.size();
+    return this.getLogBuffer().length;
   }
 } 
-
-// Expose the console logging service via the new, standardized namespace
-window.APP.services.console = new ConsoleLogManager(); 

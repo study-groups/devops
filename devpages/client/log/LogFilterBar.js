@@ -249,15 +249,9 @@ export function _handleTagClick(event) {
             }
             
             // Clear the console log manager buffer using APP namespace
-            const consoleLogManager = window.APP?.services?.consoleLogManager || window.consoleLogManager;
+            const consoleLogManager = window.APP?.services?.consoleLogManager;
             if (consoleLogManager && typeof consoleLogManager.clearLogBuffer === 'function') {
                 consoleLogManager.clearLogBuffer();
-            }
-            
-            // Clear any other log manager that might exist
-            const logManager = window.APP?.services?.logManager || window.logManager;
-            if (logManager && logManager !== consoleLogManager && typeof logManager.clearLogBuffer === 'function') {
-                logManager.clearLogBuffer();
             }
             
             // Also reset filters in the state

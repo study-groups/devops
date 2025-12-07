@@ -75,6 +75,11 @@ export class LogDisplay {
         
         // Apply initial state
         const initialState = this.store.getState();
+        console.log('[LogDisplay.onMount] 🔍 INITIAL STATE:', {
+            'ui.logVisible': initialState.ui?.logVisible,
+            'ui object': initialState.ui,
+            'full ui': JSON.stringify(initialState.ui, null, 2)
+        });
         this.onStateChange(initialState);
         this.lastRenderedEntryCount = selectFilteredEntries(initialState).length;
 
@@ -197,26 +202,15 @@ export class LogDisplay {
         console.log('[LogDisplay] Loading buffered entries from early boot process...');
         
         try {
-            // Try to get buffered entries from various log managers
+            // Try to get buffered entries from ConsoleLogManager
             const buffers = [];
-            
-            // 1. Try ConsoleLogManager buffer
-            const consoleLogManager = window.APP?.services?.consoleLogManager || window.consoleLogManager;
+
+            const consoleLogManager = window.APP?.services?.consoleLogManager;
             if (consoleLogManager && typeof consoleLogManager.getLogBuffer === 'function') {
                 const consoleEntries = consoleLogManager.getLogBuffer();
                 if (consoleEntries && consoleEntries.length > 0) {
                     console.log(`[LogDisplay] Found ${consoleEntries.length} entries in ConsoleLogManager buffer`);
                     buffers.push(...consoleEntries);
-                }
-            }
-            
-            // 2. Try generic LogManager buffer
-            const logManager = window.APP?.services?.logManager || window.logManager;
-            if (logManager && logManager !== consoleLogManager && typeof logManager.getLogBuffer === 'function') {
-                const logEntries = logManager.getLogBuffer();
-                if (logEntries && logEntries.length > 0) {
-                    console.log(`[LogDisplay] Found ${logEntries.length} entries in LogManager buffer`);
-                    buffers.push(...logEntries);
                 }
             }
             
@@ -574,11 +568,18 @@ export class LogDisplay {
     onStateChange(state) {
         // Handle log visibility - apply CSS classes to the log container
         const logContainer = document.getElementById('log-container');
-        
+
         if (logContainer) {
             const isVisible = state.ui?.logVisible === true;
             const logHeight = state.ui?.logHeight || 150;
-            
+
+            console.log('[LogDisplay.onStateChange] 🔍 STATE CHANGE:', {
+                'ui.logVisible': state.ui?.logVisible,
+                'isVisible': isVisible,
+                'current classes': logContainer.className,
+                'will set': isVisible ? 'log-visible' : 'log-hidden'
+            });
+
             // Set CSS variable for height
             document.documentElement.style.setProperty('--log-height', `${logHeight}px`);
 
@@ -587,14 +588,16 @@ export class LogDisplay {
             for (const column in logColumnWidths) {
                 document.documentElement.style.setProperty(`--log-column-width-${column}`, logColumnWidths[column]);
             }
-            
+
             // Apply visibility classes
             if (isVisible) {
                 logContainer.classList.remove('log-hidden');
                 logContainer.classList.add('log-visible');
+                console.log('[LogDisplay.onStateChange] ✅ Set log-visible');
             } else {
                 logContainer.classList.remove('log-visible');
                 logContainer.classList.add('log-hidden');
+                console.log('[LogDisplay.onStateChange] ❌ Set log-hidden');
             }
         }
 

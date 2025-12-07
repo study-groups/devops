@@ -4,6 +4,9 @@
  * Store integration is handled separately to avoid circular dispatch issues
  */
 
+import { logRateLimiter } from './LogRateLimiter.js';
+import { logConsoleOutput } from './LogConsoleOutput.js';
+
 // Get a dedicated logger for this module
 let logCoreLogger;
 const getLogger = () => {
@@ -25,38 +28,6 @@ const getLogger = () => {
 
 // Legacy variable kept for backward compatibility
 let logDisplayInstance = null;
-
-// Rate limiting for excessive logging
-const logRateLimit = {
-    maxPerSecond: 50, // Allow max 50 logs per second
-    logCounts: new Map(),
-    
-    shouldAllow: function(source, type, level) {
-        const key = `${source}:${type}:${level}`;
-        const now = Date.now();
-        const secondWindow = Math.floor(now / 1000);
-        
-        if (!this.logCounts.has(key)) {
-            this.logCounts.set(key, { count: 0, window: secondWindow });
-        }
-        
-        const entry = this.logCounts.get(key);
-        
-        // Reset count if we're in a new second
-        if (entry.window !== secondWindow) {
-            entry.count = 0;
-            entry.window = secondWindow;
-        }
-        
-        // Check if we're over the limit
-        if (entry.count >= this.maxPerSecond) {
-            return false;
-        }
-        
-        entry.count++;
-        return true;
-    }
-};
 
 // Global flag to suppress debug logging during initialization
 let suppressDebugDuringInit = true;
@@ -122,7 +93,7 @@ export function log({ message,
     const comp = component ? String(component).toUpperCase() : null;
 
     // Rate limit to prevent spam (unless forced)
-    if (!forceConsole && !logRateLimit.shouldAllow(src, typ, lvl)) {
+    if (!forceConsole && !logRateLimiter.shouldAllow(src, typ, lvl)) {
         return; // Drop the log entry silently
     }
 
@@ -160,41 +131,7 @@ export function log({ message,
     }
 
     // Console output with format: [SOURCE][TYPE][MODULE][ACTION] message [LEVEL]
-    const isConsoleEnabled = typeof window !== 'undefined' && 
-                             typeof window.APP.services.isConsoleLoggingEnabled === 'function' && 
-                             window.APP.services.isConsoleLoggingEnabled();
-                             
-    if (forceConsole || isConsoleEnabled) {
-        let prefix = '';
-        
-        // Add system location (CLIENT/SERVER) if specified
-        if (src && ['CLIENT', 'SERVER'].includes(src)) {
-            prefix += `[${src}]`;
-        }
-        
-        // Always add type
-        prefix += `[${typ}]`;
-        
-        // Add module if specified
-        if (mod) {
-            prefix += `[${mod}]`;
-        }
-        
-        // Add action if specified
-        if (act) {
-            prefix += `[${act}]`;
-        }
-        
-        const formattedMessage = `${prefix} ${cleanMessage} [${lvl}]`;
-        
-        switch (lvl) {
-            case 'DEBUG': console.debug(formattedMessage, details); break;
-            case 'INFO':  console.info(formattedMessage, details);  break;
-            case 'WARN':  console.warn(formattedMessage, details);  break;
-            case 'ERROR': console.error(formattedMessage, details); break;
-            default:      console.log(formattedMessage, details);
-        }
-    }
+    logConsoleOutput.output(entry, forceConsole);
 }
 
 /* 3.  CONVENIENCE HELPERS ----------------------------------- */
