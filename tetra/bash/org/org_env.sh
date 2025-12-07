@@ -4,106 +4,58 @@
 # SSH key management handled by tkm and ~/.ssh/config
 # org just provides host/user from tetra.toml
 #
-# Connectors format:
-#    [connectors]
-#    "@dev" = { auth_user = "root", work_user = "dev", host = "1.2.3.4" }
-#
-# Environments format:
-#    [environments.dev]
+# Environment format:
+#    [env.dev]
 #    host = "1.2.3.4"
-#    user = "dev"
+#    auth_user = "root"      # SSH login user (has keys)
+#    work_user = "dev"       # App user (owns /var/www)
 
 # =============================================================================
-# HOST/USER EXTRACTION (unified for both formats)
+# HOST/USER EXTRACTION
 # =============================================================================
 
-# Extract value from inline table: key = "value"
-_org_extract_value() {
-    local line="$1" key="$2"
-    # Match: key = "value" or key="value"
-    echo "$line" | sed -n "s/.*${key} *= *\"\([^\"]*\)\".*/\1/p"
+# Extract a key's value from section content
+_org_extract_key() {
+    local content="$1" key="$2"
+    echo "$content" | grep "^${key} *=" | head -1 | sed 's/[^=]*= *"*//;s/"*$//'
+}
+
+# Get section content for [env.<name>]
+_org_get_env_section() {
+    local env="${1#@}"  # Remove @ prefix if present
+    local toml=$(org_toml_path 2>/dev/null) || return 1
+
+    awk -v sect="env.$env" '
+        /^\[/ { if (p) exit; p = ($0 == "[" sect "]") }
+        p { print }
+    ' "$toml"
 }
 
 # Get host for an environment
 _org_get_host() {
-    local env="${1#@}"  # Remove @ prefix if present
-    local toml=$(org_toml_path 2>/dev/null) || return 1
+    local env="$1"
+    local content=$(_org_get_env_section "$env") || return 1
 
-    # Try inline connectors: "@dev" = { host = "..." }
-    # Must match the assignment pattern, not symbol = "@dev"
-    local line=$(grep "\"@$env\" *=" "$toml" 2>/dev/null | head -1)
-    if [[ -n "$line" && "$line" == *"{"* ]]; then
-        _org_extract_value "$line" "host"
-        return
-    fi
-
-    # Use environments section
-    local section="environments.$env"
-    local content=$(awk -v sect="$section" '
-        /^\[/ { if (p) exit; p = ($0 == "[" sect "]") }
-        p { print }
-    ' "$toml")
-
-    for key in host ssh_host server_ip address; do
-        local val=$(echo "$content" | grep "^${key} *=" | head -1 | sed 's/[^=]*= *"*//;s/"*$//')
-        if [[ -n "$val" && "$val" != "127.0.0.1" ]]; then
-            echo "$val"
-            return
-        fi
-    done
+    local val=$(_org_extract_key "$content" "host")
+    [[ -n "$val" && "$val" != "127.0.0.1" ]] && echo "$val"
 }
 
-# Get SSH user for an environment (auth_user for login)
+# Get SSH auth user for an environment (who you SSH as)
 _org_get_user() {
-    local env="${1#@}"
-    local toml=$(org_toml_path 2>/dev/null) || return 1
+    local env="$1"
+    local content=$(_org_get_env_section "$env") || return 1
 
-    # Try inline connectors: "@dev" = { auth_user = "..." }
-    local line=$(grep "\"@$env\" *=" "$toml" 2>/dev/null | head -1)
-    if [[ -n "$line" && "$line" == *"{"* ]]; then
-        local user=$(_org_extract_value "$line" "auth_user")
-        [[ -z "$user" ]] && user=$(_org_extract_value "$line" "work_user")
-        [[ -n "$user" ]] && echo "$user" && return
-    fi
-
-    # Use environments section
-    local section="environments.$env"
-    local content=$(awk -v sect="$section" '
-        /^\[/ { if (p) exit; p = ($0 == "[" sect "]") }
-        p { print }
-    ' "$toml")
-
-    for key in ssh_auth_user auth_user ssh_user user; do
-        local val=$(echo "$content" | grep "^${key} *=" | head -1 | sed 's/[^=]*= *"*//;s/"*$//')
-        [[ -n "$val" ]] && echo "$val" && return
-    done
-
-    echo "root"
+    local val=$(_org_extract_key "$content" "auth_user")
+    echo "${val:-root}"
 }
 
-# Get work user (the user you switch to after login)
+# Get work user (who runs the app, owns /var/www)
 _org_get_work_user() {
-    local env="${1#@}"
-    local toml=$(org_toml_path 2>/dev/null) || return 1
+    local env="$1"
+    local content=$(_org_get_env_section "$env") || return 1
 
-    # Try inline connectors: "@dev" = { work_user = "..." }
-    local line=$(grep "\"@$env\" *=" "$toml" 2>/dev/null | head -1)
-    if [[ -n "$line" && "$line" == *"{"* ]]; then
-        _org_extract_value "$line" "work_user"
-        return
-    fi
-
-    # Use environments section
-    local section="environments.$env"
-    local content=$(awk -v sect="$section" '
-        /^\[/ { if (p) exit; p = ($0 == "[" sect "]") }
-        p { print }
-    ' "$toml")
-
-    for key in ssh_work_user work_user; do
-        local val=$(echo "$content" | grep "^${key} *=" | head -1 | sed 's/[^=]*= *"*//;s/"*$//')
-        [[ -n "$val" ]] && echo "$val" && return
-    done
+    local val=$(_org_extract_key "$content" "work_user")
+    echo "${val:-$env}"
 }
 
 # =============================================================================
@@ -155,13 +107,12 @@ org_env_show() {
 }
 
 # List environment names only (for completion)
-# Only returns [environments.*] entries - actual SSH-capable targets
+# Only returns [env.*] entries - actual SSH-capable targets
 org_env_names() {
     local toml=$(org_toml_path 2>/dev/null) || return
 
-    # Only environments section - these are the SSH-capable targets
-    # Publishing targets (tau, games) and storage (spaces) are not SSH environments
-    grep -E '^\[environments\.[^]]+\]' "$toml" 2>/dev/null | sed 's/.*\.//;s/\]//' | sort -u
+    # Only env section - these are the SSH-capable targets
+    grep -E '^\[env\.[^]]+\]' "$toml" 2>/dev/null | sed 's/.*\.//;s/\]//' | sort -u
 }
 
 # =============================================================================
@@ -200,5 +151,5 @@ org_toml_path &>/dev/null && org_env_export
 # EXPORTS
 # =============================================================================
 
-export -f _org_extract_value _org_get_host _org_get_user _org_get_work_user
+export -f _org_extract_key _org_get_env_section _org_get_host _org_get_user _org_get_work_user
 export -f org_env_list org_env_show org_env_names org_env_export org_env_vars

@@ -657,25 +657,37 @@ _tds_completion_preview() {
     # Check if match looks like a theme name (exists in registry)
     # This avoids complex input parsing - if we're completing a valid theme, show preview
     if [[ -n "${TDS_THEME_REGISTRY[$match]+x}" ]]; then
-        # Try to switch theme silently (if invalid, it just fails)
-        if TDS_QUIET_LOAD=1 tds_switch_theme "$match" 2>/dev/null; then
+        # Try to switch theme silently (suppress ALL output)
+        if TDS_QUIET_LOAD=1 tds_switch_theme "$match" >/dev/null 2>&1; then
             # Generate color swatch preview for status line
             local preview=""
-            # Show 4 sample colors from ENV_PRIMARY palette
-            if [[ -v ENV_PRIMARY ]]; then
-                for i in 0 1 2 3; do
-                    local hex="${ENV_PRIMARY[$i]:-}"
-                    if [[ -n "$hex" ]]; then
-                        # Background color block
-                        preview+=$(printf '\033[48;2;%d;%d;%dm  \033[0m' \
-                            "$((16#${hex:1:2}))" \
-                            "$((16#${hex:3:2}))" \
-                            "$((16#${hex:5:2}))")
-                    fi
-                done
-            fi
-            # Add theme name after swatches for visibility
-            REPL_COMPLETION_PREVIEW_TEXT="${preview} [${match}]"
+
+            # Sample colors from different palettes for variety
+            # ENV (green family), MODE (blue family), VERBS (action), NOUNS (entity)
+            local hex0="${ENV_PRIMARY[0]:-}"
+            local hex1="${MODE_PRIMARY[0]:-}"
+            local hex2="${VERBS_PRIMARY[0]:-}"
+            local hex3="${NOUNS_PRIMARY[0]:-}"
+
+            # Build color swatches using tput for better compatibility
+            for hex in "$hex0" "$hex1" "$hex2" "$hex3"; do
+                if [[ -n "$hex" && ${#hex} -eq 7 && "$hex" == "#"* ]]; then
+                    local r=$((16#${hex:1:2}))
+                    local g=$((16#${hex:3:2}))
+                    local b=$((16#${hex:5:2}))
+                    # Use tput setaf with RGB approximation to 256-color
+                    # Convert RGB to 256-color cube index: 16 + 36*r + 6*g + b (r,g,b in 0-5)
+                    local r5=$(( r * 5 / 255 ))
+                    local g5=$(( g * 5 / 255 ))
+                    local b5=$(( b * 5 / 255 ))
+                    local color256=$(( 16 + 36*r5 + 6*g5 + b5 ))
+                    preview+="$(tput setaf $color256)██$(tput sgr0)"
+                else
+                    preview+="$(tput setaf 8)██$(tput sgr0)"
+                fi
+            done
+
+            REPL_COMPLETION_PREVIEW_TEXT="${preview}"
         fi
     fi
 }

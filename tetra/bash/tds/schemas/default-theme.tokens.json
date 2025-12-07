@@ -1,0 +1,224 @@
+{
+  "$schema": "./design-tokens.schema.json",
+  "metadata": {
+    "name": "default",
+    "version": "1.0.0",
+    "description": "GitHub Dark inspired theme - TDS default",
+    "author": "tetra",
+    "temperature": "default",
+    "colorMode": "dark"
+  },
+  "tokens": {
+    "bg-primary": {
+      "value": "#0d1117",
+      "type": "color",
+      "cssVar": "--bg-primary",
+      "tdsToken": "structural.bg.primary",
+      "description": "Page background - darkest surface",
+      "appliesTo": ["body", ".page"],
+      "contrastWith": ["text-primary", "text-secondary"]
+    },
+    "bg-secondary": {
+      "value": "#161b22",
+      "type": "color",
+      "cssVar": "--bg-secondary",
+      "tdsToken": "structural.bg.secondary",
+      "description": "Panel/card background - elevated surface",
+      "appliesTo": [".panel", ".card", ".modal"]
+    },
+    "bg-tertiary": {
+      "value": "#21262d",
+      "type": "color",
+      "cssVar": "--bg-tertiary",
+      "tdsToken": "structural.bg.tertiary",
+      "description": "Section/header background - highest elevation",
+      "appliesTo": [".header", ".section", ".toolbar"]
+    },
+    "text-primary": {
+      "value": "#c9d1d9",
+      "type": "color",
+      "cssVar": "--text-primary",
+      "tdsToken": "text.primary",
+      "description": "Main body text - high contrast",
+      "appliesTo": ["body", "p", "li"],
+      "contrastWith": ["bg-primary", "bg-secondary"]
+    },
+    "text-secondary": {
+      "value": "#8b949e",
+      "type": "color",
+      "cssVar": "--text-secondary",
+      "tdsToken": "text.secondary",
+      "description": "Supporting text - medium contrast",
+      "appliesTo": [".subtitle", ".caption", ".meta"]
+    },
+    "accent-primary": {
+      "value": "#58a6ff",
+      "type": "color",
+      "cssVar": "--accent-primary",
+      "tdsToken": "interactive.link",
+      "description": "Primary action color - links, buttons",
+      "appliesTo": ["a", ".btn-primary", "h1"],
+      "modifiers": {
+        "hover": "#79b8ff",
+        "active": "#1f6feb"
+      }
+    },
+    "accent-secondary": {
+      "value": "#1f6feb",
+      "type": "color",
+      "cssVar": "--accent-secondary",
+      "tdsToken": "structural.secondary",
+      "description": "Secondary accent - button fills, selection",
+      "appliesTo": [".btn", ".selected"]
+    },
+    "success": {
+      "value": "#3fb950",
+      "type": "color",
+      "cssVar": "--success",
+      "tdsToken": "status.success",
+      "description": "Success/positive feedback",
+      "appliesTo": [".success", ".output-success", ".valid"]
+    },
+    "warning": {
+      "value": "#d29922",
+      "type": "color",
+      "cssVar": "--warning",
+      "tdsToken": "status.warning",
+      "description": "Warning/caution feedback",
+      "appliesTo": [".warning", ".output-warning", ".you-try"]
+    },
+    "error": {
+      "value": "#f85149",
+      "type": "color",
+      "cssVar": "--error",
+      "tdsToken": "status.error",
+      "description": "Error/danger feedback",
+      "appliesTo": [".error", ".output-error", ".invalid"]
+    },
+    "border": {
+      "value": "#30363d",
+      "type": "color",
+      "cssVar": "--border",
+      "tdsToken": "structural.separator",
+      "description": "Borders and dividers",
+      "appliesTo": [".panel", ".card", "hr", "code"]
+    },
+    "highlight": {
+      "value": "#388bfd26",
+      "type": "color",
+      "cssVar": "--highlight",
+      "tdsToken": "interactive.hover",
+      "description": "Selection/hover highlight (semi-transparent)",
+      "appliesTo": [".highlight", "::selection"]
+    }
+  },
+  "groups": [
+    {
+      "id": "backgrounds",
+      "name": "Background Colors",
+      "description": "Surface colors forming the visual depth hierarchy",
+      "tokens": ["bg-primary", "bg-secondary", "bg-tertiary"],
+      "order": 1
+    },
+    {
+      "id": "text",
+      "name": "Text Colors",
+      "description": "Typography colors for content hierarchy",
+      "tokens": ["text-primary", "text-secondary"],
+      "order": 2
+    },
+    {
+      "id": "accents",
+      "name": "Accent Colors",
+      "description": "Interactive and emphasis colors",
+      "tokens": ["accent-primary", "accent-secondary"],
+      "order": 3
+    },
+    {
+      "id": "status",
+      "name": "Status Colors",
+      "description": "Feedback and state indication",
+      "tokens": ["success", "warning", "error"],
+      "order": 4
+    },
+    {
+      "id": "structure",
+      "name": "Structural Colors",
+      "description": "Borders, dividers, and highlights",
+      "tokens": ["border", "highlight"],
+      "order": 5
+    }
+  ],
+  "layout": {
+    "surfaces": {
+      "page": { "background": "bg-primary" },
+      "panel": { "background": "bg-secondary", "border": "border" },
+      "header": { "background": "bg-tertiary", "border": "border" },
+      "card": { "background": "bg-secondary", "border": "border" },
+      "modal": { "background": "bg-secondary", "border": "accent-secondary" }
+    },
+    "typography": {
+      "heading": { "foreground": "text-primary", "accent": "accent-primary" },
+      "body": { "foreground": "text-secondary" },
+      "code": { "background": "bg-tertiary", "foreground": "accent-primary", "border": "border" }
+    },
+    "interactive": {
+      "button-primary": { "background": "accent-secondary", "foreground": "text-primary" },
+      "button-secondary": { "background": "bg-secondary", "foreground": "text-primary", "border": "border" },
+      "link": { "foreground": "accent-primary" },
+      "input": { "background": "bg-primary", "foreground": "text-primary", "border": "border" }
+    },
+    "feedback": {
+      "success-box": { "border": "success", "background": "bg-tertiary" },
+      "warning-box": { "border": "warning", "background": "bg-tertiary" },
+      "error-box": { "border": "error", "background": "bg-tertiary" },
+      "info-box": { "border": "accent-secondary", "background": "bg-tertiary" }
+    }
+  },
+  "relationships": [
+    {
+      "type": "contrast",
+      "tokens": ["text-primary", "bg-primary"],
+      "constraint": "WCAG-AA",
+      "description": "Body text must be readable on page background"
+    },
+    {
+      "type": "contrast",
+      "tokens": ["text-secondary", "bg-secondary"],
+      "constraint": "WCAG-AA",
+      "description": "Secondary text must be readable on panels"
+    },
+    {
+      "type": "hierarchy",
+      "tokens": ["bg-primary", "bg-secondary", "bg-tertiary"],
+      "constraint": "ascending-lightness",
+      "description": "Backgrounds form depth hierarchy (darkest to lightest)"
+    },
+    {
+      "type": "harmony",
+      "tokens": ["accent-primary", "accent-secondary"],
+      "constraint": "same-hue",
+      "description": "Accent colors should be harmonious (same color family)"
+    },
+    {
+      "type": "state",
+      "tokens": ["success", "warning", "error"],
+      "constraint": "distinct-hue",
+      "description": "Status colors must be visually distinct from each other"
+    }
+  ],
+  "tdsMapping": {
+    "--bg-primary": "structural.bg.primary",
+    "--bg-secondary": "structural.bg.secondary",
+    "--bg-tertiary": "structural.bg.tertiary",
+    "--text-primary": "text.primary",
+    "--text-secondary": "text.secondary",
+    "--accent-primary": "interactive.link",
+    "--accent-secondary": "structural.secondary",
+    "--success": "status.success",
+    "--warning": "status.warning",
+    "--error": "status.error",
+    "--border": "structural.separator",
+    "--highlight": "interactive.hover"
+  }
+}

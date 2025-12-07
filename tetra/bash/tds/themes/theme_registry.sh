@@ -99,7 +99,7 @@ tds_switch_theme() {
     if ! declare -f "$loader" >/dev/null; then
         # Function doesn't exist - try lazy loading for temperature themes
         case "$theme_name" in
-            warm|cool|neutral|electric)
+            warm|cool|arctic|neutral|electric)
                 # Lazy load temperature theme
                 local theme_file="$TDS_SRC/themes/${theme_name}.sh"
                 if [[ -f "$theme_file" ]]; then

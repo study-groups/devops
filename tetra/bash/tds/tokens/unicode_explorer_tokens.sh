@@ -61,9 +61,12 @@ declare -gA TDS_UNICODE_TOKENS=(
 
 # Merge Unicode Explorer tokens into main TDS token map
 # This allows tds_text_color() and tds_resolve_color() to work with these tokens
-for key in "${!TDS_UNICODE_TOKENS[@]}"; do
-    TDS_COLOR_TOKENS["$key"]="${TDS_UNICODE_TOKENS["$key"]}"
-done
+# Guard: only merge if TDS_COLOR_TOKENS is declared as associative array
+if declare -p TDS_COLOR_TOKENS &>/dev/null; then
+    for key in "${!TDS_UNICODE_TOKENS[@]}"; do
+        TDS_COLOR_TOKENS["$key"]="${TDS_UNICODE_TOKENS["$key"]}"
+    done
+fi
 
 # Helper function to apply unicode explorer token colors
 uex_color() {
@@ -80,39 +83,33 @@ tds_show_unicode_tokens() {
     echo "=================================="
     echo
 
-    echo "Slot Tokens:"
-    for key in uex.slot.primary uex.slot.secondary uex.slot.locked uex.slot.character; do
-        printf "  %-30s " "$key"
-        tds_color_swatch "$key" 2>/dev/null || printf "■"
-        printf " %s → %s\n" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key" 2>/dev/null || echo 'N/A')"
-        reset_color
-    done
-    echo
+    local -a sections=(
+        "Slot:uex.slot.primary uex.slot.secondary uex.slot.locked uex.slot.character"
+        "Delimiter:uex.delimiter.explore uex.delimiter.qa uex.delimiter.shell"
+        "Metadata:uex.metadata.unicode uex.metadata.category uex.metadata.position uex.metadata.char"
+        "Controls:uex.controls.key uex.controls.separator uex.controls.description uex.controls.arrow"
+        "State:uex.state.label uex.state.value uex.state.mapping"
+        "Mode:uex.mode.explore uex.mode.qa uex.mode.shell"
+    )
 
-    echo "Delimiter Tokens:"
-    for key in uex.delimiter.explore uex.delimiter.qa uex.delimiter.shell; do
-        printf "  %-30s " "$key"
-        tds_color_swatch "$key" 2>/dev/null || printf "■"
-        printf " %s → %s\n" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key" 2>/dev/null || echo 'N/A')"
-        reset_color
+    for section in "${sections[@]}"; do
+        local label="${section%%:*}"
+        local keys="${section#*:}"
+        echo "$label Tokens:"
+        for key in $keys; do
+            local mapping="${TDS_COLOR_TOKENS[$key]:-<not set>}"
+            local resolved
+            resolved=$(tds_resolve_color "$key" 2>/dev/null) || resolved="N/A"
+            # Print swatch with color, then info
+            tds_text_color "$key" 2>/dev/null
+            printf "  ■"
+            reset_color 2>/dev/null
+            printf " %-32s %s → %s\n" "$key" "$mapping" "$resolved"
+        done
+        echo
     done
-    echo
-
-    echo "Metadata Tokens:"
-    for key in uex.metadata.unicode uex.metadata.category uex.metadata.position uex.metadata.char; do
-        printf "  %-30s " "$key"
-        tds_color_swatch "$key" 2>/dev/null || printf "■"
-        printf " %s → %s\n" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key" 2>/dev/null || echo 'N/A')"
-        reset_color
-    done
-    echo
-
-    echo "Control Tokens:"
-    for key in uex.controls.key uex.controls.separator uex.controls.description uex.controls.arrow; do
-        printf "  %-30s " "$key"
-        tds_color_swatch "$key" 2>/dev/null || printf "■"
-        printf " %s → %s\n" "${TDS_COLOR_TOKENS["$key"]}" "$(tds_resolve_color "$key" 2>/dev/null || echo 'N/A')"
-        reset_color
-    done
-    echo
 }
+
+# Export functions
+export -f uex_color
+export -f tds_show_unicode_tokens

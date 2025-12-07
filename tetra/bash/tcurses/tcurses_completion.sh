@@ -251,6 +251,7 @@ declare -g REPL_COMPLETION_PREVIEW_TEXT=""
 _repl_call_preview_hook() {
     local match="$1"
     REPL_COMPLETION_PREVIEW_TEXT=""  # Reset preview text
+
     if [[ -n "$REPL_COMPLETION_PREVIEW_HOOK" ]]; then
         # Check if function exists (works for both declared and exported functions)
         if type "$REPL_COMPLETION_PREVIEW_HOOK" &>/dev/null; then
@@ -583,7 +584,7 @@ _repl_draw_completion_menu_and_return_lines() {
 
     # Show preview text if set (e.g., color swatches)
     if [[ -n "$REPL_COMPLETION_PREVIEW_TEXT" ]]; then
-        printf " %s" "$REPL_COMPLETION_PREVIEW_TEXT" >&2
+        printf " %b" "$REPL_COMPLETION_PREVIEW_TEXT" >&2
     fi
 
     # Calculate padding for right-aligned nav hint

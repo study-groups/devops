@@ -1,0 +1,199 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TDS Design Token Schema",
+  "description": "Meta-schema for understanding and extending the Tetra Design System tokens",
+  "version": "1.0.0",
+  "type": "object",
+  "required": ["metadata", "tokens", "groups"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Theme name identifier"
+        },
+        "version": {
+          "type": "string",
+          "description": "Semantic version"
+        },
+        "description": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "temperature": {
+          "type": "string",
+          "enum": ["default", "warm", "cool", "neutral", "electric"],
+          "description": "TDS temperature theme base"
+        },
+        "colorMode": {
+          "type": "string",
+          "enum": ["dark", "light"],
+          "default": "dark"
+        }
+      }
+    },
+    "tokens": {
+      "type": "object",
+      "description": "Individual token definitions",
+      "additionalProperties": {
+        "$ref": "#/definitions/token"
+      }
+    },
+    "groups": {
+      "type": "array",
+      "description": "Semantic groupings of tokens",
+      "items": {
+        "$ref": "#/definitions/tokenGroup"
+      }
+    },
+    "layout": {
+      "type": "object",
+      "description": "Layout element to token mappings",
+      "properties": {
+        "surfaces": {
+          "$ref": "#/definitions/layoutMapping"
+        },
+        "typography": {
+          "$ref": "#/definitions/layoutMapping"
+        },
+        "interactive": {
+          "$ref": "#/definitions/layoutMapping"
+        },
+        "feedback": {
+          "$ref": "#/definitions/layoutMapping"
+        }
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "description": "Token relationship constraints",
+      "items": {
+        "$ref": "#/definitions/relationship"
+      }
+    },
+    "tdsMapping": {
+      "type": "object",
+      "description": "Maps CSS tokens to TDS semantic tokens",
+      "additionalProperties": {
+        "type": "string",
+        "description": "TDS token path (e.g., structural.bg.primary)"
+      }
+    }
+  },
+  "definitions": {
+    "token": {
+      "type": "object",
+      "required": ["value", "type"],
+      "properties": {
+        "value": {
+          "type": "string",
+          "description": "Token value (hex color, font stack, size)"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["color", "font", "size", "spacing", "shadow", "radius", "duration"],
+          "description": "Token type"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description for designers"
+        },
+        "cssVar": {
+          "type": "string",
+          "description": "CSS custom property name (--bg-primary)"
+        },
+        "tdsToken": {
+          "type": "string",
+          "description": "Corresponding TDS semantic token"
+        },
+        "contrastWith": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tokens this must contrast with (WCAG)"
+        },
+        "appliesTo": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "CSS selectors where this token is used"
+        },
+        "modifiers": {
+          "type": "object",
+          "description": "State-based modifications",
+          "properties": {
+            "hover": { "type": "string" },
+            "active": { "type": "string" },
+            "disabled": { "type": "string" },
+            "focus": { "type": "string" }
+          }
+        }
+      }
+    },
+    "tokenGroup": {
+      "type": "object",
+      "required": ["id", "name", "tokens"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Group identifier"
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Group purpose and usage guidance"
+        },
+        "tokens": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Token IDs in this group"
+        },
+        "order": {
+          "type": "integer",
+          "description": "Display order in editor"
+        }
+      }
+    },
+    "layoutMapping": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "background": { "type": "string" },
+          "foreground": { "type": "string" },
+          "border": { "type": "string" },
+          "accent": { "type": "string" }
+        }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "required": ["type", "tokens"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["contrast", "harmony", "hierarchy", "state"],
+          "description": "Relationship type"
+        },
+        "tokens": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 2,
+          "description": "Related token IDs"
+        },
+        "constraint": {
+          "type": "string",
+          "description": "Constraint definition (e.g., 'WCAG-AA', 'lighter-than')"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

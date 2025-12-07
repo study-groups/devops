@@ -36,6 +36,7 @@ source "$TDS_SRC/themes/default.sh"
 # Register them lazily - themes will be sourced on-demand when first used
 tds_register_lazy_theme "warm" "tds_theme_warm" "Warm amber temperature for org"
 tds_register_lazy_theme "cool" "tds_theme_cool" "Cool blue temperature for logs"
+tds_register_lazy_theme "arctic" "tds_theme_arctic" "Arctic blue with structured palettes"
 tds_register_lazy_theme "neutral" "tds_theme_neutral" "Neutral green temperature for tsm"
 tds_register_lazy_theme "electric" "tds_theme_electric" "Electric purple temperature for deploy"
 

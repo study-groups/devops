@@ -8,17 +8,18 @@
 # =============================================================================
 
 # Verbs (operations)
-_TDS_VERBS="get set validate create delete copy edit path help repl"
+_TDS_VERBS="get set validate create delete copy edit path save doctor help repl"
 
 # Nouns by verb
 _TDS_NOUNS_GET="theme themes palette palettes token tokens hex"
-_TDS_NOUNS_SET="theme"
+_TDS_NOUNS_SET="theme palette token"
 _TDS_NOUNS_VALIDATE="theme tokens"
 _TDS_NOUNS_CREATE="theme"
 _TDS_NOUNS_DELETE="theme"
 _TDS_NOUNS_COPY="theme"
 _TDS_NOUNS_EDIT="theme"
 _TDS_NOUNS_PATH="theme"
+_TDS_NOUNS_SAVE="theme"
 
 # Palette names
 _TDS_PALETTES="env mode verbs nouns"
@@ -86,6 +87,7 @@ _tds_complete() {
             copy)     COMPREPLY=($(compgen -W "$_TDS_NOUNS_COPY" -- "$cur")) ;;
             edit)     COMPREPLY=($(compgen -W "$_TDS_NOUNS_EDIT" -- "$cur")) ;;
             path)     COMPREPLY=($(compgen -W "$_TDS_NOUNS_PATH" -- "$cur")) ;;
+            save)     COMPREPLY=($(compgen -W "$_TDS_NOUNS_SAVE" -- "$cur")) ;;
         esac
         return
     fi
@@ -107,14 +109,28 @@ _tds_complete() {
                 # Source theme
                 COMPREPLY=($(compgen -W "$(_tds_complete_themes)" -- "$cur"))
                 ;;
-            "get palette")
+            "get palette"|"set palette")
                 COMPREPLY=($(compgen -W "$_TDS_PALETTES" -- "$cur"))
                 ;;
         esac
         return
     fi
 
-    # Word 4: Only for "copy theme <src>" - destination (no completion)
+    # Word 4: Complete based on verb+noun
+    if [[ $COMP_CWORD -eq 4 ]]; then
+        case "$verb $noun" in
+            "set palette")
+                # Index 0-7
+                COMPREPLY=($(compgen -W "0 1 2 3 4 5 6 7" -- "$cur"))
+                ;;
+            "copy theme")
+                # Destination theme name (no completion, user types new name)
+                ;;
+        esac
+        return
+    fi
+
+    # Word 5: hex color for "set palette" (no completion)
 }
 
 # Register completion
