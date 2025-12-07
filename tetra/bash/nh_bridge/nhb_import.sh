@@ -1,63 +1,105 @@
 #!/usr/bin/env bash
-# nh_import.sh - Import digocean.json → tetra.toml
+# nhb_import.sh - Import digocean.json -> tetra.toml
 #
 # Minimal, focused converter that generates only what org/tkm need:
 #   - [org] name
-#   - [environments.*] host, user, ssh_work_user
-#   - [connectors] inline format (optional)
+#   - [env.*] host, auth_user, work_user, domain
 #
 # Usage:
-#   nh_import <json_file> <org_name> [output_dir]
-#   nh_import ~/nh/myorg/digocean.json myorg
-#   nh_import ~/nh/myorg/digocean.json myorg ~/.tetra/orgs/myorg
+#   nhb_import <json_file> <org_name> [output_dir]
+#   nhb_import ~/nh/myorg/digocean.json myorg
+#   nhb_import ~/nh/myorg/digocean.json myorg ~/.tetra/orgs/myorg
 
 # =============================================================================
 # JSON PARSING
 # =============================================================================
 
 # Extract all droplets from digocean.json
-_nh_get_droplets() {
+_nhb_get_droplets() {
     local json_file="$1"
     jq -c '.[] | select(.Droplets) | .Droplets[]' "$json_file" 2>/dev/null
 }
 
 # Extract domains from digocean.json
-_nh_get_base_domain() {
+_nhb_get_base_domain() {
     local json_file="$1"
     jq -r '.[] | select(.Domains) | .Domains[0].name // empty' "$json_file" 2>/dev/null
 }
 
 # Get droplet public IP
-_nh_droplet_ip() {
+_nhb_droplet_ip() {
     local droplet="$1"
     echo "$droplet" | jq -r '.networks.v4[] | select(.type == "public") | .ip_address' | head -1
 }
 
 # Get droplet private IP
-_nh_droplet_private_ip() {
+_nhb_droplet_private_ip() {
     local droplet="$1"
     echo "$droplet" | jq -r '.networks.v4[] | select(.type == "private") | .ip_address' | head -1
 }
 
 # Get droplet name
-_nh_droplet_name() {
+_nhb_droplet_name() {
     local droplet="$1"
     echo "$droplet" | jq -r '.name'
 }
 
 # Get droplet tags as space-separated string
-_nh_droplet_tags() {
+_nhb_droplet_tags() {
     local droplet="$1"
     echo "$droplet" | jq -r '.tags[]?' 2>/dev/null | tr '\n' ' '
 }
 
 # =============================================================================
-# ENVIRONMENT DETECTION
+# ENVIRONMENT MAPPING
 # =============================================================================
 
-# Detect environment from droplet name/tags
+# Load env-map.conf from context directory
+# Format: droplet_name=env1,env2,env3
+# Example:
+#   do4=staging
+#   do4n2=prod,staging
+declare -A _NHB_ENV_MAP
+
+_nhb_load_env_map() {
+    local json_file="$1"
+    local map_file="${json_file%/*}/env-map.conf"
+
+    _NHB_ENV_MAP=()
+
+    [[ ! -f "$map_file" ]] && return 0
+
+    while IFS='=' read -r name envs; do
+        # Skip comments and empty lines
+        [[ -z "$name" || "$name" == \#* ]] && continue
+        # Normalize: trim whitespace
+        name="${name%% }"
+        name="${name## }"
+        envs="${envs%% }"
+        envs="${envs## }"
+        _NHB_ENV_MAP["$name"]="$envs"
+    done < "$map_file"
+}
+
+# Get environments for a droplet (from map or auto-detect)
+# Returns: comma-separated list of envs, or empty
+_nhb_get_envs() {
+    local name="$1"
+    local tags="$2"
+
+    # Check map first
+    if [[ -n "${_NHB_ENV_MAP[$name]}" ]]; then
+        echo "${_NHB_ENV_MAP[$name]}"
+        return 0
+    fi
+
+    # Fall back to auto-detection
+    _nhb_detect_env "$name" "$tags"
+}
+
+# Auto-detect environment from droplet name/tags
 # Returns: dev, staging, prod, or empty
-_nh_detect_env() {
+_nhb_detect_env() {
     local name="$1"
     local tags="$2"
     local combined="$name $tags"
@@ -79,17 +121,17 @@ _nh_detect_env() {
 # =============================================================================
 
 # Generate infrastructure partial (10-infrastructure.toml)
-_nh_generate_infrastructure_partial() {
+_nhb_generate_infrastructure_partial() {
     local base_domain="$1"
     shift
     # Remaining args are: env:ip:private_ip:droplet_name pairs
 
     cat << EOF
-# Infrastructure - environments and connectors
+# Infrastructure - environments
 # Generated from digocean.json on $(date -Iseconds)
 # Rebuild tetra.toml with: org build
 
-[environments.local]
+[env.local]
 description = "Local development"
 EOF
 
@@ -116,27 +158,14 @@ EOF
 
         cat << EOF
 
-[environments.$env]
+[env.$env]
 description = "${env^} server${droplet_name:+ ($droplet_name)}"
 host = "$ip"
-user = "root"
-ssh_work_user = "$env"
+auth_user = "root"
+work_user = "$env"
 EOF
         [[ -n "$private_ip" ]] && echo "private_ip = \"$private_ip\""
         [[ -n "$domain" ]] && echo "domain = \"$domain\""
-    done
-
-    # Generate connectors section (inline format for tkm)
-    echo ""
-    echo "[connectors]"
-    for entry in "$@"; do
-        local env="${entry%%:*}"
-        local rest="${entry#*:}"
-        local ip="${rest%%:*}"
-
-        [[ -z "$env" || -z "$ip" ]] && continue
-
-        echo "\"@$env\" = { auth_user = \"root\", work_user = \"$env\", host = \"$ip\" }"
     done
 }
 
@@ -144,18 +173,18 @@ EOF
 # MAIN IMPORT FUNCTION
 # =============================================================================
 
-nh_import() {
+nhb_import() {
     local json_file="$1"
     local org_name="$2"
     local no_build="${3:-}"  # pass "no-build" to skip auto-build
 
     # Validation
     if [[ -z "$json_file" || -z "$org_name" ]]; then
-        echo "Usage: nh_import <json_file> <org_name> [no-build]"
+        echo "Usage: nhb_import <json_file> <org_name> [no-build]"
         echo ""
         echo "Examples:"
-        echo "  nh_import ~/nh/myorg/digocean.json myorg"
-        echo "  nh_import ~/nh/myorg/digocean.json myorg no-build"
+        echo "  nhb_import ~/nh/myorg/digocean.json myorg"
+        echo "  nhb_import ~/nh/myorg/digocean.json myorg no-build"
         return 1
     fi
 
@@ -189,9 +218,14 @@ nh_import() {
         echo ""
     fi
 
+    # Load env map if exists
+    _nhb_load_env_map "$json_file"
+    local map_file="${json_file%/*}/env-map.conf"
+    [[ -f "$map_file" ]] && echo "Using: $map_file"
+
     # Get base domain
     local base_domain
-    base_domain=$(_nh_get_base_domain "$json_file")
+    base_domain=$(_nhb_get_base_domain "$json_file")
     [[ -n "$base_domain" ]] && echo "Domain: $base_domain"
 
     # Parse droplets and detect environments
@@ -201,27 +235,33 @@ nh_import() {
     while IFS= read -r droplet; do
         [[ -z "$droplet" ]] && continue
 
-        local name=$(_nh_droplet_name "$droplet")
-        local tags=$(_nh_droplet_tags "$droplet")
-        local ip=$(_nh_droplet_ip "$droplet")
-        local private_ip=$(_nh_droplet_private_ip "$droplet")
-        local env=$(_nh_detect_env "$name" "$tags")
+        local name=$(_nhb_droplet_name "$droplet")
+        local tags=$(_nhb_droplet_tags "$droplet")
+        local ip=$(_nhb_droplet_ip "$droplet")
+        local private_ip=$(_nhb_droplet_private_ip "$droplet")
+        local envs=$(_nhb_get_envs "$name" "$tags")
 
-        if [[ -n "$env" ]]; then
-            # Check for conflict
-            if [[ -n "${env_map[$env]}" ]]; then
-                echo "Warning: Multiple droplets for '$env' environment"
-                echo "  Existing: ${env_map[$env]##*:}"
-                echo "  New: $name ($ip)"
-                echo "  Keeping first one"
-            else
-                env_map[$env]="$ip:$private_ip:$name"
-                echo "  $env: $name ($ip)"
-            fi
+        if [[ -n "$envs" ]]; then
+            # Handle multiple envs (comma-separated)
+            IFS=',' read -ra env_list <<< "$envs"
+            for env in "${env_list[@]}"; do
+                env="${env## }"  # trim leading space
+                env="${env%% }"  # trim trailing space
+                # Check for conflict
+                if [[ -n "${env_map[$env]}" ]]; then
+                    echo "Warning: Multiple droplets for '$env' environment"
+                    echo "  Existing: ${env_map[$env]##*:}"
+                    echo "  New: $name ($ip)"
+                    echo "  Keeping first one"
+                else
+                    env_map[$env]="$ip:$private_ip:$name"
+                    echo "  $env: $name ($ip)"
+                fi
+            done
         else
             unassigned+=("$name:$ip:$private_ip")
         fi
-    done < <(_nh_get_droplets "$json_file")
+    done < <(_nhb_get_droplets "$json_file")
 
     # Handle unassigned droplets
     if [[ ${#unassigned[@]} -gt 0 ]]; then
@@ -253,7 +293,7 @@ nh_import() {
     done
 
     # Generate infrastructure partial
-    _nh_generate_infrastructure_partial "$base_domain" "${entries[@]}" > "$infra_file"
+    _nhb_generate_infrastructure_partial "$base_domain" "${entries[@]}" > "$infra_file"
 
     echo ""
     echo "Updated: $infra_file"
@@ -280,31 +320,42 @@ nh_import() {
 }
 
 # List droplets without importing (dry run)
-nh_list() {
+nhb_list() {
     local json_file="$1"
 
     if [[ -z "$json_file" || ! -f "$json_file" ]]; then
-        echo "Usage: nh_list <json_file>"
+        echo "Usage: nhb_list <json_file>"
         return 1
     fi
 
+    # Load env map if exists
+    _nhb_load_env_map "$json_file"
+    local map_file="${json_file%/*}/env-map.conf"
+
     echo "Droplets in $json_file:"
+    [[ -f "$map_file" ]] && echo "  (using env-map.conf)"
     echo ""
 
     while IFS= read -r droplet; do
         [[ -z "$droplet" ]] && continue
 
-        local name=$(_nh_droplet_name "$droplet")
-        local tags=$(_nh_droplet_tags "$droplet")
-        local ip=$(_nh_droplet_ip "$droplet")
-        local env=$(_nh_detect_env "$name" "$tags")
+        local name=$(_nhb_droplet_name "$droplet")
+        local tags=$(_nhb_droplet_tags "$droplet")
+        local ip=$(_nhb_droplet_ip "$droplet")
+        local envs=$(_nhb_get_envs "$name" "$tags")
 
-        printf "  %-25s %-15s -> %s\n" "$name" "$ip" "${env:-?}"
-    done < <(_nh_get_droplets "$json_file")
+        printf "  %-25s %-15s -> %s\n" "$name" "$ip" "${envs:-?}"
+    done < <(_nhb_get_droplets "$json_file")
 
     echo ""
-    local domain=$(_nh_get_base_domain "$json_file")
+    local domain=$(_nhb_get_base_domain "$json_file")
     [[ -n "$domain" ]] && echo "Domain: $domain"
+
+    if [[ ! -f "$map_file" ]]; then
+        echo ""
+        echo "Tip: Create $map_file to override mappings:"
+        echo "  droplet_name=env1,env2"
+    fi
 }
 
 # =============================================================================
@@ -315,27 +366,27 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     case "${1:-help}" in
         import)
             shift
-            nh_import "$@"
+            nhb_import "$@"
             ;;
         list|ls)
             shift
-            nh_list "$@"
+            nhb_list "$@"
             ;;
         help|--help|-h|"")
             cat << 'EOF'
-nh_import - Import digocean.json to tetra.toml
+nhb_import - Import digocean.json to tetra.toml
 
 USAGE
-    nh_import import <json_file> <org_name> [output_dir]
-    nh_import list <json_file>
+    nhb_import import <json_file> <org_name> [output_dir]
+    nhb_import list <json_file>
 
 COMMANDS
     import      Convert digocean.json to tetra.toml
     list        Show droplets and detected environments (dry run)
 
 EXAMPLES
-    nh_import list ~/nh/myorg/digocean.json
-    nh_import import ~/nh/myorg/digocean.json myorg
+    nhb_list ~/nh/myorg/digocean.json
+    nhb_import ~/nh/myorg/digocean.json myorg
 
 ENVIRONMENT DETECTION
     Droplets are assigned to environments based on name/tags:
@@ -348,12 +399,13 @@ EOF
             ;;
         *)
             echo "Unknown command: $1"
-            echo "Try: nh_import help"
+            echo "Try: nhb_import help"
             exit 1
             ;;
     esac
 fi
 
-export -f nh_import nh_list
-export -f _nh_get_droplets _nh_get_base_domain _nh_droplet_ip _nh_droplet_private_ip
-export -f _nh_droplet_name _nh_droplet_tags _nh_detect_env _nh_generate_toml
+export -f nhb_import nhb_list
+export -f _nhb_get_droplets _nhb_get_base_domain _nhb_droplet_ip _nhb_droplet_private_ip
+export -f _nhb_droplet_name _nhb_droplet_tags _nhb_detect_env _nhb_generate_infrastructure_partial
+export -f _nhb_load_env_map _nhb_get_envs
