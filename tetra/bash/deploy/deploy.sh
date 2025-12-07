@@ -1,26 +1,20 @@
 #!/usr/bin/env bash
 # deploy.sh - Main dispatcher for deploy module
 #
-# Purpose: Deploy projects to remote environments
+# Purpose: Deploy TOML-configured targets to remote environments
 # Assumes: org and tkm are configured, SSH connectivity is established
 #
 # Pattern:
-#   deploy add <project> <local_path> <remote_path>
-#   deploy pull <project> <env>       # git pull on remote
-#   deploy restart <project> <env>    # restart via tsm
-#   deploy status [project] [env]     # show deployment status
-#
-# Projects are defined in $TETRA_DIR/deploy/projects/<name>.conf
-
-DEPLOY_SRC="${TETRA_SRC}/bash/deploy"
+#   deploy push <target> <env>        # Full deployment pipeline
+#   deploy preflight <target> <env>   # Pre-deploy checks
+#   deploy status                     # Show deployment status
 
 # =============================================================================
 # STATUS
 # =============================================================================
 
 deploy_status() {
-    local project="${1:-}"
-    local env="${2:-}"
+    local target="${1:-}"
 
     echo "Deploy Status"
     echo "============="
@@ -36,31 +30,31 @@ deploy_status() {
     echo "Org: $org"
     echo ""
 
-    # Show projects
-    echo "Projects:"
-    local projects_dir="$MOD_DIR/projects"
-    if [[ ! -d "$projects_dir" ]] || [[ -z "$(ls -A "$projects_dir" 2>/dev/null)" ]]; then
-        echo "  (none registered)"
-        echo "  Run: deploy add <name> <local_path> <remote_path>"
+    # Show targets
+    echo "Targets:"
+    local targets_dir=$(_deploy_targets_dir 2>/dev/null)
+
+    if [[ ! -d "$targets_dir" ]] || [[ -z "$(ls -A "$targets_dir"/*.toml 2>/dev/null)" ]]; then
+        echo "  (none)"
+        echo "  Run: deploy target add <name>"
         return 0
     fi
 
-    for conf in "$projects_dir"/*.conf; do
-        [[ -f "$conf" ]] || continue
-        local name=$(basename "$conf" .conf)
+    for toml in "$targets_dir"/*.toml; do
+        [[ -f "$toml" ]] || continue
+        local name=$(basename "$toml" .toml)
 
-        # Filter by project if specified
-        [[ -n "$project" && "$name" != "$project" ]] && continue
+        # Filter by target if specified
+        [[ -n "$target" && "$name" != "$target" ]] && continue
 
-        # Source config
-        local DEPLOY_LOCAL="" DEPLOY_REMOTE="" DEPLOY_SERVICE=""
-        source "$conf"
-
-        echo "  $name"
-        echo "    Local:   $DEPLOY_LOCAL"
-        echo "    Remote:  $DEPLOY_REMOTE"
-        [[ -n "$DEPLOY_SERVICE" ]] && echo "    Service: $DEPLOY_SERVICE"
-        echo ""
+        if deploy_target_load "$name" 2>/dev/null; then
+            echo "  $name"
+            echo "    Repo:  ${TGT_REPO:-(none)}"
+            echo "    Local: ${TGT_PATH_LOCAL:-(none)}"
+            echo "    WWW:   ${TGT_WWW:-(none)}"
+            echo "    Envs:  ${TGT_ENVS:-(none)}"
+            echo ""
+        fi
     done
 }
 
@@ -100,7 +94,7 @@ deploy_doctor() {
         local user=$(_org_get_user "$env")
         [[ -z "$user" ]] && user="root"
 
-        if ssh -o BatchMode=yes -o ConnectTimeout=3 "$user@$host" true 2>/dev/null; then
+        if ssh $DEPLOY_SSH_OPTIONS "$user@$host" true 2>/dev/null; then
             echo "  [OK] $env ($user@$host)"
             ((ssh_ok++))
         else
@@ -116,24 +110,27 @@ deploy_doctor() {
     fi
     echo ""
 
-    # 3. Check projects
-    echo "Projects"
-    echo "--------"
-    local projects_dir="$MOD_DIR/projects"
-    if [[ ! -d "$projects_dir" ]] || [[ -z "$(ls -A "$projects_dir" 2>/dev/null)" ]]; then
-        echo "  [--] No projects registered"
-        echo "       Run: deploy add <name> <local_path> <remote_path>"
-    else
-        for conf in "$projects_dir"/*.conf; do
-            [[ -f "$conf" ]] || continue
-            local name=$(basename "$conf" .conf)
-            local DEPLOY_LOCAL="" DEPLOY_REMOTE=""
-            source "$conf"
+    # 3. Check targets
+    echo "Targets"
+    echo "-------"
+    local targets_dir=$(_deploy_targets_dir 2>/dev/null)
 
-            if [[ -d "$DEPLOY_LOCAL" ]]; then
-                echo "  [OK] $name"
+    if [[ ! -d "$targets_dir" ]] || [[ -z "$(ls -A "$targets_dir"/*.toml 2>/dev/null)" ]]; then
+        echo "  [--] No targets configured"
+        echo "       Run: deploy target add <name>"
+    else
+        for toml in "$targets_dir"/*.toml; do
+            [[ -f "$toml" ]] || continue
+            local name=$(basename "$toml" .toml)
+
+            if deploy_target_load "$name" 2>/dev/null; then
+                if [[ -d "$TGT_PATH_LOCAL" ]]; then
+                    echo "  [OK] $name"
+                else
+                    echo "  [X]  $name (local path missing: $TGT_PATH_LOCAL)"
+                fi
             else
-                echo "  [X]  $name (local path missing: $DEPLOY_LOCAL)"
+                echo "  [X]  $name (failed to load TOML)"
             fi
         done
     fi
@@ -154,7 +151,7 @@ deploy_doctor() {
 
 deploy_help() {
     cat << 'EOF'
-deploy - Project deployment for tetra
+deploy - Target deployment for tetra
 
 USAGE
     deploy [command] [args]
@@ -163,62 +160,65 @@ PREREQUISITES
     org switch <name>    # Activate organization
     tkm test             # Verify SSH connectivity
 
-COMMANDS
-    status [project]     Show deployment status (default)
+STATUS & INFO
+    status [target]      Show deployment status (default)
     doctor               Audit deployment setup
-    list, ls             List registered projects
 
-PROJECT MANAGEMENT
-    add <name> <local> <remote>   Register a project
-    remove <name>                 Unregister a project
-    edit <name>                   Edit project config
+TARGET MANAGEMENT
+    target add <name>    Register target (interactive)
+    target list          List targets for org
+    target show <name>   Show target config
+    target edit <name>   Edit target TOML
+    target remove <name> Remove target
+    targets              Alias for 'target list'
 
-DEPLOYMENT (all support --dry-run)
-    pull <project> <env>          Git pull on remote server
-    restart <project> <env>       Restart service via tsm
-    full <project> <env>          Pull + restart
+ENVIRONMENT FILES
+    env status <target> [env]     Show env file status
+    env validate <target> <env>   Validate against tetra-deploy.toml
+    env diff <target> <env>       Show local vs remote diff
+    env push <target> <env>       Push local env to server
+    env pull <target> <env>       Pull server env to local
+    env edit <target> <env>       Edit remote env via SSH
 
-REMOTE MANAGEMENT
-    tsm <env> <cmd...>            Run TSM command on remote
-    nginx <env> [action]          Manage nginx (list/reload/test/status)
-    exec <env> <cmd...>           Run arbitrary command on remote
+DEPLOYMENT
+    preflight <target> <env>      Run pre-deploy checks (mandatory)
+    push <target> <env>           Full pipeline: preflight -> hooks -> git -> service
+    push --skip-preflight ...     Bypass preflight checks
 
-SERVICE INTEGRATION
-    service <project> <env>       Create TSM service definition
-    services                      List TSM services for projects
-
-OPTIONS
     --dry-run, -n                 Show what would be executed
 
+NGINX CONFIG
+    nginx:gen <target> <env>      Generate nginx config locally
+    nginx:show <target> <env>     Show generated config
+    nginx:install <target> <env>  Push to remote server
+    nginx:uninstall <target> <env> Remove from remote
+
+REMOTE MANAGEMENT
+    exec <env> <cmd...>           Run command on remote
+
 EXAMPLES
-    # Register and deploy a project
-    deploy add arcade ~/src/arcade /home/dev/arcade
-    deploy pull arcade dev        # Git pull on dev server
-    deploy restart arcade dev     # Restart arcade service
-    deploy full arcade dev        # Pull and restart
-    deploy full --dry-run arcade staging  # Preview staging deploy
+    # Setup
+    deploy target add arcade              # Create target config
+    # Create tetra-deploy.toml in repo    # Define deployment
 
-    # Remote TSM management
-    deploy tsm dev list           # List processes on dev
-    deploy tsm dev logs arcade    # View arcade logs on dev
-    deploy tsm staging restart arcade
+    # Pre-flight
+    deploy preflight arcade dev           # Check everything
+    deploy env status arcade              # Check env files
 
-    # Remote nginx management
-    deploy nginx dev              # List enabled sites
-    deploy nginx dev reload       # Reload nginx config
-    deploy nginx staging test     # Test nginx config
+    # Deploy
+    deploy push --dry-run arcade dev      # Preview
+    deploy push arcade dev                # Deploy to dev
+    deploy push arcade prod               # Deploy to production
 
-    # Generic remote commands
-    deploy exec dev 'df -h'       # Check disk space
-    deploy exec prod 'pm2 list'   # List PM2 processes
+CONFIGURATION
+    Targets stored in:
+      $TETRA_DIR/orgs/<org>/targets/<name>.toml
 
-WORKFLOW
-    1. org switch myorg           # Activate org
-    2. tkm test                   # Verify SSH
-    3. deploy add arcade ~/src/arcade /home/dev/arcade
-    4. deploy full --dry-run arcade dev  # Preview
-    5. deploy full arcade dev     # Deploy to dev
-    6. deploy tsm dev list        # Verify running
+    Repo deployment config:
+      <repo>/tetra-deploy.toml
+
+    Environment files:
+      <repo>/env/<environment>.env
 EOF
 }
 
@@ -240,34 +240,97 @@ deploy() {
             deploy_doctor "$@"
             ;;
 
-        # Project management
-        list|ls)
-            deploy_list "$@"
+        # Target Management (new)
+        target)
+            local subcmd="${1:-list}"
+            shift 2>/dev/null || true
+            case "$subcmd" in
+                add)      deploy_target_add "$@" ;;
+                list|ls)  deploy_target_list "$@" ;;
+                show)     deploy_target_show "$@" ;;
+                edit)     deploy_target_edit "$@" ;;
+                remove|rm) deploy_target_remove "$@" ;;
+                names)    deploy_target_names "$@" ;;
+                *)
+                    echo "Unknown: target $subcmd"
+                    echo "Try: deploy target list"
+                    return 1
+                    ;;
+            esac
             ;;
 
-        add)
-            deploy_add "$@"
+        targets|ts)
+            deploy_target_list "$@"
             ;;
 
-        remove|rm)
-            deploy_remove "$@"
+        # Environment file management (new)
+        env)
+            local subcmd="${1:-status}"
+            shift 2>/dev/null || true
+            case "$subcmd" in
+                status)   deploy_env_status "$@" ;;
+                validate) deploy_env_validate "$@" ;;
+                diff)     deploy_env_diff "$@" ;;
+                push)     deploy_env_push "$@" ;;
+                pull)     deploy_env_pull "$@" ;;
+                edit)     deploy_env_edit "$@" ;;
+                *)
+                    echo "Unknown: env $subcmd"
+                    echo "Try: deploy env status <target>"
+                    return 1
+                    ;;
+            esac
             ;;
 
-        edit)
-            deploy_edit "$@"
+        # Preflight checks (new)
+        preflight|pre)
+            deploy_preflight "$@"
             ;;
 
-        # Deployment operations
-        pull)
-            deploy_pull "$@"
+        # Deployment Operations
+        push)
+            deploy_push "$@"
             ;;
 
-        restart)
-            deploy_restart "$@"
+        git)
+            deploy_git "$@"
             ;;
 
-        full)
-            deploy_full "$@"
+        sync)
+            deploy_sync "$@"
+            ;;
+
+        perms)
+            deploy_perms "$@"
+            ;;
+
+        domain:show|domain)
+            deploy_domain_show "$@"
+            ;;
+
+        # Nginx config generation/installation
+        nginx:gen|nginx:generate)
+            deploy_nginx_generate "$@"
+            ;;
+
+        nginx:show)
+            deploy_nginx_show "$@"
+            ;;
+
+        nginx:list)
+            deploy_nginx_list "$@"
+            ;;
+
+        nginx:install)
+            deploy_nginx_install "$@"
+            ;;
+
+        nginx:uninstall)
+            deploy_nginx_uninstall "$@"
+            ;;
+
+        nginx:status)
+            deploy_nginx_status "$@"
             ;;
 
         # Remote management
@@ -283,13 +346,63 @@ deploy() {
             deploy_exec "$@"
             ;;
 
-        # Service integration
-        service|svc)
-            deploy_service "$@"
+        # Repo config (new)
+        repo)
+            local subcmd="${1:-show}"
+            shift 2>/dev/null || true
+            case "$subcmd" in
+                show)
+                    local target="$1"
+                    if [[ -z "$target" ]]; then
+                        echo "Usage: deploy repo show <target>"
+                        return 1
+                    fi
+                    deploy_target_load "$target" || return 1
+                    deploy_repo_show "$TGT_PATH_LOCAL"
+                    ;;
+                *)
+                    echo "Unknown: repo $subcmd"
+                    return 1
+                    ;;
+            esac
             ;;
 
-        services)
-            deploy_services "$@"
+        # Legacy backward compatibility
+        project:add|proj:add)
+            echo "DEPRECATED: Use 'deploy target add' instead"
+            deploy_target_add "$@"
+            ;;
+
+        project:list|proj:ls|proj:list|list|ls)
+            echo "DEPRECATED: Use 'deploy target list' instead"
+            deploy_target_list "$@"
+            ;;
+
+        project:edit|proj:edit|edit)
+            echo "DEPRECATED: Use 'deploy target edit' instead"
+            deploy_target_edit "$@"
+            ;;
+
+        project:show|proj:show|show)
+            echo "DEPRECATED: Use 'deploy target show' instead"
+            deploy_target_show "$@"
+            ;;
+
+        project)
+            echo "DEPRECATED: Use 'deploy target' instead"
+            local subcmd="${1:-list}"
+            shift 2>/dev/null || true
+            case "$subcmd" in
+                add)      deploy_target_add "$@" ;;
+                list|ls)  deploy_target_list "$@" ;;
+                show)     deploy_target_show "$@" ;;
+                edit)     deploy_target_edit "$@" ;;
+                remove|rm) deploy_target_remove "$@" ;;
+                *)
+                    echo "Unknown: project $subcmd"
+                    return 1
+                    ;;
+            esac
             ;;
 
         # Help

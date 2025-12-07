@@ -1,36 +1,36 @@
 #!/usr/bin/env bash
-# deploy_complete.sh - Simple tab completion for deploy command
+# deploy_complete.sh - Tab completion for deploy command
 #
 # Provides completion for:
 #   - deploy subcommands
-#   - project names
+#   - project names (from TOML)
 #   - environment names
-#   - nginx actions
 
 # =============================================================================
 # COMPLETION DATA
 # =============================================================================
 
-# All deploy subcommands
-_DEPLOY_COMMANDS="status doctor list add remove edit pull restart full tsm nginx exec service services help"
+_DEPLOY_COMMANDS=(
+    status doctor
+    project:add project:list project:show project:edit
+    list show edit
+    push git sync perms
+    domain:show
+    nginx:gen nginx:show nginx:list nginx:install nginx:uninstall nginx:status
+    tsm nginx exec
+    help
+)
 
-# Nginx subcommands
 _DEPLOY_NGINX_ACTIONS="list available reload test status edit"
 
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
 
-# List registered project names
 _deploy_complete_projects() {
-    local projects_dir="$TETRA_DIR/deploy/projects"
-    [[ -d "$projects_dir" ]] || return
-    for conf in "$projects_dir"/*.conf; do
-        [[ -f "$conf" ]] && basename "$conf" .conf
-    done
+    deploy_toml_names 2>/dev/null
 }
 
-# List environment names (reuse org's function)
 _deploy_complete_envs() {
     org_env_names 2>/dev/null
 }
@@ -48,7 +48,7 @@ _deploy_complete() {
 
     # First argument - complete subcommands
     if [[ $COMP_CWORD -eq 1 ]]; then
-        COMPREPLY=($(compgen -W "$_DEPLOY_COMMANDS" -- "$cur"))
+        COMPREPLY=($(compgen -W "${_DEPLOY_COMMANDS[*]}" -- "$cur"))
         return
     fi
 
@@ -62,7 +62,19 @@ _deploy_complete() {
     if [[ $COMP_CWORD -eq 2 ]]; then
         case "$cmd" in
             # Project commands: complete project names
-            remove|rm|edit|pull|restart|full|service|svc|status|s)
+            project:show|project:edit|proj:show|proj:edit|show|edit)
+                COMPREPLY=($(compgen -W "$(_deploy_complete_projects)" -- "$cur"))
+                return
+                ;;
+
+            # Deploy commands: complete project names
+            push|git|sync|perms|domain:show|domain)
+                COMPREPLY=($(compgen -W "$(_deploy_complete_projects)" -- "$cur"))
+                return
+                ;;
+
+            # Nginx config commands: complete project names
+            nginx:gen|nginx:generate|nginx:show|nginx:install|nginx:uninstall|nginx:status)
                 COMPREPLY=($(compgen -W "$(_deploy_complete_projects)" -- "$cur"))
                 return
                 ;;
@@ -73,8 +85,8 @@ _deploy_complete() {
                 return
                 ;;
 
-            # Add: no completion for name (user types)
-            add)
+            # project:add - no completion for name
+            project:add|proj:add)
                 return
                 ;;
         esac
@@ -83,39 +95,22 @@ _deploy_complete() {
     # Third argument
     if [[ $COMP_CWORD -eq 3 ]]; then
         case "$cmd" in
-            # Project deploy commands: complete env names
-            pull|restart|full|service|svc|status|s)
+            # Deploy/nginx commands: complete env names
+            push|git|sync|perms|domain:show|domain|\
+            nginx:gen|nginx:generate|nginx:show|nginx:install|nginx:uninstall|nginx:status)
                 COMPREPLY=($(compgen -W "$(_deploy_complete_envs)" -- "$cur"))
                 return
                 ;;
 
-            # nginx: complete actions
+            # nginx remote: complete actions
             nginx)
                 COMPREPLY=($(compgen -W "$_DEPLOY_NGINX_ACTIONS" -- "$cur"))
-                return
-                ;;
-
-            # add: directory completion for local path
-            add)
-                COMPREPLY=($(compgen -d -- "$cur"))
-                return
-                ;;
-        esac
-    fi
-
-    # Fourth argument
-    if [[ $COMP_CWORD -eq 4 ]]; then
-        case "$cmd" in
-            # add: directory completion for remote path
-            add)
-                COMPREPLY=($(compgen -d -- "$cur"))
                 return
                 ;;
         esac
     fi
 }
 
-# Register completion
 complete -F _deploy_complete deploy
 
 # =============================================================================

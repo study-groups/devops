@@ -1,0 +1,20 @@
+# Nginx location block for: {{PROJECT}}-{{ENV}}
+# Type: static (path pattern)
+# Generated: {{TIMESTAMP}}
+# Add this to your existing server block for {{DOMAIN}}
+
+# Location block for /{{PROJECT}}
+location /{{PROJECT}} {
+    alias {{WWW_PATH}};
+    index index.html index.htm;
+
+    # Try files within the aliased directory
+    try_files $uri $uri/ =404;
+
+    # Static asset caching
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
+}
