@@ -4,18 +4,283 @@
 # Purpose: Deploy TOML-configured targets to remote environments
 # Assumes: org and tkm are configured, SSH connectivity is established
 #
-# Pattern:
+# Usage:
 #   deploy push <target> <env>        # Full deployment pipeline
-#   deploy preflight <target> <env>   # Pre-deploy checks
+#   deploy push <env>                 # Deploy cwd (uses ./tetra-deploy.toml)
 #   deploy status                     # Show deployment status
+
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+
+DEPLOY_SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=10"
+
+# =============================================================================
+# TOML PARSING (minimal, no external deps)
+# =============================================================================
+
+# Get value from TOML file
+# Usage: _deploy_toml_get <file> <section> <key>
+_deploy_toml_get() {
+    local file="$1" section="$2" key="$3"
+
+    awk -v sect="$section" -v k="$key" '
+        /^\[/ { in_sect = ($0 == "[" sect "]") }
+        in_sect && $1 == k && $2 == "=" {
+            val = $0
+            sub(/^[^=]*=[ \t]*/, "", val)
+            gsub(/^["'\''"]|["'\''"]$/, "", val)
+            print val
+            exit
+        }
+    ' "$file"
+}
+
+# Get array from TOML (single line [...] format)
+# Usage: _deploy_toml_get_array <file> <section> <key>
+_deploy_toml_get_array() {
+    local file="$1" section="$2" key="$3"
+
+    local raw=$(_deploy_toml_get "$file" "$section" "$key")
+    [[ -z "$raw" ]] && return
+
+    # Strip brackets and parse quoted strings
+    raw="${raw#\[}"
+    raw="${raw%\]}"
+
+    # Extract quoted items
+    while [[ "$raw" =~ \"([^\"]+)\" ]]; do
+        echo "${BASH_REMATCH[1]}"
+        raw="${raw#*\"${BASH_REMATCH[1]}\"}"
+    done
+}
+
+# =============================================================================
+# CONTEXT LOADING
+# =============================================================================
+
+# Clear deploy context
+_deploy_clear() {
+    unset DEPLOY_TOML DEPLOY_NAME DEPLOY_REMOTE DEPLOY_DOMAIN DEPLOY_ENV
+    unset DEPLOY_HOST DEPLOY_AUTH_USER DEPLOY_WORK_USER
+    DEPLOY_PRE=()
+    DEPLOY_COMMANDS=()
+    DEPLOY_POST=()
+}
+
+# Load deploy context from TOML + org
+# Usage: _deploy_load <toml_file> <env>
+_deploy_load() {
+    local toml="$1"
+    local env="$2"
+
+    _deploy_clear
+
+    [[ ! -f "$toml" ]] && { echo "Not found: $toml" >&2; return 1; }
+
+    DEPLOY_TOML="$toml"
+    DEPLOY_ENV="$env"
+
+    # From target TOML
+    DEPLOY_NAME=$(_deploy_toml_get "$toml" "target" "name")
+    DEPLOY_REMOTE=$(_deploy_toml_get "$toml" "target" "remote")
+    DEPLOY_DOMAIN=$(_deploy_toml_get "$toml" "target" "domain")
+
+    # From org (requires org module)
+    if ! type org_active &>/dev/null; then
+        echo "org module not loaded" >&2
+        return 1
+    fi
+
+    if [[ "$(org_active)" == "none" ]]; then
+        echo "No active org. Run: org switch <name>" >&2
+        return 1
+    fi
+
+    DEPLOY_HOST=$(_org_get_host "$env")
+    DEPLOY_AUTH_USER=$(_org_get_user "$env")
+    DEPLOY_WORK_USER=$(_org_get_work_user "$env")
+
+    [[ -z "$DEPLOY_HOST" ]] && { echo "No host for env: $env" >&2; return 1; }
+
+    # Load command arrays
+    mapfile -t DEPLOY_PRE < <(_deploy_toml_get_array "$toml" "deploy" "pre")
+    mapfile -t DEPLOY_COMMANDS < <(_deploy_toml_get_array "$toml" "deploy" "commands")
+    mapfile -t DEPLOY_POST < <(_deploy_toml_get_array "$toml" "deploy" "post")
+
+    return 0
+}
+
+# =============================================================================
+# TEMPLATE SUBSTITUTION
+# =============================================================================
+
+_deploy_template() {
+    local str="$1"
+
+    # From org
+    str="${str//\{\{host\}\}/$DEPLOY_HOST}"
+    str="${str//\{\{auth_user\}\}/$DEPLOY_AUTH_USER}"
+    str="${str//\{\{work_user\}\}/$DEPLOY_WORK_USER}"
+
+    # From target
+    str="${str//\{\{name\}\}/$DEPLOY_NAME}"
+    str="${str//\{\{remote\}\}/$DEPLOY_REMOTE}"
+    str="${str//\{\{domain\}\}/$DEPLOY_DOMAIN}"
+    str="${str//\{\{env\}\}/$DEPLOY_ENV}"
+
+    # Shortcuts
+    str="${str//\{\{ssh\}\}/${DEPLOY_AUTH_USER}@${DEPLOY_HOST}}"
+
+    echo "$str"
+}
+
+# =============================================================================
+# COMMAND EXECUTION
+# =============================================================================
+
+_deploy_exec() {
+    local cmd="$1"
+    local dry_run="${2:-0}"
+
+    cmd=$(_deploy_template "$cmd")
+
+    echo "  \$ $cmd"
+
+    if [[ "$dry_run" -eq 1 ]]; then
+        return 0
+    fi
+
+    eval "$cmd"
+}
+
+# =============================================================================
+# RESOLVE TARGET
+# =============================================================================
+
+# Check if arg looks like an env name
+_deploy_is_env() {
+    local arg="$1"
+    # Check if this env exists in org
+    org_env_names 2>/dev/null | grep -qx "$arg"
+}
+
+# Find TOML file for named target
+_deploy_find_target() {
+    local name="$1"
+    local org=$(org_active)
+    local target_file="$TETRA_DIR/orgs/$org/targets/${name}.toml"
+
+    if [[ -f "$target_file" ]]; then
+        echo "$target_file"
+        return 0
+    fi
+
+    # Also check without .toml extension (directory with tetra-deploy.toml)
+    local target_dir="$TETRA_DIR/orgs/$org/targets/$name"
+    if [[ -f "$target_dir/tetra-deploy.toml" ]]; then
+        echo "$target_dir/tetra-deploy.toml"
+        return 0
+    fi
+
+    return 1
+}
+
+# Resolve args to (toml_file, env)
+# Usage: _deploy_resolve "$@" -> sets DEPLOY_RESOLVED_TOML, DEPLOY_RESOLVED_ENV
+#
+# Patterns:
+#   deploy push dev                 -> cwd (if ./tetra-deploy.toml exists), dev
+#   deploy push to dev              -> cwd (explicit), dev
+#   deploy push docs dev            -> targets/docs, dev
+#   deploy push docs to dev         -> targets/docs, dev
+#
+_deploy_resolve() {
+    local arg1="${1:-}"
+    local arg2="${2:-}"
+    local arg3="${3:-}"
+
+    DEPLOY_RESOLVED_TOML=""
+    DEPLOY_RESOLVED_ENV=""
+
+    # No args
+    if [[ -z "$arg1" ]]; then
+        echo "Usage: deploy push <env> | deploy push <target> <env>" >&2
+        return 1
+    fi
+
+    # "deploy push to <env>" - explicit cwd mode
+    if [[ "$arg1" == "to" ]]; then
+        local env="$arg2"
+        if [[ -z "$env" ]]; then
+            echo "Usage: deploy push to <env>" >&2
+            return 1
+        fi
+        if ! _deploy_is_env "$env"; then
+            echo "Unknown env: $env" >&2
+            echo "Available: $(org_env_names 2>/dev/null | tr '\n' ' ')" >&2
+            return 1
+        fi
+        if [[ ! -f "./tetra-deploy.toml" ]]; then
+            echo "No tetra-deploy.toml in current directory" >&2
+            return 1
+        fi
+        DEPLOY_RESOLVED_TOML="./tetra-deploy.toml"
+        DEPLOY_RESOLVED_ENV="$env"
+        return 0
+    fi
+
+    # Single arg: if it's an env AND cwd has tetra-deploy.toml, use cwd
+    if [[ -z "$arg2" ]]; then
+        if _deploy_is_env "$arg1" && [[ -f "./tetra-deploy.toml" ]]; then
+            DEPLOY_RESOLVED_TOML="./tetra-deploy.toml"
+            DEPLOY_RESOLVED_ENV="$arg1"
+            return 0
+        else
+            echo "Unknown env '$arg1' or no tetra-deploy.toml in current directory" >&2
+            echo "Available envs: $(org_env_names 2>/dev/null | tr '\n' ' ')" >&2
+            return 1
+        fi
+    fi
+
+    # "deploy push <target> to <env>" or "deploy push <target> <env>"
+    local target="$arg1"
+    local env=""
+
+    if [[ "$arg2" == "to" ]]; then
+        env="$arg3"
+    else
+        env="$arg2"
+    fi
+
+    if [[ -z "$env" ]]; then
+        echo "Usage: deploy push <target> <env>" >&2
+        return 1
+    fi
+
+    if ! _deploy_is_env "$env"; then
+        echo "Unknown env: $env" >&2
+        echo "Available: $(org_env_names 2>/dev/null | tr '\n' ' ')" >&2
+        return 1
+    fi
+
+    local toml=$(_deploy_find_target "$target")
+    if [[ -z "$toml" ]]; then
+        echo "Target not found: $target" >&2
+        echo "Looked in: \$TETRA_DIR/orgs/$(org_active)/targets/" >&2
+        return 1
+    fi
+
+    DEPLOY_RESOLVED_TOML="$toml"
+    DEPLOY_RESOLVED_ENV="$env"
+    return 0
+}
 
 # =============================================================================
 # STATUS
 # =============================================================================
 
 deploy_status() {
-    local target="${1:-}"
-
     echo "Deploy Status"
     echo "============="
     echo ""
@@ -32,30 +297,60 @@ deploy_status() {
 
     # Show targets
     echo "Targets:"
-    local targets_dir=$(_deploy_targets_dir 2>/dev/null)
+    local targets_dir="$TETRA_DIR/orgs/$org/targets"
 
-    if [[ ! -d "$targets_dir" ]] || [[ -z "$(ls -A "$targets_dir"/*.toml 2>/dev/null)" ]]; then
+    if [[ ! -d "$targets_dir" ]]; then
         echo "  (none)"
-        echo "  Run: deploy target add <name>"
+        echo "  Create: mkdir -p $targets_dir/<name>"
         return 0
     fi
 
-    for toml in "$targets_dir"/*.toml; do
-        [[ -f "$toml" ]] || continue
-        local name=$(basename "$toml" .toml)
+    local found=0
 
-        # Filter by target if specified
-        [[ -n "$target" && "$name" != "$target" ]] && continue
-
-        if deploy_target_load "$name" 2>/dev/null; then
-            echo "  $name"
-            echo "    Repo:  ${TGT_REPO:-(none)}"
-            echo "    Local: ${TGT_PATH_LOCAL:-(none)}"
-            echo "    WWW:   ${TGT_WWW:-(none)}"
-            echo "    Envs:  ${TGT_ENVS:-(none)}"
-            echo ""
-        fi
+    # .toml files
+    for f in "$targets_dir"/*.toml; do
+        [[ -f "$f" ]] || continue
+        local name=$(basename "$f" .toml)
+        printf "  %s\n" "$name"
+        ((found++))
     done
+
+    # Directories with tetra-deploy.toml
+    for d in "$targets_dir"/*/; do
+        [[ -d "$d" ]] || continue
+        [[ -f "$d/tetra-deploy.toml" ]] || continue
+        local name=$(basename "$d")
+        printf "  %s/\n" "$name"
+        ((found++))
+    done
+
+    [[ $found -eq 0 ]] && echo "  (none)"
+
+    echo ""
+    echo "Also: tetra-deploy.toml in current directory"
+}
+
+# =============================================================================
+# SHOW
+# =============================================================================
+
+deploy_show() {
+    _deploy_resolve "$@" || return 1
+    _deploy_load "$DEPLOY_RESOLVED_TOML" "$DEPLOY_RESOLVED_ENV" || return 1
+
+    echo "Target:     ${DEPLOY_NAME:-?}"
+    echo "TOML:       $DEPLOY_RESOLVED_TOML"
+    echo "Env:        $DEPLOY_ENV"
+    echo ""
+    echo "Host:       $DEPLOY_HOST"
+    echo "Auth user:  $DEPLOY_AUTH_USER"
+    echo "Work user:  $DEPLOY_WORK_USER"
+    echo "Remote:     $DEPLOY_REMOTE"
+    echo "Domain:     ${DEPLOY_DOMAIN:--}"
+    echo ""
+    echo "Pre:        ${DEPLOY_PRE[*]:-(none)}"
+    echo "Commands:   ${DEPLOY_COMMANDS[*]:-(none)}"
+    echo "Post:       ${DEPLOY_POST[*]:-(none)}"
 }
 
 # =============================================================================
@@ -67,82 +362,86 @@ deploy_doctor() {
     echo "============="
     echo ""
 
-    # 1. Check org
-    echo "Organization"
-    echo "------------"
+    # Check org
     local org=$(org_active 2>/dev/null)
     if [[ -z "$org" || "$org" == "none" ]]; then
-        echo "  [X] No active org"
-        echo "      Fix: org switch <name>"
+        echo "[X] No active org"
+        echo "    Fix: org switch <name>"
         return 1
     fi
-    echo "  [OK] $org"
-    echo ""
+    echo "[OK] Org: $org"
 
-    # 2. Check SSH connectivity
-    echo "SSH Connectivity"
-    echo "----------------"
-    local envs=$(org_env_names 2>/dev/null)
-    local ssh_ok=0
-    local ssh_fail=0
+    # Check targets dir
+    local targets_dir="$TETRA_DIR/orgs/$org/targets"
+    if [[ -d "$targets_dir" ]]; then
+        local count=$(find "$targets_dir" -name "*.toml" 2>/dev/null | wc -l | tr -d ' ')
+        echo "[OK] Targets: $count found in $targets_dir"
+    else
+        echo "[--] No targets dir: $targets_dir"
+    fi
+}
 
-    for env in $envs; do
-        [[ "$env" == "local" ]] && continue
-        local host=$(_org_get_host "$env")
-        [[ -z "$host" ]] && continue
+# =============================================================================
+# PUSH (main deploy action)
+# =============================================================================
 
-        local user=$(_org_get_user "$env")
-        [[ -z "$user" ]] && user="root"
+deploy_push() {
+    local dry_run=0
+    local args=()
 
-        if ssh $DEPLOY_SSH_OPTIONS "$user@$host" true 2>/dev/null; then
-            echo "  [OK] $env ($user@$host)"
-            ((ssh_ok++))
-        else
-            echo "  [X]  $env ($user@$host)"
-            ((ssh_fail++))
-        fi
+    # Parse flags
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --dry-run|-n) dry_run=1; shift ;;
+            *) args+=("$1"); shift ;;
+        esac
     done
 
-    if [[ $ssh_fail -gt 0 ]]; then
-        echo ""
-        echo "  Fix: tkm test"
-        echo "       tkm deploy all"
-    fi
+    _deploy_resolve "${args[@]}" || return 1
+    _deploy_load "$DEPLOY_RESOLVED_TOML" "$DEPLOY_RESOLVED_ENV" || return 1
+
+    local toml_dir=$(dirname "$DEPLOY_RESOLVED_TOML")
+
+    echo "========================================"
+    echo "Deploy: ${DEPLOY_NAME:-$(basename "$toml_dir")} -> $DEPLOY_ENV"
+    echo "========================================"
+    echo ""
+    echo "Target: $DEPLOY_RESOLVED_TOML"
+    echo "Remote: ${DEPLOY_AUTH_USER}@${DEPLOY_HOST}:${DEPLOY_REMOTE}"
+    [[ -n "$DEPLOY_DOMAIN" ]] && echo "Domain: $DEPLOY_DOMAIN"
+    [[ "$dry_run" -eq 1 ]] && echo "[DRY RUN]"
     echo ""
 
-    # 3. Check targets
-    echo "Targets"
-    echo "-------"
-    local targets_dir=$(_deploy_targets_dir 2>/dev/null)
-
-    if [[ ! -d "$targets_dir" ]] || [[ -z "$(ls -A "$targets_dir"/*.toml 2>/dev/null)" ]]; then
-        echo "  [--] No targets configured"
-        echo "       Run: deploy target add <name>"
-    else
-        for toml in "$targets_dir"/*.toml; do
-            [[ -f "$toml" ]] || continue
-            local name=$(basename "$toml" .toml)
-
-            if deploy_target_load "$name" 2>/dev/null; then
-                if [[ -d "$TGT_PATH_LOCAL" ]]; then
-                    echo "  [OK] $name"
-                else
-                    echo "  [X]  $name (local path missing: $TGT_PATH_LOCAL)"
-                fi
-            else
-                echo "  [X]  $name (failed to load TOML)"
-            fi
+    # Pre hooks (run from toml directory)
+    if [[ ${#DEPLOY_PRE[@]} -gt 0 ]]; then
+        echo "[pre]"
+        for cmd in "${DEPLOY_PRE[@]}"; do
+            (cd "$toml_dir" && _deploy_exec "$cmd" "$dry_run") || return 1
         done
+        echo ""
     fi
-    echo ""
 
-    # 4. Summary
-    echo "Summary"
-    echo "-------"
-    echo "  SSH: $ssh_ok connected, $ssh_fail failed"
-    if [[ $ssh_fail -eq 0 ]]; then
-        echo "  Ready to deploy!"
+    # Commands
+    if [[ ${#DEPLOY_COMMANDS[@]} -gt 0 ]]; then
+        echo "[commands]"
+        for cmd in "${DEPLOY_COMMANDS[@]}"; do
+            (cd "$toml_dir" && _deploy_exec "$cmd" "$dry_run") || return 1
+        done
+        echo ""
     fi
+
+    # Post hooks
+    if [[ ${#DEPLOY_POST[@]} -gt 0 ]]; then
+        echo "[post]"
+        for cmd in "${DEPLOY_POST[@]}"; do
+            (cd "$toml_dir" && _deploy_exec "$cmd" "$dry_run") || return 1
+        done
+        echo ""
+    fi
+
+    echo "========================================"
+    echo "Done"
+    echo "========================================"
 }
 
 # =============================================================================
@@ -154,71 +453,56 @@ deploy_help() {
 deploy - Target deployment for tetra
 
 USAGE
-    deploy [command] [args]
+    deploy push <env>                 Deploy cwd to env (uses ./tetra-deploy.toml)
+    deploy push <target> <env>        Deploy named target to env
+    deploy push --dry-run <target> <env>   Show what would run
 
-PREREQUISITES
-    org switch <name>    # Activate organization
-    tkm test             # Verify SSH connectivity
-
-STATUS & INFO
-    status [target]      Show deployment status (default)
-    doctor               Audit deployment setup
-
-TARGET MANAGEMENT
-    target add <name>    Register target (interactive)
-    target list          List targets for org
-    target show <name>   Show target config
-    target edit <name>   Edit target TOML
-    target remove <name> Remove target
-    targets              Alias for 'target list'
-
-ENVIRONMENT FILES
-    env status <target> [env]     Show env file status
-    env validate <target> <env>   Validate against tetra-deploy.toml
-    env diff <target> <env>       Show local vs remote diff
-    env push <target> <env>       Push local env to server
-    env pull <target> <env>       Pull server env to local
-    env edit <target> <env>       Edit remote env via SSH
-
-DEPLOYMENT
-    preflight <target> <env>      Run pre-deploy checks (mandatory)
-    push <target> <env>           Full pipeline: preflight -> hooks -> git -> service
-    push --skip-preflight ...     Bypass preflight checks
-
-    --dry-run, -n                 Show what would be executed
-
-NGINX CONFIG
-    nginx:gen <target> <env>      Generate nginx config locally
-    nginx:show <target> <env>     Show generated config
-    nginx:install <target> <env>  Push to remote server
-    nginx:uninstall <target> <env> Remove from remote
-
-REMOTE MANAGEMENT
-    exec <env> <cmd...>           Run command on remote
+COMMANDS
+    push [target] <env>      Full deployment pipeline
+    status                   Show targets and current org
+    show [target] <env>      Show resolved config
+    doctor                   Audit deployment setup
+    help                     This help
 
 EXAMPLES
-    # Setup
-    deploy target add arcade              # Create target config
-    # Create tetra-deploy.toml in repo    # Define deployment
+    cd ~/src/myapp
+    deploy push dev                   # deploy cwd to dev
+    deploy push --dry-run prod        # dry run to prod
 
-    # Pre-flight
-    deploy preflight arcade dev           # Check everything
-    deploy env status arcade              # Check env files
+    deploy push api dev               # deploy named target "api" to dev
+    deploy push docs prod             # deploy "docs" to prod
 
-    # Deploy
-    deploy push --dry-run arcade dev      # Preview
-    deploy push arcade dev                # Deploy to dev
-    deploy push arcade prod               # Deploy to production
+TARGETS
+    Named targets live in: $TETRA_DIR/orgs/<org>/targets/
+    As either: <name>.toml or <name>/tetra-deploy.toml
 
-CONFIGURATION
-    Targets stored in:
-      $TETRA_DIR/orgs/<org>/targets/<name>.toml
+    Or use tetra-deploy.toml in current directory.
 
-    Repo deployment config:
-      <repo>/tetra-deploy.toml
+TEMPLATE VARIABLES
+    From org:
+      {{host}}        env IP
+      {{auth_user}}   SSH login user
+      {{work_user}}   app owner user
 
-    Environment files:
-      <repo>/env/<environment>.env
+    From target:
+      {{name}}        target name
+      {{remote}}      remote path
+      {{domain}}      domain string
+      {{env}}         environment name
+
+    Shortcut:
+      {{ssh}}         auth_user@host
+
+TETRA-DEPLOY.TOML FORMAT
+    [target]
+    name = "myapp"
+    remote = "/var/www/myapp"
+    domain = "myapp.example.com"
+
+    [deploy]
+    pre = ["npm install", "npm run build"]
+    commands = ["rsync -av ./dist/ {{ssh}}:{{remote}}/"]
+    post = ["ssh {{ssh}} 'systemctl restart myapp'"]
 EOF
 }
 
@@ -236,173 +520,17 @@ deploy() {
             deploy_status "$@"
             ;;
 
+        show)
+            deploy_show "$@"
+            ;;
+
         doctor|doc)
             deploy_doctor "$@"
             ;;
 
-        # Target Management (new)
-        target)
-            local subcmd="${1:-list}"
-            shift 2>/dev/null || true
-            case "$subcmd" in
-                add)      deploy_target_add "$@" ;;
-                list|ls)  deploy_target_list "$@" ;;
-                show)     deploy_target_show "$@" ;;
-                edit)     deploy_target_edit "$@" ;;
-                remove|rm) deploy_target_remove "$@" ;;
-                names)    deploy_target_names "$@" ;;
-                *)
-                    echo "Unknown: target $subcmd"
-                    echo "Try: deploy target list"
-                    return 1
-                    ;;
-            esac
-            ;;
-
-        targets|ts)
-            deploy_target_list "$@"
-            ;;
-
-        # Environment file management (new)
-        env)
-            local subcmd="${1:-status}"
-            shift 2>/dev/null || true
-            case "$subcmd" in
-                status)   deploy_env_status "$@" ;;
-                validate) deploy_env_validate "$@" ;;
-                diff)     deploy_env_diff "$@" ;;
-                push)     deploy_env_push "$@" ;;
-                pull)     deploy_env_pull "$@" ;;
-                edit)     deploy_env_edit "$@" ;;
-                *)
-                    echo "Unknown: env $subcmd"
-                    echo "Try: deploy env status <target>"
-                    return 1
-                    ;;
-            esac
-            ;;
-
-        # Preflight checks (new)
-        preflight|pre)
-            deploy_preflight "$@"
-            ;;
-
-        # Deployment Operations
+        # Core operations
         push)
             deploy_push "$@"
-            ;;
-
-        git)
-            deploy_git "$@"
-            ;;
-
-        sync)
-            deploy_sync "$@"
-            ;;
-
-        perms)
-            deploy_perms "$@"
-            ;;
-
-        domain:show|domain)
-            deploy_domain_show "$@"
-            ;;
-
-        # Nginx config generation/installation
-        nginx:gen|nginx:generate)
-            deploy_nginx_generate "$@"
-            ;;
-
-        nginx:show)
-            deploy_nginx_show "$@"
-            ;;
-
-        nginx:list)
-            deploy_nginx_list "$@"
-            ;;
-
-        nginx:install)
-            deploy_nginx_install "$@"
-            ;;
-
-        nginx:uninstall)
-            deploy_nginx_uninstall "$@"
-            ;;
-
-        nginx:status)
-            deploy_nginx_status "$@"
-            ;;
-
-        # Remote management
-        tsm)
-            deploy_tsm "$@"
-            ;;
-
-        nginx)
-            deploy_nginx "$@"
-            ;;
-
-        exec)
-            deploy_exec "$@"
-            ;;
-
-        # Repo config (new)
-        repo)
-            local subcmd="${1:-show}"
-            shift 2>/dev/null || true
-            case "$subcmd" in
-                show)
-                    local target="$1"
-                    if [[ -z "$target" ]]; then
-                        echo "Usage: deploy repo show <target>"
-                        return 1
-                    fi
-                    deploy_target_load "$target" || return 1
-                    deploy_repo_show "$TGT_PATH_LOCAL"
-                    ;;
-                *)
-                    echo "Unknown: repo $subcmd"
-                    return 1
-                    ;;
-            esac
-            ;;
-
-        # Legacy backward compatibility
-        project:add|proj:add)
-            echo "DEPRECATED: Use 'deploy target add' instead"
-            deploy_target_add "$@"
-            ;;
-
-        project:list|proj:ls|proj:list|list|ls)
-            echo "DEPRECATED: Use 'deploy target list' instead"
-            deploy_target_list "$@"
-            ;;
-
-        project:edit|proj:edit|edit)
-            echo "DEPRECATED: Use 'deploy target edit' instead"
-            deploy_target_edit "$@"
-            ;;
-
-        project:show|proj:show|show)
-            echo "DEPRECATED: Use 'deploy target show' instead"
-            deploy_target_show "$@"
-            ;;
-
-        project)
-            echo "DEPRECATED: Use 'deploy target' instead"
-            local subcmd="${1:-list}"
-            shift 2>/dev/null || true
-            case "$subcmd" in
-                add)      deploy_target_add "$@" ;;
-                list|ls)  deploy_target_list "$@" ;;
-                show)     deploy_target_show "$@" ;;
-                edit)     deploy_target_edit "$@" ;;
-                remove|rm) deploy_target_remove "$@" ;;
-                *)
-                    echo "Unknown: project $subcmd"
-                    return 1
-                    ;;
-            esac
             ;;
 
         # Help
@@ -418,4 +546,11 @@ deploy() {
     esac
 }
 
-export -f deploy deploy_status deploy_doctor deploy_help
+# =============================================================================
+# EXPORTS
+# =============================================================================
+
+export -f deploy deploy_status deploy_show deploy_doctor deploy_push deploy_help
+export -f _deploy_load _deploy_template _deploy_exec _deploy_resolve
+export -f _deploy_is_env _deploy_find_target _deploy_clear
+export -f _deploy_toml_get _deploy_toml_get_array
