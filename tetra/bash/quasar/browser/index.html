@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PT100</title>
+  <style>
+    /* Fira Code - Monospace font with excellent Unicode box-drawing support */
+    @font-face {
+      font-family: 'Fira Code';
+      src: url('fonts/FiraCode-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: block;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #0a0a0a;
+      color: #0f0;
+      font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    #screen-container {
+      position: relative;
+      width: 100%;
+      max-width: 800px;
+      aspect-ratio: 4/3;
+    }
+
+    #terminal {
+      width: 100%;
+      height: 100%;
+      border: 2px solid #333;
+      box-shadow:
+        0 0 20px rgba(0, 255, 0, 0.15),
+        inset 0 0 60px rgba(0, 0, 0, 0.8);
+      image-rendering: pixelated;
+      background: #0a0a0a;
+    }
+
+    /* CRT effect overlay */
+    #crt-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.15) 0px,
+        rgba(0, 0, 0, 0.15) 1px,
+        transparent 1px,
+        transparent 2px
+      );
+    }
+
+    #status-bar {
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      font-size: 11px;
+      color: #444;
+    }
+
+    #status-bar.connected {
+      color: #0a0;
+    }
+
+    #audio-notice {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.95);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    #audio-notice.show {
+      display: flex;
+    }
+
+    #audio-notice h2 {
+      color: #0f0;
+      margin-bottom: 20px;
+      font-size: 14px;
+      letter-spacing: 4px;
+    }
+
+    #audio-notice button {
+      background: transparent;
+      border: 1px solid #0f0;
+      color: #0f0;
+      padding: 15px 40px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 16px;
+      letter-spacing: 2px;
+      transition: all 0.2s;
+    }
+
+    #audio-notice button:hover {
+      background: #0f0;
+      color: #000;
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="audio-notice" class="show">
+    <h2>PT100 MERIDIAN</h2>
+    <button id="start-btn">[ INITIALIZE ]</button>
+  </div>
+
+  <div id="screen-container">
+    <canvas id="terminal"></canvas>
+    <div id="crt-overlay"></div>
+  </div>
+
+  <div id="status-bar">
+    <span id="status">OFFLINE</span>
+    <span id="channel">CH:-- | MODE:---</span>
+    <span id="fps">--FPS</span>
+  </div>
+
+  <script src="terminal.js"></script>
+  <script src="quasar.js" type="module"></script>
+  <script type="module">
+    // ═══════════════════════════════════════════════════════════════
+    // PT100 MERIDIAN - Multiplayer Terminal Game System
+    // ═══════════════════════════════════════════════════════════════
+
+    const WS_URL = `ws://${window.location.hostname}:${window.location.port || 1985}/ws`;
+    const RECONNECT_DELAY = 2000;
+    const urlParams = new URLSearchParams(window.location.search);
+    const skipDemo = urlParams.get('skipdemo') === 'true';
+
+    // State
+    let ws = null;
+    let terminal = null;
+    let audioInitialized = false;
+    let currentScreen = skipDemo ? 'menu' : 'intro';
+    let introPhase = 0;
+    let selectedGame = 0;
+    let selectedChannel = 3;
+    let frameCount = 0;
+    let lastScreenText = '';
+
+    // Elements
+    const statusEl = document.getElementById('status');
+    const channelEl = document.getElementById('channel');
+    const fpsEl = document.getElementById('fps');
+    const audioNotice = document.getElementById('audio-notice');
+    const startBtn = document.getElementById('start-btn');
+    const terminalCanvas = document.getElementById('terminal');
+
+    // Games registry
+    const GAMES = [
+      { id: 'fireball', name: 'FIREBALL', desc: 'Dual Pulsar Combat' },
+      { id: 'cymatica', name: 'CYMATICA', desc: 'Cymatics Visualizer' },
+      { id: 'asciimouth', name: 'ASCIIMOUTH', desc: 'Facial Animation' },
+      { id: 'pong', name: 'PONG', desc: 'Classic 2P Paddle' }
+    ];
+
+    // ═══════════════════════════════════════════════════════════════
+    // ASCII Art Title Screens
+    // ═══════════════════════════════════════════════════════════════
+
+    const TITLE_PT100 = `
+
+
+         ██████╗ ████████╗ ██╗ ██████╗  ██████╗
+         ██╔══██╗╚══██╔══╝███║██╔═████╗██╔═████╗
+         ██████╔╝   ██║   ╚██║██║██╔██║██║██╔██║
+         ██╔═══╝    ██║    ██║████╔╝██║████╔╝██║
+         ██║        ██║    ██║╚██████╔╝╚██████╔╝
+         ╚═╝        ╚═╝    ╚═╝ ╚═════╝  ╚═════╝
+
+
+            ╔════════════════════════════════════╗
+            ║  MULTIPLAYER TERMINAL GAME SYSTEM  ║
+            ╚════════════════════════════════════╝
+
+                    256 CHANNELS  ·  OSC/MIDI
+                    WEBSOCKET  ·  UDP MULTICAST
+
+
+
+                                                 v0.0.5     `;
+
+    const TITLE_PULSAR = `
+
+
+     ██████╗ ██╗   ██╗██╗     ███████╗ █████╗ ██████╗
+     ██╔══██╗██║   ██║██║     ██╔════╝██╔══██╗██╔══██╗
+     ██████╔╝██║   ██║██║     ███████╗███████║██████╔╝
+     ██╔═══╝ ██║   ██║██║     ╚════██║██╔══██║██╔══██╗
+     ██║     ╚██████╔╝███████╗███████║██║  ██║██║  ██║
+     ╚═╝      ╚═════╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝
+
+            ╔════════════════════════════════════╗
+            ║    ASCII ANIMATION ENGINE          ║
+            ╚════════════════════════════════════╝
+
+              * SPRITES & COLLISION DETECTION
+              * PROCEDURAL GEOMETRY
+              * PHYSICS SIMULATION
+              * 60x24 TERMINAL VIEWPORT
+
+              +--------------------------------+
+              |  *   =======   o       ^       |
+              |      #######       @   |       |
+              |  O        [==]     /\\  v       |
+              +--------------------------------+
+                                                     `;
+
+    const TITLE_QUASAR = `
+
+
+      ██████╗ ██╗   ██╗ █████╗ ███████╗ █████╗ ██████╗
+     ██╔═══██╗██║   ██║██╔══██╗██╔════╝██╔══██╗██╔══██╗
+     ██║   ██║██║   ██║███████║███████╗███████║██████╔╝
+     ██║▄▄ ██║██║   ██║██╔══██║╚════██║██╔══██║██╔══██╗
+     ╚██████╔╝╚██████╔╝██║  ██║███████║██║  ██║██║  ██║
+      ╚══▀▀═╝  ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝
+
+            ╔════════════════════════════════════╗
+            ║    REALTIME CLIENT/SERVER ENGINE   ║
+            ╚════════════════════════════════════╝
+
+              * MIDI-MP DUPLICATOR & ROUTER
+              * 256 CHANNEL MULTIPLEXER
+              * window.QUASAR API
+
+              +-- AUDIO MODES ----------------+
+              |  TIA      Atari 2600 Style     |
+              |  PWM      Lo-Fi Synthesis      |
+              |  SIDPlus  C64 Extended         |
+              +--------------------------------+
+                                                     `;
+
+    const TITLE_MIDIMP = `
+
+
+       ███╗   ███╗██╗██████╗ ██╗      ███╗   ███╗██████╗
+       ████╗ ████║██║██╔══██╗██║      ████╗ ████║██╔══██╗
+       ██╔████╔██║██║██║  ██║██║█████╗██╔████╔██║██████╔╝
+       ██║╚██╔╝██║██║██║  ██║██║╚════╝██║╚██╔╝██║██╔═══╝
+       ██║ ╚═╝ ██║██║██████╔╝██║      ██║ ╚═╝ ██║██║
+       ╚═╝     ╚═╝╚═╝╚═════╝ ╚═╝      ╚═╝     ╚═╝╚═╝
+
+            +====================================+
+            |    MIDI MULTIPLAYER PROTOCOL       |
+            +====================================+
+
+              * UDP MULTICAST DISTRIBUTION
+              * 256 CHANNEL MULTIPLEXER
+              * OSC MESSAGE ROUTING
+              * WEBSOCKET BRIDGE
+
+              +--------------------------------+
+              |  CH 000-063   Local Players    |
+              |  CH 064-127   Remote Players   |
+              |  CH 128-255   System/Bots      |
+              +--------------------------------+
+                                                     `;
+
+    // ═══════════════════════════════════════════════════════════════
+    // Screen Rendering
+    // ═══════════════════════════════════════════════════════════════
+
+    // Send current screen to server for /api/screen endpoint
+    function reportScreen(screenText) {
+      if (ws && ws.readyState === WebSocket.OPEN && screenText !== lastScreenText) {
+        lastScreenText = screenText;
+        ws.send(JSON.stringify({ t: 'screen', screen: screenText }));
+      }
+    }
+
+    // Navigation: screens 0-3 are intro titles, screen 4 is game menu
+    const SCREEN_TITLES = [TITLE_PT100, TITLE_PULSAR, TITLE_QUASAR, TITLE_MIDIMP];
+    const SCREEN_COLORS = ['#00ff88', '#ff8800', '#00aaff', '#ff00ff', '#00ff00'];
+    const SCREEN_NAMES = ['PT100', 'PULSAR', 'QUASAR', 'MIDI-MP', 'GAME SELECT'];
+    let currentPage = 0;
+    const TOTAL_PAGES = 5; // 4 intro + 1 menu
+
+    function renderCurrentPage() {
+      if (currentPage < 4) {
+        // Intro screens (0-3)
+        terminal.setColors(SCREEN_COLORS[currentPage], '#0a0a0a');
+        const nav = `         < ${currentPage + 1}/${TOTAL_PAGES} >     [ <-/-> NAVIGATE ]  [ ENTER: SELECT ]`;
+        const screenWithNav = SCREEN_TITLES[currentPage] + '\n\n' + nav;
+        terminal.render(screenWithNav);
+        reportScreen(screenWithNav);
+        currentScreen = 'nav';
+      } else {
+        // Game menu (page 5)
+        terminal.setColors(SCREEN_COLORS[4], '#0a0a0a');
+        currentScreen = 'menu';
+        renderMenu();
+      }
+    }
+
+    function navigatePage(direction) {
+      if (audioInitialized) QUASAR.trigger('clank');
+
+      const newPage = currentPage + direction;
+      if (newPage >= 0 && newPage < TOTAL_PAGES) {
+        currentPage = newPage;
+        terminal.clear();
+        setTimeout(() => renderCurrentPage(), 50);
+      }
+    }
+
+    function renderMenu() {
+      let screen = `
+╔══════════════════════════════════════════════════════════╗
+║                    PT100 MERIDIAN                        ║
+║                     GAME SELECT                          ║
+╠══════════════════════════════════════════════════════════╣
+║                                                          ║`;
+
+      GAMES.forEach((game, i) => {
+        const selected = i === selectedGame;
+        const prefix = selected ? ' ►' : '  ';
+        const highlight = selected ? '██' : '  ';
+        screen += `
+║${highlight}${prefix} ${game.name.padEnd(12)} ${game.desc.padEnd(28)}${highlight}║`;
+      });
+
+      screen += `
+║                                                          ║
+╠══════════════════════════════════════════════════════════╣
+║  CHANNEL: [ ${String(selectedChannel).padStart(3, '0')} ]      < 5/5 >    [ <- BACK ]          ║
+║                                                          ║
+║  ┌────────────────────────────────────────────────────┐  ║
+║  │  ↑/↓  Select Game        →   Channel +1           │  ║
+║  │  ENTER  Start Game       <-  Back to MIDI-MP      │  ║
+║  └────────────────────────────────────────────────────┘  ║
+║                                                          ║
+╠══════════════════════════════════════════════════════════╣
+║  MIDI-MP: ${ws?.readyState === WebSocket.OPEN ? 'ONLINE ' : 'OFFLINE'}  │  QUASAR: CH${String(selectedChannel).padStart(3,'0')}  │  TIA MODE    ║
+╚══════════════════════════════════════════════════════════╝
+`;
+
+      terminal.render(screen);
+      reportScreen(screen);
+      channelEl.textContent = `CH:${String(selectedChannel).padStart(3,'0')} | MODE:TIA`;
+    }
+
+    function renderConnecting() {
+      const game = GAMES[selectedGame];
+      let screen = `
+╔══════════════════════════════════════════════════════════╗
+║                    PT100 MERIDIAN                        ║
+╠══════════════════════════════════════════════════════════╣
+║                                                          ║
+║                                                          ║
+║                                                          ║
+║                  INITIALIZING ${game.name.padEnd(10)}                 ║
+║                                                          ║
+║                  Channel: ${String(selectedChannel).padStart(3, '0')}                          ║
+║                                                          ║
+║                                                          ║
+║          ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░            ║
+║          ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░            ║
+║          ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░            ║
+║                                                          ║
+║                                                          ║
+║               Spawning game bridge...                    ║
+║                                                          ║
+║                                                          ║
+║                                                          ║
+║                                                          ║
+╚══════════════════════════════════════════════════════════╝
+`;
+      terminal.render(screen);
+      reportScreen(screen);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // WebSocket & Game Bridge
+    // ═══════════════════════════════════════════════════════════════
+
+    function connect() {
+      ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => {
+        statusEl.textContent = 'ONLINE';
+        document.getElementById('status-bar').classList.add('connected');
+      };
+
+      ws.onclose = () => {
+        statusEl.textContent = 'OFFLINE';
+        document.getElementById('status-bar').classList.remove('connected');
+        setTimeout(connect, RECONNECT_DELAY);
+      };
+
+      ws.onerror = (err) => {
+        console.error('WebSocket error:', err);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          handleMessage(data);
+        } catch (err) {
+          console.error('Message parse error:', err);
+        }
+      };
+    }
+
+    function handleMessage(data) {
+      switch (data.t) {
+        case 'frame':
+          handleFrame(data);
+          break;
+        case 'sync':
+          if (data.snd && audioInitialized) {
+            QUASAR.processFrame({ snd: data.snd });
+          }
+          break;
+        case 'snd':
+          if (audioInitialized && data.snd) {
+            QUASAR.processFrame({ snd: data.snd });
+          }
+          break;
+        case 'bridge.ready':
+          // Game bridge is ready, switch to game mode
+          currentScreen = 'game';
+          break;
+      }
+    }
+
+    function handleFrame(frame) {
+      frameCount++;
+      fpsEl.textContent = `${terminal.getFPS()}FPS`;
+
+      if (currentScreen === 'game' && frame.display) {
+        terminal.renderWithAnsi(frame.display);
+      }
+
+      if (audioInitialized && frame.snd) {
+        QUASAR.processFrame(frame);
+      }
+    }
+
+    function startGame() {
+      const game = GAMES[selectedGame];
+      currentScreen = 'connecting';
+      renderConnecting();
+
+      // Request game bridge spawn
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          t: 'bridge.spawn',
+          game: game.id,
+          channel: selectedChannel
+        }));
+      }
+
+      // Timeout fallback - show game screen after 3s
+      setTimeout(() => {
+        if (currentScreen === 'connecting') {
+          currentScreen = 'game';
+        }
+      }, 3000);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Input Handling
+    // ═══════════════════════════════════════════════════════════════
+
+    document.addEventListener('keydown', (e) => {
+      // Handle navigation screens (intro titles)
+      if (currentScreen === 'nav') {
+        switch (e.key) {
+          case 'ArrowLeft':
+            navigatePage(-1);
+            e.preventDefault();
+            break;
+          case 'ArrowRight':
+          case 'Enter':
+          case ' ':
+            navigatePage(1);
+            e.preventDefault();
+            break;
+        }
+        return;
+      }
+
+      if (currentScreen === 'menu') {
+        switch (e.key) {
+          case 'ArrowUp':
+            selectedGame = (selectedGame - 1 + GAMES.length) % GAMES.length;
+            renderMenu();
+            if (audioInitialized) QUASAR.trigger('clank');
+            e.preventDefault();
+            break;
+          case 'ArrowDown':
+            selectedGame = (selectedGame + 1) % GAMES.length;
+            renderMenu();
+            if (audioInitialized) QUASAR.trigger('clank');
+            e.preventDefault();
+            break;
+          case 'ArrowLeft':
+            // Go back to last intro screen
+            navigatePage(-1);
+            e.preventDefault();
+            break;
+          case 'ArrowRight':
+            selectedChannel = Math.min(255, selectedChannel + 1);
+            renderMenu();
+            e.preventDefault();
+            break;
+          case 'Enter':
+            if (audioInitialized) QUASAR.trigger('pickup');
+            startGame();
+            e.preventDefault();
+            break;
+          case 'Escape':
+            // Go back to first screen
+            currentPage = 0;
+            renderCurrentPage();
+            e.preventDefault();
+            break;
+        }
+      } else if (currentScreen === 'game') {
+        // Forward input to game
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
+
+          ws.send(JSON.stringify({
+            t: 'input',
+            key: e.key,
+            code: e.code,
+            shift: e.shiftKey,
+            ctrl: e.ctrlKey,
+            alt: e.altKey,
+            channel: selectedChannel
+          }));
+
+          if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+            e.preventDefault();
+          }
+        }
+
+        // ESC returns to menu
+        if (e.key === 'Escape') {
+          currentScreen = 'menu';
+          renderMenu();
+          e.preventDefault();
+        }
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    // Initialization
+    // ═══════════════════════════════════════════════════════════════
+
+    startBtn.addEventListener('click', async () => {
+      try {
+        await QUASAR.init();
+        await QUASAR.resume();
+        audioInitialized = true;
+        audioNotice.classList.remove('show');
+
+        // Connect to server first
+        connect();
+
+        // Start at appropriate page
+        if (skipDemo) {
+          currentPage = 3; // Game menu
+        } else {
+          currentPage = 0; // First intro screen
+        }
+        renderCurrentPage();
+
+        // Play startup sound
+        QUASAR.trigger('pickup');
+      } catch (err) {
+        console.error('Audio init failed:', err);
+        // Continue without audio
+        audioNotice.classList.remove('show');
+        connect();
+        if (skipDemo) {
+          currentPage = 3;
+        } else {
+          currentPage = 0;
+        }
+        renderCurrentPage();
+      }
+    });
+
+    // Initialize terminal
+    terminal = new TerminalRenderer(terminalCanvas, {
+      cols: 60,
+      rows: 24,
+      fontSize: 16,
+      debug: false  // Set to true to see cell boundaries
+    });
+
+    // Expose for debugging
+    window.terminal = terminal;
+
+    // Show loading screen
+    terminal.render(`
+
+
+
+
+
+
+
+
+                    PT100 MERIDIAN
+
+               [ CLICK TO INITIALIZE ]
+
+
+
+
+
+
+
+
+
+
+
+
+
+`);
+
+  </script>
+</body>
+</html>
+
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>
