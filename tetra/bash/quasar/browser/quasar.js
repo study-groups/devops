@@ -131,7 +131,7 @@ window.QUASAR = (function() {
       audioContext = new AudioContext();
 
       // Load TIA worklet
-      const workletUrl = new URL('tia-worklet.js', import.meta.url || window.location.href);
+      const workletUrl = new URL('tia-worklet.js', window.location.href);
       await audioContext.audioWorklet.addModule(workletUrl);
 
       // Create worklet node

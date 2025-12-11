@@ -191,7 +191,9 @@ class QuasarServer {
       '/quasar.js': 'quasar.js',
       '/tia-worklet.js': 'tia-worklet.js',
       '/terminal.js': 'terminal.js',
-      '/presets.js': 'presets.js'
+      '/presets.js': 'presets.js',
+      '/fonts/FiraCode-Regular.woff2': 'fonts/FiraCode-Regular.woff2',
+      '/fonts/fonts.css': 'fonts/fonts.css'
     };
 
     const filename = staticFiles[url.pathname];
@@ -212,7 +214,8 @@ class QuasarServer {
       '.html': 'text/html',
       '.js': 'application/javascript',
       '.css': 'text/css',
-      '.json': 'application/json'
+      '.json': 'application/json',
+      '.woff2': 'font/woff2'
     };
 
     fs.readFile(filePath, (err, content) => {

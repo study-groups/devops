@@ -145,8 +145,8 @@
   </div>
 
   <script src="terminal.js"></script>
-  <script src="quasar.js" type="module"></script>
-  <script type="module">
+  <script src="quasar.js"></script>
+  <script>
     // ═══════════════════════════════════════════════════════════════
     // PT100 MERIDIAN - Multiplayer Terminal Game System
     // ═══════════════════════════════════════════════════════════════
@@ -484,6 +484,9 @@
       setTimeout(() => {
         if (currentScreen === 'connecting') {
           currentScreen = 'game';
+          // Return to menu since no game bridge responded
+          currentScreen = 'menu';
+          renderMenu();
         }
       }, 3000);
     }
