@@ -20,7 +20,9 @@ _tut_render_html() {
     # Determine output file
     if [[ -z "$output_file" ]]; then
         local basename="${json_file%.json}"
-        output_file="${TUT_DIR}/generated/$(basename "$basename").html"
+        local out_dir="${TUT_OUTPUT_DIR:-${TUT_DIR}/generated}"
+        mkdir -p "$out_dir"
+        output_file="${out_dir}/$(basename "$basename").html"
     fi
 
     # Show what we're doing
@@ -101,9 +103,8 @@ HTML_HEAD
         fi
     fi
 
-    # Design token editor styles (opt-in feature)
-    local include_design_tokens=$(_tut_feature "$json_file" "designTokenEditor" "false")
-    if [[ "$include_design_tokens" == "true" && -f "$TUT_SRC/templates/design-tokens.css" ]]; then
+    # Design token editor styles - always included, visibility controlled by ?design URL param
+    if [[ -f "$TUT_SRC/templates/design-tokens.css" ]]; then
         echo "    <style>"
         cat "$TUT_SRC/templates/design-tokens.css"
         echo "    </style>"
@@ -166,15 +167,15 @@ HTML_TERMINAL
 
     echo "    </div>"
 
-    # Design token editor HTML
-    if [[ "$include_design_tokens" == "true" && -f "$TUT_SRC/templates/design-tokens.html" ]]; then
+    # Design token editor HTML - always included, visibility controlled by ?design URL param
+    if [[ -f "$TUT_SRC/templates/design-tokens.html" ]]; then
         echo ""
-        echo "    <!-- Design Token Editor -->"
+        echo "    <!-- Design Token Editor (visible with ?design=true) -->"
         cat "$TUT_SRC/templates/design-tokens.html"
     fi
 
-    # JavaScript
-    _html_render_javascript "$json_file" "$include_design_tokens"
+    # JavaScript - always include design tokens, visibility controlled by ?design URL param
+    _html_render_javascript "$json_file" "true"
 
     echo "</body>"
     echo "</html>"

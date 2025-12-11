@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # tut_complete.sh - Tab completion for tut command
 
-_TUT_COMMANDS="build init validate serve get types edit doctor help"
+_TUT_COMMANDS="build init validate serve get types extras edit doctor help"
 _TUT_DOC_TYPES="guide reference"
 _TUT_FORMATS="html md all"
 _TUT_GET_NOUNS="sources docs recordings"
 _TUT_TYPES_NOUNS="guide reference"
+_TUT_EXTRAS_NOUNS="design-tokens mindmap tds"
 
 _tut_complete_sources() {
     # Complete from available/ directory (without .json extension)
@@ -83,6 +84,9 @@ _tut_complete() {
             ;;
         types|t)
             COMPREPLY=($(compgen -W "$_TUT_TYPES_NOUNS" -- "$cur"))
+            ;;
+        extras|x)
+            COMPREPLY=($(compgen -W "$_TUT_EXTRAS_NOUNS" -- "$cur"))
             ;;
         edit)
             # For now, edit doesn't have schema nouns - future: edit source files

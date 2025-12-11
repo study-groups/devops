@@ -22,8 +22,11 @@ tut() {
         serve|s)       _tut_serve "$@" ;;
         get)           _tut_get "$@" ;;
         edit)          _tut_edit "$@" ;;
+        extras|x)      _tut_extras "$@" ;;
         doctor|d)      _tut_doctor ;;
         types|t)       _tut_types "$@" ;;
+        hydrate|h)     tut_hydrate "$@" ;;
+        run|r)         _tut_run "$@" ;;
         help|--help|-h|"") _tut_help ;;
         *)
             echo "Unknown command: $action"
@@ -50,10 +53,15 @@ _tut_help() {
     echo "  build --all             Build all source files"
     echo "  serve [file]            Preview in browser"
 
+    _tut_section "INTERACTIVE"
+    echo "  hydrate <template>      Substitute {{variables}} from org"
+    echo "  run <guide> [--org]     Hydrate + serve with real terminal"
+
     _tut_section "UNDERSTAND"
     echo "  types                   Document types overview"
     echo "  types guide             Guide schema and structure"
     echo "  types reference         Reference schema and structure"
+    echo "  extras                  Build extras (design-tokens, mindmap)"
 
     _tut_section "QUERY"
     echo "  get sources [-v]        Source JSON files (-v for full paths)"
@@ -126,6 +134,172 @@ _tut_types_reference() {
 }
 
 # =============================================================================
+# EXTRAS - Build Extras Documentation
+# =============================================================================
+
+_tut_extras() {
+    local extra="${1:-}"
+
+    case "$extra" in
+        "")            _tut_extras_overview ;;
+        design-tokens) _tut_extras_design_tokens ;;
+        mindmap)       _tut_extras_mindmap ;;
+        tds)           _tut_extras_tds ;;
+        *)
+            _tut_error "Unknown extra: $extra"
+            _tut_info "Try: tut extras [design-tokens|mindmap|tds]"
+            return 1
+            ;;
+    esac
+}
+
+_tut_extras_overview() {
+    _tut_heading 1 "TUT Build Extras"
+    echo
+    echo "  Extras are optional features automatically included in built documents."
+    echo "  Some are always-on, others are URL-activated or JSON-configured."
+    echo
+
+    _tut_section "ALWAYS INCLUDED"
+    _tut_extras_row "design-tokens" "?design=true" "Live theme editor FAB"
+    _tut_extras_row "mindmap"       "content block" "Visual concept maps"
+
+    _tut_section "JSON-CONFIGURED"
+    _tut_extras_row "tds"           "metadata.theme.tds" "Tetra Design System theme"
+
+    _tut_section "FILES"
+    echo "  Location: \$TUT_SRC/templates/"
+    echo
+    _tut_path "base-styles.css" "$TUT_SRC/templates/base-styles.css"
+    _tut_path "base-script.js" "$TUT_SRC/templates/base-script.js"
+    _tut_path "design-tokens.*" "$TUT_SRC/templates/design-tokens.css"
+    _tut_path "mindmap/*" "$TUT_SRC/templates/mindmap/"
+
+    echo
+    _tut_info "Use: tut extras <name> for details"
+}
+
+_tut_extras_row() {
+    local name="$1"
+    local activation="$2"
+    local desc="$3"
+    printf "  %-16s %-20s %s\n" "$name" "$activation" "$desc"
+}
+
+_tut_extras_design_tokens() {
+    _tut_heading 1 "Design Tokens Extra"
+    echo
+    _tut_section "OVERVIEW"
+    echo "  Live theme editor for customizing document appearance."
+    echo "  Provides window.TUT namespace for theme management."
+    echo
+
+    _tut_section "ACTIVATION"
+    echo "  URL parameter:    ?design=true"
+    echo "  Always bundled:   Yes (hidden by default)"
+    echo
+
+    _tut_section "FEATURES"
+    echo "  • Floating Action Button (FAB) in bottom-right"
+    echo "  • Color token editor with live preview"
+    echo "  • Layout settings (border style, radius, sidebar)"
+    echo "  • Typography (heading, body, code fonts)"
+    echo "  • Google Fonts integration"
+    echo "  • Theme save/load/export (JSON, CSS, JS)"
+    echo "  • Element Inspector (Shift+hold on any element)"
+    echo
+
+    _tut_section "JAVASCRIPT API"
+    echo "  TUT.Tokens.get('--bg-primary')      Get token value"
+    echo "  TUT.Tokens.set('--bg-primary', x)   Set token value"
+    echo "  TUT.Theme.build()                   Export current theme"
+    echo "  TUT.Theme.apply(theme)              Apply theme object"
+    echo "  TUT.Theme.save('name')              Save to localStorage"
+    echo
+
+    _tut_section "FILES"
+    _tut_path "CSS" "$TUT_SRC/templates/design-tokens.css"
+    _tut_path "HTML" "$TUT_SRC/templates/design-tokens.html"
+    _tut_path "JS" "$TUT_SRC/templates/design-tokens.js"
+
+    _tut_section "USAGE"
+    echo "  # View any tut doc in design mode:"
+    echo "  open \"\$TUT_DIR/generated/my-guide.html?design=true\""
+}
+
+_tut_extras_mindmap() {
+    _tut_heading 1 "Mindmap Extra"
+    echo
+    _tut_section "OVERVIEW"
+    echo "  Visual radial diagrams for concept relationships."
+    echo "  Auto-included when content contains mindmap blocks."
+    echo
+
+    _tut_section "ACTIVATION"
+    echo "  Content block:    { \"type\": \"mindmap\", ... }"
+    echo "  Always bundled:   Yes (CSS/JS included if block present)"
+    echo
+
+    _tut_section "JSON STRUCTURE"
+    cat << 'JSON'
+  {
+    "type": "mindmap",
+    "title": "Optional caption",
+    "center": { "label": "Core", "sub": "subtitle" },
+    "spokes": [
+      { "label": "Node 1", "sub": "detail", "path": "/path", "description": "..." },
+      { "label": "Node 2", "sub": "detail" }
+    ]
+  }
+JSON
+    echo
+
+    _tut_section "FILES"
+    _tut_path "CSS" "$TUT_SRC/templates/mindmap/mindmap.css"
+    _tut_path "JS" "$TUT_SRC/templates/mindmap/mindmap.js"
+}
+
+_tut_extras_tds() {
+    _tut_heading 1 "TDS Theme Extra"
+    echo
+    _tut_section "OVERVIEW"
+    echo "  Apply Tetra Design System themes to documents."
+    echo "  Themes are defined in \$TETRA_SRC/bash/tds/."
+    echo
+
+    _tut_section "ACTIVATION"
+    echo "  JSON metadata:    \"theme\": { \"tds\": \"theme-name\" }"
+    echo "  Requires:         TDS module loaded"
+    echo
+
+    _tut_section "EXAMPLE"
+    cat << 'JSON'
+  {
+    "metadata": {
+      "title": "My Guide",
+      "theme": {
+        "tds": "dracula"
+      }
+    },
+    ...
+  }
+JSON
+    echo
+
+    _tut_section "AVAILABLE THEMES"
+    if [[ -f "$TETRA_SRC/bash/tds/tds.sh" ]]; then
+        source "$TETRA_SRC/bash/tds/tds.sh" 2>/dev/null
+        if declare -f tds_list_themes &>/dev/null; then
+            tds_list_themes 2>/dev/null | head -10
+        else
+            echo "  (TDS loaded but tds_list_themes not available)"
+        fi
+    else
+        echo "  (TDS module not found)"
+    fi
+}
+
+# =============================================================================
 # DOCTOR
 # =============================================================================
 
@@ -183,9 +357,29 @@ _tut_doctor() {
         _tut_warn "directory missing"
     fi
 
+    _tut_section "BUILD EXTRAS"
+    _tut_doctor_extra "design-tokens" "$TUT_SRC/templates/design-tokens.js" "?design=true"
+    _tut_doctor_extra "mindmap" "$TUT_SRC/templates/mindmap/mindmap.js" "content block"
+    _tut_doctor_extra "tds" "$TETRA_SRC/bash/tds/tds.sh" "metadata.theme.tds"
+
     _tut_section "DEPENDENCIES"
     _tut_doctor_cmd "jq"
     _tut_doctor_cmd "open" "xdg-open"
+}
+
+_tut_doctor_extra() {
+    local name="$1"
+    local file="$2"
+    local activation="$3"
+
+    if [[ -f "$file" ]]; then
+        printf "  %-16s " "$name"
+        _tut_success "ready"
+        _tut_dim "    activation: $activation"; echo
+    else
+        printf "  %-16s " "$name"
+        _tut_warn "missing"
+    fi
 }
 
 _tut_doctor_var() {
@@ -311,10 +505,11 @@ _tut_update_metadata() {
 # =============================================================================
 
 _tut_build() {
-    local json_file=""
+    local json_files=()
     local doc_type=""
     local format="html"
     local output_file=""
+    local output_dir=""
     local no_bump=false
     local build_all=false
 
@@ -324,30 +519,69 @@ _tut_build() {
             --type|-t)     doc_type="$2"; shift 2 ;;
             --format|-f)   format="$2"; shift 2 ;;
             --output|-o)   output_file="$2"; shift 2 ;;
+            --out)         output_dir="$2"; shift 2 ;;
             --no-bump)     no_bump=true; shift ;;
             --all|-a)      build_all=true; shift ;;
             -*)            echo "Unknown option: $1"; return 1 ;;
-            *)             [[ -z "$json_file" ]] && json_file="$1"; shift ;;
+            *)             json_files+=("$1"); shift ;;
         esac
     done
+
+    # Set output dir globally if specified
+    if [[ -n "$output_dir" ]]; then
+        mkdir -p "$output_dir"
+        TUT_OUTPUT_DIR="$output_dir"
+    fi
+
+    # Handle multiple files
+    if [[ ${#json_files[@]} -gt 1 ]]; then
+        local failed=0
+        for file in "${json_files[@]}"; do
+            _tut_build_single "$file" "$doc_type" "$format" "$no_bump" || ((failed++))
+        done
+        unset TUT_OUTPUT_DIR
+        [[ $failed -gt 0 ]] && return 1
+        return 0
+    fi
+
+    local json_file="${json_files[0]:-}"
 
     # Build all available sources
     if [[ "$build_all" == true ]]; then
         _tut_build_all "$no_bump"
-        return $?
+        local ret=$?
+        unset TUT_OUTPUT_DIR
+        return $ret
     fi
 
     # Handle special 'index' target
     if [[ "$json_file" == "index" ]]; then
         _tut_index
-        return $?
+        local ret=$?
+        unset TUT_OUTPUT_DIR
+        return $ret
     fi
 
     if [[ -z "$json_file" ]]; then
-        echo "Usage: tut build <name|path|index> [--type guide|reference] [--format html|md|all]"
+        echo "Usage: tut build <name...> [--out dir] [--type guide|reference] [--format html|md|all]"
         echo "       tut build --all [--no-bump]"
+        unset TUT_OUTPUT_DIR
         return 1
     fi
+
+    _tut_build_single "$json_file" "$doc_type" "$format" "$no_bump" "$output_file"
+    local ret=$?
+    unset TUT_OUTPUT_DIR
+    return $ret
+}
+
+# Build a single file
+_tut_build_single() {
+    local json_file="$1"
+    local doc_type="$2"
+    local format="${3:-html}"
+    local no_bump="${4:-false}"
+    local output_file="$5"
 
     # Resolve path: check available/ if not found directly
     if [[ ! -f "$json_file" ]]; then
@@ -375,8 +609,8 @@ _tut_build() {
         echo "Detected type: $doc_type"
     fi
 
-    # Version bump prompt (unless --no-bump)
-    if [[ "$no_bump" == false ]]; then
+    # Version bump prompt (unless --no-bump or batch mode)
+    if [[ "$no_bump" == false && -z "$TUT_OUTPUT_DIR" ]]; then
         local new_version=$(_tut_prompt_version "$json_file")
         local current_version=$(jq -r '.metadata.version // "0.0.0"' "$json_file")
         if [[ "$new_version" != "$current_version" ]]; then
@@ -706,13 +940,14 @@ _tut_serve() {
 # =============================================================================
 
 _tut_index() {
-    local output_dir="$TUT_DIR/generated"
+    # Respect TUT_OUTPUT_DIR if set (from --out flag)
+    local output_dir="${TUT_OUTPUT_DIR:-$TUT_DIR/generated}"
     local output_file="$output_dir/index.html"
     local now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
     mkdir -p "$output_dir"
 
-    # Collect doc info
+    # Collect doc info from output directory
     local docs=()
     shopt -s nullglob
     for file in "$output_dir"/*.html; do
@@ -1057,6 +1292,144 @@ _tut_edit_schema() {
     fi
 
     ${EDITOR:-vim} "$schema_file"
+}
+
+# =============================================================================
+# RUN - Interactive guide with real terminal
+# =============================================================================
+
+_tut_run() {
+    local guide=""
+    local org=""
+    local port="4446"
+    local no_browser=false
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --org)
+                org="$2"
+                shift 2
+                ;;
+            --port)
+                port="$2"
+                shift 2
+                ;;
+            --no-browser)
+                no_browser=true
+                shift
+                ;;
+            -*)
+                _tut_error "Unknown option: $1"
+                return 1
+                ;;
+            *)
+                guide="$1"
+                shift
+                ;;
+        esac
+    done
+
+    [[ -z "$guide" ]] && {
+        _tut_heading 2 "tut run - Interactive Guide"
+        echo
+        echo "  Usage: tut run <guide> [--org <name>] [--port <port>]"
+        echo
+        echo "  Examples:"
+        echo "    tut run tkm-guide --org pixeljam-arcade"
+        echo "    tut run tkm-guide.template.json --org myorg"
+        echo
+        echo "  This will:"
+        echo "    1. Hydrate template with org values (if template)"
+        echo "    2. Build the guide HTML"
+        echo "    3. Start tut-interactive server"
+        echo "    4. Open in browser with real terminal"
+        return 1
+    }
+
+    _tut_heading 2 "Interactive Guide: $guide"
+    echo
+
+    # Step 1: Find and hydrate if template
+    local guide_path=""
+    local is_template=false
+
+    if [[ -f "$guide" ]]; then
+        guide_path="$guide"
+    elif [[ -f "$TUT_SRC/available/$guide" ]]; then
+        guide_path="$TUT_SRC/available/$guide"
+    elif [[ -f "$TUT_SRC/available/${guide}.template.json" ]]; then
+        guide_path="$TUT_SRC/available/${guide}.template.json"
+        is_template=true
+    elif [[ -f "$TUT_SRC/available/${guide}.json" ]]; then
+        guide_path="$TUT_SRC/available/${guide}.json"
+    else
+        _tut_error "Guide not found: $guide"
+        return 1
+    fi
+
+    # Hydrate if template
+    local final_guide="$guide_path"
+    if [[ "$guide_path" == *".template."* ]] || $is_template; then
+        _tut_info "Hydrating template..."
+
+        # Source hydrate module
+        source "$TUT_SRC/core/hydrate.sh"
+
+        local hydrate_args=("$guide_path")
+        [[ -n "$org" ]] && hydrate_args+=(--org "$org")
+
+        final_guide=$(tut_hydrate "${hydrate_args[@]}")
+        [[ $? -ne 0 ]] && return 1
+    fi
+
+    # Step 2: Build HTML
+    _tut_info "Building guide..."
+    local guide_name=$(basename "$final_guide" .json)
+    _tut_build "$guide_name"
+    [[ $? -ne 0 ]] && return 1
+
+    # Step 3: Start tut-interactive server
+    _tut_info "Starting interactive server..."
+
+    # Check if already running
+    local running=$(tsm ls 2>/dev/null | grep -E "tut-interactive.*online" | head -1)
+    if [[ -z "$running" ]]; then
+        # Install dependencies if needed
+        if [[ ! -d "$TUT_SRC/server/node_modules" ]]; then
+            _tut_info "Installing server dependencies..."
+            (cd "$TUT_SRC/server" && npm install --silent)
+        fi
+
+        # Start via TSM or directly
+        if command -v tsm &>/dev/null; then
+            tsm start tut-interactive 2>/dev/null || {
+                # Fall back to direct start
+                (cd "$TUT_SRC/server" && node tut-server.js --port "$port" &)
+                sleep 1
+            }
+        else
+            (cd "$TUT_SRC/server" && node tut-server.js --port "$port" &)
+            sleep 1
+        fi
+    fi
+
+    # Step 4: Open in browser
+    local url="http://127.0.0.1:$port/guide/$guide_name"
+    _tut_accent "Opening: $url"
+
+    if ! $no_browser; then
+        if command -v open &>/dev/null; then
+            open "$url"
+        elif command -v xdg-open &>/dev/null; then
+            xdg-open "$url"
+        else
+            _tut_info "Open in browser: $url"
+        fi
+    fi
+
+    echo
+    _tut_info "Server running. Stop with: tsm stop tut-interactive"
 }
 
 export -f tut
