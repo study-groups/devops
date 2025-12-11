@@ -44,6 +44,11 @@ const PULSAR_BIN = process.env.PULSAR_BIN || path.join(TETRA_SRC, 'bash/pulsar/e
 
 // Game bridge registry
 const GAME_BRIDGES = {
+  fireball: {
+    name: 'FIREBALL',
+    bridge: path.join(TETRA_SRC, 'bash/game/games/pulsar/pulsar-game.js'),
+    type: 'osc'
+  },
   pulsar: {
     name: 'PULSAR',
     bridge: path.join(TETRA_SRC, 'bash/game/games/pulsar/pulsar-game.js'),
@@ -54,8 +59,8 @@ const GAME_BRIDGES = {
     bridge: path.join(TETRA_SRC, 'bash/midi-mp/cymatica-app.js'),
     type: 'websocket'
   },
-  estoface: {
-    name: 'ESTOFACE',
+  asciimouth: {
+    name: 'ASCIIMOUTH',
     bridge: path.join(TETRA_SRC, 'bash/game/games/formant/estoface-bridge.js'),
     type: 'osc'
   },
@@ -299,7 +304,7 @@ class QuasarServer {
         }
       }
     } else {
-      // Browser client sending input
+      // Browser client sending input or commands
       if (type === 'input') {
         // Forward input to game sources
         this.gameSources.forEach((source, gameWs) => {
@@ -307,10 +312,89 @@ class QuasarServer {
             gameWs.send(JSON.stringify(data));
           }
         });
+      } else if (type === 'bridge.spawn') {
+        this.handleBridgeSpawn(ws, data);
+      } else if (type === 'screen') {
+        // Browser reporting its current screen state
+        this.currentScreen = data.screen || '';
       } else if (type === 'ping') {
         ws.send(JSON.stringify({ t: 'pong', ts: Date.now() }));
       }
     }
+  }
+
+  handleBridgeSpawn(ws, data) {
+    const { game, channel } = data;
+    const slot = channel || 0;
+
+    this.log(`Bridge spawn request: game=${game}, slot=${slot}`);
+
+    const bridgeConfig = GAME_BRIDGES[game];
+    if (!bridgeConfig) {
+      ws.send(JSON.stringify({
+        t: 'bridge.error',
+        game,
+        error: 'Unknown game'
+      }));
+      return;
+    }
+
+    if (bridgeConfig.type === 'builtin') {
+      // Built-in browser game (e.g., PONG)
+      ws.send(JSON.stringify({
+        t: 'bridge.ready',
+        game,
+        slot,
+        status: 'builtin'
+      }));
+      return;
+    }
+
+    // Check if bridge file exists
+    const fs = require('fs');
+    if (!bridgeConfig.bridge || !fs.existsSync(bridgeConfig.bridge)) {
+      this.log(`Bridge not found: ${bridgeConfig.bridge}`, 'error');
+      ws.send(JSON.stringify({
+        t: 'bridge.error',
+        game,
+        error: `Bridge not found: ${bridgeConfig.bridge}`
+      }));
+      return;
+    }
+
+    // Spawn the bridge process
+    const { spawn } = require('child_process');
+    const bridgeProcess = spawn('node', [bridgeConfig.bridge], {
+      env: {
+        ...process.env,
+        QUASAR_WS: `ws://localhost:${this.config.httpPort}/ws?role=game`,
+        GAME_SLOT: String(slot)
+      }
+    });
+
+    bridgeProcess.stdout.on('data', (data) => {
+      this.log(`[${game}] ${data.toString().trim()}`);
+    });
+
+    bridgeProcess.stderr.on('data', (data) => {
+      this.log(`[${game}] ${data.toString().trim()}`, 'error');
+    });
+
+    bridgeProcess.on('close', (code) => {
+      this.log(`[${game}] Bridge exited with code ${code}`);
+      this.bridges.delete(slot);
+    });
+
+    // Store bridge reference
+    this.bridges.set(slot, { process: bridgeProcess, game, clientWs: ws });
+    this.stats.bridgesSpawned++;
+
+    ws.send(JSON.stringify({
+      t: 'bridge.ready',
+      game,
+      slot,
+      status: 'spawned'
+    }));
   }
 
   relayFrame(frame) {
