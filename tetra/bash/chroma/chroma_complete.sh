@@ -9,6 +9,9 @@
 # All chroma subcommands
 _CHROMA_COMMANDS="cst doctor parser status reload table help"
 
+# Help topics
+_CHROMA_HELP_TOPICS="render parser format doctor options"
+
 # Format flags (shortcuts)
 _CHROMA_FORMATS="--toml --json --md --markdown --claude --ansi"
 
@@ -139,6 +142,14 @@ _chroma_complete() {
         doctor)
             if [[ "$cur" == -* ]]; then
                 COMPREPLY=($(compgen -W "$_CHROMA_DOCTOR_OPTIONS" -- "$cur"))
+            fi
+            return
+            ;;
+
+        # Help subcommand - complete topics
+        help)
+            if [[ $COMP_CWORD -eq 2 ]]; then
+                COMPREPLY=($(compgen -W "$_CHROMA_HELP_TOPICS" -- "$cur"))
             fi
             return
             ;;

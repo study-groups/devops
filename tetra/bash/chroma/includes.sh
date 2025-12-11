@@ -81,26 +81,32 @@ chroma_check_dependencies || return 1
 # LOAD CHROMA CORE
 #==============================================================================
 
-# 1. Core modules
-source "$CHROMA_SRC/core/parser_registry.sh"
-source "$CHROMA_SRC/core/cst.sh"
-source "$CHROMA_SRC/core/table_render.sh"
-source "$CHROMA_SRC/core/code_highlight.sh"
+# Internal loader for all chroma components
+_chroma_load_components() {
+    # 1. Core modules
+    source "$CHROMA_SRC/core/parser_registry.sh"
+    source "$CHROMA_SRC/core/cst.sh"
+    source "$CHROMA_SRC/core/table_render.sh"
+    source "$CHROMA_SRC/core/code_highlight.sh"
 
-# 2. Built-in parsers (self-register on load)
-for _chroma_parser in "$CHROMA_SRC/parsers"/*.sh; do
-    [[ -f "$_chroma_parser" ]] && source "$_chroma_parser"
-done
-unset _chroma_parser
+    # 2. Built-in parsers (self-register on load)
+    local parser
+    for parser in "$CHROMA_SRC/parsers"/*.sh; do
+        [[ -f "$parser" ]] && source "$parser"
+    done
 
-# 3. Doctor (health checks)
-source "$CHROMA_SRC/doctor.sh"
+    # 3. Doctor (health checks)
+    source "$CHROMA_SRC/doctor.sh"
 
-# 4. Main chroma command
-source "$CHROMA_SRC/chroma.sh"
+    # 4. Main chroma command
+    source "$CHROMA_SRC/chroma.sh"
 
-# 5. Tab completion
-source "$CHROMA_SRC/chroma_complete.sh"
+    # 5. Tab completion
+    source "$CHROMA_SRC/chroma_complete.sh"
+}
+
+# Initial load
+_chroma_load_components
 
 #==============================================================================
 # RELOAD SUPPORT
@@ -117,17 +123,7 @@ chroma_reload() {
     CHROMA_PARSER_ORDER=()
 
     # Re-source all components
-    source "$CHROMA_SRC/core/parser_registry.sh"
-    source "$CHROMA_SRC/core/cst.sh"
-    source "$CHROMA_SRC/core/table_render.sh"
-
-    for _chroma_parser in "$CHROMA_SRC/parsers"/*.sh; do
-        [[ -f "$_chroma_parser" ]] && source "$_chroma_parser"
-    done
-    unset _chroma_parser
-
-    source "$CHROMA_SRC/doctor.sh"
-    source "$CHROMA_SRC/chroma.sh"
+    _chroma_load_components
 
     echo "Reloaded: ${#CHROMA_PARSER_ORDER[@]} parsers"
     chroma_status

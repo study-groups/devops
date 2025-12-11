@@ -47,8 +47,16 @@ _chroma_debug() {
     (( CHROMA_DEBUG )) && echo "[$(date +%T)] $*" >> "$CHROMA_DEBUG_LOG"
 }
 
-_is_numeric() {
+_chroma_is_numeric() {
     [[ "$1" =~ ^[0-9]+$ ]]
+}
+
+_chroma_require_arg() {
+    local opt="$1" val="$2" desc="$3"
+    if [[ -z "$val" || "$val" == -* ]]; then
+        echo "Error: $opt requires $desc" >&2
+        return 1
+    fi
 }
 
 chroma_validate_file() {
@@ -62,7 +70,7 @@ chroma_validate_file() {
 
 chroma_validate_numeric() {
     local value="$1" name="$2"
-    _is_numeric "$value" || {
+    _chroma_is_numeric "$value" || {
         echo "Error: $name must be numeric, got: $value" >&2
         return 1
     }
@@ -79,24 +87,6 @@ chroma_validate_theme() {
     return 1
 }
 
-# Margin parsing
-chroma_parse_margin() {
-    local top_val="$1"
-    local horiz_val="${2:-}"
-    local -n top_ref="$3" left_ref="$4" right_ref="$5"
-
-    top_ref="$top_val"
-    left_ref="$top_val"
-    right_ref="$top_val"
-
-    if [[ -n "$horiz_val" ]] && _is_numeric "$horiz_val"; then
-        left_ref="$horiz_val"
-        right_ref="$horiz_val"
-        return 2
-    fi
-
-    return 1
-}
 
 #==============================================================================
 # ARGUMENT PARSING
@@ -155,7 +145,9 @@ chroma_parse_args() {
                 return 0
                 ;;
             help)
-                _chroma_help
+                args_ref[subcommand]="help"
+                shift
+                args_ref[subcmd_args]="$*"
                 return 0
                 ;;
 
@@ -177,10 +169,7 @@ chroma_parse_args() {
                 shift
                 ;;
             --format|-f)
-                if [[ -z "$2" ]]; then
-                    echo "Error: --format requires a format name" >&2
-                    return 1
-                fi
+                _chroma_require_arg "--format" "$2" "a format name" || return 1
                 args_ref[format]="$2"
                 shift 2
                 ;;
@@ -197,20 +186,15 @@ chroma_parse_args() {
 
             # Theme
             --theme|-t)
-                if [[ -z "$2" ]]; then
-                    echo "Error: --theme requires a theme name" >&2
-                    return 1
-                fi
-                chroma_validate_theme "$2" && tds_switch_theme "$2" 2>/dev/null
+                _chroma_require_arg "--theme" "$2" "a theme name" || return 1
+                chroma_validate_theme "$2" || return 1
+                tds_switch_theme "$2" 2>/dev/null
                 shift 2
                 ;;
 
             # Width
             --width|-w)
-                if [[ -z "$2" ]]; then
-                    echo "Error: --width requires a numeric value" >&2
-                    return 1
-                fi
+                _chroma_require_arg "--width" "$2" "a numeric value" || return 1
                 chroma_validate_numeric "$2" "width" || return 1
                 TDS_MARKDOWN_WIDTH="$2"
                 shift 2
@@ -221,39 +205,49 @@ chroma_parse_args() {
                 local m_top="$2"
                 local m_horiz="${3:-}"
 
-                if [[ -z "$m_top" ]] || ! _is_numeric "$m_top"; then
+                if [[ -z "$m_top" ]] || ! _chroma_is_numeric "$m_top"; then
                     echo "Error: --margin requires at least one numeric value" >&2
                     return 1
                 fi
 
                 # Only use second value if it's numeric (not a flag or filename)
-                if [[ -n "$m_horiz" ]] && ! _is_numeric "$m_horiz"; then
+                if [[ -n "$m_horiz" ]] && ! _chroma_is_numeric "$m_horiz"; then
                     m_horiz=""  # Not a margin value, will be parsed as next arg
                 fi
 
-                chroma_parse_margin "$m_top" "$m_horiz" \
-                    args_ref[margin_top] args_ref[margin_left] args_ref[margin_right]
-                local consumed=$?
-                shift $((consumed + 1))
+                # Set margins directly (single value = top/left/right, two values = top + horizontal)
+                args_ref[margin_top]="$m_top"
+                args_ref[margin_left]="$m_top"
+                args_ref[margin_right]="$m_top"
+
+                if [[ -n "$m_horiz" ]]; then
+                    args_ref[margin_left]="$m_horiz"
+                    args_ref[margin_right]="$m_horiz"
+                    shift 3  # --margin top horiz
+                else
+                    shift 2  # --margin val
+                fi
                 ;;
 
             # Rules/presets
             --preset)
-                if [[ -z "$2" ]]; then
-                    echo "Error: --preset requires a preset name" >&2
-                    return 1
+                _chroma_require_arg "--preset" "$2" "a preset name" || return 1
+                if declare -F chroma_load_preset &>/dev/null; then
+                    chroma_load_preset "$2" 2>/dev/null || {
+                        echo "Warning: Unknown preset '$2'" >&2
+                    }
+                else
+                    echo "Warning: Preset system not available" >&2
                 fi
-                chroma_load_preset "$2" 2>/dev/null || {
-                    echo "Warning: Unknown preset '$2'" >&2
-                }
                 shift 2
                 ;;
             --rule)
-                if [[ -z "$2" ]]; then
-                    echo "Error: --rule requires a rule pattern" >&2
-                    return 1
+                _chroma_require_arg "--rule" "$2" "a rule pattern" || return 1
+                if declare -F chroma_register_rule &>/dev/null; then
+                    chroma_register_rule "custom" "$2"
+                else
+                    echo "Warning: Rule system not available" >&2
                 fi
-                chroma_register_rule "custom" "$2"
                 shift 2
                 ;;
             --list-rules)
@@ -261,8 +255,12 @@ chroma_parse_args() {
                 shift
                 ;;
             --clear-rules)
-                chroma_clear_rules
-                echo "All rules and hooks cleared"
+                if declare -F chroma_clear_rules &>/dev/null; then
+                    chroma_clear_rules
+                    echo "All rules and hooks cleared"
+                else
+                    echo "Warning: Rule system not available" >&2
+                fi
                 return 0
                 ;;
 
@@ -282,11 +280,28 @@ chroma_parse_args() {
 }
 
 #==============================================================================
-# HELP
+# HELP SYSTEM
 #==============================================================================
 
 _chroma_help() {
-    cat <<'EOF'
+    local topic="${1:-}"
+    case "$topic" in
+        render)     _chroma_help_render ;;
+        parser|parsers) _chroma_help_parser ;;
+        format|formats) _chroma_help_format ;;
+        doctor)     _chroma_help_doctor ;;
+        options)    _chroma_help_options ;;
+        "")         _chroma_help_main ;;
+        *)
+            echo "Unknown help topic: $topic"
+            echo "Topics: render parser format doctor options"
+            return 1
+            ;;
+    esac
+}
+
+_chroma_help_main() {
+    cat << 'EOF'
 chroma - Terminal Syntax Highlighter
 
 FIRST USE
@@ -297,39 +312,142 @@ FIRST USE
 REGULAR USE
   chroma <file>              Auto-detect format, render with pager
   chroma -n <file>           No pager (stdout)
-  chroma --toml <file>       Force TOML format
   chroma -t warm <file>      Use warm theme
 
 ALL COMMANDS
   Render    chroma [opts] <file>
-  Info      doctor parser status reload
-  Parse     cst <file>              Output CST as JSON
-  Table     table <file>            Render markdown table
-  Parsers   parser list, parser info <name>
-  Options   -n -p -w -m -t -f --preset --rule
+  Info      doctor status reload
+  Parse     cst table parser
+  Help      help [topic]
 
-FORMAT FLAGS
-  --toml --json --md --claude  Shortcut format selection
-  -f, --format NAME            Use named parser
+Help topics: render parser format doctor options
+EOF
+}
+
+_chroma_help_render() {
+    cat << 'EOF'
+chroma render - Rendering files
+
+USAGE
+  chroma [OPTIONS] <file>
+  cat file | chroma --format <format>
+
+FORMAT DETECTION
+  Auto-detects by extension: .md .toml .json
+  Force with: --toml --json --md --claude
+  Or use: -f <parser-name>
+
+PAGER CONTROL
+  -p, --pager      Use pager (default for tty)
+  -n, --no-pager   Output to stdout
+
+DISPLAY OPTIONS
+  -w, --width N       Set line width
+  -m, --margin N [H]  Set margins (top [horizontal])
+  -t, --theme NAME    Use theme
+
+EXAMPLES
+  chroma README.md              Auto-detect, pager
+  chroma -n config.toml         No pager
+  cat data.json | chroma --json Pipe with format
+  chroma -t warm -w 100 doc.md  Custom theme/width
+EOF
+}
+
+_chroma_help_parser() {
+    cat << 'EOF'
+chroma parser - Parser management
+
+COMMANDS
+  parser list           List all registered parsers
+  parser info <name>    Show parser details
+
+PARSER INFO SHOWS
+  - Description and render function
+  - File extensions handled
+  - Validation status
+
+EXAMPLES
+  chroma parser list
+  chroma parser info toml
+  chroma parser info markdown
+EOF
+}
+
+_chroma_help_format() {
+    cat << 'EOF'
+chroma format - Format selection
+
+FORMAT FLAGS (shortcuts)
+  --toml              TOML files
+  --json              JSON files
+  --md, --markdown    Markdown files
+  --claude, --ansi    Claude Code ANSI output
+
+EXPLICIT FORMAT
+  -f, --format NAME   Use named parser
+
+AUTO-DETECTION
+  By extension: .md → markdown, .toml → toml, .json → json
+  By content: [section] or key=value → toml, { or [ → json
+  Default: markdown
+
+EXAMPLES
+  chroma --toml config.toml
+  cat data | chroma -f json
+  pbpaste | chroma --claude
+EOF
+}
+
+_chroma_help_doctor() {
+    cat << 'EOF'
+chroma doctor - Health diagnostics
+
+USAGE
+  chroma doctor [OPTIONS]
 
 OPTIONS
+  -v, --verbose     Show detailed output
+  --check NAME      Run specific check only
+
+CHECKS
+  dependencies      Core deps (TETRA_SRC, bash version)
+  tds               TDS integration and functions
+  parsers           Parser registration and validation
+  themes            Theme system availability
+  tokens            Semantic token resolution
+
+EXAMPLES
+  chroma doctor              Run all checks
+  chroma doctor -v           Verbose output
+  chroma doctor --check tds  Check TDS only
+EOF
+}
+
+_chroma_help_options() {
+    cat << 'EOF'
+chroma options - All command options
+
+DISPLAY
   -p, --pager         Use pager (default)
   -n, --no-pager      Output to stdout
   -w, --width N       Line width
   -m, --margin N [H]  Margins (top, horizontal)
   -t, --theme NAME    Theme (default warm cool neutral electric)
+
+FORMAT
+  --toml --json --md --claude  Shortcut format selection
+  -f, --format NAME            Use named parser
+
+RULES
   --preset NAME       Rule preset (markers bookmarks sections all)
   --rule PATTERN      Custom sed rule
   --list-rules        Show active rules
   --clear-rules       Clear rules
 
-EXAMPLES
-  chroma README.md
-  cat config.toml | chroma --toml
-  chroma -t warm -w 100 doc.md
-  pbpaste | chroma --claude       Clean Claude Code output
-  chroma doctor -v
-  chroma parser info toml
+GENERAL
+  -h, --help          Show help
+  help [topic]        Topic help (render parser format doctor options)
 EOF
 }
 
@@ -382,17 +500,23 @@ _chroma_render() {
 
     _chroma_debug "Using parser: $parser_fn for format: $format"
 
-    # Set up input
-    local input_cmd="cat"
-    if [[ -n "$file" && "$file" != "-" ]]; then
-        input_cmd="cat '$file'"
-    fi
+    # Set up pager command as array for proper word splitting
+    local -a pager_cmd
+    read -ra pager_cmd <<< "${CHROMA_PAGER:-less -R}"
 
-    # Render with optional pager
+    # Render: file input or stdin, with optional pager
     if (( use_pager )); then
-        eval "$input_cmd" | "$parser_fn" | ${CHROMA_PAGER:-less -R}
+        if [[ -n "$file" && "$file" != "-" ]]; then
+            "$parser_fn" < "$file" | "${pager_cmd[@]}"
+        else
+            "$parser_fn" | "${pager_cmd[@]}"
+        fi
     else
-        eval "$input_cmd" | "$parser_fn"
+        if [[ -n "$file" && "$file" != "-" ]]; then
+            "$parser_fn" < "$file"
+        else
+            "$parser_fn"
+        fi
     fi
 }
 
@@ -409,13 +533,21 @@ chroma() {
 
     # Handle subcommands
     if [[ -n "${args[subcommand]:-}" ]]; then
+        # Split subcmd_args into array for proper word handling
+        local -a subcmd_argv
+        read -ra subcmd_argv <<< "${args[subcmd_args]:-}"
+
         case "${args[subcommand]}" in
+            help)
+                _chroma_help "${subcmd_argv[@]}"
+                return $?
+                ;;
             doctor)
-                chroma_doctor ${args[subcmd_args]:-}
+                chroma_doctor "${subcmd_argv[@]}"
                 return $?
                 ;;
             parser)
-                _chroma_subcmd_parser ${args[subcmd_args]:-}
+                _chroma_subcmd_parser "${subcmd_argv[@]}"
                 return $?
                 ;;
             status)
@@ -427,11 +559,11 @@ chroma() {
                 return $?
                 ;;
             cst)
-                chroma_cst ${args[subcmd_args]:-}
+                chroma_cst "${subcmd_argv[@]}"
                 return $?
                 ;;
             table)
-                local input="${args[subcmd_args]:--}"
+                local input="${subcmd_argv[0]:--}"
                 if [[ "$input" == "-" ]]; then
                     chroma_render_table_simple
                 else
@@ -444,7 +576,11 @@ chroma() {
 
     # Show rules if requested
     if (( args[show_rules] )); then
-        chroma_list_rules
+        if declare -F chroma_list_rules &>/dev/null; then
+            chroma_list_rules
+        else
+            echo "Rule system not available" >&2
+        fi
         return 0
     fi
 
@@ -488,14 +624,6 @@ chroma() {
 
     # Dispatch to renderer
     _chroma_render "$format" "${args[file]}" "${args[use_pager]}"
-}
-
-#==============================================================================
-# LEGACY COMPATIBILITY
-#==============================================================================
-
-chroma_render() {
-    tds_render_markdown "$@"
 }
 
 # Export for direct execution
