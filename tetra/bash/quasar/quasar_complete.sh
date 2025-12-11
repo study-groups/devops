@@ -359,6 +359,3 @@ export -f _quasar_complete_osc_path _quasar_complete_osc_args
 export -f _quasar_complete_context quasar_commands quasar_osc_commands quasar_bridge_commands
 
 
-<system-reminder>
-Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
-</system-reminder>
