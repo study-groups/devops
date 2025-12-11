@@ -386,6 +386,38 @@ deploy_doctor() {
 # =============================================================================
 
 deploy_push() {
+    # Check if this looks like new target-based syntax (has : predicate or --cmd)
+    # Or if the target has [commands] section
+    local use_target_system=0
+
+    # Quick check: does first non-flag arg contain :{  or is --cmd present?
+    for arg in "$@"; do
+        [[ "$arg" == --cmd || "$arg" == -c ]] && use_target_system=1 && break
+        [[ "$arg" =~ :\{ ]] && use_target_system=1 && break
+    done
+
+    # If not triggered by syntax, check if target has [commands] section
+    if [[ $use_target_system -eq 0 ]]; then
+        local check_target=""
+        for arg in "$@"; do
+            [[ "$arg" != -* ]] && check_target="$arg" && break
+        done
+        if [[ -n "$check_target" ]]; then
+            local org=$(org_active 2>/dev/null)
+            local toml="$TETRA_DIR/orgs/$org/targets/$check_target/tetra-deploy.toml"
+            if [[ -f "$toml" ]] && grep -q '^\[commands\]' "$toml" 2>/dev/null; then
+                use_target_system=1
+            fi
+        fi
+    fi
+
+    # Route to appropriate system
+    if [[ $use_target_system -eq 1 ]]; then
+        deploy_target_push "$@"
+        return $?
+    fi
+
+    # Legacy system below
     local dry_run=0
     local args=()
 

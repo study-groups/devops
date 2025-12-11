@@ -3,6 +3,495 @@
 #
 # All commands support --dry-run to preview without executing.
 # Uses centralized helpers from includes.sh.
+#
+# Two systems:
+# 1. Legacy project-based (deploy_push using PROJ_* vars)
+# 2. Target-based with named commands (deploy_target_push using targets/)
+
+# =============================================================================
+# TARGET-BASED DEPLOYMENT STATE (set by deploy_target_load)
+# =============================================================================
+
+DEPLOY_TARGET_LOCAL_DIR=""
+DEPLOY_TARGET_REMOTE_DIR=""
+
+# From [target]
+declare -gA DEPLOY_TARGET=()
+
+# From [env.all] merged with [env.<env>]
+declare -gA DEPLOY_TARGET_ENVS=()
+
+# From [commands] - named multi-line scripts
+declare -gA DEPLOY_TARGET_COMMANDS=()
+
+# From [subtargets] - subtarget definitions
+declare -gA DEPLOY_SUBTARGET_FILES=()
+declare -gA DEPLOY_SUBTARGET_COMMANDS=()
+declare -g DEPLOY_SUBTARGET_NAMES=""
+
+# From [defaults]
+declare -g DEPLOY_DEFAULTS_COMMANDS=""
+
+# Legacy support: from [deploy] arrays
+declare -ga DEPLOY_LEGACY_PRE=()
+declare -ga DEPLOY_LEGACY_COMMANDS=()
+declare -ga DEPLOY_LEGACY_POST=()
+
+# =============================================================================
+# TARGET-BASED DEPLOYMENT FUNCTIONS
+# =============================================================================
+
+# Load target from targets/<name>/tetra-deploy.toml
+deploy_target_load() {
+    local target_ref="$1"
+    local env="$2"
+
+    if [[ -z "$target_ref" || -z "$env" ]]; then
+        echo "Usage: deploy_target_load <target> <env>" >&2
+        return 1
+    fi
+
+    # Get active org
+    local org=$(org_active 2>/dev/null)
+    if [[ -z "$org" || "$org" == "none" ]]; then
+        echo "No active org. Run: org switch <name>" >&2
+        return 1
+    fi
+
+    # Resolve target directory
+    if [[ -d "$target_ref" ]]; then
+        DEPLOY_TARGET_LOCAL_DIR="$target_ref"
+    elif [[ -d "$TETRA_DIR/orgs/$org/targets/$target_ref" ]]; then
+        DEPLOY_TARGET_LOCAL_DIR="$TETRA_DIR/orgs/$org/targets/$target_ref"
+    else
+        echo "Target not found: $target_ref" >&2
+        echo "Looked in: $TETRA_DIR/orgs/$org/targets/$target_ref" >&2
+        return 1
+    fi
+
+    local toml="$DEPLOY_TARGET_LOCAL_DIR/tetra-deploy.toml"
+    if [[ ! -f "$toml" ]]; then
+        echo "No tetra-deploy.toml in: $DEPLOY_TARGET_LOCAL_DIR" >&2
+        return 1
+    fi
+
+    # Parse TOML
+    _deploy_target_parse_config "$toml" "$env"
+}
+
+# Parse tetra-deploy.toml using toml_parser.sh
+_deploy_target_parse_config() {
+    local toml="$1"
+    local env="$2"
+
+    # Reset state
+    DEPLOY_TARGET=()
+    DEPLOY_TARGET_ENVS=()
+    DEPLOY_TARGET_COMMANDS=()
+    DEPLOY_SUBTARGET_FILES=()
+    DEPLOY_SUBTARGET_COMMANDS=()
+    DEPLOY_SUBTARGET_NAMES=""
+    DEPLOY_DEFAULTS_COMMANDS=""
+    DEPLOY_LEGACY_PRE=()
+    DEPLOY_LEGACY_COMMANDS=()
+    DEPLOY_LEGACY_POST=()
+
+    # Parse with full TOML parser (prefix: DTOML)
+    toml_parse "$toml" "DTOML"
+
+    # Extract [target] section
+    if declare -p DTOML_target &>/dev/null 2>&1; then
+        local -n target_ref=DTOML_target
+        for key in "${!target_ref[@]}"; do
+            DEPLOY_TARGET["$key"]="${target_ref[$key]}"
+        done
+        [[ -n "${DEPLOY_TARGET[cwd]}" ]] && DEPLOY_TARGET_REMOTE_DIR="${DEPLOY_TARGET[cwd]}"
+    fi
+
+    # Extract [env.all] first (defaults)
+    if declare -p DTOML_env_all &>/dev/null 2>&1; then
+        local -n env_all_ref=DTOML_env_all
+        for key in "${!env_all_ref[@]}"; do
+            DEPLOY_TARGET_ENVS["$key"]="${env_all_ref[$key]}"
+        done
+    fi
+
+    # Extract [env.<env>] to override
+    local env_var="DTOML_env_${env}"
+    if declare -p "$env_var" &>/dev/null 2>&1; then
+        local -n env_ref="$env_var"
+        for key in "${!env_ref[@]}"; do
+            DEPLOY_TARGET_ENVS["$key"]="${env_ref[$key]}"
+        done
+    fi
+
+    # Extract [commands] section - named commands
+    if declare -p DTOML_commands &>/dev/null 2>&1; then
+        local -n cmd_ref=DTOML_commands
+        for key in "${!cmd_ref[@]}"; do
+            DEPLOY_TARGET_COMMANDS["$key"]="${cmd_ref[$key]}"
+        done
+    fi
+
+    # Extract [subtargets] section
+    if declare -p DTOML_subtargets &>/dev/null 2>&1; then
+        local -n sub_ref=DTOML_subtargets
+        for key in "${!sub_ref[@]}"; do
+            local value="${sub_ref[$key]}"
+            # Parse inline table: { files = "...", commands = [...] }
+            if [[ "$value" =~ files[[:space:]]*=[[:space:]]*\"([^\"]+)\" ]]; then
+                DEPLOY_SUBTARGET_FILES["$key"]="${BASH_REMATCH[1]}"
+            fi
+            if [[ "$value" =~ commands[[:space:]]*=[[:space:]]*\[([^\]]+)\] ]]; then
+                local cmds="${BASH_REMATCH[1]}"
+                cmds="${cmds//\"/}"
+                cmds="${cmds//,/ }"
+                DEPLOY_SUBTARGET_COMMANDS["$key"]="$cmds"
+            fi
+            DEPLOY_SUBTARGET_NAMES+="$key "
+        done
+    fi
+
+    # Extract [defaults] section
+    if declare -p DTOML_defaults &>/dev/null 2>&1; then
+        local -n def_ref=DTOML_defaults
+        if [[ -n "${def_ref[commands]}" ]]; then
+            DEPLOY_DEFAULTS_COMMANDS="${def_ref[commands]//$'\n'/ }"
+        fi
+    fi
+
+    # Legacy: Extract [deploy] arrays
+    if declare -p DTOML_deploy &>/dev/null 2>&1; then
+        local -n deploy_ref=DTOML_deploy
+        if [[ -n "${deploy_ref[pre]}" ]]; then
+            while IFS= read -r line; do
+                [[ -n "$line" ]] && DEPLOY_LEGACY_PRE+=("$line")
+            done <<< "${deploy_ref[pre]}"
+        fi
+        if [[ -n "${deploy_ref[commands]}" ]]; then
+            while IFS= read -r line; do
+                [[ -n "$line" ]] && DEPLOY_LEGACY_COMMANDS+=("$line")
+            done <<< "${deploy_ref[commands]}"
+        fi
+        if [[ -n "${deploy_ref[post]}" ]]; then
+            while IFS= read -r line; do
+                [[ -n "$line" ]] && DEPLOY_LEGACY_POST+=("$line")
+            done <<< "${deploy_ref[post]}"
+        fi
+    fi
+
+    # Cleanup DTOML_* variables
+    for var in $(compgen -v | grep '^DTOML_'); do
+        unset "$var"
+    done
+
+    return 0
+}
+
+# Template expansion with validation
+_deploy_target_expand() {
+    local str="$1"
+    local original="$str"
+    local ssh="${DEPLOY_TARGET_ENVS[ssh]}"
+    local user="${DEPLOY_TARGET_ENVS[user]}"
+    local domain="${DEPLOY_TARGET_ENVS[domain]}"
+    local cwd="$DEPLOY_TARGET_REMOTE_DIR"
+    local localdir="$DEPLOY_TARGET_LOCAL_DIR"
+
+    # Expand {{user}} in cwd first
+    cwd="${cwd//\{\{user\}\}/$user}"
+
+    # Expand all vars
+    str="${str//\{\{ssh\}\}/$ssh}"
+    str="${str//\{\{user\}\}/$user}"
+    str="${str//\{\{domain\}\}/$domain}"
+    str="${str//\{\{cwd\}\}/$cwd}"
+    str="${str//\{\{local\}\}/$localdir}"
+
+    # Fail if unexpanded vars remain
+    if [[ "$str" =~ \{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\} ]]; then
+        echo "ERROR: Unexpanded template variable: {{${BASH_REMATCH[1]}}}" >&2
+        return 1
+    fi
+
+    echo "$str"
+}
+
+# Execute a named command
+_deploy_target_run_command() {
+    local cmd_name="$1"
+    local dry_run="${2:-0}"
+
+    local script="${DEPLOY_TARGET_COMMANDS[$cmd_name]}"
+    if [[ -z "$script" ]]; then
+        echo "ERROR: Unknown command: $cmd_name" >&2
+        echo "  Available: ${!DEPLOY_TARGET_COMMANDS[*]}" >&2
+        return 1
+    fi
+
+    script=$(_deploy_target_expand "$script") || return 1
+
+    echo "[command: $cmd_name]"
+    if [[ "$dry_run" -eq 1 ]]; then
+        echo "$script" | sed 's/^/  /'
+        return 0
+    fi
+
+    bash -c "$script"
+}
+
+# Execute legacy command string
+_deploy_target_exec_legacy() {
+    local cmd="$1"
+    local dry_run="${2:-0}"
+
+    cmd=$(_deploy_target_expand "$cmd") || return 1
+
+    echo "  \$ $cmd"
+    [[ "$dry_run" -eq 1 ]] && return 0
+    eval "$cmd"
+}
+
+# Parse target spec: "docs:{api,!tests}" -> target predicates
+_deploy_parse_target_spec() {
+    local spec="$1"
+    if [[ "$spec" =~ ^([^:]+):\{([^}]+)\}$ ]]; then
+        echo "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+    else
+        echo "$spec" ""
+    fi
+}
+
+# Resolve predicates to subtarget list
+_deploy_resolve_predicates() {
+    local predicates="$1"
+    local all_subtargets="$2"
+
+    local -a includes=()
+    local -a excludes=()
+
+    IFS=',' read -ra parts <<< "$predicates"
+    for part in "${parts[@]}"; do
+        part="${part// /}"
+        if [[ "$part" == "*" ]]; then
+            read -ra includes <<< "$all_subtargets"
+        elif [[ "$part" == !* ]]; then
+            excludes+=("${part:1}")
+        else
+            includes+=("$part")
+        fi
+    done
+
+    for sub in "${includes[@]}"; do
+        local excluded=0
+        for ex in "${excludes[@]}"; do
+            [[ "$sub" == "$ex" ]] && excluded=1 && break
+        done
+        [[ $excluded -eq 0 ]] && echo "$sub"
+    done
+}
+
+# Check if files changed since marker
+_deploy_files_changed() {
+    local pattern="$1"
+    local marker_file="$2"
+    [[ ! -f "$marker_file" ]] && return 0
+    find $pattern -newer "$marker_file" 2>/dev/null | head -1
+}
+
+# Check if subtarget should run
+_deploy_should_run() {
+    local subtarget="$1"
+    local force="${2:-0}"
+    [[ "$force" -eq 1 ]] && return 0
+    local pattern="${DEPLOY_SUBTARGET_FILES[$subtarget]}"
+    [[ -z "$pattern" ]] && return 0
+    local marker="$DEPLOY_TARGET_LOCAL_DIR/deploy-state/${subtarget}.marker"
+    [[ ! -f "$marker" ]] && return 0
+    [[ -n "$(_deploy_files_changed "$DEPLOY_TARGET_LOCAL_DIR/$pattern" "$marker")" ]] && return 0
+    return 1
+}
+
+# Update deploy marker
+_deploy_update_marker() {
+    local subtarget="${1:-default}"
+    local state_dir="$DEPLOY_TARGET_LOCAL_DIR/deploy-state"
+    mkdir -p "$state_dir"
+    touch "$state_dir/${subtarget}.marker"
+}
+
+# Main target-based push
+deploy_target_push() {
+    local dry_run=0
+    local force=0
+    local specific_cmd=""
+    local args=()
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --dry-run|-n) dry_run=1; shift ;;
+            --force|-f) force=1; shift ;;
+            --cmd|-c) specific_cmd="$2"; shift 2 ;;
+            *) args+=("$1"); shift ;;
+        esac
+    done
+
+    local target_spec="${args[0]}"
+    local env="${args[1]}"
+
+    if [[ -z "$target_spec" || -z "$env" ]]; then
+        echo "Usage: deploy push [--dry-run] [--force] [--cmd <name>] <target>[:{subtargets}] <env>"
+        echo ""
+        echo "Examples:"
+        echo "  deploy push docs prod              # Full deploy"
+        echo "  deploy push docs:{api} prod        # Only api subtarget"
+        echo "  deploy push docs:{*,!tests} prod   # All except tests"
+        echo "  deploy push docs prod --cmd sync   # Run only sync command"
+        return 1
+    fi
+
+    local target predicates
+    read target predicates <<< "$(_deploy_parse_target_spec "$target_spec")"
+
+    deploy_target_load "$target" "$env" || return 1
+
+    DEPLOY_TARGET_REMOTE_DIR="${DEPLOY_TARGET_REMOTE_DIR//\{\{user\}\}/${DEPLOY_TARGET_ENVS[user]}}"
+
+    echo "========================================"
+    echo "Deploy: ${DEPLOY_TARGET[name]:-$target} -> $env"
+    echo "========================================"
+    echo ""
+    echo "Local:  $DEPLOY_TARGET_LOCAL_DIR"
+    echo "Remote: ${DEPLOY_TARGET_ENVS[ssh]}:$DEPLOY_TARGET_REMOTE_DIR"
+    echo "Domain: ${DEPLOY_TARGET_ENVS[domain]:-not set}"
+    [[ "$dry_run" -eq 1 ]] && echo "[DRY RUN]"
+    [[ "$force" -eq 1 ]] && echo "[FORCE]"
+    [[ -n "$predicates" ]] && echo "Subtargets: {$predicates}"
+    [[ -n "$specific_cmd" ]] && echo "Command: $specific_cmd"
+    echo ""
+
+    local _saved_pwd="$PWD"
+    cd "$DEPLOY_TARGET_LOCAL_DIR" || return 1
+
+    if [[ -n "$specific_cmd" ]]; then
+        _deploy_target_run_command "$specific_cmd" "$dry_run" || { cd "$_saved_pwd"; return 1; }
+        [[ "$dry_run" -eq 0 ]] && _deploy_update_marker "cmd-$specific_cmd"
+
+    elif [[ -n "$predicates" ]]; then
+        local subtargets
+        mapfile -t subtargets < <(_deploy_resolve_predicates "$predicates" "$DEPLOY_SUBTARGET_NAMES")
+
+        if [[ ${#subtargets[@]} -eq 0 ]]; then
+            echo "No subtargets matched: {$predicates}"
+            echo "Available: $DEPLOY_SUBTARGET_NAMES"
+            cd "$_saved_pwd"
+            return 1
+        fi
+
+        for sub in "${subtargets[@]}"; do
+            [[ -z "$sub" ]] && continue
+            if ! _deploy_should_run "$sub" "$force"; then
+                echo "[subtarget: $sub] (skipped - no changes)"
+                continue
+            fi
+            echo "[subtarget: $sub]"
+            local cmds="${DEPLOY_SUBTARGET_COMMANDS[$sub]}"
+            for cmd in $cmds; do
+                _deploy_target_run_command "$cmd" "$dry_run" || { cd "$_saved_pwd"; return 1; }
+            done
+            [[ "$dry_run" -eq 0 ]] && _deploy_update_marker "$sub"
+            echo ""
+        done
+
+    elif [[ -n "$DEPLOY_DEFAULTS_COMMANDS" || ${#DEPLOY_TARGET_COMMANDS[@]} -gt 0 ]]; then
+        local cmds_to_run="$DEPLOY_DEFAULTS_COMMANDS"
+        [[ -z "$cmds_to_run" ]] && cmds_to_run="${!DEPLOY_TARGET_COMMANDS[*]}"
+
+        for cmd in $cmds_to_run; do
+            _deploy_target_run_command "$cmd" "$dry_run" || { cd "$_saved_pwd"; return 1; }
+        done
+        [[ "$dry_run" -eq 0 ]] && _deploy_update_marker "default"
+
+    else
+        # Legacy arrays
+        if [[ ${#DEPLOY_LEGACY_PRE[@]} -gt 0 ]]; then
+            echo "[pre]"
+            for cmd in "${DEPLOY_LEGACY_PRE[@]}"; do
+                _deploy_target_exec_legacy "$cmd" "$dry_run" || { cd "$_saved_pwd"; return 1; }
+            done
+            echo ""
+        fi
+        if [[ ${#DEPLOY_LEGACY_COMMANDS[@]} -gt 0 ]]; then
+            echo "[commands]"
+            for cmd in "${DEPLOY_LEGACY_COMMANDS[@]}"; do
+                _deploy_target_exec_legacy "$cmd" "$dry_run" || { cd "$_saved_pwd"; return 1; }
+            done
+            echo ""
+        fi
+        if [[ ${#DEPLOY_LEGACY_POST[@]} -gt 0 ]]; then
+            echo "[post]"
+            for cmd in "${DEPLOY_LEGACY_POST[@]}"; do
+                _deploy_target_exec_legacy "$cmd" "$dry_run" || { cd "$_saved_pwd"; return 1; }
+            done
+            echo ""
+        fi
+    fi
+
+    cd "$_saved_pwd"
+
+    echo "========================================"
+    if [[ "$dry_run" -eq 1 ]]; then
+        echo "[DRY RUN] Would deploy: ${DEPLOY_TARGET[name]:-$target} -> $env"
+    else
+        echo "Done: ${DEPLOY_TARGET[name]:-$target} -> $env"
+    fi
+    [[ -n "${DEPLOY_TARGET_ENVS[domain]}" ]] && echo "URL: https://${DEPLOY_TARGET_ENVS[domain]}"
+    echo "========================================"
+}
+
+# Show target config
+deploy_target_show() {
+    local target_spec="$1"
+    local env="${2:-prod}"
+
+    local target predicates
+    read target predicates <<< "$(_deploy_parse_target_spec "$target_spec")"
+
+    deploy_target_load "$target" "$env" || return 1
+
+    echo "Target: ${DEPLOY_TARGET[name]:-$target}"
+    echo "Local:  $DEPLOY_TARGET_LOCAL_DIR"
+    echo "Remote: $DEPLOY_TARGET_REMOTE_DIR"
+    echo ""
+    echo "Environment: $env"
+    for key in "${!DEPLOY_TARGET_ENVS[@]}"; do
+        echo "  $key = ${DEPLOY_TARGET_ENVS[$key]}"
+    done
+    echo ""
+
+    if [[ ${#DEPLOY_TARGET_COMMANDS[@]} -gt 0 ]]; then
+        echo "Commands:"
+        for cmd in "${!DEPLOY_TARGET_COMMANDS[@]}"; do
+            local lines=$(echo "${DEPLOY_TARGET_COMMANDS[$cmd]}" | wc -l | tr -d ' ')
+            echo "  $cmd ($lines lines)"
+        done
+        echo ""
+    fi
+
+    if [[ -n "$DEPLOY_SUBTARGET_NAMES" ]]; then
+        echo "Subtargets:"
+        for sub in $DEPLOY_SUBTARGET_NAMES; do
+            echo "  $sub: ${DEPLOY_SUBTARGET_COMMANDS[$sub]}"
+        done
+        echo ""
+    fi
+
+    if [[ -n "$predicates" ]]; then
+        echo "Predicate resolution: {$predicates}"
+        mapfile -t resolved < <(_deploy_resolve_predicates "$predicates" "$DEPLOY_SUBTARGET_NAMES")
+        echo "  -> ${resolved[*]}"
+    fi
+}
 
 # =============================================================================
 # REMOTE TSM MANAGEMENT
@@ -546,5 +1035,13 @@ deploy_perms() {
 # EXPORTS
 # =============================================================================
 
+# Target-based deployment
+export -f deploy_target_load deploy_target_push deploy_target_show
+export -f _deploy_target_parse_config _deploy_target_expand
+export -f _deploy_target_run_command _deploy_target_exec_legacy
+export -f _deploy_parse_target_spec _deploy_resolve_predicates
+export -f _deploy_files_changed _deploy_should_run _deploy_update_marker
+
+# Legacy project-based deployment
 export -f deploy_tsm deploy_nginx deploy_exec
 export -f deploy_push deploy_git deploy_sync deploy_perms

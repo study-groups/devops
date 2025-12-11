@@ -8,6 +8,7 @@
 
 source "$TETRA_SRC/bash/utils/module_init.sh"
 source "$TETRA_SRC/bash/utils/function_helpers.sh"
+source "$TETRA_SRC/bash/utils/toml_parser.sh"
 
 tetra_module_init_with_alias "deploy" "DEPLOY" "nginx:logs:history"
 
@@ -35,11 +36,12 @@ DEPLOY_SSH_OPTIONS="${DEPLOY_SSH_OPTIONS:--o BatchMode=yes -o ConnectTimeout=$DE
 # =============================================================================
 
 # Parse deploy flags from args, return remaining args via DEPLOY_ARGS array
-# Sets: DEPLOY_DRY_RUN=1, DEPLOY_WITH_ENV=1, DEPLOY_FORCE=1
+# Sets: DEPLOY_DRY_RUN=1, DEPLOY_WITH_ENV=1, DEPLOY_FORCE=1, DEPLOY_CMD=""
 _deploy_parse_opts() {
     DEPLOY_DRY_RUN=0
     DEPLOY_WITH_ENV=0
     DEPLOY_FORCE=0
+    DEPLOY_CMD=""
     DEPLOY_ARGS=()
 
     while [[ $# -gt 0 ]]; do
@@ -55,6 +57,10 @@ _deploy_parse_opts() {
             --force|-f)
                 DEPLOY_FORCE=1
                 shift
+                ;;
+            --cmd|-c)
+                DEPLOY_CMD="$2"
+                shift 2
                 ;;
             *)
                 DEPLOY_ARGS+=("$1")
