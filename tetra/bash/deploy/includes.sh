@@ -16,6 +16,39 @@ tetra_module_init_with_alias "deploy" "DEPLOY" "nginx:logs:history"
 tetra_source_if_exists "${TETRA_SRC}/bash/org/org.sh"
 
 # =============================================================================
+# PS1 PROMPT WITH ORG NAME
+# =============================================================================
+
+# Add colorful org name to PS1 when deploy is loaded
+_deploy_setup_prompt() {
+    local org=$(org_active 2>/dev/null)
+    [[ -z "$org" || "$org" == "none" ]] && return
+
+    # Colors (using \[ \] for proper readline handling)
+    local CYAN='\[\033[1;36m\]'
+    local MAGENTA='\[\033[1;35m\]'
+    local YELLOW='\[\033[1;33m\]'
+    local RESET='\[\033[0m\]'
+
+    # Only add if not already present
+    if [[ "$PS1" != *"@$org"* && "$PS1" != *"[$org]"* ]]; then
+        # Save original PS1 for restoration
+        DEPLOY_ORIG_PS1="${DEPLOY_ORIG_PS1:-$PS1}"
+        # Prepend org name in cyan
+        PS1="${CYAN}[$org]${RESET} ${PS1}"
+    fi
+}
+
+# Restore original PS1
+_deploy_restore_prompt() {
+    [[ -n "$DEPLOY_ORIG_PS1" ]] && PS1="$DEPLOY_ORIG_PS1"
+    unset DEPLOY_ORIG_PS1
+}
+
+# Set up prompt now
+_deploy_setup_prompt
+
+# =============================================================================
 # CONFIGURATION DEFAULTS
 # Centralized hardcoded values - override via environment if needed
 # =============================================================================
