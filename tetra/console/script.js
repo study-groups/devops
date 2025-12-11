@@ -1,37 +1,46 @@
 console.log('SCRIPT LOADING...');
 document.addEventListener('DOMContentLoaded', function () {
     console.log('DOM LOADED - SCRIPT RUNNING');
-    const term = new Terminal({
-        cursorBlink: true,
-        fontSize: 20,
-        fontFamily: 'JetBrains Mono, SF Mono, Monaco, Inconsolata, monospace',
-        theme: {
-            background: '#1e1e1e',
-            foreground: '#d4d4d4',
-        }
-    });
-    const fitAddon = new FitAddon.FitAddon();
-    term.loadAddon(fitAddon);
-    term.open(document.getElementById('terminal'));
-    fitAddon.fit();
 
-    // Connection state variables (declare first)
+    // =================================================================
+    // TERMINAL IFRAME SETUP
+    // =================================================================
+    const terminal = new TetraTerminal('terminal-iframe');
+
+    // Connection state variables
     let currentConnection = null;
     let connectionMode = 'local';
     let isConnected = false;
-    let connectionStatus = 'idle'; // idle, connecting, connected, error
+    let connectionStatus = 'idle';
 
-    // Load environment defaults (commented out for now)
-    // loadEnvironmentDefaults();
+    // Terminal event handlers
+    terminal.on('ready', () => {
+        console.log('Terminal iframe ready');
+        terminal.writeln('\r\n\x1b[36mTetra Console initialized\x1b[0m');
+        terminal.writeln('\x1b[33mLocal Server: Direct shell on Tetra server | Remote SSH: Connect to external hosts\x1b[0m');
+        terminal.writeln('\x1b[32mCurrent context: TKM (Tetra Key Manager)\x1b[0m\r\n');
+    });
 
-    // Add welcome message to terminal
-    term.writeln('\r\n\x1b[36m🚀 Tetra Console initialized\x1b[0m');
-    term.writeln('\x1b[33mLocal Server: Direct shell on Tetra server | Remote SSH: Connect to external hosts\x1b[0m');
-    term.writeln('\x1b[32mCurrent context: TKM (Tetra Key Manager)\x1b[0m\r\n');
+    terminal.on('connected', (data) => {
+        console.log('Terminal connected:', data);
+        currentConnection = data.mode;
+        setConnectionStatus('connected');
+    });
 
-    // WebSocket connections
-    let sshWs = null;
-    let localSocket = null;
+    terminal.on('disconnected', () => {
+        console.log('Terminal disconnected');
+        currentConnection = null;
+        setConnectionStatus('idle');
+    });
+
+    terminal.on('error', (data) => {
+        console.error('Terminal error:', data.message);
+        setConnectionStatus('error');
+    });
+
+    terminal.on('output', (data) => {
+        // Optional: log terminal output
+    });
 
     // --- State Machine ---
     const states = {
@@ -152,7 +161,6 @@ document.addEventListener('DOMContentLoaded', function () {
     connectionModeSelect.addEventListener('change', (e) => {
         connectionMode = e.target.value;
 
-        // Visual test - change title to show it's working
         document.querySelector('h1').textContent = `Tetra Console (${connectionMode.toUpperCase()})`;
 
         if (connectionMode === 'ssh') {
@@ -169,7 +177,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- Connection Management ---
     function connect() {
         if (isConnected) {
-            term.writeln('\r\n\x1b[33m⚠️ Already connected\x1b[0m');
+            terminal.writeln('\r\n\x1b[33mAlready connected\x1b[0m');
             return;
         }
 
@@ -183,32 +191,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function connectLocal() {
-        term.writeln('\r\n\x1b[36m🔗 Connecting to local Tetra server shell...\x1b[0m');
-
-        try {
-            localSocket = io();
-
-            localSocket.on('connect', () => {
-                term.writeln('\r\n\x1b[32m✅ Connected to local Tetra server\x1b[0m');
-                currentConnection = 'local';
-                setConnectionStatus('connected');
-            });
-
-            localSocket.on('output', (data) => {
-                term.write(data);
-            });
-
-            localSocket.on('disconnect', () => {
-                term.writeln('\r\n\x1b[33m🔌 Direct shell disconnected\x1b[0m');
-                currentConnection = null;
-                setConnectionStatus('idle');
-            });
-
-        } catch (error) {
-            term.writeln('\r\n\x1b[31m❌ Failed to connect to local terminal\x1b[0m');
-            console.error('Local connection error:', error);
-            setConnectionStatus('error');
-        }
+        terminal.writeln('\r\n\x1b[36mConnecting to local Tetra server shell...\x1b[0m');
+        terminal.connectLocal();
     }
 
     function connectSSH() {
@@ -217,117 +201,27 @@ document.addEventListener('DOMContentLoaded', function () {
         const expires = localStorage.getItem('ssh_token_expires');
         const hasValidToken = token && expires && Date.now() < parseInt(expires);
 
-        // Check if we have either a token or direct key input
         const hasKey = context.privateKey && context.privateKey !== '[Key loaded from token]';
         if (!context.host || !context.username || (!hasKey && !hasValidToken)) {
-            term.writeln('\r\n\x1b[31m❌ SSH host, username, and private key (or saved token) are required\x1b[0m');
+            terminal.writeln('\r\n\x1b[31mSSH host, username, and private key (or saved token) are required\x1b[0m');
+            setConnectionStatus('error');
             return;
         }
 
-        term.writeln('\r\n\x1b[36m🔗 Connecting to SSH...\x1b[0m');
+        terminal.writeln('\r\n\x1b[36mConnecting to SSH...\x1b[0m');
 
-        try {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/admin/tetra/ssh-bridge`;
-            sshWs = new WebSocket(wsUrl);
-
-            sshWs.onopen = () => {
-                term.writeln('\r\n\x1b[32m✅ WebSocket connected\x1b[0m');
-
-                // Send auth message with token if available, otherwise use direct key
-                if (hasValidToken) {
-                    // When using token, only send token - no private key data
-                    const tokenMessage = {
-                        type: 'auth',
-                        token: token,
-                        port: context.port
-                    };
-                    console.log('Sending token auth message:', tokenMessage);
-                    sshWs.send(JSON.stringify(tokenMessage));
-                    term.writeln('\r\n\x1b[33m🔐 Using saved SSH key...\x1b[0m');
-                } else {
-                    // When using direct key, send all key data
-                    const keyMessage = {
-                        type: 'auth',
-                        host: context.host,
-                        username: context.username,
-                        privateKey: context.privateKey,
-                        passphrase: context.passphrase || undefined,
-                        port: context.port
-                    };
-                    console.log('Sending direct key auth message:', { ...keyMessage, privateKey: '[REDACTED]' });
-                    sshWs.send(JSON.stringify(keyMessage));
-                    term.writeln('\r\n\x1b[33m🔐 Using direct SSH key...\x1b[0m');
-                }
-            };
-
-            sshWs.onmessage = (event) => {
-                try {
-                    const message = JSON.parse(event.data);
-                    handleSSHMessage(message);
-                } catch (err) {
-                    console.error('Error parsing SSH message:', err);
-                }
-            };
-
-            sshWs.onclose = () => {
-                term.writeln('\r\n\x1b[33m🔌 SSH connection closed\x1b[0m');
-                currentConnection = null;
-                setConnectionStatus('idle');
-            };
-
-            sshWs.onerror = (error) => {
-                term.writeln('\r\n\x1b[31m❌ SSH connection error\x1b[0m');
-                console.error('SSH WebSocket error:', error);
-                setConnectionStatus('error');
-            };
-
-        } catch (error) {
-            term.writeln('\r\n\x1b[31m❌ Failed to create SSH connection\x1b[0m');
-            console.error('SSH connection error:', error);
-            setConnectionStatus('error');
-        }
+        terminal.connectSSH({
+            host: context.host,
+            user: context.username,
+            token: hasValidToken ? token : undefined
+        });
     }
 
     function disconnect() {
-        if (currentConnection === 'local' && localSocket) {
-            localSocket.disconnect();
-            localSocket = null;
-        } else if (currentConnection === 'ssh' && sshWs) {
-            sshWs.send(JSON.stringify({ type: 'disconnect' }));
-            sshWs.close();
-            sshWs = null;
-        }
-
+        terminal.disconnect();
         currentConnection = null;
         setConnectionStatus('idle');
-        term.writeln('\r\n\x1b[33m🔌 Disconnected\x1b[0m');
-    }
-
-    // --- Message Handlers ---
-    function handleSSHMessage(message) {
-        switch (message.type) {
-            case 'ready':
-                term.writeln('\r\n\x1b[32m🚀 SSH Bridge ready\x1b[0m');
-                break;
-            case 'connected':
-                term.writeln(`\r\n\x1b[32m✅ ${message.message}\x1b[0m`);
-                currentConnection = 'ssh';
-                setConnectionStatus('connected');
-                break;
-            case 'output':
-                term.write(message.data);
-                break;
-            case 'error':
-                term.writeln(`\r\n\x1b[31m❌ ${message.message}\x1b[0m`);
-                setConnectionStatus('error');
-                break;
-            case 'disconnected':
-                term.writeln(`\r\n\x1b[33m🔌 ${message.message}\x1b[0m`);
-                currentConnection = null;
-                setConnectionStatus('idle');
-                break;
-        }
+        terminal.writeln('\r\n\x1b[33mDisconnected\x1b[0m');
     }
 
     // --- Panel Management Functions ---
@@ -357,6 +251,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         updateLayout();
         updateDescriptionVisibility();
+
+        // Resize terminal iframe when toggling
+        if (panelType === 'terminal') {
+            setTimeout(() => terminal.fit(), 300);
+        }
     }
 
     function updateDescriptionVisibility() {
@@ -373,63 +272,44 @@ document.addEventListener('DOMContentLoaded', function () {
         const actionsVisible = actionPanel.classList.contains('panel-visible');
         const terminalVisible = terminalContainer.classList.contains('panel-visible');
 
-        // Remove all layout classes
         tetraContainer.classList.remove('layout-terminal-only', 'layout-one-panel', 'layout-two-panels');
 
-        // Count visible panels
         const visiblePanels = [connectionVisible, actionsVisible].filter(Boolean).length;
 
         if (!terminalVisible) {
-            // Terminal hidden - panels can span full width
             if (visiblePanels === 0) {
-                // No panels visible
                 tetraContainer.style.gridTemplateAreas = '"header header" "output output"';
             } else if (visiblePanels === 1) {
-                // One panel visible, spans full width
                 tetraContainer.style.gridTemplateAreas = '"header header" "panel panel" "output output"';
-                // Assign the visible panel to "panel" area
                 if (connectionVisible) contextPanel.style.gridArea = 'panel';
                 if (actionsVisible) actionPanel.style.gridArea = 'panel';
             } else {
-                // Two panels visible
                 tetraContainer.style.gridTemplateAreas = '"header header" "context actions" "output output"';
-                // Reset to normal grid areas
                 contextPanel.style.gridArea = 'context';
                 actionPanel.style.gridArea = 'actions';
             }
         } else {
-            // Terminal visible
             if (visiblePanels === 0) {
-                // Only terminal visible
                 tetraContainer.style.gridTemplateAreas = '"header header" "terminal terminal" "output output"';
             } else if (visiblePanels === 1) {
-                // One panel + terminal
                 tetraContainer.style.gridTemplateAreas = '"header header" "panel panel" "terminal terminal" "output output"';
-                // Assign the visible panel to "panel" area
                 if (connectionVisible) contextPanel.style.gridArea = 'panel';
                 if (actionsVisible) actionPanel.style.gridArea = 'panel';
             } else {
-                // Two panels + terminal (normal layout)
                 tetraContainer.style.gridTemplateAreas = '"header header" "context actions" "terminal terminal" "output output"';
-                // Reset to normal grid areas
                 contextPanel.style.gridArea = 'context';
                 actionPanel.style.gridArea = 'actions';
             }
         }
 
-        // Resize terminal to fit new layout
-        setTimeout(() => {
-            if (typeof fitAddon !== 'undefined') {
-                fitAddon.fit();
-            }
-        }, 300);
+        // Resize terminal iframe to fit new layout
+        setTimeout(() => terminal.fit(), 300);
     }
 
     function setContext(context) {
         const previousContext = currentContext;
         currentContext = context;
 
-        // Update active badge
         contextBadges.forEach(badge => {
             badge.classList.remove('active');
             if (badge.dataset.context === context) {
@@ -437,7 +317,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        // Update actions title and buttons
         const config = contextConfigs[context];
         if (config) {
             actionsTitle.textContent = config.title;
@@ -448,13 +327,11 @@ document.addEventListener('DOMContentLoaded', function () {
             updateActionButtons(config.actions);
         }
 
-        // Add terminal message for context switch (except initial load)
         if (previousContext !== context && previousContext !== undefined) {
-            term.writeln(`\r\n\x1b[36m📋 Context switched to ${context} (${config.fullName})\x1b[0m`);
-            term.writeln(`\x1b[32m${config.description}\x1b[0m`);
+            terminal.writeln(`\r\n\x1b[36mContext switched to ${context} (${config.fullName})\x1b[0m`);
+            terminal.writeln(`\x1b[32m${config.description}\x1b[0m`);
         }
 
-        // Add log entry
         addLogEntry(`Context switched to ${context}`, 'info');
     }
 
@@ -482,7 +359,6 @@ document.addEventListener('DOMContentLoaded', function () {
             actionButtons.appendChild(button);
         });
 
-        // Update button references for updateUI function
         updateButtonReferences();
     }
 
@@ -501,10 +377,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
         addLogEntry(message, 'info');
 
-        // Send command to terminal based on connection type
         if (isConnected) {
-            const command = `echo "Executing ${action} for ${currentContext}..."\n`;
-            sendCommand(command);
+            const command = `echo "Executing ${action} for ${currentContext}..."`;
+            terminal.execute(command);
         }
     }
 
@@ -523,17 +398,6 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             outputLog.classList.remove('panel-hidden');
             outputLog.classList.add('panel-visible');
-        }
-    }
-
-    function sendCommand(command) {
-        if (currentConnection === 'local' && localSocket) {
-            localSocket.emit('input', command);
-        } else if (currentConnection === 'ssh' && sshWs) {
-            sshWs.send(JSON.stringify({
-                type: 'input',
-                data: command
-            }));
         }
     }
 
@@ -558,7 +422,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (response.ok) {
                 const result = await response.json();
                 localStorage.setItem('ssh_token', result.token);
-                localStorage.setItem('ssh_token_expires', Date.now() + (30 * 60 * 1000)); // 30 minutes
+                localStorage.setItem('ssh_token_expires', Date.now() + (30 * 60 * 1000));
                 addLogEntry('SSH key saved for 30 minutes', 'success');
                 updateKeyButtonStates();
             } else {
@@ -594,7 +458,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 const result = await response.json();
                 document.getElementById('ssh-host').value = result.host;
                 document.getElementById('ssh-username').value = result.username;
-                // Note: Private key is not returned for security, but will be used via token
                 document.getElementById('ssh-private-key').value = '[Key loaded from token]';
                 addLogEntry('SSH key loaded successfully', 'success');
                 updateKeyButtonStates();
@@ -644,33 +507,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // --- Utility Functions ---
-    async function loadEnvironmentDefaults() {
-        try {
-            const response = await fetch('/api/env');
-            if (response.ok) {
-                const env = await response.json();
-
-                // Update project directory for local mode to use $HOME/src/pixeljam
-                const projectDirInput = document.getElementById('project-dir');
-                if (projectDirInput.value === '/home/dev/src/pixeljam') {
-                    projectDirInput.value = env.defaultProjectDir;
-                }
-            }
-        } catch (error) {
-            console.warn('Could not load environment defaults:', error);
-        }
-    }
-
     function getSSHContext() {
-        // Clean and validate SSH host input
         const rawHost = document.getElementById('ssh-host').value.trim();
         let cleanHost = rawHost;
 
-        // Remove protocol prefixes
         cleanHost = cleanHost.replace(/^https?:\/\//, '');
         cleanHost = cleanHost.replace(/^ssh:\/\//, '');
-
-        // Remove trailing slashes and paths
         cleanHost = cleanHost.split('/')[0];
 
         return {
@@ -697,20 +539,20 @@ document.addEventListener('DOMContentLoaded', function () {
         switch (connectionStatus) {
             case 'idle':
                 statusText = 'Idle';
-                statusColor = '#c586c0'; // Purple
+                statusColor = '#c586c0';
                 break;
             case 'connecting':
                 statusText = 'Connecting...';
-                statusColor = '#f1c21b'; // Yellow
+                statusColor = '#f1c21b';
                 break;
             case 'connected':
                 const connectionType = currentConnection === 'local' ? 'Server' : 'SSH';
                 statusText = `Connected (${connectionType})`;
-                statusColor = '#42be65'; // Green
+                statusColor = '#42be65';
                 break;
             case 'error':
                 statusText = 'Connection Error';
-                statusColor = '#fa4d56'; // Red
+                statusColor = '#fa4d56';
                 break;
         }
 
@@ -722,25 +564,20 @@ document.addEventListener('DOMContentLoaded', function () {
         connectionStatus = status;
         updateConnectionStatus();
 
-        // Update connection flag
         isConnected = (status === 'connected');
 
-        // Update UI
         updateUI();
 
-        // Log status change
         const logType = status === 'connected' ? 'success' :
                        status === 'error' ? 'error' : 'info';
         addLogEntry(`Connection status: ${status}`, logType);
     }
 
     function updateUI() {
-        // Status button (handles both connect and disconnect)
         if (buttons.statusConnect) {
             buttons.statusConnect.disabled = connectionStatus === 'connecting';
         }
 
-        // Workflow buttons - only enabled when connected
         const workflowButtons = [buttons.merge, buttons.prep, buttons.build, buttons.restart, buttons.stop];
 
         if (!isConnected) {
@@ -750,7 +587,6 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // Enable workflow buttons based on current state
         workflowButtons.forEach(btn => {
             if (btn) btn.disabled = true;
         });
@@ -768,12 +604,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function runAction(action, scriptName) {
         if (!isConnected) {
-            term.writeln('\r\n\x1b[31m❌ Not connected. Please connect first.\x1b[0m');
+            terminal.writeln('\r\n\x1b[31mNot connected. Please connect first.\x1b[0m');
             return;
         }
 
         if (states[currentState]?.button !== `btn-${action}`) {
-            term.writeln(`\r\n\x1b[31mError: Cannot run '${action}' from state '${currentState}'.\x1b[0m`);
+            terminal.writeln(`\r\n\x1b[31mError: Cannot run '${action}' from state '${currentState}'.\x1b[0m`);
             return;
         }
 
@@ -782,47 +618,13 @@ document.addEventListener('DOMContentLoaded', function () {
             .map(([key, value]) => `export ${key}='${value}';`)
             .join(' ');
 
-        const command = `${envExports} ./scripts/${scriptName}\\n`;
+        const command = `${envExports} ./scripts/${scriptName}`;
 
         currentState = states[currentState].next;
         updateUI();
 
-        // Send command based on connection type
-        if (currentConnection === 'local' && localSocket) {
-            localSocket.emit('input', command);
-        } else if (currentConnection === 'ssh' && sshWs && sshWs.readyState === WebSocket.OPEN) {
-            sshWs.send(JSON.stringify({
-                type: 'input',
-                data: command
-            }));
-        }
+        terminal.execute(command);
     }
-
-    // --- Terminal Event Handlers ---
-    term.onData((data) => {
-        if (!isConnected) return;
-
-        if (currentConnection === 'local' && localSocket) {
-            localSocket.emit('input', data);
-        } else if (currentConnection === 'ssh' && sshWs && sshWs.readyState === WebSocket.OPEN) {
-            sshWs.send(JSON.stringify({
-                type: 'input',
-                data: data
-            }));
-        }
-    });
-
-    // Handle terminal resize
-    window.addEventListener('resize', () => {
-        fitAddon.fit();
-        if (currentConnection === 'ssh' && sshWs && sshWs.readyState === WebSocket.OPEN && isConnected) {
-            sshWs.send(JSON.stringify({
-                type: 'resize',
-                rows: term.rows,
-                cols: term.cols
-            }));
-        }
-    });
 
     // --- Status Button Handler ---
     function handleStatusButtonClick() {
@@ -831,7 +633,6 @@ document.addEventListener('DOMContentLoaded', function () {
         } else if (connectionStatus === 'connected') {
             disconnect();
         }
-        // Do nothing if connecting (prevent double-clicks)
     }
 
     // --- Button Event Listeners ---
@@ -842,9 +643,14 @@ document.addEventListener('DOMContentLoaded', function () {
     buttons.restart.addEventListener('click', () => runAction('restart', 'restart.sh'));
     buttons.stop.addEventListener('click', () => runAction('stop', 'stop.sh'));
 
+    // --- Handle window resize ---
+    window.addEventListener('resize', () => {
+        terminal.fit();
+    });
+
     // --- Initialize ---
-    term.writeln('🚀 Tetra Dual-Mode Console');
-    term.writeln('Select Local Shell or SSH Remote, then click "Connect Terminal"');
+    terminal.writeln('Tetra Dual-Mode Console');
+    terminal.writeln('Select Local Shell or SSH Remote, then click "Connect Terminal"');
     updateUI();
     updateConnectionStatus();
 });
