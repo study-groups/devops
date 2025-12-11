@@ -23,16 +23,17 @@ vox_generate_tts() {
     local content_hash=$(echo "$text" | vox_hash_content)
     local original_char_count=${#text}
 
-    # Get API key
+    # Get API key (use QA's config - shared across tetra)
     local api_key="${OPENAI_API_KEY:-}"
-    if [[ -z "$api_key" && -f "$HOME/.config/vox/openai_key" ]]; then
-        api_key=$(cat "$HOME/.config/vox/openai_key")
+    if [[ -z "$api_key" ]]; then
+        : "${OPENAI_API_FILE:=$QA_DIR/api_key}"
+        [[ -f "$OPENAI_API_FILE" ]] && api_key=$(cat "$OPENAI_API_FILE")
     fi
 
     if [[ -z "$api_key" ]]; then
         echo "Error: OPENAI_API_KEY not set" >&2
-        echo "Set it with: export OPENAI_API_KEY='sk-...'" >&2
-        echo "Or save to: ~/.config/vox/openai_key" >&2
+        echo "Set it with: qa config apikey <key>" >&2
+        echo "Or export OPENAI_API_KEY='sk-...'" >&2
         return 1
     fi
 

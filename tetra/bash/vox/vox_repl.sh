@@ -127,13 +127,13 @@ vox_repl_set_voice() {
     fi
 
     case "$voice" in
-        alloy|echo|fable|onyx|nova|shimmer)
+        alloy|ash|coral|echo|fable|nova|onyx|sage|shimmer)
             export VOX_DEFAULT_VOICE="$voice"
             echo "Default voice set to: $voice"
             ;;
         *)
             echo "Unknown voice: $voice"
-            echo "Valid voices: alloy, echo, fable, onyx, nova, shimmer"
+            echo "Valid voices: alloy, ash, coral, echo, fable, nova, onyx, sage, shimmer"
             return 1
             ;;
     esac

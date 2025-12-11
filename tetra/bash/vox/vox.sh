@@ -18,6 +18,8 @@ source "$VOX_SRC/vox_core.sh"
 source "$VOX_SRC/vox_sound.sh" 2>/dev/null || true
 source "$VOX_SRC/vox_dry_run.sh"
 source "$VOX_SRC/vox_repl.sh"
+source "$VOX_SRC/vox_analyze.sh" 2>/dev/null || true
+source "$VOX_SRC/vox_tui_app.sh" 2>/dev/null || true
 
 # Main vox command
 vox() {
@@ -216,7 +218,7 @@ EOF
             esac
             ;;
 
-        dry-run|dry|analyze)
+        dry-run|dry)
             # Dry-run analysis - no API calls
             local subcmd="${1:-help}"
             shift || true
@@ -353,9 +355,71 @@ EOF
             esac
             ;;
 
+        analyze|an)
+            # Audio analysis using tau filter bank
+            local subcmd="${1:-help}"
+            shift || true
+
+            case "$subcmd" in
+                file)
+                    local audio_file="$1"
+                    local output_file="$2"
+                    if [[ -z "$audio_file" ]]; then
+                        echo "Usage: vox analyze file <audio.mp3> [output.json]" >&2
+                        return 1
+                    fi
+                    vox_analyze "$audio_file" "$output_file"
+                    ;;
+                summary)
+                    local audio_file="$1"
+                    if [[ -z "$audio_file" ]]; then
+                        echo "Usage: vox analyze summary <audio.mp3>" >&2
+                        return 1
+                    fi
+                    vox_analyze_summary "$audio_file"
+                    ;;
+                batch)
+                    local pattern="$1"
+                    local output_dir="$2"
+                    vox_analyze_batch "$pattern" "$output_dir"
+                    ;;
+                help|*)
+                    cat <<'EOF'
+vox analyze - Audio analysis using tau filter bank
+
+Usage: vox analyze <command> [options]
+
+Commands:
+  file <audio> [out]   Full analysis to JSON
+  summary <audio>      Quick summary (F0, onsets, energy)
+  batch <pattern> [dir] Batch analyze multiple files
+
+Analysis includes:
+  - F0 estimation via matched filter bank (80-270Hz bands)
+  - Formant energy (F1/F2/F3 bands)
+  - Onset detection (phoneme boundaries via tscale)
+  - Spectral tilt (high/low frequency ratio)
+
+Requires: tau (TAU_SRC must point to tau installation)
+
+Examples:
+  vox analyze file output.mp3
+  vox analyze summary output.mp3
+  vox analyze batch "*.mp3" ./analysis/
+EOF
+                    ;;
+            esac
+            ;;
+
         repl)
             # Interactive REPL
             vox_repl_main
+            ;;
+
+        tui)
+            # Full TUI application
+            local audio_file="$1"
+            vox_app_main "$audio_file"
             ;;
 
         help|h|--help|-h)
@@ -374,6 +438,11 @@ TTS Commands:
                         - ID mode: vox generate sally qa:1728756234 -o file.mp3
 
 Analysis Commands:
+  analyze <subcommand>  Audio analysis using tau filter bank
+                        - file <audio> [out]       Full JSON analysis
+                        - summary <audio>          Quick F0/onset summary
+                        - batch <pattern> [dir]    Batch analyze files
+                        Use 'vox analyze help' for details
   dry-run <subcommand>  Analyze inputs without making API calls
                         - qa <ref> [voice]         Analyze QA reference
                         - file <path> [voice]      Analyze file
@@ -382,6 +451,7 @@ Analysis Commands:
                         Use 'vox dry-run help' for details
 
 Interactive:
+  tui [file]            Full TUI with waveform, timeline, formants
   repl                  Start interactive REPL (tsm-style interface)
 
 List Commands:
@@ -433,12 +503,13 @@ Examples:
   echo "bd sd cp hh" | vox sound generate --output beat.wav
 
 Voices:
-  alloy, echo, fable, onyx, nova, shimmer
+  alloy, ash, coral, echo, fable, nova, onyx, sage, shimmer
 
 Environment:
-  OPENAI_API_KEY       OpenAI API key for TTS
+  OPENAI_API_KEY       OpenAI API key (or use: qa config apikey <key>)
   VOX_DIR              Data directory (default: $TETRA_DIR/vox)
-  QA_DIR               QA database directory (for qa: references)
+  QA_DIR               QA database directory (shares api_key with vox)
+  TAU_SRC              tau installation (for analyze command)
 EOF
             ;;
 
