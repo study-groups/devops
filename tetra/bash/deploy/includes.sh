@@ -15,9 +15,6 @@ tetra_module_init_with_alias "deploy" "DEPLOY" "nginx:logs:history"
 # Source org dependency
 tetra_source_if_exists "${TETRA_SRC}/bash/org/org.sh"
 
-# Source project module (internal, for deploy subcommands)
-tetra_source_if_exists "${TETRA_SRC}/bash/project/includes.sh"
-
 # =============================================================================
 # CONFIGURATION DEFAULTS
 # Centralized hardcoded values - override via environment if needed
@@ -86,7 +83,7 @@ _deploy_validate_args() {
 
 # Combined setup: parse opts, validate args, load target
 # Usage: _deploy_setup "command_name" "$@" || return 1
-# After call: target, env, dry_run, with_env, force variables are set, TGT_* loaded
+# After call: target, env, dry_run, with_env, force variables are set
 _deploy_setup() {
     local cmd="$1"
     shift
@@ -99,24 +96,6 @@ _deploy_setup() {
     dry_run=$DEPLOY_DRY_RUN
     with_env=$DEPLOY_WITH_ENV
     force=$DEPLOY_FORCE
-
-    # Try new target system first, fall back to legacy
-    if ! deploy_target_load "$target" 2>/dev/null; then
-        # Fallback: try old project loader for backward compat
-        if type deploy_toml_load &>/dev/null && deploy_toml_load "$target" 2>/dev/null; then
-            # Map old PROJ_* to new TGT_* for compatibility
-            TGT_NAME="$PROJ_NAME"
-            TGT_REPO="$PROJ_GIT_REPO"
-            TGT_WWW="$PROJ_PATH_WWW"
-            TGT_PATH_LOCAL="$PROJ_PATH_LOCAL"
-        else
-            echo "Failed to load target: $target"
-            return 1
-        fi
-    fi
-
-    # Also load repo config if available
-    deploy_repo_load "$TGT_PATH_LOCAL" 2>/dev/null || true
 
     return 0
 }
@@ -258,21 +237,19 @@ export -f _deploy_generate_proxy_config
 # SOURCE DEPLOY MODULES
 # =============================================================================
 
-# New target-based system
-source "$MOD_SRC/deploy_target.sh"
-source "$MOD_SRC/deploy_repo.sh"
-source "$MOD_SRC/deploy_env.sh"
-source "$MOD_SRC/deploy_preflight.sh"
-
-# Existing modules
-source "$MOD_SRC/deploy_domain.sh"
-source "$MOD_SRC/deploy_nginx.sh"
+# Core implementation (deploy_target_push, deploy_target_load, etc)
 source "$MOD_SRC/deploy_remote.sh"
 
-# Legacy support (keep for backward compat during transition)
+# Optional modules (use tetra_source_if_exists for missing files)
+tetra_source_if_exists "$MOD_SRC/deploy_target.sh"
+tetra_source_if_exists "$MOD_SRC/deploy_repo.sh"
+tetra_source_if_exists "$MOD_SRC/deploy_env.sh"
+tetra_source_if_exists "$MOD_SRC/deploy_preflight.sh"
+tetra_source_if_exists "$MOD_SRC/deploy_domain.sh"
+tetra_source_if_exists "$MOD_SRC/deploy_nginx.sh"
 tetra_source_if_exists "$MOD_SRC/deploy_toml.sh"
 
-# Main dispatcher
+# Main dispatcher (must come after implementations)
 source "$MOD_SRC/deploy.sh"
 
 # Tab completion
