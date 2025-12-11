@@ -24,18 +24,12 @@ _deploy_setup_prompt() {
     local org=$(org_active 2>/dev/null)
     [[ -z "$org" || "$org" == "none" ]] && return
 
-    # Colors (using \[ \] for proper readline handling)
-    local CYAN='\[\033[1;36m\]'
-    local MAGENTA='\[\033[1;35m\]'
-    local YELLOW='\[\033[1;33m\]'
-    local RESET='\[\033[0m\]'
-
     # Only add if not already present
-    if [[ "$PS1" != *"@$org"* && "$PS1" != *"[$org]"* ]]; then
+    if [[ "$PS1" != *"$org"* ]]; then
         # Save original PS1 for restoration
         DEPLOY_ORIG_PS1="${DEPLOY_ORIG_PS1:-$PS1}"
-        # Prepend org name in cyan
-        PS1="${CYAN}[$org]${RESET} ${PS1}"
+        # Prepend org name in cyan (bright cyan = 96, use $'...' for literal escapes)
+        PS1=$'\[\e[1;96m\]'"[$org]"$'\[\e[0m\] '"${PS1}"
     fi
 }
 
