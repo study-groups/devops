@@ -40,6 +40,7 @@ try {
 const PORT = parseInt(process.env.PORT || 1985);
 const OSC_IN = parseInt(process.env.OSC_IN || 1986);
 const TETRA_SRC = process.env.TETRA_SRC || path.join(process.env.HOME, 'src/devops/tetra');
+const TETRA_DIR = process.env.TETRA_DIR || path.join(process.env.HOME, 'tetra');
 const PULSAR_BIN = process.env.PULSAR_BIN || path.join(TETRA_SRC, 'bash/pulsar/engine/bin/pulsar_slots');
 
 // Game bridge registry
@@ -350,7 +351,31 @@ class QuasarServer {
       return;
     }
 
-    // Check if bridge file exists
+    // For pulsar-based games, use the internal PULSAR subprocess
+    if (game === 'fireball' || game === 'pulsar') {
+      if (this.initSlot(slot, 60, 24, 15)) {
+        // Spawn demo sprites for FIREBALL/PULSAR
+        this.spawnSprite(slot, 'pulsar', 30, 12, { len0: 4, dtheta: 0.1, valence: 1 });
+        this.spawnSprite(slot, 'pulsar', 50, 12, { len0: 4, dtheta: -0.1, valence: 2 });
+
+        ws.send(JSON.stringify({
+          t: 'bridge.ready',
+          game,
+          slot,
+          status: 'ok'
+        }));
+      } else {
+        ws.send(JSON.stringify({
+          t: 'bridge.error',
+          game,
+          slot,
+          error: 'Failed to initialize slot (PULSAR binary not found)'
+        }));
+      }
+      return;
+    }
+
+    // For other games, try to spawn their bridge process
     const fs = require('fs');
     if (!bridgeConfig.bridge || !fs.existsSync(bridgeConfig.bridge)) {
       this.log(`Bridge not found: ${bridgeConfig.bridge}`, 'error');
@@ -474,6 +499,264 @@ class QuasarServer {
     const prefix = level === 'error' ? '!' : '*';
     const timestamp = new Date().toISOString().substring(11, 19);
     console.log(`[${timestamp}] ${prefix} ${msg}`);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PULSAR Subprocess Management
+  // ═══════════════════════════════════════════════════════════════
+
+  spawnPulsar() {
+    if (this.pulsar) return true;
+
+    try {
+      const { spawn } = require('child_process');
+      this.pulsar = spawn(PULSAR_BIN, [], {
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+
+      this.pulsar.stdout.on('data', (data) => {
+        this.handlePulsarOutput(data.toString());
+      });
+
+      this.pulsar.stderr.on('data', (data) => {
+        this.log(`PULSAR stderr: ${data.toString().trim()}`, 'info');
+      });
+
+      this.pulsar.on('close', (code) => {
+        this.log(`PULSAR exited with code ${code}`, code ? 'error' : 'info');
+        this.unregisterPulsarFromTSM();
+        this.pulsar = null;
+        // Clear all slots
+        this.slots.fill(null);
+      });
+
+      this.pulsar.on('error', (err) => {
+        this.log(`PULSAR spawn error: ${err.message}`, 'error');
+        this.pulsar = null;
+      });
+
+      this.log(`PULSAR spawned: ${PULSAR_BIN} (PID: ${this.pulsar.pid})`);
+
+      // Register with TSM
+      this.registerPulsarWithTSM();
+
+      return true;
+    } catch (err) {
+      this.log(`Failed to spawn PULSAR: ${err.message}`, 'error');
+      return false;
+    }
+  }
+
+  registerPulsarWithTSM() {
+    if (!this.pulsar) return;
+
+    const TSM_RUNTIME = path.join(TETRA_DIR, 'tsm/runtime');
+    const processDir = path.join(TSM_RUNTIME, 'processes/pulsar');
+    const pidFile = path.join(processDir, 'pulsar.pid');
+    const metaFile = path.join(processDir, 'meta.json');
+
+    // Read next TSM ID and increment
+    let tsmId = 99;
+    const nextIdFile = path.join(TSM_RUNTIME, 'next_id');
+    try {
+      if (fs.existsSync(nextIdFile)) {
+        tsmId = parseInt(fs.readFileSync(nextIdFile, 'utf8').trim()) || 99;
+        fs.writeFileSync(nextIdFile, String(tsmId + 1));
+      }
+    } catch (err) {
+      // Ignore, use default
+    }
+
+    // Build parent name from quasar port
+    const parentName = `quasar-${this.config.httpPort}`;
+
+    const meta = {
+      tsm_id: tsmId,
+      org: 'tetra',
+      name: 'pulsar',
+      pid: this.pulsar.pid,
+      command: PULSAR_BIN,
+      port: null,
+      port_type: 'pipe',
+      cwd: path.dirname(PULSAR_BIN),
+      interpreter: PULSAR_BIN,
+      process_type: 'binary',
+      service_type: 'subprocess',
+      env_file: '',
+      prehook: '',
+      status: 'online',
+      start_time: Math.floor(Date.now() / 1000),
+      restarts: 0,
+      unstable_restarts: 0,
+      parent: parentName,
+      socket_path: null,
+      children: [],
+      git: null
+    };
+
+    try {
+      // Create process directory
+      fs.mkdirSync(processDir, { recursive: true });
+
+      // Write PID file
+      fs.writeFileSync(pidFile, String(this.pulsar.pid));
+
+      // Write meta.json
+      fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
+
+      // Create empty log files
+      fs.writeFileSync(path.join(processDir, 'current.out'), '');
+      fs.writeFileSync(path.join(processDir, 'current.err'), '');
+
+      this.log(`TSM registered: pulsar (TSM ID: ${tsmId}, PID: ${this.pulsar.pid}, parent: ${parentName})`);
+    } catch (err) {
+      this.log(`TSM registration failed: ${err.message}`, 'error');
+    }
+  }
+
+  unregisterPulsarFromTSM() {
+    const processDir = path.join(TETRA_DIR, 'tsm/runtime/processes/pulsar');
+    try {
+      if (fs.existsSync(processDir)) {
+        fs.rmSync(processDir, { recursive: true, force: true });
+        this.log('TSM unregistered: pulsar');
+      }
+    } catch (err) {
+      this.log(`TSM unregister failed: ${err.message}`, 'error');
+    }
+  }
+
+  handlePulsarOutput(data) {
+    this.pulsarBuffer += data;
+
+    // Process complete lines
+    let newlineIdx;
+    while ((newlineIdx = this.pulsarBuffer.indexOf('\n')) !== -1) {
+      const line = this.pulsarBuffer.slice(0, newlineIdx);
+      this.pulsarBuffer = this.pulsarBuffer.slice(newlineIdx + 1);
+      this.handlePulsarLine(line);
+    }
+  }
+
+  handlePulsarLine(line) {
+    // Check for frame data (accumulate until END_FRAME)
+    if (this.currentFrame !== undefined) {
+      if (line === 'END_FRAME') {
+        // Frame complete - broadcast to clients
+        const frameData = this.currentFrame;
+        const slot = this.currentFrameSlot;
+        this.currentFrame = undefined;
+        this.currentFrameSlot = undefined;
+
+        this.broadcastPulsarFrame(slot, frameData);
+      } else {
+        this.currentFrame.push(line);
+      }
+      return;
+    }
+
+    // Check for response to start frame capture
+    if (line.startsWith('|') || line.startsWith('=')) {
+      this.currentFrame = [line];
+      return;
+    }
+
+    // Log other responses
+    if (this.config.verbose) {
+      this.log(`PULSAR: ${line}`);
+    }
+  }
+
+  sendToPulsar(cmd) {
+    if (!this.pulsar) {
+      if (!this.spawnPulsar()) return false;
+    }
+    this.pulsar.stdin.write(cmd + '\n');
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Slot Management
+  // ═══════════════════════════════════════════════════════════════
+
+  initSlot(slot, cols = 60, rows = 24, fps = 15) {
+    if (slot < 0 || slot >= 256) return false;
+
+    if (!this.spawnPulsar()) return false;
+
+    this.sendToPulsar(`${slot} INIT ${cols} ${rows} ${fps}`);
+
+    this.slots[slot] = {
+      fps,
+      cols,
+      rows,
+      timer: null,
+      sprites: []
+    };
+
+    // Start tick timer for this slot
+    const interval = Math.floor(1000 / fps);
+    this.slots[slot].timer = setInterval(() => {
+      this.tickSlot(slot, interval);
+    }, interval);
+
+    this.log(`Slot ${slot} initialized: ${cols}x${rows} @ ${fps}fps`);
+    return true;
+  }
+
+  destroySlot(slot) {
+    if (slot < 0 || slot >= 256 || !this.slots[slot]) return;
+
+    // Stop timer
+    if (this.slots[slot].timer) {
+      clearInterval(this.slots[slot].timer);
+    }
+
+    // Tell PULSAR to destroy slot
+    this.sendToPulsar(`${slot} DESTROY`);
+
+    this.slots[slot] = null;
+    this.log(`Slot ${slot} destroyed`);
+  }
+
+  tickSlot(slot, ms) {
+    if (!this.slots[slot]) return;
+
+    this.currentFrameSlot = slot;
+    this.sendToPulsar(`${slot} TICK ${ms}`);
+    this.sendToPulsar(`${slot} RENDER`);
+  }
+
+  spawnSprite(slot, type, x, y, params = {}) {
+    if (!this.slots[slot]) return null;
+
+    const len0 = params.len0 || 4;
+    const dtheta = params.dtheta || 0.1;
+    const valence = params.valence || 1;
+
+    this.sendToPulsar(`${slot} SPAWN ${type} ${x} ${y} ${len0} ${dtheta} ${valence}`);
+    return true;
+  }
+
+  broadcastPulsarFrame(slot, frameLines) {
+    const frame = {
+      t: 'frame',
+      slot,
+      display: frameLines.join('\n'),
+      ts: Date.now()
+    };
+
+    // Update current screen for /api/screen
+    this.currentScreen = frame.display;
+
+    const frameStr = JSON.stringify(frame);
+    this.stats.framesRelayed++;
+
+    this.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(frameStr);
+      }
+    });
   }
 
   shutdown() {
