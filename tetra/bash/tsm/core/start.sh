@@ -250,12 +250,12 @@ tsm_start_any_command() {
     # Create wrapper error log to capture setup/bash errors
     local log_wrapper="$process_dir/wrapper.err"
 
-    # NOTE: setsid removed - to add back for better process isolation:
-    #   local setsid_cmd=$(tetra_tsm_get_setsid)
-    #   Then prefix bash with: $setsid_cmd bash -c ...
+    # Escape $ in env_setup to prevent premature expansion in bash -c
+    local escaped_setup="${env_setup//\$/\\\$}"
+
     (
         bash -c "
-            $env_setup
+            $escaped_setup
             $final_command </dev/null >>'${log_out}' 2>>'${log_err}' &
             echo \$! > '${pid_file}'
         " 2>>"${log_wrapper}" &
