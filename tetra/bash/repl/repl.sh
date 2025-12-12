@@ -32,8 +32,7 @@ source "$REPL_SRC/symbol_parser.sh"
 source "$REPL_SRC/command_processor.sh"
 source "$REPL_SRC/adapters/symbol_ui.sh" 2>/dev/null || true
 
-# Source smart hints (native tab completion is handled by tcurses_readline)
-source "$REPL_SRC/smart_hints.sh"
+# Smart hints removed - native tab completion is handled by tcurses_readline
 
 # REPL state
 REPL_MODE=""                    # simple/readline (auto-detected)

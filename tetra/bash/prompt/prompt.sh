@@ -12,6 +12,7 @@ export TETRA_PROMPT_GIT="${TETRA_PROMPT_GIT:-}"
 export TETRA_PROMPT_PYTHON="${TETRA_PROMPT_PYTHON:-}"
 export TETRA_PROMPT_NODE="${TETRA_PROMPT_NODE:-}"
 export TETRA_PROMPT_LOGTIME="${TETRA_PROMPT_LOGTIME:-}"
+export TETRA_PROMPT_ORG="${TETRA_PROMPT_ORG:-}"
 
 # Colors
 _C_RESET='\[\e[0m\]'
@@ -20,6 +21,7 @@ _C_CYAN='\[\e[0;38;5;51m\]'
 _C_GREEN='\[\e[0;38;5;46m\]'
 _C_PURPLE='\[\e[0;38;5;129m\]'
 _C_GRAY='\[\e[0;38;5;240m\]'
+_C_BRIGHT_CYAN='\[\e[1;96m\]'
 
 # Fast section generators - no function calls in main prompt
 _tetra_git_info() {
@@ -62,6 +64,17 @@ _tetra_logtime_info() {
     [[ "$TETRA_PROMPT_LOGTIME" == "1" ]] || command -v _logtime-elapsed-hms >/dev/null 2>&1 && _logtime-elapsed-hms
 }
 
+_tetra_org_info() {
+    [[ "$TETRA_PROMPT_ORG" == "0" ]] && return
+    [[ "$TETRA_PROMPT_STYLE" == "tiny" ]] && return
+
+    if [[ "$TETRA_PROMPT_ORG" == "1" ]] && command -v org_active >/dev/null 2>&1; then
+        local org
+        org=$(org_active 2>/dev/null)
+        [[ -n "$org" && "$org" != "none" ]] && echo "$org"
+    fi
+}
+
 # Main prompt function - optimized for speed
 tetra_prompt() {
     local info=""
@@ -83,12 +96,13 @@ tetra_prompt() {
             python_status="$(_tetra_python_info)"
             node_status="$(_tetra_node_info)"
             logtime_info="$(_tetra_logtime_info)"
-            
+            local org_name="$(_tetra_org_info)"
+
             # Collect all status indicators
             local status_indicators=()
             [[ -n "$python_status" ]] && status_indicators+=("$python_status")
             [[ -n "$node_status" ]] && status_indicators+=("$node_status")
-            
+
             # Join indicators with commas in single bracket
             if [[ ${#status_indicators[@]} -gt 0 ]]; then
                 local joined_status
@@ -97,28 +111,32 @@ tetra_prompt() {
                 IFS="$old_ifs"
                 info+="${_C_GRAY}($joined_status)${_C_RESET}"
             fi
-            
+
             [[ -n "$logtime_info" ]] && info+="${_C_PURPLE}[$logtime_info]${_C_RESET}"
-            
+
             local git_info=""
             [[ -n "$git_branch" ]] && git_info="${_C_CYAN}($git_branch)${_C_RESET}"
-            
+
+            local org_prefix=""
+            [[ -n "$org_name" ]] && org_prefix="${_C_BRIGHT_CYAN}[$org_name]${_C_RESET} "
+
             if [[ "$TETRA_PROMPT_MULTILINE" == "true" ]]; then
-                PS1="${_C_GRAY}[\w]${git_info}${_C_RESET}\n${_C_RESET}${info}${_C_YELLOW}\u${_C_RESET}@\h: "
+                PS1="${org_prefix}${_C_GRAY}[\w]${git_info}${_C_RESET}\n${_C_RESET}${info}${_C_YELLOW}\u${_C_RESET}@\h: "
             else
-                PS1="${_C_RESET}${info}${_C_YELLOW}\u${_C_RESET}@\h:[\w]${git_info}: "
+                PS1="${org_prefix}${_C_RESET}${info}${_C_YELLOW}\u${_C_RESET}@\h:[\w]${git_info}: "
             fi
             ;;
         *)  # default
             git_branch="$(_tetra_git_info)"
             python_status="$(_tetra_python_info)"
             node_status="$(_tetra_node_info)"
-            
+            local org_name="$(_tetra_org_info)"
+
             # Collect all status indicators
             local status_indicators=()
             [[ -n "$python_status" ]] && status_indicators+=("$python_status")
             [[ -n "$node_status" ]] && status_indicators+=("$node_status")
-            
+
             # Join indicators with commas in single bracket
             if [[ ${#status_indicators[@]} -gt 0 ]]; then
                 local joined_status
@@ -127,14 +145,17 @@ tetra_prompt() {
                 IFS="$old_ifs"
                 info+="${_C_GRAY}($joined_status)${_C_RESET}"
             fi
-            
+
             local git_info=""
             [[ -n "$git_branch" ]] && git_info="${_C_CYAN}($git_branch)${_C_RESET}"
-            
+
+            local org_prefix=""
+            [[ -n "$org_name" ]] && org_prefix="${_C_BRIGHT_CYAN}[$org_name]${_C_RESET} "
+
             if [[ "$TETRA_PROMPT_MULTILINE" == "true" ]]; then
-                PS1="${_C_GRAY}[\w]${git_info}${_C_RESET}\n${_C_RESET}${info}${_C_YELLOW}\u${_C_RESET}@\h: "
+                PS1="${org_prefix}${_C_GRAY}[\w]${git_info}${_C_RESET}\n${_C_RESET}${info}${_C_YELLOW}\u${_C_RESET}@\h: "
             else
-                PS1="${_C_RESET}${info}${_C_YELLOW}\u${_C_RESET}@\h:[\W]${git_info}: "
+                PS1="${org_prefix}${_C_RESET}${info}${_C_YELLOW}\u${_C_RESET}@\h:[\W]${git_info}: "
             fi
             ;;
     esac
@@ -170,9 +191,9 @@ _tetra_prompt_multiline() {
 _tetra_prompt_toggle() {
     local section="$1"
     local state="$2"
-    
+
     case "$section" in
-        git|python|node|logtime)
+        git|python|node|logtime|org)
             local var_name="TETRA_PROMPT_${section^^}"
             case "$state" in
                 on|1) export "$var_name"="1" ;;
@@ -190,7 +211,7 @@ _tetra_prompt_toggle() {
             esac
             ;;
         *)
-            echo "Usage: tp toggle {git|python|node|logtime} [on|off|auto]"
+            echo "Usage: tp toggle {git|python|node|logtime|org} [on|off|auto]"
             ;;
     esac
 }
@@ -202,6 +223,7 @@ _tetra_prompt_status() {
     echo "Python: ${TETRA_PROMPT_PYTHON:-auto}"
     echo "Node: ${TETRA_PROMPT_NODE:-auto}"
     echo "Logtime: ${TETRA_PROMPT_LOGTIME:-auto}"
+    echo "Org: ${TETRA_PROMPT_ORG:-auto}"
 }
 
 # Command dispatcher
@@ -229,7 +251,7 @@ tp - Tetra Prompt Control
 Usage:
   tp style {tiny|compact|default|verbose}  - Set prompt style
   tp multiline [on|off]                    - Toggle multiline prompt
-  tp toggle {git|python|node|logtime} [on|off|auto] - Toggle sections
+  tp toggle {git|python|node|logtime|org} [on|off|auto] - Toggle sections
   tp status                                - Show current settings
 
 Shortcuts:

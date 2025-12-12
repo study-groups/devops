@@ -41,6 +41,12 @@ declare -a _VOX_APP_ONSETS=()
 _VOX_APP_F0=0
 _VOX_APP_DURATION=0
 
+# Phoneme cursor navigation
+_VOX_APP_PHONEME_IDX=0           # Current phoneme index (0-based)
+_VOX_APP_PHONEME_COUNT=0         # Total phoneme count
+declare -a _VOX_APP_PHONEME_STARTS=()  # Start times per phoneme
+declare -a _VOX_APP_PHONEME_ENDS=()    # End times per phoneme
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TERMINAL SETUP/CLEANUP
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -146,6 +152,14 @@ vox_app_render_header() {
     printf "${_VOX_C_DIM}│${_VOX_C_RESET} "
     printf "zoom:${_VOX_C_YELLOW}%dx${_VOX_C_RESET} " "$_VOX_APP_ZOOM"
     printf "view:${_VOX_C_MAGENTA}%s${_VOX_C_RESET} " "$_VOX_APP_VIEW"
+
+    # Show phoneme cursor if we have phonemes
+    if ((_VOX_APP_PHONEME_COUNT > 0)); then
+        printf "${_VOX_C_DIM}│${_VOX_C_RESET} "
+        printf "ph:${_VOX_C_GREEN}%d${_VOX_C_RESET}/${_VOX_C_DIM}%d${_VOX_C_RESET} " \
+            "$((_VOX_APP_PHONEME_IDX + 1))" "$_VOX_APP_PHONEME_COUNT"
+    fi
+
     printf "%s" "$mode_indicator"
     tput el 2>/dev/null || printf '\e[K'
 
@@ -289,22 +303,63 @@ vox_app_render_waveform() {
         done
     done
 
-    # Draw onset markers
+    # Draw onset markers and highlight current phoneme
     if [[ ${#_VOX_APP_ONSETS[@]} -gt 0 && "$_VOX_APP_DURATION" != "0" ]]; then
-        for onset in "${_VOX_APP_ONSETS[@]}"; do
+        local cur_start_x=-1
+        local cur_end_x=-1
+
+        # Calculate current phoneme region
+        if ((_VOX_APP_PHONEME_COUNT > 0)); then
+            local cur_start="${_VOX_APP_PHONEME_STARTS[$_VOX_APP_PHONEME_IDX]}"
+            local cur_end="${_VOX_APP_PHONEME_ENDS[$_VOX_APP_PHONEME_IDX]}"
+            cur_start_x=$(echo "scale=0; $cur_start / $_VOX_APP_DURATION * $width" | bc -l 2>/dev/null || echo 0)
+            cur_end_x=$(echo "scale=0; $cur_end / $_VOX_APP_DURATION * $width" | bc -l 2>/dev/null || echo 0)
+        fi
+
+        # Draw all onset markers
+        for ((i=0; i<${#_VOX_APP_ONSETS[@]}; i++)); do
+            local onset="${_VOX_APP_ONSETS[$i]}"
             local x_pos=$(echo "scale=0; $onset / $_VOX_APP_DURATION * $width" | bc -l 2>/dev/null || echo 0)
             [[ $x_pos -lt 0 ]] && x_pos=0
             [[ $x_pos -ge $width ]] && x_pos=$((width-1))
             vox_app_move $((start_row + bar_max)) $((x_pos + 1))
-            printf "${_VOX_C_MAGENTA}▼${_VOX_C_RESET}"
+
+            # Highlight current phoneme's onset marker
+            if ((i == _VOX_APP_PHONEME_IDX)); then
+                printf "${_VOX_C_BOLD}${_VOX_C_GREEN}▼${_VOX_C_RESET}"
+            else
+                printf "${_VOX_C_MAGENTA}▼${_VOX_C_RESET}"
+            fi
         done
+
+        # Draw current phoneme bracket/region indicator on bottom row
+        if ((cur_start_x >= 0 && cur_end_x >= 0)); then
+            vox_app_move $((start_row + bar_max + 1)) $((cur_start_x + 1))
+            printf "${_VOX_C_GREEN}["
+            local bracket_width=$((cur_end_x - cur_start_x - 1))
+            ((bracket_width < 0)) && bracket_width=0
+            for ((b=0; b<bracket_width && b<20; b++)); do
+                printf "─"
+            done
+            vox_app_move $((start_row + bar_max + 1)) $((cur_end_x + 1))
+            printf "]${_VOX_C_RESET}"
+        fi
     fi
 
-    # Time axis
+    # Time axis with current phoneme time
     vox_app_move $((start_row + height - 1)) 1
     printf "${_VOX_C_DIM}0s"
+
+    # Show current phoneme time in middle
+    if ((_VOX_APP_PHONEME_COUNT > 0)); then
+        local ph_start="${_VOX_APP_PHONEME_STARTS[$_VOX_APP_PHONEME_IDX]}"
+        local ph_dur=$(echo "scale=0; (${_VOX_APP_PHONEME_ENDS[$_VOX_APP_PHONEME_IDX]} - $ph_start) * 1000" | bc -l 2>/dev/null || echo 0)
+        vox_app_move $((start_row + height - 1)) $((width / 2 - 8))
+        printf "${_VOX_C_GREEN}[%.2fs %dms]${_VOX_C_RESET}" "$ph_start" "$ph_dur"
+    fi
+
     vox_app_move $((start_row + height - 1)) $((width - 4))
-    printf "%.1fs${_VOX_C_RESET}" "$_VOX_APP_DURATION"
+    printf "${_VOX_C_DIM}%.1fs${_VOX_C_RESET}" "$_VOX_APP_DURATION"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -507,18 +562,123 @@ vox_app_analyze() {
     _VOX_APP_F0=$(echo "$_VOX_APP_ANALYSIS_JSON" | jq -r '.analysis.f0_estimate_hz // 0')
     _VOX_APP_DURATION=$(echo "$_VOX_APP_ANALYSIS_JSON" | jq -r '.duration_sec // 0')
 
+    # Parse onset times
     _VOX_APP_ONSETS=()
     while read -r onset; do
         [[ -n "$onset" ]] && _VOX_APP_ONSETS+=("$onset")
     done < <(echo "$_VOX_APP_ANALYSIS_JSON" | jq -r '.analysis.onsets.times[]? // empty')
 
-    echo "Done: F0=${_VOX_APP_F0}Hz, ${#_VOX_APP_ONSETS[@]} onsets"
+    # Build phoneme segments from onsets
+    _VOX_APP_PHONEME_STARTS=()
+    _VOX_APP_PHONEME_ENDS=()
+    _VOX_APP_PHONEME_COUNT=${#_VOX_APP_ONSETS[@]}
+    _VOX_APP_PHONEME_IDX=0
+
+    for ((i=0; i<${#_VOX_APP_ONSETS[@]}; i++)); do
+        _VOX_APP_PHONEME_STARTS+=("${_VOX_APP_ONSETS[$i]}")
+        if ((i + 1 < ${#_VOX_APP_ONSETS[@]})); then
+            _VOX_APP_PHONEME_ENDS+=("${_VOX_APP_ONSETS[$((i+1))]}")
+        else
+            _VOX_APP_PHONEME_ENDS+=("$_VOX_APP_DURATION")
+        fi
+    done
+
+    echo "Done: F0=${_VOX_APP_F0}Hz, ${_VOX_APP_PHONEME_COUNT} phonemes"
     vox_app_render
 }
 
 vox_app_play() {
     [[ -z "$_VOX_APP_AUDIO_FILE" ]] && { echo "No audio file"; return 1; }
     vox_play_audio "$_VOX_APP_AUDIO_FILE"
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHONEME NAVIGATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Move to previous phoneme
+vox_app_phoneme_prev() {
+    ((_VOX_APP_PHONEME_IDX > 0)) && ((_VOX_APP_PHONEME_IDX--))
+}
+
+# Move to next phoneme
+vox_app_phoneme_next() {
+    ((_VOX_APP_PHONEME_IDX < _VOX_APP_PHONEME_COUNT - 1)) && ((_VOX_APP_PHONEME_IDX++))
+}
+
+# Jump by N phonemes (positive=forward, negative=backward)
+vox_app_phoneme_jump() {
+    local delta="$1"
+    local new_idx=$((_VOX_APP_PHONEME_IDX + delta))
+
+    # Clamp to valid range
+    (( new_idx < 0 )) && new_idx=0
+    (( new_idx >= _VOX_APP_PHONEME_COUNT )) && new_idx=$((_VOX_APP_PHONEME_COUNT - 1))
+    (( _VOX_APP_PHONEME_COUNT == 0 )) && new_idx=0
+
+    _VOX_APP_PHONEME_IDX=$new_idx
+}
+
+# Go to specific phoneme by index
+vox_app_phoneme_goto() {
+    local idx="$1"
+    [[ ! "$idx" =~ ^[0-9]+$ ]] && return 1
+
+    (( idx >= _VOX_APP_PHONEME_COUNT )) && idx=$((_VOX_APP_PHONEME_COUNT - 1))
+    (( idx < 0 )) && idx=0
+
+    _VOX_APP_PHONEME_IDX=$idx
+}
+
+# Prompt user for phoneme number (in key mode)
+vox_app_prompt_goto() {
+    local footer_start=$((_VOX_APP_HEIGHT - _VOX_APP_FOOTER_HEIGHT))
+    local prompt_row=$((footer_start + 3))
+
+    vox_app_move $prompt_row 0
+    printf "${_VOX_C_YELLOW}goto phoneme:${_VOX_C_RESET} "
+    tput el
+    tput cnorm  # Show cursor
+
+    local num
+    read -r num </dev/tty
+    tput civis  # Hide cursor
+
+    if [[ "$num" =~ ^[0-9]+$ ]]; then
+        vox_app_phoneme_goto "$num"
+    fi
+    vox_app_render
+}
+
+# Play current phoneme segment only
+vox_app_play_phoneme() {
+    [[ -z "$_VOX_APP_AUDIO_FILE" ]] && { echo "No audio file"; return 1; }
+    ((_VOX_APP_PHONEME_COUNT == 0)) && { echo "No phonemes"; return 1; }
+
+    local start="${_VOX_APP_PHONEME_STARTS[$_VOX_APP_PHONEME_IDX]}"
+    local end="${_VOX_APP_PHONEME_ENDS[$_VOX_APP_PHONEME_IDX]}"
+    local duration=$(echo "$end - $start" | bc -l 2>/dev/null || echo "0.1")
+
+    # Use afplay with -t (time) option on macOS
+    if command -v afplay &>/dev/null; then
+        afplay -t "$duration" --leadin "$start" "$_VOX_APP_AUDIO_FILE" 2>/dev/null &
+    elif command -v ffplay &>/dev/null; then
+        ffplay -nodisp -autoexit -ss "$start" -t "$duration" "$_VOX_APP_AUDIO_FILE" 2>/dev/null &
+    fi
+}
+
+# Get current phoneme info as string
+vox_app_phoneme_info() {
+    ((_VOX_APP_PHONEME_COUNT == 0)) && { echo "no phonemes"; return; }
+
+    local start="${_VOX_APP_PHONEME_STARTS[$_VOX_APP_PHONEME_IDX]}"
+    local end="${_VOX_APP_PHONEME_ENDS[$_VOX_APP_PHONEME_IDX]}"
+    local dur=$(echo "scale=0; ($end - $start) * 1000" | bc -l 2>/dev/null || echo "0")
+
+    printf "%d/%d [%.3f-%.3f] %dms" \
+        "$((_VOX_APP_PHONEME_IDX + 1))" \
+        "$_VOX_APP_PHONEME_COUNT" \
+        "$start" "$end" "$dur"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -557,17 +717,31 @@ vox_app_handle_key() {
     local key="$1"
     case "$key" in
         ESC)    _VOX_APP_MODE="cli"; vox_app_render ;;
+        # Pan with arrows
         LEFT)   ((_VOX_APP_OFFSET > 0)) && ((_VOX_APP_OFFSET -= 10)); vox_app_render ;;
         RIGHT)  ((_VOX_APP_OFFSET += 10)); vox_app_render ;;
+        # Zoom with up/down or +/-
         UP)     ((_VOX_APP_ZOOM < 8)) && ((_VOX_APP_ZOOM *= 2)); vox_app_render ;;
         DOWN)   ((_VOX_APP_ZOOM > 1)) && ((_VOX_APP_ZOOM /= 2)); vox_app_render ;;
+        +|=)    ((_VOX_APP_ZOOM < 8)) && ((_VOX_APP_ZOOM *= 2)); vox_app_render ;;
+        -|_)    ((_VOX_APP_ZOOM > 1)) && ((_VOX_APP_ZOOM /= 2)); vox_app_render ;;
+        # Phoneme navigation (vim-style: h/l horizontal, j/k also work)
+        h|k)    vox_app_phoneme_prev; vox_app_render ;;
+        l|j)    vox_app_phoneme_next; vox_app_render ;;
+        H|K)    vox_app_phoneme_jump -5; vox_app_render ;;  # Jump 5 back
+        L|J)    vox_app_phoneme_jump 5; vox_app_render ;;   # Jump 5 forward
+        0)      _VOX_APP_PHONEME_IDX=0; vox_app_render ;;   # First phoneme
+        '$')    ((_VOX_APP_PHONEME_COUNT > 0)) && _VOX_APP_PHONEME_IDX=$((_VOX_APP_PHONEME_COUNT - 1)); vox_app_render ;;  # Last
+        g)      vox_app_prompt_goto ;;  # Prompt for phoneme number
+        # Views
         w|W)    _VOX_APP_VIEW="wave"; vox_app_render ;;
         t|T)    _VOX_APP_VIEW="timeline"; vox_app_render ;;
         f|F)    _VOX_APP_VIEW="formants"; vox_app_render ;;
-        h|H|'?') _VOX_APP_VIEW="help"; vox_app_render ;;
-        +|=)    ((_VOX_APP_ZOOM < 8)) && ((_VOX_APP_ZOOM *= 2)); vox_app_render ;;
-        -|_)    ((_VOX_APP_ZOOM > 1)) && ((_VOX_APP_ZOOM /= 2)); vox_app_render ;;
+        d|D)    _VOX_APP_VIEW="phoneme"; vox_app_render ;;  # Detail view
+        '?')    _VOX_APP_VIEW="help"; vox_app_render ;;
+        # Actions
         p|P)    vox_app_play ;;
+        ' ')    vox_app_play_phoneme ;;  # Space plays current phoneme
         a|A)    vox_app_analyze ;;
         q|Q)    return 1 ;;
         r|R)    vox_app_render ;;  # Refresh
