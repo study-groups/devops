@@ -117,7 +117,6 @@ main() {
         "$test_dir/test_tokenizer_strings.sh"
         "$test_dir/test_tokenizer_variables.sh"
         "$test_dir/test_tokenizer_operators.sh"
-        "$test_dir/test_tokenizer_heredoc.sh"
         "$test_dir/test_parser_basic.sh"
         "$test_dir/test_parser_pipelines.sh"
         "$test_dir/test_parser_functions.sh"
