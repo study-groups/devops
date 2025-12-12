@@ -35,7 +35,7 @@ tsm_create_metadata() {
     local meta_file=$(tsm_get_meta_file "$name")
 
     # Capture org at process start (immutable)
-    local org="${TETRA_ORG:-none}"
+    local org="${TETRA_ORG:-tetra}"
 
     # Create process directory
     mkdir -p "$process_dir"

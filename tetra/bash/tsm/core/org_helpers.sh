@@ -25,13 +25,13 @@ tsm_get_effective_org() {
 }
 
 # Get services-available directory for an org
-# Args: org (optional, defaults to current TETRA_ORG or "none")
-# Special values: "system" for global tetra services
-# "none" is treated as a regular org at ~/tetra/orgs/none/
+# Args: org (optional, defaults to current TETRA_ORG or "tetra")
+# Special values: "system" for global tetra services, "source" for $TETRA_SRC
 tsm_get_services_dir() {
     local org="${1:-$(tsm_get_effective_org)}"
     case "$org" in
         system) echo "$TETRA_DIR/tsm/services-available" ;;
+        source) echo "$TETRA_SRC/bash/tsm/services-available" ;;
         *)      echo "$TETRA_DIR/orgs/$org/tsm/services-available" ;;
     esac
 }
@@ -45,17 +45,14 @@ tsm_get_enabled_dir() {
     esac
 }
 
-# Find a service file by name, searching org → none → system
+# Find a service file by name, searching org → source → system
 # Returns the full path to the .tsm file, or empty string if not found
 tsm_find_service_file() {
     local service_name="$1"
     local current_org=$(tsm_get_effective_org)
 
-    # Search order: current org → none → system
-    for org in "$current_org" "none" "system"; do
-        # Skip duplicate search if current_org is "none"
-        [[ "$org" == "none" && "$current_org" == "none" ]] && continue
-
+    # Search order: current org → source → system
+    for org in "$current_org" "source" "system"; do
         local candidate="$(tsm_get_services_dir "$org")/${service_name}.tsm"
         if [[ -f "$candidate" ]]; then
             echo "$candidate"
@@ -73,14 +70,15 @@ tsm_get_service_org() {
     # Try to determine from path
     if [[ "$service_file" == "$TETRA_DIR/tsm/services-available/"* ]]; then
         echo "system"
+    elif [[ "$service_file" == "$TETRA_SRC/bash/tsm/services-available/"* ]]; then
+        echo "source"
     elif [[ "$service_file" == "$TETRA_DIR/orgs/"* ]]; then
         # Extract org name from path: $TETRA_DIR/orgs/<ORG>/tsm/...
-        # Works for any org including "none" (at orgs/none/)
         local rel_path="${service_file#$TETRA_DIR/orgs/}"
         echo "${rel_path%%/*}"
     else
-        # Fallback: read TSM_ORG from file
-        grep -E '^TSM_ORG=' "$service_file" 2>/dev/null | head -1 | cut -d'"' -f2 || echo "none"
+        # Fallback: read TSM_ORG from file, default to tetra
+        grep -E '^TSM_ORG=' "$service_file" 2>/dev/null | head -1 | cut -d'"' -f2 || echo "tetra"
     fi
 }
 

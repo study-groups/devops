@@ -158,7 +158,7 @@ _tsm_list_processes_from_dir() {
 
         # Read all metadata in one jq call - use | delimiter to avoid empty field issues
         local metadata
-        metadata=$(jq -r '[.tsm_id, .pid, (.port // ""), (.port_type // "tcp"), .start_time, (.env_file // ""), (.service_type // "pid"), (.org // "none"), (.parent // "")] | join("|")' "$meta_file" 2>/dev/null)
+        metadata=$(jq -r '[.tsm_id, .pid, (.port // ""), (.port_type // "tcp"), .start_time, (.env_file // ""), (.service_type // "pid"), (.org // "tetra"), (.parent // "")] | join("|")' "$meta_file" 2>/dev/null)
         [[ -z "$metadata" ]] && continue
 
         IFS='|' read -r tsm_id pid port port_type start_time env_file service_type org parent <<< "$metadata"
