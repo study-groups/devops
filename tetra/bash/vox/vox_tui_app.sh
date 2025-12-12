@@ -865,11 +865,22 @@ vox_app_handle_cli() {
         zoom|z)
             [[ "$args" =~ ^[1248]$ ]] && { _VOX_APP_ZOOM=$args; vox_app_render; } || echo "Zoom: 1,2,4,8"
             ;;
+        goto|g)
+            if [[ "$args" =~ ^[0-9]+$ ]]; then
+                vox_app_phoneme_goto "$args"
+                vox_app_render
+            else
+                echo "Usage: goto <phoneme_number>"
+            fi
+            ;;
+        next|n)     vox_app_phoneme_next; vox_app_render ;;
+        prev)       vox_app_phoneme_prev; vox_app_render ;;
         view|v)
             case "$args" in
                 wave|w)     _VOX_APP_VIEW="wave" ;;
                 timeline|t) _VOX_APP_VIEW="timeline" ;;
                 formants|f) _VOX_APP_VIEW="formants" ;;
+                phoneme|d)  _VOX_APP_VIEW="phoneme" ;;
                 help|h)     _VOX_APP_VIEW="help" ;;
             esac
             vox_app_render
