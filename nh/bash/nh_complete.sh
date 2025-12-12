@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # nh_complete.sh - Tab completion for nh command
 
-_NH_COMMANDS="status list switch create link unlink doctor fetch servers show cat load alias keys env ssh doctl md cl help"
+_NH_COMMANDS="status list switch create link unlink doctor fetch servers show cat load alias keys env ssh doctl md cl cf dns help"
 _NH_FETCH_OPTS="dry-run help minimal full"
+_NH_DOCTOR_SUBCMDS="all local context infra cf dns help"
+_NH_CF_SUBCMDS="zones records add remove update snapshot init help"
+_NH_DNS_SUBCMDS="domains records show add remove update help"
 _NH_ENV_SUBCMDS="show load"
 _NH_ALIAS_SUBCMDS="make show clear"
 _NH_SSH_SUBCMDS="status keys add"
@@ -130,6 +133,15 @@ _nh_complete() {
                 ;;
             fetch)
                 COMPREPLY=($(compgen -W "$_NH_FETCH_OPTS" -- "$cur"))
+                ;;
+            doctor)
+                COMPREPLY=($(compgen -W "$_NH_DOCTOR_SUBCMDS" -- "$cur"))
+                ;;
+            cf)
+                COMPREPLY=($(compgen -W "$_NH_CF_SUBCMDS" -- "$cur"))
+                ;;
+            dns)
+                COMPREPLY=($(compgen -W "$_NH_DNS_SUBCMDS" -- "$cur"))
                 ;;
             help|h)
                 COMPREPLY=($(compgen -W "$_NH_HELP_SUBCMDS" -- "$cur"))

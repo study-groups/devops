@@ -24,7 +24,10 @@ source "$NH_SRC/nh_env.sh"
 source "$NH_SRC/nh_ssh.sh"
 source "$NH_SRC/nh_keys.sh"
 source "$NH_SRC/nh_md.sh"
+source "$NH_SRC/nh_cf.sh"
+source "$NH_SRC/nh_do_dns.sh"
 source "$NH_SRC/nh_checklist.sh"
+source "$NH_SRC/nh_doctor.sh"
 source "$NH_SRC/nh_complete.sh"
 
 # =============================================================================
@@ -147,151 +150,6 @@ nh_unlink() {
 
     rm "$link_path"
     echo "Removed: $short"
-}
-
-# =============================================================================
-# DOCTOR (health check)
-# =============================================================================
-
-nh_doctor() {
-    local errors=0
-    local warnings=0
-
-    echo "nh doctor"
-    echo "========="
-    echo ""
-
-    # 1. NH_DIR exists
-    printf "%-30s" "NH_DIR"
-    if [[ -d "$NH_DIR" ]]; then
-        echo "ok ($NH_DIR)"
-    else
-        echo "MISSING"
-        ((errors++))
-    fi
-
-    # 2. doctl installed
-    printf "%-30s" "doctl"
-    if command -v doctl &>/dev/null; then
-        local ver=$(doctl version 2>/dev/null | head -1 | awk '{print $3}')
-        echo "ok ($ver)"
-    else
-        echo "NOT INSTALLED"
-        ((errors++))
-    fi
-
-    # 3. doctl authenticated
-    printf "%-30s" "doctl auth"
-    if doctl account get &>/dev/null; then
-        echo "ok"
-    else
-        echo "NOT AUTHENTICATED"
-        echo "  → Run: doctl auth init --context <name>"
-        ((errors++))
-    fi
-
-    # 4. Context set
-    printf "%-30s" "DIGITALOCEAN_CONTEXT"
-    local ctx="${DIGITALOCEAN_CONTEXT:-}"
-    if [[ -n "$ctx" ]]; then
-        echo "ok ($ctx)"
-    else
-        echo "NOT SET"
-        echo "  → Run: nh switch <context>"
-        ((errors++))
-    fi
-
-    # 5. Context directory exists
-    if [[ -n "$ctx" ]]; then
-        printf "%-30s" "Context directory"
-        local ctx_dir="$NH_DIR/$ctx"
-        if [[ -d "$ctx_dir" ]]; then
-            echo "ok"
-        else
-            echo "MISSING"
-            echo "  → Run: nh create $ctx"
-            ((errors++))
-        fi
-
-        # 6. digocean.json exists
-        printf "%-30s" "digocean.json"
-        local json="$ctx_dir/digocean.json"
-        if [[ -f "$json" ]]; then
-            local age=$(nh_json_age "$json")
-            if [[ $age -gt 7 ]]; then
-                echo "STALE ($age days old)"
-                echo "  → Run: nh fetch"
-                ((warnings++))
-            else
-                echo "ok ($age days old)"
-            fi
-        else
-            echo "MISSING"
-            echo "  → Run: nh fetch"
-            ((errors++))
-        fi
-
-        # 7. Server count
-        printf "%-30s" "Servers in JSON"
-        if [[ -f "$json" ]]; then
-            local count=$(jq '[.[] | select(.Droplets) | .Droplets[]] | length' "$json" 2>/dev/null)
-            if [[ "${count:-0}" -gt 0 ]]; then
-                echo "ok ($count)"
-            else
-                echo "NONE"
-                ((warnings++))
-            fi
-        else
-            echo "- (no JSON)"
-        fi
-
-        # 8. Variables loaded
-        printf "%-30s" "Variables loaded"
-        local loaded=$(nh_env_count 2>/dev/null)
-        if [[ "${loaded:-0}" -gt 0 ]]; then
-            echo "ok ($loaded)"
-        else
-            echo "NOT LOADED"
-            echo "  → Run: nh load"
-            ((warnings++))
-        fi
-
-        # 9. Aliases file
-        printf "%-30s" "Aliases"
-        local alias_file="$ctx_dir/aliases.env"
-        if [[ -f "$alias_file" ]]; then
-            local alias_count=$(grep -c '^export' "$alias_file" 2>/dev/null || echo 0)
-            echo "ok ($alias_count)"
-        else
-            echo "none (optional)"
-        fi
-    fi
-
-    # 10. SSH agent
-    printf "%-30s" "ssh-agent"
-    if [[ -n "${SSH_AUTH_SOCK:-}" ]] && ssh-add -l &>/dev/null; then
-        local key_count=$(ssh-add -l 2>/dev/null | wc -l | tr -d ' ')
-        echo "ok ($key_count keys)"
-    elif [[ -n "${SSH_AUTH_SOCK:-}" ]]; then
-        echo "RUNNING (no keys)"
-        echo "  → Run: ssh-add ~/.ssh/id_ed25519"
-        ((warnings++))
-    else
-        echo "NOT RUNNING"
-        echo "  → Run: eval \$(ssh-agent)"
-        ((warnings++))
-    fi
-
-    # Summary
-    echo ""
-    if [[ $errors -eq 0 && $warnings -eq 0 ]]; then
-        echo "All checks passed."
-    else
-        [[ $errors -gt 0 ]] && echo "Errors: $errors"
-        [[ $warnings -gt 0 ]] && echo "Warnings: $warnings"
-    fi
-
-    return $errors
 }
 
 # =============================================================================
@@ -785,6 +643,12 @@ nh() {
         md)             nh_md_cmd "$@" ;;
         checklist|cl)   nh_checklist "$@" ;;
 
+        # Cloudflare
+        cf)             nh_cf "$@" ;;
+
+        # DigitalOcean DNS
+        dns)            nh_dns "$@" ;;
+
         # Help
         help|h|--help|-h)
             local topic="${1:-}"
@@ -812,8 +676,8 @@ nh() {
 # Register completion
 complete -F _nh_complete nh
 
-# Export functions
-export -f nh nh_status nh_context nh_context_list nh_switch nh_create nh_link nh_unlink nh_doctor
+# Export functions (nh_doctor exported from nh_doctor.sh)
+export -f nh nh_status nh_context nh_context_list nh_switch nh_create nh_link nh_unlink
 export -f nh_servers nh_show nh_json_age
 export -f nh_help nh_help_env nh_help_alias nh_help_ssh nh_help_doctl nh_help_md nh_help_cl
 export -f nh_md_cmd nh_checklist _nh_cl_ensure_parsed
