@@ -5,6 +5,7 @@
 # Supports sections, key-value pairs, and basic data types
 
 # Parse TOML file into bash associative arrays
+# Supports: sections, key=value, arrays, multi-line strings (''')
 toml_parse() {
     local file="$1"
     local prefix="${2:-TOML}"
@@ -16,18 +17,50 @@ toml_parse() {
 
     local current_section=""
     local line_num=0
+    local in_multiline=0
+    local multiline_key=""
+    local multiline_value=""
 
     while IFS= read -r line || [[ -n "$line" ]]; do
         line_num=$((line_num + 1))
 
-        # Remove leading/trailing whitespace
-        line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        # Handle multi-line string continuation
+        if [[ $in_multiline -eq 1 ]]; then
+            if [[ "$line" =~ ^[[:space:]]*\'\'\'[[:space:]]*$ ]]; then
+                # End of multi-line string
+                in_multiline=0
+                # Store the accumulated value
+                if [[ -n "$current_section" ]]; then
+                    local section_name="${current_section//\./_}"
+                    declare -gA "${prefix}_${section_name}"
+                    local array_name="${prefix}_${section_name}[$multiline_key]"
+                    eval "$array_name=\"\$multiline_value\""
+                else
+                    declare -gA "${prefix}_root"
+                    eval "${prefix}_root[$multiline_key]=\"\$multiline_value\""
+                fi
+                multiline_key=""
+                multiline_value=""
+            else
+                # Accumulate multi-line content
+                if [[ -n "$multiline_value" ]]; then
+                    multiline_value+=$'\n'"$line"
+                else
+                    multiline_value="$line"
+                fi
+            fi
+            continue
+        fi
+
+        # Remove leading/trailing whitespace for non-multiline
+        local trimmed_line
+        trimmed_line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
         # Skip empty lines and comments
-        [[ -z "$line" || "$line" =~ ^# ]] && continue
+        [[ -z "$trimmed_line" || "$trimmed_line" =~ ^# ]] && continue
 
         # Section headers [section]
-        if [[ "$line" =~ ^\[([^\]]+)\]$ ]]; then
+        if [[ "$trimmed_line" =~ ^\[([^\]]+)\]$ ]]; then
             current_section="${BASH_REMATCH[1]}"
             # Replace dots with underscores for valid bash identifiers
             local section_name="${current_section//\./_}"
@@ -37,13 +70,21 @@ toml_parse() {
         fi
 
         # Key-value pairs
-        if [[ "$line" =~ ^([^=]+)=(.*)$ ]]; then
+        if [[ "$trimmed_line" =~ ^([^=]+)=(.*)$ ]]; then
             local key="${BASH_REMATCH[1]}"
             local value="${BASH_REMATCH[2]}"
 
             # Clean up key and value
             key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
             value=$(echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+            # Check for multi-line string start (''')
+            if [[ "$value" =~ ^\'\'\'[[:space:]]*$ ]]; then
+                in_multiline=1
+                multiline_key="$key"
+                multiline_value=""
+                continue
+            fi
 
             # Remove quotes from strings
             if [[ "$value" =~ ^\"(.*)\"$ ]]; then
@@ -52,11 +93,17 @@ toml_parse() {
                 value="${BASH_REMATCH[1]}"
             fi
 
+            # Handle inline tables { key = "val", ... }
+            if [[ "$value" =~ ^\{(.+)\}$ ]]; then
+                local inline_content="${BASH_REMATCH[1]}"
+                value="$inline_content"
+            fi
+
             # Handle arrays [item1, item2, item3]
             if [[ "$value" =~ ^\[(.+)\]$ ]]; then
                 local array_content="${BASH_REMATCH[1]}"
-                # Convert to space-separated list
-                value=$(echo "$array_content" | sed 's/,/ /g' | sed 's/[[:space:]]*//g')
+                # Keep as-is for arrays (preserve quotes and commas)
+                value="$array_content"
             fi
 
             # Store in appropriate array
@@ -69,8 +116,6 @@ toml_parse() {
                 declare -gA "${prefix}_root"
                 eval "${prefix}_root[$key]=\"\$value\""
             fi
-        else
-            echo "Warning: Invalid TOML syntax at line $line_num: $line" >&2
         fi
     done < "$file"
 
