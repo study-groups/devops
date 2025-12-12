@@ -11,24 +11,33 @@
 # =============================================================================
 
 _DEPLOY_COMMANDS=(
-    status doctor
-    project:add project:list project:show project:edit
-    list show edit
-    push git sync perms
-    domain:show
-    nginx:gen nginx:show nginx:list nginx:install nginx:uninstall nginx:status
-    tsm nginx exec
+    push
+    status list
+    show
+    doctor
     help
 )
-
-_DEPLOY_NGINX_ACTIONS="list available reload test status edit"
 
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
 
-_deploy_complete_projects() {
-    deploy_toml_names 2>/dev/null
+_deploy_complete_targets() {
+    local org=$(org_active 2>/dev/null)
+    [[ -z "$org" || "$org" == "none" ]] && return
+
+    local targets_dir="$TETRA_DIR/orgs/$org/targets"
+    [[ ! -d "$targets_dir" ]] && return
+
+    # .toml files (without extension)
+    for f in "$targets_dir"/*.toml; do
+        [[ -f "$f" ]] && basename "$f" .toml
+    done
+
+    # Directories with tetra-deploy.toml
+    for d in "$targets_dir"/*/; do
+        [[ -d "$d" && -f "$d/tetra-deploy.toml" ]] && basename "$d"
+    done
 }
 
 _deploy_complete_envs() {
@@ -52,41 +61,20 @@ _deploy_complete() {
         return
     fi
 
-    # Handle --dry-run anywhere
+    # Handle flags anywhere
     if [[ "$cur" == -* ]]; then
-        COMPREPLY=($(compgen -W "--dry-run" -- "$cur"))
+        COMPREPLY=($(compgen -W "--dry-run --cmd" -- "$cur"))
         return
     fi
 
     # Second argument - depends on command
     if [[ $COMP_CWORD -eq 2 ]]; then
         case "$cmd" in
-            # Project commands: complete project names
-            project:show|project:edit|proj:show|proj:edit|show|edit)
-                COMPREPLY=($(compgen -W "$(_deploy_complete_projects)" -- "$cur"))
-                return
-                ;;
-
-            # Deploy commands: complete project names
-            push|git|sync|perms|domain:show|domain)
-                COMPREPLY=($(compgen -W "$(_deploy_complete_projects)" -- "$cur"))
-                return
-                ;;
-
-            # Nginx config commands: complete project names
-            nginx:gen|nginx:generate|nginx:show|nginx:install|nginx:uninstall|nginx:status)
-                COMPREPLY=($(compgen -W "$(_deploy_complete_projects)" -- "$cur"))
-                return
-                ;;
-
-            # Remote commands: complete env names
-            tsm|nginx|exec)
-                COMPREPLY=($(compgen -W "$(_deploy_complete_envs)" -- "$cur"))
-                return
-                ;;
-
-            # project:add - no completion for name
-            project:add|proj:add)
+            push|show)
+                # Complete target names or envs (if cwd has tetra-deploy.toml)
+                local targets=$(_deploy_complete_targets)
+                local envs=$(_deploy_complete_envs)
+                COMPREPLY=($(compgen -W "$targets $envs" -- "$cur"))
                 return
                 ;;
         esac
@@ -95,16 +83,9 @@ _deploy_complete() {
     # Third argument
     if [[ $COMP_CWORD -eq 3 ]]; then
         case "$cmd" in
-            # Deploy/nginx commands: complete env names
-            push|git|sync|perms|domain:show|domain|\
-            nginx:gen|nginx:generate|nginx:show|nginx:install|nginx:uninstall|nginx:status)
+            push|show)
+                # Complete env names
                 COMPREPLY=($(compgen -W "$(_deploy_complete_envs)" -- "$cur"))
-                return
-                ;;
-
-            # nginx remote: complete actions
-            nginx)
-                COMPREPLY=($(compgen -W "$_DEPLOY_NGINX_ACTIONS" -- "$cur"))
                 return
                 ;;
         esac
@@ -118,4 +99,4 @@ complete -F _deploy_complete deploy
 # =============================================================================
 
 export -f _deploy_complete
-export -f _deploy_complete_projects _deploy_complete_envs
+export -f _deploy_complete_targets _deploy_complete_envs

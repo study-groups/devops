@@ -16,27 +16,16 @@ tetra_module_init_with_alias "deploy" "DEPLOY" "nginx:logs:history"
 tetra_source_if_exists "${TETRA_SRC}/bash/org/org.sh"
 
 # =============================================================================
-# PS1 PROMPT WITH ORG NAME
+# PROMPT INTEGRATION
 # =============================================================================
 
-# Add colorful org name to PS1 when deploy is loaded
+# Enable org display in prompt when deploy is loaded
 _deploy_setup_prompt() {
     local org=$(org_active 2>/dev/null)
     [[ -z "$org" || "$org" == "none" ]] && return
 
-    # Only add if not already present
-    if [[ "$PS1" != *"$org"* ]]; then
-        # Save original PS1 for restoration
-        DEPLOY_ORIG_PS1="${DEPLOY_ORIG_PS1:-$PS1}"
-        # Prepend org name in cyan (bright cyan = 96, use $'...' for literal escapes)
-        PS1=$'\[\e[1;96m\]'"[$org]"$'\[\e[0m\] '"${PS1}"
-    fi
-}
-
-# Restore original PS1
-_deploy_restore_prompt() {
-    [[ -n "$DEPLOY_ORIG_PS1" ]] && PS1="$DEPLOY_ORIG_PS1"
-    unset DEPLOY_ORIG_PS1
+    # Use the tetra prompt system if available
+    export TETRA_PROMPT_ORG=1
 }
 
 # Set up prompt now

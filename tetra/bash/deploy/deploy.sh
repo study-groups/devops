@@ -484,57 +484,60 @@ deploy_help() {
     cat << 'EOF'
 deploy - Target deployment for tetra
 
-USAGE
-    deploy push <env>                 Deploy cwd to env (uses ./tetra-deploy.toml)
-    deploy push <target> <env>        Deploy named target to env
-    deploy push --dry-run <target> <env>   Show what would run
-
 COMMANDS
-    push [target] <env>      Full deployment pipeline
-    status                   Show targets and current org
+    push [target] <env>      Deploy target to environment
+    list, status             Show targets and current org
     show [target] <env>      Show resolved config
     doctor                   Audit deployment setup
-    help                     This help
 
-EXAMPLES
-    cd ~/src/myapp
-    deploy push dev                   # deploy cwd to dev
-    deploy push --dry-run prod        # dry run to prod
+USAGE
+    deploy push <env>                   Deploy cwd to env
+    deploy push <target> <env>          Deploy named target
+    deploy push docs:{gdocs} prod       Deploy subtarget
+    deploy push docs --cmd build prod   Run specific command
+    deploy push -n <target> <env>       Dry run
 
-    deploy push api dev               # deploy named target "api" to dev
-    deploy push docs prod             # deploy "docs" to prod
+SUBTARGET SYNTAX
+    target:{name}         Run subtarget's commands
+    target:{a,b}          Multiple subtargets
+    target:{*}            All subtargets
+    target:{*,!tests}     All except tests
 
 TARGETS
-    Named targets live in: $TETRA_DIR/orgs/<org>/targets/
-    As either: <name>.toml or <name>/tetra-deploy.toml
-
-    Or use tetra-deploy.toml in current directory.
+    Location: $TETRA_DIR/orgs/<org>/targets/
+    Format: <name>.toml or <name>/tetra-deploy.toml
 
 TEMPLATE VARIABLES
-    From org:
-      {{host}}        env IP
-      {{auth_user}}   SSH login user
-      {{work_user}}   app owner user
+    {{ssh}}         user@host (shortcut)
+    {{cwd}}         remote working directory
+    {{domain}}      domain from env config
+    {{user}}        work user
+    {{env}}         environment name
 
-    From target:
-      {{name}}        target name
-      {{remote}}      remote path
-      {{domain}}      domain string
-      {{env}}         environment name
-
-    Shortcut:
-      {{ssh}}         auth_user@host
-
-TETRA-DEPLOY.TOML FORMAT
+TETRA-DEPLOY.TOML
     [target]
-    name = "myapp"
-    remote = "/var/www/myapp"
-    domain = "myapp.example.com"
+    name = "docs"
+    cwd = "/home/{{user}}/docs"
 
-    [deploy]
-    pre = ["npm install", "npm run build"]
-    commands = ["rsync -av ./dist/ {{ssh}}:{{remote}}/"]
-    post = ["ssh {{ssh}} 'systemctl restart myapp'"]
+    [env.prod]
+    ssh = "root@1.2.3.4"
+    user = "devops"
+    domain = "docs.example.com"
+
+    [commands]
+    build = '''
+    npm run build
+    '''
+    sync = '''
+    rsync -avz dist/ {{ssh}}:{{cwd}}/
+    '''
+
+    [subtargets]
+    quick = { commands = ["sync"] }
+    full = { commands = ["build", "sync"] }
+
+    [defaults]
+    commands = ["build", "sync"]
 EOF
 }
 
@@ -547,8 +550,13 @@ deploy() {
     shift 2>/dev/null || true
 
     case "$cmd" in
-        # Status/info
-        status|s)
+        # Core
+        push|p)
+            deploy_push "$@"
+            ;;
+
+        # Info
+        status|list|ls|s)
             deploy_status "$@"
             ;;
 
@@ -558,11 +566,6 @@ deploy() {
 
         doctor|doc)
             deploy_doctor "$@"
-            ;;
-
-        # Core operations
-        push)
-            deploy_push "$@"
             ;;
 
         # Help
