@@ -17,11 +17,6 @@ _tsm_load_components() {
     # Load TSM using full include now that fork issues are resolved
     source "$MOD_SRC/core/include.sh"
 
-    # Load remote TSM wrapper (requires org system)
-    if [[ -f "$MOD_SRC/remote/includes.sh" ]]; then
-        source "$MOD_SRC/remote/includes.sh" 2>/dev/null || true
-    fi
-
     # Initialize TSM module after all components loaded
     if declare -f tsm_module_init >/dev/null; then
         tsm_module_init
@@ -116,9 +111,9 @@ tsm() {
                     echo "  --all, -a  - Show all services (alternative syntax)"
                     echo "  pwd        - Show running services with working directory"
                     echo "  -l         - Show detailed/long format with CPU, memory, paths"
-                    if [[ $TSM_IS_ROOT -eq 1 ]]; then
+                    if [[ $TSM_MULTI_USER_ENABLED -eq 1 ]]; then
                         echo ""
-                        echo "Multi-user options (root only):"
+                        echo "Multi-user options:"
                         echo "  --user <username>  - Filter processes by username"
                     fi
                     ;;
@@ -152,9 +147,6 @@ tsm() {
         show)
             tetra_tsm_show_service "$@"
             ;;
-        edit)
-            tetra_tsm_edit "$@"
-            ;;
         startup)
             # Handle 'startup status' subcommand
             if [[ "$1" == "status" ]]; then
@@ -164,13 +156,18 @@ tsm() {
                 tetra_tsm_startup "$@"
             fi
             ;;
-        users)
-            # Show all users with active TSM instances (root only)
-            if [[ $TSM_IS_ROOT -eq 1 ]]; then
-                tsm_list_users
+        users|instances)
+            # Show all TSM instances (users with active TSM)
+            if [[ $TSM_MULTI_USER_ENABLED -eq 1 ]]; then
+                tsm_list_instances
             else
-                echo "Command 'tsm users' is only available when running as root"
-                echo "Run: sudo tsm users"
+                echo "Command 'tsm users' requires multi-user mode"
+                echo ""
+                echo "Enable multi-user mode:"
+                echo "  export TSM_MULTI_USER_MODE=enabled"
+                echo ""
+                echo "Or run as root:"
+                echo "  sudo tsm users"
                 return 1
             fi
             ;;
@@ -456,12 +453,12 @@ tsm_tview_list() {
 # === TSM HELP FUNCTIONS ===
 
 _tsm_show_simple_help() {
-    # Use centralized color constants
-    local C_TITLE="${TC_TITLE:-\033[1;36m}"
-    local C_CAT="${TC_CATEGORY:-\033[1;34m}"
-    local C_CMD="${TC_COMMAND:-\033[0;36m}"
-    local C_GRAY="${TC_GRAY:-\033[0;90m}"
-    local C_NC="${TC_RESET:-\033[0m}"
+    # Colors
+    local C_TITLE='\033[1;36m'
+    local C_CAT='\033[1;34m'
+    local C_CMD='\033[0;36m'
+    local C_GRAY='\033[0;90m'
+    local C_NC='\033[0m'
 
     cat <<EOF
 $(echo -e "${C_TITLE}TSM${C_NC}") - Tetra Service Manager

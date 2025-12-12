@@ -25,28 +25,22 @@ tetra_tsm_save() {
         return 1
     fi
 
-    # Get current org (or "none" if not set)
-    local org=$(tsm_get_effective_org)
-    local services_dir=$(tsm_get_services_dir "$org")
+    # Create services directory
+    mkdir -p "$TETRA_DIR/tsm/services-available"
 
-    # Create services directory for this org
-    mkdir -p "$services_dir"
-
-    local service_file="$services_dir/${service_name}.tsm"
+    local service_file="$TETRA_DIR/tsm/services-available/${service_name}.tsm"
 
     # Get current working directory and environment
     local cwd="$(pwd)"
     local env_file="${TSM_ENV_FILE:-}"
     local port="${TSM_PORT:-}"
 
-    # Write service definition with org
+    # Write new simplified service definition
     cat > "$service_file" <<EOF
 #!/usr/bin/env bash
 # TSM Service: $service_name
-# Org: $org
 # Generated on $(date)
 
-TSM_ORG="$org"
 TSM_NAME="$service_name"
 TSM_COMMAND="$command"
 TSM_CWD="$cwd"
@@ -55,9 +49,7 @@ EOF
 
     chmod +x "$service_file"
 
-    local org_display=$(tsm_get_org_short_name "$org")
     echo "✅ Saved service definition: $service_file"
-    echo "   Org: $org_display"
     echo "Enable with: tsm enable $service_name"
     echo "Start with: tsm start $service_name"
 }
@@ -103,12 +95,11 @@ _tsm_save_from_process() {
     fi
 
     # Extract metadata from JSON (individual calls to handle spaces/tabs in values)
-    local command cwd env_file port process_org
+    local command cwd env_file port
     command=$(jq -r '.command // empty' "$meta_file" 2>/dev/null)
     cwd=$(jq -r '.cwd // empty' "$meta_file" 2>/dev/null)
     env_file=$(jq -r '.env_file // empty' "$meta_file" 2>/dev/null)
     port=$(jq -r '.port // empty' "$meta_file" 2>/dev/null)
-    process_org=$(jq -r '.org // "none"' "$meta_file" 2>/dev/null)
 
     if [[ -z "$command" ]]; then
         echo "❌ Failed to read metadata for $process_name"
@@ -119,18 +110,13 @@ _tsm_save_from_process() {
     [[ "$env_file" == "null" || "$env_file" == "" ]] && env_file=""
     [[ "$port" == "null" || "$port" == "" ]] && port=""
     [[ "$cwd" == "null" || "$cwd" == "" ]] && cwd="$(pwd)"
-    [[ "$process_org" == "null" || "$process_org" == "" ]] && process_org="none"
 
     # Determine service name
     local service_name="${new_service_name:-${process_name%%-*}}"
 
-    # Use the process's original org (from meta.json), not current TETRA_ORG
-    local org="$process_org"
-    local services_dir=$(tsm_get_services_dir "$org")
-
-    # Create services directory for this org
-    mkdir -p "$services_dir"
-    local service_file="$services_dir/${service_name}.tsm"
+    # Create services directory
+    mkdir -p "$TETRA_DIR/tsm/services-available"
+    local service_file="$TETRA_DIR/tsm/services-available/${service_name}.tsm"
 
     # Check if service file already exists - prompt for confirmation
     if [[ -f "$service_file" ]]; then
@@ -144,15 +130,13 @@ _tsm_save_from_process() {
         fi
     fi
 
-    # Create service definition with org
+    # Create service definition
     cat > "$service_file" <<EOF
 #!/usr/bin/env bash
 # TSM Service: $service_name
-# Org: $org
 # Saved from running process: $process_name (TSM ID: $tsm_id)
 # Generated on $(date)
 
-TSM_ORG="$org"
 TSM_NAME="$service_name"
 TSM_COMMAND="$command"
 TSM_CWD="$cwd"
@@ -162,9 +146,7 @@ EOF
 
     chmod +x "$service_file"
 
-    local org_display=$(tsm_get_org_short_name "$org")
     echo "✅ Saved running process '$process_name' as service: $service_file"
-    echo "   Org: $org_display"
     echo "   Command: $command"
     echo "   Working directory: $cwd"
     [[ -n "$env_file" ]] && echo "   Environment file: $env_file"
@@ -289,41 +271,57 @@ tetra_tsm_startup() {
 # Start a service by name
 tetra_tsm_start_service() {
     local service_name="$1"
+    local service_file="$TETRA_DIR/tsm/services-available/${service_name}.tsm"
 
-    # Search for service in: current org → none → system
-    local service_file
-    service_file=$(tsm_find_service_file "$service_name")
-
-    if [[ -z "$service_file" || ! -f "$service_file" ]]; then
+    if [[ ! -f "$service_file" ]]; then
         echo "❌ Service not found: $service_name"
-        # List available services from all sources
-        local available=""
-        for org in "$(tsm_get_effective_org)" "none" "system"; do
-            local dir=$(tsm_get_services_dir "$org")
-            [[ -d "$dir" ]] || continue
-            for f in "$dir"/*.tsm; do
-                [[ -f "$f" ]] && available+="$(basename "$f" .tsm) "
-            done
-        done
-        echo "   Available: $available"
         return 1
     fi
 
-    # Source service definition (.tsm file)
+    # Source service definition
     source "$service_file"
 
-    # Resolve env file: TSM_CWD/env/{TSM_ENV}.env (optional)
+    # NEW: Apply TSM_ENV convention (default to local)
     local env_name="${TSM_ENV:-local}"
-    local env_file="$TSM_CWD/env/${env_name}.env"
 
-    # Port priority: env file PORT > .tsm TSM_PORT > auto
-    local port="${TSM_PORT:-auto}"
-    if [[ -f "$env_file" ]]; then
-        local env_port=$(source "$env_file" 2>/dev/null && echo "${PORT:-}")
-        [[ -n "$env_port" ]] && port="$env_port"
+    # Validate TSM_ENV is one of the four environments
+    case "$env_name" in
+        local|dev|staging|prod)
+            ;;  # Valid environment
+        *)
+            echo "❌ Invalid TSM_ENV: $env_name (must be: local, dev, staging, or prod)"
+            return 1
+            ;;
+    esac
+
+    # Auto-compute env file path based on convention: $TSM_CWD/env/$TSM_ENV.env
+    local computed_env_file="$TSM_CWD/env/${env_name}.env"
+
+    # Backward compatibility: warn if TSM_ENV_FILE is set
+    if [[ -n "$TSM_ENV_FILE" ]]; then
+        echo "⚠️  TSM_ENV_FILE is deprecated, using TSM_ENV convention"
+        echo "   Expected: $computed_env_file"
+        computed_env_file="$TSM_CWD/$TSM_ENV_FILE"
     fi
 
-    local port_type="${TSM_PORT_TYPE:-tcp}"
+    local env_file="$computed_env_file"
+
+    # Validate env file exists
+    if [[ ! -f "$env_file" ]]; then
+        echo "❌ Environment file not found: $env_file"
+        echo "   Service author must create: $TSM_CWD/env/$env_name.env"
+        echo "   Directory: $(dirname "$env_file")"
+        return 1
+    fi
+
+    # Extract port from environment file
+    local port=$(cd "$TSM_CWD" && source "$env_file" 2>/dev/null && echo "${PORT:-}")
+
+    # If still no port, use auto
+    if [[ -z "$port" ]]; then
+        echo "⚠️  PORT not defined in $env_file, starting without port binding"
+        port="auto"
+    fi
 
     # Generate process name
     local process_name="${TSM_NAME}-${port}"
@@ -348,7 +346,7 @@ tetra_tsm_start_service() {
     (
         cd "$TSM_CWD"
 
-        # Source the environment file if it exists
+        # Source the environment file (using convention-based path)
         if [[ -f "$env_file" ]]; then
             source "$env_file"
         fi
@@ -359,9 +357,6 @@ tetra_tsm_start_service() {
             export TSM_PORT="$port"
         fi
 
-        # Export port type for metadata
-        export TSM_PORT_TYPE="${TSM_PORT_TYPE:-tcp}"
-
         # Build start command with optional pre-hook
         local start_args=(--name "$TSM_NAME")
         [[ "$port" != "auto" ]] && start_args+=(--port "$port")
@@ -370,40 +365,17 @@ tetra_tsm_start_service() {
         # Use TSM command mode to start
         tsm start "${start_args[@]}" $TSM_COMMAND
     )
-    [[ $? -ne 0 ]] && return 1
 
     # Validate port is open (only if port is specified)
-    local port_type="${TSM_PORT_TYPE:-tcp}"
-
     if [[ "$port" != "auto" ]]; then
         sleep 2
-        case "$port_type" in
-            udp)
-                # Check UDP port
-                if lsof -iUDP:$port -t >/dev/null 2>&1; then
-                    echo "✅ $process_name listening on UDP $port"
-                    return 0
-                else
-                    echo "❌ $process_name failed to open UDP $port"
-                    return 1
-                fi
-                ;;
-            none)
-                # No port validation
-                echo "✅ $process_name started (no port binding)"
-                return 0
-                ;;
-            tcp|ws|*)
-                # TCP or WebSocket (both use TCP)
-                if lsof -iTCP:$port -sTCP:LISTEN -t >/dev/null 2>&1; then
-                    echo "✅ $process_name listening on TCP $port"
-                    return 0
-                else
-                    echo "❌ $process_name failed to open TCP $port"
-                    return 1
-                fi
-                ;;
-        esac
+        if lsof -i ":$port" -t >/dev/null 2>&1; then
+            echo "✅ $process_name listening on port $port"
+            return 0
+        else
+            echo "❌ $process_name failed to open port $port"
+            return 1
+        fi
     else
         echo "✅ $process_name started"
         return 0
@@ -419,26 +391,19 @@ tetra_tsm_enable() {
         return 1
     fi
 
-    # Find the service file (searches org → none → system)
-    local service_file
-    service_file=$(tsm_find_service_file "$service_name")
+    local service_file="$TETRA_DIR/tsm/services-available/${service_name}.tsm"
+    local enabled_dir="$TETRA_DIR/tsm/services-enabled"
+    local enabled_link="$enabled_dir/${service_name}.tsm"
 
-    if [[ -z "$service_file" || ! -f "$service_file" ]]; then
-        echo "❌ Service not found: $service_name"
+    if [[ ! -f "$service_file" ]]; then
+        echo "❌ Service not found: $service_file"
         echo "Available services:"
         tetra_tsm_list_services
         return 1
     fi
 
-    # Determine which org owns this service
-    local org=$(tsm_get_service_org "$service_file")
-    local services_dir=$(tsm_get_services_dir "$org")
-    local enabled_dir=$(tsm_get_enabled_dir "$org")
-
-    # Create enabled directory for this org
+    # Create enabled directory
     mkdir -p "$enabled_dir"
-
-    local enabled_link="$enabled_dir/${service_name}.tsm"
 
     # Create symlink
     if [[ -L "$enabled_link" ]]; then
@@ -446,10 +411,8 @@ tetra_tsm_enable() {
         return 0
     fi
 
-    # Relative symlink from enabled to available
     ln -s "../services-available/${service_name}.tsm" "$enabled_link"
-    local org_display=$(tsm_get_org_short_name "$org")
-    echo "✅ Enabled service: $service_name (org: $org_display)"
+    echo "✅ Enabled service: $service_name"
     echo "Service will start automatically with tetra daemon"
 }
 
@@ -462,18 +425,7 @@ tetra_tsm_disable() {
         return 1
     fi
 
-    # Find the service file to determine its org
-    local service_file
-    service_file=$(tsm_find_service_file "$service_name")
-
-    if [[ -z "$service_file" ]]; then
-        echo "⚠️  Service not found: $service_name"
-        return 1
-    fi
-
-    local org=$(tsm_get_service_org "$service_file")
-    local enabled_dir=$(tsm_get_enabled_dir "$org")
-    local enabled_link="$enabled_dir/${service_name}.tsm"
+    local enabled_link="$TETRA_DIR/tsm/services-enabled/${service_name}.tsm"
 
     if [[ ! -L "$enabled_link" ]]; then
         echo "⚠️  Service not enabled: $service_name"
@@ -481,13 +433,15 @@ tetra_tsm_disable() {
     fi
 
     rm "$enabled_link"
-    local org_display=$(tsm_get_org_short_name "$org")
-    echo "✅ Disabled service: $service_name (org: $org_display)"
+    echo "✅ Disabled service: $service_name"
     echo "Service will not start automatically"
 }
 
-# List available services (from current org + none + system)
+# List available services
 tetra_tsm_list_services() {
+    local services_dir="$TETRA_DIR/tsm/services-available"
+    local enabled_dir="$TETRA_DIR/tsm/services-enabled"
+
     # Load color system if available
     local has_colors=false
     if [[ -f "$TETRA_SRC/bash/color/color_core.sh" ]]; then
@@ -498,17 +452,12 @@ tetra_tsm_list_services() {
 
     # Parse arguments
     local detail=false
-    local verbose=false
-    local filter="all"  # all, enabled, disabled
+    local filter="all"  # all, enabled, disabled, available
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -d|--detail)
                 detail=true
-                shift
-                ;;
-            -v|--verbose)
-                verbose=true
                 shift
                 ;;
             --enabled)
@@ -525,14 +474,11 @@ tetra_tsm_list_services() {
                 ;;
             *)
                 echo "tsm: unknown flag '$1' for services command" >&2
-                echo "Usage: tsm services [--enabled|--disabled|--available] [-d|--detail] [-v|--verbose]" >&2
+                echo "Usage: tsm services [--enabled|--disabled|--available] [-d|--detail]" >&2
                 return 64
                 ;;
         esac
     done
-
-    local current_org=$(tsm_get_effective_org)
-    local current_org_display=$(tsm_get_org_short_name "$current_org")
 
     # Set title based on filter with colors
     if [[ "$has_colors" == "true" ]]; then
@@ -547,35 +493,29 @@ tetra_tsm_list_services() {
             echo "Disabled Services:"
             ;;
         *)
-            echo "Saved Service Definitions (org: $current_org_display + none + system):"
+            echo "Saved Service Definitions:"
             ;;
     esac
 
     [[ "$has_colors" == "true" ]] && reset_color
 
-    local total_shown=0
+    if [[ -d "$services_dir" ]]; then
+        local found_services=false
+        local shown_count=0
 
-    # Iterate over sources: current org, none (if different), system
-    local sources=("$current_org")
-    [[ "$current_org" != "none" ]] && sources+=("none")
-    sources+=("system")
-
-    for source_org in "${sources[@]}"; do
-        local services_dir=$(tsm_get_services_dir "$source_org")
-        local enabled_dir=$(tsm_get_enabled_dir "$source_org")
-        local org_display=$(tsm_get_org_short_name "$source_org")
-
-        [[ -d "$services_dir" ]] || continue
-
-        local org_shown=0
         for service_file in "$services_dir"/*.tsm; do
             [[ -f "$service_file" ]] || continue
+            found_services=true
 
             local service_name=$(basename "$service_file" .tsm)
             local is_enabled=false
+            local enabled_status=""
 
             if [[ -L "$enabled_dir/${service_name}.tsm" ]]; then
                 is_enabled=true
+                enabled_status=" [enabled]"
+            else
+                enabled_status=""
             fi
 
             # Apply filter
@@ -588,68 +528,134 @@ tetra_tsm_list_services() {
                     ;;
             esac
 
-            # Print org header on first service from this org
-            if [[ $org_shown -eq 0 ]]; then
-                echo ""
-                if [[ "$has_colors" == "true" ]]; then
-                    text_color "888888"
-                fi
-                echo "[$org_display]"
-                [[ "$has_colors" == "true" ]] && reset_color
-            fi
+            ((shown_count++))
 
-            ((org_shown++))
-            ((total_shown++))
-
-            # Source service definition to get details
-            local TSM_NAME="" TSM_COMMAND="" TSM_CWD="" TSM_ENV_FILE="" TSM_ENV="" TSM_PORT="" TSM_DESCRIPTION="" TSM_ORG=""
+            # Source service definition to get details - must NOT use subshell
+            local TSM_NAME="" TSM_COMMAND="" TSM_CWD="" TSM_ENV_FILE="" TSM_PORT="" TSM_DESCRIPTION=""
             source "$service_file" 2>/dev/null
             local cmd="$TSM_COMMAND"
             local port="$TSM_PORT"
+            local env="$TSM_ENV_FILE"
+            local desc="$TSM_DESCRIPTION"
 
             if [[ "$detail" == "true" ]]; then
-                # Detailed view
+                # Service name in bright blue (MODE_PRIMARY[2])
                 if [[ "$has_colors" == "true" ]]; then
-                    text_color "5599FF"
+                    text_color "5599FF"  # Bright blue for service name
                 fi
                 echo -n "  $service_name"
                 [[ "$has_colors" == "true" ]] && reset_color
 
-                if [[ "$is_enabled" == "true" ]]; then
+                # Enabled status in green
+                if [[ -n "$enabled_status" ]]; then
                     if [[ "$has_colors" == "true" ]]; then
-                        text_color "00DD66"
+                        text_color "00DD66"  # Green for enabled
                     fi
-                    echo -n " [enabled]"
+                    echo -n "$enabled_status"
                     [[ "$has_colors" == "true" ]] && reset_color
                 fi
                 echo ""
 
+                # Config path in dim gray
+                if [[ "$has_colors" == "true" ]]; then
+                    text_color "777788"  # Dim gray for labels
+                fi
+                echo -n "      Config: "
+                [[ "$has_colors" == "true" ]] && reset_color
+                echo "$service_file"
+
+                # Working directory
+                if [[ -n "$TSM_CWD" ]]; then
+                    if [[ "$has_colors" == "true" ]]; then
+                        text_color "777788"
+                    fi
+                    echo -n "      Working Dir: "
+                    [[ "$has_colors" == "true" ]] && reset_color
+                    echo "$TSM_CWD"
+                fi
+
+                # Command in yellow/orange
                 if [[ "$has_colors" == "true" ]]; then
                     text_color "777788"
                 fi
-                echo "      Config: $service_file"
-                [[ -n "$TSM_CWD" ]] && echo "      Working Dir: $TSM_CWD"
+                echo -n "      Command: "
                 [[ "$has_colors" == "true" ]] && reset_color
-
                 if [[ "$has_colors" == "true" ]]; then
-                    text_color "FFAA44"
+                    text_color "FFAA44"  # Orange for command
                 fi
-                echo "      Command: $cmd"
+                echo "$cmd"
                 [[ "$has_colors" == "true" ]] && reset_color
 
-                [[ -n "$port" ]] && echo "      Port: $port"
+                # Port in cyan
+                if [[ -n "$port" ]]; then
+                    if [[ "$has_colors" == "true" ]]; then
+                        text_color "777788"
+                    fi
+                    echo -n "      Port: "
+                    [[ "$has_colors" == "true" ]] && reset_color
+                    if [[ "$has_colors" == "true" ]]; then
+                        text_color "00AAAA"  # Cyan for port
+                    fi
+                    echo "$port"
+                    [[ "$has_colors" == "true" ]] && reset_color
+                fi
+
+                if [[ -n "$env" ]]; then
+                    # Resolve full path to env file
+                    local env_path="$env"
+                    if [[ "$env" != /* && -n "$TSM_CWD" ]]; then
+                        env_path="$TSM_CWD/$env"
+                    fi
+
+                    if [[ "$has_colors" == "true" ]]; then
+                        text_color "777788"
+                    fi
+                    echo -n "      Env File: "
+                    [[ "$has_colors" == "true" ]] && reset_color
+                    echo "$env_path"
+
+                    # Show key environment variables from the env file
+                    if [[ -f "$env_path" ]]; then
+                        local env_vars=$(grep -E '^export [A-Z_]+=' "$env_path" 2>/dev/null | sed 's/^export //' | head -10)
+                        if [[ -n "$env_vars" ]]; then
+                            if [[ "$has_colors" == "true" ]]; then
+                                text_color "777788"
+                            fi
+                            echo "      Env Vars:"
+                            [[ "$has_colors" == "true" ]] && reset_color
+                            while IFS= read -r var; do
+                                if [[ "$has_colors" == "true" ]]; then
+                                    text_color "AA77DD"  # Purple for env vars
+                                fi
+                                echo "          $var"
+                                [[ "$has_colors" == "true" ]] && reset_color
+                            done <<< "$env_vars"
+                        fi
+                    fi
+                fi
+
+                if [[ -n "$desc" ]]; then
+                    if [[ "$has_colors" == "true" ]]; then
+                        text_color "777788"
+                    fi
+                    echo -n "      Description: "
+                    [[ "$has_colors" == "true" ]] && reset_color
+                    echo "$desc"
+                fi
                 echo
             else
-                # Compact view: org prefix, name, enabled, command, port
+                # Non-detail view: service name, enabled status, tab, command
+                # Service name in blue (left-padded to 15 chars)
                 if [[ "$has_colors" == "true" ]]; then
-                    text_color "5599FF"
+                    text_color "5599FF"  # Blue for service name
                 fi
                 printf "  %-15s" "$service_name"
                 [[ "$has_colors" == "true" ]] && reset_color
 
-                if [[ "$is_enabled" == "true" ]]; then
+                # Enabled status (7 chars wide: "enabled" or empty)
+                if [[ -n "$enabled_status" ]]; then
                     if [[ "$has_colors" == "true" ]]; then
-                        text_color "00DD66"
+                        text_color "00DD66"  # Green for enabled
                     fi
                     printf " %-7s" "enabled"
                     [[ "$has_colors" == "true" ]] && reset_color
@@ -657,111 +663,65 @@ tetra_tsm_list_services() {
                     printf " %-7s" ""
                 fi
 
+                # Tab before command
                 echo -n $'\t'
 
-                # Truncate command to ~40 chars in compact view
-                local cmd_display="$cmd"
-                local cmd_truncated=false
-                if [[ ${#cmd_display} -gt 40 ]]; then
-                    cmd_display="${cmd_display:0:37}..."
-                    cmd_truncated=true
-                fi
-
+                # Command in orange
                 if [[ "$has_colors" == "true" ]]; then
-                    text_color "FFAA44"
+                    text_color "FFAA44"  # Orange for command
                 fi
-                echo -n "$cmd_display"
+                echo -n "$cmd"
                 [[ "$has_colors" == "true" ]] && reset_color
 
+                # Port in cyan
                 if [[ -n "$port" ]]; then
                     if [[ "$has_colors" == "true" ]]; then
-                        text_color "00AAAA"
+                        text_color "00AAAA"  # Cyan for port
                     fi
                     echo -n " :$port"
                     [[ "$has_colors" == "true" ]] && reset_color
                 fi
                 echo ""
-
-                # Verbose: show full command (if truncated) and file path
-                if [[ "$verbose" == "true" ]]; then
-                    if [[ "$has_colors" == "true" ]]; then
-                        text_color "666666"
-                    fi
-                    if [[ "$cmd_truncated" == "true" ]]; then
-                        echo "                  $cmd"
-                    fi
-                    echo "                  $service_file"
-                    [[ "$has_colors" == "true" ]] && reset_color
-                fi
             fi
         done
-    done
 
-    if [[ $total_shown -eq 0 ]]; then
-        echo "  No services found"
-        case "$filter" in
-            enabled)
-                echo "  Use 'tsm enable <service>' to enable services for autostart"
-                ;;
-        esac
+        if [[ "$found_services" == "false" ]]; then
+            echo "  No saved services found"
+        elif [[ $shown_count -eq 0 ]]; then
+            case "$filter" in
+                enabled)
+                    echo "  No enabled services found"
+                    echo "  Use 'tsm enable <service>' to enable services for autostart"
+                    ;;
+                disabled)
+                    echo "  No disabled services found"
+                    ;;
+            esac
+        fi
+    else
+        echo "  Services directory not found: $services_dir"
     fi
 
     echo
-    if [[ "$has_colors" == "true" ]]; then
-        text_color "777788"
-    fi
-    echo "Usage: tsm services [--enabled|--disabled|--available] [-d|--detail] [-v|--verbose]"
-    [[ "$has_colors" == "true" ]] && reset_color
-}
-
-# Edit service definition file
-tetra_tsm_edit() {
-    local identifier="$1"
-
-    if [[ -z "$identifier" ]]; then
-        echo "Usage: tsm edit <service-name|tsm-id>"
-        return 1
-    fi
-
-    local service_name=""
-    local service_file=""
-
-    # If numeric, look up by TSM ID
-    if [[ "$identifier" =~ ^[0-9]+$ ]]; then
-        local tsm_id="$identifier"
-        # Find process with this TSM ID
-        for process_dir in "$TSM_PROCESSES_DIR"/*/; do
-            [[ -d "$process_dir" ]] || continue
-            local meta_file="${process_dir}meta.json"
-            [[ -f "$meta_file" ]] || continue
-
-            local found_id=$(jq -r '.tsm_id // empty' "$meta_file" 2>/dev/null)
-            if [[ "$found_id" == "$tsm_id" ]]; then
-                local process_name=$(basename "$process_dir")
-                # Service name is process name without port suffix
-                service_name="${process_name%%-*}"
-                break
-            fi
-        done
-
-        if [[ -z "$service_name" ]]; then
-            echo "No process found with TSM ID: $tsm_id"
-            return 1
+    if [[ "$filter" == "all" ]]; then
+        if [[ "$has_colors" == "true" ]]; then
+            text_color "777788"  # Dim gray for legend
         fi
-    else
-        service_name="$identifier"
+        echo -n "Legend: "
+        [[ "$has_colors" == "true" ]] && reset_color
+        if [[ "$has_colors" == "true" ]]; then
+            text_color "00DD66"  # Green for enabled
+        fi
+        echo -n "enabled"
+        [[ "$has_colors" == "true" ]] && reset_color
+        echo " = enabled for autostart"
     fi
 
-    # Find service file using org-scoped lookup
-    service_file=$(tsm_find_service_file "$service_name")
-
-    if [[ -z "$service_file" || ! -f "$service_file" ]]; then
-        echo "Service file not found: $service_name"
-        echo "Create with: tsm save $service_name <command>"
-        return 1
+    if [[ "$has_colors" == "true" ]]; then
+        text_color "777788"  # Dim gray for usage
     fi
-
-    ${EDITOR:-vim} "$service_file"
+    echo "Usage: tsm services [--enabled|--disabled|--available] [-d|--detail]"
+    [[ "$has_colors" == "true" ]] && reset_color
 }
 
 # Show service details
@@ -773,21 +733,14 @@ tetra_tsm_show_service() {
         return 1
     fi
 
-    # Find service file using org-scoped lookup
-    local service_file
-    service_file=$(tsm_find_service_file "$service_name")
+    local service_file="$TETRA_DIR/tsm/services-available/${service_name}.tsm"
 
-    if [[ -z "$service_file" || ! -f "$service_file" ]]; then
-        echo "❌ Service not found: $service_name"
+    if [[ ! -f "$service_file" ]]; then
+        echo "❌ Service not found: $service_file"
         return 1
     fi
 
-    local org=$(tsm_get_service_org "$service_file")
-    local org_display=$(tsm_get_org_short_name "$org")
-    local enabled_dir=$(tsm_get_enabled_dir "$org")
-
     echo "🔍 Service: $service_name"
-    echo "📁 Org: $org_display"
     echo "📄 File: $service_file"
     echo
 
@@ -796,7 +749,6 @@ tetra_tsm_show_service() {
         source "$service_file"
         echo "Configuration:"
         echo "  Name: ${TSM_NAME:-}"
-        echo "  Org: ${TSM_ORG:-none}"
         echo "  Command: ${TSM_COMMAND:-}"
         echo "  Directory: ${TSM_CWD:-}"
         echo "  Environment: ${TSM_ENV:-none}"
@@ -808,7 +760,7 @@ tetra_tsm_show_service() {
     )
 
     # Check if enabled
-    if [[ -L "$enabled_dir/${service_name}.tsm" ]]; then
+    if [[ -L "$TETRA_DIR/tsm/services-enabled/${service_name}.tsm" ]]; then
         echo "  Status: enabled ✅"
     else
         echo "  Status: disabled"
@@ -825,4 +777,3 @@ export -f tetra_tsm_enable
 export -f tetra_tsm_disable
 export -f tetra_tsm_list_services
 export -f tetra_tsm_show_service
-export -f tetra_tsm_edit

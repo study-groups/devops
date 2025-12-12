@@ -3,15 +3,23 @@
 # TSM Remote Module - Entry Point
 # Enables remote TSM execution via tetra.toml endpoints
 
-# Load module utilities
-source "$TETRA_SRC/bash/utils/module_init.sh"
-source "$TETRA_SRC/bash/utils/function_helpers.sh"
-
-# Initialize as submodule of TSM
-TSM_REMOTE_SRC="$TETRA_SRC/bash/tsm/remote"
-TSM_REMOTE_DIR="$TETRA_DIR/tsm/remote"
-[[ ! -d "$TSM_REMOTE_DIR" ]] && mkdir -p "$TSM_REMOTE_DIR"
-export TSM_REMOTE_SRC TSM_REMOTE_DIR
+# Set module paths
+MOD_SRC="$TETRA_SRC/bash/tsm/remote"
+MOD_DIR="$TETRA_DIR/tsm/remote"
 
 # Source main remote functionality
-source "$TSM_REMOTE_SRC/tsm_remote.sh"
+source "$MOD_SRC/tsm_remote.sh"
+
+# Module initialization
+tsm_remote_init() {
+    # Create runtime directory if needed
+    [[ ! -d "$MOD_DIR" ]] && mkdir -p "$MOD_DIR"
+
+    # Note: org module check happens at runtime in tsm_remote()
+    # Functions are always available, but will fail gracefully if org not loaded
+
+    return 0
+}
+
+# Run initialization
+tsm_remote_init

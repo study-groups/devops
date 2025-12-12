@@ -2,10 +2,8 @@
 # TSM Tree - Help and Completion Tree Structure
 # Defines the TSM (Tetra Service Manager) command tree
 
-# Source dependencies (only if not already loaded)
-if [[ -z "${TREE_TYPE[*]}" ]]; then
-    source "$TETRA_SRC/bash/tree/core.sh"
-fi
+# Source dependencies
+source "$TETRA_SRC/bash/tree/core.sh"
 
 # Initialize TSM tree under help.tsm namespace
 tsm_tree_init() {

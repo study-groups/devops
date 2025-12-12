@@ -7,7 +7,7 @@
 
 _tsm_is_process_running() {
     local pid="$1"
-    [[ -n "$pid" ]] && tsm_is_pid_alive "$pid"
+    [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
 }
 
 _tsm_get_process_by_name() {

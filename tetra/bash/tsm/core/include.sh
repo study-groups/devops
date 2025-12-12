@@ -3,15 +3,6 @@
 # TSM Core Module Loader
 # Loads all TSM modules using strong globals in dependency-ordered sequence
 
-# CRITICAL: Validate bash version >= 5.2
-# TSM uses modern bash 5.2+ features (nameref -n, [[ -v ]], etc.)
-if [[ "${BASH_VERSINFO[0]}" -lt 5 || ("${BASH_VERSINFO[0]}" -eq 5 && "${BASH_VERSINFO[1]}" -lt 2) ]]; then
-    echo "FATAL: TSM requires bash 5.2 or higher (current: $BASH_VERSION)" >&2
-    echo "Fix: brew install bash && add /opt/homebrew/bin/bash to /etc/shells" >&2
-    TSM_LOAD_FAILED=1
-    return
-fi
-
 # CRITICAL: Validate TETRA_SRC is set
 if [[ -z "${TETRA_SRC:-}" ]]; then
     echo "FATAL: TETRA_SRC is not set. TSM cannot load." >&2
@@ -32,22 +23,20 @@ TSM_SRC="$TETRA_SRC/bash/tsm"
 # === PHASE 1: CORE FOUNDATION (no dependencies) ===
 source "$TSM_CORE_SRC/core.sh"           # Core functions
 source "$TSM_CORE_SRC/config.sh"         # Configuration and global state
-source "$TSM_CORE_SRC/org_helpers.sh"    # Org-scoped service paths
+source "$TSM_CORE_SRC/discovery.sh"      # Instance discovery (multi-user support)
+source "$TSM_CORE_SRC/service_paths.sh"  # Service file path resolution
 source "$TSM_CORE_SRC/utils.sh"          # Utility functions
 source "$TSM_CORE_SRC/validation.sh"     # Validation & helpers
 source "$TSM_CORE_SRC/environment.sh"    # Environment handling
 source "$TSM_CORE_SRC/helpers.sh"        # Helper functions
 source "$TSM_CORE_SRC/setup.sh"          # Setup utilities
 source "$TSM_CORE_SRC/metadata.sh"       # PM2-style JSON metadata
-source "$TSM_CORE_SRC/multi_user.sh"     # Multi-user support (root cross-user visibility)
 source "$TSM_CORE_SRC/hooks.sh"          # Pre-hook system
 source "$TSM_CORE_SRC/runtime.sh"        # Interpreter resolution
-source "$TSM_CORE_SRC/runtime_info.sh"   # Runtime information queries
 source "$TSM_CORE_SRC/port_resolution.sh"  # Port ladder (5-step)
 source "$TSM_CORE_SRC/patterns.sh"       # Pattern management
 source "$TSM_CORE_SRC/start.sh"          # Universal start command
 source "$TSM_CORE_SRC/help.sh"           # Help system (contextual, colored)
-source "$TSM_CORE_SRC/help_parser.sh"    # Help markdown parser
 
 # === PHASE 2: SYSTEM MODULES (depend on core) ===
 source "$TSM_SYSTEM_SRC/ports.sh"              # Named port registry

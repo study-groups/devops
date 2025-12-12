@@ -46,6 +46,30 @@ export TSM_ID_FILE="${TETRA_DIR}/tsm/runtime/next_id"
 export TSM_IS_ROOT=$([[ $EUID -eq 0 ]] && echo 1 || echo 0)
 export TSM_CURRENT_USER="${USER}"
 
+# Multi-user mode: Controls cross-user visibility
+# "auto" - Enabled if root, disabled otherwise (default)
+# "enabled" - Always scan all users (for local dev machines)
+# "disabled" - Never scan other users (strict isolation)
+export TSM_MULTI_USER_MODE="${TSM_MULTI_USER_MODE:-auto}"
+
+# Determine if multi-user features should be active
+_tsm_is_multi_user_enabled() {
+    case "$TSM_MULTI_USER_MODE" in
+        enabled)
+            return 0  # Always enabled
+            ;;
+        disabled)
+            return 1  # Always disabled
+            ;;
+        auto|*)
+            # Enabled only if root
+            [[ $TSM_IS_ROOT -eq 1 ]] && return 0 || return 1
+            ;;
+    esac
+}
+
+export TSM_MULTI_USER_ENABLED=$(_tsm_is_multi_user_enabled && echo 1 || echo 0)
+
 # Global state initialization function
 _tsm_init_global_state() {
     # Only initialize if Bash 4+ (associative arrays)

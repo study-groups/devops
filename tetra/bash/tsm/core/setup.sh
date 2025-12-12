@@ -6,33 +6,21 @@
 # === DIRECTORY SETUP ===
 
 tetra_tsm_setup() {
-    # Add util-linux to PATH on macOS if installed (provides flock, setsid, etc)
+    # Ensure setsid is available on macOS
     if [[ "$OSTYPE" == "darwin"* ]]; then
         local util_linux_bin=""
-
-        # Try to detect Homebrew prefix dynamically first
-        local brew_prefix=""
-        if command -v brew >/dev/null 2>&1; then
-            brew_prefix=$(brew --prefix 2>/dev/null)
+        if [[ -n "$HOMEBREW_PREFIX" ]]; then
+            util_linux_bin="$HOMEBREW_PREFIX/opt/util-linux/bin"
         fi
-
-        # Try multiple locations in order of preference
-        local prefixes=()
-        [[ -n "$brew_prefix" ]] && prefixes+=("$brew_prefix")
-        [[ -n "$HOMEBREW_PREFIX" ]] && prefixes+=("$HOMEBREW_PREFIX")
-        prefixes+=("/opt/homebrew" "/usr/local")
-
-        for prefix in "${prefixes[@]}"; do
-            if [[ -d "$prefix/opt/util-linux/bin" ]]; then
-                util_linux_bin="$prefix/opt/util-linux/bin"
-                break
-            fi
-        done
-
-        # Add to PATH if not already there
         if [[ -n "$util_linux_bin" && -d "$util_linux_bin" ]] && [[ ":$PATH:" != *":$util_linux_bin:"* ]]; then
             PATH="$util_linux_bin:$PATH"
             export PATH
+            echo "tsm: added util-linux to PATH for setsid support"
+        fi
+
+        if ! command -v setsid >/dev/null 2>&1; then
+            echo "tsm: warning - setsid not found. Install with: brew install util-linux" >&2
+            return 1
         fi
     fi
 

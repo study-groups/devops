@@ -169,7 +169,7 @@ tsm_cleanup_ports() {
 
     while IFS='|' read -r port name pid timestamp; do
         # Keep if process still alive
-        if tsm_is_pid_alive "$pid"; then
+        if kill -0 "$pid" 2>/dev/null; then
             echo "$port|$name|$pid|$timestamp" >> "$temp_file"
         fi
     done < "$TSM_PORT_ALLOCATIONS"

@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 # TSM Patrol System - Automatic cleanup
 # PM2-style: Only checks process directories in runtime/processes/

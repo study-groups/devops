@@ -256,31 +256,16 @@ tsm_help_topic() {
 
     case "$topic" in
         start)
-            # Check if markdown help is available, otherwise use built-in
-            if declare -f tsm_help_command >/dev/null 2>&1; then
-                tsm_help_command "start" || tsm_help_start
-            else
-                tsm_help_start
-            fi
+            tsm_help_start
             ;;
         ports)
             tsm_help_ports
             ;;
         doctor)
-            # Check if markdown help is available, otherwise use built-in
-            if declare -f tsm_help_command >/dev/null 2>&1; then
-                tsm_help_command "doctor" || tsm_help_doctor
-            else
-                tsm_help_doctor
-            fi
+            tsm_help_doctor
             ;;
         pre-hooks|prehooks|hooks)
-            # Check if markdown help is available, otherwise use built-in
-            if declare -f tsm_help_topic_md >/dev/null 2>&1; then
-                tsm_help_topic_md "pre-hooks" || tsm_help_pre_hooks
-            else
-                tsm_help_pre_hooks
-            fi
+            tsm_help_pre_hooks
             ;;
         environments|env)
             tsm_help_environments
@@ -288,27 +273,9 @@ tsm_help_topic() {
         python)
             tsm_help_python
             ;;
-        node-versions)
-            # New: markdown-based help for node version resolution
-            if declare -f tsm_help_topic_md >/dev/null 2>&1; then
-                tsm_help_topic_md "node-versions"
-            else
-                echo -e "${TETRA_RED}Help topic not available (help_parser.sh not loaded)${TETRA_NC}" >&2
-                return 1
-            fi
-            ;;
-        runtimes|runtime)
-            # New: markdown-based help for runtime management
-            if declare -f tsm_help_topic_md >/dev/null 2>&1; then
-                tsm_help_topic_md "runtimes"
-            else
-                echo -e "${TETRA_RED}Help topic not available (help_parser.sh not loaded)${TETRA_NC}" >&2
-                return 1
-            fi
-            ;;
         *)
             echo -e "${TETRA_RED}Unknown help topic: $topic${TETRA_NC}" >&2
-            echo "Try: tsm help [start|ports|doctor|pre-hooks|environments|python|node-versions|runtimes]" >&2
+            echo "Try: tsm help [start|ports|doctor|pre-hooks|environments|python]" >&2
             return 1
             ;;
     esac

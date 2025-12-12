@@ -3,22 +3,30 @@
 # TSM Module Includes - Standard tetra module entry point
 # Controls what gets loaded for TSM (Tetra Service Manager) functionality
 
-# Load module utilities
-source "$TETRA_SRC/bash/utils/module_init.sh"
-source "$TETRA_SRC/bash/utils/function_helpers.sh"
+# Follow tetra convention: MOD_SRC for source code, MOD_DIR for runtime data
+# Per CLAUDE.md: "MOD_SRC is a strong global. A module can count on it."
+# IMPORTANT: Always set explicitly to avoid conflicts with other modules
+MOD_SRC="$TETRA_SRC/bash/tsm"  # Source files
+MOD_DIR="$TETRA_DIR/tsm"        # Runtime data
 
-# Initialize module with standard tetra conventions
-# Creates MOD_SRC, MOD_DIR and specified subdirectories
-tetra_module_init_with_alias "tsm" "TSM" "runtime:runtime/processes:logs"
+# Backward compatibility - modules may still reference TSM_*
+TSM_SRC="$MOD_SRC"
+TSM_DIR="$MOD_DIR"
+
+# Create runtime directories if they don't exist
+[[ ! -d "$MOD_DIR" ]] && mkdir -p "$MOD_DIR"
+[[ ! -d "$MOD_DIR/runtime" ]] && mkdir -p "$MOD_DIR/runtime"
+[[ ! -d "$MOD_DIR/runtime/processes" ]] && mkdir -p "$MOD_DIR/runtime/processes"
+[[ ! -d "$MOD_DIR/logs" ]] && mkdir -p "$MOD_DIR/logs"
+
+# Export for subprocesses
+export MOD_SRC MOD_DIR TSM_SRC TSM_DIR
 
 # Source the main TSM module (which handles all component loading)
 source "$MOD_SRC/tsm.sh"
 
-# Run TSM initialization (setup directories, check dependencies)
-tetra_call_if_exists tetra_tsm_setup >/dev/null 2>&1 || true
-
 # Source tree help registration
-tetra_source_silent "$MOD_SRC/tsm_tree.sh"
+source "$MOD_SRC/tsm_tree.sh" 2>/dev/null || true
 
 # Register tsm actions with action registry
 if [[ -f "$TETRA_SRC/bash/actions/registry.sh" ]]; then

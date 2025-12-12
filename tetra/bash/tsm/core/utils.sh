@@ -142,28 +142,12 @@ tetra_tsm_get_next_id() {
 
     mkdir -p "$TSM_PROCESSES_DIR"
 
-    # Acquire exclusive lock (with fallback if flock not available)
-    if command -v flock >/dev/null 2>&1; then
-        # Use flock if available (proper locking)
-        exec 200>"$lock_file"
-        if ! flock -x -w 5 200; then
-            echo "tsm: failed to acquire ID allocation lock (timeout after 5s)" >&2
-            exec 200>&-
-            return 1
-        fi
-    else
-        # Fallback: simple lock file without flock (macOS without util-linux)
-        # Not thread-safe but works for single-threaded use
-        local retries=50
-        while [[ -f "$lock_file" && $retries -gt 0 ]]; do
-            sleep 0.1
-            retries=$((retries - 1))
-        done
-        if [[ $retries -eq 0 ]]; then
-            echo "tsm: failed to acquire ID allocation lock (timeout)" >&2
-            return 1
-        fi
-        echo $$ > "$lock_file"
+    # Acquire exclusive lock
+    exec 200>"$lock_file"
+    if ! flock -x -w 5 200; then
+        echo "tsm: failed to acquire ID allocation lock (timeout after 5s)" >&2
+        exec 200>&-
+        return 1
     fi
 
     # Check for PM2-style meta.json in subdirectories
@@ -206,12 +190,8 @@ tetra_tsm_get_next_id() {
     echo "Reserved at $(date +%s)" > "$placeholder_dir/.timestamp"
 
     # Release lock
-    if command -v flock >/dev/null 2>&1; then
-        flock -u 200
-        exec 200>&-
-    else
-        rm -f "$lock_file"
-    fi
+    flock -u 200
+    exec 200>&-
 
     echo "$next_id"
 }
@@ -345,6 +325,12 @@ tetra_tsm_is_running() {
     tsm_is_pid_alive "$pid"
 }
 
+# Port discovery - deprecated, use tsm_discover_port() in start.sh instead
+tetra_tsm_extract_port() {
+    echo "DEPRECATED: Use tsm_discover_port() from start.sh" >&2
+    return 1
+}
+
 # === SECURITY UTILITIES ===
 
 # Safe directory removal - prevents accidental damage
@@ -401,95 +387,21 @@ _tsm_validate_command() {
     local cmd="$1"
 
     # Check for obviously malicious patterns
-    if [[ "$cmd" =~ (rm[[:space:]]+-rf[[:space:]]+/|eval[[:space:]]|source[[:space:]]+/dev/|;[[:space:]]*rm|&&[[:space:]]*rm|\|[[:space:]]*rm) ]]; then
+    if [[ "$cmd" =~ (rm[[:space:]]+-rf[[:space:]]+/|eval[[:space:]]|source[[:space:]]+/dev/) ]]; then
         echo "tsm: Command contains suspicious pattern: $cmd" >&2
-        return 1
-    fi
-
-    # Check for shell metacharacters that could enable command injection
-    if [[ "$cmd" =~ (\$\(|\`|;[[:space:]]*[a-z]|&&|\|\||>>) ]]; then
-        echo "tsm: Command contains shell metacharacters: $cmd" >&2
         return 1
     fi
 
     return 0
 }
 
-# === PROCESS DIRECTORY ITERATOR ===
-# Iterate over all process directories with a callback
-
-tsm_foreach_process() {
-    local callback="$1"
-    shift
-    local callback_args=("$@")
-
-    [[ -d "$TSM_PROCESSES_DIR" ]] || return 0
-
-    for process_dir in "$TSM_PROCESSES_DIR"/*/; do
-        [[ -d "$process_dir" ]] || continue
-        local name=$(basename "$process_dir")
-        [[ "$name" == .* ]] && continue  # Skip hidden dirs like .reserved-*
-
-        local meta_file="${process_dir}meta.json"
-        [[ -f "$meta_file" ]] || continue
-
-        "$callback" "$name" "$process_dir" "$meta_file" "${callback_args[@]}"
-    done
+# Error and warning helpers for consistent messaging
+tsm_error() {
+    echo "tsm: $*" >&2
 }
 
-# Find process by TSM ID, returns process name
-tsm_find_by_id() {
-    local target_id="$1"
-    local found_name=""
-
-    _find_callback() {
-        local name="$1" dir="$2" meta="$3" search_id="$4"
-        local tsm_id=$(jq -r '.tsm_id // empty' "$meta" 2>/dev/null)
-        if [[ "$tsm_id" == "$search_id" ]]; then
-            echo "$name"
-            return 1  # Signal to stop iteration
-        fi
-    }
-
-    tsm_foreach_process _find_callback "$target_id"
-}
-
-# Find process by PID, returns process name
-tsm_find_by_pid() {
-    local target_pid="$1"
-
-    _find_pid_callback() {
-        local name="$1" dir="$2" meta="$3" search_pid="$4"
-        local pid=$(jq -r '.pid // empty' "$meta" 2>/dev/null)
-        if [[ "$pid" == "$search_pid" ]]; then
-            echo "$name"
-            return 1
-        fi
-    }
-
-    tsm_foreach_process _find_pid_callback "$target_pid"
-}
-
-# Find process by port, returns process name
-tsm_find_by_port() {
-    local target_port="$1"
-
-    _find_port_callback() {
-        local name="$1" dir="$2" meta="$3" search_port="$4"
-        local port=$(jq -r '.port // empty' "$meta" 2>/dev/null)
-        if [[ "$port" == "$search_port" ]]; then
-            echo "$name"
-            return 1
-        fi
-    }
-
-    tsm_foreach_process _find_port_callback "$target_port"
-}
-
-# Get PID using port (from lsof)
-tsm_get_port_pid() {
-    local port="$1"
-    lsof -ti :"$port" 2>/dev/null | head -1
+tsm_warn() {
+    echo "tsm: warning - $*" >&2
 }
 
 # Export utility functions
@@ -497,8 +409,5 @@ export -f tsm_is_pid_alive
 export -f _tsm_safe_remove_dir
 export -f _tsm_validate_path
 export -f _tsm_validate_command
-export -f tsm_foreach_process
-export -f tsm_find_by_id
-export -f tsm_find_by_pid
-export -f tsm_find_by_port
-export -f tsm_get_port_pid
+export -f tsm_error
+export -f tsm_warn

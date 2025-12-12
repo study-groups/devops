@@ -263,7 +263,7 @@ tetra_tsm_start() {
         return 0
     fi
 
-    local env_file="" port="" debug=false custom_name="" prehook="" dry_run=false
+    local env_file="" port="" debug=false custom_name="" prehook=""
     local command_args=()
 
     # Parse flags first
@@ -293,10 +293,6 @@ tetra_tsm_start() {
                 debug=true
                 shift
                 ;;
-            --dry-run)
-                dry_run=true
-                shift
-                ;;
             --*)
                 echo "tsm: unknown option '$1'" >&2
                 return 64
@@ -316,16 +312,10 @@ tetra_tsm_start() {
         return 64
     fi
 
-    # Check if first arg is a known service (searches org → none → system)
+    # Check if first arg is a known service
     local first_arg="${command_args[0]}"
-    local service_file
-    if declare -f tsm_find_service_file >/dev/null 2>&1; then
-        service_file=$(tsm_find_service_file "$first_arg")
-    else
-        # Fallback to system services only
-        service_file="$TETRA_DIR/tsm/services-available/${first_arg}.tsm"
-    fi
-    if [[ -n "$service_file" && -f "$service_file" ]]; then
+    local service_file="$TETRA_DIR/tsm/services-available/${first_arg}.tsm"
+    if [[ -f "$service_file" ]]; then
         echo "🚀 Starting service: $first_arg"
         tetra_tsm_start_service "${command_args[@]}"
         return $?
@@ -334,7 +324,7 @@ tetra_tsm_start() {
     # Use universal start for any command
     if declare -f tsm_start_any_command >/dev/null 2>&1; then
         local command_string="${command_args[*]}"
-        tsm_start_any_command "$command_string" "$env_file" "$port" "$custom_name" "$prehook" "$dry_run"
+        tsm_start_any_command "$command_string" "$env_file" "$port" "$custom_name" "$prehook"
     else
         # Fallback to old method if universal start not loaded
         local cmd_args=()
@@ -491,7 +481,7 @@ _tsm_kill_by_port() {
     local pids=($(lsof -ti :$port 2>/dev/null))
 
     if [[ ${#pids[@]} -eq 0 ]]; then
-        tsm_error "No processes found using port $port"
+        echo "❌ No processes found using port $port"
         return 1
     fi
 
@@ -533,7 +523,7 @@ _tsm_kill_by_name() {
                 local meta_file="${process_dir}meta.json"
                 if [[ -f "$meta_file" ]]; then
                     local pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
-                    if [[ -n "$pid" ]] && tsm_is_pid_alive "$pid"; then
+                    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
                         echo "📋 Found TSM process: $proc_name (PID: $pid)"
                         if _tsm_kill_process "$pid" "$force"; then
                             echo "✅ Killed TSM process: $proc_name"
@@ -547,7 +537,7 @@ _tsm_kill_by_name() {
     fi
 
     if [[ "$found" == "false" ]]; then
-        tsm_error "No TSM-managed processes found with name '$name'"
+        echo "❌ No TSM-managed processes found with name '$name'"
         return 1
     fi
 
@@ -580,12 +570,12 @@ _tsm_kill_by_id() {
     fi
 
     if [[ -z "$process_name" || -z "$pid" ]]; then
-        tsm_error "No process found with TSM ID $id"
+        echo "❌ No process found with TSM ID $id"
         return 1
     fi
 
-    if ! tsm_is_pid_alive "$pid"; then
-        tsm_error "Process with TSM ID $id is not running (PID $pid dead)"
+    if ! kill -0 "$pid" 2>/dev/null; then
+        echo "❌ Process with TSM ID $id is not running (PID $pid dead)"
         _tsm_safe_remove_dir "$process_dir"
         return 1
     fi
@@ -608,8 +598,8 @@ _tsm_kill_by_pid() {
 
     echo "🔍 Checking process PID $pid..."
 
-    if ! tsm_is_pid_alive "$pid"; then
-        tsm_error "Process $pid not found or not accessible"
+    if ! kill -0 "$pid" 2>/dev/null; then
+        echo "❌ Process $pid not found or not accessible"
         return 1
     fi
 
@@ -640,7 +630,7 @@ _tsm_kill_process() {
         sleep 1
 
         # Check if still running
-        if tsm_is_pid_alive "$pid"; then
+        if kill -0 "$pid" 2>/dev/null; then
             echo "⚠️  Process still running, force killing..."
             kill -9 "$pid" 2>/dev/null
         fi
@@ -648,8 +638,8 @@ _tsm_kill_process() {
 
     # Verify it's dead
     sleep 0.5
-    if tsm_is_pid_alive "$pid"; then
-        tsm_error "Failed to kill PID $pid"
+    if kill -0 "$pid" 2>/dev/null; then
+        echo "❌ Failed to kill PID $pid"
         return 1
     fi
 

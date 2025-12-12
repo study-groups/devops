@@ -169,26 +169,24 @@ tsm_rewrite_command_with_interpreter() {
     local first_word="${command%% *}"
     local rest="${command#* }"
 
-    # Check if first word is the interpreter name (node, python, etc) or a script file
+    # If command is just the interpreter, return as-is
+    if [[ "$command" == "$first_word" ]]; then
+        echo "$interpreter"
+        return 0
+    fi
+
+    # Check if first word is already the interpreter or a path to it
     case "$first_word" in
         python*|node*|bash*|lua*|go*)
-            # Command starts with interpreter - replace with resolved interpreter
-            # e.g., "node app.js" -> "/path/to/node app.js"
-            if [[ "$command" == "$first_word" ]]; then
-                # Just the interpreter, no args
-                echo "$interpreter"
-            else
-                # Interpreter with args
-                echo "$interpreter $rest"
-            fi
+            # Replace with resolved interpreter
+            echo "$interpreter $rest"
             ;;
         *.py|*.js|*.sh|*.lua|*.go)
-            # Script file without interpreter - prepend interpreter
-            # e.g., "server.js" -> "/path/to/node server.js"
+            # Script file - prepend interpreter
             echo "$interpreter $command"
             ;;
         *)
-            # Not a recognized pattern - return as-is
+            # Unknown - return as-is
             echo "$command"
             ;;
     esac

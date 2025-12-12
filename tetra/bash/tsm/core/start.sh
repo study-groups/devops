@@ -107,32 +107,11 @@ tsm_start_any_command() {
     local explicit_port="$3"
     local explicit_name="$4"
     local explicit_prehook="$5"  # Optional: --pre-hook value
-    local dry_run="${6:-false}"  # Optional: --dry-run flag
 
     [[ -z "$command" ]] && {
         echo "tsm: command required" >&2
         return 64
     }
-
-    # Resolve env file to absolute path and validate it exists
-    if [[ -n "$env_file" ]]; then
-        # Convert to absolute path if relative
-        if [[ "$env_file" != /* ]]; then
-            env_file="$PWD/$env_file"
-        fi
-
-        # Validate file exists
-        if [[ ! -f "$env_file" ]]; then
-            tsm_error "Environment file not found: $env_file"
-            return 1
-        fi
-
-        # Validate file is readable
-        if [[ ! -r "$env_file" ]]; then
-            tsm_error "Environment file not readable: $env_file"
-            return 1
-        fi
-    fi
 
     # Parse env file ONCE at the beginning (extracts PORT and NAME)
     local ENV_PORT="" ENV_NAME=""
@@ -180,22 +159,13 @@ tsm_start_any_command() {
 
     [[ -z "$port" || "$port" == "none" ]] && port="none" && service_type="pid"
 
-    # Get port type from environment (set by service definition) or default to tcp
-    local port_type="${TSM_PORT_TYPE:-tcp}"
-
     # Generate name (pass parsed value to avoid re-reading)
     local name
     name=$(tsm_generate_process_name "$command" "$port" "$explicit_name" "$env_file" "$ENV_NAME")
 
-    # If dry-run, show what would execute and exit
-    if [[ "$dry_run" == "true" ]]; then
-        _tsm_show_dry_run_info "$command" "$final_command" "$name" "$port" "$interpreter" "$process_type" "$env_file" "$prehook_cmd" "$service_type"
-        return 0
-    fi
-
     # Check if already running
     if tsm_process_exists "$name"; then
-        tsm_error "Process '$name' already running"
+        echo "❌ Process '$name' already running" >&2
         return 1
     fi
 
@@ -223,7 +193,7 @@ tsm_start_any_command() {
     # Build pre-hook (priority: explicit > service def > auto-detected)
     local prehook_cmd
     if declare -f tsm_build_prehook >/dev/null 2>&1; then
-        prehook_cmd=$(tsm_build_prehook "$explicit_prehook" "$process_type" "${TSM_SERVICE_PREHOOK:-}")
+        prehook_cmd=$(tsm_build_prehook "$explicit_prehook" "$process_type" "")
     else
         # Fallback to old method if hooks.sh not loaded
         prehook_cmd=$(tsm_build_env_activation "$process_type")
@@ -231,15 +201,22 @@ tsm_start_any_command() {
 
     [[ -n "$prehook_cmd" ]] && env_setup="$prehook_cmd"$'\n'
 
-    # Add user env file if specified - with error checking
+    # Add user env file if specified
     if [[ -n "$env_file" && -f "$env_file" ]]; then
-        env_setup="${env_setup}source '$env_file' || { echo 'tsm: Failed to source env file: $env_file' >&2; exit 1; }"$'\n'
+        env_setup="${env_setup}source '$env_file'"
     fi
 
     # Export socket path for socket-based services
     if [[ -n "$socket_path" ]]; then
         env_setup="${env_setup}"$'\n'"export TSM_SOCKET_PATH='$socket_path'"
     fi
+
+    # Start process
+    local setsid_cmd
+    setsid_cmd=$(tetra_tsm_get_setsid) || {
+        echo "tsm: setsid not available. Run 'tsm setup'" >&2
+        return 1
+    }
 
     # Validate command for security
     if ! _tsm_validate_command "$final_command"; then
@@ -250,22 +227,19 @@ tsm_start_any_command() {
     # Create wrapper error log to capture setup/bash errors
     local log_wrapper="$process_dir/wrapper.err"
 
-    # Escape $ in env_setup to prevent premature expansion in bash -c
-    local escaped_setup="${env_setup//\$/\\\$}"
-
     (
-        bash -c "
-            $escaped_setup
+        $setsid_cmd bash -c "
+            $env_setup
             $final_command </dev/null >>'${log_out}' 2>>'${log_err}' &
             echo \$! > '${pid_file}'
-        " 2>>"${log_wrapper}" &
+        " 2>>'${log_wrapper}' &
     )
 
     sleep 0.5
 
     # Verify started
     if [[ ! -f "$pid_file" ]]; then
-        tsm_error "Failed to start: $name (no PID file)"
+        echo "❌ Failed to start: $name (no PID file)" >&2
 
         # Show wrapper errors if any (env file errors, pre-hook failures, etc.)
         if [[ -f "$log_wrapper" && -s "$log_wrapper" ]]; then
@@ -279,7 +253,7 @@ tsm_start_any_command() {
 
     local pid=$(cat "$pid_file")
     if ! tsm_is_pid_alive "$pid"; then
-        tsm_error "Failed to start: $name (process died immediately)"
+        echo "❌ Failed to start: $name (process died immediately)" >&2
         echo >&2
 
         # Check for port conflict first
@@ -287,7 +261,7 @@ tsm_start_any_command() {
             local existing_pid=$(tsm_get_port_pid "$port")
             if [[ -n "$existing_pid" ]]; then
                 local process_cmd=$(ps -p $existing_pid -o args= 2>/dev/null | head -c 80 || echo "unknown")
-                tsm_error "Port $port is already in use!"
+                echo "🔴 Port $port is already in use!" >&2
                 echo "   Blocking process: PID $existing_pid" >&2
                 echo "   Command: $process_cmd" >&2
                 echo >&2
@@ -326,7 +300,7 @@ tsm_start_any_command() {
         return 1
     fi
 
-    # Create JSON metadata with service_type and port_type
+    # Create JSON metadata with service_type
     local tsm_id=$(tsm_create_metadata \
         "$name" \
         "$pid" \
@@ -337,8 +311,7 @@ tsm_start_any_command() {
         "$process_type" \
         "$env_file" \
         "$explicit_prehook" \
-        "$service_type" \
-        "$port_type")
+        "$service_type")
 
     # Log success (construct JSON safely)
     local success_meta=$(jq -n --arg pid "$pid" --arg port "$port" --arg id "$tsm_id" \
@@ -362,95 +335,6 @@ tsm_start_any_command() {
     echo "$success_msg"
 }
 
-# Use tsm_color from system/formatting.sh (unified color helper)
-# Alias for backward compatibility in this file
-_tsm_color_fallback() {
-    tsm_color "$@"
-}
-
-# Show dry-run information without executing
-_tsm_show_dry_run_info() {
-    local original_command="$1"
-    local final_command="$2"
-    local name="$3"
-    local port="$4"
-    local interpreter="$5"
-    local process_type="$6"
-    local env_file="$7"
-    local prehook_cmd="$8"
-    local service_type="$9"
-
-    echo "$(_tsm_color_fallback cyan bold)Dry-Run: TSM Start Preview$(_tsm_color_fallback reset)"
-    echo ""
-
-    echo "$(_tsm_color_fallback blue)Process Information:$(_tsm_color_fallback reset)"
-    echo "  Name: $(_tsm_color_fallback green)$name$(_tsm_color_fallback reset)"
-    if [[ "$port" != "none" ]]; then
-        echo "  Port: $(_tsm_color_fallback green)$port$(_tsm_color_fallback reset)"
-    else
-        echo "  Port: $(_tsm_color_fallback gray)none (PID-based service)$(_tsm_color_fallback reset)"
-    fi
-    echo "  Service Type: $service_type"
-    echo "  Working Directory: $PWD"
-    echo ""
-
-    echo "$(_tsm_color_fallback blue)Runtime Environment:$(_tsm_color_fallback reset)"
-    echo "  Process Type: $(_tsm_color_fallback cyan)$process_type$(_tsm_color_fallback reset)"
-    if [[ -n "$interpreter" && "$interpreter" != "$process_type" ]]; then
-        echo "  Interpreter: $(_tsm_color_fallback green)$interpreter$(_tsm_color_fallback reset)"
-    fi
-    echo ""
-
-    if [[ -n "$env_file" ]]; then
-        echo "$(_tsm_color_fallback blue)Environment File:$(_tsm_color_fallback reset)"
-        echo "  Path: $(_tsm_color_fallback yellow)$env_file$(_tsm_color_fallback reset)"
-        if [[ -f "$env_file" ]]; then
-            echo "  Status: $(_tsm_color_fallback green)✓ Found$(_tsm_color_fallback reset)"
-        else
-            echo "  Status: $(_tsm_color_fallback red)✗ Not found$(_tsm_color_fallback reset)"
-        fi
-        echo ""
-    fi
-
-    echo "$(_tsm_color_fallback blue)Pre-Hook:$(_tsm_color_fallback reset)"
-    if [[ -n "$prehook_cmd" ]]; then
-        echo "  $(_tsm_color_fallback green)WILL RUN:$(_tsm_color_fallback reset)"
-        echo "$prehook_cmd" | sed 's/^/    /'
-    else
-        echo "  $(_tsm_color_fallback gray)None$(_tsm_color_fallback reset)"
-    fi
-    echo ""
-
-    echo "$(_tsm_color_fallback blue)Command Execution:$(_tsm_color_fallback reset)"
-    echo "  Original: $(_tsm_color_fallback yellow)$original_command$(_tsm_color_fallback reset)"
-    if [[ "$original_command" != "$final_command" ]]; then
-        echo "  Resolved: $(_tsm_color_fallback green)$final_command$(_tsm_color_fallback reset)"
-    fi
-    echo ""
-
-    echo "$(_tsm_color_fallback blue)What Would Happen:$(_tsm_color_fallback reset)"
-    echo "  1. Create process directory: \$TSM_PROCESSES_DIR/$name"
-    echo "  2. Setup log files: current.out, current.err"
-    if [[ -n "$prehook_cmd" ]]; then
-        echo "  3. Run pre-hook (see above)"
-        echo "  4. Execute command in background"
-    else
-        echo "  3. Execute command in background (no pre-hook)"
-    fi
-    echo "  5. Capture PID and create metadata"
-    if [[ "$port" != "none" ]]; then
-        echo "  6. Track port allocation: $port → $name"
-    fi
-    echo ""
-
-    echo "$(_tsm_color_fallback gray)To actually start this process, run without --dry-run:$(_tsm_color_fallback reset)"
-    local cmd_preview="tsm start"
-    [[ -n "$env_file" ]] && cmd_preview+=" --env ${env_file##*/}"
-    [[ "$port" != "none" && -n "$explicit_port" ]] && cmd_preview+=" --port $port"
-    echo "  $cmd_preview $original_command"
-}
-
 export -f tsm_discover_port
 export -f tsm_generate_process_name
 export -f tsm_start_any_command
-export -f _tsm_show_dry_run_info

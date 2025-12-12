@@ -45,7 +45,7 @@ tsm_socket_send() {
     local socket_path="$TSM_SOCKETS_DIR/${name}.sock"
 
     if [[ ! -S "$socket_path" ]]; then
-        tsm_error "Socket not found: $socket_path"
+        echo "ERROR: Socket not found: $socket_path" >&2
         return 1
     fi
 
@@ -57,7 +57,7 @@ tsm_socket_send() {
         # Fallback to socat
         echo "$verb $args" | timeout 5 socat - UNIX-CONNECT:"$socket_path" 2>/dev/null
     else
-        tsm_error "No socket client available (need nc or socat)"
+        echo "ERROR: No socket client available (need nc or socat)" >&2
         return 1
     fi
 }
