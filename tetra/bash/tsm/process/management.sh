@@ -316,10 +316,16 @@ tetra_tsm_start() {
         return 64
     fi
 
-    # Check if first arg is a known service
+    # Check if first arg is a known service (searches org → none → system)
     local first_arg="${command_args[0]}"
-    local service_file="$TETRA_DIR/tsm/services-available/${first_arg}.tsm"
-    if [[ -f "$service_file" ]]; then
+    local service_file
+    if declare -f tsm_find_service_file >/dev/null 2>&1; then
+        service_file=$(tsm_find_service_file "$first_arg")
+    else
+        # Fallback to system services only
+        service_file="$TETRA_DIR/tsm/services-available/${first_arg}.tsm"
+    fi
+    if [[ -n "$service_file" && -f "$service_file" ]]; then
         echo "🚀 Starting service: $first_arg"
         tetra_tsm_start_service "${command_args[@]}"
         return $?

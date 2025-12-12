@@ -8,12 +8,8 @@ declare -gA TSM_PREHOOKS
 
 # Initialize standard pre-hooks
 _tsm_init_prehooks() {
-    # Python: activate pyenv
-    TSM_PREHOOKS[python]='
-export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
-eval "$(pyenv init --path 2>/dev/null || true)"
-eval "$(pyenv virtualenv-init - 2>/dev/null || true)"
-'
+    # Python: use tetra's python activation
+    TSM_PREHOOKS[python]='tetra_python_activate'
 
     # Node: activate nvm (if not already in PATH)
     TSM_PREHOOKS[node]='
