@@ -58,16 +58,22 @@ org import nh digocean.json     # Import to tetra.toml
 Located at `$TETRA_DIR/orgs/<org>/tetra.toml`. Defines environments and connectivity.
 
 ```toml
-[environments.dev]
+[env.dev]
 host = "137.184.226.163"
-user = "root"
+auth_user = "root"           # SSH login user (has keys)
+work_user = "dev"            # App user (owns /var/www)
 domain = "dev.example.com"
 
-[environments.prod]
+[env.prod]
 host = "64.23.151.249"
-user = "root"
+auth_user = "root"
+work_user = "prod"
 domain = "example.com"
 ```
+
+**SSH User Model:**
+- `auth_user` - Who you SSH as (typically `root`). Has the SSH keys.
+- `work_user` - Who runs the app (e.g., `dev`, `prod`). Owns `/var/www`.
 
 ### Target Config (`targets/<name>.toml`)
 
