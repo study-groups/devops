@@ -20,6 +20,7 @@ tut() {
         init|i)        _tut_init "$@" ;;
         validate|v)    _tut_validate "$@" ;;
         serve|s)       _tut_serve "$@" ;;
+        browse)        tut_browse "$@" ;;
         get)           _tut_get "$@" ;;
         edit)          _tut_edit "$@" ;;
         extras|x)      _tut_extras "$@" ;;
@@ -56,6 +57,7 @@ _tut_help() {
     _tut_section "INTERACTIVE"
     echo "  hydrate <template>      Substitute {{variables}} from org"
     echo "  run <guide> [--org]     Hydrate + serve with real terminal"
+    echo "  browse <file.md>        CLI step-by-step navigator"
 
     _tut_section "UNDERSTAND"
     echo "  types                   Document types overview"

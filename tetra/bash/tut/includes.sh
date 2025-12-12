@@ -23,11 +23,15 @@ fi
 source "$TUT_SRC/core/output.sh"
 source "$TUT_SRC/core/validators.sh"
 source "$TUT_SRC/core/parser.sh"
+source "$TUT_SRC/core/hydrate.sh"
 
 # Renderers
 source "$TUT_SRC/renderers/html.sh"
 source "$TUT_SRC/renderers/markdown.sh"
 tetra_source_if_exists "$TUT_SRC/tut_reference.sh"
+
+# Interactive browser
+tetra_source_if_exists "$TUT_SRC/tut_browse.sh"
 
 # Main CLI
 source "$TUT_SRC/tut.sh"

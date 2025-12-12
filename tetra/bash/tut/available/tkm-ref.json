@@ -1,0 +1,315 @@
+{
+  "metadata": {
+    "title": "TKM Reference",
+    "tagline": "Tetra Key Manager - SSH key lifecycle for multi-environment deployments",
+    "version": "1.0.0",
+    "author": "tetra",
+    "sidebar_position": "right"
+  },
+  "groups": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "collapsed": false,
+      "topics": [
+        {
+          "id": "what-is-tkm",
+          "title": "What is TKM?",
+          "description": "Tetra Key Manager manages SSH keys for multi-environment deployments",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "TKM provides organization-scoped SSH key management with automatic `~/.ssh/config` generation. Keys are stored per-org in `~/.ssh/<org>/` and named by environment and user."
+            },
+            {
+              "type": "code-block",
+              "code": "~/.ssh/<org>/\n  dev_root       # Root key for dev environment\n  dev_root.pub\n  dev_app        # App user key for dev\n  dev_app.pub\n  staging_root\n  prod_root",
+              "caption": "Key directory structure"
+            }
+          ]
+        },
+        {
+          "id": "permission-model",
+          "title": "Permission Model",
+          "description": "Two-user model: auth_user (login) and work_user (application)",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Each environment has two SSH users configured in `tetra.toml`:"
+            },
+            {
+              "type": "table",
+              "headers": ["User Type", "TOML Key", "Purpose", "Key Name"],
+              "rows": [
+                ["Auth User", "`ssh_auth_user`", "Initial SSH login (usually root)", "`<env>_root`"],
+                ["Work User", "`ssh_work_user`", "Application deployment user", "`<env>_<user>`"]
+              ]
+            },
+            {
+              "type": "code-block",
+              "code": "[environments.dev]\nhost = \"192.168.1.100\"\nssh_auth_user = \"root\"     # Login as root\nssh_work_user = \"app\"      # Deploy as app user",
+              "caption": "tetra.toml environment configuration"
+            }
+          ]
+        },
+        {
+          "id": "key-lifecycle",
+          "title": "Key Lifecycle",
+          "description": "Generate, deploy, rotate, revoke",
+          "content": [
+            {
+              "type": "list",
+              "ordered": true,
+              "items": [
+                "**init** - Create `~/.ssh/<org>/` directory",
+                "**generate** - Create ED25519 key pairs, update `~/.ssh/config`",
+                "**deploy** - Push public keys to remote `authorized_keys`",
+                "**test** - Verify SSH connectivity",
+                "**rotate** - Revoke old + generate new + deploy (atomic rotation)",
+                "**revoke** - Archive keys with timestamp, remove SSH config"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "commands",
+      "title": "Commands",
+      "collapsed": false,
+      "topics": [
+        {
+          "id": "info-commands",
+          "title": "Info Commands",
+          "description": "Status, diagnostics, and key information",
+          "content": [
+            {
+              "type": "command-list",
+              "commands": [
+                {"code": "tkm status", "description": "Show keys for current org with fingerprints"},
+                {"code": "tkm doctor", "description": "Audit setup: org, keys, SSH config, connectivity"},
+                {"code": "tkm list", "description": "List key names only (no fingerprints)"},
+                {"code": "tkm test [env|all]", "description": "Test SSH connectivity to environments"},
+                {"code": "tkm fingerprint <key|all>", "description": "Show fingerprint for specific key or all keys"}
+              ]
+            }
+          ]
+        },
+        {
+          "id": "key-operations",
+          "title": "Key Operations",
+          "description": "Generate, deploy, and manage SSH keys",
+          "content": [
+            {
+              "type": "command-list",
+              "commands": [
+                {"code": "tkm init", "description": "Create ~/.ssh/<org>/ directory with proper permissions"},
+                {"code": "tkm gen <env|all>", "description": "Generate keys + update SSH config"},
+                {"code": "tkm deploy <env|all>", "description": "Push public keys to remote servers"},
+                {"code": "tkm deploy <env> --key <path>", "description": "Deploy using bootstrap key for initial access"},
+                {"code": "tkm revoke <env>", "description": "Archive keys with timestamp, remove SSH config"},
+                {"code": "tkm rotate <env>", "description": "Full rotation: revoke + generate + deploy"}
+              ]
+            }
+          ]
+        },
+        {
+          "id": "config-commands",
+          "title": "SSH Config",
+          "description": "Manage ~/.ssh/config entries",
+          "content": [
+            {
+              "type": "command-list",
+              "commands": [
+                {"code": "tkm config", "description": "Show SSH config entries for current org"},
+                {"code": "tkm config gen", "description": "Generate SSH config entries from tetra.toml"},
+                {"code": "tkm config edit", "description": "Open ~/.ssh/config in $EDITOR"}
+              ]
+            },
+            {
+              "type": "code-block",
+              "code": "# tkm: myorg dev\nMatch Host 192.168.1.100 User root\n    IdentityFile ~/.ssh/myorg/dev_root\n\nMatch Host 192.168.1.100 User app\n    IdentityFile ~/.ssh/myorg/dev_app",
+              "caption": "Generated SSH config (Match blocks by hostname + user)"
+            }
+          ]
+        },
+        {
+          "id": "remote-commands",
+          "title": "Remote Key Management",
+          "description": "Manage authorized_keys on remote servers",
+          "content": [
+            {
+              "type": "command-list",
+              "commands": [
+                {"code": "tkm remote list <env> [user]", "description": "List keys with fingerprints"},
+                {"code": "tkm remote audit <env> [user]", "description": "Show known/unknown keys (compare to local)"},
+                {"code": "tkm remote diff <env> [user]", "description": "Show what's different (to add/remove)"},
+                {"code": "tkm remote sync <env> [user]", "description": "Make remote match local keys"},
+                {"code": "tkm remote add <env> <user> <key>", "description": "Add a key (checks for duplicates)"},
+                {"code": "tkm remote rm <env> <user> <sel>", "description": "Remove by index, fingerprint, or pattern"},
+                {"code": "tkm remote clean <env> <user> <pat>", "description": "Remove all keys matching pattern"}
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "Remote commands support flags: `-f, --force` (skip confirmation), `-n, --dry-run` (preview changes)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "workflow",
+      "title": "Workflows",
+      "collapsed": false,
+      "topics": [
+        {
+          "id": "initial-setup",
+          "title": "Initial Setup",
+          "description": "First-time key setup for a new organization",
+          "content": [
+            {
+              "type": "code-block",
+              "code": "# 1. Switch to organization\norg switch myorg\n\n# 2. Initialize key directory\ntkm init\n# Created: ~/.ssh/myorg/\n\n# 3. Generate all keys\ntkm gen all\n# Generates: dev_root, dev_app, staging_root, prod_root\n# Updates: ~/.ssh/config with Match blocks\n\n# 4. Deploy keys (needs initial access)\ntkm deploy all --key ~/.ssh/id_rsa\n# Pushes public keys to authorized_keys\n\n# 5. Verify\ntkm test\n# Tests SSH connectivity to all environments"
+            }
+          ]
+        },
+        {
+          "id": "key-rotation",
+          "title": "Key Rotation",
+          "description": "Rotate compromised or expired keys",
+          "content": [
+            {
+              "type": "code-block",
+              "code": "# Full rotation (revoke + generate + deploy)\ntkm rotate dev\n\n# Manual rotation steps:\ntkm revoke dev         # Archive old keys\ntkm gen dev            # Generate new keys\ntkm deploy dev         # Deploy to server\n\n# Revoked keys are archived:\n# ~/.ssh/myorg/dev_root.revoked.20241206_143022"
+            }
+          ]
+        },
+        {
+          "id": "audit-sync",
+          "title": "Audit & Sync",
+          "description": "Keep local and remote keys in sync",
+          "content": [
+            {
+              "type": "code-block",
+              "code": "# Audit: show known vs unknown keys\ntkm remote audit dev root\n# [1] [KNOWN]   tkm_dev_root\n# [2] [UNKNOWN] user@laptop\n\n# Diff: show what needs to change\ntkm remote diff dev root\n# Present: dev_root (SHA256:abc...)\n# Missing: (none)\n# Extra: user@laptop (SHA256:xyz...)\n\n# Sync: make remote match local (dry-run first)\ntkm remote sync -n dev root\ntkm remote sync dev root"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "integration",
+      "title": "Integration",
+      "collapsed": true,
+      "topics": [
+        {
+          "id": "org-integration",
+          "title": "org Module",
+          "description": "TKM reads environment config from org module",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "TKM depends on the `org` module for organization and environment configuration. The active organization determines where keys are stored."
+            },
+            {
+              "type": "table",
+              "headers": ["org Function", "TKM Usage"],
+              "rows": [
+                ["`org_active()`", "Get current org name for key directory"],
+                ["`org_env_names()`", "List environments from tetra.toml"],
+                ["`_org_get_host(env)`", "Get SSH hostname for environment"],
+                ["`_org_get_user(env)`", "Get auth_user for SSH login"],
+                ["`_org_get_work_user(env)`", "Get work_user for key naming"]
+              ]
+            }
+          ]
+        },
+        {
+          "id": "deploy-integration",
+          "title": "deploy Module",
+          "description": "Deploy uses tkm for SSH connectivity",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "The `deploy` module uses TKM-managed keys for remote operations. After `tkm deploy`, deployment commands work automatically:"
+            },
+            {
+              "type": "code-block",
+              "code": "# SSH uses tkm keys automatically\nssh root@$dev      # Uses ~/.ssh/myorg/dev_root\nssh app@$dev       # Uses ~/.ssh/myorg/dev_app\n\n# Deploy commands work\ndeploy push myapp dev\ndeploy exec dev \"systemctl restart myapp\""
+            }
+          ]
+        },
+        {
+          "id": "tetra-toml",
+          "title": "tetra.toml Configuration",
+          "description": "Environment configuration for SSH",
+          "content": [
+            {
+              "type": "code-block",
+              "code": "[org]\nname = \"myorg\"\n\n[environments.dev]\nhost = \"dev.example.com\"\nssh_auth_user = \"root\"\nssh_work_user = \"app\"\n\n[environments.staging]\nhost = \"staging.example.com\"\nssh_auth_user = \"root\"\nssh_work_user = \"deploy\"\n\n[environments.prod]\nhost = \"prod.example.com\"\nssh_auth_user = \"root\"\nssh_work_user = \"app\"",
+              "caption": "Full tetra.toml example with SSH configuration"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "security",
+      "title": "Security",
+      "collapsed": true,
+      "topics": [
+        {
+          "id": "key-security",
+          "title": "Key Security",
+          "description": "Security features and best practices",
+          "content": [
+            {
+              "type": "list",
+              "items": [
+                "**ED25519 algorithm** - Modern, secure key algorithm",
+                "**600/700 permissions** - Private keys 600, .ssh dirs 700",
+                "**Organization isolation** - Keys stored in `~/.ssh/<org>/`",
+                "**Fingerprint tracking** - All operations show fingerprints",
+                "**Duplicate detection** - Prevents adding same key twice",
+                "**Key age monitoring** - TView shows key age warnings"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "key-lifecycle-security",
+          "title": "Lifecycle Security",
+          "description": "Safe key rotation and revocation",
+          "content": [
+            {
+              "type": "list",
+              "items": [
+                "**Revocation archives** - Old keys moved to `.revoked.<timestamp>`",
+                "**Atomic rotation** - `tkm rotate` does revoke+gen+deploy atomically",
+                "**Dry-run mode** - Preview changes with `-n` before applying",
+                "**Force flag** - Skip confirmations with `-f` (use carefully)",
+                "**Bootstrap keys** - Initial deploy finds existing access keys"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "audit-security",
+          "title": "Auditing",
+          "description": "Track and verify key access",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Regular auditing helps detect unauthorized keys:"
+            },
+            {
+              "type": "code-block",
+              "code": "# Check all environments\nfor env in dev staging prod; do\n  echo \"=== $env ===\"\n  tkm remote audit $env root\ndone\n\n# Remove unknown keys\ntkm remote clean dev root 'unknown_*'\ntkm remote sync dev root"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
