@@ -1,0 +1,37 @@
+# ASCII Mouth - Facial Animation + Speech Synthesis
+# Game manifest for tetra games registry
+#
+# Name-agnostic convention:
+#   - source: directory name (in GAMES_SRC/games/)
+#   - repl: filename only (relative to source dir)
+#   - binary: filename only (relative to source dir)
+#   - help: filename only (relative to source dir)
+#
+# To rename this game:
+#   1. Rename this file
+#   2. Update id below
+#   3. Rename the source directory
+#   4. Update source path below
+# No code changes needed - functions are generic (game_repl_run, etc.)
+
+id = "asciimouth"
+name = "ASCII Mouth"
+description = "Facial animation + speech synthesis via gamepad"
+type = "tui"
+status = "ready"
+org = "tetra"
+
+# Source directory (relative to GAMES_SRC/games/)
+source = "asciimouth"
+
+# REPL script (relative to source dir) - generic function: game_repl_run
+repl = "repl.sh"
+
+# Help tree (relative to source dir) - generic function: game_build_help_tree
+help = "help.sh"
+
+# Binary for TUI mode (relative to source dir)
+binary = "bin/game"
+
+# Help namespace (auto-generated from id if not specified)
+namespace = "help.game.asciimouth"
