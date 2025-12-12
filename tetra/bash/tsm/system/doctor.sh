@@ -157,22 +157,22 @@ scan_udp_ports() {
 
 # Scan common development ports + TSM-managed ports
 scan_common_ports() {
-    # Scan all ports in development range (1024-10000) that are actually in use
-    _tsm_doctor_log "Scanning development ports (1024-10000)..."
+    # Scan all ports in development range (1024-20000) that are actually in use
+    _tsm_doctor_log "Scanning development ports (1024-20000)..."
 
     # Get all listening ports in the range using lsof
     local ports=()
     while IFS= read -r port; do
         [[ -n "$port" ]] || continue
         # Filter to development port range
-        if [[ "$port" -ge 1024 && "$port" -le 10000 ]]; then
+        if [[ "$port" -ge 1024 && "$port" -le 20000 ]]; then
             ports+=("$port")
         fi
     done < <(lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk 'NR>1 {print $9}' | sed 's/.*://g' | sort -nu)
 
     # If no ports found in range, show common defaults as reference
     if [[ ${#ports[@]} -eq 0 ]]; then
-        _tsm_doctor_log "No ports in use in range 1024-10000"
+        _tsm_doctor_log "No ports in use in range 1024-20000"
         echo
         return 0
     fi

@@ -30,11 +30,11 @@ print_table_header() {
         printf "%-8s  %3s  %-6s  %-18s  %6s  %5s  %-4s  %-6s  %s\n" \
             "--------" "---" "------" "------------------" "------" "-----" "----" "------" "------"
     else
-        # Regular user: ORG column but no USER column
-        printf "%3s  %-6s  %-22s  %6s  %5s  %-4s  %-6s  %s\n" \
+        # Regular user: ORG column but no USER column (wider name for parent display)
+        printf "%3s  %-6s  %-28s  %6s  %5s  %-4s  %-6s  %s\n" \
             "ID" "ORG" "Name" "PID" "Port" "Type" "Status" "Up"
-        printf "%3s  %-6s  %-22s  %6s  %5s  %-4s  %-6s  %s\n" \
-            "---" "------" "----------------------" "------" "-----" "----" "------" "------"
+        printf "%3s  %-6s  %-28s  %6s  %5s  %-4s  %-6s  %s\n" \
+            "---" "------" "----------------------------" "------" "-----" "----" "------" "------"
     fi
     reset_color
 }
@@ -156,12 +156,12 @@ _tsm_list_processes_from_dir() {
         local meta_file="$process_dir/meta.json"
         [[ -f "$meta_file" ]] || continue
 
-        # Read all metadata in one jq call (efficient!) - now includes org
+        # Read all metadata in one jq call - use | delimiter to avoid empty field issues
         local metadata
-        metadata=$(jq -r '[.tsm_id, .pid, .port, (.port_type // "tcp"), .start_time, .env_file, .service_type, (.org // "none")] | @tsv' "$meta_file" 2>/dev/null)
+        metadata=$(jq -r '[.tsm_id, .pid, (.port // ""), (.port_type // "tcp"), .start_time, (.env_file // ""), (.service_type // "pid"), (.org // "none"), (.parent // "")] | join("|")' "$meta_file" 2>/dev/null)
         [[ -z "$metadata" ]] && continue
 
-        read tsm_id pid port port_type start_time env_file service_type org <<< "$metadata"
+        IFS='|' read -r tsm_id pid port port_type start_time env_file service_type org parent <<< "$metadata"
 
         # Verify process is still running
         if tsm_is_pid_alive "$pid"; then
@@ -178,9 +178,11 @@ _tsm_list_processes_from_dir() {
                 env_display=$(basename "$env_file" 2>/dev/null || echo "-")
             fi
 
-            # Format port (just the number)
+            # Format port (must be numeric)
             local port_display="-"
-            [[ -n "$port" && "$port" != "none" && "$port" != "null" && "$port" != "0" ]] && port_display="$port"
+            if [[ -n "$port" && "$port" =~ ^[0-9]+$ && "$port" != "0" ]]; then
+                port_display="$port"
+            fi
 
             # Type is the protocol: tcp, udp, ws, sock, pipe, pid
             local type_display="$port_type"
@@ -193,10 +195,16 @@ _tsm_list_processes_from_dir() {
             local has_service=true
             [[ -z "$service_file" ]] && has_service=false
 
+            # Build name display with parent indicator for child processes
+            local name_display="$name"
+            if [[ -n "$parent" && "$parent" != "null" ]]; then
+                name_display="${name}←${parent}"
+            fi
+
             # Print with colors (format depends on root)
             if [[ $TSM_IS_ROOT -eq 1 && -n "$owner_user" ]]; then
                 # Root: include USER + ORG columns (name field 16 chars + 2 for marker)
-                printf "%-8s  %3s  %-6s  %-16s" "$owner_user" "$tsm_id" "$org_display" "$name"
+                printf "%-8s  %3s  %-6s  %-16s" "$owner_user" "$tsm_id" "$org_display" "${name_display:0:16}"
                 if [[ "$has_service" == "false" ]]; then
                     if declare -f tds_color >/dev/null 2>&1; then
                         printf " "; tds_color "muted" "~"
@@ -208,8 +216,8 @@ _tsm_list_processes_from_dir() {
                 fi
                 printf "  %6s  %5s  %-4s  " "$pid" "$port_display" "$type_display"
             else
-                # Regular user: ORG column but no USER column (name field 20 chars + 2 for marker)
-                printf "%3s  %-6s  %-20s" "$tsm_id" "$org_display" "$name"
+                # Regular user: ORG column but no USER column (name field 26 chars + 2 for marker)
+                printf "%3s  %-6s  %-26s" "$tsm_id" "$org_display" "${name_display:0:26}"
                 if [[ "$has_service" == "false" ]]; then
                     if declare -f tds_color >/dev/null 2>&1; then
                         printf " "; tds_color "muted" "~"

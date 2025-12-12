@@ -244,6 +244,20 @@ tsm_get_next_id() {
 tsm_calculate_uptime() {
     local start_time="$1"
     local current_time=$(date +%s)
+
+    # Validate start_time: must be numeric and reasonable
+    if [[ -z "$start_time" || ! "$start_time" =~ ^[0-9]+$ ]]; then
+        echo "-"
+        return 1
+    fi
+
+    # Sanity check: start_time should be in the past and not too old (10 years)
+    if [[ "$start_time" -gt "$current_time" ]] || \
+       [[ "$((current_time - start_time))" -gt 315360000 ]]; then
+        echo "-"
+        return 1
+    fi
+
     local uptime_seconds=$((current_time - start_time))
 
     if [[ $uptime_seconds -lt 60 ]]; then
