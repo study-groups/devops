@@ -6,8 +6,8 @@
 # Get short name for an org from its tetra.toml
 # Falls back to full org name if short_name not defined
 tsm_get_org_short_name() {
-    local org="${1:-${TETRA_ORG:-none}}"
-    [[ "$org" == "none" || "$org" == "system" ]] && { echo "$org"; return; }
+    local org="${1:-${TETRA_ORG:-tetra}}"
+    [[ "$org" == "system" ]] && { echo "$org"; return; }
 
     local toml_file="$TETRA_DIR/orgs/$org/tetra.toml"
     if [[ -f "$toml_file" ]]; then
@@ -19,9 +19,9 @@ tsm_get_org_short_name() {
     echo "$org"  # Fallback to full name
 }
 
-# Get effective org (TETRA_ORG or "none")
+# Get effective org (TETRA_ORG or "tetra")
 tsm_get_effective_org() {
-    echo "${TETRA_ORG:-none}"
+    echo "${TETRA_ORG:-tetra}"
 }
 
 # Get services-available directory for an org

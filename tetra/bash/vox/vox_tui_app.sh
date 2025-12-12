@@ -483,11 +483,95 @@ vox_app_render_formants() {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# PHONEME DETAIL VIEW
+# ═══════════════════════════════════════════════════════════════════════════════
+
+vox_app_render_phoneme() {
+    local start_row=$((_VOX_APP_HEADER_HEIGHT))
+    local height=$((_VOX_APP_CONTENT_HEIGHT))
+
+    # Clear content area
+    for ((i=0; i<height; i++)); do
+        vox_app_clear_line $((start_row + i))
+    done
+
+    if ((_VOX_APP_PHONEME_COUNT == 0)); then
+        vox_app_move $((start_row + height/2)) 2
+        printf "${_VOX_C_DIM}No phonemes. Run analyze first.${_VOX_C_RESET}"
+        return
+    fi
+
+    local idx=$_VOX_APP_PHONEME_IDX
+    local ph_start="${_VOX_APP_PHONEME_STARTS[$idx]}"
+    local ph_end="${_VOX_APP_PHONEME_ENDS[$idx]}"
+    local ph_dur=$(echo "scale=3; $ph_end - $ph_start" | bc -l 2>/dev/null || echo "0")
+    local ph_dur_ms=$(echo "scale=0; $ph_dur * 1000" | bc -l 2>/dev/null || echo "0")
+
+    # Title
+    vox_app_move $start_row 2
+    printf "${_VOX_C_BOLD}Phoneme ${_VOX_C_GREEN}%d${_VOX_C_RESET}${_VOX_C_BOLD}/${_VOX_C_DIM}%d${_VOX_C_RESET}" \
+        "$((idx + 1))" "$_VOX_APP_PHONEME_COUNT"
+
+    # Time info
+    vox_app_move $((start_row + 2)) 2
+    printf "${_VOX_C_CYAN}Time:${_VOX_C_RESET}"
+    vox_app_move $((start_row + 2)) 12
+    printf "%.3fs → %.3fs" "$ph_start" "$ph_end"
+
+    vox_app_move $((start_row + 3)) 2
+    printf "${_VOX_C_CYAN}Duration:${_VOX_C_RESET}"
+    vox_app_move $((start_row + 3)) 12
+    printf "${_VOX_C_GREEN}%d${_VOX_C_RESET} ms (%.3fs)" "$ph_dur_ms" "$ph_dur"
+
+    # Navigation context
+    vox_app_move $((start_row + 5)) 2
+    printf "${_VOX_C_CYAN}Context:${_VOX_C_RESET}"
+
+    # Previous phoneme
+    vox_app_move $((start_row + 6)) 4
+    if ((idx > 0)); then
+        local prev_dur=$(echo "scale=0; (${_VOX_APP_PHONEME_ENDS[$((idx-1))]} - ${_VOX_APP_PHONEME_STARTS[$((idx-1))]}) * 1000" | bc -l 2>/dev/null || echo "0")
+        printf "${_VOX_C_DIM}← prev: %dms${_VOX_C_RESET}" "$prev_dur"
+    else
+        printf "${_VOX_C_DIM}← (start)${_VOX_C_RESET}"
+    fi
+
+    # Next phoneme
+    vox_app_move $((start_row + 7)) 4
+    if ((idx < _VOX_APP_PHONEME_COUNT - 1)); then
+        local next_dur=$(echo "scale=0; (${_VOX_APP_PHONEME_ENDS[$((idx+1))]} - ${_VOX_APP_PHONEME_STARTS[$((idx+1))]}) * 1000" | bc -l 2>/dev/null || echo "0")
+        printf "${_VOX_C_DIM}→ next: %dms${_VOX_C_RESET}" "$next_dur"
+    else
+        printf "${_VOX_C_DIM}→ (end)${_VOX_C_RESET}"
+    fi
+
+    # Visual duration bar
+    vox_app_move $((start_row + 9)) 2
+    printf "${_VOX_C_CYAN}Visual:${_VOX_C_RESET} "
+    local bar_width=$(echo "scale=0; $ph_dur * 100" | bc -l 2>/dev/null || echo 5)
+    ((bar_width < 1)) && bar_width=1
+    ((bar_width > 40)) && bar_width=40
+    printf "${_VOX_C_GREEN}"
+    for ((b=0; b<bar_width; b++)); do printf "█"; done
+    printf "${_VOX_C_RESET}"
+
+    # Controls hint
+    vox_app_move $((start_row + height - 2)) 2
+    printf "${_VOX_C_DIM}h/l: prev/next │ space: play │ 0/\$: first/last${_VOX_C_RESET}"
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # HELP VIEW
 # ═══════════════════════════════════════════════════════════════════════════════
 
 vox_app_render_help() {
     local start_row=$((_VOX_APP_HEADER_HEIGHT))
+
+    # Clear content area first
+    local height=$((_VOX_APP_CONTENT_HEIGHT))
+    for ((i=0; i<height; i++)); do
+        vox_app_clear_line $((start_row + i))
+    done
 
     vox_app_move $start_row 2
     printf "${_VOX_C_BOLD}VOX TUI Help${_VOX_C_RESET}"
@@ -501,20 +585,31 @@ vox_app_render_help() {
     vox_app_move $((start_row + 5)) 4
     printf "play         - Play audio"
     vox_app_move $((start_row + 6)) 4
-    printf "zoom <1-8>   - Set zoom"
+    printf "goto <n>     - Jump to phoneme n"
     vox_app_move $((start_row + 7)) 4
     printf "/key         - Enter key mode"
 
     vox_app_move $((start_row + 9)) 2
-    printf "${_VOX_C_CYAN}Key Mode:${_VOX_C_RESET}"
+    printf "${_VOX_C_CYAN}Key Mode - Navigation:${_VOX_C_RESET}"
     vox_app_move $((start_row + 10)) 4
-    printf "w/t/f/h - Views"
+    printf "h/l     - Prev/next phoneme"
     vox_app_move $((start_row + 11)) 4
-    printf "+/-     - Zoom"
+    printf "H/L     - Jump 5 phonemes"
     vox_app_move $((start_row + 12)) 4
-    printf "p/a     - Play/Analyze"
+    printf "0/\$     - First/last phoneme"
     vox_app_move $((start_row + 13)) 4
-    printf "q/ESC   - Quit/CLI"
+    printf "g       - Goto phoneme number"
+
+    vox_app_move $((start_row + 9)) 40
+    printf "${_VOX_C_CYAN}Views & Actions:${_VOX_C_RESET}"
+    vox_app_move $((start_row + 10)) 42
+    printf "w/t/f/d - Wave/Time/Formants/Detail"
+    vox_app_move $((start_row + 11)) 42
+    printf "+/-     - Zoom in/out"
+    vox_app_move $((start_row + 12)) 42
+    printf "space   - Play current phoneme"
+    vox_app_move $((start_row + 13)) 42
+    printf "p/a/q   - Play all/Analyze/Quit"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -528,6 +623,7 @@ vox_app_render() {
         wave)     vox_app_render_waveform ;;
         timeline) vox_app_render_timeline ;;
         formants) vox_app_render_formants ;;
+        phoneme)  vox_app_render_phoneme ;;
         help)     vox_app_render_help ;;
     esac
 
