@@ -156,7 +156,12 @@ _deploy_target_parse_config() {
     if declare -p DTOML_defaults &>/dev/null 2>&1; then
         local -n def_ref=DTOML_defaults
         if [[ -n "${def_ref[commands]}" ]]; then
-            DEPLOY_DEFAULTS_COMMANDS="${def_ref[commands]//$'\n'/ }"
+            # Parse array: strip quotes, convert commas to spaces
+            local raw="${def_ref[commands]}"
+            raw="${raw//\"/}"       # Remove quotes
+            raw="${raw//,/ }"       # Commas to spaces
+            raw="${raw//$'\n'/ }"   # Newlines to spaces
+            DEPLOY_DEFAULTS_COMMANDS="$raw"
         fi
     fi
 
@@ -237,7 +242,8 @@ _deploy_target_run_command() {
         return 0
     fi
 
-    bash -c "$script"
+    # Run in current shell so tetra functions (tmod, tut, etc) are available
+    eval "$script"
 }
 
 # Execute legacy command string

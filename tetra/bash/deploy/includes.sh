@@ -257,13 +257,8 @@ export -f _deploy_generate_proxy_config
 source "$MOD_SRC/deploy_remote.sh"
 
 # Optional modules (use tetra_source_if_exists for missing files)
-tetra_source_if_exists "$MOD_SRC/deploy_target.sh"
-tetra_source_if_exists "$MOD_SRC/deploy_repo.sh"
-tetra_source_if_exists "$MOD_SRC/deploy_env.sh"
-tetra_source_if_exists "$MOD_SRC/deploy_preflight.sh"
+# NOTE: deploy_target.sh is LEGACY - do not source (conflicts with deploy_remote.sh)
 tetra_source_if_exists "$MOD_SRC/deploy_domain.sh"
-tetra_source_if_exists "$MOD_SRC/deploy_nginx.sh"
-tetra_source_if_exists "$MOD_SRC/deploy_toml.sh"
 
 # Main dispatcher (must come after implementations)
 source "$MOD_SRC/deploy.sh"
