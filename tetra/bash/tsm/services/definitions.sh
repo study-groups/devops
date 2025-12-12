@@ -370,6 +370,7 @@ tetra_tsm_start_service() {
         # Use TSM command mode to start
         tsm start "${start_args[@]}" $TSM_COMMAND
     )
+    [[ $? -ne 0 ]] && return 1
 
     # Validate port is open (only if port is specified)
     local port_type="${TSM_PORT_TYPE:-tcp}"
