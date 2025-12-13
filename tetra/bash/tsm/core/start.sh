@@ -190,10 +190,11 @@ tsm_start_any_command() {
     # Build environment activation and user env file
     local env_setup=""
 
-    # Build pre-hook (priority: explicit > service def > auto-detected)
+    # Build pre-hook (priority: explicit > service-specific > type-based)
+    # Use explicit_name as service name for service-specific hook lookup
     local prehook_cmd
     if declare -f tsm_build_prehook >/dev/null 2>&1; then
-        prehook_cmd=$(tsm_build_prehook "$explicit_prehook" "$process_type" "")
+        prehook_cmd=$(tsm_build_prehook "$explicit_prehook" "$process_type" "$explicit_name")
     else
         # Fallback to old method if hooks.sh not loaded
         prehook_cmd=$(tsm_build_env_activation "$process_type")
@@ -232,7 +233,7 @@ tsm_start_any_command() {
             $env_setup
             $final_command </dev/null >>'${log_out}' 2>>'${log_err}' &
             echo \$! > '${pid_file}'
-        " 2>>'${log_wrapper}' &
+        " 2>>"${log_wrapper}" &
     )
 
     sleep 0.5

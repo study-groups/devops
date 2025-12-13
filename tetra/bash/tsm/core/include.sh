@@ -21,6 +21,7 @@ TSM_INTEGRATIONS_SRC="$TETRA_SRC/bash/tsm/integrations"
 TSM_SRC="$TETRA_SRC/bash/tsm"
 
 # === PHASE 1: CORE FOUNDATION (no dependencies) ===
+source "$TSM_CORE_SRC/platform.sh"       # Platform abstraction (must be first)
 source "$TSM_CORE_SRC/core.sh"           # Core functions
 source "$TSM_CORE_SRC/config.sh"         # Configuration and global state
 source "$TSM_CORE_SRC/discovery.sh"      # Instance discovery (multi-user support)
@@ -42,7 +43,7 @@ source "$TSM_CORE_SRC/help.sh"           # Help system (contextual, colored)
 source "$TSM_SYSTEM_SRC/ports.sh"              # Named port registry
 source "$TSM_SYSTEM_SRC/socket.sh"             # Unix domain sockets
 source "$TSM_SYSTEM_SRC/formatting.sh"         # Output formatting
-source "$TSM_SYSTEM_SRC/doctor.sh"             # Diagnostics
+source "$TSM_SYSTEM_SRC/doctor/index.sh"       # Diagnostics (modular)
 source "$TSM_SYSTEM_SRC/patrol.sh"             # Patrol system
 source "$TSM_SYSTEM_SRC/analytics.sh"          # Analytics functions
 source "$TSM_SYSTEM_SRC/audit.sh"              # Audit functions

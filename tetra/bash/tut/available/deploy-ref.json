@@ -1,11 +1,11 @@
 {
   "metadata": {
     "title": "Deploy Reference",
-    "version": "1.0.0",
-    "description": "Complete reference for tetra's target-based deployment system",
+    "version": "0.0.18",
+    "description": "Target-based deployment using tetra-deploy.toml",
     "author": "tetra",
     "created": "2024-12-05",
-    "updated": "2025-12-06T18:00:00Z",
+    "updated": "2025-12-08T22:32:19Z",
     "sidebar_position": "left",
     "theme": {
       "primary": "#2563eb",
@@ -23,7 +23,7 @@
           "content": [
             {
               "type": "paragraph",
-              "text": "Deploy orchestrates three configuration layers with clear responsibilities:"
+              "text": "Deploy combines org infrastructure (hosts, users) with target config (what to deploy, where)."
             },
             {
               "type": "table",
@@ -36,102 +36,42 @@
                 [
                   "Org",
                   "$TETRA_DIR/orgs/{org}/tetra.toml",
-                  "Environment hosts and domains (from NH)"
+                  "Host IPs, SSH users per env"
                 ],
                 [
                   "Target",
                   "$TETRA_DIR/orgs/{org}/targets/{name}.toml",
-                  "WHERE to deploy (repo, www path, per-env settings)"
-                ],
-                [
-                  "Repo",
-                  "{repo}/tetra-deploy.toml",
-                  "WHAT to deploy (type, env vars, hooks, service)"
+                  "Remote path, commands, domain"
                 ]
               ]
-            },
-            {
-              "type": "paragraph",
-              "text": "The split: Org defines infrastructure, Target defines deployment mapping, Repo defines the application."
             }
           ]
         },
         {
-          "id": "config-split",
-          "title": "Configuration Split",
+          "id": "what-happens",
+          "title": "What Happens: deploy push docs prod",
           "content": [
             {
               "type": "paragraph",
-              "text": "Two TOML files work together:"
+              "text": "When you run deploy push docs prod:"
             },
             {
-              "type": "table",
-              "headers": [
-                "File",
-                "Lives In",
-                "Defines"
-              ],
-              "rows": [
-                [
-                  "targets/arcade.toml",
-                  "Org config",
-                  "repo URL, www path, per-env branches/domains"
-                ],
-                [
-                  "tetra-deploy.toml",
-                  "Repository",
-                  "name, type, required env vars, hooks, service config"
-                ]
-              ]
-            },
-            {
-              "type": "paragraph",
-              "text": "This separation means the same repo can be deployed by different orgs with different targets."
-            }
-          ]
-        },
-        {
-          "id": "prerequisites",
-          "title": "Prerequisites",
-          "content": [
-            {
-              "type": "paragraph",
-              "text": "Before using deploy, ensure these components are configured:"
-            },
-            {
-              "type": "table",
-              "headers": [
-                "Component",
-                "Command",
-                "Purpose"
-              ],
-              "rows": [
-                [
-                  "Active org",
-                  "org switch <name>",
-                  "Sets which organization's targets to use"
-                ],
-                [
-                  "SSH keys",
-                  "tkm deploy all",
-                  "Deploys SSH keys to all environments"
-                ],
-                [
-                  "SSH test",
-                  "tkm test",
-                  "Verifies SSH connectivity to all hosts"
-                ],
-                [
-                  "Infrastructure",
-                  "nh fetch && org import nh",
-                  "Import hosts/domains from DigitalOcean"
-                ]
+              "type": "list",
+              "style": "ordered",
+              "items": [
+                "Resolve target: Find $TETRA_DIR/orgs/{org}/targets/docs.toml",
+                "Load org config: Get host, auth_user, work_user for 'prod' env from org's tetra.toml",
+                "Load target config: Read [target] section (name, remote, domain)",
+                "Load deploy arrays: Read [deploy] pre, commands, post arrays",
+                "Run [pre] commands: Execute locally from target dir (e.g., npm run build)",
+                "Run [commands]: Execute with {{variables}} expanded (e.g., rsync to remote)",
+                "Run [post] commands: Execute after main commands (e.g., chown, service restart)"
               ]
             },
             {
               "type": "code-block",
-              "language": "bash",
-              "code": "# Quick setup\norg switch myorg\ntkm test\ndeploy doctor"
+              "language": "text",
+              "code": "========================================\nDeploy: docs -> prod\n========================================\n\nTarget: /home/user/.tetra/orgs/myorg/targets/docs.toml\nRemote: root@192.0.2.1:/var/www/docs\nDomain: docs.example.com\n\n[pre]\n  $ npm run build\n\n[commands]\n  $ rsync -avz dist/ root@192.0.2.1:/var/www/docs/\n\n[post]\n  $ ssh root@192.0.2.1 'chown -R devops:devops /var/www/docs'\n\n========================================\nDone\n========================================"
             }
           ]
         },
@@ -140,447 +80,9 @@
           "title": "Quick Start",
           "content": [
             {
-              "type": "paragraph",
-              "text": "Register and deploy a target:"
-            },
-            {
               "type": "code-block",
               "language": "bash",
-              "code": "# 1. Create target config\ndeploy target add arcade\n\n# 2. Create tetra-deploy.toml in repo (optional but recommended)\n# 3. Create env file\nmkdir -p ~/src/arcade/env\necho 'export PORT=3000' > ~/src/arcade/env/dev.env\n\n# 4. Run pre-flight checks\ndeploy preflight arcade dev\n\n# 5. Preview deployment\ndeploy push --dry-run arcade dev\n\n# 6. Deploy\ndeploy push arcade dev"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "directory-structure",
-      "title": "Directory Structure",
-      "topics": [
-        {
-          "id": "repo-layout",
-          "title": "Repository Layout",
-          "content": [
-            {
-              "type": "paragraph",
-              "text": "A deployable repository follows this structure:"
-            },
-            {
-              "type": "code-block",
-              "language": "text",
-              "code": "~/src/arcade/                   # Repository root\n├── tetra-deploy.toml           # Deployment config (WHAT to deploy)\n├── env/                        # Environment files (gitignored)\n│   ├── dev.env\n│   ├── staging.env\n│   └── prod.env\n├── server.js                   # Application code\n└── package.json"
-            }
-          ]
-        },
-        {
-          "id": "org-layout",
-          "title": "Org Data Layout",
-          "content": [
-            {
-              "type": "code-block",
-              "language": "text",
-              "code": "$TETRA_DIR/orgs/{org}/\n├── tetra.toml                  # Environment policy (hosts, domains)\n├── targets/                    # Deployment targets\n│   ├── arcade.toml             # WHERE to deploy arcade\n│   └── docs.toml               # WHERE to deploy docs\n└── db/                         # TRS deployment records\n    └── *.deploy.*.json"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "targets",
-      "title": "Targets",
-      "topics": [
-        {
-          "id": "target-toml-schema",
-          "title": "Target TOML Schema",
-          "content": [
-            {
-              "type": "paragraph",
-              "text": "Targets are stored at $TETRA_DIR/orgs/{org}/targets/{name}.toml:"
-            },
-            {
-              "type": "code-block",
-              "language": "toml",
-              "code": "# targets/arcade.toml - WHERE to deploy\n\n[target]\nrepo = \"git@github.com:org/arcade.git\"\nwww = \"/var/www/arcade\"\nlocal = \"~/src/arcade\"\n\n[envs.dev]\nbranch = \"develop\"\ndomain = \"arcade.dev.example.com\"\n\n[envs.staging]\nbranch = \"main\"\ndomain = \"arcade.staging.example.com\"\n\n[envs.prod]\nbranch = \"release\"\ndomain = \"arcade.example.com\"\n\n[rsync]\nenabled = false\nexclude = [\".git\", \"node_modules\", \".env*\"]\nsource = \".\""
-            }
-          ]
-        },
-        {
-          "id": "target-section",
-          "title": "[target] Section",
-          "content": [
-            {
-              "type": "table",
-              "headers": [
-                "Key",
-                "Type",
-                "Description"
-              ],
-              "rows": [
-                [
-                  "repo",
-                  "string",
-                  "Git repository URL (SSH format preferred)"
-                ],
-                [
-                  "www",
-                  "string",
-                  "Remote web root path"
-                ],
-                [
-                  "local",
-                  "string",
-                  "Local source code path (~ expanded)"
-                ]
-              ]
-            }
-          ]
-        },
-        {
-          "id": "envs-section",
-          "title": "[envs.<name>] Sections",
-          "content": [
-            {
-              "type": "paragraph",
-              "text": "Each environment has its own section with per-env settings:"
-            },
-            {
-              "type": "table",
-              "headers": [
-                "Key",
-                "Type",
-                "Description"
-              ],
-              "rows": [
-                [
-                  "branch",
-                  "string",
-                  "Git branch for this environment"
-                ],
-                [
-                  "domain",
-                  "string",
-                  "Domain for nginx config"
-                ],
-                [
-                  "www",
-                  "string",
-                  "Override www path for this env (optional)"
-                ]
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "repo-config",
-      "title": "Repo Config",
-      "topics": [
-        {
-          "id": "tetra-deploy-toml",
-          "title": "tetra-deploy.toml",
-          "content": [
-            {
-              "type": "paragraph",
-              "text": "Lives in the repository root. Defines WHAT the deployment is:"
-            },
-            {
-              "type": "code-block",
-              "language": "toml",
-              "code": "# tetra-deploy.toml - WHAT to deploy\n\n[deploy]\nname = \"arcade\"\ntype = \"node\"              # node | static | python\n\n[env]\nrequired = [\"DATABASE_URL\", \"SESSION_SECRET\", \"PORT\"]\noptional = [\"DEBUG\", \"LOG_LEVEL\"]\n\n[service]\ncommand = \"node server.js\"\nport = 3000\nhealth = \"/health\"\n\n[hooks]\npre = [\"npm install\", \"npm run build\"]\npost = [\"pm2 restart arcade || pm2 start ecosystem.config.js\"]"
-            }
-          ]
-        },
-        {
-          "id": "deploy-section",
-          "title": "[deploy] Section",
-          "content": [
-            {
-              "type": "table",
-              "headers": [
-                "Key",
-                "Type",
-                "Default",
-                "Description"
-              ],
-              "rows": [
-                [
-                  "name",
-                  "string",
-                  "(required)",
-                  "Deployment identifier"
-                ],
-                [
-                  "type",
-                  "string",
-                  "static",
-                  "Deployment type: node, static, python"
-                ]
-              ]
-            }
-          ]
-        },
-        {
-          "id": "env-section",
-          "title": "[env] Section",
-          "content": [
-            {
-              "type": "table",
-              "headers": [
-                "Key",
-                "Type",
-                "Description"
-              ],
-              "rows": [
-                [
-                  "required",
-                  "array",
-                  "Env vars that must exist (validated before deploy)"
-                ],
-                [
-                  "optional",
-                  "array",
-                  "Env vars that may exist (documented only)"
-                ]
-              ]
-            },
-            {
-              "type": "paragraph",
-              "text": "Validation runs during preflight and env push. Missing required vars block deployment."
-            }
-          ]
-        },
-        {
-          "id": "service-section",
-          "title": "[service] Section",
-          "content": [
-            {
-              "type": "table",
-              "headers": [
-                "Key",
-                "Type",
-                "Description"
-              ],
-              "rows": [
-                [
-                  "command",
-                  "string",
-                  "Command to start the service"
-                ],
-                [
-                  "port",
-                  "integer",
-                  "Port the service listens on"
-                ],
-                [
-                  "health",
-                  "string",
-                  "Health check endpoint path"
-                ]
-              ]
-            },
-            {
-              "type": "paragraph",
-              "text": "If [service] is present, nginx proxy config is generated. Otherwise, static file serving."
-            }
-          ]
-        },
-        {
-          "id": "hooks-section",
-          "title": "[hooks] Section",
-          "content": [
-            {
-              "type": "table",
-              "headers": [
-                "Key",
-                "When",
-                "Failure"
-              ],
-              "rows": [
-                [
-                  "pre",
-                  "Before git pull",
-                  "Stops deployment"
-                ],
-                [
-                  "post",
-                  "After git pull",
-                  "Warning only"
-                ]
-              ]
-            },
-            {
-              "type": "code-block",
-              "language": "toml",
-              "code": "[hooks]\npre = [\"npm install\", \"npm run build\"]\npost = [\"pm2 restart arcade\", \"notify-slack.sh\"]"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "environment-files",
-      "title": "Environment Files",
-      "topics": [
-        {
-          "id": "env-convention",
-          "title": "Convention",
-          "content": [
-            {
-              "type": "paragraph",
-              "text": "Environment files follow the pattern {repo}/env/{env}.env and should be gitignored:"
-            },
-            {
-              "type": "code-block",
-              "language": "bash",
-              "code": "# env/dev.env\nexport PORT=3000\nexport DATABASE_URL=postgres://dev.db.example.com/arcade\nexport SESSION_SECRET=dev-secret-key"
-            }
-          ]
-        },
-        {
-          "id": "env-commands",
-          "title": "Env Commands",
-          "content": [
-            {
-              "type": "command-list",
-              "commands": [
-                {
-                  "name": "deploy env status <target> [env]",
-                  "description": "Show env file status with validation"
-                },
-                {
-                  "name": "deploy env validate <target> <env>",
-                  "description": "Validate against tetra-deploy.toml [env.required]"
-                },
-                {
-                  "name": "deploy env diff <target> <env>",
-                  "description": "Show local vs remote diff (values masked)"
-                },
-                {
-                  "name": "deploy env push <target> <env>",
-                  "description": "Push with validation, diff preview, atomic write"
-                },
-                {
-                  "name": "deploy env pull <target> <env>",
-                  "description": "Pull server env file to local"
-                },
-                {
-                  "name": "deploy env edit <target> <env>",
-                  "description": "Edit remote env file via SSH"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "env-push-flow",
-          "title": "Env Push Flow",
-          "content": [
-            {
-              "type": "paragraph",
-              "text": "The env push command performs these steps:"
-            },
-            {
-              "type": "list",
-              "style": "ordered",
-              "items": [
-                "Validate: Check all required vars exist",
-                "Diff: Show changes (values masked for security)",
-                "Confirm: Ask for confirmation (unless --force)",
-                "Backup: Save remote file with timestamp",
-                "Push: Atomic write (scp to /tmp, then mv)",
-                "Secure: Set chmod 600"
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "preflight",
-      "title": "Preflight Checks",
-      "topics": [
-        {
-          "id": "preflight-overview",
-          "title": "Overview",
-          "content": [
-            {
-              "type": "paragraph",
-              "text": "Preflight checks are MANDATORY before deployment. Use --skip-preflight to bypass."
-            },
-            {
-              "type": "code-block",
-              "language": "bash",
-              "code": "deploy preflight arcade dev"
-            }
-          ]
-        },
-        {
-          "id": "preflight-checks",
-          "title": "Checks Performed",
-          "content": [
-            {
-              "type": "table",
-              "headers": [
-                "#",
-                "Check",
-                "Failure Type"
-              ],
-              "rows": [
-                [
-                  "1",
-                  "Target config exists",
-                  "Error"
-                ],
-                [
-                  "2",
-                  "Environment configured in target",
-                  "Error"
-                ],
-                [
-                  "3",
-                  "Local repo path exists",
-                  "Error"
-                ],
-                [
-                  "4",
-                  "Git repository present",
-                  "Warning"
-                ],
-                [
-                  "5",
-                  "tetra-deploy.toml exists",
-                  "Warning"
-                ],
-                [
-                  "6",
-                  "Env file exists and valid",
-                  "Error"
-                ],
-                [
-                  "7",
-                  "SSH connectivity",
-                  "Error"
-                ],
-                [
-                  "8",
-                  "Remote www path status",
-                  "Warning"
-                ],
-                [
-                  "9",
-                  "Domain configured",
-                  "Warning"
-                ],
-                [
-                  "10",
-                  "Nginx template available",
-                  "Warning"
-                ]
-              ]
-            },
-            {
-              "type": "paragraph",
-              "text": "Errors block deployment. Warnings allow deployment to proceed."
+              "code": "# Check setup\norg status\ndeploy status\n\n# Preview\ndeploy push --dry-run docs prod\n\n# Deploy\ndeploy push docs prod"
             }
           ]
         }
@@ -591,237 +93,174 @@
       "title": "Commands",
       "topics": [
         {
-          "id": "target-commands",
-          "title": "Target Management",
+          "id": "main-commands",
+          "title": "Main Commands",
           "content": [
             {
               "type": "command-list",
               "commands": [
                 {
-                  "name": "deploy target add <name>",
-                  "description": "Create target config (interactive)"
+                  "code": "deploy status",
+                  "description": "Show active org and available targets"
                 },
                 {
-                  "name": "deploy target list",
-                  "description": "List all targets for current org"
+                  "code": "deploy doctor",
+                  "description": "Audit deployment setup"
                 },
                 {
-                  "name": "deploy target show <name>",
-                  "description": "Show target TOML"
+                  "code": "deploy push <target> <env>",
+                  "description": "Full deployment pipeline"
                 },
                 {
-                  "name": "deploy target edit <name>",
-                  "description": "Open target TOML in $EDITOR"
+                  "code": "deploy push <env>",
+                  "description": "Deploy cwd (uses ./tetra-deploy.toml)"
                 },
                 {
-                  "name": "deploy target remove <name>",
-                  "description": "Remove target config"
+                  "code": "deploy push --dry-run <target> <env>",
+                  "description": "Preview what would run"
                 },
                 {
-                  "name": "deploy targets",
-                  "description": "Alias for 'target list'"
+                  "code": "deploy show <target> <env>",
+                  "description": "Show resolved config"
+                },
+                {
+                  "code": "deploy help",
+                  "description": "Show help"
                 }
               ]
-            }
-          ]
-        },
-        {
-          "id": "deploy-commands",
-          "title": "Deployment Commands",
-          "content": [
-            {
-              "type": "command-list",
-              "commands": [
-                {
-                  "name": "deploy preflight <target> <env>",
-                  "description": "Run pre-deployment checks (mandatory)"
-                },
-                {
-                  "name": "deploy push <target> <env>",
-                  "description": "Full pipeline: preflight → hooks → git → service"
-                },
-                {
-                  "name": "deploy push --skip-preflight <target> <env>",
-                  "description": "Bypass preflight checks (not recommended)"
-                },
-                {
-                  "name": "deploy push --dry-run <target> <env>",
-                  "description": "Preview without executing"
-                },
-                {
-                  "name": "deploy git <target> <env>",
-                  "description": "Git clone/pull only"
-                },
-                {
-                  "name": "deploy sync <target> <env>",
-                  "description": "Rsync assets only"
-                },
-                {
-                  "name": "deploy perms <target> <env>",
-                  "description": "Set file permissions only"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "status-commands",
-          "title": "Status Commands",
-          "content": [
-            {
-              "type": "command-list",
-              "commands": [
-                {
-                  "name": "deploy status [target]",
-                  "description": "Show deployment status"
-                },
-                {
-                  "name": "deploy doctor",
-                  "description": "Audit deployment setup: org, SSH, targets"
-                },
-                {
-                  "name": "deploy repo show <target>",
-                  "description": "Show repo's tetra-deploy.toml"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "nginx-commands",
-          "title": "Nginx Commands",
-          "content": [
-            {
-              "type": "command-list",
-              "commands": [
-                {
-                  "name": "deploy nginx:gen <target> <env>",
-                  "description": "Generate nginx config locally"
-                },
-                {
-                  "name": "deploy nginx:show <target> <env>",
-                  "description": "Display generated config"
-                },
-                {
-                  "name": "deploy nginx:install <target> <env>",
-                  "description": "Push config to remote and enable"
-                },
-                {
-                  "name": "deploy nginx:uninstall <target> <env>",
-                  "description": "Disable config on remote"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "remote-commands",
-          "title": "Remote Management",
-          "content": [
-            {
-              "type": "command-list",
-              "commands": [
-                {
-                  "name": "deploy exec <env> <command...>",
-                  "description": "Run command on remote server"
-                },
-                {
-                  "name": "deploy nginx <env> [action]",
-                  "description": "Manage nginx: list, reload, test, status"
-                }
-              ]
-            },
-            {
-              "type": "code-block",
-              "language": "bash",
-              "code": "# Check disk space on prod\ndeploy exec prod 'df -h'\n\n# Reload nginx on staging\ndeploy nginx staging reload"
             }
           ]
         }
       ]
     },
     {
-      "id": "workflows",
-      "title": "Workflows",
+      "id": "configuration",
+      "title": "Configuration",
       "topics": [
         {
-          "id": "new-target-workflow",
-          "title": "New Deployment Setup",
+          "id": "tetra-deploy-toml",
+          "title": "tetra-deploy.toml",
           "content": [
             {
               "type": "code-block",
-              "language": "bash",
-              "code": "# 1. Create target config\ndeploy target add arcade\n\n# 2. Create tetra-deploy.toml in repo\ncat > ~/src/arcade/tetra-deploy.toml << 'EOF'\n[deploy]\nname = \"arcade\"\ntype = \"node\"\n\n[env]\nrequired = [\"PORT\", \"DATABASE_URL\"]\n\n[service]\ncommand = \"node server.js\"\nport = 3000\n\n[hooks]\npre = [\"npm install\", \"npm run build\"]\nEOF\n\n# 3. Create env file\nmkdir -p ~/src/arcade/env\ncat > ~/src/arcade/env/dev.env << 'EOF'\nexport PORT=3000\nexport DATABASE_URL=postgres://localhost/arcade\nEOF\n\n# 4. Verify everything\ndeploy preflight arcade dev\n\n# 5. Deploy\ndeploy push arcade dev"
+              "language": "toml",
+              "code": "[target]\nname = \"docs\"\nremote = \"/var/www/docs\"\ndomain = \"docs.example.com\"\n\n[deploy]\npre = [\"npm run build\"]\ncommands = [\"rsync -avz dist/ {{ssh}}:{{remote}}/\"]\npost = [\"ssh {{ssh}} 'chown -R {{work_user}}:{{work_user}} {{remote}}'\"]"
             }
           ]
         },
         {
-          "id": "static-workflow",
-          "title": "Static Site Deployment",
+          "id": "template-variables",
+          "title": "Template Variables",
           "content": [
             {
-              "type": "code-block",
-              "language": "bash",
-              "code": "# tetra-deploy.toml for static site\ncat > ~/src/docs/tetra-deploy.toml << 'EOF'\n[deploy]\nname = \"docs\"\ntype = \"static\"\n\n[hooks]\npre = [\"npm run build\"]\nEOF\n\n# Deploy\ndeploy push docs prod"
-            }
-          ]
-        },
-        {
-          "id": "update-workflow",
-          "title": "Updating Deployments",
-          "content": [
-            {
-              "type": "code-block",
-              "language": "bash",
-              "code": "# Standard update\ndeploy push arcade dev\n\n# Update env vars first\ndeploy env push arcade dev\ndeploy push arcade dev\n\n# Git-only update (no hooks or service restart)\ndeploy git arcade dev"
-            }
-          ]
-        },
-        {
-          "id": "multi-env-workflow",
-          "title": "Multi-Environment Deploy",
-          "content": [
-            {
-              "type": "code-block",
-              "language": "bash",
-              "code": "# Promote through environments\ndeploy push arcade dev\n# ... test on dev ...\n\ndeploy push arcade staging\n# ... test on staging ...\n\ndeploy push arcade prod"
+              "type": "table",
+              "headers": [
+                "Variable",
+                "Source",
+                "Example"
+              ],
+              "rows": [
+                [
+                  "{{host}}",
+                  "org env IP",
+                  "192.0.2.1"
+                ],
+                [
+                  "{{auth_user}}",
+                  "org SSH login",
+                  "root"
+                ],
+                [
+                  "{{work_user}}",
+                  "org app owner",
+                  "devops"
+                ],
+                [
+                  "{{ssh}}",
+                  "auth_user@host",
+                  "root@192.0.2.1"
+                ],
+                [
+                  "{{name}}",
+                  "target.name",
+                  "docs"
+                ],
+                [
+                  "{{remote}}",
+                  "target.remote",
+                  "/var/www/docs"
+                ],
+                [
+                  "{{domain}}",
+                  "target.domain",
+                  "docs.example.com"
+                ],
+                [
+                  "{{env}}",
+                  "environment",
+                  "prod"
+                ]
+              ]
             }
           ]
         }
       ]
     },
     {
-      "id": "trs-records",
-      "title": "TRS Records",
+      "id": "examples",
+      "title": "Examples",
       "topics": [
         {
-          "id": "deploy-records",
-          "title": "Deployment Records",
+          "id": "static-site",
+          "title": "Static Site",
+          "content": [
+            {
+              "type": "code-block",
+              "language": "toml",
+              "code": "# targets/docs.toml\n[target]\nname = \"docs\"\nremote = \"/var/www/docs\"\ndomain = \"docs.example.com\"\n\n[deploy]\npre = [\"npm run build\"]\ncommands = [\"rsync -avz --delete dist/ {{ssh}}:{{remote}}/\"]"
+            }
+          ]
+        },
+        {
+          "id": "node-service",
+          "title": "Node Service",
+          "content": [
+            {
+              "type": "code-block",
+              "language": "toml",
+              "code": "[target]\nname = \"api\"\nremote = \"/home/{{work_user}}/api\"\n\n[deploy]\npre = [\"npm ci\", \"npm run build\"]\ncommands = [\"rsync -avz --exclude='node_modules' . {{ssh}}:{{remote}}/\"]\npost = [\n    \"ssh {{ssh}} 'cd {{remote}} && npm ci --production'\",\n    \"ssh {{ssh}} 'tsm restart api'\"\n]"
+            }
+          ]
+        },
+        {
+          "id": "cwd-mode",
+          "title": "CWD Mode",
           "content": [
             {
               "type": "paragraph",
-              "text": "Each deployment writes a TRS record for audit trail:"
+              "text": "Deploy from current directory using local tetra-deploy.toml:"
             },
-            {
-              "type": "code-block",
-              "language": "text",
-              "code": "$TETRA_DIR/orgs/pxjam/db/1760230000.deploy.arcade.dev.json"
-            },
-            {
-              "type": "code-block",
-              "language": "json",
-              "code": "{\n  \"target\": \"arcade\",\n  \"env\": \"dev\",\n  \"timestamp\": 1760230000,\n  \"git_sha\": \"abc123f\",\n  \"git_branch\": \"develop\",\n  \"hooks\": {\n    \"pre\": {\"status\": \"ok\", \"duration_ms\": 12340},\n    \"post\": {\"status\": \"ok\", \"duration_ms\": 5678}\n  },\n  \"result\": \"success\",\n  \"duration_ms\": 45000\n}"
-            }
-          ]
-        },
-        {
-          "id": "query-records",
-          "title": "Querying Records",
-          "content": [
             {
               "type": "code-block",
               "language": "bash",
-              "code": "# List all arcade deployments\nls $TETRA_DIR/orgs/pxjam/db/*.deploy.arcade.*.json\n\n# List prod deployments\nls $TETRA_DIR/orgs/pxjam/db/*.deploy.*.prod.json\n\n# Recent deployments\nls -lt $TETRA_DIR/orgs/pxjam/db/*.deploy.*.json | head -10"
+              "code": "cd ~/src/myproject\ndeploy push prod    # uses ./tetra-deploy.toml"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "structure",
+      "title": "Structure",
+      "topics": [
+        {
+          "id": "directory-layout",
+          "title": "Directory Layout",
+          "content": [
+            {
+              "type": "code-block",
+              "language": "text",
+              "code": "$TETRA_DIR/orgs/{org}/\n├── tetra.toml         # Org config (hosts, users)\n└── targets/\n    ├── docs.toml      # Deploy config\n    └── api.toml"
             }
           ]
         }
@@ -839,109 +278,37 @@
               "type": "table",
               "headers": [
                 "Issue",
-                "Cause",
                 "Solution"
               ],
               "rows": [
                 [
                   "No active org",
-                  "org not set",
                   "org switch <name>"
                 ],
                 [
                   "Target not found",
-                  "Not configured",
-                  "deploy target add <name>"
+                  "Check targets/ dir"
                 ],
                 [
-                  "Preflight: env file FAIL",
-                  "Missing env file",
-                  "Create env/<env>.env"
+                  "SSH failed",
+                  "tkm test"
                 ],
                 [
-                  "Preflight: validation FAIL",
-                  "Missing required vars",
-                  "Add vars to env file"
-                ],
-                [
-                  "Preflight: SSH FAIL",
-                  "No connectivity",
-                  "tkm test, tkm deploy all"
-                ],
-                [
-                  "Permission denied",
-                  "Wrong SSH user",
-                  "Check org tetra.toml [environments]"
+                  "rsync fails",
+                  "ssh {{ssh}} 'mkdir -p {{remote}}'"
                 ]
               ]
             }
           ]
         },
         {
-          "id": "diagnostic-commands",
-          "title": "Diagnostics",
+          "id": "debugging",
+          "title": "Debugging",
           "content": [
             {
               "type": "code-block",
               "language": "bash",
-              "code": "# Full system check\ndeploy doctor\n\n# Show target config\ndeploy target show arcade\n\n# Show repo config\ndeploy repo show arcade\n\n# Check env file status\ndeploy env status arcade\n\n# Validate specific env\ndeploy env validate arcade dev\n\n# Run all preflight checks\ndeploy preflight arcade dev"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "configuration",
-      "title": "Configuration",
-      "topics": [
-        {
-          "id": "environment-variables",
-          "title": "Environment Variables",
-          "content": [
-            {
-              "type": "table",
-              "headers": [
-                "Variable",
-                "Default",
-                "Description"
-              ],
-              "rows": [
-                [
-                  "DEPLOY_WWW_USER",
-                  "www-data",
-                  "Web server user for file ownership"
-                ],
-                [
-                  "DEPLOY_WWW_GROUP",
-                  "www-data",
-                  "Web server group"
-                ],
-                [
-                  "DEPLOY_WWW_PERMS",
-                  "755",
-                  "File permission mode"
-                ],
-                [
-                  "DEPLOY_SSH_TIMEOUT",
-                  "10",
-                  "SSH connection timeout"
-                ]
-              ]
-            }
-          ]
-        },
-        {
-          "id": "org-integration",
-          "title": "Org Integration",
-          "content": [
-            {
-              "type": "paragraph",
-              "text": "Each environment needs these settings in org tetra.toml (typically imported from NH):"
-            },
-            {
-              "type": "code-block",
-              "language": "toml",
-              "code": "[environments.dev]\nhost = \"137.184.226.163\"\nuser = \"root\"\ndomain = \"dev.example.com\"\n\n[environments.prod]\nhost = \"64.23.151.249\"\nuser = \"root\"\ndomain = \"example.com\""
+              "code": "deploy doctor\ndeploy show myapp prod\ndeploy push --dry-run myapp prod"
             }
           ]
         }

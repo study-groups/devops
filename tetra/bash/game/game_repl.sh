@@ -17,11 +17,39 @@ fi
 # Load game registry
 source "$GAME_SRC/core/game_registry.sh"
 
-# Load org-specific game REPLs
-# Tetra org games (native implementations)
-source "$GAME_SRC/games/pulsar/pulsar_repl.sh"
-source "$GAME_SRC/games/estoface/core/estoface_repl.sh"
-source "$GAME_SRC/games/formant/formant_repl.sh"
+# ============================================================================
+# DYNAMIC GAME LOADING (nginx-style available/enabled pattern)
+# ============================================================================
+# Structure:
+#   available/gamename/game.toml   - Game with metadata
+#   enabled/gamename -> ../available/gamename  - Symlink enables game
+
+_game_load_enabled() {
+    local enabled_dir="$GAME_SRC/enabled"
+
+    [[ ! -d "$enabled_dir" ]] && return 0
+
+    for game_link in "$enabled_dir"/*; do
+        [[ ! -L "$game_link" ]] && continue
+
+        local game_id=$(basename "$game_link")
+        local game_dir=$(readlink -f "$game_link")
+        local toml_file="$game_dir/game.toml"
+
+        [[ ! -f "$toml_file" ]] && continue
+
+        # Parse repl path from TOML
+        local repl=$(grep -E '^repl\s*=' "$toml_file" | sed 's/.*=\s*"\(.*\)"/\1/' | head -1)
+        local repl_file="$game_dir/${repl:-${game_id}_repl.sh}"
+
+        if [[ -f "$repl_file" ]]; then
+            source "$repl_file"
+        fi
+    done
+}
+
+# Load all enabled games
+_game_load_enabled
 
 # PixelJam Arcade org (single REPL for all PJA games)
 source "$GAME_SRC/orgs/pixeljam-arcade/pja_game_repl.sh"
@@ -109,12 +137,20 @@ game_repl_show_help() {
     text_color "8888FF"
     echo "GAME MANAGEMENT:"
     reset_color
-    echo "  $(text_color "FFAA00")ls$(reset_color)                 List games for current organization"
-    echo "  $(text_color "FFAA00")ls all$(reset_color)             List games for all organizations"
+    echo "  $(text_color "FFAA00")ls$(reset_color)                 List enabled games for current org"
+    echo "  $(text_color "FFAA00")ls all$(reset_color)             List enabled games for all orgs"
     echo "  $(text_color "FFAA00")play <game>$(reset_color)        Launch a game (TUI games launch binary)"
     echo "  $(text_color "FFAA00")play <game> --repl$(reset_color) Launch game's bash REPL instead of binary"
     echo "  $(text_color "FFAA00")org <name>$(reset_color)         Switch organization"
     echo "  $(text_color "FFAA00")status$(reset_color)             Show current session status"
+    echo ""
+
+    text_color "8888FF"
+    echo "ENABLE/DISABLE (nginx-style):"
+    reset_color
+    echo "  $(text_color "FFAA00")available$(reset_color)          List games available to enable"
+    echo "  $(text_color "FFAA00")enable <game>$(reset_color)      Enable a game (symlink to enabled/)"
+    echo "  $(text_color "FFAA00")disable <game>$(reset_color)     Disable a game (remove symlink)"
     echo ""
 
     text_color "8888FF"
@@ -218,9 +254,18 @@ _game_repl_process_input() {
         status)
             game_status
             ;;
+        available)
+            game_available
+            ;;
+        enable)
+            game_enable "${cmd_args[1]}"
+            ;;
+        disable)
+            game_disable "${cmd_args[1]}"
+            ;;
         *)
             text_color "FF0000"
-            echo "❌ Unknown command: $cmd"
+            echo "Unknown command: $cmd"
             reset_color
             echo "   Type 'help' for available commands"
             ;;

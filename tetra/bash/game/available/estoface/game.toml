@@ -1,0 +1,5 @@
+name = "Estoface"
+description = "Audio-Visual Synthesis Engine"
+type = "tui"
+org = "tetra"
+repl = "core/estoface_repl.sh"

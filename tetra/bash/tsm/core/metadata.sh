@@ -26,7 +26,10 @@ tsm_create_metadata() {
     local type="$7"
     local env_file="$8"
     local prehook="${9:-}"  # Optional: pre-hook used
-    local service_type="${10:-pid}"  # Service type: port|socket|pid
+    local service_type="${10:-pid}"  # Service type: port|socket|pid|subprocess
+    local parent="${11:-}"  # Optional: parent service name
+    local comm_type="${12:-}"  # Optional: pipe|fifo|socket|tcp|none
+    local comm_path="${13:-}"  # Optional: path to FIFO or socket
 
     local tsm_id=$(tsm_get_next_id)
     local start_time=$(date +%s)
@@ -39,6 +42,15 @@ tsm_create_metadata() {
     # Capture git metadata
     local git_json
     git_json=$(_tsm_capture_git_metadata "$cwd")
+
+    # Resolve parent's tsm_id if parent is specified
+    local parent_tsm_id="null"
+    if [[ -n "$parent" ]]; then
+        local parent_meta=$(tsm_get_meta_file "$parent")
+        if [[ -f "$parent_meta" ]]; then
+            parent_tsm_id=$(jq -r '.tsm_id // "null"' "$parent_meta" 2>/dev/null)
+        fi
+    fi
 
     # Create metadata JSON
     jq -n \
@@ -54,6 +66,10 @@ tsm_create_metadata() {
         --arg prehook "$prehook" \
         --arg service_type "$service_type" \
         --arg start_time "$start_time" \
+        --arg parent "$parent" \
+        --argjson parent_tsm_id "$parent_tsm_id" \
+        --arg comm_type "$comm_type" \
+        --arg comm_path "$comm_path" \
         --argjson git "$git_json" \
         '{
             tsm_id: ($tsm_id | tonumber),
@@ -71,14 +87,62 @@ tsm_create_metadata() {
             start_time: ($start_time | tonumber),
             restarts: 0,
             unstable_restarts: 0,
+            parent: (if $parent == "" then null else $parent end),
+            parent_tsm_id: $parent_tsm_id,
+            children: [],
+            comm_type: (if $comm_type == "" then null else $comm_type end),
+            comm_path: (if $comm_path == "" then null else $comm_path end),
             git: $git
         }' > "$meta_file"
+
+    # If this is a child, register with parent
+    if [[ -n "$parent" ]]; then
+        _tsm_register_child_with_parent "$name" "$parent"
+    fi
 
     # Clean up ID reservation placeholder if it exists
     local placeholder_dir="$TSM_PROCESSES_DIR/.reserved-$tsm_id"
     [[ -d "$placeholder_dir" ]] && _tsm_safe_remove_dir "$placeholder_dir"
 
     echo "$tsm_id"
+}
+
+# Register a child with its parent (updates parent's children array)
+_tsm_register_child_with_parent() {
+    local child_name="$1"
+    local parent_name="$2"
+    local parent_meta=$(tsm_get_meta_file "$parent_name")
+
+    if [[ -f "$parent_meta" ]]; then
+        local temp_file="${parent_meta}.tmp"
+        jq --arg child "$child_name" \
+            '.children = ((.children // []) + [$child] | unique)' \
+            "$parent_meta" > "$temp_file"
+        mv "$temp_file" "$parent_meta"
+    fi
+}
+
+# Unregister a child from its parent (removes from parent's children array)
+_tsm_unregister_child_from_parent() {
+    local child_name="$1"
+    local child_meta=$(tsm_get_meta_file "$child_name")
+
+    # Get parent name from child's metadata
+    local parent_name=""
+    if [[ -f "$child_meta" ]]; then
+        parent_name=$(jq -r '.parent // empty' "$child_meta" 2>/dev/null)
+    fi
+
+    if [[ -n "$parent_name" ]]; then
+        local parent_meta=$(tsm_get_meta_file "$parent_name")
+        if [[ -f "$parent_meta" ]]; then
+            local temp_file="${parent_meta}.tmp"
+            jq --arg child "$child_name" \
+                '.children = ((.children // []) - [$child])' \
+                "$parent_meta" > "$temp_file"
+            mv "$temp_file" "$parent_meta"
+        fi
+    fi
 }
 
 # Read metadata field
@@ -284,6 +348,10 @@ export -f _tsm_get_git_revision
 export -f _tsm_get_git_revision_full
 export -f _tsm_get_git_commit_message
 export -f _tsm_capture_git_metadata
+
+# Export parent-child relationship functions
+export -f _tsm_register_child_with_parent
+export -f _tsm_unregister_child_from_parent
 
 # === REMOVED: Legacy TCS 3.0 compatibility shims ===
 # Migration to PM2-style JSON metadata is complete

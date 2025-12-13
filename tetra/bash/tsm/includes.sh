@@ -25,6 +25,9 @@ export MOD_SRC MOD_DIR TSM_SRC TSM_DIR
 # Source the main TSM module (which handles all component loading)
 source "$MOD_SRC/tsm.sh"
 
+# Source module index (metadata and tab completion)
+source "$MOD_SRC/index.sh"
+
 # Source tree help registration
 source "$MOD_SRC/tsm_tree.sh" 2>/dev/null || true
 

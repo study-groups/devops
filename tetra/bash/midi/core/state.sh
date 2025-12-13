@@ -284,3 +284,26 @@ tmc_state_dump() {
 
 # Initialize on source
 tmc_state_init
+
+# Export functions
+export -f tmc_state_init
+export -f tmc_state_get
+export -f tmc_state_set
+export -f tmc_state_set_last_cc
+export -f tmc_state_increment_events
+export -f tmc_state_start_learning
+export -f tmc_state_stop_learning
+export -f tmc_state_set_hardware_map
+export -f tmc_state_get_hardware_map
+export -f tmc_state_set_semantic_map
+export -f tmc_state_get_semantic_map
+export -f tmc_state_add_subscriber
+export -f tmc_state_remove_subscriber
+export -f tmc_state_get_subscribers
+export -f tmc_state_clear_subscribers
+export -f tmc_state_invalidate_subscriber_cache
+export -f tmc_state_set_controller
+export -f tmc_state_set_map
+export -f tmc_state_set_controller_and_map
+export -f tmc_state_reset
+export -f tmc_state_dump

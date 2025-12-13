@@ -128,4 +128,4 @@ if declare -f _tsm_get_env_name >/dev/null; then
     export -f _tsm_get_env_name
 fi
 
-# Note: _tsm_start_process is exported from tsm_interface.sh to avoid duplication
+# Note: All process starting now goes through tsm_start_any_command() in core/start.sh

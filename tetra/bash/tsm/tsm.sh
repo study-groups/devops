@@ -126,6 +126,9 @@ tsm() {
         services)
             tetra_tsm_list_services "$@"
             ;;
+        orgs)
+            tetra_tsm_orgs "$@"
+            ;;
         save)
             # Check if this is "save pattern"
             if [[ "$1" == "pattern" ]]; then

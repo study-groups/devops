@@ -83,25 +83,33 @@ chroma_check_dependencies || return 1
 
 # Internal loader for all chroma components
 _chroma_load_components() {
-    # 1. Core modules
+    # 1. Core infrastructure
     source "$CHROMA_SRC/core/parser_registry.sh"
     source "$CHROMA_SRC/core/cst.sh"
     source "$CHROMA_SRC/core/table_render.sh"
     source "$CHROMA_SRC/core/code_highlight.sh"
 
-    # 2. Built-in parsers (self-register on load)
+    # 2. New modular core
+    source "$CHROMA_SRC/core/input.sh"
+    source "$CHROMA_SRC/core/args.sh"
+    source "$CHROMA_SRC/core/render.sh"
+
+    # 3. Built-in parsers (self-register on load)
     local parser
     for parser in "$CHROMA_SRC/parsers"/*.sh; do
         [[ -f "$parser" ]] && source "$parser"
     done
 
-    # 3. Doctor (health checks)
+    # 4. Help system
+    source "$CHROMA_SRC/help.sh"
+
+    # 5. Doctor (health checks)
     source "$CHROMA_SRC/doctor.sh"
 
-    # 4. Main chroma command
+    # 6. Main chroma command
     source "$CHROMA_SRC/chroma.sh"
 
-    # 5. Tab completion
+    # 7. Tab completion
     source "$CHROMA_SRC/chroma_complete.sh"
 }
 

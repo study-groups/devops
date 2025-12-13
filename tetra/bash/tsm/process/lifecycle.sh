@@ -11,101 +11,58 @@
 [[ -f "$TSM_DIR/tsm_log.sh" ]] && source "$TSM_DIR/tsm_log.sh" 2>/dev/null || true
 
 # === CORE PROCESS STARTING ===
-
-_tsm_start_process() {
-    local script="$1"
-    local name="$2"
-    local env_file="$3"
-    local working_dir="$4"
-
-    local logdir="$TSM_LOGS_DIR"
-    local piddir="$TSM_PIDS_DIR"
-
-    local setsid_cmd
-    setsid_cmd=$(tetra_tsm_get_setsid) || {
-        echo "tsm: setsid not available. Run 'tsm setup' or 'brew install util-linux' on macOS" >&2
-        return 1
-    }
-
-    local cd_cmd=""
-    if [[ -n "$working_dir" ]]; then
-        # Validate working directory for security
-        _tsm_validate_path "$working_dir" || return 1
-        cd_cmd="cd '$working_dir'"
-    fi
-
-    local env_cmd=""
-    [[ -n "$env_file" && -f "$env_file" ]] && env_cmd="source '$env_file'"
-
-    # Validate script path for security
-    if [[ -n "$script" ]]; then
-        _tsm_validate_command "$script" || return 1
-    fi
-
-    (
-        $setsid_cmd bash -c "
-            $cd_cmd
-            $env_cmd
-            exec '$script' </dev/null >>'$logdir/$name.out' 2>>'$logdir/$name.err' &
-            echo \$! > '$piddir/$name.pid'
-        " &
-    )
-
-    sleep 0.5
-}
-
-_tsm_start_command_process() {
-    local command="$1"
-    local name="$2"
-    local env_file="$3"
-    local working_dir="$4"
-
-    local logdir="$TSM_LOGS_DIR"
-    local piddir="$TSM_PIDS_DIR"
-
-    local setsid_cmd
-    setsid_cmd=$(tetra_tsm_get_setsid) || {
-        echo "tsm: setsid not available. Run 'tsm setup' or 'brew install util-linux' on macOS" >&2
-        return 1
-    }
-
-    local cd_cmd=""
-    if [[ -n "$working_dir" ]]; then
-        # Validate working directory for security
-        _tsm_validate_path "$working_dir" || return 1
-        cd_cmd="cd '$working_dir'"
-    fi
-
-    local env_cmd=""
-    [[ -n "$env_file" && -f "$env_file" ]] && env_cmd="source '$env_file'"
-
-    # Validate command for security
-    if [[ -n "$command" ]]; then
-        _tsm_validate_command "$command" || return 1
-    fi
-
-    (
-        $setsid_cmd bash -c "
-            $cd_cmd
-            $env_cmd
-            exec $command </dev/null >>'$logdir/$name.out' 2>>'$logdir/$name.err' &
-            echo \$! > '$piddir/$name.pid'
-        " &
-    )
-
-    sleep 0.5
-}
+# NOTE: Legacy _tsm_start_process() and _tsm_start_command_process() have been removed.
+# All process starting now goes through tsm_start_any_command() in core/start.sh
 
 # === PROCESS STOPPING ===
+
+# Get children of a process
+_tsm_get_children() {
+    local name="$1"
+    local meta_file="$TSM_PROCESSES_DIR/$name/meta.json"
+
+    if [[ -f "$meta_file" ]]; then
+        jq -r '.children // [] | .[]' "$meta_file" 2>/dev/null
+    fi
+}
+
+# Stop children recursively (depth-first)
+_tsm_stop_children() {
+    local name="$1"
+    local force="${2:-false}"
+
+    local children
+    children=$(_tsm_get_children "$name")
+
+    if [[ -n "$children" ]]; then
+        echo "tsm: stopping children of '$name'..."
+        while IFS= read -r child; do
+            [[ -z "$child" ]] && continue
+            # Recursively stop children of this child first
+            _tsm_stop_children "$child" "$force"
+            # Then stop the child itself
+            if tetra_tsm_is_running "$child" 2>/dev/null; then
+                echo "tsm:   └─ stopping child '$child'"
+                tetra_tsm_stop_single "$child" "$force"
+            fi
+        done <<< "$children"
+    fi
+}
 
 tetra_tsm_stop_single() {
     local name="$1"
     local force="${2:-false}"
+    local cascade="${3:-true}"  # Default: cascade stop children
 
     # Check if process is running
     if ! tetra_tsm_is_running "$name"; then
         echo "tsm: process '$name' not running"
         return 1
+    fi
+
+    # Stop children first if cascade is enabled
+    if [[ "$cascade" == "true" ]]; then
+        _tsm_stop_children "$name" "$force"
     fi
 
     # Get PID from JSON metadata
@@ -160,6 +117,9 @@ tetra_tsm_stop_single() {
             fi
         fi
     fi
+
+    # Unregister from parent if this is a child process
+    _tsm_unregister_child_from_parent "$name" 2>/dev/null || true
 
     # Update metadata status in JSON
     local temp_file="${meta_file}.tmp"
@@ -288,35 +248,32 @@ _tsm_restart_unified() {
     local preserve_id="$5"
     local cwd="$6"
 
-    # Use unified start mechanism
-    _tsm_start_command_process "$command" "$name" "" "$cwd" || {
+    # Use unified start - run from correct directory
+    (
+        cd "$cwd" 2>/dev/null || cd "$PWD"
+        tsm_start_any_command "$command" "" "$port" "$name" ""
+    ) || {
         echo "tsm: failed to restart '$name'" >&2
         return 1
     }
 
-    local pid
-    pid=$(cat "$TSM_PIDS_DIR/$name.pid")
+    # Update metadata with preserved TSM ID
+    local meta_file="$TSM_PROCESSES_DIR/$name/meta.json"
+    if [[ -f "$meta_file" ]]; then
+        local temp_file="${meta_file}.tmp"
+        jq --arg id "$preserve_id" '.tsm_id = ($id | tonumber) | .restarts += 1' \
+            "$meta_file" > "$temp_file" && mv "$temp_file" "$meta_file"
+    fi
 
-    # Update metadata: increment restarts, update pid/start_time
-    local meta_file=$(tsm_get_meta_file "$name")
-    local temp_file="${meta_file}.tmp"
-    jq --arg pid "$pid" \
-       --arg start_time "$(date +%s)" \
-       '.pid = ($pid | tonumber) | .start_time = ($start_time | tonumber) | .status = "online" | .restarts += 1' \
-       "$meta_file" > "$temp_file" && mv "$temp_file" "$meta_file"
-
-    # Log restart
-    type tsm_log_process_restart >/dev/null 2>&1 && \
-        tsm_log_process_restart "$name" "$preserve_id" "$pid"
-
+    local pid=$(jq -r '.pid' "$meta_file" 2>/dev/null)
     local port_info=""
     [[ -n "$port" && "$port" != "none" ]] && port_info=", Port: $port"
     echo "tsm: restarted '$name' (TSM ID: $preserve_id, PID: $pid$port_info)"
 }
 
 # Export process functions
-export -f _tsm_start_process
-export -f _tsm_start_command_process
+export -f _tsm_get_children
+export -f _tsm_stop_children
 export -f tetra_tsm_stop_single
 export -f tetra_tsm_stop_by_id
 export -f tetra_tsm_delete_single

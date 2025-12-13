@@ -73,7 +73,10 @@ _midi_repl_handle_variant() {
 # List MIDI devices
 _midi_repl_handle_devices() {
     echo ""
-    node "$MIDI_SRC/midi.js" -l
+    if ! node "$MIDI_SRC/midi.js" -l; then
+        echo "Error: Failed to list MIDI devices" >&2
+        return 1
+    fi
     echo ""
 }
 

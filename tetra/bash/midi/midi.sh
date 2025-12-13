@@ -11,6 +11,12 @@
 MIDI_CONFIG="${MIDI_CONFIG:-$MIDI_DIR/config.toml}"
 MIDI_MAPS_DIR="$MIDI_DIR/maps"
 
+# Bash 5.2+ required
+if [[ "${BASH_VERSINFO[0]}" -lt 5 ]] || [[ "${BASH_VERSINFO[0]}" -eq 5 && "${BASH_VERSINFO[1]}" -lt 2 ]]; then
+    echo "Error: midi module requires bash 5.2+ (current: ${BASH_VERSION})" >&2
+    return 1
+fi
+
 # Global check
 if [[ -z "$TETRA_SRC" ]]; then
     echo "Error: TETRA_SRC must be set" >&2

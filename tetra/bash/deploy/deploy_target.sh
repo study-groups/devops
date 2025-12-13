@@ -37,7 +37,7 @@ _deploy_targets_dir() {
 _deploy_target_toml_path() {
     local name="$1"
     local dir=$(_deploy_targets_dir) || return 1
-    echo "$dir/${name}.toml"
+    echo "$dir/${name}/tetra-deploy.toml"
 }
 
 # =============================================================================
@@ -46,7 +46,7 @@ _deploy_target_toml_path() {
 
 # Clear all TGT_* variables before loading new target
 _deploy_clear_tgt_vars() {
-    unset TGT_NAME TGT_REPO TGT_WWW TGT_PATH_LOCAL
+    unset TGT_NAME TGT_REPO TGT_CWD TGT_PATH_LOCAL
     unset TGT_ENVS TGT_BRANCH TGT_DOMAIN
     unset TGT_RSYNC_ENABLED TGT_RSYNC_EXCLUDE TGT_RSYNC_SOURCE
 }
@@ -75,7 +75,7 @@ deploy_target_load() {
     # Core target config
     TGT_NAME="$name"
     TGT_REPO=$(toml_get "target" "repo" "TGT_TOML")
-    TGT_WWW=$(toml_get "target" "www" "TGT_TOML")
+    TGT_CWD=$(toml_get "target" "cwd" "TGT_TOML")
     TGT_PATH_LOCAL=$(toml_get "target" "local" "TGT_TOML")
 
     # Rsync config
@@ -86,11 +86,12 @@ deploy_target_load() {
     # Expand ~ in paths
     TGT_PATH_LOCAL="${TGT_PATH_LOCAL/#\~/$HOME}"
 
-    # Build list of available envs from [envs.*] sections
+    # Build list of available envs from [env.*] sections
+    # Parser creates TGT_TOML_env_dev, TGT_TOML_env_prod, etc.
     TGT_ENVS=""
-    local env_keys=$(toml_get_keys "envs" "TGT_TOML" 2>/dev/null)
-    for key in $env_keys; do
-        TGT_ENVS+="$key "
+    for var in $(compgen -A variable | grep "^TGT_TOML_env_"); do
+        local env_name="${var#TGT_TOML_env_}"
+        TGT_ENVS+="$env_name "
     done
     TGT_ENVS="${TGT_ENVS% }"  # trim trailing space
 
@@ -100,23 +101,48 @@ deploy_target_load() {
 # Get branch for specific environment
 deploy_target_get_branch() {
     local env="$1"
-    local branch=$(toml_get "envs" "${env}.branch" "TGT_TOML" 2>/dev/null)
-    # Fall back to main if not specified
+    local branch=$(toml_get "env_${env}" "branch" "TGT_TOML" 2>/dev/null)
     echo "${branch:-main}"
 }
 
 # Get domain for specific environment
 deploy_target_get_domain() {
     local env="$1"
-    local domain=$(toml_get "envs" "${env}.domain" "TGT_TOML" 2>/dev/null)
-    echo "$domain"
+    toml_get "env_${env}" "domain" "TGT_TOML" 2>/dev/null
 }
 
-# Get www path for specific environment (with optional override)
-deploy_target_get_www() {
+# Get cwd for specific environment (with fallback to target.cwd)
+deploy_target_get_cwd() {
     local env="$1"
-    local www=$(toml_get "envs" "${env}.www" "TGT_TOML" 2>/dev/null)
-    echo "${www:-$TGT_WWW}"
+    local cwd=$(toml_get "env_${env}" "cwd" "TGT_TOML" 2>/dev/null)
+    echo "${cwd:-$TGT_CWD}"
+}
+
+# Get SSH target for environment (user@host format from tetra-deploy.toml)
+deploy_target_get_ssh() {
+    local env="$1"
+    toml_get "env_${env}" "ssh" "TGT_TOML" 2>/dev/null
+}
+
+# Get user for environment
+deploy_target_get_user() {
+    local env="$1"
+    toml_get "env_${env}" "user" "TGT_TOML" 2>/dev/null
+}
+
+# Get deploy.pre commands
+deploy_target_get_pre() {
+    toml_get "deploy" "pre" "TGT_TOML" 2>/dev/null
+}
+
+# Get deploy.commands
+deploy_target_get_commands() {
+    toml_get "deploy" "commands" "TGT_TOML" 2>/dev/null
+}
+
+# Get deploy.post commands
+deploy_target_get_post() {
+    toml_get "deploy" "post" "TGT_TOML" 2>/dev/null
 }
 
 # Check if target can deploy to environment
@@ -363,7 +389,9 @@ deploy_target_remove() {
 # =============================================================================
 
 export -f deploy_target_load deploy_target_get_branch deploy_target_get_domain
-export -f deploy_target_get_www deploy_target_can_deploy
+export -f deploy_target_get_cwd deploy_target_can_deploy
+export -f deploy_target_get_ssh deploy_target_get_user
+export -f deploy_target_get_pre deploy_target_get_commands deploy_target_get_post
 export -f deploy_target_list deploy_target_names deploy_target_show deploy_target_edit
 export -f deploy_target_add deploy_target_remove
 export -f _deploy_targets_dir _deploy_target_toml_path _deploy_clear_tgt_vars

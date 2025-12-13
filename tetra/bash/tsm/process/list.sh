@@ -9,8 +9,7 @@ if [[ -f "$TETRA_SRC/bash/color/color_core.sh" ]]; then
     source "$TETRA_SRC/bash/color/color_palettes.sh"
 fi
 
-# Setup service directories
-TSM_SERVICES_AVAILABLE="$TETRA_DIR/tsm/services-available"
+# Services-enabled location (consolidated in Phase 3)
 TSM_SERVICES_ENABLED="$TETRA_DIR/tsm/services-enabled"
 
 # Print table header (multi-user aware)
@@ -136,12 +135,43 @@ get_service_info() {
     echo "$service_name|$env_file|$pid|$port|$status|$uptime"
 }
 
-# Helper: List processes from a single directory
+# Helper: Print a single process row
+_tsm_print_process_row() {
+    local tsm_id="$1"
+    local display_name="$2"
+    local env_display="$3"
+    local pid="$4"
+    local port="$5"
+    local type_display="$6"
+    local uptime="$7"
+    local owner_user="$8"
+
+    # Print with colors (format depends on multi-user mode)
+    if [[ $TSM_MULTI_USER_ENABLED -eq 1 && -n "$owner_user" ]]; then
+        # Multi-user mode: include USER column
+        printf "%-10s %-3s %-20s %-10s %-5s %-5s " "$owner_user" "$tsm_id" "$display_name" "$env_display" "$pid" "$port"
+    else
+        # Single-user mode: no USER column
+        printf "%-3s %-25s %-10s %-5s %-5s " "$tsm_id" "$display_name" "$env_display" "$pid" "$port"
+    fi
+
+    text_color "00AA00"; printf "%-8s" "online"; reset_color
+    printf " %-8s %-8s\n" "$type_display" "$uptime"
+}
+
+# Helper: List processes from a single directory (hierarchical display)
 _tsm_list_processes_from_dir() {
     local processes_dir="$1"
     local owner_user="$2"  # Optional: username for multi-user display
     local found_running=false
 
+    # Arrays to hold process data (bash 5.2+)
+    declare -A proc_data      # name -> "tsm_id|pid|port|start_time|env_file|service_type|comm_type"
+    declare -A proc_parent    # name -> parent_name
+    declare -a root_procs=()  # Names of root processes (no parent)
+    declare -A children_of    # parent_name -> space-separated child names
+
+    # First pass: collect all running processes
     for process_dir in "$processes_dir"/*/; do
         [[ -d "$process_dir" ]] || continue
 
@@ -149,44 +179,127 @@ _tsm_list_processes_from_dir() {
         local meta_file="$process_dir/meta.json"
         [[ -f "$meta_file" ]] || continue
 
-        # Read all metadata in one jq call (efficient!)
+        # Read all metadata in one jq call
         local metadata
-        metadata=$(jq -r '[.tsm_id, .pid, .port, .start_time, .env_file, .service_type] | @tsv' "$meta_file" 2>/dev/null)
+        metadata=$(jq -r '[.tsm_id, .pid, .port, .start_time, .env_file, .service_type, .parent, .comm_type] | @tsv' "$meta_file" 2>/dev/null)
         [[ -z "$metadata" ]] && continue
 
-        read tsm_id pid port start_time env_file service_type <<< "$metadata"
+        local tsm_id pid port start_time env_file service_type parent_name comm_type
+        read tsm_id pid port start_time env_file service_type parent_name comm_type <<< "$metadata"
 
-        # Verify process is still running
-        if tsm_is_pid_alive "$pid"; then
-            # Calculate uptime
-            local uptime=$(tsm_calculate_uptime "$start_time")
-
-            # Format env file (basename only)
-            local env_display="-"
-            if [[ -n "$env_file" && "$env_file" != "null" && "$env_file" != "" ]]; then
-                env_display=$(basename "$env_file" 2>/dev/null || echo "-")
-            fi
-
-            # Format port
-            [[ -z "$port" || "$port" == "none" || "$port" == "null" || "$port" == "0" ]] && port="-"
-
-            # Format service type
-            local type_display="${service_type:-pid}"
-
-            # Print with colors (format depends on multi-user mode)
-            if [[ $TSM_MULTI_USER_ENABLED -eq 1 && -n "$owner_user" ]]; then
-                # Multi-user mode: include USER column
-                printf "%-10s %-3s %-20s %-10s %-5s %-5s " "$owner_user" "$tsm_id" "$name" "$env_display" "$pid" "$port"
-            else
-                # Single-user mode: no USER column
-                printf "%-3s %-25s %-10s %-5s %-5s " "$tsm_id" "$name" "$env_display" "$pid" "$port"
-            fi
-
-            text_color "00AA00"; printf "%-8s" "online"; reset_color
-            printf " %-8s %-8s\n" "$type_display" "$uptime"
-
-            found_running=true
+        # Only include running processes
+        if ! tsm_is_pid_alive "$pid"; then
+            continue
         fi
+
+        # Store process data
+        proc_data["$name"]="$tsm_id|$pid|$port|$start_time|$env_file|$service_type|$comm_type"
+
+        # Track parent-child relationships
+        if [[ -z "$parent_name" || "$parent_name" == "null" ]]; then
+            root_procs+=("$name")
+            proc_parent["$name"]=""
+        else
+            proc_parent["$name"]="$parent_name"
+            # Add to parent's children list
+            if [[ -n "${children_of[$parent_name]}" ]]; then
+                children_of["$parent_name"]+=" $name"
+            else
+                children_of["$parent_name"]="$name"
+            fi
+        fi
+    done
+
+    # Second pass: print hierarchically (roots first, then their children)
+    for root_name in "${root_procs[@]}"; do
+        [[ -z "${proc_data[$root_name]}" ]] && continue
+
+        # Parse root process data
+        IFS='|' read tsm_id pid port start_time env_file service_type comm_type <<< "${proc_data[$root_name]}"
+
+        # Calculate uptime
+        local uptime=$(tsm_calculate_uptime "$start_time")
+
+        # Format env file (basename only)
+        local env_display="-"
+        if [[ -n "$env_file" && "$env_file" != "null" && "$env_file" != "" ]]; then
+            env_display=$(basename "$env_file" 2>/dev/null || echo "-")
+        fi
+
+        # Format port
+        [[ -z "$port" || "$port" == "none" || "$port" == "null" || "$port" == "0" ]] && port="-"
+
+        # Format service type
+        local type_display="${service_type:-pid}"
+
+        # Print root process
+        _tsm_print_process_row "$tsm_id" "$root_name" "$env_display" "$pid" "$port" "$type_display" "$uptime" "$owner_user"
+        found_running=true
+
+        # Print children (indented with tree character)
+        local child_list="${children_of[$root_name]}"
+        if [[ -n "$child_list" ]]; then
+            local children=($child_list)
+            local num_children=${#children[@]}
+            local i=0
+
+            for child_name in "${children[@]}"; do
+                [[ -z "${proc_data[$child_name]}" ]] && continue
+
+                # Parse child process data
+                IFS='|' read c_tsm_id c_pid c_port c_start_time c_env_file c_service_type c_comm_type <<< "${proc_data[$child_name]}"
+
+                # Calculate uptime
+                local c_uptime=$(tsm_calculate_uptime "$c_start_time")
+
+                # Format env file
+                local c_env_display="-"
+                if [[ -n "$c_env_file" && "$c_env_file" != "null" && "$c_env_file" != "" ]]; then
+                    c_env_display=$(basename "$c_env_file" 2>/dev/null || echo "-")
+                fi
+
+                # Format port (children often don't have ports)
+                [[ -z "$c_port" || "$c_port" == "none" || "$c_port" == "null" || "$c_port" == "0" ]] && c_port="-"
+
+                # For children, show comm_type instead of service_type
+                local c_type_display="${c_comm_type:-${c_service_type:-pid}}"
+                [[ "$c_type_display" == "null" ]] && c_type_display="pid"
+
+                # Tree prefix: └─ for last child, ├─ for others
+                local prefix="├─"
+                ((i++))
+                [[ $i -eq $num_children ]] && prefix="└─"
+
+                # Print child with tree prefix
+                local display_name="$prefix $child_name"
+                _tsm_print_process_row "$c_tsm_id" "$display_name" "$c_env_display" "$c_pid" "$c_port" "$c_type_display" "$c_uptime" "$owner_user"
+                found_running=true
+            done
+        fi
+    done
+
+    # Handle orphan children (parent not running but child is)
+    for name in "${!proc_data[@]}"; do
+        local parent="${proc_parent[$name]}"
+        # Skip roots (already printed) and children of running parents
+        [[ -z "$parent" ]] && continue
+        [[ -n "${proc_data[$parent]}" ]] && continue
+
+        # This is an orphan - parent specified but not running
+        IFS='|' read tsm_id pid port start_time env_file service_type comm_type <<< "${proc_data[$name]}"
+
+        local uptime=$(tsm_calculate_uptime "$start_time")
+        local env_display="-"
+        if [[ -n "$env_file" && "$env_file" != "null" && "$env_file" != "" ]]; then
+            env_display=$(basename "$env_file" 2>/dev/null || echo "-")
+        fi
+        [[ -z "$port" || "$port" == "none" || "$port" == "null" || "$port" == "0" ]] && port="-"
+        local type_display="${service_type:-pid}"
+
+        # Show with orphan indicator
+        local display_name="(orphan) $name"
+        _tsm_print_process_row "$tsm_id" "$display_name" "$env_display" "$pid" "$port" "$type_display" "$uptime" "$owner_user"
+        found_running=true
     done
 
     return $([ "$found_running" = "true" ] && echo 0 || echo 1)
@@ -235,41 +348,14 @@ tsm_list_running() {
     fi
 }
 
-# List available services (all services)
+# List available services - delegates to tetra_tsm_list_services()
 tsm_list_available() {
-    print_table_header
-
-    local id=0
-    if [[ -d "$TSM_SERVICES_AVAILABLE" ]]; then
-        for service_file in "$TSM_SERVICES_AVAILABLE"/*.tsm; do
-            [[ -f "$service_file" ]] || continue
-
-            local service_info=$(get_service_info "$service_file")
-            IFS='|' read -r name env_file pid port status uptime <<< "$service_info"
-
-            # Print with status color
-            printf "%-3s %-25s %-10s %-5s %-5s " "$id" "$name" "$env_file" "$pid" "$port"
-            if [[ "$status" == "online" ]]; then
-                text_color "00AA00"
-            else
-                text_color "888888"
-            fi
-            printf "%-8s" "$status"
-            reset_color
-            printf " %-8s %-8s\n" "-" "$uptime"
-            id=$((id + 1))
-        done
-    fi
-
-    if [[ $id -eq 0 ]]; then
-        echo ""
-        echo "No services available. Create services in $TSM_SERVICES_AVAILABLE"
-    fi
+    tetra_tsm_list_services "$@"
 }
 
-# List all services (same as available, but clearer naming)
+# List all services - delegates to tetra_tsm_list_services()
 tsm_list_all() {
-    tsm_list_available
+    tetra_tsm_list_services "$@"
 }
 
 # Truncate path in the middle to fit within width
@@ -314,8 +400,15 @@ tsm_list_long() {
             local cwd=$(jq -r '.cwd // empty' "$meta_file" 2>/dev/null)
             local port=$(jq -r '.port // empty' "$meta_file" 2>/dev/null)
             local env_file=$(jq -r '.env_file // empty' "$meta_file" 2>/dev/null)
+            local parent_name=$(jq -r '.parent // empty' "$meta_file" 2>/dev/null)
 
             [[ -z "$pid" ]] && continue
+
+            # Format name with arrow if this is a child process
+            local display_name="$name"
+            if [[ -n "$parent_name" && "$parent_name" != "null" ]]; then
+                display_name="← $name"
+            fi
 
             # Verify process is still running
             if tsm_is_pid_alive "$pid"; then
@@ -363,7 +456,7 @@ tsm_list_long() {
                 [[ "$env_display" != "null" && "$env_display" != "none" && "$env_display" == "$HOME"* ]] && env_display="~${env_display#$HOME}"
 
                 # Print formatted output - header split into two lines
-                text_color "FFAA00"; echo -n "[$tsm_id] $name"; reset_color
+                text_color "FFAA00"; echo -n "[$tsm_id] $display_name"; reset_color
                 echo -n "  "
                 text_color "00AA00"; echo -n "● online"; reset_color
                 echo " (uptime: $uptime)"
@@ -478,6 +571,142 @@ tsm_list_pwd() {
             fi
         done
     fi
+
+    if [[ "$found_running" == "false" ]]; then
+        echo ""
+        echo "No running services found."
+        echo "Start services with: tsm start <service-name>"
+    fi
+}
+
+# List running services in tree format (ASCII art hierarchy)
+# Format: name [id] :port (comm_type) ● status
+tsm_list_tree() {
+    local found_running=false
+
+    # Arrays to hold process data (bash 5.2+)
+    declare -A proc_data      # name -> "tsm_id|pid|port|status|comm_type"
+    declare -A proc_parent    # name -> parent_name
+    declare -a root_procs=()  # Names of root processes (no parent)
+    declare -A children_of    # parent_name -> space-separated child names
+
+    # Collect all running processes
+    if [[ ! -d "$TSM_PROCESSES_DIR" ]]; then
+        echo ""
+        echo "No running services found."
+        return
+    fi
+
+    for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+        [[ -d "$process_dir" ]] || continue
+
+        local name=$(basename "$process_dir")
+        local meta_file="$process_dir/meta.json"
+        [[ -f "$meta_file" ]] || continue
+
+        # Read metadata
+        local metadata
+        metadata=$(jq -r '[.tsm_id, .pid, .port, .parent, .comm_type, .start_time] | @tsv' "$meta_file" 2>/dev/null)
+        [[ -z "$metadata" ]] && continue
+
+        local tsm_id pid port parent_name comm_type start_time
+        read tsm_id pid port parent_name comm_type start_time <<< "$metadata"
+
+        # Only include running processes
+        if ! tsm_is_pid_alive "$pid"; then
+            continue
+        fi
+
+        # Store process data
+        proc_data["$name"]="$tsm_id|$pid|$port|$comm_type|$start_time"
+
+        # Track parent-child relationships
+        if [[ -z "$parent_name" || "$parent_name" == "null" ]]; then
+            root_procs+=("$name")
+            proc_parent["$name"]=""
+        else
+            proc_parent["$name"]="$parent_name"
+            if [[ -n "${children_of[$parent_name]}" ]]; then
+                children_of["$parent_name"]+=" $name"
+            else
+                children_of["$parent_name"]="$name"
+            fi
+        fi
+    done
+
+    # Print tree
+    for root_name in "${root_procs[@]}"; do
+        [[ -z "${proc_data[$root_name]}" ]] && continue
+        found_running=true
+
+        IFS='|' read tsm_id pid port comm_type start_time <<< "${proc_data[$root_name]}"
+
+        # Calculate uptime
+        local uptime=$(tsm_calculate_uptime "$start_time")
+
+        # Build root line: name [id] :port ● status (uptime)
+        echo -n "$root_name "
+        text_color "888888"; echo -n "[$tsm_id]"; reset_color
+
+        if [[ -n "$port" && "$port" != "null" && "$port" != "none" && "$port" != "0" ]]; then
+            text_color "00AAAA"; echo -n " :$port"; reset_color
+        fi
+
+        text_color "00AA00"; echo -n " ●"; reset_color
+        echo " online ($uptime)"
+
+        # Print children
+        local child_list="${children_of[$root_name]}"
+        if [[ -n "$child_list" ]]; then
+            local children=($child_list)
+            local num_children=${#children[@]}
+            local i=0
+
+            for child_name in "${children[@]}"; do
+                [[ -z "${proc_data[$child_name]}" ]] && continue
+
+                IFS='|' read c_tsm_id c_pid c_port c_comm_type c_start_time <<< "${proc_data[$child_name]}"
+                local c_uptime=$(tsm_calculate_uptime "$c_start_time")
+
+                # Tree connector
+                ((i++))
+                local connector="├──"
+                [[ $i -eq $num_children ]] && connector="└──"
+
+                # Build child line
+                echo -n "$connector $child_name "
+                text_color "888888"; echo -n "[$c_tsm_id]"; reset_color
+
+                # Show comm_type in parentheses
+                if [[ -n "$c_comm_type" && "$c_comm_type" != "null" ]]; then
+                    text_color "FFAA00"; echo -n " ($c_comm_type)"; reset_color
+                fi
+
+                text_color "00AA00"; echo -n " ●"; reset_color
+                echo " online ($c_uptime)"
+            done
+        fi
+
+        echo ""  # Blank line between root processes
+    done
+
+    # Handle orphans
+    for name in "${!proc_data[@]}"; do
+        local parent="${proc_parent[$name]}"
+        [[ -z "$parent" ]] && continue
+        [[ -n "${proc_data[$parent]}" ]] && continue
+
+        found_running=true
+        IFS='|' read tsm_id pid port comm_type start_time <<< "${proc_data[$name]}"
+        local uptime=$(tsm_calculate_uptime "$start_time")
+
+        text_color "FFAA00"; echo -n "(orphan) "; reset_color
+        echo -n "$name "
+        text_color "888888"; echo -n "[$tsm_id]"; reset_color
+        text_color "00AA00"; echo -n " ●"; reset_color
+        echo " online ($uptime)"
+        echo ""
+    done
 
     if [[ "$found_running" == "false" ]]; then
         echo ""

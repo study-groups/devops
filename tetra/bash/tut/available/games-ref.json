@@ -2,11 +2,11 @@
   "metadata": {
     "title": "Games Reference",
     "tagline": "Game asset deployment to S3",
-    "version": "1.0.0",
+    "version": "0.0.1",
     "description": "Reference for deploy games - syncing local game builds to DigitalOcean Spaces (S3)",
     "author": "tetra",
     "created": "2025-12-07T00:00:00Z",
-    "updated": "2025-12-07T00:00:00Z"
+    "updated": "2025-12-13T19:06:47Z"
   },
   "groups": [
     {
@@ -53,11 +53,27 @@
             },
             {
               "type": "table",
-              "headers": ["Requirement", "Check", "Setup"],
+              "headers": [
+                "Requirement",
+                "Check",
+                "Setup"
+              ],
               "rows": [
-                ["Spaces module", "type spaces_sync", "source $TETRA_SRC/bash/spaces/includes.sh"],
-                ["S3 credentials", "spaces_list pja-games:", "Configure DO Spaces API keys"],
-                ["Local games dir", "ls ~/pj/pja-games", "Build games to local directory"]
+                [
+                  "Spaces module",
+                  "type spaces_sync",
+                  "source $TETRA_SRC/bash/spaces/includes.sh"
+                ],
+                [
+                  "S3 credentials",
+                  "spaces_list pja-games:",
+                  "Configure DO Spaces API keys"
+                ],
+                [
+                  "Local games dir",
+                  "ls ~/pj/pja-games",
+                  "Build games to local directory"
+                ]
               ]
             }
           ]
@@ -83,10 +99,22 @@
             },
             {
               "type": "table",
-              "headers": ["Key", "Default", "Description"],
+              "headers": [
+                "Key",
+                "Default",
+                "Description"
+              ],
               "rows": [
-                ["local_path", "~/pj/pja-games", "Local directory containing game builds"],
-                ["s3_bucket", "pja-games", "DigitalOcean Spaces bucket name"]
+                [
+                  "local_path",
+                  "~/pj/pja-games",
+                  "Local directory containing game builds"
+                ],
+                [
+                  "s3_bucket",
+                  "pja-games",
+                  "DigitalOcean Spaces bucket name"
+                ]
               ]
             }
           ]
@@ -322,10 +350,19 @@
             },
             {
               "type": "table",
-              "headers": ["Function", "Used For"],
+              "headers": [
+                "Function",
+                "Used For"
+              ],
               "rows": [
-                ["spaces_sync", "Upload game directories to S3"],
-                ["spaces_list", "List S3 bucket contents"]
+                [
+                  "spaces_sync",
+                  "Upload game directories to S3"
+                ],
+                [
+                  "spaces_list",
+                  "List S3 bucket contents"
+                ]
               ]
             },
             {
@@ -381,13 +418,37 @@
           "content": [
             {
               "type": "table",
-              "headers": ["Issue", "Cause", "Solution"],
+              "headers": [
+                "Issue",
+                "Cause",
+                "Solution"
+              ],
               "rows": [
-                ["spaces module not loaded", "Module not sourced", "source $TETRA_SRC/bash/spaces/includes.sh"],
-                ["directory not found", "Wrong local_path", "Check [games] in tetra.toml"],
-                ["Game not found", "Game dir doesn't exist", "Build game to local_path first"],
-                ["S3 access denied", "Missing credentials", "Configure DO Spaces API keys"],
-                ["Nothing synced", "All files up to date", "Use --dry-run to see file list"]
+                [
+                  "spaces module not loaded",
+                  "Module not sourced",
+                  "source $TETRA_SRC/bash/spaces/includes.sh"
+                ],
+                [
+                  "directory not found",
+                  "Wrong local_path",
+                  "Check [games] in tetra.toml"
+                ],
+                [
+                  "Game not found",
+                  "Game dir doesn't exist",
+                  "Build game to local_path first"
+                ],
+                [
+                  "S3 access denied",
+                  "Missing credentials",
+                  "Configure DO Spaces API keys"
+                ],
+                [
+                  "Nothing synced",
+                  "All files up to date",
+                  "Use --dry-run to see file list"
+                ]
               ]
             }
           ]

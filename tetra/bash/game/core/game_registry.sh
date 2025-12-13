@@ -2,80 +2,120 @@
 
 # Game Registry System
 # Manages available games and active game selection
+#
+# Uses nginx-style available/enabled pattern:
+#   available/  - All game implementations
+#   enabled/    - Symlinks to active games
+#
+# To enable:  ln -s ../available/gamename enabled/gamename
+# To disable: rm enabled/gamename
 
-# Registry of available games
-declare -gA GAME_REGISTRY_NAMES=(
-    [pulsar]="Pulsar Engine"
-    [estoface]="Estoface"
-    [formant]="Formant"
-    [cornhole-hero]="Cornhole Hero"
-    [cheap-golf]="Cheap Golf"
-    [grid-ranger]="Grid Ranger"
-)
+# ============================================================================
+# REGISTRY ARRAYS (populated by _game_registry_scan)
+# ============================================================================
 
-declare -gA GAME_REGISTRY_DESC=(
-    [pulsar]="Terminal Sprite Animation System"
-    [estoface]="Audio-Visual Synthesis Engine"
-    [formant]="Real-time Vocal Synthesis Engine"
-    [cornhole-hero]="Arcade cornhole physics game"
-    [cheap-golf]="Minimalist golf with trick shots"
-    [grid-ranger]="Grid-based action adventure"
-)
+declare -gA GAME_REGISTRY_NAMES=()
+declare -gA GAME_REGISTRY_DESC=()
+declare -gA GAME_REGISTRY_STATUS=()
+declare -gA GAME_REGISTRY_REPL=()
+declare -gA GAME_REGISTRY_ORG=()
+declare -gA GAME_REGISTRY_TYPE=()
+declare -gA GAME_REGISTRY_NAMESPACE=()
+declare -gA GAME_REGISTRY_BINARY=()
+declare -gA GAME_REGISTRY_PATH=()
+declare -gA GAME_REGISTRY_REPL_FILE=()
 
-declare -gA GAME_REGISTRY_STATUS=(
-    [pulsar]="ready"
-    [estoface]="ready"
-    [formant]="ready"
-    [cornhole-hero]="skeleton"
-    [cheap-golf]="skeleton"
-    [grid-ranger]="skeleton"
-)
+# ============================================================================
+# STATIC REGISTRY (games not in available/ - e.g., external orgs)
+# ============================================================================
 
-declare -gA GAME_REGISTRY_REPL=(
-    [pulsar]="pulsar_game_repl_run"
-    [estoface]="estoface_game_repl_run"
-    [formant]="formant_game_repl_run"
-    [cornhole-hero]="cornhole_hero_game_repl_run"
-    [cheap-golf]="cheap_golf_game_repl_run"
-    [grid-ranger]="grid_ranger_game_repl_run"
-)
+_game_registry_static() {
+    # PixelJam Arcade games (skeleton implementations)
+    GAME_REGISTRY_NAMES[cornhole-hero]="Cornhole Hero"
+    GAME_REGISTRY_DESC[cornhole-hero]="Arcade cornhole physics game"
+    GAME_REGISTRY_STATUS[cornhole-hero]="skeleton"
+    GAME_REGISTRY_REPL[cornhole-hero]="cornhole_hero_game_repl_run"
+    GAME_REGISTRY_ORG[cornhole-hero]="pixeljam-arcade"
+    GAME_REGISTRY_TYPE[cornhole-hero]="tui"
+    GAME_REGISTRY_NAMESPACE[cornhole-hero]="help.game.cornhole-hero"
 
-declare -gA GAME_REGISTRY_ORG=(
-    [pulsar]="tetra"
-    [estoface]="tetra"
-    [formant]="tetra"
-    [cornhole-hero]="pixeljam-arcade"
-    [cheap-golf]="pixeljam-arcade"
-    [grid-ranger]="pixeljam-arcade"
-)
+    GAME_REGISTRY_NAMES[cheap-golf]="Cheap Golf"
+    GAME_REGISTRY_DESC[cheap-golf]="Minimalist golf with trick shots"
+    GAME_REGISTRY_STATUS[cheap-golf]="skeleton"
+    GAME_REGISTRY_REPL[cheap-golf]="cheap_golf_game_repl_run"
+    GAME_REGISTRY_ORG[cheap-golf]="pixeljam-arcade"
+    GAME_REGISTRY_TYPE[cheap-golf]="tui"
+    GAME_REGISTRY_NAMESPACE[cheap-golf]="help.game.cheap-golf"
 
-# Game types: bash, tui, html
-declare -gA GAME_REGISTRY_TYPE=(
-    [pulsar]="bash"
-    [estoface]="tui"
-    [formant]="bash"
-    [cornhole-hero]="tui"
-    [cheap-golf]="tui"
-    [grid-ranger]="tui"
-)
+    GAME_REGISTRY_NAMES[grid-ranger]="Grid Ranger"
+    GAME_REGISTRY_DESC[grid-ranger]="Grid-based action adventure"
+    GAME_REGISTRY_STATUS[grid-ranger]="skeleton"
+    GAME_REGISTRY_REPL[grid-ranger]="grid_ranger_game_repl_run"
+    GAME_REGISTRY_ORG[grid-ranger]="pixeljam-arcade"
+    GAME_REGISTRY_TYPE[grid-ranger]="tui"
+    GAME_REGISTRY_NAMESPACE[grid-ranger]="help.game.grid-ranger"
+}
 
-# Help namespaces for tree-based help system
-declare -gA GAME_REGISTRY_NAMESPACE=(
-    [pulsar]="help.game.pulsar"
-    [estoface]="help.game.estoface"
-    [formant]="help.game.formant"
-    [cornhole-hero]="help.game.cornhole-hero"
-    [cheap-golf]="help.game.cheap-golf"
-    [grid-ranger]="help.game.grid-ranger"
-)
+# ============================================================================
+# DYNAMIC REGISTRY SCANNER
+# ============================================================================
+# Scans enabled/ for symlinks to game dirs containing game.toml
+# Structure:
+#   available/gamename/game.toml
+#   enabled/gamename -> ../available/gamename
 
-# Binary paths for TUI games (relative to GAME_SRC)
-declare -gA GAME_REGISTRY_BINARY=(
-    [estoface]="games/estoface/bin/estoface"
-    [cornhole-hero]="games/cornhole-hero/bin/cornhole-hero"
-    [cheap-golf]="games/cheap-golf/bin/cheap-golf"
-    [grid-ranger]="games/grid-ranger/bin/grid-ranger"
-)
+_game_registry_scan() {
+    local enabled_dir="$GAME_SRC/enabled"
+
+    [[ ! -d "$enabled_dir" ]] && return 0
+
+    for game_link in "$enabled_dir"/*; do
+        [[ ! -L "$game_link" ]] && continue  # Only symlinks
+
+        local game_id=$(basename "$game_link")
+        local game_dir=$(readlink -f "$game_link")
+        local toml_file="$game_dir/game.toml"
+
+        [[ ! -f "$toml_file" ]] && continue  # Must have game.toml
+
+        # Parse TOML
+        local name=$(grep -E '^name\s*=' "$toml_file" | sed 's/.*=\s*"\(.*\)"/\1/' | head -1)
+        local desc=$(grep -E '^description\s*=' "$toml_file" | sed 's/.*=\s*"\(.*\)"/\1/' | head -1)
+        local type=$(grep -E '^type\s*=' "$toml_file" | sed 's/.*=\s*"\(.*\)"/\1/' | head -1)
+        local org=$(grep -E '^org\s*=' "$toml_file" | sed 's/.*=\s*"\(.*\)"/\1/' | head -1)
+        local repl=$(grep -E '^repl\s*=' "$toml_file" | sed 's/.*=\s*"\(.*\)"/\1/' | head -1)
+
+        GAME_REGISTRY_NAMES[$game_id]="${name:-${game_id^}}"
+        GAME_REGISTRY_DESC[$game_id]="${desc:-No description}"
+        GAME_REGISTRY_TYPE[$game_id]="${type:-bash}"
+        GAME_REGISTRY_ORG[$game_id]="${org:-tetra}"
+        GAME_REGISTRY_PATH[$game_id]="$game_dir"
+        GAME_REGISTRY_REPL_FILE[$game_id]="${repl:-${game_id}_repl.sh}"
+        GAME_REGISTRY_STATUS[$game_id]="ready"
+        GAME_REGISTRY_REPL[$game_id]="${game_id}_game_repl_run"
+        GAME_REGISTRY_NAMESPACE[$game_id]="help.game.$game_id"
+
+        # Set binary path for TUI games
+        if [[ "$type" == "tui" ]]; then
+            GAME_REGISTRY_BINARY[$game_id]="$game_dir/bin/$game_id"
+        fi
+    done
+}
+
+# ============================================================================
+# INITIALIZE REGISTRY
+# ============================================================================
+
+_game_registry_init() {
+    # Load static entries first (external orgs, skeletons)
+    _game_registry_static
+
+    # Scan enabled/ for dynamic entries (overrides static)
+    _game_registry_scan
+}
+
+# Run initialization
+_game_registry_init
 
 # Current active state
 GAME_ACTIVE=""
@@ -612,5 +652,136 @@ game_org() {
     game_list "$org_name"
 }
 
+# ============================================================================
+# ENABLE/DISABLE GAMES
+# ============================================================================
+
+# List available games (in available/ but not enabled/)
+game_available() {
+    local available_dir="$GAME_SRC/available"
+    local enabled_dir="$GAME_SRC/enabled"
+
+    echo ""
+    text_color "66FFFF"
+    echo "Available Games (not currently enabled)"
+    reset_color
+    echo ""
+
+    local found=false
+    for game_path in "$available_dir"/*; do
+        [[ ! -d "$game_path" ]] && continue
+        [[ ! -f "$game_path/game.toml" ]] && continue
+
+        local game_id=$(basename "$game_path")
+
+        # Skip if already enabled
+        [[ -L "$enabled_dir/$game_id" ]] && continue
+
+        found=true
+        text_color "FFAA00"
+        printf "  %-15s" "$game_id"
+        reset_color
+
+        local desc=$(grep -E '^description\s*=' "$game_path/game.toml" | sed 's/.*=\s*"\(.*\)"/\1/' | head -1)
+        text_color "AAAAAA"
+        printf "%s" "${desc:-No description}"
+        reset_color
+        echo ""
+    done
+
+    if [[ "$found" == "false" ]]; then
+        text_color "666666"
+        echo "  All available games are enabled"
+        reset_color
+    fi
+
+    echo ""
+    echo "Usage: enable <game>  - Enable a game"
+    echo ""
+}
+
+# Enable a game (create symlink to dir)
+game_enable() {
+    local game_id="$1"
+    local available_dir="$GAME_SRC/available"
+    local enabled_dir="$GAME_SRC/enabled"
+
+    if [[ -z "$game_id" ]]; then
+        game_available
+        return 1
+    fi
+
+    if [[ ! -d "$available_dir/$game_id" ]]; then
+        text_color "FF0000"
+        echo "Game not found: $game_id"
+        reset_color
+        game_available
+        return 1
+    fi
+
+    if [[ -L "$enabled_dir/$game_id" ]]; then
+        text_color "FFAA00"
+        echo "Game already enabled: $game_id"
+        reset_color
+        return 0
+    fi
+
+    ln -s "../available/$game_id" "$enabled_dir/$game_id"
+
+    # Re-scan registry
+    _game_registry_scan
+
+    text_color "00AA00"
+    echo "Enabled: $game_id"
+    reset_color
+    echo "Note: Restart REPL to load game's REPL functions"
+}
+
+# Disable a game (remove symlink)
+game_disable() {
+    local game_id="$1"
+    local enabled_dir="$GAME_SRC/enabled"
+
+    if [[ -z "$game_id" ]]; then
+        echo ""
+        text_color "66FFFF"
+        echo "Currently Enabled Games"
+        reset_color
+        echo ""
+        for link in "$enabled_dir"/*; do
+            [[ -L "$link" ]] && echo "  $(basename "$link")"
+        done
+        echo ""
+        echo "Usage: disable <game>  - Disable a game"
+        echo ""
+        return 1
+    fi
+
+    if [[ ! -L "$enabled_dir/$game_id" ]]; then
+        text_color "FF0000"
+        echo "Game not enabled: $game_id"
+        reset_color
+        return 1
+    fi
+
+    rm "$enabled_dir/$game_id"
+
+    # Remove from registry
+    unset "GAME_REGISTRY_NAMES[$game_id]"
+    unset "GAME_REGISTRY_DESC[$game_id]"
+    unset "GAME_REGISTRY_STATUS[$game_id]"
+    unset "GAME_REGISTRY_REPL[$game_id]"
+    unset "GAME_REGISTRY_ORG[$game_id]"
+    unset "GAME_REGISTRY_TYPE[$game_id]"
+    unset "GAME_REGISTRY_NAMESPACE[$game_id]"
+    unset "GAME_REGISTRY_BINARY[$game_id]"
+    unset "GAME_REGISTRY_PATH[$game_id]"
+    unset "GAME_REGISTRY_REPL_FILE[$game_id]"
+
+    text_color "00AA00"
+    echo "Disabled: $game_id"
+    reset_color
+}
+
 # Export functions
-export -f game_list game_play game_status game_org game_user
+export -f game_list game_play game_status game_org game_user game_enable game_disable game_available

@@ -22,6 +22,7 @@ declare -gA _QUASAR_CMD_DESC=(
     # Sound control
     [osc]="Send OSC message"
     [test]="Test sound output"
+    [mute]="Silence all voices"
     # Client
     [open]="Open browser client"
     [diagram]="Show architecture diagram"
@@ -89,12 +90,14 @@ _quasar_complete_osc_addresses() {
     done
 }
 
-# Show context: server status
+# Show context: server status (checks actual server, not just PID file)
 _quasar_complete_context() {
-    local pid_file="${QUASAR_DIR:-$TETRA_DIR/quasar}/quasar.pid"
     local port="${QUASAR_PORT:-1985}"
 
-    if [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file")" 2>/dev/null; then
+    # Check if server actually responds
+    if curl -s --max-time 1 "http://localhost:$port/api/status" &>/dev/null; then
+        echo "running:$port"
+    elif lsof -ti :"$port" &>/dev/null; then
         echo "running:$port"
     else
         echo "stopped"
@@ -298,6 +301,7 @@ quasar_commands() {
     echo "SOUND"
     printf "  %-12s %s\n" "osc" "${_QUASAR_CMD_DESC[osc]}"
     printf "  %-12s %s\n" "test" "${_QUASAR_CMD_DESC[test]}"
+    printf "  %-12s %s\n" "mute" "${_QUASAR_CMD_DESC[mute]}"
     echo ""
     echo "CLIENT"
     printf "  %-12s %s\n" "open" "${_QUASAR_CMD_DESC[open]}"
@@ -357,5 +361,3 @@ complete -F _quasar_complete quasar
 export -f _quasar_complete _quasar_complete_bridges _quasar_complete_osc_addresses
 export -f _quasar_complete_osc_path _quasar_complete_osc_args
 export -f _quasar_complete_context quasar_commands quasar_osc_commands quasar_bridge_commands
-
-

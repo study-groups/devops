@@ -119,35 +119,55 @@ tsm_processes_to_json() {
         }'
 }
 
+# Legacy wrapper - delegates to platform.sh
+# Use tsm_get_setsid() directly for new code
 tetra_tsm_get_setsid() {
-    # Get the correct setsid command for the platform
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        if command -v setsid >/dev/null 2>&1; then
-            echo "setsid"
-        elif [[ -n "$HOMEBREW_PREFIX" && -x "$HOMEBREW_PREFIX/opt/util-linux/bin/setsid" ]]; then
-            echo "$HOMEBREW_PREFIX/opt/util-linux/bin/setsid"
-        else
-            echo ""
-        fi
-    else
-        echo "setsid"
-    fi
+    tsm_get_setsid
 }
 
 # Thread-safe ID allocation - SINGLE SOURCE OF TRUTH
+# Uses flock if available, falls back to mkdir-based locking on macOS
 tetra_tsm_get_next_id() {
     local lock_file="$TSM_PROCESSES_DIR/.id_allocation_lock"
-    local lock_fd=200
+    local lock_dir="$TSM_PROCESSES_DIR/.id_lock_dir"
+    local use_flock=false
     local used_ids=()
 
     mkdir -p "$TSM_PROCESSES_DIR"
 
-    # Acquire exclusive lock
-    exec 200>"$lock_file"
-    if ! flock -x -w 5 200; then
-        echo "tsm: failed to acquire ID allocation lock (timeout after 5s)" >&2
-        exec 200>&-
-        return 1
+    # Check if flock is available
+    if command -v flock >/dev/null 2>&1; then
+        use_flock=true
+    fi
+
+    # Acquire lock using appropriate method
+    if [[ "$use_flock" == "true" ]]; then
+        # Use flock for proper file locking
+        exec 200>"$lock_file"
+        if ! flock -x -w 5 200; then
+            echo "tsm: failed to acquire ID allocation lock (timeout after 5s)" >&2
+            exec 200>&-
+            return 1
+        fi
+    else
+        # Fallback: mkdir-based lock (atomic on POSIX)
+        local attempts=0
+        while ! mkdir "$lock_dir" 2>/dev/null; do
+            ((attempts++))
+            if [[ $attempts -ge 50 ]]; then
+                # Check if lock is stale (older than 30 seconds)
+                local lock_time=$(cat "$lock_dir/.timestamp" 2>/dev/null || echo "0")
+                local current_time=$(date +%s)
+                if [[ $((current_time - lock_time)) -gt 30 ]]; then
+                    rm -rf "$lock_dir"
+                    continue
+                fi
+                echo "tsm: failed to acquire ID allocation lock (timeout)" >&2
+                return 1
+            fi
+            sleep 0.1
+        done
+        echo "$(date +%s)" > "$lock_dir/.timestamp"
     fi
 
     # Check for PM2-style meta.json in subdirectories
@@ -190,8 +210,12 @@ tetra_tsm_get_next_id() {
     echo "Reserved at $(date +%s)" > "$placeholder_dir/.timestamp"
 
     # Release lock
-    flock -u 200
-    exec 200>&-
+    if [[ "$use_flock" == "true" ]]; then
+        flock -u 200
+        exec 200>&-
+    else
+        rm -rf "$lock_dir"
+    fi
 
     echo "$next_id"
 }

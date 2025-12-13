@@ -42,17 +42,19 @@ const OSC_IN = parseInt(process.env.OSC_IN || 1986);
 const TETRA_SRC = process.env.TETRA_SRC || path.join(process.env.HOME, 'src/devops/tetra');
 const TETRA_DIR = process.env.TETRA_DIR || path.join(process.env.HOME, 'tetra');
 const PULSAR_BIN = process.env.PULSAR_BIN || path.join(TETRA_SRC, 'bash/pulsar/engine/bin/pulsar_slots');
+const TSM_META_DIR = process.env.TSM_META_DIR || path.join(TETRA_DIR, 'tsm/services');
+
+// PULSAR mode: 'subprocess' (default) or 'fifo' (debuggable TSM service)
+const PULSAR_MODE = process.env.PULSAR_MODE || 'subprocess';
+const PULSAR_FIFO = process.env.PULSAR_FIFO || path.join(TETRA_DIR, 'tsm/runtime/pulsar.fifo');
+
+const { execSync } = require('child_process');
 
 // Game bridge registry
 const GAME_BRIDGES = {
-  fireball: {
-    name: 'FIREBALL',
-    bridge: path.join(TETRA_SRC, 'bash/game/games/pulsar/pulsar-game.js'),
-    type: 'osc'
-  },
-  pulsar: {
-    name: 'PULSAR',
-    bridge: path.join(TETRA_SRC, 'bash/game/games/pulsar/pulsar-game.js'),
+  magnetar: {
+    name: 'MAGNETAR',
+    bridge: path.join(TETRA_SRC, 'bash/game/games/magnetar/magnetar-bridge.js'),
     type: 'osc'
   },
   cymatica: {
@@ -60,9 +62,9 @@ const GAME_BRIDGES = {
     bridge: path.join(TETRA_SRC, 'bash/midi-mp/cymatica-app.js'),
     type: 'websocket'
   },
-  asciimouth: {
-    name: 'ASCIIMOUTH',
-    bridge: path.join(TETRA_SRC, 'bash/game/games/formant/estoface-bridge.js'),
+  formant: {
+    name: 'FORMANT',
+    bridge: path.join(TETRA_SRC, 'bash/game/games/formant/formant-bridge.js'),
     type: 'osc'
   },
   pong: {
@@ -89,6 +91,9 @@ class QuasarServer {
 
     // Connected game sources (can send frames)
     this.gameSources = new Map(); // ws -> { gameType, lastFrame }
+
+    // Current screen state (ASCII text for /api/screen)
+    this.currentScreen = '';
 
     // Current sound state (for new client sync)
     this.soundState = {
@@ -190,6 +195,14 @@ class QuasarServer {
       return this.apiStatus(res);
     }
 
+    if (url.pathname === '/api/screen') {
+      return this.apiScreen(res);
+    }
+
+    if (url.pathname === '/api/screen.png') {
+      return this.apiScreenPng(res);
+    }
+
     // Serve static files from browser/
     const staticFiles = {
       '/': 'index.html',
@@ -245,6 +258,36 @@ class QuasarServer {
       stats: this.stats,
       soundState: this.soundState
     }));
+  }
+
+  apiScreen(res) {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end(this.currentScreen || '(no screen data)');
+  }
+
+  apiScreenPng(res) {
+    // Render ASCII to PNG using simple canvas-like approach
+    const screen = this.currentScreen || '(no screen data)';
+    const lines = screen.split('\n');
+    const cols = 60;
+    const rows = 24;
+    const charWidth = 10;
+    const charHeight = 20;
+    const width = cols * charWidth;
+    const height = rows * charHeight;
+
+    // Create a simple PPM image (easy to generate, can convert to PNG)
+    // For now, return a text representation with content-type hint
+    // A proper implementation would use node-canvas or sharp
+
+    // Simple solution: return as text/plain with ASCII art
+    // Client can render it or we add node-canvas later
+    res.writeHead(200, {
+      'Content-Type': 'text/plain',
+      'X-Screen-Cols': cols,
+      'X-Screen-Rows': rows
+    });
+    res.end(screen);
   }
 
   handleWSConnection(ws, req) {
@@ -305,7 +348,7 @@ class QuasarServer {
         }
       }
     } else {
-      // Browser client sending input or commands
+      // Browser client sending input or screen updates
       if (type === 'input') {
         // Forward input to game sources
         this.gameSources.forEach((source, gameWs) => {
@@ -313,11 +356,12 @@ class QuasarServer {
             gameWs.send(JSON.stringify(data));
           }
         });
-      } else if (type === 'bridge.spawn') {
-        this.handleBridgeSpawn(ws, data);
       } else if (type === 'screen') {
         // Browser reporting its current screen state
         this.currentScreen = data.screen || '';
+      } else if (type === 'bridge.spawn') {
+        // Browser requesting to start a game on a channel (slot)
+        this.handleBridgeSpawn(ws, data);
       } else if (type === 'ping') {
         ws.send(JSON.stringify({ t: 'pong', ts: Date.now() }));
       }
@@ -330,6 +374,31 @@ class QuasarServer {
 
     this.log(`Bridge spawn request: game=${game}, slot=${slot}`);
 
+    // For PULSAR engine-based games, initialize the slot directly
+    if (game === 'magnetar') {
+      if (this.initSlot(slot, 60, 24, 15)) {
+        // Spawn demo sprites for MAGNETAR
+        this.spawnSprite(slot, 'pulsar', 30, 12, { len0: 4, dtheta: 0.1, valence: 1 });
+        this.spawnSprite(slot, 'pulsar', 50, 12, { len0: 4, dtheta: -0.1, valence: 2 });
+
+        ws.send(JSON.stringify({
+          t: 'bridge.ready',
+          game,
+          slot,
+          status: 'ok'
+        }));
+      } else {
+        ws.send(JSON.stringify({
+          t: 'bridge.error',
+          game,
+          slot,
+          error: 'Failed to initialize slot'
+        }));
+      }
+      return;
+    }
+
+    // For other games, check bridge registry
     const bridgeConfig = GAME_BRIDGES[game];
     if (!bridgeConfig) {
       ws.send(JSON.stringify({
@@ -351,74 +420,11 @@ class QuasarServer {
       return;
     }
 
-    // For pulsar-based games, use the internal PULSAR subprocess
-    if (game === 'fireball' || game === 'pulsar') {
-      if (this.initSlot(slot, 60, 24, 15)) {
-        // Spawn demo sprites for FIREBALL/PULSAR
-        this.spawnSprite(slot, 'pulsar', 30, 12, { len0: 4, dtheta: 0.1, valence: 1 });
-        this.spawnSprite(slot, 'pulsar', 50, 12, { len0: 4, dtheta: -0.1, valence: 2 });
-
-        ws.send(JSON.stringify({
-          t: 'bridge.ready',
-          game,
-          slot,
-          status: 'ok'
-        }));
-      } else {
-        ws.send(JSON.stringify({
-          t: 'bridge.error',
-          game,
-          slot,
-          error: 'Failed to initialize slot (PULSAR binary not found)'
-        }));
-      }
-      return;
-    }
-
-    // For other games, try to spawn their bridge process
-    const fs = require('fs');
-    if (!bridgeConfig.bridge || !fs.existsSync(bridgeConfig.bridge)) {
-      this.log(`Bridge not found: ${bridgeConfig.bridge}`, 'error');
-      ws.send(JSON.stringify({
-        t: 'bridge.error',
-        game,
-        error: `Bridge not found: ${bridgeConfig.bridge}`
-      }));
-      return;
-    }
-
-    // Spawn the bridge process
-    const { spawn } = require('child_process');
-    const bridgeProcess = spawn('node', [bridgeConfig.bridge], {
-      env: {
-        ...process.env,
-        QUASAR_WS: `ws://localhost:${this.config.httpPort}/ws?role=game`,
-        GAME_SLOT: String(slot)
-      }
-    });
-
-    bridgeProcess.stdout.on('data', (data) => {
-      this.log(`[${game}] ${data.toString().trim()}`);
-    });
-
-    bridgeProcess.stderr.on('data', (data) => {
-      this.log(`[${game}] ${data.toString().trim()}`, 'error');
-    });
-
-    bridgeProcess.on('close', (code) => {
-      this.log(`[${game}] Bridge exited with code ${code}`);
-      this.bridges.delete(slot);
-    });
-
-    // Store bridge reference
-    this.bridges.set(slot, { process: bridgeProcess, game, clientWs: ws });
-    this.stats.bridgesSpawned++;
-
+    // TODO: Spawn external bridge process for other games
     ws.send(JSON.stringify({
-      t: 'bridge.ready',
+      t: 'bridge.error',
       game,
-      slot,
-      status: 'spawned'
+      error: 'External bridges not yet implemented'
     }));
   }
 
@@ -502,14 +508,66 @@ class QuasarServer {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // PULSAR Subprocess Management
+  // PULSAR Management (subprocess or FIFO mode)
   // ═══════════════════════════════════════════════════════════════
 
+  // Connect to PULSAR via FIFO (for debug mode)
+  connectToPulsarFifo() {
+    if (this.pulsarFifoFd) return true;
+
+    try {
+      // Ensure runtime directory exists
+      const runtimeDir = path.dirname(PULSAR_FIFO);
+      if (!fs.existsSync(runtimeDir)) {
+        fs.mkdirSync(runtimeDir, { recursive: true });
+      }
+
+      // Create FIFO if needed
+      if (!fs.existsSync(PULSAR_FIFO)) {
+        execSync(`mkfifo "${PULSAR_FIFO}"`);
+        this.log(`Created FIFO: ${PULSAR_FIFO}`);
+      }
+
+      // Ensure PULSAR is running via TSM
+      this.ensurePulsarRunning();
+
+      // Open FIFO for writing (O_WRONLY | O_NONBLOCK to avoid blocking)
+      this.pulsarFifoFd = fs.openSync(PULSAR_FIFO, fs.constants.O_WRONLY | fs.constants.O_NONBLOCK);
+      this.log(`Connected to PULSAR FIFO: ${PULSAR_FIFO}`);
+
+      return true;
+    } catch (err) {
+      this.log(`Failed to connect to PULSAR FIFO: ${err.message}`, 'error');
+      return false;
+    }
+  }
+
+  // Ensure PULSAR is running via TSM (for FIFO mode)
+  ensurePulsarRunning() {
+    try {
+      // Check if pulsar service is running
+      execSync('tsm info pulsar 2>/dev/null', { stdio: 'ignore' });
+      this.log('PULSAR already running via TSM');
+    } catch {
+      // Not running, start it
+      this.log('Starting PULSAR via TSM...');
+      try {
+        execSync(`PULSAR_FIFO="${PULSAR_FIFO}" tsm start pulsar`, { stdio: 'inherit' });
+      } catch (err) {
+        this.log(`Failed to start PULSAR via TSM: ${err.message}`, 'error');
+      }
+    }
+  }
+
   spawnPulsar() {
+    // In FIFO mode, connect to FIFO instead of spawning
+    if (PULSAR_MODE === 'fifo') {
+      return this.connectToPulsarFifo();
+    }
+
     if (this.pulsar) return true;
 
     try {
-      const { spawn } = require('child_process');
       this.pulsar = spawn(PULSAR_BIN, [], {
         stdio: ['pipe', 'pipe', 'pipe']
       });
@@ -551,8 +609,8 @@ class QuasarServer {
     if (!this.pulsar) return;
 
     const TSM_RUNTIME = path.join(TETRA_DIR, 'tsm/runtime');
-    const processDir = path.join(TSM_RUNTIME, 'processes/pulsar');
-    const pidFile = path.join(processDir, 'pulsar.pid');
+    const processDir = path.join(TSM_RUNTIME, 'processes/pulsar-child');
+    const pidFile = path.join(processDir, 'pulsar-child.pid');
     const metaFile = path.join(processDir, 'meta.json');
 
     // Read next TSM ID and increment
@@ -567,17 +625,31 @@ class QuasarServer {
       // Ignore, use default
     }
 
-    // Build parent name from quasar port
+    // Get parent quasar's TSM ID
     const parentName = `quasar-${this.config.httpPort}`;
+    let parentTsmId = null;
+    try {
+      const parentMetaFile = path.join(TSM_RUNTIME, `processes/${parentName}/meta.json`);
+      if (fs.existsSync(parentMetaFile)) {
+        const parentMeta = JSON.parse(fs.readFileSync(parentMetaFile, 'utf8'));
+        parentTsmId = parentMeta.tsm_id || null;
+      }
+    } catch (err) {
+      // Ignore, parent ID will be null
+    }
+
+    // Determine communication type
+    const commType = PULSAR_MODE === 'fifo' ? 'fifo' : 'pipe';
+    const commPath = PULSAR_MODE === 'fifo' ? PULSAR_FIFO : null;
 
     const meta = {
       tsm_id: tsmId,
       org: 'tetra',
-      name: 'pulsar',
+      name: 'pulsar-child',
       pid: this.pulsar.pid,
       command: PULSAR_BIN,
       port: null,
-      port_type: 'pipe',
+      port_type: 'none',
       cwd: path.dirname(PULSAR_BIN),
       interpreter: PULSAR_BIN,
       process_type: 'binary',
@@ -589,8 +661,10 @@ class QuasarServer {
       restarts: 0,
       unstable_restarts: 0,
       parent: parentName,
-      socket_path: null,
+      parent_tsm_id: parentTsmId,
       children: [],
+      comm_type: commType,
+      comm_path: commPath,
       git: null
     };
 
@@ -608,18 +682,19 @@ class QuasarServer {
       fs.writeFileSync(path.join(processDir, 'current.out'), '');
       fs.writeFileSync(path.join(processDir, 'current.err'), '');
 
-      this.log(`TSM registered: pulsar (TSM ID: ${tsmId}, PID: ${this.pulsar.pid}, parent: ${parentName})`);
+      this.log(`TSM registered: pulsar-child (TSM ID: ${tsmId}, PID: ${this.pulsar.pid})`);
     } catch (err) {
       this.log(`TSM registration failed: ${err.message}`, 'error');
     }
   }
 
   unregisterPulsarFromTSM() {
-    const processDir = path.join(TETRA_DIR, 'tsm/runtime/processes/pulsar');
+    const processDir = path.join(TETRA_DIR, 'tsm/runtime/processes/pulsar-child');
     try {
       if (fs.existsSync(processDir)) {
+        // Remove directory recursively
         fs.rmSync(processDir, { recursive: true, force: true });
-        this.log('TSM unregistered: pulsar');
+        this.log('TSM unregistered: pulsar-child');
       }
     } catch (err) {
       this.log(`TSM unregister failed: ${err.message}`, 'error');
@@ -656,7 +731,9 @@ class QuasarServer {
     }
 
     // Check for response to start frame capture
+    // When we see frame data starting (after RENDER command)
     if (line.startsWith('|') || line.startsWith('=')) {
+      // This is the start of a frame
       this.currentFrame = [line];
       return;
     }
@@ -668,11 +745,27 @@ class QuasarServer {
   }
 
   sendToPulsar(cmd) {
-    if (!this.pulsar) {
-      if (!this.spawnPulsar()) return false;
+    if (PULSAR_MODE === 'fifo') {
+      // FIFO mode - write to named pipe
+      if (!this.pulsarFifoFd) {
+        if (!this.connectToPulsarFifo()) return false;
+      }
+      try {
+        fs.writeSync(this.pulsarFifoFd, cmd + '\n');
+        return true;
+      } catch (err) {
+        this.log(`FIFO write error: ${err.message}`, 'error');
+        this.pulsarFifoFd = null;  // Reset for reconnect
+        return false;
+      }
+    } else {
+      // Subprocess mode - write to stdin
+      if (!this.pulsar) {
+        if (!this.spawnPulsar()) return false;
+      }
+      this.pulsar.stdin.write(cmd + '\n');
+      return true;
     }
-    this.pulsar.stdin.write(cmd + '\n');
-    return true;
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -762,6 +855,32 @@ class QuasarServer {
   shutdown() {
     this.log('Shutting down...');
 
+    // Stop all slot timers
+    for (let i = 0; i < 256; i++) {
+      if (this.slots[i] && this.slots[i].timer) {
+        clearInterval(this.slots[i].timer);
+      }
+    }
+
+    // Shutdown PULSAR
+    if (PULSAR_MODE === 'fifo') {
+      // FIFO mode - just close file descriptor, don't stop PULSAR service
+      if (this.pulsarFifoFd) {
+        try {
+          fs.closeSync(this.pulsarFifoFd);
+        } catch (err) {
+          // Ignore close errors
+        }
+        this.pulsarFifoFd = null;
+      }
+    } else if (this.pulsar) {
+      // Subprocess mode - send QUIT and kill
+      this.sendToPulsar('QUIT');
+      setTimeout(() => {
+        if (this.pulsar) this.pulsar.kill();
+      }, 1000);
+    }
+
     if (this.oscIn) this.oscIn.close();
 
     if (this.wss) {
@@ -784,6 +903,8 @@ console.log('========================================');
 console.log('  Quasar Audio Server');
 console.log('========================================');
 console.log('');
+console.log(`PULSAR Mode: ${PULSAR_MODE}` + (PULSAR_MODE === 'fifo' ? ` (${PULSAR_FIFO})` : ''));
+console.log('');
 
 const server = new QuasarServer({
   verbose: process.argv.includes('-v') || process.argv.includes('--verbose')
@@ -803,5 +924,3 @@ process.on('SIGINT', () => server.shutdown());
 process.on('SIGTERM', () => server.shutdown());
 
 module.exports = { QuasarServer };
-
-

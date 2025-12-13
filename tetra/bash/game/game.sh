@@ -58,15 +58,9 @@ source "$GAME_SRC/rendering/draw.sh"
 source "$GAME_SRC/core/input_detect.sh"
 source "$GAME_SRC/core/doctor.sh"
 
-# Source Pulsar integration (optional, C engine backend)
-if [[ -f "$GAME_SRC/games/pulsar/pulsar.sh" ]]; then
-    source "$GAME_SRC/games/pulsar/pulsar.sh"
-    source "$GAME_SRC/core/game_loop_pulsar.sh"
-    source "$GAME_SRC/animation/pulsar_3d.sh"
-    export GAME_PULSAR_AVAILABLE=true
-else
-    export GAME_PULSAR_AVAILABLE=false
-fi
+# Pulsar is now a separate module at $TETRA_SRC/bash/pulsar
+# Set flag to false - load pulsar module separately if needed
+export GAME_PULSAR_AVAILABLE=false
 
 # Source game REPL (launcher for all games)
 source "$GAME_SRC/game_repl.sh"

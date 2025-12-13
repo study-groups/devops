@@ -3,7 +3,7 @@
 # TSM Simple Port Detection
 # Just runtime detection via lsof - no registry, no TOML, no allocation
 
-# Detect what port a process (PID) is using
+# Detect what port a process (PID) is using (TCP or UDP)
 tsm_detect_port() {
     local pid="$1"
 
@@ -13,7 +13,15 @@ tsm_detect_port() {
 
     # Use lsof to find listening port for this PID
     if command -v lsof >/dev/null 2>&1; then
-        local port=$(lsof -Pan -p "$pid" -i 2>/dev/null | awk '$8 ~ /LISTEN/ {print $9}' | head -1 | cut -d':' -f2)
+        # First check TCP LISTEN
+        local port=$(lsof -Pan -p "$pid" -iTCP 2>/dev/null | awk '$8 ~ /LISTEN/ {print $9}' | head -1 | cut -d':' -f2)
+        if [[ -n "$port" ]]; then
+            echo "$port"
+            return 0
+        fi
+
+        # Then check UDP (no LISTEN state for UDP)
+        port=$(lsof -Pan -p "$pid" -iUDP 2>/dev/null | awk 'NR>1 {print $9}' | head -1 | cut -d':' -f2)
         if [[ -n "$port" ]]; then
             echo "$port"
             return 0

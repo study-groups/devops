@@ -62,6 +62,63 @@ tetra_create_lazy_function "tetra_rag_context" "rag"
 tetra_create_lazy_function "tetra_rag_cite" "rag"
 tetra_create_lazy_function "tetra_rag_export_jsonl" "rag"
 tetra_create_lazy_function "tsm" "tsm"
+
+# TSM tab completion (registered before lazy load so it works immediately)
+_tsm_complete_services() {
+    local cur="$1"
+    local completions=()
+    if [[ "$cur" == */* ]]; then
+        local org="${cur%%/*}"
+        local partial="${cur#*/}"
+        local services_dir="$TETRA_DIR/orgs/$org/tsm/services-available"
+        if [[ -d "$services_dir" ]]; then
+            for svc in "$services_dir"/*.tsm; do
+                [[ -f "$svc" ]] || continue
+                local name=$(basename "$svc" .tsm)
+                [[ "$name" == "$partial"* ]] && completions+=("$org/$name")
+            done
+        fi
+    else
+        for org_dir in "$TETRA_DIR/orgs"/*/tsm; do
+            [[ -d "$org_dir" ]] || continue
+            local org=$(basename "$(dirname "$org_dir")")
+            [[ "$org" == "$cur"* ]] && completions+=("$org/")
+        done
+        for org_dir in "$TETRA_DIR/orgs"/*/tsm/services-available; do
+            [[ -d "$org_dir" ]] || continue
+            local org=$(basename "$(dirname "$(dirname "$org_dir")")")
+            for svc in "$org_dir"/*.tsm; do
+                [[ -f "$svc" ]] || continue
+                local name=$(basename "$svc" .tsm)
+                [[ "$name" == "$cur"* ]] && completions+=("$org/$name")
+            done
+        done
+    fi
+    echo "${completions[*]}"
+}
+
+_tsm_completion() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local cmd="${COMP_WORDS[1]}"
+    compopt -o nospace 2>/dev/null
+    case "$cmd" in
+        start|enable|disable|show)
+            local services=$(_tsm_complete_services "$cur")
+            COMPREPLY=($(compgen -W "$services" -- "$cur"))
+            [[ ${#COMPREPLY[@]} -eq 1 && "${COMPREPLY[0]}" != */ ]] && compopt +o nospace
+            ;;
+        services)
+            compopt +o nospace
+            COMPREPLY=($(compgen -W "--enabled --disabled -d" -- "$cur"))
+            ;;
+        *)
+            compopt +o nospace
+            COMPREPLY=($(compgen -W "start stop restart list info logs services orgs save enable disable show startup" -- "$cur"))
+            ;;
+    esac
+}
+complete -F _tsm_completion tsm
+
 tetra_create_lazy_function "tkm" "tkm"
 tetra_create_lazy_function "tetra_python_activate" "python"
 tetra_create_lazy_function "tetra_nvm_activate" "nvm"

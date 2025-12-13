@@ -142,17 +142,33 @@ _deploy_remote_exec() {
 }
 
 # Log deployment event
+# Usage: _deploy_log <target> <env> <action> <status> [duration_secs] [extra...]
 _deploy_log() {
-    local project="$1"
+    local target="$1"
     local env="$2"
     local action="$3"
     local status="$4"
+    local duration="${5:-0}"
+    shift 5 2>/dev/null || shift 4
+    local extra="$*"
 
     local log_dir="$MOD_DIR/logs"
     local log_file="$log_dir/deploy.log"
 
+    # Gather context
+    local user="${USER:-unknown}"
+    local branch=""
+    local commit=""
+    if [[ -d .git ]]; then
+        branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+        commit=$(git rev-parse --short HEAD 2>/dev/null)
+    fi
+
     mkdir -p "$log_dir"
-    echo "$(date -Iseconds) | $project | $env | $action | $status" >> "$log_file"
+    # Format: timestamp|target|env|action|status|duration|user|branch|commit|extra
+    printf "%s|%s|%s|%s|%s|%s|%s|%s|%s|%s\n" \
+        "$(date -Iseconds)" "$target" "$env" "$action" "$status" \
+        "$duration" "$user" "$branch" "$commit" "$extra" >> "$log_file"
 }
 
 # Build rsync command as array (avoids eval)

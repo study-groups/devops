@@ -51,77 +51,46 @@ _tsm_start_cli_internal() {
     local pwd_at_start="$5"
     local env_name="$6"
 
-    local name
     # Use env_name from environment file if available, otherwise fall back to custom_name
     local effective_name="${env_name:-$custom_name}"
-    name=$(_tsm_generate_name "$script" "$effective_name" "$port" "$env_file")
-
-    tetra_tsm_is_running "$name" && {
-        echo "tsm: process '$name' already running" >&2
-        return 1
-    }
 
     # CLI scripts run from their parent directory
     local working_dir
     working_dir="$(dirname "$(dirname "$script")")"
 
-    _tsm_start_process "$script" "$name" "$env_file" "$working_dir" || {
-        echo "tsm: failed to start '$name'" >&2
-        return 1
-    }
-
-    local pid
-    pid=$(cat "$TSM_PIDS_DIR/$name.pid")
-
-    local tsm_id
-    tsm_id=$(tsm_create_metadata "$name" "$pid" "$script" "$port" "$pwd_at_start" "bash" "cli" "${env_file:-}")
-
-    echo "tsm: started '$name' (TSM ID: $tsm_id, PID: $pid)"
+    # Use unified start
+    (
+        cd "$working_dir" 2>/dev/null || cd "$PWD"
+        tsm_start_any_command "$script" "$env_file" "$port" "$effective_name" ""
+    )
 }
 
+# Legacy command start function - now redirects to unified start
+# Kept for backwards compatibility with scripts that call this directly
 tetra_tsm_start_command() {
     local command_args=()
     local port="" custom_name="" env_file="" json_output=false env_name="" debug=false
 
-    # Parse command arguments and options - command args come first, then options
+    # Parse command arguments and options
     while [[ $# -gt 0 ]]; do
         case $1 in
-            --port)
-                port="$2"
-                shift 2
-                ;;
-            --name)
-                custom_name="$2"
-                shift 2
-                ;;
-            --env)
-                env_file="$2"
-                shift 2
-                ;;
-            --json)
-                json_output=true
-                shift
-                ;;
-            --debug)
-                debug=true
-                shift
-                ;;
-            *)
-                command_args+=("$1")
-                shift
-                ;;
+            --port) port="$2"; shift 2 ;;
+            --name) custom_name="$2"; shift 2 ;;
+            --env) env_file="$2"; shift 2 ;;
+            --json) json_output=true; shift ;;
+            --debug) debug=true; shift ;;
+            *) command_args+=("$1"); shift ;;
         esac
     done
 
     [[ ${#command_args[@]} -gt 0 ]] || { echo "tsm: command required" >&2; return 64; }
 
-    # Resolve environment file path and extract port if needed
+    # Resolve environment file path
     local resolved_env_file=""
     if [[ -n "$env_file" ]]; then
         if [[ "$env_file" == /* ]]; then
             resolved_env_file="$env_file"
         else
-            # Try different variations: env/file, env/file.env, file, file.env
             local candidates=(
                 "$PWD/env/${env_file}.env"
                 "$PWD/env/$env_file"
@@ -135,111 +104,22 @@ tetra_tsm_start_command() {
                 fi
             done
         fi
-
-        # Extract port and name from resolved env file if not provided
-        # Safe parsing without eval - read output line by line
-        if [[ -f "$resolved_env_file" ]]; then
-            local ENV_PORT="" ENV_NAME=""
-            while IFS='=' read -r key value; do
-                case "$key" in
-                    ENV_PORT) ENV_PORT="$value" ;;
-                    ENV_NAME) ENV_NAME="$value" ;;
-                esac
-            done < <(tsm_parse_env_file "$resolved_env_file")
-
-            # Use extracted values if not already set
-            if [[ -z "$port" ]]; then
-                port="${ENV_PORT:-}"
-            fi
-
-            # Use extracted name if no custom name provided
-            if [[ -z "$custom_name" ]]; then
-                env_name="${ENV_NAME:-}"
-            fi
-        fi
-
-        # Use the resolved path going forward
         env_file="$resolved_env_file"
     fi
 
-    # Debug output if requested (before calling universal start)
+    # Debug output if requested
     if [[ "$debug" == "true" ]]; then
-        echo "🔍 TSM Command Debug Information:"
-        echo "  Env File Arg: ${2:-'(none)'}"  # Second arg after --env
+        echo "🔍 TSM Command Debug (legacy path):"
         echo "  Resolved Env File: ${resolved_env_file:-'(none)'}"
-        echo "  Extracted PORT: ${port:-'(none)'}"
-        echo "  Extracted NAME: ${env_name:-'(none)'}"
-        echo "  Command Args: ${command_args[*]}"
+        echo "  Port: ${port:-'(none)'}"
+        echo "  Name: ${custom_name:-'(none)'}"
+        echo "  Command: ${command_args[*]}"
         echo ""
     fi
 
-    # No port requirement check here - let tsm_start_any_command handle port discovery
-
-    # Generate command string
+    # Use unified start
     local command_string="${command_args[*]}"
-
-    # Generate name from command, preferring env_name, then custom_name, then command base
-    local name
-    if [[ -n "$env_name" ]]; then
-        name="${env_name}-${port}"
-    elif [[ -n "$custom_name" ]]; then
-        name="${custom_name}-${port}"
-    else
-        # Use first word of command as base name
-        local base_name="${command_args[0]}"
-        # Remove path if present
-        base_name="${base_name##*/}"
-        name="${base_name}-${port}"
-    fi
-
-    tetra_tsm_is_running "$name" && {
-        echo "tsm: process '$name' already running" >&2
-        return 1
-    }
-
-    local working_dir="$PWD"
-
-    _tsm_start_command_process "$command_string" "$name" "$env_file" "$working_dir" || {
-        if [[ "$json_output" == "true" ]]; then
-            # Get diagnostic info for JSON error
-            local diagnostic_info=""
-            local existing_pid=$(lsof -ti :$port 2>/dev/null)
-            if [[ -n "$existing_pid" ]]; then
-                local process_cmd=$(ps -p $existing_pid -o args= 2>/dev/null | head -c 60 || echo "unknown")
-                diagnostic_info="Port $port is in use by PID $existing_pid ($process_cmd)"
-            else
-                diagnostic_info="Process failed to start - check logs at $TSM_LOGS_DIR/$name.out and $TSM_LOGS_DIR/$name.err"
-            fi
-            tsm_json_error "Failed to start '$name'" 1 "$diagnostic_info"
-        else
-            echo "tsm: failed to start '$name'" >&2
-            echo >&2
-            # Run diagnostic to provide helpful error context
-            tsm_diagnose_startup_failure "$name" "$port" "$command_string" "$env_file"
-        fi
-        return 1
-    }
-
-    local pid
-    pid=$(cat "$TSM_PIDS_DIR/$name.pid")
-
-    # Determine interpreter from first command arg
-    local interpreter="bash"
-    if [[ "$command_string" =~ ^node ]]; then
-        interpreter="node"
-    elif [[ "$command_string" =~ ^python ]]; then
-        interpreter="python"
-    fi
-
-    local tsm_id
-    tsm_id=$(tsm_create_metadata "$name" "$pid" "$command_string" "$port" "$working_dir" "$interpreter" "command" "${env_file:-}")
-
-    if [[ "$json_output" == "true" ]]; then
-        local process_data="{\"tsm_id\": \"$tsm_id\", \"name\": \"$name\", \"pid\": \"$pid\", \"port\": \"$port\", \"command\": \"$(_tsm_json_escape "$command_string")\", \"working_dir\": \"$(_tsm_json_escape "$working_dir")\"}"
-        tsm_json_success "Started '$name'" "$process_data"
-    else
-        echo "tsm: started '$name' (TSM ID: $tsm_id, PID: $pid, Port: $port)"
-    fi
+    tsm_start_any_command "$command_string" "$env_file" "$port" "$custom_name" ""
 }
 
 # === MAIN CLI COMMANDS ===
@@ -312,29 +192,18 @@ tetra_tsm_start() {
         return 64
     fi
 
-    # Check if first arg is a known service
+    # Check if first arg is a known service (USE MULTI-ORG LOOKUP)
     local first_arg="${command_args[0]}"
-    local service_file="$TETRA_DIR/tsm/services-available/${first_arg}.tsm"
-    if [[ -f "$service_file" ]]; then
-        echo "🚀 Starting service: $first_arg"
-        tetra_tsm_start_service "${command_args[@]}"
+    local _org _service_file
+    if _tsm_find_service "$first_arg" _org _service_file 2>/dev/null; then
+        echo "🚀 Starting service: $_org/$first_arg"
+        tetra_tsm_start_service "$first_arg"
         return $?
     fi
 
     # Use universal start for any command
-    if declare -f tsm_start_any_command >/dev/null 2>&1; then
-        local command_string="${command_args[*]}"
-        tsm_start_any_command "$command_string" "$env_file" "$port" "$custom_name" "$prehook"
-    else
-        # Fallback to old method if universal start not loaded
-        local cmd_args=()
-        [[ -n "$env_file" ]] && cmd_args+=(--env "$env_file")
-        [[ -n "$port" ]] && cmd_args+=(--port "$port")
-        [[ -n "$custom_name" ]] && cmd_args+=(--name "$custom_name")
-        [[ "$debug" == "true" ]] && cmd_args+=(--debug)
-
-        tetra_tsm_start_command "${cmd_args[@]}" "${command_args[@]}"
-    fi
+    local command_string="${command_args[*]}"
+    tsm_start_any_command "$command_string" "$env_file" "$port" "$custom_name" "$prehook"
 }
 
 # === TSM KILL COMMAND ===

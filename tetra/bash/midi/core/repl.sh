@@ -73,6 +73,15 @@ if [[ -f "$MIDI_SRC/core/repl_handlers.sh" ]]; then
     source "$MIDI_SRC/core/repl_handlers.sh"
 fi
 
+# Source extracted REPL modules
+if [[ -f "$MIDI_SRC/core/repl_prompt.sh" ]]; then
+    source "$MIDI_SRC/core/repl_prompt.sh"
+fi
+
+if [[ -f "$MIDI_SRC/core/repl_osc.sh" ]]; then
+    source "$MIDI_SRC/core/repl_osc.sh"
+fi
+
 # Define missing color
 export TETRA_DIM='\033[2m'
 
@@ -425,176 +434,8 @@ Key Mode: a/b/c/d=variant l=log s=status h=help q=quit ESC=CLI
 EOF
 }
 
-# ============================================================================
-# PROMPT RENDERING
-# ============================================================================
-
-# Build prompt string - returns the prompt for use by readline or rendering
-input_mode_build_prompt() {
-    # Position cursor at the prompt line (one line above status display)
-    local term_height=$(tput lines 2>/dev/null || echo 24)
-    local prompt_line=$((term_height - STATUS_DISPLAY_HEIGHT - 1))
-    tput cup $prompt_line 0 2>/dev/null || true
-    tput el 2>/dev/null || printf '\033[K'  # Clear the line
-
-    # Read latest state from file
-    if [[ -f "$REPL_STATE_FILE" ]]; then
-        while IFS= read -r pair; do
-            local key="${pair%%=*}"
-            local value="${pair#*=}"
-            case "$key" in
-                controller) REPL_CONTROLLER="$value" ;;
-                instance) REPL_INSTANCE="$value" ;;
-                variant) REPL_VARIANT="$value" ;;
-                variant_name) REPL_VARIANT_NAME="$value" ;;
-                last_cc) REPL_LAST_CC="$value" ;;
-                last_val) REPL_LAST_VAL="$value" ;;
-                last_semantic) REPL_LAST_SEMANTIC="$value" ;;
-                last_semantic_val) REPL_LAST_SEMANTIC_VAL="$value" ;;
-                input_device) REPL_INPUT_DEVICE="$value" ;;
-                output_device) REPL_OUTPUT_DEVICE="$value" ;;
-            esac
-        done < <(tr ' ' '\n' < "$REPL_STATE_FILE")
-    fi
-
-    # Build prompt components
-    local ctrl_part cc_part sem_part log_part conn_part mode_indicator
-
-    # Controller and variant - show device info when available
-    if [[ -n "$REPL_CONTROLLER" && -n "$REPL_VARIANT" ]]; then
-        ctrl_part="${TETRA_CYAN}[${REPL_CONTROLLER}"
-        [[ "$REPL_INSTANCE" != "0" ]] && ctrl_part+="[$REPL_INSTANCE]"
-        ctrl_part+=":${REPL_VARIANT}"
-        [[ -n "$REPL_VARIANT_NAME" ]] && ctrl_part+=" ${REPL_VARIANT_NAME}"
-        ctrl_part+="]${TETRA_NC}"
-    elif [[ -n "$REPL_INPUT_DEVICE" && "$REPL_INPUT_DEVICE" != "none" ]]; then
-        # Have device but no map loaded - show device name
-        ctrl_part="${TETRA_YELLOW}[${REPL_INPUT_DEVICE}]${TETRA_NC}"
-    else
-        ctrl_part="${TETRA_DIM}[no-device]${TETRA_NC}"
-    fi
-
-    # Last CC value - show as raw MIDI data: CC40=50
-    if [[ -n "$REPL_LAST_CC" && -n "$REPL_LAST_VAL" ]]; then
-        local val_color="${TETRA_YELLOW}"
-        [[ "$REPL_LAST_VAL" -lt 43 ]] && val_color="${TETRA_GREEN}"
-        [[ "$REPL_LAST_VAL" -gt 84 ]] && val_color="${TETRA_RED}"
-        cc_part="${TETRA_DIM}[CC${REPL_LAST_CC}${TETRA_NC}=${val_color}${REPL_LAST_VAL}${TETRA_NC}${TETRA_DIM}]${TETRA_NC}"
-    else
-        cc_part="${TETRA_DIM}[--]${TETRA_NC}"
-    fi
-
-    # Semantic mapping - dedicated magenta color for semantic names
-    if [[ -n "$REPL_LAST_SEMANTIC" && -n "$REPL_LAST_SEMANTIC_VAL" ]]; then
-        sem_part="${TETRA_MAGENTA}[${REPL_LAST_SEMANTIC}${TETRA_NC}=${TETRA_YELLOW}${REPL_LAST_SEMANTIC_VAL}${TETRA_NC}${TETRA_MAGENTA}]${TETRA_NC}"
-    else
-        sem_part=""
-    fi
-
-    # Log mode
-    if [[ "$MIDI_REPL_LOG_MODE" != "off" ]]; then
-        log_part="${TETRA_GREEN}[log:${MIDI_REPL_LOG_MODE}]${TETRA_NC}"
-    else
-        log_part="${TETRA_DIM}[log:off]${TETRA_NC}"
-    fi
-
-    # Connection (dim)
-    conn_part="${TETRA_DIM}${REPL_OSC_MULTICAST}:${REPL_OSC_PORT}${TETRA_NC}"
-
-    # Mode indicator
-    mode_indicator=$(input_mode_get_indicator "bracket")
-    [[ -n "$mode_indicator" ]] && mode_indicator=" $mode_indicator"
-
-    # Return complete prompt string
-    printf '%b %b %b%b %b%b %b ' \
-        "$ctrl_part" "$cc_part" \
-        "${sem_part:+ }${sem_part}" \
-        "$log_part" "$conn_part" \
-        "$mode_indicator" \
-        "${TETRA_MAGENTA}>${TETRA_NC}"
-}
-
-# Render prompt - called by input mode system (for key mode)
-input_mode_render_prompt() {
-    # Clear current line
-    printf '\r\033[K' >&2
-    # Print the prompt
-    input_mode_build_prompt >&2
-}
-
-# ============================================================================
-# OSC LISTENER
-# ============================================================================
-
-# Background OSC event listener
-midi_repl_osc_listener() {
-    local osc_host="$1"
-    local osc_port="$2"
-
-    # Start Node.js OSC listener
-    node "$MIDI_SRC/osc_repl_listener.js" -h "$osc_host" -p "$osc_port" 2>&1 | while IFS= read -r line; do
-        case "$line" in
-            __STATE__*)
-                # Parse state: __STATE__ controller=vmx8 instance=0 variant=a ...
-                local state_str="${line#__STATE__ }"
-
-                # Write state to file for main REPL to read
-                echo "$state_str" > "$REPL_STATE_FILE"
-                ;;
-
-            __EVENT__*)
-                # Parse event: __EVENT__ id delta_ms elapsed_ms type ...
-                local event_str="${line#__EVENT__ }"
-
-                # Extract timing info
-                local id delta elapsed rest
-                read -r id delta elapsed rest <<< "$event_str"
-
-                # Determine type (4th field after timing)
-                local event_type="${rest%% *}"  # raw or mapped
-
-                # Read current log mode from file
-                local current_log_mode="off"
-                if [[ -f "$REPL_LOG_MODE_FILE" ]]; then
-                    current_log_mode=$(cat "$REPL_LOG_MODE_FILE")
-                fi
-
-                # Format event for display
-                local formatted_event=""
-                case "$current_log_mode" in
-                    off) ;;  # Don't display or store
-                    raw)
-                        if [[ "$event_type" == "raw" ]]; then
-                            formatted_event=$(printf '[%d] Δ%dms: %s' "$id" "$delta" "$rest")
-                        fi
-                        ;;
-                    semantic)
-                        if [[ "$event_type" == "mapped" ]]; then
-                            formatted_event=$(printf '[%d] Δ%dms: %s' "$id" "$delta" "$rest")
-                        fi
-                        ;;
-                    both)
-                        formatted_event=$(printf '[%d] Δ%dms %s: %s' "$id" "$delta" "$event_type" "$rest")
-                        ;;
-                esac
-
-                # Add to status display event buffer if we have an event
-                if [[ -n "$formatted_event" ]]; then
-                    status_display_add_event "$formatted_event"
-                fi
-                ;;
-
-            *)
-                # Filter out startup messages, only show errors
-                if [[ -n "$line" && ! "$line" =~ ^✓ ]]; then
-                    if [[ "$line" =~ ERROR|Error|Failed|failed ]]; then
-                        echo "$line" >&2
-                    fi
-                fi
-                ;;
-        esac
-    done
-}
+# PROMPT RENDERING - sourced from repl_prompt.sh
+# OSC LISTENER - sourced from repl_osc.sh
 
 # ============================================================================
 # TAB COMPLETION (Tree-based)
@@ -739,19 +580,16 @@ midi_repl() {
     _midi_repl_cleanup
 }
 
-# Export functions
+# Export functions (prompt/osc functions exported by their respective sourced files)
 export -f midi_repl
 export -f input_mode_handle_cli
 export -f input_mode_handle_key
-export -f input_mode_build_prompt
-export -f input_mode_render_prompt
 export -f midi_toggle_log_mode
 export -f midi_set_variant
 export -f midi_repl_status_display
 export -f midi_repl_help
 export -f midi_repl_help_key
 export -f _midi_help_topics
-export -f midi_repl_osc_listener
 export -f _get_current_map_file
 export -f _get_state_value
 export -f _midi_repl_cleanup
