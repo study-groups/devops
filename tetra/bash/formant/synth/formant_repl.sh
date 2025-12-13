@@ -7,13 +7,13 @@
 source "$TETRA_SRC/bash/repl/repl.sh"
 source "$TETRA_SRC/bash/color/repl_colors.sh"
 
-# Game-specific modules
-FORMANT_GAME_SRC="$GAME_SRC/games/formant"
-source "$FORMANT_GAME_SRC/formant_help.sh"
+# Formant modules
+FORMANT_SYNTH_SRC="${FORMANT_SRC:-$TETRA_SRC/bash/formant}/synth"
+source "$FORMANT_SYNTH_SRC/formant_help.sh"
 
 # REPL Configuration
-REPL_HISTORY_BASE="${TETRA_DIR}/game/formant_repl_history"
-FORMANT_REPL_OUTPUT_LOG="$TETRA_DIR/game/formant_repl_output.log"
+REPL_HISTORY_BASE="${TETRA_DIR}/formant/repl_history"
+FORMANT_REPL_OUTPUT_LOG="$TETRA_DIR/formant/repl_output.log"
 
 # REPL State
 FORMANT_REPL_ENGINE_RUNNING=0
@@ -153,7 +153,7 @@ _formant_repl_process_input() {
             text_color "FFAA00"
             echo "⚠️  Text-to-speech not yet fully implemented"
             reset_color
-            echo "See bash/game/games/formant/text2esto.sh for prototype"
+            echo "See formant/synth/text2esto.sh for prototype"
             echo ""
             ;;
         phoneme)
@@ -161,7 +161,7 @@ _formant_repl_process_input() {
             text_color "FFAA00"
             echo "⚠️  IPA phoneme synthesis not yet integrated with REPL"
             reset_color
-            echo "See bash/game/games/formant/demo_formant.sh for examples"
+            echo "See formant/synth/demo_formant.sh for examples"
             echo ""
             ;;
         demo)
@@ -170,8 +170,8 @@ _formant_repl_process_input() {
             echo "▶ Running Formant Demo"
             reset_color
             echo ""
-            if [[ -x "$GAME_SRC/games/formant/demo_speech.sh" ]]; then
-                bash "$GAME_SRC/games/formant/demo_speech.sh"
+            if [[ -x "$FORMANT_SYNTH_SRC/demo_speech.sh" ]]; then
+                bash "$FORMANT_SYNTH_SRC/demo_speech.sh"
             else
                 text_color "FF0000"
                 echo "❌ Demo script not found or not executable"
@@ -335,7 +335,7 @@ _formant_repl_process_input() {
 # MAIN ENTRY POINT
 # ============================================================================
 
-formant_game_repl_run() {
+formant_repl_run() {
     # Register module
     repl_register_module "formant" "start status demo speak phoneme meter record analyze bank" "help.game.formant"
     repl_set_module_context "formant"
@@ -370,4 +370,4 @@ formant_game_repl_run() {
 }
 
 # Export main function
-export -f formant_game_repl_run
+export -f formant_repl_run
