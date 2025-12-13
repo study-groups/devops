@@ -354,13 +354,19 @@ nav_show() {
         return 1
     fi
 
-    # Colors - TDS or plain
+    # Colors - try tds, fallback to ansi, fallback to none
     local c_cmd="" c_cat="" c_dim="" c_reset=""
-    if [[ -t 1 ]] && declare -F tds_text_color >/dev/null 2>&1 && declare -F reset_color >/dev/null 2>&1; then
-        c_cmd=$(tds_text_color "interactive.success" 2>/dev/null) || true
-        c_cat=$(tds_text_color "content.link" 2>/dev/null) || true
-        c_dim=$(tds_text_color "text.secondary" 2>/dev/null) || true
-        c_reset=$(reset_color 2>/dev/null) || true
+    if declare -F tds_text_color >/dev/null 2>&1; then
+        c_cmd=$(tds_text_color "interactive.success" 2>/dev/null; echo -n) || true
+        c_cat=$(tds_text_color "content.link" 2>/dev/null; echo -n) || true
+        c_dim=$(tds_text_color "text.secondary" 2>/dev/null; echo -n) || true
+        c_reset=$(reset_color 2>/dev/null; echo -n) || true
+    elif [[ -t 1 ]]; then
+        # Only use ansi if stdout is a terminal
+        c_cmd=$'\033[32m'
+        c_cat=$'\033[36m'
+        c_dim=$'\033[90m'
+        c_reset=$'\033[0m'
     fi
 
     for name in $children; do
