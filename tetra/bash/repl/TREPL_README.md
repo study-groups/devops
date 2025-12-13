@@ -275,7 +275,7 @@ Expected: mymodule_repl, mymodule_repl_main, or repl_run
 Most REPLs use tree-based completion. Ensure:
 1. Module has defined tree structure
 2. Module called `tree_insert` to register commands
-3. REPL sourced `bash/tree/core.sh`
+3. REPL sourced `bash/nav/nav.sh` (or `bash/tree/core.sh` for backwards compat)
 
 ### History not saving
 
@@ -320,7 +320,7 @@ test -f "${TREPL_REGISTRY[org]}" && echo "exists"
 
 - [bash/repl/README.md](README.md) - Universal REPL system
 - [bash/repl/repl.sh](repl.sh) - Core REPL library
-- [bash/tree/README.md](../tree/README.md) - Tree-based help
+- [bash/nav/](../nav/) - Navigation/tree system (nav.sh, nav_help.sh, nav_builders.sh)
 - [bash/org/org_repl.sh](../org/org_repl.sh) - Org REPL (reference implementation)
 - [bash/rag/rag_repl.sh](../rag/rag_repl.sh) - RAG REPL (TDS integration)
 
