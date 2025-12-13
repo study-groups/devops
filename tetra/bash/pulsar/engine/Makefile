@@ -1,31 +1,65 @@
-# PULSAR Slot Engine Makefile
+# Pulsar Game Engine Makefile
+# Modular architecture with layout, UI, input, and rendering subsystems
 
-CC = gcc
-CFLAGS = -O2 -Wall -Wextra
+CC = cc
+CFLAGS = -O3 -std=c99 -Wall -Wextra -pedantic
 LDFLAGS = -lm
-
 SRC_DIR = src
 BIN_DIR = bin
+TARGET = $(BIN_DIR)/pulsar
 
-# Slot engine (256 concurrent matches, stdin/stdout protocol)
-TARGET = $(BIN_DIR)/pulsar_slots
-SOURCE = $(SRC_DIR)/pulsar_slots.c
+# Source files - modular architecture
+SOURCES = $(SRC_DIR)/pulsar.c \
+          $(SRC_DIR)/layout.c \
+          $(SRC_DIR)/ui.c \
+          $(SRC_DIR)/input.c \
+          $(SRC_DIR)/render.c \
+          $(SRC_DIR)/utils.c \
+          $(SRC_DIR)/toml.c \
+          $(SRC_DIR)/tgp.c \
+          $(SRC_DIR)/osc.c
 
-.PHONY: all clean
+# Object files
+OBJECTS = $(SOURCES:.c=.o)
 
+# Header dependencies
+HEADERS = $(SRC_DIR)/types.h \
+          $(SRC_DIR)/layout.h \
+          $(SRC_DIR)/ui.h \
+          $(SRC_DIR)/input.h \
+          $(SRC_DIR)/render.h \
+          $(SRC_DIR)/utils.h \
+          $(SRC_DIR)/tgp.h \
+          $(SRC_DIR)/osc.h
+
+# Default target
 all: $(TARGET)
 
+# Create bin directory if needed
 $(BIN_DIR):
 	@mkdir -p $(BIN_DIR)
 
-$(TARGET): $(SOURCE) | $(BIN_DIR)
-	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
-	@echo "Built: $@"
+# Build pulsar binary
+$(TARGET): $(OBJECTS) | $(BIN_DIR)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	@echo "Built: $(TARGET)"
 
+# Compile object files with header dependencies
+%.o: %.c $(HEADERS)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Clean build artifacts
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(OBJECTS)
+	@echo "Cleaned build artifacts"
 
+# Install (copy to bin)
+install: all
+	@echo "Pulsar engine ready at $(TARGET)"
+
+# Test the binary
 test: $(TARGET)
-	@echo "Testing pulsar_slots..."
-	@echo "PING" | $(TARGET) 2>/dev/null | grep -q "PONG" && echo "PING: OK" || echo "PING: FAIL"
-	@echo -e "0 INIT 60 24 15\nSLOTS\nQUIT" | $(TARGET) 2>/dev/null | head -5
+	@echo "Testing Pulsar engine..."
+	@echo "QUIT" | $(TARGET)
+
+.PHONY: all clean install test

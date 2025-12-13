@@ -1,0 +1,14 @@
+# Spectrum - All Six Valence Colors
+# Usage: cat scripts/spectrum.pql | ./bin/pulsar
+
+INIT 160 96
+
+# Full color spectrum demonstration
+SPAWN_PULSAR 27 48 12 4 0.6 0.5 0    # Cyan
+SPAWN_PULSAR 53 48 12 4 0.6 0.5 1    # Green
+SPAWN_PULSAR 80 48 12 4 0.6 0.5 2    # Yellow
+SPAWN_PULSAR 107 48 12 4 0.6 0.5 3   # Orange
+SPAWN_PULSAR 133 48 12 4 0.6 0.5 4   # Red
+SPAWN_PULSAR 160 48 12 4 0.6 0.5 5   # Magenta
+
+RUN 60

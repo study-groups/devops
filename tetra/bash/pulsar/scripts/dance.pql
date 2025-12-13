@@ -1,0 +1,12 @@
+# Dance - Counter-rotating Pair
+# Usage: cat scripts/dance.pql | ./bin/pulsar
+
+INIT 160 96
+
+# Left dancer - spinning clockwise
+SPAWN_PULSAR 60 48 20 8 0.8 1.2 0
+
+# Right dancer - spinning counter-clockwise
+SPAWN_PULSAR 100 48 20 8 0.8 -1.2 5
+
+RUN 60

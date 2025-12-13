@@ -1,0 +1,21 @@
+# Chaos - Random Pulsars with Varied Parameters
+# Usage: cat scripts/chaos.pql | ./bin/pulsar
+
+INIT 160 96
+
+# High frequency, fast rotation
+SPAWN_PULSAR 30 20 25 10 1.2 2.5 4
+
+# Tiny, rapid pulsar
+SPAWN_PULSAR 130 20 8 2 0.9 -3.0 1
+
+# Large, slow breathing
+SPAWN_PULSAR 40 75 30 12 0.2 0.1 2
+
+# Medium chaos
+SPAWN_PULSAR 120 75 15 7 0.6 1.8 5
+
+# Center attractor
+SPAWN_PULSAR 80 48 22 9 0.4 -0.6 0
+
+RUN 60
