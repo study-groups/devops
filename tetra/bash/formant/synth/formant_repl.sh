@@ -62,12 +62,12 @@ formant_repl_show_help() {
 # ============================================================================
 
 _formant_repl_build_prompt() {
-    # Use single-codepoint emojis to avoid readline width miscalculation
-    local status_symbol="🎤"
+    # Use colorable UTF-8 symbols (not emojis which have fixed colors)
+    local status_symbol="♪"
     local status_color="00AA00"
 
     if [[ "$FORMANT_REPL_ENGINE_RUNNING" == "1" ]]; then
-        status_symbol="🔈"
+        status_symbol="►"
         status_color="00FF00"
     fi
 
