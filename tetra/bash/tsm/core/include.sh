@@ -52,9 +52,13 @@ source "$TSM_SYSTEM_SRC/resource_manager.sh"   # Resource management
 source "$TSM_SYSTEM_SRC/session_aggregator.sh" # Session aggregation
 
 # === PHASE 3: SERVICE MODULES (depend on core+system) ===
-source "$TSM_SERVICES_SRC/definitions.sh"  # Service management
+source "$TSM_SERVICES_SRC/definitions.sh"  # Org helpers (must be first)
 source "$TSM_SERVICES_SRC/registry.sh"     # Service registry
-source "$TSM_SERVICES_SRC/startup.sh"      # Service startup logic
+source "$TSM_SERVICES_SRC/list.sh"         # List services, show service
+source "$TSM_SERVICES_SRC/enable.sh"       # Enable/disable services
+source "$TSM_SERVICES_SRC/save.sh"         # Save service definitions
+source "$TSM_SERVICES_SRC/start.sh"        # Start service by name
+source "$TSM_SERVICES_SRC/startup.sh"      # Startup all enabled services
 
 # === PHASE 4: PROCESS MODULES (depend on services) ===
 source "$TSM_PROCESS_SRC/inspection.sh"    # Process inspection

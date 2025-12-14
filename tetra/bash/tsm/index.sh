@@ -2,12 +2,14 @@
 
 # TSM Module Index - Defines metadata and completions for TSM
 
-# Register TSM module metadata
-tetra_register_module_meta "tsm" \
-    "Tetra Service Manager - native process management with PORT naming and service definitions" \
-    "tsm" \
-    "tsm:setup|start|stop|delete|restart|list|info|logs|env|paths|scan-ports|webserver|ncserver|repl|services|orgs|save|enable|disable|show|startup" \
-    "core" "stable"
+# Register TSM module metadata (if registry available)
+if declare -f tetra_register_module_meta >/dev/null 2>&1; then
+    tetra_register_module_meta "tsm" \
+        "Tetra Service Manager - native process management with PORT naming and service definitions" \
+        "tsm" \
+        "tsm:setup|start|stop|delete|restart|list|info|logs|env|paths|scan-ports|webserver|ncserver|repl|services|orgs|save|enable|disable|show|startup" \
+        "core" "stable"
+fi
 
 # Generate org/service completions like filesystem paths
 # Usage: _tsm_complete_services "cur"

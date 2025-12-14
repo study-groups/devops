@@ -1,72 +1,118 @@
 #!/usr/bin/env bash
 
-# TSM Lifecycle - Process operations and PID management
-# This module handles process lifecycle operations (start, stop, status checks)
+# TSM Startup Functions
+# Start all enabled services, show startup status
 
-# === PID MANAGEMENT ===
+# Show startup status (what services would start)
+tetra_tsm_startup_status() {
+    echo "🚀 TSM Startup Configuration"
+    echo
 
-_tsm_is_process_running() {
-    local pid="$1"
-    [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
-}
+    # Check if daemon is enabled
+    if command -v systemctl >/dev/null 2>&1; then
+        local daemon_status=$(systemctl is-enabled tsm.service 2>/dev/null || echo "not-installed")
+        case "$daemon_status" in
+            enabled)
+                echo "✅ Systemd daemon: enabled (will start on boot)"
+                ;;
+            disabled)
+                echo "⚪ Systemd daemon: disabled (will NOT start on boot)"
+                echo "   Run 'tsm daemon enable' to enable boot startup"
+                ;;
+            *)
+                echo "⚠️  Systemd daemon: not installed"
+                echo "   Run 'tsm daemon install @dev' to set up boot startup"
+                ;;
+        esac
+        echo
+    fi
 
-_tsm_get_process_by_name() {
-    local name="$1"
-    local process_file="$(_tsm_get_process_file "$name")"
+    # List enabled services from central services-enabled
+    echo "📋 Services Configured for Autostart:"
 
-    if [[ -f "$process_file" ]]; then
-        local PID
-        source "$process_file"
-        if _tsm_is_process_running "$PID"; then
-            echo "$PID"
-            return 0
-        else
-            # Clean up stale process file
-            rm -f "$process_file"
-            return 1
+    local enabled_count=0
+
+    [[ -d "$TSM_SERVICES_ENABLED" ]] || {
+        echo "  No services enabled"
+        echo "  Use 'tsm enable org/service' to enable services for autostart"
+        return
+    }
+
+    for service_link in "$TSM_SERVICES_ENABLED"/*.tsm; do
+        [[ -L "$service_link" ]] || continue
+
+        local link_name=$(basename "$service_link" .tsm)
+        local org="${link_name%%-*}"
+        local service_name="${link_name#*-}"
+
+        local service_file=$(readlink "$service_link")
+
+        if [[ ! -f "$service_file" ]]; then
+            echo "  ⚠️  $org/$service_name (service file missing)"
+            continue
         fi
-    else
-        return 1
-    fi
-}
 
-# === BASIC PROCESS OPERATIONS ===
+        local port
+        port=$(source "$service_file" 2>/dev/null && echo "$TSM_PORT")
 
-_tsm_kill_process() {
-    local pid="$1"
-    local process_name="$2"
-    local timeout="${3:-10}"
+        local port_info=""
+        [[ -n "$port" ]] && port_info=" :$port"
 
-    if ! _tsm_is_process_running "$pid"; then
-        return 0  # Already dead
-    fi
+        local running_status=""
+        if tetra_tsm_is_running "$service_name" 2>/dev/null; then
+            running_status=" (currently running)"
+        fi
 
-    # Try SIGTERM first
-    kill "$pid" 2>/dev/null
-
-    # Wait for graceful shutdown
-    local count=0
-    while [[ $count -lt $timeout ]] && _tsm_is_process_running "$pid"; do
-        sleep 1
-        count=$((count + 1))
+        echo "  ✅ $org/$service_name$port_info$running_status"
+        ((enabled_count++))
     done
 
-    # Force kill if still running
-    if _tsm_is_process_running "$pid"; then
-        kill -9 "$pid" 2>/dev/null
-        sleep 1
+    if [[ $enabled_count -eq 0 ]]; then
+        echo "  No services enabled"
+        echo "  Use 'tsm enable org/service' to enable services for autostart"
     fi
 
-    # Clean up files
-    local process_file="$(_tsm_get_process_file "$process_name")"
-    local pid_file="$(_tsm_get_pid_file "$process_name")"
-
-    rm -f "$process_file" "$pid_file"
-
-    return 0
+    echo
+    echo "Commands:"
+    echo "  tsm services --enabled     - Show enabled services with details"
+    echo "  tsm startup                - Start all enabled services now"
+    echo "  tsm daemon enable          - Enable boot startup (systemd)"
 }
 
-# Export lifecycle functions
-export -f _tsm_is_process_running
-export -f _tsm_get_process_by_name
-export -f _tsm_kill_process
+# Start all enabled services from central services-enabled
+tetra_tsm_startup() {
+    echo "🚀 Starting enabled services..."
+
+    local started_count=0
+    local failed_count=0
+
+    [[ -d "$TSM_SERVICES_ENABLED" ]] || {
+        echo "No services enabled"
+        return 0
+    }
+
+    for service_link in "$TSM_SERVICES_ENABLED"/*.tsm; do
+        [[ -L "$service_link" ]] || continue
+
+        local link_name=$(basename "$service_link" .tsm)
+        local org="${link_name%%-*}"
+        local service_name="${link_name#*-}"
+
+        echo "Starting $org/$service_name..."
+
+        if tetra_tsm_start_service "$org/$service_name"; then
+            ((started_count++))
+        else
+            ((failed_count++))
+            echo "❌ Failed to start $org/$service_name"
+        fi
+    done
+
+    echo "✅ Startup complete: $started_count started, $failed_count failed"
+
+    mkdir -p "$TETRA_DIR/tsm"
+    echo "$(date): Started $started_count services, $failed_count failed" >> "$TETRA_DIR/tsm/startup.log"
+}
+
+export -f tetra_tsm_startup_status
+export -f tetra_tsm_startup

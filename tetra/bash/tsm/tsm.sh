@@ -92,8 +92,11 @@ tsm() {
                 running|"")
                     tsm_list_running "$filter_user"
                     ;;
+                -av|--all-verbose)
+                    tetra_tsm_list_services -v
+                    ;;
                 available|all|--all|-a)
-                    tsm_list_available
+                    tetra_tsm_list_services
                     ;;
                 pwd|--pwd|paths)
                     tsm_list_pwd
@@ -105,11 +108,10 @@ tsm() {
                     echo "Usage: tsm list [running|available|all|pwd|-l] [--user <username>]"
                     echo ""
                     echo "Options:"
-                    echo "  running    - Show only running services (default)"
-                    echo "  available  - Show all available services"
-                    echo "  all        - Show all services (same as available)"
-                    echo "  --all, -a  - Show all services (alternative syntax)"
-                    echo "  pwd        - Show running services with working directory"
+                    echo "  running    - Show only running processes (default)"
+                    echo "  -a, --all  - Show all service definitions (compact)"
+                    echo "  -av        - Show all service definitions (verbose, multi-line)"
+                    echo "  pwd        - Show running processes with working directory"
                     echo "  -l         - Show detailed/long format with CPU, memory, paths"
                     if [[ $TSM_MULTI_USER_ENABLED -eq 1 ]]; then
                         echo ""
@@ -119,7 +121,7 @@ tsm() {
                     ;;
                 *)
                     tsm_error "Unknown option: $1"
-                    echo "Usage: tsm list [running|available|all|--all|pwd|-l]"
+                    echo "Usage: tsm list [running|-a|-av|pwd|-l]"
                     ;;
             esac
             ;;
