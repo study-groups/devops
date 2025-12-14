@@ -15,14 +15,20 @@ export TETRA_PROMPT_LOGTIME="${TETRA_PROMPT_LOGTIME:-}"
 export TETRA_PROMPT_ORG="${TETRA_PROMPT_ORG:-}"
 export TETRA_PROMPT_DEPLOY="${TETRA_PROMPT_DEPLOY:-}"
 
-# Colors
+# Colors - defaults (overridden by TDS theme when available)
 _C_RESET='\[\e[0m\]'
-_C_YELLOW='\[\e[0;38;5;228m\]'
-_C_CYAN='\[\e[0;38;5;51m\]'
+_C_USER='\[\e[0;38;5;228m\]'      # username (was yellow)
+_C_GIT='\[\e[0;38;5;51m\]'        # git branch (was cyan)
+_C_PATH='\[\e[0;38;5;250m\]'      # path (was gray, now brighter)
+_C_PATH_DIM='\[\e[0;38;5;240m\]'  # dimmed path elements
 _C_GREEN='\[\e[0;38;5;46m\]'
 _C_PURPLE='\[\e[0;38;5;129m\]'
 _C_GRAY='\[\e[0;38;5;240m\]'
-_C_BRIGHT_CYAN='\[\e[1;96m\]'
+
+# Legacy aliases
+_C_YELLOW="$_C_USER"
+_C_CYAN="$_C_GIT"
+_C_BRIGHT_CYAN="$_C_GIT"
 
 # Convert hex to PS1 256-color escape sequence
 _hex_to_ps1() {
@@ -38,27 +44,53 @@ _hex_to_ps1() {
     printf '\[\e[0;38;5;%dm\]' "$c256"
 }
 
-# Update deploy context colors from TDS theme
-_update_deploy_colors() {
+# Update all prompt colors from TDS theme
+_update_prompt_colors() {
     if [[ -n "${ENV_PRIMARY[0]:-}" ]]; then
         # TDS theme available - use palette colors
-        # org: primary env color (theme identity)
-        # target: accent color (distinct)
-        # env: success/constructive color (green)
-        _C_ORG=$(_hex_to_ps1 "${ENV_PRIMARY[0]}")          # env hue A (theme primary)
-        _C_TARGET=$(_hex_to_ps1 "${VERBS_PRIMARY[4]}")    # accent (cyan/contrast)
-        _C_ENV=$(_hex_to_ps1 "${MODE_PRIMARY[2]}")        # success green
-        _C_SEP=$(_hex_to_ps1 "${NOUNS_PRIMARY[3]:-666666}")   # medium gray
-        _C_BRACKET=$(_hex_to_ps1 "${NOUNS_PRIMARY[4]:-888888}") # lighter gray
+
+        # Main prompt colors
+        _C_USER=$(_hex_to_ps1 "${ENV_PRIMARY[0]}")         # username: theme primary
+        _C_GIT=$(_hex_to_ps1 "${ENV_PRIMARY[1]}")          # git: theme secondary
+        _C_PATH=$(_hex_to_ps1 "${NOUNS_PRIMARY[6]:-e4e4e7}") # path: pale/bright
+        _C_PATH_DIM=$(_hex_to_ps1 "${NOUNS_PRIMARY[3]:-71717a}") # path dim: muted
+
+        # Deploy context colors
+        _C_ORG=$(_hex_to_ps1 "${ENV_PRIMARY[0]}")          # org: theme primary
+        _C_TARGET=$(_hex_to_ps1 "${VERBS_PRIMARY[4]}")     # target: accent (cyan)
+        _C_ENV=$(_hex_to_ps1 "${MODE_PRIMARY[2]}")         # env: semantic good
+        _C_SEP=$(_hex_to_ps1 "${NOUNS_PRIMARY[3]:-666666}")    # separator: muted
+        _C_BRACKET=$(_hex_to_ps1 "${NOUNS_PRIMARY[4]:-888888}") # brackets: subtle
+
+        # Status colors
+        _C_GRAY=$(_hex_to_ps1 "${NOUNS_PRIMARY[3]:-71717a}")   # general gray
+        _C_PURPLE=$(_hex_to_ps1 "${VERBS_PRIMARY[6]:-8E24AA}")  # logtime purple
+
+        # Legacy aliases
+        _C_YELLOW="$_C_USER"
+        _C_CYAN="$_C_GIT"
+        _C_BRIGHT_CYAN="$_C_GIT"
     else
-        # Fallback defaults
+        # Fallback defaults (no TDS theme)
+        _C_USER='\[\e[0;38;5;228m\]'
+        _C_GIT='\[\e[0;38;5;51m\]'
+        _C_PATH='\[\e[0;38;5;250m\]'
+        _C_PATH_DIM='\[\e[0;38;5;240m\]'
         _C_ORG='\[\e[0;38;5;51m\]'
         _C_TARGET='\[\e[0;38;5;220m\]'
         _C_ENV='\[\e[0;38;5;82m\]'
         _C_SEP='\[\e[0;38;5;240m\]'
         _C_BRACKET='\[\e[0;38;5;245m\]'
+        _C_GRAY='\[\e[0;38;5;240m\]'
+        _C_PURPLE='\[\e[0;38;5;129m\]'
+        _C_YELLOW="$_C_USER"
+        _C_CYAN="$_C_GIT"
+        _C_BRIGHT_CYAN="$_C_GIT"
     fi
 }
+
+# Legacy alias
+_update_deploy_colors() { _update_prompt_colors; }
 
 # Initialize colors
 _update_deploy_colors
@@ -173,22 +205,22 @@ _tetra_context_line() {
 
 # Main prompt function - optimized for speed
 tetra_prompt() {
-    # Update deploy colors from TDS theme (if theme changed)
-    _update_deploy_colors
+    # Update all colors from TDS theme (if theme changed)
+    _update_prompt_colors
 
     local info=""
     local git_branch python_status node_status logtime_info
 
     case "$TETRA_PROMPT_STYLE" in
         tiny)
-            PS1="${_C_YELLOW}\u${_C_RESET}@\h: "
+            PS1="${_C_USER}\u${_C_RESET}@\h: "
             return
             ;;
         compact)
             git_branch="$(_tetra_git_info)"
             local git_info=""
-            [[ -n "$git_branch" ]] && git_info="${_C_CYAN}($git_branch)${_C_RESET}"
-            PS1="${_C_RESET}${_C_YELLOW}\u${_C_RESET}@\h:[\W]${git_info}: "
+            [[ -n "$git_branch" ]] && git_info="${_C_GIT}($git_branch)${_C_RESET}"
+            PS1="${_C_RESET}${_C_USER}\u${_C_RESET}@\h:[\W]${git_info}: "
             ;;
         verbose)
             git_branch="$(_tetra_git_info)"
@@ -208,19 +240,19 @@ tetra_prompt() {
                 local old_ifs="$IFS"
                 IFS=',' joined_status="${status_indicators[*]}"
                 IFS="$old_ifs"
-                info+="${_C_GRAY}($joined_status)${_C_RESET}"
+                info+="${_C_PATH_DIM}($joined_status)${_C_RESET}"
             fi
 
             [[ -n "$logtime_info" ]] && info+="${_C_PURPLE}[$logtime_info]${_C_RESET}"
 
             local git_info=""
-            [[ -n "$git_branch" ]] && git_info=" ${_C_CYAN}($git_branch)${_C_RESET}"
+            [[ -n "$git_branch" ]] && git_info=" ${_C_GIT}($git_branch)${_C_RESET}"
 
             # Two-line prompt: context + path on top, user@host on bottom
             if [[ -n "$context_line" ]]; then
-                PS1="${context_line} ${_C_GRAY}\w${_C_RESET}${git_info}\n${info}${_C_YELLOW}\u${_C_RESET}@\h: "
+                PS1="${context_line} ${_C_PATH}\w${_C_RESET}${git_info}\n${info}${_C_USER}\u${_C_RESET}@\h: "
             else
-                PS1="${_C_GRAY}\w${_C_RESET}${git_info}\n${info}${_C_YELLOW}\u${_C_RESET}@\h: "
+                PS1="${_C_PATH}\w${_C_RESET}${git_info}\n${info}${_C_USER}\u${_C_RESET}@\h: "
             fi
             ;;
         *)  # default
@@ -240,18 +272,18 @@ tetra_prompt() {
                 local old_ifs="$IFS"
                 IFS=',' joined_status="${status_indicators[*]}"
                 IFS="$old_ifs"
-                info+="${_C_GRAY}($joined_status)${_C_RESET}"
+                info+="${_C_PATH_DIM}($joined_status)${_C_RESET}"
             fi
 
             local git_info=""
-            [[ -n "$git_branch" ]] && git_info=" ${_C_CYAN}($git_branch)${_C_RESET}"
+            [[ -n "$git_branch" ]] && git_info=" ${_C_GIT}($git_branch)${_C_RESET}"
 
             # Two-line prompt when context is set
             if [[ -n "$context_line" ]]; then
-                PS1="${context_line} ${_C_GRAY}\W${_C_RESET}${git_info}\n${info}${_C_YELLOW}\u${_C_RESET}@\h: "
+                PS1="${context_line} ${_C_PATH}\W${_C_RESET}${git_info}\n${info}${_C_USER}\u${_C_RESET}@\h: "
             else
                 # Single line when no context
-                PS1="${info}${_C_YELLOW}\u${_C_RESET}@\h:[\W]${git_info}: "
+                PS1="${info}${_C_USER}\u${_C_RESET}@\h:[\W]${git_info}: "
             fi
             ;;
     esac
@@ -323,6 +355,57 @@ _tetra_prompt_status() {
     echo "Deploy: ${TETRA_PROMPT_DEPLOY:-auto}"
 }
 
+# Show prompt color mapping with live theme colors
+_tetra_prompt_colors() {
+    local theme="${TDS_ACTIVE_THEME:-default}"
+
+    # Helper to print colored swatch
+    _swatch() {
+        local hex="${1#\#}"
+        [[ ${#hex} -ne 6 ]] && { printf "      "; return; }
+        local r=$((16#${hex:0:2}))
+        local g=$((16#${hex:2:2}))
+        local b=$((16#${hex:4:2}))
+        local c256=$(( 16 + 36*(r/51) + 6*(g/51) + (b/51) ))
+        printf "\e[48;5;%dm  \e[0m \e[38;5;%dm%s\e[0m" "$c256" "$c256" "$hex"
+    }
+
+    echo
+    printf "  \e[1mPrompt Colors\e[0m (theme: %s)\n" "$theme"
+    echo
+    printf "  %-12s %-18s %s\n" "Element" "Source" "Color"
+    printf "  %s\n" "─────────────────────────────────────────────"
+
+    printf "  %-12s %-18s " "Username" "ENV_PRIMARY[0]"
+    _swatch "${ENV_PRIMARY[0]:-}"
+    echo
+
+    printf "  %-12s %-18s " "Git branch" "ENV_PRIMARY[1]"
+    _swatch "${ENV_PRIMARY[1]:-}"
+    echo
+
+    printf "  %-12s %-18s " "Path" "NOUNS_PRIMARY[6]"
+    _swatch "${NOUNS_PRIMARY[6]:-}"
+    echo
+
+    printf "  %-12s %-18s " "Status/dim" "NOUNS_PRIMARY[3]"
+    _swatch "${NOUNS_PRIMARY[3]:-}"
+    echo
+
+    printf "  %-12s %-18s " "Deploy env" "MODE_PRIMARY[2]"
+    _swatch "${MODE_PRIMARY[2]:-}"
+    echo
+
+    printf "  %-12s %-18s " "Separator" "NOUNS_PRIMARY[3]"
+    _swatch "${NOUNS_PRIMARY[3]:-}"
+    echo
+
+    printf "  %-12s %-18s " "Logtime" "VERBS_PRIMARY[6]"
+    _swatch "${VERBS_PRIMARY[6]:-}"
+    echo
+    echo
+}
+
 # Command dispatcher
 tp() {
     case "$1" in
@@ -341,6 +424,9 @@ tp() {
         status|st)
             _tetra_prompt_status
             ;;
+        colors|c)
+            _tetra_prompt_colors
+            ;;
         help|h|"")
             cat <<EOF
 tp - Tetra Prompt Control
@@ -348,16 +434,13 @@ tp - Tetra Prompt Control
 Usage:
   tp style {tiny|compact|default|verbose}  - Set prompt style
   tp multiline [on|off]                    - Toggle multiline prompt
-  tp toggle {git|python|node|logtime|org|deploy} [on|off|auto] - Toggle sections
+  tp toggle {git|python|node|...} [on|off] - Toggle sections
+  tp colors                                - Show theme color mapping
   tp status                                - Show current settings
 
-Shortcuts:
-  tp s {style}     - Set style
-  tp m [on|off]    - Multiline
-  tp t {section}   - Toggle section
-  tp st            - Status
+Shortcuts: tp s, tp m, tp t, tp c, tp st
 
-Deploy context shown as [org:target:env] when set via 'deploy target/env' commands.
+Deploy context shown as [org:target:env] when set.
 EOF
             ;;
         *)

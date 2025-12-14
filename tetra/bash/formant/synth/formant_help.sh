@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Formant REPL Help System
-# Using bash/tree builders for standardized help
+# Using bash/nav builders for standardized help
 
 # Source dependencies
 if [[ -n "$TETRA_SRC" ]]; then
-    source "$TETRA_SRC/bash/tree/builders.sh"
+    source "$TETRA_SRC/bash/nav/nav_builders.sh"
+    source "$TETRA_SRC/bash/nav/nav_help.sh"
 fi
 
 # Completion helper - meter presets
@@ -176,12 +177,12 @@ formant_help() {
     fi
 
     # Build tree on first use
-    if ! tree_exists "help.game.formant" 2>/dev/null; then
+    if ! nav_exists "help.game.formant" 2>/dev/null; then
         _formant_build_help_tree
     fi
 
-    # Show help using tree system (18-line paginated)
-    tree_help_show "$topic"
+    # Show help using nav system (18-line paginated)
+    nav_help "$topic"
 }
 
 # Export
