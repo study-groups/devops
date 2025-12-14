@@ -75,6 +75,235 @@ _chroma_token() {
     echo "${CHROMA_TOKENS[$elem]:-text.primary}"
 }
 
+# Classify a single line - returns "type:level:content" or "type:content"
+_chroma_classify() {
+    local line="$1"
+
+    # Code fence start/end
+    if [[ "$line" =~ ^\`\`\`(.*)$ ]]; then
+        local lang="${BASH_REMATCH[1]}"
+        if (( _CHROMA_IN_CODE )); then
+            _CHROMA_IN_CODE=0
+            echo "code.end::"
+        else
+            _CHROMA_IN_CODE=1
+            _CHROMA_CODE_LANG="$lang"
+            echo "code.start:$lang:"
+        fi
+        return
+    fi
+
+    # Inside code block
+    if (( _CHROMA_IN_CODE )); then
+        echo "code.line::$line"
+        return
+    fi
+
+    # Empty line
+    if [[ -z "$line" ]]; then
+        echo "blank::"
+        return
+    fi
+
+    # Heading (ATX style: # ## ### etc)
+    if [[ "$line" =~ ^(#{1,6})\ +(.*)$ ]]; then
+        local level=${#BASH_REMATCH[1]}
+        local content="${BASH_REMATCH[2]}"
+        echo "heading:$level:$content"
+        return
+    fi
+
+    # Horizontal rule
+    if [[ "$line" =~ ^[-*_]{3,}\ *$ ]]; then
+        echo "hr::"
+        return
+    fi
+
+    # Blockquote
+    if [[ "$line" =~ ^\>\ ?(.*)$ ]]; then
+        echo "quote::${BASH_REMATCH[1]}"
+        return
+    fi
+
+    # Bullet list (- or * or +)
+    if [[ "$line" =~ ^[\ ]*[-*+]\ +(.*)$ ]]; then
+        echo "list.bullet::${BASH_REMATCH[1]}"
+        return
+    fi
+
+    # Numbered list
+    if [[ "$line" =~ ^[\ ]*[0-9]+\.\ +(.*)$ ]]; then
+        echo "list.number::${BASH_REMATCH[1]}"
+        return
+    fi
+
+    # Regular paragraph text
+    echo "text::$line"
+}
+
+# Render inline formatting (bold, italic, code, links)
+_chroma_inline() {
+    local text="$1"
+    local result=""
+    local i=0
+    local len=${#text}
+
+    while (( i < len )); do
+        local char="${text:i:1}"
+        local next="${text:i+1:1}"
+
+        # Inline code `...`
+        if [[ "$char" == '`' ]]; then
+            local end=$((i + 1))
+            while (( end < len )) && [[ "${text:end:1}" != '`' ]]; do
+                ((end++))
+            done
+            if (( end < len )); then
+                local code="${text:i+1:end-i-1}"
+                _chroma_color "$(_chroma_token code.inline)"
+                printf '%s' "$code"
+                _chroma_reset
+                i=$((end + 1))
+                continue
+            fi
+        fi
+
+        # Bold **...**
+        if [[ "$char" == '*' && "$next" == '*' ]]; then
+            local end=$((i + 2))
+            while (( end < len - 1 )) && [[ "${text:end:2}" != '**' ]]; do
+                ((end++))
+            done
+            if (( end < len - 1 )); then
+                local bold="${text:i+2:end-i-2}"
+                _chroma_color "$(_chroma_token bold)"
+                printf '%s' "$bold"
+                _chroma_reset
+                i=$((end + 2))
+                continue
+            fi
+        fi
+
+        # Italic *...* (single asterisk, not followed by another)
+        if [[ "$char" == '*' && "$next" != '*' ]]; then
+            local end=$((i + 1))
+            while (( end < len )) && [[ "${text:end:1}" != '*' ]]; do
+                ((end++))
+            done
+            if (( end < len )); then
+                local italic="${text:i+1:end-i-1}"
+                _chroma_color "$(_chroma_token italic)"
+                printf '%s' "$italic"
+                _chroma_reset
+                i=$((end + 1))
+                continue
+            fi
+        fi
+
+        # Regular character
+        printf '%s' "$char"
+        ((i++))
+    done
+}
+
+# Render a single classified line
+_chroma_render_line() {
+    local classified="$1"
+    local pad="$2"
+    local width="$3"
+
+    # Parse type:level:content
+    local type="${classified%%:*}"
+    local rest="${classified#*:}"
+    local level="${rest%%:*}"
+    local content="${rest#*:}"
+
+    case "$type" in
+        heading)
+            _chroma_color "$(_chroma_token heading.$level)"
+            printf '%s' "$pad"
+            # Add # prefix for visual hierarchy
+            local prefix=""
+            for ((h=0; h<level; h++)); do prefix+="#"; done
+            printf '%s %s' "$prefix" "$content"
+            _chroma_reset
+            echo
+            ;;
+
+        code.start)
+            _chroma_color "$(_chroma_token code.fence)"
+            printf '%s```%s' "$pad" "$level"
+            _chroma_reset
+            echo
+            ;;
+
+        code.end)
+            _chroma_color "$(_chroma_token code.fence)"
+            printf '%s```' "$pad"
+            _chroma_reset
+            echo
+            ;;
+
+        code.line)
+            _chroma_color "$(_chroma_token code.block)"
+            printf '%s  %s' "$pad" "$content"
+            _chroma_reset
+            echo
+            ;;
+
+        quote)
+            _chroma_color "$(_chroma_token quote)"
+            printf '%s│ ' "$pad"
+            _chroma_inline "$content"
+            _chroma_reset
+            echo
+            ;;
+
+        list.bullet)
+            printf '%s' "$pad"
+            _chroma_color "$(_chroma_token list.bullet)"
+            printf '• '
+            _chroma_reset
+            _chroma_color "$(_chroma_token text)"
+            _chroma_inline "$content"
+            _chroma_reset
+            echo
+            ;;
+
+        list.number)
+            printf '%s' "$pad"
+            _chroma_color "$(_chroma_token list.number)"
+            printf '  '
+            _chroma_reset
+            _chroma_color "$(_chroma_token text)"
+            _chroma_inline "$content"
+            _chroma_reset
+            echo
+            ;;
+
+        hr)
+            _chroma_color "$(_chroma_token hr)"
+            printf '%s' "$pad"
+            local hrlen=$((width - ${#pad}))
+            printf '%*s' "$hrlen" '' | tr ' ' '─'
+            _chroma_reset
+            echo
+            ;;
+
+        blank)
+            echo
+            ;;
+
+        text|*)
+            printf '%s' "$pad"
+            _chroma_color "$(_chroma_token text)"
+            _chroma_inline "$content"
+            _chroma_reset
+            echo
+            ;;
+    esac
+}
+
 chroma() {
     local file=""
     local margin=0
