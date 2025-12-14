@@ -6,6 +6,176 @@
 # Current theme name
 declare -g CHROMA_THEME="default"
 
+# ============================================================================
+# PLUGIN SYSTEM
+# ============================================================================
+
+# Plugin registry: name → init_function
+declare -gA CHROMA_PLUGINS=()
+
+# Hook registry: hook_name → space-separated list of callbacks
+declare -gA CHROMA_HOOKS=()
+
+# Available hook points
+declare -ga CHROMA_HOOK_POINTS=(
+    pre_render      # Before rendering starts
+    post_render     # After rendering completes
+    pre_line        # Before each line is processed
+    post_line       # After each line is rendered
+    render_heading  # Custom heading renderer (return 0 to skip default)
+    render_code     # Custom code block renderer
+    render_quote    # Custom blockquote renderer
+    render_list     # Custom list item renderer
+    render_table    # Custom table renderer
+    render_hr       # Custom horizontal rule renderer
+)
+
+# Register a plugin
+# Usage: chroma_register_plugin <name> <init_function> [description]
+chroma_register_plugin() {
+    local name="$1"
+    local init_fn="$2"
+    local desc="${3:-}"
+
+    [[ -z "$name" || -z "$init_fn" ]] && {
+        echo "Usage: chroma_register_plugin <name> <init_function> [description]" >&2
+        return 1
+    }
+
+    if ! declare -f "$init_fn" &>/dev/null; then
+        echo "Plugin init function not found: $init_fn" >&2
+        return 1
+    fi
+
+    CHROMA_PLUGINS["$name"]="$init_fn"
+
+    # Call init function
+    "$init_fn"
+    return 0
+}
+
+# Register a hook callback
+# Usage: chroma_hook <hook_point> <callback_function>
+chroma_hook() {
+    local hook="$1"
+    local callback="$2"
+
+    [[ -z "$hook" || -z "$callback" ]] && {
+        echo "Usage: chroma_hook <hook_point> <callback>" >&2
+        return 1
+    }
+
+    # Validate hook point
+    local valid=0
+    for hp in "${CHROMA_HOOK_POINTS[@]}"; do
+        [[ "$hp" == "$hook" ]] && { valid=1; break; }
+    done
+    (( valid )) || {
+        echo "Invalid hook point: $hook" >&2
+        echo "Valid: ${CHROMA_HOOK_POINTS[*]}" >&2
+        return 1
+    }
+
+    # Add callback to hook (avoid duplicates)
+    local existing="${CHROMA_HOOKS[$hook]:-}"
+    if [[ ! " $existing " =~ " $callback " ]]; then
+        CHROMA_HOOKS["$hook"]="${existing:+$existing }$callback"
+    fi
+    return 0
+}
+
+# Remove a hook callback
+# Usage: chroma_unhook <hook_point> <callback_function>
+chroma_unhook() {
+    local hook="$1"
+    local callback="$2"
+
+    [[ -z "$hook" || -z "$callback" ]] && return 1
+
+    local existing="${CHROMA_HOOKS[$hook]:-}"
+    local new_list=""
+    for cb in $existing; do
+        [[ "$cb" != "$callback" ]] && new_list="${new_list:+$new_list }$cb"
+    done
+    CHROMA_HOOKS["$hook"]="$new_list"
+    return 0
+}
+
+# Execute all callbacks for a hook
+# Usage: _chroma_run_hooks <hook_point> [args...]
+# Returns: 0 if any callback returned 0 (handled), 1 if none handled
+_chroma_run_hooks() {
+    local hook="$1"
+    shift
+    local callbacks="${CHROMA_HOOKS[$hook]:-}"
+
+    [[ -z "$callbacks" ]] && return 1
+
+    local handled=1
+    for callback in $callbacks; do
+        if declare -f "$callback" &>/dev/null; then
+            "$callback" "$@"
+            local rc=$?
+            (( rc == 0 )) && handled=0
+        fi
+    done
+    return $handled
+}
+
+# List registered plugins
+chroma_list_plugins() {
+    echo
+    echo "Chroma Plugins"
+    echo
+
+    if [[ ${#CHROMA_PLUGINS[@]} -eq 0 ]]; then
+        echo "  (no plugins loaded)"
+    else
+        for name in "${!CHROMA_PLUGINS[@]}"; do
+            printf "  %-20s %s\n" "$name" "${CHROMA_PLUGINS[$name]}"
+        done
+    fi
+    echo
+
+    echo "Registered Hooks:"
+    for hook in "${CHROMA_HOOK_POINTS[@]}"; do
+        local callbacks="${CHROMA_HOOKS[$hook]:-}"
+        if [[ -n "$callbacks" ]]; then
+            printf "  %-16s %s\n" "$hook:" "$callbacks"
+        fi
+    done
+    echo
+}
+
+# Load plugins from directory
+# Usage: chroma_load_plugins [directory]
+chroma_load_plugins() {
+    local plugin_dir="${1:-${CHROMA_PLUGINS_DIR:-}}"
+
+    # Default plugin directories
+    if [[ -z "$plugin_dir" ]]; then
+        local dirs=(
+            "${TETRA_DIR:-$HOME/tetra}/chroma/plugins"
+            "${CHROMA_SRC:-$(dirname "${BASH_SOURCE[0]}")}/plugins"
+        )
+        for d in "${dirs[@]}"; do
+            [[ -d "$d" ]] && { plugin_dir="$d"; break; }
+        done
+    fi
+
+    [[ -z "$plugin_dir" || ! -d "$plugin_dir" ]] && return 0
+
+    # Load all *.plugin.sh files
+    local count=0
+    for plugin_file in "$plugin_dir"/*.plugin.sh; do
+        [[ -f "$plugin_file" ]] || continue
+        source "$plugin_file" && ((count++))
+    done
+
+    (( count > 0 )) && echo "Loaded $count plugin(s) from $plugin_dir"
+    return 0
+}
+
 # State for multi-line parsing
 declare -g _CHROMA_IN_CODE=0
 declare -g _CHROMA_CODE_LANG=""
@@ -697,6 +867,9 @@ _chroma_render_line() {
     local level="${rest%%:*}"
     local content="${rest#*:}"
 
+    # Pre-line hook
+    _chroma_run_hooks pre_line "$type" "$level" "$content" "$pad" "$width"
+
     # Handle table state transitions
     if [[ "$type" != table.* ]] && (( _CHROMA_IN_TABLE )); then
         _chroma_flush_table "$pad"
@@ -714,15 +887,19 @@ _chroma_render_line() {
             _chroma_parse_table_align "$content" _CHROMA_TABLE_ALIGNS
             return  # Don't render separator, just store alignment
             ;;
+
         heading)
-            _chroma_color "$(_chroma_token heading.$level)"
-            printf '%s' "$pad"
-            # Add # prefix for visual hierarchy
-            local prefix=""
-            for ((h=0; h<level; h++)); do prefix+="#"; done
-            printf '%s %s' "$prefix" "$content"
-            _chroma_reset
-            echo
+            # Try plugin hook first
+            if ! _chroma_run_hooks render_heading "$level" "$content" "$pad"; then
+                _chroma_color "$(_chroma_token heading.$level)"
+                printf '%s' "$pad"
+                # Add # prefix for visual hierarchy
+                local prefix=""
+                for ((h=0; h<level; h++)); do prefix+="#"; done
+                printf '%s %s' "$prefix" "$content"
+                _chroma_reset
+                echo
+            fi
             ;;
 
         code.start)
@@ -740,49 +917,64 @@ _chroma_render_line() {
             ;;
 
         code.line)
-            _chroma_color "$(_chroma_token code.block)"
-            printf '%s  %s' "$pad" "$content"
-            _chroma_reset
-            echo
+            # Try plugin hook first (for syntax highlighting)
+            if ! _chroma_run_hooks render_code "$_CHROMA_CODE_LANG" "$content" "$pad"; then
+                _chroma_color "$(_chroma_token code.block)"
+                printf '%s  %s' "$pad" "$content"
+                _chroma_reset
+                echo
+            fi
             ;;
 
         quote)
-            _chroma_color "$(_chroma_token quote)"
-            printf '%s│ ' "$pad"
-            _chroma_inline "$content" "quote"
-            _chroma_reset
-            echo
+            # Try plugin hook first
+            if ! _chroma_run_hooks render_quote "$content" "$pad"; then
+                _chroma_color "$(_chroma_token quote)"
+                printf '%s│ ' "$pad"
+                _chroma_inline "$content" "quote"
+                _chroma_reset
+                echo
+            fi
             ;;
 
         list.bullet)
-            printf '%s' "$pad"
-            _chroma_color "$(_chroma_token list.bullet)"
-            printf '• '
-            _chroma_reset
-            _chroma_color "$(_chroma_token text)"
-            _chroma_inline "$content" "text"
-            _chroma_reset
-            echo
+            # Try plugin hook first
+            if ! _chroma_run_hooks render_list "bullet" "$content" "$pad"; then
+                printf '%s' "$pad"
+                _chroma_color "$(_chroma_token list.bullet)"
+                printf '• '
+                _chroma_reset
+                _chroma_color "$(_chroma_token text)"
+                _chroma_inline "$content" "text"
+                _chroma_reset
+                echo
+            fi
             ;;
 
         list.number)
-            printf '%s' "$pad"
-            _chroma_color "$(_chroma_token list.number)"
-            printf '%s. ' "$level"  # level holds the number
-            _chroma_reset
-            _chroma_color "$(_chroma_token text)"
-            _chroma_inline "$content" "text"
-            _chroma_reset
-            echo
+            # Try plugin hook first
+            if ! _chroma_run_hooks render_list "number" "$content" "$pad" "$level"; then
+                printf '%s' "$pad"
+                _chroma_color "$(_chroma_token list.number)"
+                printf '%s. ' "$level"  # level holds the number
+                _chroma_reset
+                _chroma_color "$(_chroma_token text)"
+                _chroma_inline "$content" "text"
+                _chroma_reset
+                echo
+            fi
             ;;
 
         hr)
-            _chroma_color "$(_chroma_token hr)"
-            printf '%s' "$pad"
-            local hrlen=$((width - ${#pad}))
-            printf '%*s' "$hrlen" '' | tr ' ' '─'
-            _chroma_reset
-            echo
+            # Try plugin hook first
+            if ! _chroma_run_hooks render_hr "$pad" "$width"; then
+                _chroma_color "$(_chroma_token hr)"
+                printf '%s' "$pad"
+                local hrlen=$((width - ${#pad}))
+                printf '%*s' "$hrlen" '' | tr ' ' '─'
+                _chroma_reset
+                echo
+            fi
             ;;
 
         blank)
@@ -797,6 +989,9 @@ _chroma_render_line() {
             echo
             ;;
     esac
+
+    # Post-line hook
+    _chroma_run_hooks post_line "$type" "$level" "$content"
 }
 
 chroma() {
@@ -822,6 +1017,10 @@ chroma() {
                 echo "Current theme: $CHROMA_THEME"
                 echo "Use 'chroma themes' to list available themes"
             fi
+            return 0
+            ;;
+        plugins)
+            chroma_list_plugins
             return 0
             ;;
     esac
@@ -882,6 +1081,9 @@ chroma() {
     _CHROMA_TABLE_ALIGNS=()
     _CHROMA_TABLE_WIDTHS=()
 
+    # Pre-render hook
+    _chroma_run_hooks pre_render "$tmp" "$pad" "$content_width"
+
     # Parse and render each line
     while IFS= read -r line || [[ -n "$line" ]]; do
         _chroma_classify "$line"
@@ -890,6 +1092,9 @@ chroma() {
 
     # Flush any pending table at end of input
     (( _CHROMA_IN_TABLE )) && _chroma_flush_table "$pad"
+
+    # Post-render hook
+    _chroma_run_hooks post_render "$tmp"
 
     # Cleanup
     if (( is_tmp )); then
@@ -907,6 +1112,7 @@ USAGE
   cat file | chroma           Pipe content
   chroma themes               List available themes
   chroma theme [name]         Show or switch theme
+  chroma plugins              List loaded plugins and hooks
 
 OPTIONS
   -m, --margin N    Add margin (top/left/right)
@@ -938,11 +1144,25 @@ SUPPORTED ELEMENTS
   ---               Horizontal rules
   | tables |        With alignment support
 
+PLUGINS
+  Plugins can hook into the render pipeline:
+  - pre_render, post_render: Document level hooks
+  - pre_line, post_line: Line processing hooks
+  - render_heading, render_code, render_quote, render_list,
+    render_table, render_hr: Element-specific hooks
+
+  Plugin API:
+    chroma_register_plugin <name> <init_fn>
+    chroma_hook <hook_point> <callback>
+    chroma_unhook <hook_point> <callback>
+    chroma_load_plugins [directory]
+
 EXAMPLES
   chroma README.md
   chroma -t warm README.md
   chroma -m 4 -w 60 doc.txt
   echo '# Hello' | chroma
   chroma themes
+  chroma plugins
 EOF
 }
