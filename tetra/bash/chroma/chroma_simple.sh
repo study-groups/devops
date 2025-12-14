@@ -968,10 +968,16 @@ _chroma_render_table_row() {
     local i cell width align padl padr
     for i in "${!cells[@]}"; do
         cell="${cells[$i]}"
+        width="${widths_ref[$i]:-10}"
+        align="${aligns_ref[$i]:-left}"
+
+        # Truncate cell if it exceeds column width
         local visual_len
         visual_len=$(_chroma_visual_width "$cell")
-        width="${widths_ref[$i]:-$visual_len}"
-        align="${aligns_ref[$i]:-left}"
+        if (( visual_len > width )); then
+            cell=$(_chroma_truncate "$cell" "$width")
+            visual_len=$(_chroma_visual_width "$cell")
+        fi
 
         # Calculate padding for alignment (using visual width)
         local total_pad=$((width - visual_len))
@@ -1075,18 +1081,76 @@ _chroma_render_table_bottom() {
     echo
 }
 
+# Truncate text to max width with ellipsis
+_chroma_truncate() {
+    local text="$1"
+    local max_width="$2"
+
+    local visual_len=$(_chroma_visual_width "$text")
+    if (( visual_len <= max_width )); then
+        echo "$text"
+        return
+    fi
+
+    # Need to truncate - find cut point
+    # Remove formatting markers for accurate length calc
+    local plain="${text//\*\*/}"
+    plain="${plain//\*/}"
+    plain="${plain//\`/}"
+
+    if (( max_width <= 3 )); then
+        echo "..."
+        return
+    fi
+
+    # Cut at max_width - 1 (leave room for ellipsis char)
+    local cut_len=$((max_width - 1))
+    local result=""
+    local i=0
+    local in_format=0
+    local format_char=""
+
+    # Walk through original text, tracking formatting
+    while (( i < ${#text} )); do
+        local char="${text:i:1}"
+        local next="${text:i+1:1}"
+
+        # Track ** or * or `
+        if [[ "$char" == '*' && "$next" == '*' ]]; then
+            result+="**"
+            ((i+=2))
+            continue
+        elif [[ "$char" == '*' || "$char" == '`' ]]; then
+            result+="$char"
+            ((i++))
+            continue
+        fi
+
+        # Regular character
+        result+="$char"
+        ((cut_len--))
+        ((i++))
+
+        (( cut_len <= 0 )) && break
+    done
+
+    echo "${result}…"
+}
+
 # Flush accumulated table
 _chroma_flush_table() {
     local pad="$1"
+    local max_width="${2:-0}"
 
     (( ${#_CHROMA_TABLE_ROWS[@]} == 0 )) && return
 
     # Calculate column widths (visual width, not raw)
     _CHROMA_TABLE_WIDTHS=()
-    local row cells i
+    local row cells i num_cols=0
     for row in "${_CHROMA_TABLE_ROWS[@]}"; do
         local -a cells
         _chroma_parse_table_row "$row" cells
+        (( ${#cells[@]} > num_cols )) && num_cols=${#cells[@]}
         for i in "${!cells[@]}"; do
             local len
             len=$(_chroma_visual_width "${cells[$i]}")
@@ -1095,6 +1159,35 @@ _chroma_flush_table() {
             fi
         done
     done
+
+    # Constrain table to max_width if specified
+    if (( max_width > 0 )); then
+        local pad_len=${#pad}
+        local available=$((max_width - pad_len))
+
+        # Calculate total table width: borders + padding + content
+        # Each column: 1 (│) + 1 (space) + content + 1 (space) = content + 3
+        # Plus final │ = 1
+        local border_overhead=$(( num_cols * 3 + 1 ))
+        local content_available=$((available - border_overhead))
+
+        # Sum current widths
+        local total_content=0
+        for i in "${!_CHROMA_TABLE_WIDTHS[@]}"; do
+            total_content=$(( total_content + _CHROMA_TABLE_WIDTHS[$i] ))
+        done
+
+        # If too wide, proportionally shrink columns
+        if (( total_content > content_available && content_available > 0 )); then
+            local min_col_width=5  # Minimum column width
+            for i in "${!_CHROMA_TABLE_WIDTHS[@]}"; do
+                local old_width=${_CHROMA_TABLE_WIDTHS[$i]}
+                local new_width=$(( old_width * content_available / total_content ))
+                (( new_width < min_col_width )) && new_width=$min_col_width
+                _CHROMA_TABLE_WIDTHS[$i]=$new_width
+            done
+        fi
+    fi
 
     # Render table
     _chroma_render_table_top "$pad" _CHROMA_TABLE_WIDTHS
@@ -1136,7 +1229,7 @@ _chroma_render_line() {
 
     # Handle table state transitions
     if [[ "$type" != table.* ]] && (( _CHROMA_IN_TABLE )); then
-        _chroma_flush_table "$pad"
+        _chroma_flush_table "$pad" "$width"
     fi
 
     case "$type" in
@@ -1408,7 +1501,7 @@ chroma() {
     done < "$tmp"
 
     # Flush any pending table at end of input
-    (( _CHROMA_IN_TABLE )) && _chroma_flush_table "$pad"
+    (( _CHROMA_IN_TABLE )) && _chroma_flush_table "$pad" "$content_width"
 
     # Post-render hook
     _chroma_run_hooks post_render "$tmp"
