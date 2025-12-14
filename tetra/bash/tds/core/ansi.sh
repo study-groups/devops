@@ -90,6 +90,28 @@ tds_truncate() {
     echo "${ansi_prefix}${truncated}${ellipsis}"
 }
 
+# Truncate text with ellipsis in middle (ANSI-aware)
+# Args: text, max_width
+tds_truncate_middle() {
+    local text="$1"
+    local max_width="$2"
+
+    local stripped=$(tds_strip_ansi "$text")
+    local visual_width=${#stripped}
+
+    if [[ $visual_width -le $max_width ]]; then
+        echo "$text"
+        return
+    fi
+
+    # Calculate side widths (leave 3 for "...")
+    local side_width=$(( (max_width - 3) / 2 ))
+    local start="${stripped:0:$side_width}"
+    local end="${stripped: -$side_width}"
+
+    echo "${start}...${end}"
+}
+
 # Repeat a character/string N times
 # Args: char, count
 tds_repeat() {
@@ -98,5 +120,18 @@ tds_repeat() {
     printf "%*s" "$count" "" | tr ' ' "$char"
 }
 
+# Print items with VERBS rainbow cycling colors
+# Each item gets a distinct color from VERBS_PRIMARY, wrapping after 8
+# Args: item1 item2 item3 ...
+# Example: tds_cycle_print get set create delete copy edit path save validate
+tds_cycle_print() {
+    local -a items=("$@")
+    for i in "${!items[@]}"; do
+        text_color "${VERBS_PRIMARY[$((i % 8))]}"
+        printf "%s " "${items[$i]}"
+    done
+    reset_color
+}
+
 # Export functions
-export -f tds_strip_ansi tds_visual_width tds_center_padding tds_pad tds_truncate tds_repeat
+export -f tds_strip_ansi tds_visual_width tds_center_padding tds_pad tds_truncate tds_truncate_middle tds_repeat tds_cycle_print

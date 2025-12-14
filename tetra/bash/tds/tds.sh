@@ -22,6 +22,7 @@ fi
 # Layer 1.5: Semantic colors (must load before themes)
 # Themes need tds_apply_semantic_colors() function
 source "$TDS_SRC/core/semantic_colors.sh"
+source "$TDS_SRC/core/color_guide.sh"
 
 # Layer 1.6: Theme validation and stack management
 source "$TDS_SRC/core/theme_validation.sh"
@@ -39,6 +40,9 @@ tds_register_lazy_theme "cool" "tds_theme_cool" "Cool blue temperature for logs"
 tds_register_lazy_theme "arctic" "tds_theme_arctic" "Arctic blue with structured palettes"
 tds_register_lazy_theme "neutral" "tds_theme_neutral" "Neutral green temperature for tsm"
 tds_register_lazy_theme "electric" "tds_theme_electric" "Electric purple temperature for deploy"
+
+# Load saved TDS state (theme preference) from $TETRA_DIR/tds/current.sh
+tds_load_current
 
 # Load active theme (sets palette arrays and semantic colors)
 TDS_ACTIVE_THEME="${TDS_ACTIVE_THEME:-default}"
@@ -939,101 +943,216 @@ _tds_cmd_doctor() {
     echo
 }
 
-# Help
+# Help - compact, resource-first, colored (<22 lines)
+# Uses VERBS cycling for action words, MODE for semantic indicators
 _tds_cmd_help() {
-    cat <<'EOF'
+    local c_title="${ENV_PRIMARY[0]}"      # Primary env color
+    local c_res="${ENV_PRIMARY[1]}"        # Secondary env color
+    local c_arg="${NOUNS_PRIMARY[5]}"      # Light gray for args
+    local c_dim="${NOUNS_PRIMARY[3]}"      # Muted text
+    local c_bright="${NOUNS_PRIMARY[7]}"   # Brightest text
+    _c() { text_color "$1"; printf "%s" "$2"; reset_color; }
 
-TDS - Tetra Design System
+    # Print action words with VERBS rainbow cycling
+    _verbs() {
+        local i=0
+        for word in "$@"; do
+            text_color "${VERBS_PRIMARY[$((i % 8))]}"
+            printf "%s " "$word"
+            ((i++))
+        done
+        reset_color
+    }
 
-USAGE: tds <verb> <noun> [args]
-
-COMMANDS                                        COMPLETIONS
-  get theme [-v]          Show active theme     <themes>
-  get themes              List all themes
-  get palette [name]      Show palette colors   env|mode|verbs|nouns
-  get palettes            List palette names
-  get token <name>        Resolve to hex        <tokens>
-  get tokens              List all tokens
-  get hex <color>         Show color swatch     #RRGGBB
-
-  set theme <name>        Switch theme          <themes>
-  set palette <p> <i> <#> Set palette color     env|mode|verbs|nouns 0-7
-  set token <name> <ref>  Set token mapping     <tokens> palette:index
-
-  validate theme [name]   Check theme loads     <themes>
-  validate tokens         Check token mappings
-
-  create theme <name>    Create from template
-  delete theme <name>    Delete custom theme   <custom-themes>
-  copy theme <s> <d>     Copy theme            <themes>
-  edit theme [name]      Open in $EDITOR       <themes>
-  path theme [name]      Show file path        <themes>
-  save theme <name>      Save current state    (new name)
-
-  doctor                 Health check & diagnostics
-  help                   This help
-  repl                   Interactive explorer
-
-EXAMPLES
-  tds get theme            Show active theme with palette preview
-  tds set theme warm       Switch to warm theme
-  tds set palette env 0 #ff0000   Change env[0] to red (in-memory)
-  tds set token status.ok env:2   Remap token (in-memory)
-  tds save theme mytheme   Save current state as new theme
-EOF
+    echo
+    _c "$c_title" "TDS"; echo " - Tetra Design System"
+    echo
+    _c "$c_bright" "RESOURCES"; echo
+    printf "  "; _c "$c_res" "theme"; printf "    "; _verbs list get set create delete copy edit path save validate; echo
+    printf "  "; _c "$c_res" "palette"; printf "  "; _verbs list get set; echo
+    printf "  "; _c "$c_res" "token"; printf "    "; _verbs list get set validate; echo
+    printf "  "; _c "$c_res" "hex"; printf "      "; _c "$c_arg" "#RRGGBB"; echo
+    echo
+    _c "$c_bright" "TOOLS"; printf "  "; _verbs doctor repl guide; echo
+    echo
+    _c "$c_dim" "tds"; printf " "; _c "$c_res" "theme"; printf " "; _c "${VERBS_PRIMARY[0]}" "list"; printf "   "
+    _c "$c_dim" "tds"; printf " "; _c "$c_res" "theme"; printf " "; _c "${VERBS_PRIMARY[2]}" "set"; printf " "; _c "$c_arg" "warm"; printf "   "
+    _c "$c_dim" "tds"; printf " "; _c "$c_res" "token"; printf " "; _c "${VERBS_PRIMARY[1]}" "get"; printf " "; _c "$c_arg" "status.error"; echo
 }
 
 # ============================================================================
-# MAIN COMMAND - Parser and Dispatcher
+# MAIN COMMAND - Noun-first Parser (doctl-style)
 # ============================================================================
 
-tds() {
-    local arg1="${1:-}"
-    local arg2="${2:-}"
-    shift 2 2>/dev/null || shift $# 2>/dev/null
-    local args="$*"
+# Resource: theme
+_tds_theme() {
+    local action="${1:-}"
+    shift 2>/dev/null || true
 
-    # Handle special commands first
-    case "$arg1" in
-        repl) tds_repl; return ;;
-        doctor) _tds_cmd_doctor; return ;;
-        help|--help|-h|"") _tds_cmd_help; return ;;
-    esac
-
-    # Require verb-noun syntax: tds <operation> <property> [args]
-    local op="$arg1"
-    local prop="$arg2"
-
-    # Validate operation
-    case "$op" in
-        get|set|validate|create|delete|copy|edit|path|save)
+    case "$action" in
+        list|ls)     _tds_cmd_get_themes ;;
+        get)         _tds_cmd_get_theme "$@" ;;
+        set|switch)  _tds_cmd_set_theme "$@" ;;
+        create|new)  _tds_cmd_create_theme "$@" ;;
+        delete|rm)   _tds_cmd_delete_theme "$@" ;;
+        copy|cp)     _tds_cmd_copy_theme "$@" ;;
+        edit)        _tds_cmd_edit_theme "$@" ;;
+        path)        _tds_cmd_path_theme "$@" ;;
+        save)        _tds_cmd_save_theme "$@" ;;
+        validate)    _tds_cmd_validate_theme "$@" ;;
+        help|--help|-h|"")
+            _tds_theme_help
             ;;
         *)
-            echo "Unknown operation: $op"
-            echo "Operations: get, set, validate, create, delete, copy, edit, path, save"
+            echo "Unknown action: theme $action"
+            _tds_theme_help
+            return 1
+            ;;
+    esac
+}
+
+_tds_theme_help() {
+    local c_title="${ENV_PRIMARY[0]}"
+    local c_arg="${NOUNS_PRIMARY[5]}"
+    _c() { text_color "$1"; printf "%s" "$2"; reset_color; }
+    _v() { text_color "${VERBS_PRIMARY[$1]}"; printf "%s" "$2"; reset_color; }
+
+    echo
+    _c "$c_title" "tds theme"; echo " - Manage color themes"
+    echo
+    printf "  "; _v 0 "list"; echo "                 List available themes"
+    printf "  "; _v 1 "get"; printf " "; _c "$c_arg" "[name]"; echo "          Show theme (current or specific)"
+    printf "  "; _v 2 "set"; printf " "; _c "$c_arg" "<name>"; echo "          Activate theme"
+    printf "  "; _v 3 "create"; printf " "; _c "$c_arg" "<name>"; echo "       Create from template"
+    printf "  "; _v 4 "delete"; printf " "; _c "$c_arg" "<name>"; echo "       Delete custom theme"
+    printf "  "; _v 5 "copy"; printf " "; _c "$c_arg" "<src> <dst>"; echo "    Copy to new name"
+    printf "  "; _v 6 "edit"; printf " "; _c "$c_arg" "[name]"; echo "         Edit in \$EDITOR"
+    printf "  "; _v 7 "path"; printf " "; _c "$c_arg" "[name]"; echo "         Show file path"
+    printf "  "; _v 0 "save"; printf " "; _c "$c_arg" "<name>"; echo "         Save current state as theme"
+    printf "  "; _v 1 "validate"; printf " "; _c "$c_arg" "[name]"; echo "     Check theme validity"
+    echo
+}
+
+# Resource: palette
+_tds_palette() {
+    local action="${1:-}"
+    shift 2>/dev/null || true
+
+    case "$action" in
+        list|ls)     _tds_cmd_list_palettes ;;
+        get)         _tds_cmd_get_palette "$@" ;;
+        set)         _tds_cmd_set_palette "$@" ;;
+        help|--help|-h|"")
+            _tds_palette_help
+            ;;
+        *)
+            echo "Unknown action: palette $action"
+            _tds_palette_help
+            return 1
+            ;;
+    esac
+}
+
+_tds_palette_help() {
+    local c_title="${ENV_PRIMARY[0]}"
+    local c_arg="${NOUNS_PRIMARY[5]}"
+    local c_dim="${NOUNS_PRIMARY[3]}"
+    _c() { text_color "$1"; printf "%s" "$2"; reset_color; }
+    _v() { text_color "${VERBS_PRIMARY[$1]}"; printf "%s" "$2"; reset_color; }
+
+    echo
+    _c "$c_title" "tds palette"; echo " - Manage color palettes"
+    echo
+    printf "  "; _v 0 "list"; echo "                   List palette names"
+    printf "  "; _v 1 "get"; printf " "; _c "$c_arg" "[name]"; echo "            Show palette colors"
+    printf "  "; _v 2 "set"; printf " "; _c "$c_arg" "<name> <i> <hex>"; echo "  Set color (in-memory)"
+    echo
+    _c "$c_dim" "Palettes:"; printf " "; _v 0 "env"; printf " "; _v 1 "mode"; printf " "; _v 2 "verbs"; printf " "; _v 3 "nouns"; echo
+    echo
+}
+
+# Resource: token
+_tds_token() {
+    local action="${1:-}"
+    shift 2>/dev/null || true
+
+    case "$action" in
+        list|ls)     _tds_cmd_list_tokens ;;
+        get)         _tds_cmd_get_token "$@" ;;
+        set)         _tds_cmd_set_token "$@" ;;
+        validate)    _tds_cmd_validate_tokens ;;
+        help|--help|-h|"")
+            _tds_token_help
+            ;;
+        *)
+            echo "Unknown action: token $action"
+            _tds_token_help
+            return 1
+            ;;
+    esac
+}
+
+_tds_token_help() {
+    local c_title="${ENV_PRIMARY[0]}"
+    local c_arg="${NOUNS_PRIMARY[5]}"
+    local c_dim="${NOUNS_PRIMARY[3]}"
+    _c() { text_color "$1"; printf "%s" "$2"; reset_color; }
+    _v() { text_color "${VERBS_PRIMARY[$1]}"; printf "%s" "$2"; reset_color; }
+
+    echo
+    _c "$c_title" "tds token"; echo " - Manage semantic color tokens"
+    echo
+    printf "  "; _v 0 "list"; echo "                  List all token mappings"
+    printf "  "; _v 1 "get"; printf " "; _c "$c_arg" "<name>"; echo "          Resolve token to hex"
+    printf "  "; _v 2 "set"; printf " "; _c "$c_arg" "<name> <ref>"; echo "    Remap token (palette:index)"
+    printf "  "; _v 3 "validate"; echo "              Check all tokens resolve"
+    echo
+    _c "$c_dim" "Categories:"; printf " "; _v 0 "status"; printf " "; _v 1 "action"; printf " "; _v 2 "text"; printf " "; _v 3 "env"; printf " "; _v 4 "structural"; printf " "; _v 5 "interactive"; printf " "; _v 6 "content"; printf " "; _v 7 "marker"; echo
+    echo
+}
+
+# Resource: hex (utility)
+_tds_hex() {
+    local hex="${1:-}"
+    if [[ -z "$hex" ]]; then
+        echo "Usage: tds hex <#RRGGBB>"
+        echo "Show color swatch and RGB values"
+        return 1
+    fi
+    _tds_cmd_get_hex "$hex"
+}
+
+tds() {
+    local resource="${1:-}"
+    shift 2>/dev/null || true
+
+    case "$resource" in
+        # Resources (noun-first)
+        theme)    _tds_theme "$@" ;;
+        palette)  _tds_palette "$@" ;;
+        token)    _tds_token "$@" ;;
+        hex)      _tds_hex "$@" ;;
+
+        # Tools (top-level)
+        doctor)        _tds_cmd_doctor ;;
+        repl)          tds_repl ;;
+        guide)         tds_color_guide ;;
+        guide-compact) tds_color_guide_compact ;;
+
+        # Help
+        help|--help|-h|"")
+            _tds_cmd_help
+            ;;
+
+        # Unknown
+        *)
+            echo "Unknown: tds $resource"
+            echo "Resources: theme, palette, token, hex"
+            echo "Tools: doctor, repl, guide"
             echo "Try: tds help"
             return 1
             ;;
     esac
-
-    # Require property
-    if [[ -z "$prop" ]]; then
-        echo "Missing property for '$op'"
-        echo "Properties: theme, themes, palette, palettes, token, tokens, hex"
-        echo "Try: tds help"
-        return 1
-    fi
-
-    # Dispatch to handler
-    local handler="_tds_cmd_${op}_${prop}"
-
-    if declare -f "$handler" >/dev/null 2>&1; then
-        "$handler" $args
-    else
-        echo "Unknown: tds $op $prop"
-        echo "Try: tds help"
-        return 1
-    fi
 }
 
 # =============================================================================

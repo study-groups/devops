@@ -2,11 +2,11 @@
 # TDS Theme: Electric (Violet/Fuchsia Temperature)
 # Used by: deploy module
 #
-# PALETTE STRUCTURE:
-#   ENV   - ALTERNATE: violet ↔ fuchsia
-#   MODE  - STATUS: error/warning/success/info + dims
-#   VERBS - ACTIONS + ACCENT
-#   NOUNS - GRADIENT: zinc dark→light
+# PALETTE STRUCTURE (TDS 8x4):
+#   ENV   - ALTERNATE: violet ↔ fuchsia (theme-specific)
+#   MODE  - SEMANTIC: bad/warning/good/info + dims (electric-tinted)
+#   VERBS - RAINBOW: universal 8-color cycle for collections
+#   NOUNS - GRADIENT: zinc dark→bright (theme-specific)
 
 tds_theme_electric() {
     # Theme metadata
@@ -29,26 +29,6 @@ tds_theme_electric() {
     local fuchsia_700="#a21caf"
     local fuchsia_500="#d946ef"
     local fuchsia_300="#f0abfc"
-
-    # Status colors (MODE)
-    local red_500="#ef4444"
-    local red_700="#b91c1c"
-    local amber_500="#f59e0b"
-    local amber_700="#b45309"
-    local green_500="#22c55e"
-    local green_700="#15803d"
-    local purple_500="#a855f7"
-    local purple_700="#7e22ce"
-
-    # Action colors (VERBS) - electric tinted
-    local action_primary="#d946ef"      # fuchsia
-    local action_secondary="#a855f7"    # purple
-    local action_destructive="#ef4444"  # red
-    local action_constructive="#22c55e" # green
-    local action_accent="#06b6d4"       # cyan (complementary)
-    local action_highlight="#f0abfc"    # fuchsia light
-    local action_focus="#c4b5fd"        # violet light
-    local action_muted="#71717a"        # zinc
 
     # Zinc family (NOUNS gradient)
     local zinc_900="#18181b"
@@ -75,45 +55,51 @@ tds_theme_electric() {
     )
 
     # ========================================================================
-    # MODE_PRIMARY - STATUS + dims
+    # MODE_PRIMARY - SEMANTIC: electric-tinted states
+    # [0]=bad [1]=warning [2]=good [3]=info [4-7]=dim via desaturate_hex
     # ========================================================================
+    local mode_bad="6d28d9"       # deep violet (electric "bad")
+    local mode_warning="a21caf"   # fuchsia muted
+    local mode_good="d946ef"      # bright fuchsia (electric "good")
+    local mode_info="a855f7"      # purple
+
     MODE_PRIMARY=(
-        "$red_500"     # 0: error
-        "$amber_500"   # 1: warning
-        "$green_500"   # 2: success
-        "$purple_500"  # 3: info (electric tint)
-        "$red_700"     # 4: error-dim
-        "$amber_700"   # 5: warning-dim
-        "$green_700"   # 6: success-dim
-        "$purple_700"  # 7: info-dim
+        "$mode_bad"                           # 0: bad
+        "$mode_warning"                       # 1: warning
+        "$mode_good"                          # 2: good
+        "$mode_info"                          # 3: info
+        "$(desaturate_hex "$mode_bad" 3)"     # 4: bad dim
+        "$(desaturate_hex "$mode_warning" 3)" # 5: warning dim
+        "$(desaturate_hex "$mode_good" 3)"    # 6: good dim
+        "$(desaturate_hex "$mode_info" 3)"    # 7: info dim
     )
 
     # ========================================================================
-    # VERBS_PRIMARY - ACTIONS + ACCENT
+    # VERBS_PRIMARY - RAINBOW: universal 8-color cycle
     # ========================================================================
     VERBS_PRIMARY=(
-        "$action_primary"      # 0: primary
-        "$action_secondary"    # 1: secondary
-        "$action_destructive"  # 2: destructive
-        "$action_constructive" # 3: constructive
-        "$action_accent"       # 4: accent
-        "$action_highlight"    # 5: highlight
-        "$action_focus"        # 6: focus
-        "$action_muted"        # 7: muted
+        "#E53935"  # 0: red (0°)
+        "#FB8C00"  # 1: orange (30°)
+        "#FDD835"  # 2: yellow (60°)
+        "#43A047"  # 3: green (120°)
+        "#00ACC1"  # 4: cyan (180°)
+        "#1E88E5"  # 5: blue (210°)
+        "#8E24AA"  # 6: purple (270°)
+        "#EC407A"  # 7: pink (330°)
     )
 
     # ========================================================================
-    # NOUNS_PRIMARY - GRADIENT
+    # NOUNS_PRIMARY - GRADIENT: zinc dark→bright
     # ========================================================================
     NOUNS_PRIMARY=(
         "$zinc_900"    # 0: darkest
         "$zinc_700"    # 1: dark
-        "$zinc_600"    # 2: medium-dark
-        "$zinc_500"    # 3: medium
-        "$zinc_400"    # 4: medium-light
+        "$zinc_600"    # 2: dim
+        "$zinc_500"    # 3: muted
+        "$zinc_400"    # 4: subtle
         "$zinc_300"    # 5: light
         "$zinc_200"    # 6: pale
-        "$zinc_50"     # 7: lightest
+        "$zinc_50"     # 7: brightest
     )
 
     # Apply semantic colors using palette arrays

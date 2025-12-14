@@ -2,11 +2,11 @@
 # TDS Theme: Warm (Amber/Orange Temperature)
 # Used by: org module
 #
-# PALETTE STRUCTURE:
-#   ENV   - ALTERNATE: amber ↔ orange
-#   MODE  - STATUS: error/warning/success/info + dims
-#   VERBS - ACTIONS + ACCENT
-#   NOUNS - GRADIENT: stone dark→light
+# PALETTE STRUCTURE (TDS 8x4):
+#   ENV   - ALTERNATE: amber ↔ orange (theme-specific)
+#   MODE  - SEMANTIC: bad/warning/good/info + dims (warm-tinted)
+#   VERBS - RAINBOW: universal 8-color cycle for collections
+#   NOUNS - GRADIENT: stone dark→bright (theme-specific)
 
 # Source guard
 [[ "${__TDS_THEME_WARM_LOADED:-}" == "true" ]] && return 0
@@ -34,26 +34,6 @@ tds_theme_warm() {
     local orange_500="#f97316"
     local orange_300="#fdba74"
 
-    # Status colors (MODE)
-    local red_500="#ef4444"
-    local red_700="#b91c1c"
-    local yellow_500="#eab308"
-    local yellow_700="#a16207"
-    local green_500="#22c55e"
-    local green_700="#15803d"
-    local amber_info="#f59e0b"
-    local amber_info_dim="#b45309"
-
-    # Action colors (VERBS) - warm tinted
-    local action_primary="#f97316"      # orange
-    local action_secondary="#f59e0b"    # amber
-    local action_destructive="#ef4444"  # red
-    local action_constructive="#22c55e" # green
-    local action_accent="#f472b6"       # pink
-    local action_highlight="#fb923c"    # orange light
-    local action_focus="#fbbf24"        # amber light
-    local action_muted="#78716c"        # stone
-
     # Stone family (NOUNS gradient)
     local stone_900="#1c1917"
     local stone_700="#44403c"
@@ -79,45 +59,53 @@ tds_theme_warm() {
     )
 
     # ========================================================================
-    # MODE_PRIMARY - STATUS + dims
+    # MODE_PRIMARY - SEMANTIC: warm-tinted states
+    # [0]=bad [1]=warning [2]=good [3]=info [4-7]=dim versions
+    # Dim versions computed via desaturate_hex (level 3)
     # ========================================================================
+    local mode_bad="c2410c"       # burnt orange
+    local mode_warning="d97706"   # amber
+    local mode_good="65a30d"      # warm green/lime
+    local mode_info="0891b2"      # warm cyan
+
     MODE_PRIMARY=(
-        "$red_500"         # 0: error
-        "$yellow_500"      # 1: warning
-        "$green_500"       # 2: success
-        "$amber_info"      # 3: info (warm tint)
-        "$red_700"         # 4: error-dim
-        "$yellow_700"      # 5: warning-dim
-        "$green_700"       # 6: success-dim
-        "$amber_info_dim"  # 7: info-dim
+        "$mode_bad"                           # 0: bad
+        "$mode_warning"                       # 1: warning
+        "$mode_good"                          # 2: good
+        "$mode_info"                          # 3: info
+        "$(desaturate_hex "$mode_bad" 3)"     # 4: bad dim
+        "$(desaturate_hex "$mode_warning" 3)" # 5: warning dim
+        "$(desaturate_hex "$mode_good" 3)"    # 6: good dim
+        "$(desaturate_hex "$mode_info" 3)"    # 7: info dim
     )
 
     # ========================================================================
-    # VERBS_PRIMARY - ACTIONS + ACCENT
+    # VERBS_PRIMARY - RAINBOW: universal 8-color cycle
+    # Same for all themes - maximally distinct for collections
     # ========================================================================
     VERBS_PRIMARY=(
-        "$action_primary"      # 0: primary
-        "$action_secondary"    # 1: secondary
-        "$action_destructive"  # 2: destructive
-        "$action_constructive" # 3: constructive
-        "$action_accent"       # 4: accent
-        "$action_highlight"    # 5: highlight
-        "$action_focus"        # 6: focus
-        "$action_muted"        # 7: muted
+        "#E53935"  # 0: red (0°)
+        "#FB8C00"  # 1: orange (30°)
+        "#FDD835"  # 2: yellow (60°)
+        "#43A047"  # 3: green (120°)
+        "#00ACC1"  # 4: cyan (180°)
+        "#1E88E5"  # 5: blue (210°)
+        "#8E24AA"  # 6: purple (270°)
+        "#EC407A"  # 7: pink (330°)
     )
 
     # ========================================================================
-    # NOUNS_PRIMARY - GRADIENT
+    # NOUNS_PRIMARY - GRADIENT: stone dark→bright
     # ========================================================================
     NOUNS_PRIMARY=(
         "$stone_900"   # 0: darkest
         "$stone_700"   # 1: dark
-        "$stone_600"   # 2: medium-dark
-        "$stone_500"   # 3: medium
-        "$stone_400"   # 4: medium-light
+        "$stone_600"   # 2: dim
+        "$stone_500"   # 3: muted
+        "$stone_400"   # 4: subtle
         "$stone_300"   # 5: light
         "$stone_200"   # 6: pale
-        "$stone_50"    # 7: lightest
+        "$stone_50"    # 7: brightest
     )
 
     tds_apply_semantic_colors

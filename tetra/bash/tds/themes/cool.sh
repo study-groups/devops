@@ -2,11 +2,11 @@
 # TDS Theme: Cool (Blue/Cyan Temperature)
 # Used by: logs module
 #
-# PALETTE STRUCTURE:
-#   ENV   - ALTERNATE: cyan ↔ blue
-#   MODE  - STATUS: error/warning/success/info + dims
-#   VERBS - ACTIONS + ACCENT
-#   NOUNS - GRADIENT: slate dark→light
+# PALETTE STRUCTURE (TDS 8x4):
+#   ENV   - ALTERNATE: cyan ↔ blue (theme-specific)
+#   MODE  - SEMANTIC: bad/warning/good/info + dims (cool-tinted)
+#   VERBS - RAINBOW: universal 8-color cycle for collections
+#   NOUNS - GRADIENT: slate dark→bright (theme-specific)
 
 tds_theme_cool() {
     # Theme metadata
@@ -29,26 +29,6 @@ tds_theme_cool() {
     local blue_700="#1d4ed8"
     local blue_500="#3b82f6"
     local blue_300="#93c5fd"
-
-    # Status colors (MODE)
-    local red_500="#ef4444"
-    local red_700="#b91c1c"
-    local amber_500="#f59e0b"
-    local amber_700="#b45309"
-    local green_500="#22c55e"
-    local green_700="#15803d"
-    local sky_500="#0ea5e9"
-    local sky_700="#0369a1"
-
-    # Action colors (VERBS) - cool tinted
-    local action_primary="#0ea5e9"      # sky
-    local action_secondary="#6366f1"    # indigo
-    local action_destructive="#ef4444"  # red
-    local action_constructive="#22c55e" # green
-    local action_accent="#8b5cf6"       # violet
-    local action_highlight="#f472b6"    # pink
-    local action_focus="#38bdf8"        # sky light
-    local action_muted="#64748b"        # slate
 
     # Slate family (NOUNS gradient)
     local slate_900="#0f172a"
@@ -75,45 +55,51 @@ tds_theme_cool() {
     )
 
     # ========================================================================
-    # MODE_PRIMARY - STATUS + dims
+    # MODE_PRIMARY - SEMANTIC: cool-tinted states
+    # [0]=bad [1]=warning [2]=good [3]=info [4-7]=dim via desaturate_hex
     # ========================================================================
+    local mode_bad="1d4ed8"       # blue (cool "bad")
+    local mode_warning="6366f1"   # indigo
+    local mode_good="06b6d4"      # cyan (cool "good")
+    local mode_info="0ea5e9"      # sky
+
     MODE_PRIMARY=(
-        "$red_500"     # 0: error
-        "$amber_500"   # 1: warning
-        "$green_500"   # 2: success
-        "$sky_500"     # 3: info
-        "$red_700"     # 4: error-dim
-        "$amber_700"   # 5: warning-dim
-        "$green_700"   # 6: success-dim
-        "$sky_700"     # 7: info-dim
+        "$mode_bad"                           # 0: bad
+        "$mode_warning"                       # 1: warning
+        "$mode_good"                          # 2: good
+        "$mode_info"                          # 3: info
+        "$(desaturate_hex "$mode_bad" 3)"     # 4: bad dim
+        "$(desaturate_hex "$mode_warning" 3)" # 5: warning dim
+        "$(desaturate_hex "$mode_good" 3)"    # 6: good dim
+        "$(desaturate_hex "$mode_info" 3)"    # 7: info dim
     )
 
     # ========================================================================
-    # VERBS_PRIMARY - ACTIONS + ACCENT
+    # VERBS_PRIMARY - RAINBOW: universal 8-color cycle
     # ========================================================================
     VERBS_PRIMARY=(
-        "$action_primary"      # 0: primary
-        "$action_secondary"    # 1: secondary
-        "$action_destructive"  # 2: destructive
-        "$action_constructive" # 3: constructive
-        "$action_accent"       # 4: accent
-        "$action_highlight"    # 5: highlight
-        "$action_focus"        # 6: focus
-        "$action_muted"        # 7: muted
+        "#E53935"  # 0: red (0°)
+        "#FB8C00"  # 1: orange (30°)
+        "#FDD835"  # 2: yellow (60°)
+        "#43A047"  # 3: green (120°)
+        "#00ACC1"  # 4: cyan (180°)
+        "#1E88E5"  # 5: blue (210°)
+        "#8E24AA"  # 6: purple (270°)
+        "#EC407A"  # 7: pink (330°)
     )
 
     # ========================================================================
-    # NOUNS_PRIMARY - GRADIENT
+    # NOUNS_PRIMARY - GRADIENT: slate dark→bright
     # ========================================================================
     NOUNS_PRIMARY=(
         "$slate_900"   # 0: darkest
         "$slate_700"   # 1: dark
-        "$slate_600"   # 2: medium-dark
-        "$slate_500"   # 3: medium
-        "$slate_400"   # 4: medium-light
+        "$slate_600"   # 2: dim
+        "$slate_500"   # 3: muted
+        "$slate_400"   # 4: subtle
         "$slate_300"   # 5: light
         "$slate_200"   # 6: pale
-        "$slate_50"    # 7: lightest
+        "$slate_50"    # 7: brightest
     )
 
     tds_apply_semantic_colors
