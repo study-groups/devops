@@ -35,256 +35,6 @@
 DEPLOY_SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=10"
 
 # =============================================================================
-# DEPLOY CONTEXT (persistent state for prompt integration)
-# =============================================================================
-
-# Context state - persists across commands
-export DEPLOY_CTX_ORG="${DEPLOY_CTX_ORG:-}"
-export DEPLOY_CTX_TARGET="${DEPLOY_CTX_TARGET:-}"
-export DEPLOY_CTX_SUBTARGET="${DEPLOY_CTX_SUBTARGET:-}"
-export DEPLOY_CTX_ENV="${DEPLOY_CTX_ENV:-}"
-
-# Get active org for deploy (context or global)
-_deploy_active_org() {
-    if [[ -n "$DEPLOY_CTX_ORG" ]]; then
-        echo "$DEPLOY_CTX_ORG"
-    elif type org_active &>/dev/null; then
-        org_active 2>/dev/null
-    fi
-}
-
-# Prompt info function - called by tetra_prompt
-# Returns org:target:env format for prompt display
-_tetra_deploy_info() {
-    local org="$DEPLOY_CTX_ORG"
-    local target="$DEPLOY_CTX_TARGET"
-    local subtarget="$DEPLOY_CTX_SUBTARGET"
-    local env="$DEPLOY_CTX_ENV"
-
-    # Nothing set - no display
-    [[ -z "$org" && -z "$target" && -z "$env" ]] && return
-
-    local parts=()
-    [[ -n "$org" ]] && parts+=("$org") || parts+=("?")
-
-    # Combine target/subtarget
-    local target_str="?"
-    if [[ -n "$target" ]]; then
-        target_str="$target"
-        [[ -n "$subtarget" ]] && target_str="$target/$subtarget"
-    fi
-    parts+=("$target_str")
-
-    [[ -n "$env" ]] && parts+=("$env") || parts+=("?")
-
-    local IFS=":"
-    echo "${parts[*]}"
-}
-
-# Set org context
-deploy_org_set() {
-    local name="$1"
-
-    if [[ -z "$name" ]]; then
-        if [[ -n "$DEPLOY_CTX_ORG" ]]; then
-            echo "Current org: $DEPLOY_CTX_ORG"
-        else
-            echo "No org set"
-            echo "Usage: deploy org <name>"
-            # List available orgs
-            if [[ -d "$TETRA_DIR/orgs" ]]; then
-                echo "Available: $(ls "$TETRA_DIR/orgs" 2>/dev/null | tr '\n' ' ')"
-            fi
-        fi
-        return 0
-    fi
-
-    # Validate org exists
-    if [[ ! -d "$TETRA_DIR/orgs/$name" ]]; then
-        echo "Org not found: $name" >&2
-        if [[ -d "$TETRA_DIR/orgs" ]]; then
-            echo "Available: $(ls "$TETRA_DIR/orgs" 2>/dev/null | tr '\n' ' ')" >&2
-        fi
-        return 1
-    fi
-
-    export DEPLOY_CTX_ORG="$name"
-    # Clear target when org changes (targets are org-specific)
-    export DEPLOY_CTX_TARGET=""
-    echo "Org: $name"
-    echo "  Need: deploy target <name>"
-}
-
-# Set target context
-deploy_target_set() {
-    local name="$1"
-    local subtarget="$2"
-
-    if [[ -z "$name" ]]; then
-        if [[ -n "$DEPLOY_CTX_TARGET" ]]; then
-            echo "Current target: $DEPLOY_CTX_TARGET"
-            [[ -n "$DEPLOY_CTX_SUBTARGET" ]] && echo "  Subtarget: $DEPLOY_CTX_SUBTARGET"
-        else
-            echo "No target set"
-            echo "Usage: deploy target <name> [subtarget]"
-        fi
-        return 0
-    fi
-
-    # Validate target exists
-    local toml=$(_deploy_find_target "$name")
-    if [[ -z "$toml" ]]; then
-        # Check CWD
-        if [[ "$name" == "." && -f "./tetra-deploy.toml" ]]; then
-            export DEPLOY_CTX_TARGET="."
-            export DEPLOY_CTX_SUBTARGET=""
-            echo "Target: . (cwd)"
-            return 0
-        fi
-        echo "Target not found: $name" >&2
-        return 1
-    fi
-
-    export DEPLOY_CTX_TARGET="$name"
-
-    # Handle subtarget
-    if [[ -n "$subtarget" ]]; then
-        # Validate subtarget exists in TOML
-        if grep -q "^\[subtargets\]" "$toml" && \
-           awk '/^\[subtargets\]/{found=1; next} /^\[/{found=0} found && /^'"$subtarget"'[ ]*=/{exit 0} END{exit 1}' "$toml"; then
-            export DEPLOY_CTX_SUBTARGET="$subtarget"
-            echo "Target: $name/$subtarget"
-        else
-            echo "Subtarget not found: $subtarget" >&2
-            echo "Target: $name (no subtarget)"
-            export DEPLOY_CTX_SUBTARGET=""
-        fi
-    else
-        export DEPLOY_CTX_SUBTARGET=""
-        echo "Target: $name"
-    fi
-
-    # Show what's needed
-    if [[ -z "$DEPLOY_CTX_ENV" ]]; then
-        echo "  Need: deploy env <name>"
-    else
-        echo "  Env: $DEPLOY_CTX_ENV"
-        echo "  Ready: deploy"
-    fi
-}
-
-# Set env context
-deploy_env_set() {
-    local name="$1"
-
-    if [[ -z "$name" ]]; then
-        if [[ -n "$DEPLOY_CTX_ENV" ]]; then
-            echo "Current env: $DEPLOY_CTX_ENV"
-        else
-            echo "No env set"
-            echo "Usage: deploy env <name>"
-            if type org_env_names &>/dev/null; then
-                echo "Available: $(org_env_names 2>/dev/null | tr '\n' ' ')"
-            fi
-        fi
-        return 0
-    fi
-
-    export DEPLOY_CTX_ENV="$name"
-    echo "Env: $name"
-
-    # Show what's needed
-    if [[ -z "$DEPLOY_CTX_TARGET" ]]; then
-        echo "  Need: deploy target <name>"
-    else
-        echo "  Target: $DEPLOY_CTX_TARGET"
-        echo "  Ready: deploy"
-    fi
-}
-
-# Clear context
-deploy_clear_context() {
-    export DEPLOY_CTX_ORG=""
-    export DEPLOY_CTX_TARGET=""
-    export DEPLOY_CTX_SUBTARGET=""
-    export DEPLOY_CTX_ENV=""
-    echo "Deploy context cleared"
-}
-
-# Show context info
-deploy_info() {
-    echo "Deploy Context"
-    echo "=============="
-
-    echo "Org:       ${DEPLOY_CTX_ORG:-(not set)}"
-    local target_display="${DEPLOY_CTX_TARGET:-(not set)}"
-    [[ -n "$DEPLOY_CTX_SUBTARGET" ]] && target_display="$target_display/$DEPLOY_CTX_SUBTARGET"
-    echo "Target:    $target_display"
-    echo "Env:       ${DEPLOY_CTX_ENV:-(not set)}"
-
-    if [[ -n "$DEPLOY_CTX_ORG" && -n "$DEPLOY_CTX_TARGET" && -n "$DEPLOY_CTX_ENV" ]]; then
-        echo ""
-        echo "Ready to deploy. Run: deploy"
-        echo ""
-        # Show preview
-        deploy_show "$DEPLOY_CTX_TARGET" "$DEPLOY_CTX_ENV" 2>/dev/null
-    elif [[ -z "$DEPLOY_CTX_ORG" ]]; then
-        echo ""
-        echo "Set org: deploy org <name>"
-        if [[ -d "$TETRA_DIR/orgs" ]]; then
-            echo "Available: $(ls "$TETRA_DIR/orgs" 2>/dev/null | tr '\n' ' ')"
-        fi
-    elif [[ -z "$DEPLOY_CTX_TARGET" ]]; then
-        echo ""
-        echo "Set target: deploy target <name>"
-    elif [[ -z "$DEPLOY_CTX_ENV" ]]; then
-        echo ""
-        echo "Set env: deploy env <name>"
-    fi
-}
-
-# Deploy with context (confirm first)
-deploy_with_context() {
-    if [[ -z "$DEPLOY_CTX_TARGET" ]]; then
-        echo "No target set. Use: deploy target <name>" >&2
-        return 1
-    fi
-    if [[ -z "$DEPLOY_CTX_ENV" ]]; then
-        echo "No env set. Use: deploy env <name>" >&2
-        if type org_env_names &>/dev/null; then
-            echo "Available: $(org_env_names 2>/dev/null | tr '\n' ' ')" >&2
-        fi
-        return 1
-    fi
-
-    # Show what will happen
-    echo "Deploy: $DEPLOY_CTX_TARGET -> $DEPLOY_CTX_ENV"
-    echo ""
-
-    # Quick preview
-    local toml
-    if [[ "$DEPLOY_CTX_TARGET" == "." ]]; then
-        toml="./tetra-deploy.toml"
-    else
-        toml=$(_deploy_find_target "$DEPLOY_CTX_TARGET")
-    fi
-
-    if [[ -n "$toml" ]]; then
-        _deploy_load "$toml" "$DEPLOY_CTX_ENV" 2>/dev/null
-        echo "  Remote: ${DEPLOY_SSH}:${DEPLOY_REMOTE//\{\{user\}\}/$DEPLOY_WORK_USER}"
-        [[ -n "$DEPLOY_DOMAIN" ]] && echo "  Domain: $DEPLOY_DOMAIN"
-        echo ""
-    fi
-
-    read -rp "Proceed? [y/N] " confirm
-    if [[ "$confirm" =~ ^[Yy]$ ]]; then
-        deploy_push "$DEPLOY_CTX_TARGET" "$DEPLOY_CTX_ENV"
-    else
-        echo "Cancelled"
-    fi
-}
-
-# =============================================================================
 # INTERNAL STATE
 # =============================================================================
 
@@ -715,95 +465,144 @@ deploy_show() {
     echo "Post:       ${DEPLOY_POST[*]:-(none)}"
 }
 
-deploy_list() {
-    echo "Deploy Targets"
-    echo "=============="
-    echo ""
-
-    # Check org
-    if type org_active &>/dev/null; then
-        local org=$(org_active 2>/dev/null)
-        if [[ -n "$org" && "$org" != "none" ]]; then
-            echo "Org: $org"
-            local targets_dir="$TETRA_DIR/orgs/$org/targets"
-
-            if [[ -d "$targets_dir" ]]; then
-                local found=0
-
-                for f in "$targets_dir"/*.toml; do
-                    [[ -f "$f" ]] || continue
-                    printf "  %s\n" "$(basename "$f" .toml)"
-                    ((found++))
-                done
-
-                for d in "$targets_dir"/*/; do
-                    [[ -d "$d" && -f "$d/tetra-deploy.toml" ]] || continue
-                    printf "  %s/\n" "$(basename "$d")"
-                    ((found++))
-                done
-
-                [[ $found -eq 0 ]] && echo "  (none)"
-            else
-                echo "  (no targets dir)"
-            fi
-            echo ""
-        else
-            echo "Org: (none active)"
-            echo ""
-        fi
+# Deploy with current context (confirm first)
+deploy_with_context() {
+    if [[ -z "$DEPLOY_CTX_TARGET" ]]; then
+        echo "need target" >&2
+        return 1
+    fi
+    if [[ -z "$DEPLOY_CTX_ENV" ]]; then
+        echo "need env" >&2
+        return 1
     fi
 
-    # CWD check
-    if [[ -f "./tetra-deploy.toml" ]]; then
-        echo "CWD: ./tetra-deploy.toml found"
-        local name=$(_deploy_toml_get "./tetra-deploy.toml" "target" "name")
-        [[ -n "$name" ]] && echo "  name: $name"
+    local toml
+    if [[ "$DEPLOY_CTX_TARGET" == "." ]]; then
+        toml="./tetra-deploy.toml"
     else
-        echo "CWD: (no tetra-deploy.toml)"
+        toml=$(_deploy_find_target "$DEPLOY_CTX_TARGET")
     fi
+
+    if [[ -n "$toml" ]]; then
+        _deploy_load "$toml" "$DEPLOY_CTX_ENV" 2>/dev/null
+        echo "Deploy: $DEPLOY_CTX_TARGET -> $DEPLOY_CTX_ENV"
+        echo "  ${DEPLOY_SSH}:${DEPLOY_REMOTE//\{\{user\}\}/$DEPLOY_WORK_USER}"
+    fi
+
+    read -rp "Proceed? [y/N] " confirm
+    [[ "$confirm" =~ ^[Yy]$ ]] && deploy_push "$DEPLOY_CTX_TARGET" "$DEPLOY_CTX_ENV" || echo "Cancelled"
 }
 
 deploy_doctor() {
-    echo "Deploy Doctor"
-    echo "============="
+    local cmd="${1:-}"
+    local arg="${2:-}"
+
+    case "$cmd" in
+        reload|r)
+            echo "Reloading deploy module..."
+            source "$DEPLOY_SRC/includes.sh"
+            echo "done"
+            return 0
+            ;;
+        complete|comp)
+            # Show completion diagnostics
+            _deploy_doctor_complete "$arg"
+            return 0
+            ;;
+        "")
+            # Default: show status
+            ;;
+        *)
+            echo "usage: deploy doctor [reload|complete [target]]"
+            return 1
+            ;;
+    esac
+
+    local org=$(org_active 2>/dev/null)
+    local ctx="[${DEPLOY_CTX_ORG:-?}:${DEPLOY_CTX_TARGET:-?}:${DEPLOY_CTX_ENV:-?}]"
+
+    echo "deploy doctor"
+    echo "  ctx: $ctx"
+    echo "  org: ${org:-(none)}"
+    echo "  tps: ${DEPLOY_TPS_REGISTERED:-0}"
+
+    # Targets
+    if [[ -n "$org" && "$org" != "none" ]]; then
+        local targets_dir="$TETRA_DIR/orgs/$org/targets"
+        if [[ -d "$targets_dir" ]]; then
+            local count=$(find "$targets_dir" \( -name "*.toml" -o -name "tetra-deploy.toml" \) 2>/dev/null | wc -l | tr -d ' ')
+            echo "  targets: $count"
+        fi
+    fi
+
+    [[ -f "./tetra-deploy.toml" ]] && echo "  cwd: tetra-deploy.toml"
+}
+
+# Completion diagnostics
+_deploy_doctor_complete() {
+    local target="${1:-}"
+
+    echo "Completion Diagnostics"
+    echo "======================"
     echo ""
 
-    local issues=0
+    # Org resolution
+    echo "Org Resolution:"
+    echo "  DEPLOY_CTX_ORG:    ${DEPLOY_CTX_ORG:-(empty)}"
+    echo "  org_active:        $(type org_active &>/dev/null && org_active 2>/dev/null || echo "(unavailable)")"
+    echo "  _deploy_active_org: $(type _deploy_active_org &>/dev/null && _deploy_active_org 2>/dev/null || echo "(unavailable)")"
 
-    # Check org
-    if type org_active &>/dev/null; then
-        local org=$(org_active 2>/dev/null)
-        if [[ -n "$org" && "$org" != "none" ]]; then
-            echo "[OK] Org: $org"
-        else
-            echo "[--] No active org (standalone mode only)"
-        fi
-    else
-        echo "[--] org module not loaded (standalone mode only)"
-    fi
+    local org=$(_deploy_active_org 2>/dev/null)
+    [[ -z "$org" ]] && org=$(org_active 2>/dev/null)
+    echo "  resolved:          ${org:-(none)}"
+    echo ""
 
-    # Check targets
-    if type org_active &>/dev/null; then
-        local org=$(org_active 2>/dev/null)
-        if [[ -n "$org" && "$org" != "none" ]]; then
-            local targets_dir="$TETRA_DIR/orgs/$org/targets"
-            if [[ -d "$targets_dir" ]]; then
-                local count=$(find "$targets_dir" \( -name "*.toml" -o -name "tetra-deploy.toml" \) 2>/dev/null | wc -l | tr -d ' ')
-                echo "[OK] Targets: $count found"
-            else
-                echo "[--] No targets directory"
+    # Targets directory
+    if [[ -n "$org" && "$org" != "none" ]]; then
+        local targets_dir="$TETRA_DIR/orgs/$org/targets"
+        echo "Targets Directory:"
+        echo "  path: $targets_dir"
+        echo "  exists: $([[ -d "$targets_dir" ]] && echo "yes" || echo "no")"
+        echo ""
+
+        if [[ -d "$targets_dir" ]]; then
+            echo "Available Targets:"
+            # .toml files
+            for f in "$targets_dir"/*.toml; do
+                [[ -f "$f" ]] && echo "  $(basename "$f" .toml) (file)"
+            done
+            # Directories
+            for d in "$targets_dir"/*/; do
+                [[ -d "$d" && -f "$d/tetra-deploy.toml" ]] && echo "  $(basename "$d") (dir)"
+            done
+            echo ""
+
+            # If target specified, show its pipelines
+            if [[ -n "$target" ]]; then
+                local toml=""
+                if [[ -f "$targets_dir/$target/tetra-deploy.toml" ]]; then
+                    toml="$targets_dir/$target/tetra-deploy.toml"
+                elif [[ -f "$targets_dir/${target}.toml" ]]; then
+                    toml="$targets_dir/${target}.toml"
+                fi
+
+                if [[ -n "$toml" ]]; then
+                    echo "Target: $target"
+                    echo "  toml: $toml"
+                    echo ""
+                    echo "  Pipelines (tab-completable):"
+                    awk '/^\[pipeline\]/{found=1; next} /^\[/{found=0} found && /^[a-zA-Z_][a-zA-Z0-9_-]*[ ]*=/{print "    " $1}' "$toml"
+                    echo ""
+                    echo "  Aliases (hidden from tab, power-user shortcuts):"
+                    awk '/^\[alias\]/{found=1; next} /^\[/{found=0} found && /^[a-zA-Z_][a-zA-Z0-9_-]*[ ]*=/{print "    " $1}' "$toml" || echo "    (none)"
+                else
+                    echo "Target '$target' not found"
+                fi
             fi
         fi
-    fi
-
-    # Check CWD
-    if [[ -f "./tetra-deploy.toml" ]]; then
-        echo "[OK] CWD has tetra-deploy.toml"
     else
-        echo "[--] No tetra-deploy.toml in CWD"
+        echo "No org resolved - cannot list targets"
     fi
-
-    return $issues
 }
 
 deploy_history() {
@@ -993,6 +792,150 @@ deploy_help() {
             echo ""
             echo -e "  ${CLR_DIM}Mode is auto-detected per target.${CLR_NC}"
             ;;
+        doctor)
+            _deploy_help_section "DOCTOR"
+            echo ""
+            _deploy_help_cmd "doctor" "Show deploy module status"
+            _deploy_help_cmd "doctor reload" "Reload deploy module"
+            _deploy_help_cmd "doctor complete" "Show completion diagnostics"
+            _deploy_help_cmd "doctor complete <target>" "Show target's pipelines/aliases"
+            ;;
+        taxonomy)
+            _deploy_help_section "DEPLOY TAXONOMY"
+            echo ""
+            _deploy_help_sub "Hierarchy:"
+            echo -e "  ${CLR_H1}ORG${CLR_NC} ${CLR_DIM}─────────────${CLR_NC} Organization container (nodeholder, acme)"
+            echo -e "   ${CLR_DIM}└─${CLR_NC} ${CLR_H2}TARGET${CLR_NC} ${CLR_DIM}──────${CLR_NC} Deployable unit (docs, api, web)"
+            echo -e "       ${CLR_DIM}└─${CLR_NC} ${CLR_CMD}PIPELINE${CLR_NC} ${CLR_DIM}──${CLR_NC} Workflow sequence (default, quick, gdocs)"
+            echo -e "           ${CLR_DIM}└─${CLR_NC} ${CLR_ARG}ITEMS${CLR_NC} ${CLR_DIM}────${CLR_NC} File selection filter ({gdocs}, {!index})"
+            echo ""
+            _deploy_help_sub "Concepts:"
+            echo -e "  ${CLR_H2}TARGET${CLR_NC}     ${CLR_DIM}A deployable project with its own tetra-deploy.toml${CLR_NC}"
+            echo -e "             ${CLR_DIM}Contains: source files, build rules, sync config${CLR_NC}"
+            echo ""
+            echo -e "  ${CLR_CMD}PIPELINE${CLR_NC}   ${CLR_DIM}Named sequence of steps: [\"build:all\", \"sync\"]${CLR_NC}"
+            echo -e "             ${CLR_DIM}Defines WHAT operations run and in what order${CLR_NC}"
+            echo ""
+            echo -e "  ${CLR_ARG}ITEMS${CLR_NC}      ${CLR_DIM}Filter for WHICH files the pipeline operates on${CLR_NC}"
+            echo -e "             ${CLR_DIM}Affects both build steps AND sync file selection${CLR_NC}"
+            echo ""
+            echo -e "  ${CLR_OK}ENV${CLR_NC}        ${CLR_DIM}Target environment: prod, dev, staging${CLR_NC}"
+            echo -e "             ${CLR_DIM}Provides: SSH connection, domain, settings${CLR_NC}"
+            echo ""
+            _deploy_help_sub "Steps (pipeline components):"
+            echo -e "  ${CLR_CMD}build:X${CLR_NC}    ${CLR_DIM}Run build command for file set X${CLR_NC}"
+            echo -e "  ${CLR_CMD}sync${CLR_NC}       ${CLR_DIM}Transfer files to remote server${CLR_NC}"
+            echo -e "  ${CLR_CMD}pre${CLR_NC}        ${CLR_DIM}Pre-build hook (runs once before any build)${CLR_NC}"
+            echo ""
+            _deploy_help_sub "Item Modifiers:"
+            echo -e "  ${CLR_ARG}{gdocs}${CLR_NC}    ${CLR_DIM}Include: only these items${CLR_NC}"
+            echo -e "  ${CLR_ARG}{!index}${CLR_NC}   ${CLR_DIM}Exclude: all EXCEPT these${CLR_NC}"
+            echo -e "  ${CLR_ARG}{@guides}${CLR_NC}  ${CLR_DIM}Group: expand to [files.guides].include list${CLR_NC}"
+            echo -e "  ${CLR_ARG}~gdocs${CLR_NC}     ${CLR_DIM}Shorthand: same as {gdocs}${CLR_NC}"
+            echo ""
+            _deploy_help_sub "Address Format:"
+            echo -e "  ${CLR_H1}[org:]${CLR_NC}${CLR_H2}target${CLR_NC}${CLR_DIM}:${CLR_NC}${CLR_CMD}[pipeline]${CLR_NC}${CLR_DIM}:${CLR_NC}${CLR_ARG}[{items}]${CLR_NC} ${CLR_OK}env${CLR_NC}"
+            echo ""
+            _deploy_help_sub "Examples:"
+            echo -e "  ${CLR_H2}docs${CLR_NC}${CLR_DIM}:${CLR_NC}${CLR_CMD}quick${CLR_NC} ${CLR_OK}prod${CLR_NC}              ${CLR_DIM}# target:pipeline${CLR_NC}"
+            echo -e "  ${CLR_H2}docs${CLR_NC}${CLR_DIM}:${CLR_NC}${CLR_ARG}{gdocs}${CLR_NC} ${CLR_OK}prod${CLR_NC}            ${CLR_DIM}# target:{items}${CLR_NC}"
+            echo -e "  ${CLR_H2}docs${CLR_NC}${CLR_DIM}:${CLR_NC}${CLR_CMD}quick${CLR_NC}${CLR_DIM}:${CLR_NC}${CLR_ARG}{gdocs}${CLR_NC} ${CLR_OK}prod${CLR_NC}      ${CLR_DIM}# target:pipeline:{items}${CLR_NC}"
+            echo -e "  ${CLR_H1}nodeholder${CLR_NC}${CLR_DIM}:${CLR_NC}${CLR_H2}docs${CLR_NC}${CLR_DIM}:${CLR_NC}${CLR_CMD}quick${CLR_NC} ${CLR_OK}prod${CLR_NC}    ${CLR_DIM}# org:target:pipeline${CLR_NC}"
+            echo -e "  ${CLR_H1}nodeholder${CLR_NC}${CLR_DIM}:${CLR_NC}${CLR_H2}docs${CLR_NC}${CLR_DIM}:${CLR_NC}${CLR_ARG}{gdocs}${CLR_NC} ${CLR_OK}prod${CLR_NC}  ${CLR_DIM}# org:target:{items}${CLR_NC}"
+            echo -e "  ${CLR_H1}nodeholder${CLR_NC}${CLR_DIM}:${CLR_NC}${CLR_H2}docs${CLR_NC}${CLR_DIM}:${CLR_NC}${CLR_CMD}quick${CLR_NC}${CLR_DIM}:${CLR_NC}${CLR_ARG}{gdocs}${CLR_NC} ${CLR_OK}prod${CLR_NC}  ${CLR_DIM}# full address${CLR_NC}"
+            ;;
+        dry-run|template)
+            _deploy_help_section "DRY-RUN OUTPUT TEMPLATE"
+            echo ""
+            echo -e "${CLR_DIM}────────────────────────────────────────${CLR_NC}"
+            echo -e "${CLR_H1}Deploy${CLR_NC} ${CLR_H2}\${TARGET[name]}${CLR_NC}:${CLR_CMD}\${PIPELINE}${CLR_NC} ${CLR_DIM}→${CLR_NC} ${CLR_OK}\${ENV}${CLR_NC}"
+            echo -e "${CLR_DIM}Files${CLR_NC}  ${CLR_ARG}\${ITEMS_OVERRIDE}${CLR_NC}"
+            echo -e "${CLR_WARN}[DRY RUN]${CLR_NC}"
+            echo -e "${CLR_DIM}────────────────────────────────────────${CLR_NC}"
+            echo ""
+            echo -e "  ${CLR_DIM}[skip]${CLR_NC} build:all ${CLR_DIM}(items specified → build each item)${CLR_NC}"
+            echo ""
+            echo -e "  ${CLR_CMD}[pre]${CLR_NC} \${BUILD[pre]}"
+            echo -e "        ${CLR_DIM}↳ Runs once before first build${CLR_NC}"
+            echo ""
+            echo -e "  ${CLR_CMD}[build:\${ITEM}]${CLR_NC} \${BUILD[\${ITEM}.command]}"
+            echo -e "        ${CLR_DIM}↳ Runs for each item in ITEMS_OVERRIDE${CLR_NC}"
+            echo ""
+            echo -e "  ${CLR_CMD}[build:index]${CLR_NC} \${BUILD[index.command]}"
+            echo -e "        ${CLR_DIM}↳ Always runs (navigation)${CLR_NC}"
+            echo ""
+            echo -e "  ${CLR_CMD}[sync]${CLR_NC} \${ENV[ssh]}:\${TARGET[cwd]}/"
+            echo -e "    ${CLR_ARG}\${FILES[\${ITEM}]}${CLR_NC}              ${CLR_DIM}\${SIZE}${CLR_NC}"
+            echo -e "    ${CLR_DIM}─────────────────────────────────────${CLR_NC}"
+            echo -e "    ${CLR_DIM}\${FILE_COUNT} files              \${TOTAL_SIZE}${CLR_NC}"
+            echo ""
+            echo -e "${CLR_DIM}────────────────────────────────────────${CLR_NC}"
+            echo -e "${CLR_OK}Done${CLR_NC} ${CLR_DIM}(\${DURATION}s)${CLR_NC}"
+            echo ""
+            _deploy_help_sub "Variable Sources (from TOML):"
+            echo -e "  ${CLR_H2}TARGET[name]${CLR_NC}     ${CLR_DIM}[target] name = \"docs\"${CLR_NC}"
+            echo -e "  ${CLR_H2}TARGET[cwd]${CLR_NC}      ${CLR_DIM}[target] cwd = \"/home/{{user}}/docs\"${CLR_NC}"
+            echo -e "  ${CLR_CMD}PIPELINE${CLR_NC}         ${CLR_DIM}[pipeline] default = [\"build:all\", \"sync\"]${CLR_NC}"
+            echo -e "  ${CLR_ARG}FILES[gdocs]${CLR_NC}     ${CLR_DIM}[files] gdocs = \"gdocs-guide.html\"${CLR_NC}"
+            echo -e "  ${CLR_CMD}BUILD[gdocs]${CLR_NC}     ${CLR_DIM}[build.gdocs] command = \"tut build...\"${CLR_NC}"
+            echo -e "  ${CLR_OK}ENV[ssh]${CLR_NC}         ${CLR_DIM}[env.prod] ssh = \"root@1.2.3.4\"${CLR_NC}"
+            ;;
+        items)
+            _deploy_help_section "ITEMS"
+            echo ""
+            _deploy_help_sub "File Selection Syntax:"
+            _deploy_help_cmd "docs:gdocs" "Pipeline: run gdocs pipeline"
+            _deploy_help_cmd "docs:{gdocs,deploy}" "Items: build+sync specific items"
+            _deploy_help_cmd "docs:~gdocs" "Shorthand: same as {gdocs}"
+            _deploy_help_cmd "docs:{!index}" "Exclude: all except index"
+            _deploy_help_cmd "docs:{@guides}" "Group: use [files.guides] list"
+            _deploy_help_cmd "docs:>" "Sync-only: skip all builds"
+            _deploy_help_cmd "docs:>{gdocs}" "Sync-only: specific files"
+            echo ""
+            _deploy_help_sub "Combined Syntax:"
+            _deploy_help_cmd "docs:quick:{gdocs}" "Pipeline + items filter"
+            _deploy_help_cmd "docs:quick:~gdocs" "Pipeline + shorthand"
+            _deploy_help_cmd "docs:default -index" "Pipeline, exclude via flag"
+            echo ""
+            _deploy_help_sub "Behavior:"
+            echo -e "  ${CLR_DIM}• {items} affects both build AND sync steps${CLR_NC}"
+            echo -e "  ${CLR_DIM}• build:all is replaced with build:<item> for each item${CLR_NC}"
+            echo -e "  ${CLR_DIM}• build:index always runs (for navigation)${CLR_NC}"
+            echo ""
+            _deploy_help_sub "TOML Structure:"
+            echo -e "  ${CLR_DIM}[files]${CLR_NC}"
+            echo -e "  ${CLR_DIM}gdocs = \"gdocs-guide.html\"${CLR_NC}"
+            echo -e "  ${CLR_DIM}deploy = \"deploy-ref.html\"${CLR_NC}"
+            echo -e "  ${CLR_DIM}[files.guides]${CLR_NC}"
+            echo -e "  ${CLR_DIM}include = [\"gdocs\", \"deploy\", \"org\"]${CLR_NC}"
+            echo ""
+            _deploy_help_sub "Examples:"
+            _deploy_help_ex "deploy docs:{gdocs} prod         # build gdocs, sync gdocs"
+            _deploy_help_ex "deploy docs:~gdocs prod          # same, shorter"
+            _deploy_help_ex "deploy docs:{!index,!tut} prod   # all except index,tut"
+            _deploy_help_ex "deploy docs:{@guides} prod       # items from guides group"
+            _deploy_help_ex "deploy docs:> prod               # just sync, no build"
+            _deploy_help_ex "deploy docs:>{gdocs} prod        # just sync gdocs"
+            ;;
+        aliases)
+            _deploy_help_section "ALIASES"
+            echo ""
+            _deploy_help_sub "Commands:"
+            _deploy_help_cmd "o" "org"
+            _deploy_help_cmd "t" "target"
+            _deploy_help_cmd "e" "env"
+            _deploy_help_cmd "i" "info"
+            _deploy_help_cmd "c" "clear"
+            _deploy_help_cmd "p" "push"
+            _deploy_help_cmd "s" "show"
+            _deploy_help_cmd "ls" "list"
+            _deploy_help_cmd "hist" "history"
+            _deploy_help_cmd "doc" "doctor"
+            _deploy_help_cmd "h" "help"
+            echo ""
+            _deploy_help_sub "Subcommands:"
+            _deploy_help_cmd "doctor r" "doctor reload"
+            ;;
         *)
             # Main categorical help
             _deploy_help_section "deploy - deployment system"
@@ -1003,20 +946,211 @@ deploy_help() {
             _deploy_help_cmd "history" "Show recent deployments"
             echo ""
             _deploy_help_sub "Context Mode:"
+            _deploy_help_cmd "set <org> <tgt> <env>" "Set all three at once"
             _deploy_help_cmd "target <name>" "Set target"
             _deploy_help_cmd "env <name>" "Set env"
             _deploy_help_cmd "deploy" "Deploy (confirms)"
             _deploy_help_cmd "info | clear" "Show/clear context"
             echo ""
             _deploy_help_sub "All Commands:"
-            echo -e "  ${CLR_CMD}Context${CLR_NC}   ${CLR_DIM}org target env info clear${CLR_NC}"
+            echo -e "  ${CLR_CMD}Context${CLR_NC}   ${CLR_DIM}set org target env info clear${CLR_NC}"
+            echo -e "  ${CLR_CMD}Items${CLR_NC}     ${CLR_DIM}items run${CLR_NC}"
             echo -e "  ${CLR_CMD}Deploy${CLR_NC}    ${CLR_DIM}push show list${CLR_NC}"
             echo -e "  ${CLR_CMD}Monitor${CLR_NC}   ${CLR_DIM}history doctor${CLR_NC}"
             echo ""
             _deploy_help_sub "Help Topics:"
-            echo -e "  ${CLR_ARG}context${CLR_NC} ${CLR_ARG}direct${CLR_NC} ${CLR_ARG}history${CLR_NC} ${CLR_ARG}targets${CLR_NC} ${CLR_ARG}vars${CLR_NC} ${CLR_ARG}modes${CLR_NC}"
+            echo -e "  ${CLR_ARG}taxonomy${CLR_NC} ${CLR_ARG}dry-run${CLR_NC} ${CLR_ARG}items${CLR_NC} ${CLR_ARG}context${CLR_NC} ${CLR_ARG}direct${CLR_NC} ${CLR_ARG}history${CLR_NC} ${CLR_ARG}targets${CLR_NC} ${CLR_ARG}vars${CLR_NC} ${CLR_ARG}modes${CLR_NC} ${CLR_ARG}aliases${CLR_NC}"
             ;;
     esac
+}
+
+# =============================================================================
+# ITEMS / RUN OPERATIONS
+# =============================================================================
+
+# Edit items in $EDITOR, return remaining items
+# Usage: _deploy_edit_items
+_deploy_edit_items() {
+    local editor="${VISUAL:-${EDITOR:-vi}}"
+    local tmpfile
+
+    tmpfile=$(mktemp "${TMPDIR:-/tmp}/deploy-items.XXXXXX")
+
+    # Write items to temp file
+    printf '%s\n' "${DEPLOY_CTX_ITEMS[@]}" > "$tmpfile"
+
+    # Open editor
+    "$editor" "$tmpfile"
+    local rc=$?
+
+    if [[ $rc -ne 0 ]]; then
+        echo "Editor exited with error" >&2
+        rm -f "$tmpfile"
+        return 1
+    fi
+
+    # Read back, filter empty/comment lines
+    DEPLOY_CTX_ITEMS=()
+    while IFS= read -r line; do
+        # Skip empty lines and comments
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+        # Trim whitespace
+        line="${line#"${line%%[![:space:]]*}"}"
+        line="${line%"${line##*[![:space:]]}"}"
+        [[ -n "$line" ]] && DEPLOY_CTX_ITEMS+=("$line")
+    done < "$tmpfile"
+
+    rm -f "$tmpfile"
+    DEPLOY_CTX_ITEMS_MODIFIED=1
+
+    if [[ ${#DEPLOY_CTX_ITEMS[@]} -eq 0 ]]; then
+        echo "No items remaining after edit" >&2
+        return 1
+    fi
+
+    echo "Items after edit: ${DEPLOY_CTX_ITEMS[*]} (${#DEPLOY_CTX_ITEMS[@]})"
+    return 0
+}
+
+# Parse -item and =item arguments, return remaining args
+# Sets DEPLOY_ONESHOT_EXCLUDE and DEPLOY_ONESHOT_INCLUDE arrays
+_deploy_parse_item_args() {
+    DEPLOY_ONESHOT_EXCLUDE=()
+    DEPLOY_ONESHOT_INCLUDE=()
+    DEPLOY_REMAINING_ARGS=()
+
+    for arg in "$@"; do
+        case "$arg" in
+            --edit)
+                DEPLOY_EDIT_MODE=1
+                ;;
+            --only)
+                # Next arg is glob, handled by caller
+                DEPLOY_REMAINING_ARGS+=("$arg")
+                ;;
+            -[a-zA-Z_]*)
+                # Exclude: -itemname (but not flags like -n)
+                local item="${arg#-}"
+                # Skip known flags
+                [[ "$item" == "n" || "$item" == "v" ]] && { DEPLOY_REMAINING_ARGS+=("$arg"); continue; }
+                DEPLOY_ONESHOT_EXCLUDE+=("$item")
+                ;;
+            =[a-zA-Z_]*)
+                # Include-only: =itemname
+                DEPLOY_ONESHOT_INCLUDE+=("${arg#=}")
+                ;;
+            *)
+                DEPLOY_REMAINING_ARGS+=("$arg")
+                ;;
+        esac
+    done
+}
+
+# Apply one-shot item filters (without modifying context)
+# Returns filtered items in DEPLOY_WORKING_ITEMS
+_deploy_apply_oneshot_filters() {
+    DEPLOY_WORKING_ITEMS=("${DEPLOY_CTX_ITEMS[@]}")
+
+    # Apply include-only filter
+    if [[ ${#DEPLOY_ONESHOT_INCLUDE[@]} -gt 0 ]]; then
+        local new_items=()
+        for item in "${DEPLOY_WORKING_ITEMS[@]}"; do
+            for inc in "${DEPLOY_ONESHOT_INCLUDE[@]}"; do
+                [[ "$item" == "$inc" ]] && { new_items+=("$item"); break; }
+            done
+        done
+        DEPLOY_WORKING_ITEMS=("${new_items[@]}")
+    fi
+
+    # Apply exclude filter
+    if [[ ${#DEPLOY_ONESHOT_EXCLUDE[@]} -gt 0 ]]; then
+        local new_items=()
+        for item in "${DEPLOY_WORKING_ITEMS[@]}"; do
+            local exclude=0
+            for ex in "${DEPLOY_ONESHOT_EXCLUDE[@]}"; do
+                [[ "$item" == "$ex" ]] && { exclude=1; break; }
+            done
+            [[ $exclude -eq 0 ]] && new_items+=("$item")
+        done
+        DEPLOY_WORKING_ITEMS=("${new_items[@]}")
+    fi
+}
+
+# Run operation on items
+# Usage: deploy run <operation> [operation...]
+#        deploy run build sync
+deploy_run() {
+    local operations=()
+    local dry_run=0
+
+    # Parse args
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -n|--dry-run) dry_run=1; shift ;;
+            *) operations+=("$1"); shift ;;
+        esac
+    done
+
+    # Need target and items
+    if [[ -z "$DEPLOY_CTX_TARGET" ]]; then
+        echo "Need target - run: deploy target <name>" >&2
+        return 1
+    fi
+
+    if [[ ${#DEPLOY_CTX_ITEMS[@]} -eq 0 ]]; then
+        echo "No items to operate on" >&2
+        return 1
+    fi
+
+    # Default operation from pipeline
+    if [[ ${#operations[@]} -eq 0 ]]; then
+        if [[ -n "$DEPLOY_CTX_PIPELINE" ]]; then
+            operations=("$DEPLOY_CTX_PIPELINE")
+        else
+            echo "No operation specified and no default pipeline" >&2
+            return 1
+        fi
+    fi
+
+    local toml
+    if [[ "$DEPLOY_CTX_TARGET" == "." ]]; then
+        toml="./tetra-deploy.toml"
+    else
+        toml=$(_deploy_find_target "$DEPLOY_CTX_TARGET")
+    fi
+
+    if [[ -z "$toml" || ! -f "$toml" ]]; then
+        echo "Target TOML not found: $DEPLOY_CTX_TARGET" >&2
+        return 1
+    fi
+
+    echo "Running: ${operations[*]}"
+    echo "Items: ${DEPLOY_CTX_ITEMS[*]} (${#DEPLOY_CTX_ITEMS[@]})"
+    [[ $dry_run -eq 1 ]] && echo "[DRY RUN]"
+    echo ""
+
+    # Run each operation
+    for op in "${operations[@]}"; do
+        echo "[${op}]"
+
+        for item in "${DEPLOY_CTX_ITEMS[@]}"; do
+            local value=$(_deploy_items_get_value "$toml" "$item")
+            [[ -z "$value" ]] && { echo "  $item: (no value, skipping)"; continue; }
+
+            echo "  $item: $value"
+
+            # Here you would run the actual operation
+            # For now, just show what would be done
+            if [[ $dry_run -eq 0 ]]; then
+                # TODO: Integrate with de_run or pipeline system
+                :
+            fi
+        done
+
+        echo ""
+    done
+
+    echo "Done"
 }
 
 # =============================================================================
@@ -1058,6 +1192,20 @@ deploy() {
         clear|c)
             deploy_clear_context
             ;;
+        set)
+            shift
+            deploy_set "$@"
+            ;;
+
+        # Items commands
+        items)
+            shift
+            deploy_items "$@"
+            ;;
+        run)
+            shift
+            deploy_run "$@"
+            ;;
 
         # Action commands
         push|p)
@@ -1072,7 +1220,8 @@ deploy() {
             deploy_list
             ;;
         doctor|doc)
-            deploy_doctor
+            shift
+            deploy_doctor "$@"
             ;;
         history|hist)
             shift
@@ -1087,21 +1236,234 @@ deploy() {
             deploy_push "$@"
             ;;
         *)
-            # Default: deploy <target> <env> or deploy <env>
+            # Check for address syntax: [org:]target[:pipeline][:{items}]
+            if [[ "$cmd" == *:* ]]; then
+                local org_override=""
+                local target=""
+                local rest=""
+                local pipeline="default"
+                local items_override=""
+                shift  # Remove cmd
+
+                # Count colons to determine format
+                local colon_count="${cmd//[^:]}"
+                colon_count=${#colon_count}
+
+                if [[ $colon_count -ge 2 ]]; then
+                    # Could be org:target:pipeline or target:pipeline:{items}
+                    local first="${cmd%%:*}"
+                    local after_first="${cmd#*:}"
+
+                    # Check if first part is an org (exists in orgs dir)
+                    if [[ -d "$TETRA_DIR/orgs/$first" ]]; then
+                        # org:target:... format
+                        org_override="$first"
+                        target="${after_first%%:*}"
+                        rest="${after_first#*:}"
+                    else
+                        # target:pipeline:... format
+                        target="$first"
+                        rest="$after_first"
+                    fi
+                else
+                    # Simple target:something format
+                    target="${cmd%%:*}"
+                    rest="${cmd#*:}"
+                fi
+
+                # Apply org override if specified
+                local save_org=""
+                if [[ -n "$org_override" ]]; then
+                    save_org="$DEPLOY_CTX_ORG"
+                    export DEPLOY_CTX_ORG="$org_override"
+                fi
+
+                # Helper to restore org on exit
+                _restore_org() { [[ -n "$org_override" ]] && export DEPLOY_CTX_ORG="$save_org"; }
+
+                # Parse rest: could be pipeline, {items}, or pipeline:{items}
+                # Syntax sugar:
+                #   {gdocs,deploy}  - specific items
+                #   {!index}        - exclude (all except index)
+                #   {@guides}       - group reference from [files.guides]
+                #   ~gdocs          - shorthand for {gdocs}
+                #   >               - sync-only (quick pipeline)
+                #   >{gdocs}        - sync-only with specific items
+
+                if [[ "$rest" == ">"* ]]; then
+                    # Sync-only: docs:> or docs:>{items}
+                    pipeline="quick"
+                    local sync_items="${rest#>}"
+                    if [[ "$sync_items" == "{"*"}" ]]; then
+                        items_override="${sync_items#\{}"
+                        items_override="${items_override%\}}"
+                        items_override="${items_override//,/ }"
+                    fi
+                elif [[ "$rest" == "~"* ]]; then
+                    # Shorthand: docs:~gdocs = docs:{gdocs}
+                    items_override="${rest#\~}"
+                elif [[ "$rest" == "{"*"}" ]]; then
+                    # Items with possible modifiers: {gdocs}, {!index}, {@guides}
+                    local inside="${rest#\{}"
+                    inside="${inside%\}}"
+
+                    if [[ "$inside" == "!"* ]]; then
+                        # Exclusion: {!index,!tut} = all except these
+                        # Need to load TOML to get all items, then exclude
+                        local toml_check=$(_deploy_find_target "$target")
+                        if [[ -n "$toml_check" ]]; then
+                            local all_items=$(_deploy_items_from_toml "$toml_check")
+                            local excludes="${inside//!/}"
+                            excludes="${excludes//,/ }"
+                            for item in $all_items; do
+                                local skip=0
+                                for ex in $excludes; do
+                                    [[ "$item" == "$ex" ]] && { skip=1; break; }
+                                done
+                                [[ $skip -eq 0 ]] && items_override="$items_override $item"
+                            done
+                            items_override="${items_override# }"
+                        fi
+                    elif [[ "$inside" == "@"* ]]; then
+                        # Group reference: {@guides} = items from [files.guides].include
+                        local group="${inside#@}"
+                        local toml_check=$(_deploy_find_target "$target")
+                        if [[ -n "$toml_check" ]]; then
+                            # Get include list from [files.<group>]
+                            items_override=$(awk -v g="$group" '
+                                /^\[files\.'"$group"'\]/{found=1; next}
+                                /^\[/{found=0}
+                                found && /^include/ {
+                                    gsub(/.*\[|\]|"/, "")
+                                    gsub(/,/, " ")
+                                    print
+                                }
+                            ' "$toml_check")
+                        fi
+                    else
+                        # Regular items: {gdocs,deploy}
+                        items_override="${inside//,/ }"
+                    fi
+                elif [[ "$rest" == *":{"*"}" ]]; then
+                    # Pipeline with items: docs:sync:{gdocs,deploy}
+                    pipeline="${rest%%:\{*}"
+                    items_override="${rest#*:\{}"
+                    items_override="${items_override%\}}"
+                    items_override="${items_override//,/ }"
+                elif [[ "$rest" == *":~"* ]]; then
+                    # Pipeline with shorthand: docs:quick:~gdocs
+                    pipeline="${rest%%:~*}"
+                    items_override="${rest#*:~}"
+                elif [[ "$rest" == "*" ]]; then
+                    # Wildcard: docs:* means all files
+                    pipeline="default"
+                else
+                    # Just pipeline: docs:gdocs
+                    pipeline="$rest"
+                fi
+
+                # Parse remaining args for --edit and -item/=item
+                DEPLOY_EDIT_MODE=0
+                _deploy_parse_item_args "$@"
+                set -- "${DEPLOY_REMAINING_ARGS[@]}"
+
+                local env="${1:-}"
+                local dry_run=0
+                [[ "$2" == "-n" || "$2" == "--dry-run" ]] && dry_run=1
+
+                # Find target TOML
+                local toml=$(_deploy_find_target "$target")
+                if [[ -z "$toml" ]]; then
+                    echo "Target not found: $target" >&2
+                    _restore_org
+                    return 1
+                fi
+
+                # Handle --edit mode
+                if [[ $DEPLOY_EDIT_MODE -eq 1 ]]; then
+                    # Temporarily set target to load items
+                    local save_target="$DEPLOY_CTX_TARGET"
+                    export DEPLOY_CTX_TARGET="$target"
+                    deploy_items_reset
+
+                    # Apply one-shot filters before editing
+                    _deploy_apply_oneshot_filters
+                    DEPLOY_CTX_ITEMS=("${DEPLOY_WORKING_ITEMS[@]}")
+
+                    _deploy_edit_items || {
+                        export DEPLOY_CTX_TARGET="$save_target"
+                        _restore_org
+                        return 1
+                    }
+
+                    # Run pipeline on edited items
+                    de_load "$toml" || { export DEPLOY_CTX_TARGET="$save_target"; _restore_org; return 1; }
+                    de_run "$pipeline" "$env" "$dry_run" "${DEPLOY_CTX_ITEMS[*]}"
+                    local rc=$?
+
+                    # Restore target and org
+                    export DEPLOY_CTX_TARGET="$save_target"
+                    _restore_org
+                    return $rc
+                fi
+
+                # Handle one-shot filters (without --edit)
+                if [[ ${#DEPLOY_ONESHOT_EXCLUDE[@]} -gt 0 || ${#DEPLOY_ONESHOT_INCLUDE[@]} -gt 0 ]]; then
+                    local save_target="$DEPLOY_CTX_TARGET"
+                    local save_items=("${DEPLOY_CTX_ITEMS[@]}")
+                    local save_modified=$DEPLOY_CTX_ITEMS_MODIFIED
+
+                    export DEPLOY_CTX_TARGET="$target"
+                    deploy_items_reset
+                    _deploy_apply_oneshot_filters
+                    DEPLOY_CTX_ITEMS=("${DEPLOY_WORKING_ITEMS[@]}")
+
+                    if [[ ${#DEPLOY_CTX_ITEMS[@]} -eq 0 ]]; then
+                        echo "No items remaining after filter" >&2
+                        export DEPLOY_CTX_TARGET="$save_target"
+                        DEPLOY_CTX_ITEMS=("${save_items[@]}")
+                        DEPLOY_CTX_ITEMS_MODIFIED=$save_modified
+                        _restore_org
+                        return 1
+                    fi
+
+                    echo "Items: ${DEPLOY_CTX_ITEMS[*]} (${#DEPLOY_CTX_ITEMS[@]})"
+                    de_load "$toml" || { export DEPLOY_CTX_TARGET="$save_target"; _restore_org; return 1; }
+                    de_run "$pipeline" "$env" "$dry_run" "${DEPLOY_CTX_ITEMS[*]}"
+                    local rc=$?
+
+                    # Restore context
+                    export DEPLOY_CTX_TARGET="$save_target"
+                    DEPLOY_CTX_ITEMS=("${save_items[@]}")
+                    DEPLOY_CTX_ITEMS_MODIFIED=$save_modified
+                    _restore_org
+                    return $rc
+                fi
+
+                # Standard target:pipeline run (with optional items_override from brace syntax)
+                de_load "$toml" || { _restore_org; return 1; }
+                de_run "$pipeline" "$env" "$dry_run" "$items_override"
+                local rc=$?
+                _restore_org
+                return $rc
+            fi
+
+            # Default: deploy <target> <env> or deploy <env> (legacy)
             deploy_push "$@"
             ;;
     esac
 }
 
 # =============================================================================
-# EXPORTS
+# EXPORTS (context exports in deploy_ctx.sh)
 # =============================================================================
 
-export -f deploy deploy_push deploy_show deploy_list deploy_history deploy_doctor deploy_help
+export -f deploy deploy_push deploy_show deploy_with_context
+export -f deploy_history deploy_doctor _deploy_doctor_complete deploy_help
 export -f _deploy_help_colors _deploy_help_section _deploy_help_sub _deploy_help_cmd _deploy_help_ex
-export -f deploy_org_set deploy_target_set deploy_env_set deploy_clear_context deploy_info deploy_with_context
-export -f _tetra_deploy_info _deploy_active_org
 export -f _deploy_load _deploy_load_standalone _deploy_load_org
 export -f _deploy_template _deploy_exec _deploy_resolve _deploy_clear
 export -f _deploy_is_env _deploy_find_target
 export -f _deploy_toml_get _deploy_toml_get_array _deploy_toml_has_ssh
+export -f _deploy_edit_items _deploy_parse_item_args _deploy_apply_oneshot_filters
+export -f deploy_run

@@ -10,6 +10,106 @@
 #   de_files                         # List file sets
 
 # =============================================================================
+# OUTPUT FORMATTING
+# =============================================================================
+
+_de_init_colors() {
+    if type tds_text_color &>/dev/null; then
+        DE_CLR_HEAD=$(tds_text_color "content.heading.h1")
+        DE_CLR_STEP=$(tds_text_color "content.heading.h2")
+        DE_CLR_CMD=$(tds_text_color "action.primary")
+        DE_CLR_FILE=$(tds_text_color "action.secondary")
+        DE_CLR_DIM=$(tds_text_color "text.muted")
+        DE_CLR_OK=$(tds_text_color "status.success")
+        DE_CLR_WARN=$(tds_text_color "status.warning")
+        DE_CLR_NC=$(reset_color)
+    else
+        DE_CLR_HEAD='\033[1;36m'    # Cyan bold
+        DE_CLR_STEP='\033[0;33m'    # Yellow
+        DE_CLR_CMD='\033[0;37m'     # White
+        DE_CLR_FILE='\033[0;32m'    # Green
+        DE_CLR_DIM='\033[0;90m'     # Gray
+        DE_CLR_OK='\033[0;32m'      # Green
+        DE_CLR_WARN='\033[0;33m'    # Yellow
+        DE_CLR_NC='\033[0m'         # Reset
+    fi
+}
+
+# Format file size human-readable
+_de_format_size() {
+    local bytes="$1"
+    if [[ $bytes -ge 1048576 ]]; then
+        printf "%.1fM" "$(echo "scale=1; $bytes/1048576" | bc)"
+    elif [[ $bytes -ge 1024 ]]; then
+        printf "%.1fK" "$(echo "scale=1; $bytes/1024" | bc)"
+    else
+        printf "%dB" "$bytes"
+    fi
+}
+
+# Print command with smart wrapping
+# Usage: _de_print_cmd <prefix> <command>
+_de_print_cmd() {
+    local prefix="$1"
+    local cmd="$2"
+    local width=${COLUMNS:-80}
+    local indent="                    "  # 20 spaces for continuation
+    local max_first=$((width - ${#prefix} - 4))
+    local max_cont=$((width - ${#indent} - 2))
+
+    # If it fits, just print it
+    if [[ ${#cmd} -le $max_first ]]; then
+        echo -e "  ${DE_CLR_STEP}${prefix}${DE_CLR_NC} ${DE_CLR_CMD}${cmd}${DE_CLR_NC}"
+        return
+    fi
+
+    # Split on spaces, wrap intelligently
+    local line=""
+    local first=1
+    for word in $cmd; do
+        local test_line="$line $word"
+        local max=$max_first
+        [[ $first -eq 0 ]] && max=$max_cont
+
+        if [[ ${#test_line} -gt $max && -n "$line" ]]; then
+            if [[ $first -eq 1 ]]; then
+                echo -e "  ${DE_CLR_STEP}${prefix}${DE_CLR_NC} ${DE_CLR_CMD}${line}${DE_CLR_NC} ${DE_CLR_DIM}\\\\${DE_CLR_NC}"
+                first=0
+            else
+                echo -e "${DE_CLR_CMD}${indent}${line}${DE_CLR_NC} ${DE_CLR_DIM}\\\\${DE_CLR_NC}"
+            fi
+            line="$word"
+        else
+            line="${line:+$line }$word"
+        fi
+    done
+
+    # Print remaining
+    if [[ -n "$line" ]]; then
+        if [[ $first -eq 1 ]]; then
+            echo -e "  ${DE_CLR_STEP}${prefix}${DE_CLR_NC} ${DE_CLR_CMD}${line}${DE_CLR_NC}"
+        else
+            echo -e "${DE_CLR_CMD}${indent}${line}${DE_CLR_NC}"
+        fi
+    fi
+}
+
+# Print file with size
+_de_print_file() {
+    local file="$1"
+    local base_dir="$2"
+    local full_path="$base_dir/$file"
+
+    if [[ -f "$full_path" ]]; then
+        local size=$(stat -f%z "$full_path" 2>/dev/null || stat -c%s "$full_path" 2>/dev/null || echo "0")
+        local size_str=$(_de_format_size "$size")
+        printf "  ${DE_CLR_FILE}%-30s${DE_CLR_NC} ${DE_CLR_DIM}%6s${DE_CLR_NC}\n" "$file" "$size_str"
+    else
+        printf "  ${DE_CLR_WARN}%-30s${DE_CLR_NC} ${DE_CLR_DIM}%6s${DE_CLR_NC}\n" "$file" "(new)"
+    fi
+}
+
+# =============================================================================
 # STATE
 # =============================================================================
 
@@ -209,13 +309,13 @@ _de_exec_build() {
     [[ -z "$cmd" ]] && cmd="${DE_BUILD[$name]}"
 
     if [[ -z "$cmd" ]]; then
-        echo "  [skip] build:$name (not defined)" >&2
+        echo -e "  ${DE_CLR_DIM}[skip]${DE_CLR_NC} build:$name ${DE_CLR_DIM}(not defined)${DE_CLR_NC}" >&2
         return 0
     fi
 
     local pre="${DE_BUILD[pre]}"
     if [[ -n "$pre" && -z "$_DE_PRE_RAN" ]]; then
-        echo "  [pre] $pre"
+        _de_print_cmd "[pre]" "$pre"
         if [[ "$dry_run" -eq 0 ]]; then
             (cd "$DE_TOML_DIR" && eval "$pre") || return 1
         fi
@@ -223,7 +323,7 @@ _de_exec_build() {
     fi
 
     cmd=$(_de_template "$cmd" "$env")
-    echo "  [build:$name] $cmd"
+    _de_print_cmd "[build:$name]" "$cmd"
 
     if [[ "$dry_run" -eq 0 ]]; then
         (cd "$DE_TOML_DIR" && eval "$cmd") || return 1
@@ -245,28 +345,59 @@ _de_exec_sync() {
     local cwd=$(_de_template "{{cwd}}" "$env")
     local source="${DE_TARGET[source]}"
 
+    echo -e "  ${DE_CLR_STEP}[sync]${DE_CLR_NC} ${DE_CLR_DIM}${ssh}:${cwd}/${DE_CLR_NC}"
+
     local cmd="rsync $options"
     [[ "$delete" == "true" ]] && cmd="$cmd --delete"
     [[ -n "$chown" ]] && cmd="$cmd --chown=$chown"
 
+    local total_size=0
+    local file_count=0
+
     if [[ -n "$files" && "$files" != "*.html" && "$files" != "*" ]]; then
+        # Specific files - show each with size
         for f in $files; do
+            local full_path="$DE_TOML_DIR/${source}$f"
+            if [[ -f "$full_path" ]]; then
+                local size=$(stat -f%z "$full_path" 2>/dev/null || stat -c%s "$full_path" 2>/dev/null || echo "0")
+                local size_str=$(_de_format_size "$size")
+                printf "    ${DE_CLR_FILE}%-28s${DE_CLR_NC} ${DE_CLR_DIM}%6s${DE_CLR_NC}\n" "$f" "$size_str"
+                total_size=$((total_size + size))
+                file_count=$((file_count + 1))
+            else
+                printf "    ${DE_CLR_WARN}%-28s${DE_CLR_NC} ${DE_CLR_DIM}%6s${DE_CLR_NC}\n" "$f" "(new)"
+                file_count=$((file_count + 1))
+            fi
             cmd="$cmd ${source}$f"
         done
         cmd="$cmd $ssh:$cwd/"
     else
+        # All files from source
+        if [[ -d "$DE_TOML_DIR/$source" ]]; then
+            for full_path in "$DE_TOML_DIR/$source"*; do
+                [[ -f "$full_path" ]] || continue
+                local f=$(basename "$full_path")
+                local size=$(stat -f%z "$full_path" 2>/dev/null || stat -c%s "$full_path" 2>/dev/null || echo "0")
+                local size_str=$(_de_format_size "$size")
+                printf "    ${DE_CLR_FILE}%-28s${DE_CLR_NC} ${DE_CLR_DIM}%6s${DE_CLR_NC}\n" "$f" "$size_str"
+                total_size=$((total_size + size))
+                file_count=$((file_count + 1))
+            done
+        fi
         cmd="$cmd ${source} $ssh:$cwd/"
     fi
 
-    echo "  [sync] $cmd"
+    # Summary
+    local total_str=$(_de_format_size "$total_size")
+    echo -e "    ${DE_CLR_DIM}─────────────────────────────────────${DE_CLR_NC}"
+    printf "    ${DE_CLR_DIM}%-28s %6s${DE_CLR_NC}\n" "$file_count files" "$total_str"
 
     if [[ "$dry_run" -eq 0 ]]; then
         (cd "$DE_TOML_DIR" && eval "$cmd") || return 1
 
         if [[ -n "$chmod" ]]; then
-            local chmod_cmd="ssh $ssh chmod -R $chmod $cwd"
-            echo "  [chmod] $chmod_cmd"
-            eval "$chmod_cmd" || return 1
+            echo -e "  ${DE_CLR_STEP}[chmod]${DE_CLR_NC} ${DE_CLR_DIM}$chmod${DE_CLR_NC}"
+            ssh "$ssh" "chmod -R $chmod $cwd" || return 1
         fi
     fi
 }
@@ -275,6 +406,7 @@ de_run() {
     local pipeline="${1:-default}"
     local env="$2"
     local dry_run="${3:-0}"
+    local items_override="${4:-}"  # Optional: space-separated file keys
 
     local resolved="${DE_ALIAS[$pipeline]}"
     [[ -n "$resolved" ]] && pipeline="$resolved"
@@ -285,6 +417,9 @@ de_run() {
         echo "Available: $(de_pipelines)" >&2
         return 1
     fi
+
+    # Store items override for build/sync steps (declare global)
+    declare -g DE_ITEMS_OVERRIDE="$items_override"
 
     local ssh="${DE_ENV["$env.ssh"]}"
     local inherit="${DE_ENV["$env.inherit"]}"
@@ -304,10 +439,13 @@ de_run() {
         [[ "$ans" != "y" && "$ans" != "Y" ]] && { echo "Cancelled"; return 1; }
     fi
 
-    echo "========================================"
-    echo "Deploy: ${DE_TARGET[name]}:$pipeline -> $env"
-    [[ "$dry_run" -eq 1 ]] && echo "[DRY RUN]"
-    echo "========================================"
+    _de_init_colors
+
+    echo -e "${DE_CLR_DIM}────────────────────────────────────────${DE_CLR_NC}"
+    echo -e "${DE_CLR_HEAD}Deploy${DE_CLR_NC} ${DE_TARGET[name]}:$pipeline ${DE_CLR_DIM}→${DE_CLR_NC} $env"
+    [[ -n "$DE_ITEMS_OVERRIDE" ]] && echo -e "${DE_CLR_DIM}Files${DE_CLR_NC}  $DE_ITEMS_OVERRIDE"
+    [[ "$dry_run" -eq 1 ]] && echo -e "${DE_CLR_WARN}[DRY RUN]${DE_CLR_NC}"
+    echo -e "${DE_CLR_DIM}────────────────────────────────────────${DE_CLR_NC}"
 
     _DE_PRE_RAN=""
     local start_time=$SECONDS
@@ -316,23 +454,55 @@ de_run() {
         case "$step" in
             build:*)
                 local build_name="${step#build:}"
+                # If items specified, filter build steps
+                if [[ -n "$DE_ITEMS_OVERRIDE" ]]; then
+                    local should_build=0
+                    # Skip build:all when items are specified (we'll build individual items)
+                    if [[ "$build_name" == "all" ]]; then
+                        echo -e "  ${DE_CLR_DIM}[skip]${DE_CLR_NC} build:all ${DE_CLR_DIM}(items specified)${DE_CLR_NC}"
+                        # Instead, build each specified item
+                        for item_key in $DE_ITEMS_OVERRIDE; do
+                            _de_exec_build "$item_key" "$env" "$dry_run" || return 1
+                        done
+                        continue
+                    fi
+                    # Always allow build:index
+                    [[ "$build_name" == "index" ]] && should_build=1
+                    # Check if this build matches any specified item
+                    for item_key in $DE_ITEMS_OVERRIDE; do
+                        [[ "$build_name" == "$item_key" ]] && { should_build=1; break; }
+                    done
+                    if [[ $should_build -eq 0 ]]; then
+                        echo -e "  ${DE_CLR_DIM}[skip]${DE_CLR_NC} build:$build_name ${DE_CLR_DIM}(not in items)${DE_CLR_NC}"
+                        continue
+                    fi
+                fi
                 _de_exec_build "$build_name" "$env" "$dry_run" || return 1
                 ;;
             sync)
-                local files=$(_de_resolve_files "${pipeline}")
-                [[ -z "$files" ]] && files=$(_de_resolve_files "all")
+                local files=""
+                if [[ -n "$DE_ITEMS_OVERRIDE" ]]; then
+                    # Resolve each item key to its file value
+                    for item_key in $DE_ITEMS_OVERRIDE; do
+                        local item_file=$(_de_resolve_files "$item_key")
+                        [[ -n "$item_file" ]] && files="$files $item_file"
+                    done
+                    files="${files# }"
+                else
+                    files=$(_de_resolve_files "${pipeline}")
+                    [[ -z "$files" ]] && files=$(_de_resolve_files "all")
+                fi
                 _de_exec_sync "$env" "$files" "$dry_run" || return 1
                 ;;
             *)
-                echo "  [unknown step] $step" >&2
+                echo -e "  ${DE_CLR_WARN}[unknown]${DE_CLR_NC} $step" >&2
                 ;;
         esac
     done
 
     local duration=$((SECONDS - start_time))
-    echo "========================================"
-    echo "Done (${duration}s)"
-    echo "========================================"
+    echo -e "${DE_CLR_DIM}────────────────────────────────────────${DE_CLR_NC}"
+    echo -e "${DE_CLR_OK}Done${DE_CLR_NC} ${DE_CLR_DIM}(${duration}s)${DE_CLR_NC}"
 
     if [[ "$dry_run" -eq 0 ]] && type _deploy_log &>/dev/null; then
         _deploy_log "${DE_TARGET[name]}:$pipeline" "$env" "push" "success" "$duration"
@@ -386,3 +556,4 @@ export -f de_load de_run de_show de_pipelines de_files de_envs
 export -f _de_clear _de_parse_value _de_parse_array
 export -f _de_template _de_resolve_files
 export -f _de_exec_build _de_exec_sync
+export -f _de_init_colors _de_format_size _de_print_cmd _de_print_file

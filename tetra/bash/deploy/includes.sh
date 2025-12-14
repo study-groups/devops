@@ -15,21 +15,8 @@ tetra_module_init_with_alias "deploy" "DEPLOY" "nginx:logs:history"
 # Source org dependency
 tetra_source_if_exists "${TETRA_SRC}/bash/org/org.sh"
 
-# =============================================================================
-# PROMPT INTEGRATION
-# =============================================================================
-
-# Enable org display in prompt when deploy is loaded
-_deploy_setup_prompt() {
-    local org=$(org_active 2>/dev/null)
-    [[ -z "$org" || "$org" == "none" ]] && return
-
-    # Use the tetra prompt system if available
-    export TETRA_PROMPT_ORG=1
-}
-
-# Set up prompt now
-_deploy_setup_prompt
+# Source TPS (Tetra Prompt System) for [org:target:env] display
+tetra_source_if_exists "${TETRA_SRC}/bash/tps/includes.sh"
 
 # =============================================================================
 # CONFIGURATION DEFAULTS
@@ -152,7 +139,7 @@ _deploy_log() {
     shift 5 2>/dev/null || shift 4
     local extra="$*"
 
-    local log_dir="$MOD_DIR/logs"
+    local log_dir="$DEPLOY_DIR/logs"
     local log_file="$log_dir/deploy.log"
 
     # Gather context
@@ -213,7 +200,7 @@ _deploy_generate_proxy_config() {
     local proxy_type="${6:-subdomain}"
 
     local config_name="${project}-${service}-${env}.conf"
-    local config_dir="$MOD_DIR/nginx"
+    local config_dir="$DEPLOY_DIR/nginx"
     mkdir -p "$config_dir"
     local config_file="$config_dir/$config_name"
 
@@ -231,7 +218,7 @@ _deploy_generate_proxy_config() {
     local ssl_key=$(deploy_domain_get_ssl_key "$service_domain")
 
     # Select template
-    local template_file="$MOD_SRC/templates/nginx/proxy-${proxy_type}.conf.tmpl"
+    local template_file="$DEPLOY_SRC/templates/nginx/proxy-${proxy_type}.conf.tmpl"
     if [[ ! -f "$template_file" ]]; then
         echo "Template not found: $template_file" >&2
         return 1
@@ -268,18 +255,28 @@ export -f _deploy_generate_proxy_config
 # =============================================================================
 # SOURCE DEPLOY MODULES
 # =============================================================================
+# Use DEPLOY_SRC (stable) instead of MOD_SRC (overwritten by TPS)
+
+# Context management (must come first - sets up state)
+source "$DEPLOY_SRC/deploy_ctx.sh"
+
+# Transport layer (var/array/func serialization across SSH)
+source "$DEPLOY_SRC/deploy_transport.sh"
 
 # Core implementation (deploy_target_push, deploy_target_load, etc)
-source "$MOD_SRC/deploy_remote.sh"
+source "$DEPLOY_SRC/deploy_remote.sh"
 
 # Optional modules (use tetra_source_if_exists for missing files)
 # NOTE: deploy_target.sh is LEGACY - do not source (conflicts with deploy_remote.sh)
-tetra_source_if_exists "$MOD_SRC/deploy_domain.sh"
+tetra_source_if_exists "$DEPLOY_SRC/deploy_domain.sh"
+
+# File-centric deploy engine
+source "$DEPLOY_SRC/deploy_engine.sh"
 
 # Main dispatcher (must come after implementations)
-source "$MOD_SRC/deploy.sh"
+source "$DEPLOY_SRC/deploy.sh"
 
 # Tab completion
-tetra_source_if_exists "$MOD_SRC/deploy_complete.sh"
+tetra_source_if_exists "$DEPLOY_SRC/deploy_complete.sh"
 
 complete -F _deploy_complete deploy 2>/dev/null || true
