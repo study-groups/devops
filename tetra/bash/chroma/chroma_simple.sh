@@ -630,7 +630,20 @@ _chroma_color() {
     local token="$1"
     (( CHROMA_NO_COLOR )) && return
 
-    # Try TDS first
+    # Emphasis tokens need ANSI attributes, not colors
+    # Handle these specially regardless of TDS
+    case "$token" in
+        content.emphasis.strong|bold)
+            printf '\033[1m'  # Bold attribute
+            return
+            ;;
+        content.emphasis.em|italic)
+            printf '\033[3m'  # Italic attribute
+            return
+            ;;
+    esac
+
+    # Try TDS first for color tokens
     if declare -F tds_text_color &>/dev/null; then
         tds_text_color "$token"
         return
@@ -833,6 +846,56 @@ _chroma_visual_width() {
     text="${text//\*/}"
     text="${text//\`/}"
     echo "${#text}"
+}
+
+# Word-wrap text to specified width
+# Args: text, width, indent (for continuation lines)
+# Outputs wrapped lines
+_chroma_word_wrap() {
+    local text="$1"
+    local width="$2"
+    local indent="${3:-}"
+    local indent_width=${#indent}
+
+    # First line uses full width, continuation lines account for indent
+    local first_width=$width
+    local cont_width=$((width - indent_width))
+    (( cont_width < 20 )) && cont_width=20
+
+    local line=""
+    local line_len=0
+    local first_line=1
+    local max_width=$first_width
+
+    # Split into words
+    local words
+    read -ra words <<< "$text"
+
+    for word in "${words[@]}"; do
+        local word_len=$(_chroma_visual_width "$word")
+
+        if (( line_len == 0 )); then
+            # Start of line
+            line="$word"
+            line_len=$word_len
+        elif (( line_len + 1 + word_len <= max_width )); then
+            # Word fits on current line
+            line="$line $word"
+            line_len=$((line_len + 1 + word_len))
+        else
+            # Word doesn't fit, output current line and start new
+            echo "$line"
+            if (( first_line )); then
+                first_line=0
+                max_width=$cont_width
+            fi
+            line="${indent}${word}"
+            line_len=$((indent_width + word_len))
+        fi
+    done
+
+    # Output remaining text
+    [[ -n "$line" ]] && echo "$line"
 }
 
 # Parse table row into cells array
@@ -1183,11 +1246,19 @@ _chroma_render_line() {
             ;;
 
         text|*)
-            printf '%s' "$pad"
-            _chroma_color "$(_chroma_token text)"
-            _chroma_inline "$content" "text"
-            _chroma_reset
-            echo
+            # Word-wrap long lines
+            local text_width=$((width - ${#pad}))
+            local wrapped_lines
+            mapfile -t wrapped_lines < <(_chroma_word_wrap "$content" "$text_width" "")
+
+            local first=1
+            for wline in "${wrapped_lines[@]}"; do
+                printf '%s' "$pad"
+                _chroma_color "$(_chroma_token text)"
+                _chroma_inline "$wline" "text"
+                _chroma_reset
+                echo
+            done
             ;;
     esac
 
