@@ -108,12 +108,28 @@ bg_only() {
 # Full RGB background color - for terminal background setting
 bg_color() {
     local hex="$1"
-    local r g b
-    read r g b < <(hex_to_rgb "$hex")
+    local hex_clean="${hex#\#}"
+    if [[ ! "$hex_clean" =~ ^[0-9A-Fa-f]{6}$ ]]; then
+        return 1
+    fi
+    local r=$((16#${hex_clean:0:2}))
+    local g=$((16#${hex_clean:2:2}))
+    local b=$((16#${hex_clean:4:2}))
     printf "\033[48;2;%d;%d;%dm" "$r" "$g" "$b"
 }
 # Reset all color formatting - use after every color sequence
 reset_color() { printf "\033[0m"; }
+
+# Readline-aware versions - wrap escape codes for correct cursor positioning
+# Use these when building prompts for readline input
+text_color_rl() {
+    local hex="$1"
+    local color256
+    color256=$(hex_to_256 "$hex")
+    printf "\001\033[38;5;%dm\002" "$color256"
+}
+
+reset_color_rl() { printf "\001\033[0m\002"; }
 
 # Desaturation function - works with our color system
 desaturate_hex() {
@@ -125,8 +141,18 @@ desaturate_hex() {
         return
     fi
 
-    local r g b
-    read r g b < <(hex_to_rgb "$hex")
+    # Parse hex directly to avoid IFS issues with process substitution
+    local hex_clean="${hex#\#}"
+
+    # Validate
+    if [[ ! "$hex_clean" =~ ^[0-9A-Fa-f]{6}$ ]]; then
+        echo "$hex"  # Return original if invalid
+        return 1
+    fi
+
+    local r=$((16#${hex_clean:0:2}))
+    local g=$((16#${hex_clean:2:2}))
+    local b=$((16#${hex_clean:4:2}))
 
     # Convert to grayscale using luminance formula
     local gray=$(( (r * 299 + g * 587 + b * 114) / 1000 ))

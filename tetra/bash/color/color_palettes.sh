@@ -6,26 +6,69 @@ _COLOR_PALETTES_LOADED=1
 
 source "$(dirname "${BASH_SOURCE[0]}")/color_core.sh"
 
-# Primary color palettes (8 colors each, no names)
-# Use simple assignment to ensure global scope even when sourced from functions
+# =============================================================================
+# TDS 8x4 PALETTE SYSTEM
+# =============================================================================
+#
+# ENV[0-7]   "Where" - A/B alternating contexts (theme-specific)
+# MODE[0-7]  "How"   - bad/warning/good/info + dims (theme-specific)
+# VERBS[0-7] "Do"    - rainbow cycle for collections (universal)
+# NOUNS[0-7] "What"  - dark→bright gradient (theme-specific)
+
+# ENV_PRIMARY - Alternating hue families for context distinction
+# [0,2,4,6] = hue A (greens), [1,3,5,7] = hue B (teals)
 ENV_PRIMARY=(
-    "00AA00" "22DD22" "44AA44" "66FF66"
-    "00DD88" "006644" "88FF00" "00AAAA"
+    "00AA00"  # 0: A primary (green)
+    "00AAAA"  # 1: B primary (teal)
+    "44DD44"  # 2: A light
+    "44DDDD"  # 3: B light
+    "338833"  # 4: A muted
+    "338888"  # 5: B muted
+    "225522"  # 6: A dim
+    "225555"  # 7: B dim
 )
 
+# MODE_PRIMARY - Semantic states (theme-specific colors)
+# [0]=bad [1]=warning [2]=good [3]=info [4-7]=dim versions (via desaturate_hex)
+_MODE_BAD="DD4444"
+_MODE_WARNING="DDAA44"
+_MODE_GOOD="44DD44"
+_MODE_INFO="4488DD"
 MODE_PRIMARY=(
-    "0088FF" "0044AA" "4400AA" "000088"
-    "0066FF" "4488AA" "88AAFF" "6688AA"
+    "$_MODE_BAD"                          # 0: bad/error (red)
+    "$_MODE_WARNING"                      # 1: warning (amber)
+    "$_MODE_GOOD"                         # 2: good/success (green)
+    "$_MODE_INFO"                         # 3: info (blue)
+    "$(desaturate_hex "$_MODE_BAD" 3)"    # 4: bad dim
+    "$(desaturate_hex "$_MODE_WARNING" 3)" # 5: warning dim
+    "$(desaturate_hex "$_MODE_GOOD" 3)"   # 6: good dim
+    "$(desaturate_hex "$_MODE_INFO" 3)"   # 7: info dim
 )
 
+# VERBS_PRIMARY - Rainbow cycle for collection distinction (universal)
+# 8 maximally distinct hues spread across color wheel
 VERBS_PRIMARY=(
-    "FF0044" "FF6644" "AA4400" "FFAA00"
-    "AA6600" "CC6633" "FFCC00" "FF4400"
+    "E53935"  # 0: red (0°)
+    "FB8C00"  # 1: orange (30°)
+    "FDD835"  # 2: yellow (60°)
+    "43A047"  # 3: green (120°)
+    "00ACC1"  # 4: cyan (180°)
+    "1E88E5"  # 5: blue (210°)
+    "8E24AA"  # 6: purple (270°)
+    "EC407A"  # 7: pink (330°)
 )
 
+# NOUNS_PRIMARY - Text gradient dark→bright
+# [0]=darkest → [7]=brightest
 NOUNS_PRIMARY=(
-    "AA00AA" "FF00FF" "8800AA" "CC44CC"
-    "AA0088" "880088" "FF88FF" "CC00CC"
+    "333333"  # 0: darkest
+    "555555"  # 1: dark
+    "777777"  # 2: dim
+    "999999"  # 3: muted
+    "AAAAAA"  # 4: subtle
+    "CCCCCC"  # 5: light
+    "DDDDDD"  # 6: pale
+    "EEEEEE"  # 7: brightest
 )
 
 # Generate complementary colors
@@ -39,8 +82,15 @@ generate_complements() {
     local -n complement=$2
 
     for hex in "${primary[@]}"; do
-        local r g b
-        read r g b < <(hex_to_rgb "$hex")
+        # Parse hex directly to avoid IFS issues
+        local hex_clean="${hex#\#}"
+        if [[ ! "$hex_clean" =~ ^[0-9A-Fa-f]{6}$ ]]; then
+            complement+=("$hex")  # Keep original if invalid
+            continue
+        fi
+        local r=$((16#${hex_clean:0:2}))
+        local g=$((16#${hex_clean:2:2}))
+        local b=$((16#${hex_clean:4:2}))
         complement+=($(rgb_to_hex $((255-r)) $((255-g)) $((255-b))))
     done
 }
