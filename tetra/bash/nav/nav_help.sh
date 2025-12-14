@@ -84,12 +84,6 @@ _nav_help_build() {
     local detail=$(nav_get "$path" "detail")
     local examples=$(nav_get "$path" "examples")
 
-    # Breadcrumb
-    local bc=$(nav_breadcrumb "$path" | tr '\n' ' > ')
-    bc="${bc% > }"
-    out+=("$(_nav_breadcrumb "$bc")")
-    out+=("")
-
     # Title
     out+=("$(_nav_title "■ ${title:-${path##*.}}")")
     [[ -n "$help" ]] && out+=("$help")
@@ -141,9 +135,6 @@ _nav_help_build() {
         _nav_help_section "OPTIONS:" options out
         _nav_help_section "OTHER:" other out
     fi
-
-    # Navigation hint
-    [[ -n "$children" ]] && out+=("$(_nav_dim "Use <TAB> to explore options")")
 }
 
 # Add a section of children
@@ -154,12 +145,22 @@ _nav_help_section() {
 
     [[ ${#items[@]} -eq 0 ]] && return
 
+    # Find max width for alignment
+    local max_width=0
+    for child in "${items[@]}"; do
+        local leaf="${child##*.}"
+        (( ${#leaf} > max_width )) && max_width=${#leaf}
+    done
+    (( max_width < 12 )) && max_width=12
+
     output+=("$(_nav_section "$header")")
     for child in "${items[@]}"; do
         local leaf="${child##*.}"
         local t=$(nav_get "$child" "title")
         local h=$(nav_get "$child" "help")
-        output+=("$NAV_HELP_INDENT$(_nav_command "$leaf")    $(_nav_dim "${t:-$h}")")
+        # Use printf for alignment, then colorize
+        local padded=$(printf "%-${max_width}s" "$leaf")
+        output+=("$NAV_HELP_INDENT$(_nav_command "$padded")  $(_nav_dim "${t:-$h}")")
     done
     output+=("")
 }
