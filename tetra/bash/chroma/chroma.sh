@@ -34,11 +34,21 @@ chroma() {
     local format
     format=$(chroma_detect_format "$CHROMA_INPUT_FILE" "$CHROMA_FORMAT")
 
-    # 6. Render
+    # Debug
+    (( CHROMA_DEBUG )) && echo "[chroma] file=$CHROMA_INPUT_FILE format=$format pager=$CHROMA_PAGER" >&2
+
+    # 6. Apply margins
+    if (( CHROMA_MARGIN > 0 )); then
+        export TDS_MARGIN_TOP="$CHROMA_MARGIN"
+        export TDS_MARGIN_LEFT="$CHROMA_MARGIN"
+        export TDS_MARGIN_RIGHT="$CHROMA_MARGIN"
+    fi
+
+    # 7. Render
     chroma_render "$format" "$CHROMA_INPUT_FILE" "$CHROMA_PAGER"
     local rc=$?
 
-    # 7. Cleanup
+    # 8. Cleanup
     chroma_cleanup_input
 
     return $rc

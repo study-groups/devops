@@ -96,11 +96,7 @@ chroma_parse_args() {
 # Call after input is resolved
 chroma_auto_pager() {
     if [[ -z "$CHROMA_PAGER" ]]; then
-        # Pager only when: not piped input AND terminal output
-        if (( ! CHROMA_INPUT_IS_TEMP )) && [[ -t 1 ]]; then
-            CHROMA_PAGER=1
-        else
-            CHROMA_PAGER=0
-        fi
+        # Default: no pager (use -p to enable)
+        CHROMA_PAGER=0
     fi
 }

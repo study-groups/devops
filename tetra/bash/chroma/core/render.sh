@@ -14,9 +14,13 @@ chroma_render() {
     local file="$2"
     local use_pager="$3"
 
+    (( CHROMA_DEBUG )) && echo "[render] format=$format file=$file pager=$use_pager" >&2
+
     # Get parser function from registry
     local parser_fn
     parser_fn=$(chroma_get_parser "$format")
+
+    (( CHROMA_DEBUG )) && echo "[render] parser_fn=$parser_fn" >&2
 
     if [[ -z "$parser_fn" ]]; then
         echo "Error: No parser for format '$format'" >&2
@@ -24,15 +28,15 @@ chroma_render() {
         return 1
     fi
 
-    # Build pager command
-    local -a pager_cmd
-    read -ra pager_cmd <<< "${CHROMA_PAGER_CMD:-less -R}"
+    (( CHROMA_DEBUG )) && echo "[render] calling parser with file=$file" >&2
 
-    # Render with or without pager
+    # Render - pass file path directly to parser
     if (( use_pager )); then
-        "$parser_fn" < "$file" | "${pager_cmd[@]}"
+        local -a pager_cmd
+        read -ra pager_cmd <<< "${CHROMA_PAGER_CMD:-less -R}"
+        "$parser_fn" "$file" | "${pager_cmd[@]}"
     else
-        "$parser_fn" < "$file"
+        "$parser_fn" "$file"
     fi
 }
 

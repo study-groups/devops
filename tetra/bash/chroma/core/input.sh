@@ -86,18 +86,21 @@ chroma_detect_format() {
         esac
     fi
 
-    # Content-based (first line)
+    # Content-based (first line) - be conservative
     if [[ -f "$file" ]]; then
         local first_line
         first_line=$(head -1 "$file" 2>/dev/null)
 
-        # TOML: [section] or key = value
-        [[ "$first_line" =~ ^\[.*\]$ ]] && { echo "toml"; return 0; }
-        [[ "$first_line" =~ ^[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*= ]] && { echo "toml"; return 0; }
+        # TOML: [section] (must be word chars only, no spaces inside)
+        [[ "$first_line" =~ ^\[[a-zA-Z_][a-zA-Z0-9_]*\]$ ]] && { echo "toml"; return 0; }
+        # TOML: key = value (simple key, equals sign)
+        [[ "$first_line" =~ ^[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*=[[:space:]] ]] && { echo "toml"; return 0; }
 
-        # JSON: starts with { or [
-        [[ "$first_line" =~ ^[[:space:]]*\{ ]] && { echo "json"; return 0; }
-        [[ "$first_line" =~ ^[[:space:]]*\[ ]] && { echo "json"; return 0; }
+        # JSON: { alone or { followed by quote
+        [[ "$first_line" =~ ^[[:space:]]*\{[[:space:]]*$ ]] && { echo "json"; return 0; }
+        [[ "$first_line" =~ ^[[:space:]]*\{[[:space:]]*\" ]] && { echo "json"; return 0; }
+        # JSON: [ alone (multiline array)
+        [[ "$first_line" =~ ^[[:space:]]*\[[[:space:]]*$ ]] && { echo "json"; return 0; }
     fi
 
     # Default
