@@ -6,6 +6,7 @@
 # Source dependencies
 source "$TETRA_SRC/bash/repl/repl.sh"
 source "$TETRA_SRC/bash/color/repl_colors.sh"
+source "$TETRA_SRC/bash/nav/nav_repl.sh"
 
 # Formant modules
 FORMANT_SYNTH_SRC="${FORMANT_SRC:-$TETRA_SRC/bash/formant}/synth"
@@ -61,45 +62,22 @@ formant_repl_show_help() {
 # ============================================================================
 
 _formant_repl_build_prompt() {
-    local status_symbol="🎙️"
+    # Use single-codepoint emojis to avoid readline width miscalculation
+    local status_symbol="🎤"
     local status_color="00AA00"
 
     if [[ "$FORMANT_REPL_ENGINE_RUNNING" == "1" ]]; then
-        status_symbol="🔊"
+        status_symbol="🔈"
         status_color="00FF00"
     fi
 
-    local tmpfile
-    tmpfile=$(mktemp /tmp/formant_repl_prompt.XXXXXX) || return 1
-
-    # Opening bracket (colored)
-    text_color "$REPL_BRACKET"
-    printf '[' >> "$tmpfile"
-    reset_color >> "$tmpfile"
-
-    # Game name
-    text_color "FFAA00"
-    printf 'formant' >> "$tmpfile"
-    reset_color >> "$tmpfile"
-
-    # Status symbol with color
-    printf ' ' >> "$tmpfile"
-    text_color "$status_color"
-    printf '%s' "$status_symbol" >> "$tmpfile"
-    reset_color >> "$tmpfile"
-
-    # Closing bracket
-    text_color "$REPL_BRACKET"
-    printf '] ' >> "$tmpfile"
-    reset_color >> "$tmpfile"
-
-    # Prompt arrow
-    text_color "$REPL_ARROW"
-    printf '> ' >> "$tmpfile"
-    reset_color >> "$tmpfile"
-
-    REPL_PROMPT=$(<"$tmpfile")
-    rm -f "$tmpfile"
+    # Build prompt with readline-aware escape codes
+    REPL_PROMPT=""
+    REPL_PROMPT+="$(text_color_rl "$REPL_BRACKET")[$(reset_color_rl)"
+    REPL_PROMPT+="$(text_color_rl "FFAA00")formant$(reset_color_rl)"
+    REPL_PROMPT+=" $(text_color_rl "$status_color")${status_symbol}$(reset_color_rl)"
+    REPL_PROMPT+="$(text_color_rl "$REPL_BRACKET")] $(reset_color_rl)"
+    REPL_PROMPT+="$(text_color_rl "$REPL_ARROW")> $(reset_color_rl)"
 }
 
 # ============================================================================
@@ -356,10 +334,15 @@ formant_repl_run() {
     repl_process_input() { _formant_repl_process_input "$@"; }
     export -f repl_build_prompt repl_process_input
 
+    # Build help tree and enable tab completion
+    _formant_build_help_tree
+    nav_repl_enable_completion "help.game.formant"
+
     # Run unified REPL loop (provides /help, /theme, /mode, /exit commands)
     repl_run
 
     # Cleanup
+    nav_repl_disable_completion
     unset -f repl_build_prompt repl_process_input
 
     echo ""
