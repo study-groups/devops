@@ -135,8 +135,8 @@ if command -v _tdocs_build_help_tree >/dev/null 2>&1; then
     _tdocs_build_help_tree 2>/dev/null || true
 fi
 
-# Register tree-based completion with static fallback
-repl_register_tree_completion "help.tdocs" "_tdocs_static_completions"
+# Register nav-based completion with static fallback
+repl_register_nav_completion "help.tdocs" "_tdocs_static_completions"
 
 # ============================================================================
 # CONTEXT DETECTION AND MANAGEMENT

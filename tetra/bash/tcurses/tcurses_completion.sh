@@ -18,6 +18,12 @@ declare -gA REPL_COMPLETION_CATEGORIES=()
 # Completion menu position: "above" or "below" (default: above for REPL, below for TUI)
 declare -g REPL_COMPLETION_MENU_POSITION="${REPL_COMPLETION_MENU_POSITION:-above}"
 
+# Layout configuration (can be overridden by layout system)
+declare -g REPL_ITEMS_COLS="${REPL_ITEMS_COLS:-3}"
+declare -g REPL_ITEMS_WIDTH="${REPL_ITEMS_WIDTH:-18}"
+declare -g REPL_ITEMS_SELECTED_PREFIX="${REPL_ITEMS_SELECTED_PREFIX:-▶}"
+declare -g REPL_ITEMS_NORMAL_PREFIX="${REPL_ITEMS_NORMAL_PREFIX:- }"
+
 # Set completion menu position
 # Usage: repl_set_completion_menu_position "above|below"
 repl_set_completion_menu_position() {
@@ -82,9 +88,12 @@ repl_set_completion_generator() {
 }
 
 # Generate completion words dynamically
+# Generator MUST set REPL_COMPLETION_WORDS directly (and optionally REPL_COMPLETION_HINTS)
+# Called directly in current shell - no subshell, no stdout capture
 _repl_generate_completion_words() {
     if [[ -n "$REPL_COMPLETION_GENERATOR" ]] && command -v "$REPL_COMPLETION_GENERATOR" >/dev/null 2>&1; then
-        mapfile -t REPL_COMPLETION_WORDS < <("$REPL_COMPLETION_GENERATOR")
+        # Call generator directly - it sets REPL_COMPLETION_WORDS and REPL_COMPLETION_HINTS
+        "$REPL_COMPLETION_GENERATOR"
     fi
 }
 
@@ -549,86 +558,96 @@ _repl_draw_completion_menu() {
     _repl_draw_completion_menu_and_return_lines "$selected" >/dev/null
 }
 
+# Max visible rows for items (scroll if more)
+declare -g REPL_ITEMS_MAX_ROWS="${REPL_ITEMS_MAX_ROWS:-2}"
+declare -g REPL_ITEMS_SCROLL_OFFSET=0
+
 # Draw completion menu and return line count
 _repl_draw_completion_menu_and_return_lines() {
     local selected="$1"
     local count=${#REPL_COMPLETION_MATCHES[@]}
 
-    # Get hint for selected item to show in status line
+    # Get selected item and its description
     local selected_match="${REPL_COMPLETION_MATCHES[$selected]}"
-    local hint=""
-    ( hint="${REPL_COMPLETION_HINTS[$selected_match]:-}" ) 2>/dev/null && :
+    local description="${REPL_COMPLETION_HINTS[$selected_match]:-}"
 
-    # Print newline
+    # Layout configuration
+    local cols="${REPL_ITEMS_COLS:-3}"
+    local item_width="${REPL_ITEMS_WIDTH:-18}"
+    local max_visible_rows="${REPL_ITEMS_MAX_ROWS:-2}"
+    local total_rows=$(( (count + cols - 1) / cols ))
+
+    # Calculate scroll offset to keep selected item visible
+    local selected_row=$((selected % total_rows))
+    if [[ $selected_row -lt $REPL_ITEMS_SCROLL_OFFSET ]]; then
+        REPL_ITEMS_SCROLL_OFFSET=$selected_row
+    elif [[ $selected_row -ge $((REPL_ITEMS_SCROLL_OFFSET + max_visible_rows)) ]]; then
+        REPL_ITEMS_SCROLL_OFFSET=$((selected_row - max_visible_rows + 1))
+    fi
+
+    # Clamp scroll offset
+    local max_scroll=$((total_rows - max_visible_rows))
+    [[ $max_scroll -lt 0 ]] && max_scroll=0
+    [[ $REPL_ITEMS_SCROLL_OFFSET -gt $max_scroll ]] && REPL_ITEMS_SCROLL_OFFSET=$max_scroll
+    [[ $REPL_ITEMS_SCROLL_OFFSET -lt 0 ]] && REPL_ITEMS_SCROLL_OFFSET=0
+
+    local visible_rows=$total_rows
+    [[ $visible_rows -gt $max_visible_rows ]] && visible_rows=$max_visible_rows
+
+    # One blank line after prompt
     echo "" >&2
 
-    # Status line: selected item, hint, and minimal nav help
-    local hint_text=""
-    if [[ -n "$hint" ]]; then
-        if [[ "$hint" =~ ^([^•]+)•(.+)$ ]]; then
-            hint_text="${BASH_REMATCH[2]}"
-        else
-            hint_text="$hint"
-        fi
-    fi
-
-    # Format: "  selected: hint [preview]" left-aligned, "(← → ↑ ↓ | ESC)" right-aligned to col 60
-    local nav_hint="(← → ↑ ↓ | ESC)"
-    local nav_len=${#nav_hint}
-
-    # Build status line with optional preview text
-    printf "  \033[1m%s\033[0m" "$selected_match" >&2
-    if [[ -n "$hint_text" ]]; then
-        printf "\033[2m: %s\033[0m" "$hint_text" >&2
-    fi
-
-    # Show preview text if set (e.g., color swatches)
-    if [[ -n "$REPL_COMPLETION_PREVIEW_TEXT" ]]; then
-        printf " %b" "$REPL_COMPLETION_PREVIEW_TEXT" >&2
-    fi
-
-    # Calculate padding for right-aligned nav hint
-    # Note: We approximate since preview text may contain ANSI codes
-    local visible_len=$((4 + ${#selected_match} + ${#hint_text}))
-    [[ -n "$hint_text" ]] && visible_len=$((visible_len + 2))  # ": "
-    local pad_len=$((60 - nav_len - visible_len))
-    ((pad_len < 2)) && pad_len=2
-    local padding=$(printf '%*s' "$pad_len" '')
-
-    printf "%s\033[2m%s\033[0m\n" "$padding" "$nav_hint" >&2
-    echo "" >&2
-
-    # Draw list items in 3-column layout
-    local cols=3
-    local rows=$(( (count + cols - 1) / cols ))
-
-    for ((row=0; row<rows; row++)); do
+    # Draw items
+    for ((row=0; row<visible_rows; row++)); do
+        local actual_row=$((row + REPL_ITEMS_SCROLL_OFFSET))
         for ((col=0; col<cols; col++)); do
-            local idx=$((row + col * rows))
+            local idx=$((actual_row + col * total_rows))
             if [[ $idx -lt $count ]]; then
                 local match="${REPL_COMPLETION_MATCHES[$idx]}"
-                # Safely access associative array - suppress errors if array doesn't exist
-                # or has issues with special characters (bash export -f limitation)
+                local display_match="${match:0:$((item_width-2))}"
                 local category=""
                 ( category="${REPL_COMPLETION_CATEGORIES[$match]:-}" ) 2>/dev/null && :
                 local color=$(_repl_get_category_color "$category")
 
                 if [[ $idx -eq $selected ]]; then
-                    # Highlighted item with category color
-                    printf "  \033[1;36m▶\033[0m \033[1;${color}m%-18s\033[0m" "$match" >&2
+                    printf "  \033[1;36m%s\033[0m \033[1;${color}m%-*s\033[0m" \
+                        "${REPL_ITEMS_SELECTED_PREFIX:-▶}" "$((item_width-1))" "$display_match" >&2
                 else
-                    # Regular item with dimmed category color
-                    printf "    \033[2;${color}m%-18s\033[0m" "$match" >&2
+                    printf "  %s \033[2;${color}m%-*s\033[0m" \
+                        "${REPL_ITEMS_NORMAL_PREFIX:- }" "$((item_width-1))" "$display_match" >&2
                 fi
             fi
         done
         echo "" >&2
     done
 
+    # Scroll indicator if needed
+    if [[ $total_rows -gt $max_visible_rows ]]; then
+        local indicator=""
+        [[ $REPL_ITEMS_SCROLL_OFFSET -gt 0 ]] && indicator+="↑"
+        [[ $((REPL_ITEMS_SCROLL_OFFSET + max_visible_rows)) -lt $total_rows ]] && indicator+="↓"
+        [[ -n "$indicator" ]] && printf "  \033[2m%s more\033[0m\n" "$indicator" >&2
+    fi
+
+    # Info area: description of selected item (with margins, vertically centered)
+    echo "" >&2
+    if [[ -n "$description" ]]; then
+        # Parse description (may have format "short•long")
+        local info_text="$description"
+        if [[ "$description" =~ ^([^•]+)•(.+)$ ]]; then
+            info_text="${BASH_REMATCH[2]}"
+        fi
+        # Centered with margins
+        printf "    \033[0;37m%s\033[0m\n" "$info_text" >&2
+    else
+        printf "    \033[2m(no description)\033[0m\n" >&2
+    fi
     echo "" >&2
 
-    # Calculate total lines: blank(1) + status_line(1) + blank(1) + rows + blank(1)
-    local total_lines=$((4 + rows))
+    # Calculate total lines: leading_blank(1) + visible_rows + scroll_indicator(0-1) + blank + info + blank
+    local scroll_line=0
+    [[ $total_rows -gt $max_visible_rows ]] && scroll_line=1
+    local total_lines=$((1 + visible_rows + scroll_line + 3))
 
     # Debug output if enabled
     if [[ "${TCURSES_COMPLETION_DEBUG:-0}" == "1" ]]; then

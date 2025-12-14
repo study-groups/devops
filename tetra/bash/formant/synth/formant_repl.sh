@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
 # Formant REPL - Interactive Vocal Synthesis Shell
-# Uses unified bash/repl system
+# Uses unified bash/repl system with TDS theming
 
 # Source dependencies
-source "$TETRA_SRC/bash/repl/repl.sh"
-source "$TETRA_SRC/bash/color/repl_colors.sh"
-source "$TETRA_SRC/bash/nav/nav_repl.sh"
+source "$TETRA_SRC/bash/tds/tds.sh"
+source "$TETRA_SRC/bash/repl/repl.sh"  # Includes layout system and module.sh
+source "$TETRA_SRC/bash/nav/nav.sh"    # For nav_* functions
 
 # Formant modules
 FORMANT_SYNTH_SRC="${FORMANT_SRC:-$TETRA_SRC/bash/formant}/synth"
@@ -25,22 +25,19 @@ FORMANT_REPL_ENGINE_RUNNING=0
 
 formant_repl_start_engine() {
     echo ""
-    text_color "66FFFF"
-    echo "🎙️ FORMANT ENGINE v0.1"
-    reset_color
+    tds_color "info" "🎙️ FORMANT ENGINE v0.1"
     echo ""
-    text_color "00AA00"
-    echo "  ✓ Real-time Vocal Synthesis Engine"
-    reset_color
+    echo ""
+    tds_color "success" "  ✓ Real-time Vocal Synthesis Engine"
+    echo ""
     echo "  📋 Estovox Command Language (ECL) ready"
     echo ""
 }
 
 formant_repl_status() {
     echo ""
-    text_color "00AA00"
-    echo "  🎙️ Formant Status: Ready"
-    reset_color
+    tds_color "success" "  🎙️ Formant Status: Ready"
+    echo ""
     echo "  └─ Engine: Vocal Synthesis"
     echo "  └─ Mode: IPA Phonemes"
     echo "  └─ Sample Rate: 48kHz"
@@ -64,20 +61,25 @@ formant_repl_show_help() {
 _formant_repl_build_prompt() {
     # Use colorable UTF-8 symbols (not emojis which have fixed colors)
     local status_symbol="♪"
-    local status_color="00AA00"
+    local status_color="${TDS_SEMANTIC_COLORS[success]}"
 
     if [[ "$FORMANT_REPL_ENGINE_RUNNING" == "1" ]]; then
         status_symbol="►"
-        status_color="00FF00"
+        status_color="${ENV_PRIMARY[1]}"
     fi
+
+    # Get TDS theme colors
+    local bracket_color="${MODE_PRIMARY[5]}"
+    local name_color="${VERBS_PRIMARY[3]}"
+    local arrow_color="${VERBS_PRIMARY[3]}"
 
     # Build prompt with readline-aware escape codes
     REPL_PROMPT=""
-    REPL_PROMPT+="$(text_color_rl "$REPL_BRACKET")[$(reset_color_rl)"
-    REPL_PROMPT+="$(text_color_rl "FFAA00")formant$(reset_color_rl)"
+    REPL_PROMPT+="$(text_color_rl "$bracket_color")[$(reset_color_rl)"
+    REPL_PROMPT+="$(text_color_rl "$name_color")formant$(reset_color_rl)"
     REPL_PROMPT+=" $(text_color_rl "$status_color")${status_symbol}$(reset_color_rl)"
-    REPL_PROMPT+="$(text_color_rl "$REPL_BRACKET")] $(reset_color_rl)"
-    REPL_PROMPT+="$(text_color_rl "$REPL_ARROW")> $(reset_color_rl)"
+    REPL_PROMPT+="$(text_color_rl "$bracket_color")] $(reset_color_rl)"
+    REPL_PROMPT+="$(text_color_rl "$arrow_color")> $(reset_color_rl)"
 }
 
 # ============================================================================
@@ -128,32 +130,25 @@ _formant_repl_process_input() {
             ;;
         speak)
             echo ""
-            text_color "FFAA00"
-            echo "⚠️  Text-to-speech not yet fully implemented"
-            reset_color
+            tds_status "warning" "Text-to-speech not yet fully implemented"
             echo "See formant/synth/text2esto.sh for prototype"
             echo ""
             ;;
         phoneme)
             echo ""
-            text_color "FFAA00"
-            echo "⚠️  IPA phoneme synthesis not yet integrated with REPL"
-            reset_color
+            tds_status "warning" "IPA phoneme synthesis not yet integrated with REPL"
             echo "See formant/synth/demo_formant.sh for examples"
             echo ""
             ;;
         demo)
             echo ""
-            text_color "66FFFF"
-            echo "▶ Running Formant Demo"
-            reset_color
+            tds_color "info" "▶ Running Formant Demo"
+            echo ""
             echo ""
             if [[ -x "$FORMANT_SYNTH_SRC/demo_speech.sh" ]]; then
                 bash "$FORMANT_SYNTH_SRC/demo_speech.sh"
             else
-                text_color "FF0000"
-                echo "❌ Demo script not found or not executable"
-                reset_color
+                tds_status "error" "Demo script not found or not executable"
             fi
             echo ""
             ;;
@@ -162,72 +157,58 @@ _formant_repl_process_input() {
             case "$meter_cmd" in
                 show)
                     echo ""
-                    text_color "00AA00"
-                    echo "📊 VU Meter Display"
-                    reset_color
+                    tds_color "success" "📊 VU Meter Display"
+                    echo ""
                     echo "[========|========]  -12dB  Peak: -6dB"
                     echo ""
                     ;;
                 reset)
                     echo ""
-                    text_color "00AA00"
-                    echo "✓ Meter statistics reset"
-                    reset_color
+                    tds_status "success" "Meter statistics reset"
                     echo ""
                     ;;
                 vu|a_weight|bass|treble)
                     echo ""
-                    text_color "00AA00"
-                    echo "✓ Meter preset: $meter_cmd"
-                    reset_color
+                    tds_status "success" "Meter preset: $meter_cmd"
                     echo ""
                     ;;
                 *)
-                    text_color "FFAA00"
-                    echo "Usage: meter [vu|a_weight|bass|treble|show|reset]"
-                    reset_color
+                    tds_color "warning" "Usage: meter [vu|a_weight|bass|treble|show|reset]"
+                    echo ""
                     ;;
             esac
             ;;
         record)
             local phoneme="${cmd_args[1]}"
             if [[ -z "$phoneme" ]]; then
-                text_color "FFAA00"
-                echo "Usage: record <phoneme>"
-                reset_color
+                tds_color "warning" "Usage: record <phoneme>"
+                echo ""
                 echo "Example: record a"
             else
                 echo ""
-                text_color "66FFFF"
-                echo "🎤 Recording phoneme: /$phoneme/"
-                reset_color
+                tds_color "info" "🎤 Recording phoneme: /$phoneme/"
+                echo ""
                 echo ""
                 echo "Speak the sound when ready... (press Ctrl+C to cancel)"
                 echo ""
-                # TODO: Integrate with formant binary RECORD_VAD command
-                echo "⚠️  VAD recording integration pending"
+                tds_status "warning" "VAD recording integration pending"
                 echo ""
             fi
             ;;
         analyze)
             local wav_file="${cmd_args[1]}"
             if [[ -z "$wav_file" ]]; then
-                text_color "FFAA00"
-                echo "Usage: analyze <wav_file>"
-                reset_color
+                tds_color "warning" "Usage: analyze <wav_file>"
+                echo ""
                 echo "Example: analyze sound_bank/en_us/a.wav"
             elif [[ ! -f "$wav_file" ]]; then
-                text_color "FF0000"
-                echo "❌ File not found: $wav_file"
-                reset_color
+                tds_status "error" "File not found: $wav_file"
             else
                 echo ""
-                text_color "66FFFF"
-                echo "🔍 Analyzing: $wav_file"
-                reset_color
+                tds_color "info" "🔍 Analyzing: $wav_file"
                 echo ""
-                # TODO: Call formant binary to analyze grain
-                echo "⚠️  Grain analysis integration pending"
+                echo ""
+                tds_status "warning" "Grain analysis integration pending"
                 echo "Would detect:"
                 echo "  • Loop points (autocorrelation)"
                 echo "  • Optimal midpoint"
@@ -241,67 +222,56 @@ _formant_repl_process_input() {
             case "$bank_cmd" in
                 list)
                     echo ""
-                    text_color "66FFFF"
-                    echo "📚 Phoneme BST Structure"
-                    reset_color
+                    tds_color "info" "📚 Phoneme BST Structure"
+                    echo ""
                     echo ""
                     echo "        [C0] schwa"
                     echo "    [80] i"
                     echo "        [40] a"
                     echo ""
-                    echo "⚠️  BST visualization pending"
+                    tds_status "warning" "BST visualization pending"
                     echo ""
                     ;;
                 add)
                     local phoneme="${cmd_args[2]}"
                     local wav="${cmd_args[3]}"
                     if [[ -z "$phoneme" ]] || [[ -z "$wav" ]]; then
-                        text_color "FFAA00"
-                        echo "Usage: bank add <phoneme> <wav_file>"
-                        reset_color
+                        tds_color "warning" "Usage: bank add <phoneme> <wav_file>"
+                        echo ""
                         echo "Example: bank add a recordings/a.wav"
                     else
                         echo ""
-                        text_color "00AA00"
-                        echo "✓ Added /$phoneme/ → $wav to sound bank"
-                        reset_color
+                        tds_status "success" "Added /$phoneme/ → $wav to sound bank"
                         echo ""
                     fi
                     ;;
                 play)
                     local phoneme="${cmd_args[2]}"
                     if [[ -z "$phoneme" ]]; then
-                        text_color "FFAA00"
-                        echo "Usage: bank play <phoneme>"
-                        reset_color
+                        tds_color "warning" "Usage: bank play <phoneme>"
+                        echo ""
                         echo "Example: bank play a"
                     else
                         echo ""
-                        text_color "00AA00"
-                        echo "▶ Playing /$phoneme/ from sound bank"
-                        reset_color
+                        tds_color "success" "▶ Playing /$phoneme/ from sound bank"
+                        echo ""
                         echo ""
                     fi
                     ;;
                 export)
                     echo ""
-                    text_color "00AA00"
-                    echo "✓ Exported sound bank metadata"
-                    reset_color
+                    tds_status "success" "Exported sound bank metadata"
                     echo "   → sound_bank/en_us/bank.json"
                     echo ""
                     ;;
                 *)
-                    text_color "FFAA00"
-                    echo "Usage: bank [list|add|play|export]"
-                    reset_color
+                    tds_color "warning" "Usage: bank [list|add|play|export]"
+                    echo ""
                     ;;
             esac
             ;;
         *)
-            text_color "FF0000"
-            echo "❌ Unknown command: $cmd"
-            reset_color
+            tds_status "error" "Unknown command: $cmd"
             echo "   Type 'help' for available commands"
             ;;
     esac
@@ -314,19 +284,31 @@ _formant_repl_process_input() {
 # ============================================================================
 
 formant_repl_run() {
-    # Register module
-    repl_register_module "formant" "start status demo speak phoneme meter record analyze bank" "help.game.formant"
-    repl_set_module_context "formant"
+    # Build help tree first (before registering completion)
+    _formant_build_help_tree
 
+    # Layout configuration
+    declare -A FORMANT_LAYOUT=(
+        [preset]="standard"
+        [cols]=3
+        [item_width]=20
+    )
+
+    # Initialize module (loads TDS, registers completion, sets up layout)
+    repl_module_init "formant" \
+        "start status demo speak phoneme meter record analyze bank" \
+        "help.game.formant" \
+        FORMANT_LAYOUT
+
+    # Banner
     echo ""
-    text_color "66FFFF"
-    echo "🎙️ FORMANT - Vocal Synthesis REPL"
-    reset_color
+    tds_color "info" "🎙️ FORMANT - Vocal Synthesis REPL"
     echo ""
-    text_color "AAAAAA"
-    echo "Real-time vocal synthesis with IPA phoneme support"
-    echo "Type 'help' for commands, 'demo' to hear it in action"
-    reset_color
+    echo ""
+    tds_color "text.secondary" "Real-time vocal synthesis with IPA phoneme support"
+    echo ""
+    tds_color "text.secondary" "Type 'help' for commands, 'demo' to hear it in action"
+    echo ""
     echo ""
 
     # Override REPL callbacks with formant-specific implementations
@@ -334,21 +316,15 @@ formant_repl_run() {
     repl_process_input() { _formant_repl_process_input "$@"; }
     export -f repl_build_prompt repl_process_input
 
-    # Build help tree and enable tab completion
-    _formant_build_help_tree
-    nav_repl_enable_completion "help.game.formant"
-
     # Run unified REPL loop (provides /help, /theme, /mode, /exit commands)
     repl_run
 
     # Cleanup
-    nav_repl_disable_completion
-    unset -f repl_build_prompt repl_process_input
+    repl_module_cleanup
 
     echo ""
-    text_color "66FFFF"
-    echo "Goodbye! 🎙️"
-    reset_color
+    tds_color "info" "Goodbye! 🎙️"
+    echo ""
     echo ""
 }
 

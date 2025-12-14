@@ -48,9 +48,9 @@ if [[ -f "$TETRA_SRC/bash/tree/core.sh" ]]; then
     source "$TETRA_SRC/bash/tree/complete.sh"
 fi
 
-# Source tree completion integration (provides repl_register_tree_completion)
-if [[ -f "$TETRA_SRC/bash/repl/tree_completion.sh" ]]; then
-    source "$TETRA_SRC/bash/repl/tree_completion.sh"
+# Source nav completion integration (provides repl_register_nav_completion)
+if [[ -f "$TETRA_SRC/bash/repl/nav_completion.sh" ]]; then
+    source "$TETRA_SRC/bash/repl/nav_completion.sh"
 fi
 
 # Source MIDI help tree
@@ -493,10 +493,10 @@ _midi_repl_init_completion() {
         midi_init_help_tree
     fi
 
-    # Register tree-based completion with fallback
+    # Register nav-based completion with fallback
     # This is the proper Tetra pattern used by org_repl, tdocs_repl, etc.
-    if command -v repl_register_tree_completion >/dev/null 2>&1; then
-        repl_register_tree_completion "help.midi" "_midi_static_completions"
+    if command -v repl_register_nav_completion >/dev/null 2>&1; then
+        repl_register_nav_completion "help.midi" "_midi_static_completions"
     else
         # Fallback if tree system not available: use static completions
         if command -v repl_set_completion_generator >/dev/null 2>&1; then

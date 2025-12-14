@@ -17,8 +17,16 @@ source "$TETRA_SRC/bash/tcurses/tcurses_input.sh"
 source "$TETRA_SRC/bash/tcurses/tcurses_completion.sh"
 source "$TETRA_SRC/bash/tcurses/tcurses_readline.sh"
 
-# Source tree completion integration
-source "$REPL_SRC/tree_completion.sh"
+# Source nav completion integration
+source "$REPL_SRC/nav_completion.sh"
+
+# Source layout system
+source "$REPL_SRC/layout/regions.sh"
+source "$REPL_SRC/layout/presets.sh"
+source "$REPL_SRC/layout/items.sh"
+
+# Source module helper
+source "$REPL_SRC/module.sh"
 
 # Source REPL metadata system
 source "$REPL_SRC/repl_metadata.sh"
