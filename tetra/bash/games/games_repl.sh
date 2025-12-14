@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Game REPL - Main launcher for game selection and play
+# Games REPL - Main launcher for game selection and play
 # Provides org-style prompt showing active game and user
 
 # Source dependencies
@@ -14,8 +14,8 @@ if [[ -f "$TDS_SRC/layout/borders.sh" ]]; then
     source "$TDS_SRC/layout/borders.sh"
 fi
 
-# Load game registry
-source "$GAME_SRC/core/game_registry.sh"
+# Load games registry
+source "$GAMES_SRC/core/games_registry.sh"
 
 # ============================================================================
 # DYNAMIC GAME LOADING (nginx-style available/enabled pattern)
@@ -24,8 +24,8 @@ source "$GAME_SRC/core/game_registry.sh"
 #   available/gamename/game.toml   - Game with metadata
 #   enabled/gamename -> ../available/gamename  - Symlink enables game
 
-_game_load_enabled() {
-    local enabled_dir="$GAME_SRC/enabled"
+_games_load_enabled() {
+    local enabled_dir="$GAMES_SRC/enabled"
 
     [[ ! -d "$enabled_dir" ]] && return 0
 
@@ -49,24 +49,24 @@ _game_load_enabled() {
 }
 
 # Load all enabled games
-_game_load_enabled
+_games_load_enabled
 
 # PixelJam Arcade org (single REPL for all PJA games)
-source "$GAME_SRC/orgs/pixeljam-arcade/pja_game_repl.sh"
+source "$GAMES_SRC/orgs/pixeljam-arcade/pja_game_repl.sh"
 
 # REPL Configuration
-REPL_HISTORY_BASE="${TETRA_DIR}/game/game_repl_history"
+REPL_HISTORY_BASE="${TETRA_DIR}/games/games_repl_history"
 
 # ============================================================================
 # PROMPT BUILDER (org-style)
 # ============================================================================
 
-_game_repl_build_prompt() {
+_games_repl_build_prompt() {
     # Build prompt: [org x user x game] >
     # Similar to org REPL: [org x env x mode] action>
 
     local tmpfile
-    tmpfile=$(mktemp /tmp/game_repl_prompt.XXXXXX) || return 1
+    tmpfile=$(mktemp /tmp/games_repl_prompt.XXXXXX) || return 1
 
     # Opening bracket (colored)
     text_color "$REPL_BRACKET" >> "$tmpfile"
@@ -75,7 +75,7 @@ _game_repl_build_prompt() {
 
     # Organization
     text_color "$REPL_ORG_ACTIVE" >> "$tmpfile"
-    printf '%s' "${GAME_ACTIVE_ORG:-tetra}" >> "$tmpfile"
+    printf '%s' "${GAMES_ACTIVE_ORG:-tetra}" >> "$tmpfile"
     reset_color >> "$tmpfile"
 
     # Separator (colored)
@@ -84,9 +84,9 @@ _game_repl_build_prompt() {
     reset_color >> "$tmpfile"
 
     # User
-    if [[ -n "$GAME_ACTIVE_USER" ]]; then
+    if [[ -n "$GAMES_ACTIVE_USER" ]]; then
         text_color "$REPL_ENV_LOCAL" >> "$tmpfile"
-        printf '%s' "$GAME_ACTIVE_USER" >> "$tmpfile"
+        printf '%s' "$GAMES_ACTIVE_USER" >> "$tmpfile"
     else
         text_color "$REPL_ORG_INACTIVE" >> "$tmpfile"
         printf 'none' >> "$tmpfile"
@@ -99,9 +99,9 @@ _game_repl_build_prompt() {
     reset_color >> "$tmpfile"
 
     # Game
-    if [[ -n "$GAME_ACTIVE" ]]; then
+    if [[ -n "$GAMES_ACTIVE" ]]; then
         text_color "$REPL_ENV_DEV" >> "$tmpfile"  # Green for active game
-        printf '%s' "$GAME_ACTIVE" >> "$tmpfile"
+        printf '%s' "$GAMES_ACTIVE" >> "$tmpfile"
     else
         text_color "$REPL_ORG_INACTIVE" >> "$tmpfile"
         printf 'lobby' >> "$tmpfile"
@@ -126,12 +126,12 @@ _game_repl_build_prompt() {
 # HELP SYSTEM
 # ============================================================================
 
-game_repl_show_help() {
+games_repl_show_help() {
     echo ""
     text_color "66FFFF"
-    echo "⚡ GAME REPL"
+    echo "GAMES REPL"
     reset_color
-    echo "═══════════════════════════════════════"
+    echo "========================================="
     echo ""
 
     text_color "8888FF"
@@ -208,7 +208,7 @@ game_repl_show_help() {
 # INPUT PROCESSOR
 # ============================================================================
 
-_game_repl_process_input() {
+_games_repl_process_input() {
     local input="$1"
 
     # Empty input
@@ -226,7 +226,7 @@ _game_repl_process_input() {
             return 1
             ;;
         help|h|\?)
-            game_repl_show_help
+            games_repl_show_help
             return 0
             ;;
     esac
@@ -238,30 +238,30 @@ _game_repl_process_input() {
     case "$cmd" in
         ls|list)
             # ls [all] - list games (optionally all orgs)
-            game_list "${cmd_args[1]}"
+            games_list "${cmd_args[1]}"
             ;;
         play)
             # play <game> [--repl] - launch game (binary or REPL)
-            game_play "${cmd_args[1]}" "${cmd_args[2]}"
+            games_play "${cmd_args[1]}" "${cmd_args[2]}"
             ;;
         org)
-            game_org "${cmd_args[1]}"
+            games_org "${cmd_args[1]}"
             ;;
         user)
-            # Pass all args to game_user (handles subcommands like 'new')
-            game_user "${cmd_args[@]:1}"
+            # Pass all args to games_user (handles subcommands like 'new')
+            games_user "${cmd_args[@]:1}"
             ;;
         status)
-            game_status
+            games_status
             ;;
         available)
-            game_available
+            games_available
             ;;
         enable)
-            game_enable "${cmd_args[1]}"
+            games_enable "${cmd_args[1]}"
             ;;
         disable)
-            game_disable "${cmd_args[1]}"
+            games_disable "${cmd_args[1]}"
             ;;
         *)
             text_color "FF0000"
@@ -278,10 +278,10 @@ _game_repl_process_input() {
 # MAIN ENTRY POINT
 # ============================================================================
 
-game_repl_run() {
+games_repl_run() {
     echo ""
     text_color "66FFFF"
-    echo "⚡ GAME REPL v1.0"
+    echo "GAMES REPL v1.0"
     reset_color
     echo ""
     text_color "AAAAAA"
@@ -290,12 +290,12 @@ game_repl_run() {
     echo ""
 
     # Register prompt builder
-    REPL_PROMPT_BUILDERS=(_game_repl_build_prompt)
+    REPL_PROMPT_BUILDERS=(_games_repl_build_prompt)
 
     # Run REPL loop
     while true; do
         # Build prompt
-        _game_repl_build_prompt
+        _games_repl_build_prompt
 
         # Read input
         read -e -p "$REPL_PROMPT" input
@@ -304,17 +304,17 @@ game_repl_run() {
         [[ -n "$input" ]] && history -s "$input"
 
         # Process input
-        _game_repl_process_input "$input" || break
+        _games_repl_process_input "$input" || break
 
         echo ""
     done
 
     echo ""
     text_color "66FFFF"
-    echo "Goodbye! ⚡"
+    echo "Goodbye!"
     reset_color
     echo ""
 }
 
 # Export main function
-export -f game_repl_run
+export -f games_repl_run
