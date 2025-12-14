@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Chroma Module - Terminal Markdown Viewer
+# Chroma Module - Terminal Markdown Viewer (Modular Architecture)
 
 # Load module utilities
 source "$TETRA_SRC/bash/utils/module_init.sh"
@@ -10,111 +10,11 @@ source "$TETRA_SRC/bash/utils/function_helpers.sh"
 tetra_module_init_with_alias "chroma" "CHROMA"
 
 #==============================================================================
-# DEPENDENCY DECLARATION
+# LOAD CHROMA MODULAR CORE
 #==============================================================================
 
-# Declare module dependencies
-declare -gA CHROMA_DEPENDENCIES=(
-    [tds]="required"
-)
-
-# Check dependencies
-chroma_check_dependencies() {
-    local missing_deps=()
-
-    for dep in "${!CHROMA_DEPENDENCIES[@]}"; do
-        local dep_type="${CHROMA_DEPENDENCIES[$dep]}"
-
-        if [[ "$dep_type" == "required" ]]; then
-            # Check if TDS functions are actually loaded
-            case "$dep" in
-                tds)
-                    tetra_function_exists tds_markdown || missing_deps+=("$dep")
-                    ;;
-                *)
-                    [[ -z "${!dep}" ]] && missing_deps+=("$dep")
-                    ;;
-            esac
-        fi
-    done
-
-    if (( ${#missing_deps[@]} > 0 )); then
-        echo "Error: Missing required dependencies: ${missing_deps[*]}" >&2
-        echo "Chroma requires TDS module to be loaded first" >&2
-        return 1
-    fi
-
-    return 0
-}
-
-#==============================================================================
-# DEPENDENCY LOADING
-#==============================================================================
-
-# Load TDS module first (chroma depends on it)
-if ! chroma_check_dependencies 2>/dev/null; then
-    # Try tetra module system first, fall back to direct source
-    if tetra_function_exists tetra_load_module; then
-        tetra_load_module "tds" || {
-            echo "Error: Failed to load TDS module (required by chroma)" >&2
-            return 1
-        }
-    else
-        # Direct source when not in tetra module system
-        local tds_path="${TDS_SRC:-$TETRA_SRC/bash/tds}/includes.sh"
-        if [[ -f "$tds_path" ]]; then
-            source "$tds_path" || {
-                echo "Error: Failed to source TDS from $tds_path" >&2
-                return 1
-            }
-        else
-            echo "Error: TDS module not found at $tds_path" >&2
-            return 1
-        fi
-    fi
-fi
-
-# Verify dependencies are met after loading
-chroma_check_dependencies || return 1
-
-#==============================================================================
-# LOAD CHROMA CORE
-#==============================================================================
-
-# Internal loader for all chroma components
-_chroma_load_components() {
-    # 1. Core infrastructure
-    source "$CHROMA_SRC/core/parser_registry.sh"
-    source "$CHROMA_SRC/core/cst.sh"
-    source "$CHROMA_SRC/core/table_render.sh"
-    source "$CHROMA_SRC/core/code_highlight.sh"
-
-    # 2. New modular core
-    source "$CHROMA_SRC/core/input.sh"
-    source "$CHROMA_SRC/core/args.sh"
-    source "$CHROMA_SRC/core/render.sh"
-
-    # 3. Built-in parsers (self-register on load)
-    local parser
-    for parser in "$CHROMA_SRC/parsers"/*.sh; do
-        [[ -f "$parser" ]] && source "$parser"
-    done
-
-    # 4. Help system
-    source "$CHROMA_SRC/help.sh"
-
-    # 5. Doctor (health checks)
-    source "$CHROMA_SRC/doctor.sh"
-
-    # 6. Main chroma command
-    source "$CHROMA_SRC/chroma.sh"
-
-    # 7. Tab completion
-    source "$CHROMA_SRC/chroma_complete.sh"
-}
-
-# Initial load
-_chroma_load_components
+# Source the modular loader which handles all dependencies
+source "$CHROMA_SRC/chroma_modular.sh"
 
 #==============================================================================
 # RELOAD SUPPORT
@@ -124,17 +24,11 @@ _chroma_load_components
 chroma_reload() {
     echo "Reloading chroma..."
 
-    # Clear parser registry
-    CHROMA_PARSERS=()
-    CHROMA_PARSER_META=()
-    CHROMA_EXT_MAP=()
-    CHROMA_PARSER_ORDER=()
+    # Re-source the modular loader
+    source "$CHROMA_SRC/chroma_modular.sh"
 
-    # Re-source all components
-    _chroma_load_components
-
-    echo "Reloaded: ${#CHROMA_PARSER_ORDER[@]} parsers"
-    chroma_status
+    echo "Chroma reloaded"
+    chroma --help 2>/dev/null | head -3
 }
 
 export -f chroma_reload
