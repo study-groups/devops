@@ -260,6 +260,9 @@ export -f _deploy_generate_proxy_config
 # Context management (must come first - sets up state)
 source "$DEPLOY_SRC/deploy_ctx.sh"
 
+# Address parsing and validation (shared by dispatcher and completion)
+source "$DEPLOY_SRC/deploy_addr.sh"
+
 # Transport layer (var/array/func serialization across SSH)
 source "$DEPLOY_SRC/deploy_transport.sh"
 

@@ -91,8 +91,8 @@ _deploy_complete_pipelines() {
 
     [[ -z "$toml" || ! -f "$toml" ]] && return
 
-    # Extract pipeline names from [pipeline] section only
-    awk '/^\[pipeline\]/{found=1; next} /^\[/{found=0} found && /^[a-zA-Z_][a-zA-Z0-9_-]*[ ]*=/{print $1}' "$toml"
+    # Extract pipeline names from [pipeline] section (consistent with deploy_addr.sh)
+    awk '/^\[pipeline\]/{f=1;next} /^\[/{f=0} f && /=/{print $1}' "$toml"
 }
 
 # Complete target:pipeline format (also handles target:{items} syntax)
@@ -186,8 +186,8 @@ _deploy_complete_items() {
 
     [[ -z "$toml" || ! -f "$toml" ]] && return
 
-    # Extract keys from [files] section
-    awk '/^\[files\]/{found=1; next} /^\[/{found=0} found && /^[a-zA-Z_][a-zA-Z0-9_-]*[ ]*=/{print $1}' "$toml"
+    # Extract keys from [files] section (consistent with deploy_addr.sh)
+    awk '/^\[files\]/{f=1;next} /^\[/{f=0} f && /=/{print $1}' "$toml"
 }
 
 # Complete items with - or = prefix

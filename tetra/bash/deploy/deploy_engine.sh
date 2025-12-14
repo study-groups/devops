@@ -118,7 +118,7 @@ declare -gA DE_TARGET=()       # [target] section
 declare -gA DE_ENV=()          # [env.*] sections (flattened)
 declare -gA DE_FILES=()        # [files] section
 declare -gA DE_BUILD=()        # [build.*] sections
-declare -gA DE_SYNC=()         # [sync] section
+declare -gA DE_PUSH=()         # [push] section
 declare -gA DE_PIPELINE=()     # [pipeline] section
 declare -gA DE_ALIAS=()        # [alias] section
 declare -gA DE_HISTORY=()      # [history] section
@@ -135,7 +135,7 @@ _de_clear() {
     DE_ENV=()
     DE_FILES=()
     DE_BUILD=()
-    DE_SYNC=()
+    DE_PUSH=()
     DE_PIPELINE=()
     DE_ALIAS=()
     DE_HISTORY=()
@@ -227,7 +227,7 @@ de_load() {
                         DE_BUILD["$key"]="$val"
                     fi
                     ;;
-                sync)     DE_SYNC["$key"]="$val" ;;
+                push)     DE_PUSH["$key"]="$val" ;;
                 pipeline) DE_PIPELINE["$key"]="$val" ;;
                 alias)    DE_ALIAS["$key"]="$val" ;;
                 history)  DE_HISTORY["$key"]="$val" ;;
@@ -330,22 +330,22 @@ _de_exec_build() {
     fi
 }
 
-_de_exec_sync() {
+_de_exec_push() {
     local env="$1"
     local files="${2:-}"
     local dry_run="${3:-0}"
 
-    local method="${DE_SYNC[method]:-rsync}"
-    local options="${DE_SYNC[options]:--avz}"
-    local chown="${DE_SYNC[chown]}"
-    local chmod="${DE_SYNC[chmod]}"
-    local delete="${DE_SYNC[delete]}"
+    local method="${DE_PUSH[method]:-rsync}"
+    local options="${DE_PUSH[options]:--avz}"
+    local chown="${DE_PUSH[chown]}"
+    local chmod="${DE_PUSH[chmod]}"
+    local delete="${DE_PUSH[delete]}"
 
     local ssh=$(_de_template "{{ssh}}" "$env")
     local cwd=$(_de_template "{{cwd}}" "$env")
     local source="${DE_TARGET[source]}"
 
-    echo -e "  ${DE_CLR_STEP}[sync]${DE_CLR_NC} ${DE_CLR_DIM}${ssh}:${cwd}/${DE_CLR_NC}"
+    echo -e "  ${DE_CLR_STEP}[push]${DE_CLR_NC} ${DE_CLR_DIM}${ssh}:${cwd}/${DE_CLR_NC}"
 
     local cmd="rsync $options"
     [[ "$delete" == "true" ]] && cmd="$cmd --delete"
@@ -479,7 +479,7 @@ de_run() {
                 fi
                 _de_exec_build "$build_name" "$env" "$dry_run" || return 1
                 ;;
-            sync)
+            push)
                 local files=""
                 if [[ -n "$DE_ITEMS_OVERRIDE" ]]; then
                     # Resolve each item key to its file value
@@ -492,7 +492,7 @@ de_run() {
                     files=$(_de_resolve_files "${pipeline}")
                     [[ -z "$files" ]] && files=$(_de_resolve_files "all")
                 fi
-                _de_exec_sync "$env" "$files" "$dry_run" || return 1
+                _de_exec_push "$env" "$files" "$dry_run" || return 1
                 ;;
             *)
                 echo -e "  ${DE_CLR_WARN}[unknown]${DE_CLR_NC} $step" >&2
@@ -555,5 +555,5 @@ de_show() {
 export -f de_load de_run de_show de_pipelines de_files de_envs
 export -f _de_clear _de_parse_value _de_parse_array
 export -f _de_template _de_resolve_files
-export -f _de_exec_build _de_exec_sync
+export -f _de_exec_build _de_exec_push
 export -f _de_init_colors _de_format_size _de_print_cmd _de_print_file

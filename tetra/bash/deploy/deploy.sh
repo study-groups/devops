@@ -811,20 +811,20 @@ deploy_help() {
             echo ""
             _deploy_help_sub "Concepts:"
             echo -e "  ${CLR_H2}TARGET${CLR_NC}     ${CLR_DIM}A deployable project with its own tetra-deploy.toml${CLR_NC}"
-            echo -e "             ${CLR_DIM}Contains: source files, build rules, sync config${CLR_NC}"
+            echo -e "             ${CLR_DIM}Contains: source files, build rules, push config${CLR_NC}"
             echo ""
-            echo -e "  ${CLR_CMD}PIPELINE${CLR_NC}   ${CLR_DIM}Named sequence of steps: [\"build:all\", \"sync\"]${CLR_NC}"
+            echo -e "  ${CLR_CMD}PIPELINE${CLR_NC}   ${CLR_DIM}Named sequence of steps: [\"build:all\", \"push\"]${CLR_NC}"
             echo -e "             ${CLR_DIM}Defines WHAT operations run and in what order${CLR_NC}"
             echo ""
             echo -e "  ${CLR_ARG}ITEMS${CLR_NC}      ${CLR_DIM}Filter for WHICH files the pipeline operates on${CLR_NC}"
-            echo -e "             ${CLR_DIM}Affects both build steps AND sync file selection${CLR_NC}"
+            echo -e "             ${CLR_DIM}Affects both build steps AND push file selection${CLR_NC}"
             echo ""
             echo -e "  ${CLR_OK}ENV${CLR_NC}        ${CLR_DIM}Target environment: prod, dev, staging${CLR_NC}"
             echo -e "             ${CLR_DIM}Provides: SSH connection, domain, settings${CLR_NC}"
             echo ""
             _deploy_help_sub "Steps (pipeline components):"
             echo -e "  ${CLR_CMD}build:X${CLR_NC}    ${CLR_DIM}Run build command for file set X${CLR_NC}"
-            echo -e "  ${CLR_CMD}sync${CLR_NC}       ${CLR_DIM}Transfer files to remote server${CLR_NC}"
+            echo -e "  ${CLR_CMD}push${CLR_NC}       ${CLR_DIM}Transfer files to remote server${CLR_NC}"
             echo -e "  ${CLR_CMD}pre${CLR_NC}        ${CLR_DIM}Pre-build hook (runs once before any build)${CLR_NC}"
             echo ""
             _deploy_help_sub "Item Modifiers:"
@@ -864,7 +864,7 @@ deploy_help() {
             echo -e "  ${CLR_CMD}[build:index]${CLR_NC} \${BUILD[index.command]}"
             echo -e "        ${CLR_DIM}↳ Always runs (navigation)${CLR_NC}"
             echo ""
-            echo -e "  ${CLR_CMD}[sync]${CLR_NC} \${ENV[ssh]}:\${TARGET[cwd]}/"
+            echo -e "  ${CLR_CMD}[push]${CLR_NC} \${ENV[ssh]}:\${TARGET[cwd]}/"
             echo -e "    ${CLR_ARG}\${FILES[\${ITEM}]}${CLR_NC}              ${CLR_DIM}\${SIZE}${CLR_NC}"
             echo -e "    ${CLR_DIM}─────────────────────────────────────${CLR_NC}"
             echo -e "    ${CLR_DIM}\${FILE_COUNT} files              \${TOTAL_SIZE}${CLR_NC}"
@@ -875,7 +875,7 @@ deploy_help() {
             _deploy_help_sub "Variable Sources (from TOML):"
             echo -e "  ${CLR_H2}TARGET[name]${CLR_NC}     ${CLR_DIM}[target] name = \"docs\"${CLR_NC}"
             echo -e "  ${CLR_H2}TARGET[cwd]${CLR_NC}      ${CLR_DIM}[target] cwd = \"/home/{{user}}/docs\"${CLR_NC}"
-            echo -e "  ${CLR_CMD}PIPELINE${CLR_NC}         ${CLR_DIM}[pipeline] default = [\"build:all\", \"sync\"]${CLR_NC}"
+            echo -e "  ${CLR_CMD}PIPELINE${CLR_NC}         ${CLR_DIM}[pipeline] default = [\"build:all\", \"push\"]${CLR_NC}"
             echo -e "  ${CLR_ARG}FILES[gdocs]${CLR_NC}     ${CLR_DIM}[files] gdocs = \"gdocs-guide.html\"${CLR_NC}"
             echo -e "  ${CLR_CMD}BUILD[gdocs]${CLR_NC}     ${CLR_DIM}[build.gdocs] command = \"tut build...\"${CLR_NC}"
             echo -e "  ${CLR_OK}ENV[ssh]${CLR_NC}         ${CLR_DIM}[env.prod] ssh = \"root@1.2.3.4\"${CLR_NC}"
@@ -885,12 +885,12 @@ deploy_help() {
             echo ""
             _deploy_help_sub "File Selection Syntax:"
             _deploy_help_cmd "docs:gdocs" "Pipeline: run gdocs pipeline"
-            _deploy_help_cmd "docs:{gdocs,deploy}" "Items: build+sync specific items"
+            _deploy_help_cmd "docs:{gdocs,deploy}" "Items: build+push specific items"
             _deploy_help_cmd "docs:~gdocs" "Shorthand: same as {gdocs}"
             _deploy_help_cmd "docs:{!index}" "Exclude: all except index"
             _deploy_help_cmd "docs:{@guides}" "Group: use [files.guides] list"
-            _deploy_help_cmd "docs:>" "Sync-only: skip all builds"
-            _deploy_help_cmd "docs:>{gdocs}" "Sync-only: specific files"
+            _deploy_help_cmd "docs:>" "Push-only: skip all builds"
+            _deploy_help_cmd "docs:>{gdocs}" "Push-only: specific files"
             echo ""
             _deploy_help_sub "Combined Syntax:"
             _deploy_help_cmd "docs:quick:{gdocs}" "Pipeline + items filter"
@@ -898,7 +898,7 @@ deploy_help() {
             _deploy_help_cmd "docs:default -index" "Pipeline, exclude via flag"
             echo ""
             _deploy_help_sub "Behavior:"
-            echo -e "  ${CLR_DIM}• {items} affects both build AND sync steps${CLR_NC}"
+            echo -e "  ${CLR_DIM}• {items} affects both build AND push steps${CLR_NC}"
             echo -e "  ${CLR_DIM}• build:all is replaced with build:<item> for each item${CLR_NC}"
             echo -e "  ${CLR_DIM}• build:index always runs (for navigation)${CLR_NC}"
             echo ""
@@ -910,12 +910,12 @@ deploy_help() {
             echo -e "  ${CLR_DIM}include = [\"gdocs\", \"deploy\", \"org\"]${CLR_NC}"
             echo ""
             _deploy_help_sub "Examples:"
-            _deploy_help_ex "deploy docs:{gdocs} prod         # build gdocs, sync gdocs"
+            _deploy_help_ex "deploy docs:{gdocs} prod         # build gdocs, push gdocs"
             _deploy_help_ex "deploy docs:~gdocs prod          # same, shorter"
             _deploy_help_ex "deploy docs:{!index,!tut} prod   # all except index,tut"
             _deploy_help_ex "deploy docs:{@guides} prod       # items from guides group"
-            _deploy_help_ex "deploy docs:> prod               # just sync, no build"
-            _deploy_help_ex "deploy docs:>{gdocs} prod        # just sync gdocs"
+            _deploy_help_ex "deploy docs:> prod               # just push, no build"
+            _deploy_help_ex "deploy docs:>{gdocs} prod        # just push gdocs"
             ;;
         aliases)
             _deploy_help_section "ALIASES"
@@ -1238,40 +1238,13 @@ deploy() {
         *)
             # Check for address syntax: [org:]target[:pipeline][:{items}]
             if [[ "$cmd" == *:* ]]; then
-                local org_override=""
-                local target=""
-                local rest=""
-                local pipeline="default"
-                local items_override=""
                 shift  # Remove cmd
 
-                # Count colons to determine format
-                local colon_count="${cmd//[^:]}"
-                colon_count=${#colon_count}
-
-                if [[ $colon_count -ge 2 ]]; then
-                    # Could be org:target:pipeline or target:pipeline:{items}
-                    local first="${cmd%%:*}"
-                    local after_first="${cmd#*:}"
-
-                    # Check if first part is an org (exists in orgs dir)
-                    if [[ -d "$TETRA_DIR/orgs/$first" ]]; then
-                        # org:target:... format
-                        org_override="$first"
-                        target="${after_first%%:*}"
-                        rest="${after_first#*:}"
-                    else
-                        # target:pipeline:... format
-                        target="$first"
-                        rest="$after_first"
-                    fi
-                else
-                    # Simple target:something format
-                    target="${cmd%%:*}"
-                    rest="${cmd#*:}"
-                fi
+                # Parse address using deploy_addr module
+                deploy_addr_parse "$cmd"
 
                 # Apply org override if specified
+                local org_override="${DEPLOY_ADDR[org]}"
                 local save_org=""
                 if [[ -n "$org_override" ]]; then
                     save_org="$DEPLOY_CTX_ORG"
@@ -1281,103 +1254,36 @@ deploy() {
                 # Helper to restore org on exit
                 _restore_org() { [[ -n "$org_override" ]] && export DEPLOY_CTX_ORG="$save_org"; }
 
-                # Parse rest: could be pipeline, {items}, or pipeline:{items}
-                # Syntax sugar:
-                #   {gdocs,deploy}  - specific items
-                #   {!index}        - exclude (all except index)
-                #   {@guides}       - group reference from [files.guides]
-                #   ~gdocs          - shorthand for {gdocs}
-                #   >               - sync-only (quick pipeline)
-                #   >{gdocs}        - sync-only with specific items
-
-                if [[ "$rest" == ">"* ]]; then
-                    # Sync-only: docs:> or docs:>{items}
-                    pipeline="quick"
-                    local sync_items="${rest#>}"
-                    if [[ "$sync_items" == "{"*"}" ]]; then
-                        items_override="${sync_items#\{}"
-                        items_override="${items_override%\}}"
-                        items_override="${items_override//,/ }"
-                    fi
-                elif [[ "$rest" == "~"* ]]; then
-                    # Shorthand: docs:~gdocs = docs:{gdocs}
-                    items_override="${rest#\~}"
-                elif [[ "$rest" == "{"*"}" ]]; then
-                    # Items with possible modifiers: {gdocs}, {!index}, {@guides}
-                    local inside="${rest#\{}"
-                    inside="${inside%\}}"
-
-                    if [[ "$inside" == "!"* ]]; then
-                        # Exclusion: {!index,!tut} = all except these
-                        # Need to load TOML to get all items, then exclude
-                        local toml_check=$(_deploy_find_target "$target")
-                        if [[ -n "$toml_check" ]]; then
-                            local all_items=$(_deploy_items_from_toml "$toml_check")
-                            local excludes="${inside//!/}"
-                            excludes="${excludes//,/ }"
-                            for item in $all_items; do
-                                local skip=0
-                                for ex in $excludes; do
-                                    [[ "$item" == "$ex" ]] && { skip=1; break; }
-                                done
-                                [[ $skip -eq 0 ]] && items_override="$items_override $item"
-                            done
-                            items_override="${items_override# }"
-                        fi
-                    elif [[ "$inside" == "@"* ]]; then
-                        # Group reference: {@guides} = items from [files.guides].include
-                        local group="${inside#@}"
-                        local toml_check=$(_deploy_find_target "$target")
-                        if [[ -n "$toml_check" ]]; then
-                            # Get include list from [files.<group>]
-                            items_override=$(awk -v g="$group" '
-                                /^\[files\.'"$group"'\]/{found=1; next}
-                                /^\[/{found=0}
-                                found && /^include/ {
-                                    gsub(/.*\[|\]|"/, "")
-                                    gsub(/,/, " ")
-                                    print
-                                }
-                            ' "$toml_check")
-                        fi
-                    else
-                        # Regular items: {gdocs,deploy}
-                        items_override="${inside//,/ }"
-                    fi
-                elif [[ "$rest" == *":{"*"}" ]]; then
-                    # Pipeline with items: docs:sync:{gdocs,deploy}
-                    pipeline="${rest%%:\{*}"
-                    items_override="${rest#*:\{}"
-                    items_override="${items_override%\}}"
-                    items_override="${items_override//,/ }"
-                elif [[ "$rest" == *":~"* ]]; then
-                    # Pipeline with shorthand: docs:quick:~gdocs
-                    pipeline="${rest%%:~*}"
-                    items_override="${rest#*:~}"
-                elif [[ "$rest" == "*" ]]; then
-                    # Wildcard: docs:* means all files
-                    pipeline="default"
-                else
-                    # Just pipeline: docs:gdocs
-                    pipeline="$rest"
+                # Validate address (org, target, pipeline)
+                if ! deploy_addr_validate; then
+                    echo -e "${DEPLOY_ADDR[error]}" >&2
+                    _restore_org
+                    return 1
                 fi
+
+                # Resolve exclude/group items after validation (needs toml_path)
+                local items_override="${DEPLOY_ADDR[items]}"
+                if [[ "${DEPLOY_ADDR[items_mode]}" == "exclude" ]]; then
+                    deploy_addr_resolve_exclude
+                    items_override="${DEPLOY_ADDR[items]}"
+                elif [[ "${DEPLOY_ADDR[items_mode]}" == "group" ]]; then
+                    deploy_addr_resolve_group
+                    items_override="${DEPLOY_ADDR[items]}"
+                fi
+
+                # Extract parsed values
+                local target="${DEPLOY_ADDR[target]}"
+                local pipeline="${DEPLOY_ADDR[pipeline]}"
+                local toml="${DEPLOY_ADDR[toml_path]}"
 
                 # Parse remaining args for --edit and -item/=item
                 DEPLOY_EDIT_MODE=0
                 _deploy_parse_item_args "$@"
                 set -- "${DEPLOY_REMAINING_ARGS[@]}"
 
-                local env="${1:-}"
+                local env="${1:-${DEPLOY_ADDR[env]}}"
                 local dry_run=0
                 [[ "$2" == "-n" || "$2" == "--dry-run" ]] && dry_run=1
-
-                # Find target TOML
-                local toml=$(_deploy_find_target "$target")
-                if [[ -z "$toml" ]]; then
-                    echo "Target not found: $target" >&2
-                    _restore_org
-                    return 1
-                fi
 
                 # Handle --edit mode
                 if [[ $DEPLOY_EDIT_MODE -eq 1 ]]; then
