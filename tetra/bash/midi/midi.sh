@@ -47,6 +47,12 @@ Service Management:
   restart           Restart service
   status            Show service status
 
+Gamepad:
+  gamepad start     Start gamepad bridge (broadcasts to same OSC)
+  gamepad stop      Stop gamepad bridge
+  gamepad status    Show gamepad status
+  gamepad list      List available gamepad devices
+
 Map Management:
   load-map NAME     Load map file (e.g., vmx8[0])
   reload-map        Reload current map
@@ -62,16 +68,18 @@ Configuration:
   config edit       Edit config.toml
 
 Quick Start:
-  1. midi start                  # Start service (loads default map from config)
-  2. midi repl                   # Open TUI REPL (clean, no event spam)
-  3. midi variant b              # Switch to variant 'b'
-  4. midi load-map vmx8[0]       # Load different map
+  1. midi start                  # Start MIDI service
+  2. midi gamepad start          # Start gamepad bridge (optional)
+  3. midi repl                   # Open TUI REPL
+  4. midi variant b              # Switch to variant 'b'
+
+Both MIDI and Gamepad broadcast to OSC 239.1.1.1:1983
+Gamepad axes appear as virtual CC 100-105 on channel 16
 
 Examples:
-  midi start                     # Uses config.toml defaults
-  midi repl                      # TUI mode, logging off (use /log in REPL)
-  midi load-map akai[0]          # Hot-reload different controller map
-  midi variant c                 # Switch to variant 'c'
+  midi start && midi gamepad start   # Both inputs active
+  midi repl                          # Monitor all input
+  midi load-map akai[0]              # Hot-reload controller map
 EOF
         return 0
     fi
@@ -181,6 +189,123 @@ EOF
 
         devices)
             node "$MIDI_SRC/midi.js" -l
+            ;;
+
+        # Gamepad management
+        gamepad)
+            local gp_action="${1:-status}"
+            shift || true
+
+            case "$gp_action" in
+                start)
+                    echo "Starting gamepad bridge..."
+                    if tsm start --name gamepad --port 1983 node "$MIDI_SRC/gamepad.js" -v; then
+                        echo "✓ Gamepad bridge started"
+                        sleep 1
+                        midi gamepad status
+                    else
+                        echo "✗ Failed to start gamepad bridge"
+                        return 1
+                    fi
+                    ;;
+
+                stop)
+                    echo "Stopping gamepad bridge..."
+                    local gp_id=$(tsm ls 2>/dev/null | grep "gamepad-1983" | awk '{print $1}')
+                    if [[ -n "$gp_id" ]]; then
+                        tsm stop "$gp_id"
+                        echo "✓ Gamepad bridge stopped"
+                    else
+                        echo "✗ Gamepad bridge not found"
+                        return 1
+                    fi
+                    ;;
+
+                status)
+                    if tsm ls 2>/dev/null | grep -q "gamepad-1983"; then
+                        echo "✓ Gamepad bridge: running"
+                        tsm ls | grep "gamepad-1983"
+                        echo ""
+                        echo "Virtual CC mapping (channel 16):"
+                        echo "  CC 100 = Left stick X"
+                        echo "  CC 101 = Left stick Y"
+                        echo "  CC 102 = Right stick X"
+                        echo "  CC 103 = Right stick Y"
+                        echo "  CC 104 = Left trigger"
+                        echo "  CC 105 = Right trigger"
+                    else
+                        echo "✗ Gamepad bridge: not running"
+                        echo "  Start with: midi gamepad start"
+                    fi
+                    ;;
+
+                list)
+                    node "$MIDI_SRC/gamepad.js" -l
+                    ;;
+
+                bridge)
+                    local socket_path="${1:-/tmp/estoface_gamepad.sock}"
+                    echo "Starting OSC → gamepad socket bridge..."
+                    echo "  Socket: $socket_path"
+                    echo "  Mode: OSC multicast (higher latency)"
+                    node "$MIDI_SRC/osc_to_gamepad.js" "$socket_path"
+                    ;;
+
+                direct)
+                    local socket_path="${1:-/tmp/estoface_gamepad.sock}"
+                    local sender="$TETRA_SRC/bash/games/tools/sender"
+                    if [[ ! -x "$sender" ]]; then
+                        echo "✗ Sender binary not found: $sender"
+                        echo "  Build with: cd bash/games/tools && make sender"
+                        return 1
+                    fi
+                    echo "Starting direct gamepad → socket..."
+                    echo "  Socket: $socket_path"
+                    echo "  Mode: Direct SDL2 (lowest latency)"
+                    "$sender" "$socket_path"
+                    ;;
+
+                latency)
+                    echo "Latency test modes:"
+                    echo ""
+                    echo "  Fast (C bridge, recommended):"
+                    echo "    midi gamepad fast"
+                    echo "    Gamepad+MIDI → C binary → OSC + Socket"
+                    echo "    Expected: ~2-3ms"
+                    echo ""
+                    echo "  Direct (SDL sender):"
+                    echo "    midi gamepad direct"
+                    echo "    Gamepad → SDL2 → Unix socket"
+                    echo "    Expected: ~2-5ms"
+                    echo ""
+                    echo "  OSC bridge (Node.js):"
+                    echo "    midi gamepad start + midi gamepad bridge"
+                    echo "    Expected: ~20-50ms"
+                    echo ""
+                    echo "  To measure, run game with ESTOFACE_LATENCY=1:"
+                    echo "    ESTOFACE_LATENCY=1 estoface"
+                    ;;
+
+                fast)
+                    local bridge="$MIDI_SRC/midi_bridge"
+                    if [[ ! -x "$bridge" ]]; then
+                        echo "Building midi_bridge..."
+                        (cd "$MIDI_SRC" && make midi_bridge) || {
+                            echo "✗ Build failed. Need SDL2: brew install sdl2"
+                            return 1
+                        }
+                    fi
+                    echo "Starting fast C bridge..."
+                    echo "  Mode: C binary (lowest latency, ~2-3ms)"
+                    "$bridge" -g -M -v
+                    ;;
+
+                *)
+                    echo "Unknown gamepad action: $gp_action"
+                    echo "Use: start|stop|status|list|fast|direct|bridge|latency"
+                    return 1
+                    ;;
+            esac
             ;;
 
         # Configuration
