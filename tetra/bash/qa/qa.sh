@@ -23,6 +23,9 @@ QA_MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # QA modules to source
 QA_MODULES=(
     "$QA_MODULE_DIR/qa_core.sh"
+    "$QA_MODULE_DIR/qa_channels.sh"
+    "$QA_MODULE_DIR/qa_views.sh"
+    "$QA_MODULE_DIR/qa_doctor.sh"
     "$QA_MODULE_DIR/qa_repl.sh"
     "$QA_MODULE_DIR/qa_search.sh"
 )
@@ -68,31 +71,49 @@ qa() {
 
     if [[ -z "$action" ]]; then
         cat <<'EOF'
-Usage: qa <command> [args]
+qa - Question/Answer Knowledge Base
 
-Commands:
-  query|q <text>        Ask a question
-  status|s              Show system status
-  help|h                Show help
-  set-engine <engine>   Set the AI engine
-  set-apikey <key>      Set API key
-  set-context <text>    Set default context
-  viewer [name]         Show or set viewer (chroma or raw)
-  last|a [index]        Show last answer (or nth from last)
-  search <term>         Search through previous answers
-  browse [viewer]       Browse answers (defaults to chroma)
-  browse-raw            Browse with plain text
-  test                  Run test query
-  repl                  Start interactive REPL
-  init                  Initialize QA system
+FIRST USE
+  config apikey <key>   Set OpenAI API key
+  config engine gpt-4o  Set model
+  qq "test query"       Verify it works
 
-Examples:
-  qa query "What is the capital of France?"
-  qa search "capital"
-  qa browse
-  qa set-engine gpt-4
-  qa last
-  qa repl
+REGULAR USE
+  qq "question"         Query (writes to /tmp/qa/1 + main archive)
+  qqq "scratch"         Scratch query (channel 2, no archive)
+  qq @research "query"  Query to named channel
+  a                     Show last answer (from main archive)
+  a1                    Show last answer (from working channel 1)
+  search "topic"        Search all answers
+
+CHANNELS
+  qq = qq1              Primary working channel (dual-writes to main)
+  qq2 qq3 qq4 qqq       Scratch channels (temp only)
+  a1 a2 a3 a4           Get answer from working channel
+  promote 2             Promote scratch -> main
+  promote 3 @research   Promote scratch -> named
+  channels              List all channels
+
+VIEWS (RAG export)
+  view create <name>    Create symlink collection
+  view add <name> <id>  Add entries to view
+  view export <name>    Export as JSONL for RAG
+  views                 List all views
+
+TOOLS
+  doctor                Health check
+  summary               Usage statistics
+  browse                Interactive browser
+  repl                  Interactive shell
+
+ALL COMMANDS
+  Query     qq qq1-4 qqq query
+  Answer    a a1-4 last
+  Search    search browse
+  Channels  channels promote move clear channel
+  Views     view views
+  Config    config status doctor summary gc
+  Help      help
 EOF
         return 0
     fi
@@ -110,7 +131,30 @@ EOF
             qa_status
             ;;
         "help"|"h")
-            qa_help
+            qa
+            ;;
+
+        # Config commands
+        "config"|"cfg")
+            local subcmd="${1:-show}"
+            shift 2>/dev/null || true
+            case "$subcmd" in
+                show)
+                    qa_status
+                    ;;
+                engine)
+                    qa_set_engine "$1"
+                    ;;
+                apikey|key)
+                    qa_set_apikey "$1"
+                    ;;
+                context)
+                    qa_set_context "$1"
+                    ;;
+                *)
+                    echo "Config commands: show, engine, apikey, context"
+                    ;;
+            esac
             ;;
         "set-engine")
             qa_set_engine "$1"
@@ -121,9 +165,13 @@ EOF
         "set-context")
             qa_set_context "$1"
             ;;
+
+        # Answer/retrieval
         "last"|"a")
             a "$1"
             ;;
+
+        # Search
         "search")
             qa_search "$@"
             ;;
@@ -143,6 +191,59 @@ EOF
                 echo "Available: chroma (default), raw"
             fi
             ;;
+
+        # Channel commands
+        "channels"|"ch")
+            qa_channels "$@"
+            ;;
+        "channel")
+            local subcmd="${1:-}"
+            shift 2>/dev/null || true
+            case "$subcmd" in
+                create)
+                    qa_channel_create "$@"
+                    ;;
+                delete|rm)
+                    qa_channel_delete "$@"
+                    ;;
+                rename|mv)
+                    qa_channel_rename "$@"
+                    ;;
+                ""|list)
+                    qa_channels
+                    ;;
+                *)
+                    echo "Channel commands: create, delete, rename, list"
+                    ;;
+            esac
+            ;;
+        "promote")
+            qa_promote "$@"
+            ;;
+        "move"|"mv")
+            qa_move "$@"
+            ;;
+        "clear")
+            qa_clear "$@"
+            ;;
+
+        # View commands (symlink collections for RAG)
+        "view"|"views")
+            qa_view "$@"
+            ;;
+
+        # Diagnostic tools
+        "doctor"|"doc")
+            qa_doctor
+            ;;
+        "summary"|"stats")
+            qa_summary "$@"
+            ;;
+        "gc")
+            qa_gc "$@"
+            ;;
+
+        # Other tools
         "test")
             qa_test
             ;;
@@ -153,25 +254,88 @@ EOF
             qa_init
             echo "QA system initialized"
             ;;
+
         *)
             echo "Unknown command: $action"
-            echo "Use 'qa help' for available commands"
+            echo "Run 'qa' for help"
             return 1
             ;;
     esac
 }
 
-# Shortcut command
+# Shortcut command - routes through channel 1 (dual-writes to /tmp/qa/1 + main)
+# Supports @channel routing for named channels
 qq() {
     # Ensure modules are loaded before using shortcut
     if [[ "${QA_MODULES_LOADED:-false}" != "true" ]]; then
         qa_source_modules
         export QA_MODULES_LOADED=true
     fi
-    qa_query "$@"
+
+    # Check if first arg is @channel
+    if [[ "$1" =~ ^@ ]]; then
+        local channel="$1"
+        shift
+        _qq_channel "$channel" "$@"
+    else
+        # Default: channel 1 (dual-writes to tmp + main)
+        _qq_channel 1 "$@"
+    fi
 }
 
-# Export essential module variables
+# One-off query shortcut - now uses channel 2
+qqq() {
+    # Ensure modules are loaded
+    if [[ "${QA_MODULES_LOADED:-false}" != "true" ]]; then
+        qa_source_modules
+        export QA_MODULES_LOADED=true
+    fi
+    qq2 "$@"
+}
+
+# =============================================================================
+# CHANNEL SHORTCUTS (defined here, implementations in qa_channels.sh)
+# =============================================================================
+
+# Note: qq1-4, a1-4, q1-4 are defined in qa_channels.sh
+# These wrappers handle @channel syntax for a and q
+
+# Answer retrieval with @channel support
+# Usage: a [@channel] [index]
+_a_with_channel() {
+    if [[ "${QA_MODULES_LOADED:-false}" != "true" ]]; then
+        qa_source_modules
+        export QA_MODULES_LOADED=true
+    fi
+
+    if [[ "$1" =~ ^@ ]]; then
+        _a_channel "$@"
+    else
+        # Use original a() from qa_core.sh
+        a "$@"
+    fi
+}
+
+# Question retrieval with @channel support
+# Usage: qa_q [@channel] [index]
+_q_with_channel() {
+    if [[ "${QA_MODULES_LOADED:-false}" != "true" ]]; then
+        qa_source_modules
+        export QA_MODULES_LOADED=true
+    fi
+
+    if [[ "$1" =~ ^@ ]]; then
+        _q_channel "$@"
+    else
+        # Use original q() from qa_core.sh
+        q "$@"
+    fi
+}
+
+# Export essential module variables and functions
 export QA_SRC QA_DIR
+
+export -f qa qa_init qa_source_modules
+export -f qq qqq _a_with_channel _q_with_channel
 
 # Note: QA sub-modules are now lazy-loaded on first use of 'qa' or 'qq' commands

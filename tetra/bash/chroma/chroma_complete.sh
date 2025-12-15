@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
-
 # chroma_complete.sh - Tab completion for chroma command
+#
+# Provides dynamic completion for:
+#   - chroma subcommands
+#   - parser names (discovered from parsers/*.sh)
+#   - theme names (discovered from tds/themes/*.sh)
+#   - format flags and options
+#   - file completion for supported types
 
 # =============================================================================
 # COMPLETION DATA
@@ -10,7 +16,7 @@
 _CHROMA_COMMANDS="cst doctor parser status reload table help"
 
 # Help topics
-_CHROMA_HELP_TOPICS="render parser format doctor options"
+_CHROMA_HELP_TOPICS="render parser format doctor options plugins"
 
 # Format flags (shortcuts)
 _CHROMA_FORMATS="--toml --json --md --markdown --claude --ansi"
@@ -19,37 +25,110 @@ _CHROMA_FORMATS="--toml --json --md --markdown --claude --ansi"
 _CHROMA_OPTIONS="-p --pager -n --no-pager -w --width -m --margin -t --theme -f --format --preset --rule --list-rules --clear-rules -h --help"
 
 # Parser subcommands
-_CHROMA_PARSER_COMMANDS="list info"
+_CHROMA_PARSER_COMMANDS="list info reload"
 
 # Doctor options
-_CHROMA_DOCTOR_OPTIONS="-v --verbose --check"
+_CHROMA_DOCTOR_OPTIONS="-v --verbose --check --fix"
 
 # =============================================================================
-# HELPER FUNCTIONS
+# DYNAMIC HELPER FUNCTIONS
 # =============================================================================
 
-# List registered parser names
+# List registered parser names (scan parsers directory)
 _chroma_complete_parsers() {
-    printf '%s\n' "${CHROMA_PARSER_ORDER[@]}"
-}
+    # Try registry first
+    if [[ -n "${CHROMA_PARSER_ORDER[*]+x}" ]]; then
+        printf '%s\n' "${CHROMA_PARSER_ORDER[@]}"
+        return
+    fi
 
-# List available themes
-_chroma_complete_themes() {
-    if declare -p TDS_THEME_REGISTRY &>/dev/null; then
-        printf '%s\n' "${!TDS_THEME_REGISTRY[@]}"
-    else
-        echo "default warm cool neutral electric"
+    # Scan parsers directory
+    local chroma_src="${CHROMA_SRC:-$TETRA_SRC/bash/chroma}"
+    if [[ -d "$chroma_src/parsers" ]]; then
+        for f in "$chroma_src/parsers"/*.sh; do
+            [[ -f "$f" ]] || continue
+            basename "$f" .sh
+        done
     fi
 }
 
-# List available presets
-_chroma_complete_presets() {
-    echo "markers bookmarks sections all"
+# List available themes (scan tds/themes directory)
+_chroma_complete_themes() {
+    # Try registry first
+    if [[ -n "${TDS_THEME_REGISTRY[*]+x}" ]]; then
+        printf '%s\n' "${!TDS_THEME_REGISTRY[@]}"
+        return
+    fi
+
+    # Scan themes directory
+    local tds_src="${TDS_SRC:-$TETRA_SRC/bash/tds}"
+    if [[ -d "$tds_src/themes" ]]; then
+        for f in "$tds_src/themes"/*.sh; do
+            [[ -f "$f" ]] || continue
+            local name=$(basename "$f" .sh)
+            # Skip registry file
+            [[ "$name" != "theme_registry" ]] && echo "$name"
+        done
+    fi
 }
 
-# List doctor check names
+# List available presets (scan config or use defaults)
+_chroma_complete_presets() {
+    # Check for preset config
+    local chroma_src="${CHROMA_SRC:-$TETRA_SRC/bash/chroma}"
+    if [[ -f "$chroma_src/presets.conf" ]]; then
+        grep -oE '^[a-z_]+=' "$chroma_src/presets.conf" 2>/dev/null | tr -d '='
+        return
+    fi
+
+    # Default presets
+    echo "markers"
+    echo "bookmarks"
+    echo "sections"
+    echo "headers"
+    echo "all"
+}
+
+# List doctor check names (discover from doctor.sh or fallback)
 _chroma_complete_checks() {
-    echo "dependencies tds parsers themes tokens"
+    local chroma_src="${CHROMA_SRC:-$TETRA_SRC/bash/chroma}"
+
+    # Try to extract check names from doctor.sh
+    if [[ -f "$chroma_src/doctor.sh" ]]; then
+        # Look for function names like _chroma_doctor_check_*
+        grep -oE '_chroma_doctor_check_[a-z_]+' "$chroma_src/doctor.sh" 2>/dev/null | \
+            sed 's/_chroma_doctor_check_//' | sort -u
+        return
+    fi
+
+    # Fallback checks
+    echo "dependencies"
+    echo "tds"
+    echo "parsers"
+    echo "themes"
+    echo "tokens"
+    echo "plugins"
+}
+
+# List available plugins
+_chroma_complete_plugins() {
+    local chroma_src="${CHROMA_SRC:-$TETRA_SRC/bash/chroma}"
+    if [[ -d "$chroma_src/plugins" ]]; then
+        for f in "$chroma_src/plugins"/*.plugin.sh; do
+            [[ -f "$f" ]] || continue
+            basename "$f" .plugin.sh
+        done
+    fi
+}
+
+# List supported file extensions
+_chroma_supported_extensions() {
+    echo "md"
+    echo "markdown"
+    echo "toml"
+    echo "json"
+    echo "tex"
+    echo "claude"
 }
 
 # =============================================================================
@@ -76,7 +155,7 @@ _chroma_complete() {
             # Subcommand or file
             COMPREPLY=($(compgen -W "$_CHROMA_COMMANDS" -- "$cur"))
             # Also complete files (md, toml, json)
-            COMPREPLY+=($(compgen -f -X '!*.@(md|toml|json|markdown)' -- "$cur"))
+            COMPREPLY+=($(compgen -f -X '!*.@(md|toml|json|markdown|tex|claude)' -- "$cur"))
             compopt -o filenames 2>/dev/null
         fi
         return
@@ -90,19 +169,21 @@ _chroma_complete() {
             return
             ;;
 
-        # Width - no completion (expects number)
+        # Width - suggest common values
         -w|--width)
+            COMPREPLY=($(compgen -W "80 100 120 140 160" -- "$cur"))
             return
             ;;
 
-        # Margin - no completion (expects number)
+        # Margin - suggest common values
         -m|--margin)
+            COMPREPLY=($(compgen -W "0 2 4 8" -- "$cur"))
             return
             ;;
 
-        # Format completion
+        # Format completion (parser name)
         -f|--format)
-            COMPREPLY=($(compgen -W "$(_chroma_complete_parsers)" -- "$cur"))
+            COMPREPLY=($(compgen -W "$(_chroma_complete_parsers) auto" -- "$cur"))
             return
             ;;
 
@@ -131,9 +212,14 @@ _chroma_complete() {
             if [[ $COMP_CWORD -eq 2 ]]; then
                 # Second word: parser subcommand
                 COMPREPLY=($(compgen -W "$_CHROMA_PARSER_COMMANDS" -- "$cur"))
-            elif [[ $COMP_CWORD -eq 3 && "${COMP_WORDS[2]}" == "info" ]]; then
-                # Third word after "parser info": parser name
-                COMPREPLY=($(compgen -W "$(_chroma_complete_parsers)" -- "$cur"))
+            elif [[ $COMP_CWORD -eq 3 ]]; then
+                local subcmd="${COMP_WORDS[2]}"
+                case "$subcmd" in
+                    info)
+                        # Third word after "parser info": parser name
+                        COMPREPLY=($(compgen -W "$(_chroma_complete_parsers)" -- "$cur"))
+                        ;;
+                esac
             fi
             return
             ;;
@@ -142,6 +228,27 @@ _chroma_complete() {
         doctor)
             if [[ "$cur" == -* ]]; then
                 COMPREPLY=($(compgen -W "$_CHROMA_DOCTOR_OPTIONS" -- "$cur"))
+            else
+                # After flags, offer check names
+                COMPREPLY=($(compgen -W "$(_chroma_complete_checks)" -- "$cur"))
+            fi
+            return
+            ;;
+
+        # CST (Chroma Style Table) takes theme or options
+        cst)
+            if [[ "$cur" == -* ]]; then
+                COMPREPLY=($(compgen -W "--compact --full --export" -- "$cur"))
+            else
+                COMPREPLY=($(compgen -W "$(_chroma_complete_themes)" -- "$cur"))
+            fi
+            return
+            ;;
+
+        # Table subcommand
+        table)
+            if [[ "$cur" == -* ]]; then
+                COMPREPLY=($(compgen -W "--style --border --no-header" -- "$cur"))
             fi
             return
             ;;
@@ -169,12 +276,15 @@ _chroma_complete() {
         compopt -o filenames 2>/dev/null
     else
         # File completion for supported formats
-        COMPREPLY=($(compgen -f -X '!*.@(md|toml|json|markdown)' -- "$cur"))
+        COMPREPLY=($(compgen -f -X '!*.@(md|toml|json|markdown|tex|claude)' -- "$cur"))
         compopt -o filenames 2>/dev/null
     fi
 }
 
-# Register completion
+# =============================================================================
+# REGISTER COMPLETION
+# =============================================================================
+
 complete -F _chroma_complete chroma
 
 # =============================================================================
@@ -184,3 +294,4 @@ complete -F _chroma_complete chroma
 export -f _chroma_complete
 export -f _chroma_complete_parsers _chroma_complete_themes
 export -f _chroma_complete_presets _chroma_complete_checks
+export -f _chroma_complete_plugins _chroma_supported_extensions
