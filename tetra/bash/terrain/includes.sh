@@ -13,6 +13,7 @@ tetra_module_init_with_alias "terrain" "TERRAIN" "dist:generated"
 # Core modules
 source "$TERRAIN_SRC/core/config.sh"
 source "$TERRAIN_SRC/core/build.sh"
+source "$TERRAIN_SRC/core/local.sh"
 
 # Main CLI
 source "$TERRAIN_SRC/terrain.sh"

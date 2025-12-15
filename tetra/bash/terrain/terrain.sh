@@ -28,7 +28,9 @@ USAGE:
 COMMANDS:
     build [app-dir]            Build HTML from terrain.config.json
     build [app-dir] -o <path>  Build to specific output path
-    serve [app-dir] [port]     Build and start preview server (default: 8080)
+
+    local [app-dir]            Setup dist/ (build + symlinks)
+    local clean [app-dir]      Remove dist/
 
     config validate [path]     Validate terrain.config.json
     config show [path]         Show parsed config
@@ -291,6 +293,25 @@ _terrain_build() {
 }
 
 # =============================================================================
+# SUBCOMMAND: LOCAL
+# =============================================================================
+
+_terrain_local() {
+    local subcmd="${1:-.}"
+    shift 2>/dev/null || true
+
+    case "$subcmd" in
+        clean|c)
+            terrain_local_clean "$@"
+            ;;
+        *)
+            # Default: setup (treat arg as app-dir)
+            terrain_local_setup "$subcmd" "$@"
+            ;;
+    esac
+}
+
+# =============================================================================
 # MAIN DISPATCHER
 # =============================================================================
 
@@ -304,7 +325,12 @@ terrain() {
             _terrain_build "$@"
             ;;
 
-        # Serve
+        # Local development
+        local|l)
+            _terrain_local "$@"
+            ;;
+
+        # Serve (legacy, now prefer 'local serve')
         serve|s)
             terrain_build_serve "$@"
             ;;
@@ -354,5 +380,5 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 fi
 
 export -f terrain _terrain_help _terrain_config _terrain_modes _terrain_themes
-export -f _terrain_doctor _terrain_build
+export -f _terrain_doctor _terrain_build _terrain_local
 export TERRAIN_VERSION
