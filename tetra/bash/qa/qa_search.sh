@@ -20,11 +20,35 @@ _qa_get_viewer() {
 # Legacy alias for backward compatibility
 _qa_get_cat_viewer() { _qa_get_viewer; }
 
+# Preview helper for fzf - shows header + content with chroma
+# Usage: _qa_preview_answer <answer_file>
+_qa_preview_answer() {
+  local file="$1"
+  local id=$(basename "$file" .answer)
+  local db=$(dirname "$file")
+  local prompt=""
+  [[ -f "$db/$id.prompt" ]] && prompt=$(head -n 1 "$db/$id.prompt")
+
+  # Build output with bracketed header
+  {
+    echo "[$id: $prompt]"
+    echo
+    cat "$file"
+  } | if declare -f chroma &>/dev/null; then
+    chroma -m 2
+  elif [[ -f "${CHROMA_SRC:-$TETRA_SRC/bash/chroma}/chroma_modular.sh" ]]; then
+    source "${CHROMA_SRC:-$TETRA_SRC/bash/chroma}/chroma_modular.sh"
+    chroma -m 2
+  else
+    cat
+  fi
+}
+export -f _qa_preview_answer
+
 qa_search() {
   local db="${QA_DIR}/db"
   local query="$*"
   local viewer=$(_qa_get_viewer)
-  local chroma_cmd="bash ${TDS_SRC:-$(dirname "${BASH_SOURCE[0]}")/../tds}/chroma.sh"
 
   echo "Searching in $db (viewer: $viewer)"
 
@@ -39,9 +63,9 @@ qa_search() {
         fzf \
           --delimiter : \
           --with-nth 3.. \
-          --preview "$chroma_cmd {1}" \
-          --preview-window=right:80% \
-          --bind "enter:execute($chroma_cmd --pager {1})"
+          --preview '_qa_preview_answer {1}' \
+          --preview-window=right:80%:wrap \
+          --bind "enter:execute(_qa_preview_answer {1} | less -R)"
       ;;
     raw|cat)
       grep -rinH -- "$query" "$db"/*.answer 2>/dev/null | \
@@ -76,13 +100,12 @@ qa_browse() {
 
   case "$viewer" in
     chroma)
-      local chroma_cmd="bash ${TDS_SRC:-$(dirname "${BASH_SOURCE[0]}")/../tds}/chroma.sh"
-      find "$db" -type f -name '*.answer' | \
+      find "$db" -type f -name '*.answer' | sort -r | \
         fzf \
           --layout=reverse \
-          --preview "$chroma_cmd {}" \
-          --preview-window=up:99%:wrap \
-          --bind "enter:execute($chroma_cmd --pager {})" \
+          --preview '_qa_preview_answer {}' \
+          --preview-window=up:80%:wrap \
+          --bind "enter:execute(_qa_preview_answer {} | less -R)" \
           --bind 'i:execute(less {})' \
           --bind 'r:reload(QA_VIEWER=raw qa browse raw < /dev/tty)' \
           --bind 'q:abort' \
@@ -90,11 +113,11 @@ qa_browse() {
           --height=100% --border=none --no-mouse
       ;;
     raw|cat)
-      find "$db" -type f -name '*.answer' | \
+      find "$db" -type f -name '*.answer' | sort -r | \
         fzf \
           --layout=reverse \
           --preview 'cat {}' \
-          --preview-window=up:99% \
+          --preview-window=up:80% \
           --bind 'enter:execute(less {})' \
           --bind 'i:execute(less {})' \
           --bind 'c:reload(QA_VIEWER=chroma qa browse chroma < /dev/tty)' \
