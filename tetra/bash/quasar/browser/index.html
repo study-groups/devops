@@ -334,35 +334,45 @@
     }
 
     function renderMenu() {
-      let screen = `
-╔══════════════════════════════════════════════════════════╗
-║                    PT100 MERIDIAN                        ║
-║                     GAME SELECT                          ║
-╠══════════════════════════════════════════════════════════╣
-║                                                          ║`;
+      // All lines must be exactly 60 chars (including border ║)
+      const W = 58; // Inner width (60 - 2 for borders)
+      const pad = (s, w) => s.length >= w ? s.slice(0, w) : s + ' '.repeat(w - s.length);
+      const center = (s, w) => {
+        const p = Math.max(0, w - s.length);
+        const left = Math.floor(p / 2);
+        return ' '.repeat(left) + s + ' '.repeat(p - left);
+      };
+
+      let lines = [];
+      lines.push('╔' + '═'.repeat(W) + '╗');
+      lines.push('║' + center('PT100 MERIDIAN', W) + '║');
+      lines.push('║' + center('GAME SELECT', W) + '║');
+      lines.push('╠' + '═'.repeat(W) + '╣');
+      lines.push('║' + ' '.repeat(W) + '║');
 
       GAMES.forEach((game, i) => {
         const selected = i === selectedGame;
-        const prefix = selected ? ' ►' : '  ';
-        const highlight = selected ? '██' : '  ';
-        screen += `
-║${highlight}${prefix} ${game.name.padEnd(12)} ${game.desc.padEnd(28)}${highlight}║`;
+        const marker = selected ? '██ ► ' : '     ';
+        const tail = selected ? ' ██' : '   ';
+        const content = marker + game.name.padEnd(14) + game.desc.padEnd(34) + tail;
+        lines.push('║' + pad(content, W) + '║');
       });
 
-      screen += `
-║                                                          ║
-╠══════════════════════════════════════════════════════════╣
-║  CHANNEL: [ ${String(selectedChannel).padStart(3, '0')} ]      < 5/5 >    [ <- BACK ]          ║
-║                                                          ║
-║  ┌────────────────────────────────────────────────────┐  ║
-║  │  ↑/↓  Select Game        →   Channel +1           │  ║
-║  │  ENTER  Start Game       <-  Back to MIDI-MP      │  ║
-║  └────────────────────────────────────────────────────┘  ║
-║                                                          ║
-╠══════════════════════════════════════════════════════════╣
-║  MIDI-MP: ${ws?.readyState === WebSocket.OPEN ? 'ONLINE ' : 'OFFLINE'}  │  QUASAR: CH${String(selectedChannel).padStart(3,'0')}  │  TIA MODE    ║
-╚══════════════════════════════════════════════════════════╝
-`;
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('╠' + '═'.repeat(W) + '╣');
+      lines.push('║' + pad(`  CHANNEL: [ ${String(selectedChannel).padStart(3, '0')} ]      < 5/5 >    [ <- BACK ]`, W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + pad('  ┌' + '─'.repeat(52) + '┐', W) + '║');
+      lines.push('║' + pad('  │  ↑/↓  Select Game        →   Channel +1           │', W) + '║');
+      lines.push('║' + pad('  │  ENTER  Start Game       <-  Back to MIDI-MP      │', W) + '║');
+      lines.push('║' + pad('  └' + '─'.repeat(52) + '┘', W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('╠' + '═'.repeat(W) + '╣');
+      const status = `  MIDI-MP: ${ws?.readyState === WebSocket.OPEN ? 'ONLINE ' : 'OFFLINE'}  │  QUASAR: CH${String(selectedChannel).padStart(3,'0')}  │  TIA MODE`;
+      lines.push('║' + pad(status, W) + '║');
+      lines.push('╚' + '═'.repeat(W) + '╝');
+
+      const screen = lines.join('\n');
 
       terminal.render(screen);
       reportScreen(screen);
@@ -371,30 +381,39 @@
 
     function renderConnecting() {
       const game = GAMES[selectedGame];
-      let screen = `
-╔══════════════════════════════════════════════════════════╗
-║                    PT100 MERIDIAN                        ║
-╠══════════════════════════════════════════════════════════╣
-║                                                          ║
-║                                                          ║
-║                                                          ║
-║                  INITIALIZING ${game.name.padEnd(10)}                 ║
-║                                                          ║
-║                  Channel: ${String(game.channel).padStart(3, '0')}                          ║
-║                                                          ║
-║                                                          ║
-║          ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░            ║
-║          ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░            ║
-║          ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░            ║
-║                                                          ║
-║                                                          ║
-║               Spawning game bridge...                    ║
-║                                                          ║
-║                                                          ║
-║                                                          ║
-║                                                          ║
-╚══════════════════════════════════════════════════════════╝
-`;
+      const W = 58; // Inner width
+      const pad = (s, w) => s.length >= w ? s.slice(0, w) : s + ' '.repeat(w - s.length);
+      const center = (s, w) => {
+        const p = Math.max(0, w - s.length);
+        const left = Math.floor(p / 2);
+        return ' '.repeat(left) + s + ' '.repeat(p - left);
+      };
+
+      let lines = [];
+      lines.push('╔' + '═'.repeat(W) + '╗');
+      lines.push('║' + center('PT100 MERIDIAN', W) + '║');
+      lines.push('╠' + '═'.repeat(W) + '╣');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + center('INITIALIZING ' + game.name, W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + center('Channel: ' + String(game.channel).padStart(3, '0'), W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + center('░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░', W) + '║');
+      lines.push('║' + center('▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░', W) + '║');
+      lines.push('║' + center('░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░', W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + center('Spawning game bridge...', W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('╚' + '═'.repeat(W) + '╝');
+
+      const screen = lines.join('\n');
       terminal.render(screen);
       reportScreen(screen);
     }
@@ -407,6 +426,7 @@
       ws = new WebSocket(WS_URL);
 
       ws.onopen = () => {
+        console.log('[WS] Connected to', WS_URL);
         statusEl.textContent = 'ONLINE';
         document.getElementById('status-bar').classList.add('connected');
       };
@@ -432,6 +452,13 @@
     }
 
     function handleMessage(data) {
+      // Debug: log all incoming messages
+      if (data.t === 'frame') {
+        console.log('[WS] Frame received, screen:', currentScreen, 'display:', data.display?.length || 0, 'bytes');
+      } else {
+        console.log('[WS] Message:', data.t);
+      }
+
       switch (data.t) {
         case 'frame':
           handleFrame(data);
@@ -448,6 +475,7 @@
           break;
         case 'bridge.ready':
           // Game bridge is ready, switch to game mode
+          console.log('[Bridge] Ready! Switching to game mode');
           currentScreen = 'game';
           break;
       }
@@ -457,8 +485,22 @@
       frameCount++;
       fpsEl.textContent = `${terminal.getFPS()}FPS`;
 
+      // Debug: log every 100th frame
+      if (frameCount % 100 === 1) {
+        console.log('[Frame]', frameCount, 'screen:', currentScreen, 'display:', frame.display?.substring(0, 80));
+      }
+
       if (currentScreen === 'game' && frame.display) {
+        // Debug: dump ENTIRE frame on first game frame
+        if (!window._frameDumped) {
+          window._frameDumped = true;
+          console.log('=== FULL FRAME DUMP ===');
+          console.log(frame.display);
+          console.log('=== END FRAME ===');
+        }
         terminal.renderWithAnsi(frame.display);
+      } else if (frame.display && frameCount <= 5) {
+        console.log('[Frame] NOT rendering - screen:', currentScreen, '(need "game")');
       }
 
       if (audioInitialized && frame.snd) {
@@ -468,25 +510,28 @@
 
     function startGame() {
       const game = GAMES[selectedGame];
+      console.log('[Game] Starting:', game.id, 'channel:', game.channel);
       currentScreen = 'connecting';
       renderConnecting();
 
       // Request game bridge spawn
       if (ws && ws.readyState === WebSocket.OPEN) {
+        console.log('[Game] Sending bridge.spawn request');
         ws.send(JSON.stringify({
           t: 'bridge.spawn',
           game: game.id,
           channel: game.channel
         }));
+      } else {
+        console.log('[Game] WebSocket not open, cannot send bridge.spawn');
       }
 
-      // Timeout fallback - show game screen after 3s
+      // Timeout fallback - if still connecting after 3s, go to game mode anyway
+      // (bridge may be external and already sending frames)
       setTimeout(() => {
         if (currentScreen === 'connecting') {
+          console.log('[Game] Timeout - switching to game mode (bridge may be external)');
           currentScreen = 'game';
-          // Return to menu since no game bridge responded
-          currentScreen = 'menu';
-          renderMenu();
         }
       }, 3000);
     }
