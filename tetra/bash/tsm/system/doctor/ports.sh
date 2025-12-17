@@ -11,6 +11,85 @@
 # Exclude ranges (space-separated "min-max" pairs, e.g., "5000-5100 8000-8010")
 : "${DOCTOR_PORT_EXCLUDE:=}"
 
+# === IGNORE LIST CONFIGURATION ===
+# Default ignored process patterns (common macOS system processes)
+# Format: one pattern per line (regex matched against command path)
+DOCTOR_DEFAULT_IGNORE_PATTERNS=(
+    "ControlCenter"
+    "rapportd"
+    "Transmission"
+    "Discord"
+    "WavesLocalServer"
+    "mDNSResponder"
+    "airplayaudioagent"
+    "AirPlayXPCHelper"
+    "Spotify"
+    "Slack"
+    "zoom.us"
+    "Microsoft"
+    "Google Chrome"
+    "Safari"
+    "Firefox"
+)
+
+# Default ignored ports (well-known system ports)
+DOCTOR_DEFAULT_IGNORE_PORTS=(
+    5000    # ControlCenter AirPlay receiver
+    5353    # mDNS/Bonjour
+    7000    # ControlCenter AirPlay
+)
+
+# User ignore file location
+DOCTOR_IGNORE_FILE="${TETRA_DIR:-$HOME/.tetra}/tsm/doctor_ignore.txt"
+
+# Check if a process command matches ignore patterns
+_doctor_process_ignored() {
+    local cmd="$1"
+    local port="$2"
+    local patterns_ref="$3"  # nameref to patterns array
+    local ports_ref="$4"     # nameref to ports array
+
+    # Check against port ignore list
+    local -n _ports="$ports_ref" 2>/dev/null || true
+    for ignored_port in "${_ports[@]}"; do
+        [[ "$port" == "$ignored_port" ]] && return 0
+    done
+
+    # Check against pattern ignore list
+    local -n _patterns="$patterns_ref" 2>/dev/null || true
+    for pattern in "${_patterns[@]}"; do
+        [[ "$cmd" =~ $pattern ]] && return 0
+    done
+
+    return 1
+}
+
+# Load ignore patterns from user file
+_doctor_load_ignore_file() {
+    local -n patterns_out="$1"
+    local -n ports_out="$2"
+
+    # Start with defaults
+    patterns_out=("${DOCTOR_DEFAULT_IGNORE_PATTERNS[@]}")
+    ports_out=("${DOCTOR_DEFAULT_IGNORE_PORTS[@]}")
+
+    # Load user file if exists
+    if [[ -f "$DOCTOR_IGNORE_FILE" ]]; then
+        while IFS= read -r line; do
+            # Skip comments and empty lines
+            [[ "$line" =~ ^[[:space:]]*# ]] && continue
+            [[ -z "${line// /}" ]] && continue
+
+            # Port entries start with "port:"
+            if [[ "$line" =~ ^port:([0-9]+) ]]; then
+                ports_out+=("${BASH_REMATCH[1]}")
+            else
+                patterns_out+=("$line")
+            fi
+        done < "$DOCTOR_IGNORE_FILE"
+    fi
+}
+
 # Check if port is in exclude range
 _doctor_port_excluded() {
     local port="$1"
@@ -30,11 +109,13 @@ _doctor_port_excluded() {
 }
 
 # Scan common development ports + TSM-managed ports (TCP and UDP)
-# Usage: doctor_scan_common_ports [min] [max] [--exclude "range1 range2"]
+# Usage: doctor_scan_common_ports [min] [max] [--exclude "range1 range2"] [--no-ignore] [--show-ignored]
 doctor_scan_common_ports() {
     local port_min="$DOCTOR_PORT_MIN"
     local port_max="$DOCTOR_PORT_MAX"
     local exclude_ranges="$DOCTOR_PORT_EXCLUDE"
+    local use_ignore=true
+    local show_ignored=false
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -56,6 +137,14 @@ doctor_scan_common_ports() {
                 port_max="$2"
                 shift 2
                 ;;
+            --no-ignore|-A|--all)
+                use_ignore=false
+                shift
+                ;;
+            --show-ignored|--ignored)
+                show_ignored=true
+                shift
+                ;;
             *)
                 # Positional: first is min, second is max
                 if [[ "$1" =~ ^[0-9]+-[0-9]+$ ]]; then
@@ -74,6 +163,13 @@ doctor_scan_common_ports() {
         esac
     done
     unset _pos_min_set
+
+    # Load ignore patterns
+    local ignore_patterns=()
+    local ignore_ports=()
+    if [[ "$use_ignore" == "true" ]] || [[ "$show_ignored" == "true" ]]; then
+        _doctor_load_ignore_file ignore_patterns ignore_ports
+    fi
 
     # Temporarily set exclude for helper function
     local old_exclude="$DOCTOR_PORT_EXCLUDE"
@@ -134,16 +230,24 @@ doctor_scan_common_ports() {
 
     # Calculate available space for COMMAND column based on terminal width
     local term_width=${COLUMNS:-80}
-    # Fixed columns: PORT(6) + PROTO(6) + STATUS(8) + TSM(5) + PID(8) + spaces(5) = 38
-    local fixed_width=38
+    # Fixed columns: PORT(6) + PROTO(7) + STATUS(8) + TSM(5) + PID(8) + spaces(5) = 39
+    local fixed_width=39
     local cmd_width=$((term_width - fixed_width))
-    # Set reasonable bounds
-    [[ $cmd_width -lt 40 ]] && cmd_width=40  # Minimum width
-    [[ $cmd_width -gt 120 ]] && cmd_width=120  # Maximum width
+    # Ensure cmd_width is at least 10 but never exceeds what would fit in term_width
+    [[ $cmd_width -lt 10 ]] && cmd_width=10
+    [[ $cmd_width -gt 100 ]] && cmd_width=100
+
+    # Track ignored count for summary
+    local ignored_count=0
+    local shown_count=0
 
     echo
-    printf "%-6s %-6s %-8s %-5s %-8s %s\n" "PORT" "PROTO" "STATUS" "TSM" "PID" "COMMAND"
-    printf "%-6s %-6s %-8s %-5s %-8s %s\n" "----" "-----" "------" "---" "---" "-------"
+    if [[ "$show_ignored" == "true" ]]; then
+        printf "%-6s %-7s %-8s %-5s %-8s %s\n" "PORT" "PROTO" "STATUS" "TSM" "PID" "COMMAND (IGNORED)"
+    else
+        printf "%-6s %-7s %-8s %-5s %-8s %s\n" "PORT" "PROTO" "STATUS" "TSM" "PID" "COMMAND"
+    fi
+    printf "%-6s %-7s %-8s %-5s %-8s %s\n" "----" "-----" "------" "---" "---" "-------"
 
     for port in "${ports[@]}"; do
         local proto="${port_info[$port]}"
@@ -156,6 +260,26 @@ doctor_scan_common_ports() {
         if [[ -z "$pid" && ("$proto" == "udp" || "$proto" == "both") ]]; then
             pid=$(lsof -ti UDP:$port 2>/dev/null | head -1)
         fi
+
+        # Get command for ignore check
+        local cmd_full=$(ps -p $pid -o args= 2>/dev/null || echo "unknown")
+
+        # Check ignore list
+        local is_ignored=false
+        if [[ "$use_ignore" == "true" ]] && \
+           _doctor_process_ignored "$cmd_full" "$port" ignore_patterns ignore_ports; then
+            is_ignored=true
+            ((ignored_count++))
+            # Skip if not showing ignored
+            [[ "$show_ignored" != "true" ]] && continue
+        fi
+
+        # If show_ignored mode, only show ignored processes
+        if [[ "$show_ignored" == "true" && "$is_ignored" != "true" ]]; then
+            continue
+        fi
+
+        ((shown_count++))
 
         local is_tsm_managed="-"
 
@@ -179,12 +303,24 @@ doctor_scan_common_ports() {
         [[ "$proto" == "both" ]] && proto_display="tcp+udp"
 
         # All ports in this list are USED (we got them from lsof)
-        local cmd_full=$(ps -p $pid -o args= 2>/dev/null || echo "unknown")
         local cmd=$(doctor_truncate_middle "$cmd_full" $cmd_width)
-        printf "%-6s %-6s " "$port" "$proto_display"
-        text_color "FF0044"; printf "%-8s" "USED"; reset_color
+        printf "%-6s %-7s " "$port" "$proto_display"
+        # Use status.error token if available, otherwise fall back to hardcoded red
+        if declare -f tsm_color_apply >/dev/null 2>&1; then
+            tsm_color_apply "status.error"
+        else
+            text_color "FF0044"
+        fi
+        printf "%-8s" "USED"
+        reset_color
         printf " %-5s %-8s %s\n" "$is_tsm_managed" "$pid" "$cmd"
     done
+
+    # Show summary if ignoring
+    if [[ "$use_ignore" == "true" && "$ignored_count" -gt 0 && "$show_ignored" != "true" ]]; then
+        echo ""
+        echo "(${ignored_count} system processes hidden. Use --no-ignore to show all, --show-ignored to list them)"
+    fi
 
     # Restore original exclude setting
     DOCTOR_PORT_EXCLUDE="$old_exclude"
@@ -348,8 +484,17 @@ doctor_kill_port_process() {
         fi
     done
 
-    # Double-check port is free
-    if [[ -z "$(lsof -ti :$port 2>/dev/null)" ]]; then
+    # Double-check port is free (with retries for UDP ports)
+    local port_free=false
+    for attempt in 1 2 3; do
+        if [[ -z "$(lsof -ti :$port 2>/dev/null)" ]]; then
+            port_free=true
+            break
+        fi
+        [[ $attempt -lt 3 ]] && sleep 1
+    done
+
+    if [[ "$port_free" == "true" ]]; then
         doctor_success "Port $port is now free"
     else
         doctor_warn "Port $port still shows as in use (may take a moment to clear)"
@@ -358,7 +503,126 @@ doctor_kill_port_process() {
     [[ $killed -eq ${#pids[@]} ]]
 }
 
+# Claim a port - kill whatever is using it (unless TSM-managed)
+# Usage: tsm_claim_port <port> [-f|--force]
+tsm_claim_port() {
+    local port="$1"
+    local force=""
+    [[ "$2" == "-f" || "$2" == "--force" ]] && force="true"
+
+    if [[ -z "$port" ]]; then
+        echo "Usage: tsm claim <port> [-f|--force]"
+        echo ""
+        echo "Claim a port by killing whatever non-TSM process is using it."
+        echo ""
+        echo "Options:"
+        echo "  -f, --force    Skip confirmation prompt"
+        echo ""
+        echo "Examples:"
+        echo "  tsm claim 1985           # Interactively reclaim port 1985"
+        echo "  tsm claim 1985 -f        # Force kill without confirmation"
+        return 1
+    fi
+
+    if [[ ! "$port" =~ ^[0-9]+$ ]]; then
+        echo "❌ Invalid port number: $port" >&2
+        return 1
+    fi
+
+    # Check if port is in use
+    local tcp_pid=$(lsof -ti TCP:$port 2>/dev/null | head -1)
+    local udp_pid=$(lsof -ti UDP:$port 2>/dev/null | head -1)
+
+    if [[ -z "$tcp_pid" && -z "$udp_pid" ]]; then
+        echo "✓ Port $port is already free"
+        return 0
+    fi
+
+    # Show what's using the port
+    echo "Port $port is in use:"
+    echo ""
+
+    local primary_pid=""
+    if [[ -n "$tcp_pid" ]]; then
+        primary_pid="$tcp_pid"
+        local cmd=$(ps -p $tcp_pid -o args= 2>/dev/null || echo "unknown")
+        echo "  TCP: PID $tcp_pid"
+        echo "       $cmd"
+    fi
+    if [[ -n "$udp_pid" ]]; then
+        [[ -z "$primary_pid" ]] && primary_pid="$udp_pid"
+        local cmd=$(ps -p $udp_pid -o args= 2>/dev/null || echo "unknown")
+        echo "  UDP: PID $udp_pid"
+        echo "       $cmd"
+    fi
+    echo ""
+
+    # Check if it's a TSM process
+    if [[ -d "$TSM_PROCESSES_DIR" ]]; then
+        for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+            [[ -d "$process_dir" ]] || continue
+            local meta_file="${process_dir}meta.json"
+            if [[ -f "$meta_file" ]]; then
+                local meta_port=$(jq -r '.port // empty' "$meta_file" 2>/dev/null)
+                local meta_pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
+                if [[ "$meta_port" == "$port" || "$meta_pid" == "$primary_pid" ]]; then
+                    local name=$(basename "$process_dir")
+                    echo "⚠️  This is TSM-managed process: $name"
+                    echo "   Use: tsm stop $name"
+                    return 1
+                fi
+            fi
+        done
+    fi
+
+    # Not TSM managed - offer to kill
+    echo "This is NOT a TSM-managed process."
+
+    if [[ "$force" != "true" ]]; then
+        echo -n "Kill and claim port $port? (y/N): "
+        read -r response
+        if [[ ! "$response" =~ ^[Yy]$ ]]; then
+            echo "Cancelled"
+            return 0
+        fi
+    fi
+
+    # Kill the process(es)
+    local killed=0
+    for pid in $tcp_pid $udp_pid; do
+        [[ -z "$pid" ]] && continue
+        # Avoid killing same PID twice
+        if kill -0 "$pid" 2>/dev/null; then
+            echo "Killing PID $pid..."
+            kill "$pid" 2>/dev/null
+            sleep 1
+            if kill -0 "$pid" 2>/dev/null; then
+                echo "Process $pid still running, sending SIGKILL..."
+                kill -9 "$pid" 2>/dev/null
+                sleep 1
+            fi
+            if ! kill -0 "$pid" 2>/dev/null; then
+                ((killed++))
+            fi
+        fi
+    done
+
+    # Verify port is free
+    sleep 1
+    tcp_pid=$(lsof -ti TCP:$port 2>/dev/null | head -1)
+    udp_pid=$(lsof -ti UDP:$port 2>/dev/null | head -1)
+
+    if [[ -z "$tcp_pid" && -z "$udp_pid" ]]; then
+        echo "✓ Port $port is now free"
+        return 0
+    else
+        echo "⚠️  Port $port still in use (may take a moment to clear)"
+        return 1
+    fi
+}
+
 # Export functions
 export -f doctor_scan_common_ports
 export -f doctor_scan_port
 export -f doctor_kill_port_process
+export -f tsm_claim_port

@@ -9,43 +9,77 @@ if [[ -f "$TETRA_SRC/bash/color/color_core.sh" ]]; then
     source "$TETRA_SRC/bash/color/color_palettes.sh"
 fi
 
+# Load TDS utilities for ANSI-aware text manipulation
+if [[ -f "$TETRA_SRC/bash/tds/core/ansi.sh" ]]; then
+    source "$TETRA_SRC/bash/tds/core/ansi.sh"
+fi
+
 # Helper functions using tetra color palette
+# Uses TSM color tokens if available, otherwise falls back to hardcoded colors
 doctor_log() {
-    text_color "0088FF"
+    if declare -f tsm_color_apply >/dev/null 2>&1; then
+        tsm_color_apply "doctor.log"
+    else
+        text_color "0088FF"
+    fi
     printf "[DOCTOR] %s" "$1"
     reset_color
     echo
 }
 doctor_warn() {
-    text_color "FFAA00"
+    if declare -f tsm_color_apply >/dev/null 2>&1; then
+        tsm_color_apply "doctor.warn"
+    else
+        text_color "FFAA00"
+    fi
     printf "%s" "$1"
     reset_color
     echo
 }
 doctor_error() {
-    text_color "FF0044"
+    if declare -f tsm_color_apply >/dev/null 2>&1; then
+        tsm_color_apply "doctor.error"
+    else
+        text_color "FF0044"
+    fi
     printf "%s" "$1"
     reset_color
     echo
 }
 doctor_success() {
-    text_color "00AA00"
+    if declare -f tsm_color_apply >/dev/null 2>&1; then
+        tsm_color_apply "doctor.success"
+    else
+        text_color "00AA00"
+    fi
     printf "%s" "$1"
     reset_color
     echo
 }
 doctor_info() {
-    text_color "00AAAA"
+    if declare -f tsm_color_apply >/dev/null 2>&1; then
+        tsm_color_apply "doctor.info"
+    else
+        text_color "00AAAA"
+    fi
     printf "%s" "$1"
     reset_color
     echo
 }
 
 # Truncate string with ellipsis in middle to fit width
+# Uses TDS tds_truncate_middle if available (ANSI-aware)
 doctor_truncate_middle() {
     local str="$1"
     local max_width="${2:-40}"
 
+    # Use TDS if available (ANSI-aware)
+    if declare -f tds_truncate_middle >/dev/null 2>&1; then
+        tds_truncate_middle "$str" "$max_width"
+        return
+    fi
+
+    # Fallback: simple truncation
     # If string fits, return as-is
     if [[ ${#str} -le $max_width ]]; then
         echo "$str"
@@ -81,10 +115,28 @@ doctor_check_dependencies() {
     fi
 
     # Check optional but recommended dependencies (macOS)
+    # Use platform abstraction if available (handles keg-only Homebrew paths)
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        if ! command -v flock >/dev/null 2>&1 || ! command -v setsid >/dev/null 2>&1; then
+        local util_missing=()
+        local has_flock=false has_setsid=false
+
+        # Use platform layer if loaded, otherwise fall back to command -v
+        if declare -f tsm_has_flock >/dev/null 2>&1; then
+            tsm_has_flock && has_flock=true
+            tsm_has_setsid && has_setsid=true
+        else
+            command -v flock >/dev/null 2>&1 && has_flock=true
+            command -v setsid >/dev/null 2>&1 && has_setsid=true
+        fi
+
+        [[ "$has_flock" == "false" ]] && util_missing+=("flock")
+        [[ "$has_setsid" == "false" ]] && util_missing+=("setsid")
+
+        if [[ ${#util_missing[@]} -gt 0 ]]; then
             doctor_warn "⚠ util-linux not in PATH (provides flock, setsid for better process management)"
+            echo "  Missing: ${util_missing[*]}"
             echo "  Install with: brew install util-linux"
+            echo "  Then add to PATH: export PATH=\"\$HOMEBREW_PREFIX/opt/util-linux/bin:\$PATH\""
             echo "  TSM will work without it but with reduced functionality"
         else
             doctor_success "✓ util-linux available (flock, setsid)"
