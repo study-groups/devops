@@ -426,7 +426,6 @@
       ws = new WebSocket(WS_URL);
 
       ws.onopen = () => {
-        console.log('[WS] Connected to', WS_URL);
         statusEl.textContent = 'ONLINE';
         document.getElementById('status-bar').classList.add('connected');
       };
@@ -452,13 +451,6 @@
     }
 
     function handleMessage(data) {
-      // Debug: log all incoming messages
-      if (data.t === 'frame') {
-        console.log('[WS] Frame received, screen:', currentScreen, 'display:', data.display?.length || 0, 'bytes');
-      } else {
-        console.log('[WS] Message:', data.t);
-      }
-
       switch (data.t) {
         case 'frame':
           handleFrame(data);
@@ -475,32 +467,32 @@
           break;
         case 'bridge.ready':
           // Game bridge is ready, switch to game mode
-          console.log('[Bridge] Ready! Switching to game mode');
           currentScreen = 'game';
           break;
       }
     }
 
+    // Frame rate tracking
+    let incomingFrames = 0;
+    let lastFpsUpdate = performance.now();
+    let serverFps = 0;
+
     function handleFrame(frame) {
       frameCount++;
-      fpsEl.textContent = `${terminal.getFPS()}FPS`;
+      incomingFrames++;
 
-      // Debug: log every 100th frame
-      if (frameCount % 100 === 1) {
-        console.log('[Frame]', frameCount, 'screen:', currentScreen, 'display:', frame.display?.substring(0, 80));
+      // Update FPS counter every second
+      const now = performance.now();
+      if (now - lastFpsUpdate >= 1000) {
+        serverFps = incomingFrames;
+        incomingFrames = 0;
+        lastFpsUpdate = now;
       }
 
+      fpsEl.textContent = `IN:${serverFps} DRAW:${terminal.getFPS()}`;
+
       if (currentScreen === 'game' && frame.display) {
-        // Debug: dump ENTIRE frame on first game frame
-        if (!window._frameDumped) {
-          window._frameDumped = true;
-          console.log('=== FULL FRAME DUMP ===');
-          console.log(frame.display);
-          console.log('=== END FRAME ===');
-        }
         terminal.renderWithAnsi(frame.display);
-      } else if (frame.display && frameCount <= 5) {
-        console.log('[Frame] NOT rendering - screen:', currentScreen, '(need "game")');
       }
 
       if (audioInitialized && frame.snd) {
@@ -510,27 +502,22 @@
 
     function startGame() {
       const game = GAMES[selectedGame];
-      console.log('[Game] Starting:', game.id, 'channel:', game.channel);
       currentScreen = 'connecting';
       renderConnecting();
 
       // Request game bridge spawn
       if (ws && ws.readyState === WebSocket.OPEN) {
-        console.log('[Game] Sending bridge.spawn request');
         ws.send(JSON.stringify({
           t: 'bridge.spawn',
           game: game.id,
           channel: game.channel
         }));
-      } else {
-        console.log('[Game] WebSocket not open, cannot send bridge.spawn');
       }
 
       // Timeout fallback - if still connecting after 3s, go to game mode anyway
       // (bridge may be external and already sending frames)
       setTimeout(() => {
         if (currentScreen === 'connecting') {
-          console.log('[Game] Timeout - switching to game mode (bridge may be external)');
           currentScreen = 'game';
         }
       }, 3000);

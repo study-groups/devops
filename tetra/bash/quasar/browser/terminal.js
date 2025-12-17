@@ -87,6 +87,10 @@ window.TerminalRenderer = (function() {
         widthMismatches: []
       };
 
+      // Double buffering to prevent flickering
+      this.offscreen = null;
+      this.offCtx = null;
+
       this.init();
     }
 
@@ -124,6 +128,14 @@ window.TerminalRenderer = (function() {
       this.ctx.font = `${this.fontSize}px ${this.fontFamily}`;
       this.ctx.textBaseline = 'top';
 
+      // Create offscreen canvas for double buffering (prevents flickering)
+      this.offscreen = document.createElement('canvas');
+      this.offscreen.width = this.canvas.width;
+      this.offscreen.height = this.canvas.height;
+      this.offCtx = this.offscreen.getContext('2d');
+      this.offCtx.font = `${this.fontSize}px ${this.fontFamily}`;
+      this.offCtx.textBaseline = 'top';
+
       // Clear width cache when font changes
       charWidthCache.clear();
 
@@ -160,7 +172,7 @@ window.TerminalRenderer = (function() {
     }
 
     /**
-     * Render a full screen string (2-pass system)
+     * Render a full screen string (2-pass system with double buffering)
      * @param {string} screen - Full screen content (newline separated or flat)
      */
     render(screen) {
@@ -194,9 +206,15 @@ window.TerminalRenderer = (function() {
         widthMismatches: []
       };
 
+      // Use offscreen canvas for double buffering (prevents flickering)
+      // Fall back to main canvas if offscreen not ready
+      const ctx = this.offCtx || this.ctx;
+      const targetCanvas = this.offscreen || this.canvas;
+
       // Clear canvas
-      this.clear();
-      this.ctx.fillStyle = this.fg;
+      ctx.fillStyle = this.bg;
+      ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+      ctx.fillStyle = this.fg;
 
       // Render each line character by character at fixed grid positions
       for (let row = 0; row < Math.min(lines.length, this.rows); row++) {
@@ -227,19 +245,19 @@ window.TerminalRenderer = (function() {
             }
 
             // Show cell boundaries
-            this.ctx.strokeStyle = 'rgba(255,0,0,0.3)';
-            this.ctx.strokeRect(x, y, this.charWidth, this.charHeight);
+            ctx.strokeStyle = 'rgba(255,0,0,0.3)';
+            ctx.strokeRect(x, y, this.charWidth, this.charHeight);
 
             if (Math.abs(this.measureChar(char) - this.charWidth) > 2) {
-              this.ctx.fillStyle = 'rgba(255,0,0,0.2)';
-              this.ctx.fillRect(x, y, this.charWidth, this.charHeight);
-              this.ctx.fillStyle = this.fg;
+              ctx.fillStyle = 'rgba(255,0,0,0.2)';
+              ctx.fillRect(x, y, this.charWidth, this.charHeight);
+              ctx.fillStyle = this.fg;
             }
           }
 
           // Render character at fixed grid position
           if (char && char !== ' ') {
-            this.ctx.fillText(char, x, y);
+            ctx.fillText(char, x, y);
           }
         }
 
@@ -247,10 +265,15 @@ window.TerminalRenderer = (function() {
           this.lastRenderInfo.lines.push(lineInfo);
         }
       }
+
+      // Copy offscreen to visible canvas in one operation (no flicker)
+      if (this.offscreen) {
+        this.ctx.drawImage(this.offscreen, 0, 0);
+      }
     }
 
     /**
-     * Render with ANSI escape sequence support
+     * Render with ANSI escape sequence support (double buffered)
      * Handles cursor positioning and basic colors
      * @param {string} screen - Screen with ANSI codes
      */
@@ -317,16 +340,29 @@ window.TerminalRenderer = (function() {
         i++;
       }
 
+      // Use offscreen canvas for double buffering (prevents flickering)
+      // Fall back to main canvas if offscreen not ready
+      const ctx = this.offCtx || this.ctx;
+      const targetCanvas = this.offscreen || this.canvas;
+
+      // Clear canvas
+      ctx.fillStyle = this.bg;
+      ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+
       // Render buffer
-      this.clear();
-      this.ctx.fillStyle = this.fg;
+      ctx.fillStyle = this.fg;
       for (let r = 0; r < this.rows; r++) {
         for (let c = 0; c < this.cols; c++) {
           const char = this.buffer[r][c];
           if (char && char !== ' ') {
-            this.ctx.fillText(char, c * this.charWidth, r * this.charHeight);
+            ctx.fillText(char, c * this.charWidth, r * this.charHeight);
           }
         }
+      }
+
+      // Copy offscreen to visible canvas in one operation (no flicker)
+      if (this.offscreen) {
+        this.ctx.drawImage(this.offscreen, 0, 0);
       }
     }
 
