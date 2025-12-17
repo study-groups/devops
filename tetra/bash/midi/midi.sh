@@ -10,6 +10,7 @@
 # MIDI Configuration
 MIDI_CONFIG="${MIDI_CONFIG:-$MIDI_DIR/config.toml}"
 MIDI_MAPS_DIR="$MIDI_DIR/maps"
+MIDI_SOCKET="${MIDI_SOCKET:-/tmp/midi_gamepad.sock}"
 
 # Bash 5.2+ required
 if [[ "${BASH_VERSINFO[0]}" -lt 5 ]] || [[ "${BASH_VERSINFO[0]}" -eq 5 && "${BASH_VERSINFO[1]}" -lt 2 ]]; then
@@ -26,11 +27,36 @@ fi
 # Source tree help registration
 [[ -f "$MIDI_SRC/midi_help_tree.sh" ]] && source "$MIDI_SRC/midi_help_tree.sh"
 
+# Helper: Read value from TOML config
+midi_config_get() {
+    local key="$1"
+    local default="$2"
+    if [[ -f "$MIDI_CONFIG" ]]; then
+        local val=$(grep "^${key}[[:space:]]*=" "$MIDI_CONFIG" 2>/dev/null | head -1 | sed 's/.*=[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}/\1/')
+        [[ -n "$val" ]] && echo "$val" || echo "$default"
+    else
+        echo "$default"
+    fi
+}
+
 # Helper: Send OSC control message
 midi_osc_send() {
     local address="$1"
     shift
     node "$MIDI_SRC/osc_send.js" localhost 1983 "$address" "$@" 2>/dev/null
+}
+
+# Helper: Build and get C bridge path
+midi_get_bridge() {
+    local bridge="$MIDI_SRC/midi_bridge"
+    if [[ ! -x "$bridge" ]]; then
+        echo "Building midi_bridge..." >&2
+        (cd "$MIDI_SRC" && make midi_bridge) || {
+            echo "✗ Build failed. Need SDL2: brew install sdl2" >&2
+            return 1
+        }
+    fi
+    echo "$bridge"
 }
 
 # Main MIDI command interface
@@ -42,44 +68,35 @@ midi() {
 Usage: midi <command> [args]
 
 Service Management:
-  start             Start MIDI bridge service (TSM-managed)
-  stop              Stop MIDI bridge service
+  start [--node]    Start MIDI+Gamepad bridge (C binary, ~2-3ms latency)
+                    --node: Use Node.js (slower, but has map/variant support)
+  stop              Stop bridge service
   restart           Restart service
   status            Show service status
 
-Gamepad:
-  gamepad start     Start gamepad bridge (broadcasts to same OSC)
-  gamepad stop      Stop gamepad bridge
-  gamepad status    Show gamepad status
-  gamepad list      List available gamepad devices
-
-Map Management:
-  load-map NAME     Load map file (e.g., vmx8[0])
-  reload-map        Reload current map
-  reload-config     Reload config.toml
-  variant LETTER    Switch variant (a/b/c/d)
-
 Monitoring:
-  repl              Start interactive REPL (CLI + Key mode)
+  repl              Start interactive REPL
   devices           List available MIDI devices
 
 Configuration:
   config show       Show current configuration
   config edit       Edit config.toml
 
-Quick Start:
-  1. midi start                  # Start MIDI service
-  2. midi gamepad start          # Start gamepad bridge (optional)
-  3. midi repl                   # Open TUI REPL
-  4. midi variant b              # Switch to variant 'b'
+Map Management (Node.js mode only):
+  load-map NAME     Load map file (e.g., vmx8[0])
+  variant LETTER    Switch variant (a/b/c/d)
 
-Both MIDI and Gamepad broadcast to OSC 239.1.1.1:1983
-Gamepad axes appear as virtual CC 100-105 on channel 16
+OSC Output:
+  /midi/raw/cc/{ch}/{cc}  {int}     MIDI CC (0-127)
+  /gamepad/axis/{0-5}     {float}   Gamepad (-1.0 to 1.0)
+
+Quick Start:
+  midi start        # Start fast C bridge (MIDI + Gamepad)
+  midi repl         # Monitor input
 
 Examples:
-  midi start && midi gamepad start   # Both inputs active
-  midi repl                          # Monitor all input
-  midi load-map akai[0]              # Hot-reload controller map
+  midi start                 # Fast C bridge (recommended)
+  midi start --node          # Node.js with semantic maps
 EOF
         return 0
     fi
@@ -89,20 +106,50 @@ EOF
     case "$action" in
         # Service management
         start)
-            echo "Starting MIDI bridge service..."
-            # Build command args
-            local config_arg=""
-            if [[ -f "$MIDI_CONFIG" ]]; then
-                config_arg="-c $MIDI_CONFIG"
-            fi
-            # Use TSM with explicit port 1983 (OSC multicast port)
-            if tsm start --name midi --port 1983 node "$MIDI_SRC/midi.js" -v $config_arg; then
-                echo "✓ MIDI bridge started"
-                sleep 1
-                midi status
+            local use_node=false
+            [[ "$1" == "--node" ]] && use_node=true
+
+            if $use_node; then
+                # Node.js mode (supports maps/variants)
+                echo "Starting MIDI bridge (Node.js mode)..."
+                local config_arg=""
+                [[ -f "$MIDI_CONFIG" ]] && config_arg="-c $MIDI_CONFIG"
+                if tsm start --name midi --port 1983 node "$MIDI_SRC/midi.js" -v $config_arg; then
+                    echo "✓ MIDI bridge started (Node.js)"
+                    sleep 1
+                    midi status
+                else
+                    echo "✗ Failed to start service"
+                    return 1
+                fi
             else
-                echo "✗ Failed to start service"
-                return 1
+                # Fast C bridge (default) - MIDI + Gamepad
+                echo "Starting MIDI bridge (C, fast mode)..."
+                local bridge
+                bridge=$(midi_get_bridge) || return 1
+
+                # Read config for device names
+                local device_in=$(midi_config_get "device_input" "")
+                local device_out=$(midi_config_get "device_output" "")
+                local osc_port=$(midi_config_get "osc_port" "1983")
+                local osc_group=$(midi_config_get "osc_multicast" "239.1.1.1")
+
+                # Build args
+                local args="-g -M -v"  # gamepad + MIDI + verbose
+                args="$args -p $osc_port -m $osc_group"
+                args="$args -s $MIDI_SOCKET"
+                # Note: C bridge auto-detects devices, config names are for Node.js
+
+                if tsm start --name midi --port "$osc_port" "$bridge" $args; then
+                    echo "✓ MIDI bridge started (C)"
+                    echo "  OSC: $osc_group:$osc_port"
+                    echo "  Socket: $MIDI_SOCKET"
+                    sleep 1
+                    midi status
+                else
+                    echo "✗ Failed to start service"
+                    return 1
+                fi
             fi
             ;;
 
@@ -191,119 +238,20 @@ EOF
             node "$MIDI_SRC/midi.js" -l
             ;;
 
-        # Gamepad management
+        # Gamepad info (now integrated into midi start)
         gamepad)
-            local gp_action="${1:-status}"
-            shift || true
-
+            local gp_action="${1:-list}"
             case "$gp_action" in
-                start)
-                    echo "Starting gamepad bridge..."
-                    if tsm start --name gamepad --port 1983 node "$MIDI_SRC/gamepad.js" -v; then
-                        echo "✓ Gamepad bridge started"
-                        sleep 1
-                        midi gamepad status
-                    else
-                        echo "✗ Failed to start gamepad bridge"
-                        return 1
-                    fi
-                    ;;
-
-                stop)
-                    echo "Stopping gamepad bridge..."
-                    local gp_id=$(tsm ls 2>/dev/null | grep "gamepad-1983" | awk '{print $1}')
-                    if [[ -n "$gp_id" ]]; then
-                        tsm stop "$gp_id"
-                        echo "✓ Gamepad bridge stopped"
-                    else
-                        echo "✗ Gamepad bridge not found"
-                        return 1
-                    fi
-                    ;;
-
-                status)
-                    if tsm ls 2>/dev/null | grep -q "gamepad-1983"; then
-                        echo "✓ Gamepad bridge: running"
-                        tsm ls | grep "gamepad-1983"
-                        echo ""
-                        echo "Virtual CC mapping (channel 16):"
-                        echo "  CC 100 = Left stick X"
-                        echo "  CC 101 = Left stick Y"
-                        echo "  CC 102 = Right stick X"
-                        echo "  CC 103 = Right stick Y"
-                        echo "  CC 104 = Left trigger"
-                        echo "  CC 105 = Right trigger"
-                    else
-                        echo "✗ Gamepad bridge: not running"
-                        echo "  Start with: midi gamepad start"
-                    fi
-                    ;;
-
                 list)
-                    node "$MIDI_SRC/gamepad.js" -l
+                    local bridge
+                    bridge=$(midi_get_bridge) || return 1
+                    "$bridge" -l
                     ;;
-
-                bridge)
-                    local socket_path="${1:-/tmp/estoface_gamepad.sock}"
-                    echo "Starting OSC → gamepad socket bridge..."
-                    echo "  Socket: $socket_path"
-                    echo "  Mode: OSC multicast (higher latency)"
-                    node "$MIDI_SRC/osc_to_gamepad.js" "$socket_path"
-                    ;;
-
-                direct)
-                    local socket_path="${1:-/tmp/estoface_gamepad.sock}"
-                    local sender="$TETRA_SRC/bash/games/tools/sender"
-                    if [[ ! -x "$sender" ]]; then
-                        echo "✗ Sender binary not found: $sender"
-                        echo "  Build with: cd bash/games/tools && make sender"
-                        return 1
-                    fi
-                    echo "Starting direct gamepad → socket..."
-                    echo "  Socket: $socket_path"
-                    echo "  Mode: Direct SDL2 (lowest latency)"
-                    "$sender" "$socket_path"
-                    ;;
-
-                latency)
-                    echo "Latency test modes:"
-                    echo ""
-                    echo "  Fast (C bridge, recommended):"
-                    echo "    midi gamepad fast"
-                    echo "    Gamepad+MIDI → C binary → OSC + Socket"
-                    echo "    Expected: ~2-3ms"
-                    echo ""
-                    echo "  Direct (SDL sender):"
-                    echo "    midi gamepad direct"
-                    echo "    Gamepad → SDL2 → Unix socket"
-                    echo "    Expected: ~2-5ms"
-                    echo ""
-                    echo "  OSC bridge (Node.js):"
-                    echo "    midi gamepad start + midi gamepad bridge"
-                    echo "    Expected: ~20-50ms"
-                    echo ""
-                    echo "  To measure, run game with ESTOFACE_LATENCY=1:"
-                    echo "    ESTOFACE_LATENCY=1 estoface"
-                    ;;
-
-                fast)
-                    local bridge="$MIDI_SRC/midi_bridge"
-                    if [[ ! -x "$bridge" ]]; then
-                        echo "Building midi_bridge..."
-                        (cd "$MIDI_SRC" && make midi_bridge) || {
-                            echo "✗ Build failed. Need SDL2: brew install sdl2"
-                            return 1
-                        }
-                    fi
-                    echo "Starting fast C bridge..."
-                    echo "  Mode: C binary (lowest latency, ~2-3ms)"
-                    "$bridge" -g -M -v
-                    ;;
-
                 *)
-                    echo "Unknown gamepad action: $gp_action"
-                    echo "Use: start|stop|status|list|fast|direct|bridge|latency"
-                    return 1
+                    echo "Gamepad is now integrated into 'midi start'"
+                    echo ""
+                    echo "  midi start       # Starts MIDI + Gamepad (C bridge)"
+                    echo "  midi gamepad list  # List connected gamepads"
                     ;;
             esac
             ;;
