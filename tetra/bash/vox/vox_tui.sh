@@ -373,3 +373,686 @@ vox_show_palette() {
     done
     echo
 }
+
+#==============================================================================
+# INTERACTIVE PHONEME EDITOR TUI
+#==============================================================================
+
+: "${VOX_SRC:=$TETRA_SRC/bash/vox}"
+: "${VOX_DIR:=$TETRA_DIR/vox}"
+
+# TUI state
+declare -g _VOX_TUI_DOC_ID=""
+declare -g _VOX_TUI_CURSOR=0
+declare -g _VOX_TUI_PHONEME_CURSOR=0
+declare -g _VOX_TUI_MODE="word"  # word | phoneme | edit
+declare -g _VOX_TUI_TOKENS=()
+declare -g _VOX_TUI_MODIFIED=0
+declare -g _VOX_TUI_MESSAGE=""
+
+#==============================================================================
+# TERMINAL HELPERS
+#==============================================================================
+
+_vox_tui_setup() {
+    stty -echo -icanon
+    printf '\033[?25l'        # Hide cursor
+    printf '\033[?1049h'      # Alt screen buffer
+    printf '\033[2J'          # Clear screen
+}
+
+_vox_tui_cleanup() {
+    printf '\033[?1049l'      # Restore screen buffer
+    printf '\033[?25h'        # Show cursor
+    stty echo icanon
+}
+
+_vox_tui_clear() {
+    printf '\033[2J\033[H'
+}
+
+_vox_tui_goto() {
+    local row="$1" col="$2"
+    printf '\033[%d;%dH' "$row" "$col"
+}
+
+_vox_tui_width() {
+    tput cols 2>/dev/null || echo 80
+}
+
+_vox_tui_height() {
+    tput lines 2>/dev/null || echo 24
+}
+
+#==============================================================================
+# DATA LOADING
+#==============================================================================
+
+_vox_tui_load() {
+    local doc_id="$1"
+    _VOX_TUI_DOC_ID="$doc_id"
+
+    if ! vox_annotate_exists "$doc_id"; then
+        echo "Document not found: $doc_id" >&2
+        return 1
+    fi
+
+    local phonemes
+    phonemes=$(vox_annotate_read "$doc_id" "phonemes") || return 1
+
+    _VOX_TUI_TOKENS=()
+    while IFS= read -r token; do
+        _VOX_TUI_TOKENS+=("$token")
+    done < <(echo "$phonemes" | jq -c '.tokens[]')
+
+    _VOX_TUI_CURSOR=0
+    _VOX_TUI_PHONEME_CURSOR=0
+    _VOX_TUI_MODE="word"
+    _VOX_TUI_MODIFIED=0
+    _VOX_TUI_MESSAGE=""
+
+    return 0
+}
+
+_vox_tui_save() {
+    if (( ! _VOX_TUI_MODIFIED )); then
+        _VOX_TUI_MESSAGE="No changes to save"
+        return 0
+    fi
+
+    local path
+    path=$(vox_annotate_path "$_VOX_TUI_DOC_ID" "phonemes")
+
+    cp "$path" "${path}.bak"
+
+    local tokens_json=""
+    for token in "${_VOX_TUI_TOKENS[@]}"; do
+        [[ -n "$tokens_json" ]] && tokens_json+=","
+        tokens_json+="$token"
+    done
+
+    jq -n --argjson tokens "[$tokens_json]" '{
+        version: "1.0",
+        doc_id: "'"$_VOX_TUI_DOC_ID"'",
+        modified: (now | todate),
+        tokens: $tokens
+    }' > "$path"
+
+    _VOX_TUI_MODIFIED=0
+    _VOX_TUI_MESSAGE="Saved!"
+}
+
+#==============================================================================
+# CURRENT TOKEN HELPERS
+#==============================================================================
+
+_vox_tui_current_token() {
+    echo "${_VOX_TUI_TOKENS[$_VOX_TUI_CURSOR]}"
+}
+
+_vox_tui_current_word() {
+    _vox_tui_current_token | jq -r '.word'
+}
+
+_vox_tui_current_ipa() {
+    _vox_tui_current_token | jq -r '.ipa'
+}
+
+_vox_tui_phoneme_count() {
+    _vox_tui_current_token | jq '.phonemes | length'
+}
+
+#==============================================================================
+# RENDERING
+#==============================================================================
+
+_vox_tui_render() {
+    _vox_tui_clear
+
+    local width=$(_vox_tui_width)
+    local height=$(_vox_tui_height)
+
+    # Header using vox colors
+    _vox_tui_goto 1 1
+    printf '\033[44m\033[37m\033[1m'
+    printf " VOX Phoneme Editor"
+    printf "%*s" $((width - 19)) ""
+    reset_color
+    echo
+
+    # Document info
+    _vox_tui_goto 2 1
+    text_color "888888"
+    printf " Document: %s | Words: %d | Mode: %s" \
+        "$_VOX_TUI_DOC_ID" "${#_VOX_TUI_TOKENS[@]}" "$_VOX_TUI_MODE"
+    (( _VOX_TUI_MODIFIED )) && printf " [modified]"
+    reset_color
+    echo
+
+    # Separator
+    _vox_tui_goto 3 1
+    printf '%*s\n' "$width" '' | tr ' ' '─'
+
+    # Word list (left panel)
+    _vox_tui_render_word_list 4 1 30 $((height - 8))
+
+    # Detail panel (right)
+    _vox_tui_render_detail_panel 4 35 $((width - 36)) $((height - 8))
+
+    # Status bar
+    _vox_tui_goto $((height - 2)) 1
+    printf '%*s\n' "$width" '' | tr ' ' '─'
+
+    _vox_tui_goto $((height - 1)) 1
+    text_color "888888"
+    printf " ↑↓:nav  ←→:phoneme  e:edit  d:duration  s:save  q:quit"
+    reset_color
+
+    # Message line
+    if [[ -n "$_VOX_TUI_MESSAGE" ]]; then
+        _vox_tui_goto "$height" 1
+        text_color "22DD22"
+        printf " %s" "$_VOX_TUI_MESSAGE"
+        reset_color
+        _VOX_TUI_MESSAGE=""
+    fi
+}
+
+_vox_tui_render_word_list() {
+    local start_row="$1" start_col="$2" width="$3" height="$4"
+
+    local visible_start=$(( _VOX_TUI_CURSOR - height / 2 ))
+    (( visible_start < 0 )) && visible_start=0
+
+    local visible_end=$(( visible_start + height ))
+    (( visible_end > ${#_VOX_TUI_TOKENS[@]} )) && visible_end=${#_VOX_TUI_TOKENS[@]}
+
+    local row=$start_row
+    for ((i = visible_start; i < visible_end; i++)); do
+        _vox_tui_goto "$row" "$start_col"
+
+        local token="${_VOX_TUI_TOKENS[$i]}"
+        local word=$(echo "$token" | jq -r '.word')
+        local ipa=$(echo "$token" | jq -r '.ipa')
+
+        if (( i == _VOX_TUI_CURSOR )); then
+            printf '\033[48;5;236m\033[37m\033[1m'
+            printf "▸"
+        else
+            printf " "
+        fi
+
+        printf " %-12s " "$word"
+        reset_color
+
+        if (( i == _VOX_TUI_CURSOR )); then
+            vox_qa_id_text
+        else
+            text_color "888888"
+        fi
+        printf "%-10s" "[$ipa]"
+        reset_color
+
+        ((row++))
+    done
+}
+
+_vox_tui_render_detail_panel() {
+    local start_row="$1" start_col="$2" width="$3" height="$4"
+
+    local token=$(_vox_tui_current_token)
+    local word=$(echo "$token" | jq -r '.word')
+    local ipa=$(echo "$token" | jq -r '.ipa')
+    local dur=$(echo "$token" | jq -r '.duration_ms')
+
+    # Word header
+    _vox_tui_goto "$start_row" "$start_col"
+    printf "\033[1m"
+    printf "Word: "
+    vox_voice_text
+    printf "%s" "$word"
+    reset_color
+
+    # IPA
+    _vox_tui_goto $((start_row + 1)) "$start_col"
+    printf "\033[1m"
+    printf "IPA:  "
+    text_color "FFAA00"
+    printf "[%s]" "$ipa"
+    reset_color
+
+    # Duration
+    _vox_tui_goto $((start_row + 2)) "$start_col"
+    printf "\033[1m"
+    printf "Duration: "
+    reset_color
+    vox_duration_text
+    printf "%sms" "$dur"
+    reset_color
+
+    # Phoneme list
+    _vox_tui_goto $((start_row + 4)) "$start_col"
+    printf "\033[1m\033[4m"
+    printf "Phonemes:"
+    reset_color
+
+    local phonemes=$(echo "$token" | jq -c '.phonemes // []')
+
+    local row=$((start_row + 5))
+    local idx=0
+
+    echo "$phonemes" | jq -c '.[]' | while IFS= read -r ph; do
+        _vox_tui_goto "$row" "$start_col"
+
+        local ph_ipa=$(echo "$ph" | jq -r '.ipa')
+        local ph_dur=$(echo "$ph" | jq -r '.duration_ms')
+        local ph_stress=$(echo "$ph" | jq -r '.stress // "none"')
+
+        if [[ "$_VOX_TUI_MODE" == "phoneme" ]] && (( idx == _VOX_TUI_PHONEME_CURSOR )); then
+            printf '\033[48;5;236m\033[37m'
+            printf " ▸ "
+        else
+            printf "   "
+        fi
+
+        # IPA symbol
+        text_color "AA00AA"
+        printf "%-4s " "$ph_ipa"
+        reset_color
+
+        # Duration bar
+        local bar_len=$((ph_dur / 20))
+        (( bar_len > 20 )) && bar_len=20
+        text_color "00AA00"
+        printf "["
+        printf '%*s' "$bar_len" '' | tr ' ' '█'
+        printf '%*s' $((20 - bar_len)) '' | tr ' ' '░'
+        printf "] %3dms" "$ph_dur"
+        reset_color
+
+        # Stress indicator
+        case "$ph_stress" in
+            primary)   text_color "FF0044"; printf " ˈ" ;;
+            secondary) text_color "FFAA00"; printf " ˌ" ;;
+        esac
+        reset_color
+
+        ((row++))
+        ((idx++))
+    done
+}
+
+#==============================================================================
+# INPUT HANDLING
+#==============================================================================
+
+_vox_tui_read_key() {
+    local key
+    IFS= read -rsn1 key
+
+    if [[ "$key" == $'\x1b' ]]; then
+        read -rsn2 -t 0.1 key
+        case "$key" in
+            '[A') echo "up" ;;
+            '[B') echo "down" ;;
+            '[C') echo "right" ;;
+            '[D') echo "left" ;;
+            *)    echo "escape" ;;
+        esac
+    else
+        echo "$key"
+    fi
+}
+
+_vox_tui_handle_input() {
+    local key="$1"
+
+    case "$key" in
+        up)
+            if [[ "$_VOX_TUI_MODE" == "word" ]]; then
+                (( _VOX_TUI_CURSOR > 0 )) && (( _VOX_TUI_CURSOR-- ))
+                _VOX_TUI_PHONEME_CURSOR=0
+            elif [[ "$_VOX_TUI_MODE" == "phoneme" ]]; then
+                (( _VOX_TUI_PHONEME_CURSOR > 0 )) && (( _VOX_TUI_PHONEME_CURSOR-- ))
+            fi
+            ;;
+        down)
+            if [[ "$_VOX_TUI_MODE" == "word" ]]; then
+                (( _VOX_TUI_CURSOR < ${#_VOX_TUI_TOKENS[@]} - 1 )) && (( _VOX_TUI_CURSOR++ ))
+                _VOX_TUI_PHONEME_CURSOR=0
+            elif [[ "$_VOX_TUI_MODE" == "phoneme" ]]; then
+                local count=$(_vox_tui_phoneme_count)
+                (( _VOX_TUI_PHONEME_CURSOR < count - 1 )) && (( _VOX_TUI_PHONEME_CURSOR++ ))
+            fi
+            ;;
+        left)
+            [[ "$_VOX_TUI_MODE" == "phoneme" ]] && _VOX_TUI_MODE="word"
+            ;;
+        right)
+            if [[ "$_VOX_TUI_MODE" == "word" ]]; then
+                _VOX_TUI_MODE="phoneme"
+                _VOX_TUI_PHONEME_CURSOR=0
+            fi
+            ;;
+        e|E)
+            _vox_tui_edit_ipa
+            ;;
+        d|D)
+            _vox_tui_edit_duration
+            ;;
+        +|=)
+            _vox_tui_adjust_duration 10
+            ;;
+        -|_)
+            _vox_tui_adjust_duration -10
+            ;;
+        p|P)
+            _vox_tui_preview
+            ;;
+        s|S)
+            _vox_tui_save
+            ;;
+        r|R)
+            _vox_tui_regenerate_word
+            ;;
+        q|Q)
+            return 1
+            ;;
+    esac
+
+    return 0
+}
+
+#==============================================================================
+# EDIT OPERATIONS
+#==============================================================================
+
+_vox_tui_edit_ipa() {
+    local height=$(_vox_tui_height)
+    local current_ipa=$(_vox_tui_current_ipa)
+
+    _vox_tui_goto "$height" 1
+    reset_color
+    printf '\033[K'
+    printf '\033[?25h'
+
+    printf "New IPA [%s]: " "$current_ipa"
+    stty echo icanon
+    read -r new_ipa
+    stty -echo -icanon
+
+    printf '\033[?25l'
+
+    if [[ -n "$new_ipa" && "$new_ipa" != "$current_ipa" ]]; then
+        local token=$(_vox_tui_current_token)
+        local updated
+        updated=$(echo "$token" | jq --arg ipa "$new_ipa" '.ipa = $ipa')
+
+        if declare -F _vox_g2p_parse_ipa &>/dev/null; then
+            local new_phonemes
+            new_phonemes=$(_vox_g2p_parse_ipa "$new_ipa")
+            updated=$(echo "$updated" | jq --argjson ph "$new_phonemes" '
+                .phonemes = $ph |
+                .duration_ms = ($ph | map(.duration_ms) | add)
+            ')
+        fi
+
+        _VOX_TUI_TOKENS[$_VOX_TUI_CURSOR]="$updated"
+        _VOX_TUI_MODIFIED=1
+        _VOX_TUI_MESSAGE="IPA updated"
+    fi
+}
+
+_vox_tui_edit_duration() {
+    if [[ "$_VOX_TUI_MODE" != "phoneme" ]]; then
+        _VOX_TUI_MESSAGE="Select a phoneme first (→)"
+        return
+    fi
+
+    local height=$(_vox_tui_height)
+    local token=$(_vox_tui_current_token)
+    local current_dur=$(echo "$token" | jq ".phonemes[$_VOX_TUI_PHONEME_CURSOR].duration_ms")
+
+    _vox_tui_goto "$height" 1
+    reset_color
+    printf '\033[K'
+    printf '\033[?25h'
+
+    printf "New duration [%s ms]: " "$current_dur"
+    stty echo icanon
+    read -r new_dur
+    stty -echo -icanon
+
+    printf '\033[?25l'
+
+    if [[ "$new_dur" =~ ^[0-9]+$ && "$new_dur" != "$current_dur" ]]; then
+        local updated
+        updated=$(echo "$token" | jq --argjson idx "$_VOX_TUI_PHONEME_CURSOR" --argjson dur "$new_dur" '
+            .phonemes[$idx].duration_ms = $dur |
+            .duration_ms = (.phonemes | map(.duration_ms) | add)
+        ')
+
+        _VOX_TUI_TOKENS[$_VOX_TUI_CURSOR]="$updated"
+        _VOX_TUI_MODIFIED=1
+        _VOX_TUI_MESSAGE="Duration updated"
+    fi
+}
+
+_vox_tui_adjust_duration() {
+    local delta="$1"
+
+    if [[ "$_VOX_TUI_MODE" != "phoneme" ]]; then
+        return
+    fi
+
+    local token=$(_vox_tui_current_token)
+    local current_dur=$(echo "$token" | jq ".phonemes[$_VOX_TUI_PHONEME_CURSOR].duration_ms")
+    local new_dur=$((current_dur + delta))
+
+    (( new_dur < 10 )) && new_dur=10
+    (( new_dur > 500 )) && new_dur=500
+
+    local updated
+    updated=$(echo "$token" | jq --argjson idx "$_VOX_TUI_PHONEME_CURSOR" --argjson dur "$new_dur" '
+        .phonemes[$idx].duration_ms = $dur |
+        .duration_ms = (.phonemes | map(.duration_ms) | add)
+    ')
+
+    _VOX_TUI_TOKENS[$_VOX_TUI_CURSOR]="$updated"
+    _VOX_TUI_MODIFIED=1
+}
+
+_vox_tui_regenerate_word() {
+    local word=$(_vox_tui_current_word)
+
+    if ! declare -F vox_g2p_word_json &>/dev/null; then
+        _VOX_TUI_MESSAGE="G2P not available"
+        return
+    fi
+
+    local new_data
+    new_data=$(vox_g2p_word_json "$word")
+
+    local token=$(_vox_tui_current_token)
+    local offset=$(echo "$token" | jq '.id')
+
+    local updated
+    updated=$(echo "$new_data" | jq --argjson id "$offset" '. + {id: $id}')
+
+    _VOX_TUI_TOKENS[$_VOX_TUI_CURSOR]="$updated"
+    _VOX_TUI_MODIFIED=1
+    _VOX_TUI_MESSAGE="Regenerated: $word"
+}
+
+_vox_tui_preview() {
+    local word=$(_vox_tui_current_word)
+
+    local espeak_cmd
+    for cmd in espeak-ng espeak; do
+        if command -v "$cmd" &>/dev/null; then
+            espeak_cmd="$cmd"
+            break
+        fi
+    done
+
+    if [[ -n "$espeak_cmd" ]]; then
+        "$espeak_cmd" "$word" 2>/dev/null &
+        _VOX_TUI_MESSAGE="Playing: $word"
+    else
+        _VOX_TUI_MESSAGE="No audio player available"
+    fi
+}
+
+#==============================================================================
+# MAIN TUI LOOP
+#==============================================================================
+
+_vox_tui_run() {
+    local doc_id="$1"
+
+    if ! _vox_tui_load "$doc_id"; then
+        return 1
+    fi
+
+    trap _vox_tui_cleanup EXIT
+    _vox_tui_setup
+
+    while true; do
+        _vox_tui_render
+
+        local key
+        key=$(_vox_tui_read_key)
+
+        if ! _vox_tui_handle_input "$key"; then
+            break
+        fi
+    done
+
+    if (( _VOX_TUI_MODIFIED )); then
+        _vox_tui_goto $(_vox_tui_height) 1
+        printf '\033[K'
+        printf '\033[?25h'
+        printf "Save changes? [Y/n] "
+        stty echo icanon
+        read -r confirm
+        stty -echo -icanon
+        printf '\033[?25l'
+
+        if [[ ! "$confirm" =~ ^[Nn] ]]; then
+            _vox_tui_save
+        fi
+    fi
+}
+
+#==============================================================================
+# NON-INTERACTIVE COMMANDS
+#==============================================================================
+
+vox_tui_list() {
+    local doc_id="$1"
+
+    if ! vox_annotate_exists "$doc_id"; then
+        echo "Document not found: $doc_id" >&2
+        return 1
+    fi
+
+    vox_annotate_read "$doc_id" "phonemes" | \
+        jq -r '.tokens[] | "\(.word)\t[\(.ipa)]\t\(.duration_ms)ms"' | \
+        column -t -s $'\t'
+}
+
+vox_tui_edit_word() {
+    local doc_id="$1"
+    local word="$2"
+    local new_ipa="$3"
+
+    local matches
+    matches=$(vox_annotate_find_word "$doc_id" "$word")
+    local count=$(echo "$matches" | jq 'length')
+
+    if (( count == 0 )); then
+        echo "Word not found: $word" >&2
+        return 1
+    fi
+
+    if (( count > 1 )); then
+        echo "Multiple matches found. Use vox_tui for interactive editing." >&2
+        echo "$matches" | jq -r '.[] | "  offset \(.id): \(.word) [\(.ipa)]"'
+        return 1
+    fi
+
+    local offset
+    offset=$(echo "$matches" | jq -r '.[0].id')
+
+    vox_annotate_update_ipa "$doc_id" "$offset" "$new_ipa"
+    echo "Updated: $word → [$new_ipa]"
+}
+
+#==============================================================================
+# CLI INTERFACE
+#==============================================================================
+
+vox_tui() {
+    local cmd="${1:-help}"
+
+    case "$cmd" in
+        [0-9]*)
+            _vox_tui_run "$cmd"
+            ;;
+
+        list|ls)
+            shift
+            vox_tui_list "$@"
+            ;;
+
+        edit-word|ew)
+            shift
+            vox_tui_edit_word "$@"
+            ;;
+
+        palette|colors)
+            vox_show_palette
+            ;;
+
+        help|--help|-h|*)
+            cat <<'EOF'
+vox_tui - Interactive Phoneme Editor & Color System
+
+Usage: vox_tui <doc_id>       Open interactive editor
+       vox_tui list <doc_id>  List words non-interactively
+       vox_tui edit-word <doc_id> <word> <new_ipa>
+       vox_tui palette        Show color palette
+
+Interactive Controls:
+  ↑/↓         Navigate words
+  ←/→         Switch between word/phoneme mode
+  e           Edit IPA transcription
+  d           Edit phoneme duration
+  +/-         Adjust duration ±10ms
+  r           Regenerate word from G2P
+  p           Preview pronunciation
+  s           Save changes
+  q           Quit
+
+Examples:
+  vox_tui 1760229927
+  vox_tui list 1760229927
+  vox_tui edit-word 1760229927 hello həˈloʊ
+  vox_tui palette
+EOF
+            ;;
+    esac
+}
+
+#==============================================================================
+# EXPORTS
+#==============================================================================
+
+export -f vox_tui vox_tui_list vox_tui_edit_word
+export -f vox_show_palette vox_show_signature vox_show_progress vox_show_summary
+export -f vox_state_symbol_colored vox_get_element_color vox_element_text
+export -f vox_action_text vox_voice_text vox_qa_id_text vox_progress_text
+export -f vox_cost_text vox_duration_text vox_show_cached
+export -f _vox_tui_run _vox_tui_load _vox_tui_save
+export -f _vox_tui_render _vox_tui_handle_input
+export -f _vox_tui_setup _vox_tui_cleanup
