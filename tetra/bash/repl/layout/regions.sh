@@ -115,7 +115,7 @@ repl_region_get() {
 # Usage: repl_region_exists <name>
 repl_region_exists() {
     local name="$1"
-    [[ -v REPL_REGIONS[$name] ]]
+    [[ -n "${REPL_REGIONS[$name]+x}" ]]
 }
 
 # Position cursor at absolute row:col within region

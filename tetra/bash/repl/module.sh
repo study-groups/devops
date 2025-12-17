@@ -97,7 +97,7 @@ repl_module_init() {
     fi
 
     # 7. Set item colors from TDS if available
-    if [[ -v TDS_SEMANTIC_COLORS ]]; then
+    if [[ -n "${TDS_SEMANTIC_COLORS[interactive.active]+x}" ]]; then
         # Selected item: use interactive.active color
         local active_color="${TDS_SEMANTIC_COLORS[interactive.active]:-}"
         if [[ -n "$active_color" ]]; then
