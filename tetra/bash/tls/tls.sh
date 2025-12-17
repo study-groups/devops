@@ -1,22 +1,21 @@
 #!/usr/bin/env bash
-# tls.sh - Time-ordered List with TDS styling
-#
-# Usage: source $TETRA_SRC/bash/tls/tls.sh
 
-TLS_SRC="${TLS_SRC:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
-TLS_DIR="${TLS_DIR:-${TETRA_DIR:-$HOME/.tetra}/tls}"
-
-source "$TLS_SRC/tls_complete.sh"
+# TLS - Time-ordered List with TDS styling
+# Main command implementation
 
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
 
+# TLS_DIR set by includes.sh, fallback for direct sourcing
+TLS_DIR="${TLS_DIR:-${TETRA_DIR:-$HOME/.tetra}/tls}"
+TLS_CONFIG_FILE="${TLS_DIR}/config/tls.conf"
+
 # Ensure config directory exists
-[[ -d "$TLS_DIR" ]] || mkdir -p "$TLS_DIR"
+[[ -d "$TLS_DIR/config" ]] || mkdir -p "$TLS_DIR/config"
 
 # Load saved config if exists
-[[ -f "$TLS_DIR/config" ]] && source "$TLS_DIR/config"
+[[ -f "$TLS_CONFIG_FILE" ]] && source "$TLS_CONFIG_FILE"
 
 # Defaults (only if not already set)
 TLS_LIMIT="${TLS_LIMIT:-20}"
@@ -26,8 +25,18 @@ TLS_THEME="${TLS_THEME:-default}"
 TLS_COLUMNS="${TLS_COLUMNS:-auto}"
 
 # =============================================================================
-# COLOR SETUP - defensive, never fails
+# COLOR SETUP - uses TDS module config
 # =============================================================================
+
+# Get ANSI escape for a TLS color token
+_tls_color() {
+    local token="$1"
+    if declare -f tds_module_escape >/dev/null 2>&1; then
+        tds_module_escape "tls" "$token"
+    else
+        echo ""
+    fi
+}
 
 _tls_init_colors() {
     # All colors empty by default (plain output)
@@ -40,42 +49,46 @@ _tls_init_colors() {
     # Only use colors if stdout is terminal
     [[ ! -t 1 ]] && return
 
-    # Basic ANSI fallbacks
     _TLS_C_BOLD=$'\e[1m'
-    _TLS_C_DIM=$'\e[2m'
     _TLS_C_RESET=$'\e[0m'
-    _TLS_C_DIR=$'\e[1;34m'        # Bold blue for directories
-    _TLS_C_DIR_BOLD=$'\e[1;34m'   # Bold blue
-    _TLS_C_EXEC=$'\e[1;32m'       # Bold green
-    _TLS_C_LINK=$'\e[1;36m'       # Bold cyan
-    _TLS_C_FILE=$'\e[0m'          # Normal
-    _TLS_C_HOT=$'\e[32m'          # Green (< 1 hour)
-    _TLS_C_WARM=$'\e[33m'         # Yellow (< 24 hours)
-    _TLS_C_NEUTRAL=$'\e[0m'       # Normal
-    _TLS_C_CODE=$'\e[33m'         # Yellow for .sh
-    _TLS_C_CONFIG=$'\e[35m'       # Magenta for config files
 
-    # Use TDS if available (overrides ANSI)
-    declare -F tds_text_color >/dev/null 2>&1 || return
-    declare -F reset_color >/dev/null 2>&1 || return
-
-    _TLS_C_HOT=$(tds_text_color "interactive.success" 2>/dev/null) || true
-    _TLS_C_WARM=$(tds_text_color "content.emphasis.bold" 2>/dev/null) || true
-    _TLS_C_NEUTRAL=$(tds_text_color "text.primary" 2>/dev/null) || true
-    _TLS_C_DIM=$(tds_text_color "text.secondary" 2>/dev/null) || true
-    _TLS_C_DIR=$(tds_text_color "content.link" 2>/dev/null) || true
-    _TLS_C_DIR_BOLD="${_TLS_C_BOLD}${_TLS_C_DIR}"
-    _TLS_C_EXEC=$(tds_text_color "interactive.success" 2>/dev/null) || true
-    _TLS_C_LINK=$(tds_text_color "content.emphasis.italic" 2>/dev/null) || true
-    _TLS_C_FILE=$_TLS_C_DIM
-    _TLS_C_STAGED=$_TLS_C_HOT
-    _TLS_C_MODIFIED=$_TLS_C_WARM
-    _TLS_C_UNTRACKED=$(tds_text_color "interactive.warning" 2>/dev/null) || true
-    _TLS_C_CLEAN=$_TLS_C_DIM
-    _TLS_C_HEADING=$(tds_text_color "content.heading.h2" 2>/dev/null) || true
-    _TLS_C_CODE=$(tds_text_color "content.code.inline" 2>/dev/null) || true
-    _TLS_C_CONFIG=$(tds_text_color "content.emphasis.italic" 2>/dev/null) || true
-    _TLS_C_RESET=$(reset_color 2>/dev/null) || true
+    # Use TDS module colors if available
+    if declare -f tds_module_escape >/dev/null 2>&1; then
+        _TLS_C_HOT=$(_tls_color "time.hot")
+        _TLS_C_WARM=$(_tls_color "time.warm")
+        _TLS_C_NEUTRAL=$(_tls_color "time.neutral")
+        _TLS_C_DIM=$(_tls_color "time.cool")
+        _TLS_C_DIR=$(_tls_color "file.directory")
+        _TLS_C_DIR_BOLD="${_TLS_C_BOLD}${_TLS_C_DIR}"
+        _TLS_C_EXEC=$(_tls_color "file.executable")
+        _TLS_C_LINK=$(_tls_color "file.symlink")
+        _TLS_C_FILE=$(_tls_color "file.regular")
+        _TLS_C_CODE=$(_tls_color "file.code")
+        _TLS_C_CONFIG=$(_tls_color "file.config")
+        _TLS_C_STAGED=$(_tls_color "git.staged")
+        _TLS_C_MODIFIED=$(_tls_color "git.modified")
+        _TLS_C_UNTRACKED=$(_tls_color "git.untracked")
+        _TLS_C_CLEAN=$(_tls_color "git.clean")
+        _TLS_C_HEADING=$(_tls_color "ui.heading")
+    else
+        # Basic ANSI fallbacks
+        _TLS_C_DIM=$'\e[2m'
+        _TLS_C_DIR=$'\e[1;34m'
+        _TLS_C_DIR_BOLD=$'\e[1;34m'
+        _TLS_C_EXEC=$'\e[1;32m'
+        _TLS_C_LINK=$'\e[1;36m'
+        _TLS_C_FILE=$'\e[0m'
+        _TLS_C_HOT=$'\e[32m'
+        _TLS_C_WARM=$'\e[33m'
+        _TLS_C_NEUTRAL=$'\e[0m'
+        _TLS_C_CODE=$'\e[33m'
+        _TLS_C_CONFIG=$'\e[35m'
+        _TLS_C_STAGED=$'\e[32m'
+        _TLS_C_MODIFIED=$'\e[33m'
+        _TLS_C_UNTRACKED=$'\e[33m'
+        _TLS_C_CLEAN=$'\e[2m'
+        _TLS_C_HEADING=$'\e[1;36m'
+    fi
 }
 
 # =============================================================================
@@ -97,6 +110,67 @@ _tls_format_time() {
     else
         printf "%s%s%s" "$_TLS_C_DIM" "$formatted" "$_TLS_C_RESET"
     fi
+}
+
+_tls_friendly_date() {
+    local mtime="$1"
+    local now=$(date +%s)
+    local age=$((now - mtime))
+
+    if [[ $age -lt 60 ]]; then
+        echo "just now"
+    elif [[ $age -lt 3600 ]]; then
+        local mins=$((age / 60))
+        (( mins == 1 )) && echo "1 min ago" || echo "${mins} mins ago"
+    elif [[ $age -lt 86400 ]]; then
+        local hours=$((age / 3600))
+        (( hours == 1 )) && echo "1 hour ago" || echo "${hours} hours ago"
+    elif [[ $age -lt 172800 ]]; then
+        echo "yesterday"
+    elif [[ $age -lt 604800 ]]; then
+        local days=$((age / 86400))
+        echo "${days} days ago"
+    elif [[ $age -lt 2592000 ]]; then
+        local weeks=$((age / 604800))
+        (( weeks == 1 )) && echo "1 week ago" || echo "${weeks} weeks ago"
+    else
+        date -r "$mtime" +"%b %d" 2>/dev/null || date -d "@$mtime" +"%b %d" 2>/dev/null
+    fi
+}
+
+_tls_time_bucket() {
+    local mtime="$1"
+    local now=$(date +%s)
+    local age=$((now - mtime))
+
+    if [[ $age -lt 3600 ]]; then
+        echo "hour"
+    elif [[ $age -lt 86400 ]]; then
+        echo "day"
+    elif [[ $age -lt 604800 ]]; then
+        echo "week"
+    else
+        echo "older"
+    fi
+}
+
+_tls_human_size() {
+    local bytes="$1"
+    if [[ $bytes -lt 1024 ]]; then
+        printf "%4dB" "$bytes"
+    elif [[ $bytes -lt 1048576 ]]; then
+        printf "%4.1fK" "$(echo "scale=1; $bytes/1024" | bc)"
+    elif [[ $bytes -lt 1073741824 ]]; then
+        printf "%4.1fM" "$(echo "scale=1; $bytes/1048576" | bc)"
+    else
+        printf "%4.1fG" "$(echo "scale=1; $bytes/1073741824" | bc)"
+    fi
+}
+
+_tls_dir_count() {
+    local dir="$1"
+    local count=$(find "$dir" -maxdepth 1 -not -name ".*" -not -path "$dir" 2>/dev/null | wc -l | tr -d ' ')
+    echo "$count"
 }
 
 _tls_format_type() {
@@ -269,19 +343,107 @@ _tls_list() {
         # Long format with timestamps
         _tls_list_long "$path" "$annotate"
     else
-        # Multi-column format: dirs first (alpha), then recent files (by time), then old files (alpha)
-        if [[ ${#dirs[@]} -gt 0 ]]; then
-            _tls_print_columns dirs
-        fi
-        if [[ ${#sorted_recent[@]} -gt 0 ]]; then
-            [[ ${#dirs[@]} -gt 0 ]] && printf "\n"
-            printf "%s── recent (< 24h) ──%s\n" "$_TLS_C_DIM" "$_TLS_C_RESET"
-            _tls_print_columns sorted_recent
-        fi
-        if [[ ${#files[@]} -gt 0 ]]; then
-            [[ ${#dirs[@]} -gt 0 || ${#sorted_recent[@]} -gt 0 ]] && printf "\n"
-            _tls_print_columns files
-        fi
+        # Rich default view with size/count and relative time
+        _tls_list_rich dirs sorted_recent files
+    fi
+}
+
+# Rich default view with details
+_tls_list_rich() {
+    local -n _dirs=$1
+    local -n _recent=$2
+    local -n _older=$3
+
+    # Print directories with item counts
+    if [[ ${#_dirs[@]} -gt 0 ]]; then
+        for entry in "${_dirs[@]}"; do
+            local name=$(basename "$entry")
+            local count=$(_tls_dir_count "$entry")
+            local mtime=$(stat -f %m "$entry" 2>/dev/null || echo 0)
+            local ftime=$(_tls_friendly_date "$mtime")
+            local tcolor=$(_tls_time_color "$mtime")
+
+            printf "  %s%-24s%s %s%3d items%s  %s%s%s\n" \
+                "$_TLS_C_DIR_BOLD" "${name}/" "$_TLS_C_RESET" \
+                "$_TLS_C_DIM" "$count" "$_TLS_C_RESET" \
+                "$tcolor" "$ftime" "$_TLS_C_RESET"
+        done
+    fi
+
+    # Print recent files with size and time
+    if [[ ${#_recent[@]} -gt 0 ]]; then
+        [[ ${#_dirs[@]} -gt 0 ]] && printf "\n"
+        printf "%s── recent ──%s\n" "$_TLS_C_DIM" "$_TLS_C_RESET"
+        for entry in "${_recent[@]}"; do
+            local name=$(basename "$entry")
+            local size=$(stat -f %z "$entry" 2>/dev/null || echo 0)
+            local hsize=$(_tls_human_size "$size")
+            local mtime=$(stat -f %m "$entry" 2>/dev/null || echo 0)
+            local ftime=$(_tls_friendly_date "$mtime")
+            local tcolor=$(_tls_time_color "$mtime")
+            local ncolor=$(_tls_name_color "$entry")
+
+            printf "  %s%-24s%s %s%s%s  %s%s%s\n" \
+                "$ncolor" "$name" "$_TLS_C_RESET" \
+                "$_TLS_C_DIM" "$hsize" "$_TLS_C_RESET" \
+                "$tcolor" "$ftime" "$_TLS_C_RESET"
+        done
+    fi
+
+    # Print older files with size and time
+    if [[ ${#_older[@]} -gt 0 ]]; then
+        [[ ${#_dirs[@]} -gt 0 || ${#_recent[@]} -gt 0 ]] && printf "\n"
+        for entry in "${_older[@]}"; do
+            local name=$(basename "$entry")
+            local size=$(stat -f %z "$entry" 2>/dev/null || echo 0)
+            local hsize=$(_tls_human_size "$size")
+            local mtime=$(stat -f %m "$entry" 2>/dev/null || echo 0)
+            local ftime=$(_tls_friendly_date "$mtime")
+            local tcolor=$(_tls_time_color "$mtime")
+            local ncolor=$(_tls_name_color "$entry")
+
+            printf "  %s%-24s%s %s%s%s  %s%s%s\n" \
+                "$ncolor" "$name" "$_TLS_C_RESET" \
+                "$_TLS_C_DIM" "$hsize" "$_TLS_C_RESET" \
+                "$tcolor" "$ftime" "$_TLS_C_RESET"
+        done
+    fi
+}
+
+# Get time-based color for an mtime
+_tls_time_color() {
+    local mtime="$1"
+    local now=$(date +%s)
+    local age=$((now - mtime))
+
+    if [[ $age -lt 3600 ]]; then
+        echo "$_TLS_C_HOT"
+    elif [[ $age -lt 86400 ]]; then
+        echo "$_TLS_C_WARM"
+    elif [[ $age -lt 604800 ]]; then
+        echo "$_TLS_C_NEUTRAL"
+    else
+        echo "$_TLS_C_DIM"
+    fi
+}
+
+# Get name color based on file type
+_tls_name_color() {
+    local path="$1"
+    local name=$(basename "$path")
+
+    if [[ -d "$path" ]]; then
+        echo "$_TLS_C_DIR"
+    elif [[ "$name" == *.sh ]]; then
+        echo "$_TLS_C_CODE"
+    elif [[ "$name" == *.md ]]; then
+        echo "$_TLS_C_DIR"
+    elif [[ "$name" == *.toml || "$name" == *.json || "$name" == *.yaml || "$name" == *.yml ]]; then
+        echo "$_TLS_C_CONFIG"
+    elif [[ -x "$path" ]]; then
+        echo "$_TLS_C_EXEC"
+    else
+        echo ""
     fi
 }
 
@@ -314,6 +476,88 @@ _tls_list_long() {
         _tls_format_name "$file"
         printf "\n"
     done
+}
+
+# Tree format listing with time-grouped hierarchy
+_tls_tree() {
+    local path="${1:-.}"
+    local show_all="${2:-false}"
+
+    _tls_init_colors
+
+    # Bucket labels and colors
+    declare -A bucket_label=(
+        [hour]="Last Hour"
+        [day]="Today"
+        [week]="This Week"
+        [older]="Older"
+    )
+    declare -A bucket_color=(
+        [hour]="$_TLS_C_HOT"
+        [day]="$_TLS_C_WARM"
+        [week]="$_TLS_C_NEUTRAL"
+        [older]="$_TLS_C_DIM"
+    )
+
+    # Collect files with mtimes
+    local -A bucket_files=()
+    local buckets=("hour" "day" "week" "older")
+
+    for b in "${buckets[@]}"; do
+        bucket_files[$b]=""
+    done
+
+    while IFS= read -r -d '' entry; do
+        [[ "$entry" == "$path" ]] && continue
+        local name=$(basename "$entry")
+        [[ "$name" == .* ]] && [[ "$show_all" != "true" ]] && continue
+
+        local mtime=$(stat -f %m "$entry" 2>/dev/null || echo 0)
+        local bucket=$(_tls_time_bucket "$mtime")
+        bucket_files[$bucket]+="$mtime:$entry"$'\n'
+    done < <(find "$path" -maxdepth 1 -print0 2>/dev/null)
+
+    # Print header
+    printf "%s%s%s\n" "$_TLS_C_HEADING" "${path}" "$_TLS_C_RESET"
+
+    local found_any=false
+
+    for bucket in "${buckets[@]}"; do
+        [[ -z "${bucket_files[$bucket]}" ]] && continue
+        found_any=true
+
+        # Sort entries in bucket by mtime (newest first)
+        local sorted_entries=()
+        while IFS= read -r line; do
+            [[ -n "$line" ]] && sorted_entries+=("${line#*:}")
+        done < <(printf '%s' "${bucket_files[$bucket]}" | sort -rn -t: -k1)
+
+        local count=${#sorted_entries[@]}
+        local color="${bucket_color[$bucket]}"
+        local label="${bucket_label[$bucket]}"
+
+        # Bucket header
+        printf "%s├── %s%s%s (%d)%s\n" "$_TLS_C_DIM" "$color" "$label" "$_TLS_C_DIM" "$count" "$_TLS_C_RESET"
+
+        local i=0
+        for entry in "${sorted_entries[@]}"; do
+            ((i++))
+            local mtime=$(stat -f %m "$entry" 2>/dev/null || echo 0)
+            local friendly=$(_tls_friendly_date "$mtime")
+            local is_last=$(( i == count ))
+
+            # Tree branch character
+            local branch="├──"
+            local prefix="│   "
+            [[ $is_last == 1 ]] && branch="└──" && prefix="    "
+
+            printf "%s│   %s%s " "$_TLS_C_DIM" "$branch" "$_TLS_C_RESET"
+            _tls_format_name_simple "$entry"
+            printf " %s%s%s\n" "$color" "$friendly" "$_TLS_C_RESET"
+        done
+    done
+
+    [[ "$found_any" == "false" ]] && printf "%s└── (empty)%s\n" "$_TLS_C_DIM" "$_TLS_C_RESET"
 }
 
 # =============================================================================
@@ -366,8 +610,8 @@ _tls_config() {
             echo "$key = $val"
             ;;
         save)
-            [[ -d "$TLS_DIR" ]] || mkdir -p "$TLS_DIR"
-            cat > "$TLS_DIR/config" << EOF
+            [[ -d "$TLS_DIR/config" ]] || mkdir -p "$TLS_DIR/config"
+            cat > "$TLS_CONFIG_FILE" << EOF
 # TLS configuration - generated $(date +%Y-%m-%d)
 TLS_LIMIT="$TLS_LIMIT"
 TLS_DATE_FORMAT="$TLS_DATE_FORMAT"
@@ -375,14 +619,14 @@ TLS_SHOW_HIDDEN="$TLS_SHOW_HIDDEN"
 TLS_THEME="$TLS_THEME"
 TLS_COLUMNS="$TLS_COLUMNS"
 EOF
-            echo "Saved to $TLS_DIR/config"
+            echo "Saved to $TLS_CONFIG_FILE"
             ;;
         load)
-            if [[ -f "$TLS_DIR/config" ]]; then
-                source "$TLS_DIR/config"
-                echo "Loaded from $TLS_DIR/config"
+            if [[ -f "$TLS_CONFIG_FILE" ]]; then
+                source "$TLS_CONFIG_FILE"
+                echo "Loaded from $TLS_CONFIG_FILE"
             else
-                echo "No config file at $TLS_DIR/config"
+                echo "No config file at $TLS_CONFIG_FILE"
                 return 1
             fi
             ;;
@@ -400,93 +644,180 @@ EOF
 _tls_help() {
     local topic="${1:-}"
 
+    # Init colors for help output
+    _tls_init_colors
+
+    local h="$_TLS_C_HEADING"  # headings
+    local c="$_TLS_C_CODE"     # commands/code
+    local d="$_TLS_C_DIM"      # dim/descriptions
+    local r="$_TLS_C_RESET"
+    local b="$_TLS_C_BOLD"
+
     case "$topic" in
         list)
-            cat << 'EOF'
-tls list - List directory contents
-
-USAGE:
-    tls list [options] [path]
-    tls [path]              (list is default)
-
-OPTIONS:
-    -l    Long format with timestamps (like ls -l)
-    -a    Show git status annotations (with -l)
-
-OUTPUT:
-    Default: multi-column like ls
-      - Directories first (bold, sorted alphabetically)
-      - Recent files (< 24h, sorted by time, newest first)
-      - Older files (sorted alphabetically)
-
-    Long (-l): single column with timestamps
-      - All entries sorted by modification time
-EOF
+            printf "%stls list%s - List directory contents\n\n" "$h" "$r"
+            printf "%sUSAGE:%s\n" "$b" "$r"
+            printf "    %stls list%s [options] [path]\n" "$c" "$r"
+            printf "    %stls%s [path]              %s(list is default)%s\n\n" "$c" "$r" "$d" "$r"
+            printf "%sOPTIONS:%s\n" "$b" "$r"
+            printf "    %s-l%s    Long format with timestamps\n" "$c" "$r"
+            printf "    %s-a%s    Show git status annotations (with -l)\n\n" "$c" "$r"
+            printf "%sOUTPUT:%s\n" "$b" "$r"
+            printf "    Default: multi-column like ls\n"
+            printf "      %s- Directories first (bold, sorted alphabetically)%s\n" "$d" "$r"
+            printf "      %s- Recent files (< 24h, sorted by time, newest first)%s\n" "$d" "$r"
+            printf "      %s- Older files (sorted alphabetically)%s\n\n" "$d" "$r"
+            printf "    Long (%s-l%s): single column with timestamps\n" "$c" "$r"
+            printf "      %s- All entries sorted by modification time%s\n" "$d" "$r"
             ;;
         config)
-            cat << 'EOF'
-tls config - Manage tls configuration
-
-USAGE:
-    tls config show           Show all settings
-    tls config list           List available keys
-    tls config get <key>      Get a setting
-    tls config set <key> <v>  Set a setting
-    tls config save           Save to $TLS_DIR/config
-    tls config load           Load from $TLS_DIR/config
-    tls config path           Show config directory
-
-KEYS:
-    limit        Number of entries for -l mode (default: 20)
-    date_format  strftime format (default: %Y-%m-%d %H:%M)
-    show_hidden  Show hidden files (default: false)
-    theme        Color theme (default: default)
-    columns      Column mode: auto or number (default: auto)
-EOF
+            printf "%stls config%s - Manage tls configuration\n\n" "$h" "$r"
+            printf "%sUSAGE:%s\n" "$b" "$r"
+            printf "    %stls config show%s           Show all settings\n" "$c" "$r"
+            printf "    %stls config list%s           List available keys\n" "$c" "$r"
+            printf "    %stls config get%s <key>      Get a setting\n" "$c" "$r"
+            printf "    %stls config set%s <key> <v>  Set a setting\n" "$c" "$r"
+            printf "    %stls config save%s           Save to config file\n" "$c" "$r"
+            printf "    %stls config load%s           Load from config file\n" "$c" "$r"
+            printf "    %stls config path%s           Show config directory\n\n" "$c" "$r"
+            printf "%sKEYS:%s\n" "$b" "$r"
+            printf "    %slimit%s        Number of entries for -l mode %s(default: 20)%s\n" "$c" "$r" "$d" "$r"
+            printf "    %sdate_format%s  strftime format %s(default: %%Y-%%m-%%d %%H:%%M)%s\n" "$c" "$r" "$d" "$r"
+            printf "    %sshow_hidden%s  Show hidden files %s(default: false)%s\n" "$c" "$r" "$d" "$r"
+            printf "    %stheme%s        Color theme %s(default: default)%s\n" "$c" "$r" "$d" "$r"
+            printf "    %scolumns%s      Column mode: auto or number %s(default: auto)%s\n" "$c" "$r" "$d" "$r"
             ;;
         colors)
-            cat << 'EOF'
-tls colors - Time-based color coding
-
-TIME COLORS (age of file):
-    Green   = less than 1 hour (hot)
-    Yellow  = less than 1 day (warm)
-    White   = less than 1 week (neutral)
-    Dim     = older (cool)
-
-TYPE INDICATORS:
-    d = directory
-    x = executable
-    l = symlink
-    . = regular file
-
-GIT ANNOTATIONS (with -a):
-    +  = staged
-    M  = modified
-    ?  = untracked
-    ·  = clean
-EOF
+            printf "%stls colors%s - Time-based color coding\n\n" "$h" "$r"
+            printf "%sTIME COLORS%s (age of file):\n" "$b" "$r"
+            printf "    %sGreen%s   = less than 1 hour (hot)\n" "$_TLS_C_HOT" "$r"
+            printf "    %sYellow%s  = less than 1 day (warm)\n" "$_TLS_C_WARM" "$r"
+            printf "    %sWhite%s   = less than 1 week (neutral)\n" "$_TLS_C_NEUTRAL" "$r"
+            printf "    %sDim%s     = older (cool)\n\n" "$_TLS_C_DIM" "$r"
+            printf "%sTYPE INDICATORS:%s\n" "$b" "$r"
+            printf "    %sd%s = directory\n" "$_TLS_C_DIR" "$r"
+            printf "    %sx%s = executable\n" "$_TLS_C_EXEC" "$r"
+            printf "    %sl%s = symlink\n" "$_TLS_C_LINK" "$r"
+            printf "    . = regular file\n\n"
+            printf "%sGIT ANNOTATIONS%s (with -a):\n" "$b" "$r"
+            printf "    %s+%s  = staged\n" "$_TLS_C_STAGED" "$r"
+            printf "    %sM%s  = modified\n" "$_TLS_C_MODIFIED" "$r"
+            printf "    %s?%s  = untracked\n" "$_TLS_C_UNTRACKED" "$r"
+            printf "    %s·%s  = clean\n" "$_TLS_C_CLEAN" "$r"
+            ;;
+        tree)
+            printf "%stls -t%s - Hierarchical time-grouped view\n\n" "$h" "$r"
+            printf "%sUSAGE:%s\n" "$b" "$r"
+            printf "    %stls -t%s [path]\n" "$c" "$r"
+            printf "    %stls --tree%s [path]\n\n" "$c" "$r"
+            printf "%sOUTPUT:%s\n" "$b" "$r"
+            printf "    Files grouped by modification time:\n"
+            printf "    %s├── Last Hour%s     %s(< 1 hour ago)%s\n" "$_TLS_C_HOT" "$r" "$d" "$r"
+            printf "    %s├── Today%s         %s(< 24 hours ago)%s\n" "$_TLS_C_WARM" "$r" "$d" "$r"
+            printf "    %s├── This Week%s     %s(< 7 days ago)%s\n" "$_TLS_C_NEUTRAL" "$r" "$d" "$r"
+            printf "    %s└── Older%s         %s(> 7 days ago)%s\n\n" "$_TLS_C_DIM" "$r" "$d" "$r"
+            printf "%sTIME FORMAT:%s\n" "$b" "$r"
+            printf "    Friendly relative times: %sjust now%s, %s5 mins ago%s, %syesterday%s, etc.\n" "$c" "$r" "$c" "$r" "$c" "$r"
             ;;
         *)
+            printf "%stls%s - Time-ordered List\n\n" "$h" "$r"
+            printf "%sUSAGE:%s\n" "$b" "$r"
+            printf "    %stls%s [flags] [path]\n\n" "$c" "$r"
+            printf "%sFLAGS:%s\n" "$b" "$r"
+            printf "    %s-t%s  Tree view %s(time-grouped hierarchy)%s\n" "$c" "$r" "$d" "$r"
+            printf "    %s-l%s  Long view %s(detailed timestamps)%s\n" "$c" "$r" "$d" "$r"
+            printf "    %s-a%s  Show hidden files\n" "$c" "$r"
+            printf "    %s-g%s  Show git status %s(with -l)%s\n\n" "$c" "$r" "$d" "$r"
+            printf "%sSUBCOMMANDS:%s\n" "$b" "$r"
+            printf "    %sconfig%s          Manage configuration\n" "$c" "$r"
+            printf "    %shelp%s [topic]    Show help\n\n" "$c" "$r"
+            printf "%sEXAMPLES:%s\n" "$b" "$r"
+            printf "    %stls%s                     Rich view with sizes & times\n" "$c" "$r"
+            printf "    %stls -t%s                  Time-grouped tree view\n" "$c" "$r"
+            printf "    %stls -l%s                  Long format listing\n" "$c" "$r"
+            printf "    %stls -lg%s                 Long with git status\n" "$c" "$r"
+            printf "    %stls -ta%s                 Tree with hidden files\n" "$c" "$r"
+            printf "    %stls help colors%s         Color documentation\n\n" "$c" "$r"
+            ;;
+    esac
+}
+
+# =============================================================================
+# COLOR COMMAND
+# =============================================================================
+
+_tls_color_cmd() {
+    local subcmd="${1:-show}"
+    shift 2>/dev/null || true
+
+    case "$subcmd" in
+        show|preview)
+            if declare -f tds_module_show >/dev/null 2>&1; then
+                tds_module_show "tls"
+            else
+                echo "TDS module config not available"
+                return 1
+            fi
+            ;;
+        init|reset)
+            if declare -f tds_module_save >/dev/null 2>&1; then
+                tds_module_save "tls"
+                echo "Color config reset to defaults"
+            else
+                echo "TDS module config not available"
+                return 1
+            fi
+            ;;
+        edit)
+            local config_file
+            if declare -f tds_module_config_path >/dev/null 2>&1; then
+                config_file=$(tds_module_config_path "tls")
+                # Create if doesn't exist
+                [[ -f "$config_file" ]] || tds_module_save "tls" >/dev/null
+                ${EDITOR:-vi} "$config_file"
+                # Reload after edit
+                tds_module_load "tls" 2>/dev/null
+            else
+                echo "TDS module config not available"
+                return 1
+            fi
+            ;;
+        path)
+            if declare -f tds_module_config_path >/dev/null 2>&1; then
+                tds_module_config_path "tls"
+            else
+                echo "$TLS_DIR/config/colors.conf"
+            fi
+            ;;
+        get)
+            local token="$1"
+            if [[ -z "$token" ]]; then
+                echo "Usage: tls color get <token>"
+                return 1
+            fi
+            if declare -f tds_module_color >/dev/null 2>&1; then
+                tds_module_color "tls" "$token"
+            else
+                echo "TDS module config not available"
+                return 1
+            fi
+            ;;
+        help|*)
             cat << 'EOF'
-tls - Time-ordered List
+tls color - Manage color configuration
 
 USAGE:
-    tls [command] [args]
+    tls color show          Preview current colors
+    tls color edit          Open config in $EDITOR
+    tls color init          Reset to defaults
+    tls color path          Show config file path
+    tls color get <token>   Get hex color for token
 
-COMMANDS:
-    list [path]     List files by mtime (default)
-    config          Manage configuration
-    help [topic]    Show help
-
-EXAMPLES:
-    tls                     List current directory
-    tls list -a             With git annotations
-    tls list -n 10 ~/src    Top 10 in ~/src
-    tls config set limit 50 Change default limit
-    tls help colors         Color documentation
-
-Use <TAB> to explore commands and options.
+TOKENS:
+    time.hot, time.warm, time.neutral, time.cool
+    file.directory, file.executable, file.symlink, file.code, file.config
+    git.staged, git.modified, git.untracked, git.clean
+    ui.heading, ui.separator
 EOF
             ;;
     esac
@@ -497,40 +828,42 @@ EOF
 # =============================================================================
 
 tls() {
-    local cmd="${1:-list}"
-
-    # Handle options at top level (implicit list command)
-    if [[ "$1" == -* ]]; then
-        cmd="list"
-    # Handle bare path as implicit list
-    elif [[ -d "$1" ]] || [[ "$1" == */ ]]; then
-        cmd="list"
-    else
-        shift 2>/dev/null || true
-    fi
-
-    case "$cmd" in
-        list|l)
-            local path="." show_long="false" annotate="false"
-            while [[ $# -gt 0 ]]; do
-                case "$1" in
-                    -l) show_long="true"; shift ;;
-                    -a) annotate="true"; shift ;;
-                    -la|-al) show_long="true"; annotate="true"; shift ;;
-                    -*) echo "Unknown option: $1"; return 1 ;;
-                    *)  path="$1"; shift ;;
-                esac
-            done
-            _tls_list "$path" "$show_long" "$annotate"
-            ;;
-        config|c) _tls_config "$@" ;;
-        help|h) _tls_help "$@" ;;
-        *) echo "Unknown command: $cmd"; echo "Try: tls help"; return 1 ;;
+    # Subcommands that aren't listing
+    case "$1" in
+        config|c) shift; _tls_config "$@"; return ;;
+        color)    shift; _tls_color_cmd "$@"; return ;;
+        help|h)   shift; _tls_help "$@"; return ;;
     esac
+
+    # Parse flags for listing modes
+    local path="." mode="rich" show_hidden="false" annotate="false"
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -t|--tree)  mode="tree"; shift ;;
+            -l|--long)  mode="long"; shift ;;
+            -a|--all)   show_hidden="true"; shift ;;
+            -g|--git)   annotate="true"; shift ;;
+            -tl|-lt)    mode="long"; shift ;;  # -t with -l = long
+            -ta|-at)    mode="tree"; show_hidden="true"; shift ;;
+            -la|-al)    mode="long"; show_hidden="true"; shift ;;
+            -lag|-gal|-alg|-gla|-lga|-agl) mode="long"; show_hidden="true"; annotate="true"; shift ;;
+            -lg|-gl)    mode="long"; annotate="true"; shift ;;
+            -*)         echo "Unknown option: $1"; return 1 ;;
+            *)          path="$1"; shift ;;
+        esac
+    done
+
+    # Store hidden setting temporarily
+    local old_hidden="$TLS_SHOW_HIDDEN"
+    [[ "$show_hidden" == "true" ]] && TLS_SHOW_HIDDEN="true"
+
+    case "$mode" in
+        tree) _tls_tree "$path" "$show_hidden" ;;
+        long) _tls_list "$path" "true" "$annotate" ;;
+        rich) _tls_list "$path" "false" "$annotate" ;;
+    esac
+
+    TLS_SHOW_HIDDEN="$old_hidden"
 }
 
-complete -F _tls_complete tls
-
-export -f tls _tls_list _tls_list_long _tls_config _tls_help
-export -f _tls_init_colors _tls_format_time _tls_format_type _tls_format_name _tls_git_annotation
-export -f _tls_format_name_simple _tls_name_width _tls_print_columns
