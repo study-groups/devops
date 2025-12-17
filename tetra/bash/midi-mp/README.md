@@ -1,17 +1,59 @@
 # midi-mp: MIDI Multiplayer Protocol
 
-**A protocol and router for distributing MIDI control to multiple players/consumers**
+**256-channel message router for distributing MIDI/gamepad control to games and browsers**
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         TETRA AUDIO/GAME STACK                      │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  MIDI Controller / Gamepad                                          │
+│         │                                                           │
+│         ▼                                                           │
+│  ┌─────────────┐                                                    │
+│  │   midi.js   │  Binds 1983, broadcasts to multicast 239.1.1.1     │
+│  │  (TSM svc)  │  TSM: tsm start midi                               │
+│  └──────┬──────┘                                                    │
+│         │ multicast 1983/udp                                        │
+│         ▼                                                           │
+│  ┌─────────────┐     ┌──────────────────┐                           │
+│  │ midi-mp.js  │────▶│ control-map.json │  CC 41 → /game/freq 1.5   │
+│  │  (TSM svc)  │     └──────────────────┘  256-channel routing      │
+│  └──────┬──────┘     TSM: tsm start midi-mp                         │
+│         │                                                           │
+│         ├────────────▶ 2020/udp ────────▶ Game engines (TGP)        │
+│         │              (broadcast)        pulsar, trax, etc.        │
+│         │                                                           │
+│         └────────────▶ 1986/udp ────────▶ quasar ────▶ browsers     │
+│                        (direct)           (WebSocket 1985)          │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## Port Map
+
+| Port | Type | Service | Direction | Description |
+|------|------|---------|-----------|-------------|
+| 1983 | UDP  | midi.js | bind+multicast | MIDI hardware → OSC broadcast |
+| 1983 | UDP  | midi-mp.js | multicast-join | Receives from midi.js |
+| 1985 | TCP  | quasar | bind | WebSocket to browsers |
+| 1986 | UDP  | quasar | bind | OSC commands from midi-mp |
+| 2020 | UDP  | games | send-to | Broadcast to game engines |
 
 ## Core Concept
 
 **midi-mp defines HOW to route MIDI messages to multiple endpoints, not WHAT to do with them.**
 
 ```
-MIDI Controller → midi.js (OSC bridge) → midi-mp router → Players/Apps
-                                              ↓
-                                        Routing rules
-                                        Player management
-                                        Message filtering
+MIDI Controller → midi.js (OSC) → midi-mp (map+route) → Games/Browsers
+                                         │
+                                  ┌──────┴──────┐
+                                  │ 256 channels │
+                                  │ Map files    │
+                                  │ Subscriptions│
+                                  └─────────────┘
 ```
 
 This is the **perfect abstraction** for multiplayer MIDI control - reusable, composable, and standards-based.
@@ -35,59 +77,70 @@ But each use case needs different routing logic.
 - `per-player` - Each player gets assigned controls
 - `aggregate` - Combine multiple controllers
 
-## Architecture
+## Directory Structure
 
 ```
 bash/
 ├── midi/               # Hardware → OSC bridge
-│   └── midi.js         # VMX8 Bluetooth → OSC :1983
+│   └── midi.js         # MIDI hardware → multicast 239.1.1.1:1983
 │
 ├── midi-mp/            # Multiplayer routing protocol ← YOU ARE HERE
-│   ├── router.js       # Route OSC to players :2020
+│   ├── midi-mp.js      # 256-channel message router
 │   ├── protocol.js     # Message format definitions
 │   ├── examples/       # Example configs
-│   ├── cymatica-server.js    # Web server + WebSocket bridge :3400
-│   ├── tunnel-cymatica.sh    # SSH tunnel for cloud deployment
-│   ├── public/cymatica/      # Browser visualization client
-│   └── CLOUD_SETUP.md        # Cloud deployment guide
+│   └── public/         # Static files
+│
+├── quasar/             # Browser bridge
+│   └── quasar_server.js  # WebSocket 1985, OSC 1986
+│
+├── games/              # Game engines (receive from 2020)
+│   ├── pulsar/
+│   ├── trax/
+│   └── cymatica/
 ```
 
 ## Quick Start
 
-### 1. Start MIDI Bridge
+### Using TSM (recommended)
 
 ```bash
-# In terminal 1: Start MIDI → OSC broadcaster
+# Start all services
+tsm start midi      # MIDI hardware → multicast 1983
+tsm start midi-mp   # Router joins multicast, sends to 2020/1986
+tsm start quasar    # Browser bridge on 1985
+
+# Check status
+tsm list --ports
+```
+
+### Manual Start
+
+```bash
+# Terminal 1: MIDI bridge
 cd ~/tetra/bash/midi
-node midi.js -i "VMX8 Bluetooth" -o "VMX8 Bluetooth" -v
+node midi.js -M -O -v
 
-# Broadcasts to UDP :57121
-```
-
-### 2. Start midi-mp Router
-
-```bash
-# In terminal 2: Start router with config
+# Terminal 2: Router
 cd ~/tetra/bash/midi-mp
-node router.js examples/cymatica.json
+node midi-mp.js --port 1983 --verbose
+
+# Terminal 3: Quasar (for browser clients)
+cd ~/tetra/bash/quasar
+node quasar_server.js
 ```
 
-### 3. Connect Your App
+### Connect Your Game
 
 ```javascript
-// In your game/app
-const osc = require('osc');
+// Game listens on 2020/udp for mapped commands
+const dgram = require('dgram');
+const server = dgram.createSocket('udp4');
 
-const udpPort = new osc.UDPPort({
-  localAddress: "0.0.0.0",
-  localPort: 57121
+server.on('message', (msg, rinfo) => {
+  console.log('Game received:', msg.toString());
 });
 
-udpPort.on("message", (oscMsg) => {
-  console.log('Received:', oscMsg);
-});
-
-udpPort.open();
+server.bind(2020);
 ```
 
 ## Use Cases
@@ -305,16 +358,14 @@ Combine multiple controllers (weighted average)
 
 ## API
 
-### Router Class
+### MessageRouter Class
 
 ```javascript
-const { MidiMpRouter } = require('./router');
+const { MessageRouter } = require('./midi-mp');
 
-const router = new MidiMpRouter({
-  mode: 'broadcast',
-  oscHost: '0.0.0.0',
-  oscPort: 57121,
-  verbose: true
+const router = new MessageRouter({
+  port: 1983,
+  configDir: process.env.TETRA_DIR + '/midi-mp'
 });
 
 // Events
@@ -450,14 +501,25 @@ router.on('cymatics.frequency', (msg) => {
 
 ```
 midi-mp/
-├── router.js              # Core routing engine
+├── midi-mp.js             # 256-channel message router (main)
 ├── protocol.js            # Message format definitions
 ├── examples/
-│   ├── broadcast.json     # Simple broadcast
+│   ├── broadcast.json     # Simple broadcast config
 │   ├── cymatica.json      # Cymatics game/visualizer
-│   ├── vj-split.json      # Multi-screen VJ
-│   └── collaborative-daw.json  # Band collaboration
+│   └── vj-split.json      # Multi-screen VJ
+├── public/                # Static files
 └── README.md              # This file
+```
+
+## TSM Service
+
+```bash
+# Service definition: ~/tetra/orgs/tetra/tsm/services-available/midi-mp.tsm
+TSM_NAME="midi-mp"
+TSM_PORT="1983"
+TSM_PORT_TYPE="udp"
+TSM_PORTS="1983:udp:osc:multicast-join:239.1.1.1"
+TSM_COMMAND="node midi-mp.js --port 1983"
 ```
 
 ## Dependencies

@@ -155,6 +155,7 @@
     const RECONNECT_DELAY = 2000;
     const urlParams = new URLSearchParams(window.location.search);
     const skipDemo = urlParams.get('skipdemo') === 'true';
+    const embedMode = urlParams.get('embed') === 'true' || window.self !== window.top;
 
     // State
     let ws = null;
@@ -175,12 +176,11 @@
     const startBtn = document.getElementById('start-btn');
     const terminalCanvas = document.getElementById('terminal');
 
-    // Games registry
+    // Games registry - channel is the midi-mp channel for this game
     const GAMES = [
-      { id: 'pulsar', name: 'PULSAR', desc: 'Dual Oscillator Engine' },
-      { id: 'formant', name: 'FORMANT', desc: 'Formant Synthesizer' },
-      { id: 'estoface', name: 'ESTOFACE', desc: 'Facial Animation' },
-      { id: 'estovox', name: 'ESTOVOX', desc: 'Voice TUI Animation' }
+      { id: 'magnetar', name: 'MAGNETAR', desc: 'Arcade Space Shooter', channel: 0x40 },
+      { id: 'formant', name: 'FORMANT', desc: 'Formant Synthesizer', channel: 0x30 },
+      { id: 'trax', name: 'TRAX', desc: 'Multiplayer Dune Buggy Rally', channel: 9 }
     ];
 
     // ═══════════════════════════════════════════════════════════════
@@ -380,7 +380,7 @@
 ║                                                          ║
 ║                  INITIALIZING ${game.name.padEnd(10)}                 ║
 ║                                                          ║
-║                  Channel: ${String(selectedChannel).padStart(3, '0')}                          ║
+║                  Channel: ${String(game.channel).padStart(3, '0')}                          ║
 ║                                                          ║
 ║                                                          ║
 ║          ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░            ║
@@ -476,7 +476,7 @@
         ws.send(JSON.stringify({
           t: 'bridge.spawn',
           game: game.id,
-          channel: selectedChannel
+          channel: game.channel
         }));
       }
 
@@ -627,8 +627,33 @@
     // Expose for debugging
     window.terminal = terminal;
 
-    // Show loading screen
-    terminal.render(`
+    // Auto-start in embed mode (iframe)
+    if (embedMode) {
+      audioNotice.classList.remove('show');
+      connect();
+      currentPage = skipDemo ? 4 : 0;
+      renderCurrentPage();
+
+      // Init audio on first interaction (required by browser autoplay policy)
+      const initAudioOnce = async () => {
+        if (!audioInitialized) {
+          try {
+            await QUASAR.init();
+            await QUASAR.resume();
+            audioInitialized = true;
+            QUASAR.trigger('pickup');
+          } catch (e) {
+            console.log('Audio init failed:', e);
+          }
+        }
+        document.removeEventListener('click', initAudioOnce);
+        document.removeEventListener('keydown', initAudioOnce);
+      };
+      document.addEventListener('click', initAudioOnce);
+      document.addEventListener('keydown', initAudioOnce);
+    } else {
+      // Show loading screen (only in non-embed mode)
+      terminal.render(`
 
 
 
@@ -654,6 +679,7 @@
 
 
 `);
+    }
 
   </script>
 </body>

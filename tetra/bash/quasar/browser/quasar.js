@@ -55,14 +55,17 @@ window.QUASAR = (function() {
       ]
     },
 
-    // Clank - metallic track sound
+    // Clank - metallic navigation sound (extended decay)
     clank: {
       voices: [3],
       sequence: [
-        { t: 0, gate: 1, freq: 20, wave: 1, vol: 10 },
-        { t: 20, freq: 24, vol: 8 },
-        { t: 40, freq: 28, vol: 4 },
-        { t: 60, gate: 0 }
+        { t: 0, gate: 1, freq: 20, wave: 1, vol: 12 },
+        { t: 30, freq: 22, vol: 10 },
+        { t: 60, freq: 24, vol: 8 },
+        { t: 100, freq: 26, vol: 6 },
+        { t: 150, freq: 28, vol: 4 },
+        { t: 200, freq: 30, vol: 2 },
+        { t: 250, gate: 0 }
       ]
     },
 
