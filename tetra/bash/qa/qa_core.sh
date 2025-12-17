@@ -179,21 +179,9 @@ q_gpt_query ()
     #set +x # Disable command tracing before exiting
 } 
 
-# Show documentation
+# Show documentation (deprecated - use `qa` with no args for org-style help)
 qa_help() {
-    cat <<EOF
-   Q&A Command Line Tool Documentation:
-   ------------------------------------
-   qa help          - Show this documentation.
-   qa status        - Display current system status.
-   qa set-engine    - Set the Q&A engine (default: OpenAI).
-   qa set-apikey    - Set the API key for the Q&A engine.
-   qa set-context   - Set default context for queries.
-   qa last          - Most recent answer
-   qa query         - Query with detailed output
-   qa repl          - Start interactive REPL
-
-EOF
+    qa
 }
 
 # Display current system status
@@ -343,14 +331,86 @@ qa_test(){
   a
 }
 
-fa(){
-    # Format answer with TDS markdown renderer (via chroma wrapper)
-    local chroma_cmd="bash ${TDS_SRC:-$(dirname "${BASH_SOURCE[0]}")/../tds}/chroma.sh"
-    local file=$(a "$@" 2>/dev/null | grep -o "[0-9]*\.answer" | head -1)
-    if [[ -n "$file" ]]; then
-        $chroma_cmd "$QA_DIR/db/$file"
+# List QA entries in numbered list format for chroma pattern rendering
+# Usage: qa_list [--truncate] [count]
+# Output: numbered list suitable for chroma pattern rendering
+qa_list() {
+    local db="$QA_DIR/db"
+    local truncate_flag=""
+    local count=10
+
+    # Parse args
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --truncate|-t) truncate_flag="--truncate"; shift ;;
+            [0-9]*) count="$1"; shift ;;
+            *) shift ;;
+        esac
+    done
+
+    local files
+    mapfile -t files < <(ls -t "$db"/*.answer 2>/dev/null | head -"$count")
+
+    if [[ ${#files[@]} -eq 0 ]]; then
+        echo "No answers found" >&2
+        return 1
+    fi
+
+    # Build markdown list
+    local i=1
+    local output=""
+    for file in "${files[@]}"; do
+        local id=$(basename "$file" .answer)
+        local prompt=""
+        [[ -f "$db/$id.prompt" ]] && prompt=$(head -n 1 "$db/$id.prompt")
+        # Clean prompt for display
+        prompt="${prompt//[$'\n\r']/}"
+        output+="$i. $id – $prompt"$'\n'
+        ((i++))
+    done
+
+    # Pipe through chroma if available
+    if declare -f chroma &>/dev/null; then
+        echo "$output" | chroma -m 4 $truncate_flag
     else
-        a "$@"
+        echo "$output"
+    fi
+}
+
+# Show answer with chroma rendering
+# Usage: fa [index]
+fa() {
+    local db="$QA_DIR/db"
+    local files
+    mapfile -t files < <(ls -t "$db"/*.answer 2>/dev/null)
+
+    if [[ ${#files[@]} -eq 0 ]]; then
+        echo "No answers found" >&2
+        return 1
+    fi
+
+    local index="${1:-0}"
+    local file="${files[$index]}"
+    [[ -z "$file" || ! -f "$file" ]] && { echo "No answer at index $index" >&2; return 1; }
+
+    local id=$(basename "$file" .answer)
+    local total=${#files[@]}
+    local prompt=""
+    [[ -f "$db/$id.prompt" ]] && prompt=$(head -n 1 "$db/$id.prompt")
+
+    # Build output with header + answer content
+    local output=""
+    output+="[$id: $prompt]"$'\n'
+    output+=$'\n'
+    output+=$(cat "$file")
+    output+=$'\n'
+    output+="[QA/global/$((index+1))/$total $id]"
+
+    # Pipe through chroma if available
+    if declare -f chroma &>/dev/null; then
+        echo "$output" | chroma -m 4
+    else
+        echo "$output"
     fi
 }
 

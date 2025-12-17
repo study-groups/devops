@@ -84,6 +84,9 @@ REGULAR USE
   qq @research "query"  Query to named channel
   a                     Show last answer (from main archive)
   a1                    Show last answer (from working channel 1)
+  list [N]              List recent N entries (default 10)
+  list -t [N]           List truncated (single line per entry)
+  fa [N]                Show answer N with chroma rendering
   search "topic"        Search all answers
 
 CHANNELS
@@ -169,6 +172,12 @@ EOF
         # Answer/retrieval
         "last"|"a")
             a "$1"
+            ;;
+        "list"|"ls")
+            qa_list "$@"
+            ;;
+        "fa")
+            fa "$@"
             ;;
 
         # Search
