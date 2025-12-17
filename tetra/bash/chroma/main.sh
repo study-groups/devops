@@ -121,6 +121,7 @@ chroma() {
     local is_tmp=0
     local theme=""
     CHROMA_NO_COLOR=0
+    CHROMA_TRUNCATE="${CHROMA_TRUNCATE:-0}"
 
     # Handle subcommands first
     case "${1:-}" in
@@ -201,6 +202,7 @@ chroma() {
             -w|--width) width="$2"; shift 2 ;;
             -t|--theme) theme="$2"; shift 2 ;;
             --no-color) CHROMA_NO_COLOR=1; shift ;;
+            --truncate) CHROMA_TRUNCATE=1; shift ;;
             -h|--help) chroma_help; return 0 ;;
             help) chroma_help; return 0 ;;
             -*) shift ;;
@@ -315,6 +317,7 @@ OPTIONS
   -w, --width N     Set content width (default: terminal width)
   -t, --theme NAME  Use specific theme (warm, cool, arctic, neutral, electric)
   --no-color        Disable colors
+  --truncate        Show only truncated header for pattern lists (no expansion)
   -h, --help        Show this help
 
 THEMES

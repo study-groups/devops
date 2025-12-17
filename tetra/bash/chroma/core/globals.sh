@@ -36,4 +36,19 @@ declare -gA CHROMA_TOKENS=(
     [table.border]="ui.border"
     [table.header]="content.heading.h3"
     [table.cell]="text.primary"
+    # Pattern tokens for structured list items
+    [pattern.number]="pattern.number"
+    [pattern.topic]="pattern.topic"
+    [pattern.dash]="pattern.dash"
+    [pattern.desc]="pattern.desc"
+    [pattern.key]="pattern.key"
+    [pattern.value]="pattern.value"
+    [pattern.time]="pattern.time"
 )
+
+# Pattern detection enabled by default
+declare -g CHROMA_PATTERNS_ENABLED=1
+
+# Truncate mode: when 1, pattern lists show only header line
+# When 0 (default), show header + full wrapped content
+declare -g CHROMA_TRUNCATE=0

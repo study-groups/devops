@@ -87,58 +87,86 @@ _chroma_render_line() {
         list.bullet)
             # Try plugin hook first
             if ! _chroma_run_hooks render_list "bullet" "$content" "$pad"; then
-                # Word-wrap list item content
-                local bullet_indent="  "  # 2 spaces to align with text after "• "
-                local list_width=$((width - ${#pad} - 2))  # Account for "• "
-                local wrapped_lines
-                mapfile -t wrapped_lines < <(_chroma_word_wrap "$content" "$list_width" "")
-
-                local first=1
-                for wline in "${wrapped_lines[@]}"; do
+                # Check if pattern matching is enabled and content matches a pattern
+                if (( CHROMA_PATTERNS_ENABLED )) && _chroma_pattern_match "$content"; then
+                    # Pattern matched - render bullet + styled content
                     printf '%s' "$pad"
-                    if (( first )); then
-                        _chroma_color "$(_chroma_token list.bullet)"
-                        printf '• '
-                        _chroma_reset
-                        first=0
-                    else
-                        printf '%s' "$bullet_indent"
-                    fi
-                    _chroma_color "$(_chroma_token text)"
-                    _chroma_inline "$wline" "text"
+                    _chroma_color "$(_chroma_token list.bullet)"
+                    printf '• '
                     _chroma_reset
+                    _chroma_render_pattern "$content" "text" "$((width - ${#pad} - 2))"
                     echo
-                done
+                else
+                    # No pattern match - use standard bullet list rendering
+                    local bullet_indent="  "  # 2 spaces to align with text after "• "
+                    local list_width=$((width - ${#pad} - 2))  # Account for "• "
+                    local wrapped_lines
+                    mapfile -t wrapped_lines < <(_chroma_word_wrap "$content" "$list_width" "")
+
+                    local first=1
+                    for wline in "${wrapped_lines[@]}"; do
+                        printf '%s' "$pad"
+                        if (( first )); then
+                            _chroma_color "$(_chroma_token list.bullet)"
+                            printf '• '
+                            _chroma_reset
+                            first=0
+                        else
+                            printf '%s' "$bullet_indent"
+                        fi
+                        _chroma_color "$(_chroma_token text)"
+                        _chroma_inline "$wline" "text"
+                        _chroma_reset
+                        echo
+                    done
+                fi
             fi
             ;;
 
         list.number)
             # Try plugin hook first
             if ! _chroma_run_hooks render_list "number" "$content" "$pad" "$level"; then
-                # Word-wrap list item content
-                local num_prefix="${level}. "
-                local num_indent
-                printf -v num_indent "%*s" "${#num_prefix}" ""  # Match number prefix width
-                local list_width=$((width - ${#pad} - ${#num_prefix}))
-                local wrapped_lines
-                mapfile -t wrapped_lines < <(_chroma_word_wrap "$content" "$list_width" "")
-
-                local first=1
-                for wline in "${wrapped_lines[@]}"; do
-                    printf '%s' "$pad"
-                    if (( first )); then
-                        _chroma_color "$(_chroma_token list.number)"
+                # Check if pattern matching is enabled and content matches a pattern
+                if (( CHROMA_PATTERNS_ENABLED )) && _chroma_pattern_match "$content"; then
+                    if (( CHROMA_TRUNCATE )); then
+                        # Truncate mode - single line with truncated content
+                        local num_prefix="${level}. "
+                        printf '%s' "$pad"
+                        _chroma_color "$(_chroma_token pattern.number)"
                         printf '%s' "$num_prefix"
                         _chroma_reset
-                        first=0
+                        _chroma_render_pattern "$content" "text" "$((width - ${#pad} - ${#num_prefix}))"
+                        echo
                     else
-                        printf '%s' "$num_indent"
+                        # Expanded mode - header line + full wrapped content
+                        _chroma_render_pattern_expanded "$level" "$content" "$pad" "$width"
                     fi
-                    _chroma_color "$(_chroma_token text)"
-                    _chroma_inline "$wline" "text"
-                    _chroma_reset
-                    echo
-                done
+                else
+                    # No pattern match - use standard numbered list rendering
+                    local num_prefix="${level}. "
+                    local num_indent
+                    printf -v num_indent "%*s" "${#num_prefix}" ""  # Match number prefix width
+                    local list_width=$((width - ${#pad} - ${#num_prefix}))
+                    local wrapped_lines
+                    mapfile -t wrapped_lines < <(_chroma_word_wrap "$content" "$list_width" "")
+
+                    local first=1
+                    for wline in "${wrapped_lines[@]}"; do
+                        printf '%s' "$pad"
+                        if (( first )); then
+                            _chroma_color "$(_chroma_token list.number)"
+                            printf '%s' "$num_prefix"
+                            _chroma_reset
+                            first=0
+                        else
+                            printf '%s' "$num_indent"
+                        fi
+                        _chroma_color "$(_chroma_token text)"
+                        _chroma_inline "$wline" "text"
+                        _chroma_reset
+                        echo
+                    done
+                fi
             fi
             ;;
 
@@ -159,19 +187,27 @@ _chroma_render_line() {
             ;;
 
         text|*)
-            # Word-wrap long lines
-            local text_width=$((width - ${#pad}))
-            local wrapped_lines
-            mapfile -t wrapped_lines < <(_chroma_word_wrap "$content" "$text_width" "")
-
-            local first=1
-            for wline in "${wrapped_lines[@]}"; do
+            # Check if pattern matching is enabled and content matches a pattern
+            if (( CHROMA_PATTERNS_ENABLED )) && _chroma_pattern_match "$content"; then
+                # Pattern matched - render with pattern styling
                 printf '%s' "$pad"
-                _chroma_color "$(_chroma_token text)"
-                _chroma_inline "$wline" "text"
-                _chroma_reset
+                _chroma_render_pattern "$content" "text" "$((width - ${#pad}))"
                 echo
-            done
+            else
+                # No pattern match - word-wrap long lines
+                local text_width=$((width - ${#pad}))
+                local wrapped_lines
+                mapfile -t wrapped_lines < <(_chroma_word_wrap "$content" "$text_width" "")
+
+                local first=1
+                for wline in "${wrapped_lines[@]}"; do
+                    printf '%s' "$pad"
+                    _chroma_color "$(_chroma_token text)"
+                    _chroma_inline "$wline" "text"
+                    _chroma_reset
+                    echo
+                done
+            fi
             ;;
     esac
 
