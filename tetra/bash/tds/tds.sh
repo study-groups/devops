@@ -846,7 +846,7 @@ _tds_cmd_doctor() {
     for name in ENV_PRIMARY MODE_PRIMARY VERBS_PRIMARY NOUNS_PRIMARY; do
         declare -n arr="$name" 2>/dev/null
         local short_name="${name%_PRIMARY}"
-        if [[ -v arr ]]; then
+        if [[ -n "${arr+x}" ]]; then
             printf "  %-${label_width}s %d colors" "$short_name:" "${#arr[@]}"
             [[ -n "${arr[0]:-}" ]] && printf " (%s)" "${arr[0]}"
             echo

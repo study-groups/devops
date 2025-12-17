@@ -69,7 +69,7 @@ chroma_get_parser() {
 # Check if parser exists
 # Args: name
 chroma_parser_exists() {
-    [[ -v "CHROMA_PARSERS[$1]" ]]
+    [[ -n "${CHROMA_PARSERS[$1]+x}" ]]
 }
 
 # Get parser for file extension

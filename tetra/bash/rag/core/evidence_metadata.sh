@@ -230,7 +230,7 @@ update_evidence_metadata() {
     )
 
     for key in "${field_order[@]}"; do
-        if [[ -v EVIDENCE_META[$key] ]]; then
+        if [[ -n "${EVIDENCE_META[$key]+x}" ]]; then
             local val="${EVIDENCE_META[$key]}"
 
             # Handle arrays

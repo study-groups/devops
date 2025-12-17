@@ -14,7 +14,7 @@ rag_load_module() {
     local module_path="$RAG_SRC/core/${module}.sh"
 
     # Check if already loaded
-    [[ -v RAG_LOADED_MODULES[$module] ]] && return 0
+    [[ -n "${RAG_LOADED_MODULES[$module]+x}" ]] && return 0
 
     # Check if file exists
     if [[ ! -f "$module_path" ]]; then
