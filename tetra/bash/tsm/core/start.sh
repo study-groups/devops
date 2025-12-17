@@ -207,6 +207,11 @@ tsm_start_any_command() {
         env_setup="${env_setup}source '$env_file'"
     fi
 
+    # Export PORT to environment (so processes can use process.env.PORT)
+    if [[ -n "$port" && "$port" != "none" ]]; then
+        env_setup="${env_setup}"$'\n'"export PORT='$port'"
+    fi
+
     # Export socket path for socket-based services
     if [[ -n "$socket_path" ]]; then
         env_setup="${env_setup}"$'\n'"export TSM_SOCKET_PATH='$socket_path'"
