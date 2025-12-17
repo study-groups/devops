@@ -447,10 +447,12 @@ _tls_name_color() {
     fi
 }
 
-# Long format listing (original style)
+# Long format listing with size/count
 _tls_list_long() {
     local path="${1:-.}"
     local annotate="${2:-false}"
+
+    _tls_init_colors
 
     local entries=()
     while IFS= read -r line; do
@@ -458,10 +460,10 @@ _tls_list_long() {
     done < <(find "$path" -maxdepth 1 -not -name ".*" -not -path "$path" -exec stat -f '%m %N' {} \; 2>/dev/null | sort -rn)
 
     # Header
-    printf "%s  %-16s  %s  %s" "$_TLS_C_HEADING" "Modified" "T" ""
+    printf "%s  %-16s  %-9s  " "$_TLS_C_HEADING" "Modified" "Size"
     [[ "$annotate" == "true" ]] && printf "Git "
     printf "Name%s\n" "$_TLS_C_RESET"
-    printf "%s────────────────────────────────────────────────────────────%s\n" "$_TLS_C_DIM" "$_TLS_C_RESET"
+    printf "%s──────────────────────────────────────────────────────────────────%s\n" "$_TLS_C_DIM" "$_TLS_C_RESET"
 
     for file in "${entries[@]}"; do
         [[ ! -e "$file" ]] && continue
@@ -470,8 +472,17 @@ _tls_list_long() {
         printf "  "
         _tls_format_time "$mtime"
         printf "  "
-        _tls_format_type "$file"
-        printf "  "
+
+        # Size column: item count for dirs, file size for files
+        if [[ -d "$file" ]]; then
+            local count=$(_tls_dir_count "$file")
+            printf "%s%4d items%s  " "$_TLS_C_DIM" "$count" "$_TLS_C_RESET"
+        else
+            local size=$(stat -f %z "$file" 2>/dev/null || echo 0)
+            local hsize=$(_tls_human_size "$size")
+            printf "%s%9s%s  " "$_TLS_C_DIM" "$hsize" "$_TLS_C_RESET"
+        fi
+
         [[ "$annotate" == "true" ]] && _tls_git_annotation "$file"
         _tls_format_name "$file"
         printf "\n"
