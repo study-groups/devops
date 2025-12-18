@@ -1,20 +1,21 @@
 #!/usr/bin/env bash
 
 # Games Module - Entry Point
-# Following Tetra Module Convention v2.0
+# Simple game management with pak/unpak support
 
-# Load module utilities
-source "$TETRA_SRC/bash/utils/module_init.sh"
-source "$TETRA_SRC/bash/utils/function_helpers.sh"
+[[ -n "$_GAMES_LOADED" ]] && return 0
+_GAMES_LOADED=1
 
-# Initialize module with standard tetra conventions
-tetra_module_init_with_alias "games" "GAMES"
+# Require bash 5.2+
+if ((BASH_VERSINFO[0] < 5 || (BASH_VERSINFO[0] == 5 && BASH_VERSINFO[1] < 2))); then
+    echo "Error: games module requires bash 5.2+" >&2
+    return 1
+fi
 
-# Source main module file
+# Module paths
+GAMES_SRC="${TETRA_SRC}/bash/games"
+GAMES_DIR="${TETRA_DIR}/orgs/tetra/games"
+export GAMES_SRC GAMES_DIR
+
+# Source main module
 source "$GAMES_SRC/games.sh"
-
-# Enable prompt display
-export TETRA_PROMPT_GAMES=1
-
-# Module loaded
-export GAMES_LOADED=true

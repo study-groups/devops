@@ -15,7 +15,7 @@ if [[ -f "$TDS_SRC/layout/borders.sh" ]]; then
 fi
 
 # Load games registry
-source "$GAMES_SRC/core/games_registry.sh"
+source "$ENGINE_SRC/core/game_registry.sh"
 
 # ============================================================================
 # DYNAMIC GAME LOADING (nginx-style available/enabled pattern)
@@ -25,7 +25,7 @@ source "$GAMES_SRC/core/games_registry.sh"
 #   enabled/gamename -> ../available/gamename  - Symlink enables game
 
 _games_load_enabled() {
-    local enabled_dir="$GAMES_SRC/enabled"
+    local enabled_dir="$ENGINE_SRC/../enabled"
 
     [[ ! -d "$enabled_dir" ]] && return 0
 
@@ -52,7 +52,10 @@ _games_load_enabled() {
 _games_load_enabled
 
 # PixelJam Arcade org (single REPL for all PJA games)
-source "$GAMES_SRC/orgs/pixeljam-arcade/pja_game_repl.sh"
+# Note: This path may not exist after refactoring - skip if missing
+if [[ -f "$GAMES_SRC/orgs/pixeljam-arcade/pja_game_repl.sh" ]]; then
+    source "$GAMES_SRC/orgs/pixeljam-arcade/pja_game_repl.sh"
+fi
 
 # REPL Configuration
 REPL_HISTORY_BASE="${TETRA_DIR}/games/games_repl_history"
@@ -75,7 +78,7 @@ _games_repl_build_prompt() {
 
     # Organization
     text_color "$REPL_ORG_ACTIVE" >> "$tmpfile"
-    printf '%s' "${GAMES_ACTIVE_ORG:-tetra}" >> "$tmpfile"
+    printf '%s' "${GAME_ACTIVE_ORG:-tetra}" >> "$tmpfile"
     reset_color >> "$tmpfile"
 
     # Separator (colored)
@@ -84,9 +87,9 @@ _games_repl_build_prompt() {
     reset_color >> "$tmpfile"
 
     # User
-    if [[ -n "$GAMES_ACTIVE_USER" ]]; then
+    if [[ -n "$GAME_ACTIVE_USER" ]]; then
         text_color "$REPL_ENV_LOCAL" >> "$tmpfile"
-        printf '%s' "$GAMES_ACTIVE_USER" >> "$tmpfile"
+        printf '%s' "$GAME_ACTIVE_USER" >> "$tmpfile"
     else
         text_color "$REPL_ORG_INACTIVE" >> "$tmpfile"
         printf 'none' >> "$tmpfile"
@@ -99,9 +102,9 @@ _games_repl_build_prompt() {
     reset_color >> "$tmpfile"
 
     # Game
-    if [[ -n "$GAMES_ACTIVE" ]]; then
+    if [[ -n "$GAME_ACTIVE" ]]; then
         text_color "$REPL_ENV_DEV" >> "$tmpfile"  # Green for active game
-        printf '%s' "$GAMES_ACTIVE" >> "$tmpfile"
+        printf '%s' "$GAME_ACTIVE" >> "$tmpfile"
     else
         text_color "$REPL_ORG_INACTIVE" >> "$tmpfile"
         printf 'lobby' >> "$tmpfile"
