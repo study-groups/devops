@@ -317,7 +317,9 @@ _de_exec_build() {
     if [[ -n "$pre" && -z "$_DE_PRE_RAN" ]]; then
         _de_print_cmd "[pre]" "$pre"
         if [[ "$dry_run" -eq 0 ]]; then
-            (cd "$DE_TOML_DIR" && eval "$pre") || return 1
+            pushd "$DE_TOML_DIR" >/dev/null || return 1
+            eval "$pre" || { popd >/dev/null; return 1; }
+            popd >/dev/null
         fi
         _DE_PRE_RAN=1
     fi
@@ -326,7 +328,9 @@ _de_exec_build() {
     _de_print_cmd "[build:$name]" "$cmd"
 
     if [[ "$dry_run" -eq 0 ]]; then
-        (cd "$DE_TOML_DIR" && eval "$cmd") || return 1
+        pushd "$DE_TOML_DIR" >/dev/null || return 1
+        eval "$cmd" || { popd >/dev/null; return 1; }
+        popd >/dev/null
     fi
 }
 
@@ -441,8 +445,8 @@ de_run() {
 
     _de_init_colors
 
+    echo -e "${DE_CLR_HEAD}[${DE_TARGET[name]}:$pipeline:$env]${DE_CLR_NC}"
     echo -e "${DE_CLR_DIM}────────────────────────────────────────${DE_CLR_NC}"
-    echo -e "${DE_CLR_HEAD}Deploy${DE_CLR_NC} ${DE_TARGET[name]}:$pipeline ${DE_CLR_DIM}→${DE_CLR_NC} $env"
     [[ -n "$DE_ITEMS_OVERRIDE" ]] && echo -e "${DE_CLR_DIM}Files${DE_CLR_NC}  $DE_ITEMS_OVERRIDE"
     [[ "$dry_run" -eq 1 ]] && echo -e "${DE_CLR_WARN}[DRY RUN]${DE_CLR_NC}"
     echo -e "${DE_CLR_DIM}────────────────────────────────────────${DE_CLR_NC}"

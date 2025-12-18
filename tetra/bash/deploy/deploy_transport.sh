@@ -61,14 +61,14 @@ _deploy_transport_payload() {
 
     # Scalars: export VAR="value"
     for item in "${_DEPLOY_TRANSPORT_VARS[@]}"; do
-        [[ -v $item ]] || continue
+        [ -n "${!item+x}" ] || continue
         # Use printf %q for safe quoting
         payload+="export $item=$(printf '%q' "${!item}");"
     done
 
     # Arrays: declare -a ARR=(...)
     for item in "${_DEPLOY_TRANSPORT_ARRAYS[@]}"; do
-        [[ -v $item ]] || continue
+        [ -n "${!item+x}" ] || continue
         payload+="$(declare -p "$item" 2>/dev/null);"
     done
 
@@ -172,5 +172,5 @@ deploy_transport_array DEPLOY_POST
 
 export -f deploy_transport_var deploy_transport_array deploy_transport_func
 export -f deploy_transport_clear deploy_transport_show
-export -f _deploy_transport_payload
+# _deploy_transport_payload not exported - /bin/sh can't parse [[ ]] in function defs
 export -f deploy_remote deploy_remote_script deploy_remote_sudo
