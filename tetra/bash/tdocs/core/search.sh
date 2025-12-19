@@ -406,7 +406,6 @@ EOF
 
     # Build query
     local query_args=()
-    [[ -n "$category" ]] && query_args+=("--category=$category")
     [[ -n "$module" ]] && query_args+=("--module=$module")
     [[ -n "$tags" ]] && query_args+=("--tags=$tags")
 
