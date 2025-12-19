@@ -230,9 +230,31 @@ const TUT_Themes = {
 
     /**
      * Save current theme (user action)
+     * Prompts for name, prevents overwriting built-in themes
      */
     saveCurrent: function() {
         const theme = TUT_Export.buildThemeObject();
+        const currentName = theme.metadata?.name || '';
+        const isBuiltin = TUT_BUILTIN_THEMES.hasOwnProperty(currentName);
+
+        // Generate default name for prompt
+        let defaultName = currentName;
+        if (isBuiltin || !currentName) {
+            defaultName = currentName ? `${currentName}-custom` : 'my-theme';
+        }
+
+        // Prompt for theme name
+        const newName = prompt('Save theme as:', defaultName);
+        if (!newName) return; // User cancelled
+
+        // Prevent overwriting built-in themes
+        if (TUT_BUILTIN_THEMES.hasOwnProperty(newName)) {
+            alert(`Cannot overwrite built-in theme "${newName}". Choose a different name.`);
+            return;
+        }
+
+        // Update theme name and save
+        theme.metadata.name = newName;
         const themeName = this.save(theme);
 
         const btn = document.getElementById('saveThemeBtn');
