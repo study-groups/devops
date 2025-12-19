@@ -8,14 +8,17 @@ tetra_tsm_doctor() {
     local subcommand="$1"
     shift 2>/dev/null || true
 
-    # healthcheck doesn't need lsof dependency check
-    if [[ "$subcommand" != "healthcheck" && "$subcommand" != "health" ]]; then
+    # healthcheck and config don't need lsof dependency check
+    if [[ "$subcommand" != "healthcheck" && "$subcommand" != "health" && "$subcommand" != "config" ]]; then
         doctor_check_dependencies || return 1
     fi
 
     case "$subcommand" in
         "healthcheck"|"health")
             doctor_healthcheck
+            ;;
+        "config")
+            doctor_config "$@"
             ;;
         "files"|"tsm-files")
             local verbose="false"
@@ -41,9 +44,14 @@ tetra_tsm_doctor() {
                 return 1
             fi
             ;;
-        "scan"|"ports"|"")
-            # Pass remaining args to scan (supports --range, --exclude, --min, --max)
-            doctor_scan_common_ports "$@"
+        "scan"|"ports"|""|"-A"|"--all"|"--no-ignore"|"--show-ignored"|"--ignored")
+            # Pass all args to scan (supports --range, --exclude, --min, --max, --no-ignore, etc.)
+            # If subcommand was a flag, include it in the args
+            if [[ "$subcommand" == -* ]]; then
+                doctor_scan_common_ports "$subcommand" "$@"
+            else
+                doctor_scan_common_ports "$@"
+            fi
             ;;
         "port")
             local port="$1"
@@ -139,6 +147,7 @@ TSM Doctor - Port diagnostics and conflict resolution
 
 Usage:
   tsm doctor healthcheck         Run comprehensive health check (TSM env, deps, processes)
+  tsm doctor config [cmd]        Manage doctor configuration (init|show|edit|reset|path)
   tsm doctor files [-v]          Audit all TSM files (services, processes, logs, ports)
   tsm doctor [scan] [OPTIONS]    Scan ports (default: 1024-10000)
   tsm doctor port <number>       Check specific port
@@ -159,10 +168,22 @@ Port Range Options (for scan command):
   --exclude "RANGE1 RANGE2"      Exclude ranges (e.g., --exclude "5000-5100 8080")
   MIN-MAX                        Shorthand range (e.g., tsm doctor scan 3000-5000)
 
-Environment Variables:
-  DOCTOR_PORT_MIN                Default minimum port (1024)
-  DOCTOR_PORT_MAX                Default maximum port (10000)
-  DOCTOR_PORT_EXCLUDE            Default exclude ranges (space-separated)
+Ignore Options (for scan command):
+  -A, --all, --no-ignore         Show all ports (including system processes)
+  --show-ignored, --ignored      Show only the ignored system processes
+
+  Default ignored: ControlCenter, Discord, Transmission, Slack, Spotify, browsers, etc.
+  Custom ignore file: ~/.tetra/tsm/doctor_ignore.txt (patterns and port:NNNN entries)
+
+Configuration:
+  Config file: \$TETRA_DIR/orgs/tetra/tsm/doctor.conf
+  Create with: tsm doctor config init
+  Edit with:   tsm doctor config edit
+
+Environment Variables (set in config file or shell):
+  TSM_DOCTOR_PORT_MIN            Default minimum port (1024)
+  TSM_DOCTOR_PORT_MAX            Default maximum port (10000)
+  TSM_DOCTOR_PORT_EXCLUDE        Default exclude ranges (space-separated)
 
 Examples:
   tsm doctor healthcheck         # Validate TSM environment and state (START HERE!)
@@ -180,6 +201,8 @@ Examples:
   tsm doctor clean               # Clean up stale tracking files
   tsm doctor reconcile           # Check declared vs actual ports
   tsm doctor validate "node server.js" --port 4000 --env env/dev.env  # Validate before start
+  tsm doctor -A                  # Show all ports including system processes
+  tsm doctor --show-ignored      # Show which processes are being filtered out
 
 Common Issues:
   - TSM variables not set (TSM_PROCESSES_DIR, etc.) → Run: tsm doctor healthcheck

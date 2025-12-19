@@ -3,18 +3,125 @@
 # TSM Doctor - Port Diagnostics
 # Port scanning, conflict detection, and port process management
 
+# === CONFIGURATION LOADING ===
+# Load persistent config from $TETRA_DIR/orgs/tetra/tsm/doctor.conf if it exists
+# This allows settings to persist across sessions and be easily edited
+TSM_DOCTOR_CONFIG_FILE="${TETRA_DIR:-$HOME/tetra}/orgs/tetra/tsm/doctor.conf"
+
+_tsm_doctor_load_config() {
+    if [[ -f "$TSM_DOCTOR_CONFIG_FILE" ]]; then
+        # Source the config file (simple KEY=value format)
+        # shellcheck disable=SC1090
+        source "$TSM_DOCTOR_CONFIG_FILE"
+    fi
+}
+
+# Initialize or show doctor config
+# Usage: doctor_config [init|show|edit|path]
+doctor_config() {
+    local action="${1:-show}"
+
+    case "$action" in
+        init|create)
+            local config_dir="${TSM_DOCTOR_CONFIG_FILE%/*}"
+            if [[ ! -d "$config_dir" ]]; then
+                mkdir -p "$config_dir"
+                doctor_log "Created config directory: $config_dir"
+            fi
+
+            if [[ -f "$TSM_DOCTOR_CONFIG_FILE" ]]; then
+                doctor_warn "Config file already exists: $TSM_DOCTOR_CONFIG_FILE"
+                echo "Use 'tsm doctor config edit' to modify or 'tsm doctor config reset' to overwrite"
+                return 1
+            fi
+
+            cat > "$TSM_DOCTOR_CONFIG_FILE" << 'EOF'
+# TSM Doctor Configuration
+# This file is sourced by TSM doctor on startup
+# Edit values below to customize doctor behavior
+
+# Port scan range (default: 1024-10000)
+TSM_DOCTOR_PORT_MIN=1024
+TSM_DOCTOR_PORT_MAX=10000
+
+# Exclude port ranges (space-separated "min-max" pairs)
+# Example: TSM_DOCTOR_PORT_EXCLUDE="5000-5100 8080"
+TSM_DOCTOR_PORT_EXCLUDE=""
+
+# Additional process patterns to ignore (one per line in array format)
+# These are added to the built-in list (ControlCenter, Discord, etc.)
+# TSM_DOCTOR_CUSTOM_IGNORE_PATTERNS=(
+#     "MyCustomApp"
+#     "AnotherProcess"
+# )
+EOF
+            doctor_success "Created config file: $TSM_DOCTOR_CONFIG_FILE"
+            echo "Edit with: tsm doctor config edit"
+            ;;
+        reset)
+            rm -f "$TSM_DOCTOR_CONFIG_FILE"
+            doctor_config init
+            ;;
+        show)
+            if [[ -f "$TSM_DOCTOR_CONFIG_FILE" ]]; then
+                echo "Config file: $TSM_DOCTOR_CONFIG_FILE"
+                echo "---"
+                cat "$TSM_DOCTOR_CONFIG_FILE"
+            else
+                doctor_info "No config file found (using defaults)"
+                echo "Config path: $TSM_DOCTOR_CONFIG_FILE"
+                echo ""
+                echo "Current effective settings:"
+                echo "  TSM_DOCTOR_PORT_MIN=$TSM_DOCTOR_PORT_MIN"
+                echo "  TSM_DOCTOR_PORT_MAX=$TSM_DOCTOR_PORT_MAX"
+                echo "  TSM_DOCTOR_PORT_EXCLUDE=$TSM_DOCTOR_PORT_EXCLUDE"
+                echo ""
+                echo "Create config with: tsm doctor config init"
+            fi
+            ;;
+        edit)
+            if [[ ! -f "$TSM_DOCTOR_CONFIG_FILE" ]]; then
+                doctor_info "Config file doesn't exist, creating..."
+                doctor_config init
+            fi
+            "${EDITOR:-vi}" "$TSM_DOCTOR_CONFIG_FILE"
+            _tsm_doctor_load_config
+            doctor_success "Config reloaded"
+            ;;
+        path)
+            echo "$TSM_DOCTOR_CONFIG_FILE"
+            ;;
+        *)
+            echo "Usage: tsm doctor config [init|show|edit|reset|path]"
+            echo ""
+            echo "Commands:"
+            echo "  init   - Create default config file"
+            echo "  show   - Display current config (default)"
+            echo "  edit   - Open config in \$EDITOR"
+            echo "  reset  - Reset config to defaults"
+            echo "  path   - Print config file path"
+            ;;
+    esac
+}
+
+export -f doctor_config
+
+# Load config on module load
+_tsm_doctor_load_config
+
 # === PORT RANGE CONFIGURATION ===
-# Default scan range (can be overridden via environment or CLI)
-: "${DOCTOR_PORT_MIN:=1024}"
-: "${DOCTOR_PORT_MAX:=10000}"
+# Default scan range (can be overridden via config file, environment, or CLI)
+# TSM_ prefix allows grouping with other TSM environment variables
+: "${TSM_DOCTOR_PORT_MIN:=1024}"
+: "${TSM_DOCTOR_PORT_MAX:=10000}"
 
 # Exclude ranges (space-separated "min-max" pairs, e.g., "5000-5100 8000-8010")
-: "${DOCTOR_PORT_EXCLUDE:=}"
+: "${TSM_DOCTOR_PORT_EXCLUDE:=}"
 
 # === IGNORE LIST CONFIGURATION ===
 # Default ignored process patterns (common macOS system processes)
 # Format: one pattern per line (regex matched against command path)
-DOCTOR_DEFAULT_IGNORE_PATTERNS=(
+TSM_DOCTOR_DEFAULT_IGNORE_PATTERNS=(
     "ControlCenter"
     "rapportd"
     "Transmission"
@@ -33,14 +140,14 @@ DOCTOR_DEFAULT_IGNORE_PATTERNS=(
 )
 
 # Default ignored ports (well-known system ports)
-DOCTOR_DEFAULT_IGNORE_PORTS=(
+TSM_DOCTOR_DEFAULT_IGNORE_PORTS=(
     5000    # ControlCenter AirPlay receiver
     5353    # mDNS/Bonjour
     7000    # ControlCenter AirPlay
 )
 
 # User ignore file location
-DOCTOR_IGNORE_FILE="${TETRA_DIR:-$HOME/.tetra}/tsm/doctor_ignore.txt"
+TSM_DOCTOR_IGNORE_FILE="${TETRA_DIR:-$HOME/.tetra}/tsm/doctor_ignore.txt"
 
 # Check if a process command matches ignore patterns
 _doctor_process_ignored() {
@@ -70,11 +177,11 @@ _doctor_load_ignore_file() {
     local -n ports_out="$2"
 
     # Start with defaults
-    patterns_out=("${DOCTOR_DEFAULT_IGNORE_PATTERNS[@]}")
-    ports_out=("${DOCTOR_DEFAULT_IGNORE_PORTS[@]}")
+    patterns_out=("${TSM_DOCTOR_DEFAULT_IGNORE_PATTERNS[@]}")
+    ports_out=("${TSM_DOCTOR_DEFAULT_IGNORE_PORTS[@]}")
 
     # Load user file if exists
-    if [[ -f "$DOCTOR_IGNORE_FILE" ]]; then
+    if [[ -f "$TSM_DOCTOR_IGNORE_FILE" ]]; then
         while IFS= read -r line; do
             # Skip comments and empty lines
             [[ "$line" =~ ^[[:space:]]*# ]] && continue
@@ -86,7 +193,7 @@ _doctor_load_ignore_file() {
             else
                 patterns_out+=("$line")
             fi
-        done < "$DOCTOR_IGNORE_FILE"
+        done < "$TSM_DOCTOR_IGNORE_FILE"
     fi
 }
 
@@ -95,7 +202,7 @@ _doctor_port_excluded() {
     local port="$1"
     local exclude_spec
 
-    for exclude_spec in $DOCTOR_PORT_EXCLUDE; do
+    for exclude_spec in $TSM_DOCTOR_PORT_EXCLUDE; do
         local ex_min="${exclude_spec%-*}"
         local ex_max="${exclude_spec#*-}"
         # Handle single port (no dash)
@@ -111,9 +218,9 @@ _doctor_port_excluded() {
 # Scan common development ports + TSM-managed ports (TCP and UDP)
 # Usage: doctor_scan_common_ports [min] [max] [--exclude "range1 range2"] [--no-ignore] [--show-ignored]
 doctor_scan_common_ports() {
-    local port_min="$DOCTOR_PORT_MIN"
-    local port_max="$DOCTOR_PORT_MAX"
-    local exclude_ranges="$DOCTOR_PORT_EXCLUDE"
+    local port_min="$TSM_DOCTOR_PORT_MIN"
+    local port_max="$TSM_DOCTOR_PORT_MAX"
+    local exclude_ranges="$TSM_DOCTOR_PORT_EXCLUDE"
     local use_ignore=true
     local show_ignored=false
 
@@ -172,8 +279,8 @@ doctor_scan_common_ports() {
     fi
 
     # Temporarily set exclude for helper function
-    local old_exclude="$DOCTOR_PORT_EXCLUDE"
-    DOCTOR_PORT_EXCLUDE="$exclude_ranges"
+    local old_exclude="$TSM_DOCTOR_PORT_EXCLUDE"
+    TSM_DOCTOR_PORT_EXCLUDE="$exclude_ranges"
 
     # Show active org if set (via symlink)
     local active_org=""
@@ -223,7 +330,7 @@ doctor_scan_common_ports() {
     # If no ports found in range, show common defaults as reference
     if [[ ${#ports[@]} -eq 0 ]]; then
         doctor_log "No ports in use in range ${port_min}-${port_max}"
-        DOCTOR_PORT_EXCLUDE="$old_exclude"
+        TSM_DOCTOR_PORT_EXCLUDE="$old_exclude"
         echo
         return 0
     fi
@@ -323,7 +430,7 @@ doctor_scan_common_ports() {
     fi
 
     # Restore original exclude setting
-    DOCTOR_PORT_EXCLUDE="$old_exclude"
+    TSM_DOCTOR_PORT_EXCLUDE="$old_exclude"
     echo
 }
 

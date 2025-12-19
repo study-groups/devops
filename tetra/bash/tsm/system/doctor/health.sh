@@ -146,6 +146,20 @@ doctor_healthcheck() {
 
     echo
 
+    # Check doctor configuration
+    doctor_log "Doctor Configuration:"
+    if [[ -f "$TSM_DOCTOR_CONFIG_FILE" ]]; then
+        doctor_success "  [OK] Config file exists: $TSM_DOCTOR_CONFIG_FILE"
+    else
+        doctor_info "  [INFO] No config file (using defaults)"
+        doctor_info "  Create with: tsm doctor config init"
+    fi
+
+    # Show current effective port range
+    doctor_info "  Port scan range: ${TSM_DOCTOR_PORT_MIN:-1024}-${TSM_DOCTOR_PORT_MAX:-10000}"
+
+    echo
+
     # Summary
     doctor_log "Summary:"
     if [[ $errors -eq 0 && $warnings -eq 0 ]]; then
