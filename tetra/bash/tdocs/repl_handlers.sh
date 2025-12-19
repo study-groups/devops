@@ -76,7 +76,7 @@ _tdocs_handle_find() {
         _tdocs_clear_filters
         echo "Filters cleared - showing all documents"
         echo ""
-        tdocs_cmd_ls
+        tdocs ls --numbered
         return 2
     fi
 
@@ -126,13 +126,13 @@ _tdocs_handle_find() {
 
     if [[ ${#search_terms[@]} -gt 0 ]]; then
         local query="${search_terms[*]}"
-        tdocs_cmd_search "$query"
+        tdocs search "$query"
         return $?
     fi
 
     if [[ "$did_filter" == true ]]; then
         echo ""
-        tdocs_cmd_ls
+        tdocs ls --numbered
     fi
 
     return 2

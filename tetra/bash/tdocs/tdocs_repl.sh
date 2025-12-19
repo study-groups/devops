@@ -25,8 +25,6 @@ source "$TDOCS_SRC/ui/tdocs_tokens.sh"
 # Load color explorer (needed for colors command)
 source "$TDOCS_SRC/ui/color_explorer.sh"
 
-source "$TDOCS_SRC/tdocs_commands.sh"
-
 # Load colored help system
 source "$TDOCS_SRC/core/help.sh"
 
@@ -452,6 +450,46 @@ _tdocs_repl_build_prompt() {
 # INPUT PROCESSOR
 # ============================================================================
 
+# Build filter args from REPL state
+_tdocs_build_filter_args() {
+    local -a args=()
+
+    # Module filters
+    if [[ ${#TDOCS_REPL_MODULES[@]} -gt 0 ]]; then
+        local module_list=$(IFS=','; echo "${TDOCS_REPL_MODULES[*]}")
+        args+=("--module" "$module_list")
+    fi
+
+    # Type filters
+    if [[ ${#TDOCS_REPL_TYPE[@]} -gt 0 ]]; then
+        local type_list=$(IFS=','; echo "${TDOCS_REPL_TYPE[*]}")
+        args+=("--type" "$type_list")
+    fi
+
+    # Intent filters
+    if [[ ${#TDOCS_REPL_INTENT[@]} -gt 0 ]]; then
+        local intent_list=$(IFS=','; echo "${TDOCS_REPL_INTENT[*]}")
+        args+=("--intent" "$intent_list")
+    fi
+
+    # Lifecycle filters
+    if [[ ${#TDOCS_REPL_LIFECYCLE[@]} -gt 0 ]]; then
+        local lifecycle_list=$(IFS=','; echo "${TDOCS_REPL_LIFECYCLE[*]}")
+        args+=("--lifecycle" "$lifecycle_list")
+    fi
+
+    # Level filter
+    [[ -n "$TDOCS_REPL_LEVEL" ]] && args+=("--level" "$TDOCS_REPL_LEVEL")
+
+    # Temporal filter
+    [[ -n "$TDOCS_REPL_TEMPORAL" ]] && args+=("--temporal" "$TDOCS_REPL_TEMPORAL")
+
+    # Sort mode
+    [[ -n "$TDOCS_REPL_SORT" && "$TDOCS_REPL_SORT" != "relevance" ]] && args+=("--sort" "$TDOCS_REPL_SORT")
+
+    echo "${args[@]}"
+}
+
 _tdocs_repl_process_input() {
     local input="$1"
 
@@ -475,71 +513,59 @@ _tdocs_repl_process_input() {
     local args="${input#* }"
     [[ "$cmd" == "$input" ]] && args=""
 
-    # Command dispatch
+    # REPL-only commands (state management)
     case "$cmd" in
-        # Document operations
-        ls|list)        tdocs_cmd_ls $args ;;
-        view|v)         tdocs_cmd_view $args; return 0 ;;
-        search|s)       tdocs_cmd_search $args; return $? ;;
-        tag)            tdocs_cmd_tag $args ;;
-        add)            tdocs_cmd_add $args; TDOCS_REPL_DOC_COUNT=0 ;;
-
-        # Discovery and filtering
         find)           _tdocs_handle_find "$args"; return $? ;;
         filter|f)       _tdocs_handle_filter "$args"; return $? ;;
         clear)          _tdocs_clear_filters; echo "Filters cleared"; return 2 ;;
+        context)        _tdocs_handle_context "$args"; return $? ;;
+        init-local)     tdocs_init_local "$args"; return 0 ;;
+        levels)         _tdocs_show_levels_help; return 0 ;;
+        exit|quit|q)    return 1 ;;
+    esac
 
-        # Scanning and maintenance
+    # Build filter args for commands that support them
+    local filter_args
+    filter_args=$(_tdocs_build_filter_args)
+
+    # Commands that use filters
+    case "$cmd" in
+        ls|list)
+            tdocs ls $args $filter_args --numbered
+            ;;
+        search|s)
+            tdocs search $args $filter_args
+            TDOCS_REPL_STATE="search"
+            TDOCS_REPL_SEARCH_QUERY="$args"
+            return 2
+            ;;
+        view|v)
+            # Handle numeric selection from last list
+            if [[ "$args" =~ ^[0-9]+$ ]]; then
+                local index=$((args - 1))
+                if [[ -n "${TDOCS_LAST_LIST[$index]}" ]]; then
+                    tdocs view "${TDOCS_LAST_LIST[$index]}" --pager
+                else
+                    echo "Error: No document at index $args"
+                    echo "Run 'ls' first to see available documents"
+                    return 1
+                fi
+            else
+                tdocs view $args --pager
+            fi
+            ;;
         scan)
-            tdocs_cmd_scan $args
+            tdocs scan $args
             TDOCS_REPL_DOC_COUNT=0
             return 2
             ;;
         doctor)
-            tdocs_cmd_doctor $args
+            tdocs doctor $args
             TDOCS_REPL_DOC_COUNT=0
             ;;
-        audit)          tdocs_cmd_audit ;;
-        audit-specs)    tdocs_cmd_audit_specs $args ;;
-
-        # Context management
-        context)        _tdocs_handle_context "$args"; return $? ;;
-        init-local)     tdocs_init_local "$args" ;;
-        env)            tdocs_cmd_env ;;
-
-        # Module and spec operations
-        module)         tdocs_cmd_module $args ;;
-        spec)           tdocs_cmd_spec $args ;;
-
-        # Evidence (context building)
-        evidence|e)     tdocs_cmd_evidence $args ;;
-
-        # Information
-        about)          tdocs_cmd_about ;;
-        levels)         _tdocs_show_levels_help ;;
-        help|h|\?)      tdocs_help_topic $args ;;
-
-        # Demo
-        demo)
-            local speed="${args:-medium}"
-            if [[ -f "$TDOCS_SRC/demo_tdocs.sh" ]]; then
-                DEMO_SPEED="$speed" "$TDOCS_SRC/demo_tdocs.sh"
-            else
-                echo "Demo script not found at $TDOCS_SRC/demo_tdocs.sh"
-            fi
-            ;;
-
-        # Exit
-        exit|quit|q)    return 1 ;;
-
-        # Dynamic command dispatch
         *)
-            if [[ -n "$cmd" ]] && declare -f "tdocs_cmd_${cmd}" >/dev/null 2>&1; then
-                "tdocs_cmd_${cmd}" $args
-            else
-                echo "Unknown command: $cmd"
-                echo "Type 'help' for available commands, or press TAB for completions"
-            fi
+            # All other commands pass through to tdocs dispatcher
+            tdocs "$cmd" $args
             ;;
     esac
 }
@@ -571,7 +597,7 @@ tdocs_repl() {
         # Auto-scan local docs on REPL start
         if [[ -d ".tdocs" ]]; then
             echo "Scanning local docs..."
-            tdoc_scan_dir "." >/dev/null 2>&1
+            tdocs_scan_dir "." >/dev/null 2>&1
             echo "Ready."
         fi
     else
@@ -580,9 +606,6 @@ tdocs_repl() {
 
     # Register the tdocs module with the REPL system
     repl_register_module "tdocs" "ls view search filter tag add scan evidence audit env colors context"
-
-    # Register slash commands
-    tdocs_register_commands
 
     # Set module context for help/completion
     repl_set_module_context "tdocs"
@@ -664,6 +687,7 @@ export -f tdocs_switch_context
 export -f tdocs_get_context_display
 export -f tdocs_count_filtered
 export -f tdocs_count_total
+export -f _tdocs_build_filter_args
 export -f _tdocs_repl_build_prompt
 export -f _tdocs_repl_process_input
 export -f tdocs_repl

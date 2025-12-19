@@ -181,7 +181,7 @@ tdocs() {
                 echo "Usage: tdocs rank <file>" >&2
                 return 1
             fi
-            tdoc_show_rank_breakdown "$1"
+            tdocs_show_rank_breakdown "$1"
             ;;
         promote)
             # Promote document type
@@ -198,27 +198,27 @@ tdocs() {
             ;;
         annotate|note)
             # Annotate document with notes
-            tdoc_annotate "$@"
+            tdocs_annotate "$@"
             ;;
         notes)
             # List or view notes
             if [[ -z "$1" ]]; then
-                tdoc_list_notes
+                tdocs_list_notes
             else
-                tdoc_note_get "$@"
+                tdocs_note_get "$@"
             fi
             ;;
         chuck)
-            tdoc_action_chuck "$@"
+            tdocs_action_chuck "$@"
             ;;
         module)
-            tdoc_module_docs "$@"
+            tdocs_module_docs "$@"
             ;;
         spec)
-            tdoc_show_spec "$@"
+            tdocs_show_spec "$@"
             ;;
         audit-specs)
-            tdoc_audit_specs "$@"
+            tdocs_audit_specs "$@"
             ;;
         demo)
             # Run demo script
@@ -322,11 +322,11 @@ tdocs_ls_docs() {
 
         # Ensure .tdocs exists
         if [[ ! -d ".tdocs" ]]; then
-            tdoc_index_init >/dev/null
+            tdocs_index_init >/dev/null
         fi
 
         # Scan for latest state
-        tdoc_scan_dir "." >/dev/null 2>&1
+        tdocs_scan_dir "." >/dev/null 2>&1
 
         # List with numbers
         echo "Local docs in $PWD:"
@@ -393,7 +393,7 @@ tdocs_tag_interactive() {
 }
 
 tdocs_add_doc() {
-    tdocs_add_doc "$@"
+    tdoc_add_doc "$@"
 }
 
 tdocs_audit_docs() {
@@ -410,6 +410,51 @@ tdocs_doctor() {
 
 tdocs_evidence_for_query() {
     tdoc_evidence_for_query "$@"
+}
+
+# Additional wrappers for tdoc_ → tdocs_ consistency
+tdocs_show_rank_breakdown() {
+    tdoc_show_rank_breakdown "$@"
+}
+
+tdocs_annotate() {
+    tdoc_annotate "$@"
+}
+
+tdocs_list_notes() {
+    tdoc_list_notes "$@"
+}
+
+tdocs_note_get() {
+    tdoc_note_get "$@"
+}
+
+tdocs_action_chuck() {
+    tdoc_action_chuck "$@"
+}
+
+tdocs_module_docs() {
+    tdoc_module_docs "$@"
+}
+
+tdocs_show_spec() {
+    tdoc_show_spec "$@"
+}
+
+tdocs_audit_specs() {
+    tdoc_audit_specs "$@"
+}
+
+tdocs_scan_dir() {
+    tdoc_scan_dir "$@"
+}
+
+tdocs_index_init() {
+    tdoc_index_init "$@"
+}
+
+tdocs_init_doc() {
+    tdoc_init_doc "$@"
 }
 
 # Helper: Add left margin to piped input
