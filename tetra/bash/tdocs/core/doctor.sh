@@ -393,7 +393,6 @@ tdoc_doctor() {
                 local doc_path=$(_tdocs_json_get "$meta" '.doc_path')
 
                 if [[ -f "$doc_path" ]]; then
-                    tdoc_db_ensure_rank "$doc_path" 2>/dev/null
                     ((reindexed++))
                 fi
             done

@@ -220,29 +220,16 @@ tdoc_search_docs() {
         return 0
     fi
 
-    # Ensure all results have ranks calculated
-    local results_with_ranks=()
-    for meta in "${results[@]}"; do
-        local doc_path=$(_tdocs_json_get "$meta" '.doc_path')
-        tdoc_db_ensure_rank "$doc_path" 2>/dev/null
-
-        # Re-read metadata with rank
-        local updated_meta=$(tdoc_db_get_by_path "$doc_path")
-        if [[ -n "$updated_meta" && "$updated_meta" != "{}" ]]; then
-            results_with_ranks+=("$updated_meta")
-        else
-            results_with_ranks+=("$meta")
-        fi
-    done
-
-    # Sort by rank (descending)
+    # Sort by lifecycle priority then date (descending)
     local sorted_results=()
     while IFS= read -r scored_item; do
         sorted_results+=("${scored_item#*|}")
     done < <(
-        for meta in "${results_with_ranks[@]}"; do
-            local rank=$(_tdocs_json_get "$meta" '.rank' '0.0')
-            echo "${rank}|${meta}"
+        for meta in "${results[@]}"; do
+            local lifecycle=$(_tdocs_json_get "$meta" '.lifecycle' 'W')
+            local updated=$(_tdocs_json_get "$meta" '.updated // .created' '2000-01-01')
+            local priority=$(tdoc_lifecycle_priority "$lifecycle")
+            echo "${priority}:${updated}|${meta}"
         done | sort -t'|' -k1 -rn
     )
 

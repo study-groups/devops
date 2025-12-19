@@ -176,12 +176,20 @@ tdocs() {
             tdocs_doctor "$@"
             ;;
         rank)
-            # Show ranking breakdown for a file
+            # Show lifecycle info for a file
             if [[ -z "$1" ]]; then
                 echo "Usage: tdocs rank <file>" >&2
                 return 1
             fi
-            tdocs_show_rank_breakdown "$1"
+            local meta=$(tdoc_get_metadata "$1")
+            if [[ -z "$meta" || "$meta" == "{}" ]]; then
+                echo "No metadata for: $1" >&2
+                return 1
+            fi
+            local lifecycle=$(_tdocs_json_get "$meta" '.lifecycle' 'W')
+            local priority=$(tdoc_lifecycle_priority "$lifecycle")
+            echo "Lifecycle: $lifecycle ($(tdoc_lifecycle_name "$lifecycle"))"
+            echo "Priority:  $priority"
             ;;
         promote)
             # Promote document type
@@ -413,10 +421,6 @@ tdocs_evidence_for_query() {
 }
 
 # Additional wrappers for tdoc_ → tdocs_ consistency
-tdocs_show_rank_breakdown() {
-    tdoc_show_rank_breakdown "$@"
-}
-
 tdocs_annotate() {
     tdoc_annotate "$@"
 }

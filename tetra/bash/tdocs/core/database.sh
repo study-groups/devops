@@ -347,64 +347,6 @@ tdoc_db_get_by_path() {
     return 1
 }
 
-# Ensure metadata has rank calculated and cached
-# Updates the .meta file with rank and rank_factors
-tdoc_db_ensure_rank() {
-    local doc_path="$1"
-    local abs_path=$(realpath "$doc_path" 2>/dev/null || echo "$doc_path")
-
-    # Find metadata file
-    local meta_file=""
-    for mf in "$TDOCS_DB_DIR"/*.meta; do
-        [[ ! -f "$mf" ]] && continue
-        if grep -q "\"doc_path\": \"$abs_path\"" "$mf" 2>/dev/null; then
-            meta_file="$mf"
-            break
-        fi
-    done
-
-    [[ -z "$meta_file" ]] && return 1
-
-    # Check if rank already exists
-    if grep -q '"rank":' "$meta_file" 2>/dev/null; then
-        # Already has rank
-        return 0
-    fi
-
-    # Get metadata fields needed for ranking
-    local meta=$(cat "$meta_file")
-    IFS=$'\t' read -r doc_type timeless module created <<< \
-        "$(_tdocs_json_get_multi "$meta" '.type' '.timeless' '.module' '.created')"
-    local tags=$(_tdocs_json_get "$meta" '.tags | @json')
-
-    # Calculate rank if we have ranking.sh loaded
-    if ! command -v tdoc_calculate_rank >/dev/null 2>&1; then
-        return 1
-    fi
-
-    local rank_json=$(tdoc_calculate_rank "$doc_path" "$doc_type" "$timeless" "$module" "$tags" "$created")
-
-    # Extract rank and factors
-    IFS=$'\t' read -r rank base_rank length_bonus metadata_bonus recency_boost <<< \
-        "$(_tdocs_json_get_multi "$rank_json" '.rank' '.type_base' '.length_bonus' '.metadata_bonus' '.recency_boost')"
-
-    # Insert rank fields before the closing brace
-    # Remove trailing } and add rank fields
-    local updated_meta=$(echo "$meta" | sed 's/}$//')
-    updated_meta="${updated_meta},
-  \"rank\": $rank,
-  \"rank_factors\": {
-    \"base_rank\": $base_rank,
-    \"length_bonus\": $length_bonus,
-    \"metadata_bonus\": $metadata_bonus,
-    \"recency_boost\": $recency_boost
-  }
-}"
-
-    # Write back to file
-    echo "$updated_meta" > "$meta_file"
-}
-
 # Update metadata for a document
 tdoc_db_update() {
     local doc_path="$1"

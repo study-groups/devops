@@ -30,9 +30,8 @@ tdocs_scan() {
         local meta_file=$(tdoc_get_db_path "$file")
 
         if [[ -f "$meta_file" ]]; then
-            # Has metadata - ensure rank is calculated
+            # Has metadata
             indexed=$((indexed + 1))
-            tdoc_db_ensure_rank "$file" 2>/dev/null
         else
             # New file without metadata
             new=$((new + 1))
@@ -336,14 +335,8 @@ EOF
     # Create database entry: tdoc_db_create(path, type, intent, lifecycle, tags, module, level, implements, integrates, grounded_in, related_docs, supersedes)
     local timestamp=$(tdoc_db_create "$file" "$default_type" "$default_intent" "${TDOC_DEFAULT_LIFECYCLE:-W}" "$default_tags" "$default_module" "" "" "" "" "" "" 2>/dev/null)
 
-    # Ensure rank is calculated
-    tdoc_db_ensure_rank "$file" 2>/dev/null
-
-    # Get rank for display
-    local rank=$(tdoc_get_rank "$file" 2>/dev/null || echo "0.0")
-
     echo ""
-    echo -e "${C_GREEN}✓ indexed${C_NC}  rank: ${C_GRAY}${rank}${C_NC}"
+    echo -e "${C_GREEN}✓ indexed${C_NC}"
 }
 
 # Export functions
