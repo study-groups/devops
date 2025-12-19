@@ -25,6 +25,9 @@ else
     TUT_HAS_TDS=0
 fi
 
+# Source TOK for JSON/hydration utilities
+source "$TETRA_SRC/bash/tok/includes.sh"
+
 # Core utilities
 source "$TUT_SRC/core/output.sh"
 source "$TUT_SRC/core/validators.sh"

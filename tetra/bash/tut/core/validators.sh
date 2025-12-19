@@ -1,48 +1,32 @@
 #!/usr/bin/env bash
-# validators.sh - Tutorial JSON validation utilities
+# validators.sh - TUT validation wrapper around tok
+#
+# Provides TUT-specific validation with guide-focused checks,
+# delegating to tok for JSON validation infrastructure.
 
-# Require jq or fail
-_tut_require_jq() {
-    command -v jq >/dev/null 2>&1 || {
-        echo "Error: jq required. Install: brew install jq"
-        return 1
-    }
-}
-
-# Require file exists or fail
-_tut_require_file() {
-    local file="$1"
-    local desc="${2:-File}"
-
-    [[ -z "$file" ]] && {
-        echo "Error: $desc required"
-        return 1
-    }
-    [[ ! -f "$file" ]] && {
-        echo "Error: $desc not found: $file"
-        return 1
-    }
-    return 0
-}
+# =============================================================================
+# TUT VALIDATION WRAPPER
+# =============================================================================
 
 # Validate tutorial JSON structure
+# Uses tok for base validation, adds TUT-specific guide checks
 _tut_validate() {
     local json_file="$1"
 
-    _tut_require_file "$json_file" "JSON file" || return 1
-    _tut_require_jq || return 1
+    _tok_require_file "$json_file" "JSON file" || return 1
+    _tok_require_jq || return 1
 
     echo "Validating: $json_file"
     echo ""
 
-    # Basic JSON validity
-    if ! jq empty "$json_file" 2>/dev/null; then
+    # Use tok for basic JSON validation
+    if ! tok_validate_syntax "$json_file"; then
         echo "✗ Invalid JSON syntax"
         return 1
     fi
     echo "✓ Valid JSON syntax"
 
-    # Required fields
+    # TUT-specific guide validation
     local title=$(jq -r '.metadata.title // empty' "$json_file")
     local description=$(jq -r '.metadata.description // empty' "$json_file")
     local version=$(jq -r '.metadata.version // empty' "$json_file")
@@ -103,4 +87,5 @@ _tut_validate() {
     fi
 }
 
-# internal functions - no exports needed
+# Export for internal use
+export -f _tut_validate
