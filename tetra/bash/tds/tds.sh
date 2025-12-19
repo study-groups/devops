@@ -9,6 +9,7 @@ export TDS_SRC
 # Fallback colors used when palette/token resolution fails
 declare -g TDS_FALLBACK_GRAY="888888"
 declare -g TDS_FALLBACK_TEXT="C0CAF5"
+export TDS_FALLBACK_GRAY TDS_FALLBACK_TEXT
 
 # =============================================================================
 # LAYER 0: ANSI utilities (width calculation, alignment)
