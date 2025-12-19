@@ -145,5 +145,3 @@ _tds_cmd_doctor() {
     fi
     echo
 }
-
-export -f _tds_cmd_doctor
