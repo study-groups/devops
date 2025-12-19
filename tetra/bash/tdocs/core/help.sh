@@ -1,57 +1,112 @@
 #!/usr/bin/env bash
 
-# TDOCS Help System - Colored, concise help with subtle variations
+# TDOCS Help System - Uses TDS theme colors for consistency
 
-# Load colors
-if [[ -f "$TETRA_SRC/bash/color/color.sh" ]]; then
-    source "$TETRA_SRC/bash/color/color.sh"
-else
-    # Fallback with subtle color variations
-    TETRA_CYAN='\033[0;36m'         # Main commands
-    TETRA_CYAN_DIM='\033[2;36m'     # Secondary info
-    TETRA_YELLOW='\033[1;33m'       # Highlights
-    TETRA_GREEN='\033[0;32m'        # Examples
-    TETRA_GREEN_DIM='\033[2;32m'    # Example comments
-    TETRA_BLUE='\033[1;34m'         # Section headers
-    TETRA_BLUE_DIM='\033[0;34m'     # Subsections
-    TETRA_GRAY='\033[0;90m'         # Muted text
-    TETRA_NC='\033[0m'              # No color
-fi
+# ============================================================================
+# TDS Color Helpers (mirrors tds.sh pattern)
+# ============================================================================
 
-# Helper functions
+# Get color from palette - returns ANSI escape sequence
+_tdocs_help_color() {
+    local hex="$1"
+    if [[ -z "$hex" ]]; then
+        return
+    fi
+    # Use text_color if available (from TDS/color system)
+    if declare -f text_color >/dev/null 2>&1; then
+        text_color "$hex"
+    fi
+}
+
+_tdocs_help_reset() {
+    if declare -f reset_color >/dev/null 2>&1; then
+        reset_color
+    else
+        printf '\033[0m'
+    fi
+}
+
+# Print colored text inline (no newline)
+_tdocs_c() {
+    local hex="$1"
+    local text="$2"
+    _tdocs_help_color "$hex"
+    printf "%s" "$text"
+    _tdocs_help_reset
+}
+
+# Print action words cycling through VERBS palette
+_tdocs_verbs() {
+    local i=0
+    for word in "$@"; do
+        _tdocs_help_color "${VERBS_PRIMARY[$((i % 8))]}"
+        printf "%s " "$word"
+        ((i++))
+    done
+    _tdocs_help_reset
+}
+
+# Helper functions using TDS palettes
 _tdocs_help_section() {
-    echo -e "${TETRA_BLUE}$1${TETRA_NC}"
+    _tdocs_c "${ENV_PRIMARY[0]}" "$1"
+    echo
 }
 
 _tdocs_help_subsection() {
-    echo -e "${TETRA_BLUE_DIM}$1${TETRA_NC}"
+    _tdocs_c "${ENV_PRIMARY[1]}" "$1"
+    echo
 }
 
 _tdocs_help_cmd() {
-    printf "  ${TETRA_CYAN}%-20s${TETRA_NC} ${TETRA_GRAY}%s${TETRA_NC}\n" "$1" "$2"
+    local cmd="$1"
+    local desc="$2"
+    printf "  "
+    _tdocs_c "${MODE_PRIMARY[0]}" "$(printf '%-20s' "$cmd")"
+    printf " "
+    _tdocs_c "${NOUNS_PRIMARY[6]}" "$desc"
+    echo
 }
 
 _tdocs_help_example() {
-    echo -e "  ${TETRA_GREEN_DIM}# $1${TETRA_NC}"
-    echo -e "  ${TETRA_GREEN}$2${TETRA_NC}"
+    local comment="$1"
+    local example="$2"
+    printf "  "
+    _tdocs_c "${NOUNS_PRIMARY[5]}" "# $comment"
+    echo
+    printf "  "
+    _tdocs_c "${ENV_PRIMARY[2]}" "$example"
+    echo
 }
 
 # Main help (minimal zen - under 30 lines)
 tdocs_help_main() {
-    # Get prompt colors using TDS tokens
-    local bracket_color=$(tdocs_prompt_color "tdocs.prompt.bracket" 2>/dev/null || echo "${TETRA_GRAY}")
-    local brace_color=$(tdocs_prompt_color "tdocs.prompt.topic1" 2>/dev/null || echo "${TETRA_CYAN}")
-    local count_color=$(tdocs_prompt_color "tdocs.prompt.count" 2>/dev/null || echo "${TETRA_CYAN}")
-    local module_color=$(tdocs_prompt_color "tdocs.prompt.topic2" 2>/dev/null || echo "${TETRA_YELLOW}")
-    local filter_color=$(tdocs_prompt_color "tdocs.prompt.level" 2>/dev/null || echo "${TETRA_GREEN}")
-    local lifecycle_color=$(tdocs_prompt_color "tdocs.prompt.level" 2>/dev/null || echo "${TETRA_GREEN}")
-    local reset=$(tdocs_prompt_reset 2>/dev/null || echo "${TETRA_NC}")
+    echo
+    _tdocs_help_section "tdocs - semantic document browser"
+    echo
+    _tdocs_help_subsection "Prompt Format:"
+    # Build colored prompt example using TDS colors
+    printf "  "
+    _tdocs_c "${NOUNS_PRIMARY[6]}" "["
+    _tdocs_c "${MODE_PRIMARY[1]}" "total"
+    printf " "
+    _tdocs_c "${MODE_PRIMARY[0]}" "{"
+    _tdocs_c "${ENV_PRIMARY[1]}" "modules"
+    _tdocs_c "${MODE_PRIMARY[0]}" "}"
+    printf " "
+    _tdocs_c "${NOUNS_PRIMARY[6]}" "("
+    _tdocs_c "${ENV_PRIMARY[2]}" "type | intent"
+    _tdocs_c "${NOUNS_PRIMARY[6]}" ")"
+    _tdocs_c "${NOUNS_PRIMARY[6]}" "]"
+    printf " "
+    _tdocs_c "${NOUNS_PRIMARY[6]}" "["
+    _tdocs_c "${VERBS_PRIMARY[3]}" "lifecycle"
+    _tdocs_c "${NOUNS_PRIMARY[6]}" "]"
+    printf " "
+    _tdocs_c "${MODE_PRIMARY[1]}" "n"
+    printf " >\n"
+    echo
 
     cat <<EOF
-$(_tdocs_help_section "tdocs - semantic document browser")
-
-$(_tdocs_help_subsection "Prompt Format:")
-  ${bracket_color}[${reset}${count_color}total${reset} ${brace_color}{${reset}${module_color}modules${reset}${brace_color}}${reset} ${bracket_color}(${reset}${filter_color}type | intent${reset}${bracket_color})${reset}${bracket_color}]${reset} ${bracket_color}[${reset}${lifecycle_color}lifecycle${reset}${bracket_color}]${reset} ${count_color}n${reset} >
 
 $(_tdocs_help_subsection "Commands:")
 $(_tdocs_help_cmd "ls|list [-l]" "list documents (detailed with -l)")
@@ -73,35 +128,43 @@ $(_tdocs_help_cmd "clear" "clear all filters")
 
 $(_tdocs_help_cmd "r t a" "sort: relevance|time|alpha")
 
-$(_tdocs_help_subsection "Document Taxonomy:")
-  Type (NOUN)      - what it IS:       spec, guide, investigation,
-                                        reference, plan, summary, scratch,
-                                        bug-fix, refactor
-  Intent (VERB)    - what it DOES:     define, instruct, analyze,
-                                        document, propose, track
-  Lifecycle        - maturity stage:
-    ${lifecycle_color}C${reset} Canonical  - authoritative, system of record
-    ${lifecycle_color}S${reset} Stable     - proven, reviewed, reliable
-    ${lifecycle_color}W${reset} Working    - functional, active development [DEFAULT]
-    ${lifecycle_color}D${reset} Draft      - work in progress, unreviewed
-    ${lifecycle_color}X${reset} Archived   - superseded, do not use
-
-$(_tdocs_help_subsection "Examples:")
-$(_tdocs_help_example "All modules, no filters" "[92 {*} ()] [W:183] 92 >")
-$(_tdocs_help_example "midi+osc modules, spec type" "[92 {midi osc} (spec)] [W:183] 64 >")
-$(_tdocs_help_example "midi module, spec|define, sorted by time" "[92 {midi} (spec | define)] [C:3 S:12] time:15 >")
-
-Display format: filename  Lifecycle  type  intent  tags
-
-More: $(echo -e "${TETRA_CYAN}help <topic>${TETRA_NC}")  $(echo -e "${TETRA_GRAY}review, lifecycle, taxonomy, filter, types, doctor${TETRA_NC}")
 EOF
+
+    _tdocs_help_subsection "Document Taxonomy:"
+    echo "  Type (NOUN)      - what it IS:       spec, guide, investigation,"
+    echo "                                        reference, plan, summary, scratch,"
+    echo "                                        bug-fix, refactor"
+    echo "  Intent (VERB)    - what it DOES:     define, instruct, analyze,"
+    echo "                                        document, propose, track"
+    echo "  Lifecycle        - maturity stage:"
+    printf "    "; _tdocs_c "${VERBS_PRIMARY[0]}" "C"; echo " Canonical  - authoritative, system of record"
+    printf "    "; _tdocs_c "${VERBS_PRIMARY[1]}" "S"; echo " Stable     - proven, reviewed, reliable"
+    printf "    "; _tdocs_c "${VERBS_PRIMARY[2]}" "W"; echo " Working    - functional, active development [DEFAULT]"
+    printf "    "; _tdocs_c "${VERBS_PRIMARY[3]}" "D"; echo " Draft      - work in progress, unreviewed"
+    printf "    "; _tdocs_c "${VERBS_PRIMARY[4]}" "X"; echo " Archived   - superseded, do not use"
+    echo
+    _tdocs_help_subsection "Examples:"
+    _tdocs_help_example "All modules, no filters" "[92 {*} ()] [W:183] 92 >"
+    _tdocs_help_example "midi+osc modules, spec type" "[92 {midi osc} (spec)] [W:183] 64 >"
+    _tdocs_help_example "midi module, spec|define, sorted by time" "[92 {midi} (spec | define)] [C:3 S:12] time:15 >"
+    echo
+    echo "Display format: filename  Lifecycle  type  intent  tags"
+    echo
+    printf "More: "; _tdocs_c "${MODE_PRIMARY[0]}" "help <topic>"; printf "  "; _tdocs_c "${NOUNS_PRIMARY[5]}" "review, lifecycle, taxonomy, filter, types, doctor"; echo
+}
+
+# Helper for inline command in heredoc (returns colored string)
+_tdocs_inline_cmd() {
+    _tdocs_c "${MODE_PRIMARY[0]}" "$1"
 }
 
 # Module command help
 tdocs_help_module() {
+    echo
+    _tdocs_help_section "USAGE"
+    printf "  "; _tdocs_inline_cmd "module"; echo " <module_name>"
+
     cat <<EOF
-$(_tdocs_help_section "USAGE")
-  $(echo -e "${TETRA_CYAN}module${TETRA_NC}") <module_name>
 
 $(_tdocs_help_section "DESCRIPTION")
   Show all documentation for a specific module, including:
@@ -131,9 +194,11 @@ EOF
 
 # Spec command help
 tdocs_help_spec() {
+    echo
+    _tdocs_help_section "USAGE"
+    printf "  "; _tdocs_inline_cmd "spec"; echo " <module_name>"
+
     cat <<EOF
-$(_tdocs_help_section "USAGE")
-  $(echo -e "${TETRA_CYAN}spec${TETRA_NC}") <module_name>
 
 $(_tdocs_help_section "DESCRIPTION")
   View the specification document for a module.
@@ -157,9 +222,11 @@ EOF
 
 # Filter command help
 tdocs_help_filter() {
+    echo
+    _tdocs_help_section "USAGE"
+    printf "  "; _tdocs_inline_cmd "filter"; echo " [module|type|intent|lifecycle|level|temporal|clear] <value>"
+
     cat <<EOF
-$(_tdocs_help_section "USAGE")
-  $(echo -e "${TETRA_CYAN}filter${TETRA_NC}") [module|type|intent|lifecycle|level|temporal|clear] <value>
 
 $(_tdocs_help_section "OPTIONS")
   module <name>     Filter by module (tdocs, rag, repl, etc.)
@@ -192,9 +259,11 @@ EOF
 
 # Demo command help
 tdocs_help_demo() {
+    echo
+    _tdocs_help_section "USAGE"
+    printf "  "; _tdocs_inline_cmd "demo"; echo " [slow|medium|fast]"
+
     cat <<EOF
-$(_tdocs_help_section "USAGE")
-  $(echo -e "${TETRA_CYAN}demo${TETRA_NC}") [slow|medium|fast]
 
 $(_tdocs_help_section "DESCRIPTION")
   Run an interactive demonstration of TDOCS features:
@@ -245,32 +314,32 @@ EOF
 
 # Types help
 tdocs_help_types() {
-    cat <<EOF
-$(_tdocs_help_section "DOCUMENT TYPES (NOUNS)")
-
-$(echo -e "${TETRA_CYAN}specification${TETRA_NC}")    Formal specifications (authoritative)
-$(echo -e "${TETRA_CYAN}standard${TETRA_NC}")         Standard/protocol definitions
-$(echo -e "${TETRA_CYAN}reference${TETRA_NC}")        Reference material (lookup)
-$(echo -e "${TETRA_CYAN}guide${TETRA_NC}")            How-to guides (instructional)
-$(echo -e "${TETRA_CYAN}example${TETRA_NC}")          Example/sample code
-$(echo -e "${TETRA_CYAN}integration${TETRA_NC}")      Integration guides
-$(echo -e "${TETRA_CYAN}investigation${TETRA_NC}")    Analysis and research
-$(echo -e "${TETRA_CYAN}bug-fix${TETRA_NC}")          Bug fix documentation
-$(echo -e "${TETRA_CYAN}refactor${TETRA_NC}")         Refactoring notes
-$(echo -e "${TETRA_CYAN}plan${TETRA_NC}")             Plans and roadmaps
-$(echo -e "${TETRA_CYAN}summary${TETRA_NC}")          Summaries and overviews
-$(echo -e "${TETRA_CYAN}scratch${TETRA_NC}")          Scratch/temporary notes
-
-$(_tdocs_help_section "SEE ALSO")
-  help taxonomy    Complete taxonomy reference
-EOF
+    echo
+    _tdocs_help_section "DOCUMENT TYPES (NOUNS)"
+    echo
+    # Print types with VERBS palette cycling
+    local i=0
+    local types=("specification" "standard" "reference" "guide" "example" "integration" "investigation" "bug-fix" "refactor" "plan" "summary" "scratch")
+    local descs=("Formal specifications (authoritative)" "Standard/protocol definitions" "Reference material (lookup)" "How-to guides (instructional)" "Example/sample code" "Integration guides" "Analysis and research" "Bug fix documentation" "Refactoring notes" "Plans and roadmaps" "Summaries and overviews" "Scratch/temporary notes")
+    for j in "${!types[@]}"; do
+        printf "  "
+        _tdocs_c "${VERBS_PRIMARY[$((i % 8))]}" "$(printf '%-14s' "${types[$j]}")"
+        _tdocs_c "${NOUNS_PRIMARY[6]}" "${descs[$j]}"
+        echo
+        ((i++))
+    done
+    echo
+    _tdocs_help_section "SEE ALSO"
+    echo "  help taxonomy    Complete taxonomy reference"
 }
 
 # Doctor command help
 tdocs_help_doctor() {
+    echo
+    _tdocs_help_section "USAGE"
+    printf "  "; _tdocs_inline_cmd "doctor"; echo " [--fix] [--cleanup] [--reindex] [--summary]"
+
     cat <<EOF
-$(_tdocs_help_section "USAGE")
-  $(echo -e "${TETRA_CYAN}doctor${TETRA_NC}") [--fix] [--cleanup] [--reindex] [--summary]
 
 $(_tdocs_help_section "DESCRIPTION")
   Check database health and fix common issues.
@@ -302,63 +371,71 @@ EOF
 
 # Lifecycle help
 tdocs_help_lifecycle() {
-    cat <<EOF
-$(_tdocs_help_section "LIFECYCLE STAGES")
+    echo
+    _tdocs_help_section "LIFECYCLE STAGES"
+    echo
 
-$(echo -e "${TETRA_CYAN}Canonical (C)${TETRA_NC}")  - Authoritative, system of record
-  • The definitive source for this information
-  • Fully reviewed and approved
-  • Used as reference by other documents
-  • Rank multiplier: 1.6x
-  • RAG evidence weight: primary
+    # Print lifecycle stages with VERBS palette
+    printf "  "; _tdocs_c "${VERBS_PRIMARY[0]}" "Canonical (C)"; echo "  - Authoritative, system of record"
+    echo "    • The definitive source for this information"
+    echo "    • Fully reviewed and approved"
+    echo "    • Used as reference by other documents"
+    echo "    • Rank multiplier: 1.6x"
+    echo "    • RAG evidence weight: primary"
+    echo
 
-$(echo -e "${TETRA_CYAN}Stable (S)${TETRA_NC}")     - Proven, reviewed, reliable
-  • Tested and verified to work
-  • Reviewed by at least one other person
-  • Production-ready
-  • Rank multiplier: 1.3x
-  • RAG evidence weight: secondary
+    printf "  "; _tdocs_c "${VERBS_PRIMARY[1]}" "Stable (S)"; echo "     - Proven, reviewed, reliable"
+    echo "    • Tested and verified to work"
+    echo "    • Reviewed by at least one other person"
+    echo "    • Production-ready"
+    echo "    • Rank multiplier: 1.3x"
+    echo "    • RAG evidence weight: secondary"
+    echo
 
-$(echo -e "${TETRA_CYAN}Working (W)${TETRA_NC}")    - Functional, active development [DEFAULT]
-  • Currently works but may have rough edges
-  • Under active development
-  • May change frequently
-  • Rank multiplier: 1.0x
-  • RAG evidence weight: tertiary
+    printf "  "; _tdocs_c "${VERBS_PRIMARY[2]}" "Working (W)"; echo "    - Functional, active development [DEFAULT]"
+    echo "    • Currently works but may have rough edges"
+    echo "    • Under active development"
+    echo "    • May change frequently"
+    echo "    • Rank multiplier: 1.0x"
+    echo "    • RAG evidence weight: tertiary"
+    echo
 
-$(echo -e "${TETRA_CYAN}Draft (D)${TETRA_NC}")      - Work in progress, unreviewed
-  • Still being written
-  • Not yet tested or reviewed
-  • May be incomplete
-  • Rank multiplier: 0.8x
-  • RAG evidence weight: excluded
+    printf "  "; _tdocs_c "${VERBS_PRIMARY[3]}" "Draft (D)"; echo "      - Work in progress, unreviewed"
+    echo "    • Still being written"
+    echo "    • Not yet tested or reviewed"
+    echo "    • May be incomplete"
+    echo "    • Rank multiplier: 0.8x"
+    echo "    • RAG evidence weight: excluded"
+    echo
 
-$(echo -e "${TETRA_CYAN}Archived (X)${TETRA_NC}")   - Superseded, do not use
-  • Replaced by newer document
-  • Kept for historical reference only
-  • Should not be used for new work
-  • Rank multiplier: 0.1x
-  • RAG evidence weight: excluded
+    printf "  "; _tdocs_c "${VERBS_PRIMARY[4]}" "Archived (X)"; echo "   - Superseded, do not use"
+    echo "    • Replaced by newer document"
+    echo "    • Kept for historical reference only"
+    echo "    • Should not be used for new work"
+    echo "    • Rank multiplier: 0.1x"
+    echo "    • RAG evidence weight: excluded"
+    echo
 
-$(_tdocs_help_section "TYPICAL PROGRESSION")
-  Draft → Working → Stable → Canonical
-
-$(_tdocs_help_section "EXAMPLES")
-$(_tdocs_help_example "Show canonical docs" "filter lifecycle C")
-$(_tdocs_help_example "Show stable and canonical" "filter lifecycle S,C")
-$(_tdocs_help_example "Exclude archived docs" "ls --lifecycle D,W,S,C")
-
-$(_tdocs_help_section "SEE ALSO")
-  help taxonomy    Complete taxonomy reference
-  doctor           Check for lifecycle issues
-EOF
+    _tdocs_help_section "TYPICAL PROGRESSION"
+    echo "  Draft → Working → Stable → Canonical"
+    echo
+    _tdocs_help_section "EXAMPLES"
+    _tdocs_help_example "Show canonical docs" "filter lifecycle C"
+    _tdocs_help_example "Show stable and canonical" "filter lifecycle S,C"
+    _tdocs_help_example "Exclude archived docs" "ls --lifecycle D,W,S,C"
+    echo
+    _tdocs_help_section "SEE ALSO"
+    echo "  help taxonomy    Complete taxonomy reference"
+    echo "  doctor           Check for lifecycle issues"
 }
 
 # Colors help
 tdocs_help_colors() {
+    echo
+    _tdocs_help_section "USAGE"
+    printf "  "; _tdocs_inline_cmd "colors"; echo " [convert|assignments|pattern|swap|256|compare]"
+
     cat <<EOF
-$(_tdocs_help_section "USAGE")
-  $(echo -e "${TETRA_CYAN}colors${TETRA_NC}") [convert|assignments|pattern|swap|256|compare]
 
 $(_tdocs_help_section "DESCRIPTION")
   Color explorer for TDS 24-bit to 256-color conversion and semantic

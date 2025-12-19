@@ -248,6 +248,14 @@ tdocs() {
             # List available publish targets
             tdocs_list_publish_targets "$@"
             ;;
+        ctx|context)
+            # PData context management (T[org:project:subject])
+            tdocs_ctx "$@"
+            ;;
+        pdata)
+            # PData status and management
+            pdata_status "$@"
+            ;;
         help|--help|-h)
             if [[ -n "$1" ]]; then
                 tdocs_help_topic "$1"
@@ -288,12 +296,15 @@ $(echo -e "${C_TITLE}tdocs${C_NC}") - type-based doc ranking
   $(echo -e "${C_CMD_DIM}spec${C_NC}") <m>        module spec
   $(echo -e "${C_CMD_DIM}browse${C_NC}")          REPL mode
 
+  $(echo -e "${C_CMD}ctx${C_NC}") [set|clear]  project context T[org:proj:subj]
+  $(echo -e "${C_CMD_DIM}pdata${C_NC}")           PData status
+
   $(echo -e "${C_CMD_DIM}publish${C_NC}") <src> <target>   publish to Spaces
   $(echo -e "${C_CMD_DIM}nginx-config${C_NC}") <target>    generate proxy config
   $(echo -e "${C_CMD_DIM}publish-targets${C_NC}")          list publish targets
 
 $(echo -e "${C_GRAY_DIM}Types: reference 1.0 • guide 0.6 • notes 0.3${C_NC}")
-$(echo -e "${C_GRAY_DIM}More:  tdocs help <topic>${C_NC}")  $(echo -e "${C_GRAY}rank filter types${C_NC}")
+$(echo -e "${C_GRAY_DIM}More:  tdocs help <topic>${C_NC}")  $(echo -e "${C_GRAY}rank filter types ctx${C_NC}")
 EOF
 }
 
