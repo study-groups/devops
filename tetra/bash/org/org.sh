@@ -465,6 +465,22 @@ org() {
                     fi
                     nh_list "$json_file"
                     ;;
+                validate|val)
+                    # Validate TOML matches source JSON
+                    # Usage: org import validate [org_name]
+                    local org_name="${1:-$(org_active 2>/dev/null)}"
+                    [[ "$org_name" == "$ORG_NO_ACTIVE" ]] && org_name=""
+
+                    if [[ -z "$org_name" ]]; then
+                        echo "Usage: org import validate [org_name]"
+                        return 1
+                    fi
+
+                    if ! type nh_validate &>/dev/null; then
+                        source "$TETRA_SRC/bash/nh/nh_import.sh"
+                    fi
+                    nh_validate "$org_name"
+                    ;;
                 ""|help)
                     echo "Import infrastructure from nh (NodeHolder)"
                     echo ""
@@ -473,10 +489,12 @@ org() {
                     echo "  org import nh <org> <json>     Import specific file"
                     echo "  org import list <org_name>     Preview droplets"
                     echo "  org import list <json_file>    Preview from file"
+                    echo "  org import validate [org]      Verify TOML matches JSON"
                     echo ""
                     echo "Example:"
                     echo "  org import list myorg"
                     echo "  org import nh myorg"
+                    echo "  org import validate"
                     ;;
                 *)
                     echo "Unknown import source: $subcmd"
