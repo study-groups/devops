@@ -36,7 +36,7 @@ formant_start() {
     local buffer_size=${2:-512}
 
     # Create named pipe for IPC
-    FORMANT_FIFO="/tmp/estovox_to_formant_$$"
+    FORMANT_FIFO="/tmp/formant_ipc_$$"
     mkfifo "$FORMANT_FIFO" || return 1
 
     # Start formant engine
@@ -157,13 +157,13 @@ formant_sequence() {
 # Integration helpers
 # ============================================================================
 
-formant_from_estovox() {
-    # Convert estovox phoneme command to formant command
+formant_from_ui() {
+    # Convert UI phoneme command to formant synthesis command
     local phoneme=$1
     local rate=${2:-0.3}
     local duration=${3:-100}
 
-    # Map estovox articulation to formant synthesis
+    # Map UI articulation to formant synthesis
     formant_phoneme "$phoneme" "$duration" 120 0.7 "$rate"
 }
 

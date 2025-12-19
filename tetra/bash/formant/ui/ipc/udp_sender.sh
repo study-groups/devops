@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# udp_sender.sh - UDP sender for estovox → multivox communication
+# udp_sender.sh - UDP sender for formant → multivox communication
 # Non-blocking UDP datagrams to multivox server
 
 MULTIVOX_HOST="${MULTIVOX_HOST:-localhost}"
@@ -8,7 +8,7 @@ MULTIVOX_ENABLED="${MULTIVOX_ENABLED:-0}"
 
 # IPA phoneme to formant mapping
 # Format: "f1:f2:f3:bw1:bw2:bw3:noise"
-declare -gA ESTOVOX_FORMANT_TABLE=(
+declare -gA FORMANT_FORMANT_TABLE=(
     # Vowels
     ["i"]="300:2300:3000:50:100:150:0"
     ["e"]="400:2000:2800:50:100:150:0"
@@ -74,14 +74,14 @@ multivox_send() {
 }
 
 # Get formant JSON for an IPA phoneme
-# Usage: estovox_get_formants "a"
+# Usage: formant_get_formants "a"
 # Returns: "f1":800,"f2":1200,"f3":2500,"bw1":60,"bw2":120,"bw3":180,"noise":0
-estovox_get_formants() {
+formant_get_formants() {
     local ipa="$1"
-    local data="${ESTOVOX_FORMANT_TABLE[$ipa]}"
+    local data="${FORMANT_FORMANT_TABLE[$ipa]}"
 
     # Default to neutral if unknown
-    [[ -z "$data" ]] && data="${ESTOVOX_FORMANT_TABLE[neutral]}"
+    [[ -z "$data" ]] && data="${FORMANT_FORMANT_TABLE[neutral]}"
 
     # Parse f1:f2:f3:bw1:bw2:bw3:noise
     IFS=':' read -r f1 f2 f3 bw1 bw2 bw3 noise <<< "$data"
@@ -100,7 +100,7 @@ multivox_send_formants() {
     local bits="${4:-8}"
 
     local formants
-    formants=$(estovox_get_formants "$ipa")
+    formants=$(formant_get_formants "$ipa")
 
     local msg="{\"t\":\"fm\",$formants,\"f0\":$f0,\"dur\":$dur,\"bits\":$bits}"
     multivox_send "$msg"
@@ -111,10 +111,10 @@ multivox_send_formants() {
 multivox_send_state() {
     [[ "$MULTIVOX_ENABLED" != "1" ]] && return 0
 
-    # Read from estovox state variables (if available)
-    local jaw="${ESTOVOX_JAW_OPENNESS:-0.5}"
-    local lips="${ESTOVOX_LIP_ROUNDING:-0.5}"
-    local tongue_h="${ESTOVOX_TONGUE_HEIGHT:-0.5}"
+    # Read from formant state variables (if available)
+    local jaw="${FORMANT_JAW_OPENNESS:-0.5}"
+    local lips="${FORMANT_LIP_ROUNDING:-0.5}"
+    local tongue_h="${FORMANT_TONGUE_HEIGHT:-0.5}"
 
     local msg="{\"t\":\"st\",\"jaw\":$jaw,\"lips\":$lips,\"tongue_h\":$tongue_h}"
     multivox_send "$msg"
@@ -126,7 +126,7 @@ multivox_test() {
     MULTIVOX_ENABLED=1
 
     echo "Sending test to ${MULTIVOX_HOST}:${MULTIVOX_PORT}..."
-    multivox_send '{"t":"test","msg":"hello from estovox"}'
+    multivox_send '{"t":"test","msg":"hello from formant"}'
 
     echo "Sending vowel 'a'..."
     multivox_send_formants "a" 200 120 8
@@ -141,8 +141,8 @@ multivox_list_phonemes() {
     echo "================================"
     printf "%-8s %-6s %-6s %-6s %-5s\n" "IPA" "F1" "F2" "F3" "Noise"
     echo "--------------------------------"
-    for ipa in "${!ESTOVOX_FORMANT_TABLE[@]}"; do
-        IFS=':' read -r f1 f2 f3 bw1 bw2 bw3 noise <<< "${ESTOVOX_FORMANT_TABLE[$ipa]}"
+    for ipa in "${!FORMANT_FORMANT_TABLE[@]}"; do
+        IFS=':' read -r f1 f2 f3 bw1 bw2 bw3 noise <<< "${FORMANT_FORMANT_TABLE[$ipa]}"
         printf "%-8s %-6s %-6s %-6s %-5s\n" "$ipa" "$f1" "$f2" "$f3" "$noise"
     done | sort
 }

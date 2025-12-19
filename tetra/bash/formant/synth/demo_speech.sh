@@ -334,7 +334,7 @@ main() {
     echo -e "  ${BLUE}✓${NC} Smooth formant transitions"
     echo ""
     echo -e "${YELLOW}Next Steps:${NC}"
-    echo -e "  - Integrate with estovox for facial control"
+    echo -e "  - Integrate with formant UI for facial control"
     echo -e "  - Add coarticulation modeling"
     echo -e "  - Train neural network for articulatory → acoustic mapping"
     echo -e "  - Add vocal fry and breathiness modulation"

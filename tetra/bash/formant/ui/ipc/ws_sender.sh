@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ws_sender.sh - WebSocket sender for estovox → multivox communication
+# ws_sender.sh - WebSocket sender for formant → multivox communication
 # Uses websocat for WebSocket transport (brew install websocat)
 
 MULTIVOX_URL="${MULTIVOX_URL:-ws://localhost:1982}"
@@ -7,7 +7,7 @@ MULTIVOX_ENABLED="${MULTIVOX_ENABLED:-0}"
 
 # IPA phoneme to formant mapping
 # Format: "f1:f2:f3:bw1:bw2:bw3:noise"
-declare -gA ESTOVOX_FORMANT_TABLE=(
+declare -gA FORMANT_FORMANT_TABLE=(
     # Vowels
     ["i"]="300:2300:3000:50:100:150:0"
     ["e"]="400:2000:2800:50:100:150:0"
@@ -83,13 +83,13 @@ multivox_send() {
 }
 
 # Get formant JSON for an IPA phoneme
-# Usage: estovox_get_formants "a"
-estovox_get_formants() {
+# Usage: formant_get_formants "a"
+formant_get_formants() {
     local ipa="$1"
-    local data="${ESTOVOX_FORMANT_TABLE[$ipa]}"
+    local data="${FORMANT_FORMANT_TABLE[$ipa]}"
 
     # Default to neutral if unknown
-    [[ -z "$data" ]] && data="${ESTOVOX_FORMANT_TABLE[neutral]}"
+    [[ -z "$data" ]] && data="${FORMANT_FORMANT_TABLE[neutral]}"
 
     # Parse f1:f2:f3:bw1:bw2:bw3:noise
     IFS=':' read -r f1 f2 f3 bw1 bw2 bw3 noise <<< "$data"
@@ -108,7 +108,7 @@ multivox_send_formants() {
     local bits="${4:-8}"
 
     local formants
-    formants=$(estovox_get_formants "$ipa")
+    formants=$(formant_get_formants "$ipa")
 
     local msg="{\"t\":\"fm\",$formants,\"f0\":$f0,\"dur\":$dur,\"bits\":$bits}"
     multivox_send "$msg"
@@ -118,9 +118,9 @@ multivox_send_formants() {
 multivox_send_state() {
     [[ "$MULTIVOX_ENABLED" != "1" ]] && return 0
 
-    local jaw="${ESTOVOX_JAW_OPENNESS:-0.5}"
-    local lips="${ESTOVOX_LIP_ROUNDING:-0.5}"
-    local tongue_h="${ESTOVOX_TONGUE_HEIGHT:-0.5}"
+    local jaw="${FORMANT_JAW_OPENNESS:-0.5}"
+    local lips="${FORMANT_LIP_ROUNDING:-0.5}"
+    local tongue_h="${FORMANT_TONGUE_HEIGHT:-0.5}"
 
     local msg="{\"t\":\"st\",\"jaw\":$jaw,\"lips\":$lips,\"tongue_h\":$tongue_h}"
     multivox_send "$msg"
@@ -150,7 +150,7 @@ multivox_test() {
     fi
 
     echo "Sending test message..."
-    echo '{"t":"test","msg":"hello from estovox"}' | websocat -n1 "$MULTIVOX_URL" 2>/dev/null
+    echo '{"t":"test","msg":"hello from formant"}' | websocat -n1 "$MULTIVOX_URL" 2>/dev/null
 
     if [[ $? -eq 0 ]]; then
         echo "Connection OK!"
@@ -175,8 +175,8 @@ multivox_list_phonemes() {
     echo "================================"
     printf "%-8s %-6s %-6s %-6s %-5s\n" "IPA" "F1" "F2" "F3" "Noise"
     echo "--------------------------------"
-    for ipa in "${!ESTOVOX_FORMANT_TABLE[@]}"; do
-        IFS=':' read -r f1 f2 f3 bw1 bw2 bw3 noise <<< "${ESTOVOX_FORMANT_TABLE[$ipa]}"
+    for ipa in "${!FORMANT_FORMANT_TABLE[@]}"; do
+        IFS=':' read -r f1 f2 f3 bw1 bw2 bw3 noise <<< "${FORMANT_FORMANT_TABLE[$ipa]}"
         printf "%-8s %-6s %-6s %-6s %-5s\n" "$ipa" "$f1" "$f2" "$f3" "$noise"
     done | sort
 }
@@ -184,7 +184,7 @@ multivox_list_phonemes() {
 # Help
 multivox_help() {
     cat <<EOF
-Estovox → Multivox WebSocket Sender
+Formant → Multivox WebSocket Sender
 
 Commands:
   multivox_enable           Enable sending (checks for websocat)

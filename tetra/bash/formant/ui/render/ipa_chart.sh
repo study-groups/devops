@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Estovox IPA Chart Display
+# Formant IPA Chart Display
 # Colorized IPA chart organized by articulation
 
 # Source color system
 if [[ -f "$TETRA_SRC/bash/color/color_core.sh" ]]; then
     source "$TETRA_SRC/bash/color/color_core.sh"
-    ESTOVOX_HAS_COLORS=1
+    FORMANT_HAS_COLORS=1
 else
-    ESTOVOX_HAS_COLORS=0
+    FORMANT_HAS_COLORS=0
 fi
 
 # Define color hex values for IPA categories
@@ -22,19 +22,19 @@ IPA_COLOR_LATERAL="#FF00FF"    # Magenta
 ipa_color() {
     local hex=$1
     local text=$2
-    if (( ESTOVOX_HAS_COLORS )); then
+    if (( FORMANT_HAS_COLORS )); then
         printf "%b%s%b" "$(text_color "$hex")" "$text" "$(reset_color)"
     else
         printf "%s" "$text"
     fi
 }
 
-estovox_render_ipa_chart() {
+formant_render_ipa_chart() {
     tput clear
 
     cat <<EOF
 ╔══════════════════════════════════════════════════════════════════════════╗
-║                    IPA PHONEME CHART - Estovox                           ║
+║                    IPA PHONEME CHART - Formant                           ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 
 $(ipa_color "$IPA_COLOR_VOWEL" "VOWELS") - Oral cavity resonance with open vocal tract
@@ -97,12 +97,12 @@ EOF
     tput clear
 }
 
-estovox_render_controls_help() {
+formant_render_controls_help() {
     tput clear
 
     cat <<EOF
 ╔══════════════════════════════════════════════════════════════════════════╗
-║                    INTERACTIVE CONTROLS - Estovox                        ║
+║                    INTERACTIVE CONTROLS - Formant                        ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 
 KEYBOARD CONTROLS (Interactive Mode)
@@ -131,7 +131,7 @@ MODE SWITCHING:
 SPECIAL COMMANDS (Command Mode):
   :ipa        - Show IPA chart
   :help       - Show this help
-  :quit       - Exit Estovox
+  :quit       - Exit Formant
   :interactive - Return to interactive mode
 
   All regular commands work in command mode:
