@@ -61,56 +61,10 @@ declare -ga DEPLOY_COMMANDS=()
 declare -ga DEPLOY_POST=()
 
 # =============================================================================
-# TOML PARSING
-# =============================================================================
-
-# Get value from TOML file
-# Usage: _deploy_toml_get <file> <section> <key>
-_deploy_toml_get() {
-    local file="$1" section="$2" key="$3"
-
-    awk -v sect="$section" -v k="$key" '
-        /^\[/ { in_sect = ($0 == "[" sect "]") }
-        in_sect && $1 == k && $2 == "=" {
-            val = $0
-            sub(/^[^=]*=[ \t]*/, "", val)
-            gsub(/^["'\''"]|["'\''"]$/, "", val)
-            print val
-            exit
-        }
-    ' "$file"
-}
-
-# Get array from TOML (single line [...] format)
-_deploy_toml_get_array() {
-    local file="$1" section="$2" key="$3"
-
-    local raw=$(_deploy_toml_get "$file" "$section" "$key")
-    [[ -z "$raw" ]] && return
-
-    # Strip brackets and parse quoted strings
-    raw="${raw#\[}"
-    raw="${raw%\]}"
-
-    while [[ "$raw" =~ \"([^\"]+)\" ]]; do
-        echo "${BASH_REMATCH[1]}"
-        raw="${raw#*\"${BASH_REMATCH[1]}\"}"
-    done
-}
-
-# Check if TOML has ssh key in envs section (standalone mode indicator)
-_deploy_toml_has_ssh() {
-    local file="$1" env="$2"
-    local ssh=$(_deploy_toml_get "$file" "envs.$env" "ssh")
-    [[ -z "$ssh" ]] && ssh=$(_deploy_toml_get "$file" "envs.all" "ssh")
-    [[ -z "$ssh" ]] && ssh=$(_deploy_toml_get "$file" "env.$env" "ssh")
-    [[ -z "$ssh" ]] && ssh=$(_deploy_toml_get "$file" "env.all" "ssh")
-    [[ -n "$ssh" ]]
-}
-
-# =============================================================================
 # CONTEXT LOADING
 # =============================================================================
+# Note: TOML parsing functions (_deploy_toml_get, _deploy_toml_get_array,
+# _deploy_toml_has_ssh) are now in includes.sh
 
 _deploy_clear() {
     DEPLOY_TOML=""
@@ -242,27 +196,21 @@ _deploy_load_org() {
 _deploy_template() {
     local str="$1"
 
-    # Expand {{user}} in remote path first
-    local remote="${DEPLOY_REMOTE//\{\{user\}\}/$DEPLOY_WORK_USER}"
+    # Build vars array from DEPLOY_* globals
+    local -A _tmpl_vars=(
+        [ssh]="$DEPLOY_SSH"
+        [host]="$DEPLOY_HOST"
+        [auth_user]="$DEPLOY_AUTH_USER"
+        [work_user]="$DEPLOY_WORK_USER"
+        [user]="$DEPLOY_WORK_USER"
+        [name]="$DEPLOY_NAME"
+        [cwd]="$DEPLOY_REMOTE"
+        [domain]="$DEPLOY_DOMAIN"
+        [env]="$DEPLOY_ENV"
+        [local]="$DEPLOY_TOML_DIR"
+    )
 
-    # SSH/host
-    str="${str//\{\{ssh\}\}/$DEPLOY_SSH}"
-    str="${str//\{\{host\}\}/$DEPLOY_HOST}"
-
-    # Users
-    str="${str//\{\{auth_user\}\}/$DEPLOY_AUTH_USER}"
-    str="${str//\{\{work_user\}\}/$DEPLOY_WORK_USER}"
-    str="${str//\{\{user\}\}/$DEPLOY_WORK_USER}"
-
-    # Target info
-    str="${str//\{\{name\}\}/$DEPLOY_NAME}"
-    str="${str//\{\{remote\}\}/$remote}"
-    str="${str//\{\{cwd\}\}/$remote}"
-    str="${str//\{\{domain\}\}/$DEPLOY_DOMAIN}"
-    str="${str//\{\{env\}\}/$DEPLOY_ENV}"
-    str="${str//\{\{local\}\}/$DEPLOY_TOML_DIR}"
-
-    echo "$str"
+    _deploy_template_core "$str" _tmpl_vars
 }
 
 # =============================================================================
@@ -1184,7 +1132,16 @@ deploy() {
             ;;
         env|e)
             shift
-            deploy_env_set "$@"
+            case "$1" in
+                promote) shift; deploy_env_promote "$@" ;;
+                validate) shift; deploy_env_validate "$@" ;;
+                diff) shift; deploy_env_diff "$@" ;;
+                push) shift; deploy_env_push "$@" ;;
+                pull) shift; deploy_env_pull "$@" ;;
+                edit) shift; deploy_env_edit "$@" ;;
+                status) shift; deploy_env_status "$@" ;;
+                *) deploy_env_set "$@" ;;  # default: set context env
+            esac
             ;;
         info|i)
             deploy_info
@@ -1370,6 +1327,5 @@ export -f _deploy_help_colors _deploy_help_section _deploy_help_sub _deploy_help
 export -f _deploy_load _deploy_load_standalone _deploy_load_org
 export -f _deploy_template _deploy_exec _deploy_resolve _deploy_clear
 export -f _deploy_is_env _deploy_find_target
-export -f _deploy_toml_get _deploy_toml_get_array _deploy_toml_has_ssh
 export -f _deploy_edit_items _deploy_parse_item_args _deploy_apply_oneshot_filters
 export -f deploy_run

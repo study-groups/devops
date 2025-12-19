@@ -16,28 +16,28 @@
 <div class="design-panel" id="designPanel">
     <div class="design-panel-header">
         <span>Design Tokens</span>
-        <span class="design-panel-close" data-action="toggle-panel">&times;</span>
+        <span class="design-panel-close" data-action="close-panel">&times;</span>
     </div>
     <div class="design-panel-content">
 
         <!-- Theme Switcher -->
         <div class="token-section" data-section="switcher">
-            <div class="token-section-header" onclick="toggleSection('switcher')">
+            <div class="token-section-header" data-action="toggle-section" data-target="switcher">
                 <span>Theme Switcher</span>
                 <span class="section-toggle">▼</span>
             </div>
             <div class="token-section-content">
                 <div class="metadata-field">
                     <label>Active Theme</label>
-                    <select id="themeSwitcher" class="font-select mt-0" onchange="switchTheme(this.value)">
+                    <select id="themeSwitcher" class="font-select mt-0" data-action="switch-theme">
                         <option value="">-- Select Theme --</option>
                     </select>
                 </div>
                 <div class="design-panel-buttons mt-half">
-                    <button class="design-panel-btn design-panel-btn--primary flex-1" onclick="saveThemeToStorage()" id="saveThemeBtn">
+                    <button class="design-panel-btn design-panel-btn--primary flex-1" data-action="save-theme" id="saveThemeBtn">
                         Save Current
                     </button>
-                    <button class="design-panel-btn design-panel-btn--secondary flex-1" onclick="deleteCurrentTheme()" id="deleteThemeBtn">
+                    <button class="design-panel-btn design-panel-btn--secondary flex-1" data-action="delete-theme" id="deleteThemeBtn">
                         Delete
                     </button>
                 </div>
@@ -47,7 +47,7 @@
 
         <!-- Theme Metadata -->
         <div class="token-section" data-section="metadata">
-            <div class="token-section-header" onclick="toggleSection('metadata')">
+            <div class="token-section-header" data-action="toggle-section" data-target="metadata">
                 <span>Theme Metadata</span>
                 <span class="section-toggle">▼</span>
             </div>
@@ -88,7 +88,7 @@
 
         <!-- Colors Section -->
         <div class="token-section" data-section="colors">
-            <div class="token-section-header" onclick="toggleSection('colors')">
+            <div class="token-section-header" data-action="toggle-section" data-target="colors">
                 <span>Colors</span>
                 <span class="section-toggle">▼</span>
             </div>
@@ -97,7 +97,7 @@
                 <div class="token-group">
                     <div class="token-group-title">Background</div>
                     <div class="token-item">
-                        <input type="color" class="token-picker" data-token="--bg-primary" value="#1a1a2e">
+                        <input type="color" class="token-picker" data-action="update-token" data-token="--bg-primary" value="#1a1a2e">
                         <div class="token-swatch" style="background: var(--bg-primary)"></div>
                         <div class="token-info">
                             <div class="token-name">--bg-primary</div>
@@ -105,7 +105,7 @@
                         </div>
                     </div>
                     <div class="token-item">
-                        <input type="color" class="token-picker" data-token="--bg-secondary" value="#16213e">
+                        <input type="color" class="token-picker" data-action="update-token" data-token="--bg-secondary" value="#16213e">
                         <div class="token-swatch" style="background: var(--bg-secondary)"></div>
                         <div class="token-info">
                             <div class="token-name">--bg-secondary</div>
@@ -113,7 +113,7 @@
                         </div>
                     </div>
                     <div class="token-item">
-                        <input type="color" class="token-picker" data-token="--bg-tertiary" value="#0d1b2a">
+                        <input type="color" class="token-picker" data-action="update-token" data-token="--bg-tertiary" value="#0d1b2a">
                         <div class="token-swatch" style="background: var(--bg-tertiary)"></div>
                         <div class="token-info">
                             <div class="token-name">--bg-tertiary</div>
@@ -126,7 +126,7 @@
                 <div class="token-group">
                     <div class="token-group-title">Text</div>
                     <div class="token-item">
-                        <input type="color" class="token-picker" data-token="--text-title" value="#eaeaea">
+                        <input type="color" class="token-picker" data-action="update-token" data-token="--text-title" value="#eaeaea">
                         <div class="token-swatch" style="background: var(--text-title)"></div>
                         <div class="token-info">
                             <div class="token-name">--text-title</div>
@@ -134,7 +134,7 @@
                         </div>
                     </div>
                     <div class="token-item">
-                        <input type="color" class="token-picker" data-token="--text-primary" value="#c0c0d0">
+                        <input type="color" class="token-picker" data-action="update-token" data-token="--text-primary" value="#c0c0d0">
                         <div class="token-swatch" style="background: var(--text-primary)"></div>
                         <div class="token-info">
                             <div class="token-name">--text-primary</div>
@@ -142,7 +142,7 @@
                         </div>
                     </div>
                     <div class="token-item">
-                        <input type="color" class="token-picker" data-token="--text-secondary" value="#8a8aa0">
+                        <input type="color" class="token-picker" data-action="update-token" data-token="--text-secondary" value="#8a8aa0">
                         <div class="token-swatch" style="background: var(--text-secondary)"></div>
                         <div class="token-info">
                             <div class="token-name">--text-secondary</div>
@@ -150,7 +150,7 @@
                         </div>
                     </div>
                     <div class="token-item">
-                        <input type="color" class="token-picker" data-token="--text-code" value="#ff6b6b">
+                        <input type="color" class="token-picker" data-action="update-token" data-token="--text-code" value="#ff6b6b">
                         <div class="token-swatch" style="background: var(--text-code)"></div>
                         <div class="token-info">
                             <div class="token-name">--text-code</div>
@@ -163,7 +163,7 @@
                 <div class="token-group">
                     <div class="token-group-title">Accent</div>
                     <div class="token-item">
-                        <input type="color" class="token-picker" data-token="--accent-primary" value="#e94560">
+                        <input type="color" class="token-picker" data-action="update-token" data-token="--accent-primary" value="#e94560">
                         <div class="token-swatch" style="background: var(--accent-primary)"></div>
                         <div class="token-info">
                             <div class="token-name">--accent-primary</div>
@@ -171,7 +171,7 @@
                         </div>
                     </div>
                     <div class="token-item">
-                        <input type="color" class="token-picker" data-token="--accent-secondary" value="#3b82c4">
+                        <input type="color" class="token-picker" data-action="update-token" data-token="--accent-secondary" value="#3b82c4">
                         <div class="token-swatch" style="background: var(--accent-secondary)"></div>
                         <div class="token-info">
                             <div class="token-name">--accent-secondary</div>
@@ -184,7 +184,7 @@
                 <div class="token-group">
                     <div class="token-group-title">Status</div>
                     <div class="token-item">
-                        <input type="color" class="token-picker" data-token="--success" value="#3fb950">
+                        <input type="color" class="token-picker" data-action="update-token" data-token="--success" value="#3fb950">
                         <div class="token-swatch" style="background: var(--success)"></div>
                         <div class="token-info">
                             <div class="token-name">--success</div>
@@ -192,7 +192,7 @@
                         </div>
                     </div>
                     <div class="token-item">
-                        <input type="color" class="token-picker" data-token="--warning" value="#d29922">
+                        <input type="color" class="token-picker" data-action="update-token" data-token="--warning" value="#d29922">
                         <div class="token-swatch" style="background: var(--warning)"></div>
                         <div class="token-info">
                             <div class="token-name">--warning</div>
@@ -200,7 +200,7 @@
                         </div>
                     </div>
                     <div class="token-item">
-                        <input type="color" class="token-picker" data-token="--error" value="#f85149">
+                        <input type="color" class="token-picker" data-action="update-token" data-token="--error" value="#f85149">
                         <div class="token-swatch" style="background: var(--error)"></div>
                         <div class="token-info">
                             <div class="token-name">--error</div>
@@ -213,7 +213,7 @@
                 <div class="token-group">
                     <div class="token-group-title">Border</div>
                     <div class="token-item">
-                        <input type="color" class="token-picker" data-token="--border" value="#2a2a4a">
+                        <input type="color" class="token-picker" data-action="update-token" data-token="--border" value="#2a2a4a">
                         <div class="token-swatch" style="background: var(--border)"></div>
                         <div class="token-info">
                             <div class="token-name">--border</div>
@@ -226,7 +226,7 @@
 
         <!-- Layout Section -->
         <div class="token-section" data-section="layout">
-            <div class="token-section-header" onclick="toggleSection('layout')">
+            <div class="token-section-header" data-action="toggle-section" data-target="layout">
                 <span>Layout</span>
                 <span class="section-toggle">▼</span>
             </div>
@@ -235,7 +235,7 @@
                     <div class="token-group-title">Section Style</div>
                     <div class="control-group">
                         <label class="field-label">Border Style</label>
-                        <select class="font-select mt-0" onchange="updateSectionBorder(this.value)" id="sectionBorderStyle">
+                        <select class="font-select mt-0" data-action="update-section-border" id="sectionBorderStyle">
                             <option value="left">Left accent (default)</option>
                             <option value="full-muted">Full border (muted)</option>
                             <option value="full-accent">Full border (accent)</option>
@@ -244,7 +244,7 @@
                     </div>
                     <div class="control-group">
                         <label class="field-label">Corner Radius</label>
-                        <input type="range" min="0" max="24" value="8" oninput="updateSectionRadius(this.value)" id="sectionRadius">
+                        <input type="range" min="0" max="24" value="8" data-action="update-section-radius" id="sectionRadius">
                         <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--fab-text-secondary);">
                             <span>Sharp</span>
                             <span id="sectionRadiusValue">8px</span>
@@ -253,7 +253,7 @@
                     </div>
                     <div class="control-group">
                         <label class="field-label">Sidebar Position</label>
-                        <select class="font-select mt-0" onchange="updateSidebarPosition(this.value)" id="sidebarPosition">
+                        <select class="font-select mt-0" data-action="update-sidebar-position" id="sidebarPosition">
                             <option value="right">Right (default)</option>
                             <option value="left">Left</option>
                         </select>
@@ -264,7 +264,7 @@
 
         <!-- Typography Section -->
         <div class="token-section collapsed" data-section="typography">
-            <div class="token-section-header" onclick="toggleSection('typography')">
+            <div class="token-section-header" data-action="toggle-section" data-target="typography">
                 <span>Typography</span>
                 <span class="section-toggle">▶</span>
             </div>
@@ -273,9 +273,9 @@
                     <div class="fab-card">
                         <label class="field-label">Add Google Font</label>
                         <textarea class="font-input" id="fontEmbedCode" placeholder="Paste Google Fonts embed code here..." style="height: 60px; resize: vertical;"></textarea>
-                        <button class="add-font-btn" onclick="addGoogleFont()">Add Font to Page</button>
+                        <button class="add-font-btn" data-action="add-font">Add Font to Page</button>
 
-                        <div class="font-example-toggle" onclick="toggleFontExample()">
+                        <div class="font-example-toggle" data-action="toggle-font-example">
                             &#9656; Show example
                         </div>
 
@@ -299,7 +299,7 @@
 
                     <div class="control-group">
                         <label class="field-label">Heading Font</label>
-                        <select class="font-select mt-0" onchange="updateFont('heading', this.value)" id="headingFont">
+                        <select class="font-select mt-0" data-action="update-font" data-font-type="heading" id="headingFont">
                             <option value="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">System (Default)</option>
                             <option value="'Courier New', monospace">Courier New</option>
                             <option value="Monaco, monospace">Monaco</option>
@@ -311,7 +311,7 @@
                     </div>
                     <div class="control-group">
                         <label class="field-label">Body Font</label>
-                        <select class="font-select mt-0" onchange="updateFont('body', this.value)" id="bodyFont">
+                        <select class="font-select mt-0" data-action="update-font" data-font-type="body" id="bodyFont">
                             <option value="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">System (Default)</option>
                             <option value="'Courier New', monospace">Courier New</option>
                             <option value="Monaco, monospace">Monaco</option>
@@ -323,7 +323,7 @@
                     </div>
                     <div class="control-group">
                         <label class="field-label">Code Font</label>
-                        <select class="font-select mt-0" onchange="updateFont('code', this.value)" id="codeFont">
+                        <select class="font-select mt-0" data-action="update-font" data-font-type="code" id="codeFont">
                             <option value="'Courier New', Monaco, monospace">Courier New (Default)</option>
                             <option value="Monaco, monospace">Monaco</option>
                             <option value="'SF Mono', monospace">SF Mono</option>
@@ -338,7 +338,7 @@
 
         <!-- Export/Import Section -->
         <div class="token-section collapsed" data-section="export">
-            <div class="token-section-header" onclick="toggleSection('export')">
+            <div class="token-section-header" data-action="toggle-section" data-target="export">
                 <span>Export / Import</span>
                 <span class="section-toggle">▶</span>
             </div>
@@ -346,10 +346,10 @@
                 <div class="token-group">
                     <div class="token-group-title">Theme (tokens.json)</div>
                     <div class="design-panel-buttons mt-half">
-                        <button class="design-panel-btn design-panel-btn--primary flex-1" onclick="exportTheme()" id="exportThemeBtn">
+                        <button class="design-panel-btn design-panel-btn--primary flex-1" data-action="export-theme" id="exportThemeBtn">
                             Download Theme
                         </button>
-                        <button class="design-panel-btn design-panel-btn--secondary flex-1" onclick="importTheme()" id="importThemeBtn">
+                        <button class="design-panel-btn design-panel-btn--secondary flex-1" data-action="import-theme" id="importThemeBtn">
                             Import Theme
                         </button>
                     </div>
@@ -362,10 +362,10 @@
                 <div class="token-group">
                     <div class="token-group-title">CSS Variables</div>
                     <div class="design-panel-buttons mt-half">
-                        <button class="design-panel-btn design-panel-btn--secondary flex-1" onclick="copyCSS()" id="copyCSSBtn">
+                        <button class="design-panel-btn design-panel-btn--secondary flex-1" data-action="copy-css" id="copyCSSBtn">
                             Copy CSS
                         </button>
-                        <button class="design-panel-btn design-panel-btn--danger flex-1" onclick="resetTokens()" id="resetTokensBtn">
+                        <button class="design-panel-btn design-panel-btn--danger flex-1" data-action="reset-tokens" id="resetTokensBtn">
                             Reset All
                         </button>
                     </div>

@@ -361,9 +361,93 @@ deploy_env_status() {
 }
 
 # =============================================================================
+# PROMOTE
+# =============================================================================
+
+# Promote local.env to target environment by extracting annotated values
+# Annotation format: # {{env:value}} on line before variable
+# Example:
+#   # {{dev:8580}} {{staging:9080}} {{prod:8080}}
+#   export PORT=8580
+#
+# Usage: deploy env promote <env> [source_dir]
+#   env        - target environment (dev, staging, prod)
+#   source_dir - optional, defaults to current directory
+deploy_env_promote() {
+    local env="$1"
+    local source_dir="${2:-.}"
+
+    if [[ -z "$env" ]]; then
+        echo "Usage: deploy env promote <env> [source_dir]"
+        echo "  env: dev, staging, prod"
+        echo "  source_dir: directory containing env/local.env (default: .)"
+        return 1
+    fi
+
+    local source_file="$source_dir/env/local.env"
+    local output="$source_dir/env/${env}.env"
+
+    # Check source exists
+    if [[ ! -f "$source_file" ]]; then
+        echo "No source: $source_file"
+        return 1
+    fi
+
+    # Load org secrets for envsubst
+    local org_secrets=""
+    local org="${DEPLOY_ORG:-}"
+    [[ -z "$org" ]] && type org_active &>/dev/null && org=$(org_active 2>/dev/null)
+
+    if [[ -n "$org" && "$org" != "none" && -f "$TETRA_DIR/orgs/$org/secrets.env" ]]; then
+        org_secrets="$TETRA_DIR/orgs/$org/secrets.env"
+    fi
+
+    if [[ -n "$org_secrets" ]]; then
+        set -a; source "$org_secrets"; set +a
+        echo "Loaded secrets: $org_secrets"
+    fi
+
+    # Process: extract {{env:value}} annotations and substitute
+    local content=""
+    local pending_value=""
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Check for annotation comment: # {{dev:val}} {{staging:val}} {{prod:val}}
+        if [[ "$line" =~ ^#.*\{\{${env}:([^}]+)\}\} ]]; then
+            pending_value="${BASH_REMATCH[1]}"
+            continue  # Skip annotation line in output
+        fi
+
+        # If we have a pending value, substitute it in export line
+        if [[ -n "$pending_value" && "$line" =~ ^export[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)= ]]; then
+            local var_name="${BASH_REMATCH[1]}"
+            line="export ${var_name}=${pending_value}"
+            pending_value=""
+        fi
+
+        content+="$line"$'\n'
+    done < "$source_file"
+
+    # Apply envsubst for secrets ($VAR patterns)
+    content=$(echo "$content" | envsubst)
+
+    # Warn if output exists
+    if [[ -f "$output" ]]; then
+        echo "Warning: Overwriting $output"
+    fi
+
+    # Write output
+    mkdir -p "$(dirname "$output")"
+    echo "$content" > "$output"
+    chmod 600 "$output"
+
+    echo "Promoted: $source_file → $output"
+}
+
+# =============================================================================
 # EXPORTS
 # =============================================================================
 
 export -f deploy_env_validate deploy_env_diff deploy_env_push deploy_env_pull
-export -f deploy_env_edit deploy_env_status
+export -f deploy_env_edit deploy_env_status deploy_env_promote
 export -f _deploy_env_mask_values

@@ -35,6 +35,89 @@ DEPLOY_SSH_OPTIONS="${DEPLOY_SSH_OPTIONS:--o BatchMode=yes -o ConnectTimeout=$DE
 # SHARED HELPER FUNCTIONS
 # =============================================================================
 
+# Core template substitution using nameref (bash 5.2+)
+# Usage: _deploy_template_core <string> <assoc_array_name>
+# Array keys: ssh, host, auth_user, work_user, user, name, remote, cwd,
+#             domain, env, local, source, files, timestamp
+_deploy_template_core() {
+    local str="$1"
+    local -n _vars="$2"
+
+    # Expand {{user}} in cwd/remote first (common pattern)
+    local cwd="${_vars[cwd]:-}"
+    cwd="${cwd//\{\{user\}\}/${_vars[user]:-}}"
+
+    # Core substitutions
+    str="${str//\{\{ssh\}\}/${_vars[ssh]:-}}"
+    str="${str//\{\{host\}\}/${_vars[host]:-}}"
+    str="${str//\{\{auth_user\}\}/${_vars[auth_user]:-}}"
+    str="${str//\{\{work_user\}\}/${_vars[work_user]:-}}"
+    str="${str//\{\{user\}\}/${_vars[user]:-}}"
+    str="${str//\{\{name\}\}/${_vars[name]:-}}"
+    str="${str//\{\{remote\}\}/$cwd}"
+    str="${str//\{\{cwd\}\}/$cwd}"
+    str="${str//\{\{domain\}\}/${_vars[domain]:-}}"
+    str="${str//\{\{env\}\}/${_vars[env]:-}}"
+    str="${str//\{\{local\}\}/${_vars[local]:-}}"
+    str="${str//\{\{source\}\}/${_vars[source]:-}}"
+    str="${str//\{\{files\}\}/${_vars[files]:-}}"
+
+    # Dynamic values
+    [[ "$str" == *"{{timestamp}}"* ]] && str="${str//\{\{timestamp\}\}/$(date -Iseconds)}"
+
+    echo "$str"
+}
+
+# =============================================================================
+# TOML PARSING UTILITIES
+# =============================================================================
+
+# Get single value from TOML file
+# Usage: _deploy_toml_get <file> <section> <key>
+_deploy_toml_get() {
+    local file="$1" section="$2" key="$3"
+
+    awk -v sect="$section" -v k="$key" '
+        /^\[/ { in_sect = ($0 == "[" sect "]") }
+        in_sect && $1 == k && $2 == "=" {
+            val = $0
+            sub(/^[^=]*=[ \t]*/, "", val)
+            gsub(/^["'\''"]|["'\''"]$/, "", val)
+            print val
+            exit
+        }
+    ' "$file"
+}
+
+# Get array from TOML (single line [...] format)
+# Usage: _deploy_toml_get_array <file> <section> <key>
+_deploy_toml_get_array() {
+    local file="$1" section="$2" key="$3"
+
+    local raw=$(_deploy_toml_get "$file" "$section" "$key")
+    [[ -z "$raw" ]] && return
+
+    # Strip brackets and parse quoted strings
+    raw="${raw#\[}"
+    raw="${raw%\]}"
+
+    while [[ "$raw" =~ \"([^\"]+)\" ]]; do
+        echo "${BASH_REMATCH[1]}"
+        raw="${raw#*\"${BASH_REMATCH[1]}\"}"
+    done
+}
+
+# Check if TOML has ssh key in envs section (standalone mode indicator)
+# Usage: _deploy_toml_has_ssh <file> <env>
+_deploy_toml_has_ssh() {
+    local file="$1" env="$2"
+    local ssh=$(_deploy_toml_get "$file" "envs.$env" "ssh")
+    [[ -z "$ssh" ]] && ssh=$(_deploy_toml_get "$file" "envs.all" "ssh")
+    [[ -z "$ssh" ]] && ssh=$(_deploy_toml_get "$file" "env.$env" "ssh")
+    [[ -z "$ssh" ]] && ssh=$(_deploy_toml_get "$file" "env.all" "ssh")
+    [[ -n "$ssh" ]]
+}
+
 # Parse deploy flags from args, return remaining args via DEPLOY_ARGS array
 # Sets: DEPLOY_DRY_RUN=1, DEPLOY_WITH_ENV=1, DEPLOY_FORCE=1, DEPLOY_CMD=""
 _deploy_parse_opts() {
@@ -247,6 +330,8 @@ export DEPLOY_WWW_USER DEPLOY_WWW_GROUP DEPLOY_WWW_PERMS
 export DEPLOY_NGINX_SITES_AVAILABLE DEPLOY_NGINX_SITES_ENABLED
 export DEPLOY_SSH_TIMEOUT DEPLOY_SSH_OPTIONS
 
+export -f _deploy_template_core
+export -f _deploy_toml_get _deploy_toml_get_array _deploy_toml_has_ssh
 export -f _deploy_parse_opts _deploy_validate_args _deploy_setup
 export -f _deploy_ssh_target _deploy_remote_exec _deploy_log
 export -f _deploy_build_rsync_args _deploy_set_permissions
@@ -272,6 +357,7 @@ source "$DEPLOY_SRC/deploy_remote.sh"
 # Optional modules (use tetra_source_if_exists for missing files)
 # NOTE: deploy_target.sh is LEGACY - do not source (conflicts with deploy_remote.sh)
 tetra_source_if_exists "$DEPLOY_SRC/deploy_domain.sh"
+tetra_source_if_exists "$DEPLOY_SRC/deploy_env.sh"
 
 # File-centric deploy engine
 source "$DEPLOY_SRC/deploy_engine.sh"

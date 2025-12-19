@@ -247,6 +247,7 @@ _de_template() {
     local env="$2"
     local files="${3:-}"
 
+    # Resolve values with inheritance
     local ssh="${DE_ENV["$env.ssh"]}"
     local user="${DE_ENV["$env.user"]}"
     local domain="${DE_ENV["$env.domain"]}"
@@ -258,21 +259,20 @@ _de_template() {
         [[ -z "$domain" ]] && domain="${DE_ENV["$inherit.domain"]}"
     fi
 
-    # Resolve cwd (may contain {{user}})
-    local cwd="${DE_TARGET[cwd]}"
-    cwd="${cwd//\{\{user\}\}/$user}"
+    # Build vars array from DE_* state
+    local -A _tmpl_vars=(
+        [ssh]="$ssh"
+        [user]="$user"
+        [domain]="$domain"
+        [env]="$env"
+        [name]="${DE_TARGET[name]}"
+        [source]="${DE_TARGET[source]}"
+        [cwd]="${DE_TARGET[cwd]}"
+        [local]="$DE_TOML_DIR"
+        [files]="$files"
+    )
 
-    str="${str//\{\{ssh\}\}/$ssh}"
-    str="${str//\{\{user\}\}/$user}"
-    str="${str//\{\{domain\}\}/$domain}"
-    str="${str//\{\{env\}\}/$env}"
-    str="${str//\{\{name\}\}/${DE_TARGET[name]}}"
-    str="${str//\{\{source\}\}/${DE_TARGET[source]}}"
-    str="${str//\{\{cwd\}\}/$cwd}"
-    str="${str//\{\{files\}\}/$files}"
-    str="${str//\{\{timestamp\}\}/$(date -Iseconds)}"
-
-    echo "$str"
+    _deploy_template_core "$str" _tmpl_vars
 }
 
 # =============================================================================
