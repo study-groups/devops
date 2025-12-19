@@ -3,7 +3,7 @@
     "title": "Google Docs MCP Setup",
     "subtitle": "Enable Claude Code to Read and Write Google Docs",
     "description": "Configure the Google Docs MCP server for Claude Code with org-level OAuth credentials.",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "author": "tetra",
     "created": "2025-12-11T00:00:00Z",
     "tags": [
@@ -36,7 +36,7 @@
       },
       "workingDirectory": "~/tetra"
     },
-    "updated": "2025-12-12T03:50:29Z"
+    "updated": "2025-12-14T16:13:51Z"
   },
   "theme": {
     "colors": {

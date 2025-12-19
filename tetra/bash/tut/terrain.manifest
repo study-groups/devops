@@ -1,0 +1,34 @@
+# TUT (Token UI Tools) Build Manifest
+
+[module]
+name = "TUT"
+version = "1.0.0"
+description = "Design token editor and inspector"
+
+[build]
+output = "dist/modules/tut.js"
+wrapper = "terrain-module"
+standalone = "../tut/dist/tut.js"
+
+[sources]
+order = [
+    "src/core.js",
+    "src/tokens.js",
+    "src/themes.js",
+    "src/panel.js",
+    "src/fonts.js",
+    "src/export.js",
+    "src/inspector.js",
+    "src/usage.js",
+    "src/deps.js",
+    "src/api.js"
+]
+
+[css]
+output = "dist/modules/tut.css"
+sources = [
+    "templates/design-tokens.css"
+]
+
+[dependencies]
+terrain = ">=1.0.0"
