@@ -60,11 +60,21 @@ _tdoc_timestamp_to_iso() {
 }
 
 # Calculate SHA256 hash of file
+# Usage: _tdoc_file_hash <file> [length]
+#   length: number of chars to return (default: 64 = full hash, use 12 for short)
 _tdoc_file_hash() {
     local file="$1"
+    local length="${2:-64}"
+
     [[ ! -f "$file" ]] && return 1
 
-    shasum -a 256 "$file" 2>/dev/null | awk '{print $1}'
+    if command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$file" | awk -v len="$length" '{print substr($1, 1, len)}'
+    elif command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$file" | awk -v len="$length" '{print substr($1, 1, len)}'
+    else
+        return 1
+    fi
 }
 
 # Export utilities

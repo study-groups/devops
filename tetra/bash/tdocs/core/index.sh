@@ -13,7 +13,8 @@ TDOC_HASH_LENGTH=12
 # HASH FUNCTIONS
 # ============================================================================
 
-# Calculate short hash for file (full content)
+# Calculate short hash for file (12 chars)
+# Wrapper around _tdoc_file_hash for backward compatibility
 tdoc_hash_file() {
     local file="$1"
 
@@ -22,15 +23,7 @@ tdoc_hash_file() {
         return 1
     fi
 
-    # Use SHA256, take first 12 chars
-    if command -v shasum >/dev/null 2>&1; then
-        shasum -a 256 "$file" | awk '{print substr($1, 1, 12)}'
-    elif command -v sha256sum >/dev/null 2>&1; then
-        sha256sum "$file" | awk '{print substr($1, 1, 12)}'
-    else
-        echo "error: no hash command available (need shasum or sha256sum)" >&2
-        return 1
-    fi
+    _tdoc_file_hash "$file" 12
 }
 
 # Calculate hash for frontmatter only (if present)
