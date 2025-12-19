@@ -1,0 +1,47 @@
+{
+    "terrain": {
+        "name": "Deploy",
+        "version": "1.0.0",
+        "description": "Deployment target management - CLI-focused cards"
+    },
+    "canvas": {
+        "mode": "freerange",
+        "drag": true,
+        "pan": true,
+        "grid": true
+    },
+    "layout": {
+        "type": "canvas",
+        "gap": "16px"
+    },
+    "features": {
+        "designMode": false,
+        "toasts": true,
+        "persistence": true,
+        "fonts": false,
+        "nodes": true
+    },
+    "header": {
+        "show": false,
+        "title": "Deploy Targets"
+    },
+    "ui": {
+        "homeBtn": true,
+        "addBtn": false,
+        "fab": false,
+        "configPanel": true
+    },
+    "toasts": {
+        "navigator": true,
+        "tokens": false,
+        "fonts": false,
+        "projects": true,
+        "storage": false
+    },
+    "card": {
+        "showCli": true,
+        "showEdit": false,
+        "showStatus": true
+    },
+    "theme": "amber"
+}

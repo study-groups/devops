@@ -1,0 +1,57 @@
+{
+    "mode": {
+        "name": "Site",
+        "version": "1.0.0",
+        "description": "Standard website with header/content/footer, responsive layout"
+    },
+    "defaultTheme": "dark",
+    "canvas": {
+        "mode": "fixed",
+        "drag": false,
+        "pan": false,
+        "grid": false
+    },
+    "layout": {
+        "type": "grid",
+        "columns": "1fr",
+        "rows": "auto 1fr auto",
+        "areas": ["header", "main", "footer"],
+        "maxWidth": "1200px",
+        "gap": "0"
+    },
+    "features": {
+        "designMode": false,
+        "toasts": true,
+        "persistence": true,
+        "router": true,
+        "auth": false,
+        "nodes": false,
+        "graph": false
+    },
+    "header": {
+        "show": true,
+        "height": "64px",
+        "sticky": true
+    },
+    "footer": {
+        "show": true,
+        "height": "48px"
+    },
+    "ui": {
+        "homeBtn": true,
+        "themeToggle": true,
+        "userMenu": false
+    },
+    "toasts": {
+        "navigator": false,
+        "tokens": false,
+        "storage": true
+    },
+    "routes": {
+        "home": "/"
+    },
+    "auth": {
+        "required": false,
+        "protectedRoutes": []
+    }
+}

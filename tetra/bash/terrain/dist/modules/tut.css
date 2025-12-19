@@ -1,0 +1,678 @@
+/* === /Users/mricos/src/devops/tetra/bash/terrain/../tut/templates/design-tokens.css === */
+/* Design Token Editor - FAB and Panel Styles
+   Self-contained component with its own design tokens.
+   Uses --fab- prefix to avoid conflicts with host document. */
+
+/* =============================================================================
+   FAB DESIGN TOKENS - Hardcoded values for consistency across all doc types
+   ============================================================================= */
+
+.design-fab,
+.design-panel,
+#elementInspectorPanel {
+    --fab-bg-primary: #0d1117;
+    --fab-bg-secondary: #161b22;
+    --fab-bg-tertiary: #21262d;
+    --fab-text-primary: #c9d1d9;
+    --fab-text-secondary: #8b949e;
+    --fab-accent-primary: #58a6ff;
+    --fab-accent-secondary: #1f6feb;
+    --fab-success: #3fb950;
+    --fab-warning: #d29922;
+    --fab-error: #f85149;
+    --fab-border: #30363d;
+}
+
+/* =============================================================================
+   FLOATING ACTION BUTTON
+   Desaturated, rounded square design
+   ============================================================================= */
+
+.design-fab {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: var(--fab-bg-tertiary);
+    border: 1px solid var(--fab-border);
+    color: var(--fab-text-secondary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    z-index: 1000;
+    opacity: 0.7;
+}
+
+.design-fab:hover {
+    opacity: 1;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    border-color: var(--fab-accent-primary);
+}
+
+.design-fab svg {
+    opacity: 0.8;
+}
+
+.design-fab:hover svg {
+    opacity: 1;
+}
+
+/* =============================================================================
+   DESIGN PANEL
+   ============================================================================= */
+
+.design-panel {
+    position: fixed;
+    bottom: 5rem;
+    right: 2rem;
+    width: 320px;
+    max-height: 70vh;
+    background: var(--fab-bg-secondary);
+    border: 1px solid var(--fab-border);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    display: none;
+    flex-direction: column;
+    z-index: 999;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.design-panel.visible {
+    display: flex;
+    animation: designPanelSlideUp 0.3s ease;
+}
+
+@keyframes designPanelSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.design-panel-header {
+    padding: 1rem;
+    background: var(--fab-bg-tertiary);
+    border-bottom: 1px solid var(--fab-border);
+    font-weight: 600;
+    color: var(--fab-text-primary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.design-panel-close {
+    cursor: pointer;
+    color: var(--fab-text-secondary);
+    font-size: 1.2rem;
+}
+
+.design-panel-close:hover {
+    color: var(--fab-text-primary);
+}
+
+.design-panel-content {
+    padding: 1rem;
+    overflow-y: auto;
+    flex: 1;
+    color: var(--fab-text-primary);
+}
+
+/* Styled scrollbar for design panel */
+.design-panel-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.design-panel-content::-webkit-scrollbar-track {
+    background: var(--fab-bg-primary);
+    border-radius: 4px;
+}
+
+.design-panel-content::-webkit-scrollbar-thumb {
+    background: var(--fab-border);
+    border-radius: 4px;
+}
+
+.design-panel-content::-webkit-scrollbar-thumb:hover {
+    background: var(--fab-accent-primary);
+}
+
+/* =============================================================================
+   COLLAPSIBLE SECTIONS
+   ============================================================================= */
+
+.token-section {
+    margin-bottom: 0.5rem;
+    border: 1px solid var(--fab-border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.token-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.6rem 0.75rem;
+    background: var(--fab-bg-tertiary);
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--fab-text-primary);
+    user-select: none;
+    transition: background 0.15s ease;
+}
+
+.token-section-header:hover {
+    background: var(--fab-bg-primary);
+}
+
+.section-toggle {
+    font-size: 0.65rem;
+    color: var(--fab-text-secondary);
+    transition: transform 0.2s ease;
+}
+
+.token-section-content {
+    padding: 0.75rem;
+    background: var(--fab-bg-secondary);
+    max-height: 1000px;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+}
+
+.token-section.collapsed .token-section-content {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+/* =============================================================================
+   METADATA FIELDS
+   ============================================================================= */
+
+.metadata-field {
+    margin-bottom: 0.6rem;
+}
+
+.metadata-field label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--fab-text-secondary);
+    margin-bottom: 0.2rem;
+}
+
+.metadata-field .font-input,
+.metadata-field .font-select {
+    margin-top: 0;
+    font-size: 0.8rem;
+    padding: 0.4rem 0.5rem;
+}
+
+/* =============================================================================
+   TOKEN GROUPS AND ITEMS
+   ============================================================================= */
+
+.token-group {
+    margin-bottom: 1rem;
+}
+
+.token-group-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--fab-text-secondary);
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+}
+
+.token-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.token-swatch {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    border: 1px solid var(--fab-border);
+    flex-shrink: 0;
+}
+
+.token-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.token-name {
+    font-size: 0.75rem;
+    font-family: 'Courier New', monospace;
+    color: var(--fab-text-secondary);
+    margin-bottom: 0.15rem;
+}
+
+.token-value {
+    font-size: 0.7rem;
+    font-family: 'Courier New', monospace;
+    color: var(--fab-accent-primary);
+}
+
+.token-picker {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* =============================================================================
+   FORM CONTROLS (consolidated base styles)
+   ============================================================================= */
+
+/* Base form control - shared by select and input */
+.font-select,
+.font-input {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--fab-bg-primary);
+    color: var(--fab-text-primary);
+    border: 1px solid var(--fab-border);
+    border-radius: 4px;
+    margin-top: 0.5rem;
+}
+
+.font-select:focus,
+.font-input:focus {
+    outline: none;
+    border-color: var(--fab-accent-primary);
+}
+
+/* Select-specific */
+.font-select {
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+/* Input-specific */
+.font-input {
+    font-size: 0.8rem;
+    font-family: 'Courier New', monospace;
+}
+
+.font-input::placeholder {
+    color: var(--fab-text-secondary);
+    opacity: 0.5;
+}
+
+/* Range slider styling */
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    background: var(--fab-bg-primary);
+    border-radius: 3px;
+    outline: none;
+    border: 1px solid var(--fab-border);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--fab-accent-primary);
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid var(--fab-bg-secondary);
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: var(--fab-accent-primary);
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid var(--fab-bg-secondary);
+}
+
+.add-font-btn {
+    width: 100%;
+    padding: 0.4rem;
+    background: var(--fab-bg-tertiary);
+    color: var(--fab-text-primary);
+    border: 1px solid var(--fab-border);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    margin-top: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.add-font-btn:hover {
+    border-color: var(--fab-accent-primary);
+    color: var(--fab-accent-primary);
+}
+
+/* Font Example Toggle */
+.font-example-toggle {
+    font-size: 0.75rem;
+    color: var(--fab-accent-primary);
+    cursor: pointer;
+    margin-top: 0.5rem;
+    display: inline-block;
+    user-select: none;
+}
+
+.font-example-toggle:hover {
+    text-decoration: underline;
+}
+
+.font-example-content {
+    display: none;
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    background: var(--fab-bg-tertiary);
+    border-radius: 4px;
+    font-size: 0.7rem;
+    color: var(--fab-text-secondary);
+    line-height: 1.6;
+}
+
+.font-example-content.expanded {
+    display: block;
+}
+
+.font-example-content ol {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+}
+
+.font-example-content li {
+    margin-bottom: 0.5rem;
+}
+
+.font-example-content code {
+    background: var(--fab-bg-primary);
+    padding: 0.2rem 0.4rem;
+    border-radius: 2px;
+    font-size: 0.65rem;
+}
+
+.font-example-content a {
+    color: var(--fab-accent-primary);
+}
+
+/* =============================================================================
+   PANEL ACTION BUTTONS
+   ============================================================================= */
+
+.design-panel-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.design-panel-btn {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid var(--fab-border);
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--fab-bg-tertiary);
+    color: var(--fab-text-primary);
+}
+
+/* Legacy button classes - use .design-panel-btn--primary/--secondary/--danger instead */
+.copy-tokens-btn { background: var(--fab-accent-secondary); color: white; border-color: var(--fab-accent-primary); }
+.copy-tokens-btn:hover { background: var(--fab-accent-primary); }
+.copy-tokens-btn.copied { background: var(--fab-success); border-color: var(--fab-success); }
+.load-tokens-btn { background: var(--fab-bg-tertiary); border-color: var(--fab-border); color: var(--fab-text-primary); }
+.load-tokens-btn:hover { border-color: var(--fab-accent-primary); color: var(--fab-accent-primary); }
+.reset-tokens-btn { background: var(--fab-bg-tertiary); color: var(--fab-text-primary); border-color: var(--fab-border); }
+.reset-tokens-btn:hover { background: var(--fab-bg-primary); border-color: var(--fab-warning); color: var(--fab-warning); }
+
+/* =============================================================================
+   INLINE FEEDBACK STYLES
+   ============================================================================= */
+
+.theme-feedback {
+    margin-top: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.theme-feedback.success {
+    background: rgba(63, 185, 80, 0.15);
+    color: var(--fab-success);
+    border: 1px solid rgba(63, 185, 80, 0.3);
+}
+
+.theme-feedback.error {
+    background: rgba(248, 81, 73, 0.15);
+    color: var(--fab-error);
+    border: 1px solid rgba(248, 81, 73, 0.3);
+}
+
+.theme-feedback.info {
+    background: rgba(88, 166, 255, 0.15);
+    color: var(--fab-accent-primary);
+    border: 1px solid rgba(88, 166, 255, 0.3);
+}
+
+/* =============================================================================
+   UTILITY CLASSES - For replacing inline styles
+   ============================================================================= */
+
+/* Display utilities */
+.hidden { display: none !important; }
+.visible { display: block !important; }
+
+/* Spacing utilities */
+.control-group { margin-bottom: 0.75rem; }
+.mt-0 { margin-top: 0 !important; }
+.mt-half { margin-top: 0.5rem; }
+.mb-half { margin-bottom: 0.5rem; }
+
+/* Form field label (replaces repeated inline label styles) */
+.field-label {
+    font-size: 0.75rem;
+    color: var(--fab-text-secondary);
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+/* Help text (small muted text) */
+.help-text {
+    font-size: 0.7rem;
+    color: var(--fab-text-secondary);
+    margin-top: 0.5rem;
+}
+
+/* Card container (for embedded sections like font embed) */
+.fab-card {
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: var(--fab-bg-primary);
+    border-radius: 4px;
+    border: 1px solid var(--fab-border);
+}
+
+/* Code sample box */
+.fab-code-sample {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: var(--fab-bg-tertiary);
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 0.55rem;
+    word-break: break-all;
+}
+
+/* Tip/hint text */
+.fab-tip {
+    margin-top: 0.5rem;
+    font-size: 0.65rem;
+    color: var(--fab-text-secondary);
+}
+
+/* =============================================================================
+   BUTTON MODIFIERS - Consolidate button variants
+   ============================================================================= */
+
+/* Primary button (blue) */
+.design-panel-btn--primary {
+    background: var(--fab-accent-secondary);
+    color: white;
+    border-color: var(--fab-accent-primary);
+}
+
+.design-panel-btn--primary:hover {
+    background: var(--fab-accent-primary);
+}
+
+/* Secondary button (dark/outline) */
+.design-panel-btn--secondary {
+    background: var(--fab-bg-tertiary);
+    color: var(--fab-text-primary);
+    border-color: var(--fab-border);
+}
+
+.design-panel-btn--secondary:hover {
+    border-color: var(--fab-accent-primary);
+    color: var(--fab-accent-primary);
+}
+
+/* Danger button (warning on hover) */
+.design-panel-btn--danger {
+    background: var(--fab-bg-tertiary);
+    color: var(--fab-text-primary);
+    border-color: var(--fab-border);
+}
+
+.design-panel-btn--danger:hover {
+    background: var(--fab-bg-primary);
+    border-color: var(--fab-warning);
+    color: var(--fab-warning);
+}
+
+/* Success state (for any button after action) */
+.design-panel-btn.copied,
+.design-panel-btn--success,
+.design-panel-btn.feedback-success {
+    background: var(--fab-success) !important;
+    border-color: var(--fab-success) !important;
+    color: white !important;
+}
+
+/* Error state for buttons */
+.design-panel-btn.feedback-error {
+    background: var(--fab-error) !important;
+    border-color: var(--fab-error) !important;
+    color: white !important;
+}
+
+/* Flex utility for buttons */
+.flex-1 { flex: 1; }
+
+/* Legacy .form-control alias (use .font-select or .font-input instead) */
+.form-control {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--fab-bg-primary);
+    color: var(--fab-text-primary);
+    border: 1px solid var(--fab-border);
+    border-radius: 4px;
+    margin-top: 0.5rem;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--fab-accent-primary);
+}
+
+/* =============================================================================
+   ELEMENT INSPECTOR PANEL
+   ============================================================================= */
+
+#elementInspectorPanel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    max-width: 90vw;
+    max-height: 80vh;
+    background: var(--fab-bg-secondary);
+    border: 2px solid var(--fab-accent-primary);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    display: none;
+    flex-direction: column;
+    z-index: 10001;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: var(--fab-text-primary);
+}
+
+#elementInspectorPanel.visible {
+    display: flex;
+}
+
+#elementInspectorPanel .inspector-header {
+    padding: 1rem;
+    background: var(--fab-bg-tertiary);
+    border-bottom: 1px solid var(--fab-border);
+    font-weight: 600;
+    color: var(--fab-text-primary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: move;
+    user-select: none;
+}
+
+#elementInspectorPanel .inspector-content {
+    padding: 1rem;
+    overflow-y: auto;
+    flex: 1;
+    font-size: 0.85rem;
+}
+
+#elementInspectorPanel .inspector-content::-webkit-scrollbar {
+    width: 12px;
+}
+
+#elementInspectorPanel .inspector-content::-webkit-scrollbar-track {
+    background: var(--fab-bg-primary);
+    border-radius: 6px;
+    margin: 4px;
+}
+
+#elementInspectorPanel .inspector-content::-webkit-scrollbar-thumb {
+    background: var(--fab-accent-secondary);
+    border-radius: 6px;
+    border: 2px solid var(--fab-bg-primary);
+}
+
+#elementInspectorPanel .inspector-content::-webkit-scrollbar-thumb:hover {
+    background: var(--fab-accent-primary);
+}
+

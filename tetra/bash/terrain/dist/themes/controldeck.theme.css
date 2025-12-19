@@ -1,0 +1,63 @@
+/**
+ * Terrain Theme: ControlDeck
+ * Teal (#4a8) accent with glow effects
+ */
+:root {
+    /* Raw Palette - ControlDeck Signature */
+    --p1: #0f1115;        /* Very dark background */
+    --p2: #181a20;        /* Panel background */
+    --p3: #15171d;        /* Panel gradient end */
+    --p4: #1e2028;        /* Card/button backgrounds */
+    --p5: #e0e0e0;        /* Primary text */
+    --p6: #f88;           /* Error red */
+    --p7: #6fc;           /* Success bright green */
+    --p8: #4a8;           /* Primary teal (68,170,136) */
+
+    --s1: #fa6;           /* Warning orange */
+    --s2: #4a8;           /* Accent teal */
+    --s3: #4f8;           /* Bright green for LEDs */
+    --s4: #6fc;           /* Code/success green */
+
+    --t2: #2a2d35;        /* Border default */
+    --t3: #3a3d45;        /* Border visible */
+    --t4: #555;           /* Text tertiary */
+    --t6: #888;           /* Text secondary */
+
+    /* Semantic Tokens */
+    --bg-primary: var(--p1);
+    --bg-secondary: var(--p2);
+    --bg-tertiary: var(--p3);
+    --bg-hover: var(--p4);
+
+    --border: var(--t2);
+    --border-visible: var(--t3);
+    --border-active: var(--s2);
+
+    --text-primary: var(--p5);
+    --text-secondary: var(--t6);
+    --text-muted: var(--t4);
+    --text-code: var(--s4);
+
+    --accent-primary: var(--s2);
+    --accent-secondary: var(--s1);
+    --success: var(--p7);
+    --error: var(--p6);
+    --warning: var(--s1);
+
+    /* ControlDeck-specific tokens */
+    --led-active: var(--s3);
+    --led-glow: 0 0 8px var(--s3);
+    --button-glow: 0 0 12px var(--s2);
+    --panel-gradient: linear-gradient(135deg, var(--p2), var(--p3));
+}
+
+/* Glow effects for ControlDeck mode */
+.terrain-panel.active,
+.terrain-button.active {
+    box-shadow: var(--button-glow);
+}
+
+.led.active {
+    background: var(--led-active);
+    box-shadow: var(--led-glow);
+}

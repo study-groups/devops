@@ -1,0 +1,57 @@
+/**
+ * Terrain Theme: LCD (Arcade)
+ * Game Boy-style monochrome green LCD
+ */
+:root {
+    /* Raw Palette */
+    --p1: #162c24;
+    --p2: #265b3d;
+    --p3: #6b9c7b;
+    --p4: #8ab899;
+    --p5: #b6efcc;
+    --p6: #162c24;
+    --p7: #b6efcc;
+    --p8: #b6efcc;
+
+    --s1: #6b9c7b;
+    --s2: #b6efcc;
+    --s3: #d8f5e5;
+    --s4: #b6efcc;
+
+    --t2: #265b3d;
+    --t3: #6b9c7b;
+    --t4: rgba(182, 239, 204, 0.5);
+    --t6: rgba(182, 239, 204, 0.7);
+
+    /* Semantic Tokens (TUT) */
+    --bg-primary: var(--p3);
+    --bg-secondary: var(--p2);
+    --bg-tertiary: var(--p2);
+    --bg-hover: var(--p4);
+
+    --border: var(--t2);
+    --border-visible: var(--t3);
+    --border-active: var(--s2);
+
+    --text-primary: var(--p5);
+    --text-secondary: var(--t6);
+    --text-muted: var(--t4);
+    --text-code: var(--p5);
+
+    --accent-primary: var(--s2);
+    --accent-secondary: var(--s1);
+    --success: var(--p7);
+    --error: var(--p1);
+    --warning: var(--s3);
+
+    /* Arcade Legacy Compat */
+    --ink: var(--p5);
+    --one: var(--s2);
+    --two: var(--s1);
+    --three: var(--s2);
+    --four: var(--s2);
+    --paper-light: var(--p2);
+    --paper-mid: var(--p2);
+    --paper-dark: var(--p3);
+    --shade: var(--p1);
+}

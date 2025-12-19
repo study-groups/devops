@@ -6,8 +6,8 @@
     position: fixed;
     bottom: 100px;
     right: var(--gap-lg);
-    background: var(--surface-void);
-    border: 2px solid var(--edge-visible);
+    background: var(--bg-primary);
+    border: 2px solid var(--border-visible);
     border-radius: var(--curve-sm);
     padding: var(--gap-lg);
     min-width: 320px;
@@ -33,14 +33,14 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: var(--gap-md);
-    border-bottom: 1px solid var(--edge-subtle);
+    border-bottom: 1px solid var(--border);
     padding-bottom: var(--gap-sm);
 }
 
 .config-panel h3 {
     margin: 0;
     font-size: 12px;
-    color: var(--ink-primary);
+    color: var(--text-primary);
     text-transform: uppercase;
     letter-spacing: 2px;
     font-weight: 900;
@@ -56,8 +56,8 @@
 
 .config-quick-actions button {
     background: transparent;
-    border: 1px solid var(--edge-visible);
-    color: var(--ink-primary);
+    border: 1px solid var(--border-visible);
+    color: var(--text-primary);
     padding: 4px var(--gap-sm);
     border-radius: var(--curve-sm);
     cursor: pointer;
@@ -70,13 +70,13 @@
 }
 
 .config-quick-actions button:hover {
-    border-color: var(--signal-primary);
-    color: var(--signal-primary);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
 }
 
 .config-quick-actions button:active {
-    background: var(--signal-primary);
-    color: var(--surface-void);
+    background: var(--accent-primary);
+    color: var(--bg-primary);
 }
 
 /* Preset actions */
@@ -89,8 +89,8 @@
 
 .config-preset-actions button {
     background: transparent;
-    border: 1px solid var(--edge-visible);
-    color: var(--ink-primary);
+    border: 1px solid var(--border-visible);
+    color: var(--text-primary);
     padding: 2px var(--gap-xs);
     border-radius: var(--curve-sm);
     cursor: pointer;
@@ -103,18 +103,18 @@
 }
 
 .config-preset-actions button:hover {
-    border-color: var(--signal-primary);
-    color: var(--signal-primary);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
 }
 
 .config-preset-actions button.saved {
-    border-color: var(--signal-success);
+    border-color: var(--success);
 }
 
 .config-preset-actions button.long-pressing {
-    background: var(--signal-warning);
-    border-color: var(--signal-warning);
-    color: var(--surface-void);
+    background: var(--warning);
+    border-color: var(--warning);
+    color: var(--bg-primary);
 }
 
 /* Sections */
@@ -137,7 +137,7 @@
 
 .config-section-header h4 {
     font-size: 10px;
-    color: var(--ink-secondary);
+    color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 1.5px;
     font-weight: 700;
@@ -145,7 +145,7 @@
 
 .config-section-header .collapse-icon {
     font-size: 10px;
-    color: var(--ink-muted);
+    color: var(--text-muted);
     transition: var(--tempo-fast);
 }
 
@@ -175,7 +175,7 @@
 .config-item label {
     display: block;
     font-size: 10px;
-    color: var(--ink-muted);
+    color: var(--text-muted);
     margin-bottom: var(--gap-xs);
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -184,8 +184,8 @@
 
 .config-item button {
     background: transparent;
-    border: 1px solid var(--edge-visible);
-    color: var(--ink-primary);
+    border: 1px solid var(--border-visible);
+    color: var(--text-primary);
     padding: var(--gap-xs) var(--gap-sm);
     border-radius: var(--curve-sm);
     cursor: pointer;
@@ -200,22 +200,22 @@
 }
 
 .config-item button:hover {
-    border-color: var(--signal-primary);
-    color: var(--signal-primary);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
 }
 
 .config-item button.active {
     background: transparent;
-    color: var(--signal-primary);
-    border-color: var(--signal-primary);
+    color: var(--accent-primary);
+    border-color: var(--accent-primary);
 }
 
 /* Selects */
 .config-item select {
     width: 100%;
-    background: var(--surface-panel);
-    border: 1px solid var(--edge-subtle);
-    color: var(--ink-primary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
     padding: var(--gap-sm);
     border-radius: var(--curve-sm);
     font-size: 10px;
@@ -226,18 +226,18 @@
 
 .config-item select:focus {
     outline: none;
-    border-color: var(--signal-primary);
+    border-color: var(--accent-primary);
 }
 
 .config-item select:hover {
-    border-color: var(--edge-visible);
+    border-color: var(--border-visible);
 }
 
 /* Range inputs */
 .config-item input[type="range"] {
     width: 100%;
     height: 2px;
-    background: var(--edge-subtle);
+    background: var(--border);
     outline: none;
     -webkit-appearance: none;
 }
@@ -246,7 +246,7 @@
     -webkit-appearance: none;
     width: 16px;
     height: 16px;
-    background: var(--signal-primary);
+    background: var(--accent-primary);
     cursor: pointer;
     border-radius: 0;
 }
@@ -254,14 +254,14 @@
 .config-item input[type="range"]::-moz-range-thumb {
     width: 16px;
     height: 16px;
-    background: var(--signal-primary);
+    background: var(--accent-primary);
     cursor: pointer;
     border-radius: 0;
 }
 
 .config-item .value-display {
     font-size: 11px;
-    color: var(--signal-primary);
+    color: var(--accent-primary);
     margin-top: var(--gap-xs);
     font-weight: 700;
 }
@@ -271,9 +271,9 @@
 .config-item input[type="number"],
 .config-item textarea {
     width: 100%;
-    background: var(--surface-panel);
-    border: 1px solid var(--edge-subtle);
-    color: var(--ink-primary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
     padding: var(--gap-sm);
     border-radius: var(--curve-sm);
     font-size: 10px;
@@ -285,7 +285,7 @@
 .config-item input[type="number"]:focus,
 .config-item textarea:focus {
     outline: none;
-    border-color: var(--signal-primary);
+    border-color: var(--accent-primary);
 }
 
 .config-item textarea {
@@ -299,23 +299,23 @@
 }
 
 .config-panel::-webkit-scrollbar-track {
-    background: var(--surface-void);
+    background: var(--bg-primary);
 }
 
 .config-panel::-webkit-scrollbar-thumb {
-    background: var(--edge-visible);
+    background: var(--border-visible);
     border-radius: 0;
 }
 
 .config-panel::-webkit-scrollbar-thumb:hover {
-    background: var(--edge-active);
+    background: var(--border-active);
 }
 
 /* Popup button styles */
 .popup-btn {
     background: transparent;
-    border: 1px solid var(--edge-visible);
-    color: var(--ink-primary);
+    border: 1px solid var(--border-visible);
+    color: var(--text-primary);
     padding: var(--gap-sm) var(--gap-lg);
     border-radius: var(--curve-sm);
     cursor: pointer;
@@ -328,25 +328,25 @@
 }
 
 .popup-btn:hover {
-    border-color: var(--signal-primary);
-    color: var(--signal-primary);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
 }
 
 .popup-btn-confirm {
-    border-color: var(--signal-success);
-    color: var(--signal-success);
+    border-color: var(--success);
+    color: var(--success);
 }
 
 .popup-btn-cancel {
-    border-color: var(--signal-error);
-    color: var(--signal-error);
+    border-color: var(--error);
+    color: var(--error);
 }
 
 .popup-input {
     width: 100%;
-    background: var(--surface-panel);
-    border: 1px solid var(--edge-visible);
-    color: var(--ink-primary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-visible);
+    color: var(--text-primary);
     padding: var(--gap-sm);
     border-radius: var(--curve-sm);
     font-size: 12px;
@@ -356,15 +356,15 @@
 
 .popup-input:focus {
     outline: none;
-    border-color: var(--signal-primary);
+    border-color: var(--accent-primary);
 }
 
 /* Nuclear button */
 .nuclear-button {
     width: 100%;
     background: transparent;
-    border: 2px solid var(--signal-error);
-    color: var(--signal-error);
+    border: 2px solid var(--error);
+    color: var(--error);
     padding: var(--gap-sm);
     border-radius: var(--curve-sm);
     cursor: pointer;
@@ -378,6 +378,6 @@
 }
 
 .nuclear-button:hover {
-    background: var(--signal-error);
-    color: var(--surface-void);
+    background: var(--error);
+    color: var(--bg-primary);
 }

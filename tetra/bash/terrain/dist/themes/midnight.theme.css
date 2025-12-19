@@ -1,0 +1,46 @@
+/**
+ * Terrain Theme: Midnight Blue
+ * TUT-compatible design tokens
+ */
+:root {
+    /* Raw Palette - Deep blues */
+    --p1: #0d1117;
+    --p2: #161b22;
+    --p3: #21262d;
+    --p4: #30363d;
+    --p5: #f0f6fc;
+    --p6: #f85149;
+    --p7: #3fb950;
+    --p8: #58a6ff;
+
+    --s1: #ffa657;
+    --s2: #58a6ff;
+    --s3: #d29922;
+    --s4: #7ee787;
+
+    --t2: #21262d;
+    --t3: #30363d;
+    --t4: #484f58;
+    --t6: #8b949e;
+
+    /* Semantic Tokens (TUT) */
+    --bg-primary: var(--p1);
+    --bg-secondary: var(--p2);
+    --bg-tertiary: var(--p3);
+    --bg-hover: var(--p4);
+
+    --border: var(--t2);
+    --border-visible: var(--t3);
+    --border-active: var(--s2);
+
+    --text-primary: var(--p5);
+    --text-secondary: var(--t6);
+    --text-muted: var(--t4);
+    --text-code: var(--s4);
+
+    --accent-primary: var(--s2);
+    --accent-secondary: var(--s1);
+    --success: var(--p7);
+    --error: var(--p6);
+    --warning: var(--s3);
+}

@@ -1,0 +1,56 @@
+{
+    "mode": {
+        "name": "Guide",
+        "version": "1.0.0",
+        "description": "Step-by-step tutorial navigation"
+    },
+    "defaultTheme": "dark",
+    "canvas": {
+        "mode": "fixed",
+        "drag": false,
+        "pan": false,
+        "grid": false
+    },
+    "layout": {
+        "type": "split",
+        "panels": ["content", "terminal"],
+        "maxWidth": "1200px"
+    },
+    "features": {
+        "designMode": false,
+        "toasts": false,
+        "persistence": true,
+        "fonts": false,
+        "nodes": false,
+        "stepNavigation": true,
+        "terminalSim": true,
+        "keyboardNav": true
+    },
+    "header": {
+        "show": true,
+        "title": "Guide"
+    },
+    "ui": {
+        "homeBtn": true,
+        "addBtn": false,
+        "fab": false,
+        "configPanel": false,
+        "stepControls": true
+    },
+    "toasts": {
+        "navigator": false,
+        "tokens": false,
+        "fonts": false,
+        "projects": false,
+        "storage": false
+    },
+    "discovery": {
+        "type": "json",
+        "pattern": "*.guide.json"
+    },
+    "card": {
+        "showCli": false,
+        "showEdit": false,
+        "showStatus": false
+    }
+}

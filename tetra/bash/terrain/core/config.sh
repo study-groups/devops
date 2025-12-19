@@ -128,6 +128,34 @@ terrain_config_resolve_theme() {
     return 1
 }
 
+# Merge mode defaults with app config
+# Mode provides base settings, app config overrides
+# Args: $1 - config path
+# Output: merged JSON to stdout
+terrain_config_merge() {
+    local config="$1"
+    local mode
+    mode=$(terrain_config_get "$config" '.mode')
+
+    if [[ -z "$mode" ]]; then
+        # No mode specified, return config as-is
+        cat "$config"
+        return 0
+    fi
+
+    local mode_path
+    mode_path=$(terrain_config_resolve_mode "$mode")
+
+    if [[ -z "$mode_path" ]]; then
+        echo "Warning: Mode '$mode' not found, using config as-is" >&2
+        cat "$config"
+        return 0
+    fi
+
+    # Deep merge: mode * config (config wins)
+    jq -s '.[0] * .[1]' "$mode_path" "$config"
+}
+
 # List available modes
 terrain_config_list_modes() {
     local modes_dir="$TERRAIN_SRC/dist/modes"
@@ -166,4 +194,5 @@ terrain_config_list_themes() {
 
 export -f terrain_config_find terrain_config_get terrain_config_validate
 export -f terrain_config_resolve_mode terrain_config_resolve_theme
+export -f terrain_config_merge
 export -f terrain_config_list_modes terrain_config_list_themes

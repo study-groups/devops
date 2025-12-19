@@ -34,8 +34,9 @@
         },
 
         canvas: {
-            // Fixed scale (no zoom)
             scale: 1.0,
+            minScale: 0.001,
+            maxScale: 10,
             baseGridSize: 50
         },
 
@@ -82,6 +83,23 @@
             if (target) {
                 target[lastKey] = value;
             }
+        },
+
+        // Initialize from merged config (mode + app overrides)
+        init: function(config) {
+            // Deep merge config into this object
+            const merge = (target, source) => {
+                for (const key in source) {
+                    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+                        target[key] = target[key] || {};
+                        merge(target[key], source[key]);
+                    } else {
+                        target[key] = source[key];
+                    }
+                }
+            };
+            merge(this, config);
+            console.log('[Terrain.Config] Initialized with merged config');
         }
     };
 

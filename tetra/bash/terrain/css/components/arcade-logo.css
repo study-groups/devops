@@ -1,0 +1,73 @@
+/**
+ * Terrain Arcade Logo Component
+ * SVG logo with shadow effect, responsive wide/narrow modes
+ */
+
+/* Logo wrapper for shadow effect */
+.arcade-logo-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+/* Base logo styles */
+.arcade-logo {
+    height: auto;
+    display: block;
+    transition: width var(--tempo-fast, 0.08s) ease-out,
+                fill var(--tempo-fast, 0.08s) ease-out;
+    will-change: width, fill;
+}
+
+/* Standard logo size (desktop/wide) */
+.arcade-logo {
+    width: 15.75em;
+}
+
+/* Mini - permanent small for mobile (no transition) */
+.arcade-logo.mini {
+    width: 8.475em;
+}
+
+/* Compact - transitional small from scroll/navigation */
+.arcade-logo.compact {
+    width: 8.475em;
+    transition: width var(--tempo-fast, 0.08s) ease-in,
+                fill var(--tempo-fast, 0.08s) ease-in;
+}
+
+/* Front layer (primary color) */
+.arcade-logo.logo-front {
+    position: relative;
+    z-index: 1;
+    fill: var(--accent-primary, var(--one));
+}
+
+/* Shadow layer (offset behind) */
+.arcade-logo.logo-shadow {
+    position: absolute;
+    top: 0.25em;
+    left: -0.25em;
+    z-index: 0;
+    fill: var(--shade, var(--p1));
+}
+
+/* Compact state - maintain fill */
+.arcade-logo.logo-front.compact {
+    fill: var(--accent-primary, var(--one));
+}
+
+/* Hide shadow in compact mode */
+.arcade-logo-wrapper.compact .logo-shadow {
+    display: none;
+}
+
+/* Responsive: auto-switch to mini on narrow screens */
+@media (max-width: 600px) {
+    .arcade-logo:not(.no-responsive) {
+        width: 8.475em;
+    }
+
+    .arcade-logo-wrapper:not(.no-responsive) .logo-shadow {
+        display: none;
+    }
+}

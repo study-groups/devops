@@ -28,8 +28,8 @@
          * Bind event handlers
          */
         bindEvents: function() {
-            // FAB click opens panel
-            const fab = document.querySelector('.fab');
+            // FAB click opens panel (config FAB)
+            const fab = document.querySelector('.fab-config') || document.querySelector('.fab');
             if (fab) {
                 fab.addEventListener('click', () => this.toggle());
             }
@@ -90,7 +90,7 @@
         bindButtons: function() {
             // UI toggles
             this.bindToggle('toggle-projects', () => {
-                if (Terrain.Projects) Terrain.Projects.toggleAll();
+                if (Terrain.Nodes) Terrain.Nodes.toggleAll();
             });
 
             this.bindToggle('toggle-grid', () => {
@@ -124,59 +124,34 @@
                 });
             });
 
-            // Actions
-            const resetViewBtn = panel.querySelector('[onclick="resetView()"]');
-            if (resetViewBtn) {
-                resetViewBtn.removeAttribute('onclick');
-                resetViewBtn.addEventListener('click', () => {
-                    if (Terrain.Canvas) Terrain.Canvas.goHome();
-                });
-            }
+            // Subscribe to data-action events
+            this.bindActions();
+        },
 
-            const resetAllBtn = panel.querySelector('[onclick="resetAll()"]');
-            if (resetAllBtn) {
-                resetAllBtn.removeAttribute('onclick');
-                resetAllBtn.addEventListener('click', () => {
-                    if (Terrain.Popups) {
-                        Terrain.Popups.confirm(
-                            'Reset all settings to defaults?\nThis will clear all customizations.',
-                            () => {
-                                if (Terrain.Persistence) Terrain.Persistence.resetToDefaults();
-                            }
-                        );
-                    }
-                });
-            }
+        /**
+         * Bind data-action event handlers
+         */
+        bindActions: function() {
+            const self = this;
 
-            const saveBtn = panel.querySelector('[onclick="saveSettings()"]');
-            if (saveBtn) {
-                saveBtn.removeAttribute('onclick');
-                saveBtn.addEventListener('click', () => {
-                    if (Terrain.Persistence) {
-                        Terrain.Persistence.save();
-                        if (Terrain.Popups) Terrain.Popups.alert('Settings saved!');
-                    }
-                });
-            }
+            Events.on('config:collapse-all', () => self.collapseAll());
+            Events.on('config:expand-all', () => self.expandAll());
+            Events.on('config:close', () => self.toggle());
 
-            const closeBtn = panel.querySelector('[onclick="toggleConfig()"]');
-            if (closeBtn) {
-                closeBtn.removeAttribute('onclick');
-                closeBtn.addEventListener('click', () => this.toggle());
-            }
+            Events.on('config:save', () => {
+                if (Terrain.Persistence) {
+                    Terrain.Persistence.save();
+                    if (Terrain.Popups) Terrain.Popups.alert('Settings saved!');
+                }
+            });
 
-            // Collapse/expand all
-            const collapseBtn = panel.querySelector('[onclick="collapseAllSections()"]');
-            if (collapseBtn) {
-                collapseBtn.removeAttribute('onclick');
-                collapseBtn.addEventListener('click', () => this.collapseAll());
-            }
+            Events.on('config:export', () => {
+                if (Terrain.Popups) Terrain.Popups.alert('Settings exported!');
+            });
 
-            const expandBtn = panel.querySelector('[onclick="expandAllSections()"]');
-            if (expandBtn) {
-                expandBtn.removeAttribute('onclick');
-                expandBtn.addEventListener('click', () => this.expandAll());
-            }
+            Events.on('canvas:reset', () => {
+                if (Terrain.Canvas) Terrain.Canvas.goHome();
+            });
         },
 
         /**

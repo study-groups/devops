@@ -222,7 +222,7 @@
             if (!content) return;
 
             content.innerHTML = '';
-            const projects = State.projects.getAll();
+            const projects = State.nodes.getAll();
 
             projects.forEach((project, index) => {
                 const isVisible = !project.hidden;
@@ -242,8 +242,8 @@
 
                 // Bind checkbox click
                 item.querySelector('.project-checkbox').addEventListener('click', () => {
-                    if (Terrain.Projects) {
-                        Terrain.Projects.toggleVisibility(index);
+                    if (Terrain.Nodes) {
+                        Terrain.Nodes.toggleVisibility(index);
                         this.updateProjectsToast();
                     }
                 });

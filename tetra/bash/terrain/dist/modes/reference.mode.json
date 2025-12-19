@@ -1,0 +1,55 @@
+{
+    "mode": {
+        "name": "Reference",
+        "version": "1.0.0",
+        "description": "Scrollable sidebar documentation"
+    },
+    "defaultTheme": "dark",
+    "canvas": {
+        "mode": "fixed",
+        "drag": false,
+        "pan": false,
+        "grid": false
+    },
+    "layout": {
+        "type": "sidebar",
+        "sidebarWidth": "280px",
+        "maxWidth": "1400px"
+    },
+    "features": {
+        "designMode": false,
+        "toasts": false,
+        "persistence": true,
+        "fonts": false,
+        "nodes": false,
+        "sidebarNav": true,
+        "scrollSpy": true
+    },
+    "header": {
+        "show": true,
+        "title": "Reference"
+    },
+    "ui": {
+        "homeBtn": true,
+        "addBtn": false,
+        "fab": false,
+        "configPanel": false,
+        "searchBar": true
+    },
+    "toasts": {
+        "navigator": false,
+        "tokens": false,
+        "fonts": false,
+        "projects": false,
+        "storage": false
+    },
+    "discovery": {
+        "type": "json",
+        "pattern": "*.reference.json"
+    },
+    "card": {
+        "showCli": false,
+        "showEdit": false,
+        "showStatus": false
+    }
+}

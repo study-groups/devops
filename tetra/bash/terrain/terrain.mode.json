@@ -1,0 +1,14 @@
+{
+  "name": "default",
+  "version": "1.0.0",
+  "description": "Default Terrain mode",
+  "theme": null,
+  "ui": {
+    "configPanel": true
+  },
+  "features": {
+    "grid": true,
+    "nodes": true,
+    "persistence": true
+  }
+}

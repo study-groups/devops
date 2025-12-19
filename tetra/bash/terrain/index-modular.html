@@ -17,8 +17,8 @@
     <style>
         /* Inline critical styles for loading state */
         :root {
-            --surface-void: #0a0a0a;
-            --signal-primary: #4a9eff;
+            --bg-primary: #0a0a0a;
+            --accent-primary: #4a9eff;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -141,15 +141,15 @@
         <div class="toast-title">DESIGN TOKENS</div>
         <div class="toast-content">
             <div class="token-row">
-                <span class="token-name">surface-void</span>
+                <span class="token-name">bg-primary</span>
                 <span class="token-value">#0a0a0a</span>
             </div>
             <div class="token-row">
-                <span class="token-name">signal-primary</span>
+                <span class="token-name">accent-primary</span>
                 <span class="token-value">#4a9eff</span>
             </div>
             <div class="token-row">
-                <span class="token-name">ink-primary</span>
+                <span class="token-name">text-primary</span>
                 <span class="token-value">#ffffff</span>
             </div>
         </div>
@@ -181,8 +181,11 @@
         </div>
     </div>
 
-    <!-- FAB button -->
-    <button class="fab">&#9881;</button>
+    <!-- FAB buttons -->
+    <div class="fab-container">
+        <button class="fab fab-config" title="Config">&#9881;</button>
+        <!-- Design FAB added by TUT when ?design=true -->
+    </div>
 
     <!-- Popup overlay -->
     <div class="popup-overlay" id="popup-overlay">
@@ -198,9 +201,9 @@
         </div>
 
         <div class="config-quick-actions">
-            <button onclick="Terrain.ConfigPanel.collapseAll()">COLLAPSE</button>
-            <button onclick="Terrain.ConfigPanel.expandAll()">EXPAND</button>
-            <button onclick="Terrain.Popups.alert('Settings exported!')">EXPORT</button>
+            <button data-action="config:collapse-all">COLLAPSE</button>
+            <button data-action="config:expand-all">EXPAND</button>
+            <button data-action="config:export">EXPORT</button>
         </div>
 
         <!-- UI Elements Section -->
@@ -268,13 +271,13 @@
             </div>
             <div class="config-section-content">
                 <div class="config-item">
-                    <button onclick="Terrain.Canvas.goHome()">RESET VIEW</button>
+                    <button data-action="canvas:reset">RESET VIEW</button>
                 </div>
                 <div class="config-item">
-                    <button onclick="Terrain.Persistence.save(); Terrain.Popups.alert('Saved!')">SAVE</button>
+                    <button data-action="config:save">SAVE</button>
                 </div>
                 <div class="config-item">
-                    <button onclick="Terrain.ConfigPanel.toggle()">CLOSE</button>
+                    <button data-action="config:close">CLOSE</button>
                 </div>
             </div>
         </div>

@@ -1,0 +1,43 @@
+{
+    "terrain": {
+        "name": "Contained",
+        "version": "1.0.0",
+        "description": "Fixed layout dashboard mode - no canvas interaction"
+    },
+    "canvas": {
+        "mode": "fixed",
+        "drag": false,
+        "pan": false,
+        "grid": false
+    },
+    "layout": {
+        "type": "dashboard",
+        "gap": "16px",
+        "maxWidth": "1200px"
+    },
+    "features": {
+        "designMode": false,
+        "toasts": true,
+        "persistence": true,
+        "fonts": false,
+        "nodes": true
+    },
+    "header": {
+        "show": true,
+        "title": "Dashboard"
+    },
+    "ui": {
+        "homeBtn": false,
+        "addBtn": false,
+        "fab": false,
+        "configPanel": true
+    },
+    "toasts": {
+        "navigator": false,
+        "tokens": false,
+        "fonts": false,
+        "projects": true,
+        "storage": false
+    },
+    "theme": "midnight"
+}

@@ -115,6 +115,58 @@
                 current = current[key];
             }
             current[keys[keys.length - 1]] = value;
+        },
+
+        // =====================================================================
+        // URL Parameter Utilities
+        // =====================================================================
+
+        /**
+         * Cached URLSearchParams instance
+         */
+        _urlParams: null,
+
+        /**
+         * Get URLSearchParams (cached)
+         * @returns {URLSearchParams}
+         */
+        getUrlParams: function() {
+            if (!this._urlParams) {
+                this._urlParams = new URLSearchParams(window.location.search);
+            }
+            return this._urlParams;
+        },
+
+        /**
+         * Get a URL parameter value
+         * @param {string} name - Parameter name
+         * @param {string} defaultValue - Default if not found
+         * @returns {string|null} Parameter value
+         */
+        getUrlParam: function(name, defaultValue = null) {
+            const value = this.getUrlParams().get(name);
+            return value !== null ? value : defaultValue;
+        },
+
+        /**
+         * Check if URL has a parameter
+         * @param {string} name - Parameter name
+         * @returns {boolean}
+         */
+        hasUrlParam: function(name) {
+            return this.getUrlParams().has(name);
+        },
+
+        /**
+         * Get URL parameter as boolean
+         * @param {string} name - Parameter name
+         * @param {boolean} defaultValue - Default if not found
+         * @returns {boolean}
+         */
+        getUrlParamBool: function(name, defaultValue = false) {
+            const value = this.getUrlParams().get(name);
+            if (value === null) return defaultValue;
+            return value === 'true' || value === '1' || value === '';
         }
     };
 

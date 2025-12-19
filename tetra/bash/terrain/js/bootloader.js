@@ -8,9 +8,32 @@
     // Ensure Terrain namespace exists
     window.Terrain = window.Terrain || {};
 
+    // Mode configuration
+    const MODE_CONFIG = {
+        basePath: 'dist/modes/',
+        defaultPath: 'terrain.mode.json',
+        extension: '.mode.json'
+    };
+
+    // Parse URL parameter for mode
+    function getModePath() {
+        const params = new URLSearchParams(window.location.search);
+        const mode = params.get('mode');
+        if (mode) {
+            // Support shorthand (e.g., ?mode=contained) or full path
+            if (mode.includes('/') || mode.includes('.json')) {
+                return mode;
+            }
+            return MODE_CONFIG.basePath + mode + MODE_CONFIG.extension;
+        }
+        return MODE_CONFIG.defaultPath;
+    }
+
     const Bootloader = {
         loaded: [],
         startTime: Date.now(),
+        modePath: getModePath(),
+        modeConfig: MODE_CONFIG,
 
         /**
          * Log with timestamp
@@ -85,10 +108,9 @@
                 }
             });
 
-            // Initialize FAB only if design mode is enabled
-            if (Terrain.Config.features.designMode && Terrain.FAB) {
-                this.log('Initializing FAB (design mode)');
-                Terrain.FAB.init();
+            // URL ?design=true always wins (even after Persistence.load may have overwritten)
+            if (Terrain.Utils.getUrlParamBool('design')) {
+                Terrain.Config.features.designMode = true;
             }
         },
 
@@ -113,19 +135,40 @@
                 // Phase 1: Core modules are already loaded inline
                 this.log('Core modules loaded (config, events, state)');
 
-                // Phase 1.5: Load utils
-                await this.loadScript('js/core/utils.js');
-                this.log('Utils loaded');
-
-                // Phase 2: Load CSS
+                // Phase 1.5: Load utils and mode
                 await Promise.all([
-                    this.loadCSS('css/tokens.css'),
+                    this.loadScript('js/core/utils.js'),
+                    this.loadScript('js/core/mode.js')
+                ]);
+                this.log('Utils and Mode modules loaded');
+
+                // Phase 1.6: Load TERRAIN bridge (unifies TERRAIN/Terrain namespaces)
+                await this.loadScript('js/core/terrain-bridge.js');
+                this.log('TERRAIN bridge loaded');
+
+                // Phase 1.65: Load CardBase (shared card functionality)
+                await this.loadScript('js/core/card-base.js');
+                this.log('CardBase loaded');
+
+                // Phase 1.7: Initialize and apply mode
+                if (Terrain.Mode) {
+                    await Terrain.Mode.init(this.modePath);
+                    Terrain.Mode.apply();
+                    this.log('Mode applied: ' + Terrain.Mode.getName());
+                }
+
+                // Phase 2: Load CSS (theme handled by Mode.init)
+                const themePath = Terrain.Mode?.getConfig()?.theme
+                    ? `dist/themes/${Terrain.Mode.getConfig().theme}.css`
+                    : 'css/tokens.css';
+                await Promise.all([
+                    this.loadCSS(themePath),
                     this.loadCSS('css/core.css'),
                     this.loadCSS('css/components/nodes.css'),
                     this.loadCSS('css/components/toasts.css'),
                     this.loadCSS('css/components/panels.css')
                 ]);
-                this.log('CSS loaded');
+                this.log('CSS loaded (theme: ' + (Terrain.Mode?.getTheme() || 'default') + ')');
 
                 // Phase 3: Load feature modules
                 await Promise.all([
@@ -139,14 +182,20 @@
                 ]);
                 this.log('Feature modules loaded');
 
-                // Phase 4: Load UI modules
-                await Promise.all([
-                    this.loadScript('js/ui/config-panel.js'),
-                    this.loadScript('js/ui/popups.js')
-                ]);
+                // Phase 4: Load UI modules (based on mode settings)
+                const uiModules = [this.loadScript('js/ui/popups.js')];
+                if (Terrain.Mode?.getConfig()?.ui?.configPanel !== false) {
+                    uiModules.push(this.loadScript('js/ui/config-panel.js'));
+                }
+                await Promise.all(uiModules);
                 this.log('UI modules loaded');
 
                 // Phase 5: Load optional modules based on config
+                // URL ?design=true ALWAYS enables design mode
+                if (Terrain.Utils.getUrlParamBool('design')) {
+                    Terrain.Config.features.designMode = true;
+                }
+
                 if (Terrain.Config.features.fonts) {
                     await this.loadScript('js/modules/fonts.js');
                     this.log('Fonts module loaded');
@@ -155,9 +204,17 @@
                 if (Terrain.Config.features.designMode) {
                     await Promise.all([
                         this.loadCSS('css/components/fab.css'),
-                        this.loadScript('js/ui/fab.js')
+                        this.loadCSS('dist/modules/tut.css'),
+                        this.loadScript('js/ui/inspector.js'),
+                        this.loadScript('dist/modules/tut.js')
                     ]);
-                    this.log('FAB module loaded (design mode enabled)');
+                    this.log('Inspector + TUT modules loaded (design mode enabled)');
+
+                    // Initialize TUT if loaded
+                    if (TERRAIN.TUT && typeof TERRAIN.TUT.init === 'function') {
+                        TERRAIN.TUT.init();
+                        this.log('TUT initialized');
+                    }
                 }
 
                 // Phase 5.5: Load skins module

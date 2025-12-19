@@ -7,17 +7,17 @@
     <style>
         /* CSS Token Fallbacks - overridden by parent injection */
         :root {
-            --surface-void: #0a0a0a;
-            --surface-panel: #1a1a1a;
-            --surface-elevated: #2a2a2a;
-            --edge-subtle: #333333;
-            --edge-visible: #444444;
-            --ink-primary: #ffffff;
-            --ink-secondary: #aaaaaa;
-            --ink-muted: #666666;
-            --signal-primary: #4a9eff;
-            --signal-success: #00ff00;
-            --signal-error: #ff4444;
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #2a2a2a;
+            --border: #333333;
+            --border-visible: #444444;
+            --text-primary: #ffffff;
+            --text-secondary: #aaaaaa;
+            --text-muted: #666666;
+            --accent-primary: #4a9eff;
+            --success: #00ff00;
+            --error: #ff4444;
             --font-code: 'SF Mono', 'Monaco', 'Courier New', monospace;
             --curve-sm: 4px;
             --gap-sm: 8px;
@@ -34,22 +34,22 @@
         /* Dark scrollbars matching parent */
         ::-webkit-scrollbar {
             width: 6px;
-            background: var(--surface-void);
+            background: var(--bg-primary);
         }
         ::-webkit-scrollbar-track {
-            background: var(--surface-void);
+            background: var(--bg-primary);
         }
         ::-webkit-scrollbar-thumb {
-            background: var(--edge-visible);
+            background: var(--border-visible);
             border-radius: 3px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: var(--edge-visible);
+            background: var(--border-visible);
         }
 
         body {
-            background: var(--surface-panel);
-            color: var(--ink-primary);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
             font-family: var(--font-code);
             font-size: 12px;
             padding: 16px;
@@ -61,27 +61,27 @@
             letter-spacing: 1px;
             text-transform: uppercase;
             margin-bottom: 12px;
-            color: var(--signal-primary);
+            color: var(--accent-primary);
         }
         .status {
             margin-bottom: 16px;
         }
         .status-label {
-            color: var(--ink-muted);
+            color: var(--text-muted);
             font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
         .status-value {
-            color: var(--signal-primary);
+            color: var(--accent-primary);
             font-weight: 700;
         }
         .status-value.connected {
-            color: var(--signal-success);
+            color: var(--success);
         }
         .message-log {
-            background: var(--surface-void);
-            border: 1px solid var(--edge-subtle);
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
             border-radius: var(--curve-sm);
             padding: var(--gap-sm);
             max-height: 180px;
@@ -90,21 +90,21 @@
         }
         .message-log-title {
             font-size: 10px;
-            color: var(--ink-muted);
+            color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-bottom: var(--gap-sm);
         }
         .log-entry {
             padding: 4px 0;
-            border-bottom: 1px solid var(--surface-elevated);
-            color: var(--ink-secondary);
+            border-bottom: 1px solid var(--bg-tertiary);
+            color: var(--text-secondary);
         }
         .log-entry:last-child {
             border-bottom: none;
         }
         .log-entry .type {
-            color: var(--signal-primary);
+            color: var(--accent-primary);
             font-weight: 700;
         }
         .actions {
@@ -114,8 +114,8 @@
         }
         .action-btn {
             background: transparent;
-            border: 1px solid var(--edge-visible);
-            color: var(--ink-primary);
+            border: 1px solid var(--border-visible);
+            color: var(--text-primary);
             padding: var(--gap-sm) 16px;
             font-size: 10px;
             font-weight: 700;
@@ -127,8 +127,8 @@
             transition: var(--tempo-fast);
         }
         .action-btn:hover {
-            border-color: var(--signal-primary);
-            color: var(--signal-primary);
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
         }
     </style>
 </head>

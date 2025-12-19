@@ -4,12 +4,12 @@
 
 .toast {
     position: fixed;
-    background: var(--surface-void);
-    border: 1px solid var(--edge-visible);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-visible);
     border-radius: var(--curve-sm);
     padding: var(--gap-md);
     font-size: 10px;
-    color: var(--ink-secondary);
+    color: var(--text-secondary);
     font-family: var(--font-code);
     z-index: 999;
     box-shadow: var(--depth-md);
@@ -68,7 +68,7 @@
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-bottom: var(--gap-sm);
-    color: var(--ink-primary);
+    color: var(--text-primary);
     font-size: 10px;
     min-height: 14px;
     transition: var(--tempo-normal);
@@ -80,8 +80,8 @@
 /* Help button in title */
 .help-btn {
     background: transparent;
-    border: 1px solid var(--edge-visible);
-    color: var(--ink-primary);
+    border: 1px solid var(--border-visible);
+    color: var(--text-primary);
     width: 16px;
     height: 16px;
     border-radius: 3px;
@@ -98,8 +98,8 @@
 }
 
 .help-btn:hover {
-    background: var(--edge-visible);
-    border-color: var(--edge-active);
+    background: var(--border-visible);
+    border-color: var(--border-active);
     opacity: 1;
 }
 
@@ -111,11 +111,11 @@
 }
 
 .token-name {
-    color: var(--ink-code);
+    color: var(--text-code);
 }
 
 .token-value {
-    color: var(--ink-muted);
+    color: var(--text-muted);
     font-family: var(--font-code);
 }
 
@@ -160,8 +160,8 @@
 }
 
 .project-item:hover {
-    background: var(--surface-elevated);
-    border-color: var(--edge-subtle);
+    background: var(--bg-tertiary);
+    border-color: var(--border);
 }
 
 .project-item-left {
@@ -177,14 +177,14 @@
     align-items: center;
     gap: 4px;
     font-size: 7px;
-    color: var(--ink-muted);
+    color: var(--text-muted);
     flex-shrink: 0;
 }
 
 .project-checkbox {
     width: 10px;
     height: 10px;
-    border: 1px solid var(--edge-visible);
+    border: 1px solid var(--border-visible);
     border-radius: 0;
     background: transparent;
     cursor: pointer;
@@ -196,19 +196,19 @@
 }
 
 .project-checkbox.checked {
-    background: var(--signal-primary);
-    border-color: var(--signal-primary);
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
 }
 
 .project-checkbox.checked::after {
     content: '\2713';
-    color: var(--surface-void);
+    color: var(--bg-primary);
     font-size: 8px;
     font-weight: 900;
 }
 
 .project-name {
-    color: var(--ink-primary);
+    color: var(--text-primary);
     font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
@@ -217,22 +217,22 @@
 
 .project-status {
     padding: 2px 4px;
-    background: var(--surface-elevated);
+    background: var(--bg-tertiary);
     border-radius: 2px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .project-status.draft {
-    color: var(--ink-muted);
+    color: var(--text-muted);
 }
 
 .project-status.live {
-    color: var(--signal-success);
+    color: var(--success);
 }
 
 .project-position {
-    color: var(--ink-muted);
+    color: var(--text-muted);
     font-family: var(--font-code);
 }
 
@@ -243,7 +243,7 @@
     align-items: center;
     padding: 4px 0;
     font-size: 9px;
-    border-bottom: 1px solid var(--edge-subtle);
+    border-bottom: 1px solid var(--border);
 }
 
 .storage-stat:last-child {
@@ -251,14 +251,14 @@
 }
 
 .storage-stat-label {
-    color: var(--ink-muted);
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     font-weight: 700;
 }
 
 .storage-stat-value {
-    color: var(--ink-primary);
+    color: var(--text-primary);
     font-family: var(--font-code);
     font-weight: 700;
 }
@@ -272,7 +272,7 @@
 }
 
 .storage-key-name {
-    color: var(--ink-secondary);
+    color: var(--text-secondary);
     font-family: var(--font-code);
     flex: 1;
     white-space: nowrap;
@@ -281,14 +281,14 @@
 }
 
 .storage-key-size {
-    color: var(--ink-muted);
+    color: var(--text-muted);
     font-family: var(--font-code);
     margin-left: var(--gap-sm);
 }
 
 .storage-section-title {
     font-size: 8px;
-    color: var(--ink-muted);
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 1px;
     font-weight: 700;

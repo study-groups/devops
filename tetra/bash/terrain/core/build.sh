@@ -328,9 +328,9 @@ $sidebar_panels_html
     <script src="terrain/js/core/state.js"></script>
     <script src="terrain/js/core/mode.js"></script>
 
-    <!-- App Config (inline) -->
+    <!-- Merged Config (mode defaults + app overrides) -->
     <script>
-        window.TerrainAppConfig = $(cat "$config");
+        window.TerrainConfig = $(terrain_config_merge "$config");
     </script>
 
     <!-- App Scripts -->
@@ -338,9 +338,20 @@ $scripts_html
     <!-- Boot -->
     <script>
         (async function() {
-            // Initialize mode
-            await Terrain.Mode.init('terrain/dist/modes/${mode}.mode.json', '${theme}');
-            Terrain.Mode.apply();
+            // Initialize from merged config (no fetch needed)
+            const config = window.TerrainConfig;
+            const theme = config.theme || config.defaultTheme || 'dark';
+
+            // Apply theme
+            const themeLink = document.getElementById('terrain-theme');
+            if (themeLink) {
+                themeLink.href = 'terrain/dist/themes/' + theme + '.theme.css';
+            }
+
+            // Initialize Terrain.Config if available
+            if (Terrain.Config && Terrain.Config.init) {
+                Terrain.Config.init(config);
+            }
 
             // Hide loading overlay
             const overlay = document.getElementById('loading-overlay');
@@ -354,11 +365,11 @@ $scripts_html
                 Terrain.Events.emit('TERRAIN_READY', {
                     app: '$app_name',
                     mode: '${mode}',
-                    theme: '${theme}'
+                    theme: theme
                 });
             }
 
-            console.log('[Terrain] Ready:', '$app_name');
+            console.log('[Terrain] Ready:', '$app_name', 'mode:', '${mode}', 'theme:', theme);
         })();
     </script>
 </body>
@@ -372,7 +383,7 @@ _terrain_render_header_controls() {
 
     echo "$controls_json" | jq -r '.[] |
         if .type == "button" then
-            "                <button class=\"terrain-btn\" id=\"\(.id)\">\(.icon // "") \(.label // "")</button>"
+            "                <button class=\"terrain-btn\" id=\"\(.id)\" data-action=\"\(.action // "")\" title=\"\(.title // "")\">\(.icon // "")\(.label // "")</button>"
         elif .type == "select" then
             "                <select class=\"terrain-btn\" id=\"\(.id)\"><option>Select...</option></select>"
         else

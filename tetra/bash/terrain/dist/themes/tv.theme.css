@@ -1,0 +1,57 @@
+/**
+ * Terrain Theme: TV (Arcade)
+ * CRT monitor aesthetic with green phosphor
+ */
+:root {
+    /* Raw Palette */
+    --p1: #030102;
+    --p2: #161616;
+    --p3: #393a38;
+    --p4: #676d69;
+    --p5: #a2bac3;
+    --p6: #ff685d;
+    --p7: #608eff;
+    --p8: #1fff6a;
+
+    --s1: #ecb200;
+    --s2: #1fff6a;
+    --s3: #ffd700;
+    --s4: #ff685d;
+
+    --t2: #393a38;
+    --t3: #676d69;
+    --t4: rgba(162, 186, 195, 0.4);
+    --t6: rgba(162, 186, 195, 0.6);
+
+    /* Semantic Tokens (TUT) */
+    --bg-primary: var(--p2);
+    --bg-secondary: var(--p3);
+    --bg-tertiary: var(--p4);
+    --bg-hover: #4a4b49;
+
+    --border: var(--t2);
+    --border-visible: var(--t3);
+    --border-active: var(--s2);
+
+    --text-primary: var(--p5);
+    --text-secondary: var(--t6);
+    --text-muted: var(--t4);
+    --text-code: var(--s2);
+
+    --accent-primary: var(--s2);
+    --accent-secondary: var(--s1);
+    --success: var(--p7);
+    --error: var(--p6);
+    --warning: var(--s3);
+
+    /* Arcade Legacy Compat */
+    --ink: var(--p5);
+    --one: var(--s2);
+    --two: var(--s1);
+    --three: var(--s4);
+    --four: var(--p7);
+    --paper-light: var(--p4);
+    --paper-mid: var(--p2);
+    --paper-dark: var(--p3);
+    --shade: var(--p1);
+}

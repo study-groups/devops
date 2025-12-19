@@ -5,8 +5,8 @@
 
 .project-card {
     position: absolute;
-    background: var(--surface-panel);
-    border: 1px solid var(--edge-subtle);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
     border-radius: var(--curve-sm);
     min-width: 280px;
     max-width: 320px;
@@ -17,7 +17,7 @@
 }
 
 .project-card:hover {
-    border-color: var(--edge-visible);
+    border-color: var(--border-visible);
     box-shadow: var(--depth-sm);
 }
 
@@ -31,13 +31,13 @@
 }
 
 .project-card.selected {
-    border-color: var(--signal-primary);
-    box-shadow: 0 0 0 2px var(--signal-primary),
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px var(--accent-primary),
                 var(--depth-md);
 }
 
 .project-card.editing {
-    border-color: var(--signal-primary);
+    border-color: var(--accent-primary);
     box-shadow: var(--depth-lg);
     z-index: 998;
     min-width: 320px;
@@ -51,13 +51,13 @@
     justify-content: space-between;
     align-items: center;
     padding: var(--gap-md) var(--gap-lg);
-    background: var(--surface-panel);
+    background: var(--bg-secondary);
 }
 
 .project-title {
     font-size: 14px;
     font-weight: 700;
-    color: var(--ink-primary);
+    color: var(--text-primary);
     letter-spacing: 0.3px;
     font-family: var(--font-secondary);
     margin: 0;
@@ -72,8 +72,8 @@
 .project-close-btn {
     display: none;
     background: transparent;
-    border: 1px solid var(--edge-visible);
-    color: var(--ink-muted);
+    border: 1px solid var(--border-visible);
+    color: var(--text-muted);
     width: 24px;
     height: 24px;
     border-radius: var(--curve-sm);
@@ -88,19 +88,19 @@
 }
 
 .project-cli-toggle:hover {
-    border-color: var(--signal-primary);
-    color: var(--signal-primary);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
 }
 
 .project-cli-toggle.active {
-    background: var(--signal-primary);
-    border-color: var(--signal-primary);
-    color: var(--surface-void);
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--bg-primary);
 }
 
 .project-close-btn:hover {
-    border-color: var(--signal-error);
-    color: var(--signal-error);
+    border-color: var(--error);
+    color: var(--error);
 }
 
 .project-card.expanded .project-cli-toggle,
@@ -125,7 +125,7 @@
 
 .project-desc {
     font-size: 12px;
-    color: var(--ink-secondary);
+    color: var(--text-secondary);
     line-height: 1.5;
     margin-bottom: var(--gap-md);
     font-family: var(--font-primary);
@@ -140,11 +140,11 @@
 
 .project-open-btn {
     background: transparent;
-    color: var(--signal-primary);
+    color: var(--accent-primary);
     font-size: 11px;
     font-weight: 700;
     padding: var(--gap-sm) var(--gap-md);
-    border: 1px solid var(--signal-primary);
+    border: 1px solid var(--accent-primary);
     border-radius: var(--curve-sm);
     transition: var(--tempo-fast);
     text-transform: uppercase;
@@ -154,14 +154,14 @@
 }
 
 .project-open-btn:hover {
-    background: var(--signal-primary);
-    color: var(--surface-void);
+    background: var(--accent-primary);
+    color: var(--bg-primary);
 }
 
 .project-card-edit-trigger {
     background: transparent;
-    border: 1px solid var(--edge-visible);
-    color: var(--ink-muted);
+    border: 1px solid var(--border-visible);
+    color: var(--text-muted);
     padding: 4px 8px;
     border-radius: var(--curve-sm);
     cursor: pointer;
@@ -174,8 +174,8 @@
 }
 
 .project-card-edit-trigger:hover {
-    border-color: var(--signal-primary);
-    color: var(--signal-primary);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
 }
 
 /* ================================
@@ -197,13 +197,13 @@
 }
 
 .project-card.expanded.selected {
-    box-shadow: 0 0 0 2px var(--signal-primary),
+    box-shadow: 0 0 0 2px var(--accent-primary),
                 var(--depth-lg);
 }
 
 /* CLI Container */
 .cli-container {
-    border-bottom: 1px solid var(--edge-subtle);
+    border-bottom: 1px solid var(--border);
 }
 
 .cli-container.cli-hidden {
@@ -216,11 +216,11 @@
     align-items: center;
     gap: var(--gap-sm);
     padding: var(--gap-xs) var(--gap-md);
-    background: var(--surface-void);
-    border-bottom: 1px solid var(--edge-subtle);
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border);
     font-family: var(--font-code);
     font-size: 10px;
-    color: var(--ink-muted);
+    color: var(--text-muted);
 }
 
 .cli-status-line.cli-hidden {
@@ -229,23 +229,23 @@
 
 .cli-status-indicator {
     font-size: 8px;
-    color: var(--signal-success);
+    color: var(--success);
 }
 
 .cli-status-indicator.status-active {
-    color: var(--signal-primary);
+    color: var(--accent-primary);
 }
 
 .cli-status-indicator.status-error {
-    color: var(--signal-error);
+    color: var(--error);
 }
 
 .cli-status-indicator.status-waiting {
-    color: var(--signal-warning);
+    color: var(--warning);
 }
 
 .cli-status-text {
-    color: var(--ink-secondary);
+    color: var(--text-secondary);
 }
 
 /* CLI Main Input - Top of open mode */
@@ -253,13 +253,13 @@
     display: flex;
     align-items: center;
     padding: var(--gap-sm) var(--gap-md);
-    background: var(--surface-void);
-    border-bottom: 1px solid var(--edge-subtle);
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border);
     gap: var(--gap-sm);
 }
 
 .cli-input-main .cli-prompt {
-    color: var(--signal-primary);
+    color: var(--accent-primary);
     font-weight: 700;
     font-size: 14px;
 }
@@ -268,7 +268,7 @@
     flex: 1;
     background: transparent;
     border: none;
-    color: var(--ink-primary);
+    color: var(--text-primary);
     font-size: 13px;
     font-family: var(--font-code);
     outline: none;
@@ -276,13 +276,13 @@
 }
 
 .cli-input-main .cli-input::placeholder {
-    color: var(--ink-muted);
+    color: var(--text-muted);
 }
 
 .cli-input-main .cli-target {
-    background: var(--surface-elevated);
-    border: 1px solid var(--edge-subtle);
-    color: var(--ink-secondary);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
     font-size: 10px;
     font-family: var(--font-code);
     padding: 4px 8px;
@@ -292,7 +292,7 @@
 
 .cli-input-main .cli-target:focus {
     outline: none;
-    border-color: var(--signal-primary);
+    border-color: var(--accent-primary);
 }
 
 /* CLI Log */
@@ -300,34 +300,34 @@
     height: 120px;
     overflow-y: auto;
     padding: var(--gap-sm) var(--gap-md);
-    background: var(--surface-void);
+    background: var(--bg-primary);
     font-family: var(--font-code);
     font-size: 11px;
-    border-bottom: 1px solid var(--edge-subtle);
+    border-bottom: 1px solid var(--border);
 }
 
 .cli-log::-webkit-scrollbar {
     width: 6px;
-    background: var(--surface-void);
+    background: var(--bg-primary);
 }
 
 .cli-log::-webkit-scrollbar-track {
-    background: var(--surface-void);
+    background: var(--bg-primary);
 }
 
 .cli-log::-webkit-scrollbar-thumb {
-    background: var(--edge-visible);
+    background: var(--border-visible);
     border-radius: 3px;
 }
 
 .cli-log::-webkit-scrollbar-thumb:hover {
-    background: var(--edge-active);
+    background: var(--border-active);
 }
 
 .cli-entry {
     padding: 3px 0;
     line-height: 1.5;
-    color: var(--ink-secondary);
+    color: var(--text-secondary);
     word-break: break-all;
 }
 
@@ -338,48 +338,48 @@
 }
 
 .cli-in {
-    color: var(--ink-secondary);
+    color: var(--text-secondary);
 }
 
 .cli-in .cli-prefix {
-    color: var(--signal-primary);
+    color: var(--accent-primary);
 }
 
 .cli-out {
-    color: var(--ink-muted);
+    color: var(--text-muted);
 }
 
 .cli-out .cli-prefix {
-    color: var(--signal-success);
+    color: var(--success);
 }
 
 .cli-cmd {
-    color: var(--ink-primary);
+    color: var(--text-primary);
 }
 
 .cli-cmd .cli-prefix {
-    color: var(--ink-primary);
+    color: var(--text-primary);
 }
 
 .cli-sys {
-    color: var(--signal-warning);
+    color: var(--warning);
 }
 
 .cli-sys .cli-prefix {
-    color: var(--signal-warning);
+    color: var(--warning);
 }
 
 .cli-err {
-    color: var(--signal-error);
+    color: var(--error);
 }
 
 .cli-err .cli-prefix {
-    color: var(--signal-error);
+    color: var(--error);
 }
 
 /* Iframe Container in Open Mode */
 .project-card-open .project-iframe-container {
-    background: var(--surface-void);
+    background: var(--bg-primary);
     border: none;
     border-radius: 0;
     margin: 0;
@@ -390,7 +390,7 @@
     height: 200px;
     border: none;
     display: block;
-    background: var(--surface-void);
+    background: var(--bg-primary);
 }
 
 /* ================================
@@ -408,7 +408,7 @@
 .project-card-edit label {
     display: block;
     font-size: 8px;
-    color: var(--ink-muted);
+    color: var(--text-muted);
     margin-bottom: var(--gap-xs);
     margin-top: var(--gap-sm);
     text-transform: uppercase;
@@ -419,9 +419,9 @@
 .project-card-edit input,
 .project-card-edit select {
     width: 100%;
-    background: var(--surface-elevated);
-    border: 1px solid var(--edge-subtle);
-    color: var(--ink-primary);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
     padding: var(--gap-sm);
     border-radius: var(--curve-sm);
     font-size: 10px;
@@ -432,7 +432,7 @@
 .project-card-edit input:focus,
 .project-card-edit select:focus {
     outline: none;
-    border-color: var(--signal-primary);
+    border-color: var(--accent-primary);
 }
 
 .project-card-edit-actions {
@@ -444,8 +444,8 @@
 .project-card-edit-actions button {
     flex: 1;
     background: transparent;
-    border: 1px solid var(--edge-visible);
-    color: var(--ink-primary);
+    border: 1px solid var(--border-visible);
+    color: var(--text-primary);
     padding: var(--gap-sm);
     border-radius: var(--curve-sm);
     cursor: pointer;
@@ -458,28 +458,28 @@
 }
 
 .project-card-edit-actions button:hover {
-    border-color: var(--signal-primary);
-    color: var(--signal-primary);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
 }
 
 .project-card-edit-actions button.save {
-    border-color: var(--signal-success);
-    color: var(--signal-success);
+    border-color: var(--success);
+    color: var(--success);
 }
 
 .project-card-edit-actions button.cancel {
-    border-color: var(--signal-error);
-    color: var(--signal-error);
+    border-color: var(--error);
+    color: var(--error);
 }
 
 /* Token validation */
 .token-input {
-    border-color: var(--signal-warning) !important;
+    border-color: var(--warning) !important;
 }
 
 .project-card-edit .token-error {
     font-size: 8px;
-    color: var(--signal-error);
+    color: var(--error);
     margin-top: calc(var(--gap-xs) * -1);
     margin-bottom: var(--gap-sm);
     display: none;

@@ -1,0 +1,46 @@
+/**
+ * Terrain Theme: Warm Amber
+ * TUT-compatible design tokens
+ */
+:root {
+    /* Raw Palette - Warm ambers */
+    --p1: #1a1410;
+    --p2: #2a2218;
+    --p3: #3a3020;
+    --p4: #4a3e28;
+    --p5: #fff8e1;
+    --p6: #ff5722;
+    --p7: #8bc34a;
+    --p8: #ff9800;
+
+    --s1: #ff7043;
+    --s2: #ffb300;
+    --s3: #ffc107;
+    --s4: #c6ff00;
+
+    --t2: #302818;
+    --t3: #4a3c28;
+    --t4: #6a5a48;
+    --t6: #a89888;
+
+    /* Semantic Tokens (TUT) */
+    --bg-primary: var(--p1);
+    --bg-secondary: var(--p2);
+    --bg-tertiary: var(--p3);
+    --bg-hover: var(--p4);
+
+    --border: var(--t2);
+    --border-visible: var(--t3);
+    --border-active: var(--s2);
+
+    --text-primary: var(--p5);
+    --text-secondary: var(--t6);
+    --text-muted: var(--t4);
+    --text-code: var(--s4);
+
+    --accent-primary: var(--s2);
+    --accent-secondary: var(--s1);
+    --success: var(--p7);
+    --error: var(--p6);
+    --warning: var(--s3);
+}

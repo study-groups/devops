@@ -1,0 +1,57 @@
+/**
+ * Terrain Theme: Cyber (Arcade)
+ * Neon cyberpunk aesthetic
+ */
+:root {
+    /* Raw Palette */
+    --p1: #121212;
+    --p2: #1e062a;
+    --p3: #3a1b56;
+    --p4: #6136ff;
+    --p5: #dddddd;
+    --p6: #ff685d;
+    --p7: #00ff9a;
+    --p8: #ed1dff;
+
+    --s1: #c5d941;
+    --s2: #ed1dff;
+    --s3: #ff9b0b;
+    --s4: #00ff9a;
+
+    --t2: #3a1b56;
+    --t3: #6136ff;
+    --t4: rgba(221, 221, 221, 0.4);
+    --t6: rgba(221, 221, 221, 0.6);
+
+    /* Semantic Tokens (TUT) */
+    --bg-primary: var(--p2);
+    --bg-secondary: var(--p3);
+    --bg-tertiary: var(--p4);
+    --bg-hover: #4a2666;
+
+    --border: var(--t2);
+    --border-visible: var(--t3);
+    --border-active: var(--s2);
+
+    --text-primary: var(--p5);
+    --text-secondary: var(--t6);
+    --text-muted: var(--t4);
+    --text-code: var(--s4);
+
+    --accent-primary: var(--s2);
+    --accent-secondary: var(--s1);
+    --success: var(--p7);
+    --error: var(--p6);
+    --warning: var(--s3);
+
+    /* Arcade Legacy Compat */
+    --ink: var(--p5);
+    --one: var(--s2);
+    --two: var(--s1);
+    --three: var(--s3);
+    --four: var(--s4);
+    --paper-light: var(--p4);
+    --paper-mid: #0f2a63;
+    --paper-dark: var(--p3);
+    --shade: var(--p1);
+}

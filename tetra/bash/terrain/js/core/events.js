@@ -100,7 +100,7 @@
             });
 
             // Bind action elements
-            document.querySelectorAll('[data-terrain-action]').forEach(el => {
+            document.querySelectorAll('[data-action]').forEach(el => {
                 this.bindAction(el);
             });
         },
@@ -185,12 +185,12 @@
 
         /**
          * Bind an action element
-         * @param {Element} el - DOM element with data-terrain-action
+         * @param {Element} el - DOM element with data-action
          */
         bindAction: function(el) {
-            if (el._terrainActionBound) return; // Already bound
+            if (el._actionBound) return; // Already bound
 
-            const actionSpec = el.dataset.terrainAction;
+            const actionSpec = el.dataset.action;
             if (!actionSpec) return;
 
             // Parse action: "EVENT_NAME" or "EVENT_NAME:payload"
@@ -212,7 +212,7 @@
                 this.emit(eventName, payload);
             });
 
-            el._terrainActionBound = true;
+            el._actionBound = true;
         },
 
         /**
@@ -246,7 +246,7 @@
                 if (node.dataset.terrainBind) {
                     this.bindElement(node);
                 }
-                if (node.dataset.terrainAction) {
+                if (node.dataset.action) {
                     this.bindAction(node);
                 }
             }
@@ -256,7 +256,7 @@
                 node.querySelectorAll('[data-terrain-bind]').forEach(el => {
                     this.bindElement(el);
                 });
-                node.querySelectorAll('[data-terrain-action]').forEach(el => {
+                node.querySelectorAll('[data-action]').forEach(el => {
                     this.bindAction(el);
                 });
             }

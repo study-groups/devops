@@ -9,31 +9,31 @@
  * These fallbacks ensure the iframe looks correct even before injection.
  */
 
-/* CSS Token Fallbacks - overridden by parent injection */
+/* CSS Token Fallbacks - overridden by parent injection (TUT-compatible) */
 :root {
-    /* Surfaces */
-    --surface-void: #0a0a0a;
-    --surface-panel: #1a1a1a;
-    --surface-elevated: #2a2a2a;
-    --surface-hover: #333333;
+    /* Backgrounds */
+    --bg-primary: #0a0a0a;
+    --bg-secondary: #1a1a1a;
+    --bg-tertiary: #2a2a2a;
+    --bg-hover: #333333;
 
-    /* Edges */
-    --edge-subtle: #333333;
-    --edge-visible: #444444;
-    --edge-active: #555555;
+    /* Borders */
+    --border: #333333;
+    --border-visible: #444444;
+    --border-active: #555555;
 
-    /* Ink (Text) */
-    --ink-primary: #ffffff;
-    --ink-secondary: #aaaaaa;
-    --ink-muted: #666666;
-    --ink-code: #e0e0e0;
+    /* Text */
+    --text-primary: #ffffff;
+    --text-secondary: #aaaaaa;
+    --text-muted: #666666;
+    --text-code: #e0e0e0;
 
-    /* Signals */
-    --signal-primary: #4a9eff;
-    --signal-secondary: #8b5cf6;
-    --signal-success: #00ff00;
-    --signal-error: #ff4444;
-    --signal-warning: #ffaa00;
+    /* Accents & Status */
+    --accent-primary: #4a9eff;
+    --accent-secondary: #8b5cf6;
+    --success: #00ff00;
+    --error: #ff4444;
+    --warning: #ffaa00;
 
     /* Typography */
     --font-primary: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -68,32 +68,32 @@
 /* Dark scrollbars matching parent */
 ::-webkit-scrollbar {
     width: 6px;
-    background: var(--surface-void);
+    background: var(--bg-primary);
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--surface-void);
+    background: var(--bg-primary);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--edge-visible);
+    background: var(--border-visible);
     border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--edge-active);
+    background: var(--border-active);
 }
 
 /* Firefox scrollbar */
 * {
     scrollbar-width: thin;
-    scrollbar-color: var(--edge-visible) var(--surface-void);
+    scrollbar-color: var(--border-visible) var(--bg-primary);
 }
 
 /* Base body styles */
 body {
-    background: var(--surface-panel);
-    color: var(--ink-primary);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
     font-family: var(--font-code);
     font-size: 12px;
     line-height: 1.5;
@@ -106,25 +106,25 @@ body {
 }
 
 .text-muted {
-    color: var(--ink-muted);
+    color: var(--text-muted);
 }
 
 .text-secondary {
-    color: var(--ink-secondary);
+    color: var(--text-secondary);
 }
 
-.text-primary {
-    color: var(--signal-primary);
+.text-accent {
+    color: var(--accent-primary);
 }
 
 .text-success {
-    color: var(--signal-success);
+    color: var(--success);
 }
 
 .text-error {
-    color: var(--signal-error);
+    color: var(--error);
 }
 
 .text-warning {
-    color: var(--signal-warning);
+    color: var(--warning);
 }

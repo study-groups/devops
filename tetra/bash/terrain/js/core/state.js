@@ -15,6 +15,8 @@
             translateX: 0,
             translateY: 0,
             scale: Config.canvas.scale,
+            minScale: Config.canvas.minScale,
+            maxScale: Config.canvas.maxScale,
             baseGridSize: Config.canvas.baseGridSize
         },
         stacking: {
@@ -116,6 +118,8 @@
                 translateX: 0,
                 translateY: 0,
                 scale: Config.canvas.scale,
+                minScale: Config.canvas.minScale,
+                maxScale: Config.canvas.maxScale,
                 baseGridSize: Config.canvas.baseGridSize
             };
             state.stacking = {

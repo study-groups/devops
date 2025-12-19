@@ -1,6 +1,6 @@
 /**
  * Terrain Design Tokens
- * CSS Custom Properties for consistent theming
+ * TUT-compatible CSS Custom Properties
  */
 
 :root {
@@ -41,36 +41,36 @@
     --t8: #eeeeee;  /* Text brightest */
 
     /* ═══════════════════════════════════════════════════════════════
-       SEMANTIC TOKENS - Surfaces
+       SEMANTIC TOKENS - Backgrounds (TUT-compatible)
        ═══════════════════════════════════════════════════════════════ */
-    --surface-void: var(--p1);
-    --surface-panel: var(--p2);
-    --surface-elevated: var(--p3);
-    --surface-hover: var(--p4);
+    --bg-primary: var(--p1);
+    --bg-secondary: var(--p2);
+    --bg-tertiary: var(--p3);
+    --bg-hover: var(--p4);
 
     /* ═══════════════════════════════════════════════════════════════
-       SEMANTIC TOKENS - Edges
+       SEMANTIC TOKENS - Borders (TUT-compatible)
        ═══════════════════════════════════════════════════════════════ */
-    --edge-subtle: var(--t2);
-    --edge-visible: var(--t3);
-    --edge-active: var(--s2);
+    --border: var(--t2);
+    --border-visible: var(--t3);
+    --border-active: var(--s2);
 
     /* ═══════════════════════════════════════════════════════════════
-       SEMANTIC TOKENS - Ink (Text)
+       SEMANTIC TOKENS - Text (TUT-compatible)
        ═══════════════════════════════════════════════════════════════ */
-    --ink-primary: var(--p5);
-    --ink-secondary: var(--t6);
-    --ink-muted: var(--t4);
-    --ink-code: var(--s4);
+    --text-primary: var(--p5);
+    --text-secondary: var(--t6);
+    --text-muted: var(--t4);
+    --text-code: var(--s4);
 
     /* ═══════════════════════════════════════════════════════════════
-       SEMANTIC TOKENS - Signals
+       SEMANTIC TOKENS - Accents & Status (TUT-compatible)
        ═══════════════════════════════════════════════════════════════ */
-    --signal-primary: var(--s2);
-    --signal-secondary: var(--s1);
-    --signal-success: var(--p7);
-    --signal-error: var(--p6);
-    --signal-warning: var(--s3);
+    --accent-primary: var(--s2);
+    --accent-secondary: var(--s1);
+    --success: var(--p7);
+    --error: var(--p6);
+    --warning: var(--s3);
 
     /* ═══════════════════════════════════════════════════════════════
        DEPTH - Shadows

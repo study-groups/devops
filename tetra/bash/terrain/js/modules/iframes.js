@@ -123,14 +123,14 @@
         extractTokens: function() {
             const style = getComputedStyle(document.documentElement);
             const tokenNames = [
-                // Surfaces
-                'surface-void', 'surface-panel', 'surface-elevated', 'surface-hover',
-                // Edges
-                'edge-subtle', 'edge-visible', 'edge-active',
-                // Ink
-                'ink-primary', 'ink-secondary', 'ink-muted', 'ink-code',
-                // Signals
-                'signal-primary', 'signal-secondary', 'signal-success', 'signal-error', 'signal-warning',
+                // Backgrounds (TUT-compatible)
+                'bg-primary', 'bg-secondary', 'bg-tertiary', 'bg-hover',
+                // Borders (TUT-compatible)
+                'border', 'border-visible', 'border-active',
+                // Text (TUT-compatible)
+                'text-primary', 'text-secondary', 'text-muted', 'text-code',
+                // Accents & Status (TUT-compatible)
+                'accent-primary', 'accent-secondary', 'success', 'error', 'warning',
                 // Typography
                 'font-primary', 'font-secondary', 'font-code',
                 // Curves

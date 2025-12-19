@@ -1,6 +1,6 @@
 /**
  * Terrain Canvas Module
- * Handles canvas panning (no zoom - fixed scale)
+ * Handles canvas panning and zoom
  */
 (function() {
     'use strict';
@@ -76,10 +76,38 @@
             document.addEventListener('touchend', () => {
                 isPanning = false;
             });
+
+            // Zoom with scroll wheel
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+
+                const mouseX = e.clientX;
+                const mouseY = e.clientY;
+
+                const { translateX, translateY, scale, minScale, maxScale } = State.get('canvas');
+
+                // Convert mouse position to world coordinates
+                const worldX = (mouseX - translateX) / scale;
+                const worldY = (mouseY - translateY) / scale;
+
+                // Calculate new scale (scroll down = zoom out, scroll up = zoom in)
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                const newScale = Math.max(minScale, Math.min(maxScale, scale * delta));
+
+                // Adjust translation to keep mouse position fixed on same world point
+                const newTranslateX = mouseX - worldX * newScale;
+                const newTranslateY = mouseY - worldY * newScale;
+
+                State.set('canvas.scale', newScale);
+                State.set('canvas.translateX', newTranslateX);
+                State.set('canvas.translateY', newTranslateY);
+
+                this.updateTransform();
+            }, { passive: false });
         },
 
         /**
-         * Update canvas transform (translate only, fixed scale)
+         * Update canvas transform
          */
         updateTransform: function() {
             const { translateX, translateY, scale } = State.get('canvas');
