@@ -14,7 +14,6 @@ declare -gA TDS_THEME_REGISTRY=(
 
 # Theme metadata (populated by theme loaders)
 declare -g TDS_THEME_NAME=""
-declare -g TDS_THEME_AUTHOR=""
 declare -g TDS_THEME_DESCRIPTION=""
 
 # List available themes with colored previews
@@ -85,7 +84,6 @@ tds_theme_info() {
 
         echo "Theme: $theme_name"
         echo "Name: ${TDS_THEME_NAME:-N/A}"
-        echo "Author: ${TDS_THEME_AUTHOR:-N/A}"
         echo "Description: ${TDS_THEME_DESCRIPTION:-N/A}"
         echo
         echo "Palettes:"

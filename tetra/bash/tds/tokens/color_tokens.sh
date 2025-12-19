@@ -4,7 +4,7 @@
 # Three-layer indirection: Semantic Role → Color Token → Palette Reference → Hex Value
 #
 # PALETTE STRUCTURE:
-#   ENV   - ALTERNATE: two hue families [0-3]=A, [1,3,5,7]=B variants
+#   ENV   - ALTERNATE: two hue families [0-3]=A, [4-7]=B variants
 #   MODE  - STATUS: [0]=error [1]=warning [2]=success [3]=info [4-7]=dim versions
 #   VERBS - ACTIONS: [0]=primary [1]=secondary [2]=destructive [3]=constructive
 #                    [4]=accent [5]=highlight [6]=focus [7]=muted
@@ -146,7 +146,7 @@ tds_resolve_color() {
 
     if [[ -z "$palette_ref" ]]; then
         # Fallback to light text color
-        echo "C0CAF5"
+        echo "$TDS_FALLBACK_TEXT"
         return 1
     fi
 
@@ -154,40 +154,40 @@ tds_resolve_color() {
     local palette="${palette_ref%%:*}"
     local index="${palette_ref##*:}"
 
+    # Validate index is 0-7
+    if [[ ! "$index" =~ ^[0-7]$ ]]; then
+        echo "$TDS_FALLBACK_TEXT"
+        return 1
+    fi
+
     # Resolve to hex based on palette and state
     local hex=""
-    case "$palette" in
-        env)
-            case "$state" in
-                bright) hex="${ENV_COMPLEMENT[$index]}" ;;
-                dim) hex="$(theme_aware_dim "${ENV_PRIMARY[$index]}" 4)" ;;
-                *) hex="${ENV_PRIMARY[$index]}" ;;
-            esac
+    local palette_upper="${palette^^}"
+    local primary_name="${palette_upper}_PRIMARY"
+    local complement_name="${palette_upper}_COMPLEMENT"
+
+    # Validate palette exists
+    if ! declare -p "$primary_name" &>/dev/null; then
+        echo "$TDS_FALLBACK_TEXT"
+        return
+    fi
+
+    local -n primary_arr="$primary_name"
+
+    case "$state" in
+        bright)
+            if declare -p "$complement_name" &>/dev/null; then
+                local -n complement_arr="$complement_name"
+                hex="${complement_arr[$index]:-$TDS_FALLBACK_TEXT}"
+            else
+                hex="${primary_arr[$index]:-$TDS_FALLBACK_TEXT}"
+            fi
             ;;
-        mode)
-            case "$state" in
-                bright) hex="${MODE_COMPLEMENT[$index]}" ;;
-                dim) hex="$(theme_aware_dim "${MODE_PRIMARY[$index]}" 4)" ;;
-                *) hex="${MODE_PRIMARY[$index]}" ;;
-            esac
-            ;;
-        verbs)
-            case "$state" in
-                bright) hex="${VERBS_COMPLEMENT[$index]}" ;;
-                dim) hex="$(theme_aware_dim "${VERBS_PRIMARY[$index]}" 4)" ;;
-                *) hex="${VERBS_PRIMARY[$index]}" ;;
-            esac
-            ;;
-        nouns)
-            case "$state" in
-                bright) hex="${NOUNS_COMPLEMENT[$index]}" ;;
-                dim) hex="$(theme_aware_dim "${NOUNS_PRIMARY[$index]}" 4)" ;;
-                *) hex="${NOUNS_PRIMARY[$index]}" ;;
-            esac
+        dim)
+            hex="$(theme_aware_dim "${primary_arr[$index]:-$TDS_FALLBACK_TEXT}" 4)"
             ;;
         *)
-            # Unknown palette, return safe fallback
-            hex="C0CAF5"
+            hex="${primary_arr[$index]:-$TDS_FALLBACK_TEXT}"
             ;;
     esac
 

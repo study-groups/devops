@@ -28,7 +28,6 @@ tds_load_theme_default() {
 
     # Theme metadata
     TDS_THEME_NAME="Default"
-    TDS_THEME_AUTHOR="Tetra"
     TDS_THEME_DESCRIPTION="Default Tetra color scheme"
 
     return 0

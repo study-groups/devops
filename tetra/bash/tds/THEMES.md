@@ -224,7 +224,6 @@ tds_load_theme_my_theme() {
 
     # Theme metadata
     TDS_THEME_NAME="My Theme"
-    TDS_THEME_AUTHOR="Your Name"
     TDS_THEME_DESCRIPTION="Custom theme description"
 
     return 0
