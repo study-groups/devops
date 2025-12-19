@@ -3,6 +3,36 @@
 # TSM Universal Start - Works with ANY bash command
 # Smart port discovery from command arguments
 
+# Common directory names to skip when deriving project name
+# These are typically inside a project, not the project itself
+_TSM_SKIP_DIRS="dist|build|out|output|src|lib|app|public|static|assets|bin|pkg|target|node_modules"
+
+# Get project name from path, walking up to skip common non-descriptive dirs
+# Example: /src/controldeck/dist -> controldeck
+#          /src/myproject -> myproject
+#          /tetra/bash/midi -> midi
+_tsm_get_project_name() {
+    local path="${1:-$PWD}"
+    local dir_name
+
+    # Walk up the path looking for a meaningful name
+    while [[ "$path" != "/" && "$path" != "." && -n "$path" ]]; do
+        dir_name=$(basename "$path")
+
+        # Skip if it matches common non-descriptive directories
+        if [[ ! "$dir_name" =~ ^($_TSM_SKIP_DIRS)$ ]]; then
+            echo "$dir_name"
+            return
+        fi
+
+        # Move up one level
+        path=$(dirname "$path")
+    done
+
+    # Fallback to basename of original path
+    basename "${1:-$PWD}"
+}
+
 # Discover port from command (4-5 digit integers)
 tsm_discover_port() {
     local command="$1"
@@ -68,26 +98,25 @@ tsm_generate_process_name() {
 
         # If still no name, extract from script file or module
         if [[ -z "$base_name" ]]; then
-            local dir_name=$(basename "$PWD")
+            # Get project name, walking up path to skip common dirs like dist/build
+            local dir_name=$(_tsm_get_project_name "$PWD")
 
             # Match: python script.py, node app.js, python -m module.name
             if [[ "$command" =~ (node|python|python3)[[:space:]]+-m[[:space:]]+([a-zA-Z0-9_.]+) ]]; then
-                # Python module: combine directory name + module name
-                # Example: python -m http.server -> mydemo-http
+                # Python module: combine project name + module name
+                # Example: python -m http.server in /src/controldeck/dist -> controldeck-http
                 local module_name="${BASH_REMATCH[2]}"
                 base_name="${dir_name}-${module_name%%.*}"
             elif [[ "$command" =~ (node|python|python3)[[:space:]]+([^[:space:]-][^[:space:]]*) ]]; then
-                # Script file: combine directory name + script name
-                # Example: python server.py -> mydemo-server
+                # Script file: combine project name + script name
+                # Example: python server.py in /src/controldeck/dist -> controldeck-server
                 local script_file="${BASH_REMATCH[2]}"
                 local script_base=$(basename "$script_file" .js 2>/dev/null || echo "$script_file")
                 script_base=$(basename "$script_base" .py 2>/dev/null || echo "$script_base")
                 base_name="${dir_name}-${script_base}"
             else
-                # Fallback: first command word (no directory prefix for non-scripting commands)
-                base_name="${command%% *}"
-                base_name="${base_name##*/}"
-                base_name="${base_name%.sh}"
+                # Fallback: just use project name
+                base_name="$dir_name"
             fi
         fi
     fi
@@ -352,6 +381,7 @@ tsm_start_any_command() {
     echo "$success_msg"
 }
 
+export -f _tsm_get_project_name
 export -f tsm_discover_port
 export -f tsm_generate_process_name
 export -f tsm_start_any_command

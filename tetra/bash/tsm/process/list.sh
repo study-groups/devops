@@ -73,6 +73,31 @@ print_table_header() {
     reset_color
 }
 
+# Get env display from env_file
+# Returns: env name (local, prod, staging) or "tetra" for tetra modules, "-" if none
+_tsm_get_env_display() {
+    local env_file="$1"
+    local cwd="$2"
+
+    # 1. If env_file exists, show simplified name (strip .env suffix)
+    if [[ -n "$env_file" && "$env_file" != "null" ]]; then
+        local base
+        base=$(basename "$env_file" 2>/dev/null)
+        # Strip .env suffix for cleaner display
+        echo "${base%.env}"
+        return
+    fi
+
+    # 2. If cwd is under tetra/bash/, it's a tetra module
+    if [[ "$cwd" =~ /tetra/bash/ ]]; then
+        echo "tetra"
+        return
+    fi
+
+    # 3. No env configuration
+    echo "-"
+}
+
 # Get service info
 get_service_info() {
     local service_file="$1"
@@ -240,7 +265,6 @@ _tsm_print_process_row() {
     local port_color=$(_tsm_list_color "process.port" "00AAAA")
     local pid_color=$(_tsm_list_color "process.pid" "AAAAAA")
     local status_color=$(_tsm_list_color "process.running" "44DD44")
-    local type_color=$(_tsm_list_color "process.type" "00ACC1")
     local uptime_color=$(_tsm_list_color "process.uptime" "CCCCCC")
     local env_color=$(_tsm_list_color "process.env" "FB8C00")
 
@@ -290,6 +314,14 @@ _tsm_print_process_row() {
     fi
 
     text_color "$status_color"; printf "%-8s" "online"; reset_color
+
+    # Color type based on protocol (tcp=cyan, udp=magenta)
+    local type_color
+    case "$type_display" in
+        tcp)  type_color=$(_tsm_list_color "process.type.tcp" "00ACC1") ;;   # cyan
+        udp)  type_color=$(_tsm_list_color "process.type.udp" "AA66CC") ;;   # magenta/purple
+        *)    type_color=$(_tsm_list_color "process.type" "00ACC1") ;;       # default cyan
+    esac
     text_color "$type_color"; printf " %-8s" "$type_display"; reset_color
     text_color "$uptime_color"; printf " %-8s\n" "$uptime"; reset_color
 }
@@ -314,21 +346,31 @@ _tsm_list_processes_from_dir() {
         local meta_file="$process_dir/meta.json"
         [[ -f "$meta_file" ]] || continue
 
-        # Read all metadata in one jq call
+        # Read all metadata in one jq call using | delimiter (handles empty fields correctly)
         local metadata
-        metadata=$(jq -r '[.tsm_id, .pid, .port, .start_time, .env_file, .service_type, .parent, .comm_type] | @tsv' "$meta_file" 2>/dev/null)
+        metadata=$(jq -r '[
+            (.tsm_id // ""),
+            (.pid // ""),
+            (.port // ""),
+            (.start_time // ""),
+            (.env_file // ""),
+            (.service_type // ""),
+            (.parent // ""),
+            (.comm_type // ""),
+            (.cwd // "")
+        ] | join("|")' "$meta_file" 2>/dev/null)
         [[ -z "$metadata" ]] && continue
 
-        local tsm_id pid port start_time env_file service_type parent_name comm_type
-        read tsm_id pid port start_time env_file service_type parent_name comm_type <<< "$metadata"
+        local tsm_id pid port start_time env_file service_type parent_name comm_type cwd
+        IFS='|' read -r tsm_id pid port start_time env_file service_type parent_name comm_type cwd <<< "$metadata"
 
         # Only include running processes
         if ! tsm_is_pid_alive "$pid"; then
             continue
         fi
 
-        # Store process data
-        proc_data["$name"]="$tsm_id|$pid|$port|$start_time|$env_file|$service_type|$comm_type"
+        # Store process data (including cwd for context display)
+        proc_data["$name"]="$tsm_id|$pid|$port|$start_time|$env_file|$service_type|$comm_type|$cwd"
 
         # Track parent-child relationships
         if [[ -z "$parent_name" || "$parent_name" == "null" ]]; then
@@ -350,16 +392,14 @@ _tsm_list_processes_from_dir() {
         [[ -z "${proc_data[$root_name]}" ]] && continue
 
         # Parse root process data
-        IFS='|' read tsm_id pid port start_time env_file service_type comm_type <<< "${proc_data[$root_name]}"
+        IFS='|' read tsm_id pid port start_time env_file service_type comm_type cwd <<< "${proc_data[$root_name]}"
 
         # Calculate uptime
         local uptime=$(tsm_calculate_uptime "$start_time")
 
-        # Format env file (basename only)
-        local env_display="-"
-        if [[ -n "$env_file" && "$env_file" != "null" && "$env_file" != "" ]]; then
-            env_display=$(basename "$env_file" 2>/dev/null || echo "-")
-        fi
+        # Get env display
+        local env_display
+        env_display=$(_tsm_get_env_display "$env_file" "$cwd")
 
         # Format port
         [[ -z "$port" || "$port" == "none" || "$port" == "null" || "$port" == "0" ]] && port="-"
@@ -383,16 +423,14 @@ _tsm_list_processes_from_dir() {
                 [[ -z "${proc_data[$child_name]}" ]] && continue
 
                 # Parse child process data
-                IFS='|' read c_tsm_id c_pid c_port c_start_time c_env_file c_service_type c_comm_type <<< "${proc_data[$child_name]}"
+                IFS='|' read c_tsm_id c_pid c_port c_start_time c_env_file c_service_type c_comm_type c_cwd <<< "${proc_data[$child_name]}"
 
                 # Calculate uptime
                 local c_uptime=$(tsm_calculate_uptime "$c_start_time")
 
-                # Format env file
-                local c_env_display="-"
-                if [[ -n "$c_env_file" && "$c_env_file" != "null" && "$c_env_file" != "" ]]; then
-                    c_env_display=$(basename "$c_env_file" 2>/dev/null || echo "-")
-                fi
+                # Get env display
+                local c_env_display
+                c_env_display=$(_tsm_get_env_display "$c_env_file" "$c_cwd")
 
                 # Format port (children often don't have ports)
                 [[ -z "$c_port" || "$c_port" == "none" || "$c_port" == "null" || "$c_port" == "0" ]] && c_port="-"
@@ -422,13 +460,11 @@ _tsm_list_processes_from_dir() {
         [[ -n "${proc_data[$parent]}" ]] && continue
 
         # This is an orphan - parent specified but not running
-        IFS='|' read tsm_id pid port start_time env_file service_type comm_type <<< "${proc_data[$name]}"
+        IFS='|' read tsm_id pid port start_time env_file service_type comm_type cwd <<< "${proc_data[$name]}"
 
         local uptime=$(tsm_calculate_uptime "$start_time")
-        local env_display="-"
-        if [[ -n "$env_file" && "$env_file" != "null" && "$env_file" != "" ]]; then
-            env_display=$(basename "$env_file" 2>/dev/null || echo "-")
-        fi
+        local env_display
+        env_display=$(_tsm_get_env_display "$env_file" "$cwd")
         [[ -z "$port" || "$port" == "none" || "$port" == "null" || "$port" == "0" ]] && port="-"
         local type_display="${service_type:-pid}"
 
@@ -477,50 +513,178 @@ _tsm_sweep_stale() {
     fi
 }
 
-# List running services only (PM2-style: read from process directories)
-tsm_list_running() {
-    local filter_user="${1:-}"  # Optional: filter by username
+# Collect process data for sorting/filtering
+# Output format: tsm_id|name|env|pid|port|type|uptime_sec|uptime_display|cwd
+_tsm_collect_processes() {
+    local processes_dir="$1"
 
-    # Sweep stale processes first (silent if none)
+    for process_dir in "$processes_dir"/*/; do
+        [[ -d "$process_dir" ]] || continue
+
+        local name=$(basename "$process_dir")
+        local meta_file="$process_dir/meta.json"
+        [[ -f "$meta_file" ]] || continue
+
+        # Read metadata
+        local metadata
+        metadata=$(jq -r '[
+            (.tsm_id // ""),
+            (.pid // ""),
+            (.port // ""),
+            (.start_time // ""),
+            (.env_file // ""),
+            (.cwd // "")
+        ] | join("|")' "$meta_file" 2>/dev/null)
+        [[ -z "$metadata" ]] && continue
+
+        local tsm_id pid port start_time env_file cwd
+        IFS='|' read -r tsm_id pid port start_time env_file cwd <<< "$metadata"
+
+        # Only include running processes
+        tsm_is_pid_alive "$pid" || continue
+
+        # Get env display
+        local env_display
+        env_display=$(_tsm_get_env_display "$env_file" "$cwd")
+
+        # Calculate uptime
+        local uptime_sec=0 uptime_display="-"
+        if [[ -n "$start_time" && "$start_time" != "null" ]]; then
+            uptime_sec=$(($(date +%s) - start_time))
+            uptime_display=$(tsm_calculate_uptime "$start_time")
+        fi
+
+        # Detect protocol
+        local type_display
+        [[ -z "$port" || "$port" == "none" || "$port" == "null" || "$port" == "0" ]] && port="-"
+        type_display=$(_tsm_detect_protocol "$port" "$pid")
+
+        # Output as pipe-delimited line for sorting
+        echo "$tsm_id|$name|$env_display|$pid|$port|$type_display|$uptime_sec|$uptime_display|$cwd"
+    done
+}
+
+# List running services with optional filter and sort
+# Usage: tsm_list_running [--filter PATTERN] [--sort FIELD] [--reverse]
+# Fields: id, name, env, port, type, uptime
+tsm_list_running() {
+    local filter_pattern="" sort_field="id" reverse=""
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --filter|-f) filter_pattern="$2"; shift 2 ;;
+            --sort|-s)   sort_field="$2"; shift 2 ;;
+            --reverse|-r) reverse="1"; shift ;;
+            --user)      shift 2 ;;  # handled elsewhere
+            *) shift ;;
+        esac
+    done
+
+    # Sweep stale processes first
     _tsm_sweep_stale
 
+    # Collect all process data
+    local -a processes=()
+    if [[ -d "$TSM_PROCESSES_DIR" ]]; then
+        while IFS= read -r line; do
+            [[ -n "$line" ]] && processes+=("$line")
+        done < <(_tsm_collect_processes "$TSM_PROCESSES_DIR")
+    fi
+
+    # Apply filter if specified
+    if [[ -n "$filter_pattern" ]]; then
+        local -a filtered=()
+        for proc in "${processes[@]}"; do
+            if [[ "$proc" =~ $filter_pattern ]]; then
+                filtered+=("$proc")
+            fi
+        done
+        processes=("${filtered[@]}")
+    fi
+
+    # Sort by field
+    local sort_key
+    case "$sort_field" in
+        id)     sort_key=1 ;;
+        name)   sort_key=2 ;;
+        env)    sort_key=3 ;;
+        port)   sort_key=5 ;;
+        type)   sort_key=6 ;;
+        uptime) sort_key=7 ;;  # sort by seconds for accurate ordering
+        *)      sort_key=1 ;;
+    esac
+
+    local sort_numeric=""
+    local sort_reverse=""
+    [[ "$sort_field" == "id" || "$sort_field" == "port" || "$sort_field" == "uptime" ]] && sort_numeric="-n"
+    [[ -n "$reverse" ]] && sort_reverse="-r"
+
+    # Sort and print
     print_table_header
 
-    local found_running=false
-
-    # Multi-user support: scan all users if enabled, or just current user
-    if [[ $TSM_MULTI_USER_ENABLED -eq 1 ]]; then
-        # Multi-user mode: scan all user homes
-        while IFS= read -r processes_dir; do
-            local owner=$(tsm_get_instance_owner "$processes_dir")
-
-            # Apply user filter if specified
-            if [[ -n "$filter_user" && "$filter_user" != "$owner" ]]; then
-                continue
-            fi
-
-            if _tsm_list_processes_from_dir "$processes_dir" "$owner"; then
-                found_running=true
-            fi
-        done < <(tsm_get_all_process_dirs)
-    else
-        # Single-user mode: only current user's processes
-        if [[ -d "$TSM_PROCESSES_DIR" ]]; then
-            if _tsm_list_processes_from_dir "$TSM_PROCESSES_DIR" ""; then
-                found_running=true
-            fi
-        fi
-    fi
-
-    if [[ "$found_running" == "false" ]]; then
+    if [[ ${#processes[@]} -eq 0 ]]; then
         echo ""
-        if [[ -n "$filter_user" ]]; then
-            echo "No running services found for user '$filter_user'."
-        else
-            echo "No running services found."
-            echo "Start services with: tsm start <service-name>"
-        fi
+        echo "No running services found."
+        echo "Start services with: tsm start <service-name>"
+        return
     fi
+
+    # Sort processes
+    local sorted
+    sorted=$(printf '%s\n' "${processes[@]}" | sort -t'|' -k"${sort_key},${sort_key}" $sort_numeric $sort_reverse)
+
+    # Print each process
+    while IFS='|' read -r tsm_id name env_display pid port type_display uptime_sec uptime_display cwd; do
+        _tsm_print_process_row "$tsm_id" "$name" "$env_display" "$pid" "$port" "$type_display" "$uptime_display" ""
+    done <<< "$sorted"
+}
+
+# TQL-based list with natural language-like queries
+# Usage: tsm_list_tql "env=tetra sort:uptime limit:5"
+#        tsm_list_tql "port>8000 sort:port:desc"
+#        tsm_list_tql "last:1h sort:uptime"
+tsm_list_tql() {
+    local query="$1"
+
+    # Source TQL adapter
+    local tql_adapter="$TETRA_SRC/bash/tql/adapters/tsm.sh"
+    if [[ ! -f "$tql_adapter" ]]; then
+        echo "Error: TQL adapter not found at $tql_adapter" >&2
+        return 1
+    fi
+    source "$tql_adapter"
+
+    # Collect all processes in pipe-delimited format
+    local processes
+    processes=$(_tsm_collect_processes "$TSM_PROCESSES_DIR")
+
+    if [[ -z "$processes" ]]; then
+        print_table_header
+        echo ""
+        echo "No running services found."
+        echo "Start services with: tsm start <service-name>"
+        return
+    fi
+
+    # Apply TQL query
+    local filtered
+    filtered=$(echo "$processes" | tql_tsm_query "$query")
+
+    if [[ -z "$filtered" ]]; then
+        print_table_header
+        echo ""
+        echo "No services match query: $query"
+        return
+    fi
+
+    # Print header and results
+    print_table_header
+
+    while IFS='|' read -r tsm_id name env_display pid port type_display uptime_sec uptime_display cwd; do
+        [[ -z "$tsm_id" ]] && continue
+        _tsm_print_process_row "$tsm_id" "$name" "$env_display" "$pid" "$port" "$type_display" "$uptime_display" ""
+    done <<< "$filtered"
 }
 
 # List available services - delegates to tetra_tsm_list_services()
@@ -718,12 +882,18 @@ tsm_list_pwd() {
             local meta_file="$process_dir/meta.json"
             [[ -f "$meta_file" ]] || continue
 
-            # Read all metadata in one jq call
+            # Read all metadata in one jq call using | delimiter
             local metadata
-            metadata=$(jq -r '[.tsm_id, .pid, .start_time, .interpreter, .cwd] | @tsv' "$meta_file" 2>/dev/null)
+            metadata=$(jq -r '[
+                (.tsm_id // ""),
+                (.pid // ""),
+                (.start_time // ""),
+                (.interpreter // ""),
+                (.cwd // "")
+            ] | join("|")' "$meta_file" 2>/dev/null)
             [[ -z "$metadata" ]] && continue
 
-            read tsm_id pid start_time interpreter cwd <<< "$metadata"
+            IFS='|' read -r tsm_id pid start_time interpreter cwd <<< "$metadata"
 
             # Verify process is still running
             if tsm_is_pid_alive "$pid"; then
@@ -798,13 +968,20 @@ tsm_list_tree() {
         local meta_file="$process_dir/meta.json"
         [[ -f "$meta_file" ]] || continue
 
-        # Read metadata
+        # Read metadata using | delimiter
         local metadata
-        metadata=$(jq -r '[.tsm_id, .pid, .port, .parent, .comm_type, .start_time] | @tsv' "$meta_file" 2>/dev/null)
+        metadata=$(jq -r '[
+            (.tsm_id // ""),
+            (.pid // ""),
+            (.port // ""),
+            (.parent // ""),
+            (.comm_type // ""),
+            (.start_time // "")
+        ] | join("|")' "$meta_file" 2>/dev/null)
         [[ -z "$metadata" ]] && continue
 
         local tsm_id pid port parent_name comm_type start_time
-        read tsm_id pid port parent_name comm_type start_time <<< "$metadata"
+        IFS='|' read -r tsm_id pid port parent_name comm_type start_time <<< "$metadata"
 
         # Only include running processes
         if ! tsm_is_pid_alive "$pid"; then

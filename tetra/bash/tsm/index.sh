@@ -169,7 +169,18 @@ _tsm_completion() {
             COMPREPLY=($(compgen -W "list detailed scan overview status validate set remove allocate import export conflicts env json" -- "$cur"))
             ;;
         list|ls)
-            COMPREPLY=($(compgen -W "running available all pwd -l --long -a --all -av help" -- "$cur"))
+            if [[ "$prev" == "--sort" || "$prev" == "-s" ]]; then
+                COMPREPLY=($(compgen -W "id name env port type uptime" -- "$cur"))
+            elif [[ "$prev" == "--filter" || "$prev" == "-f" ]]; then
+                # Complete with running process names as filter suggestions
+                local processes=$(tsm list 2>/dev/null | grep -E "^\s*[0-9]+" | awk '{print $2}' 2>/dev/null || echo "")
+                COMPREPLY=($(compgen -W "$processes" -- "$cur"))
+            elif [[ "$prev" == "--query" || "$prev" == "-q" ]]; then
+                # Suggest common TQL patterns
+                COMPREPLY=($(compgen -W "env= name~ port> type= sort:uptime sort:port last:1h last:1d limit:5" -- "$cur"))
+            else
+                COMPREPLY=($(compgen -W "running available all pwd -l --long -a --all -av -p --ports tree --sort -s --filter -f --reverse -r --query -q help" -- "$cur"))
+            fi
             ;;
         daemon)
             COMPREPLY=($(compgen -W "install enable start stop status logs disable uninstall help" -- "$cur"))

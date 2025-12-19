@@ -81,16 +81,39 @@ tsm() {
             ;;
         list|ls)
             # Route to list functions in organized structure
-            # Handle --user filter (root-only)
-            local filter_user=""
-            if [[ "$1" == "--user" ]]; then
-                filter_user="$2"
-                shift 2
-            fi
+            # Collect options for running list
+            local -a list_opts=()
+            local subcommand=""
+            local tql_query=""
 
-            case "${1:-running}" in
+            while [[ $# -gt 0 ]]; do
+                case "$1" in
+                    --user)      list_opts+=("$1" "$2"); shift 2 ;;
+                    --sort|-s)   list_opts+=("--sort" "$2"); shift 2 ;;
+                    --filter|-f) list_opts+=("--filter" "$2"); shift 2 ;;
+                    --reverse|-r) list_opts+=("--reverse"); shift ;;
+                    --query|-q)  tql_query="$2"; shift 2 ;;
+                    -*)
+                        # Check if it's a subcommand flag
+                        case "$1" in
+                            -av|--all-verbose|-a|--all|-l|--long|-p|--ports) subcommand="$1"; shift ;;
+                            *) tsm_error "Unknown option: $1"; return 1 ;;
+                        esac
+                        ;;
+                    *)
+                        [[ -z "$subcommand" ]] && subcommand="$1"
+                        shift
+                        ;;
+                esac
+            done
+
+            case "${subcommand:-running}" in
                 running|"")
-                    tsm_list_running "$filter_user"
+                    if [[ -n "$tql_query" ]]; then
+                        tsm_list_tql "$tql_query"
+                    else
+                        tsm_list_running "${list_opts[@]}"
+                    fi
                     ;;
                 -av|--all-verbose)
                     tetra_tsm_list_services -v
@@ -111,24 +134,42 @@ tsm() {
                     tsm_list_tree
                     ;;
                 help)
-                    echo "Usage: tsm list [running|available|all|pwd|-l|-p|tree] [--user <username>]"
+                    echo "Usage: tsm list [running|available|pwd|-l|-p|tree] [OPTIONS]"
                     echo ""
-                    echo "Options:"
+                    echo "Views:"
                     echo "  running    - Show only running processes (default)"
                     echo "  -a, --all  - Show all service definitions (compact)"
-                    echo "  -av        - Show all service definitions (verbose, multi-line)"
+                    echo "  -av        - Show all service definitions (verbose)"
                     echo "  pwd        - Show running processes with working directory"
-                    echo "  -l         - Show detailed/long format with CPU, memory, paths"
-                    echo "  -p, ports  - Show port relationships (● bind ⊙ multicast → send-to)"
+                    echo "  -l         - Show detailed/long format"
+                    echo "  -p, ports  - Show port relationships"
                     echo "  tree       - Show process hierarchy as tree"
+                    echo ""
+                    echo "Filter & Sort (for running view):"
+                    echo "  -f, --filter PATTERN  - Filter by regex pattern"
+                    echo "  -s, --sort FIELD      - Sort by: id, name, env, port, type, uptime"
+                    echo "  -r, --reverse         - Reverse sort order"
+                    echo ""
+                    echo "TQL Query (advanced):"
+                    echo "  -q, --query QUERY     - Natural language-like query"
+                    echo ""
+                    echo "  Filters:   env=tetra, name~midi, port>8000, type!=udp"
+                    echo "  Sort:      sort:uptime, sort:port:desc"
+                    echo "  Limit:     limit:10, head:5, tail:3, first, last"
+                    echo "  Temporal:  last:7d, last:1h, since:monday, older:30m"
+                    echo ""
+                    echo "  Examples:"
+                    echo "    tsm ls -q 'env=tetra sort:uptime'"
+                    echo "    tsm ls -q 'port>8000 limit:5'"
+                    echo "    tsm ls -q 'last:1h sort:uptime:desc'"
                     if [[ $TSM_MULTI_USER_ENABLED -eq 1 ]]; then
                         echo ""
-                        echo "Multi-user options:"
+                        echo "Multi-user:"
                         echo "  --user <username>  - Filter processes by username"
                     fi
                     ;;
                 *)
-                    tsm_error "Unknown option: $1"
+                    tsm_error "Unknown subcommand: $subcommand"
                     echo "Usage: tsm list [running|-a|-av|pwd|-l|-p|tree]"
                     ;;
             esac
