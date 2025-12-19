@@ -80,47 +80,9 @@ _org_is_dirty() {
 # VALIDATION
 # =============================================================================
 
-# Basic TOML syntax check (no external dependencies)
+# TOML syntax check - delegates to shared helper
 _org_build_validate_toml() {
-    local file="$1"
-    local errors=0
-    local line_num=0
-
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        ((line_num++))
-
-        # Skip empty lines and comments
-        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-
-        # Section headers: [section] or [section.subsection]
-        if [[ "$line" =~ ^\[.*\]$ ]]; then
-            local sect="${line#[}"
-            sect="${sect%]}"
-            if [[ ! "$sect" =~ ^[a-zA-Z_][a-zA-Z0-9_.-]*$ ]]; then
-                echo "  Line $line_num: Invalid section name: $sect" >&2
-                ((errors++))
-            fi
-            continue
-        fi
-
-        # Key = value pairs
-        if [[ "$line" =~ ^[[:space:]]*[a-zA-Z_\"][a-zA-Z0-9_\"@.-]*[[:space:]]*= ]]; then
-            continue
-        fi
-
-        # Continuation lines (arrays, multiline strings, inline tables)
-        if [[ "$line" =~ ^[[:space:]]*[\]\}\"\'] ]] || [[ "$line" =~ ^[[:space:]]*[0-9] ]]; then
-            continue
-        fi
-
-        # Unrecognized
-        if [[ ! "$line" =~ ^[[:space:]]*$ ]]; then
-            echo "  Line $line_num: Unrecognized: $line" >&2
-            ((errors++))
-        fi
-    done < "$file"
-
-    return $errors
+    _org_validate_toml_syntax "$1"
 }
 
 # Extract all section names from a TOML file (uses shared helper)

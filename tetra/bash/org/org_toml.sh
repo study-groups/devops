@@ -207,66 +207,25 @@ org_toml_edit() {
 # VALIDATION
 # =============================================================================
 
-# Basic TOML validation
+# TOML validation with required section checks
 org_toml_validate() {
     local toml=$(org_toml_path) || { echo "No active org" >&2; return 1; }
-    local errors=0
 
     echo "Validating: $toml"
     echo ""
 
-    # Check for basic syntax issues
-    local line_num=0
-    local in_multiline=false
-
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        ((line_num++))
-
-        # Skip empty lines and comments
-        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-
-        # Check section headers
-        if [[ "$line" =~ ^\[.*\]$ ]]; then
-            # Valid section header
-            local sect="${line#[}"
-            sect="${sect%]}"
-            if [[ ! "$sect" =~ ^[a-zA-Z_][a-zA-Z0-9_.-]*$ ]]; then
-                echo "Line $line_num: Invalid section name: $sect"
-                ((errors++))
-            fi
-            continue
-        fi
-
-        # Check key=value pairs
-        if [[ "$line" =~ ^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*= ]]; then
-            # Basic key=value, OK
-            continue
-        fi
-
-        # Check for continuation of previous value (arrays, etc)
-        if [[ "$line" =~ ^[[:space:]]*[\]\}] ]] || [[ "$line" =~ ^[[:space:]]*\" ]]; then
-            continue
-        fi
-
-        # Unrecognized line
-        if [[ ! "$line" =~ ^[[:space:]]*$ ]]; then
-            echo "Line $line_num: Unrecognized: $line"
-            ((errors++))
-        fi
-
-    done < "$toml"
+    local errors=0
+    _org_validate_toml_syntax "$toml" || errors=$?
 
     # Check required sections
-    local sections=$(org_toml_sections)
-    if ! echo "$sections" | grep -q '^org$'; then
-        echo "Missing required section: [org]"
+    if ! grep -q '^\[org\]' "$toml"; then
+        echo "Missing required section: [org]" >&2
         ((errors++))
     fi
 
     echo ""
     if [[ $errors -eq 0 ]]; then
         echo "OK - No errors found"
-        return 0
     else
         echo "ERRORS: $errors"
         return 1

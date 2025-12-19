@@ -23,6 +23,44 @@ _org_extract_sections() {
     grep -oE '^\[[^]]+\]' "$file" | tr -d '[]'
 }
 
+# Core TOML syntax validation - returns error count
+# Usage: _org_validate_toml_syntax <file>
+_org_validate_toml_syntax() {
+    local file="$1"
+    local errors=0
+    local line_num=0
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        ((line_num++))
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+
+        # Section headers
+        if [[ "$line" =~ ^\[.*\]$ ]]; then
+            local sect="${line#[}"; sect="${sect%]}"
+            if [[ ! "$sect" =~ ^[a-zA-Z_][a-zA-Z0-9_.-]*$ ]]; then
+                echo "Line $line_num: Invalid section: $sect" >&2
+                ((errors++))
+            fi
+            continue
+        fi
+
+        # Key=value pairs (including quoted keys)
+        [[ "$line" =~ ^[[:space:]]*[a-zA-Z_\"][a-zA-Z0-9_\"@.-]*[[:space:]]*= ]] && continue
+
+        # Continuation lines
+        [[ "$line" =~ ^[[:space:]]*[\]\}\"\'] ]] && continue
+        [[ "$line" =~ ^[[:space:]]*[0-9] ]] && continue
+
+        # Unrecognized
+        if [[ ! "$line" =~ ^[[:space:]]*$ ]]; then
+            echo "Line $line_num: Unrecognized: $line" >&2
+            ((errors++))
+        fi
+    done < "$file"
+
+    return $errors
+}
+
 # Source dependencies
 source "$ORG_SRC/org_toml.sh"
 source "$ORG_SRC/org_env.sh"
@@ -602,4 +640,4 @@ complete -F _org_complete org
 
 export ORG_NO_ACTIVE
 export -f org org_active org_list org_names org_switch org_create org_alias org_unalias
-export -f _org_extract_sections _org_export_env_vars
+export -f _org_extract_sections _org_validate_toml_syntax _org_export_env_vars
