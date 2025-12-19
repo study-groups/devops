@@ -1,0 +1,167 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "tetra-deploy.toml Schema",
+  "description": "Deployment configuration for a project directory. Lives in repo alongside env/ directory.",
+  "version": "1.0.0",
+  "type": "object",
+  "required": ["deploy"],
+  "properties": {
+    "deploy": {
+      "type": "object",
+      "required": ["name", "type", "user", "cwd"],
+      "description": "Core deployment configuration",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Deployment name (used for tsm service name)"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["static", "node", "python", "docker"],
+          "description": "Deployment type determines how the app is served"
+        },
+        "user": {
+          "type": "string",
+          "description": "System user to run as (e.g., www-data, node, app)"
+        },
+        "cwd": {
+          "type": "string",
+          "description": "Working directory on remote server (absolute path)"
+        },
+        "group": {
+          "type": "string",
+          "description": "System group (defaults to user)"
+        }
+      }
+    },
+    "env": {
+      "type": "object",
+      "description": "Environment variable requirements. Validated against env/*.env files.",
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Variables that must be defined"
+        },
+        "optional": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Variables that may be defined"
+        }
+      }
+    },
+    "hooks": {
+      "type": "object",
+      "description": "Deployment lifecycle hooks (run on remote)",
+      "properties": {
+        "pre_deploy": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Commands before deployment (build, test)"
+        },
+        "post_deploy": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Commands after deployment (migrate, restart)"
+        },
+        "rollback": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Commands on rollback"
+        }
+      }
+    },
+    "health": {
+      "type": "object",
+      "description": "Health check configuration",
+      "properties": {
+        "check": {
+          "type": "string",
+          "description": "Command to verify deployment succeeded"
+        },
+        "timeout": {
+          "type": "integer",
+          "default": 30,
+          "description": "Seconds to wait for health check"
+        },
+        "retries": {
+          "type": "integer",
+          "default": 3,
+          "description": "Number of health check attempts"
+        }
+      }
+    },
+    "tsm": {
+      "type": "object",
+      "description": "TSM service configuration (for node/python types)",
+      "properties": {
+        "service": {
+          "type": "string",
+          "description": "TSM service name (defaults to deploy.name)"
+        },
+        "port": {
+          "type": "integer",
+          "description": "Port to listen on (tsm allocates if not specified)"
+        },
+        "start": {
+          "type": "string",
+          "description": "Start command (e.g., 'node dist/server.js')"
+        },
+        "env_file": {
+          "type": "string",
+          "description": "Relative path to env file (defaults to env/$ENV.env)"
+        }
+      }
+    },
+    "static": {
+      "type": "object",
+      "description": "Static site configuration (for static type)",
+      "properties": {
+        "root": {
+          "type": "string",
+          "default": ".",
+          "description": "Document root relative to cwd"
+        },
+        "index": {
+          "type": "string",
+          "default": "index.html",
+          "description": "Index file"
+        },
+        "try_files": {
+          "type": "string",
+          "description": "Nginx try_files directive (for SPA routing)"
+        }
+      }
+    },
+    "nginx": {
+      "type": "object",
+      "description": "Nginx configuration overrides",
+      "properties": {
+        "server_name": {
+          "type": "string",
+          "description": "Override domain (normally from target)"
+        },
+        "ssl": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable SSL (certbot)"
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+              "path": { "type": "string" },
+              "proxy_pass": { "type": "string" },
+              "root": { "type": "string" },
+              "try_files": { "type": "string" }
+            }
+          },
+          "description": "Additional location blocks"
+        }
+      }
+    }
+  }
+}
