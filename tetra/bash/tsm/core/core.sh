@@ -77,13 +77,9 @@ if declare -f tetra_tsm_setup >/dev/null; then
     export -f tetra_tsm_setup
 fi
 
-# Helpers module
-# Note: _tsm_get_next_id removed - replaced by tetra_tsm_get_next_id in utils.sh
+# Validation module (from validation.sh)
 if declare -f _tsm_validate_script >/dev/null; then
     export -f _tsm_validate_script
-fi
-if declare -f _tsm_generate_process_name >/dev/null; then
-    export -f _tsm_generate_process_name
 fi
 
 # Files module

@@ -68,38 +68,24 @@ doctor_info() {
 }
 
 # Truncate string with ellipsis in middle to fit width
-# Uses TDS tds_truncate_middle if available (ANSI-aware)
+# Delegates to TDS tds_truncate_middle (ANSI-aware) or uses simple fallback
 doctor_truncate_middle() {
     local str="$1"
     local max_width="${2:-40}"
 
-    # Use TDS if available (ANSI-aware)
+    # TDS is sourced above, use it directly
     if declare -f tds_truncate_middle >/dev/null 2>&1; then
         tds_truncate_middle "$str" "$max_width"
         return
     fi
 
-    # Fallback: simple truncation
-    # If string fits, return as-is
+    # Simple fallback if TDS not available
     if [[ ${#str} -le $max_width ]]; then
         echo "$str"
-        return
+    else
+        local side=$(( (max_width - 3) / 2 ))
+        echo "${str:0:$side}...${str: -$side}"
     fi
-
-    # Calculate how much to show on each side (leave 3 chars for "...")
-    local side_width=$(( (max_width - 3) / 2 ))
-    local start_width=$side_width
-    local end_width=$side_width
-
-    # If odd number, give extra char to end
-    if [[ $(( (max_width - 3) % 2 )) -eq 1 ]]; then
-        end_width=$((end_width + 1))
-    fi
-
-    # Extract start and end, join with ellipsis
-    local start="${str:0:$start_width}"
-    local end="${str: -$end_width}"
-    echo "${start}...${end}"
 }
 
 # Check if lsof is available

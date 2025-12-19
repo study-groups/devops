@@ -119,11 +119,7 @@ tsm_processes_to_json() {
         }'
 }
 
-# Legacy wrapper - delegates to platform.sh
-# Use tsm_get_setsid() directly for new code
-tetra_tsm_get_setsid() {
-    tsm_get_setsid
-}
+# Note: tetra_tsm_get_setsid() removed - use tsm_get_setsid() from platform.sh directly
 
 # Thread-safe ID allocation - SINGLE SOURCE OF TRUTH
 # Uses flock if available, falls back to mkdir-based locking on macOS
@@ -331,6 +327,59 @@ tetra_tsm_resolve_to_id() {
     esac
 }
 
+# Resolve input (name, partial name, or ID) to process NAME with fuzzy matching
+# Only matches RUNNING processes by default
+tetra_tsm_resolve_to_name() {
+    local input="$1"
+    local include_stopped="${2:-false}"  # Set to "true" to include stopped processes
+
+    # Numeric input = TSM ID -> convert to name
+    if [[ "$input" =~ ^[0-9]+$ ]]; then
+        tetra_tsm_id_to_name "$input"
+        return $?
+    fi
+
+    # Exact name match (check if running)
+    if [[ -d "$TSM_PROCESSES_DIR/$input" ]]; then
+        if [[ "$include_stopped" == "true" ]] || tetra_tsm_is_running "$input"; then
+            echo "$input"
+            return 0
+        fi
+    fi
+
+    # Fuzzy matching - find RUNNING processes containing input
+    local matches=()
+    for process_dir in "$TSM_PROCESSES_DIR"/*/; do
+        [[ -d "$process_dir" ]] || continue
+        local name=$(basename "$process_dir")
+        # Skip hidden/reserved dirs
+        [[ "$name" == .* ]] && continue
+        # Only include running processes (unless include_stopped)
+        if [[ "$include_stopped" != "true" ]]; then
+            tetra_tsm_is_running "$name" || continue
+        fi
+        if [[ "$name" == *"$input"* ]]; then
+            matches+=("$name")
+        fi
+    done
+
+    case ${#matches[@]} in
+        0) return 1 ;;
+        1) echo "${matches[0]}"; return 0 ;;
+        *)
+            echo "tsm: ambiguous name '$input', matches:" >&2
+            for name in "${matches[@]}"; do
+                local tsm_id=$(jq -r '.tsm_id // empty' "$TSM_PROCESSES_DIR/$name/meta.json" 2>/dev/null)
+                echo "  ${tsm_id}: ${name}" >&2
+            done
+            echo "tsm: use full name or TSM ID to specify" >&2
+            return 2  # Different exit code for ambiguous
+            ;;
+    esac
+}
+
+export -f tetra_tsm_resolve_to_name
+
 # Check if a PID is alive (simple wrapper for repeated pattern)
 tsm_is_pid_alive() {
     local pid="$1"
@@ -349,11 +398,7 @@ tetra_tsm_is_running() {
     tsm_is_pid_alive "$pid"
 }
 
-# Port discovery - deprecated, use tsm_discover_port() in start.sh instead
-tetra_tsm_extract_port() {
-    echo "DEPRECATED: Use tsm_discover_port() from start.sh" >&2
-    return 1
-}
+# Note: tetra_tsm_extract_port() removed - use tsm_discover_port() from start.sh
 
 # === SECURITY UTILITIES ===
 

@@ -13,12 +13,13 @@ if [[ -z "${TETRA_SRC:-}" ]]; then
 fi
 
 # Define module source directory using strong global
-TSM_CORE_SRC="$TETRA_SRC/bash/tsm/core"
-TSM_SYSTEM_SRC="$TETRA_SRC/bash/tsm/system"
-TSM_SERVICES_SRC="$TETRA_SRC/bash/tsm/services"
-TSM_PROCESS_SRC="$TETRA_SRC/bash/tsm/process"
-TSM_INTEGRATIONS_SRC="$TETRA_SRC/bash/tsm/integrations"
-TSM_SRC="$TETRA_SRC/bash/tsm"
+# TSM_SRC set by includes.sh, fallback for direct sourcing
+TSM_SRC="${TSM_SRC:-$TETRA_SRC/tsm}"
+TSM_CORE_SRC="$TSM_SRC/core"
+TSM_SYSTEM_SRC="$TSM_SRC/system"
+TSM_SERVICES_SRC="$TSM_SRC/services"
+TSM_PROCESS_SRC="$TSM_SRC/process"
+TSM_INTEGRATIONS_SRC="$TSM_SRC/integrations"
 
 # === PHASE 1: CORE FOUNDATION (no dependencies) ===
 source "$TSM_CORE_SRC/platform.sh"       # Platform abstraction (must be first)
@@ -29,7 +30,7 @@ source "$TSM_CORE_SRC/service_paths.sh"  # Service file path resolution
 source "$TSM_CORE_SRC/utils.sh"          # Utility functions
 source "$TSM_CORE_SRC/validation.sh"     # Validation & helpers
 source "$TSM_CORE_SRC/environment.sh"    # Environment handling
-source "$TSM_CORE_SRC/helpers.sh"        # Helper functions
+# helpers.sh removed - functions consolidated into validation.sh and start.sh
 source "$TSM_CORE_SRC/setup.sh"          # Setup utilities
 source "$TSM_CORE_SRC/metadata.sh"       # PM2-style JSON metadata
 source "$TSM_CORE_SRC/hooks.sh"          # Pre-hook system
@@ -38,8 +39,10 @@ source "$TSM_CORE_SRC/port_resolution.sh"  # Port ladder (5-step)
 source "$TSM_CORE_SRC/patterns.sh"       # Pattern management
 source "$TSM_CORE_SRC/start.sh"          # Universal start command
 source "$TSM_CORE_SRC/help.sh"           # Help system (contextual, colored)
+source "$TSM_CORE_SRC/colors.sh"         # Color configuration (TDS module_config)
 
 # === PHASE 2: SYSTEM MODULES (depend on core) ===
+# Note: color_config now handled by TDS module_config via includes.sh
 source "$TSM_SYSTEM_SRC/ports.sh"              # Named port registry
 source "$TSM_SYSTEM_SRC/socket.sh"             # Unix domain sockets
 source "$TSM_SYSTEM_SRC/formatting.sh"         # Output formatting
@@ -71,6 +74,7 @@ source "$TSM_SRC/tsm_repl.sh"              # REPL entry point (bash/repl-based)
 
 # === PHASE 6: INTEGRATION MODULES (depend on core) ===
 source "$TSM_INTEGRATIONS_SRC/nginx.sh"    # Nginx integration
+source "$TSM_INTEGRATIONS_SRC/caddy.sh"    # Caddy integration
 source "$TSM_INTEGRATIONS_SRC/systemd.sh"  # Systemd integration
 source "$TSM_INTEGRATIONS_SRC/tview.sh"    # TView integration functions
 
