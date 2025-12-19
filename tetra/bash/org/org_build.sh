@@ -355,6 +355,27 @@ EOF
         echo "  20-storage.toml        (exists)"
     fi
 
+    if [[ ! -f "$sections_dir/25-pdata.toml" ]]; then
+        cat > "$sections_dir/25-pdata.toml" << EOF
+# PData - Project Data organization
+# Used by tdocs for project/subject context
+# Safe from nh_bridge (only touches 10-infrastructure.toml)
+
+[pdata]
+enabled = true
+# path defaults to \$TETRA_DIR/orgs/$name/pd
+EOF
+        echo "  25-pdata.toml          [pdata]"
+
+        # Create pd/ directory structure
+        local pd_dir="$org_dir/pd"
+        mkdir -p "$pd_dir/data/projects"
+        mkdir -p "$pd_dir/config"
+        mkdir -p "$pd_dir/cache"
+    else
+        echo "  25-pdata.toml          (exists)"
+    fi
+
     if [[ ! -f "$sections_dir/30-resources.toml" ]]; then
         cat > "$sections_dir/30-resources.toml" << EOF
 # Resources - application-specific assets

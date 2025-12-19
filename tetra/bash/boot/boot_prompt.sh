@@ -4,13 +4,18 @@
 
 # --- Interactive-Only Setup ---
 if [[ "$-" == *i* ]]; then
-    # Ensure prompt.sh is loaded (safe to source multiple times)
-    if [[ -f "$TETRA_SRC/bash/prompt/prompt.sh" ]]; then
+    # Load TPS (Tetra Prompt System) - the modern prompt module
+    # Falls back to legacy prompt.sh if tps not available
+    if [[ -f "$TETRA_SRC/bash/tps/includes.sh" ]]; then
+        source "$TETRA_SRC/bash/tps/includes.sh"
+    elif [[ -f "$TETRA_SRC/bash/prompt/prompt.sh" ]]; then
         source "$TETRA_SRC/bash/prompt/prompt.sh"
     fi
 
-    # Only set PROMPT_COMMAND if tetra_prompt function exists
-    if declare -f tetra_prompt >/dev/null 2>&1; then
+    # Set PROMPT_COMMAND (tps_prompt preferred, tetra_prompt fallback)
+    if declare -f tps_prompt >/dev/null 2>&1; then
+        PROMPT_COMMAND="tps_prompt"
+    elif declare -f tetra_prompt >/dev/null 2>&1; then
         PROMPT_COMMAND="tetra_prompt"
     fi
 

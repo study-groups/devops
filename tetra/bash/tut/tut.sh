@@ -62,6 +62,9 @@ tut() {
         schema)           _tut_schema "$@" ;;
         extra)            _tut_extra "$@" ;;
 
+        # Context management
+        ctx|context)      tut_ctx "$@" ;;
+
         # Top-level commands
         doctor|d)         _tut_doctor ;;
         version|-v|--version) _tut_version ;;
@@ -141,6 +144,11 @@ _tut_help() {
     echo "  schema      JSON schemas (list, show, edit)"
     echo "  extra       Build extras (list, show)"
     echo
+    echo -e "\033[1;34mCONTEXT\033[0m"
+    echo "  ctx         Manage TUT[org:project:subject] context"
+    echo "  ctx set     Set context (creates PData structure)"
+    echo "  ctx clear   Clear context"
+    echo
     echo -e "\033[1;34mCOMMANDS\033[0m"
     echo "  doctor      Check environment and paths"
     echo "  help        Show help for a topic"
@@ -164,10 +172,11 @@ _tut_help_topic() {
         recording) _tut_recording help ;;
         schema)    _tut_schema help ;;
         extra)     _tut_extra help ;;
+        ctx)       tut_ctx help ;;
         all)       _tut_help_all ;;
         *)
             _tut_error "Unknown topic: $topic"
-            echo "  Try: tut help [source|doc|recording|schema|extra|all]"
+            echo "  Try: tut help [source|doc|recording|schema|extra|ctx|all]"
             return 1
             ;;
     esac

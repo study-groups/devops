@@ -438,6 +438,109 @@ org() {
             esac
             ;;
 
+        # PData - add project data structure to an org
+        pdata)
+            local subcmd="${1:-status}"
+            shift 2>/dev/null || true
+
+            local name="${1:-$(org_active 2>/dev/null)}"
+            [[ "$name" == "none" ]] && name=""
+
+            case "$subcmd" in
+                init|add)
+                    if [[ -z "$name" ]]; then
+                        echo "Usage: org pdata init [org_name]"
+                        return 1
+                    fi
+
+                    local org_dir="$TETRA_DIR/orgs/$name"
+                    [[ ! -d "$org_dir" ]] && { echo "Org not found: $name"; return 1; }
+
+                    local sections_dir="$org_dir/sections"
+                    local pd_dir="$org_dir/pd"
+
+                    echo "PData Init: $name"
+                    echo ""
+
+                    # Create pd/ structure
+                    if [[ ! -d "$pd_dir/data/projects" ]]; then
+                        mkdir -p "$pd_dir/data/projects"
+                        mkdir -p "$pd_dir/config"
+                        mkdir -p "$pd_dir/cache"
+                        echo "Created: $pd_dir/"
+                        echo "  data/projects/"
+                        echo "  config/"
+                        echo "  cache/"
+                    else
+                        echo "Exists:  $pd_dir/"
+                    fi
+
+                    # Create section file if using sections/ structure
+                    if [[ -d "$sections_dir" ]]; then
+                        if [[ ! -f "$sections_dir/25-pdata.toml" ]]; then
+                            cat > "$sections_dir/25-pdata.toml" << EOF
+# PData - Project Data organization
+# Used by tdocs for project/subject context
+# Safe from nh_bridge (only touches 10-infrastructure.toml)
+
+[pdata]
+enabled = true
+# path defaults to \$TETRA_DIR/orgs/$name/pd
+EOF
+                            echo ""
+                            echo "Created: sections/25-pdata.toml"
+                            echo ""
+                            echo "Run 'org build' to update tetra.toml"
+                        else
+                            echo ""
+                            echo "Exists:  sections/25-pdata.toml"
+                        fi
+                    fi
+                    ;;
+
+                status|"")
+                    if [[ -z "$name" ]]; then
+                        echo "No active org. Use: org pdata status <org_name>"
+                        return 1
+                    fi
+
+                    local org_dir="$TETRA_DIR/orgs/$name"
+                    local pd_dir="$org_dir/pd"
+
+                    echo "PData: $name"
+                    echo ""
+
+                    if [[ -d "$pd_dir" ]]; then
+                        echo "Root:     $pd_dir"
+                        local project_count=$(find "$pd_dir/data/projects" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
+                        echo "Projects: $project_count"
+
+                        if [[ $project_count -gt 0 ]]; then
+                            echo ""
+                            for proj_dir in "$pd_dir/data/projects"/*/; do
+                                [[ -d "$proj_dir" ]] || continue
+                                local proj_name=$(basename "${proj_dir%/}")
+                                local subj_count=$(find "$proj_dir" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
+                                printf "  %-20s %d subjects\n" "$proj_name" "$subj_count"
+                            done
+                        fi
+                    else
+                        echo "Not initialized"
+                        echo ""
+                        echo "Run: org pdata init $name"
+                    fi
+                    ;;
+
+                *)
+                    echo "Usage: org pdata <command> [org_name]"
+                    echo ""
+                    echo "Commands:"
+                    echo "  status   Show PData status (default)"
+                    echo "  init     Initialize PData for org"
+                    ;;
+            esac
+            ;;
+
         # SSH - delegate to tkm or use variables directly
         ssh)
             echo "Use shell variables instead:"
@@ -464,9 +567,13 @@ REGULAR USE
   env                List connectors
   ssh root@$dev      Connect using exported variables
 
+PDATA (Project Data)
+  pdata status       Show PData projects/subjects
+  pdata init         Initialize PData for org
+
 ALL COMMANDS
   Orgs      status list switch create init alias unalias
-  Build     sections build import
+  Build     sections build import pdata
   Toml      view section get set edit validate path
   Env       env
 EOF

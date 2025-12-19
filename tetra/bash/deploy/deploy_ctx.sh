@@ -3,6 +3,7 @@
 # Ephemeral state with cross-session persistence
 # Priority: explicit command > env var > saved file
 # TPS prompt only active when context is set
+# Shows as DEPLOY[org:target:env] in prompt
 
 DEPLOY_CTX_FILE="${TETRA_DIR}/deploy/context"
 DEPLOY_TPS_REGISTERED=0
@@ -11,6 +12,7 @@ DEPLOY_TPS_REGISTERED=0
 # TPS INTEGRATION (lazy - only when context active)
 # =============================================================================
 
+# Provider functions (called by TPS)
 _deploy_prompt_org() { echo "${DEPLOY_CTX_ORG:-}"; }
 _deploy_prompt_target() {
     local t="${DEPLOY_CTX_TARGET:-}" p="${DEPLOY_CTX_PIPELINE:-}"
@@ -21,7 +23,18 @@ _deploy_prompt_env() { echo "${DEPLOY_CTX_ENV:-}"; }
 
 _deploy_register_prompt() {
     [[ $DEPLOY_TPS_REGISTERED -eq 1 ]] && return
-    if type tps_register_context &>/dev/null; then
+    if type tps_register_context_line &>/dev/null; then
+        # New multi-context API: register DEPLOY[org:project:subject] line
+        # Color 1 = red (critical operations)
+        tps_register_context_line deploy DEPLOY 10 1
+        tps_register_context org _deploy_prompt_org deploy
+        # Use 'target' which maps to 'project' slot (backward compat alias)
+        tps_register_context target _deploy_prompt_target deploy
+        # Use 'env' which maps to 'subject' slot (backward compat alias)
+        tps_register_context env _deploy_prompt_env deploy
+        DEPLOY_TPS_REGISTERED=1
+    elif type tps_register_context &>/dev/null; then
+        # Legacy single-context API fallback
         tps_register_context org _deploy_prompt_org
         tps_register_context target _deploy_prompt_target
         tps_register_context env _deploy_prompt_env
@@ -31,7 +44,10 @@ _deploy_register_prompt() {
 
 _deploy_unregister_prompt() {
     [[ $DEPLOY_TPS_REGISTERED -eq 0 ]] && return
-    if type tps_unregister_context &>/dev/null; then
+    if type tps_unregister_context_line &>/dev/null; then
+        tps_unregister_context_line deploy
+        DEPLOY_TPS_REGISTERED=0
+    elif type tps_unregister_context &>/dev/null; then
         tps_unregister_context org
         tps_unregister_context target
         tps_unregister_context env

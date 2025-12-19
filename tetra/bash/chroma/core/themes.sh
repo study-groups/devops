@@ -26,6 +26,14 @@ _chroma_init_theme_default() {
         [content.table.cell]='\033[38;5;252m'     # light gray
         [text.primary]='\033[38;5;252m'           # light gray
         [text.secondary]='\033[38;5;245m'         # gray
+        # Pattern tokens
+        [pattern.number]='\033[1;38;5;39m'        # bold cyan (bright)
+        [pattern.topic]='\033[1;38;5;75m'         # bold blue (prominent)
+        [pattern.dash]='\033[38;5;240m'           # dark gray (dim)
+        [pattern.desc]='\033[38;5;252m'           # light gray (readable)
+        [pattern.key]='\033[38;5;114m'            # green (like list)
+        [pattern.value]='\033[38;5;180m'          # amber
+        [pattern.time]='\033[38;5;179m'           # amber
     )
 }
 
@@ -50,6 +58,14 @@ _chroma_init_theme_warm() {
         [content.table.cell]='\033[38;5;223m'     # warm white
         [text.primary]='\033[38;5;223m'           # warm white
         [text.secondary]='\033[38;5;180m'         # amber
+        # Pattern tokens
+        [pattern.number]='\033[1;38;5;214m'       # bold orange
+        [pattern.topic]='\033[1;38;5;208m'        # bold dark orange
+        [pattern.dash]='\033[38;5;94m'            # brown (dim)
+        [pattern.desc]='\033[38;5;223m'           # warm white
+        [pattern.key]='\033[38;5;178m'            # gold
+        [pattern.value]='\033[38;5;180m'          # light amber
+        [pattern.time]='\033[38;5;179m'           # amber
     )
 }
 
@@ -74,6 +90,14 @@ _chroma_init_theme_cool() {
         [content.table.cell]='\033[38;5;189m'     # pale blue
         [text.primary]='\033[38;5;189m'           # pale blue
         [text.secondary]='\033[38;5;146m'         # blue-gray
+        # Pattern tokens
+        [pattern.number]='\033[1;38;5;111m'       # bold light blue
+        [pattern.topic]='\033[1;38;5;147m'        # bold lavender
+        [pattern.dash]='\033[38;5;60m'            # dark purple (dim)
+        [pattern.desc]='\033[38;5;189m'           # pale blue
+        [pattern.key]='\033[38;5;117m'            # sky
+        [pattern.value]='\033[38;5;183m'          # light purple
+        [pattern.time]='\033[38;5;104m'           # purple
     )
 }
 
@@ -98,6 +122,14 @@ _chroma_init_theme_arctic() {
         [content.table.cell]='\033[38;5;195m'     # white ice
         [text.primary]='\033[38;5;195m'           # white ice
         [text.secondary]='\033[38;5;109m'         # steel blue
+        # Pattern tokens
+        [pattern.number]='\033[1;38;5;159m'       # bold ice blue
+        [pattern.topic]='\033[1;38;5;123m'        # bold cyan
+        [pattern.dash]='\033[38;5;30m'            # dark teal (dim)
+        [pattern.desc]='\033[38;5;195m'           # white ice
+        [pattern.key]='\033[38;5;87m'             # turquoise
+        [pattern.value]='\033[38;5;73m'           # teal
+        [pattern.time]='\033[38;5;117m'           # sky
     )
 }
 
@@ -122,6 +154,14 @@ _chroma_init_theme_neutral() {
         [content.table.cell]='\033[38;5;252m'     # light gray
         [text.primary]='\033[38;5;252m'           # light gray
         [text.secondary]='\033[38;5;245m'         # gray
+        # Pattern tokens
+        [pattern.number]='\033[1;38;5;114m'       # bold green
+        [pattern.topic]='\033[1;38;5;150m'        # bold light green
+        [pattern.dash]='\033[38;5;240m'           # dark gray (dim)
+        [pattern.desc]='\033[38;5;252m'           # light gray
+        [pattern.key]='\033[38;5;114m'            # green
+        [pattern.value]='\033[38;5;151m'          # pale green
+        [pattern.time]='\033[38;5;65m'            # olive
     )
 }
 
@@ -146,6 +186,14 @@ _chroma_init_theme_electric() {
         [content.table.cell]='\033[38;5;225m'     # pale pink
         [text.primary]='\033[38;5;225m'           # pale pink
         [text.secondary]='\033[38;5;177m'         # violet
+        # Pattern tokens
+        [pattern.number]='\033[1;38;5;201m'       # bold magenta
+        [pattern.topic]='\033[1;38;5;165m'        # bold purple
+        [pattern.dash]='\033[38;5;54m'            # dark purple (dim)
+        [pattern.desc]='\033[38;5;225m'           # pale pink
+        [pattern.key]='\033[38;5;213m'            # pink
+        [pattern.value]='\033[38;5;171m'          # orchid
+        [pattern.time]='\033[38;5;99m'            # purple
     )
 }
 

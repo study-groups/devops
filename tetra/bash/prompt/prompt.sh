@@ -1,6 +1,48 @@
 # Simple, fast prompt system for tetra
 # Environment variables control behavior - no complex state management
 
+# =============================================================================
+# CONTEXT PROVIDER REGISTRY
+# =============================================================================
+# Fixed slots: org, target, env (in that order)
+# Modules register provider functions that return raw text
+# Prompt system handles coloring
+
+# Provider functions for each slot (empty = no provider)
+declare -g _TETRA_CTX_ORG_PROVIDER=""
+declare -g _TETRA_CTX_TARGET_PROVIDER=""
+declare -g _TETRA_CTX_ENV_PROVIDER=""
+
+# Register a context provider for a slot
+# Usage: tetra_prompt_register <slot> <function_name>
+# Slots: org, target, env
+tetra_prompt_register() {
+    local slot="$1"
+    local func="$2"
+
+    case "$slot" in
+        org)    _TETRA_CTX_ORG_PROVIDER="$func" ;;
+        target) _TETRA_CTX_TARGET_PROVIDER="$func" ;;
+        env)    _TETRA_CTX_ENV_PROVIDER="$func" ;;
+        *)      echo "Unknown slot: $slot (use: org, target, env)" >&2; return 1 ;;
+    esac
+}
+
+# Unregister a context provider
+tetra_prompt_unregister() {
+    local slot="$1"
+    case "$slot" in
+        org)    _TETRA_CTX_ORG_PROVIDER="" ;;
+        target) _TETRA_CTX_TARGET_PROVIDER="" ;;
+        env)    _TETRA_CTX_ENV_PROVIDER="" ;;
+        *)      echo "Unknown slot: $slot" >&2; return 1 ;;
+    esac
+}
+
+# =============================================================================
+# PROMPT CONFIGURATION
+# =============================================================================
+
 # Prompt style: tiny, compact, default, verbose
 export TETRA_PROMPT_STYLE="${TETRA_PROMPT_STYLE:-default}"
 
@@ -158,16 +200,21 @@ _tetra_deploy_ctx_info() {
 }
 
 # Build unified context line: [org:target:env] with distinct colors
-# Always shows all three parts when any context is set
+# Calls registered providers for each slot, colors the results
 _tetra_context_line() {
     [[ "$TETRA_PROMPT_STYLE" == "tiny" ]] && return
 
-    # Get deploy context (all three from DEPLOY_CTX_*)
-    local org="${DEPLOY_CTX_ORG:-}"
-    local target="${DEPLOY_CTX_TARGET:-}"
-    local env="${DEPLOY_CTX_ENV:-}"
+    # Call providers to get raw values
+    local org="" target="" env=""
 
-    # Nothing to show
+    [[ -n "$_TETRA_CTX_ORG_PROVIDER" ]] && \
+        org=$("$_TETRA_CTX_ORG_PROVIDER" 2>/dev/null)
+    [[ -n "$_TETRA_CTX_TARGET_PROVIDER" ]] && \
+        target=$("$_TETRA_CTX_TARGET_PROVIDER" 2>/dev/null)
+    [[ -n "$_TETRA_CTX_ENV_PROVIDER" ]] && \
+        env=$("$_TETRA_CTX_ENV_PROVIDER" 2>/dev/null)
+
+    # Nothing to show if all empty
     [[ -z "$org" && -z "$target" && -z "$env" ]] && return
 
     # Build colored context string: [org:target:env]
@@ -248,9 +295,9 @@ tetra_prompt() {
             local git_info=""
             [[ -n "$git_branch" ]] && git_info=" ${_C_GIT}($git_branch)${_C_RESET}"
 
-            # Two-line prompt: context + path on top, user@host on bottom
+            # Context line above, normal verbose prompt below
             if [[ -n "$context_line" ]]; then
-                PS1="${context_line} ${_C_PATH}\w${_C_RESET}${git_info}\n${info}${_C_USER}\u${_C_RESET}@\h: "
+                PS1="${context_line}\n${_C_PATH}\w${_C_RESET}${git_info}\n${info}${_C_USER}\u${_C_RESET}@\h: "
             else
                 PS1="${_C_PATH}\w${_C_RESET}${git_info}\n${info}${_C_USER}\u${_C_RESET}@\h: "
             fi
@@ -278,11 +325,10 @@ tetra_prompt() {
             local git_info=""
             [[ -n "$git_branch" ]] && git_info=" ${_C_GIT}($git_branch)${_C_RESET}"
 
-            # Two-line prompt when context is set
+            # Context line above, normal prompt below
             if [[ -n "$context_line" ]]; then
-                PS1="${context_line} ${_C_PATH}\W${_C_RESET}${git_info}\n${info}${_C_USER}\u${_C_RESET}@\h: "
+                PS1="${context_line}\n${info}${_C_USER}\u${_C_RESET}@\h:[\W]${git_info}: "
             else
-                # Single line when no context
                 PS1="${info}${_C_USER}\u${_C_RESET}@\h:[\W]${git_info}: "
             fi
             ;;
@@ -355,6 +401,42 @@ _tetra_prompt_status() {
     echo "Deploy: ${TETRA_PROMPT_DEPLOY:-auto}"
 }
 
+# Show registered context providers
+_tetra_prompt_providers() {
+    echo "Context Providers [org:target:env]"
+    echo "==================================="
+    printf "  %-8s %-30s %s\n" "Slot" "Provider" "Value"
+    printf "  %-8s %-30s %s\n" "----" "--------" "-----"
+
+    local org_val="" target_val="" env_val=""
+    if [[ -n "$_TETRA_CTX_ORG_PROVIDER" ]]; then
+        org_val=$("$_TETRA_CTX_ORG_PROVIDER" 2>/dev/null)
+        printf "  %-8s %-30s %s\n" "org" "$_TETRA_CTX_ORG_PROVIDER" "${org_val:-(empty)}"
+    else
+        printf "  %-8s %-30s %s\n" "org" "(none)" "-"
+    fi
+
+    if [[ -n "$_TETRA_CTX_TARGET_PROVIDER" ]]; then
+        target_val=$("$_TETRA_CTX_TARGET_PROVIDER" 2>/dev/null)
+        printf "  %-8s %-30s %s\n" "target" "$_TETRA_CTX_TARGET_PROVIDER" "${target_val:-(empty)}"
+    else
+        printf "  %-8s %-30s %s\n" "target" "(none)" "-"
+    fi
+
+    if [[ -n "$_TETRA_CTX_ENV_PROVIDER" ]]; then
+        env_val=$("$_TETRA_CTX_ENV_PROVIDER" 2>/dev/null)
+        printf "  %-8s %-30s %s\n" "env" "$_TETRA_CTX_ENV_PROVIDER" "${env_val:-(empty)}"
+    else
+        printf "  %-8s %-30s %s\n" "env" "(none)" "-"
+    fi
+
+    # Show what context line would look like
+    if [[ -n "$org_val" || -n "$target_val" || -n "$env_val" ]]; then
+        echo ""
+        echo "  Context: [${org_val:-?}:${target_val:-?}:${env_val:-?}]"
+    fi
+}
+
 # Show prompt color mapping with live theme colors
 _tetra_prompt_colors() {
     local theme="${TDS_ACTIVE_THEME:-default}"
@@ -424,6 +506,9 @@ tp() {
         status|st)
             _tetra_prompt_status
             ;;
+        providers|p)
+            _tetra_prompt_providers
+            ;;
         colors|c)
             _tetra_prompt_colors
             ;;
@@ -435,12 +520,14 @@ Usage:
   tp style {tiny|compact|default|verbose}  - Set prompt style
   tp multiline [on|off]                    - Toggle multiline prompt
   tp toggle {git|python|node|...} [on|off] - Toggle sections
+  tp providers                             - Show context providers
   tp colors                                - Show theme color mapping
   tp status                                - Show current settings
 
-Shortcuts: tp s, tp m, tp t, tp c, tp st
+Shortcuts: tp s, tp m, tp t, tp p, tp c, tp st
 
-Deploy context shown as [org:target:env] when set.
+Context line [org:target:env] built from registered providers.
+Modules register with: tetra_prompt_register <slot> <func>
 EOF
             ;;
         *)

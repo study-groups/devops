@@ -11,7 +11,7 @@
 # =============================================================================
 
 # All org subcommands (longest form only, no aliases)
-_ORG_COMMANDS="status list switch create init build alias unalias view edit section sections get set validate path env import ssh help"
+_ORG_COMMANDS="status list switch create init build alias unalias view edit section sections get set validate path env import pdata ssh help"
 
 # SSH subcommands
 _ORG_SSH_COMMANDS="test copy cmd"
@@ -140,6 +140,12 @@ _org_complete() {
                 return
                 ;;
 
+            # pdata: complete subcommands
+            pdata)
+                COMPREPLY=($(compgen -W "status init" -- "$cur"))
+                return
+                ;;
+
             # alias: second arg is short name (user types), no completion
             alias)
                 return
@@ -218,6 +224,12 @@ _org_complete() {
 
     # Third argument for import nh (org name)
     if [[ $COMP_CWORD -eq 3 && "$cmd" == "import" ]]; then
+        COMPREPLY=($(compgen -W "$(_org_complete_names)" -- "$cur"))
+        return
+    fi
+
+    # Third argument for pdata init/status (org name)
+    if [[ $COMP_CWORD -eq 3 && "$cmd" == "pdata" ]]; then
         COMPREPLY=($(compgen -W "$(_org_complete_names)" -- "$cur"))
         return
     fi

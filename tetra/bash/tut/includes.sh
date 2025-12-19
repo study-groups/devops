@@ -11,6 +11,12 @@ source "$TETRA_SRC/bash/utils/function_helpers.sh"
 # Initialize module with standard tetra conventions
 tetra_module_init_with_alias "tut" "TUT" "generated"
 
+# Source TPS for context integration (if available)
+tetra_source_if_exists "$TETRA_SRC/bash/tps/includes.sh"
+
+# Source context integration (TPS TUT[org:project:subject] line)
+source "$TUT_SRC/tut_ctx.sh"
+
 # Load TDS for colored output (optional, degrades gracefully)
 if [[ -f "$TETRA_SRC/bash/tds/tds.sh" ]]; then
     source "$TETRA_SRC/bash/tds/tds.sh"

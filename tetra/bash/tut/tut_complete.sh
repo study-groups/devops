@@ -16,7 +16,10 @@ _TUT_SCHEMA_VERBS="list show edit"
 _TUT_EXTRA_VERBS="list show"
 
 # Top-level commands (primary only - no aliases or legacy)
-_TUT_COMMANDS="source doc recording schema extra doctor help version ls build serve open"
+_TUT_COMMANDS="source doc recording schema extra ctx doctor help version ls build serve open"
+
+# Context verbs
+_TUT_CTX_VERBS="set org project subject clear status"
 
 # Types
 _TUT_DOC_TYPES="guide reference"
@@ -50,6 +53,40 @@ _tut_complete_recordings() {
     # Complete from recordings/ directory
     if [[ -n "$TUT_DIR" && -d "$TUT_DIR/recordings" ]]; then
         for d in "$TUT_DIR/recordings"/*/; do
+            [[ -d "$d" ]] && basename "$d"
+        done
+    fi
+}
+
+_tut_complete_orgs() {
+    # Complete org names from $TETRA_DIR/orgs/
+    if [[ -n "$TETRA_DIR" && -d "$TETRA_DIR/orgs" ]]; then
+        for d in "$TETRA_DIR/orgs"/*/; do
+            [[ -d "$d" ]] && basename "$d"
+        done
+    fi
+}
+
+_tut_complete_projects() {
+    # Complete project names from current org's PData
+    local org="${TUT_CTX_ORG:-}"
+    [[ -z "$org" ]] && return
+    local projects_dir="$TETRA_DIR/orgs/$org/pd/data/projects"
+    if [[ -d "$projects_dir" ]]; then
+        for d in "$projects_dir"/*/; do
+            [[ -d "$d" ]] && basename "$d"
+        done
+    fi
+}
+
+_tut_complete_subjects() {
+    # Complete subject names from current project
+    local org="${TUT_CTX_ORG:-}"
+    local project="${TUT_CTX_PROJECT:-}"
+    [[ -z "$org" || -z "$project" ]] && return
+    local subjects_dir="$TETRA_DIR/orgs/$org/pd/data/projects/$project"
+    if [[ -d "$subjects_dir" ]]; then
+        for d in "$subjects_dir"/*/; do
             [[ -d "$d" ]] && basename "$d"
         done
     fi
@@ -114,8 +151,11 @@ _tut_complete() {
             extra)
                 COMPREPLY=($(compgen -W "$_TUT_EXTRA_VERBS" -- "$cur"))
                 ;;
+            ctx|context)
+                COMPREPLY=($(compgen -W "$_TUT_CTX_VERBS" -- "$cur"))
+                ;;
             help)
-                COMPREPLY=($(compgen -W "source doc recording schema extra all" -- "$cur"))
+                COMPREPLY=($(compgen -W "source doc recording schema extra ctx all" -- "$cur"))
                 ;;
             # Shortcut completions
             ls)
@@ -207,6 +247,29 @@ _tut_complete() {
             case "$verb" in
                 show)
                     COMPREPLY=($(compgen -W "$_TUT_EXTRAS" -- "$cur"))
+                    ;;
+            esac
+            ;;
+        ctx|context)
+            case "$verb" in
+                set)
+                    # ctx set <org> [project] [subject]
+                    if [[ $COMP_CWORD -eq 3 ]]; then
+                        COMPREPLY=($(compgen -W "$(_tut_complete_orgs)" -- "$cur"))
+                    elif [[ $COMP_CWORD -eq 4 ]]; then
+                        COMPREPLY=($(compgen -W "$(_tut_complete_projects)" -- "$cur"))
+                    elif [[ $COMP_CWORD -eq 5 ]]; then
+                        COMPREPLY=($(compgen -W "$(_tut_complete_subjects)" -- "$cur"))
+                    fi
+                    ;;
+                org)
+                    COMPREPLY=($(compgen -W "$(_tut_complete_orgs)" -- "$cur"))
+                    ;;
+                project|proj)
+                    COMPREPLY=($(compgen -W "$(_tut_complete_projects)" -- "$cur"))
+                    ;;
+                subject|subj)
+                    COMPREPLY=($(compgen -W "$(_tut_complete_subjects)" -- "$cur"))
                     ;;
             esac
             ;;

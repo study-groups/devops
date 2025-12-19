@@ -661,6 +661,11 @@ games() {
             games_search "$@"
             ;;
 
+        # Context (TPS integration)
+        ctx|context)
+            games_ctx "$@"
+            ;;
+
         # Backup/restore
         pak|pack|backup)
             games_pak "$@"
@@ -750,6 +755,11 @@ USAGE
   games pak <game>               Create backup archive
   games unpak <file>             Restore from archive
   games doctor                   Diagnose environment
+
+CONTEXT
+  games ctx                      Show GAMES[org:project:subject] context
+  games ctx set <org> [proj] [s] Set context
+  games ctx clear                Clear context
 
 S3/REMOTE (requires sync module)
   games remote                   List games on S3

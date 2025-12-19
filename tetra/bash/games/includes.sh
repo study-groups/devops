@@ -17,5 +17,13 @@ GAMES_SRC="${TETRA_SRC}/bash/games"
 GAMES_DIR="${TETRA_DIR}/orgs/tetra/games"
 export GAMES_SRC GAMES_DIR
 
+# Source TPS for context integration (if available)
+if [[ -f "$TETRA_SRC/bash/tps/includes.sh" ]]; then
+    source "$TETRA_SRC/bash/tps/includes.sh"
+fi
+
+# Source context integration (TPS GAMES[org:project:subject] line)
+source "$GAMES_SRC/games_ctx.sh"
+
 # Source main module
 source "$GAMES_SRC/games.sh"
