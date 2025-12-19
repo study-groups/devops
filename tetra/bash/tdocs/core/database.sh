@@ -103,7 +103,7 @@ tdoc_db_create() {
     # Get file hash for change detection
     local hash=""
     if [[ -f "$doc_path" ]]; then
-        hash=$(_tdoc_file_hash "$doc_path")
+        hash=$(_tdocs_file_hash "$doc_path")
     fi
 
     # Calculate frontmatter hash (for sync validation)
@@ -120,9 +120,9 @@ tdoc_db_create() {
     # Get dates from file modification time
     local created updated
     if [[ -f "$doc_path" ]]; then
-        local mtime=$(_tdoc_file_mtime "$doc_path")
+        local mtime=$(_tdocs_file_mtime "$doc_path")
         if [[ -n "$mtime" ]]; then
-            created=$(_tdoc_timestamp_to_iso "$mtime")
+            created=$(_tdocs_timestamp_to_iso "$mtime")
             updated="$created"
         else
             # Fallback to current time
@@ -136,11 +136,11 @@ tdoc_db_create() {
     fi
 
     # Convert CSV fields to JSON arrays using helper
-    local tags_json=$(_tdoc_csv_to_json_array "$tags")
-    local implements_json=$(_tdoc_csv_to_json_array "$implements")
-    local integrates_json=$(_tdoc_csv_to_json_array "$integrates")
-    local grounded_in_json=$(_tdoc_csv_to_json_array "$grounded_in")
-    local related_docs_json=$(_tdoc_csv_to_json_array "$related_docs")
+    local tags_json=$(_tdocs_csv_to_json_array "$tags")
+    local implements_json=$(_tdocs_csv_to_json_array "$implements")
+    local integrates_json=$(_tdocs_csv_to_json_array "$integrates")
+    local grounded_in_json=$(_tdocs_csv_to_json_array "$grounded_in")
+    local related_docs_json=$(_tdocs_csv_to_json_array "$related_docs")
 
     # Calculate staleness metrics
     local code_last_changed=""
@@ -152,12 +152,12 @@ tdoc_db_create() {
         for ground_file in "${ground_array[@]}"; do
             ground_file=$(echo "$ground_file" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
             if [[ -f "$ground_file" ]]; then
-                local file_mtime=$(_tdoc_file_mtime "$ground_file" || echo "0")
+                local file_mtime=$(_tdocs_file_mtime "$ground_file" || echo "0")
                 [[ $file_mtime -gt $newest_code ]] && newest_code=$file_mtime
             fi
         done
         if [[ $newest_code -gt 0 ]]; then
-            code_last_changed=$(_tdoc_timestamp_to_iso "$newest_code")
+            code_last_changed=$(_tdocs_timestamp_to_iso "$newest_code")
             # Calculate staleness: if code newer than doc creation, potentially stale
             local doc_time=$timestamp
             if [[ $newest_code -gt $doc_time ]]; then

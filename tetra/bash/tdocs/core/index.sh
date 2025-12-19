@@ -14,7 +14,7 @@ TDOC_HASH_LENGTH=12
 # ============================================================================
 
 # Calculate short hash for file (12 chars)
-# Wrapper around _tdoc_file_hash for backward compatibility
+# Wrapper around _tdocs_file_hash for backward compatibility
 tdoc_hash_file() {
     local file="$1"
 
@@ -23,7 +23,7 @@ tdoc_hash_file() {
         return 1
     fi
 
-    _tdoc_file_hash "$file" 12
+    _tdocs_file_hash "$file" 12
 }
 
 # Calculate hash for frontmatter only (if present)

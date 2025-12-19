@@ -4,9 +4,9 @@
 # Common helper functions for tdocs core
 
 # Convert CSV string to JSON array
-# Usage: _tdoc_csv_to_json_array "tag1,tag2,tag3"
+# Usage: _tdocs_csv_to_json_array "tag1,tag2,tag3"
 # Returns: ["tag1","tag2","tag3"]
-_tdoc_csv_to_json_array() {
+_tdocs_csv_to_json_array() {
     local csv="$1"
 
     # Empty input → empty array
@@ -40,7 +40,7 @@ _tdoc_csv_to_json_array() {
 
 # Get file modification time as Unix timestamp
 # Cross-platform (macOS and Linux)
-_tdoc_file_mtime() {
+_tdocs_file_mtime() {
     local file="$1"
     [[ ! -f "$file" ]] && return 1
 
@@ -50,7 +50,7 @@ _tdoc_file_mtime() {
 
 # Convert Unix timestamp to ISO 8601 format
 # Cross-platform
-_tdoc_timestamp_to_iso() {
+_tdocs_timestamp_to_iso() {
     local timestamp="$1"
 
     # Try macOS date first, then Linux date
@@ -60,9 +60,9 @@ _tdoc_timestamp_to_iso() {
 }
 
 # Calculate SHA256 hash of file
-# Usage: _tdoc_file_hash <file> [length]
+# Usage: _tdocs_file_hash <file> [length]
 #   length: number of chars to return (default: 64 = full hash, use 12 for short)
-_tdoc_file_hash() {
+_tdocs_file_hash() {
     local file="$1"
     local length="${2:-64}"
 
@@ -78,7 +78,7 @@ _tdoc_file_hash() {
 }
 
 # Export utilities
-export -f _tdoc_csv_to_json_array
-export -f _tdoc_file_mtime
-export -f _tdoc_timestamp_to_iso
-export -f _tdoc_file_hash
+export -f _tdocs_csv_to_json_array
+export -f _tdocs_file_mtime
+export -f _tdocs_timestamp_to_iso
+export -f _tdocs_file_hash

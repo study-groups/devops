@@ -288,14 +288,14 @@ _tdoc_cache_is_valid() {
 
     [[ ! -f "$cache_file" ]] && return 1
 
-    # Get cache timestamp (use canonical _tdoc_file_mtime from utils.sh)
-    local cache_time=$(_tdoc_file_mtime "$cache_file" || echo 0)
+    # Get cache timestamp (use canonical _tdocs_file_mtime from utils.sh)
+    local cache_time=$(_tdocs_file_mtime "$cache_file" || echo 0)
 
     # Find newest .meta file
     local newest_meta=0
     for meta_file in "$TDOCS_DB_DIR"/*.meta; do
         [[ ! -f "$meta_file" ]] && continue
-        local meta_time=$(_tdoc_file_mtime "$meta_file" || echo 0)
+        local meta_time=$(_tdocs_file_mtime "$meta_file" || echo 0)
         [[ $meta_time -gt $newest_meta ]] && newest_meta=$meta_time
     done
 
