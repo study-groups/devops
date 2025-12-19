@@ -19,17 +19,25 @@ if ! declare -F tdocs_ls_docs >/dev/null 2>&1; then
     source "$TDOCS_SRC/tdocs.sh"
 fi
 
-# Always load tdocs tokens (in case tdocs was already loaded before tokens were added)
-source "$TDOCS_SRC/ui/tdocs_tokens.sh"
+# Load tdocs tokens if not already loaded
+if ! declare -F tdocs_prompt_color >/dev/null 2>&1; then
+    source "$TDOCS_SRC/ui/tdocs_tokens.sh"
+fi
 
-# Load color explorer (needed for colors command)
-source "$TDOCS_SRC/ui/color_explorer.sh"
+# Load color explorer if not already loaded
+if ! declare -F tdocs_color_explorer >/dev/null 2>&1; then
+    source "$TDOCS_SRC/ui/color_explorer.sh"
+fi
 
-# Load colored help system
-source "$TDOCS_SRC/core/help.sh"
+# Load colored help system if not already loaded
+if ! declare -F tdocs_help_main >/dev/null 2>&1; then
+    source "$TDOCS_SRC/core/help.sh"
+fi
 
-# Load REPL command handlers (extracted for maintainability)
-source "$TDOCS_SRC/repl_handlers.sh"
+# Load REPL command handlers
+if ! declare -F _tdocs_handle_filter >/dev/null 2>&1; then
+    source "$TDOCS_SRC/repl_handlers.sh"
+fi
 
 # REPL state (filters, context)
 declare -a TDOCS_REPL_MODULES       # Array: (rag midi) or (*) or ("")

@@ -23,11 +23,8 @@ source "$TDOCS_SRC/tdocs_ctx.sh"
 source "$TDOCS_SRC/ui/colors.sh"
 source "$TDOCS_SRC/ui/color_explorer.sh"
 
-# Source core tdocs functionality
+# Source core tdocs functionality (includes all core modules)
 source "$TDOCS_SRC/tdocs.sh"
-
-# Source publish module
-source "$TDOCS_SRC/core/publish.sh"
 
 # Source tab completion
 source "$TDOCS_SRC/tdocs_completion.sh"
