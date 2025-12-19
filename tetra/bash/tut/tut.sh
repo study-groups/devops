@@ -256,7 +256,7 @@ _tut_doctor() {
     _tut_doctor_file "reference" "$TUT_SRC/schemas/reference.schema.json"
 
     _tut_section "BUILD EXTRAS"
-    _tut_doctor_extra "design-tokens" "$TUT_SRC/templates/design-tokens.js" "?design=true"
+    _tut_doctor_extra "design-tokens" "$TUT_SRC/dist/tut.js" "?design=true"
     _tut_doctor_extra "mindmap" "$TUT_SRC/templates/mindmap/mindmap.js" "content block"
     _tut_doctor_extra "tds" "$TETRA_SRC/bash/tds/tds.sh" "metadata.theme.tds"
 

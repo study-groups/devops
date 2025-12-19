@@ -131,7 +131,7 @@ _tut_extra_show_design_tokens() {
     _tut_section "FILES"
     _tut_path "CSS" "$TUT_SRC/templates/design-tokens.css"
     _tut_path "HTML" "$TUT_SRC/templates/design-tokens.html"
-    _tut_path "JS" "$TUT_SRC/templates/design-tokens.js"
+    _tut_path "JS" "$TUT_SRC/dist/tut.js"
 
     _tut_section "USAGE"
     echo "  # View any tut doc in design mode:"

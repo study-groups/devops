@@ -484,11 +484,11 @@ _html_render_javascript() {
         cat "$TUT_SRC/templates/mindmap/mindmap.js"
     fi
 
-    # Design token editor script
-    if [[ "$include_design_tokens" == "true" && -f "$TUT_SRC/templates/design-tokens.js" ]]; then
+    # Design token editor script (bundled from src/)
+    if [[ "$include_design_tokens" == "true" && -f "$TUT_SRC/dist/tut.js" ]]; then
         echo ""
-        echo "        // Design Token Editor"
-        cat "$TUT_SRC/templates/design-tokens.js"
+        echo "        // TUT Design Token System"
+        cat "$TUT_SRC/dist/tut.js"
     fi
 
     echo "    </script>"
