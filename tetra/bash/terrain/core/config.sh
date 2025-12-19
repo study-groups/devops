@@ -31,11 +31,7 @@ terrain_config_get() {
     local config="$1"
     local path="$2"
 
-    if ! command -v jq &>/dev/null; then
-        echo "Error: jq required" >&2
-        return 1
-    fi
-
+    _tok_require_jq || return 1
     jq -r "$path // empty" "$config" 2>/dev/null
 }
 
@@ -45,14 +41,10 @@ terrain_config_validate() {
     local config="$1"
     local errors=0
 
-    if [[ ! -f "$config" ]]; then
-        echo "Error: Config not found: $config" >&2
-        return 1
-    fi
+    _tok_require_file "$config" "Config" || return 1
 
     # Check JSON syntax
-    if ! jq empty "$config" 2>/dev/null; then
-        echo "Error: Invalid JSON syntax in $config" >&2
+    if ! tok_validate_syntax "$config"; then
         return 1
     fi
 

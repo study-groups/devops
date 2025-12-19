@@ -10,6 +10,9 @@ source "$TETRA_SRC/bash/utils/function_helpers.sh"
 # Initialize module with standard tetra conventions
 tetra_module_init_with_alias "terrain" "TERRAIN" "dist:generated"
 
+# Source TOK for JSON utilities
+source "$TETRA_SRC/bash/tok/includes.sh"
+
 # Core modules
 source "$TERRAIN_SRC/core/config.sh"
 source "$TERRAIN_SRC/core/build.sh"
