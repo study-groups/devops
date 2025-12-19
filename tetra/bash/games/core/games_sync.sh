@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 
 # Games Sync Module - S3 sync operations for games
-# Wraps the tetra spaces module for games-specific operations
+# Uses the tetra spaces module for S3 operations
+#
+# Commands:
+#   games_pull     - Download games from S3
+#   games_push     - Upload games to S3
+#   games_publish  - Publish with versioning + manifest
+#   games_fetch    - Fetch specific game from S3
+#   games_remote   - List/manage remote games
 
 # Require bash 5.2+
 if ((BASH_VERSINFO[0] < 5 || (BASH_VERSINFO[0] == 5 && BASH_VERSINFO[1] < 2))); then
@@ -10,17 +17,28 @@ if ((BASH_VERSINFO[0] < 5 || (BASH_VERSINFO[0] == 5 && BASH_VERSINFO[1] < 2))); 
 fi
 
 # =============================================================================
-# S3 CONFIGURATION
-# Reads games-specific S3 config from tetra.toml [games] section
-# Falls back to [storage.spaces] if no [games] section
+# SPACES MODULE INTEGRATION
 # =============================================================================
 
-# Load S3 config for a games category
+# Source spaces module if not already loaded
+if ! declare -f spaces_sync >/dev/null 2>&1; then
+    if [[ -f "$TETRA_SRC/bash/spaces/spaces.sh" ]]; then
+        source "$TETRA_SRC/bash/spaces/spaces.sh"
+    else
+        echo "Warning: spaces module not found at $TETRA_SRC/bash/spaces/spaces.sh" >&2
+    fi
+fi
+
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+
+# Get S3 bucket and prefix for a games category
 # Usage: _games_s3_config "pixeljam-arcade" "pja-games"
-# Sets: GAMES_S3_BUCKET, GAMES_S3_PREFIX, GAMES_S3_ENDPOINT, etc.
+# Sets: GAMES_S3_BUCKET, GAMES_S3_PREFIX
 _games_s3_config() {
     local org="$1"
-    local category="$2"
+    local category="${2:-pja-games}"
 
     local toml_file
     toml_file=$(games_get_toml_path "$org")
@@ -30,123 +48,172 @@ _games_s3_config() {
         return 1
     fi
 
-    # Try to read games-specific config first
+    # Try games.categories.<category> first
     local games_section
     games_section=$(awk '/^\[games\.categories\.'"$category"'\]/ {found=1; next} found && /^\[/ {exit} found {print}' "$toml_file")
 
     if [[ -n "$games_section" ]]; then
-        # Category-specific config found
         GAMES_S3_BUCKET=$(echo "$games_section" | grep '^s3_bucket' | cut -d'=' -f2 | tr -d ' "')
         GAMES_S3_PREFIX=$(echo "$games_section" | grep '^s3_prefix' | cut -d'=' -f2 | tr -d ' "')
     else
-        # Fall back to publishing.games or storage.spaces
-        local pub_section
-        pub_section=$(awk '/^\[publishing\.games\]/ {found=1; next} found && /^\[/ {exit} found {print}' "$toml_file")
-
-        if [[ -n "$pub_section" ]]; then
-            GAMES_S3_BUCKET=$(echo "$pub_section" | grep '^bucket' | cut -d'=' -f2 | tr -d ' "')
-            GAMES_S3_PREFIX=$(echo "$pub_section" | grep '^prefix' | cut -d'=' -f2 | tr -d ' "')
-        else
-            # Fall back to storage.spaces default bucket
-            local storage_section
-            storage_section=$(awk '/^\[storage\.spaces\]/ {found=1; next} found && /^\[/ {exit} found {print}' "$toml_file")
-
-            GAMES_S3_BUCKET=$(echo "$storage_section" | grep '^default_bucket' | cut -d'=' -f2 | tr -d ' "')
-            GAMES_S3_PREFIX="${category}/"
-        fi
+        # Fall back to storage.spaces default bucket
+        local storage_section
+        storage_section=$(awk '/^\[storage\.spaces\]/ {found=1; next} found && /^\[/ {exit} found {print}' "$toml_file")
+        GAMES_S3_BUCKET=$(echo "$storage_section" | grep '^default_bucket' | cut -d'=' -f2 | tr -d ' "')
+        GAMES_S3_PREFIX="games/"
     fi
 
-    # Read S3 connection details from [games.s3] or [storage.spaces]
-    local s3_section
-    s3_section=$(awk '/^\[games\.s3\]/ {found=1; next} found && /^\[/ {exit} found {print}' "$toml_file")
-
-    if [[ -z "$s3_section" ]]; then
-        # Fall back to storage.spaces
-        s3_section=$(awk '/^\[storage\.spaces\]/ {found=1; next} found && /^\[/ {exit} found {print}' "$toml_file")
-    fi
-
-    GAMES_S3_ENDPOINT=$(echo "$s3_section" | grep '^endpoint' | cut -d'=' -f2 | tr -d ' "')
-    GAMES_S3_REGION=$(echo "$s3_section" | grep '^region' | cut -d'=' -f2 | tr -d ' "')
-    GAMES_S3_ACCESS_KEY=$(echo "$s3_section" | grep '^access_key' | cut -d'=' -f2 | tr -d ' "')
-    GAMES_S3_SECRET_KEY=$(echo "$s3_section" | grep '^secret_key' | cut -d'=' -f2 | tr -d ' "')
-
-    # Expand environment variables in credentials
-    GAMES_S3_ACCESS_KEY=$(eval echo "$GAMES_S3_ACCESS_KEY")
-    GAMES_S3_SECRET_KEY=$(eval echo "$GAMES_S3_SECRET_KEY")
-
-    # Extract host from endpoint
-    GAMES_S3_HOST=$(echo "$GAMES_S3_ENDPOINT" | sed 's|^https\{0,1\}://||')
-
-    # Validate required fields
     if [[ -z "$GAMES_S3_BUCKET" ]]; then
-        echo "Error: S3 bucket not configured for $org/$category" >&2
-        return 1
-    fi
-
-    if [[ -z "$GAMES_S3_ENDPOINT" ]]; then
-        echo "Error: S3 endpoint not configured" >&2
+        echo "Error: S3 bucket not configured for $org" >&2
         return 1
     fi
 
     return 0
 }
 
+# Build spaces symbol for a path
+# Usage: _games_spaces_symbol "cheap-golf"
+# Returns: pja-games:cheap-golf or just pja-games if no path
+_games_spaces_symbol() {
+    local path="${1:-}"
+    local full_path="${GAMES_S3_PREFIX}${path}"
+
+    # Remove leading/trailing slashes for clean symbol
+    full_path="${full_path#/}"
+    full_path="${full_path%/}"
+
+    if [[ -n "$full_path" ]]; then
+        echo "${GAMES_S3_BUCKET}:${full_path}"
+    else
+        echo "${GAMES_S3_BUCKET}"
+    fi
+}
+
 # =============================================================================
-# S3 OPERATIONS
+# REMOTE OPERATIONS
 # =============================================================================
 
 # List games on S3
-# Usage: games_s3_list "pixeljam-arcade" "pja-games"
-games_s3_list() {
-    local org="$1"
-    local category="$2"
+# Usage: games_remote_list [org]
+games_remote_list() {
+    local org="${1:-$(_games_get_org)}"
 
-    _games_s3_config "$org" "$category" || return 1
+    _games_s3_config "$org" || return 1
 
-    local s3_uri="s3://${GAMES_S3_BUCKET}/${GAMES_S3_PREFIX}"
+    local symbol
+    symbol=$(_games_spaces_symbol)
 
-    echo "S3: $s3_uri"
+    echo "Remote games ($org):"
+    echo "Location: @spaces:$symbol"
     echo ""
 
-    s3cmd ls "$s3_uri" \
-        --access_key="$GAMES_S3_ACCESS_KEY" \
-        --secret_key="$GAMES_S3_SECRET_KEY" \
-        --host="$GAMES_S3_HOST" \
-        --host-bucket="%(bucket)s.$GAMES_S3_HOST" \
-        --region="$GAMES_S3_REGION" 2>/dev/null || {
-            echo "  (no games or S3 error)"
-            return 1
-        }
+    # List directories, extract game names
+    spaces_list "$symbol" 2>/dev/null | grep 'DIR' | \
+        sed 's|.*s3://[^/]*/||' | sed 's|/$||' | \
+        grep -v '^$' | grep -v '^videos$' | \
+        while read -r game; do
+            echo "  $game"
+        done
 }
 
+# Get manifest from S3
+# Usage: games_remote_manifest [org]
+games_remote_manifest() {
+    local org="${1:-$(_games_get_org)}"
+
+    _games_s3_config "$org" || return 1
+
+    local symbol
+    symbol="${GAMES_S3_BUCKET}:manifest.json"
+
+    spaces_get "$symbol" - 2>/dev/null
+}
+
+# =============================================================================
+# FETCH - Download specific game
+# =============================================================================
+
+# Fetch a single game from S3
+# Usage: games_fetch <game> [--version <version>] [--org <org>]
+games_fetch() {
+    local game=""
+    local version="latest"
+    local org=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --version|-v) version="$2"; shift ;;
+            --org|-o) org="$2"; shift ;;
+            --dry-run) ;; # Ignore dry-run for fetch
+            -*) echo "Unknown option: $1" >&2; return 1 ;;
+            *) [[ -z "$game" ]] && game="$1" ;;
+        esac
+        shift
+    done
+
+    if [[ -z "$game" ]]; then
+        echo "Usage: games fetch <game> [--version <version>] [--org <org>]" >&2
+        return 1
+    fi
+
+    org="${org:-$(_games_get_org)}"
+    _games_s3_config "$org" || return 1
+
+    local local_dir
+    local_dir="$TETRA_DIR/orgs/$org/games/$game"
+
+    local remote_path
+    if [[ "$version" == "latest" ]]; then
+        remote_path="$game/"
+    else
+        remote_path="$game/$version/"
+    fi
+
+    local symbol
+    symbol=$(_games_spaces_symbol "$remote_path")
+
+    echo "Fetching: $game (version: $version)"
+    echo "From: @spaces:$symbol"
+    echo "To:   $local_dir"
+    echo ""
+
+    mkdir -p "$local_dir"
+    spaces_sync "$symbol" "$local_dir/"
+
+    local result=$?
+    if ((result == 0)); then
+        echo ""
+        echo "Fetched: $game"
+    fi
+    return $result
+}
+
+# =============================================================================
+# PUSH/PULL - Sync operations
+# =============================================================================
+
 # Pull games from S3 to local
-# Usage: games_pull "pixeljam-arcade" "pja-games" "prod" [--dry-run]
+# Usage: games_pull [org] [category] [--dry-run]
 games_pull() {
-    local org="$1"
-    local category="$2"
-    local env="$3"
-    shift 3
+    local org="${1:-$(_games_get_org)}"
+    local category="${2:-pja-games}"
+    shift 2 2>/dev/null || true
     local options="$*"
 
     _games_s3_config "$org" "$category" || return 1
 
     local local_dir
-    local_dir=$(games_get_category_dir "$org" "$category")
-    local s3_uri="s3://${GAMES_S3_BUCKET}/${GAMES_S3_PREFIX}"
+    local_dir=$(games_get_category_dir "$org" "$category" 2>/dev/null) || \
+        local_dir="$TETRA_DIR/orgs/$org/games"
 
-    echo "Pull: $s3_uri -> $local_dir"
+    local symbol
+    symbol=$(_games_spaces_symbol)
+
+    echo "Pull: @spaces:$symbol -> $local_dir"
     echo ""
 
-    # Create local directory if needed
     mkdir -p "$local_dir"
-
-    s3cmd sync "$s3_uri" "$local_dir/" \
-        --access_key="$GAMES_S3_ACCESS_KEY" \
-        --secret_key="$GAMES_S3_SECRET_KEY" \
-        --host="$GAMES_S3_HOST" \
-        --host-bucket="%(bucket)s.$GAMES_S3_HOST" \
-        --region="$GAMES_S3_REGION" \
-        $options
+    spaces_sync "$symbol" "$local_dir/" $options
 
     local result=$?
     echo ""
@@ -159,50 +226,47 @@ games_pull() {
 }
 
 # Push games from local to S3
-# Usage: games_push "pixeljam-arcade" "pja-games" "prod" [--dry-run]
+# Usage: games_push [org] [category] [--dry-run]
 games_push() {
-    local org="$1"
-    local category="$2"
-    local env="$3"
-    shift 3
+    local org="${1:-$(_games_get_org)}"
+    local category="${2:-pja-games}"
+    shift 2 2>/dev/null || true
     local options="$*"
 
     _games_s3_config "$org" "$category" || return 1
 
     local local_dir
-    local_dir=$(games_get_category_dir "$org" "$category")
-    local s3_uri="s3://${GAMES_S3_BUCKET}/${GAMES_S3_PREFIX}"
+    local_dir=$(games_get_category_dir "$org" "$category" 2>/dev/null) || \
+        local_dir="$TETRA_DIR/orgs/$org/games"
 
     if [[ ! -d "$local_dir" ]]; then
         echo "Error: local directory not found: $local_dir" >&2
         return 1
     fi
 
-    echo "Push: $local_dir -> $s3_uri"
+    local symbol
+    symbol=$(_games_spaces_symbol)
+
+    echo "Push: $local_dir -> @spaces:$symbol"
     echo ""
 
-    # Validate before push
-    echo "Validating games before push..."
-    if ! games_validate "$org" "$category"; then
-        echo ""
-        echo "Warning: some games failed validation" >&2
-        read -p "Continue anyway? [y/N]: " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            echo "Cancelled"
-            return 1
+    # Validate before push if function exists
+    if declare -f games_validate >/dev/null 2>&1; then
+        echo "Validating games before push..."
+        if ! games_validate "$org" "$category" 2>/dev/null; then
+            echo ""
+            echo "Warning: some games failed validation" >&2
+            read -p "Continue anyway? [y/N]: " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                echo "Cancelled"
+                return 1
+            fi
         fi
+        echo ""
     fi
-    echo ""
 
-    s3cmd sync "$local_dir/" "$s3_uri" \
-        --access_key="$GAMES_S3_ACCESS_KEY" \
-        --secret_key="$GAMES_S3_SECRET_KEY" \
-        --host="$GAMES_S3_HOST" \
-        --host-bucket="%(bucket)s.$GAMES_S3_HOST" \
-        --region="$GAMES_S3_REGION" \
-        --acl-public \
-        $options
+    spaces_sync "$local_dir/" "$symbol" --acl-public $options
 
     local result=$?
     echo ""
@@ -214,34 +278,147 @@ games_push() {
     return $result
 }
 
-# Bidirectional sync (auto-detect direction)
-# Usage: games_sync "pixeljam-arcade" "pja-games" "prod" [--pull|--push] [--dry-run]
-games_sync() {
-    local org="$1"
-    local category="$2"
-    local env="$3"
-    shift 3
+# =============================================================================
+# PUBLISH - Versioned release with manifest
+# =============================================================================
 
-    local direction=""
-    local options=()
+# Publish a game with version and update manifest
+# Usage: games_publish <game> [version] [--org <org>]
+games_publish() {
+    local game=""
+    local version=""
+    local org=""
 
-    # Parse options
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --pull)
-                direction="pull"
-                ;;
-            --push)
-                direction="push"
-                ;;
+            --org|-o) org="$2"; shift ;;
+            -*) echo "Unknown option: $1" >&2; return 1 ;;
             *)
-                options+=("$1")
+                if [[ -z "$game" ]]; then
+                    game="$1"
+                else
+                    version="$1"
+                fi
                 ;;
         esac
         shift
     done
 
-    # If no direction specified, prompt
+    if [[ -z "$game" ]]; then
+        echo "Usage: games publish <game> [version] [--org <org>]" >&2
+        return 1
+    fi
+
+    org="${org:-$(_games_get_org)}"
+    _games_s3_config "$org" || return 1
+
+    local local_dir="$TETRA_DIR/orgs/$org/games/$game"
+
+    if [[ ! -d "$local_dir" ]]; then
+        echo "Error: Game not found: $local_dir" >&2
+        return 1
+    fi
+
+    # Get version from game.toml if not specified
+    if [[ -z "$version" ]]; then
+        if [[ -f "$local_dir/game.toml" ]]; then
+            version=$(grep -E '^version\s*=' "$local_dir/game.toml" | head -1 | sed 's/.*=\s*"\([^"]*\)".*/\1/')
+        fi
+        version="${version:-1.0.0}"
+    fi
+
+    echo "Publishing: $game v$version"
+    echo "Source: $local_dir"
+    echo ""
+
+    # 1. Upload to versioned path
+    local version_symbol
+    version_symbol=$(_games_spaces_symbol "$game/$version/")
+
+    echo "1. Uploading to @spaces:$version_symbol"
+    spaces_sync "$local_dir/" "$version_symbol" --acl-public
+
+    # 2. Upload to latest path (overwrite)
+    local latest_symbol
+    latest_symbol=$(_games_spaces_symbol "$game/")
+
+    echo ""
+    echo "2. Updating latest at @spaces:$latest_symbol"
+    spaces_sync "$local_dir/" "$latest_symbol" --acl-public --delete-removed
+
+    # 3. Update manifest.json
+    echo ""
+    echo "3. Updating manifest..."
+    _games_update_manifest "$org" "$game" "$version"
+
+    echo ""
+    echo "Published: $game v$version"
+    echo "URL: $(spaces_url "$latest_symbol")"
+}
+
+# Update manifest.json with new game version
+_games_update_manifest() {
+    local org="$1"
+    local game="$2"
+    local version="$3"
+
+    local manifest_symbol="${GAMES_S3_BUCKET}:manifest.json"
+    local tmp_manifest="/tmp/games_manifest_$$.json"
+    local timestamp
+    timestamp=$(date -Iseconds)
+
+    # Try to fetch existing manifest
+    if spaces_get "$manifest_symbol" "$tmp_manifest" 2>/dev/null; then
+        # Update existing entry or add new one
+        # Using simple JSON manipulation (works for our flat structure)
+        if grep -q "\"$game\"" "$tmp_manifest"; then
+            # Update existing game entry
+            sed -i.bak "s/\"$game\":[^}]*}/\"$game\": {\"version\": \"$version\", \"updated\": \"$timestamp\"}/" "$tmp_manifest"
+        else
+            # Add new game before closing brace
+            sed -i.bak "s/}$/,\"$game\": {\"version\": \"$version\", \"updated\": \"$timestamp\"}}/" "$tmp_manifest"
+        fi
+    else
+        # Create new manifest
+        cat > "$tmp_manifest" << EOF
+{
+  "org": "$org",
+  "updated": "$timestamp",
+  "games": {
+    "$game": {"version": "$version", "updated": "$timestamp"}
+  }
+}
+EOF
+    fi
+
+    # Upload manifest
+    spaces_put "$tmp_manifest" "$manifest_symbol" --acl-public
+    rm -f "$tmp_manifest" "$tmp_manifest.bak"
+}
+
+# =============================================================================
+# SYNC - Bidirectional with direction detection
+# =============================================================================
+
+# Bidirectional sync
+# Usage: games_sync [org] [category] [--pull|--push] [--dry-run]
+games_sync() {
+    local org="${1:-$(_games_get_org)}"
+    local category="${2:-pja-games}"
+    shift 2 2>/dev/null || true
+
+    local direction=""
+    local options=()
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --pull) direction="pull" ;;
+            --push) direction="push" ;;
+            *) options+=("$1") ;;
+        esac
+        shift
+    done
+
     if [[ -z "$direction" ]]; then
         echo "Sync direction required."
         echo ""
@@ -253,20 +430,13 @@ games_sync() {
         case "$REPLY" in
             1) direction="pull" ;;
             2) direction="push" ;;
-            *)
-                echo "Cancelled"
-                return 1
-                ;;
+            *) echo "Cancelled"; return 1 ;;
         esac
     fi
 
     case "$direction" in
-        pull)
-            games_pull "$org" "$category" "$env" "${options[@]}"
-            ;;
-        push)
-            games_push "$org" "$category" "$env" "${options[@]}"
-            ;;
+        pull) games_pull "$org" "$category" "${options[@]}" ;;
+        push) games_push "$org" "$category" "${options[@]}" ;;
     esac
 }
 
@@ -275,7 +445,12 @@ games_sync() {
 # =============================================================================
 
 export -f _games_s3_config
-export -f games_s3_list
+export -f _games_spaces_symbol
+export -f games_remote_list
+export -f games_remote_manifest
+export -f games_fetch
 export -f games_pull
 export -f games_push
+export -f games_publish
+export -f _games_update_manifest
 export -f games_sync

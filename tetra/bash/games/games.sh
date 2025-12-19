@@ -31,11 +31,12 @@ GAMES_SRC="${TETRA_SRC}/bash/games"
 export GAMES_SRC
 
 # Context system - org determines which games directory to use
-export GAMES_CTX_ORG="${GAMES_CTX_ORG:-tetra}"
+# Priority: GAMES_ORG > GAMES_CTX_ORG > TETRA_ORG > "tetra"
+export GAMES_CTX_ORG="${GAMES_CTX_ORG:-${TETRA_ORG:-tetra}}"
 
 # Dynamic path helpers (respect active org)
 _games_get_org() {
-    echo "${GAMES_ORG:-${GAMES_CTX_ORG:-tetra}}"
+    echo "${GAMES_ORG:-${GAMES_CTX_ORG:-${TETRA_ORG:-tetra}}}"
 }
 
 _games_get_dir() {
@@ -51,11 +52,19 @@ export GAMES_DIR
 [[ ! -d "$GAMES_DIR" ]] && mkdir -p "$GAMES_DIR"
 
 # =============================================================================
-# LOAD HELP SYSTEM
+# LOAD SUBMODULES
 # =============================================================================
 
 if [[ -f "$GAMES_SRC/core/help.sh" ]]; then
     source "$GAMES_SRC/core/help.sh"
+fi
+
+if [[ -f "$GAMES_SRC/core/games_sync.sh" ]]; then
+    source "$GAMES_SRC/core/games_sync.sh"
+fi
+
+if [[ -f "$GAMES_SRC/core/games_admin.sh" ]]; then
+    source "$GAMES_SRC/core/games_admin.sh"
 fi
 
 # =============================================================================
@@ -660,6 +669,56 @@ games() {
             games_unpak "$@"
             ;;
 
+        # S3/Remote operations (requires games_sync.sh)
+        remote)
+            if declare -f games_remote_list >/dev/null 2>&1; then
+                games_remote_list "$@"
+            else
+                echo "Error: games_sync module not loaded" >&2
+                return 1
+            fi
+            ;;
+        fetch)
+            if declare -f games_fetch >/dev/null 2>&1; then
+                games_fetch "$@"
+            else
+                echo "Error: games_sync module not loaded" >&2
+                return 1
+            fi
+            ;;
+        publish)
+            if declare -f games_publish >/dev/null 2>&1; then
+                games_publish "$@"
+            else
+                echo "Error: games_sync module not loaded" >&2
+                return 1
+            fi
+            ;;
+        pull)
+            if declare -f games_pull >/dev/null 2>&1; then
+                games_pull "$@"
+            else
+                echo "Error: games_sync module not loaded" >&2
+                return 1
+            fi
+            ;;
+        push)
+            if declare -f games_push >/dev/null 2>&1; then
+                games_push "$@"
+            else
+                echo "Error: games_sync module not loaded" >&2
+                return 1
+            fi
+            ;;
+        sync)
+            if declare -f games_sync >/dev/null 2>&1; then
+                games_sync "$@"
+            else
+                echo "Error: games_sync module not loaded" >&2
+                return 1
+            fi
+            ;;
+
         # Diagnostics
         doctor)
             games_doctor
@@ -692,7 +751,14 @@ USAGE
   games unpak <file>             Restore from archive
   games doctor                   Diagnose environment
 
-Run 'games help <topic>' for: play, orgs, pak, all
+S3/REMOTE (requires sync module)
+  games remote                   List games on S3
+  games fetch <game>             Download game from S3
+  games publish <game> [ver]     Publish game with version
+  games pull                     Sync all from S3
+  games push                     Sync all to S3
+
+Run 'games help <topic>' for: play, orgs, pak, sync
 EOF
                 fi
             fi
