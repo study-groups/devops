@@ -278,7 +278,7 @@ tds_module_show() {
     local config_file="${_TDS_MODULE_CONFIGS[$module]}"
     local array_name="${_TDS_MODULE_ARRAYS[$module]}"
 
-    [[ -z "$array_name" ]] && { echo "Module '$module' not registered"; return 1; }
+    [[ -z "$array_name" ]] && { echo "Module '$module' not registered" >&2; return 1; }
 
     local -n tokens="$array_name"
     local upper="${module^^}"

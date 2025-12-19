@@ -113,9 +113,11 @@ _tds_cmd_doctor() {
 
     local palette_issues=0
     for name in ENV_PRIMARY MODE_PRIMARY VERBS_PRIMARY NOUNS_PRIMARY; do
-        declare -n arr="$name" 2>/dev/null
-        if [[ ! -v arr ]] || [[ ${#arr[@]} -eq 0 ]]; then
+        if ! declare -p "$name" &>/dev/null; then
             ((palette_issues++))
+        else
+            local -n arr="$name"
+            [[ ${#arr[@]} -eq 0 ]] && ((palette_issues++))
         fi
     done
     if [[ $palette_issues -gt 0 ]]; then
