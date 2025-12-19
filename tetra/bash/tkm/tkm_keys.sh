@@ -120,9 +120,13 @@ _tkm_add_ssh_host_config() {
 # tkm: $org $env
 Match Host $host User root
     IdentityFile $keys_dir/${env}_root
+    BatchMode yes
+    ConnectTimeout 5
 
 Match Host $host User $app_user
     IdentityFile $keys_dir/${env}_${app_user}
+    BatchMode yes
+    ConnectTimeout 5
 EOF
 }
 
@@ -361,10 +365,40 @@ tkm_rotate() {
 }
 
 # =============================================================================
+# REGENERATE SSH CONFIG
+# =============================================================================
+
+# Regenerate all tkm Match blocks with current settings (BatchMode, ConnectTimeout)
+tkm_config_regen() {
+    local org=$(tkm_org_name) || { echo "No active org"; return 1; }
+    local envs=$(org_env_names 2>/dev/null)
+    [[ -z "$envs" ]] && { echo "No environments"; return 1; }
+
+    echo "Regenerating SSH config for: $org"
+    echo ""
+
+    for env in $envs; do
+        [[ "$env" == "local" ]] && continue
+        local host=$(_tkm_get_host "$env")
+        [[ -z "$host" ]] && continue
+
+        # Remove old entries
+        _tkm_remove_ssh_host_config "$host"
+
+        # Add new entries with updated settings
+        _tkm_add_ssh_host_config "$env" "$host"
+        echo "  $env: $host"
+    done
+
+    echo ""
+    echo "Done. Verify with: tkm config"
+}
+
+# =============================================================================
 # EXPORTS
 # =============================================================================
 
-export -f tkm_generate tkm_deploy tkm_revoke tkm_rotate
+export -f tkm_generate tkm_deploy tkm_revoke tkm_rotate tkm_config_regen
 export -f _tkm_generate_env _tkm_generate_key _tkm_generate_all
 export -f _tkm_add_ssh_host_config _tkm_remove_ssh_host_config
 export -f _tkm_deploy_env _tkm_deploy_all _tkm_find_bootstrap_key
