@@ -11,3 +11,6 @@ tetra_module_init_with_alias "qa" "QA"
 
 # Source the main QA module
 source "$QA_SRC/qa.sh"
+
+# Source tab completion
+source "$QA_SRC/qa_complete.sh"
