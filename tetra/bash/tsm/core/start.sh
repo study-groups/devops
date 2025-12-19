@@ -92,9 +92,14 @@ tsm_generate_process_name() {
         fi
     fi
 
-    # Add port or timestamp
+    # Add port or timestamp (but don't double-append on restart)
     if [[ -n "$port" && "$port" != "none" ]]; then
-        echo "${base_name}-${port}"
+        # Check if base_name already ends with -$port (from restart)
+        if [[ "$base_name" == *"-$port" ]]; then
+            echo "$base_name"
+        else
+            echo "${base_name}-${port}"
+        fi
     else
         echo "${base_name}-$(date +%s)"
     fi
@@ -188,7 +193,8 @@ tsm_start_any_command() {
     fi
 
     # Build environment activation and user env file
-    local env_setup=""
+    # Always source tetra.sh first so functions are available in subprocess
+    local env_setup="source \$HOME/tetra/tetra.sh"$'\n'
 
     # Build pre-hook (priority: explicit > service-specific > type-based)
     # Use explicit_name as service name for service-specific hook lookup
@@ -200,7 +206,7 @@ tsm_start_any_command() {
         prehook_cmd=$(tsm_build_env_activation "$process_type")
     fi
 
-    [[ -n "$prehook_cmd" ]] && env_setup="$prehook_cmd"$'\n'
+    [[ -n "$prehook_cmd" ]] && env_setup="${env_setup}$prehook_cmd"$'\n'
 
     # Add user env file if specified
     if [[ -n "$env_file" && -f "$env_file" ]]; then
@@ -241,11 +247,16 @@ tsm_start_any_command() {
         " 2>>"${log_wrapper}" &
     )
 
-    sleep 0.5
+    # Wait for PID file (up to 5 seconds, checking every 100ms)
+    local wait_count=0
+    while [[ ! -f "$pid_file" && $wait_count -lt 50 ]]; do
+        sleep 0.1
+        ((wait_count++))
+    done
 
     # Verify started
     if [[ ! -f "$pid_file" ]]; then
-        echo "❌ Failed to start: $name (no PID file)" >&2
+        echo "❌ Failed to start: $name (no PID file after ${wait_count}00ms)" >&2
 
         # Show wrapper errors if any (env file errors, pre-hook failures, etc.)
         if [[ -f "$log_wrapper" && -s "$log_wrapper" ]]; then
