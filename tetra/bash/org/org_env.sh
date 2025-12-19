@@ -111,7 +111,6 @@ org_env_show() {
 org_env_names() {
     local toml=$(org_toml_path 2>/dev/null) || return
 
-    # Only env section - these are the SSH-capable targets
     grep -E '^\[env\.[^]]+\]' "$toml" 2>/dev/null | sed 's/.*\.//;s/\]//' | sort -u
 }
 

@@ -16,7 +16,7 @@ name = "pixeljam-arcade"
 # Each environment is self-contained with all connection info
 # ═══════════════════════════════════════════════════════════
 
-[environments.local]
+[env.local]
 symbol = "@local"
 type = "local"
 address = "127.0.0.1"
@@ -26,7 +26,7 @@ url = "http://localhost:3000"
 app_port = 3000
 node_env = "development"
 
-[environments.dev]
+[env.dev]
 symbol = "@dev"
 type = "remote"
 description = "Dev environment"
@@ -42,7 +42,7 @@ ssh_work_user = "dev"
 ssh_key = "~/.ssh/id_rsa"
 ssh_port = 22
 
-[environments.staging]
+[env.staging]
 symbol = "@staging"
 type = "remote"
 address = "24.199.72.22"
@@ -59,7 +59,7 @@ ssh_work_user = "root"
 ssh_key = "~/.ssh/id_rsa"
 ssh_port = 22
 
-[environments.prod]
+[env.prod]
 symbol = "@prod"
 type = "remote"
 address = "164.90.247.44"
@@ -137,4 +137,32 @@ symbol = "@dev"
 type = "local"
 path = "/tmp/published-docs"
 description = "Local development publishing (file system)"
+
+# ═══════════════════════════════════════════════════════════
+# GAMES - Game Administration Configuration
+# Defines game categories, validation rules, and S3 sync
+# ═══════════════════════════════════════════════════════════
+
+[games]
+local_path = "${TETRA_DIR}/orgs/pixeljam-arcade/games"
+
+[games.categories.pja-games]
+type = "html"
+s3_bucket = "pja-games"
+s3_prefix = "games/"
+validation = "index.html"
+description = "PixelJam Arcade HTML games"
+
+[games.categories.pja-vector]
+type = "html"
+s3_bucket = "pja-games"
+s3_prefix = "vector/"
+validation = "index.html"
+description = "PixelJam Arcade vector games"
+
+[games.s3]
+endpoint = "https://sfo3.digitaloceanspaces.com"
+region = "sfo3"
+access_key = "${DO_SPACES_KEY}"
+secret_key = "${DO_SPACES_SECRET}"
 

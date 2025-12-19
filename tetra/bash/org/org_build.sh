@@ -259,7 +259,7 @@ org_build() {
 
     # Show what was created
     local out_lines=$(wc -l < "$output_file" | tr -d ' ')
-    local env_count=$(grep -c '^\[environments\.' "$output_file" 2>/dev/null || echo 0)
+    local env_count=$(grep -c '^\[env\.' "$output_file" 2>/dev/null || echo 0)
     local conn_count=$(grep -c '"@' "$output_file" 2>/dev/null || echo 0)
 
     echo "  $out_lines lines, $env_count environments, $conn_count connectors"
@@ -318,18 +318,18 @@ EOF
 # Infrastructure - environments and connectors
 # Updated by: org import nh $name
 
-[environments.local]
+[env.local]
 description = "Local development"
 
 # Remote environments added by nh import:
-# [environments.dev]
-# [environments.staging]
-# [environments.prod]
+# [env.dev]
+# [env.staging]
+# [env.prod]
 
 # [connectors]
 # "@dev" = { auth_user = "root", work_user = "dev", host = "1.2.3.4" }
 EOF
-        echo "  10-infrastructure.toml [environments] [connectors]"
+        echo "  10-infrastructure.toml [env] [connectors]"
     else
         echo "  10-infrastructure.toml (exists)"
     fi

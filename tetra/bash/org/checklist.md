@@ -64,7 +64,7 @@ Complete guide from tetra installation to managing organizations.
   # This auto-runs: org build myorg
 
   # Verify
-  org view environments
+  org view env
   ```
 
 - [ ] **06** Switch to Organization
@@ -178,22 +178,22 @@ Complete guide from tetra installation to managing organizations.
   org view
 
   # Filter by section prefix
-  org view environments     # All [environments.*]
+  org view env              # All [env.*]
   org view connectors       # [connectors]
   org view storage          # [storage.*]
 
   # Show specific section
-  org section environments.dev
+  org section env.dev
   ```
 
 - [ ] **14** Get/Set Values
   ```bash
   # Get a value by path
-  org get environments.dev.host
+  org get env.dev.host
   org get org.name
 
   # Set a value (existing keys only)
-  org set environments.dev.host 10.0.0.5
+  org set env.dev.host 10.0.0.5
   ```
 
 - [ ] **15** Edit Source Files
@@ -246,7 +246,7 @@ Complete guide from tetra installation to managing organizations.
 $NH_DIR/<org>/digocean.json     (from nh fetch)
        |
        v  (org import nh)
-10-infrastructure.toml           (environments + connectors)
+10-infrastructure.toml           ([env.*] + connectors)
        |
        + 00-org.toml             (org identity)
        + 20-storage.toml         (S3/Spaces - manual)
@@ -280,7 +280,7 @@ org validate        # Check TOML syntax
 org env             # List environments with IPs
 org env <name>      # Show environment details
 
-org get <path>      # Get value (environments.dev.host)
+org get <path>      # Get value (env.dev.host)
 org set <path> <v>  # Set value
 
 org alias           # List aliases
@@ -301,7 +301,7 @@ $TETRA_DIR/
 └── orgs/
     ├── <org>/
     │   ├── 00-org.toml            # Source: [org]
-    │   ├── 10-infrastructure.toml # Source: [environments.*], [connectors]
+    │   ├── 10-infrastructure.toml # Source: [env.*], [connectors]
     │   ├── 20-storage.toml        # Source: [storage.*]
     │   ├── 30-resources.toml      # Source: [resources.*]
     │   ├── 40-services.toml       # Source: [services]
@@ -316,21 +316,21 @@ $TETRA_DIR/
 name = "myorg"
 
 # 10-infrastructure.toml (from nh import)
-[environments.local]
+[env.local]
 description = "Local development"
 
-[environments.dev]
+[env.dev]
 description = "Dev server"
 host = "1.2.3.4"
 user = "root"
 ssh_work_user = "dev"
 
-[environments.staging]
+[env.staging]
 host = "1.2.3.5"
 user = "root"
 ssh_work_user = "staging"
 
-[environments.prod]
+[env.prod]
 host = "1.2.3.6"
 user = "root"
 ssh_work_user = "prod"

@@ -58,7 +58,7 @@ _org_complete_sections() {
     grep -oE '^\[[^]]+\]' "$real" | tr -d '[]' | sort -u
 }
 
-# List environment names (from connectors or environments sections)
+# List environment names (from connectors or [env.*] sections)
 _org_complete_envs() {
     local toml="$TETRA_DIR/config/tetra.toml"
     [[ -L "$toml" ]] || return
@@ -69,8 +69,8 @@ _org_complete_envs() {
     if grep -q '^\[connectors\]' "$real" 2>/dev/null; then
         grep -oP '"@\K[a-z]+(?=")' "$real" 2>/dev/null | sort -u
     else
-        # Fall back to environments sections
-        grep -oE '^\[environments\.[^]]+\]' "$real" | sed 's/.*\.//;s/\]//' | sort -u
+        # Fall back to [env.*] sections
+        grep -oE '^\[env\.[^]]+\]' "$real" | sed 's/.*\.//;s/\]//' | sort -u
     fi
 }
 

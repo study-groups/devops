@@ -39,7 +39,7 @@ org_toml_view() {
         # Show entire file
         cat "$toml"
     else
-        # Filter by section prefix (e.g., "environments" shows all [environments.*])
+        # Filter by section prefix (e.g., "env" shows all [env.*])
         org_toml_grep_sections "$filter"
     fi
 }
@@ -105,7 +105,7 @@ org_toml_grep_sections() {
 # GET/SET OPERATIONS
 # =============================================================================
 
-# Get a value by dotted path (e.g., environments.dev.ip)
+# Get a value by dotted path (e.g., env.dev.host)
 org_toml_get() {
     local path="$1"
     local toml=$(org_toml_path) || { echo "No active org"; return 1; }
@@ -113,7 +113,7 @@ org_toml_get() {
     [[ -z "$path" ]] && { echo "Usage: org get <key.path>"; return 1; }
 
     # Split path into section and key
-    # e.g., "environments.dev.ip" -> section="environments.dev", key="ip"
+    # e.g., "env.dev.host" -> section="env.dev", key="host"
     local section="${path%.*}"
     local key="${path##*.}"
 

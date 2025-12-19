@@ -186,16 +186,16 @@ org_create() {
 [org]
 name = "$name"
 
-[environments.local]
+[env.local]
 description = "Local development"
 
-[environments.dev]
+[env.dev]
 description = "Development server"
 
-[environments.staging]
+[env.staging]
 description = "Staging server"
 
-[environments.prod]
+[env.prod]
 description = "Production server"
 EOF
 
@@ -323,12 +323,12 @@ org() {
             org_toml_validate
             ;;
 
-        # Get value by key path (org get environments.dev.ip)
+        # Get value by key path (org get env.dev.host)
         get)
             org_toml_get "$@"
             ;;
 
-        # Set value (org set environments.dev.ip 1.2.3.4)
+        # Set value (org set env.dev.host 1.2.3.4)
         set)
             org_toml_set "$@"
             ;;
