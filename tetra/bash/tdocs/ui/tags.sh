@@ -169,18 +169,12 @@ tdoc_render_status() {
 tdoc_render_tag_list() {
     local tags_json="$1"
 
-    # Extract tags from JSON array
-    local tags=$(echo "$tags_json" | grep -o '"[^"]*"' | tr -d '"')
-
-    if [[ -z "$tags" ]]; then
-        return 0
-    fi
-
-    echo "$tags" | while read -r tag; do
+    # Extract tags from JSON array using jq
+    while IFS= read -r tag; do
         [[ -z "$tag" ]] && continue
         tdoc_render_tag "$tag"
         printf " "
-    done
+    done < <(echo "$tags_json" | jq -r '.[]? // empty' 2>/dev/null)
 }
 
 # Render metadata header for a document
@@ -188,11 +182,9 @@ tdoc_render_metadata_header() {
     local meta_json="$1"
 
     # Extract fields
-    local category=$(echo "$meta_json" | grep -o '"category": "[^"]*"' | cut -d'"' -f4)
-    local type=$(echo "$meta_json" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
-    local status=$(echo "$meta_json" | grep -o '"status": "[^"]*"' | cut -d'"' -f4)
-    local module=$(echo "$meta_json" | grep -o '"module": "[^"]*"' | cut -d'"' -f4)
-    local tags=$(echo "$meta_json" | grep -o '"tags": \[[^\]]*\]')
+    IFS=$'\t' read -r category type status module <<< \
+        "$(_tdocs_json_get_multi "$meta_json" '.category' '.type' '.status' '.module')"
+    local tags=$(_tdocs_json_get "$meta_json" '.tags | @json')
 
     # Render header
     tdoc_render_category_badge "$category"
@@ -251,30 +243,24 @@ tdoc_render_compact() {
 
     # If doc_path not provided, try to extract from metadata
     if [[ -z "$doc_path" ]]; then
-        doc_path=$(echo "$meta_json" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
+        doc_path=$(_tdocs_json_get "$meta_json" '.doc_path')
     fi
 
-    # Extract new schema fields - simple grep is faster for bash
-    local type=$(echo "$meta_json" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
-    local intent=$(echo "$meta_json" | grep -o '"intent": "[^"]*"' | cut -d'"' -f4)
-    local lifecycle=$(echo "$meta_json" | grep -o '"lifecycle": "[^"]*"' | cut -d'"' -f4)
-    local module=$(echo "$meta_json" | grep -o '"module": "[^"]*"' | cut -d'"' -f4)
-    local rank=$(echo "$meta_json" | grep -o '"rank": [0-9.]*' | cut -d' ' -f2)
-    local recency_boost=$(echo "$meta_json" | grep -o '"recency_boost": [0-9.]*' | cut -d' ' -f2)
-    local tags_json=$(echo "$meta_json" | tr -d '\n' | grep -o '"tags": *\[[^]]*\]' | sed 's/"tags": *//')
-    local created=$(echo "$meta_json" | grep -o '"created": "[^"]*"' | cut -d'"' -f4)
-    local updated=$(echo "$meta_json" | grep -o '"updated": "[^"]*"' | cut -d'"' -f4)
-    local has_frontmatter=$(echo "$meta_json" | grep -o '"has_frontmatter": [^,}]*' | cut -d' ' -f2)
-    local title=$(echo "$meta_json" | grep -o '"title": "[^"]*"' | cut -d'"' -f4)
+    # Extract schema fields using jq
+    IFS=$'\t' read -r type intent lifecycle module rank recency_boost created updated has_frontmatter title <<< \
+        "$(_tdocs_json_get_multi "$meta_json" \
+            '.type' '.intent' '.lifecycle' '.module' '.rank' '.recency_boost' \
+            '.created' '.updated' '.has_frontmatter' '.title')"
+    local tags_json=$(_tdocs_json_get "$meta_json" '.tags | @json')
 
     # Format tags for inline display (first 3 tags, comma-separated)
     local tags_display=""
-    if [[ -n "$tags_json" ]]; then
+    if [[ -n "$tags_json" && "$tags_json" != "null" ]]; then
         local tag_array=()
         while IFS= read -r tag; do
             [[ -z "$tag" ]] && continue
             tag_array+=("$tag")
-        done < <(echo "$tags_json" | grep -o '"[^"]*"' | tr -d '"')
+        done < <(echo "$tags_json" | jq -r '.[]? // empty' 2>/dev/null)
 
         # Take first 3 tags
         local tag_count=${#tag_array[@]}
@@ -337,7 +323,7 @@ tdoc_render_compact() {
             local color_num="${tag_colors[$((tag_index % 8))]}"
             colored_tags_array+=("$(printf '\033[38;5;%dm%s\033[0m' "$color_num" "$tag")")
             ((tag_index++))
-        done < <(echo "$tags_json" | grep -o '"[^"]*"' | tr -d '"')
+        done < <(echo "$tags_json" | jq -r '.[]? // empty' 2>/dev/null)
     fi
 
     # Join colored tags with commas (limit to first 2 tags to prevent wrapping)
@@ -454,7 +440,7 @@ tdoc_render_compact() {
                     colored_tags+="\033[2;38;5;${color_value}m${tag}\033[0m"
                 fi
                 ((tag_index++))
-            done < <(echo "$tags_json" | grep -o '"[^"]*"' | tr -d '"')
+            done < <(echo "$tags_json" | jq -r '.[]? // empty' 2>/dev/null)
         fi
 
         # Colorize type and kind using palette colors (dimmed)
@@ -539,10 +525,8 @@ tdoc_render_detailed() {
     local doc_path="$2"
 
     # Extract metadata
-    local category=$(echo "$meta_json" | grep -o '"category": "[^"]*"' | cut -d'"' -f4)
-    local type=$(echo "$meta_json" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
-    local module=$(echo "$meta_json" | grep -o '"module": "[^"]*"' | cut -d'"' -f4)
-    local title=$(echo "$meta_json" | grep -o '"title": "[^"]*"' | cut -d'"' -f4)
+    IFS=$'\t' read -r category type module title <<< \
+        "$(_tdocs_json_get_multi "$meta_json" '.category' '.type' '.module' '.title')"
 
     # Get display path
     local display_path="$doc_path"

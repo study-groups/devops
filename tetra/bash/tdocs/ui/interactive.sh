@@ -144,17 +144,16 @@ tdoc_tag_interactive() {
     fi
 
     # Extract current values
-    local category=$(echo "$meta" | grep -o '"category": "[^"]*"' | cut -d'"' -f4)
-    local type=$(echo "$meta" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
-    local tags_json=$(echo "$meta" | grep -o '"tags": \[[^\]]*\]')
-    local module=$(echo "$meta" | grep -o '"module": "[^"]*"' | cut -d'"' -f4)
+    local category=$(_tdocs_json_get "$meta" '.category')
+    local type=$(_tdocs_json_get "$meta" '.type')
+    local module=$(_tdocs_json_get "$meta" '.module')
 
-    # Parse tags array
+    # Parse tags array using jq
     local -a current_tags=()
     while IFS= read -r tag; do
         [[ -z "$tag" ]] && continue
         current_tags+=("$tag")
-    done < <(echo "$tags_json" | grep -o '"[^"]*"' | tr -d '"')
+    done < <(echo "$meta" | jq -r '.tags[]? // empty' 2>/dev/null)
 
     # Interactive editor
     echo "┌─ Tag Editor: $(basename "$file")"

@@ -198,7 +198,7 @@ tdoc_search_docs() {
         [[ ! -s "$meta_file" ]] && continue  # Skip empty files
 
         local meta=$(cat "$meta_file")
-        local doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
+        local doc_path=$(_tdocs_json_get "$meta" '.doc_path')
 
         # Skip if no doc_path found
         [[ -z "$doc_path" ]] && continue
@@ -223,7 +223,7 @@ tdoc_search_docs() {
     # Ensure all results have ranks calculated
     local results_with_ranks=()
     for meta in "${results[@]}"; do
-        local doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
+        local doc_path=$(_tdocs_json_get "$meta" '.doc_path')
         tdoc_db_ensure_rank "$doc_path" 2>/dev/null
 
         # Re-read metadata with rank
@@ -241,8 +241,7 @@ tdoc_search_docs() {
         sorted_results+=("${scored_item#*|}")
     done < <(
         for meta in "${results_with_ranks[@]}"; do
-            local rank=$(echo "$meta" | grep -o '"rank": [0-9.]*' | cut -d' ' -f2)
-            rank=${rank:-0.0}
+            local rank=$(_tdocs_json_get "$meta" '.rank' '0.0')
             echo "${rank}|${meta}"
         done | sort -t'|' -k1 -rn
     )
@@ -256,7 +255,7 @@ tdoc_search_docs() {
 
     # Render results using consistent compact format
     for meta in "${sorted_results[@]}"; do
-        local doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
+        local doc_path=$(_tdocs_json_get "$meta" '.doc_path')
 
         # Skip entries without valid doc_path
         if [[ -z "$doc_path" ]]; then
@@ -443,15 +442,12 @@ EOF
     while IFS= read -r meta; do
         [[ -z "$meta" ]] && continue
 
-        # Extract metadata - simple grep is faster than jq overhead
-        local doc_level=$(echo "$meta" | grep -o '"level": "[^"]*"' | cut -d'"' -f4)
-        [[ -z "$doc_level" ]] && doc_level=$(echo "$meta" | grep -o '"completeness_level": "[^"]*"' | cut -d'"' -f4)
-        local doc_timestamp=$(echo "$meta" | grep -o '"updated": "[^"]*"' | cut -d'"' -f4)
-        [[ -z "$doc_timestamp" ]] && doc_timestamp=$(echo "$meta" | grep -o '"created": "[^"]*"' | cut -d'"' -f4)
-        local doc_module=$(echo "$meta" | grep -o '"module": "[^"]*"' | cut -d'"' -f4)
-        local doc_type=$(echo "$meta" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
-        local doc_intent=$(echo "$meta" | grep -o '"intent": "[^"]*"' | cut -d'"' -f4)
-        local doc_lifecycle=$(echo "$meta" | grep -o '"lifecycle": "[^"]*"' | cut -d'"' -f4)
+        # Extract metadata using jq with fallbacks
+        IFS=$'\t' read -r doc_level doc_timestamp doc_module doc_type doc_intent doc_lifecycle <<< \
+            "$(_tdocs_json_get_multi "$meta" \
+                '.level // .completeness_level' \
+                '.updated // .created' \
+                '.module' '.type' '.intent' '.lifecycle')"
 
         # Convert ISO timestamp to Unix epoch if needed
         if [[ "$doc_timestamp" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2} ]]; then
@@ -585,8 +581,8 @@ EOF
     local unranked_docs=()
 
     for meta in "${sorted_results_with_ranks[@]}"; do
-        local doc_type=$(echo "$meta" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
-        local rank=$(echo "$meta" | grep -o '"rank": [0-9.]*' | cut -d' ' -f2)
+        IFS=$'\t' read -r doc_type rank <<< \
+            "$(_tdocs_json_get_multi "$meta" '.type' '.rank')"
 
         # Classify by type
         case "$doc_type" in
@@ -617,8 +613,7 @@ EOF
     local lifecycle_counts=()
     declare -A lifecycle_map=()
     for meta in "${sorted_results_with_ranks[@]}"; do
-        local lc=$(echo "$meta" | grep -o '"lifecycle": "[^"]*"' | cut -d'"' -f4)
-        [[ -z "$lc" ]] && lc="W"  # Default to Working if missing
+        local lc=$(_tdocs_json_get "$meta" '.lifecycle' 'W')
         lifecycle_map[$lc]=$((${lifecycle_map[$lc]:-0} + 1))
     done
 
@@ -651,8 +646,7 @@ EOF
     all_docs+=("${unranked_docs[@]}")
 
     for meta in "${all_docs[@]}"; do
-        local doc_path=$(echo "$meta" | jq -r '.doc_path // ""' 2>/dev/null)
-        [[ -z "$doc_path" ]] && doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
+        local doc_path=$(_tdocs_json_get "$meta" '.doc_path')
 
         # Add to list if numbered
         if [[ "$numbered" == true ]]; then

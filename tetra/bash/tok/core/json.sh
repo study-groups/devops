@@ -257,7 +257,34 @@ tok_keys() {
     jq -r 'keys[]' "$json_file"
 }
 
+# =============================================================================
+# String-based JSON operations (in-memory JSON, not files)
+# =============================================================================
+
+# Extract field from JSON string
+# Usage: tok_str_get "$json_string" '.field' [default]
+tok_str_get() {
+    local json="$1" path="$2" default="${3:-}"
+    local result
+    result=$(echo "$json" | jq -r "$path // empty" 2>/dev/null)
+    [[ -z "$result" || "$result" == "null" ]] && echo "$default" || echo "$result"
+}
+
+# Extract multiple fields from JSON string (single jq call)
+# Usage: IFS=$'\t' read -r a b c <<< "$(tok_str_get_multi "$json" '.a' '.b' '.c')"
+# Returns: tab-separated values
+tok_str_get_multi() {
+    local json="$1"; shift
+    local expr=""
+    for path in "$@"; do
+        [[ -n "$expr" ]] && expr+=", "
+        expr+="($path // empty)"
+    done
+    echo "$json" | jq -r "[$expr] | @tsv" 2>/dev/null
+}
+
 # Export functions
 export -f _tok_require_jq _tok_require_file
 export -f tok_validate_syntax tok_validate _tok_validate_basic _tok_validate_against_schema
 export -f tok_query tok_get tok_set tok_keys
+export -f tok_str_get tok_str_get_multi

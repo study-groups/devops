@@ -203,7 +203,7 @@ tdoc_render_list_with_preview() {
     local fmt_width=70  # Narrow width for preview content
 
     for meta_json in "${meta_list[@]}"; do
-        local doc_path=$(echo "$meta_json" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
+        local doc_path=$(_tdocs_json_get "$meta_json" '.doc_path')
         local filename=$(basename "$doc_path")
 
         # Header line (BRIGHT, indented)

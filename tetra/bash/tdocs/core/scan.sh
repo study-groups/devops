@@ -100,8 +100,8 @@ tdocs_promote_doc() {
         return 1
     fi
 
-    local current_type=$(echo "$meta" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
-    local current_timeless=$(echo "$meta" | grep -o '"timeless": [^,}]*' | awk '{print $2}' | tr -d ',')
+    local current_type=$(_tdocs_json_get "$meta" '.type')
+    local current_timeless=$(_tdocs_json_get "$meta" '.timeless')
     local current_rank=$(tdoc_get_rank "$doc_path")
 
     # Colors

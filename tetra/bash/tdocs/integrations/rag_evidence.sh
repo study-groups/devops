@@ -64,11 +64,9 @@ EOF
         [[ ! -f "$meta_file" ]] && continue
 
         local meta=$(cat "$meta_file")
-        local doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
-        local category=$(echo "$meta" | grep -o '"category": "[^"]*"' | cut -d'"' -f4)
-        local type=$(echo "$meta" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
-        local evidence_weight=$(echo "$meta" | grep -o '"evidence_weight": "[^"]*"' | cut -d'"' -f4)
-        local tags_json=$(echo "$meta" | grep -o '"tags": \[[^\]]*\]')
+        IFS=$'\t' read -r doc_path category type evidence_weight <<< \
+            "$(_tdocs_json_get_multi "$meta" '.doc_path' '.category' '.type' '.evidence_weight')"
+        local tags_json=$(_tdocs_json_get "$meta" '.tags | @json')
 
         # Filter by primary-only
         if [[ "$primary_only" == "true" && "$evidence_weight" != "primary" ]]; then
@@ -153,7 +151,7 @@ tdoc_evidence_module() {
 
         if grep -q "\"module\": \"$module\"" "$meta_file" 2>/dev/null; then
             local meta=$(cat "$meta_file")
-            local doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
+            local doc_path=$(_tdocs_json_get "$meta" '.doc_path')
 
             # Check query match if provided
             if [[ -n "$query" ]]; then

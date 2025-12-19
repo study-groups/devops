@@ -67,9 +67,8 @@ tdoc_module_docs() {
         [[ -z "$meta_line" ]] && continue
 
         # Extract fields from JSON
-        local doc_path=$(echo "$meta_line" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
-        local type=$(echo "$meta_line" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
-        local clevel=$(echo "$meta_line" | grep -o '"completeness_level": "[^"]*"' | cut -d'"' -f4)
+        IFS=$'\t' read -r doc_path type clevel <<< \
+            "$(_tdocs_json_get_multi "$meta_line" '.doc_path' '.type' '.completeness_level')"
 
         # Store completeness level if found
         [[ -n "$clevel" ]] && completeness_level="$clevel"
@@ -149,8 +148,8 @@ tdoc_show_spec() {
     while IFS= read -r meta_line; do
         [[ -z "$meta_line" ]] && continue
 
-        local doc_path=$(echo "$meta_line" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
-        local type=$(echo "$meta_line" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
+        IFS=$'\t' read -r doc_path type <<< \
+            "$(_tdocs_json_get_multi "$meta_line" '.doc_path' '.type')"
 
         if [[ "$type" == "specification" ]]; then
             spec_doc="$doc_path"
@@ -234,9 +233,8 @@ tdoc_audit_specs() {
             while IFS= read -r meta_line; do
                 [[ -z "$meta_line" ]] && continue
 
-                local type=$(echo "$meta_line" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
-                local doc_path=$(echo "$meta_line" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
-                local clevel=$(echo "$meta_line" | grep -o '"completeness_level": "[^"]*"' | cut -d'"' -f4)
+                IFS=$'\t' read -r type doc_path clevel <<< \
+                    "$(_tdocs_json_get_multi "$meta_line" '.type' '.doc_path' '.completeness_level')"
 
                 if [[ "$type" == "specification" ]]; then
                     has_spec=true

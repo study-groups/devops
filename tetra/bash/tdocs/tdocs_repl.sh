@@ -405,7 +405,7 @@ _tdocs_repl_build_prompt() {
             # Only process non-empty .meta files (matches tdocs_count_total logic)
             while IFS= read -r meta_file; do
                 [[ ! -f "$meta_file" ]] && continue
-                local lc=$(grep -o '"lifecycle": "[^"]*"' "$meta_file" 2>/dev/null | cut -d'"' -f4 | head -1)
+                local lc=$(jq -r '.lifecycle // empty' "$meta_file" 2>/dev/null)
                 [[ -z "$lc" ]] && lc="W"  # Default to Working
                 ((lifecycle_counts[$lc]++))
             done < <(find "$TDOCS_DB_DIR" -name "*.meta" -type f ! -size 0 2>/dev/null)

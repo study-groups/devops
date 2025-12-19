@@ -12,7 +12,7 @@ tdoc_doctor_check_stale() {
         [[ ! -f "$meta_file" ]] && continue
 
         local meta=$(cat "$meta_file")
-        local doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
+        local doc_path=$(_tdocs_json_get "$meta" '.doc_path')
 
         if [[ -n "$doc_path" ]] && [[ ! -f "$doc_path" ]]; then
             stale+=("$meta_file:$doc_path")
@@ -61,8 +61,8 @@ tdoc_doctor_check_lifecycle() {
         [[ ! -f "$meta_file" ]] && continue
 
         local meta=$(cat "$meta_file")
-        local doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
-        local lifecycle=$(echo "$meta" | grep -o '"lifecycle": "[^"]*"' | cut -d'"' -f4)
+        IFS=$'\t' read -r doc_path lifecycle <<< \
+            "$(_tdocs_json_get_multi "$meta" '.doc_path' '.lifecycle')"
 
         # Check for missing lifecycle
         if [[ -z "$lifecycle" ]]; then
@@ -91,7 +91,7 @@ tdoc_doctor_check_duplicates() {
         [[ ! -f "$meta_file" ]] && continue
 
         local meta=$(cat "$meta_file")
-        local doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
+        local doc_path=$(_tdocs_json_get "$meta" '.doc_path')
 
         # Skip if doc_path is empty
         [[ -z "$doc_path" ]] && continue
@@ -260,7 +260,7 @@ tdoc_doctor() {
     declare -A lifecycle_counts
     for meta_file in "$TDOCS_DB_DIR"/*.meta; do
         [[ ! -f "$meta_file" ]] && continue
-        local lc=$(grep -o '"lifecycle": "[^"]*"' "$meta_file" | cut -d'"' -f4)
+        local lc=$(jq -r '.lifecycle // empty' "$meta_file" 2>/dev/null)
         [[ -z "$lc" ]] && lc="W"
         ((lifecycle_counts[$lc]++))
     done
@@ -390,7 +390,7 @@ tdoc_doctor() {
             for meta_file in "$TDOCS_DB_DIR"/*.meta; do
                 [[ ! -f "$meta_file" ]] && continue
                 local meta=$(cat "$meta_file")
-                local doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
+                local doc_path=$(_tdocs_json_get "$meta" '.doc_path')
 
                 if [[ -f "$doc_path" ]]; then
                     tdoc_db_ensure_rank "$doc_path" 2>/dev/null

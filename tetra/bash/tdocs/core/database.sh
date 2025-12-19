@@ -373,11 +373,9 @@ tdoc_db_ensure_rank() {
 
     # Get metadata fields needed for ranking
     local meta=$(cat "$meta_file")
-    local doc_type=$(echo "$meta" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
-    local timeless=$(echo "$meta" | grep -o '"timeless": [^,}]*' | awk '{print $2}' | tr -d ',' | tr -d '"')
-    local module=$(echo "$meta" | grep -o '"module": "[^"]*"' | cut -d'"' -f4)
-    local tags=$(echo "$meta" | grep -o '"tags": \[[^\]]*\]')
-    local created=$(echo "$meta" | grep -o '"created": "[^"]*"' | cut -d'"' -f4)
+    IFS=$'\t' read -r doc_type timeless module created <<< \
+        "$(_tdocs_json_get_multi "$meta" '.type' '.timeless' '.module' '.created')"
+    local tags=$(_tdocs_json_get "$meta" '.tags | @json')
 
     # Calculate rank if we have ranking.sh loaded
     if ! command -v tdoc_calculate_rank >/dev/null 2>&1; then
@@ -387,11 +385,8 @@ tdoc_db_ensure_rank() {
     local rank_json=$(tdoc_calculate_rank "$doc_path" "$doc_type" "$timeless" "$module" "$tags" "$created")
 
     # Extract rank and factors
-    local rank=$(echo "$rank_json" | grep -o '"rank": [0-9.]*' | head -1 | cut -d' ' -f2)
-    local base_rank=$(echo "$rank_json" | grep -o '"type_base": [0-9.]*' | cut -d' ' -f2)
-    local length_bonus=$(echo "$rank_json" | grep -o '"length_bonus": [0-9.]*' | cut -d' ' -f2)
-    local metadata_bonus=$(echo "$rank_json" | grep -o '"metadata_bonus": [0-9.]*' | cut -d' ' -f2)
-    local recency_boost=$(echo "$rank_json" | grep -o '"recency_boost": [0-9.]*' | cut -d' ' -f2)
+    IFS=$'\t' read -r rank base_rank length_bonus metadata_bonus recency_boost <<< \
+        "$(_tdocs_json_get_multi "$rank_json" '.rank' '.type_base' '.length_bonus' '.metadata_bonus' '.recency_boost')"
 
     # Insert rank fields before the closing brace
     # Remove trailing } and add rank fields
@@ -501,13 +496,7 @@ tdoc_db_list() {
             [[ ! -f "$meta_file" ]] && continue
 
             local meta=$(cat "$meta_file")
-
-            # PERFORMANCE: Use jq for faster doc_path extraction
-            if command -v jq >/dev/null 2>&1; then
-                local doc_path=$(echo "$meta" | jq -r '.doc_path // ""' 2>/dev/null)
-            else
-                local doc_path=$(echo "$meta" | grep -o '"doc_path": "[^"]*"' | cut -d'"' -f4)
-            fi
+            local doc_path=$(_tdocs_json_get "$meta" '.doc_path')
 
             # Check if the actual document file exists
             if [[ -n "$doc_path" ]] && [[ ! -f "$doc_path" ]]; then

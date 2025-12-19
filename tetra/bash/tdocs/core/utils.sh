@@ -77,8 +77,22 @@ _tdocs_file_hash() {
     fi
 }
 
+# Ensure tok JSON utilities are available
+if ! command -v tok_str_get >/dev/null 2>&1; then
+    source "${TETRA_SRC}/bash/tok/core/json.sh"
+fi
+
+# JSON helpers - thin wrappers around tok_str_get/tok_str_get_multi
+# Usage: _tdocs_json_get "$json_string" '.field' [default]
+_tdocs_json_get() { tok_str_get "$@"; }
+
+# Usage: IFS=$'\t' read -r a b c <<< "$(_tdocs_json_get_multi "$json" '.a' '.b' '.c')"
+_tdocs_json_get_multi() { tok_str_get_multi "$@"; }
+
 # Export utilities
 export -f _tdocs_csv_to_json_array
 export -f _tdocs_file_mtime
 export -f _tdocs_timestamp_to_iso
 export -f _tdocs_file_hash
+export -f _tdocs_json_get
+export -f _tdocs_json_get_multi

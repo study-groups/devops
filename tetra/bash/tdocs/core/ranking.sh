@@ -181,7 +181,7 @@ tdoc_get_rank() {
     fi
 
     # Try to get cached rank
-    local cached_rank=$(grep -o '"rank": [0-9.]*' "$meta_file" 2>/dev/null | cut -d' ' -f2)
+    local cached_rank=$(jq -r '.rank // empty' "$meta_file" 2>/dev/null)
 
     if [[ -n "$cached_rank" ]]; then
         echo "$cached_rank"
@@ -208,20 +208,15 @@ tdoc_show_rank_breakdown() {
         return 1
     fi
 
-    local doc_type=$(echo "$meta" | grep -o '"type": "[^"]*"' | cut -d'"' -f4)
-    local timeless=$(echo "$meta" | grep -o '"timeless": [^,}]*' | awk '{print $2}' | tr -d ',')
-    local module=$(echo "$meta" | grep -o '"module": "[^"]*"' | cut -d'"' -f4)
-    local tags=$(echo "$meta" | grep -o '"tags": \[[^\]]*\]')
-    local created=$(echo "$meta" | grep -o '"created": "[^"]*"' | cut -d'"' -f4)
+    IFS=$'\t' read -r doc_type timeless module created <<< \
+        "$(_tdocs_json_get_multi "$meta" '.type' '.timeless' '.module' '.created')"
+    local tags=$(_tdocs_json_get "$meta" '.tags | @json')
 
     # Calculate rank with breakdown
     local rank_json=$(tdoc_calculate_rank "$doc_path" "$doc_type" "$timeless" "$module" "$tags" "$created")
 
-    local rank=$(echo "$rank_json" | grep -o '"rank": [0-9.]*' | cut -d' ' -f2)
-    local base=$(echo "$rank_json" | grep -o '"type_base": [0-9.]*' | cut -d' ' -f2)
-    local length=$(echo "$rank_json" | grep -o '"length_bonus": [0-9.]*' | cut -d' ' -f2)
-    local metadata=$(echo "$rank_json" | grep -o '"metadata_bonus": [0-9.]*' | cut -d' ' -f2)
-    local recency=$(echo "$rank_json" | grep -o '"recency_boost": [0-9.]*' | cut -d' ' -f2)
+    IFS=$'\t' read -r rank base length metadata recency <<< \
+        "$(_tdocs_json_get_multi "$rank_json" '.rank' '.type_base' '.length_bonus' '.metadata_bonus' '.recency_boost')"
 
     # Get word count for display
     local word_count=$(wc -w < "$doc_path" 2>/dev/null | tr -d ' ')
