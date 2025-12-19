@@ -340,8 +340,8 @@ _tdocs_review_prompt_action() {
     # Title - left aligned with 1 column indent, colorized
     echo -e " ${color_title}[$current/$total] $basename${color_reset}"
 
-    # Calculate file age
-    local file_mtime=$(stat -f %m "$filepath" 2>/dev/null || stat -c %Y "$filepath" 2>/dev/null)
+    # Calculate file age (use canonical _tdoc_file_mtime from utils.sh)
+    local file_mtime=$(_tdoc_file_mtime "$filepath")
     local current_time=$(date +%s)
     local age_seconds=$((current_time - file_mtime))
     local age_days=$((age_seconds / 86400))
