@@ -588,27 +588,35 @@ _tsm_show_simple_help() {
 
     if [[ "$use_color" == "true" ]]; then
         local C_TITLE='\033[1;36m'
-        local C_CAT='\033[1;34m'
+        local C_SEC='\033[1;34m'
         local C_CMD='\033[0;36m'
+        local C_ARG='\033[0;33m'
         local C_GRAY='\033[0;90m'
         local C_NC='\033[0m'
     else
-        local C_TITLE='' C_CAT='' C_CMD='' C_GRAY='' C_NC=''
+        local C_TITLE='' C_SEC='' C_CMD='' C_ARG='' C_GRAY='' C_NC=''
     fi
 
     cat <<EOF
 $(echo -e "${C_TITLE}TSM${C_NC}") - Tetra Service Manager
 
-$(echo -e "${C_CAT}CATEGORIES${C_NC}")
-  $(echo -e "${C_CMD}Process${C_NC}")     start stop restart kill cleanup list info logs
-  $(echo -e "${C_CMD}Services${C_NC}")    services save patterns enable disable orgs
-  $(echo -e "${C_CMD}Ports${C_NC}")       ports claim ranges patrol doctor
-  $(echo -e "${C_CMD}Monitor${C_NC}")     monitor stream dashboard sessions
-  $(echo -e "${C_CMD}System${C_NC}")      setup runtime daemon caddy users color repl
+$(echo -e "${C_SEC}COMMANDS${C_NC}")
+  $(echo -e "${C_CMD}list${C_NC}")      Show running services
+  $(echo -e "${C_CMD}start${C_NC}")     Start a service or command
+  $(echo -e "${C_CMD}stop${C_NC}")      Stop services
+  $(echo -e "${C_CMD}restart${C_NC}")   Restart services
+  $(echo -e "${C_CMD}services${C_NC}")  List saved service definitions
+  $(echo -e "${C_CMD}ports${C_NC}")     Port registry and conflicts
+  $(echo -e "${C_CMD}doctor${C_NC}")    Diagnostics and health checks
 
-$(echo -e "${C_GRAY}Quick:${C_NC}") tsm start python -m http.server 8020
-$(echo -e "${C_GRAY}Help: ${C_NC}") tsm help <command|topic>  $(echo -e "${C_GRAY}(start, doctor, ports)${C_NC}")
-$(echo -e "${C_GRAY}List: ${C_NC}") tsm help all [--no-color]  $(echo -e "${C_GRAY}# full command list${C_NC}")
+$(echo -e "${C_SEC}QUERY${C_NC}") $(echo -e "${C_GRAY}(TQL - Tetra Query Language)${C_NC}")
+  $(echo -e "${C_CMD}tsm ls -q${C_NC}") $(echo -e "'${C_ARG}env=tetra sort:uptime${C_NC}'")
+  $(echo -e "${C_CMD}tsm ls -q${C_NC}") $(echo -e "'${C_ARG}port>8000 limit:5${C_NC}'")
+  $(echo -e "${C_CMD}tsm ls -q${C_NC}") $(echo -e "'${C_ARG}name~midi last:1d${C_NC}'")
+
+$(echo -e "${C_SEC}HELP${C_NC}")
+  $(echo -e "${C_CMD}tsm help${C_NC}") $(echo -e "${C_ARG}<topic>${C_NC}")    start, doctor, ports, services
+  $(echo -e "${C_CMD}tsm help all${C_NC}")        Full command reference
 EOF
 }
 

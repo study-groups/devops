@@ -199,13 +199,16 @@ _tsm_completion() {
             COMPREPLY=($(compgen -W "node python ruby go rust java" -- "$cur"))
             ;;
         help)
-            COMPREPLY=($(compgen -W "all --no-color start stop list doctor ports services color" -- "$cur"))
+            # Help topics
+            COMPREPLY=($(compgen -W "all start list ports doctor services query" -- "$cur"))
             ;;
         color|colors)
             COMPREPLY=($(compgen -W "show edit init reset path get help" -- "$cur"))
             ;;
         *)
-            COMPREPLY=($(compgen -W "setup init start stop delete kill cleanup restart list info logs env paths scan-ports ports claim ranges patrol doctor daemon repl monitor stream dashboard analytics sessions clicks journey user-patterns disambiguate-users runtime services orgs patterns save enable disable rm show startup users color help" -- "$cur"))
+            # Core commands only - keeps completion on one line
+            # Use 'tsm help all' to see full command list
+            COMPREPLY=($(compgen -W "list start stop restart services ports doctor help" -- "$cur"))
             ;;
     esac
 }

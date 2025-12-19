@@ -249,6 +249,56 @@ $(echo -e "${TETRA_BLUE}SEE ALSO${TETRA_NC}")
 EOF
 }
 
+tsm_help_query() {
+    cat <<EOF
+$(echo -e "${TETRA_BLUE}TQL - TETRA QUERY LANGUAGE${TETRA_NC}")
+
+Query and filter TSM processes using natural language-like syntax.
+
+$(echo -e "${TETRA_BLUE}USAGE${TETRA_NC}")
+  $(echo -e "${TETRA_CYAN}tsm ls -q${TETRA_NC}") $(echo -e "${TETRA_YELLOW}'<query>'${TETRA_NC}")
+
+$(echo -e "${TETRA_BLUE}FILTERS${TETRA_NC}")
+$(_tsm_help_flag "field=value" "Exact match (env=tetra)")
+$(_tsm_help_flag "field~text" "Contains/fuzzy (name~midi)")
+$(_tsm_help_flag "field>N" "Greater than (port>8000)")
+$(_tsm_help_flag "field<N" "Less than (uptime<3600)")
+$(_tsm_help_flag "field!=value" "Not equal (type!=udp)")
+
+$(echo -e "${TETRA_BLUE}FIELDS${TETRA_NC}")
+  id, name, env, pid, port, type, uptime
+
+$(echo -e "${TETRA_BLUE}SORT${TETRA_NC}")
+$(_tsm_help_flag "sort:field" "Sort ascending (sort:uptime)")
+$(_tsm_help_flag "sort:field:desc" "Sort descending (sort:port:desc)")
+
+$(echo -e "${TETRA_BLUE}LIMIT${TETRA_NC}")
+$(_tsm_help_flag "limit:N" "First N results (limit:5)")
+$(_tsm_help_flag "head:N" "First N (alias)")
+$(_tsm_help_flag "tail:N" "Last N results")
+
+$(echo -e "${TETRA_BLUE}TEMPORAL${TETRA_NC}")
+$(_tsm_help_flag "last:7d" "Started in last 7 days")
+$(_tsm_help_flag "last:2h" "Started in last 2 hours")
+$(_tsm_help_flag "older:1d" "Running for more than 1 day")
+$(_tsm_help_flag "since:monday" "Started since Monday")
+
+$(echo -e "${TETRA_BLUE}EXAMPLES${TETRA_NC}")
+$(_tsm_help_example "Filter by env, sort by uptime" "tsm ls -q 'env=tetra sort:uptime'")
+
+$(_tsm_help_example "High ports, descending, top 5" "tsm ls -q 'port>8000 sort:port:desc limit:5'")
+
+$(_tsm_help_example "UDP services with midi in name" "tsm ls -q 'type=udp name~midi'")
+
+$(_tsm_help_example "Recent services (last hour)" "tsm ls -q 'last:1h sort:uptime'")
+
+$(echo -e "${TETRA_BLUE}SEE ALSO${TETRA_NC}")
+  tql help              TQL module documentation
+  tsm help list         List command options
+
+EOF
+}
+
 # === HELP ROUTER ===
 
 tsm_help_topic() {
@@ -264,6 +314,9 @@ tsm_help_topic() {
         doctor)
             tsm_help_doctor
             ;;
+        query|tql|filter)
+            tsm_help_query
+            ;;
         pre-hooks|prehooks|hooks)
             tsm_help_pre_hooks
             ;;
@@ -273,9 +326,32 @@ tsm_help_topic() {
         python)
             tsm_help_python
             ;;
+        services)
+            echo "tsm services - List saved service definitions"
+            echo ""
+            echo "Usage: tsm services [OPTIONS]"
+            echo "  -d, --detail   Show detailed service info"
+            echo "  --enabled      Show only enabled services"
+            echo "  --disabled     Show only disabled services"
+            echo ""
+            echo "See also: tsm save, tsm enable, tsm disable"
+            ;;
+        list)
+            echo "tsm list - List running processes"
+            echo ""
+            echo "Usage: tsm list [VIEW] [OPTIONS]"
+            echo ""
+            echo "Views: running (default), -a (all), pwd, -l (long), -p (ports), tree"
+            echo ""
+            echo "Options:"
+            echo "  -q, --query QUERY   TQL query (see: tsm help query)"
+            echo "  -s, --sort FIELD    Sort by: id, name, env, port, type, uptime"
+            echo "  -f, --filter PAT    Filter by regex pattern"
+            echo "  -r, --reverse       Reverse sort order"
+            ;;
         *)
             echo -e "${TETRA_RED}Unknown help topic: $topic${TETRA_NC}" >&2
-            echo "Try: tsm help [start|ports|doctor|pre-hooks|environments|python]" >&2
+            echo "Topics: start, stop, list, ports, doctor, query, services, pre-hooks, python" >&2
             return 1
             ;;
     esac
@@ -284,6 +360,7 @@ tsm_help_topic() {
 export -f tsm_help_start
 export -f tsm_help_ports
 export -f tsm_help_doctor
+export -f tsm_help_query
 export -f tsm_help_pre_hooks
 export -f tsm_help_environments
 export -f tsm_help_python
