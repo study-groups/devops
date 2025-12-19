@@ -123,10 +123,9 @@ _org_build_validate_toml() {
     return $errors
 }
 
-# Extract all section names from a TOML file
+# Extract all section names from a TOML file (uses shared helper)
 _org_build_get_sections() {
-    local file="$1"
-    grep -oE '^\[[^]]+\]' "$file" 2>/dev/null | tr -d '[]'
+    _org_extract_sections "$1"
 }
 
 # Check for duplicate sections across files
@@ -167,7 +166,7 @@ org_build() {
     # If no name given, use active org
     if [[ -z "$name" ]]; then
         name=$(org_active 2>/dev/null)
-        [[ "$name" == "none" ]] && name=""
+        [[ "$name" == "$ORG_NO_ACTIVE" ]] && name=""
     fi
 
     if [[ -z "$name" ]]; then
@@ -282,7 +281,7 @@ org_build_init() {
 
     if [[ -z "$name" ]]; then
         name=$(org_active 2>/dev/null)
-        [[ "$name" == "none" ]] && name=""
+        [[ "$name" == "$ORG_NO_ACTIVE" ]] && name=""
     fi
 
     if [[ -z "$name" ]]; then
@@ -428,7 +427,7 @@ org_build_list() {
 
     if [[ -z "$name" ]]; then
         name=$(org_active 2>/dev/null)
-        [[ "$name" == "none" ]] && name=""
+        [[ "$name" == "$ORG_NO_ACTIVE" ]] && name=""
     fi
 
     if [[ -z "$name" ]]; then
@@ -465,5 +464,3 @@ org_build_list() {
 # =============================================================================
 
 export -f org_build org_build_init org_build_list
-export -f _org_build_validate_toml _org_build_get_sections _org_build_check_duplicates
-export -f _org_get_sources_dir _org_get_sources_pattern _org_is_dirty

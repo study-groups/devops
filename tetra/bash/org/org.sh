@@ -8,6 +8,21 @@
 
 ORG_SRC="${TETRA_SRC}/bash/org"
 
+# Constants
+ORG_NO_ACTIVE="none"
+
+# =============================================================================
+# SHARED HELPERS
+# =============================================================================
+
+# Extract section names from a TOML file
+# Usage: _org_extract_sections <file>
+_org_extract_sections() {
+    local file="$1"
+    [[ -f "$file" ]] || return 1
+    grep -oE '^\[[^]]+\]' "$file" | tr -d '[]'
+}
+
 # Source dependencies
 source "$ORG_SRC/org_toml.sh"
 source "$ORG_SRC/org_env.sh"
@@ -25,7 +40,7 @@ org_active() {
         local target=$(readlink "$link")
         basename "$(dirname "$target")"
     else
-        echo "none"
+        echo "$ORG_NO_ACTIVE"
     fi
 }
 
@@ -34,7 +49,7 @@ org_list() {
     local orgs_dir="$TETRA_DIR/orgs"
     local active=$(org_active)
 
-    [[ ! -d "$orgs_dir" ]] && { echo "No orgs directory"; return 1; }
+    [[ ! -d "$orgs_dir" ]] && { echo "No orgs directory" >&2; return 1; }
 
     # First list canonical orgs (real directories)
     for dir in "$orgs_dir"/*/; do
@@ -75,12 +90,12 @@ org_names() {
 org_switch() {
     local name="$1"
 
-    [[ -z "$name" ]] && { echo "Usage: org switch <name>"; return 1; }
+    [[ -z "$name" ]] && { echo "Usage: org switch <name>" >&2; return 1; }
 
     local org_toml="$TETRA_DIR/orgs/$name/tetra.toml"
     local link="$TETRA_DIR/config/tetra.toml"
 
-    [[ ! -f "$org_toml" ]] && { echo "Not found: $org_toml"; return 1; }
+    [[ ! -f "$org_toml" ]] && { echo "Not found: $org_toml" >&2; return 1; }
 
     # Ensure config dir exists
     mkdir -p "$TETRA_DIR/config"
@@ -130,16 +145,16 @@ org_alias() {
     fi
 
     # Need both args to create
-    [[ -z "$canonical" ]] && { echo "Usage: org alias <short> <canonical>"; return 1; }
+    [[ -z "$canonical" ]] && { echo "Usage: org alias <short> <canonical>" >&2; return 1; }
 
     # Validate
-    [[ ! "$alias_name" =~ ^[a-zA-Z0-9_-]+$ ]] && { echo "Invalid alias name"; return 1; }
+    [[ ! "$alias_name" =~ ^[a-zA-Z0-9_-]+$ ]] && { echo "Invalid alias name" >&2; return 1; }
 
     local canonical_dir="$orgs_dir/$canonical"
     local alias_path="$orgs_dir/$alias_name"
 
-    [[ ! -d "$canonical_dir" ]] && { echo "Not found: $canonical"; return 1; }
-    [[ -e "$alias_path" ]] && { echo "Already exists: $alias_name"; return 1; }
+    [[ ! -d "$canonical_dir" ]] && { echo "Not found: $canonical" >&2; return 1; }
+    [[ -e "$alias_path" ]] && { echo "Already exists: $alias_name" >&2; return 1; }
 
     # Create relative symlink
     ln -s "$canonical" "$alias_path"
@@ -151,7 +166,7 @@ org_unalias() {
     local alias_name="$1"
     local orgs_dir="$TETRA_DIR/orgs"
 
-    [[ -z "$alias_name" ]] && { echo "Usage: org unalias <name>"; return 1; }
+    [[ -z "$alias_name" ]] && { echo "Usage: org unalias <name>" >&2; return 1; }
 
     local alias_path="$orgs_dir/$alias_name"
 
@@ -159,10 +174,10 @@ org_unalias() {
         rm "$alias_path"
         echo "Removed: $alias_name"
     elif [[ -d "$alias_path" ]]; then
-        echo "Error: $alias_name is a canonical org, not an alias"
+        echo "Error: $alias_name is a canonical org, not an alias" >&2
         return 1
     else
-        echo "Not found: $alias_name"
+        echo "Not found: $alias_name" >&2
         return 1
     fi
 }
@@ -171,11 +186,11 @@ org_unalias() {
 org_create() {
     local name="$1"
 
-    [[ -z "$name" ]] && { echo "Usage: org create <name>"; return 1; }
-    [[ ! "$name" =~ ^[a-zA-Z0-9_-]+$ ]] && { echo "Invalid name (use a-z, 0-9, _, -)"; return 1; }
+    [[ -z "$name" ]] && { echo "Usage: org create <name>" >&2; return 1; }
+    [[ ! "$name" =~ ^[a-zA-Z0-9_-]+$ ]] && { echo "Invalid name (use a-z, 0-9, _, -)" >&2; return 1; }
 
     local org_dir="$TETRA_DIR/orgs/$name"
-    [[ -d "$org_dir" ]] && { echo "Already exists: $name"; return 1; }
+    [[ -d "$org_dir" ]] && { echo "Already exists: $name" >&2; return 1; }
 
     mkdir -p "$org_dir"
 
@@ -216,7 +231,7 @@ org() {
         status|s)
             local active=$(org_active)
             echo "Active: $active"
-            if [[ "$active" != "none" ]]; then
+            if [[ "$active" != "$ORG_NO_ACTIVE" ]]; then
                 local toml=$(org_toml_path)
 
                 # Check dirty status
@@ -311,11 +326,6 @@ org() {
         # Show specific section
         section|sec)
             org_toml_section "$@"
-            ;;
-
-        # List sections in tetra.toml
-        sections)
-            org_toml_sections
             ;;
 
         # Validate tetra.toml
@@ -444,17 +454,17 @@ org() {
             shift 2>/dev/null || true
 
             local name="${1:-$(org_active 2>/dev/null)}"
-            [[ "$name" == "none" ]] && name=""
+            [[ "$name" == "$ORG_NO_ACTIVE" ]] && name=""
 
             case "$subcmd" in
                 init|add)
                     if [[ -z "$name" ]]; then
-                        echo "Usage: org pdata init [org_name]"
+                        echo "Usage: org pdata init [org_name]" >&2
                         return 1
                     fi
 
                     local org_dir="$TETRA_DIR/orgs/$name"
-                    [[ ! -d "$org_dir" ]] && { echo "Org not found: $name"; return 1; }
+                    [[ ! -d "$org_dir" ]] && { echo "Org not found: $name" >&2; return 1; }
 
                     local sections_dir="$org_dir/sections"
                     local pd_dir="$org_dir/pd"
@@ -590,4 +600,6 @@ EOF
 # Register completion
 complete -F _org_complete org
 
-export -f org org_active org_list org_names org_switch org_create org_alias org_unalias _org_export_env_vars
+export ORG_NO_ACTIVE
+export -f org org_active org_list org_names org_switch org_create org_alias org_unalias
+export -f _org_extract_sections _org_export_env_vars

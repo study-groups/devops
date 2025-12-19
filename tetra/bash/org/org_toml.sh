@@ -33,7 +33,7 @@ org_toml_exists() {
 # View entire toml or filter by section prefix
 org_toml_view() {
     local filter="${1:-}"
-    local toml=$(org_toml_path) || { echo "No active org"; return 1; }
+    local toml=$(org_toml_path) || { echo "No active org" >&2; return 1; }
 
     if [[ -z "$filter" ]]; then
         # Show entire file
@@ -47,7 +47,7 @@ org_toml_view() {
 # Show a specific section by exact name
 org_toml_section() {
     local section="$1"
-    local toml=$(org_toml_path) || { echo "No active org"; return 1; }
+    local toml=$(org_toml_path) || { echo "No active org" >&2; return 1; }
 
     [[ -z "$section" ]] && { echo "Usage: org section <name>"; return 1; }
 
@@ -69,8 +69,8 @@ org_toml_section() {
 
 # List all section names in the toml
 org_toml_sections() {
-    local toml=$(org_toml_path) || { echo "No active org"; return 1; }
-    grep -oE '^\[[^]]+\]' "$toml" | tr -d '[]' | sort -u
+    local toml=$(org_toml_path) || { echo "No active org" >&2; return 1; }
+    _org_extract_sections "$toml" | sort -u
 }
 
 # List top-level section names (for completion)
@@ -108,7 +108,7 @@ org_toml_grep_sections() {
 # Get a value by dotted path (e.g., env.dev.host)
 org_toml_get() {
     local path="$1"
-    local toml=$(org_toml_path) || { echo "No active org"; return 1; }
+    local toml=$(org_toml_path) || { echo "No active org" >&2; return 1; }
 
     [[ -z "$path" ]] && { echo "Usage: org get <key.path>"; return 1; }
 
@@ -151,7 +151,7 @@ org_toml_get() {
 org_toml_set() {
     local path="$1"
     local value="$2"
-    local toml=$(org_toml_path) || { echo "No active org"; return 1; }
+    local toml=$(org_toml_path) || { echo "No active org" >&2; return 1; }
 
     [[ -z "$path" || -z "$value" ]] && { echo "Usage: org set <key.path> <value>"; return 1; }
 
@@ -199,7 +199,7 @@ org_toml_set() {
 
 # Open tetra.toml in editor
 org_toml_edit() {
-    local toml=$(org_toml_path) || { echo "No active org"; return 1; }
+    local toml=$(org_toml_path) || { echo "No active org" >&2; return 1; }
     ${EDITOR:-vim} "$toml"
 }
 
@@ -209,7 +209,7 @@ org_toml_edit() {
 
 # Basic TOML validation
 org_toml_validate() {
-    local toml=$(org_toml_path) || { echo "No active org"; return 1; }
+    local toml=$(org_toml_path) || { echo "No active org" >&2; return 1; }
     local errors=0
 
     echo "Validating: $toml"

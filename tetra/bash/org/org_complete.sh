@@ -11,10 +11,7 @@
 # =============================================================================
 
 # All org subcommands (longest form only, no aliases)
-_ORG_COMMANDS="status list switch create init build alias unalias view edit section sections get set validate path env import pdata ssh help"
-
-# SSH subcommands
-_ORG_SSH_COMMANDS="test copy cmd"
+_ORG_COMMANDS="status list switch create init build alias unalias view edit section sections get set validate path env import pdata help"
 
 # =============================================================================
 # HELPER FUNCTIONS
@@ -51,45 +48,25 @@ _org_complete_aliases() {
 
 # List section names from active tetra.toml
 _org_complete_sections() {
-    local toml="$TETRA_DIR/config/tetra.toml"
-    [[ -L "$toml" ]] || return
-    local real=$(readlink "$toml")
-    [[ -f "$real" ]] || return
-    grep -oE '^\[[^]]+\]' "$real" | tr -d '[]' | sort -u
+    local toml=$(org_toml_path 2>/dev/null) || return
+    _org_extract_sections "$toml" | sort -u
 }
 
-# List environment names (from connectors or [env.*] sections)
+# List environment names (uses org_env_names from org_env.sh)
 _org_complete_envs() {
-    local toml="$TETRA_DIR/config/tetra.toml"
-    [[ -L "$toml" ]] || return
-    local real=$(readlink "$toml")
-    [[ -f "$real" ]] || return
-
-    # Try connectors first (e.g., "@dev" = {...})
-    if grep -q '^\[connectors\]' "$real" 2>/dev/null; then
-        grep -oP '"@\K[a-z]+(?=")' "$real" 2>/dev/null | sort -u
-    else
-        # Fall back to [env.*] sections
-        grep -oE '^\[env\.[^]]+\]' "$real" | sed 's/.*\.//;s/\]//' | sort -u
-    fi
+    org_env_names 2>/dev/null
 }
 
 # List top-level sections (environments, org, etc)
 _org_complete_sections_top() {
-    local toml="$TETRA_DIR/config/tetra.toml"
-    [[ -L "$toml" ]] || return
-    local real=$(readlink "$toml")
-    [[ -f "$real" ]] || return
-    grep -oE '^\[[^].]+' "$real" | tr -d '[' | sort -u
+    local toml=$(org_toml_path 2>/dev/null) || return
+    grep -oE '^\[[^].]+' "$toml" | tr -d '[' | sort -u
 }
 
 # List keys in a section (for get/set completion)
 _org_complete_keys() {
     local section="$1"
-    local toml="$TETRA_DIR/config/tetra.toml"
-    [[ -L "$toml" ]] || return
-    local real=$(readlink "$toml")
-    [[ -f "$real" ]] || return
+    local toml=$(org_toml_path 2>/dev/null) || return
 
     # Extract keys from section
     awk -v sect="$section" '
@@ -106,7 +83,7 @@ _org_complete_keys() {
             sub(/^[[:space:]]*/, "", key)
             print sect "." key
         }
-    ' "$real"
+    ' "$toml"
 }
 
 # =============================================================================
@@ -192,22 +169,6 @@ _org_complete() {
                 COMPREPLY=($(compgen -W "$(_org_complete_envs)" -- "$cur"))
                 return
                 ;;
-
-            # SSH command - complete env names or subcommands
-            ssh)
-                COMPREPLY=($(compgen -W "$_ORG_SSH_COMMANDS $(_org_complete_envs)" -- "$cur"))
-                return
-                ;;
-        esac
-    fi
-
-    # Third argument for ssh subcommands
-    if [[ $COMP_CWORD -eq 3 && "$cmd" == "ssh" ]]; then
-        case "$prev" in
-            test|copy|cmd)
-                COMPREPLY=($(compgen -W "$(_org_complete_envs)" -- "$cur"))
-                return
-                ;;
         esac
     fi
 
@@ -246,11 +207,4 @@ _org_complete() {
 # Register completion
 complete -F _org_complete org
 
-# =============================================================================
-# EXPORTS
-# =============================================================================
-
-export -f _org_complete
-export -f _org_complete_names _org_complete_canonical _org_complete_aliases
-export -f _org_complete_sections _org_complete_sections_top
-export -f _org_complete_keys _org_complete_envs
+# Completion functions are local - no exports needed
