@@ -702,10 +702,17 @@ tsm doctor clean
 
 ---
 
+## Integrations
+
+- **[Caddy](docs/CADDY.md)** - Reverse proxy for `*.localhost` routing (`tsm caddy`)
+- **systemd** - Linux service manager (`tsm daemon`)
+- **nginx** - Web server integration
+
 ## Related Projects
 
 - **PM2** - Node.js process manager (inspiration)
 - **systemd** - Linux service manager (integration supported)
+- **Caddy** - Fast, extensible reverse proxy
 - **Tetra** - Parent project providing the ecosystem
 
 ---

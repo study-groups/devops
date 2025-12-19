@@ -53,7 +53,19 @@ tsm_port_available() {
 
 # Allocate next available port in range
 tsm_allocate_port() {
-    for port in $(seq $TSM_PORT_RANGE_START $TSM_PORT_RANGE_END); do
+    tsm_allocate_port_from "$TSM_PORT_RANGE_START"
+}
+
+# Allocate next available port starting from a specific port
+tsm_allocate_port_from() {
+    local start_port="${1:-$TSM_PORT_RANGE_START}"
+    local end_port="$TSM_PORT_RANGE_END"
+
+    # Ensure start_port is within range
+    [[ $start_port -lt $TSM_PORT_RANGE_START ]] && start_port=$TSM_PORT_RANGE_START
+    [[ $start_port -gt $TSM_PORT_RANGE_END ]] && return 1
+
+    for port in $(seq $start_port $end_port); do
         if tsm_port_available "$port"; then
             echo "$port"
             return 0
@@ -85,16 +97,34 @@ tsm_resolve_port() {
     local service_type="pid"
 
     # Step 1: Explicit --port flag (HIGHEST PRIORITY)
+    # Auto-increment only if port is within managed range (8000-8999)
     if [[ -n "$explicit_port" ]]; then
-        port="$explicit_port"
+        if tsm_port_available "$explicit_port"; then
+            port="$explicit_port"
+        elif [[ $explicit_port -ge $TSM_PORT_RANGE_START && $explicit_port -le $TSM_PORT_RANGE_END ]]; then
+            # Port busy and within managed range - find next available
+            port=$(tsm_allocate_port_from "$explicit_port")
+        else
+            # Port outside managed range - use as-is (user's responsibility)
+            port="$explicit_port"
+        fi
         service_type="port"
         echo "$port|$template|$service_type"
         return 0
     fi
 
     # Step 2: Environment file PORT (SECOND PRIORITY - env files override patterns!)
+    # Auto-increment only if port is within managed range (8000-8999)
     if [[ -n "$env_port" ]]; then
-        port="$env_port"
+        if tsm_port_available "$env_port"; then
+            port="$env_port"
+        elif [[ $env_port -ge $TSM_PORT_RANGE_START && $env_port -le $TSM_PORT_RANGE_END ]]; then
+            # Port busy and within managed range - find next available
+            port=$(tsm_allocate_port_from "$env_port")
+        else
+            # Port outside managed range - use as-is (user's responsibility)
+            port="$env_port"
+        fi
         service_type="port"
         echo "$port|$template|$service_type"
         return 0
@@ -180,6 +210,7 @@ tsm_cleanup_ports() {
 export -f tsm_find_pattern
 export -f tsm_port_available
 export -f tsm_allocate_port
+export -f tsm_allocate_port_from
 export -f tsm_track_port
 export -f tsm_resolve_port
 export -f tsm_apply_template

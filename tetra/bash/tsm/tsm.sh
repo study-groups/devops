@@ -6,16 +6,16 @@
 # === MODULE LOADING WITH PROPER DEPENDENCIES ===
 
 _tsm_load_components() {
-    # Use strong globals consistently - MOD_SRC for source files
-    local MOD_SRC="$TETRA_SRC/bash/tsm"
+    # TSM_SRC set by includes.sh, fallback for direct sourcing
+    local mod_src="${TSM_SRC:-$TETRA_SRC/tsm}"
 
     # Load module registry system first (but don't register yet)
-    if [[ -f "$TETRA_SRC/bash/utils/module_registry.sh" ]]; then
-        source "$TETRA_SRC/bash/utils/module_registry.sh"
+    if [[ -f "$TETRA_SRC/utils/module_registry.sh" ]]; then
+        source "$TETRA_SRC/utils/module_registry.sh"
     fi
 
     # Load TSM using full include now that fork issues are resolved
-    source "$MOD_SRC/core/include.sh"
+    source "$mod_src/core/include.sh"
 
     # Initialize TSM module after all components loaded
     if declare -f tsm_module_init >/dev/null; then
@@ -23,7 +23,7 @@ _tsm_load_components() {
 
         # Register with module system if available (silently)
         if declare -f tetra_module_register >/dev/null; then
-            tetra_module_register "tsm" "$MOD_SRC" "active" >/dev/null 2>&1
+            tetra_module_register "tsm" "$mod_src" "active" >/dev/null 2>&1
         fi
     else
         echo "ERROR: TSM module initialization failed - tsm_module_init not found" >&2
@@ -104,8 +104,14 @@ tsm() {
                 -l|--long|long|detail|detailed)
                     tsm_list_long
                     ;;
+                -p|--ports|ports)
+                    tsm_list_ports
+                    ;;
+                tree)
+                    tsm_list_tree
+                    ;;
                 help)
-                    echo "Usage: tsm list [running|available|all|pwd|-l] [--user <username>]"
+                    echo "Usage: tsm list [running|available|all|pwd|-l|-p|tree] [--user <username>]"
                     echo ""
                     echo "Options:"
                     echo "  running    - Show only running processes (default)"
@@ -113,6 +119,8 @@ tsm() {
                     echo "  -av        - Show all service definitions (verbose, multi-line)"
                     echo "  pwd        - Show running processes with working directory"
                     echo "  -l         - Show detailed/long format with CPU, memory, paths"
+                    echo "  -p, ports  - Show port relationships (● bind ⊙ multicast → send-to)"
+                    echo "  tree       - Show process hierarchy as tree"
                     if [[ $TSM_MULTI_USER_ENABLED -eq 1 ]]; then
                         echo ""
                         echo "Multi-user options:"
@@ -121,7 +129,7 @@ tsm() {
                     ;;
                 *)
                     tsm_error "Unknown option: $1"
-                    echo "Usage: tsm list [running|-a|-av|pwd|-l]"
+                    echo "Usage: tsm list [running|-a|-av|pwd|-l|-p|tree]"
                     ;;
             esac
             ;;
@@ -264,9 +272,65 @@ tsm() {
                 "json")
                     tsm_list_named_ports json
                     ;;
+                "add")
+                    # Add port to running process with relationship type
+                    # Usage: tsm ports add <process> <port> [type] [protocol] [relation] [group]
+                    if [[ $# -lt 2 ]]; then
+                        echo "Usage: tsm ports add <process> <port> [type] [protocol] [relation] [group]"
+                        echo ""
+                        echo "Arguments:"
+                        echo "  process   - Process name (e.g., quasar-1985)"
+                        echo "  port      - Port number to add"
+                        echo "  type      - tcp or udp (default: tcp)"
+                        echo "  protocol  - Protocol label (e.g., osc, http, ws)"
+                        echo "  relation  - Port relationship type:"
+                        echo "              bind           - Exclusively owns port (default)"
+                        echo "              bind-shared    - Binds with SO_REUSEADDR"
+                        echo "              multicast-join - Joins multicast group"
+                        echo "              send-to        - Sends to port (doesn't bind)"
+                        echo "  group     - Multicast group address (for multicast-join)"
+                        echo ""
+                        echo "Examples:"
+                        echo "  tsm ports add quasar-1985 1986 udp osc bind"
+                        echo "  tsm ports add midi-1983 1983 udp osc bind-shared"
+                        echo "  tsm ports add midi-mp-1987 1983 udp osc-in multicast-join 239.1.1.1"
+                        echo "  tsm ports add midi-mp-1987 2020 udp osc-out send-to"
+                        return 1
+                    fi
+                    tsm_add_port "$@"
+                    ;;
+                "rm"|"del")
+                    # Remove secondary port from process
+                    if [[ $# -lt 2 ]]; then
+                        echo "Usage: tsm ports rm <process> <port>"
+                        return 1
+                    fi
+                    tsm_remove_port "$@"
+                    ;;
+                "show")
+                    # Show all ports for a process
+                    if [[ $# -lt 1 ]]; then
+                        echo "Usage: tsm ports show <process>"
+                        return 1
+                    fi
+                    echo "Ports for $1:"
+                    echo "PORT    TYPE    PROTOCOL"
+                    tsm_list_ports "$1"
+                    ;;
+                "detect")
+                    # Auto-detect ports used by a process
+                    if [[ $# -lt 1 ]]; then
+                        echo "Usage: tsm ports detect <process>"
+                        echo ""
+                        echo "Scans lsof for all ports used by the process PID"
+                        echo "and adds any missing secondary ports to metadata."
+                        return 1
+                    fi
+                    tsm_detect_ports "$@"
+                    ;;
                 *)
                     tsm_error "Unknown ports subcommand: $subcommand"
-                    echo "Usage: tsm ports [list|detailed|scan|overview|status|validate|set|remove|allocate|import|export|conflicts|env|json]" >&2
+                    echo "Usage: tsm ports [list|detailed|scan|overview|status|validate|set|remove|allocate|import|export|conflicts|env|json|add|rm|show|detect]" >&2
                     return 1
                     ;;
             esac
@@ -274,9 +338,17 @@ tsm() {
         doctor)
             tetra_tsm_doctor "$@"
             ;;
+        claim)
+            # Claim a port by killing whatever is using it (if not TSM-managed)
+            tsm_claim_port "$@"
+            ;;
         daemon)
             # Systemd daemon management (loaded from integrations/systemd.sh)
             tsm_daemon "$@"
+            ;;
+        caddy)
+            # Caddy reverse proxy integration (loaded from integrations/caddy.sh)
+            tsm_caddy "$@"
             ;;
         repl)
             # Modern bash/repl-based REPL (loaded via core/include.sh)
@@ -333,32 +405,43 @@ tsm() {
             # Already loaded from system/session_aggregator.sh via include.sh
             tsm_extract_sessions "$@"
             ;;
-        users)
+        disambiguate-users)
             # Already loaded from system/session_aggregator.sh via include.sh
             tsm_disambiguate_users "$@"
             ;;
-        patterns)
+        user-patterns|analyze-patterns)
             # Already loaded from system/session_aggregator.sh via include.sh
             tsm_analyze_user_patterns "$@"
             ;;
-        help)
-            # Check if help.sh is loaded
-            if declare -f tsm_help_topic >/dev/null 2>&1; then
-                if [[ "$1" == "all" ]]; then
-                    _tsm_show_detailed_help
-                elif [[ -n "$1" ]]; then
-                    # Route to topic/command help
-                    tsm_help_topic "$1"
-                else
-                    _tsm_show_simple_help
-                fi
+        color|colors)
+            # Color configuration management (uses TDS module_config via tsm_colors)
+            if declare -f tsm_colors >/dev/null 2>&1; then
+                tsm_colors "$@"
             else
-                # Fallback if help.sh not loaded
-                if [[ "$1" == "all" ]]; then
-                    _tsm_show_detailed_help
-                else
-                    _tsm_show_simple_help
-                fi
+                echo "TSM colors module not loaded" >&2
+                return 1
+            fi
+            ;;
+        help)
+            # Parse help arguments
+            local help_topic="" no_color_flag=""
+            for arg in "$@"; do
+                case "$arg" in
+                    --no-color) no_color_flag="--no-color" ;;
+                    *) [[ -z "$help_topic" ]] && help_topic="$arg" ;;
+                esac
+            done
+
+            # Check if help.sh is loaded for topic help
+            if [[ "$help_topic" == "all" ]]; then
+                _tsm_show_detailed_help $no_color_flag
+            elif [[ -n "$help_topic" ]] && declare -f tsm_help_topic >/dev/null 2>&1; then
+                tsm_help_topic "$help_topic"
+            elif [[ -n "$help_topic" ]]; then
+                echo "Unknown help topic: $help_topic"
+                echo "Use 'tsm help all' for full command list"
+            else
+                _tsm_show_simple_help $no_color_flag
             fi
             ;;
         *)
@@ -458,88 +541,190 @@ tsm_tview_list() {
 # === TSM HELP FUNCTIONS ===
 
 _tsm_show_simple_help() {
-    # Colors
-    local C_TITLE='\033[1;36m'
-    local C_CAT='\033[1;34m'
-    local C_CMD='\033[0;36m'
-    local C_GRAY='\033[0;90m'
-    local C_NC='\033[0m'
+    # Support --no-color and NO_COLOR environment variable
+    local use_color=true
+    [[ "$1" == "--no-color" || -n "$NO_COLOR" ]] && use_color=false
+
+    if [[ "$use_color" == "true" ]]; then
+        local C_TITLE='\033[1;36m'
+        local C_CAT='\033[1;34m'
+        local C_CMD='\033[0;36m'
+        local C_GRAY='\033[0;90m'
+        local C_NC='\033[0m'
+    else
+        local C_TITLE='' C_CAT='' C_CMD='' C_GRAY='' C_NC=''
+    fi
 
     cat <<EOF
 $(echo -e "${C_TITLE}TSM${C_NC}") - Tetra Service Manager
 
 $(echo -e "${C_CAT}CATEGORIES${C_NC}")
-  $(echo -e "${C_CMD}Process${C_NC}")     start stop restart list info logs
-  $(echo -e "${C_CMD}Services${C_NC}")    services save enable disable
-  $(echo -e "${C_CMD}Daemon${C_NC}")      daemon install/enable/start/status (systemd)
-  $(echo -e "${C_CMD}Ports${C_NC}")       ports doctor
-  $(echo -e "${C_CMD}Runtime${C_NC}")     Pre-hooks for Python/Node (tsm help pre-hooks)
-  $(echo -e "${C_CMD}Monitor${C_NC}")     monitor stream dashboard
+  $(echo -e "${C_CMD}Process${C_NC}")     start stop restart kill cleanup list info logs
+  $(echo -e "${C_CMD}Services${C_NC}")    services save patterns enable disable orgs
+  $(echo -e "${C_CMD}Ports${C_NC}")       ports claim ranges patrol doctor
+  $(echo -e "${C_CMD}Monitor${C_NC}")     monitor stream dashboard sessions
+  $(echo -e "${C_CMD}System${C_NC}")      setup runtime daemon caddy users color repl
 
 $(echo -e "${C_GRAY}Quick:${C_NC}") tsm start python -m http.server 8020
-$(echo -e "${C_GRAY}Help: ${C_NC}") tsm help <command|topic>  $(echo -e "${C_GRAY}(start, pre-hooks, python)${C_NC}")
-$(echo -e "${C_GRAY}List: ${C_NC}") tsm help all  $(echo -e "${C_GRAY}# full command list${C_NC}")
+$(echo -e "${C_GRAY}Help: ${C_NC}") tsm help <command|topic>  $(echo -e "${C_GRAY}(start, doctor, ports)${C_NC}")
+$(echo -e "${C_GRAY}List: ${C_NC}") tsm help all [--no-color]  $(echo -e "${C_GRAY}# full command list${C_NC}")
 EOF
 }
 
 _tsm_show_detailed_help() {
-    cat <<'EOF'
-TSM - Tetra Service Manager (Detailed Help)
+    # Support --no-color and NO_COLOR environment variable
+    local use_color=true
+    [[ "$1" == "--no-color" || -n "$NO_COLOR" ]] && use_color=false
 
-Usage: tsm <command> [args]
+    # Helper functions - defined based on color mode
+    if [[ "$use_color" == "true" ]]; then
+        # Get colors from TSM color config system (via tsm_color_get or fallback)
+        local C_TITLE C_SECTION C_CMD C_DESC C_COMMENT
 
-Commands:
-  setup                      Setup tsm environment (macOS: adds util-linux PATH)
-  init <env>                 Create environment file from template (shortcut for tetra env init)
-  start <service-name>       Start a service from services-available
-  start [--env env.sh] <script.sh|command> [name]   Start a script or command
-  stop <process|id|*>        Stop processes (by name, TSM ID, or all)
-  delete|del|kill <process|id|*> Delete processes and logs
-  restart <process|id|*>     Restart processes
-  list|ls [running|available|all]  List services by status
-  services [-d|--detail]     List saved service definitions (.tsm.sh)
-  save <name> <command>      Save current command as a service definition
-  enable <service>           Enable service for automatic startup
-  disable <service>          Disable service from automatic startup
-  rm <service>               Remove service definition (auto-disables if enabled)
-  show <service>             Show service configuration
-  startup                    Start all enabled services
-  info <process|id>          Show detailed information for a process
-  logs <process|id|*> [-f]   Show last 50 lines. Use -f to follow/stream logs.
-  env <process|id>           Show sorted environment variables for a process
-  paths <process|id>         Show paths for logs, pid, etc. for a process
-  scan-ports                 Scan and report open ports and their owners
-  ports [list|detailed|scan|overview|status|validate|set|remove|allocate|import|export|conflicts] Named port registry and mappings
-  doctor healthcheck         Validate TSM environment and diagnose issues
-  doctor [scan|port|kill|env] Port diagnostics and conflict resolution
-  daemon [install|enable|start|stop|status|logs] Manage systemd daemon (tsm daemon help)
-  repl                       Interactive REPL (bash/repl-based: colors, mode switching, /tsm-help)
-  help [all]                 Show this help
+        # Helper to get color with fallback
+        _get_color() {
+            local token="$1" fallback="$2"
+            if declare -f tsm_color_get >/dev/null 2>&1; then
+                local hex=$(tsm_color_get "$token")
+                [[ "$hex" != "888888" ]] && { echo "$hex"; return; }
+            fi
+            echo "$fallback"
+        }
 
-Environment Setup Workflow:
-  1. tetra env init dev           # Create env/dev.env from template
-  2. edit env/dev.env             # Add your real API keys, secrets
-  3. tsm start --env dev server.js  # Use secure environment
+        C_TITLE=$(_get_color "help.title" "00AAAA")
+        C_SECTION=$(_get_color "help.section" "1E88E5")
+        C_CMD=$(_get_color "help.command" "00ACC1")
+        C_DESC=$(_get_color "help.description" "999999")
+        C_COMMENT=$(_get_color "help.comment" "777777")
 
-Environment Auto-Detection:
-  - TSM looks for env/dev.env or env/local.env if no --env specified
-  - If environment file missing, provides template initialization guidance
-  - Validates environment files for placeholder values and required variables
+        _h() { text_color "$1"; printf "%s" "$2"; reset_color; }
+        _hln() { text_color "$1"; printf "%s" "$2"; reset_color; echo; }
 
-Examples:
-  tsm start --env dev server.js               Sources env/dev.env (after tetra env init dev)
-  tsm start --env staging entrypoints/api.sh  Sources env/staging.env explicitly
-  tsm start node server.js                    Auto-detects env/dev.env or env/local.env
-  tsm start --port 4000 node server.js api    Start as api-4000
-  tsm start tserve                             Start tserve service
-  tsm start devpages                           Start devpages service
-  tsm start tetra                              Start tetra service
-  tsm services                                 List all saved service definitions
-  tsm stop server-3000                         Stop by process name
-  tsm stop 0                                   Stop by TSM ID
-  tsm logs 0 -f                                Follow logs for TSM ID 0
-  tsm list                                     Show running services
-  tsm list available                           Show all available services
-  tsm list all                                 Show all services
-EOF
+        # Example helper with palette cycling
+        local -a _example_colors
+        if declare -f tsm_color_palette >/dev/null 2>&1; then
+            local palette="${TSM_COLOR_TOKENS[help.example.palette]:-verbs}"
+            read -ra _example_colors <<< "$(tsm_color_palette "$palette")"
+        else
+            # VERBS_PRIMARY fallback
+            _example_colors=("E53935" "FB8C00" "FDD835" "43A047" "00ACC1" "1E88E5" "8E24AA" "EC407A")
+        fi
+        local _example_idx=0
+        _hex() {
+            local color="${_example_colors[$_example_idx]}"
+            text_color "$color"
+            printf "%s" "$1"
+            reset_color
+            ((_example_idx = (_example_idx + 1) % ${#_example_colors[@]}))
+        }
+        unset -f _get_color  # Clean up temp function
+    else
+        # No-color mode - just print text
+        local C_TITLE="" C_SECTION="" C_CMD="" C_DESC="" C_COMMENT=""
+        _h() { printf "%s" "$2"; }
+        _hln() { printf "%s\n" "$2"; }
+        _hex() { printf "%s" "$1"; }
+    fi
+
+    _hln "$C_TITLE" "TSM - Tetra Service Manager"
+    echo
+    _h "$C_DESC" "Usage: "; _hln "$C_CMD" "tsm <command> [args]"
+    echo
+
+    # PROCESS MANAGEMENT
+    _hln "$C_SECTION" "PROCESS MANAGEMENT"
+    _h "$C_CMD" "  start <service|command>   "; _hln "$C_DESC" "Start a service or command"
+    _h "$C_CMD" "  start --env <env> <cmd>   "; _hln "$C_DESC" "Start with environment file"
+    _h "$C_CMD" "  start --port <port> <cmd> "; _hln "$C_DESC" "Start with explicit port"
+    _h "$C_CMD" "  stop <process|id|*>       "; _hln "$C_DESC" "Stop processes (by name, TSM ID, or all)"
+    _h "$C_CMD" "  restart <process|id|*>    "; _hln "$C_DESC" "Restart processes"
+    _h "$C_CMD" "  delete|del <process|id|*> "; _hln "$C_DESC" "Delete processes and logs"
+    _h "$C_CMD" "  kill <process|id|*>       "; _hln "$C_DESC" "Force kill processes (SIGKILL)"
+    _h "$C_CMD" "  cleanup                   "; _hln "$C_DESC" "Clean up crashed/dead processes"
+    _h "$C_CMD" "  list|ls [opts]            "; _hln "$C_DESC" "List processes (running|all|pwd|-l)"
+    _h "$C_CMD" "  info <process|id>         "; _hln "$C_DESC" "Show detailed process information"
+    _h "$C_CMD" "  logs <process|id|*> [-f]  "; _hln "$C_DESC" "Show logs (-f to follow)"
+    _h "$C_CMD" "  env <process|id>          "; _hln "$C_DESC" "Show environment variables"
+    _h "$C_CMD" "  paths <process|id>        "; _hln "$C_DESC" "Show paths (logs, pid, etc.)"
+    echo
+
+    # SERVICE DEFINITIONS
+    _hln "$C_SECTION" "SERVICE DEFINITIONS"
+    _h "$C_CMD" "  services [-d|--detail]    "; _hln "$C_DESC" "List saved service definitions"
+    _h "$C_CMD" "  save <name> <command>     "; _hln "$C_DESC" "Save command as service definition"
+    _h "$C_CMD" "  save pattern <name> <pat> "; _hln "$C_DESC" "Save command pattern (with variables)"
+    _h "$C_CMD" "  patterns                  "; _hln "$C_DESC" "List saved command patterns"
+    _h "$C_CMD" "  enable <org/service>      "; _hln "$C_DESC" "Enable service for startup"
+    _h "$C_CMD" "  disable <org/service>     "; _hln "$C_DESC" "Disable service from startup"
+    _h "$C_CMD" "  rm <org/service>          "; _hln "$C_DESC" "Remove service definition"
+    _h "$C_CMD" "  show <org/service>        "; _hln "$C_DESC" "Show service configuration"
+    _h "$C_CMD" "  startup [status]          "; _hln "$C_DESC" "Start enabled services / show status"
+    _h "$C_CMD" "  orgs                      "; _hln "$C_DESC" "List available organizations"
+    echo
+
+    # PORT MANAGEMENT
+    _hln "$C_SECTION" "PORT MANAGEMENT"
+    _h "$C_CMD" "  ports [subcommand]        "; _hln "$C_DESC" "Named port registry (list|set|remove|conflicts|...)"
+    _h "$C_CMD" "  scan-ports                "; _hln "$C_DESC" "Scan and report open ports"
+    _h "$C_CMD" "  claim <port> [-f]         "; _hln "$C_DESC" "Kill non-TSM process using port"
+    _h "$C_CMD" "  ranges                    "; _hln "$C_DESC" "Show port allocation ranges"
+    _h "$C_CMD" "  patrol                    "; _hln "$C_DESC" "Port patrol (conflict detection)"
+    echo
+
+    # DIAGNOSTICS
+    _hln "$C_SECTION" "DIAGNOSTICS"
+    _h "$C_CMD" "  doctor healthcheck        "; _hln "$C_DESC" "Validate TSM environment"
+    _h "$C_CMD" "  doctor scan [range]       "; _hln "$C_DESC" "Scan ports (TCP and UDP)"
+    _h "$C_CMD" "  doctor port <num>         "; _hln "$C_DESC" "Check specific port"
+    _h "$C_CMD" "  doctor kill <port>        "; _hln "$C_DESC" "Kill process on port"
+    _h "$C_CMD" "  doctor files [-v]         "; _hln "$C_DESC" "Audit TSM files"
+    _h "$C_CMD" "  doctor orphans            "; _hln "$C_DESC" "Find orphaned processes"
+    _h "$C_CMD" "  doctor clean [-a]         "; _hln "$C_DESC" "Clean stale tracking files"
+    _h "$C_CMD" "  doctor env [file]         "; _hln "$C_DESC" "Diagnose environment loading"
+    _h "$C_CMD" "  doctor -A                 "; _hln "$C_DESC" "Show all ports (no filtering)"
+    echo
+
+    # MONITORING & ANALYTICS
+    _hln "$C_SECTION" "MONITORING & ANALYTICS"
+    _h "$C_CMD" "  monitor <service>         "; _hln "$C_DESC" "Monitor service metrics"
+    _h "$C_CMD" "  stream <service>          "; _hln "$C_DESC" "Stream service logs/events"
+    _h "$C_CMD" "  dashboard|analytics       "; _hln "$C_DESC" "Analytics dashboard"
+    _h "$C_CMD" "  sessions                  "; _hln "$C_DESC" "Extract user sessions from logs"
+    _h "$C_CMD" "  clicks|click-timing       "; _hln "$C_DESC" "Analyze click timing"
+    _h "$C_CMD" "  journey|user-journey      "; _hln "$C_DESC" "Analyze user journey"
+    _h "$C_CMD" "  user-patterns             "; _hln "$C_DESC" "Analyze user behavior patterns"
+    _h "$C_CMD" "  disambiguate-users        "; _hln "$C_DESC" "Disambiguate user sessions"
+    echo
+
+    # RUNTIME & SYSTEM
+    _hln "$C_SECTION" "RUNTIME & SYSTEM"
+    _h "$C_CMD" "  setup                     "; _hln "$C_DESC" "Setup TSM environment"
+    _h "$C_CMD" "  init <env>                "; _hln "$C_DESC" "Create environment from template"
+    _h "$C_CMD" "  runtime [type]            "; _hln "$C_DESC" "Show runtime info (node, python, etc.)"
+    _h "$C_CMD" "  daemon [cmd]              "; _hln "$C_DESC" "Manage systemd daemon"
+    _h "$C_CMD" "  caddy [cmd]               "; _hln "$C_DESC" "Caddy reverse proxy (init|sync|add|status)"
+    _h "$C_CMD" "  users|instances           "; _hln "$C_DESC" "List TSM instances (multi-user mode)"
+    _h "$C_CMD" "  color [show|edit|init]    "; _hln "$C_DESC" "Color theme configuration"
+    _h "$C_CMD" "  repl                      "; _hln "$C_DESC" "Interactive TSM REPL"
+    _h "$C_CMD" "  help [all|topic]          "; _hln "$C_DESC" "Show help"
+    echo
+
+    # ENVIRONMENT WORKFLOW
+    _hln "$C_SECTION" "ENVIRONMENT WORKFLOW"
+    _h "$C_COMMENT" "  1. "; _h "$C_CMD" "tsm init dev"; _hln "$C_COMMENT" "              # Create env/dev.env from template"
+    _h "$C_COMMENT" "  2. "; _h "$C_CMD" "edit env/dev.env"; _hln "$C_COMMENT" "          # Add API keys, secrets"
+    _h "$C_COMMENT" "  3. "; _h "$C_CMD" "tsm start --env dev app"; _hln "$C_COMMENT" "   # Start with environment"
+    echo
+
+    # EXAMPLES - each cycles through the example palette
+    _hln "$C_SECTION" "EXAMPLES"
+    _hex "  tsm start python -m http.server 8000"; _hln "$C_COMMENT" "    # Quick start"
+    _hex "  tsm start --env prod api.sh api"; _hln "$C_COMMENT" "         # Named service with env"
+    _hex "  tsm stop api-8000"; _hln "$C_COMMENT" "                       # Stop by name"
+    _hex "  tsm logs 0 -f"; _hln "$C_COMMENT" "                           # Follow logs for TSM ID 0"
+    _hex "  tsm doctor healthcheck"; _hln "$C_COMMENT" "                  # Diagnose issues"
+    _hex "  tsm ports conflicts --fix"; _hln "$C_COMMENT" "               # Fix port conflicts"
+
+    # Clean up local helpers
+    unset -f _h _hln _hex
 }

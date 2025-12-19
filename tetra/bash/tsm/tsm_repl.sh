@@ -12,18 +12,11 @@
 # - Output history (/last) preserved
 # - Session analytics preserved
 
-# Ensure TSM is loaded first (provides the tsm command)
-if ! declare -f tsm >/dev/null 2>&1; then
-    if [[ -f "$TETRA_SRC/bash/tsm/tsm.sh" ]]; then
-        source "$TETRA_SRC/bash/tsm/tsm.sh"
-    else
-        echo "Error: TSM not loaded. Source tetra.sh first or run: source ~/tetra/tetra.sh" >&2
-        exit 1
-    fi
-fi
+# Note: This file is sourced by core/include.sh as part of TSM loading,
+# so tsm function won't exist yet. Skip the check when being loaded.
 
 # Source bash/repl library
-source "$TETRA_SRC/bash/repl/repl.sh"
+source "$TETRA_SRC/bash/repl/repl.sh" 2>/dev/null || true
 
 # === CONFIGURATION ===
 

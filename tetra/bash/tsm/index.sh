@@ -7,9 +7,18 @@ if declare -f tetra_register_module_meta >/dev/null 2>&1; then
     tetra_register_module_meta "tsm" \
         "Tetra Service Manager - native process management with PORT naming and service definitions" \
         "tsm" \
-        "tsm:setup|start|stop|delete|restart|list|info|logs|env|paths|scan-ports|webserver|ncserver|repl|services|orgs|save|enable|disable|show|startup" \
+        "tsm:setup|start|stop|delete|restart|list|info|logs|env|paths|scan-ports|ports|claim|doctor|daemon|repl|services|orgs|save|enable|disable|show|startup|help" \
         "core" "stable"
 fi
+
+# Get ports currently in use (for completion)
+# Returns space-separated list of TCP and UDP ports
+_tsm_get_used_ports() {
+    local tcp_ports udp_ports
+    tcp_ports=$(lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk 'NR>1 {print $9}' | sed 's/.*://g' | sort -nu | head -20)
+    udp_ports=$(lsof -iUDP -P -n 2>/dev/null | awk 'NR>1 {print $9}' | sed 's/.*://g' | sort -nu | head -20)
+    echo "$tcp_ports $udp_ports" | tr ' ' '\n' | sort -nu | tr '\n' ' '
+}
 
 # Generate org/service completions like filesystem paths
 # Usage: _tsm_complete_services "cur"
@@ -71,9 +80,8 @@ _tsm_completion() {
     local prev="${COMP_WORDS[COMP_CWORD-1]}"
     local cmd="${COMP_WORDS[1]}"
 
-    # Disable default space after completion for org/ prefixes
-    compopt -o nospace 2>/dev/null
-
+    # Default: add space after completion (most common case)
+    # Only disable for org/ path-style completions that need trailing slash
     case "$cmd" in
         start)
             case "$COMP_CWORD" in
@@ -81,23 +89,19 @@ _tsm_completion() {
                     # Offer services (org/service format) plus other start options
                     local services=$(_tsm_complete_services "$cur")
                     COMPREPLY=($(compgen -W "$services webserver ncserver --env" -- "$cur"))
-                    # Add space back for non-slash completions
-                    [[ ${#COMPREPLY[@]} -eq 1 && "${COMPREPLY[0]}" != */ ]] && compopt +o nospace
+                    # Disable space for org/ prefixes (need trailing slash)
+                    [[ ${#COMPREPLY[@]} -eq 1 && "${COMPREPLY[0]}" == */ ]] && compopt -o nospace
                     ;;
                 3)
                     if [[ "$prev" == "--env" ]]; then
-                        compopt +o nospace
                         COMPREPLY=($(compgen -f -X "!*.sh" -- "$cur"))
                     elif [[ "$prev" == "webserver" || "$prev" == "ncserver" ]]; then
-                        compopt +o nospace
                         COMPREPLY=($(compgen -W "3000 8000 8080 9000" -- "$cur"))
                     else
-                        compopt +o nospace
                         COMPREPLY=($(compgen -f -X "!*.sh" -- "$cur"))
                     fi
                     ;;
                 4)
-                    compopt +o nospace
                     if [[ "${COMP_WORDS[2]}" != "--env" ]]; then
                         COMPREPLY=($(compgen -W "custom-name" -- "$cur"))
                     fi
@@ -105,7 +109,6 @@ _tsm_completion() {
             esac
             ;;
         stop|delete|restart|info|env|paths)
-            compopt +o nospace
             # Complete with running process names and TSM IDs
             local processes=$(tsm list 2>/dev/null | grep -E "^\s*[0-9]+" | awk '{print $2}' 2>/dev/null || echo "")
             COMPREPLY=($(compgen -W "$processes *" -- "$cur"))
@@ -114,11 +117,10 @@ _tsm_completion() {
             # Complete with org/service format
             local services=$(_tsm_complete_services "$cur")
             COMPREPLY=($(compgen -W "$services" -- "$cur"))
-            # Add space back for full service names (not org/ prefixes)
-            [[ ${#COMPREPLY[@]} -eq 1 && "${COMPREPLY[0]}" != */ ]] && compopt +o nospace
+            # Disable space for org/ prefixes
+            [[ ${#COMPREPLY[@]} -eq 1 && "${COMPREPLY[0]}" == */ ]] && compopt -o nospace
             ;;
         save)
-            compopt +o nospace
             if [[ "$COMP_CWORD" -eq 2 ]]; then
                 # First argument: TSM ID or process name, or org/new-service-name
                 local processes=$(tsm list 2>/dev/null | grep -E "^\s*[0-9]+" | awk '{print $1 " " $2}' 2>/dev/null || echo "")
@@ -130,10 +132,11 @@ _tsm_completion() {
                     orgs+="$org/ "
                 done
                 COMPREPLY=($(compgen -W "$processes $orgs" -- "$cur"))
+                # Disable space for org/ prefixes
+                [[ ${#COMPREPLY[@]} -eq 1 && "${COMPREPLY[0]}" == */ ]] && compopt -o nospace
             fi
             ;;
         logs)
-            compopt +o nospace
             if [[ "$cur" == "-"* ]]; then
                 COMPREPLY=($(compgen -W "-f" -- "$cur"))
             else
@@ -142,12 +145,56 @@ _tsm_completion() {
             fi
             ;;
         services)
-            compopt +o nospace
             COMPREPLY=($(compgen -W "--enabled --disabled --available -d --detail" -- "$cur"))
             ;;
+        claim)
+            if [[ "$cur" == "-"* ]]; then
+                COMPREPLY=($(compgen -W "-f --force" -- "$cur"))
+            else
+                COMPREPLY=($(compgen -W "$(_tsm_get_used_ports)" -- "$cur"))
+            fi
+            ;;
+        doctor)
+            if [[ "$COMP_CWORD" -eq 2 ]]; then
+                COMPREPLY=($(compgen -W "healthcheck health files runtime scan ports port kill env orphans clean validate reconcile ports-declared ports-actual help --no-ignore --show-ignored -A --all" -- "$cur"))
+            elif [[ "$prev" == "port" || "$prev" == "kill" ]]; then
+                COMPREPLY=($(compgen -W "$(_tsm_get_used_ports)" -- "$cur"))
+            elif [[ "$prev" == "clean" ]]; then
+                COMPREPLY=($(compgen -W "-a --aggressive" -- "$cur"))
+            elif [[ "$prev" == "orphans" || "$prev" == "validate" ]]; then
+                COMPREPLY=($(compgen -W "--json" -- "$cur"))
+            fi
+            ;;
+        ports)
+            COMPREPLY=($(compgen -W "list detailed scan overview status validate set remove allocate import export conflicts env json" -- "$cur"))
+            ;;
+        list|ls)
+            COMPREPLY=($(compgen -W "running available all pwd -l --long -a --all -av help" -- "$cur"))
+            ;;
+        daemon)
+            COMPREPLY=($(compgen -W "install enable start stop status logs disable uninstall help" -- "$cur"))
+            ;;
+        monitor|stream)
+            # Complete with running process names
+            local processes=$(tsm list 2>/dev/null | grep -E "^\s*[0-9]+" | awk '{print $2}' 2>/dev/null || echo "")
+            COMPREPLY=($(compgen -W "$processes" -- "$cur"))
+            ;;
+        cleanup|kill)
+            # Complete with running process names and TSM IDs
+            local processes=$(tsm list 2>/dev/null | grep -E "^\s*[0-9]+" | awk '{print $2}' 2>/dev/null || echo "")
+            COMPREPLY=($(compgen -W "$processes * --force -f" -- "$cur"))
+            ;;
+        runtime)
+            COMPREPLY=($(compgen -W "node python ruby go rust java" -- "$cur"))
+            ;;
+        help)
+            COMPREPLY=($(compgen -W "all --no-color start stop list doctor ports services color" -- "$cur"))
+            ;;
+        color|colors)
+            COMPREPLY=($(compgen -W "show edit init reset path get help" -- "$cur"))
+            ;;
         *)
-            compopt +o nospace
-            COMPREPLY=($(compgen -W "setup start stop delete restart list info logs env paths scan-ports webserver ncserver repl services orgs save enable disable show startup" -- "$cur"))
+            COMPREPLY=($(compgen -W "setup init start stop delete kill cleanup restart list info logs env paths scan-ports ports claim ranges patrol doctor daemon repl monitor stream dashboard analytics sessions clicks journey user-patterns disambiguate-users runtime services orgs patterns save enable disable rm show startup users color help" -- "$cur"))
             ;;
     esac
 }

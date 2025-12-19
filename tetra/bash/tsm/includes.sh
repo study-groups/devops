@@ -57,9 +57,13 @@ declare -gA TSM_COLOR_TOKENS=(
     [process.running]="mode:2"
     [process.stopped]="mode:0"
     [process.starting]="mode:1"
-    [process.name]="verbs:4"
+    [process.name]="nouns:7"
     [process.port]="env:1"
-    [process.pid]="nouns:3"
+    [process.port_suffix]="env:0"
+    [process.pid]="nouns:4"
+    [process.type]="verbs:4"
+    [process.uptime]="nouns:5"
+    [process.env]="verbs:1"
 
     # Doctor diagnostics
     [doctor.log]="verbs:5"
@@ -78,7 +82,7 @@ declare -gA TSM_COLOR_TOKENS=(
 
 # Register with TDS module config system (if available)
 if declare -f tds_module_register >/dev/null 2>&1; then
-    tds_module_register "tsm" "$TSM_DIR/config/colors.conf" TSM_COLOR_TOKENS
+    tds_module_register "tsm" "$TSM_DIR/colors.conf" TSM_COLOR_TOKENS
 fi
 
 # Source the main TSM module (which handles all component loading)

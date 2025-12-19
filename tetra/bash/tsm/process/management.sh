@@ -130,13 +130,14 @@ tetra_tsm_start() {
         if declare -f tsm_help_start >/dev/null 2>&1; then
             tsm_help_start
         else
-            echo "Usage: tsm start [OPTIONS] <command>"
+            echo "Usage: tsm start [OPTIONS] <command> [-- args...]"
             echo ""
             echo "Options:"
             echo "  --env FILE         Environment file to source"
             echo "  --port PORT        Explicit port number"
             echo "  --name NAME        Custom process name (port will be appended)"
             echo "  --pre-hook CMD     Pre-execution hook command"
+            echo "  --                 Pass remaining args to command"
             echo ""
             echo "Use 'tsm help start' for detailed help"
         fi
@@ -173,6 +174,12 @@ tetra_tsm_start() {
                 debug=true
                 shift
                 ;;
+            --)
+                # End of TSM options, rest goes to command
+                shift
+                command_args+=("$@")
+                break
+                ;;
             --*)
                 echo "tsm: unknown option '$1'" >&2
                 return 64
@@ -192,12 +199,21 @@ tetra_tsm_start() {
         return 64
     fi
 
-    # Check if first arg is a known service (USE MULTI-ORG LOOKUP)
     local first_arg="${command_args[0]}"
+
+    # Check if first arg is a LOCAL .tsm file
+    if [[ "$first_arg" == *.tsm && -f "$first_arg" ]]; then
+        tetra_tsm_start_local "$first_arg"
+        return $?
+    fi
+
+    # Check if first arg is a known service (USE MULTI-ORG LOOKUP)
     local _org _service_file
     if _tsm_find_service "$first_arg" _org _service_file 2>/dev/null; then
+        # Second arg may be a directory override
+        local dir_override="${command_args[1]:-}"
         echo "🚀 Starting service: $_org/$first_arg"
-        tetra_tsm_start_service "$first_arg"
+        tetra_tsm_start_service "$first_arg" "$dir_override"
         return $?
     fi
 
@@ -360,7 +376,7 @@ _tsm_kill_by_port() {
         echo "  PID $pid: $cmd"
     done
 
-    # Kill each process
+    # Kill each process (don't pass port to avoid redundant checks per-process)
     local killed=0
     for pid in "${pids[@]}"; do
         if _tsm_kill_process "$pid" "$force"; then
@@ -368,7 +384,29 @@ _tsm_kill_by_port() {
         fi
     done
 
-    echo "✅ Killed $killed process(es) on port $port"
+    # Final port verification with retries
+    local port_free=false
+    local attempt
+    for attempt in 1 2 3; do
+        local remaining=$(lsof -ti :$port 2>/dev/null | head -1)
+        if [[ -z "$remaining" ]]; then
+            port_free=true
+            break
+        fi
+        [[ $attempt -lt 3 ]] && sleep 1
+    done
+
+    if [[ "$port_free" == "true" ]]; then
+        echo "✅ Killed $killed process(es), port $port is now free"
+    else
+        local remaining_pid=$(lsof -ti :$port 2>/dev/null | head -1)
+        local remaining_cmd=$(ps -p $remaining_pid -o args= 2>/dev/null | head -c 60 || echo "unknown")
+        echo "⚠️  Killed $killed process(es), but port $port still in use"
+        echo "   PID $remaining_pid: $remaining_cmd"
+        echo "   (Process may have respawned)"
+        return 1
+    fi
+
     return 0
 }
 
@@ -392,10 +430,41 @@ _tsm_kill_by_name() {
                 local meta_file="${process_dir}meta.json"
                 if [[ -f "$meta_file" ]]; then
                     local pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
+                    local port=$(jq -r '.port // empty' "$meta_file" 2>/dev/null)
+
+                    # Cross-verify PID against actual port usage
+                    local actual_pid=""
+                    if [[ -n "$port" ]]; then
+                        actual_pid=$(lsof -ti :$port 2>/dev/null | head -1)
+                        if [[ -n "$actual_pid" && "$actual_pid" != "$pid" ]]; then
+                            echo "⚠️  PID mismatch for $proc_name!"
+                            echo "   Metadata PID: $pid"
+                            echo "   Actual PID on port $port: $actual_pid"
+                            echo "   Killing actual process on port instead..."
+                            pid="$actual_pid"
+                        fi
+                    fi
+
                     if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-                        echo "📋 Found TSM process: $proc_name (PID: $pid)"
-                        if _tsm_kill_process "$pid" "$force"; then
+                        echo "📋 Found TSM process: $proc_name (PID: $pid, Port: ${port:-unknown})"
+                        if _tsm_kill_process "$pid" "$force" "$port"; then
                             echo "✅ Killed TSM process: $proc_name"
+                            _tsm_safe_remove_dir "$process_dir"
+                            found=true
+                        fi
+                    elif [[ -n "$port" ]]; then
+                        # PID dead but check if port is still in use
+                        actual_pid=$(lsof -ti :$port 2>/dev/null | head -1)
+                        if [[ -n "$actual_pid" ]]; then
+                            echo "⚠️  Metadata PID $pid is dead, but port $port is in use by PID $actual_pid"
+                            echo "   Killing actual process on port..."
+                            if _tsm_kill_process "$actual_pid" "$force" "$port"; then
+                                echo "✅ Killed process on port $port"
+                                _tsm_safe_remove_dir "$process_dir"
+                                found=true
+                            fi
+                        else
+                            echo "📋 Process $proc_name already dead, cleaning up metadata"
                             _tsm_safe_remove_dir "$process_dir"
                             found=true
                         fi
@@ -421,7 +490,7 @@ _tsm_kill_by_id() {
     echo "🔍 Finding process with TSM ID $id..."
 
     # Find process directory with this TSM ID (JSON metadata)
-    local process_name pid process_dir
+    local process_name pid port process_dir
     if [[ -d "$TSM_PROCESSES_DIR" ]]; then
         for dir in "$TSM_PROCESSES_DIR"/*/; do
             [[ -d "$dir" ]] || continue
@@ -431,6 +500,7 @@ _tsm_kill_by_id() {
                 if [[ "$file_id" == "$id" ]]; then
                     process_name=$(jq -r '.name // empty' "$meta_file" 2>/dev/null)
                     pid=$(jq -r '.pid // empty' "$meta_file" 2>/dev/null)
+                    port=$(jq -r '.port // empty' "$meta_file" 2>/dev/null)
                     process_dir="$dir"
                     break
                 fi
@@ -443,15 +513,40 @@ _tsm_kill_by_id() {
         return 1
     fi
 
+    echo "📋 Found process: $process_name (TSM ID: $id, PID: $pid, Port: ${port:-unknown})"
+
+    # Cross-verify: check if the PID in metadata matches what's actually using the port
+    local actual_pid=""
+    if [[ -n "$port" ]]; then
+        actual_pid=$(lsof -ti :$port 2>/dev/null | head -1)
+        if [[ -n "$actual_pid" && "$actual_pid" != "$pid" ]]; then
+            echo "⚠️  PID mismatch detected!"
+            echo "   Metadata PID: $pid"
+            echo "   Actual PID on port $port: $actual_pid"
+            local actual_cmd=$(ps -p $actual_pid -o args= 2>/dev/null | head -c 60 || echo "unknown")
+            echo "   Actual process: $actual_cmd"
+            echo ""
+            echo "   The process may have respawned or been restarted outside TSM."
+            echo "   Killing the actual process on port $port instead..."
+            pid="$actual_pid"
+        fi
+    fi
+
     if ! kill -0 "$pid" 2>/dev/null; then
         echo "❌ Process with TSM ID $id is not running (PID $pid dead)"
+        # Check if something else is on the port
+        if [[ -n "$port" ]]; then
+            actual_pid=$(lsof -ti :$port 2>/dev/null | head -1)
+            if [[ -n "$actual_pid" ]]; then
+                echo "⚠️  But port $port is in use by PID $actual_pid"
+                echo "   Use 'tsm kill --port $port' to kill the actual process"
+            fi
+        fi
         _tsm_safe_remove_dir "$process_dir"
         return 1
     fi
 
-    echo "📋 Found process: $process_name (TSM ID: $id, PID: $pid)"
-
-    if _tsm_kill_process "$pid" "$force"; then
+    if _tsm_kill_process "$pid" "$force" "$port"; then
         echo "✅ Killed process: $process_name (TSM ID: $id)"
         _tsm_safe_remove_dir "$process_dir"
         return 0
@@ -484,9 +579,12 @@ _tsm_kill_by_pid() {
 }
 
 # Helper function to kill a process
+# Usage: _tsm_kill_process <pid> <force> [port]
+# If port is provided, verifies the port is free after killing
 _tsm_kill_process() {
     local pid="$1"
     local force="$2"
+    local port="${3:-}"
 
     if [[ "$force" == "true" ]]; then
         echo "💥 Force killing PID $pid (SIGKILL)..."
@@ -505,11 +603,44 @@ _tsm_kill_process() {
         fi
     fi
 
-    # Verify it's dead
+    # Verify process is dead
     sleep 0.5
     if kill -0 "$pid" 2>/dev/null; then
         echo "❌ Failed to kill PID $pid"
         return 1
+    fi
+
+    # If port was provided, verify it's actually free
+    if [[ -n "$port" ]]; then
+        # Wait a moment for port to be released
+        sleep 0.5
+
+        # Check port with retries (UDP ports can be slow to release)
+        local port_free=false
+        local attempt
+        for attempt in 1 2 3; do
+            local port_pid=$(lsof -ti :$port 2>/dev/null | head -1)
+            if [[ -z "$port_pid" ]]; then
+                port_free=true
+                break
+            fi
+            # If something else grabbed the port, warn
+            if [[ "$port_pid" != "$pid" ]]; then
+                echo "⚠️  Port $port now in use by different process (PID $port_pid)"
+                local new_cmd=$(ps -p $port_pid -o args= 2>/dev/null | head -c 60 || echo "unknown")
+                echo "   Process: $new_cmd"
+                echo "   (Process may have respawned or another service claimed the port)"
+                return 1
+            fi
+            [[ $attempt -lt 3 ]] && sleep 1
+        done
+
+        if [[ "$port_free" == "true" ]]; then
+            echo "✓ Port $port is now free"
+        else
+            echo "⚠️  Port $port still in use after kill"
+            return 1
+        fi
     fi
 
     return 0
@@ -544,12 +675,17 @@ tetra_tsm_stop() {
         return 0
     fi
 
-    # Check if it's a numeric ID
-    if [[ "$target" =~ ^[0-9]+$ ]]; then
-        tetra_tsm_stop_by_id "$target" "$force"
-    else
-        tetra_tsm_stop_single "$target" "$force"
+    # Resolve target to name (handles ID, exact name, and fuzzy match)
+    local resolved_name resolve_status
+    resolved_name=$(tetra_tsm_resolve_to_name "$target")
+    resolve_status=$?
+    if [[ $resolve_status -ne 0 ]]; then
+        # Exit code 2 = ambiguous (message already printed), 1 = not found
+        [[ $resolve_status -eq 1 ]] && echo "tsm: process '$target' not found" >&2
+        return 1
     fi
+
+    tetra_tsm_stop_single "$resolved_name" "$force"
 }
 
 tetra_tsm_delete() {
@@ -575,12 +711,17 @@ tetra_tsm_delete() {
         return 0
     fi
 
-    # Check if it's a numeric ID
-    if [[ "$target" =~ ^[0-9]+$ ]]; then
-        tetra_tsm_delete_by_id "$target"
-    else
-        tetra_tsm_delete_single "$target"
+    # Resolve target to name (handles ID, exact name, and fuzzy match)
+    # For delete, include stopped processes
+    local resolved_name resolve_status
+    resolved_name=$(tetra_tsm_resolve_to_name "$target" "true")
+    resolve_status=$?
+    if [[ $resolve_status -ne 0 ]]; then
+        [[ $resolve_status -eq 1 ]] && echo "tsm: process '$target' not found" >&2
+        return 1
     fi
+
+    tetra_tsm_delete_single "$resolved_name"
 }
 
 tetra_tsm_cleanup() {
@@ -645,12 +786,16 @@ tetra_tsm_restart() {
         return 0
     fi
 
-    # Check if it's a numeric ID
-    if [[ "$target" =~ ^[0-9]+$ ]]; then
-        tetra_tsm_restart_by_id "$target"
-    else
-        tetra_tsm_restart_single "$target"
+    # Resolve target to name (handles ID, exact name, and fuzzy match)
+    local resolved_name resolve_status
+    resolved_name=$(tetra_tsm_resolve_to_name "$target")
+    resolve_status=$?
+    if [[ $resolve_status -ne 0 ]]; then
+        [[ $resolve_status -eq 1 ]] && echo "tsm: process '$target' not found" >&2
+        return 1
     fi
+
+    tetra_tsm_restart_single "$resolved_name"
 }
 
 # Export wrapper functions

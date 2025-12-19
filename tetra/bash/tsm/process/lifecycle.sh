@@ -224,6 +224,56 @@ tetra_tsm_restart_single() {
     # Stop if running
     tetra_tsm_is_running "$name" && tetra_tsm_stop_single "$name" "true"
 
+    # Wait for port to be released with retry logic
+    if [[ -n "$port" && "$port" != "none" && "$port" != "0" ]]; then
+        local max_attempts=3
+        local attempt=0
+
+        while [[ $attempt -lt $max_attempts ]]; do
+            ((attempt++))
+
+            # Wait up to 3 seconds for port to be free
+            local wait_count=0
+            while [[ $wait_count -lt 30 ]] && ! tsm_port_available "$port"; do
+                sleep 0.1
+                ((wait_count++))
+            done
+
+            # Check if port is free now
+            if tsm_port_available "$port"; then
+                break
+            fi
+
+            # Port still in use - try to kill blocking process
+            local blocking_pid=$(tsm_get_port_pid "$port" 2>/dev/null)
+            if [[ -n "$blocking_pid" ]]; then
+                echo "tsm: port $port in use by PID $blocking_pid (attempt $attempt/$max_attempts)"
+                if [[ $attempt -lt $max_attempts ]]; then
+                    echo "tsm: killing PID $blocking_pid..."
+                    kill "$blocking_pid" 2>/dev/null
+                    sleep 1
+                    # Force kill if still alive
+                    if kill -0 "$blocking_pid" 2>/dev/null; then
+                        kill -9 "$blocking_pid" 2>/dev/null
+                        sleep 0.5
+                    fi
+                else
+                    echo "tsm: giving up after $max_attempts attempts" >&2
+                    return 1
+                fi
+            else
+                # Port in use but can't find PID - wait a bit more
+                sleep 1
+            fi
+        done
+
+        # Final check
+        if ! tsm_port_available "$port"; then
+            echo "tsm: port $port still unavailable after all attempts" >&2
+            return 1
+        fi
+    fi
+
     # Restart based on type
     _tsm_restart_unified "$name" "$script" "$port" "$type" "$tsm_id" "$cwd"
 }

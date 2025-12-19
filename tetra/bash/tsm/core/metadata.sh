@@ -52,13 +52,22 @@ tsm_create_metadata() {
         fi
     fi
 
-    # Create metadata JSON
+    # Detect port type (tcp/udp) for primary port
+    local port_type="tcp"
+    if [[ -n "$port" && "$port" != "none" && "$port" != "null" ]]; then
+        if lsof -Pan -p "$pid" -iUDP:"$port" 2>/dev/null | grep -q "$port"; then
+            port_type="udp"
+        fi
+    fi
+
+    # Create metadata JSON with ports array
     jq -n \
         --arg tsm_id "$tsm_id" \
         --arg name "$name" \
         --arg pid "$pid" \
         --arg command "$command" \
         --arg port "$port" \
+        --arg port_type "$port_type" \
         --arg cwd "$cwd" \
         --arg interpreter "$interpreter" \
         --arg type "$type" \
@@ -77,6 +86,12 @@ tsm_create_metadata() {
             pid: ($pid | tonumber),
             command: $command,
             port: ($port | tonumber? // $port),
+            port_type: $port_type,
+            ports: (if $port == "none" or $port == "" then [] else [{
+                port: ($port | tonumber? // null),
+                type: $port_type,
+                protocol: "primary"
+            }] end),
             cwd: $cwd,
             interpreter: $interpreter,
             process_type: $type,
@@ -207,6 +222,150 @@ tsm_increment_restarts() {
     local temp_file="${meta_file}.tmp"
     jq '.restarts += 1' "$meta_file" > "$temp_file"
     mv "$temp_file" "$meta_file"
+}
+
+# Add a port to a process with relationship type
+# Usage: tsm_add_port <process_name> <port> [type] [protocol] [relation] [group]
+#
+# Relations:
+#   bind           - Exclusively owns/binds port (default)
+#   bind-shared    - Binds with SO_REUSEADDR (multicast capable)
+#   multicast-join - Joins multicast group on port
+#   send-to        - Sends to this port (doesn't bind)
+#
+# Example: tsm_add_port quasar-1985 1986 udp osc bind
+# Example: tsm_add_port midi-mp-1987 1983 udp osc-in multicast-join 239.1.1.1
+tsm_add_port() {
+    local name="$1"
+    local port="$2"
+    local port_type="${3:-tcp}"      # tcp or udp
+    local protocol="${4:-secondary}" # osc, http, ws, grpc, etc.
+    local relation="${5:-bind}"      # bind, bind-shared, multicast-join, send-to
+    local group="${6:-}"             # multicast group address (optional)
+    local meta_file=$(tsm_get_meta_file "$name")
+
+    if [[ ! -f "$meta_file" ]]; then
+        echo "tsm: process '$name' not found" >&2
+        return 1
+    fi
+
+    # Validate relation type
+    case "$relation" in
+        bind|bind-shared|multicast-join|send-to) ;;
+        *)
+            echo "tsm: invalid relation '$relation'" >&2
+            echo "Valid: bind, bind-shared, multicast-join, send-to" >&2
+            return 1
+            ;;
+    esac
+
+    # Add port to ports array (avoid duplicates by port number)
+    local temp_file="${meta_file}.tmp"
+    if [[ -n "$group" ]]; then
+        jq --argjson port "$port" \
+           --arg type "$port_type" \
+           --arg protocol "$protocol" \
+           --arg relation "$relation" \
+           --arg group "$group" \
+           '.ports = ((.ports // []) | map(select(.port != $port)) + [{port: $port, type: $type, protocol: $protocol, relation: $relation, group: $group}])' \
+           "$meta_file" > "$temp_file"
+    else
+        jq --argjson port "$port" \
+           --arg type "$port_type" \
+           --arg protocol "$protocol" \
+           --arg relation "$relation" \
+           '.ports = ((.ports // []) | map(select(.port != $port)) + [{port: $port, type: $type, protocol: $protocol, relation: $relation}])' \
+           "$meta_file" > "$temp_file"
+    fi
+
+    mv "$temp_file" "$meta_file"
+
+    # Format output based on relation
+    local symbol="●"
+    case "$relation" in
+        bind-shared|multicast-join) symbol="⊙" ;;
+        send-to) symbol="→" ;;
+    esac
+
+    local group_info=""
+    [[ -n "$group" ]] && group_info=" group=$group"
+    echo "tsm: added ${symbol}${port}/${port_type} ($protocol, $relation${group_info}) to '$name'"
+}
+
+# Remove a secondary port from a process
+# Usage: tsm_remove_port <process_name> <port>
+tsm_remove_port() {
+    local name="$1"
+    local port="$2"
+    local meta_file=$(tsm_get_meta_file "$name")
+
+    if [[ ! -f "$meta_file" ]]; then
+        echo "tsm: process '$name' not found" >&2
+        return 1
+    fi
+
+    local temp_file="${meta_file}.tmp"
+    jq --argjson port "$port" \
+       '.ports = ((.ports // []) | map(select(.port != $port)))' \
+       "$meta_file" > "$temp_file"
+
+    mv "$temp_file" "$meta_file"
+    echo "tsm: removed port $port from '$name'"
+}
+
+# List all ports for a process
+# Usage: tsm_list_ports <process_name>
+tsm_list_ports() {
+    local name="$1"
+    local meta_file=$(tsm_get_meta_file "$name")
+
+    if [[ ! -f "$meta_file" ]]; then
+        echo "tsm: process '$name' not found" >&2
+        return 1
+    fi
+
+    jq -r '.ports // [] | .[] | "\(.port)\t\(.type)\t\(.protocol)"' "$meta_file"
+}
+
+# Auto-detect secondary ports for a running process
+# Scans lsof for all ports used by the PID and adds missing ones
+# Usage: tsm_detect_ports <process_name>
+tsm_detect_ports() {
+    local name="$1"
+    local meta_file=$(tsm_get_meta_file "$name")
+
+    if [[ ! -f "$meta_file" ]]; then
+        echo "tsm: process '$name' not found" >&2
+        return 1
+    fi
+
+    local pid=$(jq -r '.pid // empty' "$meta_file")
+    local primary_port=$(jq -r '.port // empty' "$meta_file")
+
+    if [[ -z "$pid" ]]; then
+        echo "tsm: no PID found for '$name'" >&2
+        return 1
+    fi
+
+    # Get all ports used by this PID
+    local detected=0
+    while IFS= read -r line; do
+        local port_info
+        # Parse lsof output: extract port and protocol
+        if [[ "$line" =~ :([0-9]+)\ \(LISTEN\) ]]; then
+            local port="${BASH_REMATCH[1]}"
+            [[ "$port" == "$primary_port" ]] && continue
+            tsm_add_port "$name" "$port" "tcp" "detected"
+            ((detected++))
+        elif [[ "$line" =~ UDP.*:([0-9]+) ]]; then
+            local port="${BASH_REMATCH[1]}"
+            [[ "$port" == "$primary_port" ]] && continue
+            tsm_add_port "$name" "$port" "udp" "detected"
+            ((detected++))
+        fi
+    done < <(lsof -Pan -p "$pid" -i 2>/dev/null)
+
+    echo "tsm: detected $detected additional port(s) for '$name'"
 }
 
 # Check if process is tracked AND actually running
@@ -364,3 +523,7 @@ export -f tsm_read_metadata
 export -f tsm_set_status
 export -f tsm_process_exists
 export -f tsm_remove_process
+export -f tsm_add_port
+export -f tsm_remove_port
+export -f tsm_list_ports
+export -f tsm_detect_ports
