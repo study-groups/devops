@@ -133,5 +133,39 @@ tds_cycle_print() {
     reset_color
 }
 
+# Convert hex color to 256-color palette index
+# Args: hex (with or without #)
+# Returns: 256-color index (16-231 for color cube, 232-255 for grayscale)
+tds_hex_to_256() {
+    local hex="${1#\#}"  # Strip leading # if present
+
+    # Validate hex format
+    if [[ ! "$hex" =~ ^[0-9a-fA-F]{6}$ ]]; then
+        echo "8"  # Return gray on invalid input
+        return 1
+    fi
+
+    local r=$((16#${hex:0:2}))
+    local g=$((16#${hex:2:2}))
+    local b=$((16#${hex:4:2}))
+
+    # Convert RGB (0-255) to 6x6x6 color cube indices (0-5)
+    local r5=$(( r * 5 / 255 ))
+    local g5=$(( g * 5 / 255 ))
+    local b5=$(( b * 5 / 255 ))
+
+    # Calculate 256-color index: 16 + 36*r + 6*g + b
+    echo $(( 16 + 36*r5 + 6*g5 + b5 ))
+}
+
+# Print a color swatch using 256-color
+# Args: hex (with or without #)
+# Returns: ANSI-colored block characters
+tds_color_swatch() {
+    local hex="$1"
+    local color256=$(tds_hex_to_256 "$hex")
+    printf "$(tput setaf $color256)██$(tput sgr0)"
+}
+
 # Export functions
-export -f tds_strip_ansi tds_visual_width tds_center_padding tds_pad tds_truncate tds_truncate_middle tds_repeat tds_cycle_print
+export -f tds_strip_ansi tds_visual_width tds_center_padding tds_pad tds_truncate tds_truncate_middle tds_repeat tds_cycle_print tds_hex_to_256 tds_color_swatch

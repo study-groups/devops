@@ -669,19 +669,10 @@ _tds_completion_preview() {
             local hex2="${VERBS_PRIMARY[0]:-}"
             local hex3="${NOUNS_PRIMARY[0]:-}"
 
-            # Build color swatches using tput for better compatibility
+            # Build color swatches using shared utility
             for hex in "$hex0" "$hex1" "$hex2" "$hex3"; do
                 if [[ -n "$hex" && ${#hex} -eq 7 && "$hex" == "#"* ]]; then
-                    local r=$((16#${hex:1:2}))
-                    local g=$((16#${hex:3:2}))
-                    local b=$((16#${hex:5:2}))
-                    # Use tput setaf with RGB approximation to 256-color
-                    # Convert RGB to 256-color cube index: 16 + 36*r + 6*g + b (r,g,b in 0-5)
-                    local r5=$(( r * 5 / 255 ))
-                    local g5=$(( g * 5 / 255 ))
-                    local b5=$(( b * 5 / 255 ))
-                    local color256=$(( 16 + 36*r5 + 6*g5 + b5 ))
-                    preview+="$(tput setaf $color256)██$(tput sgr0)"
+                    preview+=$(tds_color_swatch "$hex")
                 else
                     preview+="$(tput setaf 8)██$(tput sgr0)"
                 fi

@@ -8,6 +8,10 @@
 #   VERBS - RAINBOW: universal 8-color cycle for collections
 #   NOUNS - GRADIENT: zinc dark→bright (theme-specific)
 
+# Source guard
+[[ "${__TDS_THEME_ELECTRIC_LOADED:-}" == "true" ]] && return 0
+__TDS_THEME_ELECTRIC_LOADED=true
+
 tds_theme_electric() {
     # Theme metadata
     THEME_NAME="electric"
@@ -77,16 +81,7 @@ tds_theme_electric() {
     # ========================================================================
     # VERBS_PRIMARY - RAINBOW: universal 8-color cycle
     # ========================================================================
-    VERBS_PRIMARY=(
-        "#E53935"  # 0: red (0°)
-        "#FB8C00"  # 1: orange (30°)
-        "#FDD835"  # 2: yellow (60°)
-        "#43A047"  # 3: green (120°)
-        "#00ACC1"  # 4: cyan (180°)
-        "#1E88E5"  # 5: blue (210°)
-        "#8E24AA"  # 6: purple (270°)
-        "#EC407A"  # 7: pink (330°)
-    )
+    tds_apply_verbs_rainbow
 
     # ========================================================================
     # NOUNS_PRIMARY - GRADIENT: zinc dark→bright

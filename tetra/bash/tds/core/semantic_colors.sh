@@ -18,6 +18,23 @@ fi
 # These are populated by theme loaders via tds_apply_semantic_colors()
 declare -gA TDS_SEMANTIC_COLORS=()
 
+# Universal VERBS rainbow - maximally distinct colors for collections
+# All themes should use this for VERBS_PRIMARY to maintain consistency
+# Call tds_apply_verbs_rainbow() in theme loaders instead of duplicating this array
+tds_apply_verbs_rainbow() {
+    VERBS_PRIMARY=(
+        "#E53935"  # 0: red (0°)
+        "#FB8C00"  # 1: orange (30°)
+        "#FDD835"  # 2: yellow (60°)
+        "#43A047"  # 3: green (120°)
+        "#00ACC1"  # 4: cyan (180°)
+        "#1E88E5"  # 5: blue (210°)
+        "#8E24AA"  # 6: purple (270°)
+        "#EC407A"  # 7: pink (330°)
+    )
+}
+export -f tds_apply_verbs_rainbow
+
 # Apply semantic color mappings from theme palettes
 # This is called by theme loaders after they set palette arrays
 # Themes can override specific mappings by passing custom args

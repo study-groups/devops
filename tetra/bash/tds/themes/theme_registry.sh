@@ -125,26 +125,17 @@ tds_switch_theme() {
 
     # Check if loader function exists
     if ! declare -f "$loader" >/dev/null; then
-        # Function doesn't exist - try lazy loading for temperature themes
-        case "$theme_name" in
-            warm|cool|arctic|neutral|electric)
-                # Lazy load temperature theme
-                local theme_file="$TDS_SRC/themes/${theme_name}.sh"
-                if [[ -f "$theme_file" ]]; then
-                    TDS_QUIET_LOAD=1 source "$theme_file" || {
-                        echo "Error: Failed to lazy-load theme '$theme_name'" >&2
-                        return 1
-                    }
-                else
-                    echo "Error: Theme file not found: $theme_file" >&2
-                    return 1
-                fi
-                ;;
-            *)
-                echo "Error: Theme loader '$loader' not found" >&2
+        # Function doesn't exist - try lazy loading from themes directory
+        local theme_file="$TDS_SRC/themes/${theme_name}.sh"
+        if [[ -f "$theme_file" ]]; then
+            TDS_QUIET_LOAD=1 source "$theme_file" || {
+                echo "Error: Failed to lazy-load theme '$theme_name'" >&2
                 return 1
-                ;;
-        esac
+            }
+        else
+            echo "Error: Theme loader '$loader' not found and no theme file at: $theme_file" >&2
+            return 1
+        fi
     fi
 
     # Now call the loader

@@ -6,7 +6,7 @@ Clean, token-based system for rendering markdown with full design control.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ Layer 3: Renderer (markdown_clean.sh)                  │
+│ Layer 3: Renderer (markdown.sh)                        │
 │ • Parses markdown syntax                                │
 │ • Delegates to element renderers                        │
 └─────────────────────────────────────────────────────────┘
@@ -43,7 +43,7 @@ tds/
 │   ├── markdown_tokens.sh      ← Token definitions
 │   └── markdown_elements.sh    ← Element renderers
 └── renderers/
-    └── markdown_clean.sh        ← Main parser
+    └── markdown.sh             ← Main parser/renderer
 ```
 
 ## How to Customize
@@ -82,7 +82,7 @@ md_render_callout() {
     md_reset
 }
 
-# 3. Add parser rule (markdown_clean.sh)
+# 3. Add parser rule (markdown.sh)
 if [[ "$line" =~ ^\!\![[:space:]]*(.+)$ ]]; then
     md_render_callout "${BASH_REMATCH[1]}"
     continue
@@ -134,15 +134,11 @@ fi
 ## Usage
 
 ```bash
-# Option 1: Use clean renderer directly
-source $TDS_SRC/renderers/markdown_clean.sh
-tds_markdown_clean README.md
+# Render markdown file
+tds_markdown README.md
 
-# Option 2: With pager and custom width
-tds_markdown_clean --pager --width 100 document.md
-
-# Option 3: Integrate into tdocs
-# Edit tdocs.sh to use tds_render_markdown_clean instead of tds_render_markdown
+# With pager and custom width
+tds_markdown --pager --width 100 document.md
 ```
 
 ## Benefits
@@ -153,16 +149,3 @@ tds_markdown_clean --pager --width 100 document.md
 4. **Extensible**: Add new elements without touching parser logic
 5. **Testable**: Each layer can be tested independently
 6. **Documented**: Self-documenting code structure
-
-## Migration Path
-
-The old `markdown.sh` and `typography.sh` remain for compatibility.
-Switch to clean version when ready:
-
-```bash
-# In tds.sh, add:
-source "$TDS_SRC/renderers/markdown_clean.sh"
-
-# In tdocs.sh, replace:
-tds_render_markdown → tds_render_markdown_clean
-```
