@@ -1,0 +1,33 @@
+Quick Summary for New Terminal
+
+  What we built:
+  - games play <game> command with tab completion
+  - games push/pull/sync for S3 operations
+  - Fixed TOML parsing in games module
+
+  Controls system design:
+  - Isomorphic input mapping: MIDI CC + gamepad → unified actions
+  - controls/*.json defines sources, actions, transforms, ranges
+  - midi_bridge.c is the fast C engine
+
+  Next steps:
+  # 1. Add cJSON to midi_bridge.c
+  cd $TETRA_SRC/bash/midi
+  curl -O https://raw.githubusercontent.com/DaveGamble/cJSON/master/cJSON.c
+  curl -O https://raw.githubusercontent.com/DaveGamble/cJSON/master/cJSON.h
+
+  # 2. Create controls directory
+  mkdir -p $TETRA_DIR/controls
+
+  # 3. Implement controls loader in midi_bridge.c
+
+  # 4. Create tank.json in new format
+
+  # 5. Test
+  ./midi_bridge -c tank.json | games play trax
+
+  Key files:
+  - Design doc: $TETRA_SRC/bash/midi/CONTROLS_DESIGN.md
+  - C engine: $TETRA_SRC/bash/midi/midi_bridge.c
+  - Games module: $TETRA_SRC/bash/games/games.sh
+

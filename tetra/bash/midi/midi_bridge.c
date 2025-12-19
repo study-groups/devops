@@ -43,6 +43,7 @@
 #include <SDL.h>
 #include <CoreMIDI/CoreMIDI.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include "cJSON.h"
 
 /* ============================================================================
  * PROTOCOL - gp_msg for games
@@ -65,9 +66,20 @@ struct gp_msg {
  * CONFIGURATION
  * ============================================================================ */
 
+/* Velocity range: maps displacement to ordinal */
+typedef struct {
+    int min;
+    int max;
+    int value;
+} VelRange;
+
+#define MAX_VEL_RANGES 16
+#define MAX_CONTROLS 32
+
 typedef struct {
     char socket_path[256];
     char osc_multicast[64];
+    char map_file[256];      /* -j: JSON map file */
     int osc_port;
     bool enable_gamepad;
     bool enable_midi;
@@ -79,16 +91,37 @@ typedef struct {
     int midi_channel;        /* 1-16, 0 = any */
     int cc_base;             /* First CC number (default 40) */
 
-    /* Tank control CC assignments */
+    /* Tank control - MIDI CC inputs */
     int p1_left_cc;
     int p1_right_cc;
     int p2_left_cc;
     int p2_right_cc;
+
+    /* Tank control - Gamepad axis inputs (-1 = disabled) */
+    int p1_left_axis;
+    int p1_right_axis;
+    int p2_left_axis;
+    int p2_right_axis;
+
+    /* Range settings */
+    int deadzone;
+    int center;
+    int turn_threshold;
+    int turn_debounce_ms;
+
+    /* Velocity ranges (displacement -> ordinal) */
+    VelRange vel_ranges[MAX_VEL_RANGES];
+    int num_vel_ranges;
+
+    /* Button controls: CC -> char mapping */
+    struct { int cc; char key; } controls[MAX_CONTROLS];
+    int num_controls;
 } Config;
 
 static Config config = {
     .socket_path = "/tmp/estoface_gamepad.sock",
     .osc_multicast = "239.1.1.1",
+    .map_file = "",
     .osc_port = 1983,
     .enable_gamepad = false,
     .enable_midi = false,
@@ -97,10 +130,33 @@ static Config config = {
     .stdout_output = false,
     .midi_channel = 0,
     .cc_base = 40,
+    /* MIDI CC inputs */
     .p1_left_cc = 40,
     .p1_right_cc = 41,
     .p2_left_cc = 46,
     .p2_right_cc = 47,
+    /* Gamepad axis inputs (1=LY, 3=RY for typical controller) */
+    .p1_left_axis = 1,
+    .p1_right_axis = 3,
+    .p2_left_axis = -1,
+    .p2_right_axis = -1,
+    /* Range settings */
+    .deadzone = 20,
+    .center = 64,
+    .turn_threshold = 40,
+    .turn_debounce_ms = 200,
+    /* Default velocity ranges */
+    .vel_ranges = {
+        { -64, -50, -3 },
+        { -50, -30, -2 },
+        { -30, -20, -1 },
+        { -20,  20,  0 },
+        {  20,  30,  1 },
+        {  30,  50,  2 },
+        {  50,  64,  3 },
+    },
+    .num_vel_ranges = 7,
+    .num_controls = 0,
 };
 
 /* ============================================================================
@@ -113,6 +169,7 @@ static struct {
     /* Current axis values */
     int16_t axes[AXES_MAX];
     uint32_t buttons;
+    uint32_t prev_buttons;  /* Previous frame for edge detection */
     uint32_t seq;
 
     /* Sockets */
@@ -176,33 +233,246 @@ static void log_msg(const char *fmt, ...) {
 }
 
 /* ============================================================================
+ * JSON MAP FILE LOADER
+ * ============================================================================ */
+
+static int load_map_file(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        fprintf(stderr, "Cannot open map file: %s\n", path);
+        return -1;
+    }
+
+    fseek(f, 0, SEEK_END);
+    long len = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    char *data = malloc(len + 1);
+    if (!data) { fclose(f); return -1; }
+
+    fread(data, 1, len, f);
+    data[len] = '\0';
+    fclose(f);
+
+    cJSON *root = cJSON_Parse(data);
+    free(data);
+
+    if (!root) {
+        fprintf(stderr, "JSON parse error: %s\n", cJSON_GetErrorPtr());
+        return -1;
+    }
+
+    /* Load tank.p1/p2 */
+    cJSON *tank = cJSON_GetObjectItem(root, "tank");
+    if (tank) {
+        cJSON *p1 = cJSON_GetObjectItem(tank, "p1");
+        if (p1) {
+            cJSON *left = cJSON_GetObjectItem(p1, "left_track");
+            cJSON *right = cJSON_GetObjectItem(p1, "right_track");
+            if (left) config.p1_left_cc = left->valueint;
+            if (right) config.p1_right_cc = right->valueint;
+        }
+        cJSON *p2 = cJSON_GetObjectItem(tank, "p2");
+        if (p2) {
+            cJSON *left = cJSON_GetObjectItem(p2, "left_track");
+            cJSON *right = cJSON_GetObjectItem(p2, "right_track");
+            if (left) config.p2_left_cc = left->valueint;
+            if (right) config.p2_right_cc = right->valueint;
+        }
+    }
+
+    /* Load global settings */
+    cJSON *item;
+    if ((item = cJSON_GetObjectItem(root, "deadzone"))) config.deadzone = item->valueint;
+    if ((item = cJSON_GetObjectItem(root, "center"))) config.center = item->valueint;
+    if ((item = cJSON_GetObjectItem(root, "turn_threshold"))) config.turn_threshold = item->valueint;
+
+    /* Load controls (CC -> key mappings) */
+    cJSON *controls = cJSON_GetObjectItem(root, "controls");
+    if (controls) {
+        config.num_controls = 0;
+        cJSON *ctrl = NULL;
+        cJSON_ArrayForEach(ctrl, controls) {
+            if (config.num_controls >= 16) break;
+            int cc = atoi(ctrl->string);
+            const char *key = ctrl->valuestring;
+            if (cc > 0 && key && key[0]) {
+                config.controls[config.num_controls].cc = cc;
+                config.controls[config.num_controls].key = key[0];
+                config.num_controls++;
+            }
+        }
+    }
+
+    cJSON_Delete(root);
+
+    fprintf(stderr, "Map: %s\n", path);
+    fprintf(stderr, "  P1: CC%d/%d  P2: CC%d/%d\n",
+            config.p1_left_cc, config.p1_right_cc,
+            config.p2_left_cc, config.p2_right_cc);
+    fprintf(stderr, "  deadzone=%d center=%d turn=%d controls=%d\n",
+            config.deadzone, config.center, config.turn_threshold, config.num_controls);
+
+    return 0;
+}
+
+/* Load controls.json format (game-colocated control definitions) */
+static int load_controls_json(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        fprintf(stderr, "Cannot open controls file: %s\n", path);
+        return -1;
+    }
+
+    fseek(f, 0, SEEK_END);
+    long len = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    char *data = malloc(len + 1);
+    if (!data) { fclose(f); return -1; }
+
+    fread(data, 1, len, f);
+    data[len] = '\0';
+    fclose(f);
+
+    cJSON *root = cJSON_Parse(data);
+    free(data);
+
+    if (!root) {
+        fprintf(stderr, "JSON parse error: %s\n", cJSON_GetErrorPtr());
+        return -1;
+    }
+
+    /* Get game name for logging */
+    cJSON *name = cJSON_GetObjectItem(root, "name");
+    if (name && name->valuestring) {
+        fprintf(stderr, "Controls: %s\n", name->valuestring);
+    }
+
+    /* Load MIDI defaults */
+    cJSON *defaults = cJSON_GetObjectItem(root, "defaults");
+    if (defaults) {
+        cJSON *midi = cJSON_GetObjectItem(defaults, "midi");
+        if (midi) {
+            /* p1_forward uses fader_pair with left_cc/right_cc */
+            cJSON *p1_fwd = cJSON_GetObjectItem(midi, "p1_forward");
+            if (p1_fwd) {
+                cJSON *left = cJSON_GetObjectItem(p1_fwd, "left_cc");
+                cJSON *right = cJSON_GetObjectItem(p1_fwd, "right_cc");
+                if (left) config.p1_left_cc = left->valueint;
+                if (right) config.p1_right_cc = right->valueint;
+            }
+
+            cJSON *p2_fwd = cJSON_GetObjectItem(midi, "p2_forward");
+            if (p2_fwd) {
+                cJSON *left = cJSON_GetObjectItem(p2_fwd, "left_cc");
+                cJSON *right = cJSON_GetObjectItem(p2_fwd, "right_cc");
+                if (left) config.p2_left_cc = left->valueint;
+                if (right) config.p2_right_cc = right->valueint;
+            }
+
+            /* Also check p1_left/p1_right for turn threshold */
+            cJSON *p1_left = cJSON_GetObjectItem(midi, "p1_left");
+            if (p1_left) {
+                cJSON *thresh = cJSON_GetObjectItem(p1_left, "threshold");
+                if (thresh) config.turn_threshold = abs(thresh->valueint);
+            }
+        }
+
+        /* Load gamepad defaults */
+        cJSON *gamepad = cJSON_GetObjectItem(defaults, "gamepad");
+        if (gamepad) {
+            cJSON *p1_fwd = cJSON_GetObjectItem(gamepad, "p1_forward");
+            if (p1_fwd) {
+                cJSON *axis = cJSON_GetObjectItem(p1_fwd, "axis");
+                if (axis) config.p1_left_axis = axis->valueint;
+            }
+
+            cJSON *p2_fwd = cJSON_GetObjectItem(gamepad, "p2_forward");
+            if (p2_fwd) {
+                cJSON *axis = cJSON_GetObjectItem(p2_fwd, "axis");
+                if (axis) config.p2_left_axis = axis->valueint;
+            }
+        }
+    }
+
+    /* Load transform settings */
+    cJSON *transforms = cJSON_GetObjectItem(root, "transforms");
+    if (transforms) {
+        cJSON *tank_vel = cJSON_GetObjectItem(transforms, "tank_velocity");
+        if (tank_vel) {
+            cJSON *dz = cJSON_GetObjectItem(tank_vel, "deadzone");
+            cJSON *ctr = cJSON_GetObjectItem(tank_vel, "center");
+            if (dz) config.deadzone = dz->valueint;
+            if (ctr) config.center = ctr->valueint;
+
+            /* Load velocity ranges */
+            cJSON *ranges = cJSON_GetObjectItem(tank_vel, "ranges");
+            if (ranges && cJSON_IsArray(ranges)) {
+                config.num_vel_ranges = 0;
+                cJSON *range = NULL;
+                cJSON_ArrayForEach(range, ranges) {
+                    if (config.num_vel_ranges >= MAX_VEL_RANGES) break;
+                    cJSON *min = cJSON_GetObjectItem(range, "min");
+                    cJSON *max = cJSON_GetObjectItem(range, "max");
+                    cJSON *val = cJSON_GetObjectItem(range, "value");
+                    if (min && max && val) {
+                        config.vel_ranges[config.num_vel_ranges].min = min->valueint;
+                        config.vel_ranges[config.num_vel_ranges].max = max->valueint;
+                        config.vel_ranges[config.num_vel_ranges].value = val->valueint;
+                        config.num_vel_ranges++;
+                    }
+                }
+            }
+        }
+    }
+
+    /* Load settings */
+    cJSON *settings = cJSON_GetObjectItem(root, "settings");
+    if (settings) {
+        cJSON *debounce = cJSON_GetObjectItem(settings, "turn_debounce_ms");
+        if (debounce) config.turn_debounce_ms = debounce->valueint;
+    }
+
+    cJSON_Delete(root);
+
+    fprintf(stderr, "  MIDI: P1=CC%d/%d  P2=CC%d/%d\n",
+            config.p1_left_cc, config.p1_right_cc,
+            config.p2_left_cc, config.p2_right_cc);
+    fprintf(stderr, "  Gamepad: P1=axis%d  P2=axis%d\n",
+            config.p1_left_axis, config.p2_left_axis);
+    fprintf(stderr, "  deadzone=%d center=%d turn=%d debounce=%dms\n",
+            config.deadzone, config.center, config.turn_threshold, config.turn_debounce_ms);
+
+    return 0;
+}
+
+/* ============================================================================
  * TANK CONTROL STDOUT OUTPUT (-O mode)
  * Converts fader pairs to velocity/turn commands for trax
  * ============================================================================ */
 
-#define FADER_CENTER 64
-#define DEADZONE 20
-#define TURN_THRESHOLD 40
-#define TURN_DEBOUNCE_NS 200000000ULL  /* 200ms */
-
-/* Convert fader pair average to velocity (-3 to +3) */
+/* Convert fader pair average to velocity using loaded ranges */
 static int faders_to_velocity(int left, int right) {
-    int avg = ((left - FADER_CENTER) + (right - FADER_CENTER)) / 2;
-    if (abs(avg) < DEADZONE) return 0;
+    int avg = ((left - config.center) + (right - config.center)) / 2;
 
-    /* Map to -3..+3 */
+    /* Use loaded velocity ranges */
+    for (int i = 0; i < config.num_vel_ranges; i++) {
+        if (avg >= config.vel_ranges[i].min && avg < config.vel_ranges[i].max) {
+            return config.vel_ranges[i].value;
+        }
+    }
+
+    /* Fallback: clamp to -3..+3 */
     if (avg > 50) return 3;
-    if (avg > 30) return 2;
-    if (avg > DEADZONE) return 1;
     if (avg < -50) return -3;
-    if (avg < -30) return -2;
-    return -1;
+    return 0;
 }
 
 /* Detect turn from fader differential */
 static int faders_to_turn(int left, int right) {
     int diff = right - left;
-    if (abs(diff) < TURN_THRESHOLD) return 0;
+    if (abs(diff) < config.turn_threshold) return 0;
     return diff > 0 ? 1 : -1;
 }
 
@@ -211,6 +481,7 @@ static void process_tank_output(void) {
     if (!config.stdout_output) return;
 
     uint64_t now = now_ns();
+    uint64_t debounce_ns = (uint64_t)config.turn_debounce_ms * 1000000ULL;
 
     /* Player 1 */
     int vel1 = faders_to_velocity(state.p1_left_fader, state.p1_right_fader);
@@ -221,7 +492,7 @@ static void process_tank_output(void) {
     }
 
     int turn1 = faders_to_turn(state.p1_left_fader, state.p1_right_fader);
-    if (turn1 != 0 && (now - state.p1_last_turn_ns) > TURN_DEBOUNCE_NS) {
+    if (turn1 != 0 && (now - state.p1_last_turn_ns) > debounce_ns) {
         printf("%c\n", turn1 < 0 ? 'a' : 'd');
         fflush(stdout);
         state.p1_last_turn_ns = now;
@@ -236,7 +507,7 @@ static void process_tank_output(void) {
     }
 
     int turn2 = faders_to_turn(state.p2_left_fader, state.p2_right_fader);
-    if (turn2 != 0 && (now - state.p2_last_turn_ns) > TURN_DEBOUNCE_NS) {
+    if (turn2 != 0 && (now - state.p2_last_turn_ns) > debounce_ns) {
         printf("%c\n", turn2 < 0 ? 'j' : 'l');
         fflush(stdout);
         state.p2_last_turn_ns = now;
@@ -389,6 +660,34 @@ static void send_osc_axis(int axis, float value) {
            (struct sockaddr *)&state.osc_addr, sizeof(state.osc_addr));
 }
 
+/*
+ * Send OSC trigger message: /quasar/trigger/{name}
+ * No arguments - just the address pattern triggers the sound
+ */
+static void send_osc_trigger(const char *trigger_name) {
+    if (state.osc_fd < 0) return;
+
+    char buf[64];
+    int len = 0;
+
+    /* Address: /quasar/trigger/NAME */
+    len = snprintf(buf, sizeof(buf), "/quasar/trigger/%s", trigger_name);
+    int addr_len = ((len + 4) / 4) * 4;
+    memset(buf + len, 0, addr_len - len);
+    len = addr_len;
+
+    /* Type tag: , (no arguments) */
+    buf[len++] = ',';
+    buf[len++] = 0;
+    buf[len++] = 0;
+    buf[len++] = 0;
+
+    sendto(state.osc_fd, buf, len, 0,
+           (struct sockaddr *)&state.osc_addr, sizeof(state.osc_addr));
+
+    log_msg("TRIGGER: /quasar/trigger/%s\n", trigger_name);
+}
+
 /* ============================================================================
  * GAMEPAD INPUT (SDL2)
  * ============================================================================ */
@@ -428,6 +727,24 @@ static int init_gamepad(void) {
     return -1;
 }
 
+/* Button bit → Quasar trigger name mapping
+ * Available triggers: pew boom clank pickup hit score engine_idle engine_rev
+ */
+static const struct {
+    uint32_t bit;
+    const char *trigger;
+} button_triggers[] = {
+    { 1u << 0,  "pew" },         /* A - laser pew */
+    { 1u << 1,  "boom" },        /* B - explosion */
+    { 1u << 2,  "clank" },       /* X - metal clank */
+    { 1u << 3,  "pickup" },      /* Y - item pickup */
+    { 1u << 11, "engine_rev" },  /* D-pad Up */
+    { 1u << 12, "engine_idle" }, /* D-pad Down */
+    { 1u << 13, "hit" },         /* D-pad Left */
+    { 1u << 14, "score" },       /* D-pad Right */
+    { 0, NULL }                  /* sentinel */
+};
+
 static void poll_gamepad(void) {
     if (!state.gamepad) return;
 
@@ -451,6 +768,18 @@ static void poll_gamepad(void) {
     b |= SDL_GameControllerGetButton(state.gamepad, SDL_CONTROLLER_BUTTON_DPAD_DOWN) ? (1u << 12) : 0;
     b |= SDL_GameControllerGetButton(state.gamepad, SDL_CONTROLLER_BUTTON_DPAD_LEFT) ? (1u << 13) : 0;
     b |= SDL_GameControllerGetButton(state.gamepad, SDL_CONTROLLER_BUTTON_DPAD_RIGHT) ? (1u << 14) : 0;
+
+    /* Detect rising edges (new button presses) and send Quasar triggers */
+    uint32_t pressed = b & ~state.prev_buttons;  /* Bits that just became 1 */
+    if (pressed) {
+        for (int i = 0; button_triggers[i].trigger != NULL; i++) {
+            if (pressed & button_triggers[i].bit) {
+                send_osc_trigger(button_triggers[i].trigger);
+            }
+        }
+    }
+
+    state.prev_buttons = state.buttons;
     state.buttons = b;
 
     /* Broadcast full-precision floats: /gamepad/axis/{0-5} */
@@ -654,33 +983,48 @@ static void usage(const char *prog) {
     printf("Options:\n");
     printf("  -g          Enable gamepad input\n");
     printf("  -M          Enable MIDI input\n");
+    printf("  -O          Output tank commands to stdout (for games)\n");
+    printf("  -c FILE     Load controls.json mapping file\n");
     printf("  -s PATH     Unix socket path (default: %s)\n", config.socket_path);
     printf("  -p PORT     OSC UDP port (default: %d)\n", config.osc_port);
     printf("  -m GROUP    OSC multicast group (default: %s)\n", config.osc_multicast);
-    printf("  -c CHANNEL  MIDI channel filter (1-16, default: all)\n");
+    printf("  -C CHANNEL  MIDI channel filter (1-16, default: all)\n");
     printf("  -b CC       MIDI CC base number (default: %d)\n", config.cc_base);
     printf("  -v          Verbose output\n");
     printf("  -l          List devices and exit\n");
     printf("  -h          Show this help\n");
     printf("\n");
+    printf("Tank CC assignments (env vars or controls.json):\n");
+    printf("  P1_LEFT=%d  P1_RIGHT=%d  P2_LEFT=%d  P2_RIGHT=%d\n",
+           config.p1_left_cc, config.p1_right_cc, config.p2_left_cc, config.p2_right_cc);
+    printf("\n");
     printf("Examples:\n");
-    printf("  %s -g -M -v              # Both inputs, verbose\n", prog);
-    printf("  %s -g                    # Gamepad only\n", prog);
-    printf("  %s -M -c 1 -b 40         # MIDI ch1 CC40-45\n", prog);
+    printf("  %s -g -M -v                  # Both inputs, verbose\n", prog);
+    printf("  %s -M -O | trax              # MIDI to trax tank control\n", prog);
+    printf("  %s -M -O -c controls.json    # Load mappings from JSON\n", prog);
     printf("\n");
     printf("Latency: ~2-3ms (vs ~20-40ms with Node.js)\n");
 }
 
 int main(int argc, char **argv) {
+    /* Load CC assignments from environment */
+    char *env;
+    if ((env = getenv("P1_LEFT"))) config.p1_left_cc = atoi(env);
+    if ((env = getenv("P1_RIGHT"))) config.p1_right_cc = atoi(env);
+    if ((env = getenv("P2_LEFT"))) config.p2_left_cc = atoi(env);
+    if ((env = getenv("P2_RIGHT"))) config.p2_right_cc = atoi(env);
+
     int opt;
-    while ((opt = getopt(argc, argv, "gMs:p:m:c:b:vlh")) != -1) {
+    while ((opt = getopt(argc, argv, "gMOc:s:p:m:C:b:vlh")) != -1) {
         switch (opt) {
             case 'g': config.enable_gamepad = true; break;
             case 'M': config.enable_midi = true; break;
+            case 'O': config.stdout_output = true; break;
+            case 'c': strncpy(config.map_file, optarg, sizeof(config.map_file) - 1); break;
             case 's': strncpy(config.socket_path, optarg, sizeof(config.socket_path) - 1); break;
             case 'p': config.osc_port = atoi(optarg); break;
             case 'm': strncpy(config.osc_multicast, optarg, sizeof(config.osc_multicast) - 1); break;
-            case 'c': config.midi_channel = atoi(optarg); break;
+            case 'C': config.midi_channel = atoi(optarg); break;
             case 'b': config.cc_base = atoi(optarg); break;
             case 'v': config.verbose = true; break;
             case 'l': config.list_devices = true; break;
@@ -688,6 +1032,13 @@ int main(int argc, char **argv) {
             default:
                 usage(argv[0]);
                 return opt == 'h' ? 0 : 1;
+        }
+    }
+
+    /* Load controls.json if specified */
+    if (config.map_file[0] != '\0') {
+        if (load_controls_json(config.map_file) < 0) {
+            fprintf(stderr, "Warning: failed to load %s, using defaults\n", config.map_file);
         }
     }
 
@@ -709,6 +1060,12 @@ int main(int argc, char **argv) {
     signal(SIGTERM, handle_signal);
 
     fprintf(stderr, "midi_bridge starting...\n");
+
+    if (config.stdout_output) {
+        fprintf(stderr, "Tank stdout mode: P1=CC%d,%d  P2=CC%d,%d\n",
+                config.p1_left_cc, config.p1_right_cc,
+                config.p2_left_cc, config.p2_right_cc);
+    }
 
     /* Initialize outputs */
     if (init_socket() < 0) return 1;

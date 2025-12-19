@@ -1,0 +1,22 @@
+{
+  "name": "trax",
+  "description": "Tank game - dual fader control",
+  "tank": {
+    "p1": {
+      "left_track": 40,
+      "right_track": 41
+    },
+    "p2": {
+      "left_track": 46,
+      "right_track": 47
+    }
+  },
+  "deadzone": 20,
+  "center": 64,
+  "turn_threshold": 40,
+  "controls": {
+    "48": " ",
+    "49": "q",
+    "50": "h"
+  }
+}
