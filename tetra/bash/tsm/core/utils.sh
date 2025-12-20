@@ -186,9 +186,11 @@ tetra_tsm_get_next_id() {
         [[ -n "$reserved_id" && "$reserved_id" =~ ^[0-9]+$ ]] && used_ids+=("$reserved_id")
     done
 
-    # Sort and find gap
+    # Sort and find gap (use readarray to avoid IFS-dependent word splitting)
     if [[ ${#used_ids[@]} -gt 0 ]]; then
-        used_ids=($(printf '%s\n' "${used_ids[@]}" | sort -n))
+        local sorted_ids=()
+        readarray -t sorted_ids < <(printf '%s\n' "${used_ids[@]}" | sort -n)
+        used_ids=("${sorted_ids[@]}")
     fi
 
     local next_id=0

@@ -65,7 +65,9 @@ tsm_allocate_port_from() {
     [[ $start_port -lt $TSM_PORT_RANGE_START ]] && start_port=$TSM_PORT_RANGE_START
     [[ $start_port -gt $TSM_PORT_RANGE_END ]] && return 1
 
-    for port in $(seq $start_port $end_port); do
+    # Use C-style for loop to avoid IFS-dependent word splitting
+    local port
+    for ((port = start_port; port <= end_port; port++)); do
         if tsm_port_available "$port"; then
             echo "$port"
             return 0

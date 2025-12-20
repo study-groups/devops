@@ -209,7 +209,7 @@ tetra_tsm_start() {
 
     # Check if first arg is a known service (USE MULTI-ORG LOOKUP)
     local _org _service_file
-    if _tsm_find_service "$first_arg" _org _service_file 2>/dev/null; then
+    if _tsm_find_service "$first_arg" _org _service_file; then
         # Second arg may be a directory override
         local dir_override="${command_args[1]:-}"
         echo "🚀 Starting service: $_org/$first_arg"
@@ -362,8 +362,9 @@ _tsm_kill_by_port() {
 
     echo "🔍 Finding processes using port $port..."
 
-    # Find PIDs using the port
-    local pids=($(lsof -ti :$port 2>/dev/null))
+    # Find PIDs using the port (use readarray to avoid IFS-dependent word splitting)
+    local pids=()
+    readarray -t pids < <(lsof -ti :"$port" 2>/dev/null)
 
     if [[ ${#pids[@]} -eq 0 ]]; then
         echo "❌ No processes found using port $port"
