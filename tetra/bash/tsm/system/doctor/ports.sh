@@ -324,8 +324,9 @@ doctor_scan_common_ports() {
         fi
     done < <(lsof -iUDP -P -n 2>/dev/null | awk 'NR>1 {print $9}' | sed 's/.*://g' | sort -nu)
 
-    # Get sorted list of ports
-    local ports=($(echo "${!port_info[@]}" | tr ' ' '\n' | sort -n))
+    # Get sorted list of ports - use readarray to avoid IFS issues
+    local ports=()
+    readarray -t ports < <(printf '%s\n' "${!port_info[@]}" | sort -n)
 
     # If no ports found in range, show common defaults as reference
     if [[ ${#ports[@]} -eq 0 ]]; then
