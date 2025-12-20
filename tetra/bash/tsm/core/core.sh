@@ -99,10 +99,7 @@ if declare -f _tsm_read_process_info >/dev/null; then
     export -f _tsm_read_process_info
 fi
 
-# Lifecycle module
-if declare -f _tsm_is_process_running >/dev/null; then
-    export -f _tsm_is_process_running
-fi
+# Lifecycle module - Note: _tsm_is_process_running removed, use tsm_is_pid_alive() from utils.sh
 if declare -f _tsm_get_process_by_name >/dev/null; then
     export -f _tsm_get_process_by_name
 fi

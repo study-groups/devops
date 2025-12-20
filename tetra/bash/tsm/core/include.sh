@@ -14,7 +14,7 @@ fi
 
 # Define module source directory using strong global
 # TSM_SRC set by includes.sh, fallback for direct sourcing
-TSM_SRC="${TSM_SRC:-$TETRA_SRC/tsm}"
+TSM_SRC="${TSM_SRC:-$TETRA_SRC/bash/tsm}"
 TSM_CORE_SRC="$TSM_SRC/core"
 TSM_SYSTEM_SRC="$TSM_SRC/system"
 TSM_SERVICES_SRC="$TSM_SRC/services"

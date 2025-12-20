@@ -52,9 +52,12 @@ tsm_resolve_interpreter() {
 
     case "$type" in
         python)
-            # Use pyenv python if available
-            if [[ -d "$PYENV_ROOT/shims" && -x "$PYENV_ROOT/shims/python" ]]; then
-                echo "$PYENV_ROOT/shims/python"
+            # Use tetra pyenv python if available
+            local tetra_pyenv="$TETRA_DIR/pyenv"
+            if [[ -d "$tetra_pyenv/shims" && -x "$tetra_pyenv/shims/python" ]]; then
+                echo "$tetra_pyenv/shims/python"
+            elif [[ -d "$tetra_pyenv/shims" && -x "$tetra_pyenv/shims/python3" ]]; then
+                echo "$tetra_pyenv/shims/python3"
             elif command -v python3 >/dev/null 2>&1; then
                 command -v python3
             else
@@ -127,12 +130,13 @@ tsm_build_env_activation() {
 
     case "$type" in
         python)
-            # Activate pyenv
-            if [[ -d "$PYENV_ROOT" ]]; then
-                cat <<'EOF'
-export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
-eval "$(pyenv init --path 2>/dev/null || true)"
-eval "$(pyenv virtualenv-init - 2>/dev/null || true)"
+            # Activate tetra pyenv
+            local tetra_pyenv="$TETRA_DIR/pyenv"
+            if [[ -d "$tetra_pyenv" ]]; then
+                cat <<EOF
+export PYENV_ROOT="$tetra_pyenv"
+export PATH="$tetra_pyenv/shims:$tetra_pyenv/bin:\$PATH"
+eval "\$($tetra_pyenv/bin/pyenv init --path 2>/dev/null || true)"
 EOF
             fi
             ;;

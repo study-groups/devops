@@ -7,7 +7,7 @@
 
 _tsm_load_components() {
     # TSM_SRC set by includes.sh, fallback for direct sourcing
-    local mod_src="${TSM_SRC:-$TETRA_SRC/tsm}"
+    local mod_src="${TSM_SRC:-$TETRA_SRC/bash/tsm}"
 
     # Load module registry system first (but don't register yet)
     if [[ -f "$TETRA_SRC/utils/module_registry.sh" ]]; then

@@ -102,13 +102,13 @@ tetra_tsm_stop_single() {
         # Wait for graceful shutdown
         local timeout=10
         local count=0
-        while [[ $count -lt $timeout ]] && _tsm_is_process_running "$pid"; do
+        while [[ $count -lt $timeout ]] && tsm_is_pid_alive "$pid"; do
             sleep 1
             count=$((count + 1))
         done
 
         # Force kill if still running
-        if _tsm_is_process_running "$pid"; then
+        if tsm_is_pid_alive "$pid"; then
             echo "tsm: force killing '$name' after timeout"
             if [[ -n "$pgid" && "$pgid" != "1" ]]; then
                 kill -9 "-$pgid" 2>/dev/null || kill -9 "$pid" 2>/dev/null

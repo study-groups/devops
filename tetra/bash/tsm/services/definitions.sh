@@ -65,7 +65,8 @@ _tsm_find_service() {
 
     # Search all orgs - check for ambiguity first
     local org match_count=0 first_org="" first_file=""
-    for org in $(_tsm_get_orgs); do
+    while IFS= read -r org; do
+        [[ -z "$org" ]] && continue
         local service_file="$TETRA_DIR/orgs/$org/tsm/services-available/${parsed_service}.tsm"
         if [[ -f "$service_file" ]]; then
             ((match_count++))
@@ -74,7 +75,7 @@ _tsm_find_service() {
                 first_file="$service_file"
             fi
         fi
-    done
+    done < <(_tsm_get_orgs)
 
     if [[ $match_count -eq 0 ]]; then
         return 1

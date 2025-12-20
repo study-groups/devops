@@ -215,6 +215,9 @@ tsm_start_any_command() {
     local log_err="$process_dir/current.err"
     local pid_file="$process_dir/${name}.pid"
 
+    # Clean stale files from previous run
+    rm -f "$pid_file" "$log_out" "$log_err" "$process_dir/wrapper.err"
+
     # Setup socket if service_type is socket
     local socket_path=""
     if [[ "$service_type" == "socket" ]] && declare -f tsm_socket_create >/dev/null 2>&1; then
@@ -254,7 +257,7 @@ tsm_start_any_command() {
 
     # Start process
     local setsid_cmd
-    setsid_cmd=$(tetra_tsm_get_setsid) || {
+    setsid_cmd=$(tsm_get_setsid) || {
         echo "tsm: setsid not available. Run 'tsm setup'" >&2
         return 1
     }
