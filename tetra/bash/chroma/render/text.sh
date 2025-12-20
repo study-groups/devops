@@ -131,3 +131,39 @@ _chroma_word_wrap() {
     # Output remaining text
     [[ -n "$line" ]] && echo "$line"
 }
+
+# Word-wrap with different width for first line vs continuation
+# Used for topic-description patterns where first line is narrow (after topic)
+# but continuation lines can be wider
+# Args: text, first_width, cont_width
+# Outputs wrapped lines (no indent prefix - caller handles padding)
+_chroma_word_wrap_variable() {
+    local text="$1"
+    local first_width="$2"
+    local cont_width="$3"
+
+    local line="" line_len=0 first_line=1
+    local max_width=$first_width
+    local words
+    read -ra words <<< "$text"
+
+    for word in "${words[@]}"; do
+        local word_len=${#word}
+        if (( line_len == 0 )); then
+            line="$word"
+            line_len=$word_len
+        elif (( line_len + 1 + word_len <= max_width )); then
+            line="$line $word"
+            line_len=$((line_len + 1 + word_len))
+        else
+            echo "$line"
+            if (( first_line )); then
+                first_line=0
+                max_width=$cont_width
+            fi
+            line="$word"
+            line_len=$word_len
+        fi
+    done
+    [[ -n "$line" ]] && echo "$line"
+}

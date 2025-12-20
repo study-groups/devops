@@ -12,6 +12,9 @@ declare -gA CHROMA_PATTERNS=()
 # Pattern token mappings: name → space-separated list of tokens for each group
 declare -gA CHROMA_PATTERN_TOKENS=()
 
+# Pattern guard functions: name → guard_function_name
+declare -gA CHROMA_PATTERN_GUARDS=()
+
 # Pattern order (first match wins)
 declare -ga CHROMA_PATTERN_ORDER=()
 
@@ -23,22 +26,35 @@ declare -g CHROMA_PATTERNS_ENABLED="${CHROMA_PATTERNS_ENABLED:-1}"
 #==============================================================================
 
 # Register a pattern
-# Usage: chroma_pattern_register <name> <regex> <tokens...>
+# Usage: chroma_pattern_register <name> <regex> <tokens...> [--guard <func>]
 # Tokens are applied to capture groups in order
 # Example: chroma_pattern_register "numbered_item" '^([0-9]+)\. (.+) – (.+)$' "pattern.number" "pattern.topic" "pattern.desc"
+# Example with guard: chroma_pattern_register "topic_desc" '^...$' "t1" "t2" --guard "_chroma_guard_topic"
 chroma_pattern_register() {
     local name="$1"
     local regex="$2"
     shift 2
-    local tokens="$*"
 
     [[ -z "$name" || -z "$regex" ]] && {
-        echo "Usage: chroma_pattern_register <name> <regex> <tokens...>" >&2
+        echo "Usage: chroma_pattern_register <name> <regex> <tokens...> [--guard <func>]" >&2
         return 1
     }
 
+    # Parse tokens and --guard option
+    local tokens="" guard=""
+    while (( $# )); do
+        if [[ "$1" == "--guard" ]]; then
+            shift
+            guard="$1"
+        else
+            tokens+="${tokens:+ }$1"
+        fi
+        shift
+    done
+
     CHROMA_PATTERNS["$name"]="$regex"
     CHROMA_PATTERN_TOKENS["$name"]="$tokens"
+    [[ -n "$guard" ]] && CHROMA_PATTERN_GUARDS["$name"]="$guard"
 
     # Add to order if not present
     local found=0
@@ -53,12 +69,34 @@ chroma_pattern_remove() {
     local name="$1"
     unset "CHROMA_PATTERNS[$name]"
     unset "CHROMA_PATTERN_TOKENS[$name]"
+    unset "CHROMA_PATTERN_GUARDS[$name]"
 
     local new_order=()
     for p in "${CHROMA_PATTERN_ORDER[@]}"; do
         [[ "$p" != "$name" ]] && new_order+=("$p")
     done
     CHROMA_PATTERN_ORDER=("${new_order[@]}")
+}
+
+#==============================================================================
+# GUARD FUNCTIONS
+#==============================================================================
+
+# Guard for topic_desc pattern - rejects prose masquerading as topics
+# $1 = topic (first capture group)
+# Returns 0 if valid topic, 1 if prose
+_chroma_guard_topic() {
+    local topic="$1"
+    local lower="${topic,,}"
+
+    # Reject common sentence starters
+    [[ "$lower" =~ ^(this|that|it|these|those|there|here|i|we|you|a|an|the)[[:space:]] ]] && return 1
+
+    # Reject if > 5 words (topics are short)
+    local spaces="${topic//[^ ]}"
+    (( ${#spaces} > 4 )) && return 1
+
+    return 0
 }
 
 #==============================================================================
@@ -79,12 +117,13 @@ _chroma_init_patterns() {
         '^\[([0-9]+): ?(.*)?\]$' \
         "pattern.number" "pattern.desc"
 
-    # Topic with description (for numbered list content after number is stripped)
+    # Topic with description (for titles/names, not general sentences)
     # Matches: "Andre Kronert – Raw, psychedelic repetition..."
-    # Also matches en-dash (–) and em-dash (—) and regular hyphen with spaces
+    # Guard rejects prose (sentence starters like "This is...", >5 words)
     chroma_pattern_register "topic_desc" \
-        '^([^–—-]+[^[:space:]]) [–—-] (.+)$' \
-        "pattern.topic" "pattern.desc"
+        '^([A-Z][^–—-]{0,38}[^[:space:]]) [–—-] (.+)$' \
+        "pattern.topic" "pattern.desc" \
+        --guard "_chroma_guard_topic"
 
     # Key: Value pairs
     chroma_pattern_register "key_value" \
@@ -114,8 +153,20 @@ _chroma_pattern_match() {
         [[ -z "$regex" ]] && continue
 
         if [[ "$text" =~ $regex ]]; then
+            # Save BASH_REMATCH before guard (guard may use regex internally)
+            local -a saved_groups=("${BASH_REMATCH[@]}")
+
+            # Run guard if defined
+            local guard="${CHROMA_PATTERN_GUARDS[$name]:-}"
+            if [[ -n "$guard" ]]; then
+                # Pass captured groups (excluding full match) to guard
+                if ! "$guard" "${saved_groups[@]:1}"; then
+                    continue  # Guard rejected, try next pattern
+                fi
+            fi
+
             CHROMA_PATTERN_MATCH_NAME="$name"
-            CHROMA_PATTERN_MATCH_GROUPS=("${BASH_REMATCH[@]}")
+            CHROMA_PATTERN_MATCH_GROUPS=("${saved_groups[@]}")
             return 0
         fi
     done
@@ -127,14 +178,90 @@ _chroma_pattern_match() {
 # PATTERN RENDERING
 #==============================================================================
 
+# Smart wrap for topic-description patterns with clamping
+# Prevents the "bottleneck effect" where long topics create narrow text towers
+# $1 = topic
+# $2 = desc
+# $3 = pad (left padding)
+# $4 = width (total available width)
+_chroma_render_smart_wrap() {
+    local topic="$1"
+    local desc="$2"
+    local pad="$3"
+    local -i width="${4:-${COLUMNS:-80}}"
+
+    # Config: only align if topic < 25% of width, else fall back to 4-space indent
+    local -i max_align_percent=25
+    local -i fallback_indent=4
+    local separator=" – "
+
+    # Geometry
+    local prefix="${topic}${separator}"
+    local -i prefix_len=${#prefix}
+    local -i align_limit=$(( width * max_align_percent / 100 ))
+    local -i indent_len
+
+    # Indentation strategy: clamp if prefix is too long
+    if (( prefix_len < align_limit )); then
+        indent_len=$prefix_len  # Align to separator
+    else
+        indent_len=$fallback_indent  # Clamp to fixed indent
+    fi
+
+    # Available widths
+    local -i first_line_room=$(( width - ${#pad} - prefix_len ))
+    local -i body_room=$(( width - ${#pad} - indent_len ))
+
+    # Render topic + separator
+    printf '%s' "$pad"
+    _chroma_color "$(_chroma_token pattern.topic)"
+    printf '%s' "$topic"
+    _chroma_reset
+    _chroma_color "$(_chroma_token pattern.dash)"
+    printf '%s' "$separator"
+    _chroma_reset
+
+    # If desc fits on first line, done
+    if (( ${#desc} <= first_line_room )); then
+        _chroma_color "$(_chroma_token pattern.desc)"
+        printf '%s' "$desc"
+        _chroma_reset
+        echo
+        return
+    fi
+
+    # Variable wrap: first line narrow, rest wide
+    local wrapped_lines
+    mapfile -t wrapped_lines < <(_chroma_word_wrap_variable "$desc" "$first_line_room" "$body_room")
+
+    local first=1
+    for wline in "${wrapped_lines[@]}"; do
+        if (( first )); then
+            _chroma_color "$(_chroma_token pattern.desc)"
+            printf '%s' "$wline"
+            _chroma_reset
+            echo
+            first=0
+        else
+            printf '%s%*s' "$pad" "$indent_len" ""
+            _chroma_color "$(_chroma_token pattern.desc)"
+            printf '%s' "$wline"
+            _chroma_reset
+            echo
+        fi
+    done
+}
+
 # Render text with pattern styling (width-aware)
 # $1 = text to render
 # $2 = fallback token for unmatched text
 # $3 = available width (optional)
+# $4 = left padding for continuation lines (optional)
 _chroma_render_pattern() {
     local text="$1"
     local fallback="${2:-text.primary}"
     local width="${3:-0}"
+    local cont_pad="${4:-}"
 
     if ! _chroma_pattern_match "$text"; then
         # No pattern match - render with fallback
@@ -151,6 +278,14 @@ _chroma_render_pattern() {
 
     # Track how many chars we've used
     local used=0
+
+    # Handle topic_desc with smart wrap (prevents bottleneck effect)
+    if [[ "$name" == "topic_desc" ]]; then
+        local topic="${groups[1]}"
+        local desc="${groups[2]}"
+        _chroma_render_smart_wrap "$topic" "$desc" "$cont_pad" "$width"
+        return 0
+    fi
 
     # Handle bracketed_id_simple: [ID: optional_content]
     if [[ "$name" == "bracketed_id_simple" ]]; then
@@ -282,9 +417,9 @@ _chroma_render_pattern() {
                         _chroma_reset
                         first=0
                     else
-                        # Continuation lines - indent to align with content start
+                        # Continuation lines - pad + indent to align with content start
                         echo
-                        printf '%*s' "$used" ""
+                        printf '%s%*s' "$cont_pad" "$used" ""
                         _chroma_color "$(_chroma_token "$token")"
                         printf '%s' "$wline"
                         _chroma_reset
@@ -541,6 +676,8 @@ chroma_pattern_list() {
         for name in "${CHROMA_PATTERN_ORDER[@]}"; do
             printf "  %-20s %s\n" "$name" "${CHROMA_PATTERNS[$name]}"
             printf "    tokens: %s\n" "${CHROMA_PATTERN_TOKENS[$name]}"
+            local guard="${CHROMA_PATTERN_GUARDS[$name]:-}"
+            [[ -n "$guard" ]] && printf "    guard: %s\n" "$guard"
         done
     fi
     echo
