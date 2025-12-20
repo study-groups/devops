@@ -74,8 +74,9 @@ tsm_repl_get_last() {
         return 1
     fi
 
-    # Get all entry markers and their line numbers
-    local entry_lines=($(grep -n "^==== ENTRY" "$TSM_HISTORY_LOG" | cut -d: -f1))
+    # Get all entry markers and their line numbers (use readarray to avoid IFS issues)
+    local entry_lines=()
+    readarray -t entry_lines < <(grep -n "^==== ENTRY" "$TSM_HISTORY_LOG" | cut -d: -f1)
     local total_entries=${#entry_lines[@]}
 
     if (( total_entries == 0 )); then
