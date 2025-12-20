@@ -320,8 +320,10 @@ _tls_list() {
         fi
     done < <(find "$path" -maxdepth 1 -print0 2>/dev/null)
 
-    # Sort directories alphabetically
-    IFS=$'\n' dirs=($(printf '%s\n' "${dirs[@]}" | sort -f)); unset IFS
+    # Sort directories alphabetically (use readarray to avoid IFS issues)
+    local sorted_dirs=()
+    readarray -t sorted_dirs < <(printf '%s\n' "${dirs[@]}" | sort -f)
+    dirs=("${sorted_dirs[@]}")
 
     # Sort recent files by mtime (newest first), then extract paths
     local sorted_recent=()
@@ -331,8 +333,10 @@ _tls_list() {
         done < <(printf '%s\n' "${recent_files[@]}" | sort -rn -t: -k1)
     fi
 
-    # Sort older files alphabetically
-    IFS=$'\n' files=($(printf '%s\n' "${files[@]}" | sort -f)); unset IFS
+    # Sort older files alphabetically (use readarray to avoid IFS issues)
+    local sorted_files=()
+    readarray -t sorted_files < <(printf '%s\n' "${files[@]}" | sort -f)
+    files=("${sorted_files[@]}")
 
     if [[ ${#dirs[@]} -eq 0 && ${#sorted_recent[@]} -eq 0 && ${#files[@]} -eq 0 ]]; then
         printf "%sNo files found%s\n" "$_TLS_C_DIM" "$_TLS_C_RESET"

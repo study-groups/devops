@@ -356,9 +356,10 @@ game_list() {
         game_list+=("$game_id")
     done
 
-    # Sort alphabetically
-    IFS=$'\n' game_list=($(sort <<<"${game_list[*]}"))
-    unset IFS
+    # Sort alphabetically (use readarray to avoid IFS issues)
+    local sorted_games=()
+    readarray -t sorted_games < <(printf '%s\n' "${game_list[@]}" | sort)
+    game_list=("${sorted_games[@]}")
 
     # Display games
     for game_id in "${game_list[@]}"; do

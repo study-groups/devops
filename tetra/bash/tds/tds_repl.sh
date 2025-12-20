@@ -212,9 +212,10 @@ tds_repl_list_tokens() {
         fi
     done
 
-    # Sort categories
-    IFS=$'\n' categories=($(sort <<<"${categories[*]}"))
-    unset IFS
+    # Sort categories (use readarray to avoid IFS issues)
+    local sorted_categories=()
+    readarray -t sorted_categories < <(printf '%s\n' "${categories[@]}" | sort)
+    categories=("${sorted_categories[@]}")
 
     for category in "${categories[@]}"; do
         tds_text_color "content.heading.h3"

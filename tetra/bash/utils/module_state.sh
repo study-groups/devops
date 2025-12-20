@@ -52,25 +52,14 @@ tetra_get_function_state() {
         return 1
     fi
 
-    local IFS_OLD="$IFS"
-    IFS=$'\n'
-
-    for entry in $TETRA_FUNCTION_STATE; do
-        local entry_module="${entry%%|*}"
-        local rest="${entry#*|}"
-        local entry_function="${rest%%|*}"
-        local rest2="${rest#*|}"
-        local entry_status="${rest2%%|*}"
-
+    # Use while read to avoid IFS manipulation entirely
+    while IFS='|' read -r entry_module entry_function entry_status _; do
+        # Unescape for comparison
         if [[ "$entry_module" == "$escaped_module" && "$entry_function" == "$escaped_function" ]]; then
-            IFS="$IFS_OLD"
-            # Unescape on output
             echo "${entry_status//__PIPE__/|}"
             return 0
         fi
-    done
-
-    IFS="$IFS_OLD"
+    done <<< "$TETRA_FUNCTION_STATE"
     echo "unknown"
     return 1
 }
@@ -86,11 +75,10 @@ tetra_remove_function_state() {
         return 0
     fi
 
+    # Use while read to avoid IFS manipulation entirely
     local new_state=""
-    local IFS_OLD="$IFS"
-    IFS=$'\n'
-
-    for entry in $TETRA_FUNCTION_STATE; do
+    while IFS= read -r entry; do
+        [[ -z "$entry" ]] && continue
         local entry_module="${entry%%|*}"
         local rest="${entry#*|}"
         local entry_function="${rest%%|*}"
@@ -102,9 +90,7 @@ tetra_remove_function_state() {
                 new_state="${new_state}"$'\n'"${entry}"
             fi
         fi
-    done
-
-    IFS="$IFS_OLD"
+    done <<< "$TETRA_FUNCTION_STATE"
     TETRA_FUNCTION_STATE="$new_state"
 }
 
@@ -124,15 +110,12 @@ tetra_list_function_states() {
     echo "Module|Function|Status|Timestamp"
     echo "--------------------------------"
 
-    local IFS_OLD="$IFS"
-    IFS=$'\n'
-
-    for entry in $TETRA_FUNCTION_STATE; do
+    # Use while read to avoid IFS manipulation entirely
+    while IFS= read -r entry; do
+        [[ -z "$entry" ]] && continue
         # Unescape pipe characters for display
         echo "${entry//__PIPE__/|}"
-    done
-
-    IFS="$IFS_OLD"
+    done <<< "$TETRA_FUNCTION_STATE"
 }
 
 # Debug: Show current state

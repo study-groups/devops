@@ -52,11 +52,10 @@ tetra_remove_module_metadata() {
         return 0
     fi
     
+    # Use while read to avoid IFS manipulation entirely
     local new_metadata=""
-    local IFS_OLD="$IFS"
-    IFS=$'\n'
-    
-    for entry in $TETRA_MODULE_METADATA; do
+    while IFS= read -r entry; do
+        [[ -z "$entry" ]] && continue
         local entry_module="${entry%%|*}"
         if [[ "$entry_module" != "$escaped_module" ]]; then
             if [[ -z "$new_metadata" ]]; then
@@ -65,9 +64,7 @@ tetra_remove_module_metadata() {
                 new_metadata="${new_metadata}"$'\n'"${entry}"
             fi
         fi
-    done
-    
-    IFS="$IFS_OLD"
+    done <<< "$TETRA_MODULE_METADATA"
     TETRA_MODULE_METADATA="$new_metadata"
 }
 
@@ -80,30 +77,27 @@ tetra_get_module_metadata() {
     if [[ -z "$TETRA_MODULE_METADATA" ]]; then
         return 1
     fi
-    
-    local IFS_OLD="$IFS"
-    IFS=$'\n'
-    
-    for entry in $TETRA_MODULE_METADATA; do
+
+    # Use while read to avoid IFS manipulation entirely
+    while IFS= read -r entry; do
+        [[ -z "$entry" ]] && continue
         local entry_module="${entry%%|*}"
         if [[ "$entry_module" == "$escaped_module" ]]; then
-            IFS='|'
-            local parts=($entry)
-            IFS="$IFS_OLD"
-            
+            # Parse fields using read with IFS scoped to just the read command
+            local p_mod p_desc p_cmds p_comp p_cat p_stat
+            IFS='|' read -r p_mod p_desc p_cmds p_comp p_cat p_stat <<< "$entry"
+
             case "$field" in
-                "description") echo "${parts[1]//__PIPE__/|}" ;;
-                "commands") echo "${parts[2]//__PIPE__/|}" ;;
-                "completions") echo "${parts[3]//__PIPE__/|}" ;;
-                "category") echo "${parts[4]//__PIPE__/|}" ;;
-                "status") echo "${parts[5]//__PIPE__/|}" ;;
+                "description") echo "${p_desc//__PIPE__/|}" ;;
+                "commands") echo "${p_cmds//__PIPE__/|}" ;;
+                "completions") echo "${p_comp//__PIPE__/|}" ;;
+                "category") echo "${p_cat//__PIPE__/|}" ;;
+                "status") echo "${p_stat//__PIPE__/|}" ;;
                 *) echo "Unknown field: $field" >&2; return 1 ;;
             esac
             return 0
         fi
-    done
-    
-    IFS="$IFS_OLD"
+    done <<< "$TETRA_MODULE_METADATA"
     return 1
 }
 
@@ -112,16 +106,13 @@ tetra_list_all_modules_metadata() {
     if [[ -z "$TETRA_MODULE_METADATA" ]]; then
         return 0
     fi
-    
-    local IFS_OLD="$IFS"
-    IFS=$'\n'
-    
-    for entry in $TETRA_MODULE_METADATA; do
+
+    # Use while read to avoid IFS manipulation entirely
+    while IFS= read -r entry; do
+        [[ -z "$entry" ]] && continue
         local module="${entry%%|*}"
         echo "${module//__PIPE__/|}"
-    done
-    
-    IFS="$IFS_OLD"
+    done <<< "$TETRA_MODULE_METADATA"
 }
 
 # Get module info (formatted output)
