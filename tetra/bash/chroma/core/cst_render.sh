@@ -11,8 +11,9 @@
 # CONFIGURATION
 #==============================================================================
 
-declare -g _CST_MARGIN="${TDS_MARGIN_LEFT:-0}"
-declare -g _CST_WIDTH="${TDS_MARKDOWN_WIDTH:-80}"
+# These are set at runtime in chroma_cst_render(), not source time
+declare -g _CST_MARGIN=0
+declare -g _CST_WIDTH=80
 declare -g _CST_MARGIN_STR=""
 declare -g _CST_INDENT=0
 
@@ -322,6 +323,10 @@ _cst_render_unknown() {
 chroma_cst_render() {
     local input="${1:--}"
     local cst
+
+    # Set config at runtime (not source time) so -w flag works
+    _CST_MARGIN="${TDS_MARGIN_LEFT:-0}"
+    _CST_WIDTH="${TDS_MARKDOWN_WIDTH:-80}"
 
     if [[ "$input" == "-" ]]; then
         cst=$(cat)

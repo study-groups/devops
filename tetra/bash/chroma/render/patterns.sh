@@ -264,19 +264,37 @@ _chroma_render_pattern() {
         local group="${groups[$i]}"
         local token="${tokens[$((i-1))]:-text.primary}"
 
-        # For the last group (usually description), handle width limits
+        # For the last group (usually description), wrap if needed
         if (( i == num_groups )); then
             local remaining=$((width - used))
 
-            # Truncate if needed (leave room for ...)
-            if (( width > 0 && ${#group} > remaining )); then
-                if (( remaining > 4 )); then
-                    group="${group:0:$((remaining - 3))}..."
-                fi
+            # Word-wrap long content instead of truncating
+            if (( width > 0 && remaining > 10 && ${#group} > remaining )); then
+                # First line - what fits
+                local wrapped_lines
+                mapfile -t wrapped_lines < <(_chroma_word_wrap "$group" "$remaining" "")
+
+                local first=1
+                for wline in "${wrapped_lines[@]}"; do
+                    if (( first )); then
+                        _chroma_color "$(_chroma_token "$token")"
+                        printf '%s' "$wline"
+                        _chroma_reset
+                        first=0
+                    else
+                        # Continuation lines - indent to align with content start
+                        echo
+                        printf '%*s' "$used" ""
+                        _chroma_color "$(_chroma_token "$token")"
+                        printf '%s' "$wline"
+                        _chroma_reset
+                    fi
+                done
+            else
+                _chroma_color "$(_chroma_token "$token")"
+                printf '%s' "$group"
+                _chroma_reset
             fi
-            _chroma_color "$(_chroma_token "$token")"
-            printf '%s' "$group"
-            _chroma_reset
         else
             _chroma_color "$(_chroma_token "$token")"
             printf '%s' "$group"

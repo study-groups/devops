@@ -7,6 +7,20 @@
 # RENDER FUNCTION
 #==============================================================================
 
+# Wrap text to width, preserving words
+# Args: text width margin_str
+_chroma_wrap_text() {
+    local text="$1"
+    local width="$2"
+    local margin_str="$3"
+    local effective_width=$((width - ${#margin_str}))
+
+    # Use fold for word wrapping, then add margin to each line
+    echo "$text" | fold -s -w "$effective_width" | while IFS= read -r wrapped_line; do
+        printf "%s%s\n" "$margin_str" "$wrapped_line"
+    done
+}
+
 # Render markdown content
 # Args: file (path or "-" for stdin)
 _chroma_parse_markdown() {
@@ -60,7 +74,20 @@ _chroma_parse_markdown() {
         # List items
         if [[ "$line" =~ ^[[:space:]]*[-*+][[:space:]]+(.+)$ ]]; then
             tds_text_color "text.primary"
-            printf "%s  • %s\n" "$margin_str" "${BASH_REMATCH[1]}"
+            local item_text="${BASH_REMATCH[1]}"
+            local bullet_prefix="${margin_str}  • "
+            local item_width=$((width - ${#bullet_prefix}))
+            # First line with bullet, continuation lines indented
+            local first_line=true
+            local cont_prefix="${margin_str}    "  # 4 spaces for continuation
+            while IFS= read -r wrapped; do
+                if $first_line; then
+                    printf "%s%s\n" "$bullet_prefix" "$wrapped"
+                    first_line=false
+                else
+                    printf "%s%s\n" "$cont_prefix" "$wrapped"
+                fi
+            done < <(echo "$item_text" | fold -s -w "$item_width")
             reset_color
             continue
         fi
@@ -87,9 +114,9 @@ _chroma_parse_markdown() {
             continue
         fi
 
-        # Regular text with color
+        # Regular text with color and wrapping
         tds_text_color "text.primary"
-        printf "%s%s\n" "$margin_str" "$line"
+        _chroma_wrap_text "$line" "$width" "$margin_str"
         reset_color
     done < "$file"
 }
