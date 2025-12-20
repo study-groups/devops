@@ -97,6 +97,11 @@ _org_complete() {
 
     COMPREPLY=()
 
+    # Ensure org module is loaded for completions that need it
+    if [[ $COMP_CWORD -gt 1 ]] && ! type org_toml_path &>/dev/null; then
+        tetra_load_module "org" 2>/dev/null || return
+    fi
+
     # First argument - complete subcommands
     if [[ $COMP_CWORD -eq 1 ]]; then
         COMPREPLY=($(compgen -W "$_ORG_COMMANDS" -- "$cur"))
@@ -113,7 +118,7 @@ _org_complete() {
 
             # import: complete subcommands
             import)
-                COMPREPLY=($(compgen -W "nh list help" -- "$cur"))
+                COMPREPLY=($(compgen -W "nh list validate help" -- "$cur"))
                 return
                 ;;
 

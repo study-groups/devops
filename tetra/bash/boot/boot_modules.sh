@@ -119,6 +119,38 @@ _tsm_completion() {
 }
 complete -F _tsm_completion tsm
 
+# Org completion - simple version that works before module is loaded
+_org_completion() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local cmd="${COMP_WORDS[1]:-}"
+
+    COMPREPLY=()
+
+    # First argument - subcommands
+    if [[ $COMP_CWORD -eq 1 ]]; then
+        COMPREPLY=($(compgen -W "status list switch create init build sections alias unalias view edit section get set validate path env import pdata help" -- "$cur"))
+        return
+    fi
+
+    # Second argument - context-specific
+    case "$cmd" in
+        switch|init|build|sections)
+            local orgs_dir="$TETRA_DIR/orgs"
+            if [[ -d "$orgs_dir" ]]; then
+                local names=$(for d in "$orgs_dir"/*/; do [[ -d "$d" ]] && basename "$d"; done)
+                COMPREPLY=($(compgen -W "$names" -- "$cur"))
+            fi
+            ;;
+        import)
+            COMPREPLY=($(compgen -W "nh list validate help" -- "$cur"))
+            ;;
+        pdata)
+            COMPREPLY=($(compgen -W "status init" -- "$cur"))
+            ;;
+    esac
+}
+complete -F _org_completion org
+
 tetra_create_lazy_function "tkm" "tkm"
 tetra_create_lazy_function "tetra_python_activate" "python"
 tetra_create_lazy_function "tetra_nvm_activate" "nvm"

@@ -11,6 +11,56 @@ ORG_SRC="${TETRA_SRC}/bash/org"
 # Constants
 ORG_NO_ACTIVE="none"
 
+# Load colors
+if [[ -f "$TETRA_SRC/bash/color/color.sh" ]]; then
+    source "$TETRA_SRC/bash/color/color.sh" 2>/dev/null
+fi
+# Fallback colors if not loaded
+: "${TETRA_CYAN:=\033[0;36m}"
+: "${TETRA_YELLOW:=\033[1;33m}"
+: "${TETRA_GREEN:=\033[0;32m}"
+: "${TETRA_BLUE:=\033[1;34m}"
+: "${TETRA_GRAY:=\033[0;90m}"
+: "${TETRA_NC:=\033[0m}"
+
+# =============================================================================
+# HELP
+# =============================================================================
+
+_org_help() {
+    local C="$TETRA_CYAN"
+    local Y="$TETRA_YELLOW"
+    local G="$TETRA_GREEN"
+    local B="$TETRA_BLUE"
+    local D="$TETRA_GRAY"
+    local N="$TETRA_NC"
+
+    echo -e "${B}org${N} - Organization Management"
+    echo ""
+    echo -e "${Y}FIRST USE${N}"
+    echo -e "  ${C}init${N} <name>        Create \$TETRA_DIR/orgs/<name>/ with templates"
+    echo -e "  ${C}import nh${N} <name>   Import \$NH_DIR/<name>/digocean.json"
+    echo -e "  ${C}import validate${N}    Verify TOML matches source JSON"
+    echo -e "  ${C}build${N} <name>       Assemble NN-*.toml into tetra.toml"
+    echo ""
+    echo -e "${Y}REGULAR USE${N}"
+    echo -e "  ${C}status${N}             Show active org + connectors"
+    echo -e "  ${C}list${N}               List all orgs"
+    echo -e "  ${C}switch${N} <name>      Activate org, exports \$dev \$staging \$prod"
+    echo -e "  ${C}env${N}                List connectors"
+    echo -e "  ${G}ssh root@\$dev${N}      Connect using exported variables"
+    echo ""
+    echo -e "${Y}PDATA (Project Data)${N}"
+    echo -e "  ${C}pdata status${N}       Show PData projects/subjects"
+    echo -e "  ${C}pdata init${N}         Initialize PData for org"
+    echo ""
+    echo -e "${Y}ALL COMMANDS${N}"
+    echo -e "  ${D}Orgs${N}    status list switch create init alias unalias"
+    echo -e "  ${D}Build${N}   sections build import pdata"
+    echo -e "  ${D}Toml${N}    view section get set edit validate path"
+    echo -e "  ${D}Env${N}     env"
+}
+
 # =============================================================================
 # SHARED HELPERS
 # =============================================================================
@@ -618,31 +668,7 @@ EOF
 
         # Help
         help|h|--help|-h)
-            cat << 'EOF'
-org - Organization Management
-
-FIRST USE
-  init <name>        Create $TETRA_DIR/orgs/<name>/ with templates
-  import nh <name>   Import $NH_DIR/<name>/digocean.json
-  build <name>       Assemble NN-*.toml into tetra.toml
-
-REGULAR USE
-  status             Show active org + connectors (dirty flag)
-  list               List all orgs
-  switch <name>      Activate org, exports $dev $staging $prod
-  env                List connectors
-  ssh root@$dev      Connect using exported variables
-
-PDATA (Project Data)
-  pdata status       Show PData projects/subjects
-  pdata init         Initialize PData for org
-
-ALL COMMANDS
-  Orgs      status list switch create init alias unalias
-  Build     sections build import pdata
-  Toml      view section get set edit validate path
-  Env       env
-EOF
+            _org_help
             ;;
 
         *)

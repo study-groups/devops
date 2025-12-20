@@ -143,8 +143,8 @@ org_env_vars() {
     done
 }
 
-# Auto-export on source if org is active
-org_toml_path &>/dev/null && org_env_export
+# Auto-export is now handled by org_switch
+# Removed auto-export on source to avoid race conditions during lazy loading
 
 # =============================================================================
 # EXPORTS
