@@ -15,7 +15,7 @@ tetra_nvm_activate(){
   fi
 
   ver=${1:-"node"}
-  export TETRA_NVM="$TETRA_DIR/nvm"
+  export TETRA_NVM="${TETRA_NVM:-$TETRA_DIR/nvm}"
   [ -s "$TETRA_NVM/nvm.sh" ] && source "$TETRA_NVM/nvm.sh"  # This loads nvm
   [ -s "$TETRA_NVM/bash_completion" ] && source "$TETRA_NVM/bash_completion"
   nvm use $ver >/dev/null 2>&1

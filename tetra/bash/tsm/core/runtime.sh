@@ -3,6 +3,9 @@
 # TSM Runtime Environment Resolution
 # Detects process type and resolves correct interpreter from TETRA_DIR
 
+# Default TETRA_NVM if not already set
+TETRA_NVM="${TETRA_NVM:-$TETRA_DIR/nvm}"
+
 # Detect process type from command string
 tsm_detect_type() {
     local command="$1"
@@ -66,10 +69,10 @@ tsm_resolve_interpreter() {
             ;;
         node)
             # Use nvm node if available
-            if [[ -d "$TETRA_DIR/nvm" ]]; then
+            if [[ -d "$TETRA_NVM" ]]; then
                 # Source nvm and get current node
-                if [[ -s "$TETRA_DIR/nvm/nvm.sh" ]]; then
-                    source "$TETRA_DIR/nvm/nvm.sh" 2>/dev/null
+                if [[ -s "$TETRA_NVM/nvm.sh" ]]; then
+                    source "$TETRA_NVM/nvm.sh" 2>/dev/null
                     nvm which current 2>/dev/null || echo "node"
                 else
                     echo "node"
@@ -142,9 +145,9 @@ EOF
             ;;
         node)
             # Activate nvm
-            if [[ -d "$TETRA_DIR/nvm" ]]; then
+            if [[ -d "$TETRA_NVM" ]]; then
                 cat <<EOF
-export TETRA_NVM="$TETRA_DIR/nvm"
+export TETRA_NVM="${TETRA_NVM:-$TETRA_DIR/nvm}"
 [ -s "\$TETRA_NVM/nvm.sh" ] && source "\$TETRA_NVM/nvm.sh"
 nvm use node >/dev/null 2>&1 || true
 EOF
