@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 # tps/core/colors.sh - TDS theme integration for prompt colors
+#
+# PERFORMANCE: Colors are cached and only recalculated when theme or
+# overrides change. This avoids 12 conversions per prompt.
+#
+# Uses kv_store for exportable storage (survives subshells).
 
 # Color variables with defaults (overridden by TDS when available)
 declare -g _TPS_C_RESET='\[\e[0m\]'
@@ -16,24 +21,35 @@ declare -g _TPS_C_DURATION='\[\e[0;38;5;240m\]'
 declare -g _TPS_C_ERROR='\[\e[0;38;5;196m\]'
 declare -g _TPS_C_PURPLE='\[\e[0;38;5;129m\]'
 
-# Custom overrides (persisted, not reset by theme changes)
-declare -gA _TPS_COLOR_OVERRIDES=()
+# Cache signature for dirty checking
+declare -g _TPS_COLOR_CACHE_SIG=""
 
-# Color element definitions: element_name -> "variable_name:tds_source:default_hex"
-declare -gA _TPS_COLOR_DEFS=(
-    [user]="_TPS_C_USER:ENV_PRIMARY[0]:e4e47a"
-    [git]="_TPS_C_GIT:ENV_PRIMARY[1]:00d7ff"
-    [path]="_TPS_C_PATH:NOUNS_PRIMARY[6]:e4e4e7"
-    [path_dim]="_TPS_C_PATH_DIM:NOUNS_PRIMARY[3]:71717a"
-    [org]="_TPS_C_ORG:ENV_PRIMARY[0]:00d7ff"
-    [target]="_TPS_C_TARGET:VERBS_PRIMARY[4]:ffc107"
-    [env]="_TPS_C_ENV:MODE_PRIMARY[2]:4caf50"
-    [sep]="_TPS_C_SEP:NOUNS_PRIMARY[3]:666666"
-    [bracket]="_TPS_C_BRACKET:NOUNS_PRIMARY[4]:888888"
-    [duration]="_TPS_C_DURATION:NOUNS_PRIMARY[3]:71717a"
-    [error]="_TPS_C_ERROR:VERBS_PRIMARY[0]:ff5252"
-    [purple]="_TPS_C_PURPLE:VERBS_PRIMARY[6]:8E24AA"
-)
+# =============================================================================
+# KV STORES (exportable, survive subshells)
+# =============================================================================
+
+# Initialize color stores if not already done
+if [[ -z "${_TPS_COLOR_DEFS:-}" ]]; then
+    tetra_kv_init _TPS_COLOR_DEFS
+    tetra_kv_init _TPS_COLOR_OVERRIDES
+
+    # Color element definitions: element -> "variable_name:tds_source:default_hex"
+    tetra_kv_set _TPS_COLOR_DEFS user "_TPS_C_USER:ENV_PRIMARY[0]:e4e47a"
+    tetra_kv_set _TPS_COLOR_DEFS git "_TPS_C_GIT:ENV_PRIMARY[1]:00d7ff"
+    tetra_kv_set _TPS_COLOR_DEFS path "_TPS_C_PATH:NOUNS_PRIMARY[6]:e4e4e7"
+    tetra_kv_set _TPS_COLOR_DEFS path_dim "_TPS_C_PATH_DIM:NOUNS_PRIMARY[3]:71717a"
+    tetra_kv_set _TPS_COLOR_DEFS org "_TPS_C_ORG:ENV_PRIMARY[0]:00d7ff"
+    tetra_kv_set _TPS_COLOR_DEFS target "_TPS_C_TARGET:VERBS_PRIMARY[4]:ffc107"
+    tetra_kv_set _TPS_COLOR_DEFS env "_TPS_C_ENV:MODE_PRIMARY[2]:4caf50"
+    tetra_kv_set _TPS_COLOR_DEFS sep "_TPS_C_SEP:NOUNS_PRIMARY[3]:666666"
+    tetra_kv_set _TPS_COLOR_DEFS bracket "_TPS_C_BRACKET:NOUNS_PRIMARY[4]:888888"
+    tetra_kv_set _TPS_COLOR_DEFS duration "_TPS_C_DURATION:NOUNS_PRIMARY[3]:71717a"
+    tetra_kv_set _TPS_COLOR_DEFS error "_TPS_C_ERROR:VERBS_PRIMARY[0]:ff5252"
+    tetra_kv_set _TPS_COLOR_DEFS purple "_TPS_C_PURPLE:VERBS_PRIMARY[6]:8E24AA"
+fi
+
+# Ordered list of color elements (for iteration)
+declare -ga _TPS_COLOR_ELEMENTS=(user git path path_dim org target env sep bracket duration error purple)
 
 # Convert hex to PS1-safe 256-color escape
 _tps_hex_to_ps1() {
@@ -50,12 +66,13 @@ _tps_hex_to_ps1() {
 # Get hex value for an element (override > TDS > default)
 _tps_get_color_hex() {
     local element="$1"
-    local def="${_TPS_COLOR_DEFS[$element]:-}"
-    [[ -z "$def" ]] && return 1
+    local def
+    def=$(tetra_kv_get _TPS_COLOR_DEFS "$element") || return 1
 
     # Check for custom override first
-    if [[ -v _TPS_COLOR_OVERRIDES[$element] ]]; then
-        echo "${_TPS_COLOR_OVERRIDES[$element]}"
+    local override
+    if override=$(tetra_kv_get _TPS_COLOR_OVERRIDES "$element" 2>/dev/null); then
+        echo "$override"
         return
     fi
 
@@ -75,11 +92,30 @@ _tps_get_color_hex() {
     echo "${tds_value:-$default_hex}"
 }
 
+# Build cache signature for dirty checking - uses nameref to avoid subshell
+# Usage: _tps_color_cache_sig_ref <output_var>
+_tps_color_cache_sig_ref() {
+    local -n _sig_out="$1"
+    local override_count
+    override_count=$(tetra_kv_count _TPS_COLOR_OVERRIDES)
+    _sig_out="${TDS_ACTIVE_THEME:-default}:${override_count}"
+    # Include the full overrides string in signature (changes trigger rebuild)
+    _sig_out+=":${_TPS_COLOR_OVERRIDES:-}"
+}
+
 # Update colors from TDS theme (respects overrides)
+# PERFORMANCE: Caches colors and only rebuilds when theme/overrides change
 _tps_update_colors() {
+    # Check if colors need updating (no subshell via nameref)
+    local current_sig
+    _tps_color_cache_sig_ref current_sig
+    [[ "$current_sig" == "$_TPS_COLOR_CACHE_SIG" ]] && return 0
+    _TPS_COLOR_CACHE_SIG="$current_sig"
+
+    # Rebuild all colors using the ordered element list
     local element def var_name hex
-    for element in "${!_TPS_COLOR_DEFS[@]}"; do
-        def="${_TPS_COLOR_DEFS[$element]}"
+    for element in "${_TPS_COLOR_ELEMENTS[@]}"; do
+        def=$(tetra_kv_get _TPS_COLOR_DEFS "$element") || continue
         IFS=':' read -r var_name _ _ <<< "$def"
         hex=$(_tps_get_color_hex "$element")
         printf -v "$var_name" '%s' "$(_tps_hex_to_ps1 "$hex")"
@@ -95,9 +131,9 @@ _tps_color_set() {
     local element="$1"
     local hex="${2#\#}"
 
-    if [[ ! -v _TPS_COLOR_DEFS[$element] ]]; then
+    if ! tetra_kv_has _TPS_COLOR_DEFS "$element"; then
         echo "Unknown element: $element" >&2
-        echo "Valid: ${!_TPS_COLOR_DEFS[*]}" >&2
+        echo "Valid: ${_TPS_COLOR_ELEMENTS[*]}" >&2
         return 1
     fi
 
@@ -106,7 +142,7 @@ _tps_color_set() {
         return 1
     fi
 
-    _TPS_COLOR_OVERRIDES[$element]="$hex"
+    tetra_kv_set _TPS_COLOR_OVERRIDES "$element" "$hex"
     _tps_update_colors
     echo "Set $element to #$hex"
 }
@@ -116,11 +152,11 @@ _tps_color_reset() {
     local element="$1"
 
     if [[ -z "$element" || "$element" == "all" ]]; then
-        _TPS_COLOR_OVERRIDES=()
+        tetra_kv_init _TPS_COLOR_OVERRIDES  # Reinit clears it
         _tps_update_colors
         echo "Reset all colors to theme defaults"
-    elif [[ -v _TPS_COLOR_DEFS[$element] ]]; then
-        unset "_TPS_COLOR_OVERRIDES[$element]"
+    elif tetra_kv_has _TPS_COLOR_DEFS "$element"; then
+        tetra_kv_unset _TPS_COLOR_OVERRIDES "$element"
         _tps_update_colors
         echo "Reset $element to theme default"
     else
@@ -148,12 +184,12 @@ _tps_color_list() {
     printf "  %s\n" "─────────────────────────────────────────────────────────"
 
     local element def var_name tds_source default_hex hex override
-    for element in user git path path_dim org target env sep bracket duration error purple; do
-        def="${_TPS_COLOR_DEFS[$element]}"
+    for element in "${_TPS_COLOR_ELEMENTS[@]}"; do
+        def=$(tetra_kv_get _TPS_COLOR_DEFS "$element") || continue
         IFS=':' read -r var_name tds_source default_hex <<< "$def"
         hex=$(_tps_get_color_hex "$element")
 
-        if [[ -v _TPS_COLOR_OVERRIDES[$element] ]]; then
+        if tetra_kv_has _TPS_COLOR_OVERRIDES "$element"; then
             override="*"
         else
             override=""
@@ -164,7 +200,9 @@ _tps_color_list() {
         echo ""
     done
 
-    if [[ ${#_TPS_COLOR_OVERRIDES[@]} -gt 0 ]]; then
+    local override_count
+    override_count=$(tetra_kv_count _TPS_COLOR_OVERRIDES)
+    if [[ "$override_count" -gt 0 ]]; then
         echo ""
         echo "  * = custom override (use 'tps color reset' to clear)"
     fi

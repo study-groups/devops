@@ -15,14 +15,6 @@ export TPS_PYTHON="${TPS_PYTHON:-}"
 export TPS_NODE="${TPS_NODE:-}"
 export TPS_LOGTIME="${TPS_LOGTIME:-}"
 
-# Backward compatibility exports
-export TETRA_PROMPT_STYLE="$TPS_STYLE"
-export TETRA_PROMPT_MULTILINE="$TPS_MULTILINE"
-export TETRA_PROMPT_GIT="$TPS_GIT"
-export TETRA_PROMPT_PYTHON="$TPS_PYTHON"
-export TETRA_PROMPT_NODE="$TPS_NODE"
-export TETRA_PROMPT_LOGTIME="$TPS_LOGTIME"
-
 # =============================================================================
 # INITIALIZATION
 # =============================================================================
@@ -99,45 +91,24 @@ _tps_render_default() {
     # Git info
     [[ "$TPS_GIT" != "0" ]] && git_branch=$(_tps_git_info)
 
-    # Runtime indicators
-    local python_status node_status
-    python_status=$(_tps_python_info)
-    node_status=$(_tps_node_info)
-
-    local status_indicators=()
-    [[ -n "$python_status" ]] && status_indicators+=("$python_status")
-    [[ -n "$node_status" ]] && status_indicators+=("$node_status")
-
-    if [[ ${#status_indicators[@]} -gt 0 ]]; then
-        local joined
-        IFS=',' joined="${status_indicators[*]}"
-        info+="${_TPS_C_PATH_DIM}($joined)${_TPS_C_RESET}"
-    fi
+    # Runtime indicators (python, node)
+    local status_line
+    status_line=$(_tps_format_status_line)
+    [[ -n "$status_line" ]] && info+="$status_line"
 
     # Info area segments (includes duration when > threshold)
-    local info_line
-    info_line=$(tps_render_area info)
-    [[ -n "$info_line" ]] && info+="$info_line "
+    info+=$(_tps_format_info_area)
 
     # Git display
-    local git_info=""
-    [[ -n "$git_branch" ]] && git_info=" ${_TPS_C_GIT}($git_branch)${_TPS_C_RESET}"
+    local git_info
+    git_info=$(_tps_format_git_branch "$git_branch")
 
-    # Context lines (may be multiple from different modules)
-    local context_lines
-    context_lines=$(_tps_build_all_context_lines)
+    # Context block
+    local ctx_block
+    ctx_block=$(_tps_format_context_block)
 
     # Build PS1
-    if [[ -n "$context_lines" ]]; then
-        # Each context line on its own line, then prompt
-        local ctx_block=""
-        while IFS= read -r line; do
-            ctx_block+="${line}\n"
-        done <<< "$context_lines"
-        PS1="${ctx_block}${info}${_TPS_C_USER}\u${_TPS_C_RESET}@\h:[\W]${git_info}: "
-    else
-        PS1="${info}${_TPS_C_USER}\u${_TPS_C_RESET}@\h:[\W]${git_info}: "
-    fi
+    PS1="${ctx_block}${info}${_TPS_C_USER}\u${_TPS_C_RESET}@\h:[\W]${git_info}: "
 }
 
 _tps_render_verbose() {
@@ -146,47 +117,29 @@ _tps_render_verbose() {
     # Git info
     [[ "$TPS_GIT" != "0" ]] && git_branch=$(_tps_git_info)
 
-    # Runtime indicators
-    local python_status node_status logtime_info
-    python_status=$(_tps_python_info)
-    node_status=$(_tps_node_info)
+    # Runtime indicators (python, node)
+    local status_line
+    status_line=$(_tps_format_status_line)
+    [[ -n "$status_line" ]] && info+="$status_line"
+
+    # Logtime (verbose-only)
+    local logtime_info
     logtime_info=$(_tps_logtime_info)
-
-    local status_indicators=()
-    [[ -n "$python_status" ]] && status_indicators+=("$python_status")
-    [[ -n "$node_status" ]] && status_indicators+=("$node_status")
-
-    if [[ ${#status_indicators[@]} -gt 0 ]]; then
-        local joined
-        IFS=',' joined="${status_indicators[*]}"
-        info+="${_TPS_C_PATH_DIM}($joined)${_TPS_C_RESET}"
-    fi
-
     [[ -n "$logtime_info" ]] && info+="${_TPS_C_PURPLE}[$logtime_info]${_TPS_C_RESET}"
 
     # Info area segments
-    local info_line
-    info_line=$(tps_render_area info)
-    [[ -n "$info_line" ]] && info+="$info_line "
+    info+=$(_tps_format_info_area)
 
     # Git display
-    local git_info=""
-    [[ -n "$git_branch" ]] && git_info=" ${_TPS_C_GIT}($git_branch)${_TPS_C_RESET}"
+    local git_info
+    git_info=$(_tps_format_git_branch "$git_branch")
 
-    # Context lines (may be multiple from different modules)
-    local context_lines
-    context_lines=$(_tps_build_all_context_lines)
+    # Context block
+    local ctx_block
+    ctx_block=$(_tps_format_context_block)
 
     # Build PS1 (always multi-line in verbose)
-    if [[ -n "$context_lines" ]]; then
-        local ctx_block=""
-        while IFS= read -r line; do
-            ctx_block+="${line}\n"
-        done <<< "$context_lines"
-        PS1="${ctx_block}${_TPS_C_PATH}\w${_TPS_C_RESET}${git_info}\n"
-    else
-        PS1="${_TPS_C_PATH}\w${_TPS_C_RESET}${git_info}\n"
-    fi
+    PS1="${ctx_block}${_TPS_C_PATH}\w${_TPS_C_RESET}${git_info}\n"
     PS1+="${info}${_TPS_C_USER}\u${_TPS_C_RESET}@\h: "
 }
 
@@ -218,9 +171,6 @@ tps_prompt() {
     PS1="${osc_prefix}${PS1}"
 }
 
-# Backward compat alias
-tetra_prompt() { tps_prompt; }
-
 # =============================================================================
 # TPS COMMAND INTERFACE
 # =============================================================================
@@ -229,7 +179,6 @@ _tps_style() {
     case "$1" in
         tiny|compact|default|verbose)
             export TPS_STYLE="$1"
-            export TETRA_PROMPT_STYLE="$1"
             ;;
         "")
             echo "Current: $TPS_STYLE"
@@ -249,20 +198,16 @@ _tps_toggle() {
     case "$section" in
         git|python|node|logtime)
             local var_name="TPS_${section^^}"
-            local tetra_var="TETRA_PROMPT_${section^^}"
-
             case "$state" in
-                on|1)  export "$var_name"="1"; export "$tetra_var"="1" ;;
-                off|0) export "$var_name"="0"; export "$tetra_var"="0" ;;
+                on|1)  export "$var_name"="1" ;;
+                off|0) export "$var_name"="0" ;;
                 auto|"")
                     local current
                     current=$(eval echo "\$$var_name")
                     if [[ "$current" == "0" ]]; then
                         export "$var_name"=""
-                        export "$tetra_var"=""
                     else
                         export "$var_name"="0"
-                        export "$tetra_var"="0"
                     fi
                     ;;
             esac
@@ -276,15 +221,14 @@ _tps_toggle() {
 
 _tps_multiline() {
     case "$1" in
-        on|true|1)  export TPS_MULTILINE="true"; export TETRA_PROMPT_MULTILINE="true" ;;
-        off|false|0) export TPS_MULTILINE="false"; export TETRA_PROMPT_MULTILINE="false" ;;
+        on|true|1)  export TPS_MULTILINE="true" ;;
+        off|false|0) export TPS_MULTILINE="false" ;;
         *)
             if [[ "$TPS_MULTILINE" == "true" ]]; then
                 export TPS_MULTILINE="false"
             else
                 export TPS_MULTILINE="true"
             fi
-            export TETRA_PROMPT_MULTILINE="$TPS_MULTILINE"
             ;;
     esac
 }
@@ -336,21 +280,37 @@ OSC Commands (terminal integration):
   tps_set_document <path>       Set OSC 6 document (for editor integrations)
   tps_clear_document            Clear document, revert to pwd
 
+Hook Commands:
+  tps hook                        List registered hooks
+  tps hook debug [on|off]         Toggle hook debug mode
+  tps hook log [tail|stats|clear] View/manage debug log
+
 Hook API:
   tps_hook_register <event> <func> [priority]
   Events: pre_prompt, post_command
 
 Context API:
   tps_register_context <slot> <func>
-  Slots: org, target, env
+  Slots: org, project, subject
 
 Segment API:
   tps_register_segment <area> <priority> <name> <func>
   Areas: info, right
-
-Shortcuts: tps s, tps t, tps m, tps c, tps o, tps p, tps h, tps st
-Alias: tp (backward compat)
 EOF
+}
+
+# Hook subcommand dispatcher
+_tps_hook() {
+    case "${1:-}" in
+        debug)   shift; tps_hook_debug "$@" ;;
+        log)     shift; tps_hook_log "$@" ;;
+        list|"") tps_hook_list ;;
+        *)
+            echo "Unknown: tps hook $1" >&2
+            echo "Use: tps hook [list|debug|log]" >&2
+            return 1
+            ;;
+    esac
 }
 
 # Main command dispatcher
@@ -361,10 +321,11 @@ tps() {
         multiline|m)  shift; _tps_multiline "$@" ;;
         color|c)      shift; tps_color "$@" ;;
         osc|o)        shift; tps_osc "$@" ;;
+        hook)         shift; _tps_hook "$@" ;;
         providers|p)  tps_context_providers ;;
         hooks)        tps_hook_list ;;
         segments)     tps_segment_list ;;
-        colors)       tps_color list ;;  # Backward compat
+        colors)       tps_color list ;;
         status|st)    _tps_status ;;
         metrics)      tps_get_metrics ;;
         help|h|"")    _tps_help ;;
@@ -376,15 +337,13 @@ tps() {
     esac
 }
 
-# Backward compat alias
-tp() { tps "$@"; }
 
 # =============================================================================
 # EXPORTS
 # =============================================================================
 
-export -f tps tp tps_prompt tetra_prompt
-export -f _tps_style _tps_toggle _tps_multiline _tps_status _tps_help
+export -f tps tps_prompt
+export -f _tps_style _tps_toggle _tps_multiline _tps_status _tps_help _tps_hook
 export -f _tps_render_tiny _tps_render_compact _tps_render_default _tps_render_verbose
 export -f _tps_git_info _tps_python_info _tps_node_info _tps_logtime_info
 export -f _tps_init

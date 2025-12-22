@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # tps/core/context.sh - Multi-module context system
 #
+# PERFORMANCE: This file is in the hot path (runs every prompt).
+# All rendering functions use namerefs to avoid subshell forking.
+#
 # Supports multiple context lines (e.g., deploy AND tdocs)
 # Each module registers its own providers and gets its own line
 # Format: DEPLOY[org:project:subject] with colored prefix
@@ -11,17 +14,9 @@
 # =============================================================================
 # PREFIX COLORS (ENV 1-8 mapped to ANSI)
 # =============================================================================
-
-declare -gA _TPS_PREFIX_COLORS=(
-    [1]="\e[31m"    # Red
-    [2]="\e[32m"    # Green
-    [3]="\e[33m"    # Yellow
-    [4]="\e[34m"    # Blue
-    [5]="\e[35m"    # Magenta
-    [6]="\e[36m"    # Cyan
-    [7]="\e[37m"    # White
-    [8]="\e[1;37m"  # Bright white (bold)
-)
+# NOTE: Colors are defined inline in _tps_build_context_line_for_ref()
+# because bash cannot export associative arrays across subshells.
+# Color codes: 1=red, 2=green, 3=yellow, 4=blue, 5=magenta, 6=cyan, 7=white, 8=bright
 
 # =============================================================================
 # SLOT DEFINITIONS
@@ -49,21 +44,31 @@ declare -gA _TPS_CTX_LINES=()
 declare -gA _TPS_CTX_PROVIDERS=()
 
 # =============================================================================
-# SLOT RESOLUTION
+# SLOT RESOLUTION (No subshells)
 # =============================================================================
 
-# Resolve slot name (handle aliases)
+# Resolve slot name (handle aliases) - uses nameref
+# Usage: _tps_resolve_slot_ref <slot> <output_var>
+_tps_resolve_slot_ref() {
+    local slot="$1"
+    local -n _slot_out="$2"
+    _slot_out="${_TPS_CTX_SLOT_ALIASES[$slot]:-$slot}"
+}
+
+# Legacy wrapper (for non-hot-path code)
 _tps_resolve_slot() {
     local slot="$1"
     echo "${_TPS_CTX_SLOT_ALIASES[$slot]:-$slot}"
 }
 
-# Validate slot name
+# Validate slot name (no subshells)
 _tps_valid_slot() {
     local slot="$1"
-    slot=$(_tps_resolve_slot "$slot")
+    local resolved
+    _tps_resolve_slot_ref "$slot" resolved
+    local s
     for s in "${_TPS_CTX_SLOTS[@]}"; do
-        [[ "$slot" == "$s" ]] && return 0
+        [[ "$resolved" == "$s" ]] && return 0
     done
     return 1
 }
@@ -89,6 +94,7 @@ tps_unregister_context_line() {
     local module="$1"
     unset "_TPS_CTX_LINES[$module]"
     # Also remove all providers for this module
+    local key
     for key in "${!_TPS_CTX_PROVIDERS[@]}"; do
         [[ "$key" == "$module:"* ]] && unset "_TPS_CTX_PROVIDERS[$key]"
     done
@@ -102,22 +108,23 @@ tps_register_context() {
     local func="$2"
     local module="${3:-default}"
 
-    # Resolve aliases
-    slot=$(_tps_resolve_slot "$slot")
+    # Resolve aliases (not hot path, can use subshell)
+    local resolved
+    _tps_resolve_slot_ref "$slot" resolved
 
     # Validate slot
-    if ! _tps_valid_slot "$slot"; then
+    if ! _tps_valid_slot "$resolved"; then
         echo "tps_register_context: unknown slot: $slot" >&2
         echo "  Valid: ${_TPS_CTX_SLOTS[*]}" >&2
         echo "  Aliases: target->project, env->subject" >&2
         return 1
     fi
 
-    _TPS_CTX_PROVIDERS["$module:$slot"]="$func"
+    _TPS_CTX_PROVIDERS["$module:$resolved"]="$func"
 
     # Auto-register default context line if not exists
     if [[ "$module" == "default" && -z "${_TPS_CTX_LINES[default]:-}" ]]; then
-        _TPS_CTX_LINES[default]=":50"  # No prefix for default
+        _TPS_CTX_LINES[default]=":50:7"  # No prefix for default
     fi
 }
 
@@ -125,42 +132,66 @@ tps_register_context() {
 tps_unregister_context() {
     local slot="$1"
     local module="${2:-default}"
-    slot=$(_tps_resolve_slot "$slot")
-    unset "_TPS_CTX_PROVIDERS[$module:$slot]"
+    local resolved
+    _tps_resolve_slot_ref "$slot" resolved
+    unset "_TPS_CTX_PROVIDERS[$module:$resolved]"
 }
 
-# Get context value for a module's slot
+# Get context value for a module's slot - uses nameref for output
+# Usage: tps_get_context_ref <slot> <module> <output_var>
+tps_get_context_ref() {
+    local slot="$1"
+    local module="$2"
+    local -n _ctx_out="$3"
+
+    local resolved
+    _tps_resolve_slot_ref "$slot" resolved
+
+    local provider="${_TPS_CTX_PROVIDERS[$module:$resolved]:-}"
+    if [[ -n "$provider" ]]; then
+        # Call provider and capture output (one fork, unavoidable for user providers)
+        _ctx_out=$("$provider" 2>/dev/null) || _ctx_out=""
+    else
+        _ctx_out=""
+    fi
+}
+
+# Legacy wrapper (for non-hot-path code)
 tps_get_context() {
     local slot="$1"
     local module="${2:-default}"
-    slot=$(_tps_resolve_slot "$slot")
-    local provider="${_TPS_CTX_PROVIDERS[$module:$slot]:-}"
-    [[ -n "$provider" ]] && "$provider" 2>/dev/null
+    local result
+    tps_get_context_ref "$slot" "$module" result
+    [[ -n "$result" ]] && echo "$result"
 }
 
 # =============================================================================
-# RENDERING
+# RENDERING (No subshells in hot path)
 # =============================================================================
 
-# Build a single context line for a module
-# Returns: prefix[org:project:subject] or empty if no values
-_tps_build_context_line_for() {
+# Build a single context line for a module - uses nameref
+# Usage: _tps_build_context_line_for_ref <module> <output_var>
+_tps_build_context_line_for_ref() {
     local module="$1"
+    local -n _line_out="$2"
+    _line_out=""
+
     local line_def="${_TPS_CTX_LINES[$module]:-}"
     [[ -z "$line_def" ]] && return
 
     # Parse prefix:priority:color
-    local prefix color
+    local prefix color rest
     prefix="${line_def%%:*}"
-    local rest="${line_def#*:}"
+    rest="${line_def#*:}"
     rest="${rest#*:}"  # Skip priority
     color="${rest%%:*}"
     [[ -z "$color" ]] && color=7  # Default white
 
+    # Get context values (uses namerefs internally, but providers may fork)
     local org proj subj
-    org=$(tps_get_context org "$module")
-    proj=$(tps_get_context project "$module")
-    subj=$(tps_get_context subject "$module")
+    tps_get_context_ref org "$module" org
+    tps_get_context_ref project "$module" proj
+    tps_get_context_ref subject "$module" subj
 
     # Nothing to show if all empty
     [[ -z "$org" && -z "$proj" && -z "$subj" ]] && return
@@ -168,9 +199,16 @@ _tps_build_context_line_for() {
     local ctx=""
 
     # Prefix with color (e.g., DEPLOY in red)
+    # NOTE: Colors defined inline because bash cannot export associative arrays
     if [[ -n "$prefix" ]]; then
-        local color_code="${_TPS_PREFIX_COLORS[$color]:-\e[37m}"
-        ctx+="\001${color_code}\002${prefix}\001\e[0m\002"
+        local -A _colors=(
+            [1]=$'\e[31m' [2]=$'\e[32m' [3]=$'\e[33m' [4]=$'\e[34m'
+            [5]=$'\e[35m' [6]=$'\e[36m' [7]=$'\e[37m' [8]=$'\e[1;37m'
+        )
+        local color_code="${_colors[$color]:-${_colors[7]}}"
+        local reset=$'\e[0m'
+        # \001 and \002 are PS1 readline markers for non-printing chars
+        ctx+=$'\001'"${color_code}"$'\002'"${prefix}"$'\001'"${reset}"$'\002'
     fi
 
     ctx+="${_TPS_C_BRACKET}[${_TPS_C_RESET}"
@@ -201,27 +239,53 @@ _tps_build_context_line_for() {
     fi
 
     ctx+="${_TPS_C_BRACKET}]${_TPS_C_RESET}"
-    echo "$ctx"
+    _line_out="$ctx"
 }
 
-# Build all context lines (sorted by priority)
-# Returns: newline-separated context lines
-_tps_build_all_context_lines() {
-    local module priority line
-    local -a sorted_modules=()
+# Legacy wrapper
+_tps_build_context_line_for() {
+    local module="$1"
+    local result
+    _tps_build_context_line_for_ref "$module" result
+    [[ -n "$result" ]] && echo "$result"
+}
 
-    # Sort modules by priority
-    for module in "${!_TPS_CTX_LINES[@]}"; do
-        priority="${_TPS_CTX_LINES[$module]#*:}"
-        sorted_modules+=("$priority:$module")
+# Build all context lines (sorted by priority) - uses nameref, no external sort
+# Usage: _tps_build_all_context_lines_ref <output_var>
+_tps_build_all_context_lines_ref() {
+    local -n _all_out="$1"
+    _all_out=""
+
+    [[ ${#_TPS_CTX_LINES[@]} -eq 0 ]] && return
+
+    # Pure Bash priority sorting: iterate 0-99 buckets
+    # Much faster than forking /usr/bin/sort for small sets
+    local priority module line_def line
+    for priority in {0..99}; do
+        for module in "${!_TPS_CTX_LINES[@]}"; do
+            line_def="${_TPS_CTX_LINES[$module]}"
+            # Extract priority from "prefix:priority:color"
+            local mod_priority
+            mod_priority="${line_def#*:}"
+            mod_priority="${mod_priority%%:*}"
+            [[ -z "$mod_priority" ]] && mod_priority=50
+
+            if [[ "$mod_priority" == "$priority" ]]; then
+                _tps_build_context_line_for_ref "$module" line
+                if [[ -n "$line" ]]; then
+                    [[ -n "$_all_out" ]] && _all_out+=$'\n'
+                    _all_out+="$line"
+                fi
+            fi
+        done
     done
+}
 
-    # Sort and render
-    while IFS=: read -r priority module; do
-        [[ -z "$module" ]] && continue
-        line=$(_tps_build_context_line_for "$module")
-        [[ -n "$line" ]] && echo "$line"
-    done < <(printf '%s\n' "${sorted_modules[@]}" | sort -t: -k1 -n)
+# Legacy wrapper
+_tps_build_all_context_lines() {
+    local result
+    _tps_build_all_context_lines_ref result
+    [[ -n "$result" ]] && echo "$result"
 }
 
 # Backward compat: build single context line (for default module)
@@ -230,7 +294,7 @@ _tps_build_context_line() {
 }
 
 # =============================================================================
-# STATUS / DEBUG
+# STATUS / DEBUG (Not hot path - can use subshells)
 # =============================================================================
 
 # Show registered providers
@@ -281,9 +345,9 @@ tps_context_providers() {
 
         # Preview for this module
         local org proj subj
-        org=$(tps_get_context org "$module")
-        proj=$(tps_get_context project "$module")
-        subj=$(tps_get_context subject "$module")
+        tps_get_context_ref org "$module" org
+        tps_get_context_ref project "$module" proj
+        tps_get_context_ref subject "$module" subj
         if [[ -n "$org" || -n "$proj" || -n "$subj" ]]; then
             echo "    Preview: ${prefix}[${org:-?}:${proj:-?}:${subj:-?}]"
         fi
@@ -292,20 +356,14 @@ tps_context_providers() {
 }
 
 # =============================================================================
-# BACKWARD COMPATIBILITY
-# =============================================================================
-
-tetra_prompt_register() { tps_register_context "$@"; }
-tetra_prompt_unregister() { tps_unregister_context "$@"; }
-_tetra_prompt_providers() { tps_context_providers; }
-
-# =============================================================================
 # EXPORTS
 # =============================================================================
 
-export -f _tps_resolve_slot _tps_valid_slot
+export -f _tps_resolve_slot_ref _tps_resolve_slot _tps_valid_slot
 export -f tps_register_context_line tps_unregister_context_line
-export -f tps_register_context tps_unregister_context tps_get_context
-export -f _tps_build_context_line_for _tps_build_all_context_lines _tps_build_context_line
+export -f tps_register_context tps_unregister_context
+export -f tps_get_context_ref tps_get_context
+export -f _tps_build_context_line_for_ref _tps_build_context_line_for
+export -f _tps_build_all_context_lines_ref _tps_build_all_context_lines
+export -f _tps_build_context_line
 export -f tps_context_providers
-export -f tetra_prompt_register tetra_prompt_unregister _tetra_prompt_providers
