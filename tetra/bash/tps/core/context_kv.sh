@@ -50,15 +50,66 @@ declare -ga TPS_CTX_SLOTS=(org project subject)
 # =============================================================================
 
 # Register a module for context display
-# Usage: tps_ctx_register <module> <prefix> <priority> <color>
+# Usage: tps_ctx_register <module> <prefix> <priority> <color> [pinned]
 # Colors: 1=red, 2=green, 3=yellow, 4=blue, 5=magenta, 6=cyan, 7=white
+# Pinned: 1=show in prompt (default), 0=hide
 tps_ctx_register() {
     local module="$1"
     local prefix="$2"
     local priority="${3:-50}"
     local color="${4:-7}"
+    local pinned="${5:-1}"  # Default: pinned (shown)
 
-    tetra_kv_set TPS_CTX_MODULES "$module" "${prefix}:${priority}:${color}"
+    tetra_kv_set TPS_CTX_MODULES "$module" "${prefix}:${priority}:${color}:${pinned}"
+}
+
+# Pin a module (show in prompt)
+# Usage: tps_ctx_pin <module>
+tps_ctx_pin() {
+    local module="$1"
+    local config
+    config=$(tetra_kv_get TPS_CTX_MODULES "$module" 2>/dev/null)
+    if [[ -z "$config" ]]; then
+        echo "Module not registered: $module" >&2
+        return 1
+    fi
+
+    local prefix priority color pinned
+    IFS=':' read -r prefix priority color pinned <<< "$config"
+    tetra_kv_set TPS_CTX_MODULES "$module" "${prefix}:${priority}:${color}:1"
+    _tps_ctx_save
+    echo "$module pinned (will show in prompt)"
+}
+
+# Unpin a module (hide from prompt)
+# Usage: tps_ctx_unpin <module>
+tps_ctx_unpin() {
+    local module="$1"
+    local config
+    config=$(tetra_kv_get TPS_CTX_MODULES "$module" 2>/dev/null)
+    if [[ -z "$config" ]]; then
+        echo "Module not registered: $module" >&2
+        return 1
+    fi
+
+    local prefix priority color pinned
+    IFS=':' read -r prefix priority color pinned <<< "$config"
+    tetra_kv_set TPS_CTX_MODULES "$module" "${prefix}:${priority}:${color}:0"
+    _tps_ctx_save
+    echo "$module unpinned (hidden from prompt)"
+}
+
+# Check if module is pinned
+# Usage: tps_ctx_is_pinned <module>
+tps_ctx_is_pinned() {
+    local module="$1"
+    local config
+    config=$(tetra_kv_get TPS_CTX_MODULES "$module" 2>/dev/null) || return 1
+
+    local prefix priority color pinned
+    IFS=':' read -r prefix priority color pinned <<< "$config"
+    # Default to pinned if not specified (backward compat)
+    [[ "${pinned:-1}" == "1" ]]
 }
 
 # Unregister a module
@@ -294,18 +345,20 @@ _tps_ctx_build_line_ref() {
     _line+="${c_bracket}]${r}"
 }
 
-# Build all context lines sorted by priority
+# Build all context lines sorted by priority (only pinned modules)
 # Usage: tps_ctx_lines
 tps_ctx_lines() {
     local modules=()
     local priorities=()
 
-    # Collect registered modules with their priorities
-    local mod config prefix priority color
+    # Collect registered modules with their priorities (skip unpinned)
+    local mod config prefix priority color pinned
     while read -r mod; do
         [[ -z "$mod" ]] && continue
         config=$(tetra_kv_get TPS_CTX_MODULES "$mod")
-        IFS=':' read -r prefix priority color <<< "$config"
+        IFS=':' read -r prefix priority color pinned <<< "$config"
+        # Skip unpinned modules (default to pinned for backward compat)
+        [[ "${pinned:-1}" == "0" ]] && continue
         modules+=("$mod")
         priorities+=("${priority:-50}")
     done < <(tetra_kv_keys TPS_CTX_MODULES)
@@ -342,12 +395,12 @@ tps_ctx_show() {
     echo "Active Contexts"
     echo "==============="
 
-    local mod config prefix priority color org proj subj
+    local mod config prefix priority color pinned org proj subj pin_icon
     while read -r mod; do
         [[ -z "$mod" ]] && continue
 
         config=$(tetra_kv_get TPS_CTX_MODULES "$mod")
-        IFS=':' read -r prefix priority color <<< "$config"
+        IFS=':' read -r prefix priority color pinned <<< "$config"
 
         tps_ctx_get_ref "$mod" org org
         tps_ctx_get_ref "$mod" project proj
@@ -356,8 +409,19 @@ tps_ctx_show() {
         # Skip if empty
         [[ -z "$org" && -z "$proj" && -z "$subj" ]] && continue
 
-        printf "  %-10s %s[%s:%s:%s]\n" "$mod" "$prefix" "${org:-?}" "${proj:-?}" "${subj:-?}"
+        # Pin indicator (default to pinned for backward compat)
+        if [[ "${pinned:-1}" == "1" ]]; then
+            pin_icon="+"
+        else
+            pin_icon="-"
+        fi
+
+        printf "  %s %-10s %s[%s:%s:%s]\n" "$pin_icon" "$mod" "$prefix" "${org:-?}" "${proj:-?}" "${subj:-?}"
     done < <(tetra_kv_keys TPS_CTX_MODULES)
+
+    echo ""
+    echo "  + = pinned (shown), - = unpinned (hidden)"
+    echo "  Use: tps_ctx pin <mod> | tps_ctx unpin <mod>"
 }
 
 # Main dispatcher
@@ -384,6 +448,12 @@ tps_ctx() {
         has)
             tps_ctx_has "$@"
             ;;
+        pin)
+            tps_ctx_pin "$@"
+            ;;
+        unpin)
+            tps_ctx_unpin "$@"
+            ;;
         show|status)
             tps_ctx_show
             ;;
@@ -409,7 +479,9 @@ Commands:
   set <mod> <org> [proj] [subj]           Set context
   get <mod> <slot>                        Get value
   clear <mod>                             Clear module context
-  show                                    Show all active
+  pin <mod>                               Pin module (show in prompt)
+  unpin <mod>                             Unpin module (hide from prompt)
+  show                                    Show all active (+ pinned, - unpinned)
   lines                                   Build prompt lines
   modules                                 List registered modules
   dump                                    Debug dump stores
@@ -418,10 +490,10 @@ Colors: 1=red, 2=green, 3=yellow, 4=blue, 5=magenta, 6=cyan, 7=white
 
 Examples:
   tps_ctx register deploy DEPLOY 10 1     # Red, high priority
-  tps_ctx register games GAMES 40 5       # Magenta
   tps_ctx set deploy nodeholder docs prod
-  tps_ctx set games tetra trax
-  tps_ctx lines                           # Shows both lines
+  tps_ctx pin deploy                      # Show in prompt
+  tps_ctx unpin games                     # Hide from prompt
+  tps_ctx show                            # See pin status
 EOF
             ;;
     esac
@@ -475,6 +547,7 @@ _tps_ctx_load
 # =============================================================================
 
 export -f tps_ctx_register tps_ctx_unregister
+export -f tps_ctx_pin tps_ctx_unpin tps_ctx_is_pinned
 export -f tps_ctx_set tps_ctx_get tps_ctx_get_ref tps_ctx_clear tps_ctx_has
 export -f _tps_ctx_save _tps_ctx_load
 export -f _tps_ctx_build_line_ref tps_ctx_lines
