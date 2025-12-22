@@ -12,6 +12,8 @@ export UTILS_SRC UTILS_DIR
 # Now source the utilities that other modules will use
 source "$UTILS_SRC/module_init.sh"
 source "$UTILS_SRC/function_helpers.sh"
+source "$UTILS_SRC/kv_store.sh"          # Exportable key-value (replaces assoc arrays)
+source "$UTILS_SRC/module_state.sh"       # Function state tracking
 source "$UTILS_SRC/color_constants.sh"
 
 source "$UTILS_SRC/color.sh"

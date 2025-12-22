@@ -55,7 +55,8 @@ _spaces_resolve() {
     if [[ -z "$org_name" ]]; then
         local org_dir="$TETRA_DIR/org"
         if [[ -d "$org_dir" ]]; then
-            local orgs=($(ls -1 "$org_dir" 2>/dev/null))
+            local orgs
+            readarray -t orgs < <(ls -1 "$org_dir" 2>/dev/null)
             if [[ ${#orgs[@]} -eq 1 ]]; then
                 org_name="${orgs[0]}"
                 echo "Note: Auto-detected TETRA_ORG=$org_name" >&2

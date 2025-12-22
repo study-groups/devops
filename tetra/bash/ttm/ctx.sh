@@ -101,7 +101,8 @@ init_evidence_vars() {
     local e_count=0
 
     # Assign $e1, $e2, etc. to evidence files (100+)
-    local files=($(ls "$ctx_dir" 2>/dev/null | grep -E '^[1-9][0-9]{2}_' | sort -n))
+    local files
+    readarray -t files < <(ls "$ctx_dir" 2>/dev/null | grep -E '^[1-9][0-9]{2}_' | sort -n)
     for i in "${!files[@]}"; do
         local var_num=$((i + 1))
         eval "e$var_num=\"$ctx_dir/${files[$i]}\""

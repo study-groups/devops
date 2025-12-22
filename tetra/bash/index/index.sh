@@ -51,7 +51,7 @@ index_rebuild() {
 
     if [[ ${#modules[@]} -eq 0 ]]; then
         # Index all modules
-        modules=($(find "$TETRA_DIR" -mindepth 2 -maxdepth 2 -type d -name "db" | sed "s|$TETRA_DIR/||" | sed 's|/db||'))
+        readarray -t modules < <(find "$TETRA_DIR" -mindepth 2 -maxdepth 2 -type d -name "db" | sed "s|$TETRA_DIR/||" | sed 's|/db||')
     fi
 
     echo "Rebuilding index for modules: ${modules[*]}" >&2

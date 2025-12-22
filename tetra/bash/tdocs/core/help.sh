@@ -512,12 +512,13 @@ $(_tdocs_help_example "Review all markdown files" "review all")
 $(_tdocs_help_example "List WIP documents without interaction" "review-list")
 $(_tdocs_help_example "Batch archive COMPLETE documents" "review-batch '(COMPLETE)'")
 
-$(_tdocs_help_subsection "Related Commands:")
-  review-list [pattern]   List WIP documents with statistics
-  review-batch [pattern]  Batch archive matching documents (DANGEROUS)
-
-See also: ${TETRA_CYAN}help lifecycle${TETRA_NC} for document lifecycle stages
 EOF
+
+    _tdocs_help_subsection "Related Commands:"
+    echo "  review-list [pattern]   List WIP documents with statistics"
+    echo "  review-batch [pattern]  Batch archive matching documents (DANGEROUS)"
+    echo
+    printf "See also: "; _tdocs_inline_cmd "help lifecycle"; echo " for document lifecycle stages"
 }
 
 tdocs_help_taxonomy() {
@@ -609,7 +610,7 @@ tdocs_help_topic() {
             tdocs_help_main
             ;;
         *)
-            echo -e "${TETRA_CYAN}Help topic: $topic${TETRA_NC}"
+            printf "Help topic: "; _tdocs_inline_cmd "$topic"; echo
             echo "No detailed help available. Try: help [lifecycle|doctor|taxonomy|types|filter|rank|module|colors|review]"
             return 1
             ;;

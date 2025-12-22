@@ -288,7 +288,112 @@ _doctor_check_org_config() {
     fi
 }
 
-# Check 7: Remote Configuration (from active org)
+# Check 7: IFS and Array Pattern Safety
+_doctor_check_ifs() {
+    echo ""
+    echo "$(_doctor_color blue "=== IFS and Array Safety ===")"
+
+    # Check current IFS value
+    local ifs_display
+    if [[ -z "$IFS" ]]; then
+        _doctor_error "IFS is empty (will break array parsing)"
+        _doctor_info "  IFS should be space-tab-newline: \$' \\t\\n'"
+    elif [[ "$IFS" == $' \t\n' ]]; then
+        _doctor_ok "IFS is default (space-tab-newline)"
+    else
+        # Show hex representation for debugging
+        ifs_display=$(printf '%s' "$IFS" | xxd -p | sed 's/../\\x&/g')
+        _doctor_warn "IFS is non-default: $ifs_display"
+        _doctor_info "  Expected: \\x20\\x09\\x0a (space-tab-newline)"
+        _doctor_info "  This may cause array parsing issues"
+    fi
+
+    # Check if IFS is exported (can propagate to subshells unexpectedly)
+    if declare -p IFS 2>/dev/null | grep -q 'declare -x'; then
+        _doctor_warn "IFS is exported (may affect subshells)"
+        _doctor_info "  Consider: unset -v IFS or declare +x IFS"
+    else
+        _doctor_ok "IFS is not exported"
+    fi
+}
+
+# Check 8: Array Pattern Scan
+_doctor_check_array_patterns() {
+    echo ""
+    echo "$(_doctor_color blue "=== Array Pattern Scan ===")"
+
+    local scan_dir="${1:-$TETRA_SRC/bash}"
+    local bad_patterns=0
+    local bad_files=()
+
+    _doctor_info "Scanning: $scan_dir"
+
+    # Find problematic patterns: =($( but NOT COMPREPLY=
+    # Pattern: variable assignment from command substitution into array
+    while IFS= read -r match; do
+        # Skip COMPREPLY (bash completion - works fine)
+        if [[ "$match" =~ COMPREPLY ]]; then
+            continue
+        fi
+        # Skip comments
+        if [[ "$match" =~ ^[[:space:]]*# ]]; then
+            continue
+        fi
+        # Extract file path
+        local file="${match%%:*}"
+        # Deduplicate files
+        local already_found=false
+        for f in "${bad_files[@]}"; do
+            [[ "$f" == "$file" ]] && already_found=true && break
+        done
+        if [[ "$already_found" == false ]]; then
+            bad_files+=("$file")
+        fi
+        ((bad_patterns++))
+    done < <(grep -rn --include='*.sh' '=(\$(' "$scan_dir" 2>/dev/null | grep -v 'COMPREPLY' | grep -v '^[[:space:]]*#')
+
+    if [[ $bad_patterns -eq 0 ]]; then
+        _doctor_ok "No IFS-dependent array patterns found"
+    else
+        _doctor_warn "Found $bad_patterns IFS-dependent array pattern(s)"
+        _doctor_info "  Files with issues:"
+        for file in "${bad_files[@]}"; do
+            local rel_path="${file#$TETRA_SRC/}"
+            _doctor_info "    - $rel_path"
+        done
+        _doctor_info ""
+        _doctor_info "  Fix: Replace arr=(\$(cmd)) with:"
+        _doctor_info "       readarray -t arr < <(cmd)"
+        _doctor_info ""
+        _doctor_info "  Run 'tetra doctor array-scan --verbose' for details"
+    fi
+}
+
+# Detailed array pattern scan (verbose mode)
+_doctor_array_scan_verbose() {
+    local scan_dir="${1:-$TETRA_SRC/bash}"
+
+    echo "$(_doctor_color blue "=== Detailed Array Pattern Scan ===")"
+    echo ""
+
+    # Find and display all problematic patterns with context
+    grep -rn --include='*.sh' '=(\$(' "$scan_dir" 2>/dev/null | \
+        grep -v 'COMPREPLY' | \
+        grep -v '^[[:space:]]*#' | \
+        while IFS= read -r match; do
+            local file="${match%%:*}"
+            local rel_path="${file#$TETRA_SRC/}"
+            local rest="${match#*:}"
+            local line_num="${rest%%:*}"
+            local code="${rest#*:}"
+
+            echo "$(_doctor_color yellow "$rel_path:$line_num")"
+            echo "  $code"
+            echo ""
+        done
+}
+
+# Check 9: Remote Configuration (from active org)
 _doctor_check_remote_config() {
     echo ""
     echo "$(_doctor_color blue "=== Remote Host Configuration ===")"
@@ -372,12 +477,23 @@ tetra_doctor() {
                 # Already verbose by default
                 shift
                 ;;
-            env|modules|config|org|remote|all)
+            env|modules|config|org|remote|ifs|arrays|all)
                 check_filter="$1"
                 shift
                 ;;
+            array-scan)
+                # Special subcommand for detailed array scanning
+                shift
+                if [[ "$1" == "--verbose" || "$1" == "-v" ]]; then
+                    _doctor_array_scan_verbose "${2:-$TETRA_SRC/bash}"
+                else
+                    _doctor_check_array_patterns "${1:-$TETRA_SRC/bash}"
+                fi
+                return 0
+                ;;
             *)
-                echo "Usage: tetra doctor [--fix] [--verbose] [env|modules|config|org|remote|all]"
+                echo "Usage: tetra doctor [--fix] [--verbose] [env|modules|config|org|remote|ifs|arrays|all]"
+                echo "       tetra doctor array-scan [--verbose] [path]"
                 return 1
                 ;;
         esac
@@ -418,6 +534,13 @@ tetra_doctor() {
         remote)
             _doctor_check_remote_config
             ;;
+        ifs)
+            _doctor_check_ifs
+            ;;
+        arrays)
+            _doctor_check_ifs
+            _doctor_check_array_patterns
+            ;;
         all|"")
             _doctor_check_env_vars
             _doctor_check_old_vars
@@ -426,6 +549,8 @@ tetra_doctor() {
             _doctor_check_modules
             _doctor_check_org_config
             _doctor_check_remote_config
+            _doctor_check_ifs
+            _doctor_check_array_patterns
             ;;
     esac
 

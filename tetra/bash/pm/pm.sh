@@ -12,8 +12,9 @@ _tetra_pm_set_color() {
     local color_key="${type// /_}"
     local color="${color_map[$color_key]}"
     if [[ -n $color ]]; then
-        local color_scheme=($(get_next_color_scheme))
-        tput setaf $color_scheme  # Set the color based on the color scheme
+        local color_scheme
+        readarray -t color_scheme < <(get_next_color_scheme)
+        tput setaf "${color_scheme[0]}"  # Set the color based on the color scheme
     else
         tput setaf 9  # Default color if type is not found in color map
     fi
@@ -31,9 +32,10 @@ _color_by_type() {
     local color_key="${type// /_}"
     local color="${color_map[$color_key]}"
     if [[ -n $color ]]; then
-        local color_scheme=($(get_next_color_scheme))
-        tput setaf ${color_scheme[0]}  # Set the foreground color
-        tput setab ${color_scheme[1]}  # Set the background color
+        local color_scheme
+        readarray -t color_scheme < <(get_next_color_scheme)
+        tput setaf "${color_scheme[0]}"  # Set the foreground color
+        tput setab "${color_scheme[1]}"  # Set the background color
     else
         tput setaf 9  # Default color if type is not found in color map
     fi

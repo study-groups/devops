@@ -252,7 +252,8 @@ q-init() {
 q() {
     # get the last question
     local db="$QA_DIR/db"
-    local files=($(command ls --color=never "$db"/*.prompt 2>/dev/null | sort -n))
+    local files
+    readarray -t files < <(command ls --color=never "$db"/*.prompt 2>/dev/null | sort -n)
     if [[ ${#files[@]} -eq 0 ]]; then
         echo "No queries found" >&2
         return 1
@@ -288,7 +289,8 @@ a()
 {
     # get the last answer
     local db="$QA_DIR/db"
-    local files=($(command ls --color=never "$db"/*.answer 2>/dev/null | sort -n))
+    local files
+    readarray -t files < <(command ls --color=never "$db"/*.answer 2>/dev/null | sort -n)
     if [[ ${#files[@]} -eq 0 ]]; then
         echo "No answers found" >&2
         return 1

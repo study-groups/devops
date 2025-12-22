@@ -157,10 +157,10 @@ tetra_init_module_metadata() {
         "" \
         "core" "stable"
     
-    tetra_add_module_metadata "prompt" \
-        "Configurable bash prompt system" \
-        "tp tetra_prompt" \
-        "tp:style|multiline|toggle|status|help" \
+    tetra_add_module_metadata "tps" \
+        "Tetra Prompt System" \
+        "tps tps_prompt" \
+        "tps:style|toggle|multiline|color|status|help" \
         "core" "stable"
     
     tetra_add_module_metadata "python" \
