@@ -67,6 +67,22 @@ if [[ -f "$GAMES_SRC/core/games_admin.sh" ]]; then
     source "$GAMES_SRC/core/games_admin.sh"
 fi
 
+if [[ -f "$GAMES_SRC/core/games_manifest.sh" ]]; then
+    source "$GAMES_SRC/core/games_manifest.sh"
+fi
+
+if [[ -f "$GAMES_SRC/core/games_crud.sh" ]]; then
+    source "$GAMES_SRC/core/games_crud.sh"
+fi
+
+if [[ -f "$GAMES_SRC/core/games_upload.sh" ]]; then
+    source "$GAMES_SRC/core/games_upload.sh"
+fi
+
+if [[ -f "$GAMES_SRC/core/games_deploy.sh" ]]; then
+    source "$GAMES_SRC/core/games_deploy.sh"
+fi
+
 # =============================================================================
 # ORG COMMANDS
 # =============================================================================
@@ -608,6 +624,31 @@ games_doctor() {
     fi
     echo ""
 
+    echo "Arcade Integration (PJA_GAMES_DIR):"
+    local pja_expected="${TETRA_DIR}/orgs/pixeljam-arcade/games"
+    if [[ -n "$PJA_GAMES_DIR" ]]; then
+        echo "  [OK] PJA_GAMES_DIR: $PJA_GAMES_DIR"
+        if [[ "$PJA_GAMES_DIR" == "$pja_expected" ]]; then
+            echo "  [OK] Points to pixeljam-arcade games"
+        else
+            echo "  [WARN] Expected: $pja_expected"
+        fi
+        if [[ -d "$PJA_GAMES_DIR" ]]; then
+            local pja_count=$(find "$PJA_GAMES_DIR" -maxdepth 1 -type d 2>/dev/null | tail -n +2 | wc -l | tr -d ' ')
+            echo "  [OK] Directory exists ($pja_count games)"
+        else
+            echo "  [FAIL] Directory not found"
+        fi
+    else
+        echo "  [WARN] PJA_GAMES_DIR not set"
+        echo "        Add to env: export PJA_GAMES_DIR=$pja_expected"
+        if [[ -d "$pja_expected" ]]; then
+            local pja_count=$(find "$pja_expected" -maxdepth 1 -type d 2>/dev/null | tail -n +2 | wc -l | tr -d ' ')
+            echo "  [INFO] Default path exists ($pja_count games)"
+        fi
+    fi
+    echo ""
+
     echo "Games by org:"
     local total=0
     for org_dir in "$orgs_dir"/*/; do
@@ -724,6 +765,53 @@ games() {
             fi
             ;;
 
+        # Manifest (S3 games.json)
+        manifest)
+            if declare -f games_manifest >/dev/null 2>&1; then
+                games_manifest "$@"
+            else
+                echo "Error: games_manifest module not loaded" >&2
+                return 1
+            fi
+            ;;
+
+        # CRUD - Direct manifest manipulation (games.json is source of truth)
+        get)
+            games_get "$@"
+            ;;
+        set)
+            games_set "$@"
+            ;;
+        add)
+            games_add "$@"
+            ;;
+        rm|remove)
+            games_rm "$@"
+            ;;
+        import)
+            games_import "$@"
+            ;;
+        access)
+            games_access "$@"
+            ;;
+
+        # Upload & Deploy (like admin UI)
+        upload)
+            games_upload "$@"
+            ;;
+        url)
+            games_url "$@"
+            ;;
+        deploy)
+            games_deploy "$@"
+            ;;
+        deploy-all)
+            games_deploy_all "$@"
+            ;;
+        deploy-status)
+            games_deploy_status "$@"
+            ;;
+
         # Diagnostics
         doctor)
             games_doctor
@@ -743,32 +831,48 @@ games() {
                 else
                     # Fallback inline help
                     cat << 'EOF'
-GAMES - Game Management
+GAMES - Game Management (games.json is source of truth)
 
 USAGE
   games list                     List installed games
   games play <game> [--controls] Play a game
+  games info <game>              Show game details
   games org [name]               Show/set active org
   games orgs                     List orgs with games
   games search <query>           Search games across orgs
-  games controls <game>          Show control mappings
-  games pak <game>               Create backup archive
-  games unpak <file>             Restore from archive
   games doctor                   Diagnose environment
 
-CONTEXT
-  games ctx                      Show GAMES[org:project:subject] context
-  games ctx set <org> [proj] [s] Set context
-  games ctx clear                Clear context
+MANIFEST CRUD (direct editing - like admin UI)
+  games get <slug> [field]       Read game or field from manifest
+  games set <slug> <field> <val> Set field value
+  games add <slug> [options]     Add new game to manifest
+  games rm <slug>                Remove game from manifest
+  games import <dir>             Import game.toml into manifest
+  games access <slug> [opts]     Set access control (--role, --auth)
+
+UPLOAD & DEPLOY (like admin UI)
+  games upload <file.zip>        Upload and extract game ZIP
+  games url <slug> [variant]     Test game URL resolution
+  games deploy <slug> <host>     Deploy game via SSH
+  games deploy-all <host>        Deploy all games
+  games deploy-status <host>     Check deployment status
+
+BACKUP/RESTORE
+  games pak <game>               Create backup archive
+  games unpak <file>             Restore from archive
 
 S3/REMOTE (requires sync module)
-  games remote                   List games on S3
-  games fetch <game>             Download game from S3
-  games publish <game> [ver]     Publish game with version
-  games pull                     Sync all from S3
-  games push                     Sync all to S3
+  games manifest rebuild         Rebuild games.json from game.toml files
+  games manifest list            Show games in manifest
+  games push                     Sync manifest to S3
+  games pull                     Sync from S3
 
-Run 'games help <topic>' for: play, orgs, pak, sync
+EXAMPLES
+  games add my-game --name "My Game" --role user
+  games set my-game version "2.0.0"
+  games access my-game --auth --role premium
+  games upload my-game_ver-1.0.0.zip --s3
+  games deploy my-game user@arcade.example.com
 EOF
                 fi
             fi
