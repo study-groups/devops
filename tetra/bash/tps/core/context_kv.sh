@@ -28,13 +28,17 @@ fi
 # STORES
 # =============================================================================
 
-# Context values: "module:slot" -> value
-# Example: "deploy:org" -> "nodeholder", "games:project" -> "trax"
+# Context values: "module_slot" -> value
+# Example: "deploy_org" -> "nodeholder", "games_project" -> "trax"
 tetra_kv_init TPS_CTX_VALUES
 
-# Module registry: "module" -> "prefix:priority:color"
-# Example: "deploy" -> "DEPLOY:10:1"
+# Module registry: "module" -> "prefix:priority:color:pinned" (transient, not persisted)
+# Example: "deploy" -> "DEPLOY:10:1:1"
 tetra_kv_init TPS_CTX_MODULES
+
+# Pin preferences: "module" -> "1" or "0" (persisted)
+# Separate from registration so pin state survives across sessions
+tetra_kv_init TPS_CTX_PINS
 
 # Persistence file
 TPS_CTX_FILE="${TPS_CTX_FILE:-$TETRA_DIR/tps/contexts.kv}"
@@ -50,15 +54,19 @@ declare -ga TPS_CTX_SLOTS=(org project subject)
 # =============================================================================
 
 # Register a module for context display
-# Usage: tps_ctx_register <module> <prefix> <priority> <color> [pinned]
+# Usage: tps_ctx_register <module> <prefix> <priority> <color>
 # Colors: 1=red, 2=green, 3=yellow, 4=blue, 5=magenta, 6=cyan, 7=white
-# Pinned: 1=show in prompt (default), 0=hide
+# Pin state is loaded from persisted TPS_CTX_PINS (default: pinned)
 tps_ctx_register() {
     local module="$1"
     local prefix="$2"
     local priority="${3:-50}"
     local color="${4:-7}"
-    local pinned="${5:-1}"  # Default: pinned (shown)
+
+    # Check persisted pin state (default to pinned if not set)
+    local pinned
+    pinned=$(tetra_kv_get TPS_CTX_PINS "$module" 2>/dev/null)
+    pinned="${pinned:-1}"
 
     tetra_kv_set TPS_CTX_MODULES "$module" "${prefix}:${priority}:${color}:${pinned}"
 }
@@ -71,12 +79,14 @@ tps_ctx_pin() {
     config=$(tetra_kv_get TPS_CTX_MODULES "$module" 2>/dev/null)
     if [[ -z "$config" ]]; then
         echo "Module not registered: $module" >&2
+        echo "  (Module must be loaded first)" >&2
         return 1
     fi
 
     local prefix priority color pinned
     IFS=':' read -r prefix priority color pinned <<< "$config"
     tetra_kv_set TPS_CTX_MODULES "$module" "${prefix}:${priority}:${color}:1"
+    tetra_kv_set TPS_CTX_PINS "$module" "1"  # Persist pin state
     _tps_ctx_save
     echo "$module pinned (will show in prompt)"
 }
@@ -89,12 +99,14 @@ tps_ctx_unpin() {
     config=$(tetra_kv_get TPS_CTX_MODULES "$module" 2>/dev/null)
     if [[ -z "$config" ]]; then
         echo "Module not registered: $module" >&2
+        echo "  (Module must be loaded first)" >&2
         return 1
     fi
 
     local prefix priority color pinned
     IFS=':' read -r prefix priority color pinned <<< "$config"
     tetra_kv_set TPS_CTX_MODULES "$module" "${prefix}:${priority}:${color}:0"
+    tetra_kv_set TPS_CTX_PINS "$module" "0"  # Persist pin state
     _tps_ctx_save
     echo "$module unpinned (hidden from prompt)"
 }
@@ -197,11 +209,16 @@ _tps_ctx_save() {
     dir=$(dirname "$TPS_CTX_FILE")
     mkdir -p "$dir"
 
-    # Save both stores to single file
+    # Persist VALUES and PINS, not MODULES
+    # MODULES (registrations) are transient - modules register when loaded
+    # PINS survive across sessions so pin preferences are remembered
     cat > "$TPS_CTX_FILE" <<EOF
 # TPS Context Store (auto-generated)
+# VALUES: context values (org, project, subject per module)
+# PINS: pin preferences (1=show, 0=hide)
+# MODULES: NOT persisted - modules register on load
 TPS_CTX_VALUES='${TPS_CTX_VALUES}'
-TPS_CTX_MODULES='${TPS_CTX_MODULES}'
+TPS_CTX_PINS='${TPS_CTX_PINS}'
 EOF
 }
 
@@ -210,7 +227,8 @@ _tps_ctx_load() {
     # Source the file - it contains valid bash variable assignments
     # Safe because we generate it ourselves in _tps_ctx_save
     source "$TPS_CTX_FILE"
-    export TPS_CTX_VALUES TPS_CTX_MODULES
+    export TPS_CTX_VALUES TPS_CTX_PINS
+    # Note: TPS_CTX_MODULES is NOT loaded - modules register themselves
 }
 
 # =============================================================================
