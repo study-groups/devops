@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>{{APP_NAME}}</title>
+
+    <!-- Terrain Platform -->
+    <link rel="stylesheet" href="terrain/css/core.css">
+    <link rel="stylesheet" href="terrain/css/tokens.css">
+    <link rel="stylesheet" href="terrain/dist/themes/{{THEME}}.theme.css" id="terrain-theme">
+
+    <!-- App Styles -->
+{{STYLES_HTML}}
+    <style>
+        /* Generated layout from terrain.config.json */
+        :root {
+            --layout-columns: {{LAYOUT_COLUMNS}};
+        }
+
+        .terrain-app {
+            display: grid;
+            grid-template-columns: var(--layout-columns);
+            grid-template-rows: auto 1fr;
+            grid-template-areas:
+                "header header"
+                "main sidebar";
+            min-height: 100vh;
+            background: var(--bg-primary);
+        }
+
+        .terrain-header {
+            grid-area: header;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 16px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-primary);
+        }
+
+        .terrain-header-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .terrain-header-icon {
+            font-size: 20px;
+        }
+
+        .terrain-header-controls {
+            display: flex;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .terrain-main {
+            grid-area: main;
+            padding: 16px;
+            overflow-y: auto;
+        }
+
+        .terrain-sidebar {
+            grid-area: sidebar;
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border-primary);
+            overflow-y: auto;
+        }
+
+        .terrain-panel {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        .terrain-panel-header {
+            padding: 10px 12px;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-primary);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .terrain-panel-content {
+            padding: 12px;
+        }
+
+        .terrain-btn {
+            padding: 6px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-primary);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .terrain-btn:hover {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: var(--bg-primary);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.4s ease;
+        }
+
+        .loading-overlay.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-text {
+            font-size: 18pt;
+            font-weight: 700;
+            color: var(--accent-primary);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-text">LOADING</div>
+    </div>
+
+    <div class="terrain-app" id="terrain-app">
+        <!-- Header -->
+        <header class="terrain-header">
+            <div class="terrain-header-title">
+                <span class="terrain-header-icon">{{HEADER_ICON}}</span>
+                <span>{{HEADER_TITLE}}</span>
+            </div>
+            <div class="terrain-header-controls" id="header-controls">
+{{HEADER_CONTROLS_HTML}}
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="terrain-main" id="terrain-main">
+{{MAIN_PANELS_HTML}}
+        </main>
+
+        <!-- Sidebar -->
+        <aside class="terrain-sidebar" id="terrain-sidebar">
+{{SIDEBAR_PANELS_HTML}}
+        </aside>
+    </div>
+
+    <!-- Terrain Core -->
+    <script src="terrain/js/core/config.js"></script>
+    <script src="terrain/js/core/events.js"></script>
+    <script src="terrain/js/core/state.js"></script>
+    <script src="terrain/js/core/mode.js"></script>
+
+    <!-- Merged Config (mode defaults + app overrides) -->
+    <script>
+        window.TerrainConfig = {{MERGED_CONFIG}};
+    </script>
+
+    <!-- App Scripts -->
+{{SCRIPTS_HTML}}
+    <!-- Boot -->
+    <script>
+        (async function() {
+            // Initialize from merged config (no fetch needed)
+            const config = window.TerrainConfig;
+            const theme = config.theme || config.defaultTheme || 'dark';
+
+            // Apply theme
+            const themeLink = document.getElementById('terrain-theme');
+            if (themeLink) {
+                themeLink.href = 'terrain/dist/themes/' + theme + '.theme.css';
+            }
+
+            // Initialize Terrain.Config if available
+            if (Terrain.Config && Terrain.Config.init) {
+                Terrain.Config.init(config);
+            }
+
+            // Hide loading overlay
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) {
+                overlay.classList.add('fade-out');
+                setTimeout(() => overlay.remove(), 400);
+            }
+
+            // Emit ready event
+            if (Terrain.Events) {
+                Terrain.Events.emit('TERRAIN_READY', {
+                    app: '{{APP_NAME}}',
+                    mode: '{{MODE}}',
+                    theme: theme
+                });
+            }
+
+            console.log('[Terrain] Ready:', '{{APP_NAME}}', 'mode:', '{{MODE}}', 'theme:', theme);
+        })();
+    </script>
+</body>
+</html>

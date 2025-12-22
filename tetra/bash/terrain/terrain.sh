@@ -5,7 +5,6 @@
 #
 # Usage:
 #   terrain build [app-dir]           Build HTML from config
-#   terrain serve [app-dir] [port]    Build and serve with preview
 #   terrain config validate [path]    Validate config file
 #   terrain modes list                List available modes
 #   terrain themes list               List available themes
@@ -55,9 +54,6 @@ BUILD EXAMPLES:
     # Build to custom output
     terrain build ~/src/myapp -o ~/src/myapp/public/index.html
 
-    # Build and preview
-    terrain serve ~/src/controldeck 3000
-
 CONFIG:
     Apps require a terrain.config.json with:
     - terrain.name: App name
@@ -67,7 +63,8 @@ CONFIG:
     - scripts: Array of JS files to include
     - styles: Array of CSS files to include
 
-    See: ~/src/controldeck/terrain.config.json for example
+SERVING:
+    Use external server (caddy, python -m http.server, etc.)
 EOF
 }
 
@@ -328,11 +325,6 @@ terrain() {
         # Local development
         local|l)
             _terrain_local "$@"
-            ;;
-
-        # Serve (legacy, now prefer 'local serve')
-        serve|s)
-            terrain_build_serve "$@"
             ;;
 
         # Config

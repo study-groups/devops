@@ -85,7 +85,7 @@ terrain_build() {
     echo "[terrain] Built: $output ($size bytes)"
 }
 
-# Internal: Generate HTML file
+# Internal: Generate HTML file from template
 _terrain_generate_html() {
     local config="$1"
     local app_name="$2"
@@ -97,6 +97,15 @@ _terrain_generate_html() {
 
     local app_dir
     app_dir=$(dirname "$config")
+
+    # Template location
+    local template="$TERRAIN_SRC/core/templates/app.html"
+    if [[ ! -f "$template" ]]; then
+        echo "Error: Template not found: $template" >&2
+        echo "Falling back to inline generation..." >&2
+        _terrain_generate_html_inline "$@"
+        return $?
+    fi
 
     # Read header controls if present
     local header_controls_html=""
@@ -134,8 +143,7 @@ _terrain_generate_html() {
     done <<< "$styles"
 
     # Get header config
-    local header_show header_title header_icon
-    header_show=$(terrain_config_get "$config" '.header.show')
+    local header_title header_icon
     header_title=$(terrain_config_get "$config" '.header.title')
     header_icon=$(terrain_config_get "$config" '.header.icon')
 
@@ -144,237 +152,51 @@ _terrain_generate_html() {
     layout_columns=$(terrain_config_get "$config" '.layout.columns')
     [[ -z "$layout_columns" ]] && layout_columns="1fr"
 
-    # Generate the HTML
-    cat > "$output" << HTMLEOF
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <title>$app_name</title>
+    # Get merged config as JSON string
+    local merged_config
+    merged_config=$(terrain_config_merge "$config")
 
-    <!-- Terrain Platform -->
-    <link rel="stylesheet" href="terrain/css/core.css">
-    <link rel="stylesheet" href="terrain/css/tokens.css">
-    <link rel="stylesheet" href="terrain/dist/themes/${theme}.theme.css" id="terrain-theme">
+    # Render template with substitutions
+    # Using sed for simple {{PLACEHOLDER}} replacements
+    local html
+    html=$(cat "$template")
 
-    <!-- App Styles -->
-$styles_html
-    <style>
-        /* Generated layout from terrain.config.json */
-        :root {
-            --layout-columns: $layout_columns;
-        }
+    # Escape special characters in values for sed
+    _escape_sed() { printf '%s\n' "$1" | sed 's/[&/\]/\\&/g' | tr '\n' '\001'; }
 
-        .terrain-app {
-            display: grid;
-            grid-template-columns: var(--layout-columns);
-            grid-template-rows: auto 1fr;
-            grid-template-areas:
-                "header header"
-                "main sidebar";
-            min-height: 100vh;
-            background: var(--bg-primary);
-        }
+    # Simple replacements (single-line values)
+    html="${html//\{\{APP_NAME\}\}/$app_name}"
+    html="${html//\{\{MODE\}\}/$mode}"
+    html="${html//\{\{THEME\}\}/$theme}"
+    html="${html//\{\{HEADER_TITLE\}\}/$header_title}"
+    html="${html//\{\{HEADER_ICON\}\}/$header_icon}"
+    html="${html//\{\{LAYOUT_COLUMNS\}\}/$layout_columns}"
 
-        .terrain-header {
-            grid-area: header;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 8px 16px;
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border-primary);
-        }
+    # Multi-line replacements (use temporary file approach for safety)
+    local tmpfile
+    tmpfile=$(mktemp)
+    echo "$html" > "$tmpfile"
 
-        .terrain-header-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+    # Replace multi-line placeholders using awk
+    _replace_block() {
+        local placeholder="$1"
+        local content="$2"
+        local file="$3"
+        awk -v placeholder="$placeholder" -v content="$content" '
+            { gsub(placeholder, content); print }
+        ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
+    }
 
-        .terrain-header-icon {
-            font-size: 20px;
-        }
+    _replace_block "{{STYLES_HTML}}" "$styles_html" "$tmpfile"
+    _replace_block "{{SCRIPTS_HTML}}" "$scripts_html" "$tmpfile"
+    _replace_block "{{HEADER_CONTROLS_HTML}}" "$header_controls_html" "$tmpfile"
+    _replace_block "{{MAIN_PANELS_HTML}}" "$main_panels_html" "$tmpfile"
+    _replace_block "{{SIDEBAR_PANELS_HTML}}" "$sidebar_panels_html" "$tmpfile"
+    _replace_block "{{MERGED_CONFIG}}" "$merged_config" "$tmpfile"
 
-        .terrain-header-controls {
-            display: flex;
-            gap: 8px;
-            margin-left: auto;
-        }
-
-        .terrain-main {
-            grid-area: main;
-            padding: 16px;
-            overflow-y: auto;
-        }
-
-        .terrain-sidebar {
-            grid-area: sidebar;
-            padding: 16px;
-            background: var(--bg-secondary);
-            border-left: 1px solid var(--border-primary);
-            overflow-y: auto;
-        }
-
-        .terrain-panel {
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-primary);
-            border-radius: 8px;
-            margin-bottom: 12px;
-        }
-
-        .terrain-panel-header {
-            padding: 10px 12px;
-            font-weight: 600;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--text-secondary);
-            border-bottom: 1px solid var(--border-primary);
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .terrain-panel-content {
-            padding: 12px;
-        }
-
-        .terrain-btn {
-            padding: 6px 12px;
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-primary);
-            border-radius: 4px;
-            color: var(--text-primary);
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-
-        .terrain-btn:hover {
-            background: var(--accent-primary);
-            border-color: var(--accent-primary);
-        }
-
-        /* Loading overlay */
-        .loading-overlay {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100vw; height: 100vh;
-            background: var(--bg-primary);
-            z-index: 9999;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: opacity 0.4s ease;
-        }
-
-        .loading-overlay.fade-out {
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .loading-text {
-            font-size: 18pt;
-            font-weight: 700;
-            color: var(--accent-primary);
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 0.4; }
-            50% { opacity: 1; }
-        }
-    </style>
-</head>
-<body>
-    <!-- Loading overlay -->
-    <div class="loading-overlay" id="loading-overlay">
-        <div class="loading-text">LOADING</div>
-    </div>
-
-    <div class="terrain-app" id="terrain-app">
-        <!-- Header -->
-        <header class="terrain-header">
-            <div class="terrain-header-title">
-                <span class="terrain-header-icon">$header_icon</span>
-                <span>$header_title</span>
-            </div>
-            <div class="terrain-header-controls" id="header-controls">
-$header_controls_html
-            </div>
-        </header>
-
-        <!-- Main Content -->
-        <main class="terrain-main" id="terrain-main">
-$main_panels_html
-        </main>
-
-        <!-- Sidebar -->
-        <aside class="terrain-sidebar" id="terrain-sidebar">
-$sidebar_panels_html
-        </aside>
-    </div>
-
-    <!-- Terrain Core -->
-    <script src="terrain/js/core/config.js"></script>
-    <script src="terrain/js/core/events.js"></script>
-    <script src="terrain/js/core/state.js"></script>
-    <script src="terrain/js/core/mode.js"></script>
-
-    <!-- Merged Config (mode defaults + app overrides) -->
-    <script>
-        window.TerrainConfig = $(terrain_config_merge "$config");
-    </script>
-
-    <!-- App Scripts -->
-$scripts_html
-    <!-- Boot -->
-    <script>
-        (async function() {
-            // Initialize from merged config (no fetch needed)
-            const config = window.TerrainConfig;
-            const theme = config.theme || config.defaultTheme || 'dark';
-
-            // Apply theme
-            const themeLink = document.getElementById('terrain-theme');
-            if (themeLink) {
-                themeLink.href = 'terrain/dist/themes/' + theme + '.theme.css';
-            }
-
-            // Initialize Terrain.Config if available
-            if (Terrain.Config && Terrain.Config.init) {
-                Terrain.Config.init(config);
-            }
-
-            // Hide loading overlay
-            const overlay = document.getElementById('loading-overlay');
-            if (overlay) {
-                overlay.classList.add('fade-out');
-                setTimeout(() => overlay.remove(), 400);
-            }
-
-            // Emit ready event
-            if (Terrain.Events) {
-                Terrain.Events.emit('TERRAIN_READY', {
-                    app: '$app_name',
-                    mode: '${mode}',
-                    theme: theme
-                });
-            }
-
-            console.log('[Terrain] Ready:', '$app_name', 'mode:', '${mode}', 'theme:', theme);
-        })();
-    </script>
-</body>
-</html>
-HTMLEOF
+    # Write output
+    cat "$tmpfile" > "$output"
+    rm -f "$tmpfile"
 }
 
 # Render header controls from JSON array

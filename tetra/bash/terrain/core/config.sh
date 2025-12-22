@@ -36,10 +36,13 @@ terrain_config_get() {
 }
 
 # Validate config file structure
-# Args: $1 - config path
+# Args: $1 - config path, $2 - strict mode (optional, default: false)
+# In strict mode, warnings become errors and validation fails
 terrain_config_validate() {
     local config="$1"
+    local strict="${2:-false}"
     local errors=0
+    local warnings=0
 
     _tok_require_file "$config" "Config" || return 1
 
@@ -48,27 +51,40 @@ terrain_config_validate() {
         return 1
     fi
 
+    # Helper for error/warning messages
+    _config_issue() {
+        local level="$1"
+        local msg="$2"
+        if [[ "$level" == "error" ]]; then
+            echo "ERROR: $msg" >&2
+            ((errors++))
+        elif [[ "$strict" == "true" ]]; then
+            echo "ERROR (strict): $msg" >&2
+            ((errors++))
+        else
+            echo "Warning: $msg" >&2
+            ((warnings++))
+        fi
+    }
+
     # Check required fields
     local name mode
     name=$(terrain_config_get "$config" '.terrain.name')
     mode=$(terrain_config_get "$config" '.mode')
 
     if [[ -z "$name" ]]; then
-        echo "Warning: Missing .terrain.name" >&2
-        ((errors++))
+        _config_issue "warning" "Missing .terrain.name"
     fi
 
     if [[ -z "$mode" ]]; then
-        echo "Warning: Missing .mode" >&2
-        ((errors++))
+        _config_issue "warning" "Missing .mode"
     fi
 
     # Validate mode exists
     if [[ -n "$mode" ]]; then
         local mode_path="$TERRAIN_SRC/dist/modes/${mode}.mode.json"
         if [[ ! -f "$mode_path" ]]; then
-            echo "Warning: Mode not found: $mode (expected $mode_path)" >&2
-            ((errors++))
+            _config_issue "error" "Mode not found: $mode (expected $mode_path)"
         fi
     fi
 
@@ -78,18 +94,62 @@ terrain_config_validate() {
     if [[ -n "$theme" ]]; then
         local theme_path="$TERRAIN_SRC/dist/themes/${theme}.theme.css"
         if [[ ! -f "$theme_path" ]]; then
-            echo "Warning: Theme not found: $theme (expected $theme_path)" >&2
-            ((errors++))
+            _config_issue "error" "Theme not found: $theme (expected $theme_path)"
         fi
     fi
 
-    if [[ $errors -eq 0 ]]; then
+    # Validate layout columns if specified
+    local layout_columns
+    layout_columns=$(terrain_config_get "$config" '.layout.columns')
+    if [[ -n "$layout_columns" ]]; then
+        # Basic CSS grid syntax check
+        if [[ ! "$layout_columns" =~ ^[0-9a-zA-Z\ \(\)%frpx\-\.]+$ ]]; then
+            _config_issue "warning" "Suspicious layout.columns value: $layout_columns"
+        fi
+    fi
+
+    # Validate scripts paths if specified
+    local scripts
+    scripts=$(jq -r '.scripts[]? // empty' "$config" 2>/dev/null)
+    while IFS= read -r script; do
+        if [[ -n "$script" && ! "$script" =~ ^https?:// ]]; then
+            # Local file - check if it exists relative to config dir
+            local script_path="$(dirname "$config")/$script"
+            if [[ ! -f "$script_path" && "$strict" == "true" ]]; then
+                _config_issue "warning" "Script not found: $script"
+            fi
+        fi
+    done <<< "$scripts"
+
+    # Validate styles paths if specified
+    local styles
+    styles=$(jq -r '.styles[]? // empty' "$config" 2>/dev/null)
+    while IFS= read -r style; do
+        if [[ -n "$style" && ! "$style" =~ ^https?:// ]]; then
+            local style_path="$(dirname "$config")/$style"
+            if [[ ! -f "$style_path" && "$strict" == "true" ]]; then
+                _config_issue "warning" "Style not found: $style"
+            fi
+        fi
+    done <<< "$styles"
+
+    # Report results
+    if [[ $errors -eq 0 && $warnings -eq 0 ]]; then
         echo "Config valid: $config"
         return 0
+    elif [[ $errors -eq 0 ]]; then
+        echo "Config valid with $warnings warning(s): $config"
+        return 0
     else
-        echo "Config has $errors warning(s)"
+        echo "Config invalid: $errors error(s), $warnings warning(s)"
         return 1
     fi
+}
+
+# Strict validation - fails on any issue
+# Args: $1 - config path
+terrain_config_validate_strict() {
+    terrain_config_validate "$1" "true"
 }
 
 # Get resolved mode path
@@ -184,7 +244,7 @@ terrain_config_list_themes() {
     done
 }
 
-export -f terrain_config_find terrain_config_get terrain_config_validate
+export -f terrain_config_find terrain_config_get terrain_config_validate terrain_config_validate_strict
 export -f terrain_config_resolve_mode terrain_config_resolve_theme
 export -f terrain_config_merge
 export -f terrain_config_list_modes terrain_config_list_themes
