@@ -1,321 +1,265 @@
 #!/usr/bin/env bash
-# tut/tut_ctx.sh - TPS context integration for tut
+# tut/tut_ctx.sh - Context for tut using unified context_kv
 #
-# Provides TUT[org:project:subject] context line in prompt
-# Following the deploy_ctx.sh and tdocs_ctx.sh pattern
+# Context: TUT[org:subject:type]
+# Slots:   org=org, project=subject, subject=type
+# Structure: $TETRA_DIR/orgs/<org>/tut/{src,compiled}/<subject>-<type>.{json,html}
+# Types: ref, guide, thesis
 
 # =============================================================================
-# STATE
+# DEPENDENCIES
 # =============================================================================
 
-export TUT_CTX_ORG="${TUT_CTX_ORG:-}"
-export TUT_CTX_PROJECT="${TUT_CTX_PROJECT:-}"
-export TUT_CTX_SUBJECT="${TUT_CTX_SUBJECT:-}"
-
-# Persistence file
-TUT_CTX_FILE="${TUT_CTX_FILE:-$TETRA_DIR/tut/context}"
-
-# Registration state
-declare -g TUT_TPS_REGISTERED=0
-
-# =============================================================================
-# TPS PROVIDER FUNCTIONS
-# =============================================================================
-
-_tut_prompt_org() {
-    echo "${TUT_CTX_ORG:-}"
-}
-
-_tut_prompt_project() {
-    echo "${TUT_CTX_PROJECT:-}"
-}
-
-_tut_prompt_subject() {
-    echo "${TUT_CTX_SUBJECT:-}"
-}
-
-# =============================================================================
-# TPS REGISTRATION
-# =============================================================================
-
-_tut_register_prompt() {
-    [[ $TUT_TPS_REGISTERED -eq 1 ]] && return
-
-    if type tps_register_context_line &>/dev/null; then
-        # TUT in green (color 2), priority 30
-        tps_register_context_line tut TUT 30 2
-        tps_register_context org _tut_prompt_org tut
-        tps_register_context project _tut_prompt_project tut
-        tps_register_context subject _tut_prompt_subject tut
-        TUT_TPS_REGISTERED=1
-    fi
-}
-
-_tut_unregister_prompt() {
-    if type tps_unregister_context_line &>/dev/null; then
-        tps_unregister_context_line tut
-        TUT_TPS_REGISTERED=0
-    fi
-}
-
-# =============================================================================
-# PERSISTENCE
-# =============================================================================
-
-_tut_ctx_save() {
-    mkdir -p "$(dirname "$TUT_CTX_FILE")"
-    cat > "$TUT_CTX_FILE" <<EOF
-TUT_CTX_ORG=${TUT_CTX_ORG}
-TUT_CTX_PROJECT=${TUT_CTX_PROJECT}
-TUT_CTX_SUBJECT=${TUT_CTX_SUBJECT}
-EOF
-
-    # Register TPS when we have context
-    if [[ -n "$TUT_CTX_ORG" || -n "$TUT_CTX_PROJECT" || -n "$TUT_CTX_SUBJECT" ]]; then
-        _tut_register_prompt
+# Ensure context_kv is loaded
+if ! type tps_ctx &>/dev/null; then
+    if [[ -f "$TETRA_SRC/bash/tps/core/context_kv.sh" ]]; then
+        source "$TETRA_SRC/bash/utils/kv_store.sh"
+        source "$TETRA_SRC/bash/tps/core/context_kv.sh"
     else
-        _tut_unregister_prompt
+        echo "tut_ctx: requires tps/core/context_kv.sh" >&2
+        return 1
     fi
-}
-
-_tut_ctx_load() {
-    [[ ! -f "$TUT_CTX_FILE" ]] && return
-
-    local line key value
-    while IFS='=' read -r key value; do
-        [[ -z "$key" || "$key" == \#* ]] && continue
-        case "$key" in
-            TUT_CTX_ORG)     export TUT_CTX_ORG="$value" ;;
-            TUT_CTX_PROJECT) export TUT_CTX_PROJECT="$value" ;;
-            TUT_CTX_SUBJECT) export TUT_CTX_SUBJECT="$value" ;;
-        esac
-    done < "$TUT_CTX_FILE"
-
-    # Register prompt if we loaded context
-    if [[ -n "$TUT_CTX_ORG" ]]; then
-        _tut_register_prompt
-    fi
-}
+fi
 
 # =============================================================================
-# PDATA HELPERS
+# REGISTER WITH TPS
 # =============================================================================
 
-# Get PData root for an org
-_tut_pd_root() {
-    local org="$1"
-    echo "$TETRA_DIR/orgs/$org/pd"
+# Register tut context line (green, priority 30)
+tps_ctx register tut TUT 30 2
+
+# =============================================================================
+# CONSTANTS
+# =============================================================================
+
+declare -g TUT_VALID_TYPES="ref guide thesis"
+
+# =============================================================================
+# SLOT ACCESSORS (convenience wrappers)
+# =============================================================================
+
+# Get current org
+_tut_org() { tps_ctx get tut org; }
+
+# Get current subject (stored in project slot)
+_tut_subject() { tps_ctx get tut project; }
+
+# Get current type (stored in subject slot)
+_tut_type() { tps_ctx get tut subject; }
+
+# =============================================================================
+# PATH HELPERS
+# =============================================================================
+
+# Get tut root for an org
+_tut_root() {
+    local org="${1:-$(_tut_org)}"
+    [[ -z "$org" ]] && return 1
+    echo "$TETRA_DIR/orgs/$org/tut"
 }
 
-# Get data directory for context
-_tut_pd_data() {
-    local org="$1"
-    local project="${2:-}"
-    local subject="${3:-}"
-
-    local base="$TETRA_DIR/orgs/$org/pd/data"
-
-    if [[ -n "$project" && -n "$subject" ]]; then
-        echo "$base/projects/$project/$subject"
-    elif [[ -n "$project" ]]; then
-        echo "$base/projects/$project"
-    else
-        echo "$base"
-    fi
+# Get src directory
+_tut_src_dir() {
+    local root
+    root=$(_tut_root "$1") || return 1
+    echo "$root/src"
 }
 
-# Ensure PData structure exists
-_tut_ensure_pdata() {
-    local org="$1"
-    local project="${2:-}"
-    local subject="${3:-}"
+# Get compiled directory
+_tut_compiled_dir() {
+    local root
+    root=$(_tut_root "$1") || return 1
+    echo "$root/compiled"
+}
 
-    local pd_root="$TETRA_DIR/orgs/$org/pd"
+# Get src file for subject-type
+_tut_src_file() {
+    local org="${1:-$(_tut_org)}"
+    local subject="${2:-$(_tut_subject)}"
+    local type="${3:-$(_tut_type)}"
 
-    # Create base structure
-    mkdir -p "$pd_root/data/projects"
-    mkdir -p "$pd_root/config"
-    mkdir -p "$pd_root/cache"
+    [[ -z "$org" || -z "$subject" || -z "$type" ]] && return 1
+    echo "$TETRA_DIR/orgs/$org/tut/src/${subject}-${type}.json"
+}
 
-    # Create project/subject if specified
-    if [[ -n "$project" ]]; then
-        mkdir -p "$pd_root/data/projects/$project"
-        if [[ -n "$subject" ]]; then
-            mkdir -p "$pd_root/data/projects/$project/$subject"
-        fi
-    fi
+# Get compiled file for subject-type
+_tut_compiled_file() {
+    local org="${1:-$(_tut_org)}"
+    local subject="${2:-$(_tut_subject)}"
+    local type="${3:-$(_tut_type)}"
+
+    [[ -z "$org" || -z "$subject" || -z "$type" ]] && return 1
+    echo "$TETRA_DIR/orgs/$org/tut/compiled/${subject}-${type}.html"
+}
+
+# Validate type
+_tut_valid_type() {
+    local type="$1"
+    [[ " $TUT_VALID_TYPES " == *" $type "* ]]
 }
 
 # =============================================================================
 # CONTEXT COMMANDS
 # =============================================================================
 
-# Set full context
-# Usage: tut_ctx_set <org> [project] [subject]
+# Set context: tut ctx set <org> [subject] [type]
 tut_ctx_set() {
     local org="$1"
-    local project="${2:-}"
-    local subject="${3:-}"
+    local subject="${2:-}"
+    local type="${3:-}"
 
     if [[ -z "$org" ]]; then
-        echo "Usage: tut ctx set <org> [project] [subject]" >&2
+        echo "Usage: tut ctx set <org> [subject] [type]" >&2
         return 1
     fi
 
     # Validate org exists
-    local org_dir="$TETRA_DIR/orgs/$org"
-    if [[ ! -d "$org_dir" ]]; then
-        echo "Error: Org not found: $org" >&2
-        echo "  Available orgs:" >&2
-        ls -1 "$TETRA_DIR/orgs/" 2>/dev/null | sed 's/^/    /' >&2
+    if [[ ! -d "$TETRA_DIR/orgs/$org" ]]; then
+        echo "Org not found: $org" >&2
+        echo "Available:" >&2
+        ls -1 "$TETRA_DIR/orgs/" 2>/dev/null | sed 's/^/  /' >&2
         return 1
     fi
 
-    # Ensure PData structure exists
-    _tut_ensure_pdata "$org" "$project" "$subject"
-
-    # Set context
-    export TUT_CTX_ORG="$org"
-    export TUT_CTX_PROJECT="$project"
-    export TUT_CTX_SUBJECT="$subject"
-
-    # Save and register
-    _tut_ctx_save
-
-    # Change to context directory
-    local target_dir
-    target_dir=$(_tut_pd_data "$org" "$project" "$subject")
-    if [[ -d "$target_dir" ]]; then
-        cd "$target_dir" || true
-        echo "Context: TUT[$org:${project:-?}:${subject:-?}]"
-        echo "CWD: $target_dir"
-    fi
-}
-
-# Set just org (clear project/subject)
-tut_ctx_org() {
-    local org="$1"
-    tut_ctx_set "$org"
-}
-
-# Set project (inherit org, clear subject)
-tut_ctx_project() {
-    local project="$1"
-
-    if [[ -z "$TUT_CTX_ORG" ]]; then
-        echo "Error: No org set. Use 'tut ctx set <org> <project>' first." >&2
+    # Validate type if provided
+    if [[ -n "$type" ]] && ! _tut_valid_type "$type"; then
+        echo "Invalid type: $type" >&2
+        echo "Valid types: $TUT_VALID_TYPES" >&2
         return 1
     fi
 
-    tut_ctx_set "$TUT_CTX_ORG" "$project"
+    # Ensure tut structure exists
+    mkdir -p "$TETRA_DIR/orgs/$org/tut/src"
+    mkdir -p "$TETRA_DIR/orgs/$org/tut/compiled"
+
+    # Set context via tps_ctx (org:project:subject = org:subject:type)
+    tps_ctx set tut "$org" "$subject" "$type"
+
+    # Show result
+    echo "TUT[$org:${subject:-?}:${type:-?}]"
+
+    # cd to src dir
+    local src_dir
+    src_dir=$(_tut_src_dir "$org")
+    [[ -d "$src_dir" ]] && cd "$src_dir"
+    echo "src: $src_dir"
 }
 
-# Set subject (inherit org and project)
+# Set just subject (keep org and type)
 tut_ctx_subject() {
     local subject="$1"
+    local org=$(_tut_org)
+    local type=$(_tut_type)
 
-    if [[ -z "$TUT_CTX_ORG" || -z "$TUT_CTX_PROJECT" ]]; then
-        echo "Error: No org/project set. Use 'tut ctx set <org> <project> <subject>' first." >&2
-        return 1
-    fi
+    [[ -z "$org" ]] && { echo "No org set" >&2; return 1; }
+    tut_ctx_set "$org" "$subject" "$type"
+}
 
-    tut_ctx_set "$TUT_CTX_ORG" "$TUT_CTX_PROJECT" "$subject"
+# Set just type (keep org and subject)
+tut_ctx_type() {
+    local type="$1"
+    local org=$(_tut_org)
+    local subject=$(_tut_subject)
+
+    [[ -z "$org" ]] && { echo "No org set" >&2; return 1; }
+    [[ -z "$subject" ]] && { echo "No subject set" >&2; return 1; }
+    tut_ctx_set "$org" "$subject" "$type"
 }
 
 # Clear context
 tut_ctx_clear() {
-    export TUT_CTX_ORG=""
-    export TUT_CTX_PROJECT=""
-    export TUT_CTX_SUBJECT=""
-
-    _tut_ctx_save
-    _tut_unregister_prompt
-
+    tps_ctx clear tut
     echo "Context cleared"
 }
 
-# Show current context
+# Show context
 tut_ctx_status() {
+    local org=$(_tut_org)
+    local subject=$(_tut_subject)
+    local type=$(_tut_type)
+
     echo "TUT Context"
     echo "==========="
-    echo ""
-    echo "  Org:     ${TUT_CTX_ORG:-(not set)}"
-    echo "  Project: ${TUT_CTX_PROJECT:-(not set)}"
-    echo "  Subject: ${TUT_CTX_SUBJECT:-(not set)}"
+    echo "  Org:     ${org:-(not set)}"
+    echo "  Subject: ${subject:-(not set)}"
+    echo "  Type:    ${type:-(not set)}"
     echo ""
 
-    if [[ -n "$TUT_CTX_ORG" ]]; then
-        local pd_root=$(_tut_pd_root "$TUT_CTX_ORG")
-        local data_dir=$(_tut_pd_data "$TUT_CTX_ORG" "$TUT_CTX_PROJECT" "$TUT_CTX_SUBJECT")
-        echo "  PD Root: $pd_root"
-        echo "  CWD:     $data_dir"
-        echo ""
-        echo "  Preview: TUT[${TUT_CTX_ORG}:${TUT_CTX_PROJECT:-?}:${TUT_CTX_SUBJECT:-?}]"
+    if [[ -n "$org" ]]; then
+        local src_dir compiled_dir
+        src_dir=$(_tut_src_dir)
+        compiled_dir=$(_tut_compiled_dir)
+
+        echo "  Src:      $src_dir"
+        echo "  Compiled: $compiled_dir"
+
+        if [[ -n "$subject" && -n "$type" ]]; then
+            local src_file
+            src_file=$(_tut_src_file)
+            echo ""
+            printf "  File: ${subject}-${type}.json "
+            [[ -f "$src_file" ]] && echo "(exists)" || echo "(missing)"
+        fi
     fi
+
+    echo ""
+    echo "  Types: $TUT_VALID_TYPES"
 }
 
-# Main context command dispatcher
+# Main dispatcher
 tut_ctx() {
-    case "$1" in
-        set)
-            shift
-            tut_ctx_set "$@"
-            ;;
-        org)
-            shift
-            tut_ctx_org "$@"
-            ;;
-        project|proj)
-            shift
-            tut_ctx_project "$@"
-            ;;
-        subject|subj)
-            shift
-            tut_ctx_subject "$@"
-            ;;
-        clear)
-            tut_ctx_clear
-            ;;
-        status|"")
-            tut_ctx_status
-            ;;
+    local cmd="${1:-status}"
+    shift || true
+
+    case "$cmd" in
+        set)     tut_ctx_set "$@" ;;
+        subject) tut_ctx_subject "$@" ;;
+        type)    tut_ctx_type "$@" ;;
+        clear)   tut_ctx_clear ;;
+        status)  tut_ctx_status ;;
         *)
-            cat <<'EOF'
+            # Convenience: tut ctx tetra api ref
+            if [[ -d "$TETRA_DIR/orgs/$cmd" ]]; then
+                tut_ctx_set "$cmd" "$@"
+            else
+                cat <<'EOF'
 Usage: tut ctx <command>
 
 Commands:
-  set <org> [project] [subject]   Set full context
-  org <name>                      Set org (clears project/subject)
-  project <name>                  Set project (inherits org)
-  subject <name>                  Set subject (inherits org+project)
-  clear                           Clear all context
-  status                          Show current context
+  set <org> [subject] [type]   Set context
+  subject <name>               Set subject (keep org+type)
+  type <name>                  Set type (keep org+subject)
+  clear                        Clear context
+  status                       Show context
+
+Types: ref, guide, thesis
 
 Examples:
-  tut ctx set tetra docs overview   # Full context
-  tut ctx subject api               # Change subject only
-  tut ctx clear                     # Clear all
-
-Aliases: proj = project, subj = subject
+  tut ctx set tetra api ref    Full context
+  tut ctx tetra api ref        Shorthand
+  tut ctx subject deploy       Change subject
+  tut ctx type guide           Change type
 EOF
+            fi
             ;;
     esac
 }
 
 # =============================================================================
-# INITIALIZATION
+# BACKWARD COMPAT ALIASES
 # =============================================================================
 
-# Load persisted context on source
-_tut_ctx_load
+# Legacy variable access (read-only, for scripts that check these)
+TUT_CTX_ORG() { _tut_org; }
+TUT_CTX_SUBJECT() { _tut_subject; }
+TUT_CTX_TYPE() { _tut_type; }
 
 # =============================================================================
 # EXPORTS
 # =============================================================================
 
-export -f _tut_prompt_org _tut_prompt_project _tut_prompt_subject
-export -f _tut_register_prompt _tut_unregister_prompt
-export -f _tut_ctx_save _tut_ctx_load
-export -f _tut_pd_root _tut_pd_data _tut_ensure_pdata
-export -f tut_ctx_set tut_ctx_org tut_ctx_project tut_ctx_subject
-export -f tut_ctx_clear tut_ctx_status tut_ctx
+export -f _tut_org _tut_subject _tut_type
+export -f _tut_root _tut_src_dir _tut_compiled_dir
+export -f _tut_src_file _tut_compiled_file _tut_valid_type
+export -f tut_ctx tut_ctx_set tut_ctx_subject tut_ctx_type
+export -f tut_ctx_clear tut_ctx_status
