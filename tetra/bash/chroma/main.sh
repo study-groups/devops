@@ -10,19 +10,85 @@
 #   -m c    -> center content (auto left/right)
 
 _chroma_parse_margin() {
-    local val="${1:-0}"
+    local val="${1:-}"
 
-    _M_VAL=0 _M_CENTER=0
+    # Defaults
+    _M_TOP=2
+    _M_LEFT=4
+    _M_VAL=0
+    _M_CENTER=0
 
-    if [[ "$val" == "c" || "$val" == "center" ]]; then
+    # Empty means use defaults
+    if [[ -z "$val" ]]; then
+        return 0
+    elif [[ "$val" == "c" || "$val" == "center" ]]; then
         _M_CENTER=1
     elif [[ "$val" =~ ^[0-9]+$ ]]; then
         _M_VAL=$val
+        _M_TOP=$val
+        _M_LEFT=$val
     else
         echo "Error: margin must be a number or 'c' for center" >&2
         return 1
     fi
     return 0
+}
+
+# Normalize paragraphs: join continuation lines (lines with leading whitespace)
+# into proper paragraphs. Preserves code blocks, lists, headers, etc.
+_chroma_normalize_paragraphs() {
+    local in_code=0
+    local para_buf=""
+    local line
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Track code blocks
+        if [[ "$line" =~ ^\`\`\` ]]; then
+            # Flush paragraph buffer first
+            [[ -n "$para_buf" ]] && { echo "$para_buf"; para_buf=""; }
+            echo "$line"
+            in_code=$((1 - in_code))
+            continue
+        fi
+
+        # Inside code block - pass through
+        if (( in_code )); then
+            echo "$line"
+            continue
+        fi
+
+        # Empty line - flush paragraph
+        if [[ -z "$line" ]]; then
+            [[ -n "$para_buf" ]] && { echo "$para_buf"; para_buf=""; }
+            echo ""
+            continue
+        fi
+
+        # Special lines (headers, lists, quotes, tables, hr) - flush and pass through
+        if [[ "$line" =~ ^[\#\>\|\*\+] ]] || [[ "$line" =~ ^- ]] || [[ "$line" =~ ^[0-9]+\. ]]; then
+            [[ -n "$para_buf" ]] && { echo "$para_buf"; para_buf=""; }
+            echo "$line"
+            continue
+        fi
+
+        # Continuation line (starts with whitespace) - join to buffer
+        if [[ "$line" =~ ^[[:space:]]+ ]] && [[ -n "$para_buf" ]]; then
+            local trimmed="${line#"${line%%[![:space:]]*}"}"
+            para_buf+=" $trimmed"
+            continue
+        fi
+
+        # Regular text - start or continue paragraph
+        local trimmed="${line#"${line%%[![:space:]]*}"}"
+        if [[ -n "$para_buf" ]]; then
+            para_buf+=" $trimmed"
+        else
+            para_buf="$trimmed"
+        fi
+    done
+
+    # Flush remaining
+    [[ -n "$para_buf" ]] && echo "$para_buf"
 }
 
 # Render document header for browse mode
@@ -115,11 +181,12 @@ _chroma_browse() {
 
 chroma() {
     local file=""
-    local margin=0
-    local width=${COLUMNS:-80}
+    local margin=""  # empty = use defaults (top=2, left=4)
+    local width=66   # default content width
     local tmp=""
     local is_tmp=0
     local theme=""
+    local use_pager=""  # empty = auto (pager if piped)
     CHROMA_NO_COLOR=0
     CHROMA_TRUNCATE="${CHROMA_TRUNCATE:-0}"
 
@@ -201,6 +268,8 @@ chroma() {
             -m|--margin) margin="$2"; shift 2 ;;
             -w|--width) width="$2"; shift 2 ;;
             -t|--theme) theme="$2"; shift 2 ;;
+            -n|--no-pager) use_pager=0; shift ;;
+            -p|--pager) use_pager=1; shift ;;
             --no-color) CHROMA_NO_COLOR=1; shift ;;
             --truncate) CHROMA_TRUNCATE=1; shift ;;
             -h|--help) chroma_help; return 0 ;;
@@ -220,23 +289,41 @@ chroma() {
 
     # Get input
     if [[ -n "$file" && -f "$file" ]]; then
-        tmp="$file"
-    elif [[ ! -t 0 ]]; then
+        # Normalize paragraphs from file
         tmp=$(mktemp)
-        cat > "$tmp"
+        _chroma_normalize_paragraphs < "$file" > "$tmp"
+        is_tmp=1
+    elif [[ ! -t 0 ]]; then
+        # Capture stdin first, then normalize
+        local raw_tmp=$(mktemp)
+        cat > "$raw_tmp"
+        tmp=$(mktemp)
+        _chroma_normalize_paragraphs < "$raw_tmp" > "$tmp"
+        # DEBUG: show normalized content
+        [[ -n "${CHROMA_DEBUG:-}" ]] && { echo "=== Normalized ===" >&2; cat "$tmp" >&2; echo "=== End ===" >&2; }
+        rm -f "$raw_tmp"
         is_tmp=1
     else
         echo "Usage: chroma [file] or pipe content" >&2
         return 1
     fi
 
+    # Auto-enable pager when input is from pipe (unless explicitly set)
+    if [[ -z "$use_pager" ]]; then
+        if (( is_tmp )) && [[ -z "$file" ]]; then
+            # Input came from pipe - enable pager by default
+            use_pager=1
+        else
+            use_pager=0
+        fi
+    fi
+
     # Calculate content width
-    # -m N sets uniform margin, -m c centers content
     local term_width=${COLUMNS:-80}
     (( term_width < 40 )) && term_width=80
     (( term_width >= 200 )) && term_width=120
 
-    local left_margin=$_M_VAL
+    local left_margin=$_M_LEFT
 
     # Handle centering: auto-calculate left margin
     if (( _M_CENTER )); then
@@ -245,15 +332,7 @@ chroma() {
         left_margin=$(( (term_width - default_width) / 2 ))
     fi
 
-    local max_content=$((term_width - left_margin * 2))
-    local content_width
-
-    if (( width == term_width )); then
-        content_width=$max_content
-    else
-        content_width=$width
-        (( content_width > max_content )) && content_width=$max_content
-    fi
+    local content_width=$width
     (( content_width < 20 )) && content_width=20
 
     # Build margin string (left padding)
@@ -262,35 +341,42 @@ chroma() {
 
     # Top margin
     if [[ -z "${_CHROMA_SKIP_TOP_MARGIN:-}" ]]; then
-        for ((i=0; i<_M_VAL; i++)); do echo; done
+        for ((i=0; i<_M_TOP; i++)); do echo; done
     fi
 
-    # Reset parser state
-    _CHROMA_IN_CODE=0
-    _CHROMA_CODE_LANG=""
-    _CHROMA_RESULT=""
-    _CHROMA_IN_TABLE=0
-    _CHROMA_TABLE_ROWS=()
-    _CHROMA_TABLE_ALIGNS=()
-    _CHROMA_TABLE_WIDTHS=()
+    # Render function (can be piped to pager)
+    _chroma_do_render() {
+        # Reset parser state
+        _CHROMA_IN_CODE=0
+        _CHROMA_CODE_LANG=""
+        _CHROMA_RESULT=""
+        _CHROMA_IN_TABLE=0
+        _CHROMA_TABLE_ROWS=()
+        _CHROMA_TABLE_ALIGNS=()
+        _CHROMA_TABLE_WIDTHS=()
 
-    # Pre-render hook
-    _chroma_run_hooks pre_render "$tmp" "$pad" "$content_width"
+        # Pre-render hook
+        _chroma_run_hooks pre_render "$tmp" "$pad" "$content_width"
 
-    # Parse and render each line
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        _chroma_classify "$line"
-        _chroma_render_line "$_CHROMA_RESULT" "$pad" "$content_width"
-    done < "$tmp"
+        # Parse and render each line (input already normalized)
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            _chroma_classify "$line"
+            _chroma_render_line "$_CHROMA_RESULT" "$pad" "$content_width"
+        done < "$tmp"
 
-    # Flush any pending table at end of input
-    (( _CHROMA_IN_TABLE )) && _chroma_flush_table "$pad" "$content_width"
+        # Flush any pending table at end of input
+        (( _CHROMA_IN_TABLE )) && _chroma_flush_table "$pad" "$content_width"
 
-    # Post-render hook
-    _chroma_run_hooks post_render "$tmp"
+        # Post-render hook
+        _chroma_run_hooks post_render "$tmp"
+    }
 
-    # Bottom margin
-    for ((i=0; i<_M_VAL; i++)); do echo; done
+    # Execute with or without pager
+    if (( use_pager )); then
+        _chroma_do_render | ${CHROMA_PAGER:-less -R}
+    else
+        _chroma_do_render
+    fi
 
     # Cleanup
     if (( is_tmp )); then

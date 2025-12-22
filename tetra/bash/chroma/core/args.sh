@@ -17,7 +17,12 @@ chroma_parse_args() {
     CHROMA_PAGER=""  # empty=auto, 0=no, 1=yes
     CHROMA_SUBCOMMAND=""
     CHROMA_SUBCMD_ARGS=""
-    CHROMA_MARGIN=0
+    CHROMA_MARGIN=""  # empty=use defaults, number=uniform override
+
+    # Defaults
+    CHROMA_MARGIN_TOP=2
+    CHROMA_MARGIN_LEFT=4
+    TDS_MARKDOWN_WIDTH="${TDS_MARKDOWN_WIDTH:-66}"
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -93,10 +98,14 @@ chroma_parse_args() {
 }
 
 # Auto-detect pager mode
-# Call after input is resolved
+# Call after input is resolved (stdin already consumed)
 chroma_auto_pager() {
     if [[ -z "$CHROMA_PAGER" ]]; then
-        # Default: no pager (use -p to enable)
-        CHROMA_PAGER=0
+        # Enable pager when input came from pipe (temp file means stdin was used)
+        if (( CHROMA_INPUT_IS_TEMP )); then
+            CHROMA_PAGER=1
+        else
+            CHROMA_PAGER=0
+        fi
     fi
 }

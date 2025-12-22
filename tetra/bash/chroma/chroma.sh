@@ -38,10 +38,15 @@ chroma() {
     (( CHROMA_DEBUG )) && echo "[chroma] file=$CHROMA_INPUT_FILE format=$format pager=$CHROMA_PAGER" >&2
 
     # 6. Apply margins
-    if (( CHROMA_MARGIN > 0 )); then
+    if [[ -n "$CHROMA_MARGIN" ]]; then
+        # Uniform override from -m flag
         export TDS_MARGIN_TOP="$CHROMA_MARGIN"
         export TDS_MARGIN_LEFT="$CHROMA_MARGIN"
         export TDS_MARGIN_RIGHT="$CHROMA_MARGIN"
+    else
+        # Apply defaults
+        export TDS_MARGIN_TOP="${CHROMA_MARGIN_TOP:-2}"
+        export TDS_MARGIN_LEFT="${CHROMA_MARGIN_LEFT:-4}"
     fi
 
     # 7. Render
@@ -59,11 +64,13 @@ chroma() {
 #==============================================================================
 
 chroma_status() {
+    local term_width=${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}
     echo "Chroma Status"
     echo "  TDS loaded: ${TDS_LOADED:-false}"
     echo "  Parsers: ${#CHROMA_PARSER_ORDER[@]} (${CHROMA_PARSER_ORDER[*]})"
     echo "  Pager: ${CHROMA_PAGER_CMD}"
-    echo "  Width: ${TDS_MARKDOWN_WIDTH:-auto}"
+    echo "  Width: ${TDS_MARKDOWN_WIDTH:-auto} (term=$term_width)"
+    echo "  Margins: top=${CHROMA_MARGIN_TOP:-2} left=${CHROMA_MARGIN_LEFT:-4}"
 }
 
 #==============================================================================

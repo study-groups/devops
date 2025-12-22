@@ -191,7 +191,7 @@ _chroma_render_line() {
             if (( CHROMA_PATTERNS_ENABLED )) && _chroma_pattern_match "$content"; then
                 # Pattern matched - render with pattern styling
                 printf '%s' "$pad"
-                _chroma_render_pattern "$content" "text" "$((width - ${#pad}))"
+                _chroma_render_pattern "$content" "text" "$((width - ${#pad}))" "$pad"
                 echo
             else
                 # No pattern match - word-wrap long lines
