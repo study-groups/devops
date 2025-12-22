@@ -149,18 +149,29 @@ games_help_main() {
     _games_help_cmd "list                  " "List installed games"
     _games_help_cmd "play <game>           " "Play a game"
     _games_help_cmd "info <game>           " "Show game details"
-    _games_help_cmd "pak <game>            " "Create backup archive"
-    _games_help_cmd "unpak <file>          " "Restore from archive"
+    echo
+    _games_section "MANIFEST CRUD"
+    _games_help_cmd "get <slug> [field]    " "Read game from manifest"
+    _games_help_cmd "set <slug> <f> <v>    " "Set field value"
+    _games_help_cmd "add <slug> [opts]     " "Add new game"
+    _games_help_cmd "rm <slug>             " "Remove game"
+    _games_help_cmd "access <slug> [opts]  " "Set access control"
+    echo
+    _games_section "UPLOAD & DEPLOY"
+    _games_help_cmd "upload <zip>          " "Upload and extract game"
+    _games_help_cmd "url <slug>            " "Test game URL"
+    _games_help_cmd "deploy <slug> <host>  " "Deploy via SSH"
     echo
     _games_section "ORGANIZATION"
     _games_help_cmd "org [name]            " "Show or set active org"
     _games_help_cmd "orgs                  " "List all orgs with games"
     _games_help_cmd "search <query>        " "Search games across orgs"
     echo
-    _games_section "DEVELOPMENT"
-    _games_help_cmd "new <game>            " "Create new game scaffold"
-    _games_help_cmd "validate <game>       " "Validate game structure"
-    _games_help_cmd "doctor                " "Diagnose games environment"
+    _games_section "BACKUP & SYNC"
+    _games_help_cmd "pak <game>            " "Create backup archive"
+    _games_help_cmd "unpak <file>          " "Restore from archive"
+    _games_help_cmd "manifest rebuild      " "Rebuild from game.toml"
+    _games_help_cmd "doctor                " "Diagnose environment"
     echo
 
     _games_section "DIRECTORIES"
@@ -173,25 +184,25 @@ games_help_main() {
     echo
 
     _games_section "EXAMPLES"
-    _games_help_example "List games in current org" "games list"
-    _games_help_example "Play a game" "games play estoface"
-    _games_help_example "Switch org and list" "games org pixeljam && games list"
-    _games_help_example "Create backup" "games pak estoface"
+    _games_help_example "Add game to manifest" "games add my-game --name \"My Game\" --role user"
+    _games_help_example "Set access control" "games access my-game --auth --role premium"
+    _games_help_example "Upload game ZIP" "games upload my-game_ver-1.0.0.zip --s3"
+    _games_help_example "Deploy to server" "games deploy my-game user@arcade.example.com"
     echo
 
     _games_section "HELP TOPICS"
     printf "  "
-    _games_cmd "games help play"
+    _games_cmd "games help crud"
     printf "      "
-    _games_cln "$GAMES_C_DESC" "Game launching details"
+    _games_cln "$GAMES_C_DESC" "Manifest CRUD operations"
     printf "  "
-    _games_cmd "games help orgs"
-    printf "      "
-    _games_cln "$GAMES_C_DESC" "Organization structure"
+    _games_cmd "games help upload"
+    printf "    "
+    _games_cln "$GAMES_C_DESC" "Upload & URL testing"
     printf "  "
-    _games_cmd "games help pak"
-    printf "       "
-    _games_cln "$GAMES_C_DESC" "Backup and restore"
+    _games_cmd "games help deploy"
+    printf "    "
+    _games_cln "$GAMES_C_DESC" "SSH deployment"
     printf "  "
     _games_cmd "games help all"
     printf "       "
@@ -354,6 +365,153 @@ games_help_pak() {
 }
 
 # =============================================================================
+# TOPIC: CRUD
+# =============================================================================
+
+games_help_crud() {
+    _games_title "GAMES CRUD - Manifest Operations"
+    echo
+
+    _games_section "OVERVIEW"
+    _games_cln "$GAMES_C_DESC" "  Direct manipulation of games.json manifest. The manifest is the"
+    _games_cln "$GAMES_C_DESC" "  single source of truth - same data the admin UI edits."
+    echo
+
+    _games_section "COMMANDS"
+    _games_help_cmd "get <slug> [field]    " "Read game or specific field"
+    _games_help_cmd "set <slug> <f> <val>  " "Set field value"
+    _games_help_cmd "add <slug> [options]  " "Add new game entry"
+    _games_help_cmd "rm <slug>             " "Remove game from manifest"
+    _games_help_cmd "import <dir>          " "Import game.toml into manifest"
+    _games_help_cmd "access <slug> [opts]  " "Set access control"
+    echo
+
+    _games_section "ADD OPTIONS"
+    _games_help_flag "--name \"Name\"         " "Display name"
+    _games_help_flag "--summary \"Desc\"      " "Short description"
+    _games_help_flag "--version \"1.0.0\"     " "Version string"
+    _games_help_flag "--hide                " "Set show=false"
+    _games_help_flag "--auth                " "Require authentication"
+    _games_help_flag "--role <role>         " "guest|user|premium|dev|admin"
+    _games_help_flag "--subscription <tier> " "free|basic|pro|enterprise"
+    echo
+
+    _games_section "ACCESS OPTIONS"
+    _games_help_flag "--auth                " "Enable requires_auth"
+    _games_help_flag "--no-auth             " "Disable requires_auth"
+    _games_help_flag "--role <role>         " "Set minimum role"
+    _games_help_flag "--subscription <tier> " "Set minimum subscription"
+    echo
+
+    _games_section "EXAMPLES"
+    _games_help_example "Add game with options" "games add my-game --name \"My Game\" --role user"
+    _games_help_example "Get game JSON" "games get my-game"
+    _games_help_example "Get specific field" "games get my-game version"
+    _games_help_example "Set version" "games set my-game version \"2.0.0\""
+    _games_help_example "Set nested field" "games set my-game access_control.min_role premium"
+    _games_help_example "Configure access" "games access my-game --auth --role premium"
+    _games_help_example "Import from game.toml" "games import /path/to/game/"
+    echo
+}
+
+# =============================================================================
+# TOPIC: UPLOAD
+# =============================================================================
+
+games_help_upload() {
+    _games_title "GAMES UPLOAD - ZIP Upload & URL Testing"
+    echo
+
+    _games_section "UPLOAD USAGE"
+    printf "  "
+    _games_cmd "games upload"
+    printf " "
+    _games_flag "<file.zip>"
+    printf " "
+    _games_cln "$GAMES_C_DESC" "[options]"
+    echo
+
+    _games_section "FILENAME FORMAT"
+    _games_cln "$GAMES_C_DESC" "  Filenames should include slug and version:"
+    _games_cln "$GAMES_C_EXAMPLE" "  game-name_ver-1.0.0.zip    (underscore separator)"
+    _games_cln "$GAMES_C_EXAMPLE" "  game-name-ver-1.0.0.zip    (hyphen separator)"
+    echo
+
+    _games_section "UPLOAD OPTIONS"
+    _games_help_flag "--s3, --sync          " "Also upload to S3 after local"
+    _games_help_flag "--dry-run, -n         " "Parse filename only"
+    _games_help_flag "--force, -f           " "Overwrite without prompt"
+    echo
+
+    _games_section "URL TESTING"
+    printf "  "
+    _games_cmd "games url"
+    printf " "
+    _games_flag "<slug>"
+    printf " "
+    _games_cln "$GAMES_C_DESC" "[variant]"
+    echo
+    _games_cln "$GAMES_C_DESC" "  Variants: default, demo, dev"
+    echo
+
+    _games_section "EXAMPLES"
+    _games_help_example "Upload game" "games upload dillo_ver-2.0.0.zip"
+    _games_help_example "Upload with S3 sync" "games upload my-game_ver-1.0.0.zip --s3"
+    _games_help_example "Dry run (parse only)" "games upload game-ver-1.0.0.zip --dry-run"
+    _games_help_example "Test URL" "games url my-game"
+    _games_help_example "Test demo variant" "games url my-game demo"
+    echo
+}
+
+# =============================================================================
+# TOPIC: DEPLOY
+# =============================================================================
+
+games_help_deploy() {
+    _games_title "GAMES DEPLOY - SSH Deployment"
+    echo
+
+    _games_section "USAGE"
+    printf "  "
+    _games_cmd "games deploy"
+    printf " "
+    _games_flag "<slug> <host>"
+    printf " "
+    _games_cln "$GAMES_C_DESC" "[options]"
+    printf "  "
+    _games_cmd "games deploy"
+    printf " "
+    _games_flag "--manifest <host>"
+    printf " "
+    _games_cln "$GAMES_C_DESC" "[options]"
+    echo
+
+    _games_section "OPTIONS"
+    _games_help_flag "--key, -i <path>      " "SSH private key file"
+    _games_help_flag "--user, -u <user>     " "SSH username"
+    _games_help_flag "--dest, -d <path>     " "Remote destination (default: /var/www/games)"
+    _games_help_flag "--s3                  " "Deploy from S3 instead of local"
+    _games_help_flag "--manifest            " "Deploy games.json only"
+    _games_help_flag "--dry-run, -n         " "Show commands without executing"
+    echo
+
+    _games_section "RELATED COMMANDS"
+    _games_help_cmd "deploy-all <host>     " "Deploy all games"
+    _games_help_cmd "deploy-status <host>  " "Check deployment status"
+    echo
+
+    _games_section "EXAMPLES"
+    _games_help_example "Deploy single game" "games deploy my-game arcade.example.com"
+    _games_help_example "With SSH key" "games deploy my-game user@host --key ~/.ssh/deploy"
+    _games_help_example "Deploy manifest only" "games deploy --manifest arcade.example.com"
+    _games_help_example "Custom destination" "games deploy my-game host --dest /opt/pja/games"
+    _games_help_example "Dry run" "games deploy my-game host --dry-run"
+    _games_help_example "Deploy all games" "games deploy-all arcade.example.com"
+    _games_help_example "Check status" "games deploy-status arcade.example.com"
+    echo
+}
+
+# =============================================================================
 # FULL COMMAND REFERENCE
 # =============================================================================
 
@@ -382,7 +540,23 @@ games_help_all() {
     _games_help_cmd "list                  " "List installed games in current org"
     _games_help_cmd "play <game> [args]    " "Launch a game"
     _games_help_cmd "info <game>           " "Show game metadata and paths"
-    _games_help_cmd "validate <game>       " "Validate game structure"
+    echo
+
+    _games_section "MANIFEST CRUD (games.json is source of truth)"
+    _games_help_cmd "get <slug> [field]    " "Read game or field from manifest"
+    _games_help_cmd "set <slug> <f> <val>  " "Set field value"
+    _games_help_cmd "add <slug> [options]  " "Add new game entry"
+    _games_help_cmd "rm <slug>             " "Remove game from manifest"
+    _games_help_cmd "import <dir>          " "Import game.toml into manifest"
+    _games_help_cmd "access <slug> [opts]  " "Set access control"
+    echo
+
+    _games_section "UPLOAD & DEPLOY"
+    _games_help_cmd "upload <zip> [opts]   " "Upload and extract game ZIP"
+    _games_help_cmd "url <slug> [variant]  " "Test game URL resolution"
+    _games_help_cmd "deploy <slug> <host>  " "Deploy game via SSH"
+    _games_help_cmd "deploy-all <host>     " "Deploy all games"
+    _games_help_cmd "deploy-status <host>  " "Check deployment status"
     echo
 
     _games_section "ORGANIZATION"
@@ -392,34 +566,23 @@ games_help_all() {
     _games_help_cmd "search <query>        " "Search games across all orgs"
     echo
 
-    _games_section "BACKUP & RESTORE"
+    _games_section "BACKUP & SYNC"
     _games_help_cmd "pak <game> [file]     " "Create gamepak archive"
     _games_help_cmd "unpak <file>          " "Extract gamepak to games dir"
-    echo
-
-    _games_section "DEVELOPMENT"
-    _games_help_cmd "new <game>            " "Create new game from template"
+    _games_help_cmd "manifest rebuild      " "Rebuild manifest from game.toml"
+    _games_help_cmd "manifest list         " "Show games in manifest"
     _games_help_cmd "doctor                " "Diagnose games environment"
     echo
 
     _games_section "CONTEXT VARIABLES"
     _games_help_flag "GAMES_ORG             " "Override active org"
-    _games_help_flag "GAMES_SRC             " "Module source path"
-    _games_help_flag "GAMES_DIR             " "Default games directory"
+    _games_help_flag "PJA_GAMES_DIR         " "Manifest location"
+    _games_help_flag "TETRA_SRC             " "Tetra source (no /bash)"
     echo
 
-    _games_section "DIRECTORY STRUCTURE"
-    _games_cln "$GAMES_C_DESC" "  Source:  \$TETRA_DIR/orgs/<org>/games/<game>/"
-    _games_cln "$GAMES_C_DESC" "  Runtime: \$TETRA_DIR/games/<game>/"
-    _games_cln "$GAMES_C_DESC" "  Config:  <game>/game.toml"
-    echo
-
-    _games_section "GAME.TOML FORMAT"
-    _games_cln "$GAMES_C_COMMENT" "  [game]"
-    _games_cln "$GAMES_C_DESC" "  name = \"My Game\""
-    _games_cln "$GAMES_C_DESC" "  version = \"1.0.0\""
-    _games_cln "$GAMES_C_DESC" "  description = \"Game description\""
-    _games_cln "$GAMES_C_DESC" "  repl = \"core/mygame_repl.sh\""
+    _games_section "MANIFEST LOCATION"
+    _games_cln "$GAMES_C_DESC" "  \$PJA_GAMES_DIR/games.json"
+    _games_cln "$GAMES_C_DESC" "  Default: \$TETRA_DIR/orgs/pixeljam-arcade/games/games.json"
     echo
 }
 
@@ -441,6 +604,18 @@ games_help_topic() {
         pak|pack|backup|restore|unpak)
             games_help_pak "$@"
             ;;
+        crud|get|set|add|rm|access|import)
+            games_help_crud "$@"
+            ;;
+        upload|url)
+            games_help_upload "$@"
+            ;;
+        deploy|deploy-all|deploy-status)
+            games_help_deploy "$@"
+            ;;
+        manifest)
+            games_help_crud "$@"
+            ;;
         all|full|reference)
             games_help_all "$@"
             ;;
@@ -449,7 +624,7 @@ games_help_topic() {
             ;;
         *)
             _games_cln "$GAMES_C_ERROR" "Unknown help topic: $topic"
-            echo "Topics: play, orgs, pak, all"
+            echo "Topics: crud, upload, deploy, play, orgs, pak, all"
             return 1
             ;;
     esac
@@ -463,5 +638,8 @@ export -f games_help_main
 export -f games_help_play
 export -f games_help_orgs
 export -f games_help_pak
+export -f games_help_crud
+export -f games_help_upload
+export -f games_help_deploy
 export -f games_help_all
 export -f games_help_topic
