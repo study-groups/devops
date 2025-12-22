@@ -281,10 +281,23 @@ _tps_build_all_context_lines_ref() {
     done
 }
 
-# Legacy wrapper
+# Legacy wrapper - merges old API (_TPS_CTX_LINES) and new API (tps_ctx_lines)
 _tps_build_all_context_lines() {
-    local result
+    local result kv_lines
     _tps_build_all_context_lines_ref result
+
+    # Also include lines from context_kv (new tps_ctx API)
+    if type tps_ctx_lines &>/dev/null; then
+        kv_lines=$(tps_ctx_lines 2>/dev/null)
+        if [[ -n "$kv_lines" ]]; then
+            if [[ -n "$result" ]]; then
+                result+=$'\n'"$kv_lines"
+            else
+                result="$kv_lines"
+            fi
+        fi
+    fi
+
     [[ -n "$result" ]] && echo "$result"
 }
 
