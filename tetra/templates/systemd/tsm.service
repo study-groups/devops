@@ -1,0 +1,51 @@
+[Unit]
+Description=Tetra Service Manager - Multi-Service Orchestrator
+Documentation=https://github.com/pixeljam/tetra
+After=network.target
+Wants=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User={{user}}
+Group={{user}}
+WorkingDirectory={{tetra_dir}}
+
+# Environment variables
+Environment=TETRA_SRC={{tetra_src}}
+Environment=TETRA_DIR={{tetra_dir}}
+Environment=TETRA_ENV={{env}}
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
+
+# Ensure runtime directories exist
+ExecStartPre=/bin/bash -c '/bin/mkdir -p {{tetra_dir}}/logs {{tetra_dir}}/tsm/runtime/processes {{tetra_dir}}/tsm/services-enabled'
+ExecStartPre=/bin/bash -c '/bin/chmod 755 {{tetra_dir}} {{tetra_dir}}/logs {{tetra_dir}}/tsm'
+
+# Start all enabled TSM services
+ExecStart=/bin/bash -c 'source {{tetra_dir}}/tetra.sh && tsm startup'
+
+# Stop all running TSM services
+ExecStop=/bin/bash -c 'source {{tetra_dir}}/tetra.sh && tsm stop "*"'
+
+# Reload: restart all services
+ExecReload=/bin/bash -c 'source {{tetra_dir}}/tetra.sh && tsm stop "*" && tsm startup'
+
+# Timing
+TimeoutStartSec=120s
+TimeoutStopSec=60s
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+# Resource limits (aggregate for all TSM-managed services)
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tsm
+
+[Install]
+WantedBy=multi-user.target
