@@ -127,7 +127,7 @@
             this.updateElement(el, State.get(path), format);
 
             // Subscribe to state changes
-            const unsubscribe = this.on(this.EVENTS.STATE_CHANGE, (data) => {
+            const unsubscribe = this.on(TerrainEvents.STATE_CHANGE, (data) => {
                 // Update if this path changed or if it's a bulk update
                 if (!data || !data.path || data.path === path || data.path === '*' || path.startsWith(data.path + '.')) {
                     this.updateElement(el, State.get(path), format);
@@ -263,35 +263,55 @@
         }
     };
 
-    // Standard event names
-    TerrainEvents.EVENTS = {
-        // Lifecycle
-        READY: 'terrain:ready',
-        DESTROY: 'terrain:destroy',
+    // Standard event names - all use kebab-case with namespace prefix
+    // Direct properties: Events.NODE_ADD, Events.emit(Events.NODE_ADD, data)
 
-        // State
-        STATE_CHANGE: 'state:change',
-        STATE_LOADED: 'state:loaded',
-        STATE_SAVED: 'state:saved',
+    // Lifecycle
+    TerrainEvents.READY = 'terrain:ready';
+    TerrainEvents.DESTROY = 'terrain:destroy';
 
-        // Canvas
-        CANVAS_PAN: 'canvas:pan',
-        CANVAS_TRANSFORM: 'canvas:transform',
+    // State
+    TerrainEvents.STATE_CHANGE = 'state:change';
+    TerrainEvents.STATE_LOADED = 'state:loaded';
+    TerrainEvents.STATE_SAVED = 'state:saved';
 
-        // Projects
-        PROJECT_ADD: 'project:add',
-        PROJECT_UPDATE: 'project:update',
-        PROJECT_DELETE: 'project:delete',
-        PROJECT_MOVE: 'project:move',
+    // Canvas
+    TerrainEvents.CANVAS_PAN = 'canvas:pan';
+    TerrainEvents.CANVAS_TRANSFORM = 'canvas:transform';
 
-        // UI
-        UI_TOGGLE: 'ui:toggle',
-        CONFIG_OPEN: 'config:open',
-        CONFIG_CLOSE: 'config:close',
+    // Nodes
+    TerrainEvents.NODE_ADD = 'node:add';
+    TerrainEvents.NODE_UPDATE = 'node:update';
+    TerrainEvents.NODE_DELETE = 'node:delete';
+    TerrainEvents.NODE_SELECT = 'node:select';
+    TerrainEvents.NODE_EXPAND = 'node:expand';
+    TerrainEvents.NODE_COLLAPSE = 'node:collapse';
+    TerrainEvents.NODE_MOVE = 'node:move';
 
-        // Toasts
-        TOAST_STACK_UPDATE: 'toast:stack:update'
-    };
+    // Mode & Theme
+    TerrainEvents.MODE_APPLIED = 'mode:applied';
+    TerrainEvents.THEME_CHANGED = 'theme:changed';
+
+    // Routing
+    TerrainEvents.ROUTE_CHANGE = 'route:change';
+
+    // Auth
+    TerrainEvents.AUTH_INIT = 'auth:init';
+    TerrainEvents.AUTH_CHANGE = 'auth:change';
+    TerrainEvents.AUTH_LOGOUT = 'auth:logout';
+
+    // Iframe / Bridge
+    TerrainEvents.IFRAME_MESSAGE = 'iframe:message';
+    TerrainEvents.BRIDGE_MESSAGE = 'bridge:message';
+    TerrainEvents.MODULE_REGISTER = 'terrain:module:register';
+
+    // UI
+    TerrainEvents.UI_TOGGLE = 'ui:toggle';
+    TerrainEvents.CONFIG_OPEN = 'config:open';
+    TerrainEvents.CONFIG_CLOSE = 'config:close';
+
+    // Toasts
+    TerrainEvents.TOAST_STACK_UPDATE = 'toast:stack:update';
 
     // Export to window.Terrain namespace
     window.Terrain = window.Terrain || {};

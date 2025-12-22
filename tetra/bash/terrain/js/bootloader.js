@@ -88,7 +88,7 @@
             }
             // Fallback defaults
             return {
-                projects: [
+                nodes: [
                     { id: 'terrain', title: 'Terrain', desc: 'Create spaces.', link: '/projects/index.html', status: 'draft', x: 101, y: 155 },
                     { id: 'synthetic-iris', title: 'Synthetic Iris', desc: 'Generative plant genetics', link: './synthetic-iris/index.html', status: 'draft', x: 102, y: 352 }
                 ]
@@ -99,6 +99,16 @@
          * Initialize modules after loading
          */
         initModules: function() {
+            // Initialize TERRAIN.CSS and TERRAIN.UI first
+            if (TERRAIN.CSS && typeof TERRAIN.CSS.init === 'function') {
+                TERRAIN.CSS.init();
+                this.log('TERRAIN.CSS initialized');
+            }
+            if (TERRAIN.UI && typeof TERRAIN.UI.init === 'function') {
+                TERRAIN.UI.init();
+                this.log('TERRAIN.UI initialized');
+            }
+
             // Initialize each module that has an init function
             const modules = ['Canvas', 'Grid', 'Nodes', 'Toasts', 'Persistence', 'ConfigPanel', 'Popups'];
             modules.forEach(name => {
@@ -146,6 +156,13 @@
                 await this.loadScript('js/core/terrain-bridge.js');
                 this.log('TERRAIN bridge loaded');
 
+                // Phase 1.62: Load TERRAIN.CSS and TERRAIN.UI
+                await Promise.all([
+                    this.loadScript('js/core/terrain-css.js'),
+                    this.loadScript('js/core/terrain-ui.js')
+                ]);
+                this.log('TERRAIN.CSS and TERRAIN.UI loaded');
+
                 // Phase 1.65: Load CardBase (shared card functionality)
                 await this.loadScript('js/core/card-base.js');
                 this.log('CardBase loaded');
@@ -164,6 +181,7 @@
                 await Promise.all([
                     this.loadCSS(themePath),
                     this.loadCSS('css/core.css'),
+                    this.loadCSS('css/terrain-ui.css'),
                     this.loadCSS('css/components/nodes.css'),
                     this.loadCSS('css/components/toasts.css'),
                     this.loadCSS('css/components/panels.css')
@@ -174,7 +192,6 @@
                 await Promise.all([
                     this.loadScript('js/modules/canvas.js'),
                     this.loadScript('js/modules/grid.js'),
-                    this.loadScript('js/modules/iframes.js'),
                     this.loadScript('js/modules/cli.js'),
                     this.loadScript('js/modules/nodes.js'),
                     this.loadScript('js/modules/toasts.js'),
@@ -217,20 +234,9 @@
                     }
                 }
 
-                // Phase 5.5: Load skins module
-                await this.loadScript('js/core/skins.js');
-                this.log('Skins module loaded');
-
-                // Initialize skins (loads terrain.config.json)
-                if (Terrain.Skins) {
-                    await Terrain.Skins.init();
-                    this.log('Skins initialized: ' + (Terrain.Skins.getCurrentName() || 'default'));
-                }
-
                 // Phase 6: Load defaults and restore state
                 const defaults = await this.loadDefaults();
-                // Support both 'nodes' and legacy 'projects' key
-                const nodes = defaults.nodes || defaults.projects || [];
+                const nodes = defaults.nodes || [];
                 Terrain.State.nodes.setAll(nodes);
                 this.log('Default data loaded (' + nodes.length + ' nodes)');
 
@@ -251,7 +257,7 @@
                 }
 
                 // Phase 9: Fire ready event
-                Terrain.Events.emit(Terrain.Events.EVENTS.READY, {
+                Terrain.Events.emit(Terrain.Events.READY, {
                     loadTime: Date.now() - this.startTime,
                     modules: this.loaded
                 });

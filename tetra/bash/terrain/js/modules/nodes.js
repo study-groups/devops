@@ -163,12 +163,12 @@
         stateKey: 'nodes',
         cardClass: 'terrain-node',
         events: {
-            select: 'NODE_SELECT',
-            expand: 'NODE_EXPAND',
-            collapse: 'NODE_COLLAPSE',
-            move: 'NODE_MOVE',
-            update: 'NODE_UPDATE',
-            toggle: 'UI_TOGGLE'
+            select: 'node:select',
+            expand: 'node:expand',
+            collapse: 'node:collapse',
+            move: 'node:move',
+            update: 'node:update',
+            toggle: 'ui:toggle'
         },
         renderCard: renderNodeHTML,
         onExpand: onNodeExpand,
@@ -183,16 +183,6 @@
     // Add node-specific methods
     TerrainNodes.getNodeType = getNodeType;
     TerrainNodes.NODE_TYPES = NODE_TYPES;
-
-    // Aliases for backwards compatibility
-    TerrainNodes.renderAll = TerrainNodes.renderAll;
-    TerrainNodes.createNode = TerrainNodes.createCard;
-    TerrainNodes.selectNode = TerrainNodes.select;
-    TerrainNodes.expandNode = TerrainNodes.expand;
-    TerrainNodes.collapseNode = TerrainNodes.collapse;
-    TerrainNodes.collapseAllNodes = TerrainNodes.collapseAll;
-    TerrainNodes.editNode = TerrainNodes.edit;
-    TerrainNodes.addNode = TerrainNodes.add;
 
     // Export
     window.Terrain = window.Terrain || {};

@@ -1,0 +1,477 @@
+/**
+ * TERRAIN.UI Component Styles
+ * Unified styling for UI components
+ */
+
+/* ═══════════════════════════════════════════════════════════════
+   SIDEBAR
+   ═══════════════════════════════════════════════════════════════ */
+
+.terrain-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(-100%);
+    transition: transform var(--tempo-normal);
+    z-index: var(--z-sidebar);
+}
+
+.terrain-sidebar--left {
+    left: 0;
+}
+
+.terrain-sidebar--right {
+    right: 0;
+    left: auto;
+    border-right: none;
+    border-left: 1px solid var(--border);
+    transform: translateX(100%);
+}
+
+.terrain-sidebar--visible {
+    transform: translateX(0);
+}
+
+.terrain-sidebar__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--gap-sm) var(--gap-md);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-tertiary);
+}
+
+.terrain-sidebar__title {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.terrain-sidebar__toggle {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1.2em;
+    padding: var(--gap-xs);
+}
+
+.terrain-sidebar__toggle:hover {
+    color: var(--text-primary);
+}
+
+.terrain-sidebar__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--gap-md);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HEADER
+   ═══════════════════════════════════════════════════════════════ */
+
+.terrain-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--gap-sm) var(--gap-lg);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+}
+
+.terrain-header__title-area {
+    display: flex;
+    align-items: baseline;
+    gap: var(--gap-md);
+}
+
+.terrain-header__title {
+    margin: 0;
+    font-size: 1.25em;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.terrain-header__subtitle {
+    font-size: 0.9em;
+    color: var(--text-muted);
+}
+
+.terrain-header__actions {
+    display: flex;
+    gap: var(--gap-sm);
+}
+
+.terrain-header__action {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--curve-sm);
+    color: var(--text-secondary);
+    padding: var(--gap-xs) var(--gap-sm);
+    cursor: pointer;
+    transition: all var(--tempo-fast);
+}
+
+.terrain-header__action:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--border-visible);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FOOTER
+   ═══════════════════════════════════════════════════════════════ */
+
+.terrain-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--gap-sm) var(--gap-lg);
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+}
+
+.terrain-footer__status {
+    font-size: 0.85em;
+    color: var(--text-muted);
+}
+
+.terrain-footer__actions {
+    display: flex;
+    gap: var(--gap-sm);
+}
+
+.terrain-footer__action {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--curve-sm);
+    color: var(--text-secondary);
+    padding: var(--gap-xs) var(--gap-sm);
+    cursor: pointer;
+    font-size: 0.85em;
+}
+
+.terrain-footer__action:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FAB (Floating Action Button)
+   ═══════════════════════════════════════════════════════════════ */
+
+.terrain-fab-container {
+    position: fixed;
+    z-index: var(--z-fab);
+}
+
+.terrain-fab--bottom-right {
+    right: var(--gap-lg);
+    bottom: var(--gap-lg);
+}
+
+.terrain-fab--bottom-left {
+    left: var(--gap-lg);
+    bottom: var(--gap-lg);
+}
+
+.terrain-fab--top-right {
+    right: var(--gap-lg);
+    top: var(--gap-lg);
+}
+
+.terrain-fab--top-left {
+    left: var(--gap-lg);
+    top: var(--gap-lg);
+}
+
+.terrain-fab {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--curve-full);
+    background: var(--accent-primary);
+    border: none;
+    color: var(--bg-primary);
+    font-size: 1.5em;
+    cursor: pointer;
+    box-shadow: var(--depth-md);
+    transition: all var(--tempo-fast);
+}
+
+.terrain-fab:hover {
+    transform: scale(1.1);
+    box-shadow: var(--depth-lg);
+}
+
+.terrain-fab__menu {
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-sm);
+    padding-bottom: var(--gap-sm);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(10px);
+    transition: all var(--tempo-fast);
+}
+
+.terrain-fab--open .terrain-fab__menu {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+
+.terrain-fab__action {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--curve-full);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    cursor: pointer;
+    box-shadow: var(--depth-sm);
+    transition: all var(--tempo-fast);
+}
+
+.terrain-fab__action:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PANEL (Draggable)
+   ═══════════════════════════════════════════════════════════════ */
+
+.terrain-panel {
+    position: fixed;
+    min-width: 280px;
+    max-width: 400px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--curve-md);
+    box-shadow: var(--depth-lg);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(20px);
+    transition: all var(--tempo-normal);
+    z-index: var(--z-panel);
+}
+
+.terrain-panel--visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+
+.terrain-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--gap-sm) var(--gap-md);
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border);
+    border-radius: var(--curve-md) var(--curve-md) 0 0;
+    user-select: none;
+}
+
+.terrain-panel__title {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.terrain-panel__close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.terrain-panel__close:hover {
+    color: var(--error);
+}
+
+.terrain-panel__body {
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: var(--gap-sm);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SUBPANEL (Collapsible Section)
+   ═══════════════════════════════════════════════════════════════ */
+
+.terrain-subpanel {
+    border: 1px solid var(--border);
+    border-radius: var(--curve-sm);
+    margin-bottom: var(--gap-sm);
+    overflow: hidden;
+}
+
+.terrain-subpanel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--gap-sm) var(--gap-md);
+    background: var(--bg-tertiary);
+    cursor: pointer;
+    user-select: none;
+}
+
+.terrain-subpanel__header:hover {
+    background: var(--bg-hover);
+}
+
+.terrain-subpanel__title {
+    font-weight: 500;
+    color: var(--text-primary);
+    font-size: 0.9em;
+}
+
+.terrain-subpanel__icon {
+    color: var(--text-muted);
+    font-size: 0.7em;
+}
+
+.terrain-subpanel__body {
+    padding: var(--gap-md);
+    background: var(--bg-primary);
+}
+
+.terrain-subpanel--collapsed .terrain-subpanel__body {
+    display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TOAST
+   ═══════════════════════════════════════════════════════════════ */
+
+.terrain-toast {
+    position: fixed;
+    bottom: var(--gap-lg);
+    left: 50%;
+    transform: translateX(-50%) translateY(100%);
+    padding: var(--gap-sm) var(--gap-lg);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--curve-md);
+    color: var(--text-primary);
+    box-shadow: var(--depth-md);
+    opacity: 0;
+    transition: all var(--tempo-normal);
+    z-index: var(--z-toast);
+}
+
+.terrain-toast--visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.terrain-toast--success {
+    border-color: var(--success);
+    background: color-mix(in srgb, var(--success) 15%, var(--bg-tertiary));
+}
+
+.terrain-toast--error {
+    border-color: var(--error);
+    background: color-mix(in srgb, var(--error) 15%, var(--bg-tertiary));
+}
+
+.terrain-toast--warning {
+    border-color: var(--warning);
+    background: color-mix(in srgb, var(--warning) 15%, var(--bg-tertiary));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MODAL
+   ═══════════════════════════════════════════════════════════════ */
+
+.terrain-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: var(--z-modal);
+}
+
+.terrain-modal {
+    min-width: 300px;
+    max-width: 500px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--curve-md);
+    box-shadow: var(--depth-lg);
+}
+
+.terrain-modal__header {
+    padding: var(--gap-md);
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border);
+}
+
+.terrain-modal__body {
+    padding: var(--gap-lg);
+    color: var(--text-secondary);
+}
+
+.terrain-modal__input {
+    width: 100%;
+    margin-top: var(--gap-md);
+    padding: var(--gap-sm);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--curve-sm);
+    color: var(--text-primary);
+    font-family: inherit;
+}
+
+.terrain-modal__input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.terrain-modal__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--gap-sm);
+    padding: var(--gap-md);
+    border-top: 1px solid var(--border);
+}
+
+.terrain-modal__btn {
+    padding: var(--gap-sm) var(--gap-lg);
+    border: 1px solid var(--border);
+    border-radius: var(--curve-sm);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all var(--tempo-fast);
+}
+
+.terrain-modal__btn:hover {
+    background: var(--bg-hover);
+}
+
+.terrain-modal__btn--confirm {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--bg-primary);
+}
+
+.terrain-modal__btn--confirm:hover {
+    filter: brightness(1.1);
+}
+
+.terrain-modal__btn--cancel {
+    background: transparent;
+}

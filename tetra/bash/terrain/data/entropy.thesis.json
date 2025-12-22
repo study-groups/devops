@@ -1,0 +1,221 @@
+{
+  "schema_version": "doc-ast/0.1",
+  "document": {
+    "id": "doc:entropy-analog-computation-kuwamoto-1995",
+    "title": "Entropy and Analog Computation",
+    "author": "Sho Kuwamoto",
+    "institution": "Purdue University",
+    "degree": "Doctor of Philosophy",
+    "date": "1995-08",
+    "advisor": "Arnold Tubis",
+    "source": {
+      "file": "EntropyAndAnalogComputation-ShoKuwamoto.pdf"
+    }
+  },
+
+  "prompt_templates": {
+    "diagram_from_caption": {
+      "inputs": ["figure_number", "caption", "chapter_context", "local_context_summary"],
+      "prompt": "Create a clean technical diagram for {figure_number}: \"{caption}\". Context: {chapter_context}. Intended meaning: {local_context_summary}. Use monochrome line art, labeled components, and minimal annotations. Return SVG."
+    },
+    "plot_from_caption": {
+      "inputs": ["figure_number", "caption", "axes_guess", "local_context_summary"],
+      "prompt": "Recreate a publication-style plot for {figure_number}: \"{caption}\". Likely axes: {axes_guess}. Meaning: {local_context_summary}. Return SVG with labeled axes and a legend if needed."
+    },
+    "equation_placeholder": {
+      "inputs": ["equation_id", "surrounding_text", "symbol_hints"],
+      "prompt": "Derive a LaTeX equation for {equation_id} from the surrounding prose. Surrounding text: {surrounding_text}. Symbol hints: {symbol_hints}. If ambiguous, emit \\text{[UNRESOLVED]} terms but keep structure."
+    },
+    "paragraph_semantics": {
+      "inputs": ["text"],
+      "prompt": "Convert the paragraph into a compact semantic record: claims, definitions, assumptions, dependencies, and referenced entities. Output JSON only."
+    }
+  },
+
+  "outline": [
+    {
+      "id": "sec:ch1",
+      "type": "chapter",
+      "number": "1",
+      "title": "Introduction and Review",
+      "children": ["sec:ch1.s1"]
+    },
+    {
+      "id": "sec:ch2",
+      "type": "chapter",
+      "number": "2",
+      "title": "Theoretical difficulties extending physics-of-computation to analog",
+      "children": []
+    },
+    {
+      "id": "sec:ch3",
+      "type": "chapter",
+      "number": "3",
+      "title": "Invertible neural network architecture (Fredkin-gate-based)",
+      "children": []
+    },
+    {
+      "id": "sec:ch4",
+      "type": "chapter",
+      "number": "4",
+      "title": "Software Implementation (energy function, gradients, training)",
+      "children": []
+    },
+    {
+      "id": "sec:ch5",
+      "type": "chapter",
+      "number": "5",
+      "title": "Simulation Results",
+      "children": []
+    },
+    {
+      "id": "sec:ch6",
+      "type": "chapter",
+      "number": "6",
+      "title": "Discussion and Concluding Remarks",
+      "children": []
+    }
+  ],
+
+  "nodes": [
+    {
+      "id": "fm:title",
+      "type": "front_matter.title_page",
+      "text": "Entropy and Analog Computation — A Thesis — Submitted to the Faculty of Purdue University — Sho Kuwamoto — Doctor of Philosophy — August 1995",
+      "source_hint": { "pages": [5, 6] },
+      "semantics": {
+        "role": "bibliographic_identity"
+      }
+    },
+    {
+      "id": "fm:ack",
+      "type": "front_matter.acknowledgments",
+      "text": "[PLACEHOLDER: acknowledgments text span]",
+      "source_hint": { "pages": [8, 9] },
+      "semantics": {
+        "role": "credits"
+      }
+    },
+    {
+      "id": "fm:abstract",
+      "type": "front_matter.abstract",
+      "text": "[EXTRACTED ABSTRACT PARAGRAPHS]",
+      "source_hint": { "pages": [17, 18] },
+      "semantics": {
+        "claims": [
+          "Entropy arguments bound mandatory dissipation in digital computation (~kT × bits destroyed).",
+          "Analog computation raises distinct physics-of-computation obstacles.",
+          "Proposes an invertible neural-computation model loosely based on the Fredkin gate and tests it via simulation."
+        ],
+        "entities": ["entropy", "kT", "analog computation", "Fredkin gate", "invertible neural network"]
+      }
+    },
+    {
+      "id": "sec:ch1.s1",
+      "type": "section",
+      "number": "1.1",
+      "title": "Overview",
+      "children": ["p:ch1.s1.1", "p:ch1.s1.2"]
+    },
+    {
+      "id": "p:ch1.s1.1",
+      "type": "paragraph",
+      "text": "[PLACEHOLDER: overview paragraph(s) describing thesis scope and chapter-by-chapter plan]",
+      "source_hint": { "pages": [19, 20] },
+      "semantics": {
+        "role": "roadmap",
+        "references": ["sec:ch1", "sec:ch2", "sec:ch3", "sec:ch4", "sec:ch5"]
+      },
+      "prompt": {
+        "template": "paragraph_semantics",
+        "inputs": { "text": "[PLACEHOLDER]" }
+      }
+    },
+
+    {
+      "id": "list:figures",
+      "type": "front_matter.list_of_figures",
+      "items": [
+        {
+          "id": "fig:1.1",
+          "type": "figure",
+          "number": "1.1",
+          "caption": "The Szilard Engine",
+          "page": 6,
+          "semantics": { "placeholder_meaning": "thought experiment linking information, measurement, and thermodynamic entropy (inference from standard usage)" },
+          "prompt": {
+            "template": "diagram_from_caption",
+            "inputs": {
+              "figure_number": "Figure 1.1",
+              "caption": "The Szilard Engine",
+              "chapter_context": "Ch.1 reversible/dissipative computation background",
+              "local_context_summary": "One-molecule gas in box with partition; demon measures side; extracts work; annotate where information enters."
+            }
+          }
+        },
+        {
+          "id": "fig:1.2",
+          "type": "figure",
+          "number": "1.2",
+          "caption": "Physical states partitioned into logical states",
+          "page": 15,
+          "semantics": { "placeholder_meaning": "many-to-one mapping from microstates to logical symbols; entropy loss when merging logical states (generic physics-of-computation diagram)" },
+          "prompt": {
+            "template": "diagram_from_caption",
+            "inputs": {
+              "figure_number": "Figure 1.2",
+              "caption": "Physical states partitioned into logical states",
+              "chapter_context": "Ch.1 information/entropy",
+              "local_context_summary": "State space regions labeled by logical values; show coarse-graining and erasure as region merge."
+            }
+          }
+        },
+        {
+          "id": "fig:1.3",
+          "type": "figure",
+          "number": "1.3",
+          "caption": "A Fredkin gate",
+          "page": 15,
+          "semantics": { "placeholder_meaning": "3-bit controlled-swap reversible gate; preserves information" },
+          "prompt": {
+            "template": "diagram_from_caption",
+            "inputs": {
+              "figure_number": "Figure 1.3",
+              "caption": "A Fredkin gate",
+              "chapter_context": "Ch.1 reversible logic",
+              "local_context_summary": "Three wires; control line c; swap a,b iff c=1; include truth-table inset."
+            }
+          }
+        },
+        {
+          "id": "fig:1.4",
+          "type": "figure",
+          "number": "1.4",
+          "caption": "The switch gate, from which a Fredkin gate can be built",
+          "page": 17,
+          "semantics": { "placeholder_meaning": "primitive routing/switch element composing to controlled-swap (placeholder)" },
+          "prompt": {
+            "template": "diagram_from_caption",
+            "inputs": {
+              "figure_number": "Figure 1.4",
+              "caption": "The switch gate, from which a Fredkin gate can be built",
+              "chapter_context": "Ch.1 reversible gate constructions",
+              "local_context_summary": "Depict a controlled wire-crossing/switch; show composition into Fredkin gate at block level."
+            }
+          }
+        }
+      ]
+    },
+
+    {
+      "id": "list:tables",
+      "type": "front_matter.list_of_tables",
+      "items": [
+        { "id": "tbl:5.1", "type": "table", "number": "5.1", "caption": "Training sets used for testing", "page": 97, "semantics": { "placeholder_meaning": "dataset definitions for experiments" } },
+        { "id": "tbl:5.2", "type": "table", "number": "5.2", "caption": "Effects of the C1 term", "page": 118, "semantics": { "placeholder_meaning": "hyperparameter sweep outcome table" } },
+        { "id": "tbl:5.3", "type": "table", "number": "5.3", "caption": "Effects of the C2 term", "page": 120, "semantics": { "placeholder_meaning": "hyperparameter sweep outcome table" } },
+        { "id": "tbl:5.4", "type": "table", "number": "5.4", "caption": "Effects of the C3 term", "page": 126, "semantics": { "placeholder_meaning": "hyperparameter sweep outcome table" } }
+      ]
+    }
+  ]
+}

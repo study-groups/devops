@@ -217,7 +217,7 @@
 
             // Emit event
             if (window.Terrain.Events) {
-                window.Terrain.Events.emit('MODE_APPLIED', {
+                window.Terrain.Events.emit(window.Terrain.Events.MODE_APPLIED, {
                     mode: this.modeName,
                     theme: this.themeName,
                     config: this.config
@@ -332,13 +332,20 @@
 
         /**
          * Switch theme at runtime
+         * Delegates to TERRAIN.CSS if available
          */
         switchTheme: async function(themeName) {
             this.themeName = themeName;
-            await this.loadTheme(themeName);
+
+            // Use TERRAIN.CSS if available (preferred API)
+            if (window.TERRAIN?.CSS?.theme?.load) {
+                await TERRAIN.CSS.theme.load(themeName);
+            } else {
+                await this.loadTheme(themeName);
+            }
 
             if (window.Terrain.Events) {
-                window.Terrain.Events.emit('THEME_CHANGED', {
+                window.Terrain.Events.emit(window.Terrain.Events.THEME_CHANGED, {
                     theme: themeName
                 });
             }
@@ -352,6 +359,8 @@
     // Backwards compatibility aliases
     window.Terrain.ControlDeck = TerrainMode;
     window.Terrain.Skins = {
+        init: async () => {}, // No-op, mode.js handles this now
+        getCurrentName: () => TerrainMode.getName(),
         getCurrent: () => TerrainMode.getConfig(),
         getCardConfig: () => TerrainMode.getCard(),
         getDiscoveryConfig: () => TerrainMode.getDiscovery()
