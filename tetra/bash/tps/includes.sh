@@ -10,7 +10,8 @@ tetra_module_init_with_alias "tps" "TPS"
 # Core systems (order matters)
 source "$TPS_SRC/core/hooks.sh"       # Hook registry first
 source "$TPS_SRC/core/colors.sh"      # Color system
-source "$TPS_SRC/core/context.sh"        # Context slot providers
+source "$TPS_SRC/core/context.sh"        # Context slot providers (legacy API)
+source "$TPS_SRC/core/context_kv.sh"     # Unified context system (tps_ctx API)
 source "$TPS_SRC/core/context_module.sh" # Module integration helper
 source "$TPS_SRC/core/segments.sh"    # Segment area registry
 source "$TPS_SRC/core/metrics.sh"     # Command metrics
