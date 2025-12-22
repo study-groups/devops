@@ -1,102 +1,40 @@
 #!/usr/bin/env bash
-# tut.sh - Data-Driven Documentation Generator
+# tut.sh - Org Documentation Wrapper for Terrain
 #
-# doctl-style taxonomy: tut <resource> <verb> [args]
+# tut manages JSON documentation for an org.
+# All rendering and theming is delegated to Terrain.
 #
-# Resources:
-#   source      JSON source files (list, build, init, validate, edit, hydrate)
-#   doc         Generated documents (list, serve, open, index, run, browse)
-#   recording   Terminal recordings (list, play, capture)
-#   schema      JSON schemas (list, show, edit)
-#   extra       Build extras (list, show)
-#
-# Top-level:
-#   doctor      Check environment
-#   help        Show help
-#   version     Show version
+# Context: TUT[org:subject:type]
+# Structure: $TETRA_DIR/orgs/<org>/tut/{src,compiled}/<subject>-<type>.{json,html}
+# Types: ref, guide, thesis
 
 # =============================================================================
-# MODULE LOADING
+# LOAD CONTEXT MODULE
 # =============================================================================
 
-_tut_load_modules() {
-    local tut_core="$TUT_SRC/core"
-
-    # Core utilities (required)
-    [[ -f "$tut_core/output.sh" ]] && source "$tut_core/output.sh"
-    [[ -f "$tut_core/validators.sh" ]] && source "$tut_core/validators.sh"
-
-    # Resource modules
-    [[ -f "$tut_core/source.sh" ]] && source "$tut_core/source.sh"
-    [[ -f "$tut_core/doc.sh" ]] && source "$tut_core/doc.sh"
-    [[ -f "$tut_core/recording.sh" ]] && source "$tut_core/recording.sh"
-    [[ -f "$tut_core/schema.sh" ]] && source "$tut_core/schema.sh"
-    [[ -f "$tut_core/extra.sh" ]] && source "$tut_core/extra.sh"
-
-    # Legacy compatibility
-    [[ -f "$tut_core/legacy.sh" ]] && source "$tut_core/legacy.sh"
-
-    # Renderers
-    [[ -f "$TUT_SRC/renderers/html.sh" ]] && source "$TUT_SRC/renderers/html.sh"
-    [[ -f "$TUT_SRC/renderers/markdown.sh" ]] && source "$TUT_SRC/renderers/markdown.sh"
-    [[ -f "$TUT_SRC/tut_reference.sh" ]] && source "$TUT_SRC/tut_reference.sh"
-    [[ -f "$TUT_SRC/tut_browse.sh" ]] && source "$TUT_SRC/tut_browse.sh"
-}
-
-# Load modules on source
-_tut_load_modules
+if [[ -f "$TUT_SRC/tut_ctx.sh" ]]; then
+    source "$TUT_SRC/tut_ctx.sh"
+fi
 
 # =============================================================================
 # MAIN ENTRY POINT
 # =============================================================================
 
 tut() {
-    local resource="${1:-help}"
+    local cmd="${1:-help}"
     shift || true
 
-    case "$resource" in
-        # Resources (doctl-style)
-        source|src)       _tut_source "$@" ;;
-        doc|docs)         _tut_doc "$@" ;;
-        recording|rec)    _tut_recording "$@" ;;
-        schema)           _tut_schema "$@" ;;
-        extra)            _tut_extra "$@" ;;
-
-        # Context management
+    case "$cmd" in
         ctx|context)      tut_ctx "$@" ;;
-
-        # Top-level commands
+        list|ls)          _tut_list "$@" ;;
+        build|b)          _tut_build "$@" ;;
+        init|new)         _tut_init "$@" ;;
+        edit|e)           _tut_edit "$@" ;;
         doctor|d)         _tut_doctor ;;
-        version|-v|--version) _tut_version ;;
-        help|--help|-h)
-            if [[ -n "${1:-}" ]]; then
-                _tut_help_topic "$1"
-            else
-                _tut_help
-            fi
-            ;;
-
-        # Aliases for ergonomics
-        ls)               _tut_ls "$@" ;;
-        b|build)          _tut_source build "$@" ;;
-        s|serve)          _tut_doc serve "$@" ;;
-        open)             _tut_doc open "$@" ;;
-
-        # Legacy commands (with deprecation warnings)
-        init)             _tut_legacy_init "$@" ;;
-        validate)         _tut_legacy_validate "$@" ;;
-        browse)           _tut_legacy_browse "$@" ;;
-        run)              _tut_legacy_run "$@" ;;
-        hydrate)          _tut_legacy_hydrate "$@" ;;
-        get)              _tut_legacy_get "$@" ;;
-        types)            _tut_legacy_types "$@" ;;
-        extras)           _tut_legacy_extras "$@" ;;
-        edit)             _tut_legacy_edit "$@" ;;
-
-        # Unknown
-        "")               _tut_help ;;
+        version|-v)       echo "tut 3.0.0 (terrain wrapper)" ;;
+        help|--help|-h)   _tut_help ;;
         *)
-            _tut_error "Unknown: $resource"
+            echo "Unknown: $cmd" >&2
             _tut_help
             return 1
             ;;
@@ -104,315 +42,179 @@ tut() {
 }
 
 # =============================================================================
-# ALIASES
+# LIST
 # =============================================================================
 
-_tut_ls() {
-    local what="${1:-sources}"
-    shift 2>/dev/null || true
+_tut_list() {
+    local src_dir
+    src_dir=$(_tut_src_dir) || { echo "No org set. Use: tut ctx set <org>" >&2; return 1; }
 
-    case "$what" in
-        sources|src)    _tut_source_list "$@" ;;
-        docs|doc)       _tut_doc_list "$@" ;;
-        recordings|rec) _tut_recording_list "$@" ;;
-        schemas)        _tut_schema_list "$@" ;;
-        extras)         _tut_extra_list "$@" ;;
-        *)
-            # Default: treat as source list with verbose flag check
-            if [[ "$what" == "-v" || "$what" == "--verbose" ]]; then
-                _tut_source_list "$what" "$@"
-            else
-                _tut_error "Unknown: ls $what"
-                echo "  Try: tut ls [sources|docs|recordings|schemas|extras]"
-                return 1
-            fi
-            ;;
-    esac
-}
-
-# =============================================================================
-# HELP
-# =============================================================================
-
-_tut_help() {
-    echo -e "\033[1;36mtut\033[0m - Data-Driven Documentation Generator"
-    echo
-    echo -e "\033[1;34mRESOURCES\033[0m"
-    echo "  source      JSON source files (list, build, init, validate, edit)"
-    echo "  doc         Generated documents (list, serve, open, index, run)"
-    echo "  recording   Terminal recordings (list, play, capture)"
-    echo "  schema      JSON schemas (list, show, edit)"
-    echo "  extra       Build extras (list, show)"
-    echo
-    echo -e "\033[1;34mCONTEXT\033[0m"
-    echo "  ctx         Manage TUT[org:project:subject] context"
-    echo "  ctx set     Set context (creates PData structure)"
-    echo "  ctx clear   Clear context"
-    echo
-    echo -e "\033[1;34mCOMMANDS\033[0m"
-    echo "  doctor      Check environment and paths"
-    echo "  help        Show help for a topic"
-    echo "  version     Show version"
-    echo
-    echo -e "\033[1;34mQUICK\033[0m"
-    echo "  tut ls [src|docs]         List sources or documents"
-    echo "  tut build <name>          Build a source file"
-    echo "  tut serve                 Start preview server"
-    echo "  tut open <name>           Open document in browser"
-    echo
-    echo -e "\033[0;90mHelp:\033[0m tut <resource> for resource commands"
-    echo -e "\033[0;90mLegacy:\033[0m Old commands still work (with deprecation warnings)"
-}
-
-_tut_help_topic() {
-    local topic="$1"
-    case "$topic" in
-        source)    _tut_source help ;;
-        doc)       _tut_doc help ;;
-        recording) _tut_recording help ;;
-        schema)    _tut_schema help ;;
-        extra)     _tut_extra help ;;
-        ctx)       tut_ctx help ;;
-        all)       _tut_help_all ;;
-        *)
-            _tut_error "Unknown topic: $topic"
-            echo "  Try: tut help [source|doc|recording|schema|extra|ctx|all]"
-            return 1
-            ;;
-    esac
-}
-
-_tut_help_all() {
-    echo -e "\033[1;36mtut\033[0m - Data-Driven Documentation Generator"
-    echo
-
-    _tut_section "SOURCE"
-    echo "  tut source list [-v]       List available sources"
-    echo "  tut source build <name>    Build single source"
-    echo "  tut source build --all     Build all sources"
-    echo "  tut source init <name>     Create new source template"
-    echo "  tut source validate <name> Validate against schema"
-    echo "  tut source edit <name>     Edit source file"
-    echo "  tut source hydrate <tmpl>  Substitute template variables"
-
-    _tut_section "DOC"
-    echo "  tut doc list               List generated documents"
-    echo "  tut doc serve [file]       Start preview server"
-    echo "  tut doc open <name>        Open document in browser"
-    echo "  tut doc index              Generate landing page"
-    echo "  tut doc run <guide>        Interactive mode with terminal"
-    echo "  tut doc browse <file.md>   CLI step-by-step navigator"
-
-    _tut_section "RECORDING"
-    echo "  tut recording list         List recordings"
-    echo "  tut recording play <name>  Play back recording"
-    echo "  tut recording capture <n>  Start new recording"
-
-    _tut_section "SCHEMA"
-    echo "  tut schema list            List available schemas"
-    echo "  tut schema show <type>     Show schema details"
-    echo "  tut schema edit <type>     Edit schema file"
-
-    _tut_section "EXTRA"
-    echo "  tut extra list             List build extras"
-    echo "  tut extra show <name>      Show extra details"
-
-    _tut_section "PATHS"
-    echo "  Source    \$TUT_SRC/available/"
-    echo "  Output    \$TUT_DIR/generated/"
-    echo "  Schemas   \$TUT_SRC/schemas/"
-}
-
-# =============================================================================
-# VERSION
-# =============================================================================
-
-_tut_version() {
-    echo "tut 2.0.0"
-    echo "doctl-style taxonomy"
-}
-
-# =============================================================================
-# DOCTOR
-# =============================================================================
-
-_tut_doctor() {
-    echo
-    _tut_heading 1 "TUT Doctor"
-    _tut_section "ENVIRONMENT"
-    _tut_doctor_var "TETRA_SRC" "$TETRA_SRC"
-    _tut_doctor_var "TETRA_DIR" "$TETRA_DIR"
-    _tut_doctor_var "TUT_SRC" "$TUT_SRC"
-    _tut_doctor_var "TUT_DIR" "$TUT_DIR"
-    _tut_doctor_var "TUT_HAS_TDS" "$TUT_HAS_TDS"
-
-    _tut_section "PATHS"
-    _tut_path "Schemas" "$TUT_SRC/schemas"
-    _tut_path "Available" "$TUT_SRC/available"
-    _tut_path "Templates" "$TUT_SRC/templates"
-    _tut_path "Generated" "$TUT_DIR/generated"
-
-    _tut_section "MODULES"
-    _tut_doctor_file "core/output.sh" "$TUT_SRC/core/output.sh"
-    _tut_doctor_file "core/source.sh" "$TUT_SRC/core/source.sh"
-    _tut_doctor_file "core/doc.sh" "$TUT_SRC/core/doc.sh"
-    _tut_doctor_file "core/schema.sh" "$TUT_SRC/core/schema.sh"
-    _tut_doctor_file "core/extra.sh" "$TUT_SRC/core/extra.sh"
-    _tut_doctor_file "core/legacy.sh" "$TUT_SRC/core/legacy.sh"
-
-    _tut_section "SCHEMAS"
-    _tut_doctor_file "guide" "$TUT_SRC/schemas/guide.schema.json"
-    _tut_doctor_file "reference" "$TUT_SRC/schemas/reference.schema.json"
-
-    _tut_section "BUILD EXTRAS"
-    _tut_doctor_extra "design-tokens" "$TUT_SRC/dist/tut.js" "?design=true"
-    _tut_doctor_extra "mindmap" "$TUT_SRC/templates/mindmap/mindmap.js" "content block"
-    _tut_doctor_extra "tds" "$TETRA_SRC/bash/tds/tds.sh" "metadata.theme.tds"
-
-    _tut_section "DEPENDENCIES"
-    _tut_doctor_cmd "jq"
-    _tut_doctor_cmd "open" "xdg-open"
-}
-
-_tut_doctor_var() {
-    local name="$1"
-    local value="$2"
-    if [[ -n "$value" ]]; then
-        _tut_label "  $name:" "$value"
-    else
-        _tut_label "  $name:" "(not set)"
+    if [[ ! -d "$src_dir" ]]; then
+        echo "No src directory: $src_dir"
+        return 1
     fi
-}
 
-_tut_doctor_file() {
-    local label="$1"
-    local path="$2"
-    if [[ -f "$path" ]]; then
-        _tut_success "$label"
+    echo "TUT[$TUT_CTX_ORG:${TUT_CTX_SUBJECT:-}:${TUT_CTX_TYPE:-}]"
+    echo "src: $src_dir"
+    echo "---"
+
+    local count=0
+    for f in "$src_dir"/*.json; do
+        [[ -f "$f" ]] || continue
+        local name=$(basename "$f" .json)
+        local subject type
+        # Parse subject-type from filename
+        if [[ "$name" =~ ^(.+)-([^-]+)$ ]]; then
+            subject="${BASH_REMATCH[1]}"
+            type="${BASH_REMATCH[2]}"
+            printf "  %-20s [%s]\n" "$subject" "$type"
+        else
+            printf "  %-20s\n" "$name"
+        fi
+        ((count++))
+    done
+
+    if [[ $count -eq 0 ]]; then
+        echo "  (no JSON files)"
+        echo ""
+        echo "Create with: tut init <subject> <type>"
     else
-        _tut_error "$label (missing)"
-    fi
-}
-
-_tut_doctor_extra() {
-    local name="$1"
-    local file="$2"
-    local activation="$3"
-
-    if [[ -f "$file" ]]; then
-        printf "  %-16s " "$name"
-        _tut_success "ready"
-        _tut_dim "    activation: $activation"; echo
-    else
-        printf "  %-16s " "$name"
-        _tut_warn "missing"
-    fi
-}
-
-_tut_doctor_cmd() {
-    local cmd="$1"
-    local alt="$2"
-    if command -v "$cmd" >/dev/null 2>&1; then
-        _tut_success "$cmd -> $(command -v "$cmd")"
-    elif [[ -n "$alt" ]] && command -v "$alt" >/dev/null 2>&1; then
-        _tut_success "$alt -> $(command -v "$alt")"
-    else
-        _tut_error "$cmd (missing)"
+        echo "---"
+        echo "$count file(s)"
     fi
 }
 
 # =============================================================================
-# SHARED UTILITIES (used by multiple modules)
+# BUILD
 # =============================================================================
 
-_tut_detect_type() {
-    local json_file="$1"
+_tut_build() {
+    local theme="dark"
+    local target=""
 
-    local has_steps=$(jq 'has("steps")' "$json_file" 2>/dev/null)
-    local has_groups=$(jq 'has("groups")' "$json_file" 2>/dev/null)
+    # Parse args
+    for arg in "$@"; do
+        case "$arg" in
+            --theme=*) theme="${arg#--theme=}" ;;
+            --all)     target="all" ;;
+            *)         target="$arg" ;;
+        esac
+    done
 
-    if [[ "$has_steps" == "true" ]]; then
-        echo "guide"
-    elif [[ "$has_groups" == "true" ]]; then
-        echo "reference"
+    local src_dir compiled_dir
+    src_dir=$(_tut_src_dir) || { echo "No org set" >&2; return 1; }
+    compiled_dir=$(_tut_compiled_dir) || return 1
+
+    mkdir -p "$compiled_dir"
+
+    # Determine what to build
+    local files=()
+    if [[ "$target" == "all" || -z "$target" ]]; then
+        # Build all
+        for f in "$src_dir"/*.json; do
+            [[ -f "$f" ]] && files+=("$f")
+        done
+    elif [[ -n "$TUT_CTX_SUBJECT" && -n "$TUT_CTX_TYPE" && -z "$target" ]]; then
+        # Build current context
+        local src_file
+        src_file=$(_tut_src_file)
+        [[ -f "$src_file" ]] && files+=("$src_file")
     else
-        echo "unknown"
+        # Build specific file
+        local src_file="$src_dir/${target}.json"
+        [[ -f "$src_file" ]] && files+=("$src_file")
     fi
+
+    if [[ ${#files[@]} -eq 0 ]]; then
+        echo "No files to build" >&2
+        return 1
+    fi
+
+    echo "Building ${#files[@]} file(s) with theme: $theme"
+
+    for src_file in "${files[@]}"; do
+        local name=$(basename "$src_file" .json)
+        local out_file="$compiled_dir/${name}.html"
+
+        echo "  $name.json -> $name.html"
+
+        # Terrain does the work
+        if command -v terrain &>/dev/null; then
+            terrain build "$src_file" --out="$out_file" --theme="$theme"
+        else
+            echo "    (terrain not found - skipping)" >&2
+        fi
+    done
 }
 
-_tut_bump_version() {
-    local version="$1"
-    local bump_type="$2"
+# =============================================================================
+# INIT
+# =============================================================================
 
-    local major minor patch
-    IFS='.' read -r major minor patch <<< "$version"
+_tut_init() {
+    local subject="${1:-$TUT_CTX_SUBJECT}"
+    local type="${2:-$TUT_CTX_TYPE}"
 
-    major=${major:-0}
-    minor=${minor:-0}
-    patch=${patch:-0}
+    if [[ -z "$subject" || -z "$type" ]]; then
+        echo "Usage: tut init <subject> <type>" >&2
+        echo "Types: $TUT_VALID_TYPES" >&2
+        return 1
+    fi
 
-    case "$bump_type" in
-        major|M) echo "$((major + 1)).0.0" ;;
-        minor|m) echo "$major.$((minor + 1)).0" ;;
-        patch|p) echo "$major.$minor.$((patch + 1))" ;;
-        *)       echo "$version" ;;
-    esac
-}
+    if ! _tut_valid_type "$type"; then
+        echo "Invalid type: $type" >&2
+        echo "Valid types: $TUT_VALID_TYPES" >&2
+        return 1
+    fi
 
-_tut_prompt_version() {
-    local json_file="$1"
-    local current_version=$(jq -r '.metadata.version // "0.0.0"' "$json_file")
+    local src_dir
+    src_dir=$(_tut_src_dir) || { echo "No org set" >&2; return 1; }
+    mkdir -p "$src_dir"
 
-    echo "Version: $current_version" >&2
-    echo -n "New version? [enter=keep, p/m/M=bump, or type version]: " >&2
-    read -r response </dev/tty
+    local src_file="$src_dir/${subject}-${type}.json"
 
-    case "$response" in
-        "")      echo "$current_version" ;;
-        p)       _tut_bump_version "$current_version" "patch" ;;
-        m)       _tut_bump_version "$current_version" "minor" ;;
-        M)       _tut_bump_version "$current_version" "major" ;;
-        *)
-            if [[ "$response" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-                echo "$response"
-            else
-                echo "Invalid version format, keeping $current_version" >&2
-                echo "$current_version"
-            fi
-            ;;
-    esac
-}
+    if [[ -f "$src_file" ]]; then
+        echo "Already exists: $src_file" >&2
+        return 1
+    fi
 
-_tut_update_metadata() {
-    local json_file="$1"
-    local new_version="$2"
     local now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-    local tmp_file=$(mktemp)
-    jq --arg v "$new_version" --arg u "$now" '
-        .metadata.version = $v |
-        .metadata.updated = $u
-    ' "$json_file" > "$tmp_file"
-
-    mv "$tmp_file" "$json_file"
-    echo "Updated: version=$new_version, updated=$now"
-}
-
-# =============================================================================
-# INIT TEMPLATES (used by source init)
-# =============================================================================
-
-_tut_init_guide() {
-    local output_file="$1" title="$2" now="$3" author="$4"
-
-    cat > "$output_file" <<EOF
+    case "$type" in
+        ref)
+            cat > "$src_file" <<EOF
 {
   "metadata": {
-    "title": "$title",
-    "subtitle": "A step-by-step guide",
-    "description": "Description of what this guide covers",
+    "title": "${subject^} Reference",
+    "tagline": "Reference documentation for ${subject}",
     "version": "0.0.1",
-    "author": "$author",
+    "created": "$now"
+  },
+  "groups": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "topics": [
+        {
+          "id": "intro",
+          "title": "Introduction",
+          "content": [
+            { "type": "paragraph", "text": "Introduction to ${subject}." }
+          ]
+        }
+      ]
+    }
+  ]
+}
+EOF
+            ;;
+        guide)
+            cat > "$src_file" <<EOF
+{
+  "metadata": {
+    "title": "${subject^} Guide",
+    "subtitle": "Step-by-step guide",
+    "version": "0.0.1",
     "created": "$now",
     "difficulty": "beginner",
     "estimatedTime": 15
@@ -422,95 +224,151 @@ _tut_init_guide() {
       "id": "welcome",
       "title": "Welcome",
       "content": [
-        { "type": "paragraph", "text": "Welcome to this guide!" },
-        {
-          "type": "learn-box",
-          "title": "What You'll Learn",
-          "content": [
-            { "type": "list", "items": ["First concept", "Second concept"] }
-          ]
-        }
+        { "type": "paragraph", "text": "Welcome to the ${subject} guide." }
       ],
       "terminal": [
-        { "type": "comment", "content": "# Welcome" },
-        { "type": "prompt", "content": "$ ", "inline": true },
-        { "type": "command", "content": "echo 'Ready!'" },
-        { "type": "output-success", "content": "Ready!" }
-      ]
-    },
-    {
-      "id": "conclusion",
-      "title": "Conclusion",
-      "content": [
-        { "type": "paragraph", "text": "You've completed this guide!" }
-      ],
-      "terminal": [
-        { "type": "output-success", "content": "Guide complete!" }
+        { "type": "comment", "content": "# ${subject^} Guide" }
       ]
     }
   ]
 }
 EOF
-}
-
-_tut_init_reference() {
-    local output_file="$1" title="$2" now="$3" author="$4"
-
-    cat > "$output_file" <<EOF
+            ;;
+        thesis)
+            cat > "$src_file" <<EOF
 {
   "metadata": {
-    "title": "$title",
-    "tagline": "Reference documentation",
-    "description": "Description of this reference",
+    "title": "${subject^} Thesis",
     "version": "0.0.1",
-    "author": "$author",
     "created": "$now"
   },
-  "groups": [
+  "sections": [
     {
-      "id": "getting-started",
-      "title": "Getting Started",
-      "topics": [
-        {
-          "id": "overview",
-          "title": "Overview",
-          "description": "Introduction to this topic.",
-          "content": [
-            { "type": "paragraph", "text": "This is an overview paragraph." },
-            {
-              "type": "command-list",
-              "commands": [
-                { "code": "example command", "description": "What it does" }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "api",
-      "title": "API Reference",
-      "collapsed": true,
-      "topics": [
-        {
-          "id": "endpoints",
-          "title": "Endpoints",
-          "content": [
-            {
-              "type": "api-endpoint",
-              "method": "GET",
-              "path": "/api/example",
-              "summary": "Example endpoint",
-              "responses": [
-                { "status": 200, "description": "Success" }
-              ]
-            }
-          ]
-        }
+      "id": "abstract",
+      "title": "Abstract",
+      "content": [
+        { "type": "paragraph", "text": "Abstract for ${subject}." }
       ]
     }
   ]
 }
+EOF
+            ;;
+    esac
+
+    echo "Created: $src_file"
+
+    # Update context
+    export TUT_CTX_SUBJECT="$subject"
+    export TUT_CTX_TYPE="$type"
+    _tut_ctx_save
+}
+
+# =============================================================================
+# EDIT
+# =============================================================================
+
+_tut_edit() {
+    local target="${1:-}"
+    local src_file
+
+    if [[ -n "$target" ]]; then
+        local src_dir
+        src_dir=$(_tut_src_dir) || return 1
+        src_file="$src_dir/${target}.json"
+    elif [[ -n "$TUT_CTX_SUBJECT" && -n "$TUT_CTX_TYPE" ]]; then
+        src_file=$(_tut_src_file)
+    else
+        echo "Usage: tut edit <subject-type> or set context first" >&2
+        return 1
+    fi
+
+    if [[ ! -f "$src_file" ]]; then
+        echo "Not found: $src_file" >&2
+        return 1
+    fi
+
+    ${EDITOR:-vim} "$src_file"
+}
+
+# =============================================================================
+# DOCTOR
+# =============================================================================
+
+_tut_doctor() {
+    echo "TUT Doctor"
+    echo "=========="
+    echo ""
+    echo "Context:"
+    echo "  Org:     ${TUT_CTX_ORG:-(not set)}"
+    echo "  Subject: ${TUT_CTX_SUBJECT:-(not set)}"
+    echo "  Type:    ${TUT_CTX_TYPE:-(not set)}"
+    echo ""
+
+    if [[ -n "$TUT_CTX_ORG" ]]; then
+        local src_dir compiled_dir
+        src_dir=$(_tut_src_dir)
+        compiled_dir=$(_tut_compiled_dir)
+
+        echo "Paths:"
+        printf "  Src:      $src_dir "
+        [[ -d "$src_dir" ]] && echo "(exists)" || echo "(missing)"
+        printf "  Compiled: $compiled_dir "
+        [[ -d "$compiled_dir" ]] && echo "(exists)" || echo "(missing)"
+        echo ""
+
+        if [[ -d "$src_dir" ]]; then
+            local count=$(ls "$src_dir"/*.json 2>/dev/null | wc -l | tr -d ' ')
+            echo "Files: $count JSON source(s)"
+        fi
+    fi
+
+    echo ""
+    echo "Dependencies:"
+    printf "  terrain: "
+    command -v terrain &>/dev/null && echo "$(command -v terrain)" || echo "(not found)"
+    printf "  jq:      "
+    command -v jq &>/dev/null && echo "$(command -v jq)" || echo "(not found)"
+    echo ""
+    echo "Types: $TUT_VALID_TYPES"
+}
+
+# =============================================================================
+# HELP
+# =============================================================================
+
+_tut_help() {
+    cat <<'EOF'
+tut - Org Documentation (via Terrain)
+
+CONTEXT
+  tut ctx <org> [subject] [type]   Set context
+  tut ctx                          Show context
+  tut ctx clear                    Clear context
+
+COMMANDS
+  tut list                   List JSON source files
+  tut init <subject> <type>  Create new source file
+  tut edit [subject-type]    Edit source file
+  tut build [--theme=X]      Compile via terrain
+  tut doctor                 Check setup
+
+STRUCTURE
+  $TETRA_DIR/orgs/<org>/tut/
+    src/<subject>-<type>.json
+    compiled/<subject>-<type>.html
+
+TYPES
+  ref      Reference documentation
+  guide    Step-by-step guide
+  thesis   Thesis/research document
+
+EXAMPLES
+  tut ctx tetra              Set org
+  tut ctx tetra api ref      Set full context
+  tut init deploy guide      Create deploy-guide.json
+  tut edit deploy-guide      Edit the file
+  tut build --theme=dark     Compile all
 EOF
 }
 
@@ -519,3 +377,4 @@ EOF
 # =============================================================================
 
 export -f tut
+export -f _tut_list _tut_build _tut_init _tut_edit _tut_doctor _tut_help

@@ -1,46 +1,17 @@
 #!/usr/bin/env bash
-# TUT Module - Data-Driven Tutorial Generator
+# TUT Module - Org Documentation Wrapper for Terrain
 #
-# Converts JSON tutorial definitions to multiple output formats (HTML, Markdown).
-# Designed for LLM-generated content workflows.
+# Manages JSON documentation sources for orgs.
+# Delegates rendering/theming to Terrain.
 
 # Load module utilities
 source "$TETRA_SRC/bash/utils/module_init.sh"
-source "$TETRA_SRC/bash/utils/function_helpers.sh"
 
-# Initialize module with standard tetra conventions
-tetra_module_init_with_alias "tut" "TUT" "generated"
+# Initialize module
+tetra_module_init_with_alias "tut" "TUT"
 
-# Source TPS for context integration (if available)
-tetra_source_if_exists "$TETRA_SRC/bash/tps/includes.sh"
-
-# Source context integration (TPS TUT[org:project:subject] line)
+# Context integration
 source "$TUT_SRC/tut_ctx.sh"
-
-# Load TDS for colored output (optional, degrades gracefully)
-if [[ -f "$TETRA_SRC/bash/tds/tds.sh" ]]; then
-    source "$TETRA_SRC/bash/tds/tds.sh"
-    TUT_HAS_TDS=1
-else
-    TUT_HAS_TDS=0
-fi
-
-# Source TOK for JSON/hydration utilities
-source "$TETRA_SRC/bash/tok/includes.sh"
-
-# Core utilities
-source "$TUT_SRC/core/output.sh"
-source "$TUT_SRC/core/validators.sh"
-source "$TUT_SRC/core/parser.sh"
-source "$TUT_SRC/core/hydrate.sh"
-
-# Renderers
-source "$TUT_SRC/renderers/html.sh"
-source "$TUT_SRC/renderers/markdown.sh"
-tetra_source_if_exists "$TUT_SRC/tut_reference.sh"
-
-# Interactive browser
-tetra_source_if_exists "$TUT_SRC/tut_browse.sh"
 
 # Main CLI
 source "$TUT_SRC/tut.sh"

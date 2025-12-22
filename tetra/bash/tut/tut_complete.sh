@@ -1,59 +1,30 @@
 #!/usr/bin/env bash
-# tut_complete.sh - Tab completion for tut command (doctl-style)
+# tut_complete.sh - Tab completion for tut command
 
 # =============================================================================
 # COMPLETION CONSTANTS
 # =============================================================================
 
-# Resources
-_TUT_RESOURCES="source doc recording schema extra"
-
-# Resource verbs (primary only - no aliases)
-_TUT_SOURCE_VERBS="list build init validate edit hydrate"
-_TUT_DOC_VERBS="list serve open index run browse"
-_TUT_RECORDING_VERBS="list play capture"
-_TUT_SCHEMA_VERBS="list show edit"
-_TUT_EXTRA_VERBS="list show"
-
-# Top-level commands (primary only - no aliases or legacy)
-_TUT_COMMANDS="source doc recording schema extra ctx doctor help version ls build serve open"
+# Top-level commands
+_TUT_COMMANDS="ctx list init edit build doctor help version"
 
 # Context verbs
-_TUT_CTX_VERBS="set org project subject clear status"
+_TUT_CTX_VERBS="set subject type clear status"
 
 # Types
-_TUT_DOC_TYPES="guide reference"
-_TUT_FORMATS="html md all"
-_TUT_SCHEMAS="guide reference"
-_TUT_EXTRAS="design-tokens mindmap tds"
+_TUT_TYPES="ref guide thesis"
 
 # =============================================================================
 # COMPLETION HELPERS
 # =============================================================================
 
 _tut_complete_sources() {
-    # Complete from available/ directory (without .json extension)
-    if [[ -n "$TUT_SRC" && -d "$TUT_SRC/available" ]]; then
-        for f in "$TUT_SRC/available"/*.json; do
+    # Complete from org's tut/src directory (without .json extension)
+    local src_dir
+    src_dir=$(_tut_src_dir 2>/dev/null) || return
+    if [[ -d "$src_dir" ]]; then
+        for f in "$src_dir"/*.json; do
             [[ -f "$f" ]] && basename "$f" .json
-        done
-    fi
-}
-
-_tut_complete_generated() {
-    # Complete from generated/ directory
-    if [[ -n "$TUT_DIR" && -d "$TUT_DIR/generated" ]]; then
-        for f in "$TUT_DIR/generated"/*.html; do
-            [[ -f "$f" ]] && basename "$f"
-        done
-    fi
-}
-
-_tut_complete_recordings() {
-    # Complete from recordings/ directory
-    if [[ -n "$TUT_DIR" && -d "$TUT_DIR/recordings" ]]; then
-        for d in "$TUT_DIR/recordings"/*/; do
-            [[ -d "$d" ]] && basename "$d"
         done
     fi
 }
@@ -67,28 +38,17 @@ _tut_complete_orgs() {
     fi
 }
 
-_tut_complete_projects() {
-    # Complete project names from current org's PData
-    local org="${TUT_CTX_ORG:-}"
-    [[ -z "$org" ]] && return
-    local projects_dir="$TETRA_DIR/orgs/$org/pd/data/projects"
-    if [[ -d "$projects_dir" ]]; then
-        for d in "$projects_dir"/*/; do
-            [[ -d "$d" ]] && basename "$d"
-        done
-    fi
-}
-
 _tut_complete_subjects() {
-    # Complete subject names from current project
-    local org="${TUT_CTX_ORG:-}"
-    local project="${TUT_CTX_PROJECT:-}"
-    [[ -z "$org" || -z "$project" ]] && return
-    local subjects_dir="$TETRA_DIR/orgs/$org/pd/data/projects/$project"
-    if [[ -d "$subjects_dir" ]]; then
-        for d in "$subjects_dir"/*/; do
-            [[ -d "$d" ]] && basename "$d"
-        done
+    # Extract unique subjects from filenames (subject-type.json -> subject)
+    local src_dir
+    src_dir=$(_tut_src_dir 2>/dev/null) || return
+    if [[ -d "$src_dir" ]]; then
+        for f in "$src_dir"/*.json; do
+            [[ -f "$f" ]] || continue
+            local name=$(basename "$f" .json)
+            # Extract subject (everything before last hyphen)
+            echo "${name%-*}"
+        done | sort -u
     fi
 }
 
@@ -99,179 +59,74 @@ _tut_complete_subjects() {
 _tut_complete() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
     local prev="${COMP_WORDS[COMP_CWORD-1]}"
-    local resource="${COMP_WORDS[1]:-}"
-    local verb="${COMP_WORDS[2]:-}"
+    local cmd="${COMP_WORDS[1]:-}"
 
     COMPREPLY=()
 
-    # First argument - complete resources and top-level commands
+    # First argument - complete commands
     if [[ $COMP_CWORD -eq 1 ]]; then
         COMPREPLY=($(compgen -W "$_TUT_COMMANDS" -- "$cur"))
         return
     fi
 
-    # Handle flags that take values
-    case "$prev" in
-        --type|-t)
-            COMPREPLY=($(compgen -W "$_TUT_DOC_TYPES" -- "$cur"))
-            return
-            ;;
-        --format|-f)
-            COMPREPLY=($(compgen -W "$_TUT_FORMATS" -- "$cur"))
-            return
-            ;;
-        --output|-o|--out)
-            compopt -o filenames
-            COMPREPLY=($(compgen -f -- "$cur"))
-            return
-            ;;
-        --port|-p)
-            return  # User types port number
-            ;;
-        --org)
-            return  # User types org name
-            ;;
-    esac
-
-    # Second argument - complete verbs for resources, or args for shortcuts
-    if [[ $COMP_CWORD -eq 2 ]]; then
-        case "$resource" in
-            source)
-                COMPREPLY=($(compgen -W "$_TUT_SOURCE_VERBS" -- "$cur"))
-                ;;
-            doc)
-                COMPREPLY=($(compgen -W "$_TUT_DOC_VERBS" -- "$cur"))
-                ;;
-            recording)
-                COMPREPLY=($(compgen -W "$_TUT_RECORDING_VERBS" -- "$cur"))
-                ;;
-            schema)
-                COMPREPLY=($(compgen -W "$_TUT_SCHEMA_VERBS" -- "$cur"))
-                ;;
-            extra)
-                COMPREPLY=($(compgen -W "$_TUT_EXTRA_VERBS" -- "$cur"))
-                ;;
-            ctx|context)
-                COMPREPLY=($(compgen -W "$_TUT_CTX_VERBS" -- "$cur"))
-                ;;
-            help)
-                COMPREPLY=($(compgen -W "source doc recording schema extra ctx all" -- "$cur"))
-                ;;
-            # Shortcut completions
-            ls)
-                COMPREPLY=($(compgen -W "src sources docs doc recordings rec schemas extras" -- "$cur"))
-                ;;
-            build)
-                COMPREPLY=($(compgen -W "$(_tut_complete_sources)" -- "$cur"))
-                ;;
-            serve)
-                if [[ "$cur" == -* ]]; then
-                    COMPREPLY=($(compgen -W "--stop --status --port" -- "$cur"))
-                else
-                    COMPREPLY=($(compgen -W "$(_tut_complete_generated)" -- "$cur"))
-                fi
-                ;;
-            open)
-                COMPREPLY=($(compgen -W "$(_tut_complete_generated)" -- "$cur"))
-                ;;
-        esac
+    # Handle --theme flag
+    if [[ "$prev" == "--theme" ]]; then
+        # Could complete from terrain themes, for now just return
         return
     fi
 
-    # Third+ argument - context-specific completion
-    case "$resource" in
-        source)
-            case "$verb" in
-                build)
-                    if [[ "$cur" == -* ]]; then
-                        COMPREPLY=($(compgen -W "--type --format --output --out --no-bump --all" -- "$cur"))
-                    else
-                        COMPREPLY=($(compgen -W "$(_tut_complete_sources)" -- "$cur"))
-                    fi
-                    ;;
-                init)
-                    if [[ "$cur" == -* ]]; then
-                        COMPREPLY=($(compgen -W "--type" -- "$cur"))
-                    fi
-                    ;;
-                validate|edit)
-                    COMPREPLY=($(compgen -W "$(_tut_complete_sources)" -- "$cur"))
-                    ;;
-                list)
-                    if [[ "$cur" == -* ]]; then
-                        COMPREPLY=($(compgen -W "-v --verbose" -- "$cur"))
-                    fi
-                    ;;
-            esac
-            ;;
-        doc)
-            case "$verb" in
-                serve)
-                    if [[ "$cur" == -* ]]; then
-                        COMPREPLY=($(compgen -W "--stop --status --port" -- "$cur"))
-                    else
-                        COMPREPLY=($(compgen -W "$(_tut_complete_generated)" -- "$cur"))
-                    fi
-                    ;;
-                open)
-                    COMPREPLY=($(compgen -W "$(_tut_complete_generated)" -- "$cur"))
-                    ;;
-                run)
-                    if [[ "$cur" == -* ]]; then
-                        COMPREPLY=($(compgen -W "--org --port --no-browser" -- "$cur"))
-                    else
-                        COMPREPLY=($(compgen -W "$(_tut_complete_sources)" -- "$cur"))
-                    fi
-                    ;;
-                browse)
-                    compopt -o filenames
-                    COMPREPLY=($(compgen -f -X '!*.md' -- "$cur"))
-                    ;;
-            esac
-            ;;
-        recording)
-            case "$verb" in
-                play|capture)
-                    COMPREPLY=($(compgen -W "$(_tut_complete_recordings)" -- "$cur"))
-                    ;;
-            esac
-            ;;
-        schema)
-            case "$verb" in
-                show|edit)
-                    COMPREPLY=($(compgen -W "$_TUT_SCHEMAS" -- "$cur"))
-                    ;;
-            esac
-            ;;
-        extra)
-            case "$verb" in
-                show)
-                    COMPREPLY=($(compgen -W "$_TUT_EXTRAS" -- "$cur"))
-                    ;;
-            esac
-            ;;
+    # Second+ arguments based on command
+    case "$cmd" in
         ctx|context)
-            case "$verb" in
-                set)
-                    # ctx set <org> [project] [subject]
-                    if [[ $COMP_CWORD -eq 3 ]]; then
+            if [[ $COMP_CWORD -eq 2 ]]; then
+                # First could be verb or org name
+                COMPREPLY=($(compgen -W "$_TUT_CTX_VERBS $(_tut_complete_orgs)" -- "$cur"))
+            elif [[ $COMP_CWORD -eq 3 ]]; then
+                local verb="${COMP_WORDS[2]}"
+                case "$verb" in
+                    set)
                         COMPREPLY=($(compgen -W "$(_tut_complete_orgs)" -- "$cur"))
-                    elif [[ $COMP_CWORD -eq 4 ]]; then
-                        COMPREPLY=($(compgen -W "$(_tut_complete_projects)" -- "$cur"))
-                    elif [[ $COMP_CWORD -eq 5 ]]; then
+                        ;;
+                    subject)
                         COMPREPLY=($(compgen -W "$(_tut_complete_subjects)" -- "$cur"))
-                    fi
-                    ;;
-                org)
-                    COMPREPLY=($(compgen -W "$(_tut_complete_orgs)" -- "$cur"))
-                    ;;
-                project|proj)
-                    COMPREPLY=($(compgen -W "$(_tut_complete_projects)" -- "$cur"))
-                    ;;
-                subject|subj)
-                    COMPREPLY=($(compgen -W "$(_tut_complete_subjects)" -- "$cur"))
-                    ;;
-            esac
+                        ;;
+                    type)
+                        COMPREPLY=($(compgen -W "$_TUT_TYPES" -- "$cur"))
+                        ;;
+                    *)
+                        # Might be org name, complete subjects
+                        COMPREPLY=($(compgen -W "$(_tut_complete_subjects)" -- "$cur"))
+                        ;;
+                esac
+            elif [[ $COMP_CWORD -eq 4 ]]; then
+                # Fourth arg is type
+                COMPREPLY=($(compgen -W "$_TUT_TYPES" -- "$cur"))
+            fi
+            ;;
+        init|new)
+            if [[ $COMP_CWORD -eq 2 ]]; then
+                # Subject name - complete existing subjects
+                COMPREPLY=($(compgen -W "$(_tut_complete_subjects)" -- "$cur"))
+            elif [[ $COMP_CWORD -eq 3 ]]; then
+                # Type
+                COMPREPLY=($(compgen -W "$_TUT_TYPES" -- "$cur"))
+            fi
+            ;;
+        edit|e)
+            COMPREPLY=($(compgen -W "$(_tut_complete_sources)" -- "$cur"))
+            ;;
+        build|b)
+            if [[ "$cur" == -* ]]; then
+                COMPREPLY=($(compgen -W "--theme --all" -- "$cur"))
+            else
+                COMPREPLY=($(compgen -W "$(_tut_complete_sources)" -- "$cur"))
+            fi
+            ;;
+        list|ls)
+            # No completions needed
+            ;;
+        help)
+            COMPREPLY=($(compgen -W "ctx list init edit build doctor" -- "$cur"))
             ;;
     esac
 }
