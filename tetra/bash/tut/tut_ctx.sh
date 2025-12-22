@@ -10,15 +10,9 @@
 # DEPENDENCIES
 # =============================================================================
 
-# Ensure context_kv is loaded
 if ! type tps_ctx &>/dev/null; then
-    if [[ -f "$TETRA_SRC/bash/tps/core/context_kv.sh" ]]; then
-        source "$TETRA_SRC/bash/utils/kv_store.sh"
-        source "$TETRA_SRC/bash/tps/core/context_kv.sh"
-    else
-        echo "tut_ctx: requires tps/core/context_kv.sh" >&2
-        return 1
-    fi
+    echo "tut_ctx: requires tps_ctx (load tps module first)" >&2
+    return 1
 fi
 
 # =============================================================================

@@ -1,101 +1,33 @@
 #!/usr/bin/env bash
 # games/games_ctx.sh - TPS context integration for games
 #
-# Provides GAMES[org:project:subject] context line in prompt
-# Color: magenta (5)
+# Uses unified tps_ctx API for context management.
+# Context: GAMES[org:project:subject]
+# Color: magenta (5), Priority: 40
 
 # =============================================================================
-# STATE
+# DEPENDENCIES
 # =============================================================================
 
-export GAMES_CTX_ORG="${GAMES_CTX_ORG:-}"
-export GAMES_CTX_PROJECT="${GAMES_CTX_PROJECT:-}"
-export GAMES_CTX_SUBJECT="${GAMES_CTX_SUBJECT:-}"
-
-# Persistence file
-GAMES_CTX_FILE="${GAMES_CTX_FILE:-$TETRA_DIR/games/context}"
-
-# Registration state
-declare -g GAMES_TPS_REGISTERED=0
+if ! type tps_ctx &>/dev/null; then
+    echo "games_ctx: requires tps_ctx (load tps module first)" >&2
+    return 1
+fi
 
 # =============================================================================
-# TPS PROVIDER FUNCTIONS
+# REGISTER WITH TPS
 # =============================================================================
 
-_games_prompt_org() {
-    echo "${GAMES_CTX_ORG:-}"
-}
-
-_games_prompt_project() {
-    echo "${GAMES_CTX_PROJECT:-}"
-}
-
-_games_prompt_subject() {
-    echo "${GAMES_CTX_SUBJECT:-}"
-}
+# Register games context line (magenta, priority 40)
+tps_ctx register games GAMES 40 5
 
 # =============================================================================
-# TPS REGISTRATION
+# SLOT ACCESSORS (convenience wrappers)
 # =============================================================================
 
-_games_register_prompt() {
-    [[ $GAMES_TPS_REGISTERED -eq 1 ]] && return
-
-    if type tps_register_context_line &>/dev/null; then
-        # GAMES in magenta (color 5), priority 40
-        tps_register_context_line games GAMES 40 5
-        tps_register_context org _games_prompt_org games
-        tps_register_context project _games_prompt_project games
-        tps_register_context subject _games_prompt_subject games
-        GAMES_TPS_REGISTERED=1
-    fi
-}
-
-_games_unregister_prompt() {
-    if type tps_unregister_context_line &>/dev/null; then
-        tps_unregister_context_line games
-        GAMES_TPS_REGISTERED=0
-    fi
-}
-
-# =============================================================================
-# PERSISTENCE
-# =============================================================================
-
-_games_ctx_save() {
-    mkdir -p "$(dirname "$GAMES_CTX_FILE")"
-    cat > "$GAMES_CTX_FILE" <<EOF
-GAMES_CTX_ORG=${GAMES_CTX_ORG}
-GAMES_CTX_PROJECT=${GAMES_CTX_PROJECT}
-GAMES_CTX_SUBJECT=${GAMES_CTX_SUBJECT}
-EOF
-
-    # Register TPS when we have context
-    if [[ -n "$GAMES_CTX_ORG" || -n "$GAMES_CTX_PROJECT" || -n "$GAMES_CTX_SUBJECT" ]]; then
-        _games_register_prompt
-    else
-        _games_unregister_prompt
-    fi
-}
-
-_games_ctx_load() {
-    [[ ! -f "$GAMES_CTX_FILE" ]] && return
-
-    local line key value
-    while IFS='=' read -r key value; do
-        [[ -z "$key" || "$key" == \#* ]] && continue
-        case "$key" in
-            GAMES_CTX_ORG)     export GAMES_CTX_ORG="$value" ;;
-            GAMES_CTX_PROJECT) export GAMES_CTX_PROJECT="$value" ;;
-            GAMES_CTX_SUBJECT) export GAMES_CTX_SUBJECT="$value" ;;
-        esac
-    done < "$GAMES_CTX_FILE"
-
-    # Register prompt if we loaded context
-    if [[ -n "$GAMES_CTX_ORG" ]]; then
-        _games_register_prompt
-    fi
-}
+_games_org()     { tps_ctx get games org; }
+_games_project() { tps_ctx get games project; }
+_games_subject() { tps_ctx get games subject; }
 
 # =============================================================================
 # CONTEXT COMMANDS
@@ -122,13 +54,8 @@ games_ctx_set() {
         return 1
     fi
 
-    # Set context
-    export GAMES_CTX_ORG="$org"
-    export GAMES_CTX_PROJECT="$project"
-    export GAMES_CTX_SUBJECT="$subject"
-
-    # Save and register
-    _games_ctx_save
+    # Set context via tps_ctx
+    tps_ctx set games "$org" "$project" "$subject"
 
     # Change to games directory if it exists
     local games_dir="$TETRA_DIR/orgs/$org/games"
@@ -154,84 +81,88 @@ games_ctx_org() {
 # Set project (inherit org, clear subject)
 games_ctx_project() {
     local project="$1"
+    local org=$(_games_org)
 
-    if [[ -z "$GAMES_CTX_ORG" ]]; then
+    if [[ -z "$org" ]]; then
         echo "Error: No org set. Use 'games ctx set <org> <project>' first." >&2
         return 1
     fi
 
-    games_ctx_set "$GAMES_CTX_ORG" "$project"
+    games_ctx_set "$org" "$project"
 }
 
 # Set subject (inherit org and project)
 games_ctx_subject() {
     local subject="$1"
+    local org=$(_games_org)
+    local project=$(_games_project)
 
-    if [[ -z "$GAMES_CTX_ORG" || -z "$GAMES_CTX_PROJECT" ]]; then
+    if [[ -z "$org" || -z "$project" ]]; then
         echo "Error: No org/project set. Use 'games ctx set <org> <project> <subject>' first." >&2
         return 1
     fi
 
-    games_ctx_set "$GAMES_CTX_ORG" "$GAMES_CTX_PROJECT" "$subject"
+    games_ctx_set "$org" "$project" "$subject"
 }
 
 # Clear context
 games_ctx_clear() {
-    export GAMES_CTX_ORG=""
-    export GAMES_CTX_PROJECT=""
-    export GAMES_CTX_SUBJECT=""
-
-    _games_ctx_save
-    _games_unregister_prompt
-
+    tps_ctx clear games
     echo "Context cleared"
 }
 
 # Show current context
 games_ctx_status() {
+    local org=$(_games_org)
+    local project=$(_games_project)
+    local subject=$(_games_subject)
+
     echo "GAMES Context"
     echo "============="
     echo ""
-    echo "  Org:     ${GAMES_CTX_ORG:-(not set)}"
-    echo "  Project: ${GAMES_CTX_PROJECT:-(not set)}"
-    echo "  Subject: ${GAMES_CTX_SUBJECT:-(not set)}"
+    echo "  Org:     ${org:-(not set)}"
+    echo "  Project: ${project:-(not set)}"
+    echo "  Subject: ${subject:-(not set)}"
     echo ""
 
-    if [[ -n "$GAMES_CTX_ORG" ]]; then
-        local games_dir="$TETRA_DIR/orgs/$GAMES_CTX_ORG/games"
+    if [[ -n "$org" ]]; then
+        local games_dir="$TETRA_DIR/orgs/$org/games"
         echo "  Dir:     $games_dir"
         echo ""
-        echo "  Preview: GAMES[${GAMES_CTX_ORG}:${GAMES_CTX_PROJECT:-?}:${GAMES_CTX_SUBJECT:-?}]"
+        echo "  Preview: GAMES[${org}:${project:-?}:${subject:-?}]"
     fi
 }
 
 # Main context command dispatcher
 games_ctx() {
-    case "$1" in
+    local cmd="${1:-status}"
+    shift 2>/dev/null || true
+
+    case "$cmd" in
         set)
-            shift
             games_ctx_set "$@"
             ;;
         org)
-            shift
             games_ctx_org "$@"
             ;;
         project|proj)
-            shift
             games_ctx_project "$@"
             ;;
         subject|subj)
-            shift
             games_ctx_subject "$@"
             ;;
         clear)
             games_ctx_clear
             ;;
-        status|"")
+        status)
             games_ctx_status
             ;;
         *)
-            cat <<'EOF'
+            # Convenience: games ctx tetra trax demo
+            if [[ -d "$TETRA_DIR/orgs/$cmd" ]]; then
+                games_ctx_set "$cmd" "$@"
+            else
+                cat <<'EOF'
 Usage: games ctx <command>
 
 Commands:
@@ -244,28 +175,21 @@ Commands:
 
 Examples:
   games ctx set tetra pulsar demo     # Full context
+  games ctx tetra pulsar demo         # Shorthand
   games ctx subject level2            # Change subject only
   games ctx clear                     # Clear all
 
 Aliases: proj = project, subj = subject
 EOF
+            fi
             ;;
     esac
 }
 
 # =============================================================================
-# INITIALIZATION
-# =============================================================================
-
-# Load persisted context on source
-_games_ctx_load
-
-# =============================================================================
 # EXPORTS
 # =============================================================================
 
-export -f _games_prompt_org _games_prompt_project _games_prompt_subject
-export -f _games_register_prompt _games_unregister_prompt
-export -f _games_ctx_save _games_ctx_load
+export -f _games_org _games_project _games_subject
 export -f games_ctx_set games_ctx_org games_ctx_project games_ctx_subject
 export -f games_ctx_clear games_ctx_status games_ctx
