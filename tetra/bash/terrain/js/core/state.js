@@ -64,7 +64,7 @@
                 const oldValue = target[lastKey];
                 target[lastKey] = value;
 
-                Events.emit(Events.EVENTS.STATE_CHANGE, {
+                Events.emit(Events.STATE_CHANGE, {
                     path: path,
                     oldValue: oldValue,
                     newValue: value
@@ -107,7 +107,7 @@
             if (newState.panelPosition) Object.assign(state.panelPosition, newState.panelPosition);
             if (newState.configSections) Object.assign(state.configSections, newState.configSections);
 
-            Events.emit(Events.EVENTS.STATE_LOADED, state);
+            Events.emit(Events.STATE_LOADED, state);
         },
 
         /**
@@ -133,7 +133,7 @@
             state.panelPosition = { x: null, y: null };
             state.configSections = { allCollapsed: true };
 
-            Events.emit(Events.EVENTS.STATE_CHANGE, { path: '*', reset: true });
+            Events.emit(Events.STATE_CHANGE, { path: '*', reset: true });
         },
 
         // Convenience accessors
@@ -162,15 +162,15 @@
             get: function(index) { return state.nodes[index]; },
             add: function(node) {
                 state.nodes.push(node);
-                Events.emit('NODE_ADD', node);
+                Events.emit(Events.NODE_ADD, node);
             },
             update: function(index, updates) {
                 Object.assign(state.nodes[index], updates);
-                Events.emit('NODE_UPDATE', { index, node: state.nodes[index] });
+                Events.emit(Events.NODE_UPDATE, { index, node: state.nodes[index] });
             },
             remove: function(index) {
                 const removed = state.nodes.splice(index, 1)[0];
-                Events.emit('NODE_DELETE', { index, node: removed });
+                Events.emit(Events.NODE_DELETE, { index, node: removed });
             },
             setAll: function(nodes) {
                 state.nodes = nodes;

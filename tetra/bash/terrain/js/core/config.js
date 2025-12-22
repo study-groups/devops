@@ -45,6 +45,45 @@
             stop: 0
         },
 
+        // Centralized UI constants (previously scattered as magic numbers)
+        constants: {
+            // Node dimensions
+            FAB_HEIGHT: 64,
+            TITLE_ONLY_HEIGHT: 22,
+            NODE_MIN_WIDTH: 200,
+            NODE_MAX_WIDTH: 600,
+            NODE_DEFAULT_WIDTH: 320,
+
+            // Grid rendering
+            GRID_MIN_CELL_SIZE: 5,
+            GRID_MAX_CELL_SIZE: 200,
+            GRID_LINE_OPACITY: 0.1,
+            GRID_LINE_WIDTH: 1,
+            GRID_AXIS_OPACITY: 0.3,
+            GRID_AXIS_WIDTH: 2,
+
+            // Animation timing (ms)
+            FADE_DURATION: 400,
+            TOAST_DURATION: 3000,
+            DEBOUNCE_DELAY: 150,
+
+            // Zoom factors
+            ZOOM_IN_FACTOR: 1.1,
+            ZOOM_OUT_FACTOR: 0.9,
+
+            // Panel dimensions
+            CONFIG_PANEL_WIDTH: 300,
+            INSPECTOR_WIDTH: 280,
+
+            // Z-index layers
+            Z_GRID: 0,
+            Z_CANVAS: 1,
+            Z_NODES: 10,
+            Z_PANELS: 100,
+            Z_TOASTS: 500,
+            Z_OVERLAY: 9999
+        },
+
         data: {
             source: 'static',
             defaultsPath: 'data/defaults.json'

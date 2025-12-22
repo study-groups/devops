@@ -67,6 +67,7 @@
     const TerrainBridge = {
         _handlers: new Map(),
         _iframes: new Set(),
+        _registry: new Map(),  // id -> { source, nodeIndex, node, ready, registeredAt }
         _initialized: false,
         _origin: '*',
 
@@ -249,11 +250,191 @@
          */
         getIframeCount: function() {
             return this._iframes.size;
+        },
+
+        // =====================================================================
+        // Iframe Registry (merged from IframeManager)
+        // =====================================================================
+
+        /**
+         * Handle incoming iframe message (registration, etc.)
+         */
+        handleMessage: function(event) {
+            const data = event.data;
+            const source = event.source;
+
+            // Find which iframe sent this message
+            let senderIndex = null;
+            document.querySelectorAll('.node-iframe').forEach((iframe) => {
+                if (iframe.contentWindow === source) {
+                    const card = iframe.closest('.terrain-node');
+                    senderIndex = parseInt(card?.dataset.index);
+                }
+            });
+
+            // Handle registration
+            if (data.type === 'ready') {
+                const node = senderIndex !== null && TERRAIN.State ?
+                    TERRAIN.State.nodes.get(senderIndex) : null;
+                const id = data.from || (node ? node.id : 'unknown-' + Date.now());
+
+                this._registry.set(id, {
+                    source: source,
+                    nodeIndex: senderIndex,
+                    node: node,
+                    ready: true,
+                    registeredAt: Date.now()
+                });
+
+                console.log('[TERRAIN.Bridge] Iframe registered:', id);
+
+                // Update CLI targets
+                if (TERRAIN.CLI) {
+                    TERRAIN.CLI.updateTargets(senderIndex);
+                }
+
+                // Inject tokens when iframe is ready
+                if (senderIndex !== null) {
+                    const card = document.querySelector(`[data-index="${senderIndex}"]`);
+                    const iframe = card?.querySelector('.node-iframe');
+                    if (iframe) {
+                        this.injectTokens(iframe);
+                    }
+                    if (TERRAIN.CLI) {
+                        TERRAIN.CLI.updateStatus(senderIndex, 'active', 'connected: ' + id);
+                    }
+                }
+            }
+
+            // Log to CLI if node is expanded
+            if (senderIndex !== null && TERRAIN.CLI) {
+                TERRAIN.CLI.log(senderIndex, 'in', data);
+            }
+        },
+
+        /**
+         * Get list of registered iframe IDs
+         */
+        getTargets: function() {
+            return Array.from(this._registry.keys());
+        },
+
+        /**
+         * Get registry entry by ID
+         */
+        getTarget: function(id) {
+            return this._registry.get(id);
+        },
+
+        /**
+         * Send message to a node's iframe by index
+         */
+        sendToNode: function(index, data) {
+            const card = document.querySelector(`[data-index="${index}"]`);
+            const iframe = card?.querySelector('.node-iframe');
+            if (iframe?.contentWindow) {
+                iframe.contentWindow.postMessage(data, '*');
+                return true;
+            }
+            return false;
+        },
+
+        /**
+         * Send message to a specific target by ID
+         */
+        sendToTarget: function(targetId, data) {
+            const entry = this._registry.get(targetId);
+            if (entry && entry.source) {
+                entry.source.postMessage(data, '*');
+                return true;
+            }
+            return false;
+        },
+
+        /**
+         * Extract CSS tokens from document
+         */
+        extractTokens: function() {
+            const style = getComputedStyle(document.documentElement);
+            const tokenNames = [
+                'bg-primary', 'bg-secondary', 'bg-tertiary', 'bg-hover',
+                'border', 'border-visible', 'border-active',
+                'text-primary', 'text-secondary', 'text-muted', 'text-code',
+                'accent-primary', 'accent-secondary', 'success', 'error', 'warning',
+                'font-primary', 'font-secondary', 'font-code',
+                'curve-sm', 'curve-md', 'curve-lg',
+                'gap-xs', 'gap-sm', 'gap-md', 'gap-lg', 'gap-xl',
+                'tempo-fast', 'tempo-normal', 'tempo-slow'
+            ];
+
+            const tokens = {};
+            tokenNames.forEach(name => {
+                const value = style.getPropertyValue('--' + name).trim();
+                if (value) tokens[name] = value;
+            });
+            return tokens;
+        },
+
+        /**
+         * Inject CSS tokens into an iframe
+         */
+        injectTokens: function(iframe) {
+            if (!iframe?.contentWindow) return;
+            const tokens = this.extractTokens();
+            iframe.contentWindow.postMessage({
+                type: 'injectTokens',
+                tokens: tokens
+            }, '*');
+            console.log('[TERRAIN.Bridge] Injected tokens:', Object.keys(tokens).length);
+        },
+
+        /**
+         * Inject tokens to all registered iframes
+         */
+        refreshAllTokens: function() {
+            const tokens = this.extractTokens();
+            this._registry.forEach((entry) => {
+                if (entry.source) {
+                    entry.source.postMessage({
+                        type: 'injectTokens',
+                        tokens: tokens
+                    }, '*');
+                }
+            });
+        },
+
+        /**
+         * Unregister an iframe
+         */
+        unregister: function(id) {
+            this._registry.delete(id);
+        },
+
+        /**
+         * Clear all registrations
+         */
+        clearRegistry: function() {
+            this._registry.clear();
         }
     };
 
     // Attach Bridge to TERRAIN
     TERRAIN.Bridge = TerrainBridge;
+
+    // Backwards compat: IframeManager now uses Bridge
+    TERRAIN.IframeManager = {
+        handleMessage: (e) => TerrainBridge.handleMessage(e),
+        getTargets: () => TerrainBridge.getTargets(),
+        get: (id) => TerrainBridge.getTarget(id),
+        sendToNode: (i, d) => TerrainBridge.sendToNode(i, d),
+        sendToTarget: (t, d) => TerrainBridge.sendToTarget(t, d),
+        broadcast: (d) => TerrainBridge.broadcast('iframe:message', d),
+        extractTokens: () => TerrainBridge.extractTokens(),
+        injectTokens: (f) => TerrainBridge.injectTokens(f),
+        refreshAllTokens: () => TerrainBridge.refreshAllTokens(),
+        unregister: (id) => TerrainBridge.unregister(id),
+        clear: () => TerrainBridge.clearRegistry()
+    };
 
     // Auto-initialize when DOM is ready
     if (document.readyState === 'loading') {

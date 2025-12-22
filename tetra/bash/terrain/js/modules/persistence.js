@@ -20,7 +20,7 @@
 
             // Save on state changes (debounced)
             let saveTimeout = null;
-            Events.on(Events.EVENTS.STATE_CHANGE, () => {
+            Events.on(Events.STATE_CHANGE, () => {
                 clearTimeout(saveTimeout);
                 saveTimeout = setTimeout(() => this.save(), 500);
             });
@@ -34,7 +34,7 @@
                 const state = State.getAll();
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
                 console.log('[Persistence] State saved');
-                Events.emit(Events.EVENTS.STATE_SAVED, state);
+                Events.emit(Events.STATE_SAVED, state);
             } catch (e) {
                 console.error('[Persistence] Save failed:', e);
             }

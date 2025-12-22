@@ -114,7 +114,7 @@
 
             this.stackToasts(leftToasts, bottomMargin, spacing);
 
-            Events.emit(Events.EVENTS.TOAST_STACK_UPDATE, { spacing });
+            Events.emit(Events.TOAST_STACK_UPDATE, { spacing });
         },
 
         /**
@@ -211,7 +211,7 @@
                 element.classList.toggle('hidden', !State.ui[stateKey]);
             }
             setTimeout(() => this.updateStacking(), 50);
-            Events.emit(Events.EVENTS.UI_TOGGLE, { element: toastId, visible: State.ui[stateKey] });
+            Events.emit(Events.UI_TOGGLE, { element: toastId, visible: State.ui[stateKey] });
         },
 
         /**

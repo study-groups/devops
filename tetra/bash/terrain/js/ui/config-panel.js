@@ -195,9 +195,9 @@
 
             if (isOpening) {
                 this.applySectionState();
-                Events.emit(Events.EVENTS.CONFIG_OPEN);
+                Events.emit(Events.CONFIG_OPEN);
             } else {
-                Events.emit(Events.EVENTS.CONFIG_CLOSE);
+                Events.emit(Events.CONFIG_CLOSE);
             }
         },
 

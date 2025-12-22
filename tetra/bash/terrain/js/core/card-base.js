@@ -60,7 +60,7 @@
                 this.renderAll();
 
                 // Listen for state changes
-                Events.on(Events.EVENTS.STATE_LOADED, () => this.renderAll());
+                Events.on(Events.STATE_LOADED, () => this.renderAll());
 
                 // Deselect on canvas click
                 const canvas = document.getElementById('canvas');
@@ -78,7 +78,7 @@
                     if (e.data && e.data.type) {
                         console.log('[Terrain] Iframe message:', e.data);
                         Terrain.IframeManager?.handleMessage(e);
-                        Events.emit('IFRAME_MESSAGE', e.data);
+                        Events.emit(Events.IFRAME_MESSAGE, e.data);
                     }
                 });
 

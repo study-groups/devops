@@ -97,30 +97,56 @@
 
         /**
          * Initialize modules after loading
+         * Uses registry pattern - modules register themselves via TERRAIN.register()
          */
         initModules: function() {
-            // Initialize TERRAIN.CSS and TERRAIN.UI first
-            if (TERRAIN.CSS && typeof TERRAIN.CSS.init === 'function') {
-                TERRAIN.CSS.init();
-                this.log('TERRAIN.CSS initialized');
-            }
-            if (TERRAIN.UI && typeof TERRAIN.UI.init === 'function') {
-                TERRAIN.UI.init();
-                this.log('TERRAIN.UI initialized');
+            // Phase 1: Initialize platform modules (TERRAIN.CSS, TERRAIN.UI) first
+            const platformModules = ['CSS', 'UI'];
+            platformModules.forEach(name => {
+                this._initModule(name, TERRAIN[name]);
+            });
+
+            // Phase 2: Initialize registered modules from TERRAIN.modules registry
+            if (TERRAIN.modules) {
+                Object.keys(TERRAIN.modules).forEach(name => {
+                    // Skip already initialized platform modules
+                    if (platformModules.includes(name)) return;
+                    this._initModule(name, TERRAIN.modules[name]);
+                });
             }
 
-            // Initialize each module that has an init function
-            const modules = ['Canvas', 'Grid', 'Nodes', 'Toasts', 'Persistence', 'ConfigPanel', 'Popups'];
-            modules.forEach(name => {
-                if (Terrain[name] && typeof Terrain[name].init === 'function') {
-                    this.log(`Initializing ${name}`);
-                    Terrain[name].init();
+            // Phase 3: Fallback - initialize well-known modules directly from Terrain namespace
+            // This provides backwards compatibility for modules not yet using TERRAIN.register()
+            const legacyModules = ['Canvas', 'Grid', 'Nodes', 'Toasts', 'Persistence', 'ConfigPanel', 'Popups'];
+            legacyModules.forEach(name => {
+                // Only init if not already done via registry and module exists
+                if (Terrain[name] && !TERRAIN.modules?.[name] && typeof Terrain[name].init === 'function') {
+                    this._initModule(name, Terrain[name]);
                 }
             });
 
             // URL ?design=true always wins (even after Persistence.load may have overwritten)
             if (Terrain.Utils.getUrlParamBool('design')) {
                 Terrain.Config.features.designMode = true;
+            }
+        },
+
+        /**
+         * Initialize a single module with error boundary
+         * @param {string} name - Module name
+         * @param {Object} module - Module object
+         */
+        _initModule: function(name, module) {
+            if (!module || typeof module.init !== 'function') return;
+
+            try {
+                this.log(`Initializing ${name}`);
+                module.init();
+                module._initialized = true;
+            } catch (error) {
+                console.error(`[Terrain] Failed to initialize ${name}:`, error);
+                module._initError = error;
+                // Continue with other modules - don't let one failure break everything
             }
         },
 
@@ -221,16 +247,14 @@
                 if (Terrain.Config.features.designMode) {
                     await Promise.all([
                         this.loadCSS('css/components/fab.css'),
-                        this.loadCSS('dist/modules/tut.css'),
-                        this.loadScript('js/ui/inspector.js'),
-                        this.loadScript('dist/modules/tut.js')
+                        this.loadScript('js/ui/inspector.js')
                     ]);
-                    this.log('Inspector + TUT modules loaded (design mode enabled)');
+                    this.log('Design mode assets loaded');
 
-                    // Initialize TUT if loaded
-                    if (TERRAIN.TUT && typeof TERRAIN.TUT.init === 'function') {
-                        TERRAIN.TUT.init();
-                        this.log('TUT initialized');
+                    // Initialize Terrain.Css.fab (replaces TUT)
+                    if (Terrain.Css && typeof Terrain.Css.fab.init === 'function') {
+                        Terrain.Css.fab.init();
+                        this.log('Terrain.Css.fab initialized');
                     }
                 }
 
