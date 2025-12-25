@@ -27,8 +27,7 @@ tetra/
 │   └── bug.sh               # Unicode explorer easter egg
 └── rendering/
     ├── buffer.sh            # Differential screen rendering
-    ├── actions.sh           # Action registry for TUI
-    └── keychord.sh          # Key-chord detection
+    └── actions.sh           # Action registry for TUI
 ```
 
 ## Core Components
