@@ -1,292 +1,203 @@
-# Tetra TUI Architecture
+# Tetra Orchestrator Architecture
 
-## Vision
-The unified Tetra TUI combines the best elements from all demo prototypes into a production-ready interface.
+## Overview
 
-## Core Principles
+Tetra is a module orchestrator providing three interfaces (cmd, repl, tui) to discovered module actions. It is a **module user**, not a module itself.
 
-### 1. Content Model (from unicode_explorer_v2.sh)
-- All displayable data lives in `CONTENT_MODEL` associative array
-- Separation of "what to display" (data) from "where to display" (presentation)
-- Single source of truth for all UI state
+## File Structure
 
-### 2. TDS-Powered Rendering (from unicode_explorer_v2.sh)
-- Tetra Display System (TDS) provides semantic color system
-- Theme-aware: colors defined by purpose, not hard-coded
-- Consistent across all components
+```
+tetra/
+├── tetra.sh                 # Main entry point
+├── core/
+│   ├── bootstrap.sh         # Environment validation, globals
+│   ├── module_loader.sh     # Module discovery from bash/*/
+│   ├── action_discovery.sh  # Action registration via declare_action()
+│   ├── dispatcher.sh        # Action routing to modules
+│   ├── context.sh           # [Org × Env × Mode] calculator
+│   ├── agents.sh            # Agent management system
+│   ├── help.sh              # Hierarchical help system
+│   └── doctor.sh            # Installation health check
+├── interfaces/
+│   ├── cmd.sh               # Direct command interface
+│   ├── repl.sh              # Interactive REPL interface
+│   └── tui.sh               # Visual TUI interface
+├── modes/
+│   ├── matrix.sh            # Env×Mode → Module mapping
+│   └── bug.sh               # Unicode explorer easter egg
+└── rendering/
+    ├── buffer.sh            # Differential screen rendering
+    ├── actions.sh           # Action registry for TUI
+    └── keychord.sh          # Key-chord detection
+```
 
-### 3. Buffer System (from 014)
-- Flicker-free differential rendering
-- Only update changed regions
-- Vsync support for animations
-- Performance-first approach
+## Core Components
 
-### 4. Responsive Layout
-- Terminal resize support via SIGWINCH trap
-- Dynamic region recalculation on resize
-- All components adapt to new dimensions
-- Separator width adjusts automatically
-- Content viewport recalculates available lines
+### Bootstrap (core/bootstrap.sh)
 
-### 5. Layout Regions (from unicode_explorer_v2.sh + 014)
+Validates environment on load:
+- Bash 5.2+ requirement
+- TETRA_SRC environment variable
+- Initializes TETRA_DIR (~/.tetra)
+- Sets up module and action registries
+
+### Module Loader (core/module_loader.sh)
+
+Discovers modules from `$TETRA_SRC/bash/*/`:
+- Requires `actions.sh` for discoverability
+- Loads module entry points
+- Populates TETRA_MODULES registry
+
+### Action Discovery (core/action_discovery.sh)
+
+Modules register actions via `declare_action()`:
+- Stores in TETRA_ACTIONS associative array
+- Supports metadata: verb, noun, contexts, modes
+
+### Dispatcher (core/dispatcher.sh)
+
+Routes actions to owning modules:
+- Parses `verb:noun` or `module verb:noun` patterns
+- Handles orchestrator meta-actions (help, version, list)
+- Delegates to module's `<module>_execute_action()`
+
+### Context (core/context.sh)
+
+Implements context algebra:
+```
+[Org × Env × Mode] → Actions
+```
+
+- **Org**: Organization context
+- **Env**: Local, Dev, Staging, Production
+- **Mode**: Comma-separated module filter
+
+## Interface Modes
+
+### CMD (interfaces/cmd.sh)
+
+One-shot command execution:
+```bash
+tetra <action> [args]
+```
+
+### REPL (interfaces/repl.sh)
+
+Interactive loop with:
+- Persistent context across commands
+- Slash commands for REPL control
+- Readline editing support
+- Optional rlwrap integration
+
+### TUI (interfaces/tui.sh)
+
+Visual interface with:
+- Content model pattern (CONTENT_MODEL associative array)
+- Differential buffer rendering
+- SIGWINCH resize handling
+- Animated separator
+- Mode REPL integration on action execution
+
+## Mode Matrix (modes/matrix.sh)
+
+Maps Env×Mode to available modules:
+
+```bash
+MODE_MATRIX["Local:Inspect"]="org logs tds"
+MODE_MATRIX["Dev:Execute"]="tsm deploy"
+```
+
+Each module has:
+- **Temperature**: TDS theme (warm, cool, neutral, electric)
+- **Marker**: Unicode identifier (⁘ ◇ ● ◉)
+
+## TUI Rendering
+
+### Content Model
+
+Single source of truth for UI state:
+```bash
+declare -gA CONTENT_MODEL=(
+    [env]="Local"
+    [mode]="Inspect"
+    [action]=""
+    [action_state]="idle"
+    [header_size]="max"
+    [command_mode]="false"
+    [view_mode]="false"
+    [animation_enabled]="true"
+)
+```
+
+### Layout Regions
+
 ```
 ┌─────────────────────────────────────┐
-│ HEADER (dynamic size: max/med/min) │
-│  - Environment / Mode / Action     │
-│  - Action signature               │
-│  - Status line                    │
+│ HEADER (resizable: max/med/min)     │
+│  - State, Environment, Mode, Action │
 ├─────────────────────────────────────┤ ← Animated separator
-│ :command_input_here_                │ ← Command line (when ':' pressed)
+│ :command_input_                      │ ← Command line (: key)
 ├─────────────────────────────────────┤
-│                                     │
-│ CONTENT (viewport-bounded)          │
-│  - Action output                    │
-│  - Preview mode                     │
-│  - System views                     │
-│  - Command results                  │
-│                                     │
+│ CONTENT (viewport-bounded)           │
+│  - Context info, modules, actions    │
+│  - Scrollable with 'v' mode         │
 ├─────────────────────────────────────┤
-│ FOOTER (5 lines, from 014)          │
-│  - Navigation hints (centered)      │
-│  - Mode indicators                  │
+│ FOOTER                               │
+│  - Context-sensitive hints           │
 └─────────────────────────────────────┘
 ```
 
-### 6. Action System (from 013)
-- Typed action signatures: `(inputs) → output [where effects]`
-- TES integration for remote operations
-- Action registry with discovery
-- Preview mode for action details
+### Buffer System
 
-### 7. Tetra Branded Spinner
-
-The Tetra spinner uses semantic dot punctuation for state indication:
-
-```bash
-# Spinner character array (dot-based progression)
-declare -ga TETRA_SPINNER=(
-    $'\u00B7'    # Middle Dot (·) - idle/waiting
-    $'\u2025'    # Two Dot Leader (‥) - initializing
-    $'\u2026'    # Horizontal Ellipsis (…) - processing
-    $'\u22EF'    # Midline Horizontal Ellipsis (⋯) - working
-    $'\u2059'    # Five Dot Punctuation (⁙) - completing
-)
-
-# Spinner semantic states
-TETRA_SPINNER_IDLE=0        # · - waiting for input
-TETRA_SPINNER_INIT=1        # ‥ - starting operation
-TETRA_SPINNER_PROC=2        # … - processing data
-TETRA_SPINNER_WORK=3        # ⋯ - active work
-TETRA_SPINNER_DONE=4        # ⁙ - operation complete
-```
-
-Animation cycles through states for executing actions, returns to idle when complete.
-
-### 8. Modes & Features
-
-#### Primary Mode: Tetra TUI
-- Environment navigation (Local/Dev/Staging/Production)
-- Mode selection (Inspect/Transfer/Execute)
-- Action execution with feedback
-- Preview mode (auto-show action details)
-
-#### Command Mode (`:`)
-- Command line appears below animated separator
-- Commands can modify header, content, or footer
-- Supports action execution, state changes, views
-- ESC to exit command mode
-
-#### Easter Egg: "bug" Mode
-- Press `u` key to enter Bug (Unicode Playground)
-- Full unicode_explorer_v2.sh experience
-- Color cycling showcase
-- Interactive glyph matrix exploration
-- Press ESC to return to main TUI
-
-#### Optional: Web Dashboard
-- Press `w` to toggle web server
-- HTTP code analyzer (from 010)
-- Module discovery view
-- Not auto-started
-
-### 9. Input Handling
-- Keyboard primary
-- Arrow keys for navigation
-- Single-key commands (brief, from 013)
-- Multiplexed input for gamepad support (optional)
-- Terminal resize detection (SIGWINCH)
-
-### 10. Performance
 - Differential rendering (only changed lines)
-- Lazy computation (status on demand)
-- Animation controller with FPS tracking
-- Responsive layout (adapts to terminal size)
-- Efficient resize handling
+- Vsync for separator animation
+- Full render on first draw or resize
 
-## Component Responsibilities
+## Spinner States
 
-### interfaces/tui.sh (Main Entry Point)
-- Initialize TUI environment
-- Main event loop
-- Mode switching (normal ↔ command ↔ bug ↔ web)
-- Resize handler (SIGWINCH trap)
-- Cleanup on exit
-
-### rendering/content_model.sh
-- CONTENT_MODEL data structure
-- Update functions for each field
-- Data validation
-
-### rendering/layout.sh
-- Terminal size detection
-- Layout breakpoints (wide/normal/compact/minimal)
-- Region calculations
-- Viewport management
-- Resize recalculation
-
-### rendering/buffer.sh
-- Screen buffer management
-- Differential rendering
-- Vsync rendering
-
-### rendering/components.sh
-- render_header()
-- render_separator()
-- render_command_line()
-- render_content()
-- render_footer()
-
-### actions/registry.sh
-- Action discovery
-- Signature formatting
-- Context-aware action lists
-
-### modes/command.sh
-- Command parsing
-- Command execution
-- Tab completion
-- History management
-
-### modes/bug.sh
-- Embedded unicode_explorer_v2.sh
-- Color cycling demos
-- Interactive glyph composition
-- Return to main TUI
-
-### optional/web_dashboard.sh
-- HTTP server management
-- Module discovery
-- AST generation
-
-## Color System (TDS)
-
-Colors are semantic, defined in TDS theme:
+Tetra uses semantic dot progression:
 ```
-tetra.header.env         - Environment indicator
-tetra.header.mode        - Mode indicator
-tetra.action.verb        - Action verb
-tetra.action.noun        - Action noun
-tetra.action.executing   - Executing state (with spinner)
-tetra.action.success     - Success state (⁘ marker)
-tetra.action.error       - Error state (⁘ marker)
-tetra.separator.line     - Animated separator
-tetra.command.prompt     - Command mode prompt (:)
-tetra.command.input      - Command input text
-tetra.footer.hint        - Navigation hints
-tetra.content.normal     - Regular content
-tetra.content.dim        - Secondary info
-tetra.spinner.active     - Active spinner dots
-tetra.spinner.idle       - Idle spinner dot
+· (U+00B7) - Idle/waiting
+‥ (U+2025) - Initializing
+… (U+2026) - Processing
+⋯ (U+22EF) - Working
+⁙ (U+2059) - Completing
 ```
 
-## Unicode Branding
+## Module Markers
 
-Tetra uses semantic Unicode characters for visual branding:
-
-- **U+2058 ⁘** - Primary marker (FOUR DOT PUNCTUATION)
-  - Success indicators
-  - List markers
-  - Status badges
-
-- **Spinner States** (see section 7)
-  - Progression through dot patterns
-  - Visual feedback during operations
-
-## Key Bindings
-
-### Navigation
-- `e` - Cycle environment
-- `m` - Cycle mode
-- `a` - Cycle action
-- `Enter` - Execute action
-
-### Views
-- `p` - Toggle preview mode
-- `v` - View full content (with scroll)
-- `s` - Show action signatures
-- `l` - Show execution log
-
-### Modes
-- `u` - Enter "bug" (Unicode Playground easter egg)
-- `w` - Toggle web dashboard
-- `:` - Command/REPL mode
-
-### Controls
-- `h` - Cycle header size
-- `o` - Toggle animation
-- `c` - Clear content
-- `q` - Quit
-
-### View Mode (when in 'v')
-- `↑/↓` - Scroll
-- `ESC` - Back to normal
-
-### Command Mode (when in ':')
-- Type commands at prompt (below separator)
-- `ESC` - Exit command mode
-- `Enter` - Execute command
-- `↑/↓` - Command history
-- `Tab` - Command completion
-
-## Resize Handling
-
-Terminal resize is handled via SIGWINCH trap:
-
-```bash
-trap 'handle_resize' WINCH
-
-handle_resize() {
-    # Recalculate terminal dimensions
-    read TUI_HEIGHT TUI_WIDTH < <(stty size 2>/dev/null)
-    [[ -z "$TUI_HEIGHT" ]] && TUI_HEIGHT=$(tput lines)
-    [[ -z "$TUI_WIDTH" ]] && TUI_WIDTH=$(tput cols)
-
-    # Recalculate layout regions
-    calculate_layout
-
-    # Force full re-render
-    needs_redraw=true
-    is_first_render=true
-}
+```
+⁘  org     (Four dot punctuation)
+◇  tsm     (White diamond)
+●  logs    (Black circle)
+◉  deploy  (Fisheye)
 ```
 
-On resize:
-- All components recalculate their dimensions
-- Separator adjusts to new width
-- Content viewport recalculates visible lines
-- Footer remains anchored at bottom
-- Full screen re-render ensures consistency
+## Design Principles
 
-## Implementation Priority
+1. **Orchestrator, not module**: Routes to modules, contains no domain logic
+2. **Three interfaces**: cmd (one-shot), repl (interactive), tui (visual)
+3. **Module discovery via actions.sh**: Required for discoverability
+4. **Context algebra**: [Org × Env × Mode] → filtered actions
+5. **Bash 5.2+**: Modern syntax, nameref, associative arrays
+6. **TETRA_SRC as strong global**: Must be set for anything to work
 
-⁘ Architecture document
-⁘ Basic TUI scaffolding (interfaces/tui.sh)
-⁘ Content model + layout system
-⁘ Buffer rendering system
-⁘ Resize handling (SIGWINCH)
-⁘ Header/separator/footer components
-⁘ Command mode with prompt below separator
-⁘ Action integration (from 013)
-⁘ Bug mode (unicode explorer easter egg)
-⁘ Web dashboard integration
-⁘ Polish & animations with spinner
+## Dependencies
+
+### Required
+- Bash 5.2+
+- TETRA_SRC environment variable
+
+### Optional
+- TDS (Tetra Display System) for TUI colors
+- rlwrap for enhanced REPL history
+- tcurses for TUI input handling
+
+## External Integrations
+
+TUI sources external components when available:
+- `$TETRA_SRC/bash/repl/temperature_loader.sh`
+- `$TETRA_SRC/bash/repl/mode_repl.sh`
+- `$TETRA_SRC/bash/<module>/action_interface.sh`
+
+These provide Mode REPL functionality with temperature-based theming.
