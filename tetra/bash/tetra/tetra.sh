@@ -1,142 +1,317 @@
 #!/usr/bin/env bash
-# Tetra Orchestrator - Module User (Not a Module)
-# Provides 3 interfaces to module actions: cmd, repl, tui
+# tetra.sh - Tetra Orchestrator
+# Thin overseer: loads modules, provides discovery, delegates work
+#
+# Pattern: noun-verb CLI like org, tls, tsm
+# Usage: tetra [command] [subcommand] [args]
 
-# Tetra Orchestrator Version
-TETRA_ORCHESTRATOR_VERSION="1.0.0"
+TETRA_VERSION="2.0.0"
 
-# Bootstrap tetra environment
+# =============================================================================
+# BOOTSTRAP
+# =============================================================================
+
+# Require bash 5.2+
+if [[ "${BASH_VERSINFO[0]}" -lt 5 || ("${BASH_VERSINFO[0]}" -eq 5 && "${BASH_VERSINFO[1]}" -lt 2) ]]; then
+    echo "ERROR: Bash 5.2+ required (found $BASH_VERSION)" >&2
+    return 1 2>/dev/null || exit 1
+fi
+
+# TETRA_SRC must be set (tetra ALWAYS starts by: source ~/tetra/tetra.sh)
 : "${TETRA_SRC:=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 export TETRA_SRC
 
-# Load core orchestrator components
-TETRA_CORE="$TETRA_SRC/bash/tetra/core"
+[[ ! -d "$TETRA_SRC" ]] && { echo "ERROR: TETRA_SRC not found: $TETRA_SRC" >&2; return 1; }
 
-source "$TETRA_CORE/bootstrap.sh" || {
-    echo "ERROR: Failed to load bootstrap" >&2
-    exit 1
+# TETRA_DIR for runtime data
+: "${TETRA_DIR:=$HOME/.tetra}"
+export TETRA_DIR
+mkdir -p "$TETRA_DIR"
+
+# Module registry
+declare -gA TETRA_MODULES=()
+declare -ga TETRA_MODULE_LIST=()
+
+# =============================================================================
+# COLORS (with fallback)
+# =============================================================================
+
+[[ -f "$TETRA_SRC/bash/color/color.sh" ]] && source "$TETRA_SRC/bash/color/color.sh" 2>/dev/null
+: "${TETRA_CYAN:=\033[0;36m}"
+: "${TETRA_YELLOW:=\033[1;33m}"
+: "${TETRA_GREEN:=\033[0;32m}"
+: "${TETRA_BLUE:=\033[1;34m}"
+: "${TETRA_GRAY:=\033[0;90m}"
+: "${TETRA_NC:=\033[0m}"
+
+# =============================================================================
+# HELP
+# =============================================================================
+
+_tetra_help() {
+    local C="$TETRA_CYAN" Y="$TETRA_YELLOW" G="$TETRA_GREEN" D="$TETRA_GRAY" N="$TETRA_NC"
+
+    echo -e "${G}tetra${N} v$TETRA_VERSION - Module Orchestrator"
+    echo ""
+    echo -e "${Y}STATUS${N}"
+    echo -e "  ${C}status${N}              Loaded modules + paths"
+    echo -e "  ${C}doctor${N}              Health check"
+    echo ""
+    echo -e "${Y}MODULES${N}"
+    echo -e "  ${C}module list${N}         List loaded modules"
+    echo -e "  ${C}module info${N} <name>  Show module details"
+    echo -e "  ${C}module stats${N}        File statistics (via tls)"
+    echo ""
+    echo -e "${Y}INTERFACES${N}"
+    echo -e "  ${C}repl${N}                Interactive mode (readline + tab completion)"
+    echo -e "  ${C}tui${N}                 Full-screen TUI (tcurses)"
+    echo ""
+    echo -e "${Y}LOADED${N}"
+    echo -e "  ${D}${TETRA_MODULE_LIST[*]}${N}"
 }
 
-# Bootstrap must succeed
-tetra_bootstrap || exit 1
+# =============================================================================
+# MODULE LOADING
+# =============================================================================
 
-# Load remaining core components
-source "$TETRA_CORE/module_loader.sh"
-source "$TETRA_CORE/action_discovery.sh"
-source "$TETRA_CORE/dispatcher.sh"
-source "$TETRA_CORE/context.sh"
-source "$TETRA_CORE/agents.sh"
-source "$TETRA_CORE/help.sh"
-source "$TETRA_CORE/doctor.sh"
+_tetra_load_module() {
+    local dir="$1"
+    local name="$(basename "$dir")"
 
-# Discover and load modules
-tetra_load_modules
-tetra_discover_actions
+    # Skip orchestrator itself and non-modules
+    [[ "$name" == "tetra" ]] && return 1
+    [[ ! -f "$dir/actions.sh" ]] && return 1
 
-# Main orchestrator command
-tetra() {
-    local mode="${1:-help}"
-    shift || true
+    # Find entry point
+    local entry="$dir/${name}.sh"
+    [[ ! -f "$entry" ]] && entry="$dir/includes.sh"
+    [[ ! -f "$entry" ]] && return 1
 
-    case "$mode" in
-        repl)
-            # Interactive REPL mode
-            if [[ -f "$TETRA_SRC/bash/tetra/interfaces/repl.sh" ]]; then
-                source "$TETRA_SRC/bash/tetra/interfaces/repl.sh"
+    # Source and register
+    if source "$entry" 2>/dev/null; then
+        TETRA_MODULES["$name"]="$dir"
+        TETRA_MODULE_LIST+=("$name")
+        return 0
+    fi
+    return 1
+}
 
-                # Check for --rlwrap flag for enhanced editing
-                if [[ "$1" == "--rlwrap" ]]; then
-                    shift
-                    tetra_repl_with_rlwrap
-                else
-                    tetra_repl "$@"
-                fi
+_tetra_load_all() {
+    # Load color/tds first (libraries, not modules)
+    [[ -f "$TETRA_SRC/bash/tds/tds.sh" ]] && source "$TETRA_SRC/bash/tds/tds.sh" 2>/dev/null
+
+    # Load modules
+    local bash_dir="$TETRA_SRC/bash"
+    for dir in "$bash_dir"/*/; do
+        [[ -d "$dir" ]] && _tetra_load_module "$dir"
+    done
+}
+
+# =============================================================================
+# COMMANDS
+# =============================================================================
+
+_tetra_status() {
+    local C="$TETRA_CYAN" D="$TETRA_GRAY" N="$TETRA_NC"
+
+    echo -e "${C}Tetra${N} v$TETRA_VERSION"
+    echo ""
+    echo "TETRA_SRC: $TETRA_SRC"
+    echo "TETRA_DIR: $TETRA_DIR"
+    echo ""
+    echo "Modules: ${#TETRA_MODULE_LIST[@]}"
+    for m in "${TETRA_MODULE_LIST[@]}"; do
+        printf "  %s\n" "$m"
+    done
+}
+
+_tetra_module() {
+    local subcmd="${1:-list}"
+    shift 2>/dev/null || true
+
+    case "$subcmd" in
+        list|ls)
+            for m in "${TETRA_MODULE_LIST[@]}"; do
+                echo "$m"
+            done
+            ;;
+
+        info)
+            local name="$1"
+            [[ -z "$name" ]] && { echo "Usage: tetra module info <name>"; return 1; }
+
+            local dir="${TETRA_MODULES[$name]}"
+            [[ -z "$dir" ]] && { echo "Module not found: $name"; return 1; }
+
+            echo "Module:  $name"
+            echo "Path:    $dir"
+
+            # Count .sh files
+            local sh_count=$(find "$dir" -maxdepth 1 -name "*.sh" | wc -l | tr -d ' ')
+            echo "Scripts: $sh_count"
+
+            # Show entry point
+            if [[ -f "$dir/${name}.sh" ]]; then
+                echo "Entry:   ${name}.sh"
+            elif [[ -f "$dir/includes.sh" ]]; then
+                echo "Entry:   includes.sh"
+            fi
+
+            # Show if has completion
+            [[ -f "$dir/${name}_complete.sh" ]] && echo "Complete: yes"
+            ;;
+
+        stats)
+            # Delegate to tls if available
+            if declare -f tls >/dev/null 2>&1; then
+                tls "$TETRA_SRC/bash"
             else
-                echo "ERROR: REPL interface not found" >&2
+                echo "bash/ modules:"
+                ls -1 "$TETRA_SRC/bash"
+            fi
+            ;;
+
+        *)
+            echo "Unknown: tetra module $subcmd"
+            echo "Try: list, info <name>, stats"
+            return 1
+            ;;
+    esac
+}
+
+_tetra_doctor() {
+    local ok="${TETRA_GREEN}✓${TETRA_NC}"
+    local fail="${TETRA_YELLOW}✗${TETRA_NC}"
+
+    echo "Tetra Doctor"
+    echo ""
+
+    # Bash version
+    printf "  Bash 5.2+: "
+    if [[ "${BASH_VERSINFO[0]}" -ge 5 && "${BASH_VERSINFO[1]}" -ge 2 ]]; then
+        echo -e "$ok ($BASH_VERSION)"
+    else
+        echo -e "$fail ($BASH_VERSION)"
+    fi
+
+    # TETRA_SRC
+    printf "  TETRA_SRC: "
+    if [[ -d "$TETRA_SRC" ]]; then
+        echo -e "$ok"
+    else
+        echo -e "$fail (not found)"
+    fi
+
+    # TETRA_DIR
+    printf "  TETRA_DIR: "
+    if [[ -d "$TETRA_DIR" ]]; then
+        echo -e "$ok"
+    else
+        echo -e "$fail (not found)"
+    fi
+
+    # Modules loaded
+    printf "  Modules:   "
+    echo -e "$ok (${#TETRA_MODULE_LIST[@]} loaded)"
+
+    # Color module
+    printf "  Colors:    "
+    if [[ -n "$TETRA_GREEN" ]]; then
+        echo -e "$ok"
+    else
+        echo -e "$fail"
+    fi
+
+    echo ""
+}
+
+# =============================================================================
+# COMPLETION
+# =============================================================================
+
+_tetra_complete() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    case "$prev" in
+        tetra)
+            COMPREPLY=($(compgen -W "status module repl tui doctor help version" -- "$cur"))
+            ;;
+        module|mod|m)
+            COMPREPLY=($(compgen -W "list info stats" -- "$cur"))
+            ;;
+        info)
+            COMPREPLY=($(compgen -W "${TETRA_MODULE_LIST[*]}" -- "$cur"))
+            ;;
+    esac
+}
+
+# =============================================================================
+# MAIN
+# =============================================================================
+
+tetra() {
+    local cmd="${1:-status}"
+    shift 2>/dev/null || true
+
+    case "$cmd" in
+        status|s)
+            _tetra_status
+            ;;
+
+        module|mod|m)
+            _tetra_module "$@"
+            ;;
+
+        repl)
+            local repl_file="$TETRA_SRC/bash/tetra/interfaces/repl.sh"
+            if [[ -f "$repl_file" ]]; then
+                source "$repl_file"
+                tetra_repl "$@"
+            else
+                echo "REPL not found: $repl_file" >&2
                 return 1
             fi
             ;;
 
         tui)
-            # Visual TUI mode (conditional on tetra-tui)
-            if [[ -f "$TETRA_SRC/bash/tetra/interfaces/tui.sh" ]]; then
-                source "$TETRA_SRC/bash/tetra/interfaces/tui.sh"
+            local tui_file="$TETRA_SRC/bash/tetra/interfaces/tui.sh"
+            if [[ -f "$tui_file" ]]; then
+                source "$tui_file"
                 tetra_tui "$@"
             else
-                echo "ERROR: TUI interface not found" >&2
-                echo "tetra-tui is optional. See docs for installation." >&2
+                echo "TUI not found: $tui_file" >&2
                 return 1
             fi
             ;;
 
-        agent)
-            # Agent meta-commands
-            local subcmd="${1:-list}"
-            shift || true
-            case "$subcmd" in
-                list)
-                    tetra_list_agents "$@"
-                    ;;
-                info)
-                    tetra_agent_info "$@"
-                    ;;
-                status)
-                    tetra_agent_status "$@"
-                    ;;
-                init)
-                    tetra_agent_init "$@"
-                    ;;
-                connect)
-                    tetra_agent_connect "$@"
-                    ;;
-                disconnect)
-                    tetra_agent_disconnect "$@"
-                    ;;
-                cleanup)
-                    tetra_agent_cleanup "$@"
-                    ;;
-                profiles)
-                    tetra_agent_list_profiles "$@"
-                    ;;
-                *)
-                    echo "Unknown agent command: $subcmd" >&2
-                    echo "Available: list, info, status, init, connect, disconnect, cleanup, profiles" >&2
-                    return 1
-                    ;;
-            esac
+        doctor|doc)
+            _tetra_doctor "$@"
             ;;
 
-        doctor)
-            # Installation and configuration health check
-            tetra_doctor "$@"
-            ;;
-
-        help|--help|-h)
-            tetra_show_help "$@"
+        help|h|--help|-h)
+            _tetra_help
             ;;
 
         version|--version|-v)
-            echo "tetra orchestrator v$TETRA_ORCHESTRATOR_VERSION"
-            echo "Loaded modules: $(tetra list modules 2>/dev/null | tr '\n' ' ')"
-            ;;
-
-        "")
-            # No arguments - show help
-            tetra_show_help
+            echo "tetra v$TETRA_VERSION"
             ;;
 
         *)
-            # Direct command mode - dispatch action
-            if [[ -f "$TETRA_SRC/bash/tetra/interfaces/cmd.sh" ]]; then
-                source "$TETRA_SRC/bash/tetra/interfaces/cmd.sh"
-                tetra_cmd "$mode" "$@"
-            else
-                echo "ERROR: CMD interface not found" >&2
-                return 1
-            fi
+            echo "Unknown command: $cmd"
+            echo ""
+            _tetra_help
+            return 1
             ;;
     esac
 }
 
-# Export main function
+# =============================================================================
+# INIT
+# =============================================================================
+
+_tetra_load_all
+complete -F _tetra_complete tetra
+
+export TETRA_VERSION
 export -f tetra
