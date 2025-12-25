@@ -29,11 +29,13 @@ source "$TETRA_SRC/bash/tetra/modes/matrix.sh"
 source "$TETRA_SRC/bash/repl/temperature_loader.sh"
 source "$TETRA_SRC/bash/repl/mode_repl.sh"
 
-# Source module action interfaces
-source "$TETRA_SRC/bash/org/action_interface.sh"
-source "$TETRA_SRC/bash/tsm/action_interface.sh"
-source "$TETRA_SRC/bash/logs/action_interface.sh"
-source "$TETRA_SRC/bash/deploy/action_interface.sh"
+# Source module action interfaces (conditionally - some may not exist)
+[[ -f "$TETRA_SRC/bash/org/action_interface.sh" ]] && \
+    source "$TETRA_SRC/bash/org/action_interface.sh"
+[[ -f "$TETRA_SRC/bash/tsm/action_interface.sh" ]] && \
+    source "$TETRA_SRC/bash/tsm/action_interface.sh"
+[[ -f "$TETRA_SRC/bash/deploy/action_interface.sh" ]] && \
+    source "$TETRA_SRC/bash/deploy/action_interface.sh"
 
 # Source bug mode (unicode explorer easter egg)
 source "$TETRA_SRC/bash/tetra/modes/bug.sh"
