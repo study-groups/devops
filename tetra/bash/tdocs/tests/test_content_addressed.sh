@@ -29,14 +29,14 @@ export TDOCS_REPL_CONTEXT="local"
 # Initialize using the index init function
 tdoc_index_init
 
-if [[ -d ".tdocs" ]]; then
-    echo "✓ .tdocs directory created"
+if [[ -d "tdocs" ]]; then
+    echo "✓ tdocs directory created"
 else
-    echo "✗ .tdocs directory not created"
+    echo "✗ tdocs directory not created"
     exit 1
 fi
 
-if [[ -f ".tdocs/index.json" ]]; then
+if [[ -f "tdocs/index.json" ]]; then
     echo "✓ index.json created"
 else
     echo "✗ index.json not created"

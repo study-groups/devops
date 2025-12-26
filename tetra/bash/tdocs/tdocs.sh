@@ -84,7 +84,7 @@ source "$TDOCS_SRC/core/ranking.sh"
 source "$TDOCS_SRC/core/scan.sh"
 source "$TDOCS_SRC/core/review.sh"
 source "$TDOCS_SRC/core/help.sh"
-source "$TDOCS_SRC/ui/tdocs_tokens.sh"
+source "$TDOCS_SRC/ui/tokens.sh"
 source "$TDOCS_SRC/ui/tags.sh"
 source "$TDOCS_SRC/ui/preview.sh"
 source "$TDOCS_SRC/ui/interactive.sh"
@@ -326,10 +326,10 @@ tdocs_ls_docs() {
     if [[ $md_count -gt 0 ]]; then
         # Set local context
         export TDOCS_REPL_CONTEXT="local"
-        export TDOCS_DB_DIR="$PWD/.tdocs/db"
+        export TDOCS_DB_DIR="$PWD/tdocs/db"
 
-        # Ensure .tdocs exists
-        if [[ ! -d ".tdocs" ]]; then
+        # Ensure tdocs exists
+        if [[ ! -d "tdocs" ]]; then
             tdocs_index_init >/dev/null
         fi
 

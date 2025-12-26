@@ -52,11 +52,11 @@ TDOC_DEFAULT_LIFECYCLE="W"
 # Context modes - where tdocs operates
 declare -ga TDOC_CONTEXTS=(
     "global"  # Global tetra project docs ($TETRA_DIR/tdocs)
-    "local"   # Local project docs (.tdocs in PWD)
+    "local"   # Local project docs (tdocs in PWD)
 )
 
 # Context detection markers
-TDOC_LOCAL_MARKER=".tdocs"              # Directory that marks local context
+TDOC_LOCAL_MARKER="tdocs"               # Directory that marks local context
 TDOC_LOCAL_SCAN_ROOTS=(".")             # Scan roots for local context
 TDOC_GLOBAL_SCAN_ROOTS=("bash")         # Scan roots for global context
 

@@ -21,7 +21,7 @@ fi
 
 # Load tdocs tokens if not already loaded
 if ! declare -F tdocs_prompt_color >/dev/null 2>&1; then
-    source "$TDOCS_SRC/ui/tdocs_tokens.sh"
+    source "$TDOCS_SRC/ui/tokens.sh"
 fi
 
 # Load color explorer if not already loaded
@@ -150,8 +150,14 @@ repl_register_nav_completion "help.tdocs" "_tdocs_static_completions"
 
 # Detect context (global vs local)
 tdocs_detect_context() {
-    # Check for .tdocs directory
-    if [[ -d ".tdocs" ]]; then
+    # SAFEGUARD: Never use local context from $HOME (even if tdocs exists)
+    if [[ "$PWD" == "$HOME" ]]; then
+        echo "global"
+        return 0
+    fi
+
+    # Check for tdocs directory
+    if [[ -d "tdocs" ]]; then
         echo "local"
         return 0
     fi
@@ -170,19 +176,26 @@ tdocs_detect_context() {
 tdocs_init_local() {
     local force="${1:-false}"
 
-    if [[ -d ".tdocs" ]] && [[ "$force" != "true" ]]; then
-        echo "Local context already exists in $PWD/.tdocs"
+    # SAFEGUARD: Never create tdocs in $HOME
+    if [[ "$PWD" == "$HOME" ]]; then
+        echo "Error: Refusing to create tdocs in \$HOME directory" >&2
+        echo "  cd to a project directory first" >&2
+        return 1
+    fi
+
+    if [[ -d "tdocs" ]] && [[ "$force" != "true" ]]; then
+        echo "Local context already exists in $PWD/tdocs"
         return 0
     fi
 
     echo "Initializing local tdocs context in $PWD..."
 
     # Create directory structure
-    mkdir -p .tdocs/db
-    mkdir -p .tdocs/cache
+    mkdir -p tdocs/db
+    mkdir -p tdocs/cache
 
     # Create config
-    cat > .tdocs/config.json <<'EOF'
+    cat > tdocs/config.json <<'EOF'
 {
   "version": "1.0",
   "scan_roots": ["."],
@@ -192,7 +205,7 @@ tdocs_init_local() {
 EOF
 
     # Create empty index
-    cat > .tdocs/index.json <<'EOF'
+    cat > tdocs/index.json <<'EOF'
 {
   "files": {},
   "scan_roots": ["."],
@@ -200,8 +213,8 @@ EOF
 }
 EOF
 
-    echo "Local context initialized at .tdocs/"
-    echo "Add to .gitignore: echo '.tdocs' >> .gitignore"
+    echo "Local context initialized at tdocs/"
+    echo "Add to .gitignore: echo 'tdocs' >> .gitignore"
 }
 
 # Switch context
@@ -224,7 +237,7 @@ tdocs_switch_context() {
 
     # Update TDOCS_DB_DIR based on context
     if [[ "$new_context" == "local" ]]; then
-        export TDOCS_DB_DIR="$PWD/.tdocs/db"
+        export TDOCS_DB_DIR="$PWD/tdocs/db"
     else
         export TDOCS_DB_DIR="$TETRA_DIR/tdocs/db"
     fi
@@ -322,10 +335,23 @@ _tdocs_repl_build_prompt() {
         TDOCS_REPL_TOTAL_COUNT=$total_count
     fi
 
-    # Update filtered doc count (cached - only recalculate if explicitly invalidated)
-    # Note: Set TDOCS_REPL_DOC_COUNT=0 in filter commands to invalidate cache
+    # Update filtered doc count (cached - only recalculate when filters change)
+    # On startup (no filters), use total count to avoid expensive tdocs_ls_docs call
     if [[ "$doc_count" -eq 0 ]] || [[ "${TDOCS_REPL_FORCE_COUNT:-false}" == "true" ]]; then
-        doc_count=$(tdocs_count_filtered 2>/dev/null) || doc_count=0
+        # Check if any filters are active
+        local has_filters=false
+        [[ ${#TDOCS_REPL_MODULES[@]} -gt 0 ]] && has_filters=true
+        [[ ${#TDOCS_REPL_TYPE[@]} -gt 0 ]] && has_filters=true
+        [[ ${#TDOCS_REPL_INTENT[@]} -gt 0 ]] && has_filters=true
+        [[ ${#TDOCS_REPL_LIFECYCLE[@]} -gt 0 ]] && has_filters=true
+        [[ -n "$TDOCS_REPL_LEVEL" ]] && has_filters=true
+        [[ -n "$TDOCS_REPL_TEMPORAL" ]] && has_filters=true
+
+        if [[ "$has_filters" == "true" ]]; then
+            doc_count=$(tdocs_count_filtered 2>/dev/null) || doc_count=0
+        else
+            doc_count=$total_count
+        fi
         TDOCS_REPL_DOC_COUNT=$doc_count
         TDOCS_REPL_FORCE_COUNT=false
     fi
@@ -393,43 +419,10 @@ _tdocs_repl_build_prompt() {
         type_intent_display="${paren_color}()${reset}"
     fi
 
-    # Get lifecycle breakdown (C:3 S:12 W:68 D:8) - cached to avoid slow grep
-    # Show only non-zero stages
-    # IMPORTANT: Only count non-empty .meta files to match total count
-    local lifecycle_breakdown=""
-
-    # Only recalculate if cache is empty or total count changed
-    if [[ -z "${TDOCS_REPL_LIFECYCLE_BREAKDOWN:-}" ]] || [[ "${TDOCS_REPL_LAST_TOTAL:-0}" != "$total_count" ]]; then
-        declare -A lifecycle_counts
-        if [[ -d "$TDOCS_DB_DIR" ]]; then
-            # Only process non-empty .meta files (matches tdocs_count_total logic)
-            while IFS= read -r meta_file; do
-                [[ ! -f "$meta_file" ]] && continue
-                local lc=$(jq -r '.lifecycle // empty' "$meta_file" 2>/dev/null)
-                [[ -z "$lc" ]] && lc="W"  # Default to Working
-                ((lifecycle_counts[$lc]++))
-            done < <(find "$TDOCS_DB_DIR" -name "*.meta" -type f ! -size 0 2>/dev/null)
-        fi
-
-        # Build lifecycle breakdown string (ordered: C, S, W, D, X) - skip zeros
-        local lc_parts=()
-        [[ -n "${lifecycle_counts[C]}" && "${lifecycle_counts[C]}" -gt 0 ]] && lc_parts+=("${auth_color}C:${lifecycle_counts[C]}${reset}")
-        [[ -n "${lifecycle_counts[S]}" && "${lifecycle_counts[S]}" -gt 0 ]] && lc_parts+=("${auth_color}S:${lifecycle_counts[S]}${reset}")
-        [[ -n "${lifecycle_counts[W]}" && "${lifecycle_counts[W]}" -gt 0 ]] && lc_parts+=("${working_color}W:${lifecycle_counts[W]}${reset}")
-        [[ -n "${lifecycle_counts[D]}" && "${lifecycle_counts[D]}" -gt 0 ]] && lc_parts+=("${temporal_color}D:${lifecycle_counts[D]}${reset}")
-        [[ -n "${lifecycle_counts[X]}" && "${lifecycle_counts[X]}" -gt 0 ]] && lc_parts+=("${temporal_color}X:${lifecycle_counts[X]}${reset}")
-
-        if [[ ${#lc_parts[@]} -gt 0 ]]; then
-            lifecycle_breakdown=$(IFS=' '; echo "${lc_parts[*]}")
-        fi
-
-        # Cache the result
-        TDOCS_REPL_LIFECYCLE_BREAKDOWN="$lifecycle_breakdown"
-        TDOCS_REPL_LAST_TOTAL="$total_count"
-    else
-        # Use cached value
-        lifecycle_breakdown="$TDOCS_REPL_LIFECYCLE_BREAKDOWN"
-    fi
+    # Get lifecycle breakdown (C:3 S:12 W:68 D:8)
+    # DEFERRED: Only calculate when explicitly requested via 'stats' command
+    # The per-file jq approach is O(n) and too slow for large databases
+    local lifecycle_breakdown="${TDOCS_REPL_LIFECYCLE_BREAKDOWN:-}"
 
     # Build sort display - show as prefix if not relevance
     local sort_display=""
@@ -595,19 +588,9 @@ tdocs_repl() {
 
     # Set TDOCS_DB_DIR based on context
     if [[ "$TDOCS_REPL_CONTEXT" == "local" ]]; then
-        export TDOCS_DB_DIR="$PWD/.tdocs/db"
-        # Ensure local context exists
-        if [[ ! -d ".tdocs" ]]; then
-            echo "Local context detected but not initialized. Initializing..."
-            tdocs_init_local
-        fi
-
-        # Auto-scan local docs on REPL start
-        if [[ -d ".tdocs" ]]; then
-            echo "Scanning local docs..."
-            tdocs_scan_dir "." >/dev/null 2>&1
-            echo "Ready."
-        fi
+        export TDOCS_DB_DIR="$PWD/tdocs/db"
+        # Note: tdocs must exist for detect_context to return "local"
+        # No auto-scan - user runs 'scan' explicitly when needed
     else
         export TDOCS_DB_DIR="$TETRA_DIR/tdocs/db"
     fi
@@ -620,7 +603,7 @@ tdocs_repl() {
 
     # Set history base (context-specific)
     if [[ "$TDOCS_REPL_CONTEXT" == "local" ]]; then
-        REPL_HISTORY_BASE=".tdocs/repl_history"
+        REPL_HISTORY_BASE="tdocs/repl_history"
     else
         REPL_HISTORY_BASE="${TETRA_DIR}/tdocs/repl_history"
     fi
@@ -638,10 +621,13 @@ tdocs_repl() {
 
     # Show welcome message with context info
     local context_msg=""
+    local scan_hint=""
     if [[ "$TDOCS_REPL_CONTEXT" == "local" ]]; then
-        context_msg="Context: Local project docs in $PWD"
+        context_msg="Context: Local (tdocs found in $PWD)"
+        scan_hint="Run 'scan' to index local markdown files"
     else
-        context_msg="Context: Global tetra docs in $TETRA_DIR/tdocs"
+        context_msg="Context: Global ($TETRA_DIR/tdocs)"
+        scan_hint="Run 'tdocs init' in a project dir to enable local context"
     fi
 
     cat <<EOF
@@ -650,6 +636,7 @@ tdocs_repl() {
 ╚═══════════════════════════════════════════════════════════╝
 
 $context_msg
+$scan_hint
 
 Prompt Format: [context:name total {modules} (type | intent)] [lifecycle] n >
   context    = local:dirname or global:tetra

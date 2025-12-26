@@ -11,7 +11,7 @@ get_sessions_dir() {
     if [[ "$scope" == "global" ]]; then
         echo "$TETRA_DIR/rag/sessions"
     else
-        echo "$PWD/.rag/sessions"
+        echo "$PWD/rag/sessions"
     fi
 }
 
@@ -260,7 +260,7 @@ session_status() {
             [[ -z "$flow_id" ]] && continue
             ((idx++))
             # Try to get flow description if available
-            local flows_dir="${TTM_TXNS_DIR:-$PWD/.rag/flows}"
+            local flows_dir="${TTM_TXNS_DIR:-$PWD/rag/flows}"
             local flow_state="$flows_dir/$flow_id/state.json"
             if [[ -f "$flow_state" ]]; then
                 local flow_desc=$(jq -r '.description' "$flow_state" 2>/dev/null)

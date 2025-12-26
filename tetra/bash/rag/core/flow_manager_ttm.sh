@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # flow_manager_ttm.sh - RAG Flow management using pure TTM
 # Thin wrapper around TTM that maintains RAG's flow API
-# Uses project-local .rag/flows/ directory (like Claude Code)
+# Uses project-local rag/flows/ directory
 
 : "${TETRA_SRC:=~/tetra}"
 : "${RAG_SRC:=$TETRA_SRC/bash/rag}"
@@ -25,8 +25,8 @@ get_rag_dir() {
     if [[ "$scope" == "global" ]]; then
         echo "$TETRA_DIR/rag"
     else
-        # Project-local (like Claude Code's .claude/)
-        echo "$PWD/.rag"
+        # Project-local
+        echo "$PWD/rag"
     fi
 }
 
@@ -36,13 +36,13 @@ get_flows_dir() {
     echo "$(get_rag_dir "$scope")/flows"
 }
 
-# Override TTM_DIR to use project-local .rag directory by default
+# Override TTM_DIR to use project-local rag directory by default
 # This can be overridden by setting RAG_SCOPE=global
 : "${RAG_SCOPE:=local}"
 export TTM_DIR="$(get_rag_dir "$RAG_SCOPE")"
 export TTM_TXNS_DIR="$TTM_DIR/flows"
 
-# Ensure TTM is initialized for RAG (creates .rag/flows/ or $TETRA_DIR/rag/flows/)
+# Ensure TTM is initialized for RAG (creates rag/flows/ or $TETRA_DIR/rag/flows/)
 mkdir -p "$TTM_TXNS_DIR" "$TTM_DIR/config" "$TTM_DIR/logs"
 
 # Flow stage constants (RAG naming)

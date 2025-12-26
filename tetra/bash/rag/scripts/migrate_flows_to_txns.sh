@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 # migrate_flows_to_txns.sh - NO MIGRATION NEEDED
 #
-# NOTE: As of 2025-10-18, RAG flows remain in project-local .rag/flows/ directories.
-# This matches the Claude Code pattern of keeping project artifacts local.
+# NOTE: As of 2025-10-18, RAG flows remain in project-local rag/flows/ directories.
+# This matches project-local artifact patterns.
 #
 # This script is kept for reference but is NO LONGER NEEDED because:
-# - Flows stay in .rag/flows/ (project-local, like .claude/)
-# - TTM is configured to use .rag/flows/ via TTM_TXNS_DIR override
+# - Flows stay in rag/flows/ (project-local)
+# - TTM is configured to use rag/flows/ via TTM_TXNS_DIR override
 # - No migration from legacy structure is required
 #
 # If you have flows in $TETRA_DIR/rag/txns/, you can manually copy them back to
-# your project's .rag/flows/ directory if needed.
+# your project's rag/flows/ directory if needed.
 
 echo "❌ Migration script is deprecated"
 echo ""
-echo "RAG flows now use project-local .rag/flows/ directories."
+echo "RAG flows now use project-local rag/flows/ directories."
 echo "No migration is needed - your existing flows are already in the right place!"
 echo ""
-echo "Flow location: \$PWD/.rag/flows/"
+echo "Flow location: \$PWD/rag/flows/"
 echo ""
 exit 0
 
@@ -59,12 +59,12 @@ if [[ ! -d "$PROJECT_DIR" ]]; then
 fi
 
 PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
-RAG_DIR="$PROJECT_DIR/.rag"
+RAG_DIR="$PROJECT_DIR/rag"
 FLOWS_DIR="$RAG_DIR/flows"
 
-# Check if .rag/flows exists
+# Check if rag/flows exists
 if [[ ! -d "$FLOWS_DIR" ]]; then
-    log_warn "No .rag/flows directory found at: $FLOWS_DIR"
+    log_warn "No rag/flows directory found at: $FLOWS_DIR"
     log_info "Nothing to migrate."
     exit 0
 fi
@@ -78,7 +78,7 @@ if [[ "$FLOW_COUNT" -eq 0 ]]; then
 fi
 
 echo "======================================================================"
-echo "  RAG Flow Migration: .rag/flows → \$TETRA_DIR/rag/txns"
+echo "  RAG Flow Migration: rag/flows → \$TETRA_DIR/rag/txns"
 echo "======================================================================"
 echo ""
 log_info "Project: $PROJECT_DIR"
