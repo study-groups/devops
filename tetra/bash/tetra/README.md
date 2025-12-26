@@ -1,157 +1,98 @@
 # Tetra Orchestrator
 
-Tetra provides three interfaces to module actions: **cmd**, **repl**, and **tui**.
+Minimal module orchestrator. Loads modules, provides discovery, delegates work.
 
 ## Quick Start
 
 ```bash
 source ~/tetra/tetra.sh
-tetra help                    # Show help
-tetra list modules            # See loaded modules
-tetra repl                    # Interactive mode
+tetra                    # Show status
+tetra help               # Show help
+tetra repl               # Interactive mode
 ```
 
-## Interfaces
-
-### Command Mode (cmd)
-
-Execute actions directly from the shell:
+## Commands
 
 ```bash
-tetra list modules            # Orchestrator meta-action
-tetra list actions            # See all available actions
-tetra rag list agents         # Module action
-tetra help repl               # Get help on a topic
+tetra status             # Show loaded modules and paths
+tetra modules            # Alias for module list
+tetra module list        # List loaded modules
+tetra module info <name> # Show module details
+tetra module stats       # File statistics
+tetra doctor             # Health check
+tetra repl               # Interactive REPL
+tetra help               # Show help
 ```
 
-### REPL Mode
+## REPL
 
-Interactive shell with persistent context:
+Interactive shell with tab completion:
 
 ```bash
-tetra repl                    # Basic mode
-tetra repl --rlwrap           # Enhanced with history
-```
-
-**Slash Commands:**
-```
-/help, /h           Show help
-/exit, /quit, /q    Exit REPL
-
-Context:
-  /org [name]       Get/set organization
-  /env [name]       Get/set environment (Local, Dev, Staging, Production)
-  /mode [modules]   Get/set module filter
-  /context          Show context summary
-
-System:
-  /status           Orchestrator status
-  /history          Recent commands
-  /clear            Clear screen
-```
-
-**Actions** (no / prefix):
-```
-list modules                  List loaded modules
-list actions                  List available actions
-<module> <action> [args]      Execute module action
-```
-
-**Example Session:**
-```
 tetra repl
-[tetra × Local × all] tetra> /org mycompany
-[mycompany × Local × all] tetra> /env Production
-[mycompany × Production × all] tetra> /mode rag
-[mycompany × Production × rag] tetra> rag list agents
-[mycompany × Production × rag] tetra> /exit
 ```
 
-### TUI Mode
+**Commands:**
+```
+status              Show tetra status
+modules             List modules (Tab for names)
+modules <name>      Run module command
+doctor              Health check
+help                Show help
+exit, quit, q       Exit
 
-Visual terminal interface with keyboard navigation:
-
-```bash
-tetra tui
+# Direct module commands
+org status          Organization status
+tsm list            List running services
+deploy push <t> <e> Deploy to environment
 ```
 
-**Navigation:**
-| Key | Action |
-|-----|--------|
-| `e` | Cycle environment (Local → Dev → Staging → Production) |
-| `m` | Cycle mode (Inspect → Transfer → Execute) |
-| `a` | Cycle action |
-| `Enter` | Execute action / enter Mode REPL |
-
-**Views & Modes:**
-| Key | Action |
-|-----|--------|
-| `v` | View mode (scroll with arrows, ESC to exit) |
-| `:` | Command mode |
-| `u` | Unicode explorer |
-| `w` | Web dashboard (placeholder) |
-
-**Controls:**
-| Key | Action |
-|-----|--------|
-| `h` | Cycle header size (max → med → min) |
-| `o` | Toggle separator animation |
-| `c` | Clear content |
-| `q` | Quit |
-
-## Context System
-
-Tetra uses a context algebra: **[Org × Env × Mode] → Actions**
-
-- **Org**: Organization/project context
-- **Env**: Environment (Local, Dev, Staging, Production)
-- **Mode**: Module filter (comma-separated) or "all"
-
-Different Env×Mode combinations provide different modules and actions:
-
-| Environment | Mode | Modules |
-|-------------|------|---------|
-| Local | Inspect | org, logs, tds |
-| Local | Transfer | org, deploy |
-| Local | Execute | org, tsm |
-| Dev | Inspect | org, tsm, logs |
-| Dev | Execute | tsm, deploy |
-| Production | Execute | deploy |
-
-## Agent Management
-
-```bash
-tetra agent list              # List registered agents
-tetra agent info <name>       # Agent details
-tetra agent status <name>     # Check connection
-tetra agent init <name>       # Initialize
-tetra agent connect <name>    # Connect
-tetra agent disconnect <name> # Disconnect
+**Tab Completion:**
+```
+modules <Tab>       Show available modules
+org <Tab>           Show org subcommands
+tsm <Tab>           Show tsm subcommands
 ```
 
-## Help Topics
+## Module Commands
+
+Modules are invoked directly:
 
 ```bash
-tetra help                    # Main help
-tetra help commands           # Command mode
-tetra help repl               # REPL mode
-tetra help tui                # TUI mode
-tetra help agents             # Agent system
-tetra help modules            # Module system
-tetra help composition        # Piping actions
-tetra help context            # Context management
+org status              # Organization status
+org switch mycompany    # Switch organization
+tsm list                # List running services
+tsm start ./server.js   # Start a service
+deploy push app prod    # Deploy app to prod
+tls ~/projects          # List files
 ```
 
 ## Requirements
 
 - Bash 5.2+
-- TETRA_SRC environment variable set
+- `TETRA_SRC` set (automatically detected from tetra.sh location)
 
-## Module Structure
+## Structure
 
-Modules live in `$TETRA_SRC/bash/<module>/` with:
-- `actions.sh` - Action definitions (required for discovery)
-- `<module>.sh` - Implementation
-- `agents/` - Agent configs (optional)
+```
+bash/tetra/
+  tetra.sh              # Main orchestrator (~300 lines)
+  interfaces/
+    repl.sh             # Interactive REPL (~220 lines)
+```
 
-See `docs/Tetra_Module_Convention.md` for creating modules.
+## Module Discovery
+
+Modules in `$TETRA_SRC/bash/<name>/` are loaded if they have:
+- `actions.sh` - Action definitions
+- `<name>.sh` or `includes.sh` - Entry point
+
+## Architecture
+
+Tetra is a thin orchestrator following the noun-verb CLI pattern like `org`, `tsm`, `deploy`:
+
+1. **Bootstrap** - Validate bash 5.2+, set TETRA_SRC/TETRA_DIR
+2. **Load modules** - Scan bash/ for modules with actions.sh
+3. **Dispatch** - Route commands to tetra functions or eval as shell
+
+No complex context system. No action registry. Modules handle their own dispatch.
