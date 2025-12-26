@@ -430,11 +430,18 @@ class GammaService extends EventEmitter {
         res.end(JSON.stringify(matches));
     }
 
-    readBody(req) {
-        return new Promise((resolve) => {
+    readBody(req, maxSize = 4096) {
+        return new Promise((resolve, reject) => {
             let body = '';
-            req.on('data', chunk => body += chunk);
+            req.on('data', chunk => {
+                body += chunk;
+                if (body.length > maxSize) {
+                    req.destroy();
+                    reject(new Error('Payload too large'));
+                }
+            });
             req.on('end', () => resolve(body));
+            req.on('error', reject);
         });
     }
 
