@@ -30,7 +30,7 @@ const VERSION = '1.0.0';
 const DEFAULT_HTTP_PORT = 8085;
 const DEFAULT_UDP_PORT = 1985;
 const SOCKET_PATH = '/tmp/tetra/gamma.sock';
-const STATE_DIR = process.env.GAMMA_STATE_DIR || path.join(process.env.HOME, '.tetra/gamma/state/matches');
+const STATE_DIR = process.env.GAMMA_STATE_DIR || path.join(process.env.HOME, 'tetra/gamma/state/matches');
 
 const MIDI_MP_HOST = process.env.GAMMA_MIDI_MP_HOST || 'localhost';
 const MIDI_MP_PORT = parseInt(process.env.GAMMA_MIDI_MP_PORT || '1984');
