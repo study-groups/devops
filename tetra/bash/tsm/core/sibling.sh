@@ -114,8 +114,12 @@ tsm_start_siblings() {
             continue
         fi
 
-        # Try to start the sibling
-        if tsm start "$sibling" 2>/dev/null; then
+        # Extract service name from process name (strip -port suffix)
+        # e.g., "midi-mp-1984" -> "midi-mp"
+        local service_name="${sibling%-[0-9]*}"
+
+        # Try to start the sibling service
+        if tsm start "$service_name" 2>/dev/null; then
             ((started++))
         fi
     done <<< "$siblings"
