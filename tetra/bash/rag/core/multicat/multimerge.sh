@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # multimerge.sh - Enhanced merge tool supporting both diff and function selector modes
 
-
 # Get the directory where this script resides
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source AST functionality
+# Source shared MULTICAT library and AST functionality
+source "$SCRIPT_DIR/libmulticat.sh"
 source "$SCRIPT_DIR/ast.sh"
 
 usage() {
@@ -24,12 +24,12 @@ Modes Supported:
   mode: full         Complete file replacement (passthrough)
 
 Function Selector Format:
-  #MULTICAT_START
+  $MC_START
   # dir: /path/to/dir
   # file: script.sh
   # mode: function
   # selector: function_name
-  #MULTICAT_END
+  $MC_END
   function_name() {
     # new function body
   }
@@ -63,7 +63,8 @@ apply_function_selector() {
   local new_function="$4"
   local session_dir="${5:-}"
 
-  local target_path="$dir/$file"
+  local target_path
+  target_path=$(mc_fullpath "$dir" "$file")
 
   if [[ ! -f "$target_path" ]]; then
     echo "Error: Target file not found: $target_path" >&2
@@ -104,9 +105,10 @@ apply_diff() {
   local file="$2"
   local patch="$3"
   local session_dir="${4:-}"
-  
-  local target_path="$dir/$file"
-  
+
+  local target_path
+  target_path=$(mc_fullpath "$dir" "$file")
+
   if [[ ! -f "$target_path" ]]; then
     echo "__MISSING__"
     return 1
@@ -141,13 +143,13 @@ apply_diff() {
 # Main processing function
 process_multicat() {
   local session_dir="$1"
-  
+
   local in_block=0
   local mode="full" selector="" requires="no" note=""
   local dir="" file="" content=""
 
   while IFS= read -r line || [[ -n "$line" ]]; do
-    if [[ "$line" == "#MULTICAT_START" ]]; then
+    if [[ "$line" == "$MC_START" ]]; then
       in_block=1
       mode="full"
       selector=""
@@ -157,7 +159,7 @@ process_multicat() {
       file=""
       content=""
       continue
-    elif [[ "$line" == "#MULTICAT_END" ]]; then
+    elif [[ "$line" == "$MC_END" ]]; then
       # Process the block based on mode
       case "$mode" in
         function)
@@ -196,15 +198,15 @@ process_multicat() {
           ;;
       esac
       
-      # Output the processed block
-      echo "#MULTICAT_START"
+      # Output the processed block using library constants
+      echo "$MC_START"
       echo "# dir: $dir"
       echo "# file: $file"
       [[ "$mode" == "diff" ]] && echo "# mode: diff"
       [[ "$mode" == "function" ]] && echo "# mode: function" && [[ -n "$selector" ]] && echo "# selector: $selector"
       [[ "$requires" == "true" ]] && echo "# requires: true"
       [[ -n "$note" ]] && echo "# note: $note"
-      echo "#MULTICAT_END"
+      echo "$MC_END"
       printf "%s\n\n" "$content"
       in_block=0
       continue
