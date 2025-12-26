@@ -20,6 +20,7 @@ const { EventEmitter } = require('events');
 
 const Matches = require('./lib/matches');
 const Codes = require('./lib/codes');
+const RateLimiter = require('./lib/rate-limiter');
 
 // =============================================================================
 // CONSTANTS
@@ -48,6 +49,10 @@ class GammaService extends EventEmitter {
 
         this.matches = new Matches({ stateDir: STATE_DIR });
         this.codes = new Codes();
+
+        // Rate limiters (per IP)
+        this.createLimiter = new RateLimiter({ windowMs: 60000, maxRequests: 5 });   // 5 creates/min
+        this.joinLimiter = new RateLimiter({ windowMs: 60000, maxRequests: 20 });    // 20 joins/min
 
         // Load dashboard template
         this.dashboardTemplate = fs.readFileSync(
@@ -95,6 +100,8 @@ class GammaService extends EventEmitter {
         console.log('[gamma] Stopping...');
 
         if (this.cleanupInterval) clearInterval(this.cleanupInterval);
+        if (this.createLimiter) this.createLimiter.stop();
+        if (this.joinLimiter) this.joinLimiter.stop();
         if (this.httpServer) this.httpServer.close();
         if (this.udpServer) this.udpServer.close();
         if (this.unixServer) this.unixServer.close();
@@ -247,6 +254,19 @@ class GammaService extends EventEmitter {
     }
 
     async handleCreate(req, res) {
+        // Rate limit by IP
+        const clientIp = req.socket.remoteAddress || 'unknown';
+        const rateCheck = this.createLimiter.check(clientIp);
+
+        if (!rateCheck.allowed) {
+            res.writeHead(429, {
+                'Content-Type': 'application/json',
+                'Retry-After': Math.ceil(rateCheck.resetMs / 1000)
+            });
+            res.end(JSON.stringify({ error: 'Too many requests', retryAfter: rateCheck.resetMs }));
+            return;
+        }
+
         const body = await this.readBody(req);
 
         try {
@@ -296,6 +316,19 @@ class GammaService extends EventEmitter {
     }
 
     async handleJoin(req, res) {
+        // Rate limit by IP
+        const clientIp = req.socket.remoteAddress || 'unknown';
+        const rateCheck = this.joinLimiter.check(clientIp);
+
+        if (!rateCheck.allowed) {
+            res.writeHead(429, {
+                'Content-Type': 'application/json',
+                'Retry-After': Math.ceil(rateCheck.resetMs / 1000)
+            });
+            res.end(JSON.stringify({ error: 'Too many requests', retryAfter: rateCheck.resetMs }));
+            return;
+        }
+
         const body = await this.readBody(req);
 
         try {
