@@ -258,9 +258,10 @@ gamma() {
             if [[ "$result" == "[]" ]]; then
                 echo "No active matches"
             else
-                echo "CODE     GAME        PLAYERS  EXPIRES"
-                echo "-------  ----------  -------  -------"
-                echo "$result" | jq -r '.[] | "\(.code)  \(.game)  \(.playerCount)/\(.maxPlayers)  \(.expires | . / 1000 | strftime("%H:%M"))"' 2>/dev/null
+                {
+                    echo "CODE GAME PLAYERS EXPIRES"
+                    echo "$result" | jq -r '.[] | "\(.code) \(.game) \(.playerCount)/\(.maxPlayers) \(.expires | . / 1000 | strftime("%H:%M"))"' 2>/dev/null
+                } | column -t
             fi
             ;;
 

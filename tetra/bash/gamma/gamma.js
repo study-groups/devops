@@ -548,12 +548,13 @@ class GammaService extends EventEmitter {
                     return JSON.stringify({ ok: !!slot });
 
                 case 'close':
-                    const m3 = this.matches.get(cmd.code?.toUpperCase());
+                    const closeCode = cmd.code?.toUpperCase();
+                    const m3 = this.matches.get(closeCode);
                     if (!m3) return JSON.stringify({ error: 'not found' });
                     if (cmd.token !== m3.hostToken) return JSON.stringify({ error: 'not authorized' });
                     // Unregister async (don't block response)
                     this.unregisterMatch(m3);
-                    this.matches.delete(cmd.code);
+                    this.matches.delete(closeCode);
                     return JSON.stringify({ ok: true });
 
                 case 'list':
