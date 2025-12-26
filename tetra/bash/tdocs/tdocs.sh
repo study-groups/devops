@@ -135,184 +135,180 @@ tdoc_module_info() {
     echo "Tracked Documents: $doc_count"
 }
 
-# Main tdoc command interface
+# Main tdoc command interface - hierarchical dispatch
 tdocs() {
-    local action="${1:-}"
+    local category="${1:-}"
 
-    if [[ -z "$action" ]]; then
+    if [[ -z "$category" ]]; then
         _tdocs_show_help
         return 0
     fi
 
     shift || true
+    local subcmd="${1:-}"
+    [[ -n "$subcmd" ]] && shift
 
-    case "$action" in
-        add)
-            tdocs_add_doc "$@"
+    case "$category" in
+        # DOC - Document Operations
+        doc)
+            case "$subcmd" in
+                add)      tdocs_add_doc "$@" ;;
+                view)     tdocs_view_doc "$@" ;;
+                tag)      tdocs_tag_interactive "$@" ;;
+                rank)
+                    if [[ -z "$1" ]]; then
+                        echo "Usage: tdocs doc rank <file>" >&2
+                        return 1
+                    fi
+                    local meta=$(tdoc_get_metadata "$1")
+                    if [[ -z "$meta" || "$meta" == "{}" ]]; then
+                        echo "No metadata for: $1" >&2
+                        return 1
+                    fi
+                    local lifecycle=$(_tdocs_json_get "$meta" '.lifecycle' 'W')
+                    local priority=$(tdoc_lifecycle_priority "$lifecycle")
+                    echo "Lifecycle: $lifecycle ($(tdoc_lifecycle_name "$lifecycle"))"
+                    echo "Priority:  $priority"
+                    ;;
+                promote)
+                    if [[ -z "$1" ]]; then
+                        echo "Usage: tdocs doc promote <file>" >&2
+                        return 1
+                    fi
+                    tdocs_promote_doc "$1"
+                    ;;
+                *)
+                    echo "doc: add view tag rank promote" >&2
+                    ;;
+            esac
             ;;
-        view)
-            tdocs_view_doc "$@"
+
+        # FIND - Query Operations
+        find)
+            case "$subcmd" in
+                ls|list)    tdocs_ls_docs "$@" ;;
+                search)     tdocs_search_docs "$@" ;;
+                evidence)   tdocs_evidence_for_query "$@" ;;
+                filter)     tdocs_ls_docs "$@" ;;  # filter is enhanced ls
+                *)
+                    echo "find: ls search evidence filter" >&2
+                    ;;
+            esac
             ;;
-        tag)
-            tdocs_tag_interactive "$@"
-            ;;
-        ls|list)
-            tdocs_ls_docs "$@"
-            ;;
-        find|search)
-            # find is the primary global search command (search kept for compatibility)
-            tdocs_search_docs "$@"
-            ;;
-        evidence)
-            tdocs_evidence_for_query "$@"
-            ;;
-        audit)
-            tdocs_audit_docs "$@"
-            ;;
+
+        # SCAN - Discovery & Audit
         scan)
-            tdocs_scan_docs "$@"
+            case "$subcmd" in
+                discover)   tdocs_discover_docs "$@" ;;
+                audit)      tdocs_audit_docs "$@" ;;
+                doctor)     tdocs_doctor "$@" ;;
+                run)        tdocs_scan_docs "$@" ;;
+                *)
+                    echo "scan: discover audit doctor run" >&2
+                    ;;
+            esac
             ;;
-        doctor)
-            tdocs_doctor "$@"
+
+        # MOD - Module Documentation
+        mod)
+            case "$subcmd" in
+                show)       tdocs_module_docs "$@" ;;
+                spec)       tdocs_show_spec "$@" ;;
+                audit)      tdocs_audit_specs "$@" ;;
+                types)      tdoc_show_types "$@" ;;
+                *)
+                    echo "mod: show spec audit types" >&2
+                    ;;
+            esac
             ;;
-        rank)
-            # Show lifecycle info for a file
-            if [[ -z "$1" ]]; then
-                echo "Usage: tdocs rank <file>" >&2
-                return 1
-            fi
-            local meta=$(tdoc_get_metadata "$1")
-            if [[ -z "$meta" || "$meta" == "{}" ]]; then
-                echo "No metadata for: $1" >&2
-                return 1
-            fi
-            local lifecycle=$(_tdocs_json_get "$meta" '.lifecycle' 'W')
-            local priority=$(tdoc_lifecycle_priority "$lifecycle")
-            echo "Lifecycle: $lifecycle ($(tdoc_lifecycle_name "$lifecycle"))"
-            echo "Priority:  $priority"
-            ;;
-        promote)
-            # Promote document type
-            if [[ -z "$1" ]]; then
-                echo "Usage: tdocs promote <file>" >&2
-                return 1
-            fi
-            tdocs_promote_doc "$1"
-            ;;
-        browse|repl)
-            # Launch interactive REPL
-            source "$TDOCS_SRC/tdocs_repl.sh"
-            tdocs_repl "$@"
-            ;;
-        annotate|note)
-            # Annotate document with notes
-            tdocs_annotate "$@"
-            ;;
-        notes)
-            # List or view notes
-            if [[ -z "$1" ]]; then
-                tdocs_list_notes
-            else
-                tdocs_note_get "$@"
-            fi
-            ;;
+
+        # CHUCK - LLM Capture
         chuck)
-            tdocs_action_chuck "$@"
+            tdocs_action_chuck "$subcmd" "$@"
             ;;
-        module)
-            tdocs_module_docs "$@"
+
+        # PUB - Publishing
+        pub)
+            case "$subcmd" in
+                publish)    tdocs_publish "$@" ;;
+                targets)    tdocs_list_publish_targets "$@" ;;
+                nginx)      tdocs_generate_nginx_config "$@" ;;
+                *)
+                    echo "pub: publish targets nginx" >&2
+                    ;;
+            esac
             ;;
-        spec)
-            tdocs_show_spec "$@"
+
+        # UI - Interface & Info
+        ui)
+            case "$subcmd" in
+                browse)
+                    source "$TDOCS_SRC/tdocs_repl.sh"
+                    tdocs_repl "$@"
+                    ;;
+                review)     tdocs_review_interactive "$@" ;;
+                colors)     tdocs_color_explorer "$@" ;;
+                about)      tdocs_about "$@" ;;
+                *)
+                    echo "ui: browse review colors about" >&2
+                    ;;
+            esac
             ;;
-        audit-specs)
-            tdocs_audit_specs "$@"
-            ;;
-        demo)
-            # Run demo script
-            if [[ -f "$TDOCS_SRC/demo_tdocs.sh" ]]; then
-                "$TDOCS_SRC/demo_tdocs.sh" "$@"
-            else
-                echo "Demo script not found" >&2
-                return 1
-            fi
-            ;;
-        about)
-            tdocs_about "$@"
-            ;;
-        colors)
-            # Color explorer - delegate to tdocs_color_explorer
-            tdocs_color_explorer "$@"
-            ;;
-        publish)
-            # Publish docs to configured endpoint
-            tdocs_publish "$@"
-            ;;
-        nginx-config)
-            # Generate nginx proxy configuration
-            tdocs_generate_nginx_config "$@"
-            ;;
-        publish-targets)
-            # List available publish targets
-            tdocs_list_publish_targets "$@"
-            ;;
+
+        # Special top-level commands
         ctx|context)
-            # PData context management (T[org:project:subject])
-            tdocs_ctx "$@"
-            ;;
-        pdata)
-            # PData status and management
-            pdata_status "$@"
+            tdocs_ctx "$subcmd" "$@"
             ;;
         help|--help|-h)
-            if [[ -n "$1" ]]; then
-                tdocs_help_topic "$1"
+            if [[ -n "$subcmd" ]]; then
+                tdocs_help_topic "$subcmd"
             else
                 _tdocs_show_help
             fi
             ;;
+
         *)
-            echo "Unknown command: $action" >&2
-            echo "Try: tdocs help" >&2
+            echo "Unknown category: $category" >&2
+            echo "Categories: doc find scan mod chuck pub ui" >&2
+            echo "Special: ctx help" >&2
             return 1
             ;;
     esac
 }
 
 _tdocs_show_help() {
-    # Subtle color palette - intensity creates hierarchy
+    # TDS-based colors for categories
     local C_TITLE='\033[1;36m'      # Bright cyan (title)
-    local C_CMD='\033[0;36m'        # Normal cyan (commands)
-    local C_CMD_DIM='\033[2;36m'    # Dim cyan (secondary commands)
+    local C_CAT='\033[1;33m'        # Yellow (category)
+    local C_DOC='\033[0;32m'        # Green (doc - env:0)
+    local C_FIND='\033[0;34m'       # Blue (find - mode:0)
+    local C_SCAN='\033[0;33m'       # Orange (scan - verbs:3)
+    local C_MOD='\033[0;35m'        # Purple (mod - nouns:0)
+    local C_CHUCK='\033[0;31m'      # Red (chuck - verbs:0)
+    local C_PUB='\033[0;36m'        # Cyan (pub - mode:6)
+    local C_UI='\033[0;32m'         # Green (ui - env:2)
     local C_GRAY='\033[0;90m'       # Grey (descriptions)
-    local C_GRAY_DIM='\033[2;37m'   # Dim grey (hints)
     local C_NC='\033[0m'
 
     cat <<EOF
-$(echo -e "${C_TITLE}tdocs${C_NC}") - type-based doc ranking
+$(echo -e "${C_TITLE}tdocs${C_NC}") - hierarchical document manager
 
-  $(echo -e "${C_CMD}ls${C_NC}")              list (with ranks)
-  $(echo -e "${C_CMD}view${C_NC}") <n>        show doc #n from ls
-  $(echo -e "${C_CMD}search${C_NC}") <q>      find text
-  $(echo -e "${C_CMD_DIM}rank${C_NC}") <file>     explain ranking
+$(echo -e "${C_DOC}doc${C_NC}")   $(echo -e "${C_GRAY}add view tag rank promote${C_NC}")
+$(echo -e "${C_FIND}find${C_NC}")  $(echo -e "${C_GRAY}ls search evidence filter${C_NC}")
+$(echo -e "${C_SCAN}scan${C_NC}")  $(echo -e "${C_GRAY}discover audit doctor run${C_NC}")
+$(echo -e "${C_MOD}mod${C_NC}")   $(echo -e "${C_GRAY}show spec audit types${C_NC}")
+$(echo -e "${C_CHUCK}chuck${C_NC}") $(echo -e "${C_GRAY}save list view promote delete search${C_NC}")
+$(echo -e "${C_PUB}pub${C_NC}")   $(echo -e "${C_GRAY}publish targets nginx${C_NC}")
+$(echo -e "${C_UI}ui${C_NC}")    $(echo -e "${C_GRAY}browse review colors about${C_NC}")
 
-  $(echo -e "${C_CMD}add${C_NC}") <file>      edit metadata
-  $(echo -e "${C_CMD_DIM}promote${C_NC}") <file>  notes→guide→ref
-  $(echo -e "${C_CMD_DIM}scan${C_NC}")            scan for new docs
+$(echo -e "${C_CAT}ctx${C_NC}")   $(echo -e "${C_GRAY}set clear show${C_NC}")  $(echo -e "${C_GRAY}project context${C_NC}")
+$(echo -e "${C_CAT}help${C_NC}")  $(echo -e "${C_GRAY}<topic>${C_NC}")         $(echo -e "${C_GRAY}show help${C_NC}")
 
-  $(echo -e "${C_CMD_DIM}module${C_NC}") <m>      module docs
-  $(echo -e "${C_CMD_DIM}spec${C_NC}") <m>        module spec
-  $(echo -e "${C_CMD_DIM}browse${C_NC}")          REPL mode
-
-  $(echo -e "${C_CMD}ctx${C_NC}") [set|clear]  project context T[org:proj:subj]
-  $(echo -e "${C_CMD_DIM}pdata${C_NC}")           PData status
-
-  $(echo -e "${C_CMD_DIM}publish${C_NC}") <src> <target>   publish to Spaces
-  $(echo -e "${C_CMD_DIM}nginx-config${C_NC}") <target>    generate proxy config
-  $(echo -e "${C_CMD_DIM}publish-targets${C_NC}")          list publish targets
-
-$(echo -e "${C_GRAY_DIM}Types: reference 1.0 • guide 0.6 • notes 0.3${C_NC}")
-$(echo -e "${C_GRAY_DIM}More:  tdocs help <topic>${C_NC}")  $(echo -e "${C_GRAY}rank filter types ctx${C_NC}")
+$(echo -e "${C_GRAY}Examples:${C_NC}")
+  tdocs find ls              $(echo -e "${C_GRAY}list documents${C_NC}")
+  tdocs doc add file.md      $(echo -e "${C_GRAY}add metadata${C_NC}")
+  tdocs scan doctor --fix    $(echo -e "${C_GRAY}repair database${C_NC}")
+  tdocs ui browse            $(echo -e "${C_GRAY}interactive REPL${C_NC}")
 EOF
 }
 
@@ -447,6 +443,54 @@ tdocs_show_spec() {
 
 tdocs_audit_specs() {
     tdoc_audit_specs "$@"
+}
+
+# Discover markdown files without metadata
+tdocs_discover_docs() {
+    # Wrapper for scan with discovery focus
+    tdocs_scan "$@"
+}
+
+# Show document types taxonomy
+tdoc_show_types() {
+    local C_TITLE='\033[1;36m'
+    local C_CAT='\033[0;33m'
+    local C_TYPE='\033[0;32m'
+    local C_GRAY='\033[0;90m'
+    local C_NC='\033[0m'
+
+    echo -e "${C_TITLE}Document Types${C_NC}"
+    echo ""
+    echo -e "${C_CAT}Learn${C_NC} ${C_GRAY}(how-to)${C_NC}"
+    echo -e "  ${C_TYPE}guide${C_NC}         step-by-step instructions"
+    echo -e "  ${C_TYPE}example${C_NC}       code samples and demos"
+    echo -e "  ${C_TYPE}tutorial${C_NC}      comprehensive walkthroughs"
+    echo ""
+    echo -e "${C_CAT}Reference${C_NC} ${C_GRAY}(what-is)${C_NC}"
+    echo -e "  ${C_TYPE}spec${C_NC}          specifications and contracts"
+    echo -e "  ${C_TYPE}standard${C_NC}      conventions and standards"
+    echo -e "  ${C_TYPE}reference${C_NC}     API and interface docs"
+    echo ""
+    echo -e "${C_CAT}Understand${C_NC} ${C_GRAY}(why)${C_NC}"
+    echo -e "  ${C_TYPE}investigation${C_NC} research and analysis"
+    echo -e "  ${C_TYPE}architecture${C_NC}  system design decisions"
+    echo -e "  ${C_TYPE}explanation${C_NC}   conceptual documentation"
+    echo ""
+    echo -e "${C_CAT}Track${C_NC} ${C_GRAY}(what-changed)${C_NC}"
+    echo -e "  ${C_TYPE}summary${C_NC}       meeting and session notes"
+    echo -e "  ${C_TYPE}bug-fix${C_NC}       bug fix documentation"
+    echo -e "  ${C_TYPE}refactor${C_NC}      refactoring notes"
+    echo -e "  ${C_TYPE}changelog${C_NC}     version history"
+    echo ""
+    echo -e "${C_CAT}Plan${C_NC} ${C_GRAY}(what-next)${C_NC}"
+    echo -e "  ${C_TYPE}plan${C_NC}          implementation plans"
+    echo -e "  ${C_TYPE}proposal${C_NC}      feature proposals"
+    echo -e "  ${C_TYPE}roadmap${C_NC}       project roadmaps"
+    echo ""
+    echo -e "${C_CAT}Other${C_NC}"
+    echo -e "  ${C_TYPE}scratch${C_NC}       temporary notes (low rank)"
+    echo ""
+    echo -e "${C_GRAY}Lifecycle: D(raft) W(orking) S(table) C(anonical) X(archived)${C_NC}"
 }
 
 tdocs_scan_dir() {
