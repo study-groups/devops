@@ -26,6 +26,8 @@ orgs/*/.resolved.toml
 *.dylib
 *.exe
 *.out
+bash/midi/osc_listen
+bash/midi/midi_bridge
 
 # Backup files
 *.bak
