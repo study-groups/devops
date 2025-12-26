@@ -249,11 +249,13 @@ class GammaService extends EventEmitter {
             const data = JSON.parse(body);
             const { game, slots = 2, transport = 'udp', addr, public: isPublic = false } = data;
 
-            if (!game) {
+            if (!game || typeof game !== 'string') {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: 'game is required' }));
                 return;
             }
+
+            const maxPlayers = Math.max(2, Math.min(16, parseInt(slots, 10) || 2));
 
             // Generate unique code
             const code = this.codes.generate(key => this.matches.has(key));
@@ -262,7 +264,7 @@ class GammaService extends EventEmitter {
             const match = this.matches.create({
                 code,
                 game,
-                maxPlayers: slots,
+                maxPlayers,
                 transport,
                 addr: addr || `localhost:${7300 + this.stats.matchesCreated}`,
                 public: isPublic
@@ -345,7 +347,13 @@ class GammaService extends EventEmitter {
             const data = JSON.parse(body);
             const { code, token } = data;
 
-            const match = this.matches.get(code?.toUpperCase());
+            if (!code || !token) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'code and token are required' }));
+                return;
+            }
+
+            const match = this.matches.get(code.toUpperCase());
             if (!match) {
                 res.writeHead(404, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: 'Match not found' }));
@@ -380,7 +388,14 @@ class GammaService extends EventEmitter {
             const data = JSON.parse(body);
             const { code, token } = data;
 
-            const match = this.matches.get(code?.toUpperCase());
+            if (!code || !token) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'code and token are required' }));
+                return;
+            }
+
+            const upperCode = code.toUpperCase();
+            const match = this.matches.get(upperCode);
             if (!match) {
                 res.writeHead(404, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: 'Match not found' }));
@@ -396,7 +411,7 @@ class GammaService extends EventEmitter {
             // Unregister all from midi-mp
             await this.unregisterMatch(match);
 
-            this.matches.delete(code);
+            this.matches.delete(upperCode);
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: true }));
