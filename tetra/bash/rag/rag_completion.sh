@@ -125,9 +125,82 @@ _mc_complete() {
     return 0
 }
 
+# Multisplit (ms) completion
+_ms_complete() {
+    local cur prev
+    _init_completion || return
+
+    if [[ "$cur" == -* ]]; then
+        COMPREPLY=($(compgen -W "-y -Y -n --dryrun -h --help" -- "$cur"))
+        return 0
+    fi
+
+    # Default to .mc file completion, then any file
+    COMPREPLY=($(compgen -f -X '!*.mc' -- "$cur"))
+    [[ ${#COMPREPLY[@]} -eq 0 ]] && COMPREPLY=($(compgen -f -- "$cur"))
+    return 0
+}
+
+# MULTICAT info (mi) completion
+_mi_complete() {
+    local cur prev
+    _init_completion || return
+
+    if [[ "$cur" == -* ]]; then
+        COMPREPLY=($(compgen -W "-j --json -h --help" -- "$cur"))
+        return 0
+    fi
+
+    # Default to .mc file completion, then any file
+    COMPREPLY=($(compgen -f -X '!*.mc' -- "$cur"))
+    [[ ${#COMPREPLY[@]} -eq 0 ]] && COMPREPLY=($(compgen -f -- "$cur"))
+    return 0
+}
+
+# Multimerge (mm) completion
+_mm_complete() {
+    local cur prev
+    _init_completion || return
+
+    if [[ "$cur" == -* ]]; then
+        COMPREPLY=($(compgen -W "--rag-dir -h --help" -- "$cur"))
+        return 0
+    fi
+
+    # After --rag-dir, complete directories
+    if [[ "$prev" == "--rag-dir" ]]; then
+        COMPREPLY=($(compgen -d -- "$cur"))
+        return 0
+    fi
+
+    # Default to .mc file completion, then any file
+    COMPREPLY=($(compgen -f -X '!*.mc' -- "$cur"))
+    [[ ${#COMPREPLY[@]} -eq 0 ]] && COMPREPLY=($(compgen -f -- "$cur"))
+    return 0
+}
+
+# Multidiff (md) completion
+_md_complete() {
+    local cur prev
+    _init_completion || return
+
+    # Default to .mc file completion, then any file
+    COMPREPLY=($(compgen -f -X '!*.mc' -- "$cur"))
+    [[ ${#COMPREPLY[@]} -eq 0 ]] && COMPREPLY=($(compgen -f -- "$cur"))
+    return 0
+}
+
 # Register completions (only if bash-completion is loaded)
 if declare -F _init_completion >/dev/null 2>&1; then
     complete -F _rag_complete rag
     complete -F _mc_complete mc
     complete -F _mc_complete multicat
+    complete -F _ms_complete ms
+    complete -F _ms_complete multisplit
+    complete -F _mi_complete mi
+    complete -F _mi_complete mcinfo
+    complete -F _mm_complete mm
+    complete -F _mm_complete multimerge
+    complete -F _md_complete md
+    complete -F _md_complete multidiff
 fi
