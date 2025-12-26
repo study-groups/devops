@@ -19,6 +19,7 @@ _mc_ulm_ranking=0                # --ulm-rank: use ULM for intelligent ranking
 _mc_ulm_query=""                 # Query for ULM ranking
 _mc_ulm_top=20                   # Top N files from ULM ranking
 _mc_no_default_excludes=0        # --no-default-excludes flag
+_mc_prepend_example=0            # -e/--example with files: prepend example
 
 # Default exclude patterns (can be disabled with --no-default-excludes)
 _MC_DEFAULT_EXCLUDES=(
@@ -55,7 +56,7 @@ Usage: multicat.sh [OPTIONS] [file|dir ...]
   --ulm-top N            Number of top files from ULM ranking (default: 20)
   --no-default-excludes  Don't apply default excludes (.git, node_modules, etc.)
   --dryrun               Show files that would be included
-  --example [agent]      Generate example MULTICAT (optionally for specific agent)
+  -e, --example          Prepend format example (alone: example only; with files: example + files)
   --example-long         Generate comprehensive MULTICAT specification example
   -h, --help             Show help
 Notes:
@@ -364,14 +365,7 @@ while [[ $# -gt 0 ]]; do
     --ulm-top) shift; _mc_ulm_top="${1:-20}"; [[ "$_mc_ulm_top" =~ ^[0-9]+$ ]] || { echo "Invalid --ulm-top value" >&2; exit 1; } ;;
     --no-default-excludes) _mc_no_default_excludes=1 ;;
     --dryrun) _mc_dryrun=1 ;;
-    --example)
-      if [[ -n "${2:-}" && "${2}" != -* ]]; then
-        _mc_agent_name="$2"; shift
-        generate_agent_example "$_mc_agent_name"
-      else
-        generate_example
-      fi
-      exit 0 ;;
+    -e|--example) _mc_prepend_example=1 ;;
     --example-long) cat "${RAG_SRC}/example-long.mc"; exit 0 ;;
     -h|--help) usage ;;
     -*)
@@ -382,6 +376,12 @@ while [[ $# -gt 0 ]]; do
   esac
   shift
 done
+
+# If --example with no files, just output example and exit
+if [[ $_mc_prepend_example -eq 1 && ${#_mc_include_files[@]} -eq 0 ]]; then
+    generate_example
+    exit 0
+fi
 
 [[ ${#_mc_include_files[@]} -eq 0 ]] && usage
 [[ $_mc_tree_only -eq 1 && -z "$_mc_manifest_path" ]] && { echo "--tree-only requires -m <manifest>"; exit 1; }
@@ -438,6 +438,12 @@ if [[ -n "$_mc_manifest_path" ]]; then
   if [[ $_mc_tree_only -eq 1 ]]; then
     exit 0
   fi
+fi
+
+# --- Output example if requested ---
+if [[ $_mc_prepend_example -eq 1 ]]; then
+    generate_example
+    echo ""
 fi
 
 # --- Output MULTICAT Format ---

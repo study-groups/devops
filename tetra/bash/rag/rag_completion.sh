@@ -104,18 +104,12 @@ _mc_complete() {
 
     # Handle flags
     if [[ "$cur" == -* ]]; then
-        COMPREPLY=($(compgen -W "-r -x -d -m -C --tree-only --agent --ulm-rank --ulm-top --dryrun --example --example-long -h --help" -- "$cur"))
+        COMPREPLY=($(compgen -W "-r -x -d -m -C -e --tree-only --agent --ulm-rank --ulm-top --no-default-excludes --dryrun --example --example-long -h --help" -- "$cur"))
         return 0
     fi
 
     # Complete agent name after --agent
     if [[ "$prev" == "--agent" ]]; then
-        COMPREPLY=($(compgen -W "$(_mc_get_agents)" -- "$cur"))
-        return 0
-    fi
-
-    # Complete agent name after --example
-    if [[ "$prev" == "--example" ]]; then
         COMPREPLY=($(compgen -W "$(_mc_get_agents)" -- "$cur"))
         return 0
     fi
