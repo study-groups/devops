@@ -15,10 +15,11 @@ source "$MELVIN_SRC/melvin_context.sh"
 source "$MELVIN_SRC/melvin_knowledge.sh"
 source "$MELVIN_SRC/melvin_classify.sh"
 
-# Load legacy components (kept for backward compatibility)
-[[ -f "$MELVIN_SRC/melvin_stats.sh" ]] && source "$MELVIN_SRC/melvin_stats.sh"
+# Load database component
 [[ -f "$MELVIN_SRC/melvin_db.sh" ]] && source "$MELVIN_SRC/melvin_db.sh"
-[[ -f "$MELVIN_SRC/melvin_repl.sh" ]] && source "$MELVIN_SRC/melvin_repl.sh"
+
+# Load registry component (Tetra enhancement)
+[[ -f "$MELVIN_SRC/melvin_registry.sh" ]] && source "$MELVIN_SRC/melvin_registry.sh"
 
 # Load knowledge plugins
 for plugin in "$MELVIN_SRC/knowledge"/*.sh; do
@@ -79,19 +80,16 @@ melvin() {
         refresh)
             melvin_cmd_refresh "$@"
             ;;
-        stats)
-            melvin_cmd_stats "$@"
-            ;;
-        docs)
-            melvin_cmd_docs "$@"
-            ;;
         db)
             melvin_cmd_db "$@"
             ;;
 
-        # Interactive
-        repl)
-            melvin_repl
+        # Registry enhancement (Tetra integration)
+        enhance)
+            melvin_cmd_enhance "$@"
+            ;;
+        registry|reg)
+            melvin_cmd_registry "$@"
             ;;
 
         # Help
@@ -272,30 +270,44 @@ melvin_cmd_refresh() {
     echo "✓ Classification refreshed"
 }
 
-# Stats command (if available)
-melvin_cmd_stats() {
-    if declare -f melvin_stats >/dev/null 2>&1; then
-        melvin_stats "$@"
-    else
-        echo "Stats not available (legacy component not loaded)"
-    fi
-}
-
-# Docs command
-melvin_cmd_docs() {
-    if [[ "$MELVIN_CONTEXT" == "tetra" ]] && [[ $MELVIN_HAS_SELF -eq 1 ]]; then
-        tetra-self docs "$@"
-    else
-        echo "Documentation audit not available for $MELVIN_CONTEXT context"
-    fi
-}
-
-# DB command (if available)
+# DB command
 melvin_cmd_db() {
-    if declare -f melvin_cmd_db >/dev/null 2>&1; then
-        melvin_db "$@"
+    if declare -f melvin_db_list >/dev/null 2>&1; then
+        local subcmd="${1:-list}"
+        shift 2>/dev/null
+        case "$subcmd" in
+            save) melvin_db_save "$@" ;;
+            query) melvin_db_query_module "$@" ;;
+            show) melvin_db_show "$@" ;;
+            search) melvin_db_search "$@" ;;
+            list) melvin_db_list "$@" ;;
+            stats) melvin_db_stats ;;
+            clean) melvin_db_clean "$@" ;;
+            snapshots) melvin_db_list_snapshots "$@" ;;
+            *) echo "db commands: save, query, show, search, list, stats, clean, snapshots" ;;
+        esac
     else
-        echo "Database not available (legacy component not loaded)"
+        echo "Database not loaded"
+    fi
+}
+
+# Enhance Tetra registry with MELVIN metadata
+melvin_cmd_enhance() {
+    if declare -f melvin_enhance_tetra_registry >/dev/null 2>&1; then
+        melvin_enhance_tetra_registry "$@"
+    else
+        echo "Registry enhancement not loaded"
+        return 1
+    fi
+}
+
+# Show enhanced registry
+melvin_cmd_registry() {
+    if declare -f melvin_show_registry >/dev/null 2>&1; then
+        melvin_show_registry "$@"
+    else
+        echo "Registry not loaded"
+        return 1
     fi
 }
 
@@ -306,35 +318,28 @@ melvin_cmd_help() {
     echo ""
     echo "Usage: melvin [--root path] <command> [args]"
     echo ""
-    echo "SETUP:"
-    echo "  --root <path>         Analyze a different codebase"
-    echo "  context               Show current context and root"
-    echo ""
     echo "ANALYSIS:"
-    echo "  health                Classification and health check"
+    echo "  health                Classification summary"
     echo "  explain <module>      Detailed module explanation"
     echo "  classify [module]     Show classification"
-    echo "  list [type]           List modules"
+    echo "  list [type]           List modules (LIBRARY|MODULE|APP)"
+    echo ""
+    echo "REGISTRY (Tetra Enhancement):"
+    echo "  enhance [--save]      Scan and populate TETRA_MODULE_META"
+    echo "  enhance --cached      Load from most recent snapshot"
+    echo "  registry [module]     Show enhanced module metadata"
     echo ""
     echo "KNOWLEDGE:"
-    echo "  concepts [name]       Show available concepts"
+    echo "  concepts [name]       Show/explain concepts"
     echo "  pattern <name>        Explain a pattern"
-    echo "  ask '<question>'      Ask MELVIN a question"
+    echo "  ask '<question>'      Query MELVIN"
     echo ""
     echo "UTILITY:"
+    echo "  context               Show context and root"
     echo "  refresh               Rescan codebase"
-    echo "  repl                  Interactive mode"
-    echo "  stats                 Usage statistics"
-    echo "  db                    Query history"
+    echo "  db [cmd]              Database (save|query|list|stats)"
     echo ""
-    echo "EXAMPLES:"
-    echo "  melvin --root ~/projects/bash-lib health"
-    echo "  melvin explain rag"
-    echo "  melvin concepts strong_globals"
-    echo "  melvin ask 'Show modules with REPL'"
-    echo ""
-    echo "Context: $MELVIN_CONTEXT"
-    echo "Root: $MELVIN_ROOT"
+    echo "Context: $MELVIN_CONTEXT | Root: $MELVIN_ROOT"
 }
 
 # Utility: echo64 (kept from original for compatibility)
@@ -356,8 +361,7 @@ export -f melvin_cmd_concepts
 export -f melvin_cmd_pattern
 export -f melvin_cmd_ask
 export -f melvin_cmd_refresh
-export -f melvin_cmd_stats
-export -f melvin_cmd_docs
 export -f melvin_cmd_db
+export -f melvin_cmd_enhance
+export -f melvin_cmd_registry
 export -f melvin_cmd_help
-export -f echo64

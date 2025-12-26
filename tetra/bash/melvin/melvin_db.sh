@@ -406,6 +406,74 @@ melvin_db_list() {
     echo "Showing: $count of ${#files[@]} total records"
 }
 
+# =============================================================================
+# SNAPSHOT API - Simplified {epoch}.{type}.json convention
+# =============================================================================
+
+# Save aggregated snapshot
+# Usage: melvin_db_save_snapshot <type> <json_data>
+# Types: registry, classify, health
+melvin_db_save_snapshot() {
+    local type="$1"
+    local data="$2"
+
+    if [[ -z "$type" ]] || [[ -z "$data" ]]; then
+        echo "Usage: melvin_db_save_snapshot <type> <data>"
+        return 1
+    fi
+
+    mkdir -p "$MELVIN_DB_DIR"
+
+    local epoch=$(date +%s)
+    local filepath="$MELVIN_DB_DIR/${epoch}.${type}.json"
+
+    echo "$data" > "$filepath"
+    echo "Saved: ${epoch}.${type}.json"
+}
+
+# Load most recent snapshot of type
+# Usage: melvin_db_load_snapshot <type>
+melvin_db_load_snapshot() {
+    local type="$1"
+
+    [[ -z "$type" ]] && { echo "Usage: melvin_db_load_snapshot <type>"; return 1; }
+
+    local latest=$(ls -t "$MELVIN_DB_DIR"/*.${type}.json 2>/dev/null | head -1)
+
+    if [[ -n "$latest" && -f "$latest" ]]; then
+        cat "$latest"
+        return 0
+    fi
+    return 1
+}
+
+# List snapshots by type
+# Usage: melvin_db_list_snapshots [type]
+melvin_db_list_snapshots() {
+    local type="${1:-*}"
+
+    if [[ ! -d "$MELVIN_DB_DIR" ]]; then
+        echo "No database found"
+        return 0
+    fi
+
+    echo "Snapshots (type: $type)"
+    echo "======================="
+
+    local count=0
+    for file in $(ls -t "$MELVIN_DB_DIR"/*.${type}.json 2>/dev/null); do
+        [[ ! -f "$file" ]] && continue
+        local filename=$(basename "$file")
+        local epoch="${filename%%.*}"
+        local date_str=$(date -r "$epoch" "+%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "$epoch")
+        echo "  [$date_str] $filename"
+        ((count++))
+    done
+
+    echo ""
+    echo "Total: $count snapshots"
+}
+
 # Export functions
 export -f melvin_db_save
 export -f melvin_db_query_module
@@ -416,3 +484,6 @@ export -f melvin_db_search
 export -f melvin_db_clean
 export -f melvin_db_stats
 export -f melvin_db_list
+export -f melvin_db_save_snapshot
+export -f melvin_db_load_snapshot
+export -f melvin_db_list_snapshots

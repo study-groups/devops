@@ -28,32 +28,10 @@ melvin_detect_module_type() {
     melvin_classify_generic "$dir"
 }
 
-# Classify via tetra-self (when available)
+# Classify via tetra-self (placeholder for future integration)
 melvin_classify_via_self() {
     local dir="$1"
-    local dir_name=$(basename "$dir")
-
-    # Check if self functions are available
-    if ! declare -f tetra_module_discover >/dev/null 2>&1; then
-        # Try to source self
-        if [[ -f "$TETRA_SRC/bash/self/includes.sh" ]]; then
-            source "$TETRA_SRC/bash/self/includes.sh"
-        else
-            # Fall back to generic
-            melvin_classify_generic "$dir"
-            return
-        fi
-    fi
-
-    # Use tetra-self classification if module is registered
-    if declare -F melvin_get_type >/dev/null 2>&1; then
-        # Old melvin_classifier still present, use it
-        source "${MELVIN_SRC:-$TETRA_SRC/bash/melvin}/melvin_classifier.sh" 2>/dev/null
-        melvin_classify_dir "$dir"
-        return
-    fi
-
-    # Otherwise use generic
+    # For now, just use generic classification
     melvin_classify_generic "$dir"
 }
 
@@ -297,6 +275,38 @@ melvin_show_classification() {
     echo "Location: $module_dir"
 }
 
+# Detailed health report for a module
+# Usage: melvin_health_detail <module_name>
+melvin_health_detail() {
+    local module_name="$1"
+    [[ -z "$module_name" ]] && { echo "Usage: melvin_health_detail <module>"; return 1; }
+
+    melvin_classify_all >/dev/null 2>&1
+
+    local type=$(melvin_get_type "$module_name")
+    local reason=$(melvin_get_reason "$module_name")
+    local features=$(melvin_get_features "$module_name")
+    local module_path="$MELVIN_ROOT"
+    [[ "$MELVIN_CONTEXT" == "tetra" ]] && module_path="$MELVIN_ROOT/bash/$module_name"
+    [[ -d "$MELVIN_ROOT/$module_name" ]] && module_path="$MELVIN_ROOT/$module_name"
+
+    echo "MELVIN Analysis: $module_name"
+    echo "================================"
+    echo "Classification: $type"
+    echo "Reason: $reason"
+    echo "Features: ${features:-none}"
+    echo ""
+
+    if [[ -d "$module_path" ]]; then
+        local file_count=$(find "$module_path" -maxdepth 2 -type f -name "*.sh" 2>/dev/null | wc -l | tr -d ' ')
+        local total_lines=$(find "$module_path" -maxdepth 2 -type f -name "*.sh" -exec cat {} \; 2>/dev/null | wc -l | tr -d ' ')
+        echo "Shell files: $file_count"
+        echo "Total lines: $total_lines"
+        [[ -f "$module_path/README.md" ]] && echo "Docs: ✓ README.md" || echo "Docs: ✗ No README"
+        [[ -d "$module_path/tests" ]] && echo "Tests: ✓ Found" || echo "Tests: ✗ None"
+    fi
+}
+
 # Export functions
 export -f melvin_detect_module_type
 export -f melvin_classify_via_self
@@ -309,3 +319,4 @@ export -f melvin_list_by_type
 export -f melvin_count_by_type
 export -f melvin_classification_summary
 export -f melvin_show_classification
+export -f melvin_health_detail
