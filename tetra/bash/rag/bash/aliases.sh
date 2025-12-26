@@ -6,34 +6,19 @@
 RAG_CORE_DIR="$RAG_SRC/core"
 
 # Multicat (mc) - concatenate files into MULTICAT format
-mc() {
-    ( exec "$RAG_CORE_DIR/multicat/multicat.sh" "$@" )
-    return $?
-}
+mc() { "$RAG_CORE_DIR/multicat/multicat.sh" "$@"; }
 
 # Multisplit (ms) - split MULTICAT files back to individual files
-ms() {
-    ( exec "$RAG_CORE_DIR/multicat/multisplit.sh" "$@" )
-    return $?
-}
+ms() { "$RAG_CORE_DIR/multicat/multisplit.sh" "$@"; }
 
 # MULTICAT info (mi) - show info about MULTICAT files
-mi() {
-    ( exec "$RAG_CORE_DIR/multicat/mcinfo.sh" "$@" )
-    return $?
-}
+mi() { "$RAG_CORE_DIR/multicat/mcinfo.sh" "$@"; }
 
 # Multifind (mf) - advanced file search with ranking
-mf() {
-    ( exec "$RAG_CORE_DIR/search/multifind.sh" "$@" )
-    return $?
-}
+mf() { "$RAG_CORE_DIR/search/multifind.sh" "$@"; }
 
 # Replace - file content replacement
-replace() {
-    ( exec "$RAG_CORE_DIR/utils/replace.sh" "$@" )
-    return $?
-}
+replace() { "$RAG_CORE_DIR/utils/replace.sh" "$@"; }
 
 # Get code utility
 getcode() {
@@ -42,10 +27,7 @@ getcode() {
 }
 
 # Quick patch tool
-qpatch() {
-    ( exec "$RAG_CORE_DIR/patch/qpatch.sh" "$@" )
-    return $?
-}
+qpatch() { "$RAG_CORE_DIR/patch/qpatch.sh" "$@"; }
 
 # Interactive fuzzy grep
 fzgrep() {

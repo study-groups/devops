@@ -5,19 +5,37 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../utils/agents.sh"
 
-# --- Global ---
-include_files=()
-exclude_patterns=()
-recursive=0
-dryrun=0
-declare -A remap_patterns        # -d a=b mappings (apply to headers only)
-manifest_path=""                 # -m <file> canonical list
-root_dir=""                      # -C <dir> root for relativizing paths
-tree_only=0                      # --tree-only: emit only the FILETREE section
-agent_name=""                    # --agent <name> for LLM-specific formatting
-ulm_ranking=0                    # --ulm-rank: use ULM for intelligent ranking
-ulm_query=""                     # Query for ULM ranking
-ulm_top=20                       # Top N files from ULM ranking
+# --- Global (prefixed to avoid namespace pollution) ---
+_mc_include_files=()
+_mc_exclude_patterns=()
+_mc_recursive=0
+_mc_dryrun=0
+declare -A _mc_remap_patterns    # -d a=b mappings (apply to headers only)
+_mc_manifest_path=""             # -m <file> canonical list
+_mc_root_dir=""                  # -C <dir> root for relativizing paths
+_mc_tree_only=0                  # --tree-only: emit only the FILETREE section
+_mc_agent_name=""                # --agent <name> for LLM-specific formatting
+_mc_ulm_ranking=0                # --ulm-rank: use ULM for intelligent ranking
+_mc_ulm_query=""                 # Query for ULM ranking
+_mc_ulm_top=20                   # Top N files from ULM ranking
+_mc_no_default_excludes=0        # --no-default-excludes flag
+
+# Default exclude patterns (can be disabled with --no-default-excludes)
+_MC_DEFAULT_EXCLUDES=(
+    '.git'
+    'node_modules'
+    '__pycache__'
+    '.DS_Store'
+    '*.pyc'
+    '*.pyo'
+    '.venv'
+    'venv'
+    '.idea'
+    '.vscode'
+    '*.swp'
+    '*.swo'
+    '*~'
+)
 
 # Don't execute main logic if script is being sourced
 [[ "${BASH_SOURCE[0]}" != "${0}" ]] && return 0
@@ -27,7 +45,7 @@ usage() {
   cat <<'EOF'
 Usage: multicat.sh [OPTIONS] [file|dir ...]
   -r                     Recurse into directories
-  -x <file>              Exclude patterns file
+  -x <file>              Exclude patterns file (extends defaults)
   -d <a>=<b>             Remap 'a' -> 'b' in # dir:/# file: headers
   -m <manifest.txt>      Canonical file list (one path per line; # comments ok)
   -C <dir>               Root for relativizing paths (default: $PWD)
@@ -35,11 +53,13 @@ Usage: multicat.sh [OPTIONS] [file|dir ...]
   --agent <name>         Use agent-specific formatting and templates
   --ulm-rank <query>     Use ULM ranking with query for intelligent file selection
   --ulm-top N            Number of top files from ULM ranking (default: 20)
+  --no-default-excludes  Don't apply default excludes (.git, node_modules, etc.)
   --dryrun               Show files that would be included
   --example [agent]      Generate example MULTICAT (optionally for specific agent)
   --example-long         Generate comprehensive MULTICAT specification example
   -h, --help             Show help
 Notes:
+  * Default excludes: .git, node_modules, __pycache__, .DS_Store, *.pyc, etc.
   * Exclude patterns are regex fragments matched against absolute paths.
   * Remaps affect header fields only, not file contents.
   * FILETREE compares canonical vs actual (pre-remap) by relative path to -C.
@@ -48,8 +68,27 @@ EOF
 }
 
 array_to_regex() {
+  # Escape special regex chars and join with |
+  # Note: { and } don't need escaping in bash extended regex
+  local escaped=()
+  local pat
+  for pat in "$@"; do
+    pat="${pat//\\/\\\\}"  # \ -> \\
+    pat="${pat//./\\.}"    # . -> \.
+    pat="${pat//\*/\\*}"   # * -> \*
+    pat="${pat//\?/\\?}"   # ? -> \?
+    pat="${pat//\[/\\[}"   # [ -> \[
+    pat="${pat//\]/\\]}"   # ] -> \]
+    pat="${pat//^/\\^}"    # ^ -> \^
+    pat="${pat//$/\\$}"    # $ -> \$
+    pat="${pat//+/\\+}"    # + -> \+
+    pat="${pat//|/\\|}"    # | -> \|
+    pat="${pat//(/\\(}"    # ( -> \(
+    pat="${pat//)/\\)}"    # ) -> \)
+    escaped+=("$pat")
+  done
   local IFS="|"
-  [[ $# -eq 0 ]] && echo '^$' || echo ".*($*)$"
+  [[ ${#escaped[@]} -eq 0 ]] && echo '^$' || echo ".*(${escaped[*]})"
 }
 
 load_excludes() {
@@ -57,7 +96,7 @@ load_excludes() {
   [[ -f "$path" ]] || return
   while IFS= read -r line; do
     [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-    exclude_patterns+=("$line")
+    _mc_exclude_patterns+=("$line")
   done < "$path"
 }
 
@@ -69,10 +108,12 @@ resolve_files() {
   fi
 
   if [[ -f "$resolved" ]]; then
-    [[ "$resolved" =~ $exclude_regex ]] || echo "$resolved"
-  elif [[ -d "$resolved" && $recursive -eq 1 ]]; then
+    # shellcheck disable=SC2076
+    [[ "$resolved" =~ $_mc_exclude_regex ]] || echo "$resolved"
+  elif [[ -d "$resolved" && $_mc_recursive -eq 1 ]]; then
     find "$resolved" -type f -print0 | while IFS= read -r -d '' f; do
-      [[ "$f" =~ $exclude_regex ]] || realpath "$f"
+      # shellcheck disable=SC2076
+      [[ "$f" =~ $_mc_exclude_regex ]] || realpath "$f"
     done
   elif [[ -d "$resolved" ]]; then
     echo "Skipping dir $resolved (use -r to recurse)" >&2
@@ -81,8 +122,8 @@ resolve_files() {
 
 apply_remap() {
   local val="$1"
-  for pat in "${!remap_patterns[@]}"; do
-    val="${val//$pat/${remap_patterns[$pat]}}"
+  for pat in "${!_mc_remap_patterns[@]}"; do
+    val="${val//$pat/${_mc_remap_patterns[$pat]}}"
   done
   echo "$val"
 }
@@ -197,7 +238,7 @@ ulm_rank_files() {
     echo "Using ULM to rank files for query: '$query'" >&2
 
     # Use ULM to get ranked file list
-    "$ulm_script" rank "$query" "$path" --algorithm multi_head --top "$ulm_top" --format text | \
+    "$ulm_script" rank "$query" "$path" --algorithm multi_head --top "$_mc_ulm_top" --format text | \
     while read -r score file; do
         echo "$file"
     done
@@ -300,16 +341,16 @@ print_filetree_section() {
 # --- Parse Arguments ---
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    -r) recursive=1 ;;
+    -r) _mc_recursive=1 ;;
     -x) shift; load_excludes "$1" ;;
     -d)
       shift
       [[ "${1:-}" =~ ^[^=]+=.+$ ]] || { echo "Invalid -d format, expected a=b" >&2; exit 1; }
-      remap_patterns["${1%%=*}"]="${1#*=}"
+      _mc_remap_patterns["${1%%=*}"]="${1#*=}"
       ;;
-    -m) shift; manifest_path="${1:-}"; [[ -n "$manifest_path" && -f "$manifest_path" ]] || { echo "Missing/invalid -m file" >&2; exit 1; } ;;
-    -C) shift; root_dir="${1:-}"; [[ -n "$root_dir" ]] || { echo "Missing -C <dir>" >&2; exit 1; } ;;
-    --tree-only) tree_only=1 ;;
+    -m) shift; _mc_manifest_path="${1:-}"; [[ -n "$_mc_manifest_path" && -f "$_mc_manifest_path" ]] || { echo "Missing/invalid -m file" >&2; exit 1; } ;;
+    -C) shift; _mc_root_dir="${1:-}"; [[ -n "$_mc_root_dir" ]] || { echo "Missing -C <dir>" >&2; exit 1; } ;;
+    --tree-only) _mc_tree_only=1 ;;
     --agent)
       shift
       if [[ -z "${1:-}" || "${1}" == -* ]]; then
@@ -317,15 +358,16 @@ while [[ $# -gt 0 ]]; do
         list_available_agents "cli"
         exit 0
       fi
-      agent_name="${1}"
+      _mc_agent_name="${1}"
       ;;
-    --ulm-rank) shift; ulm_query="${1:-}"; ulm_ranking=1; [[ -n "$ulm_query" ]] || { echo "Missing --ulm-rank <query>" >&2; exit 1; } ;;
-    --ulm-top) shift; ulm_top="${1:-20}"; [[ "$ulm_top" =~ ^[0-9]+$ ]] || { echo "Invalid --ulm-top value" >&2; exit 1; } ;;
-    --dryrun) dryrun=1 ;;
+    --ulm-rank) shift; _mc_ulm_query="${1:-}"; _mc_ulm_ranking=1; [[ -n "$_mc_ulm_query" ]] || { echo "Missing --ulm-rank <query>" >&2; exit 1; } ;;
+    --ulm-top) shift; _mc_ulm_top="${1:-20}"; [[ "$_mc_ulm_top" =~ ^[0-9]+$ ]] || { echo "Invalid --ulm-top value" >&2; exit 1; } ;;
+    --no-default-excludes) _mc_no_default_excludes=1 ;;
+    --dryrun) _mc_dryrun=1 ;;
     --example)
       if [[ -n "${2:-}" && "${2}" != -* ]]; then
-        agent_name="$2"; shift
-        generate_agent_example "$agent_name"
+        _mc_agent_name="$2"; shift
+        generate_agent_example "$_mc_agent_name"
       else
         generate_example
       fi
@@ -336,71 +378,77 @@ while [[ $# -gt 0 ]]; do
       echo "Unknown option: $1" >&2
       usage
       ;;
-    *) include_files+=("$1") ;;
+    *) _mc_include_files+=("$1") ;;
   esac
   shift
 done
 
-[[ ${#include_files[@]} -eq 0 ]] && usage
-[[ $tree_only -eq 1 && -z "$manifest_path" ]] && { echo "--tree-only requires -m <manifest>"; exit 1; }
+[[ ${#_mc_include_files[@]} -eq 0 ]] && usage
+[[ $_mc_tree_only -eq 1 && -z "$_mc_manifest_path" ]] && { echo "--tree-only requires -m <manifest>"; exit 1; }
 
 # Load agent profile if specified
-if [[ -n "$agent_name" ]]; then
-    load_agent_profile "$agent_name" || true
+if [[ -n "$_mc_agent_name" ]]; then
+    load_agent_profile "$_mc_agent_name" || true
 fi
 
-exclude_regex=$(array_to_regex "${exclude_patterns[@]}")
+# Apply default excludes unless disabled
+if [[ $_mc_no_default_excludes -eq 0 ]]; then
+    _mc_exclude_patterns+=("${_MC_DEFAULT_EXCLUDES[@]}")
+fi
 
-all_files=()
+_mc_exclude_regex=$(array_to_regex "${_mc_exclude_patterns[@]}")
+
+_mc_all_files=()
 
 # ULM ranking mode
-if [[ $ulm_ranking -eq 1 ]]; then
-    echo "Using ULM ranking with query: '$ulm_query'" >&2
+if [[ $_mc_ulm_ranking -eq 1 ]]; then
+    echo "Using ULM ranking with query: '$_mc_ulm_query'" >&2
 
     # Use first include item as search path for ULM
-    search_path="${include_files[0]}"
+    _mc_search_path="${_mc_include_files[0]}"
 
     while IFS= read -r f; do
         # Verify file exists and apply exclusions
-        if [[ -f "$f" && ! "$f" =~ $exclude_regex ]]; then
-            all_files+=("$f")
+        # shellcheck disable=SC2076
+        if [[ -f "$f" && ! "$f" =~ $_mc_exclude_regex ]]; then
+            _mc_all_files+=("$f")
         fi
-    done < <(ulm_rank_files "$ulm_query" "$search_path")
+    done < <(ulm_rank_files "$_mc_ulm_query" "$_mc_search_path")
 
-    echo "ULM selected ${#all_files[@]} files" >&2
+    echo "ULM selected ${#_mc_all_files[@]} files" >&2
 else
     # Normal file discovery
-    for item in "${include_files[@]}"; do
+    for item in "${_mc_include_files[@]}"; do
       while IFS= read -r f; do
-        all_files+=("$f")
+        _mc_all_files+=("$f")
       done < <(resolve_files "$item")
     done
 fi
 
-if [[ $dryrun -eq 1 ]]; then
-  printf "%s\n" "${all_files[@]}"
+if [[ $_mc_dryrun -eq 1 ]]; then
+  printf "%s\n" "${_mc_all_files[@]}"
   exit 0
 fi
 
 # --- FILETREE section (optional) ---
-if [[ -n "$manifest_path" ]]; then
+if [[ -n "$_mc_manifest_path" ]]; then
   declare -a MANIFEST_RAW=()
-  read_manifest "$manifest_path"
-  print_filetree_section all_files "$root_dir"
-  if [[ $tree_only -eq 1 ]]; then
+  read_manifest "$_mc_manifest_path"
+  print_filetree_section _mc_all_files "$_mc_root_dir"
+  if [[ $_mc_tree_only -eq 1 ]]; then
     exit 0
   fi
 fi
 
 # --- Output MULTICAT Format ---
-for f in "${all_files[@]}"; do
+for f in "${_mc_all_files[@]}"; do
   dir=$(apply_remap "$(dirname "$f")")
   base=$(apply_remap "$(basename "$f")")
   {
     echo "#MULTICAT_START"
     echo "# dir: $dir"
     echo "# file: $base"
-    echo "# notes:"
+    echo "# note:"
     echo "#MULTICAT_END"
     cat "$f"
     echo
