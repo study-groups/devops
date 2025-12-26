@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
-# multdiff.sh — Expand diff blocks in a MULTICAT file using disk content.
+# multidiff.sh — Expand diff blocks in a MULTICAT file using disk content.
 
+# Source shared MULTICAT library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/libmulticat.sh"
 
 expand_diff() {
   local dir="$1"
   local file="$2"
   local patch="$3"
 
-  local path="$dir/$file"
+  local path
+  path=$(mc_fullpath "$dir" "$file")
   if [[ ! -f "$path" ]]; then
     echo "__MISSING__"
     return 1
@@ -28,7 +32,7 @@ process_multicat() {
   local dir= file= content=
 
   while IFS= read -r line || [[ -n "$line" ]]; do
-    if [[ "$line" == "#MULTICAT_START" ]]; then
+    if [[ "$line" == "$MC_START" ]]; then
       in_block=1
       mode="full"
       requires="no"
@@ -37,14 +41,14 @@ process_multicat() {
       file=""
       content=""
       continue
-    elif [[ "$line" == "#MULTICAT_END" ]]; then
+    elif [[ "$line" == "$MC_END" ]]; then
       if [[ "$mode" == "diff" ]]; then
         expanded=$(expand_diff "$dir" "$file" "$content") || status=$?
         if [[ "$expanded" == "__MISSING__" ]]; then
           requires="true"
           note="suspicious"
         elif [[ "$expanded" == "__FAILED__" ]]; then
-          echo "Failed to apply patch to $dir/$file" >&2
+          echo "Failed to apply patch to $(mc_fullpath "$dir" "$file")" >&2
           exit 1
         else
           content="$expanded"
@@ -52,13 +56,14 @@ process_multicat() {
         fi
       fi
 
-      echo "#MULTICAT_START"
+      # Output using library constants
+      echo "$MC_START"
       echo "# dir: $dir"
       echo "# file: $file"
       [[ "$mode" == "diff" ]] && echo "# mode: diff"
       [[ "$requires" == "true" ]] && echo "# requires: true"
       [[ -n "$note" ]] && echo "# note: $note"
-      echo "#MULTICAT_END"
+      echo "$MC_END"
       printf "%s\n\n" "$content"
       in_block=0
       continue
