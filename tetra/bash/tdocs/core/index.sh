@@ -62,7 +62,7 @@ tdoc_index_file() {
     local context="${TDOCS_REPL_CONTEXT:-global}"
 
     if [[ "$context" == "local" ]]; then
-        echo ".tdocs/index.json"
+        echo "tdocs/index.json"
     else
         echo "$TDOCS_DIR/index.json"
     fi
@@ -80,7 +80,7 @@ tdoc_index_init() {
   "version": "1.0",
   "last_scan": null,
   "scan_roots": ["."],
-  "exclude": ["node_modules", ".git", "vendor", ".tdocs"],
+  "exclude": ["node_modules", ".git", "vendor", "tdocs"],
   "by_hash": {},
   "by_path": {}
 }
@@ -201,7 +201,7 @@ tdoc_meta_dir() {
     local context="${TDOCS_REPL_CONTEXT:-global}"
 
     if [[ "$context" == "local" ]]; then
-        echo ".tdocs/db"
+        echo "tdocs/db"
     else
         echo "$TDOCS_DB_DIR"
     fi
@@ -293,10 +293,33 @@ tdoc_meta_update_path() {
 # SCAN OPERATIONS
 # ============================================================================
 
-# Scan directory for markdown files and update index
-tdoc_scan_dir() {
+# Legacy scan (slow, per-file subprocess spawns) - kept for reference
+tdoc_scan_dir_legacy() {
     local scan_root="${1:-.}"
     local context="${TDOCS_REPL_CONTEXT:-global}"
+    local force="${2:-false}"
+
+    # Resolve to absolute path for safety checks
+    local abs_root
+    abs_root=$(cd "$scan_root" 2>/dev/null && pwd) || abs_root="$scan_root"
+
+    # SAFEGUARD: Never scan from $HOME
+    if [[ "$abs_root" == "$HOME" ]]; then
+        echo "Error: Refusing to scan from \$HOME directory" >&2
+        echo "  Use 'tdocs init' in a project directory to create local context" >&2
+        return 1
+    fi
+
+    # SAFEGUARD: Check file count before scanning (limit: 500 files)
+    local file_count
+    file_count=$(find "$scan_root" -name "*.md" -type f ! -path "*/.git/*" ! -path "*/node_modules/*" ! -path "*/tdocs/*" 2>/dev/null | head -501 | wc -l | tr -d ' ')
+
+    if [[ "$file_count" -gt 500 ]] && [[ "$force" != "true" ]]; then
+        echo "Error: Too many markdown files (>500) in $scan_root" >&2
+        echo "  This looks like an unintended scan scope." >&2
+        echo "  Use 'tdocs scan --force' to override, or cd to a project directory." >&2
+        return 1
+    fi
 
     echo "Scanning $scan_root for markdown files (context: $context)..."
 
@@ -352,7 +375,7 @@ tdoc_scan_dir() {
             : # Skip
         fi
 
-    done < <(find "$scan_root" -name "*.md" -type f ! -path "*/node_modules/*" ! -path "*/.git/*" ! -path "*/.tdocs/*" 2>/dev/null)
+    done < <(find "$scan_root" -name "*.md" -type f ! -path "*/node_modules/*" ! -path "*/.git/*" ! -path "*/tdocs/*" 2>/dev/null)
 
     echo ""
     echo "Scan complete:"
@@ -360,6 +383,219 @@ tdoc_scan_dir() {
     echo "  New: $new"
     echo "  Moved: $moved"
     echo "  Changed: $changed"
+}
+
+# ============================================================================
+# FAST BATCHED SCAN (O(1) subprocess spawns instead of O(n))
+# ============================================================================
+
+# Fast scan using batched operations
+# Instead of spawning subprocesses per file, we:
+# 1. Hash all files in one xargs call
+# 2. Load index once
+# 3. Accumulate updates in memory
+# 4. Write index once at end
+tdoc_scan_dir_fast() {
+    local scan_root="${1:-.}"
+    local context="${TDOCS_REPL_CONTEXT:-global}"
+    local force="${2:-false}"
+
+    # Resolve to absolute path for safety checks
+    local abs_root
+    abs_root=$(cd "$scan_root" 2>/dev/null && pwd) || abs_root="$scan_root"
+
+    # SAFEGUARD: Never scan from $HOME
+    if [[ "$abs_root" == "$HOME" ]]; then
+        echo "Error: Refusing to scan from \$HOME directory" >&2
+        return 1
+    fi
+
+    # Build find command with exclusions
+    local find_cmd="find '$scan_root' -name '*.md' -type f ! -path '*/.git/*' ! -path '*/node_modules/*' ! -path '*/tdocs/*'"
+
+    # SAFEGUARD: Check file count (limit: 500)
+    local file_count
+    file_count=$(eval "$find_cmd" 2>/dev/null | wc -l | tr -d ' ')
+
+    if [[ "$file_count" -gt 500 ]] && [[ "$force" != "true" ]]; then
+        echo "Error: Too many markdown files ($file_count > 500)" >&2
+        echo "  Use --force to override" >&2
+        return 1
+    fi
+
+    if [[ "$file_count" -eq 0 ]]; then
+        echo "No markdown files found in $scan_root"
+        return 0
+    fi
+
+    echo "Fast scanning $scan_root ($file_count files)..."
+
+    # Ensure index exists
+    local index_file=$(tdoc_index_file)
+    if [[ ! -f "$index_file" ]]; then
+        tdoc_index_init >/dev/null
+    fi
+
+    # STEP 1: Batch hash all files in ONE shasum process
+    # Format: hash\tpath\tsize
+    local hash_file=$(mktemp)
+
+    # Use xargs without -I for true batching (shasum handles multiple files)
+    eval "$find_cmd" 2>/dev/null | xargs shasum -a 256 2>/dev/null | \
+        awk -v len="$TDOC_HASH_LENGTH" '{print substr($1, 1, len) "\t" $2}' > "$hash_file"
+
+    # Also batch file sizes using stat (one xargs call)
+    declare -A file_sizes
+    while IFS=$'\t' read -r sz path; do
+        [[ -n "$path" ]] && file_sizes["$path"]="$sz"
+    done < <(eval "$find_cmd" 2>/dev/null | xargs stat -f '%z%t%N' 2>/dev/null)
+
+    # STEP 2: Load current index into bash associative arrays (TWO jq calls total)
+    declare -A idx_hash_to_path  # hash -> path
+    declare -A idx_path_to_hash  # path -> hash
+
+    if command -v jq >/dev/null 2>&1 && [[ -f "$index_file" ]]; then
+        # Load hash->path mappings
+        while IFS=$'\t' read -r h p; do
+            [[ -n "$h" && -n "$p" ]] && idx_hash_to_path["$h"]="$p"
+        done < <(jq -r '.by_hash | to_entries[] | "\(.key)\t\(.value.path)"' "$index_file" 2>/dev/null)
+
+        # Load path->hash mappings
+        while IFS=$'\t' read -r p h; do
+            [[ -n "$p" && -n "$h" ]] && idx_path_to_hash["$p"]="$h"
+        done < <(jq -r '.by_path | to_entries[] | "\(.key)\t\(.value)"' "$index_file" 2>/dev/null)
+    fi
+
+    # STEP 3: Process files and accumulate updates (pure bash, no subprocesses)
+    local new=0 moved=0 changed=0 unchanged=0
+    local updates_hash=()  # Array of "hash|path|size" for new/changed
+    local updates_path=()  # Array of "path|hash" for by_path updates
+    local meta_creates=()  # Array of "hash|path" for new metadata
+    local meta_updates=()  # Array of "hash|path" for moved files
+
+    while IFS=$'\t' read -r hash filepath; do
+        [[ -z "$hash" || -z "$filepath" ]] && continue
+
+        # Get size from pre-computed array (no subprocess)
+        local size="${file_sizes[$filepath]:-0}"
+
+        # Look up current state from bash arrays (O(1) lookup, no subprocess)
+        local indexed_path="${idx_hash_to_path[$hash]:-}"
+        local indexed_hash="${idx_path_to_hash[$filepath]:-}"
+
+        if [[ -n "$indexed_path" ]] && [[ "$indexed_path" != "$filepath" ]]; then
+            # FILE MOVED: Same hash, different path
+            echo "  MOVED: $indexed_path → $filepath"
+            updates_hash+=("$hash|$filepath|$size")
+            updates_path+=("$filepath|$hash")
+            meta_updates+=("$hash|$filepath")
+            ((moved++))
+
+        elif [[ -n "$indexed_hash" ]] && [[ "$indexed_hash" != "$hash" ]]; then
+            # CONTENT CHANGED: Same path, different hash
+            echo "  CHANGED: $filepath ($indexed_hash → $hash)"
+            updates_hash+=("$hash|$filepath|$size")
+            updates_path+=("$filepath|$hash")
+            meta_creates+=("$hash|$filepath")
+            ((changed++))
+
+        elif [[ -z "$indexed_path" ]]; then
+            # NEW FILE
+            echo "  NEW: $filepath"
+            updates_hash+=("$hash|$filepath|$size")
+            updates_path+=("$filepath|$hash")
+            meta_creates+=("$hash|$filepath")
+            ((new++))
+
+        else
+            # NO CHANGE
+            ((unchanged++))
+        fi
+    done < "$hash_file"
+
+    rm -f "$hash_file"
+
+    # STEP 4: Write all index updates in ONE jq call
+    if [[ ${#updates_hash[@]} -gt 0 ]] && command -v jq >/dev/null 2>&1; then
+        local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        local tmp=$(mktemp)
+
+        # Build jq update expression
+        local jq_expr=". | .last_scan = \"$timestamp\""
+
+        for update in "${updates_hash[@]}"; do
+            IFS='|' read -r h p s <<< "$update"
+            jq_expr="$jq_expr | .by_hash[\"$h\"] = {path: \"$p\", updated: \"$timestamp\", size: $s}"
+        done
+
+        for update in "${updates_path[@]}"; do
+            IFS='|' read -r p h <<< "$update"
+            jq_expr="$jq_expr | .by_path[\"$p\"] = \"$h\""
+        done
+
+        jq "$jq_expr" "$index_file" > "$tmp" 2>/dev/null && mv "$tmp" "$index_file"
+    fi
+
+    # STEP 5: Batch create metadata for new files
+    if [[ ${#meta_creates[@]} -gt 0 ]]; then
+        local meta_dir=$(tdoc_meta_dir)
+        mkdir -p "$meta_dir"
+        local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+        # Pre-compute line counts for files that need metadata (one wc call)
+        declare -A file_lines
+        local wc_tmpfile=$(mktemp)
+        for entry in "${meta_creates[@]}"; do
+            IFS='|' read -r _ filepath <<< "$entry"
+            echo "$filepath"
+        done | xargs wc -l 2>/dev/null > "$wc_tmpfile"
+
+        while read -r lines path; do
+            [[ "$path" != "total" && -n "$path" ]] && file_lines["$path"]="$lines"
+        done < "$wc_tmpfile"
+        rm -f "$wc_tmpfile"
+
+        for entry in "${meta_creates[@]}"; do
+            IFS='|' read -r hash filepath <<< "$entry"
+            local meta_file="$meta_dir/${hash}.meta"
+
+            # Skip if metadata already exists
+            [[ -f "$meta_file" ]] && continue
+
+            local size="${file_sizes[$filepath]:-0}"
+            local lines="${file_lines[$filepath]:-0}"
+
+            cat > "$meta_file" <<EOF
+hash: $hash
+current_path: $filepath
+type: scratch
+lifecycle: W
+tags:
+created: $timestamp
+updated: $timestamp
+first_seen: $timestamp
+size: $size
+lines: $lines
+paths:
+  - path: $filepath
+    seen: $timestamp
+EOF
+        done
+    fi
+
+    # STEP 6: Update metadata for moved files
+    for entry in "${meta_updates[@]}"; do
+        IFS='|' read -r hash filepath <<< "$entry"
+        tdoc_meta_update_path "$hash" "$filepath" 2>/dev/null
+    done
+
+    echo ""
+    echo "Scan complete:"
+    echo "  Found: $file_count files"
+    echo "  New: $new"
+    echo "  Moved: $moved"
+    echo "  Changed: $changed"
+    echo "  Unchanged: $unchanged"
 }
 
 # Export functions
@@ -378,4 +614,11 @@ export -f tdoc_meta_file
 export -f tdoc_notes_file
 export -f tdoc_meta_create
 export -f tdoc_meta_update_path
+# Default scan uses fast batched version
+tdoc_scan_dir() {
+    tdoc_scan_dir_fast "$@"
+}
+
 export -f tdoc_scan_dir
+export -f tdoc_scan_dir_fast
+export -f tdoc_scan_dir_legacy
