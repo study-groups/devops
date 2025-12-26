@@ -14,6 +14,12 @@ ms() { "$RAG_CORE_DIR/multicat/multisplit.sh" "$@"; }
 # MULTICAT info (mi) - show info about MULTICAT files
 mi() { "$RAG_CORE_DIR/multicat/mcinfo.sh" "$@"; }
 
+# Multimerge (mm) - merge MULTICAT with AST-aware function replacement
+mm() { "$RAG_CORE_DIR/multicat/multimerge.sh" "$@"; }
+
+# Multidiff (md) - expand diff blocks in MULTICAT using disk content
+md() { "$RAG_CORE_DIR/multicat/multidiff.sh" "$@"; }
+
 # Multifind (mf) - advanced file search with ranking
 mf() { "$RAG_CORE_DIR/search/multifind.sh" "$@"; }
 
