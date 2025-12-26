@@ -1,0 +1,24 @@
+{
+  "name": "@tetra/gamma",
+  "version": "1.0.0",
+  "description": "GAMMA - Game Match-Making Allocator",
+  "main": "gamma.js",
+  "bin": {
+    "gamma": "./gamma.js"
+  },
+  "scripts": {
+    "start": "node gamma.js",
+    "dev": "node gamma.js -v"
+  },
+  "keywords": [
+    "tetra",
+    "matchmaking",
+    "multiplayer",
+    "game"
+  ],
+  "author": "Tetra",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
