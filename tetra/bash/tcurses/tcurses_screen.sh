@@ -3,6 +3,10 @@
 # TCurses Screen Management Module
 # Handles terminal setup, teardown, screen buffer, and cursor control
 
+# Include guard
+[[ -n "${_TCURSES_SCREEN_LOADED:-}" ]] && return
+declare -g _TCURSES_SCREEN_LOADED=1
+
 # Terminal state
 _TCURSES_OLD_TTY_STATE=""
 _TCURSES_INITIALIZED=false
@@ -152,6 +156,101 @@ tcurses_screen_restore_cursor() {
 # Usage: tcurses_screen_is_initialized
 tcurses_screen_is_initialized() {
     [[ "$_TCURSES_INITIALIZED" == "true" ]]
+}
+
+# ============================================================================
+# SCROLL REGION SUPPORT
+# Enables protected status areas at top/bottom of screen
+# ============================================================================
+
+# Scroll region state
+_TCURSES_SCROLL_TOP=0
+_TCURSES_SCROLL_BOTTOM=0
+_TCURSES_SCROLL_ACTIVE=false
+
+# Set scroll region (0-based row numbers)
+# Usage: tcurses_screen_set_scroll_region TOP BOTTOM
+# Example: tcurses_screen_set_scroll_region 0 20  (rows 0-20 scroll, rest protected)
+tcurses_screen_set_scroll_region() {
+    local top="${1:-0}"
+    local bottom="${2:-$((_TCURSES_HEIGHT - 1))}"
+
+    _TCURSES_SCROLL_TOP="$top"
+    _TCURSES_SCROLL_BOTTOM="$bottom"
+    _TCURSES_SCROLL_ACTIVE=true
+
+    # tput csr uses 0-based indexing
+    tput csr "$top" "$bottom" 2>/dev/null || printf '\033[%d;%dr' "$((top + 1))" "$((bottom + 1))"
+}
+
+# Reset scroll region to full screen
+# Usage: tcurses_screen_reset_scroll_region
+tcurses_screen_reset_scroll_region() {
+    _TCURSES_SCROLL_TOP=0
+    _TCURSES_SCROLL_BOTTOM=$((_TCURSES_HEIGHT - 1))
+    _TCURSES_SCROLL_ACTIVE=false
+
+    tput csr 0 $((_TCURSES_HEIGHT - 1)) 2>/dev/null || printf '\033[r'
+}
+
+# Get scroll region boundaries
+# Usage: tcurses_screen_get_scroll_region
+# Output: "TOP BOTTOM" (space-separated, 0-based)
+tcurses_screen_get_scroll_region() {
+    echo "$_TCURSES_SCROLL_TOP $_TCURSES_SCROLL_BOTTOM"
+}
+
+# Check if scroll region is active
+# Usage: tcurses_screen_has_scroll_region
+tcurses_screen_has_scroll_region() {
+    [[ "$_TCURSES_SCROLL_ACTIVE" == "true" ]]
+}
+
+# Reserve bottom N lines as protected status area
+# Usage: tcurses_screen_reserve_bottom LINES
+# Example: tcurses_screen_reserve_bottom 5  (protect last 5 lines)
+tcurses_screen_reserve_bottom() {
+    local lines="${1:-1}"
+    local bottom=$((_TCURSES_HEIGHT - lines - 1))
+    tcurses_screen_set_scroll_region 0 "$bottom"
+}
+
+# Reserve top N lines as protected header area
+# Usage: tcurses_screen_reserve_top LINES
+tcurses_screen_reserve_top() {
+    local lines="${1:-1}"
+    tcurses_screen_set_scroll_region "$lines" $((_TCURSES_HEIGHT - 1))
+}
+
+# Write to protected area (outside scroll region) without moving cursor
+# Usage: tcurses_screen_write_status ROW TEXT
+# Note: ROW is absolute (0-based), works even if in scroll region
+tcurses_screen_write_status() {
+    local row="$1"
+    local text="$2"
+
+    # Save cursor position
+    tcurses_screen_save_cursor
+
+    # Move to status row and write
+    tput cup "$row" 0 2>/dev/null || printf '\033[%d;1H' "$((row + 1))"
+    printf '%s' "$text"
+
+    # Clear to end of line
+    tput el 2>/dev/null || printf '\033[K'
+
+    # Restore cursor position
+    tcurses_screen_restore_cursor
+}
+
+# Clear a protected status line
+# Usage: tcurses_screen_clear_status ROW
+tcurses_screen_clear_status() {
+    local row="$1"
+    tcurses_screen_save_cursor
+    tput cup "$row" 0 2>/dev/null || printf '\033[%d;1H' "$((row + 1))"
+    tput el 2>/dev/null || printf '\033[K'
+    tcurses_screen_restore_cursor
 }
 
 # Get terminal state for debugging

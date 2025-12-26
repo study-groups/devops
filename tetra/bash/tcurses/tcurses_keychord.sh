@@ -3,6 +3,10 @@
 # Full chord system with modifier support for extensible key bindings
 # Extends tcurses_input.sh with chord registry and multi-key sequences
 
+# Include guard
+[[ -n "${_TCURSES_KEYCHORD_LOADED:-}" ]] && return
+declare -g _TCURSES_KEYCHORD_LOADED=1
+
 # Source tcurses_input for base key constants
 TCURSES_DIR="${TCURSES_DIR:-$(dirname "${BASH_SOURCE[0]}")}"
 source "$TCURSES_DIR/tcurses_input.sh" 2>/dev/null || true

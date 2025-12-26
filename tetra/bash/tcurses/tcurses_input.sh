@@ -3,6 +3,10 @@
 # TCurses Input Module
 # Handles keyboard input, escape sequences, and special keys
 
+# Include guard
+[[ -n "${_TCURSES_INPUT_LOADED:-}" ]] && return
+declare -g _TCURSES_INPUT_LOADED=1
+
 # Initialize input system
 tcurses_input_init() {
     # Nothing to initialize for now

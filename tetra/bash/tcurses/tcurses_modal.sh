@@ -3,6 +3,10 @@
 # TCurses Modal System
 # Vim-like modes: NORMAL, COMMAND, REPL
 
+# Include guard
+[[ -n "${_TCURSES_MODAL_LOADED:-}" ]] && return
+declare -g _TCURSES_MODAL_LOADED=1
+
 # Mode state
 declare -g APP_MODE="NORMAL"
 declare -g APP_MODE_PREV="NORMAL"

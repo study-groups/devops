@@ -121,8 +121,16 @@ midi_repl_monitor() {
     echo "Press Ctrl+C to exit"
     echo ""
 
+    # Use C listener if available, fallback to Node.js
+    local osc_cmd
+    if [[ -x "$MIDI_SRC/osc_listen" ]]; then
+        osc_cmd="$MIDI_SRC/osc_listen -p $MIDI_OSC_PORT -m $MIDI_OSC_MULTICAST"
+    else
+        osc_cmd="node $MIDI_SRC/osc_repl_listener.js -h 0.0.0.0 -p $MIDI_OSC_PORT -m $MIDI_OSC_MULTICAST"
+    fi
+
     # Start OSC listener
-    node "$MIDI_SRC/osc_repl_listener.js" -h 0.0.0.0 -p "$MIDI_OSC_PORT" -m "$MIDI_OSC_MULTICAST" 2>&1 | while IFS= read -r line; do
+    $osc_cmd 2>&1 | while IFS= read -r line; do
         # Filter out OSC listener status messages
         if [[ "$line" =~ ^"✓ OSC" ]]; then
             echo "$line" >&2

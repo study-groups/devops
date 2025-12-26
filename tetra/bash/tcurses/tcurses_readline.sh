@@ -3,6 +3,10 @@
 # Character-by-character input loop with TAB completion support
 # Integrates with tcurses_completion.sh
 
+# Include guard
+[[ -n "${_TCURSES_READLINE_LOADED:-}" ]] && return
+declare -g _TCURSES_READLINE_LOADED=1
+
 # Source dependencies
 TCURSES_DIR="${TCURSES_DIR:-${TETRA_SRC:-/Users/mricos/src/devops/tetra}/bash/tcurses}"
 source "$TCURSES_DIR/tcurses_input.sh" 2>/dev/null || true

@@ -3,6 +3,10 @@
 # TCurses Double Buffer Module
 # Efficient screen rendering with differential updates
 
+# Include guard
+[[ -n "${_TCURSES_BUFFER_LOADED:-}" ]] && return
+declare -g _TCURSES_BUFFER_LOADED=1
+
 # Buffer storage (associative arrays for line-based storage)
 declare -gA _TCURSES_FRONT_BUFFER=()
 declare -gA _TCURSES_BACK_BUFFER=()

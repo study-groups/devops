@@ -2,6 +2,10 @@
 # TCurses - Terminal Curses Library for Tetra
 # Provides TUI primitives: screen management, input handling, animation
 
+# Include guard
+[[ -n "${_TCURSES_LOADED:-}" ]] && return
+declare -g _TCURSES_LOADED=1
+
 # Library metadata
 TCURSES_VERSION="1.0.0"
 TCURSES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,6 +19,8 @@ source "$TCURSES_DIR/tcurses_modal.sh"
 source "$TCURSES_DIR/tcurses_repl.sh"
 source "$TCURSES_DIR/tcurses_log_footer.sh"
 source "$TCURSES_DIR/tcurses_actions.sh"
+source "$TCURSES_DIR/tcurses_state.sh"
+source "$TCURSES_DIR/tcurses_input_modes.sh"
 
 # Library initialization (optional)
 tcurses_init() {

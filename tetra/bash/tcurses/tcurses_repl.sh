@@ -3,6 +3,10 @@
 # TCurses REPL Component
 # Command input and response display above log footer
 
+# Include guard
+[[ -n "${_TCURSES_REPL_LOADED:-}" ]] && return
+declare -g _TCURSES_REPL_LOADED=1
+
 # REPL state
 declare -g REPL_PROMPT="> "
 declare -g REPL_INPUT=""

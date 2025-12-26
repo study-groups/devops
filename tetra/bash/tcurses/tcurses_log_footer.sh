@@ -3,6 +3,10 @@
 # TCurses Log Footer Module
 # 4-line scrolling log display at bottom of screen
 
+# Include guard
+[[ -n "${_TCURSES_LOG_FOOTER_LOADED:-}" ]] && return
+declare -g _TCURSES_LOG_FOOTER_LOADED=1
+
 # Log state
 declare -a _TCURSES_LOG_LINES=()
 _TCURSES_LOG_MAX_LINES=4

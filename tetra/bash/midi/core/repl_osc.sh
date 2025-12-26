@@ -12,8 +12,16 @@ midi_repl_osc_listener() {
     local osc_host="$1"
     local osc_port="$2"
 
-    # Start Node.js OSC listener
-    node "$MIDI_SRC/osc_repl_listener.js" -h "$osc_host" -p "$osc_port" 2>&1 | while IFS= read -r line; do
+    # Use C listener if available, fallback to Node.js
+    local osc_cmd
+    if [[ -x "$MIDI_SRC/osc_listen" ]]; then
+        osc_cmd="$MIDI_SRC/osc_listen -p $osc_port"
+    else
+        osc_cmd="node $MIDI_SRC/osc_repl_listener.js -h $osc_host -p $osc_port"
+    fi
+
+    # Start OSC listener
+    $osc_cmd 2>&1 | while IFS= read -r line; do
         case "$line" in
             __STATE__*)
                 # Parse state: __STATE__ controller=vmx8 instance=0 variant=a ...

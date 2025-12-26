@@ -3,6 +3,10 @@
 # TCurses Animation Module
 # BPM-synchronized animation loop with frame timing
 
+# Include guard
+[[ -n "${_TCURSES_ANIMATION_LOADED:-}" ]] && return
+declare -g _TCURSES_ANIMATION_LOADED=1
+
 # Animation state
 _TCURSES_ANIM_ENABLED=false
 _TCURSES_ANIM_PAUSED=false

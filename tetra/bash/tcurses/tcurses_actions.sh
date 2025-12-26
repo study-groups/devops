@@ -3,6 +3,10 @@
 # TCurses Action Handler
 # Systematic execution with logging (RAG pattern)
 
+# Include guard
+[[ -n "${_TCURSES_ACTIONS_LOADED:-}" ]] && return
+declare -g _TCURSES_ACTIONS_LOADED=1
+
 # Execute action with module:action pattern
 # Usage: execute_action MODULE ACTION [ARGS...]
 # Returns: exit code from action

@@ -60,6 +60,7 @@ _tetra_help() {
     echo -e "${Y}MODULES${N}"
     echo -e "  ${C}module list${N}         List loaded modules"
     echo -e "  ${C}module info${N} <name>  Show module details"
+    echo -e "  ${C}module meta${N} <name>  Show MELVIN-enhanced metadata"
     echo -e "  ${C}module stats${N}        File statistics (via tls)"
     echo ""
     echo -e "${Y}INTERFACES${N}"
@@ -161,6 +162,35 @@ _tetra_module() {
             [[ -f "$dir/${name}_complete.sh" ]] && echo "Complete: yes"
             ;;
 
+        meta)
+            local name="$1"
+            [[ -z "$name" ]] && { echo "Usage: tetra module meta <name>"; return 1; }
+
+            # Check if TETRA_MODULE_META is available
+            if [[ -z "${TETRA_MODULE_META[*]+set}" ]] || [[ ${#TETRA_MODULE_META[@]} -eq 0 ]]; then
+                echo "No MELVIN metadata available."
+                echo "Run: melvin enhance"
+                return 1
+            fi
+
+            local meta="${TETRA_MODULE_META[$name]}"
+            if [[ -z "$meta" ]]; then
+                echo "No metadata for module: $name"
+                echo "Available: ${!TETRA_MODULE_META[*]}"
+                return 1
+            fi
+
+            local dir="${TETRA_MODULES[$name]:-unknown}"
+
+            echo "Module: $name"
+            [[ "$dir" != "unknown" ]] && echo "Path:   $dir"
+            echo ""
+            echo "MELVIN Metadata:"
+            echo "$meta" | tr '|' '\n' | while IFS=: read -r key val; do
+                printf "  %-12s %s\n" "$key:" "$val"
+            done
+            ;;
+
         stats)
             # Delegate to tls if available
             if declare -f tls >/dev/null 2>&1; then
@@ -173,7 +203,7 @@ _tetra_module() {
 
         *)
             echo "Unknown: tetra module $subcmd"
-            echo "Try: list, info <name>, stats"
+            echo "Try: list, info <name>, meta <name>, stats"
             return 1
             ;;
     esac
@@ -238,9 +268,9 @@ _tetra_complete() {
             COMPREPLY=($(compgen -W "status module repl tui doctor help version" -- "$cur"))
             ;;
         module|mod|m)
-            COMPREPLY=($(compgen -W "list info stats" -- "$cur"))
+            COMPREPLY=($(compgen -W "list info meta stats" -- "$cur"))
             ;;
-        info)
+        info|meta)
             COMPREPLY=($(compgen -W "${TETRA_MODULE_LIST[*]}" -- "$cur"))
             ;;
     esac

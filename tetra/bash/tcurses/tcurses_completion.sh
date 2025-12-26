@@ -2,6 +2,10 @@
 # TCurses TAB Completion
 # Provides TAB completion for TUI REPLs
 
+# Include guard
+[[ -n "${_TCURSES_COMPLETION_LOADED:-}" ]] && return
+declare -g _TCURSES_COMPLETION_LOADED=1
+
 # Completion state
 declare -g REPL_COMPLETION_WORDS=()
 declare -g REPL_COMPLETION_MATCHES=()
