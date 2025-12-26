@@ -19,6 +19,51 @@ if [[ -z "$TETRA_SRC" ]]; then
     return 1 2>/dev/null || exit 1
 fi
 
+# Colors (TDS-compatible)
+: "${GAMMA_CYAN:=\033[0;36m}"
+: "${GAMMA_YELLOW:=\033[1;33m}"
+: "${GAMMA_GREEN:=\033[0;32m}"
+: "${GAMMA_GRAY:=\033[0;90m}"
+: "${GAMMA_NC:=\033[0m}"
+
+# Hierarchical help with TDS colors
+_gamma_help() {
+    local C="$GAMMA_CYAN" Y="$GAMMA_YELLOW" G="$GAMMA_GREEN" D="$GAMMA_GRAY" N="$GAMMA_NC"
+
+    echo -e "${G}gamma${N} - Game Match-Making Allocator"
+    echo ""
+    echo -e "${Y}SERVICE${N}"
+    echo -e "  ${C}start${N}               Start gamma service"
+    echo -e "  ${C}stop${N}                Stop gamma service"
+    echo -e "  ${C}restart${N}             Restart service"
+    echo -e "  ${C}status${N}              Show service status"
+    echo -e "  ${C}logs${N}                View logs"
+    echo -e "  ${C}dashboard${N}           Open dashboard in browser"
+    echo ""
+    echo -e "${Y}MATCH LIFECYCLE${N}"
+    echo -e "  ${C}create${N} <game>       Create a new match"
+    echo -e "    ${D}--slots N${N}         Number of player slots ${D}(default: 2)${N}"
+    echo -e "    ${D}--public${N}          List match in lobby"
+    echo -e "  ${C}close${N} <code>        Close match ${D}(host only)${N}"
+    echo ""
+    echo -e "${Y}PLAYER ACTIONS${N}"
+    echo -e "  ${C}join${N} <code>         Join a match"
+    echo -e "  ${C}leave${N} <code>        Leave a match"
+    echo ""
+    echo -e "${Y}DISCOVERY${N}"
+    echo -e "  ${C}list${N}                List active matches"
+    echo -e "  ${C}info${N} <code>         Get match details"
+    echo -e "  ${C}lobby${N} [game]        Browse public matches"
+    echo ""
+    echo -e "${Y}EXAMPLES${N}"
+    echo -e "  ${D}gamma create trax${N}              ${D}# 2-player match${N}"
+    echo -e "  ${D}gamma create magnetar --slots 4${N} ${D}# 4-player match${N}"
+    echo -e "  ${D}gamma join XKCD${N}                ${D}# Join by code${N}"
+    echo ""
+    echo -e "${Y}DASHBOARD${N}"
+    echo -e "  ${D}http://localhost:$GAMMA_HTTP_PORT/${N}"
+}
+
 # Initialize
 gamma_init() {
     mkdir -p "$GAMMA_DIR"
@@ -40,36 +85,7 @@ gamma() {
     local action="${1:-}"
 
     if [[ -z "$action" ]]; then
-        cat <<'EOF'
-Usage: gamma <command> [args]
-
-Service:
-  start             Start gamma service
-  stop              Stop gamma service
-  status            Show service status
-  logs              View logs
-  dashboard         Open dashboard in browser
-
-Match Management:
-  create <game>     Create a new match
-  join <code>       Join a match
-  leave <code>      Leave a match
-  close <code>      Close a match (host only)
-  list              List active matches
-  info <code>       Get match info
-
-Options:
-  --slots N         Number of player slots (default: 2)
-  --public          List match in lobby
-
-Examples:
-  gamma create trax              # Create 2-player trax match
-  gamma create magnetar --slots 4 --public
-  gamma join XKCD                # Join match with code XKCD
-  gamma list                     # Show all matches
-
-Dashboard: http://localhost:8085/
-EOF
+        _gamma_help
         return 0
     fi
 
@@ -280,6 +296,9 @@ EOF
 
 # Initialize on source
 gamma_init
+
+# Load tab completion
+[[ -f "$GAMMA_SRC/gamma_complete.sh" ]] && source "$GAMMA_SRC/gamma_complete.sh"
 
 # Export
 export -f gamma

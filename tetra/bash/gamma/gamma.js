@@ -525,7 +525,8 @@ class GammaService extends EventEmitter {
                         addr: cmd.addr
                     });
                     this.stats.matchesCreated++;
-                    await this.syncWithMidiMp('register', match);
+                    // Register async (don't block response)
+                    this.syncWithMidiMp('register', match);
                     return JSON.stringify({ code: match.code, token: match.hostToken });
 
                 case 'join':
@@ -534,21 +535,24 @@ class GammaService extends EventEmitter {
                     const result = m.join(cmd.name);
                     if (result.error) return JSON.stringify({ error: result.error });
                     this.stats.playersJoined++;
-                    await this.syncWithMidiMp('register', m, result.slot);
+                    // Register async (don't block response)
+                    this.syncWithMidiMp('register', m, result.slot);
                     return JSON.stringify({ slot: result.slot, token: result.token, host: m.host.addr });
 
                 case 'leave':
                     const m2 = this.matches.get(cmd.code?.toUpperCase());
                     if (!m2) return JSON.stringify({ error: 'not found' });
                     const slot = m2.leave(cmd.token);
-                    if (slot) await this.syncWithMidiMp('unregister', m2, slot);
+                    // Unregister async (don't block response)
+                    if (slot) this.syncWithMidiMp('unregister', m2, slot);
                     return JSON.stringify({ ok: !!slot });
 
                 case 'close':
                     const m3 = this.matches.get(cmd.code?.toUpperCase());
                     if (!m3) return JSON.stringify({ error: 'not found' });
                     if (cmd.token !== m3.hostToken) return JSON.stringify({ error: 'not authorized' });
-                    await this.unregisterMatch(m3);
+                    // Unregister async (don't block response)
+                    this.unregisterMatch(m3);
                     this.matches.delete(cmd.code);
                     return JSON.stringify({ ok: true });
 
