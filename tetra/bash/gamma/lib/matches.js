@@ -1,10 +1,14 @@
 /**
  * GAMMA Match Management
+ *
+ * Persistence: matches saved to stateDir/CODE.json
  */
 
 'use strict';
 
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 const DEFAULT_TTL = 2 * 60 * 60 * 1000;  // 2 hours
 
@@ -136,16 +140,113 @@ class Match {
             expires: this.expires
         };
     }
+
+    /**
+     * Full state for persistence (includes tokens)
+     */
+    toJSON() {
+        return {
+            code: this.code,
+            game: this.game,
+            maxPlayers: this.maxPlayers,
+            host: this.host,
+            topic: this.topic,
+            hostToken: this.hostToken,
+            slots: this.slots,
+            settings: this.settings,
+            created: this.created,
+            expires: this.expires,
+            lastActivity: this.lastActivity
+        };
+    }
+
+    /**
+     * Restore from persisted state
+     */
+    static fromJSON(data) {
+        const match = Object.create(Match.prototype);
+        Object.assign(match, data);
+        return match;
+    }
 }
 
 class Matches {
-    constructor() {
+    constructor(options = {}) {
         this.matches = new Map();
+        this.stateDir = options.stateDir || null;
+
+        // Create state directory if specified
+        if (this.stateDir) {
+            fs.mkdirSync(this.stateDir, { recursive: true });
+        }
+    }
+
+    /**
+     * Load matches from disk on startup
+     */
+    load() {
+        if (!this.stateDir) return 0;
+
+        let loaded = 0;
+        try {
+            const files = fs.readdirSync(this.stateDir).filter(f => f.endsWith('.json'));
+
+            for (const file of files) {
+                try {
+                    const data = JSON.parse(fs.readFileSync(path.join(this.stateDir, file), 'utf8'));
+                    const match = Match.fromJSON(data);
+
+                    // Skip expired matches
+                    if (match.isExpired()) {
+                        fs.unlinkSync(path.join(this.stateDir, file));
+                        continue;
+                    }
+
+                    this.matches.set(match.code, match);
+                    loaded++;
+                } catch (e) {
+                    console.error(`[gamma] Failed to load ${file}:`, e.message);
+                }
+            }
+
+            if (loaded > 0) {
+                console.log(`[gamma] Loaded ${loaded} matches from disk`);
+            }
+        } catch (e) {
+            // Directory doesn't exist yet, that's fine
+        }
+
+        return loaded;
+    }
+
+    /**
+     * Save match to disk
+     */
+    save(match) {
+        if (!this.stateDir) return;
+
+        const file = path.join(this.stateDir, `${match.code}.json`);
+        fs.writeFileSync(file, JSON.stringify(match.toJSON(), null, 2));
+    }
+
+    /**
+     * Remove match file from disk
+     */
+    remove(code) {
+        if (!this.stateDir) return;
+
+        const file = path.join(this.stateDir, `${code}.json`);
+        try {
+            fs.unlinkSync(file);
+        } catch (e) {
+            // File may not exist
+        }
     }
 
     create(options) {
         const match = new Match(options);
         this.matches.set(match.code, match);
+        this.save(match);
         return match;
     }
 
@@ -158,6 +259,7 @@ class Matches {
     }
 
     delete(code) {
+        this.remove(code);
         return this.matches.delete(code);
     }
 
@@ -175,13 +277,19 @@ class Matches {
             .map(m => m.toPublic());
     }
 
+    /**
+     * Save a match after modification (join/leave)
+     */
+    update(match) {
+        this.save(match);
+    }
+
     cleanupExpired() {
-        const now = Date.now();
         let cleaned = 0;
 
         for (const [code, match] of this.matches) {
             if (match.isExpired()) {
-                this.matches.delete(code);
+                this.delete(code);
                 cleaned++;
             }
         }

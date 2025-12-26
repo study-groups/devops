@@ -29,6 +29,7 @@ const VERSION = '1.0.0';
 const DEFAULT_HTTP_PORT = 8085;
 const DEFAULT_UDP_PORT = 1985;
 const SOCKET_PATH = '/tmp/tetra/gamma.sock';
+const STATE_DIR = process.env.GAMMA_STATE_DIR || path.join(process.env.HOME, '.tetra/gamma/state/matches');
 
 const MIDI_MP_HOST = process.env.GAMMA_MIDI_MP_HOST || 'localhost';
 const MIDI_MP_PORT = parseInt(process.env.GAMMA_MIDI_MP_PORT || '1984');
@@ -45,7 +46,7 @@ class GammaService extends EventEmitter {
         this.udpPort = options.udpPort || DEFAULT_UDP_PORT;
         this.socketPath = options.socketPath || SOCKET_PATH;
 
-        this.matches = new Matches();
+        this.matches = new Matches({ stateDir: STATE_DIR });
         this.codes = new Codes();
 
         // Load dashboard template
@@ -69,6 +70,9 @@ class GammaService extends EventEmitter {
 
     async start() {
         console.log(`[gamma] Starting v${VERSION}`);
+
+        // Load persisted matches
+        this.matches.load();
 
         await this.startHttpServer();
         await this.startUdpServer();
@@ -319,6 +323,7 @@ class GammaService extends EventEmitter {
             }
 
             this.stats.playersJoined++;
+            this.matches.update(match);
 
             // Register player route with midi-mp
             await this.syncWithMidiMp('register', match, result.slot);
@@ -366,6 +371,8 @@ class GammaService extends EventEmitter {
                 res.end(JSON.stringify({ error: 'Invalid token' }));
                 return;
             }
+
+            this.matches.update(match);
 
             // Unregister from midi-mp
             await this.syncWithMidiMp('unregister', match, slot);
@@ -542,6 +549,7 @@ class GammaService extends EventEmitter {
                     const result = m.join(cmd.name);
                     if (result.error) return JSON.stringify({ error: result.error });
                     this.stats.playersJoined++;
+                    this.matches.update(m);
                     // Register async (don't block response)
                     this.syncWithMidiMp('register', m, result.slot);
                     return JSON.stringify({ slot: result.slot, token: result.token, host: m.host.addr });
@@ -550,8 +558,11 @@ class GammaService extends EventEmitter {
                     const m2 = this.matches.get(cmd.code?.toUpperCase());
                     if (!m2) return JSON.stringify({ error: 'not found' });
                     const slot = m2.leave(cmd.token);
-                    // Unregister async (don't block response)
-                    if (slot) this.syncWithMidiMp('unregister', m2, slot);
+                    if (slot) {
+                        this.matches.update(m2);
+                        // Unregister async (don't block response)
+                        this.syncWithMidiMp('unregister', m2, slot);
+                    }
                     return JSON.stringify({ ok: !!slot });
 
                 case 'close':
