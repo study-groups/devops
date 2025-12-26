@@ -30,6 +30,9 @@ tsm_create_metadata() {
     local parent="${11:-}"  # Optional: parent service name
     local comm_type="${12:-}"  # Optional: pipe|fifo|socket|tcp|none
     local comm_path="${13:-}"  # Optional: path to FIFO or socket
+    local coupling_mode="${14:-local}"  # TDP: local|web|hybrid
+    local adapter_type="${15:-}"  # TDP: midi|gamepad|osc|keyboard
+    local tdp_topic="${16:-}"  # TDP: MQTT-style topic prefix (e.g., tetra/game/trax)
 
     local tsm_id=$(tsm_get_next_id)
     local start_time=$(date +%s)
@@ -79,6 +82,9 @@ tsm_create_metadata() {
         --argjson parent_tsm_id "$parent_tsm_id" \
         --arg comm_type "$comm_type" \
         --arg comm_path "$comm_path" \
+        --arg coupling_mode "$coupling_mode" \
+        --arg adapter_type "$adapter_type" \
+        --arg tdp_topic "$tdp_topic" \
         --argjson git "$git_json" \
         '{
             tsm_id: ($tsm_id | tonumber),
@@ -107,6 +113,10 @@ tsm_create_metadata() {
             children: [],
             comm_type: (if $comm_type == "" then null else $comm_type end),
             comm_path: (if $comm_path == "" then null else $comm_path end),
+            coupling_mode: $coupling_mode,
+            adapter_type: (if $adapter_type == "" then null else $adapter_type end),
+            tdp_topic: (if $tdp_topic == "" then null else $tdp_topic end),
+            siblings: [],
             git: $git
         }' > "$meta_file"
 

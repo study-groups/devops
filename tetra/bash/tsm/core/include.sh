@@ -33,6 +33,8 @@ source "$TSM_CORE_SRC/environment.sh"    # Environment handling
 # helpers.sh removed - functions consolidated into validation.sh and start.sh
 source "$TSM_CORE_SRC/setup.sh"          # Setup utilities
 source "$TSM_CORE_SRC/metadata.sh"       # PM2-style JSON metadata
+source "$TSM_CORE_SRC/child.sh"          # Parent-child relationships
+source "$TSM_CORE_SRC/sibling.sh"        # Sibling process relationships (TDP)
 source "$TSM_CORE_SRC/hooks.sh"          # Pre-hook system
 source "$TSM_CORE_SRC/runtime.sh"        # Interpreter resolution
 source "$TSM_CORE_SRC/port_resolution.sh"  # Port ladder (5-step)
@@ -77,6 +79,9 @@ source "$TSM_INTEGRATIONS_SRC/nginx.sh"    # Nginx integration
 source "$TSM_INTEGRATIONS_SRC/caddy.sh"    # Caddy integration
 source "$TSM_INTEGRATIONS_SRC/systemd.sh"  # Systemd integration
 source "$TSM_INTEGRATIONS_SRC/tview.sh"    # TView integration functions
+source "$TSM_INTEGRATIONS_SRC/group.sh"    # Group/ecosystem management
+source "$TSM_INTEGRATIONS_SRC/midi.sh"     # MIDI-MP integration (TDP)
+source "$TSM_INTEGRATIONS_SRC/controls.sh" # Controls.json parsing (TDP)
 
 # === PHASE 7: INITIALIZE GLOBAL STATE ===
 # Initialize global state after all functions are loaded

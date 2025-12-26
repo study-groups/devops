@@ -108,13 +108,16 @@ tetra_tsm_start_service() {
     # Load service config in isolated way
     # TSM_PORTS format: "port:type:protocol:relation:group,..." (new extended format)
     # TSM_SECONDARY_PORTS format: "port:type:protocol,..." (legacy simple format)
+    # TDP fields: TSM_COUPLING_MODE, TSM_TDP_TOPIC, TSM_ADAPTER_TYPE
     local TSM_NAME TSM_COMMAND TSM_CWD TSM_ENV TSM_PORT TSM_PRE_COMMAND TSM_PORTS TSM_SECONDARY_PORTS
+    local TSM_COUPLING_MODE TSM_TDP_TOPIC TSM_ADAPTER_TYPE
     local _tsm_decl_output
     _tsm_decl_output=$(
         export TETRA_SRC="$TETRA_SRC"
         export TETRA_DIR="$TETRA_DIR"
         source "$_found_file" 2>&1 && \
-        declare -p TSM_NAME TSM_COMMAND TSM_CWD TSM_ENV TSM_PORT TSM_PRE_COMMAND TSM_PORTS TSM_SECONDARY_PORTS 2>/dev/null
+        declare -p TSM_NAME TSM_COMMAND TSM_CWD TSM_ENV TSM_PORT TSM_PRE_COMMAND TSM_PORTS TSM_SECONDARY_PORTS \
+                   TSM_COUPLING_MODE TSM_TDP_TOPIC TSM_ADAPTER_TYPE 2>/dev/null
     )
 
     [[ "$_tsm_decl_output" != *"declare"* ]] && { echo "❌ Failed to load: $_found_file" >&2; return 1; }
@@ -178,9 +181,20 @@ tetra_tsm_start_service() {
     )
     local start_status=$?
 
-    # Register ports if defined
+    # Update TDP metadata and register ports if defined
     if [[ $start_status -eq 0 ]]; then
         sleep 0.5
+
+        # Update TDP fields in metadata
+        if [[ -n "$TSM_COUPLING_MODE" ]]; then
+            tsm_update_metadata "$process_name" "coupling_mode" "$TSM_COUPLING_MODE" 2>/dev/null
+        fi
+        if [[ -n "$TSM_TDP_TOPIC" ]]; then
+            tsm_update_metadata "$process_name" "tdp_topic" "$TSM_TDP_TOPIC" 2>/dev/null
+        fi
+        if [[ -n "$TSM_ADAPTER_TYPE" ]]; then
+            tsm_update_metadata "$process_name" "adapter_type" "$TSM_ADAPTER_TYPE" 2>/dev/null
+        fi
 
         # TSM_PORTS format (new): "port:type:protocol:relation:group,..."
         # Example: "1986:udp:osc:bind,1983:udp:osc-in:multicast-join:239.1.1.1"
