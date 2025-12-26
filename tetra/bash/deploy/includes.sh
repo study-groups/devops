@@ -211,6 +211,18 @@ _deploy_remote_exec() {
     ssh $DEPLOY_SSH_OPTIONS "$target" "$cmd"
 }
 
+# Check SSH connectivity to host
+# Usage: _deploy_check_ssh <host> [timeout]
+_deploy_check_ssh() {
+    local host="$1"
+    local timeout="${2:-5}"
+
+    if ! ssh -o ConnectTimeout="$timeout" "$host" "echo 'Connected'" 2>/dev/null; then
+        echo "Failed to connect to $host" >&2
+        return 1
+    fi
+}
+
 # Log deployment event
 # Usage: _deploy_log <target> <env> <action> <status> [duration_secs] [extra...]
 _deploy_log() {
@@ -333,7 +345,7 @@ export DEPLOY_SSH_TIMEOUT DEPLOY_SSH_OPTIONS
 export -f _deploy_template_core
 export -f _deploy_toml_get _deploy_toml_get_array _deploy_toml_has_ssh
 export -f _deploy_parse_opts _deploy_validate_args _deploy_setup
-export -f _deploy_ssh_target _deploy_remote_exec _deploy_log
+export -f _deploy_ssh_target _deploy_remote_exec _deploy_check_ssh _deploy_log
 export -f _deploy_build_rsync_args _deploy_set_permissions
 export -f _deploy_generate_proxy_config
 
@@ -355,9 +367,10 @@ source "$DEPLOY_SRC/deploy_transport.sh"
 source "$DEPLOY_SRC/deploy_remote.sh"
 
 # Optional modules (use tetra_source_if_exists for missing files)
-# NOTE: deploy_target.sh is LEGACY - do not source (conflicts with deploy_remote.sh)
 tetra_source_if_exists "$DEPLOY_SRC/deploy_domain.sh"
 tetra_source_if_exists "$DEPLOY_SRC/deploy_env.sh"
+tetra_source_if_exists "$DEPLOY_SRC/deploy_tsm.sh"
+tetra_source_if_exists "$DEPLOY_SRC/deploy_systemd.sh"
 
 # File-centric deploy engine
 source "$DEPLOY_SRC/deploy_engine.sh"

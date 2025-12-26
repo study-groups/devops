@@ -1,0 +1,31 @@
+[Unit]
+Description=Tetra Service Manager
+Documentation=https://github.com/tetra
+After=network.target
+
+[Service]
+Type=forking
+User={{user}}
+WorkingDirectory={{home}}/tetra
+Environment=HOME={{home}}
+Environment=TETRA_DIR={{home}}/tetra
+Environment=TETRA_SRC={{home}}/tetra
+
+# Start all enabled services
+ExecStart=/bin/bash -c 'source {{home}}/tetra/tetra.sh && tsm startup'
+
+# Stop all services gracefully
+ExecStop=/bin/bash -c 'source {{home}}/tetra/tetra.sh && tsm stop "*"'
+
+# Reload/restart all services
+ExecReload=/bin/bash -c 'source {{home}}/tetra/tetra.sh && tsm restart "*"'
+
+# Service stays "active" after ExecStart completes
+RemainAfterExit=yes
+
+# Restart policy
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

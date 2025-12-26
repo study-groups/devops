@@ -1,0 +1,37 @@
+[Unit]
+Description=Caddy HTTP Server (Tetra-managed)
+Documentation=https://caddyserver.com/docs/
+After=network.target tsm.service
+Wants=tsm.service
+
+[Service]
+Type=simple
+User={{user}}
+Group={{user}}
+
+# Caddy config location (use system default, or tetra-managed)
+# Override with: systemctl edit tetra-caddy.service
+ExecStart=/usr/bin/caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+ExecReload=/usr/bin/caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+ExecStop=/usr/bin/caddy stop
+
+# Graceful shutdown
+TimeoutStopSec=30
+KillMode=mixed
+
+# Restart policy
+Restart=on-failure
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/etc/caddy /var/log/caddy /var/lib/caddy
+
+# Allow binding to privileged ports
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target

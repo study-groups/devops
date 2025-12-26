@@ -5,6 +5,11 @@
 
 : "${TETRA_SRC:?TETRA_SRC must be set}"
 
+# Source tetra.sh for module system (if not already loaded)
+if ! declare -f tmod &>/dev/null; then
+    source ~/tetra/tetra.sh 2>/dev/null || true
+fi
+
 TUI_DIR="$TETRA_SRC/bash/tetra/interfaces/tui"
 TUI_CORE="$TUI_DIR/tui-core"
 OSC_LISTEN="$TETRA_SRC/bash/midi/osc_listen"
@@ -33,9 +38,10 @@ declare -ga TUI_ENVS=("local" "dev" "staging" "prod")
 
 # MIDI state
 declare -ga MIDI_LOG=()
-declare -g MIDI_LOG_MAX=50
+declare -g MIDI_LOG_MAX=20
 declare -g MIDI_LAST_CC=""
 declare -g MIDI_LAST_VAL=""
+declare -gA MIDI_CC_VAL=()  # Track last value per CC number
 
 # CLI state
 declare -g CLI_MODE="normal"  # normal, command
@@ -184,28 +190,29 @@ _unescape_key() {
 # Auto-load current module if not already loaded
 tui_load_module() {
     local mod="${TUI_MODS[$TUI_MOD_IDX]:-}"
-    [[ -z "$mod" ]] && return
+    [[ -z "$mod" ]] && return 0
 
     # Already loaded?
-    if declare -f "$mod" &>/dev/null; then
-        return 0
-    fi
+    declare -f "$mod" &>/dev/null && return 0
+
+    # Disable strict mode for module loading
+    set +eu
+    trap '' ERR  # Ignore errors during load
 
     # Try tmod first
     if declare -f tmod &>/dev/null; then
-        tmod load "$mod" 2>/dev/null
+        tmod load "$mod" 2>/dev/null || true
     else
-        # Direct source
         local mod_file="$TETRA_SRC/bash/$mod/$mod.sh"
-        [[ -f "$mod_file" ]] && source "$mod_file" 2>/dev/null
+        [[ -f "$mod_file" ]] && source "$mod_file" 2>/dev/null || true
     fi
 
+    # Re-enable error trap
+    trap '_tui_error_handler $LINENO "$BASH_COMMAND"' ERR
+
     # Verify loaded
-    if declare -f "$mod" &>/dev/null; then
-        MIDI_LOG+=("✓ loaded: $mod")
-    else
-        MIDI_LOG+=("✗ failed: $mod")
-    fi
+    declare -f "$mod" &>/dev/null && MIDI_LOG+=("✓ $mod") || MIDI_LOG+=("✗ $mod")
+    return 0
 }
 
 # Handle CC value
@@ -220,7 +227,9 @@ handle_cc() {
         40) local min=5 max=$((TUI_HEIGHT - 3)); TUI_SPLIT=$(( min + (val * (max - min) / 127) )) ;;
     esac
     # Auto-load module if changed
-    [[ $cc -eq 31 && $TUI_MOD_IDX -ne $old_mod_idx ]] && tui_load_module
+    if [[ $cc -eq 31 && $TUI_MOD_IDX -ne $old_mod_idx ]]; then
+        tui_load_module || true
+    fi
     return 0
 }
 
@@ -459,19 +468,15 @@ handle_midi() {
 
     # Parse: __EVENT__ 1 545 545 raw CC 1 40 55
     if [[ "$line" =~ raw[[:space:]]+CC[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+) ]]; then
-        local ch="${BASH_REMATCH[1]}"
         local cc="${BASH_REMATCH[2]}"
         local val="${BASH_REMATCH[3]}"
 
+        # Update last CC state
         MIDI_LAST_CC="$cc"
         MIDI_LAST_VAL="$val"
+        MIDI_CC_VAL[$cc]="$val"
 
-        # Log it
-        local ts=$(date +%H:%M:%S)
-        MIDI_LOG+=("$ts ch$ch CC$cc=$val")
-        ((${#MIDI_LOG[@]} > MIDI_LOG_MAX)) && MIDI_LOG=("${MIDI_LOG[@]:1}") || true
-
-        # Handle CC
+        # Handle CC (update indices)
         handle_cc "$cc" "$val"
     fi
     return 0
@@ -505,15 +510,12 @@ render() {
     # Row 2: Context [org × mod × env]
     printf '\e[2;1H\e[90m[\e[35m%s\e[90m × \e[1;33m%s\e[0;90m × \e[34m%s\e[90m]\e[0m' "$org" "$mod" "$env"
 
-    # Row 3: MIDI status + last 4 CCs
-    local recent_cc=""
-    local log_count=${#MIDI_LOG[@]}
-    local start=$((log_count > 4 ? log_count - 4 : 0))
-    for ((i=start; i<log_count; i++)); do
-        [[ "${MIDI_LOG[$i]}" =~ CC([0-9]+)=([0-9]+) ]] && \
-            recent_cc+="\e[90mCC${BASH_REMATCH[1]}=\e[32m${BASH_REMATCH[2]}\e[0m "
+    # Row 3: MIDI status + current CC values
+    local cc_display=""
+    for cc in 30 31 32 40; do
+        [[ -n "${MIDI_CC_VAL[$cc]:-}" ]] && cc_display+="\e[90mCC$cc=\e[32m${MIDI_CC_VAL[$cc]}\e[0m "
     done
-    printf '\e[3;1H\e[K\e[1;34mMIDI:\e[0m \e[32m●\e[0m %b' "$recent_cc"
+    printf '\e[3;1H\e[K\e[1;34mMIDI:\e[0m \e[32m●\e[0m %b' "$cc_display"
 
     # Row 4: CC mappings
     printf '\e[4;1H\e[90mCC30:\e[35m%s\e[90m CC31:\e[33m%s\e[90m CC32:\e[34m%s\e[0m' "$org" "$mod" "$env"
@@ -684,43 +686,68 @@ tetra_tui2() {
     }
     trap cleanup_tui2 EXIT INT TERM
 
-    # Error trap - log errors instead of crashing
+    # Disable strict mode for resilient event loop
+    set +eu
+
+    # Crash log file
+    local crash_log="/tmp/tui2-crash.log"
+    echo "=== TUI started $(date) ===" >> "$crash_log"
+
+    # Error trap - log to file AND continue
     _tui_error_handler() {
-        local line="$1" cmd="$2"
-        MIDI_LOG+=("ERR:$line $cmd")
+        echo "ERR line $1: $2" >> "$crash_log"
     }
     trap '_tui_error_handler $LINENO "$BASH_COMMAND"' ERR
+
+    # Exit trap - log why we're exiting
+    _tui_exit_handler() {
+        echo "EXIT at $(date) code=$?" >> "$crash_log"
+    }
+    trap '_tui_exit_handler' EXIT
 
     local last_state=""
 
     # Read events from tui-core
     while IFS= read -r line <&${TUI_COPROC[0]}; do
+        # Log raw events
+        echo "EVENT: $line" >> "$crash_log"
+
         local type="${line%%:*}"
         local data="${line#*:}"
 
         case "$type" in
             S)  # Screen size
-                handle_resize "$data"
-                render
+                handle_resize "$data" || true
+                render || true
                 ;;
             K)  # Keyboard
-                handle_keyboard "$data"
+                handle_keyboard "$data" || true
                 ;;
             M)  # MIDI
-                handle_midi "$data"
+                handle_midi "$data" || true
+                echo "MIDI handled OK" >> "$crash_log"
                 ;;
             Q)  # Quit
                 break
                 ;;
         esac
 
-        # Render on state change (include dropdown state)
-        local cur_state="$TUI_ORG_IDX:$TUI_MOD_IDX:$TUI_ENV_IDX:$TUI_SPLIT:${#MIDI_LOG[@]}:$CLI_MODE:$CLI_INPUT:$DROPDOWN_OPEN:$DROPDOWN_IDX"
+        # Render on meaningful state change only
+        local cur_state="$TUI_ORG_IDX:$TUI_MOD_IDX:$TUI_ENV_IDX:$TUI_SPLIT:$CLI_MODE:$CLI_INPUT:$DROPDOWN_OPEN:$DROPDOWN_IDX"
         if [[ "$cur_state" != "$last_state" ]]; then
             last_state="$cur_state"
-            render
+            render || true
         fi
     done
+
+    # Log why loop ended
+    echo "LOOP ENDED - checking coproc status" >> "$crash_log"
+    if kill -0 "$_TUI_CORE_PID" 2>/dev/null; then
+        echo "tui-core still running (pid $_TUI_CORE_PID)" >> "$crash_log"
+    else
+        wait "$_TUI_CORE_PID" 2>/dev/null
+        echo "tui-core DIED with exit code $?" >> "$crash_log"
+    fi
 
     # Cleanup
     cleanup_tui2
