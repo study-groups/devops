@@ -679,5 +679,10 @@ EOF
 # Source modules immediately when this file is loaded (protected to prevent terminal crash)
 rag_source_modules || true
 
+# Source tab completion
+if [[ -f "$RAG_MODULE_DIR/rag_complete.sh" ]]; then
+    source "$RAG_MODULE_DIR/rag_complete.sh"
+fi
+
 # Export essential module variables
 export RAG_SRC RAG_DIR
