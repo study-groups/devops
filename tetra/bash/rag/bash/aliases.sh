@@ -20,16 +20,18 @@ mm() { "$RAG_CORE_DIR/multicat/multimerge.sh" "$@"; }
 # Multidiff (md) - expand diff blocks in MULTICAT using disk content
 md() { "$RAG_CORE_DIR/multicat/multidiff.sh" "$@"; }
 
-# Multifind (mf) - advanced file search with ranking
-mf() { "$RAG_CORE_DIR/search/multifind.sh" "$@"; }
+# Multi-path-verify (mpv) - verify/resolve file paths from input
+# Note: magicfind is the LLM-assisted search tool (separate module)
+mpv() { "$RAG_CORE_DIR/search/multifind.sh" "$@"; }
 
 # Replace - file content replacement
 replace() { "$RAG_CORE_DIR/utils/replace.sh" "$@"; }
 
-# Get code utility
+# Get code utility - extract code blocks from markdown
+# Usage: echo "$markdown" | getcode [--list] [LANG] [INDEX]
 getcode() {
     source "$RAG_CORE_DIR/utils/getcode.sh"
-    (getcode "$@" )
+    getcode "$@"
 }
 
 # Quick patch tool
