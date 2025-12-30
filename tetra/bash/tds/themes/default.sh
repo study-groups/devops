@@ -1,34 +1,37 @@
 #!/usr/bin/env bash
-
 # TDS Default Theme
-# Uses existing Tetra color palettes from bash/color/
+# Uses color_palettes.sh defaults - neutral dark with full rainbow
 
 tds_load_theme_default() {
-    # Source existing color palettes
+    # Theme metadata
+    THEME_NAME="default"
+    THEME_DESCRIPTION="Default Tetra color scheme"
+
+    # Source existing color palettes (defines defaults)
     local color_src="${COLOR_SRC:-$(dirname "$TDS_SRC")/color}"
 
     if [[ -f "$color_src/color_palettes.sh" ]]; then
         source "$color_src/color_palettes.sh"
     else
-        echo "Error: color_palettes.sh not found at $color_src" >&2
-        return 1
+        # Fallback: define defaults inline
+        BACKGROUND="1A1A2E"
+        TINT=10
+
+        PRIMARY=(
+            "E53935" "FB8C00" "FDD835" "43A047"
+            "00ACC1" "1E88E5" "8E24AA" "EC407A"
+        )
+
+        SECONDARY=(
+            "E56335" "C8A400" "7DBB00" "00A86B"
+            "007BA7" "4169E1" "A347A3" "E5355E"
+        )
+
+        tds_derive
     fi
 
-    # Palettes are already defined by color_palettes.sh:
-    # - ENV_PRIMARY (8 colors)
-    # - MODE_PRIMARY (8 colors)
-    # - VERBS_PRIMARY (8 colors)
-    # - NOUNS_PRIMARY (8 colors)
-    # - Complement arrays
-
-    # Apply semantic color mappings from palettes
-    if declare -f tds_apply_semantic_colors >/dev/null 2>&1; then
-        tds_apply_semantic_colors
-    fi
-
-    # Theme metadata
-    TDS_THEME_NAME="Default"
-    TDS_THEME_DESCRIPTION="Default Tetra color scheme"
+    # Legacy compatibility
+    _tds_legacy_compat 2>/dev/null || true
 
     return 0
 }

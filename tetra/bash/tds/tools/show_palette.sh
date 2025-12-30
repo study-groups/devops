@@ -44,10 +44,10 @@ show_theme_palette() {
     }
 
     # Show all 4 palette arrays
-    show_palette_array "ENV_PRIMARY"
-    show_palette_array "MODE_PRIMARY"
-    show_palette_array "VERBS_PRIMARY"
-    show_palette_array "NOUNS_PRIMARY"
+    show_palette_array "PRIMARY"
+    show_palette_array "SECONDARY"
+    show_palette_array "SEMANTIC"
+    show_palette_array "SURFACE"
 
     # Show key tokens
     echo

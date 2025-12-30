@@ -6,9 +6,9 @@
 # Unicode Explorer-specific color tokens map semantic elements to palette references
 declare -gA TDS_UNICODE_TOKENS=(
     # Slot display colors
-    [uex.slot.primary]="mode:0"           # MODE_PRIMARY[0] - primary slots (1,2)
-    [uex.slot.secondary]="mode:1"         # MODE_PRIMARY[1] - secondary slots (3,4)
-    [uex.slot.locked]="verbs:2"           # VERBS_PRIMARY[2] - locked indicator (orange)
+    [uex.slot.primary]="secondary:0"      # SECONDARY[0] - primary slots (1,2)
+    [uex.slot.secondary]="secondary:1"    # SECONDARY[1] - secondary slots (3,4)
+    [uex.slot.locked]="semantic:1"        # SEMANTIC[1] - locked indicator (orange)
     [uex.slot.character]="text.primary"   # Character display
 
     # Delimiters (mode-dependent)
@@ -17,27 +17,27 @@ declare -gA TDS_UNICODE_TOKENS=(
     [uex.delimiter.shell]="status.success"     # > shell prompt mode (green)
 
     # Metadata display
-    [uex.metadata.unicode]="nouns:0"          # NOUNS_PRIMARY[0] - Unicode code (purple)
+    [uex.metadata.unicode]="surface:0"         # SURFACE[0] - Unicode code
     [uex.metadata.category]="text.secondary"   # Category name
     [uex.metadata.position]="text.tertiary"    # Position indicator [n/total]
-    [uex.metadata.char]="mode:2"              # Large character display
+    [uex.metadata.char]="secondary:2"          # Large character display
 
     # Controls and navigation
     [uex.controls.key]="content.code.inline"      # Key hints (1,2,3,4 etc)
     [uex.controls.separator]="text.muted"         # | separators
-    [uex.controls.description]="text.secondary"    # Description text
-    [uex.controls.arrow]="env:3"                  # Arrow indicators (↑↓←→)
+    [uex.controls.description]="text.secondary"   # Description text
+    [uex.controls.arrow]="primary:3"              # Arrow indicators (↑↓←→)
 
     # State information
-    [uex.state.label]="text.muted"       # state:, map: labels
-    [uex.state.value]="mode:0"           # State values
-    [uex.state.mapping]="nouns:1"        # Mapping string
+    [uex.state.label]="text.muted"        # state:, map: labels
+    [uex.state.value]="secondary:0"       # State values
+    [uex.state.mapping]="surface:1"       # Mapping string
 
     # Navigation feedback
-    [uex.feedback.bank]="env:0"          # ENV_PRIMARY[0] - bank change (green)
-    [uex.feedback.char]="mode:0"         # MODE_PRIMARY[0] - char change (blue)
-    [uex.feedback.lock]="verbs:2"        # Lock toggle feedback (orange)
-    [uex.feedback.mode]="nouns:0"        # Mode change feedback (purple)
+    [uex.feedback.bank]="primary:0"       # PRIMARY[0] - bank change (red)
+    [uex.feedback.char]="secondary:0"     # SECONDARY[0] - char change
+    [uex.feedback.lock]="semantic:1"      # Lock toggle feedback (orange)
+    [uex.feedback.mode]="surface:0"       # Mode change feedback
 
     # Border and separator
     [uex.separator.line]="text.muted"    # Horizontal separator line

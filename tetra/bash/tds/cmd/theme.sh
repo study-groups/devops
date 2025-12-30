@@ -22,68 +22,82 @@ tds_create_theme() {
         return 1
     fi
 
-    # Generate theme file
+    # Generate theme file with new format
     cat > "$theme_file" <<THEME_EOF
 #!/usr/bin/env bash
 # TDS Theme: ${name^}
 # Created: $(date +%Y-%m-%d)
+#
+# PALETTE STRUCTURE:
+#   BACKGROUND   - Anchor color (dark or light)
+#   TINT         - Surface saturation %
+#   PRIMARY[0-7] - Universal rainbow
+#   SECONDARY[0-7] - Theme accent colors
+#   SEMANTIC[0-7] - Derived: error/warning/success/info
+#   SURFACE[0-7]  - Derived: tinted bg→fg gradient
 
 # Source guard
 [[ "\${__TDS_THEME_${name^^}_LOADED:-}" == "true" ]] && return 0
 __TDS_THEME_${name^^}_LOADED=true
 
 tds_theme_${name}() {
+    # Theme metadata
     THEME_NAME="${name}"
     THEME_DESCRIPTION="Custom theme: ${name}"
+    THEME_TEMPERATURE="neutral"
 
-    # Primary colors
-    PALETTE_PRIMARY_500="#0ea5e9"
-    PALETTE_SECONDARY_500="#3b82f6"
-    PALETTE_ACCENT_500="#06b6d4"
+    # ========================================================================
+    # THEME INPUTS
+    # ========================================================================
 
-    # Neutrals
-    PALETTE_NEUTRAL_100="#f8fafc"
-    PALETTE_NEUTRAL_500="#94a3b8"
-    PALETTE_NEUTRAL_900="#1e293b"
+    # Background anchor color
+    BACKGROUND="1A1A2E"
 
-    # State colors
-    PALETTE_SUCCESS="#10b981"
-    PALETTE_WARNING="#f59e0b"
-    PALETTE_ERROR="#ef4444"
+    # Surface tint (0 = pure gray, higher = more tinted)
+    TINT=10
 
-    # Palette arrays
-    ENV_PRIMARY=(
-        "\$PALETTE_PRIMARY_500" "\$PALETTE_PRIMARY_500"
-        "\$PALETTE_PRIMARY_500" "\$PALETTE_PRIMARY_500"
-        "\$PALETTE_NEUTRAL_500" "\$PALETTE_NEUTRAL_500"
-        "\$PALETTE_NEUTRAL_500" "\$PALETTE_NEUTRAL_100"
+    # ========================================================================
+    # PRIMARY - Universal rainbow (8 maximally distinct hues)
+    # ========================================================================
+    PRIMARY=(
+        "E53935"  # 0: red (0°)
+        "FB8C00"  # 1: orange (30°)
+        "FDD835"  # 2: yellow (60°)
+        "43A047"  # 3: green (120°)
+        "00ACC1"  # 4: cyan (180°)
+        "1E88E5"  # 5: blue (210°)
+        "8E24AA"  # 6: purple (270°)
+        "EC407A"  # 7: pink (330°)
     )
 
-    MODE_PRIMARY=(
-        "\$PALETTE_SECONDARY_500" "\$PALETTE_SECONDARY_500"
-        "\$PALETTE_SECONDARY_500" "\$PALETTE_SECONDARY_500"
-        "\$PALETTE_NEUTRAL_500" "\$PALETTE_NEUTRAL_500"
-        "\$PALETTE_NEUTRAL_500" "\$PALETTE_NEUTRAL_100"
+    # ========================================================================
+    # SECONDARY - Theme accent (customize these for your theme)
+    # ========================================================================
+    SECONDARY=(
+        "E56335"  # 0: coral
+        "C8A400"  # 1: gold
+        "7DBB00"  # 2: lime
+        "00A86B"  # 3: emerald
+        "007BA7"  # 4: azure
+        "4169E1"  # 5: royal blue
+        "A347A3"  # 6: orchid
+        "E5355E"  # 7: rose
     )
 
-    VERBS_PRIMARY=(
-        "\$PALETTE_ERROR" "\$PALETTE_ACCENT_500"
-        "\$PALETTE_WARNING" "\$PALETTE_PRIMARY_500"
-        "\$PALETTE_PRIMARY_500" "\$PALETTE_NEUTRAL_500"
-        "\$PALETTE_NEUTRAL_500" "\$PALETTE_NEUTRAL_100"
-    )
+    # ========================================================================
+    # DERIVED PALETTES
+    # ========================================================================
+    # SEMANTIC and SURFACE computed from PRIMARY + BACKGROUND
+    tds_derive
 
-    NOUNS_PRIMARY=(
-        "\$PALETTE_ACCENT_500" "\$PALETTE_ACCENT_500"
-        "\$PALETTE_PRIMARY_500" "\$PALETTE_SECONDARY_500"
-        "\$PALETTE_NEUTRAL_100" "\$PALETTE_NEUTRAL_500"
-        "\$PALETTE_NEUTRAL_500" "\$PALETTE_NEUTRAL_100"
-    )
-
-    tds_apply_semantic_colors
+    # Legacy compatibility
+    _tds_legacy_compat 2>/dev/null || true
 }
 
+# Register theme
 tds_register_theme "${name}" "tds_theme_${name}" "Custom theme: ${name}"
+
+# Export
 export -f tds_theme_${name}
 THEME_EOF
 
@@ -210,25 +224,35 @@ tds_save_theme() {
 # Generated: $(date '+%Y-%m-%d %H:%M:%S')
 # Base: $(tds_active_theme)
 
-_tds_load_${name}() {
-    ENV_PRIMARY=(
-$(for i in "${!ENV_PRIMARY[@]}"; do printf '        "%s"  # %d\n' "${ENV_PRIMARY[$i]}" "$i"; done)
+# Source guard
+[[ "\${__TDS_THEME_${name^^}_LOADED:-}" == "true" ]] && return 0
+__TDS_THEME_${name^^}_LOADED=true
+
+tds_theme_${name}() {
+    THEME_NAME="$name"
+    THEME_DESCRIPTION="Saved from $(tds_active_theme)"
+
+    # Theme inputs
+    BACKGROUND="$BACKGROUND"
+    TINT=$TINT
+
+    PRIMARY=(
+$(for i in "${!PRIMARY[@]}"; do printf '        "%s"  # %d\n' "${PRIMARY[$i]}" "$i"; done)
     )
 
-    MODE_PRIMARY=(
-$(for i in "${!MODE_PRIMARY[@]}"; do printf '        "%s"  # %d\n' "${MODE_PRIMARY[$i]}" "$i"; done)
+    SECONDARY=(
+$(for i in "${!SECONDARY[@]}"; do printf '        "%s"  # %d\n' "${SECONDARY[$i]}" "$i"; done)
     )
 
-    VERBS_PRIMARY=(
-$(for i in "${!VERBS_PRIMARY[@]}"; do printf '        "%s"  # %d\n' "${VERBS_PRIMARY[$i]}" "$i"; done)
-    )
+    # Derive SEMANTIC and SURFACE
+    tds_derive
 
-    NOUNS_PRIMARY=(
-$(for i in "${!NOUNS_PRIMARY[@]}"; do printf '        "%s"  # %d\n' "${NOUNS_PRIMARY[$i]}" "$i"; done)
-    )
+    # Legacy compatibility
+    _tds_legacy_compat 2>/dev/null || true
 }
 
-tds_register_theme "$name" "_tds_load_${name}"
+tds_register_theme "$name" "tds_theme_${name}" "Saved from $(tds_active_theme)"
+export -f tds_theme_${name}
 EOF
 
     echo "Saved theme: $name"

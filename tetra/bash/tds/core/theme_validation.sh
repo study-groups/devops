@@ -2,12 +2,18 @@
 # TDS Theme Validation
 # Validates that themes properly define all required palettes and structures
 
-# Required palette names
+# Required palette names (new structure)
 declare -ga TDS_REQUIRED_PALETTES=(
-    "ENV_PRIMARY"
-    "MODE_PRIMARY"
-    "VERBS_PRIMARY"
-    "NOUNS_PRIMARY"
+    "PRIMARY"
+    "SECONDARY"
+    "SEMANTIC"
+    "SURFACE"
+)
+
+# Theme input variables
+declare -ga TDS_REQUIRED_VARS=(
+    "BACKGROUND"
+    "TINT"
 )
 
 # Required palette size
@@ -29,16 +35,46 @@ tds_validate_palette() {
         return 1
     fi
 
-    # Validate each color is a hex value
+    # Validate each color is a hex value (with or without #)
     for i in "${!palette_ref[@]}"; do
         local color="${palette_ref[$i]}"
-        if [[ ! "$color" =~ ^#[0-9A-Fa-f]{6}$ ]]; then
-            echo "ERROR: Palette '$palette_name[$i]' has invalid color: '$color' (expected #RRGGBB)" >&2
+        color="${color#\#}"  # Strip # if present
+        if [[ ! "$color" =~ ^[0-9A-Fa-f]{6}$ ]]; then
+            echo "ERROR: Palette '$palette_name[$i]' has invalid color: '$color' (expected RRGGBB)" >&2
             return 1
         fi
     done
 
     return 0
+}
+
+# Validate theme input variables
+# Returns: 0 if valid, 1 if invalid
+tds_validate_theme_vars() {
+    local all_valid=true
+
+    # Check BACKGROUND
+    if [[ -z "${BACKGROUND:-}" ]]; then
+        echo "ERROR: BACKGROUND is not defined" >&2
+        all_valid=false
+    else
+        local bg="${BACKGROUND#\#}"
+        if [[ ! "$bg" =~ ^[0-9A-Fa-f]{6}$ ]]; then
+            echo "ERROR: BACKGROUND has invalid color: '$BACKGROUND' (expected RRGGBB)" >&2
+            all_valid=false
+        fi
+    fi
+
+    # Check TINT
+    if [[ -z "${TINT:-}" ]]; then
+        echo "ERROR: TINT is not defined" >&2
+        all_valid=false
+    elif [[ ! "$TINT" =~ ^[0-9]+$ ]] || ((TINT < 0 || TINT > 100)); then
+        echo "ERROR: TINT has invalid value: '$TINT' (expected 0-100)" >&2
+        all_valid=false
+    fi
+
+    [[ "$all_valid" == "true" ]]
 }
 
 # Validate that all required palettes are defined and valid
@@ -84,6 +120,12 @@ tds_validate_theme() {
         return 1
     }
 
+    # Validate theme variables
+    if ! tds_validate_theme_vars; then
+        echo "ERROR: Theme '$theme_name' has invalid theme variables" >&2
+        return 1
+    fi
+
     # Validate all palettes
     if ! tds_validate_all_palettes; then
         echo "ERROR: Theme '$theme_name' has invalid palettes" >&2
@@ -102,22 +144,27 @@ tds_show_theme_validation() {
     echo "================================"
 
     if tds_validate_theme "$theme_name"; then
-        echo "✓ Theme is valid"
+        echo "Theme is valid"
+        echo
+        echo "Theme inputs:"
+        echo "  BACKGROUND: #$BACKGROUND"
+        echo "  TINT: $TINT%"
         echo
         echo "Palette summary:"
         for palette in "${TDS_REQUIRED_PALETTES[@]}"; do
             local -n p="$palette"
-            echo "  ✓ $palette: ${#p[@]} colors"
+            echo "  $palette: ${#p[@]} colors"
         done
         return 0
     else
-        echo "✗ Theme validation failed"
+        echo "Theme validation failed"
         return 1
     fi
 }
 
 # Export functions
 export -f tds_validate_palette
+export -f tds_validate_theme_vars
 export -f tds_validate_all_palettes
 export -f tds_validate_theme
 export -f tds_show_theme_validation

@@ -120,14 +120,14 @@ tds_repeat() {
     printf "%*s" "$count" "" | tr ' ' "$char"
 }
 
-# Print items with VERBS rainbow cycling colors
-# Each item gets a distinct color from VERBS_PRIMARY, wrapping after 8
+# Print items with PRIMARY rainbow cycling colors
+# Each item gets a distinct color from PRIMARY, wrapping after 8
 # Args: item1 item2 item3 ...
 # Example: tds_cycle_print get set create delete copy edit path save validate
 tds_cycle_print() {
     local -a items=("$@")
     for i in "${!items[@]}"; do
-        text_color "${VERBS_PRIMARY[$((i % 8))]}"
+        text_color "${PRIMARY[$((i % 8))]}"
         printf "%s " "${items[$i]}"
     done
     reset_color
@@ -158,14 +158,62 @@ tds_hex_to_256() {
     echo $(( 16 + 36*r5 + 6*g5 + b5 ))
 }
 
-# Print a color swatch using 256-color
-# Args: hex (with or without #)
-# Returns: ANSI-colored block characters
-tds_color_swatch() {
+# Convert 256-color code back to approximate hex
+# Args: 256-color code (0-255)
+# Returns: hex color (without #)
+tds_256_to_hex() {
+    local code="$1"
+
+    # System colors (0-15) - standard palette
+    if [[ $code -lt 16 ]]; then
+        local -a sys=("000000" "800000" "008000" "808000" "000080" "800080" "008080" "C0C0C0"
+                      "808080" "FF0000" "00FF00" "FFFF00" "0000FF" "FF00FF" "00FFFF" "FFFFFF")
+        echo "${sys[$code]}"
+        return
+    fi
+
+    # Grayscale ramp (232-255)
+    if [[ $code -ge 232 ]]; then
+        local gray=$(( (code - 232) * 255 / 23 ))
+        printf "%02X%02X%02X" $gray $gray $gray
+        return
+    fi
+
+    # Color cube (16-231)
+    local index=$((code - 16))
+    local r=$((index / 36))
+    local g=$(((index % 36) / 6))
+    local b=$((index % 6))
+
+    # Convert 0-5 range to 0-255
+    printf "%02X%02X%02X" $((r * 255 / 5)) $((g * 255 / 5)) $((b * 255 / 5))
+}
+
+# Print foreground-only color swatch (colored text chars)
+# Args: hex [chars]
+tds_swatch() {
     local hex="$1"
-    local color256=$(tds_hex_to_256 "$hex")
-    printf "$(tput setaf $color256)██$(tput sgr0)"
+    local chars="${2:-██}"
+    text_color "$hex"
+    printf "%s" "$chars"
+    reset_color
+}
+
+# Print solid color block (fg+bg same color)
+# Args: hex [chars]
+tds_block() {
+    local hex="$1"
+    local chars="${2:-  }"
+    text_color "$hex"
+    bg_only "$hex"
+    printf "%s" "$chars"
+    reset_color
+}
+
+# Legacy alias for compatibility
+tds_color_swatch() {
+    tds_swatch "$1" "██"
 }
 
 # Export functions
-export -f tds_strip_ansi tds_visual_width tds_center_padding tds_pad tds_truncate tds_truncate_middle tds_repeat tds_cycle_print tds_hex_to_256 tds_color_swatch
+export -f tds_strip_ansi tds_visual_width tds_center_padding tds_pad tds_truncate tds_truncate_middle tds_repeat tds_cycle_print tds_hex_to_256 tds_256_to_hex tds_swatch tds_block tds_color_swatch

@@ -18,7 +18,7 @@ declare -g TDS_THEME_DESCRIPTION=""
 
 # List available themes with colored previews
 # Each theme shows sample text in its own colors
-# Uses: MODE for semantic states (theme-specific), VERBS for collection cycling
+# Uses: SEMANTIC for status colors, PRIMARY for collection cycling
 tds_list_themes() {
     local saved_theme="$TDS_ACTIVE_THEME"
 
@@ -34,22 +34,22 @@ tds_list_themes() {
         # Load theme to get its colors
         TDS_QUIET_LOAD=1 tds_switch_theme "$theme" 2>/dev/null || continue
 
-        # Show theme name in its primary ENV color
+        # Show theme name in its secondary accent color
         printf "  "
-        text_color "${ENV_PRIMARY[0]}"
+        text_color "${SECONDARY[0]}"
         printf "%-10s" "$theme"
         reset_color
 
-        # Show MODE semantics (theme-specific bad/warning/good/info)
-        text_color "${MODE_PRIMARY[0]}"; printf "bad"; reset_color; printf " "
-        text_color "${MODE_PRIMARY[1]}"; printf "warn"; reset_color; printf " "
-        text_color "${MODE_PRIMARY[2]}"; printf "good"; reset_color; printf " "
-        text_color "${MODE_PRIMARY[3]}"; printf "info"; reset_color; printf "  "
+        # Show SEMANTIC status colors
+        text_color "${SEMANTIC[0]}"; printf "err"; reset_color; printf " "
+        text_color "${SEMANTIC[1]}"; printf "warn"; reset_color; printf " "
+        text_color "${SEMANTIC[2]}"; printf "ok"; reset_color; printf " "
+        text_color "${SEMANTIC[3]}"; printf "info"; reset_color; printf "  "
 
-        # Show VERBS cycling (universal rainbow) with sample verbs
+        # Show PRIMARY cycling (universal rainbow) with sample verbs
         local verbs=(get set del)
         for i in "${!verbs[@]}"; do
-            text_color "${VERBS_PRIMARY[$i]}"
+            text_color "${PRIMARY[$i]}"
             printf "%s" "${verbs[$i]}"
             reset_color
             printf " "
@@ -86,11 +86,15 @@ tds_theme_info() {
         echo "Name: ${TDS_THEME_NAME:-N/A}"
         echo "Description: ${TDS_THEME_DESCRIPTION:-N/A}"
         echo
+        echo "Theme inputs:"
+        echo "  BACKGROUND: #$BACKGROUND"
+        echo "  TINT: $TINT%"
+        echo
         echo "Palettes:"
-        echo "  ENV_PRIMARY (${#ENV_PRIMARY[@]} colors)"
-        echo "  MODE_PRIMARY (${#MODE_PRIMARY[@]} colors)"
-        echo "  VERBS_PRIMARY (${#VERBS_PRIMARY[@]} colors)"
-        echo "  NOUNS_PRIMARY (${#NOUNS_PRIMARY[@]} colors)"
+        echo "  PRIMARY (${#PRIMARY[@]} colors)"
+        echo "  SECONDARY (${#SECONDARY[@]} colors)"
+        echo "  SEMANTIC (${#SEMANTIC[@]} colors) - derived"
+        echo "  SURFACE (${#SURFACE[@]} colors) - derived"
 
         return 0
     else
@@ -237,10 +241,11 @@ tds_preview_themes() {
         echo
 
         # Show palette samples
-        echo "  ENV palette:   ${ENV_PRIMARY[0]}  ${ENV_PRIMARY[1]}  ${ENV_PRIMARY[2]}  ${ENV_PRIMARY[3]}"
-        echo "  MODE palette:  ${MODE_PRIMARY[0]}  ${MODE_PRIMARY[1]}  ${MODE_PRIMARY[2]}  ${MODE_PRIMARY[3]}"
-        echo "  VERBS palette: ${VERBS_PRIMARY[0]}  ${VERBS_PRIMARY[1]}  ${VERBS_PRIMARY[2]}  ${VERBS_PRIMARY[3]}"
-        echo "  NOUNS palette: ${NOUNS_PRIMARY[0]}  ${NOUNS_PRIMARY[1]}  ${NOUNS_PRIMARY[2]}  ${NOUNS_PRIMARY[3]}"
+        echo "  BACKGROUND:  #$BACKGROUND  TINT: $TINT%"
+        echo "  PRIMARY:     ${PRIMARY[0]}  ${PRIMARY[1]}  ${PRIMARY[2]}  ${PRIMARY[3]}"
+        echo "  SECONDARY:   ${SECONDARY[0]}  ${SECONDARY[1]}  ${SECONDARY[2]}  ${SECONDARY[3]}"
+        echo "  SEMANTIC:    ${SEMANTIC[0]}  ${SEMANTIC[1]}  ${SEMANTIC[2]}  ${SEMANTIC[3]}"
+        echo "  SURFACE:     ${SURFACE[0]}  ${SURFACE[1]}  ${SURFACE[2]}  ${SURFACE[3]}"
         echo
 
         # Show functional demo (requires TDS to be loaded)
@@ -297,23 +302,23 @@ tds_compare_themes() {
 
     # Load theme 1 and capture colors
     tds_switch_theme "$theme1" 2>/dev/null || { echo "Error loading $theme1" >&2; return 1; }
-    local t1_env0="${ENV_PRIMARY[0]}"
-    local t1_mode0="${MODE_PRIMARY[0]}"
-    local t1_verb0="${VERBS_PRIMARY[0]}"
-    local t1_noun0="${NOUNS_PRIMARY[0]}"
+    local t1_bg="$BACKGROUND"
+    local t1_primary0="${PRIMARY[0]}"
+    local t1_secondary0="${SECONDARY[0]}"
+    local t1_semantic0="${SEMANTIC[0]}"
 
     # Load theme 2 and capture colors
     tds_switch_theme "$theme2" 2>/dev/null || { echo "Error loading $theme2" >&2; return 1; }
-    local t2_env0="${ENV_PRIMARY[0]}"
-    local t2_mode0="${MODE_PRIMARY[0]}"
-    local t2_verb0="${VERBS_PRIMARY[0]}"
-    local t2_noun0="${NOUNS_PRIMARY[0]}"
+    local t2_bg="$BACKGROUND"
+    local t2_primary0="${PRIMARY[0]}"
+    local t2_secondary0="${SECONDARY[0]}"
+    local t2_semantic0="${SEMANTIC[0]}"
 
     # Show comparison
-    printf "%-30s | %-30s\n" "ENV:  $t1_env0" "ENV:  $t2_env0"
-    printf "%-30s | %-30s\n" "MODE: $t1_mode0" "MODE: $t2_mode0"
-    printf "%-30s | %-30s\n" "VERB: $t1_verb0" "VERB: $t2_verb0"
-    printf "%-30s | %-30s\n" "NOUN: $t1_noun0" "NOUN: $t2_noun0"
+    printf "%-30s | %-30s\n" "BACKGROUND:  $t1_bg" "BACKGROUND:  $t2_bg"
+    printf "%-30s | %-30s\n" "PRIMARY:     $t1_primary0" "PRIMARY:     $t2_primary0"
+    printf "%-30s | %-30s\n" "SECONDARY:   $t1_secondary0" "SECONDARY:   $t2_secondary0"
+    printf "%-30s | %-30s\n" "SEMANTIC:    $t1_semantic0" "SEMANTIC:    $t2_semantic0"
 
     # Restore
     tds_switch_theme "$saved_theme" 2>/dev/null

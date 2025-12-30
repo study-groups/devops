@@ -18,21 +18,25 @@ fi
 # These are populated by theme loaders via tds_apply_semantic_colors()
 declare -gA TDS_SEMANTIC_COLORS=()
 
-# Universal VERBS rainbow - maximally distinct colors for collections
-# All themes should use this for VERBS_PRIMARY to maintain consistency
-# Call tds_apply_verbs_rainbow() in theme loaders instead of duplicating this array
-tds_apply_verbs_rainbow() {
-    VERBS_PRIMARY=(
-        "#E53935"  # 0: red (0°)
-        "#FB8C00"  # 1: orange (30°)
-        "#FDD835"  # 2: yellow (60°)
-        "#43A047"  # 3: green (120°)
-        "#00ACC1"  # 4: cyan (180°)
-        "#1E88E5"  # 5: blue (210°)
-        "#8E24AA"  # 6: purple (270°)
-        "#EC407A"  # 7: pink (330°)
+# Universal SEMANTIC rainbow - maximally distinct colors for status/action
+# All themes should use this for SEMANTIC palette to maintain consistency
+# Call tds_apply_semantic_rainbow() in theme loaders instead of duplicating this array
+tds_apply_semantic_rainbow() {
+    SEMANTIC=(
+        "#E53935"  # 0: red (0°) - error
+        "#FB8C00"  # 1: orange (30°) - warning
+        "#43A047"  # 2: green (120°) - success
+        "#1E88E5"  # 3: blue (210°) - info
+        "#941513"  # 4: error dim
+        "#995400"  # 5: warning dim
+        "#28602A"  # 6: success dim
+        "#104E88"  # 7: info dim
     )
 }
+export -f tds_apply_semantic_rainbow
+
+# Legacy alias
+tds_apply_verbs_rainbow() { tds_apply_semantic_rainbow; }
 export -f tds_apply_verbs_rainbow
 
 # Apply semantic color mappings from theme palettes
@@ -40,8 +44,8 @@ export -f tds_apply_verbs_rainbow
 # Themes can override specific mappings by passing custom args
 tds_apply_semantic_colors() {
     # Validate palettes are loaded
-    if [[ ${#ENV_PRIMARY[@]} -eq 0 || ${#MODE_PRIMARY[@]} -eq 0 ||
-          ${#VERBS_PRIMARY[@]} -eq 0 || ${#NOUNS_PRIMARY[@]} -eq 0 ]]; then
+    if [[ ${#PRIMARY[@]} -eq 0 || ${#SECONDARY[@]} -eq 0 ||
+          ${#SEMANTIC[@]} -eq 0 || ${#SURFACE[@]} -eq 0 ]]; then
         echo "Error: Theme palettes not loaded" >&2
         return 1
     fi
@@ -49,56 +53,56 @@ tds_apply_semantic_colors() {
     # Map palette colors to semantic tokens
     # These mappings define the semantic meaning of each palette position
 
-    # Status colors - universal meanings
-    TDS_SEMANTIC_COLORS[success]="${ENV_PRIMARY[0]}"      # Green - success, active, connected
-    TDS_SEMANTIC_COLORS[error]="${VERBS_PRIMARY[0]}"      # Red - error, failed, critical
-    TDS_SEMANTIC_COLORS[warning]="${VERBS_PRIMARY[2]}"    # Orange/Yellow - warning, caution
-    TDS_SEMANTIC_COLORS[info]="${MODE_PRIMARY[0]}"        # Blue - information, neutral
-    TDS_SEMANTIC_COLORS[pending]="${NOUNS_PRIMARY[0]}"    # Purple - in progress, loading
+    # Status colors - from SEMANTIC palette
+    TDS_SEMANTIC_COLORS[success]="${SEMANTIC[2]}"      # Green - success, active, connected
+    TDS_SEMANTIC_COLORS[error]="${SEMANTIC[0]}"        # Red - error, failed, critical
+    TDS_SEMANTIC_COLORS[warning]="${SEMANTIC[1]}"      # Orange - warning, caution
+    TDS_SEMANTIC_COLORS[info]="${SEMANTIC[3]}"         # Blue - information, neutral
+    TDS_SEMANTIC_COLORS[pending]="${SURFACE[0]}"       # Surface - in progress, loading
 
     # UI structural colors
-    TDS_SEMANTIC_COLORS[primary]="${MODE_PRIMARY[0]}"     # Primary brand/accent
-    TDS_SEMANTIC_COLORS[secondary]="${ENV_PRIMARY[0]}"    # Secondary accent
-    TDS_SEMANTIC_COLORS[muted]="${MODE_PRIMARY[5]}"       # Dimmed/disabled text
-    TDS_SEMANTIC_COLORS[border]="${MODE_PRIMARY[5]}"      # Borders and separators
-    TDS_SEMANTIC_COLORS[background]="${MODE_PRIMARY[5]}"  # Background (dark theme)
-    TDS_SEMANTIC_COLORS[surface]="${MODE_PRIMARY[6]}"     # Surface/panel background
+    TDS_SEMANTIC_COLORS[primary]="${SECONDARY[0]}"     # Primary brand/accent
+    TDS_SEMANTIC_COLORS[secondary]="${PRIMARY[0]}"     # Secondary accent
+    TDS_SEMANTIC_COLORS[muted]="${SURFACE[5]}"         # Dimmed/disabled text
+    TDS_SEMANTIC_COLORS[border]="${SURFACE[5]}"        # Borders and separators
+    TDS_SEMANTIC_COLORS[background]="${SURFACE[0]}"    # Background (dark theme)
+    TDS_SEMANTIC_COLORS[surface]="${SURFACE[1]}"       # Surface/panel background
 
-    # Text hierarchy
-    TDS_SEMANTIC_COLORS[text.primary]="${MODE_PRIMARY[7]}"     # Primary text
-    TDS_SEMANTIC_COLORS[text.secondary]="${MODE_PRIMARY[6]}"   # Secondary text
-    TDS_SEMANTIC_COLORS[text.tertiary]="${MODE_PRIMARY[5]}"    # Tertiary text
-    TDS_SEMANTIC_COLORS[text.disabled]="${MODE_PRIMARY[5]}"    # Disabled text
+    # Text hierarchy - from SURFACE palette (bg to fg gradient)
+    TDS_SEMANTIC_COLORS[text.primary]="${SURFACE[7]}"     # Primary text (brightest)
+    TDS_SEMANTIC_COLORS[text.secondary]="${SURFACE[6]}"   # Secondary text
+    TDS_SEMANTIC_COLORS[text.tertiary]="${SURFACE[5]}"    # Tertiary text
+    TDS_SEMANTIC_COLORS[text.disabled]="${SURFACE[4]}"    # Disabled text
 
     # Interactive states
-    TDS_SEMANTIC_COLORS[interactive.default]="${MODE_PRIMARY[0]}"    # Default interactive
-    TDS_SEMANTIC_COLORS[interactive.hover]="${MODE_PRIMARY[3]}"      # Hover state
-    TDS_SEMANTIC_COLORS[interactive.active]="${NOUNS_PRIMARY[0]}"    # Active/selected state
-    TDS_SEMANTIC_COLORS[interactive.disabled]="${MODE_PRIMARY[5]}"   # Disabled state
+    TDS_SEMANTIC_COLORS[interactive.default]="${SECONDARY[0]}"    # Default interactive
+    TDS_SEMANTIC_COLORS[interactive.hover]="${SECONDARY[3]}"      # Hover state
+    TDS_SEMANTIC_COLORS[interactive.active]="${PRIMARY[0]}"       # Active/selected state
+    TDS_SEMANTIC_COLORS[interactive.disabled]="${SURFACE[4]}"     # Disabled state
 
     # Contextual colors (from tview)
-    TDS_SEMANTIC_COLORS[env.local]="${ENV_PRIMARY[1]}"     # Teal/Cyan - local development
-    TDS_SEMANTIC_COLORS[env.dev]="${ENV_PRIMARY[0]}"       # Green - dev environment
-    TDS_SEMANTIC_COLORS[env.staging]="${VERBS_PRIMARY[2]}" # Yellow/Orange - staging
-    TDS_SEMANTIC_COLORS[env.prod]="${VERBS_PRIMARY[0]}"    # Red - production (caution!)
-    TDS_SEMANTIC_COLORS[env.qa]="${NOUNS_PRIMARY[0]}"      # Purple - QA/testing
+    TDS_SEMANTIC_COLORS[env.local]="${PRIMARY[4]}"     # Cyan - local development
+    TDS_SEMANTIC_COLORS[env.dev]="${PRIMARY[3]}"       # Green - dev environment
+    TDS_SEMANTIC_COLORS[env.staging]="${SEMANTIC[1]}"  # Orange - staging
+    TDS_SEMANTIC_COLORS[env.prod]="${SEMANTIC[0]}"     # Red - production (caution!)
+    TDS_SEMANTIC_COLORS[env.qa]="${SURFACE[0]}"        # Surface - QA/testing
 
-    TDS_SEMANTIC_COLORS[mode.config]="${ENV_PRIMARY[3]}"   # Cyan - configuration
-    TDS_SEMANTIC_COLORS[mode.service]="${MODE_PRIMARY[0]}" # Blue - service management
-    TDS_SEMANTIC_COLORS[mode.deploy]="${VERBS_PRIMARY[0]}" # Red - deployment
-    TDS_SEMANTIC_COLORS[mode.keys]="${NOUNS_PRIMARY[0]}"   # Purple - key management
+    TDS_SEMANTIC_COLORS[mode.config]="${PRIMARY[4]}"   # Cyan - configuration
+    TDS_SEMANTIC_COLORS[mode.service]="${SECONDARY[0]}" # Blue - service management
+    TDS_SEMANTIC_COLORS[mode.deploy]="${SEMANTIC[0]}"  # Red - deployment
+    TDS_SEMANTIC_COLORS[mode.keys]="${SURFACE[0]}"     # Surface - key management
 
     # Content rendering tokens (for markdown, TOML, etc.)
-    TDS_SEMANTIC_COLORS[content.heading.h1]="${MODE_PRIMARY[2]}"      # Bright blue - main headings
-    TDS_SEMANTIC_COLORS[content.heading.h2]="${MODE_PRIMARY[1]}"      # Medium blue
-    TDS_SEMANTIC_COLORS[content.heading.h3]="${MODE_PRIMARY[0]}"      # Blue - sub headings
-    TDS_SEMANTIC_COLORS[content.emphasis.bold]="${MODE_PRIMARY[7]}"   # White/bright - bold text
-    TDS_SEMANTIC_COLORS[content.emphasis.italic]="${MODE_PRIMARY[6]}" # Light - italic text
-    TDS_SEMANTIC_COLORS[content.code.inline]="${NOUNS_PRIMARY[0]}"    # Purple - inline code
-    TDS_SEMANTIC_COLORS[content.code.block]="${NOUNS_PRIMARY[1]}"     # Light purple - code blocks
-    TDS_SEMANTIC_COLORS[content.link]="${ENV_PRIMARY[3]}"             # Cyan - links/URLs
-    TDS_SEMANTIC_COLORS[content.quote]="${MODE_PRIMARY[6]}"           # Light gray - blockquotes
-    TDS_SEMANTIC_COLORS[content.list]="${MODE_PRIMARY[7]}"            # White - list items
+    TDS_SEMANTIC_COLORS[content.heading.h1]="${SECONDARY[2]}"      # Bright - main headings
+    TDS_SEMANTIC_COLORS[content.heading.h2]="${SECONDARY[1]}"      # Medium
+    TDS_SEMANTIC_COLORS[content.heading.h3]="${SECONDARY[0]}"      # Sub headings
+    TDS_SEMANTIC_COLORS[content.emphasis.bold]="${SURFACE[7]}"     # Bright - bold text
+    TDS_SEMANTIC_COLORS[content.emphasis.italic]="${SURFACE[6]}"   # Light - italic text
+    TDS_SEMANTIC_COLORS[content.code.inline]="${PRIMARY[6]}"       # Purple - inline code
+    TDS_SEMANTIC_COLORS[content.code.block]="${PRIMARY[5]}"        # Blue - code blocks
+    TDS_SEMANTIC_COLORS[content.link]="${PRIMARY[4]}"              # Cyan - links/URLs
+    TDS_SEMANTIC_COLORS[content.quote]="${SURFACE[5]}"             # Gray - blockquotes
+    TDS_SEMANTIC_COLORS[content.list]="${SURFACE[7]}"              # Bright - list items
 
     return 0
 }

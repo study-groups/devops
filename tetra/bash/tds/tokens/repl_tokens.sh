@@ -6,29 +6,29 @@
 # REPL-specific color tokens map semantic REPL elements to palette references
 declare -gA TDS_REPL_TOKENS=(
     # Environment cycle tokens (4 states: Local, Dev, Staging, Production)
-    # Uses green palette (ENV_PRIMARY) with progression from bright to cautious
-    [repl.env.local]="env:0"           # ENV_PRIMARY[0] - bright green (00AA00)
-    [repl.env.dev]="env:1"             # ENV_PRIMARY[1] - light green (22DD22)
-    [repl.env.staging]="env:2"         # ENV_PRIMARY[2] - yellow-green (44AA44)
-    [repl.env.production]="env:3"      # ENV_PRIMARY[3] - caution green (66FF66)
+    # Uses PRIMARY palette with progression
+    [repl.env.local]="primary:0"       # PRIMARY[0] - red
+    [repl.env.dev]="primary:1"         # PRIMARY[1] - orange
+    [repl.env.staging]="primary:2"     # PRIMARY[2] - yellow
+    [repl.env.production]="primary:3"  # PRIMARY[3] - green
 
     # Mode cycle tokens (3 states: Inspect, Transfer, Execute)
-    # Uses blue palette (MODE_PRIMARY) with progression from light to dark
-    [repl.mode.inspect]="mode:0"       # MODE_PRIMARY[0] - bright blue (0088FF)
-    [repl.mode.transfer]="mode:1"      # MODE_PRIMARY[1] - medium blue (0044AA)
-    [repl.mode.execute]="mode:2"       # MODE_PRIMARY[2] - dark blue (4400AA)
+    # Uses SECONDARY palette with progression
+    [repl.mode.inspect]="secondary:0"  # SECONDARY[0]
+    [repl.mode.transfer]="secondary:1" # SECONDARY[1]
+    [repl.mode.execute]="secondary:2"  # SECONDARY[2]
 
     # REPL action/command tokens
-    # Uses orange/red palette (VERBS_PRIMARY) for actions
-    [repl.action.primary]="verbs:3"    # VERBS_PRIMARY[3] - orange (FFAA00)
-    [repl.action.secondary]="verbs:1"  # VERBS_PRIMARY[1] - light orange (FF6644)
-    [repl.action.none]="text.muted"    # Muted when no action selected
+    # Uses SEMANTIC palette for actions
+    [repl.action.primary]="semantic:1"    # SEMANTIC[1] - warning/orange
+    [repl.action.secondary]="semantic:0"  # SEMANTIC[0] - error/red
+    [repl.action.none]="text.muted"       # Muted when no action selected
 
     # REPL prompt structure tokens
-    [repl.prompt]="mode:0"             # MODE_PRIMARY[0] - main prompt color (changes with temperature)
-    [repl.prompt.bracket]="mode:6"     # MODE_PRIMARY[6] - muted blue brackets
+    [repl.prompt]="secondary:0"        # SECONDARY[0] - main prompt color
+    [repl.prompt.bracket]="surface:5"  # SURFACE[5] - muted brackets
     [repl.prompt.separator]="text.tertiary"  # Subtle separators (x)
-    [repl.prompt.arrow]="verbs:3"      # Orange arrow >
+    [repl.prompt.arrow]="semantic:1"   # Orange arrow >
 
     # REPL context tokens
     [repl.org.active]="text.primary"   # Current organization name
@@ -39,9 +39,9 @@ declare -gA TDS_REPL_TOKENS=(
     [repl.exec.repl]="status.success"  # Green - REPL/takeover mode
 
     # Feedback message tokens (shown when cycling with ctrl-e, ctrl-x,m, etc)
-    [repl.feedback.env]="env:1"        # Bright green - env change feedback
-    [repl.feedback.mode]="mode:0"      # Bright blue - mode change feedback
-    [repl.feedback.action]="verbs:3"   # Orange - action change feedback
+    [repl.feedback.env]="primary:1"    # Orange - env change feedback
+    [repl.feedback.mode]="secondary:0" # Secondary - mode change feedback
+    [repl.feedback.action]="semantic:1" # Orange - action change feedback
     [repl.feedback.arrow]="text.secondary"  # Arrow indicator →
 
     # REPL help/info tokens

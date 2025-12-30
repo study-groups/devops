@@ -108,7 +108,7 @@ tds_repl_show_palettes() {
     echo
 
     # Show all palettes with swatches
-    for palette_name in ENV_PRIMARY MODE_PRIMARY VERBS_PRIMARY NOUNS_PRIMARY; do
+    for palette_name in PRIMARY SECONDARY SEMANTIC SURFACE; do
         tds_text_color "content.heading.h3"
         echo "── $palette_name ──"
         reset_color
@@ -141,20 +141,16 @@ tds_repl_show_palette() {
 
     if [[ -z "$palette_name" ]]; then
         echo "Usage: palette:name"
-        echo "Available: env, mode, verbs, nouns"
+        echo "Available: primary, secondary, semantic, surface"
         return 1
     fi
 
     # Map friendly names to full names
     case "$palette_name" in
-        ENV) palette_name="ENV_PRIMARY" ;;
-        MODE) palette_name="MODE_PRIMARY" ;;
-        VERBS) palette_name="VERBS_PRIMARY" ;;
-        NOUNS) palette_name="NOUNS_PRIMARY" ;;
-        *_PRIMARY) ;; # Already full name
+        PRIMARY|SECONDARY|SEMANTIC|SURFACE) ;; # Already valid
         *)
             echo "Unknown palette: $palette_name"
-            echo "Available: env, mode, verbs, nouns"
+            echo "Available: primary, secondary, semantic, surface"
             return 1
             ;;
     esac
@@ -664,11 +660,11 @@ _tds_completion_preview() {
             local preview=""
 
             # Sample colors from different palettes for variety
-            # ENV (green family), MODE (blue family), VERBS (action), NOUNS (entity)
-            local hex0="${ENV_PRIMARY[0]:-}"
-            local hex1="${MODE_PRIMARY[0]:-}"
-            local hex2="${VERBS_PRIMARY[0]:-}"
-            local hex3="${NOUNS_PRIMARY[0]:-}"
+            # PRIMARY (rainbow), SECONDARY (accent), SEMANTIC (status), SURFACE (gradient)
+            local hex0="${PRIMARY[0]:-}"
+            local hex1="${SECONDARY[0]:-}"
+            local hex2="${SEMANTIC[0]:-}"
+            local hex3="${SURFACE[7]:-}"
 
             # Build color swatches using shared utility
             for hex in "$hex0" "$hex1" "$hex2" "$hex3"; do

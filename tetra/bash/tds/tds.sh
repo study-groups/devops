@@ -36,6 +36,7 @@ source "$TDS_SRC/core/theme_validation.sh"
 source "$TDS_SRC/core/theme_stack.sh"
 source "$TDS_SRC/core/token_validation.sh"
 source "$TDS_SRC/core/module_config.sh"
+source "$TDS_SRC/core/pattern_registry.sh"
 
 # =============================================================================
 # LAYER 3: Theme system

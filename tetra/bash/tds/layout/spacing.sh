@@ -76,5 +76,28 @@ tds_spacer() {
     printf "%*s\n" "$width" "" | tr ' ' "$char"
 }
 
+# Print a styled header with underline
+# Args: title, [underline_char]
+tds_header() {
+    local title="$1"
+    local line_char="${2:-=}"
+
+    tds_text_color "status.info"
+    printf "%s\n" "$title"
+    reset_color
+    tds_text_color "text.dim"
+    printf "%s\n" "$(tds_repeat "$line_char" "${#title}")"
+    reset_color
+}
+
+# Print a styled section header
+# Args: title
+tds_section() {
+    local title="$1"
+    tds_text_color "text.secondary"
+    printf "\n%s:\n" "$title"
+    reset_color
+}
+
 # Export functions
-export -f tds_vspace tds_hspace tds_indent tds_spacer
+export -f tds_vspace tds_hspace tds_indent tds_spacer tds_header tds_section

@@ -41,15 +41,14 @@ _tds_cmd_doctor() {
 
     # Palettes
     echo "-- Palettes --"
-    for name in ENV_PRIMARY MODE_PRIMARY VERBS_PRIMARY NOUNS_PRIMARY; do
+    for name in PRIMARY SECONDARY SEMANTIC SURFACE; do
         declare -n arr="$name" 2>/dev/null
-        local short_name="${name%_PRIMARY}"
         if [[ -n "${arr+x}" ]]; then
-            printf "  %-${label_width}s %d colors" "$short_name:" "${#arr[@]}"
+            printf "  %-${label_width}s %d colors" "${name,,}:" "${#arr[@]}"
             [[ -n "${arr[0]:-}" ]] && printf " (%s)" "${arr[0]}"
             echo
         else
-            printf "  %-${label_width}s %s\n" "$short_name:" "x undefined"
+            printf "  %-${label_width}s %s\n" "${name,,}:" "x undefined"
         fi
     done
     echo
@@ -112,7 +111,7 @@ _tds_cmd_doctor() {
     fi
 
     local palette_issues=0
-    for name in ENV_PRIMARY MODE_PRIMARY VERBS_PRIMARY NOUNS_PRIMARY; do
+    for name in PRIMARY SECONDARY SEMANTIC SURFACE; do
         if ! declare -p "$name" &>/dev/null; then
             ((palette_issues++))
         else
