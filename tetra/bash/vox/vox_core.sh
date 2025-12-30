@@ -105,22 +105,13 @@ vox_generate_tts() {
     return 0
 }
 
-# Play audio file or stdin
-vox_play_audio() {
-    local audio_file="${1:-}"
+# Audio backend selection: auto, native, tau
+: "${VOX_AUDIO_BACKEND:=auto}"
 
-    # If no file specified, read from stdin to temp file
-    if [[ -z "$audio_file" ]]; then
-        audio_file=$(mktemp /tmp/vox.XXXXXX.mp3)
-        cat > "$audio_file"
-    fi
+# Play audio using native system player (afplay/mpg123/mpv/ffplay)
+_vox_play_native() {
+    local audio_file="$1"
 
-    if [[ ! -f "$audio_file" ]]; then
-        echo "Error: Audio file not found: $audio_file" >&2
-        return 1
-    fi
-
-    # Play with available player
     if command -v afplay &>/dev/null; then
         afplay "$audio_file"
     elif command -v mpg123 &>/dev/null; then
@@ -134,8 +125,73 @@ vox_play_audio() {
         echo "Audio saved at: $audio_file" >&2
         return 1
     fi
+}
 
-    return 0
+# Play audio using tau engine
+_vox_play_tau() {
+    local audio_file="$1"
+    local wait="${2:-true}"
+
+    if ! declare -f vox_tau_play_audio &>/dev/null; then
+        echo "Error: tau backend not available (vox_tau.sh not loaded)" >&2
+        return 1
+    fi
+
+    if [[ "$wait" == "true" ]]; then
+        vox_tau_play_audio "$audio_file" --wait
+    else
+        vox_tau_play_audio "$audio_file"
+    fi
+}
+
+# Play audio file or stdin
+# Supports backend selection via VOX_AUDIO_BACKEND or --backend flag
+vox_play_audio() {
+    local audio_file=""
+    local backend="$VOX_AUDIO_BACKEND"
+    local wait="true"
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --backend|-b) backend="$2"; shift 2 ;;
+            --no-wait) wait="false"; shift ;;
+            *) audio_file="$1"; shift ;;
+        esac
+    done
+
+    # If no file specified, read from stdin to temp file
+    if [[ -z "$audio_file" ]]; then
+        audio_file=$(mktemp /tmp/vox.XXXXXX.mp3)
+        cat > "$audio_file"
+    fi
+
+    if [[ ! -f "$audio_file" ]]; then
+        echo "Error: Audio file not found: $audio_file" >&2
+        return 1
+    fi
+
+    # Route to backend
+    case "$backend" in
+        tau)
+            _vox_play_tau "$audio_file" "$wait"
+            ;;
+        native)
+            _vox_play_native "$audio_file"
+            ;;
+        auto)
+            # Use tau if running, otherwise native
+            if declare -f _vox_tau_is_running &>/dev/null && _vox_tau_is_running 2>/dev/null; then
+                _vox_play_tau "$audio_file" "$wait"
+            else
+                _vox_play_native "$audio_file"
+            fi
+            ;;
+        *)
+            echo "Unknown audio backend: $backend (use: auto, native, tau)" >&2
+            return 1
+            ;;
+    esac
 }
 
 # Generate and play (pipe-first - no caching)
@@ -187,8 +243,8 @@ vox_play_id() {
     # Calculate content hash
     local content_hash=$(echo "$content" | vox_hash_content)
 
-    # Check cache
-    local cached_audio=$(vox_cache_get "$content_hash" "$voice")
+    # Check cache (openai provider)
+    local cached_audio=$(vox_cache_get "$content_hash" "$voice" "openai")
     local cache_hit=false
 
     # Determine output path in VOX_DIR/db
@@ -232,7 +288,7 @@ vox_play_id() {
     fi
 
     # Store in cache
-    vox_cache_store "$content_hash" "$voice" "$db_audio_path"
+    vox_cache_store "$content_hash" "$voice" "$db_audio_path" "openai"
 
     # Log generation
     if declare -f vox_log_transaction &>/dev/null; then
@@ -285,7 +341,7 @@ vox_generate_id() {
     local content_hash=$(echo "$content" | vox_hash_content)
 
     # Check cache
-    local cached_audio=$(vox_cache_get "$content_hash" "$voice")
+    local cached_audio=$(vox_cache_get "$content_hash" "$voice" "openai")
 
     if [[ -n "$cached_audio" ]]; then
         echo "Using cached audio ($source_id, $voice)" >&2
@@ -302,7 +358,7 @@ vox_generate_id() {
     fi
 
     # Store in cache
-    vox_cache_store "$content_hash" "$voice" "$output_file"
+    vox_cache_store "$content_hash" "$voice" "$output_file" "openai"
 
     return 0
 }

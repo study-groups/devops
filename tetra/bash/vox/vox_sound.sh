@@ -119,9 +119,31 @@ vox_sound_generate() {
 
 # Play sound pattern
 vox_sound_play() {
+    local backend="${VOX_AUDIO_BACKEND:-auto}"
+    local tempo=120
+    local args=()
+
+    # Parse options
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --backend|-b) backend="$2"; shift 2 ;;
+            --tempo|-t) tempo="$2"; shift 2 ;;
+            *) args+=("$1"); shift ;;
+        esac
+    done
+
+    # Use tau drum synthesis when backend is tau
+    if [[ "$backend" == "tau" ]] || { [[ "$backend" == "auto" ]] && declare -f _vox_tau_is_running &>/dev/null && _vox_tau_is_running 2>/dev/null; }; then
+        if declare -f vox_tau_drum_pattern &>/dev/null; then
+            vox_tau_drum_pattern "$tempo"
+            return $?
+        fi
+    fi
+
+    # Fallback to awk synthesis
     local temp_audio=$(mktemp /tmp/vox_sound_XXXXXX.wav)
 
-    if vox_sound_generate --output "$temp_audio" "$@"; then
+    if vox_sound_generate --output "$temp_audio" --tempo "$tempo" "${args[@]}"; then
         # Play the audio
         if command -v afplay &>/dev/null; then
             afplay "$temp_audio"

@@ -2,7 +2,7 @@
 
 G2P, phoneme annotation, and audio synthesis pipeline for the tetra framework.
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 
 ## Quick Start
 
@@ -59,7 +59,7 @@ vox tui <doc_id>                  # Edit phonemes
 
 ```
 bash/vox/
-├── vox_includes.sh       # Bootstrap - loads all modules
+├── includes.sh          # Bootstrap - loads all modules (requires bash 5.2+)
 ├── vox_g2p.sh           # Grapheme-to-phoneme (espeak)
 ├── vox_annotate.sh      # Annotation CRUD operations
 ├── vox_pipeline.sh      # Pipeline orchestrator

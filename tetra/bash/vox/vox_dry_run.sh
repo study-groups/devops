@@ -12,6 +12,7 @@ vox_dry_run_analyze() {
     local voice="$1"
     local source_id="${2:-}"
     local text="${3:-}"
+    local provider="${4:-openai}"
 
     # Get source content and metadata
     local source_type="stdin"
@@ -79,9 +80,9 @@ vox_dry_run_analyze() {
     local cached_size=""
     local estimated_size="~50-200 KB"
 
-    if vox_cache_exists "$content_hash" "$voice"; then
+    if vox_cache_exists "$content_hash" "$voice" "$provider"; then
         cache_status="HIT"
-        cached_file=$(vox_cache_get "$content_hash" "$voice")
+        cached_file=$(vox_cache_get "$content_hash" "$voice" "$provider")
         if [[ -f "$cached_file" ]]; then
             local size_bytes=$(stat -f%z "$cached_file" 2>/dev/null || stat -c%s "$cached_file" 2>/dev/null)
             cached_size=$(echo "scale=1; $size_bytes / 1024" | bc)
@@ -118,10 +119,35 @@ vox_dry_run_analyze() {
     fi
     echo ""
 
+    # Provider-specific info
+    local model_info=""
+    local cost_info=""
+    local latency_info=""
+
+    case "$provider" in
+        openai)
+            model_info="tts-1 (cloud)"
+            cost_info="\$$cost_dollars USD"
+            latency_info="~1-2s"
+            ;;
+        coqui)
+            model_info="$voice (local ML)"
+            cost_info="FREE (local)"
+            latency_info="~2-10s"
+            ;;
+        formant)
+            model_info="formant engine (local C)"
+            cost_info="FREE (local)"
+            latency_info="real-time"
+            ;;
+    esac
+
     echo "TTS Request:"
+    echo "  Provider:   $provider"
     echo "  Voice:      $voice"
-    echo "  Model:      tts-1"
-    echo "  Cost:       \$$cost_dollars USD"
+    echo "  Model:      $model_info"
+    echo "  Cost:       $cost_info"
+    echo "  Latency:    $latency_info"
     echo ""
 
     echo "Cache:"
@@ -148,11 +174,21 @@ vox_dry_run_analyze() {
     echo "Summary:"
     if [[ "$cache_status" == "HIT" ]]; then
         echo "  This request would be served from cache."
-        echo "  No API calls would be made."
+        echo "  No API/generation calls would be made."
         echo "  Audio would play immediately."
     else
         echo "  This request would require TTS generation."
-        echo "  OpenAI API call: \$$cost_dollars USD"
+        case "$provider" in
+            openai)
+                echo "  OpenAI API call: \$$cost_dollars USD"
+                ;;
+            coqui)
+                echo "  Local Coqui generation (free, ~2-10s)"
+                ;;
+            formant)
+                echo "  Local formant synthesis (free, real-time)"
+                ;;
+        esac
         echo "  Audio would be cached for future use."
     fi
 
@@ -163,6 +199,7 @@ vox_dry_run_analyze() {
 vox_dry_run_qa() {
     local qa_ref="$1"
     local voice="${2:-alloy}"
+    local provider="${3:-openai}"
 
     echo "Analyzing QA Reference: $qa_ref"
     echo ""
@@ -200,13 +237,14 @@ vox_dry_run_qa() {
     echo "  File:       $qa_path"
     echo ""
 
-    vox_dry_run_analyze "$voice" "$qa_ref" "$content"
+    vox_dry_run_analyze "$voice" "$qa_ref" "$content" "$provider"
 }
 
 # Analyze file directly (future: support file:path references)
 vox_dry_run_file() {
     local file_path="$1"
     local voice="${2:-alloy}"
+    local provider="${3:-openai}"
 
     if [[ ! -f "$file_path" ]]; then
         echo "Error: File not found: $file_path" >&2
@@ -218,7 +256,7 @@ vox_dry_run_file() {
     echo "Analyzing File: $file_path"
     echo ""
 
-    vox_dry_run_analyze "$voice" "" "$content"
+    vox_dry_run_analyze "$voice" "" "$content" "$provider"
 }
 
 # Show what vox play/generate would do
@@ -282,7 +320,7 @@ vox_dry_run_batch() {
         local content_hash=$(echo "$content" | vox_hash_content)
 
         local cache_status="MISS"
-        if vox_cache_exists "$content_hash" "$voice"; then
+        if vox_cache_exists "$content_hash" "$voice" "openai"; then
             cache_status="HIT"
             ((cache_hits++))
         else

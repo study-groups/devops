@@ -40,7 +40,7 @@ _vox_completion() {
 
     case "$COMP_CWORD" in
         1)
-            # Top-level commands - matches vox() CLI in vox_includes.sh
+            # Top-level commands - matches vox() CLI in vox.sh
             COMPREPLY=($(compgen -W "g2p word ipa annotate ann create list ls read pipeline pipe process render synth audio stats tui edit palette colors version info help" -- "$cur"))
             ;;
         *)

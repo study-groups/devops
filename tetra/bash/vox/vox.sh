@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
 # vox - Audio-text synchronization system
-# Pipe-first TTS + sound generation
+# CLI: vox <cmd> <target> [options]
+# TUI: vox tui / vox karaoke
+#
+# Providers: openai (cloud), coqui (local), formant (research)
 
 # Module paths
 : "${VOX_SRC:=$TETRA_SRC/bash/vox}"
@@ -17,9 +20,17 @@ source "$VOX_SRC/vox_list.sh"
 source "$VOX_SRC/vox_core.sh"
 source "$VOX_SRC/vox_sound.sh" 2>/dev/null || true
 source "$VOX_SRC/vox_dry_run.sh"
-source "$VOX_SRC/vox_repl.sh"
 source "$VOX_SRC/vox_analyze.sh" 2>/dev/null || true
 source "$VOX_SRC/vox_tui_app.sh" 2>/dev/null || true
+source "$VOX_SRC/vox_coqui.sh" 2>/dev/null || true
+
+# New architecture modules
+source "$VOX_SRC/vox_vars.sh" 2>/dev/null || true
+source "$VOX_SRC/vox_provider.sh" 2>/dev/null || true
+source "$VOX_SRC/vox_complete.sh" 2>/dev/null || true
+
+# Tau audio engine integration (optional)
+source "$VOX_SRC/vox_tau.sh" 2>/dev/null || true
 
 # Main vox command
 vox() {
@@ -28,10 +39,10 @@ vox() {
 
     case "$cmd" in
         generate|g)
-            # cat file | vox generate sally --output file.mp3 --spans
-            local voice="${1:-alloy}"
+            # cat file | vox generate openai:shimmer --output file.mp3
+            local voice_spec="${1:-openai:alloy}"
+            shift || true
             local output_file=""
-            local generate_spans=false
 
             # Parse flags
             while [[ $# -gt 0 ]]; do
@@ -40,38 +51,59 @@ vox() {
                         output_file="$2"
                         shift 2
                         ;;
-                    --spans)
-                        generate_spans=true
-                        shift
-                        ;;
                     *)
                         shift
                         ;;
                 esac
             done
 
-            vox_generate_tts "$voice" "$output_file"
+            vox_provider_generate "$voice_spec" "$output_file"
             ;;
 
         play|p)
             # Dual mode: pipe or ID
-            local voice="${1:-alloy}"
-            local source_id="$2"
+            # vox play openai:shimmer qa:0 [--backend tau]
+            # echo "text" | vox play coqui:xtts [--backend tau]
+            local voice_spec=""
+            local source_id=""
+            local backend=""
+
+            # Parse arguments
+            while [[ $# -gt 0 ]]; do
+                case "$1" in
+                    --backend|-b) backend="$2"; shift 2 ;;
+                    *)
+                        if [[ -z "$voice_spec" ]]; then
+                            voice_spec="$1"
+                        elif [[ -z "$source_id" ]]; then
+                            source_id="$1"
+                        fi
+                        shift
+                        ;;
+                esac
+            done
+
+            voice_spec="${voice_spec:-openai:alloy}"
+
+            # Set backend for this invocation
+            [[ -n "$backend" ]] && export VOX_AUDIO_BACKEND="$backend"
 
             if [[ -n "$source_id" ]]; then
-                # ID mode: vox play sally qa:1
-                vox_play_id "$voice" "$source_id"
+                # ID mode: vox play openai:shimmer qa:0
+                vox_provider_play "$voice_spec" "$source_id"
             else
-                # Pipe mode: echo "text" | vox play sally
-                vox_play "$voice"
+                # Pipe mode: echo "text" | vox play openai:shimmer
+                vox_parse_voice "$voice_spec"
+                local handler="${VOX_PROVIDERS[$VOX_PARSED_PROVIDER]}"
+                "$handler" play "$VOX_PARSED_VOICE"
             fi
             ;;
 
         a)
-            # QA shorthand: vox a 1 sally
+            # QA shorthand: vox a 1 openai:shimmer
             local index="${1:-0}"
-            local voice="${2:-alloy}"
-            vox_play_id "$voice" "qa:$index"
+            local voice_spec="${2:-openai:alloy}"
+            vox_provider_play "$voice_spec" "qa:$index"
             ;;
 
         sound)
@@ -227,18 +259,23 @@ EOF
                 qa)
                     # Analyze specific QA reference
                     local qa_ref="${1:-qa:0}"
-                    local voice="${2:-alloy}"
-                    vox_dry_run_qa "$qa_ref" "$voice"
+                    local voice_spec="${2:-openai:alloy}"
+                    vox_parse_voice "$voice_spec"
+                    vox_dry_run_qa "$qa_ref" "$VOX_PARSED_VOICE" "$VOX_PARSED_PROVIDER"
                     ;;
                 file)
                     # Analyze file
                     local file_path="$1"
-                    local voice="${2:-alloy}"
-                    vox_dry_run_file "$file_path" "$voice"
+                    local voice_spec="${2:-openai:alloy}"
+                    vox_parse_voice "$voice_spec"
+                    vox_dry_run_file "$file_path" "$VOX_PARSED_VOICE" "$VOX_PARSED_PROVIDER"
                     ;;
                 batch)
                     # Batch analysis of multiple QA answers
-                    local voice="${1:-alloy}"
+                    local voice_spec="${1:-openai:alloy}"
+                    vox_parse_voice "$voice_spec"
+                    local voice="$VOX_PARSED_VOICE"
+                    local provider="$VOX_PARSED_PROVIDER"
                     local start="${2:-0}"
                     local count="${3:-5}"
                     vox_dry_run_batch "$voice" "$start" "$count"
@@ -411,50 +448,157 @@ EOF
             esac
             ;;
 
+        # =================================================================
+        # NEW ARCHITECTURE COMMANDS
+        # =================================================================
+
+        set)
+            # Variable management: vox set voice shimmer
+            vox_cmd_set "$@"
+            ;;
+
+        learn)
+            # MIDI CC learning: vox learn voice
+            vox_cmd_learn "$@"
+            ;;
+
+        cc)
+            # CC mapping management: vox cc list
+            vox_cmd_cc "$@"
+            ;;
+
+        provider|prov)
+            # Provider management: vox provider status
+            local subcmd="${1:-status}"
+            shift || true
+
+            case "$subcmd" in
+                status|s)
+                    vox_provider_status
+                    ;;
+                info|i)
+                    vox_provider_info "$@"
+                    ;;
+                list|ls)
+                    vox_list_providers
+                    ;;
+                *)
+                    # Specific provider info
+                    vox_provider_info "$subcmd"
+                    ;;
+            esac
+            ;;
+
+        formant|fm)
+            # Research mode - direct formant/phoneme control
+            if declare -f vox_formant_provider &>/dev/null; then
+                local subcmd="${1:-info}"
+                shift || true
+                vox_formant_provider "$subcmd" "$@"
+            else
+                echo "Error: Formant provider not loaded" >&2
+                echo "Ensure formant module is available" >&2
+                return 1
+            fi
+            ;;
+
+        karaoke|k)
+            # Karaoke mode - TUI with sync display
+            local voice="${1:-${VOX_VARS[voice]:-alloy}}"
+            local source="$2"
+
+            if [[ -z "$source" ]]; then
+                echo "Usage: vox karaoke <voice> <source>" >&2
+                echo "Example: vox karaoke shimmer qa:0" >&2
+                return 1
+            fi
+
+            # TODO: Launch karaoke TUI
+            echo "Karaoke mode: $voice $source"
+            echo "(TUI implementation pending - using play for now)"
+            vox_provider_play "$voice" "$source"
+            ;;
+
+        # =================================================================
+        # LEGACY COMMANDS (kept for compatibility)
+        # =================================================================
+
         repl)
-            # Interactive REPL
-            vox_repl_main
+            # Interactive REPL (legacy - consider using TUI)
+            if declare -f vox_repl_main &>/dev/null; then
+                vox_repl_main
+            else
+                echo "REPL not available" >&2
+                return 1
+            fi
             ;;
 
         tui)
             # Full TUI application
             local audio_file="$1"
-            vox_app_main "$audio_file"
+            if declare -f vox_app_main &>/dev/null; then
+                vox_app_main "$audio_file"
+            else
+                echo "TUI not available" >&2
+                return 1
+            fi
+            ;;
+
+        coqui|local)
+            # Local TTS using Coqui
+            vox_coqui "$@"
             ;;
 
         help|h|--help|-h)
             cat <<'EOF'
 vox - Audio-text synchronization system
 
-Usage: vox <command> [options]
+Usage: vox <command> <target> [options]
 
-TTS Commands:
-  play <voice> [id]     Generate and play audio
-                        - Pipe mode: cat file | vox play sally
-                        - ID mode: vox play sally qa:1728756234
-  a <index> [voice]     QA shorthand: vox a 0 sally
-  generate <voice> [id] Generate TTS audio
-                        - Pipe mode: cat file | vox generate sally -o file.mp3
-                        - ID mode: vox generate sally qa:1728756234 -o file.mp3
+PLAYBACK (auto-detects provider from voice)
+  play <voice> [source]     Generate and play audio
+                            voice: shimmer, coqui:xtts, formant:ipa
+                            source: qa:0, qa:latest, file.txt
+  karaoke <voice> <source>  Karaoke TUI with sync display
+  a <index> [voice]         QA shorthand: vox a 0 shimmer
 
-Analysis Commands:
-  analyze <subcommand>  Audio analysis using tau filter bank
-                        - file <audio> [out]       Full JSON analysis
-                        - summary <audio>          Quick F0/onset summary
-                        - batch <pattern> [dir]    Batch analyze files
-                        Use 'vox analyze help' for details
-  dry-run <subcommand>  Analyze inputs without making API calls
-                        - qa <ref> [voice]         Analyze QA reference
-                        - file <path> [voice]      Analyze file
-                        - batch [voice] [start] [N] Analyze N QA answers
-                        - stdin [voice]            Analyze stdin
-                        Use 'vox dry-run help' for details
+PROVIDERS
+  openai:   alloy ash coral echo fable nova onyx sage shimmer (cloud)
+  coqui:    vits tacotron xtts (local ML)
+  formant:  ipa (research - direct phoneme control)
+
+VARIABLES & MIDI
+  set [var] [value]     Get/set session variables
+                        voice, provider, volume, speed, pitch, theme
+  learn <var>           Learn MIDI CC for variable
+  cc <list|clear|save>  Manage CC mappings
+
+RESEARCH MODE (formant)
+  formant speak "text"  Speak through formant engine
+  formant ph <ipa> [dur] [pitch]  Direct phoneme
+  formant emotion <name> [intensity]
+  formant start/stop    Control engine
+
+PROVIDER MANAGEMENT
+  provider status       Show all provider status
+  provider info [name]  Detailed provider info
+  coqui install         Install Coqui TTS locally
+  coqui status          Check Coqui installation
+
+ANALYSIS
+  analyze file <audio>  Full JSON analysis (tau filter bank)
+  analyze summary <audio>
+  dry-run qa <ref>      Analyze without API call
+
+LIST & INFO
+  ls [mp3|esto|qa|cache|voices|providers]
+  info <file>           Show file metadata
 
 Interactive:
-  tui [file]            Full TUI with waveform, timeline, formants
-  repl                  Start interactive REPL (tsm-style interface)
+  tui [file]            Full TUI with waveform, timeline
+  karaoke <voice> <src> Karaoke display with sync
 
-List Commands:
+Legacy Commands:
   ls [type]             List audio files and sources (default: mp3)
                         - ls         Recent MP3 files with metadata
                         - ls mp3     All MP3 files
@@ -474,6 +618,13 @@ Cache Commands:
   cache stats           Show cache statistics
   cache info <hash>     Show info for specific content hash
   cache clean           Clean orphaned cache entries
+
+Local TTS (Coqui):
+  coqui status          Check Coqui TTS installation
+  coqui install         Install Coqui TTS
+  coqui models          List available models
+  coqui play [model]    Generate and play locally (no API)
+  coqui generate [out]  Generate audio file locally
 
 QA Reference Formats:
   qa:0                  Latest answer (relative index)
@@ -511,6 +662,17 @@ Environment:
   QA_DIR               QA database directory (shares api_key with vox)
   TAU_SRC              tau installation (for analyze command)
 EOF
+            ;;
+
+        tau)
+            # Tau audio engine integration
+            if declare -f vox_tau_cmd &>/dev/null; then
+                vox_tau_cmd "$@"
+            else
+                echo "Error: tau integration not loaded" >&2
+                echo "  Source vox_tau.sh or ensure TAU_SRC is set" >&2
+                return 1
+            fi
             ;;
 
         *)

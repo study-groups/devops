@@ -1,0 +1,13 @@
+# VOX Provider Directory
+
+Provider implementations are currently in the main vox/ directory:
+- vox_provider.sh - Unified abstraction layer
+- vox_coqui.sh    - Coqui TTS (local ML)
+- vox_core.sh     - OpenAI TTS (cloud)
+
+Formant provider is in ../formant/ and loaded dynamically.
+
+Future: Move provider-specific code here as:
+- providers/openai.sh
+- providers/coqui.sh
+- providers/formant.sh

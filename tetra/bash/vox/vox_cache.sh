@@ -1,26 +1,44 @@
 #!/usr/bin/env bash
 
-# vox_cache.sh - Content-addressed caching system
-# Deduplicates audio by content hash
+# vox_cache.sh - Provider-aware content-addressed caching system
+# Cache key format: {hash}.{provider}.{voice}.mp3
+# Deduplicates audio by content hash per provider
 
 source "${VOX_SRC}/vox_paths.sh"
 
-# Check if audio exists in cache for hash+voice
+# Check if audio exists in cache for hash+provider+voice
 vox_cache_exists() {
     local content_hash="$1"
     local voice="$2"
+    local provider="${3:-openai}"
 
-    local cached_audio=$(vox_get_cached_audio_path "$content_hash" "$voice")
-    [[ -f "$cached_audio" ]]
+    local cached_audio=$(vox_get_cached_audio_path "$content_hash" "$voice" "$provider")
+    if [[ -f "$cached_audio" ]]; then
+        return 0
+    fi
+
+    # Check legacy format (pre-provider) for migration
+    local legacy_audio=$(vox_get_legacy_cached_audio_path "$content_hash" "$voice")
+    if [[ -f "$legacy_audio" ]]; then
+        # Migrate legacy cache to new format (assume openai)
+        if [[ "$provider" == "openai" ]]; then
+            vox_ensure_cache_dir
+            mv "$legacy_audio" "$cached_audio" 2>/dev/null
+            return 0
+        fi
+    fi
+
+    return 1
 }
 
 # Get cached audio path (if exists)
 vox_cache_get() {
     local content_hash="$1"
     local voice="$2"
+    local provider="${3:-openai}"
 
-    if vox_cache_exists "$content_hash" "$voice"; then
-        vox_get_cached_audio_path "$content_hash" "$voice"
+    if vox_cache_exists "$content_hash" "$voice" "$provider"; then
+        vox_get_cached_audio_path "$content_hash" "$voice" "$provider"
     else
         return 1
     fi
@@ -31,15 +49,16 @@ vox_cache_store() {
     local content_hash="$1"
     local voice="$2"
     local audio_file="$3"
+    local provider="${4:-openai}"
 
     vox_ensure_cache_dir
 
-    local cached_audio=$(vox_get_cached_audio_path "$content_hash" "$voice")
+    local cached_audio=$(vox_get_cached_audio_path "$content_hash" "$voice" "$provider")
 
     cp "$audio_file" "$cached_audio"
 
     # Update index
-    vox_cache_index_add "$content_hash" "$voice" "$cached_audio"
+    vox_cache_index_add "$content_hash" "$voice" "$cached_audio" "$provider"
 }
 
 # Add entry to cache index
@@ -47,6 +66,7 @@ vox_cache_index_add() {
     local content_hash="$1"
     local voice="$2"
     local audio_path="$3"
+    local provider="${4:-openai}"
 
     local index_file=$(vox_get_cache_index_path)
     local audio_size=$(stat -f%z "$audio_path" 2>/dev/null || stat -c%s "$audio_path" 2>/dev/null)
@@ -57,10 +77,11 @@ vox_cache_index_add() {
         echo '{}' > "$index_file"
     fi
 
-    # Update index (simple append for now, could use jq for proper merge)
+    # Update index with provider field
     local entry=$(cat <<EOF
 {
   "hash": "$content_hash",
+  "provider": "$provider",
   "voice": "$voice",
   "audio": "$audio_path",
   "size": $audio_size,
@@ -82,23 +103,31 @@ vox_cache_stats() {
         return 0
     fi
 
-    local total_files=$(find "$cache_dir" -name "*.mp3" 2>/dev/null | wc -l)
+    local total_files=$(find "$cache_dir" -name "*.mp3" 2>/dev/null | wc -l | tr -d ' ')
     local total_size=$(find "$cache_dir" -name "*.mp3" -exec stat -f%z {} \; 2>/dev/null | awk '{s+=$1} END {print s}')
     total_size=${total_size:-0}
     local size_mb=$(echo "scale=2; $total_size / 1048576" | bc)
 
     echo "Cache Statistics:"
     echo "  Location: $cache_dir"
-    echo "  Files: $total_files"
-    echo "  Size: ${size_mb} MB"
+    echo "  Files:    $total_files"
+    echo "  Size:     ${size_mb} MB"
 
-    # Count by voice
+    # Count by provider
     echo ""
-    echo "By voice:"
-    find "$cache_dir" -name "*.mp3" 2>/dev/null | \
-        sed 's/.*\.\([a-z]*\)\.mp3/\1/' | \
-        sort | uniq -c | \
+    echo "By provider:"
+    find "$cache_dir" -name "*.mp3" 2>/dev/null | while read -r f; do
+        basename "$f"
+    done | awk -F'.' '{print $(NF-2)}' | sort | uniq -c | \
         awk '{printf "  %-10s %d files\n", $2, $1}'
+
+    # Count by provider:voice
+    echo ""
+    echo "By provider:voice:"
+    find "$cache_dir" -name "*.mp3" 2>/dev/null | while read -r f; do
+        basename "$f"
+    done | awk -F'.' '{print $(NF-2) ":" $(NF-1)}' | sort | uniq -c | \
+        awk '{printf "  %-20s %d files\n", $2, $1}'
 }
 
 # Clean orphaned cache entries

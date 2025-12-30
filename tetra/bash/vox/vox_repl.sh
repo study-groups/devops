@@ -1,14 +1,355 @@
 #!/usr/bin/env bash
-
 # vox_repl.sh - Interactive REPL for vox audio system
-# Follows tsm REPL pattern with slash commands and history
+# Uses tetra REPL framework for proper tab completion
 
-# History management
-VOX_HISTORY_LOG="$VOX_DIR/repl_history.log"
-VOX_HISTORY_FILE="$VOX_DIR/.vox_history"
+# Global check
+if [[ -z "$TETRA_SRC" ]]; then
+    echo "Error: TETRA_SRC must be set" >&2
+    echo "Run: source ~/tetra/tetra.sh" >&2
+    exit 1
+fi
+
+# Source the tetra REPL framework
+source "$TETRA_SRC/bash/repl/repl.sh"
+
+# Set module name for completion
+REPL_MODULE_NAME="vox"
+
+# REPL state
+VOX_REPL_VOICE="${VOX_DEFAULT_VOICE:-alloy}"
 VOX_LAST_AUDIO=""
 
-vox_repl_help() {
+# Static completions for vox REPL
+_vox_static_completions() {
+    # Commands
+    cat <<'EOF'
+play
+p
+a
+gen
+generate
+dry
+sound
+s
+ls
+list
+qa
+help
+h
+/help
+/exit
+/quit
+/history
+/voices
+/voice
+/cache
+/clear
+EOF
+
+    # Voices
+    cat <<'EOF'
+alloy
+ash
+coral
+echo
+fable
+nova
+onyx
+sage
+shimmer
+EOF
+
+    # QA references
+    echo "qa:0"
+    echo "qa:1"
+    echo "qa:2"
+    echo "qa:latest"
+
+    # Dry-run subcommands
+    cat <<'EOF'
+batch
+stdin
+file
+EOF
+
+    # QA subcommands
+    cat <<'EOF'
+cat
+info
+EOF
+
+    # Sound subcommands
+    cat <<'EOF'
+generate
+EOF
+
+    # Ls subcommands
+    cat <<'EOF'
+qa
+cache
+mp3
+EOF
+}
+
+# Try to register with nav system, fall back to static
+if command -v repl_register_nav_completion >/dev/null 2>&1; then
+    repl_register_nav_completion "help.vox" "_vox_static_completions"
+else
+    # Fallback: just register static completions
+    repl_set_completion_generator "_vox_static_completions" 2>/dev/null || true
+fi
+
+# Build prompt: vox [voice] n >
+_vox_repl_build_prompt() {
+    local voice="${VOX_REPL_VOICE:-alloy}"
+    local qa_count=0
+
+    # Count QA answers if directory exists
+    local qa_dir="${QA_DIR:-$TETRA_DIR/qa}/db"
+    if [[ -d "$qa_dir" ]]; then
+        qa_count=$(find "$qa_dir" -name "*.answer" 2>/dev/null | wc -l | tr -d ' ')
+    fi
+
+    # Simple colored prompt
+    REPL_PROMPT="vox [$voice] $qa_count > "
+}
+
+# Process REPL input
+_vox_repl_process_input() {
+    local input="$1"
+
+    # Empty input - show status
+    [[ -z "$input" ]] && return 0
+
+    # Shell escape (!cmd)
+    if [[ "$input" == !* ]]; then
+        eval "${input:1}"
+        return 0
+    fi
+
+    # Slash commands
+    if [[ "$input" =~ ^/ ]]; then
+        local cmd="${input#/}"
+        local args=""
+        if [[ "$cmd" =~ [[:space:]] ]]; then
+            args="${cmd#* }"
+            cmd="${cmd%% *}"
+        fi
+
+        case "$cmd" in
+            help|"?")
+                _vox_repl_help
+                ;;
+            exit|quit)
+                return 1
+                ;;
+            history|hist)
+                local lines="${args:-20}"
+                if [[ -f "$REPL_HISTORY_FILE" ]]; then
+                    echo "Vox Command History (last $lines):"
+                    tail -n "$lines" "$REPL_HISTORY_FILE" | nl -w3 -s': '
+                else
+                    echo "No command history found"
+                fi
+                ;;
+            clear|cls)
+                clear
+                ;;
+            voices|v)
+                _vox_repl_list_voices
+                ;;
+            voice)
+                _vox_repl_set_voice "$args"
+                ;;
+            cache|c)
+                vox_cache_stats 2>/dev/null || echo "Cache stats unavailable"
+                ;;
+            cost)
+                echo "Cost tracking coming soon!"
+                ;;
+            *)
+                echo "Unknown command: /$cmd"
+                echo "Type /help for available commands"
+                ;;
+        esac
+        return 0
+    fi
+
+    # Quoted text - generate TTS directly
+    if [[ "$input" =~ ^\".*\"$ ]]; then
+        local text="${input:1:-1}"
+        local voice="${VOX_REPL_VOICE:-alloy}"
+        echo "Generating TTS with $voice..."
+        echo "$text" | vox play "$voice" 2>&1
+        return 0
+    fi
+
+    # Parse vox commands
+    local cmd="${input%% *}"
+    local args="${input#* }"
+    [[ "$cmd" == "$input" ]] && args=""
+
+    case "$cmd" in
+        play|p)
+            # play <voice> <id>
+            local voice id
+            read -r voice id <<< "$args"
+            if [[ -z "$id" ]]; then
+                echo "Usage: play <voice> <id>"
+                echo "Example: play sally qa:0"
+            else
+                echo "Playing $id with $voice..."
+                vox play "$voice" "$id" 2>&1
+                VOX_LAST_AUDIO="$voice:$id"
+            fi
+            ;;
+
+        a)
+            # a <index> [voice]
+            local index voice
+            read -r index voice <<< "$args"
+            voice="${voice:-${VOX_REPL_VOICE:-alloy}}"
+
+            if [[ -z "$index" ]]; then
+                echo "Usage: a <index> [voice]"
+                echo "Example: a 0 sally"
+            else
+                echo "Playing qa:$index with $voice..."
+                vox a "$index" "$voice" 2>&1
+                VOX_LAST_AUDIO="$voice:qa:$index"
+            fi
+            ;;
+
+        gen|generate)
+            # gen <voice> <id> -o <file>
+            echo "Generate command: $args"
+            eval "vox generate $args" 2>&1
+            ;;
+
+        dry|analyze)
+            # dry qa <id> [voice] OR dry batch <voice> [N]
+            local subcmd rest
+            read -r subcmd rest <<< "$args"
+
+            case "$subcmd" in
+                qa)
+                    local id voice
+                    read -r id voice <<< "$rest"
+                    voice="${voice:-${VOX_REPL_VOICE:-alloy}}"
+
+                    if [[ -z "$id" ]]; then
+                        echo "Usage: dry qa <id> [voice]"
+                    else
+                        vox dry-run qa "$id" "$voice" 2>&1
+                    fi
+                    ;;
+                batch)
+                    local voice start count
+                    read -r voice start count <<< "$rest"
+                    voice="${voice:-${VOX_REPL_VOICE:-alloy}}"
+                    start="${start:-0}"
+                    count="${count:-5}"
+                    vox dry-run batch "$voice" "$start" "$count" 2>&1
+                    ;;
+                stdin)
+                    local voice
+                    read -r voice <<< "$rest"
+                    voice="${voice:-${VOX_REPL_VOICE:-alloy}}"
+                    echo "Enter text (Ctrl-D when done):"
+                    local text=$(cat)
+                    echo "$text" | vox dry-run stdin "$voice" 2>&1
+                    ;;
+                *)
+                    echo "Usage: dry qa <id> [voice] | dry batch <voice> [start] [count] | dry stdin [voice]"
+                    ;;
+            esac
+            ;;
+
+        sound|s)
+            # sound <pattern> [-o <file>]
+            if [[ -z "$args" ]]; then
+                echo "Usage: sound <pattern> [-o file]"
+                echo "Example: sound \"bd sd cp hh\""
+            else
+                echo "Generating sound..."
+                echo "$args" | vox sound play 2>&1
+            fi
+            ;;
+
+        ls|list)
+            # ls [qa|cache]
+            vox ls "$args" 2>&1
+            ;;
+
+        qa)
+            # qa ls | qa cat <id> | qa info <id>
+            local subcmd rest
+            read -r subcmd rest <<< "$args"
+
+            case "$subcmd" in
+                ls|list|"")
+                    vox ls qa 2>&1
+                    ;;
+                cat|show)
+                    if [[ -n "$rest" ]]; then
+                        local path
+                        path=$(vox_qa_get_path "qa:$rest" 2>/dev/null)
+                        if [[ -f "$path" ]]; then
+                            cat "$path"
+                        else
+                            echo "QA answer not found: $rest"
+                        fi
+                    else
+                        echo "Usage: qa cat <id>"
+                    fi
+                    ;;
+                info)
+                    if [[ -n "$rest" ]]; then
+                        local path
+                        path=$(vox_qa_get_path "qa:$rest" 2>/dev/null)
+                        if [[ -f "$path" ]]; then
+                            echo "QA Answer: $rest"
+                            echo "Path: $path"
+                            echo "Size: $(stat -f%z "$path" 2>/dev/null || stat -c%s "$path" 2>/dev/null) bytes"
+                            local prompt
+                            prompt=$(vox_qa_get_prompt "$rest" 2>/dev/null)
+                            echo "Prompt: $prompt"
+                        else
+                            echo "QA answer not found: $rest"
+                        fi
+                    else
+                        echo "Usage: qa info <id>"
+                    fi
+                    ;;
+                *)
+                    echo "Usage: qa ls | qa cat <id> | qa info <id>"
+                    ;;
+            esac
+            ;;
+
+        help|h)
+            _vox_repl_help
+            ;;
+
+        exit|quit|q)
+            return 1
+            ;;
+
+        "")
+            # Empty - show QA list
+            vox ls qa 2>/dev/null || echo "No QA sources available"
+            ;;
+
+        *)
+            echo "Unknown command: $cmd"
+            echo "Type /help or help for available commands"
+            ;;
+    esac
+
+    return 0
+}
+
+_vox_repl_help() {
     cat <<'EOF'
 Vox Interactive REPL
 ====================
@@ -17,24 +358,20 @@ Built-in Commands:
   /help, /?           Show this help
   /exit, /quit        Exit REPL
   /history [n]        Show command history (default: 20)
-  /last [n]           Show last command output
   /clear              Clear screen
   /voices             List available voices
   /voice <name>       Set default voice
   /cache              Show cache statistics
-  /cost               Show cost summary (future)
 
-TTS Commands (without prefix):
+TTS Commands:
   play <voice> <id>        Play audio from QA reference
   a <index> [voice]        Play QA answer (0=latest)
   gen <voice> <id> -o file Generate and save audio
   dry qa <id> [voice]      Dry-run QA reference
   dry batch <voice> [N]    Dry-run batch analysis
-  ls [qa|cache]            List sources
 
 Sound Commands:
   sound <pattern>          Generate and play sound pattern
-  sound <pattern> -o file  Generate sound to file
 
 QA Commands:
   qa ls                    List QA answers
@@ -42,93 +379,49 @@ QA Commands:
   qa info <id>             Show QA metadata
 
 Bash Commands:
-  !<command>               Execute bash command (e.g. !ls, !pwd)
+  !<command>               Execute bash command
 
 Text Input:
   "<text>"                 Generate TTS from quoted text
 
+Tab Completion:
+  Press TAB to complete commands and arguments
+  Press TAB twice to see all options
+
 Examples:
   a 0 sally                Play latest QA with sally
   play nova qa:5           Play QA #5 with nova
-  dry qa qa:0 alloy        Analyze latest QA without API call
+  dry qa qa:0 alloy        Analyze latest QA
   sound "bd sd cp hh"      Play drum pattern
   "Hello world!"           Generate TTS from text
-  !ls *.mp3                List audio files
-  /voices                  Show available voices
 EOF
 }
 
-vox_repl_save_output() {
-    local command="$1"
-    local output="$2"
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-
-    mkdir -p "$(dirname "$VOX_HISTORY_LOG")"
-
-    echo "==== ENTRY $timestamp ====" >> "$VOX_HISTORY_LOG"
-    echo "COMMAND: $command" >> "$VOX_HISTORY_LOG"
-    echo "OUTPUT:" >> "$VOX_HISTORY_LOG"
-    echo "$output" >> "$VOX_HISTORY_LOG"
-    echo "" >> "$VOX_HISTORY_LOG"
-}
-
-vox_repl_get_last() {
-    local n="${1:-0}"
-
-    if [[ ! -f "$VOX_HISTORY_LOG" ]]; then
-        echo "No command history found"
-        return 1
-    fi
-
-    local entry_lines=($(grep -n "^==== ENTRY" "$VOX_HISTORY_LOG" | cut -d: -f1))
-    local total_entries=${#entry_lines[@]}
-
-    if (( total_entries == 0 )); then
-        echo "No command history found"
-        return 1
-    fi
-
-    local entry_index=$((total_entries - 1 - n))
-
-    if (( entry_index < 0 )); then
-        echo "Not enough history entries (only $total_entries available)"
-        return 1
-    fi
-
-    local start_line=${entry_lines[$entry_index]}
-    local end_line
-
-    if (( entry_index + 1 < total_entries )); then
-        end_line=$((${entry_lines[$((entry_index + 1))]} - 1))
-    else
-        end_line=$(wc -l < "$VOX_HISTORY_LOG")
-    fi
-
-    sed -n "${start_line},${end_line}p" "$VOX_HISTORY_LOG"
-}
-
-vox_repl_list_voices() {
+_vox_repl_list_voices() {
     echo "Available Voices:"
     echo "  alloy    - Neutral, balanced"
+    echo "  ash      - Clear, articulate"
+    echo "  coral    - Warm, conversational"
     echo "  echo     - Clear, articulate"
     echo "  fable    - Expressive, warm"
-    echo "  onyx     - Deep, authoritative"
     echo "  nova     - Friendly, conversational"
+    echo "  onyx     - Deep, authoritative"
+    echo "  sage     - Wise, calm"
     echo "  shimmer  - Bright, energetic"
     echo ""
-    echo "Current: ${VOX_DEFAULT_VOICE:-alloy}"
+    echo "Current: ${VOX_REPL_VOICE:-alloy}"
 }
 
-vox_repl_set_voice() {
+_vox_repl_set_voice() {
     local voice="$1"
     if [[ -z "$voice" ]]; then
-        echo "Current voice: ${VOX_DEFAULT_VOICE:-alloy}"
+        echo "Current voice: ${VOX_REPL_VOICE:-alloy}"
         return 0
     fi
 
     case "$voice" in
         alloy|ash|coral|echo|fable|nova|onyx|sage|shimmer)
-            export VOX_DEFAULT_VOICE="$voice"
+            VOX_REPL_VOICE="$voice"
             echo "Default voice set to: $voice"
             ;;
         *)
@@ -139,315 +432,65 @@ vox_repl_set_voice() {
     esac
 }
 
-vox_repl_cache_stats() {
-    echo "=== Cache Statistics ==="
-    vox_cache_stats
-}
+# Main REPL entry point
+vox_repl() {
+    # Register with REPL system
+    repl_register_module "vox" "play a gen dry sound ls qa"
 
-vox_repl_process_command() {
-    local input="$1"
-    local output=""
-    local skip_save=false
+    # Set module context
+    repl_set_module_context "vox"
 
-    # Handle slash commands
-    if [[ "$input" =~ ^/ ]]; then
-        local cmd="${input#/}"
-        local args=""
+    # Set history base
+    REPL_HISTORY_BASE="${TETRA_DIR}/vox/repl_history"
 
-        if [[ "$cmd" =~ [[:space:]] ]]; then
-            args="${cmd#* }"
-            cmd="${cmd%% *}"
-        fi
+    # Set execution mode
+    REPL_EXECUTION_MODE="takeover"
 
-        case "$cmd" in
-            help|"?")
-                vox_repl_help
-                skip_save=true
-                ;;
-            exit|quit)
-                return 1
-                ;;
-            history|hist)
-                local lines="${args:-20}"
-                if [[ -f "$VOX_HISTORY_FILE" ]]; then
-                    output=$(tail -n "$lines" "$VOX_HISTORY_FILE" | nl -w3 -s': ')
-                    echo "Vox Command History (last $lines commands):"
-                    echo "$output"
-                else
-                    echo "No command history found"
-                fi
-                ;;
-            last)
-                vox_repl_get_last "$args"
-                skip_save=true
-                ;;
-            clear|cls)
-                clear
-                skip_save=true
-                ;;
-            voices|v)
-                vox_repl_list_voices
-                skip_save=true
-                ;;
-            voice)
-                vox_repl_set_voice "$args"
-                skip_save=true
-                ;;
-            cache|c)
-                vox_repl_cache_stats
-                ;;
-            cost)
-                echo "Cost tracking coming soon!"
-                skip_save=true
-                ;;
-            *)
-                echo "Unknown command: /$cmd"
-                echo "Type /help for available commands"
-                ;;
-        esac
+    # Override REPL callbacks
+    repl_build_prompt() { _vox_repl_build_prompt "$@"; }
+    repl_process_input() { _vox_repl_process_input "$@"; }
+    export -f repl_build_prompt repl_process_input
 
-    elif [[ "$input" =~ ^! ]]; then
-        # Bash command (prefixed with !)
-        local bash_cmd="${input#!}"
-        if [[ -n "$bash_cmd" ]]; then
-            output=$(eval "$bash_cmd" 2>&1)
-            echo "$output"
-        fi
+    # Welcome message
+    cat <<EOF
+Vox Interactive REPL
+====================
+Voice synthesis and audio generation
 
-    elif [[ "$input" =~ ^\".*\"$ ]]; then
-        # Quoted text - generate TTS
-        local text="${input:1:-1}"  # Remove quotes
-        local voice="${VOX_DEFAULT_VOICE:-alloy}"
-        echo "🔊 Generating TTS with $voice..."
-        output=$(echo "$text" | vox play "$voice" 2>&1)
-        echo "$output"
+Current voice: ${VOX_REPL_VOICE:-alloy}
+Tab completion enabled - press TAB for commands
 
-    else
-        # Parse vox commands
-        local cmd args
-        read -r cmd args <<< "$input"
-
-        case "$cmd" in
-            play|p)
-                # play <voice> <id>
-                local voice id
-                read -r voice id <<< "$args"
-                if [[ -z "$id" ]]; then
-                    echo "Usage: play <voice> <id>"
-                    echo "Example: play sally qa:0"
-                else
-                    echo "🔊 Playing $id with $voice..."
-                    output=$(vox play "$voice" "$id" 2>&1)
-                    echo "$output"
-                    VOX_LAST_AUDIO="$voice:$id"
-                fi
-                ;;
-
-            a)
-                # a <index> [voice]
-                local index voice
-                read -r index voice <<< "$args"
-                voice="${voice:-${VOX_DEFAULT_VOICE:-alloy}}"
-
-                if [[ -z "$index" ]]; then
-                    echo "Usage: a <index> [voice]"
-                    echo "Example: a 0 sally"
-                else
-                    echo "🔊 Playing qa:$index with $voice..."
-                    output=$(vox a "$index" "$voice" 2>&1)
-                    echo "$output"
-                    VOX_LAST_AUDIO="$voice:qa:$index"
-                fi
-                ;;
-
-            gen|generate)
-                # gen <voice> <id> -o <file>
-                echo "Generate command: $args"
-                output=$(eval "vox generate $args" 2>&1)
-                echo "$output"
-                ;;
-
-            dry|analyze)
-                # dry qa <id> [voice] OR dry batch <voice> [N]
-                local subcmd rest
-                read -r subcmd rest <<< "$args"
-
-                case "$subcmd" in
-                    qa)
-                        local id voice
-                        read -r id voice <<< "$rest"
-                        voice="${voice:-${VOX_DEFAULT_VOICE:-alloy}}"
-
-                        if [[ -z "$id" ]]; then
-                            echo "Usage: dry qa <id> [voice]"
-                        else
-                            output=$(vox dry-run qa "$id" "$voice" 2>&1)
-                            echo "$output"
-                        fi
-                        ;;
-                    batch)
-                        local voice start count
-                        read -r voice start count <<< "$rest"
-                        voice="${voice:-${VOX_DEFAULT_VOICE:-alloy}}"
-                        start="${start:-0}"
-                        count="${count:-5}"
-
-                        output=$(vox dry-run batch "$voice" "$start" "$count" 2>&1)
-                        echo "$output"
-                        ;;
-                    stdin)
-                        # dry stdin <voice> - read from next line
-                        local voice
-                        read -r voice <<< "$rest"
-                        voice="${voice:-${VOX_DEFAULT_VOICE:-alloy}}"
-
-                        echo "Enter text (Ctrl-D when done):"
-                        local text=$(cat)
-                        output=$(echo "$text" | vox dry-run stdin "$voice" 2>&1)
-                        echo "$output"
-                        ;;
-                    *)
-                        echo "Usage: dry qa <id> [voice] | dry batch <voice> [start] [count] | dry stdin [voice]"
-                        ;;
-                esac
-                ;;
-
-            sound|s)
-                # sound <pattern> [-o <file>]
-                if [[ -z "$args" ]]; then
-                    echo "Usage: sound <pattern> [-o file]"
-                    echo "Example: sound \"bd sd cp hh\""
-                else
-                    echo "🎵 Generating sound..."
-                    output=$(echo "$args" | vox sound play 2>&1)
-                    echo "$output"
-                fi
-                ;;
-
-            ls|list)
-                # ls [qa|cache]
-                local subcmd
-                read -r subcmd <<< "$args"
-                output=$(vox ls "$subcmd" 2>&1)
-                echo "$output"
-                ;;
-
-            qa)
-                # qa ls | qa cat <id> | qa info <id>
-                local subcmd rest
-                read -r subcmd rest <<< "$args"
-
-                case "$subcmd" in
-                    ls|list)
-                        output=$(vox ls qa 2>&1)
-                        echo "$output"
-                        ;;
-                    cat|show)
-                        if [[ -n "$rest" ]]; then
-                            local path=$(vox_qa_get_path "qa:$rest" 2>/dev/null)
-                            if [[ -f "$path" ]]; then
-                                output=$(cat "$path")
-                                echo "$output"
-                            else
-                                echo "QA answer not found: $rest"
-                            fi
-                        else
-                            echo "Usage: qa cat <id>"
-                        fi
-                        ;;
-                    info)
-                        if [[ -n "$rest" ]]; then
-                            local path=$(vox_qa_get_path "qa:$rest" 2>/dev/null)
-                            if [[ -f "$path" ]]; then
-                                echo "QA Answer: $rest"
-                                echo "Path: $path"
-                                echo "Size: $(stat -f%z "$path" 2>/dev/null || stat -c%s "$path" 2>/dev/null) bytes"
-                                local prompt=$(vox_qa_get_prompt "$rest" 2>/dev/null)
-                                echo "Prompt: $prompt"
-                            else
-                                echo "QA answer not found: $rest"
-                            fi
-                        else
-                            echo "Usage: qa info <id>"
-                        fi
-                        ;;
-                    *)
-                        echo "Usage: qa ls | qa cat <id> | qa info <id>"
-                        ;;
-                esac
-                ;;
-
-            help|h)
-                vox_repl_help
-                skip_save=true
-                ;;
-
-            "")
-                # Empty input - show QA list
-                output=$(vox ls qa 2>/dev/null || echo "No QA sources available")
-                echo "$output"
-                ;;
-
-            *)
-                echo "Unknown command: $cmd"
-                echo "Type /help or help for available commands"
-                ;;
-        esac
-    fi
-
-    # Save command and output to history
-    if [[ "$skip_save" == "false" && -n "$input" && -n "$output" ]]; then
-        vox_repl_save_output "$input" "$output"
-    fi
-
-    return 0
-}
-
-vox_repl_main() {
-    echo "🔊 Vox Interactive REPL"
-    echo "Type /help for commands, /exit or Ctrl-C to quit"
-    echo "Default voice: ${VOX_DEFAULT_VOICE:-alloy}"
+Commands: play, a, dry, sound, qa, ls
+Type 'help' for all commands, '/exit' to quit
+EOF
     echo ""
 
-    # Ensure directories exist
-    mkdir -p "$VOX_DIR"
-    mkdir -p "$(dirname "$VOX_HISTORY_FILE")"
+    # Run the REPL
+    repl_run
 
-    # Trap Ctrl-C to exit gracefully
-    trap 'echo -e "\n👋 Goodbye!"; exit 0' SIGINT
+    # Cleanup
+    unset -f repl_build_prompt repl_process_input
 
-    while true; do
-        # Read input with history support
-        if [[ -t 0 ]]; then
-            read -e -r -p "vox> " input || break
-        else
-            echo -n "vox> "
-            read -r input || break
-        fi
+    echo ""
+    echo "Goodbye!"
+}
 
-        # Save to history
-        if [[ -n "$input" ]]; then
-            echo "$input" >> "$VOX_HISTORY_FILE"
-        fi
-
-        # Process command
-        case "$input" in
-            /exit|/quit)
-                echo "👋 Goodbye!"
-                break
-                ;;
-            *)
-                if ! vox_repl_process_command "$input"; then
-                    break
-                fi
-                ;;
-        esac
-
-        echo
-    done
+# Backward compatibility - original function name
+vox_repl_main() {
+    vox_repl "$@"
 }
 
 # Export functions
+export -f vox_repl
 export -f vox_repl_main
-export -f vox_repl_process_command
-export -f vox_repl_help
+export -f _vox_repl_build_prompt
+export -f _vox_repl_process_input
+export -f _vox_repl_help
+export -f _vox_repl_list_voices
+export -f _vox_repl_set_voice
+export -f _vox_static_completions
+
+# Launch REPL if run directly
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    vox_repl "$@"
+fi

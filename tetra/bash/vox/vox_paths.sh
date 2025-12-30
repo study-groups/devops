@@ -18,26 +18,39 @@ vox_get_db_dir() {
     echo "$(vox_get_base_dir)/db"
 }
 
-# Get cache path for content hash + voice
+# Get cache path for content hash + provider + voice
+# New format: {hash}.{provider}.{voice}.mp3
+# Legacy format (for migration): {hash}.{voice}.mp3
 vox_get_cached_audio_path() {
     local content_hash="$1"
     local voice="$2"
+    local provider="${3:-openai}"
     local cache_dir=$(vox_get_cache_dir)
-    echo "${cache_dir}/${content_hash}.${voice}.mp3"
+    echo "${cache_dir}/${content_hash}.${provider}.${voice}.mp3"
 }
 
 vox_get_cached_spans_path() {
     local content_hash="$1"
     local voice="$2"
+    local provider="${3:-openai}"
     local cache_dir=$(vox_get_cache_dir)
-    echo "${cache_dir}/${content_hash}.${voice}.spans"
+    echo "${cache_dir}/${content_hash}.${provider}.${voice}.spans"
 }
 
 vox_get_cached_meta_path() {
     local content_hash="$1"
     local voice="$2"
+    local provider="${3:-openai}"
     local cache_dir=$(vox_get_cache_dir)
-    echo "${cache_dir}/${content_hash}.${voice}.meta"
+    echo "${cache_dir}/${content_hash}.${provider}.${voice}.meta"
+}
+
+# Legacy path lookup (for cache migration)
+vox_get_legacy_cached_audio_path() {
+    local content_hash="$1"
+    local voice="$2"
+    local cache_dir=$(vox_get_cache_dir)
+    echo "${cache_dir}/${content_hash}.${voice}.mp3"
 }
 
 # Get cache index file
