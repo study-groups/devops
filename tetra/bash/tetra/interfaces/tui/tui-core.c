@@ -67,14 +67,18 @@ static void handle_winch(int sig) {
 }
 
 /* Initialize terminal for raw input */
-static int init_terminal(void) {
+static int init_terminal(int inherited_tty_fd) {
     struct termios raw;
 
-    /* Open /dev/tty directly to bypass stdin redirection */
-    tty_fd = open("/dev/tty", O_RDWR);
-    if (tty_fd < 0) {
-        perror("open /dev/tty");
-        return -1;
+    /* Use inherited fd if provided, otherwise open /dev/tty */
+    if (inherited_tty_fd >= 0 && isatty(inherited_tty_fd)) {
+        tty_fd = inherited_tty_fd;
+    } else {
+        tty_fd = open("/dev/tty", O_RDWR);
+        if (tty_fd < 0) {
+            perror("open /dev/tty");
+            return -1;
+        }
     }
 
     if (tcgetattr(tty_fd, &orig_termios) < 0) {
@@ -278,8 +282,15 @@ int main(int argc, char *argv[]) {
     signal(SIGPIPE, SIG_IGN);
     signal(SIGCHLD, SIG_IGN);  /* Don't trap on child exit */
 
+    /* Get inherited TTY fd from environment (for coproc usage) */
+    int inherited_tty_fd = -1;
+    char *tty_fd_env = getenv("TUI_TTY_FD");
+    if (tty_fd_env) {
+        inherited_tty_fd = atoi(tty_fd_env);
+    }
+
     /* Initialize terminal */
-    if (init_terminal() < 0) {
+    if (init_terminal(inherited_tty_fd) < 0) {
         fprintf(stderr, "Failed to initialize terminal\n");
         return 1;
     }

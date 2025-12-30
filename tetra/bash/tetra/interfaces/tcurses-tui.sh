@@ -652,7 +652,9 @@ tcurses_tui() {
         fi
     fi
 
-    coproc TUI_COPROC { "$TUI_CORE" $midi_arg 2>/dev/null; }
+    # Open /dev/tty on fd 9 and pass to tui-core via env var
+    exec 9<>/dev/tty
+    coproc TUI_COPROC { TUI_TTY_FD=9 "$TUI_CORE" $midi_arg 2>/dev/null; }
 
     if [[ -z "${TUI_COPROC_PID:-}" ]]; then
         echo "Failed to start tui-core coprocess" >&2
