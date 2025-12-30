@@ -21,6 +21,7 @@ const { EventEmitter } = require('events');
 const Matches = require('./lib/matches');
 const Codes = require('./lib/codes');
 const RateLimiter = require('./lib/rate-limiter');
+const GameRegistry = require('./lib/games');
 
 // =============================================================================
 // CONSTANTS
@@ -49,6 +50,7 @@ class GammaService extends EventEmitter {
 
         this.matches = new Matches({ stateDir: STATE_DIR });
         this.codes = new Codes();
+        this.games = new GameRegistry();
 
         // Rate limiters (per IP)
         this.createLimiter = new RateLimiter({ windowMs: 60000, maxRequests: 5 });   // 5 creates/min
@@ -79,6 +81,18 @@ class GammaService extends EventEmitter {
         // Load persisted matches
         this.matches.load();
 
+        // Discover available games
+        this.games.discover();
+
+        // Handle game exits
+        this.games.on('game-exit', ({ matchCode }) => {
+            const match = this.matches.get(matchCode);
+            if (match) {
+                console.log(`[gamma] Game exited, closing match ${matchCode}`);
+                this.matches.delete(matchCode);
+            }
+        });
+
         await this.startHttpServer();
         await this.startUdpServer();
         await this.startUnixServer();
@@ -98,6 +112,9 @@ class GammaService extends EventEmitter {
 
     async stop() {
         console.log('[gamma] Stopping...');
+
+        // Kill all spawned games
+        this.games.shutdown();
 
         if (this.cleanupInterval) clearInterval(this.cleanupInterval);
         if (this.createLimiter) this.createLimiter.stop();
@@ -165,6 +182,10 @@ class GammaService extends EventEmitter {
             this.handleClose(req, res);
         } else if (req.method === 'GET' && path === '/api/lobby') {
             this.handleLobby(req, res, url.searchParams.get('game'));
+        } else if (req.method === 'GET' && path === '/api/games') {
+            this.handleListGames(req, res);
+        } else if (req.method === 'GET' && path === '/api/games/processes') {
+            this.handleListProcesses(req, res);
         } else {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Not found' }));
@@ -271,11 +292,22 @@ class GammaService extends EventEmitter {
 
         try {
             const data = JSON.parse(body);
-            const { game, slots = 2, transport = 'udp', addr, public: isPublic = false } = data;
+            const { game, slots = 2, transport = 'udp', addr, public: isPublic = false, spawn = false } = data;
 
             if (!game || typeof game !== 'string') {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: 'game is required' }));
+                return;
+            }
+
+            // Check if game exists in registry (when spawning)
+            const gameInfo = this.games.get(game);
+            if (spawn && !gameInfo) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    error: `Unknown game: ${game}`,
+                    available: this.games.list().map(g => g.id)
+                }));
                 return;
             }
 
@@ -284,14 +316,30 @@ class GammaService extends EventEmitter {
             // Generate unique code
             const code = this.codes.generate(key => this.matches.has(key));
 
+            // Spawn game if requested
+            let spawnResult = null;
+            let matchAddr = addr || `localhost:${7300 + this.stats.matchesCreated}`;
+
+            if (spawn) {
+                try {
+                    spawnResult = this.games.spawn(game, code);
+                    matchAddr = `localhost:${spawnResult.port}`;
+                } catch (e) {
+                    res.writeHead(500, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: `Failed to spawn game: ${e.message}` }));
+                    return;
+                }
+            }
+
             // Create match
             const match = this.matches.create({
                 code,
                 game,
                 maxPlayers,
                 transport,
-                addr: addr || `localhost:${7300 + this.stats.matchesCreated}`,
-                public: isPublic
+                addr: matchAddr,
+                public: isPublic,
+                pid: spawnResult?.pid || null
             });
 
             this.stats.matchesCreated++;
@@ -304,7 +352,9 @@ class GammaService extends EventEmitter {
                 code: match.code,
                 token: match.hostToken,
                 topic: match.topic,
-                expires: match.expires
+                expires: match.expires,
+                addr: matchAddr,
+                pid: spawnResult?.pid || null
             }));
 
             this.emit('match-created', match);
@@ -448,6 +498,11 @@ class GammaService extends EventEmitter {
                 return;
             }
 
+            // Kill spawned game if any
+            if (match.pid) {
+                this.games.kill(match.pid);
+            }
+
             // Unregister all from midi-mp
             await this.unregisterMatch(match);
 
@@ -468,6 +523,26 @@ class GammaService extends EventEmitter {
         const matches = this.matches.listPublic(game);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(matches));
+    }
+
+    // List available games (from registry)
+    handleListGames(req, res) {
+        const games = this.games.list().map(g => ({
+            id: g.id,
+            name: g.name,
+            org: g.org,
+            players: g.players,
+            engine: g.engine
+        }));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(games));
+    }
+
+    // List running game processes
+    handleListProcesses(req, res) {
+        const processes = this.games.listProcesses();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(processes));
     }
 
     readBody(req, maxSize = 4096) {
