@@ -6,12 +6,12 @@
 # Vox color elements (semantic, not state-based)
 declare -gA VOX_ELEMENT_COLORS=(
     # Vox module elements
-    [vox_action]="FF0044"     # Red/orange - action verbs (from VERBS_PRIMARY)
-    [vox_voice]="AA00AA"      # Purple - voice profile names (from NOUNS_PRIMARY)
+    [vox_action]="FF0044"     # Red/orange - action verbs (from SEMANTIC)
+    [vox_voice]="AA00AA"      # Purple - voice profile names (from SURFACE)
     [vox_qa_id]="4488AA"      # Steel blue - QA identifiers
-    [vox_progress]="0088FF"   # Blue - progress indicators (from MODE_PRIMARY)
+    [vox_progress]="0088FF"   # Blue - progress indicators (from SECONDARY)
     [vox_cost]="FFAA00"       # Orange - cost/pricing info
-    [vox_duration]="00AA00"   # Green - timing info (from ENV_PRIMARY)
+    [vox_duration]="00AA00"   # Green - timing info (from PRIMARY)
 
     # Status-specific colors
     [vox_cached]="888888"     # Gray - cached items

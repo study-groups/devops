@@ -34,18 +34,18 @@ if [[ -z "${_TPS_COLOR_DEFS:-}" ]]; then
     tetra_kv_init _TPS_COLOR_OVERRIDES
 
     # Color element definitions: element -> "variable_name:tds_source:default_hex"
-    tetra_kv_set _TPS_COLOR_DEFS user "_TPS_C_USER:ENV_PRIMARY[0]:e4e47a"
-    tetra_kv_set _TPS_COLOR_DEFS git "_TPS_C_GIT:ENV_PRIMARY[1]:00d7ff"
-    tetra_kv_set _TPS_COLOR_DEFS path "_TPS_C_PATH:NOUNS_PRIMARY[6]:e4e4e7"
-    tetra_kv_set _TPS_COLOR_DEFS path_dim "_TPS_C_PATH_DIM:NOUNS_PRIMARY[3]:71717a"
-    tetra_kv_set _TPS_COLOR_DEFS org "_TPS_C_ORG:ENV_PRIMARY[0]:00d7ff"
-    tetra_kv_set _TPS_COLOR_DEFS target "_TPS_C_TARGET:VERBS_PRIMARY[4]:ffc107"
-    tetra_kv_set _TPS_COLOR_DEFS env "_TPS_C_ENV:MODE_PRIMARY[2]:4caf50"
-    tetra_kv_set _TPS_COLOR_DEFS sep "_TPS_C_SEP:NOUNS_PRIMARY[3]:666666"
-    tetra_kv_set _TPS_COLOR_DEFS bracket "_TPS_C_BRACKET:NOUNS_PRIMARY[4]:888888"
-    tetra_kv_set _TPS_COLOR_DEFS duration "_TPS_C_DURATION:NOUNS_PRIMARY[3]:71717a"
-    tetra_kv_set _TPS_COLOR_DEFS error "_TPS_C_ERROR:VERBS_PRIMARY[0]:ff5252"
-    tetra_kv_set _TPS_COLOR_DEFS purple "_TPS_C_PURPLE:VERBS_PRIMARY[6]:8E24AA"
+    tetra_kv_set _TPS_COLOR_DEFS user "_TPS_C_USER:PRIMARY[0]:e4e47a"
+    tetra_kv_set _TPS_COLOR_DEFS git "_TPS_C_GIT:PRIMARY[1]:00d7ff"
+    tetra_kv_set _TPS_COLOR_DEFS path "_TPS_C_PATH:SURFACE[6]:e4e4e7"
+    tetra_kv_set _TPS_COLOR_DEFS path_dim "_TPS_C_PATH_DIM:SURFACE[3]:71717a"
+    tetra_kv_set _TPS_COLOR_DEFS org "_TPS_C_ORG:PRIMARY[0]:00d7ff"
+    tetra_kv_set _TPS_COLOR_DEFS target "_TPS_C_TARGET:SEMANTIC[4]:ffc107"
+    tetra_kv_set _TPS_COLOR_DEFS env "_TPS_C_ENV:SECONDARY[2]:4caf50"
+    tetra_kv_set _TPS_COLOR_DEFS sep "_TPS_C_SEP:SURFACE[3]:666666"
+    tetra_kv_set _TPS_COLOR_DEFS bracket "_TPS_C_BRACKET:SURFACE[4]:888888"
+    tetra_kv_set _TPS_COLOR_DEFS duration "_TPS_C_DURATION:SURFACE[3]:71717a"
+    tetra_kv_set _TPS_COLOR_DEFS error "_TPS_C_ERROR:SEMANTIC[0]:ff5252"
+    tetra_kv_set _TPS_COLOR_DEFS purple "_TPS_C_PURPLE:SEMANTIC[6]:8E24AA"
 fi
 
 # Ordered list of color elements (for iteration)

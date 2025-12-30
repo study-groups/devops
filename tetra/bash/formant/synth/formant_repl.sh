@@ -65,13 +65,13 @@ _formant_repl_build_prompt() {
 
     if [[ "$FORMANT_REPL_ENGINE_RUNNING" == "1" ]]; then
         status_symbol="►"
-        status_color="${ENV_PRIMARY[1]}"
+        status_color="${PRIMARY[1]}"
     fi
 
     # Get TDS theme colors
-    local bracket_color="${MODE_PRIMARY[5]}"
-    local name_color="${VERBS_PRIMARY[3]}"
-    local arrow_color="${VERBS_PRIMARY[3]}"
+    local bracket_color="${SECONDARY[5]}"
+    local name_color="${SEMANTIC[3]}"
+    local arrow_color="${SEMANTIC[3]}"
 
     # Build prompt with readline-aware escape codes
     REPL_PROMPT=""

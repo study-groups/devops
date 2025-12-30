@@ -293,15 +293,15 @@ _tps_ctx_build_line_ref() {
         c_empty=$'\e[38;5;240m'   # Dim
     fi
 
-    # Org color from ENV_PRIMARY palette (hashed by org name for consistency)
+    # Org color from PRIMARY palette (hashed by org name for consistency)
     # Each org gets a unique color from the 8-color palette
-    if [[ -n "${ENV_PRIMARY[0]:-}" && -n "$org" ]]; then
+    if [[ -n "${PRIMARY[0]:-}" && -n "$org" ]]; then
         # Simple hash: sum of ASCII values mod 8
         local hash=0 i
         for ((i = 0; i < ${#org}; i++)); do
             hash=$(( (hash + $(printf '%d' "'${org:i:1}")) % 8 ))
         done
-        c_org=$(_hex_to_ansi "${ENV_PRIMARY[$hash]}")
+        c_org=$(_hex_to_ansi "${PRIMARY[$hash]}")
     elif type _tps_get_color_hex &>/dev/null; then
         c_org=$(_hex_to_ansi "$(_tps_get_color_hex org)")
     else

@@ -10,19 +10,19 @@
 # Load colors - prefer TDS theme, fallback to tetra colors
 _games_help_init_colors() {
     # Check for TDS palettes first
-    if [[ -n "${VERBS_PRIMARY[0]:-}" ]]; then
-        # TDS theme available - use semantic colors
-        GAMES_C_TITLE="${VERBS_PRIMARY[4]:-00ACC1}"      # cyan - titles
-        GAMES_C_SECTION="${VERBS_PRIMARY[5]:-1E88E5}"    # blue - sections
-        GAMES_C_CMD="${VERBS_PRIMARY[4]:-00ACC1}"        # cyan - commands
-        GAMES_C_FLAG="${VERBS_PRIMARY[1]:-FB8C00}"       # orange - flags
-        GAMES_C_DESC="${NOUNS_PRIMARY[4]:-9E9E9E}"       # gray - descriptions
-        GAMES_C_COMMENT="${NOUNS_PRIMARY[3]:-757575}"    # dark gray - comments
-        GAMES_C_EXAMPLE="${VERBS_PRIMARY[3]:-43A047}"    # green - examples
-        GAMES_C_ORG="${ENV_PRIMARY[0]:-7C4DFF}"          # purple - org context
-        GAMES_C_GAME="${MODE_PRIMARY[2]:-66BB6A}"        # green - game names
-        GAMES_C_ERROR="${VERBS_PRIMARY[0]:-E53935}"      # red - errors
-        GAMES_C_WARN="${VERBS_PRIMARY[1]:-FB8C00}"       # orange - warnings
+    if [[ -n "${SEMANTIC[0]:-}" ]]; then
+        # TDS theme available - use palette colors
+        GAMES_C_TITLE="${SEMANTIC[4]:-00ACC1}"      # cyan - titles
+        GAMES_C_SECTION="${SEMANTIC[5]:-1E88E5}"    # blue - sections
+        GAMES_C_CMD="${SEMANTIC[4]:-00ACC1}"        # cyan - commands
+        GAMES_C_FLAG="${SEMANTIC[1]:-FB8C00}"       # orange - flags
+        GAMES_C_DESC="${SURFACE[4]:-9E9E9E}"        # gray - descriptions
+        GAMES_C_COMMENT="${SURFACE[3]:-757575}"     # dark gray - comments
+        GAMES_C_EXAMPLE="${SEMANTIC[3]:-43A047}"    # green - examples
+        GAMES_C_ORG="${PRIMARY[0]:-7C4DFF}"         # purple - org context
+        GAMES_C_GAME="${SECONDARY[2]:-66BB6A}"      # green - game names
+        GAMES_C_ERROR="${SEMANTIC[0]:-E53935}"      # red - errors
+        GAMES_C_WARN="${SEMANTIC[1]:-FB8C00}"       # orange - warnings
     elif [[ -f "$TETRA_SRC/bash/color/color.sh" ]]; then
         source "$TETRA_SRC/bash/color/color.sh" 2>/dev/null
         GAMES_C_TITLE="00ACC1"
