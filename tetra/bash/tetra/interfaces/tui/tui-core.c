@@ -263,8 +263,9 @@ static void print_escaped(const char *prefix, const char *data, size_t len) {
 }
 
 int main(int argc, char *argv[]) {
-    const char *osc_path = (argc > 1) ? argv[1] : DEFAULT_OSC_LISTEN;
+    const char *osc_path = (argc > 1) ? argv[1] : NULL;
     int midi_fd = -1;
+    int midi_enabled = 0;
     char key_buf[KEY_BUF_SIZE];
     char line_buf[LINE_BUF_SIZE];
     int width, height;
@@ -288,8 +289,11 @@ int main(int argc, char *argv[]) {
     printf("S:%dx%d\n", width, height);
     fflush(stdout);
 
-    /* Spawn osc_listen for MIDI multicast */
-    midi_fd = spawn_osc_listen(osc_path);
+    /* Spawn osc_listen for MIDI multicast (optional) */
+    if (osc_path && access(osc_path, X_OK) == 0) {
+        midi_fd = spawn_osc_listen(osc_path);
+        midi_enabled = (midi_fd >= 0);
+    }
 
     /* Main event loop */
     while (running) {
@@ -350,7 +354,7 @@ int main(int argc, char *argv[]) {
                     fflush(stdout);
                 }
             }
-            if (n < 0) {
+            if (n < 0 && midi_enabled) {
                 /* osc_listen died, try to respawn */
                 cleanup_osc_listen(midi_fd);
                 midi_fd = spawn_osc_listen(osc_path);

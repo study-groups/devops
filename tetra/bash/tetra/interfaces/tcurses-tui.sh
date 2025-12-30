@@ -629,10 +629,30 @@ render_dropdown() {
 # =============================================================================
 
 tcurses_tui() {
-    [[ ! -x "$TUI_CORE" ]] && { echo "tui-core not found: $TUI_CORE"; return 1; }
-    [[ ! -x "$OSC_LISTEN" ]] && { echo "osc_listen not found: $OSC_LISTEN"; return 1; }
+    local use_midi=false
 
-    coproc TUI_COPROC { "$TUI_CORE" "$OSC_LISTEN" 2>/dev/null; }
+    # Parse args
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --midi|-m) use_midi=true; shift ;;
+            *) shift ;;
+        esac
+    done
+
+    [[ ! -x "$TUI_CORE" ]] && { echo "tui-core not found: $TUI_CORE"; return 1; }
+
+    # MIDI is opt-in with --midi flag
+    local midi_arg=""
+    if [[ $use_midi == true ]]; then
+        if [[ -x "$OSC_LISTEN" ]]; then
+            midi_arg="$OSC_LISTEN"
+            echo "MIDI enabled" >&2
+        else
+            echo "Warning: MIDI requested but osc_listen not found" >&2
+        fi
+    fi
+
+    coproc TUI_COPROC { "$TUI_CORE" $midi_arg 2>/dev/null; }
 
     if [[ -z "${TUI_COPROC_PID:-}" ]]; then
         echo "Failed to start tui-core coprocess" >&2
