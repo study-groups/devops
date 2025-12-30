@@ -1,47 +1,51 @@
 #!/usr/bin/env bash
-# Tetra REPL Interface - Simple readline with tab completion
-# Pattern: like org's interface, no tcurses
+# repl-cli.sh - Basic Readline REPL with context support
+# Pattern: readline + tab completion, no terminal takeover
+# Honors TETRA_CTX_* env vars set by `tetra ctx`
+
+: "${TETRA_SRC:?TETRA_SRC must be set}"
+
+# Source context manager
+source "$TETRA_SRC/bash/tetra/ctx.sh"
 
 TETRA_REPL_HISTORY="${TETRA_DIR}/tetra/repl_history"
 
 # =============================================================================
-# PROMPT
+# PROMPT (includes context)
 # =============================================================================
 
-_tetra_repl_prompt() {
+_repl_cli_prompt() {
     local count="${#TETRA_MODULE_LIST[@]}"
-    echo "[${count}] tetra> "
+    local ctx=$(tetra_ctx_prompt)
+    echo "[$count] $ctx> "
 }
 
 # =============================================================================
 # COMPLETION (for read -e)
 # =============================================================================
 
-# Build completion words for current input
-_tetra_repl_completions() {
+_repl_cli_completions() {
     local input="$1"
     local words=()
 
-    # Parse input into tokens
     local first="${input%% *}"
     local rest="${input#* }"
     [[ "$first" == "$input" ]] && rest=""
 
-    # No input yet - show all commands
+    # No input - show all commands
     if [[ -z "$input" ]]; then
-        words=(status modules module doctor help version clear exit quit)
+        words=(status modules module doctor help version clear exit quit ctx)
         words+=("${TETRA_MODULE_LIST[@]}")
         printf '%s\n' "${words[@]}"
         return
     fi
 
-    # Check if input ends with space (ready for next word)
     local ends_with_space=0
     [[ "$input" == *" " ]] && ends_with_space=1
 
-    # First word partial - complete commands (no trailing space)
+    # First word partial
     if [[ -z "$rest" && $ends_with_space -eq 0 ]]; then
-        local candidates=(status modules module doctor help version clear exit quit)
+        local candidates=(status modules module doctor help version clear exit quit ctx)
         candidates+=("${TETRA_MODULE_LIST[@]}")
         for w in "${candidates[@]}"; do
             [[ "$w" == "$first"* ]] && echo "$w"
@@ -49,15 +53,19 @@ _tetra_repl_completions() {
         return
     fi
 
-    # Trailing space after first word - show all options for second word
+    # Trailing space - show options for second word
     if [[ $ends_with_space -eq 1 && -z "$rest" ]]; then
-        rest=""  # Empty partial
+        rest=""
     fi
 
-    # Second word - depends on first
+    # Second word depends on first
     case "$first" in
+        ctx)
+            for w in show set clear help; do
+                [[ "$w" == "$rest"* ]] && echo "$w"
+            done
+            ;;
         modules)
-            # modules <tab> shows all loaded modules
             for m in "${TETRA_MODULE_LIST[@]}"; do
                 [[ "$m" == "$rest"* ]] && echo "$m"
             done
@@ -90,19 +98,16 @@ _tetra_repl_completions() {
     esac
 }
 
-# Readline completion function
-_tetra_repl_readline_complete() {
+_repl_cli_readline_complete() {
     local cur="${READLINE_LINE}"
     local completions
 
-    mapfile -t completions < <(_tetra_repl_completions "$cur")
+    mapfile -t completions < <(_repl_cli_completions "$cur")
 
     if [[ ${#completions[@]} -eq 1 ]]; then
-        # Single match - complete it
         READLINE_LINE="${completions[0]} "
         READLINE_POINT=${#READLINE_LINE}
     elif [[ ${#completions[@]} -gt 1 ]]; then
-        # Multiple matches - show them
         echo ""
         printf '%s  ' "${completions[@]}"
         echo ""
@@ -113,36 +118,39 @@ _tetra_repl_readline_complete() {
 # HELP
 # =============================================================================
 
-_tetra_repl_help() {
+_repl_cli_help() {
     cat << 'EOF'
-TETRA REPL
-==========
+TETRA REPL (basic-repl)
+=======================
+
+CONTEXT
+  ctx                   Show current context
+  ctx <org:proj:topic>  Set context
+  ctx set <key> <val>   Set individual (org, project, topic)
+  ctx clear             Clear context
 
 COMMANDS
   status              Show tetra status
-  modules             List loaded modules (Tab for names)
+  modules             List loaded modules
   modules <name>      Run module command
   doctor              Health check
-  help                Show this help
-
+  help                This help
   exit, quit, q       Exit REPL
 
-MODULES
+MODULE COMMANDS
 EOF
-    # Dynamic module list
     for m in "${TETRA_MODULE_LIST[@]}"; do
         printf "  %-18s %s\n" "$m" "Run $m commands"
     done
     cat << 'EOF'
 
-MODULE COMMANDS (examples)
-  org status          Organization status
-  tsm list            List running services
-  deploy push <t> <e> Deploy to environment
+EXAMPLES
+  ctx myorg:myproj:auth   Set context
+  org status              Organization status
+  tsm list                List services
 
 TAB COMPLETION
-  modules <Tab>       Show available modules
-  org <Tab>           Show org subcommands
+  <Tab>               Complete commands/modules
 EOF
 }
 
@@ -150,31 +158,31 @@ EOF
 # MAIN REPL
 # =============================================================================
 
-tetra_repl() {
+repl_cli() {
     mkdir -p "$(dirname "$TETRA_REPL_HISTORY")"
     touch "$TETRA_REPL_HISTORY"
 
     # Load history
     history -r "$TETRA_REPL_HISTORY" 2>/dev/null
 
-    # Bind Tab to completion function
-    bind -x '"\t": _tetra_repl_readline_complete' 2>/dev/null
+    # Bind Tab
+    bind -x '"\t": _repl_cli_readline_complete' 2>/dev/null
 
     # Welcome
     local count="${#TETRA_MODULE_LIST[@]}"
     echo ""
     echo "Tetra REPL v$TETRA_VERSION"
     echo "Modules: $count loaded"
+    tetra_ctx_show
     echo ""
     echo "Type 'help' for commands, Tab for completion"
     echo ""
 
     # REPL loop
     while true; do
-        local prompt="$(_tetra_repl_prompt)"
+        local prompt="$(_repl_cli_prompt)"
         local input
 
-        # Read with readline support
         if ! read -e -p "$prompt" input; then
             echo ""
             break
@@ -182,18 +190,18 @@ tetra_repl() {
 
         [[ -z "$input" ]] && continue
 
-        # Add to history
+        # History
         history -s "$input"
         echo "$input" >> "$TETRA_REPL_HISTORY"
 
-        # Exit commands
+        # Builtins
         case "$input" in
             exit|quit|q)
                 echo "Goodbye!"
                 break
                 ;;
             help|h)
-                _tetra_repl_help
+                _repl_cli_help
                 continue
                 ;;
             clear)
@@ -202,39 +210,48 @@ tetra_repl() {
                 ;;
         esac
 
-        # Check if first word is a tetra subcommand
+        # Parse first word
         local first="${input%% *}"
         local rest="${input#* }"
         [[ "$first" == "$input" ]] && rest=""
 
+        # Dispatch
         case "$first" in
+            ctx)
+                # Context commands
+                if [[ -z "$rest" ]]; then
+                    tetra_ctx show
+                else
+                    tetra_ctx $rest
+                fi
+                ;;
             status|module|doctor|version)
                 tetra $input
                 ;;
             modules)
                 if [[ -z "$rest" ]]; then
-                    # Just "modules" - list them
                     tetra module list
                 else
-                    # "modules <name>" - run that module
                     eval "$rest"
                 fi
                 ;;
             *)
-                # Try to eval as shell (module commands like org, tsm, deploy)
+                # Module commands (org, tsm, deploy, etc.)
                 eval "$input"
                 ;;
         esac
     done
 
-    # Save history
     history -w "$TETRA_REPL_HISTORY" 2>/dev/null
 }
+
+# Alias for backward compat
+tetra_repl() { repl_cli "$@"; }
 
 # =============================================================================
 # EXPORTS
 # =============================================================================
 
 export TETRA_REPL_HISTORY
-export -f tetra_repl _tetra_repl_prompt _tetra_repl_help
-export -f _tetra_repl_completions _tetra_repl_readline_complete
+export -f repl_cli tetra_repl _repl_cli_prompt _repl_cli_help
+export -f _repl_cli_completions _repl_cli_readline_complete

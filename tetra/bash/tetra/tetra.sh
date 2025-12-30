@@ -63,9 +63,19 @@ _tetra_help() {
     echo -e "  ${C}module meta${N} <name>  Show MELVIN-enhanced metadata"
     echo -e "  ${C}module stats${N}        File statistics (via tls)"
     echo ""
+    echo -e "${Y}CONTEXT INSPECTOR${N}"
+    echo -e "  ${C}ctx${N}                 Show all module contexts"
+    echo -e "  ${C}ctx${N} <module>        Show module's context + schema"
+    echo -e "  ${C}ctx schema${N}          List all context schemas"
+    echo -e "  ${C}ctx colors${N}          Show/reload color config"
+    echo ""
+    echo -e "${Y}MODULE CONTEXTS${N}"
+    echo -e "  ${D}tsm ctx, tdocs ctx, deploy ctx - each module sets its own${N}"
+    echo ""
     echo -e "${Y}INTERFACES${N}"
-    echo -e "  ${C}repl${N}                Interactive mode (readline + tab completion)"
-    echo -e "  ${C}tui${N}                 Full-screen TUI (tcurses)"
+    echo -e "  ${C}repl${N}                Basic readline REPL + ctx"
+    echo -e "  ${C}trepl${N}               Terminal control REPL + MIDI"
+    echo -e "  ${C}tui${N}                 Full screen TUI + C coprocess"
     echo ""
     echo -e "${Y}LOADED${N}"
     echo -e "  ${D}${TETRA_MODULE_LIST[*]}${N}"
@@ -259,22 +269,8 @@ _tetra_doctor() {
 # COMPLETION
 # =============================================================================
 
-_tetra_complete() {
-    local cur="${COMP_WORDS[COMP_CWORD]}"
-    local prev="${COMP_WORDS[COMP_CWORD-1]}"
-
-    case "$prev" in
-        tetra)
-            COMPREPLY=($(compgen -W "status module repl tui doctor help version" -- "$cur"))
-            ;;
-        module|mod|m)
-            COMPREPLY=($(compgen -W "list info meta stats" -- "$cur"))
-            ;;
-        info|meta)
-            COMPREPLY=($(compgen -W "${TETRA_MODULE_LIST[*]}" -- "$cur"))
-            ;;
-    esac
-}
+# Load comprehensive completion
+[[ -f "$TETRA_SRC/bash/tetra/complete.sh" ]] && source "$TETRA_SRC/bash/tetra/complete.sh"
 
 # =============================================================================
 # MAIN
@@ -293,24 +289,40 @@ tetra() {
             _tetra_module "$@"
             ;;
 
+        ctx)
+            source "$TETRA_SRC/bash/tetra/ctx.sh"
+            tetra_ctx "$@"
+            ;;
+
         repl)
-            local repl_file="$TETRA_SRC/bash/tetra/interfaces/repl.sh"
+            local repl_file="$TETRA_SRC/bash/tetra/interfaces/repl-cli.sh"
             if [[ -f "$repl_file" ]]; then
                 source "$repl_file"
-                tetra_repl "$@"
+                repl_cli "$@"
             else
-                echo "REPL not found: $repl_file" >&2
+                echo "repl-cli not found: $repl_file" >&2
                 return 1
             fi
             ;;
 
-        tui)
-            local tui_file="$TETRA_SRC/bash/tetra/interfaces/tui.sh"
+        trepl|tcurses-repl)
+            local trepl_file="$TETRA_SRC/bash/tetra/interfaces/tcurses-repl.sh"
+            if [[ -f "$trepl_file" ]]; then
+                source "$trepl_file"
+                tcurses_repl "$@"
+            else
+                echo "tcurses-repl not found: $trepl_file" >&2
+                return 1
+            fi
+            ;;
+
+        tui|tcurses-tui)
+            local tui_file="$TETRA_SRC/bash/tetra/interfaces/tcurses-tui.sh"
             if [[ -f "$tui_file" ]]; then
                 source "$tui_file"
-                tetra_tui "$@"
+                tcurses_tui "$@"
             else
-                echo "TUI not found: $tui_file" >&2
+                echo "tcurses-tui not found: $tui_file" >&2
                 return 1
             fi
             ;;
@@ -341,7 +353,6 @@ tetra() {
 # =============================================================================
 
 _tetra_load_all
-complete -F _tetra_complete tetra
 
 export TETRA_VERSION
 export -f tetra
