@@ -32,13 +32,331 @@ complement_hue() {
     echo $(( (h + 180) % 360 ))
 }
 
+# =============================================================================
+# HSL CONVERSION (for color transforms)
+# =============================================================================
+
+# Convert RGB (0-255) to HSL (h:0-360, s:0-100, l:0-100)
+# Output: "H S L" space-separated
+rgb_to_hsl() {
+    local r=$1 g=$2 b=$3
+
+    # Normalize to 0-1 range (scaled by 1000 for integer math)
+    local r1=$((r * 1000 / 255))
+    local g1=$((g * 1000 / 255))
+    local b1=$((b * 1000 / 255))
+
+    # Find min/max
+    local max=$r1 min=$r1
+    ((g1 > max)) && max=$g1
+    ((b1 > max)) && max=$b1
+    ((g1 < min)) && min=$g1
+    ((b1 < min)) && min=$b1
+
+    local delta=$((max - min))
+    local l=$(((max + min) / 2))
+
+    local h=0 s=0
+
+    if ((delta > 0)); then
+        # Saturation
+        if ((l > 500)); then
+            s=$((delta * 1000 / (2000 - max - min)))
+        else
+            s=$((delta * 1000 / (max + min)))
+        fi
+
+        # Hue
+        if ((max == r1)); then
+            h=$(((g1 - b1) * 60 / delta))
+            ((h < 0)) && h=$((h + 360))
+        elif ((max == g1)); then
+            h=$((120 + (b1 - r1) * 60 / delta))
+        else
+            h=$((240 + (r1 - g1) * 60 / delta))
+        fi
+    fi
+
+    # Scale s and l to 0-100
+    s=$((s / 10))
+    l=$((l / 10))
+
+    echo "$h $s $l"
+}
+
+# Convert HSL to RGB
+# Input: h (0-360), s (0-100), l (0-100)
+# Output: "R G B" space-separated (0-255)
+hsl_to_rgb() {
+    local h=$1 s=$2 l=$3
+
+    # Handle grayscale
+    if ((s == 0)); then
+        local v=$((l * 255 / 100))
+        echo "$v $v $v"
+        return
+    fi
+
+    # Scale to 0-1000 for integer math
+    local s1=$((s * 10))
+    local l1=$((l * 10))
+
+    local q
+    if ((l1 < 500)); then
+        q=$((l1 * (1000 + s1) / 1000))
+    else
+        q=$((l1 + s1 - l1 * s1 / 1000))
+    fi
+    local p=$((2 * l1 - q))
+
+    _hue_to_rgb() {
+        local p=$1 q=$2 t=$3
+        ((t < 0)) && t=$((t + 360))
+        ((t > 360)) && t=$((t - 360))
+
+        if ((t < 60)); then
+            echo $((p + (q - p) * t / 60))
+        elif ((t < 180)); then
+            echo $q
+        elif ((t < 240)); then
+            echo $((p + (q - p) * (240 - t) / 60))
+        else
+            echo $p
+        fi
+    }
+
+    local r=$(_hue_to_rgb $p $q $((h + 120)))
+    local g=$(_hue_to_rgb $p $q $h)
+    local b=$(_hue_to_rgb $p $q $((h - 120)))
+
+    # Scale back to 0-255
+    r=$((r * 255 / 1000))
+    g=$((g * 255 / 1000))
+    b=$((b * 255 / 1000))
+
+    # Clamp
+    ((r > 255)) && r=255; ((r < 0)) && r=0
+    ((g > 255)) && g=255; ((g < 0)) && g=0
+    ((b > 255)) && b=255; ((b < 0)) && b=0
+
+    echo "$r $g $b"
+}
+
+# Convert hex to HSL
+hex_to_hsl() {
+    local hex="$1"
+    local rgb=$(hex_to_rgb "$hex")
+    local r=${rgb%% *}
+    local temp=${rgb#* }
+    local g=${temp%% *}
+    local b=${temp#* }
+    rgb_to_hsl "$r" "$g" "$b"
+}
+
+# Convert HSL to hex
+hsl_to_hex() {
+    local h=$1 s=$2 l=$3
+    local rgb=$(hsl_to_rgb "$h" "$s" "$l")
+    local r=${rgb%% *}
+    local temp=${rgb#* }
+    local g=${temp%% *}
+    local b=${temp#* }
+    rgb_to_hex "$r" "$g" "$b"
+}
+
+# =============================================================================
+# COLOR TRANSFORMS (tunable)
+# =============================================================================
+
+# Global intensity parameters (0-100, default 50)
+declare -g TDS_NEON_INTENSITY=${TDS_NEON_INTENSITY:-50}
+declare -g TDS_MUTED_INTENSITY=${TDS_MUTED_INTENSITY:-50}
+declare -g TDS_BRIGHT_INTENSITY=${TDS_BRIGHT_INTENSITY:-50}
+
+# Neon transform: boost saturation and lightness
+# Makes colors pop with a vibrant, electric feel
+tds_neon() {
+    local hex="$1"
+    local intensity="${2:-$TDS_NEON_INTENSITY}"
+
+    local hsl=$(hex_to_hsl "$hex")
+    local h=${hsl%% *}
+    local temp=${hsl#* }
+    local s=${temp%% *}
+    local l=${temp#* }
+
+    # Boost saturation toward 100 based on intensity
+    local s_boost=$((intensity * (100 - s) / 100))
+    s=$((s + s_boost))
+    ((s > 100)) && s=100
+
+    # Slight lightness boost for glow effect
+    local l_boost=$((intensity * 15 / 100))
+    l=$((l + l_boost))
+    ((l > 95)) && l=95
+
+    hsl_to_hex "$h" "$s" "$l"
+}
+
+# Muted transform: reduce saturation
+tds_muted() {
+    local hex="$1"
+    local intensity="${2:-$TDS_MUTED_INTENSITY}"
+
+    local hsl=$(hex_to_hsl "$hex")
+    local h=${hsl%% *}
+    local temp=${hsl#* }
+    local s=${temp%% *}
+    local l=${temp#* }
+
+    # Reduce saturation based on intensity
+    local s_reduce=$((intensity * s / 100))
+    s=$((s - s_reduce))
+    ((s < 0)) && s=0
+
+    hsl_to_hex "$h" "$s" "$l"
+}
+
+# Bright transform: increase lightness
+tds_bright() {
+    local hex="$1"
+    local intensity="${2:-$TDS_BRIGHT_INTENSITY}"
+
+    local hsl=$(hex_to_hsl "$hex")
+    local h=${hsl%% *}
+    local temp=${hsl#* }
+    local s=${temp%% *}
+    local l=${temp#* }
+
+    # Boost lightness toward 100
+    local l_boost=$((intensity * (100 - l) / 100))
+    l=$((l + l_boost))
+    ((l > 100)) && l=100
+
+    hsl_to_hex "$h" "$s" "$l"
+}
+
+# Dim transform: decrease lightness (toward background)
+tds_dim() {
+    local hex="$1"
+    local intensity="${2:-50}"
+
+    local hsl=$(hex_to_hsl "$hex")
+    local h=${hsl%% *}
+    local temp=${hsl#* }
+    local s=${temp%% *}
+    local l=${temp#* }
+
+    # Reduce lightness based on intensity
+    local l_reduce=$((intensity * l / 100))
+    l=$((l - l_reduce))
+    ((l < 5)) && l=5
+
+    hsl_to_hex "$h" "$s" "$l"
+}
+
 brighten() {
-    echo "$1"  # Just return original hex
+    tds_bright "$1" 30
 }
 
 darken() {
-    echo "$1"  # Just return original hex
+    tds_dim "$1" 30
 }
+
+# =============================================================================
+# CONTRAST & ACCESSIBILITY
+# =============================================================================
+
+# Calculate relative luminance (WCAG formula)
+# Returns luminance × 1000 (integer math)
+tds_luminance() {
+    local hex="$1"
+    local hex_clean="${hex#\#}"
+
+    [[ ! "$hex_clean" =~ ^[0-9A-Fa-f]{6}$ ]] && { echo "0"; return 1; }
+
+    local r=$((16#${hex_clean:0:2}))
+    local g=$((16#${hex_clean:2:2}))
+    local b=$((16#${hex_clean:4:2}))
+
+    # sRGB to linear (simplified: divide by 255, apply gamma)
+    # Using integer math: scale by 1000
+    # Gamma approximation: (x/255)^2.2 ≈ (x*x)/(255*255) for simplicity
+    local r_lin=$(( (r * r * 2126) / (255 * 255) ))
+    local g_lin=$(( (g * g * 7152) / (255 * 255) ))
+    local b_lin=$(( (b * b * 722) / (255 * 255) ))
+
+    echo $(( (r_lin + g_lin + b_lin) / 10 ))
+}
+
+# Calculate contrast ratio between two colors
+# Returns ratio × 100 (e.g., 450 = 4.5:1)
+tds_contrast_ratio() {
+    local fg="$1"
+    local bg="$2"
+
+    local l1=$(tds_luminance "$fg")
+    local l2=$(tds_luminance "$bg")
+
+    # Ensure l1 is lighter
+    if ((l2 > l1)); then
+        local tmp=$l1
+        l1=$l2
+        l2=$tmp
+    fi
+
+    # Contrast ratio = (L1 + 0.05) / (L2 + 0.05)
+    # Scaled: (L1 + 5) * 100 / (L2 + 5)
+    echo $(( (l1 + 5) * 100 / (l2 + 5) ))
+}
+
+# Ensure a color has sufficient contrast against background
+# Adjusts lightness until WCAG AA (4.5:1) is met
+tds_ensure_contrast() {
+    local fg="$1"
+    local bg="${2:-$BACKGROUND}"
+    local min_ratio="${3:-450}"  # 4.5:1 default
+
+    local ratio=$(tds_contrast_ratio "$fg" "$bg")
+
+    # Already sufficient
+    ((ratio >= min_ratio)) && { echo "$fg"; return 0; }
+
+    # Get HSL of foreground
+    local hsl=$(hex_to_hsl "$fg")
+    local h=${hsl%% *}
+    local temp=${hsl#* }
+    local s=${temp%% *}
+    local l=${temp#* }
+
+    # Determine if bg is dark or light
+    local bg_l=$(tds_luminance "$bg")
+
+    # Adjust lightness iteratively
+    local step=5
+    local attempts=0
+    while ((ratio < min_ratio && attempts < 20)); do
+        if ((bg_l < 50)); then
+            # Dark bg: lighten fg
+            l=$((l + step))
+            ((l > 95)) && l=95
+        else
+            # Light bg: darken fg
+            l=$((l - step))
+            ((l < 5)) && l=5
+        fi
+
+        fg=$(hsl_to_hex "$h" "$s" "$l")
+        ratio=$(tds_contrast_ratio "$fg" "$bg")
+        ((attempts++))
+    done
+
+    echo "$fg"
+}
+
+# =============================================================================
+# COLOR APPLICATION
+# =============================================================================
 
 # Color application functions
 hex_to_256() {

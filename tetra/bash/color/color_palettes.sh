@@ -7,47 +7,30 @@ _COLOR_PALETTES_LOADED=1
 source "$(dirname "${BASH_SOURCE[0]}")/color_core.sh"
 
 # =============================================================================
-# TDS 8x4 PALETTE SYSTEM
+# TDS 4-PALETTE SYSTEM
 # =============================================================================
 #
-# ENV[0-7]   "Where" - A/B alternating contexts (theme-specific)
-# MODE[0-7]  "How"   - bad/warning/good/info + dims (theme-specific)
-# VERBS[0-7] "Do"    - rainbow cycle for collections (universal)
-# NOUNS[0-7] "What"  - dark→bright gradient (theme-specific)
+# PRIMARY[0-7]    - Main rainbow (universal, for list cycling)
+# SECONDARY[0-7]  - Theme accent (theme personality)
+# SEMANTIC[0-7]   - Derived: error/warning/success/info + dims
+# SURFACE[0-7]    - Derived: bg→fg gradient, tinted
+#
+# Theme authors define: BACKGROUND, TINT, PRIMARY, SECONDARY
+# System derives: SEMANTIC, SURFACE via tds_derive()
 
-# ENV_PRIMARY - Alternating hue families for context distinction
-# [0,2,4,6] = hue A (greens), [1,3,5,7] = hue B (teals)
-ENV_PRIMARY=(
-    "00AA00"  # 0: A primary (green)
-    "00AAAA"  # 1: B primary (teal)
-    "44DD44"  # 2: A light
-    "44DDDD"  # 3: B light
-    "338833"  # 4: A muted
-    "338888"  # 5: B muted
-    "225522"  # 6: A dim
-    "225555"  # 7: B dim
-)
+# =============================================================================
+# THEME INPUTS (defined by theme or defaults)
+# =============================================================================
 
-# MODE_PRIMARY - Semantic states (theme-specific colors)
-# [0]=bad [1]=warning [2]=good [3]=info [4-7]=dim versions (via desaturate_hex)
-_MODE_BAD="DD4444"
-_MODE_WARNING="DDAA44"
-_MODE_GOOD="44DD44"
-_MODE_INFO="4488DD"
-MODE_PRIMARY=(
-    "$_MODE_BAD"                          # 0: bad/error (red)
-    "$_MODE_WARNING"                      # 1: warning (amber)
-    "$_MODE_GOOD"                         # 2: good/success (green)
-    "$_MODE_INFO"                         # 3: info (blue)
-    "$(desaturate_hex "$_MODE_BAD" 3)"    # 4: bad dim
-    "$(desaturate_hex "$_MODE_WARNING" 3)" # 5: warning dim
-    "$(desaturate_hex "$_MODE_GOOD" 3)"   # 6: good dim
-    "$(desaturate_hex "$_MODE_INFO" 3)"   # 7: info dim
-)
+# Background anchor color
+declare -g BACKGROUND="${BACKGROUND:-1A1A2E}"
 
-# VERBS_PRIMARY - Rainbow cycle for collection distinction (universal)
+# Surface tint saturation (0=pure gray, higher=more tinted)
+declare -g TINT="${TINT:-10}"
+
+# PRIMARY - Main rainbow for list cycling
 # 8 maximally distinct hues spread across color wheel
-VERBS_PRIMARY=(
+declare -ga PRIMARY=(
     "E53935"  # 0: red (0°)
     "FB8C00"  # 1: orange (30°)
     "FDD835"  # 2: yellow (60°)
@@ -58,131 +41,148 @@ VERBS_PRIMARY=(
     "EC407A"  # 7: pink (330°)
 )
 
-# NOUNS_PRIMARY - Text gradient dark→bright
-# [0]=darkest → [7]=brightest
-NOUNS_PRIMARY=(
-    "333333"  # 0: darkest
-    "555555"  # 1: dark
-    "777777"  # 2: dim
-    "999999"  # 3: muted
-    "AAAAAA"  # 4: subtle
-    "CCCCCC"  # 5: light
-    "DDDDDD"  # 6: pale
-    "EEEEEE"  # 7: brightest
+# SECONDARY - Theme accent palette
+# Default: offset rainbow (+22° from PRIMARY)
+# Themes can override with earth tones, pastels, etc.
+declare -ga SECONDARY=(
+    "E56335"  # 0: coral      (22°)
+    "C8A400"  # 1: gold       (52°)
+    "7DBB00"  # 2: lime       (82°)
+    "00A86B"  # 3: emerald    (142°)
+    "007BA7"  # 4: azure      (202°)
+    "4169E1"  # 5: royal blue (232°)
+    "A347A3"  # 6: orchid     (292°)
+    "E5355E"  # 7: rose       (352°)
 )
 
-# Generate complementary colors
-ENV_COMPLEMENT=()
-MODE_COMPLEMENT=()
-VERBS_COMPLEMENT=()
-NOUNS_COMPLEMENT=()
+# =============================================================================
+# DERIVED PALETTES (computed by tds_derive)
+# =============================================================================
 
-generate_complements() {
-    local -n primary=$1
-    local -n complement=$2
+# SEMANTIC - Status colors derived from PRIMARY
+declare -ga SEMANTIC=()
 
-    for hex in "${primary[@]}"; do
-        # Parse hex directly to avoid IFS issues
-        local hex_clean="${hex#\#}"
-        if [[ ! "$hex_clean" =~ ^[0-9A-Fa-f]{6}$ ]]; then
-            complement+=("$hex")  # Keep original if invalid
-            continue
+# SURFACE - Background to foreground gradient, tinted
+declare -ga SURFACE=()
+
+# =============================================================================
+# tds_derive() - Compute SEMANTIC and SURFACE from inputs
+# =============================================================================
+
+tds_derive() {
+    # Extract background properties
+    local bg_hsl=$(hex_to_hsl "$BACKGROUND")
+    local bg_h=${bg_hsl%% *}
+    local temp=${bg_hsl#* }
+    local bg_s=${temp%% *}
+    local bg_l=${temp#* }
+
+    # -------------------------------------------------------------------------
+    # SEMANTIC: error/warning/success/info from PRIMARY slots
+    # -------------------------------------------------------------------------
+    # Slots: 0=red(error), 1=orange(warning), 3=green(success), 5=blue(info)
+    local error_hex="${PRIMARY[0]}"
+    local warning_hex="${PRIMARY[1]}"
+    local success_hex="${PRIMARY[3]}"
+    local info_hex="${PRIMARY[5]}"
+
+    # Ensure contrast against background
+    error_hex=$(tds_ensure_contrast "$error_hex" "$BACKGROUND")
+    warning_hex=$(tds_ensure_contrast "$warning_hex" "$BACKGROUND")
+    success_hex=$(tds_ensure_contrast "$success_hex" "$BACKGROUND")
+    info_hex=$(tds_ensure_contrast "$info_hex" "$BACKGROUND")
+
+    SEMANTIC=(
+        "$error_hex"                      # 0: error
+        "$warning_hex"                    # 1: warning
+        "$success_hex"                    # 2: success
+        "$info_hex"                       # 3: info
+        "$(tds_dim "$error_hex" 40)"      # 4: error dim
+        "$(tds_dim "$warning_hex" 40)"    # 5: warning dim
+        "$(tds_dim "$success_hex" 40)"    # 6: success dim
+        "$(tds_dim "$info_hex" 40)"       # 7: info dim
+    )
+
+    # -------------------------------------------------------------------------
+    # SURFACE: tinted gradient from background to foreground
+    # -------------------------------------------------------------------------
+    SURFACE=()
+    local i l
+    for i in {0..7}; do
+        if ((bg_l < 50)); then
+            # Dark theme: 0=dark (bg), 7=light (fg)
+            l=$((8 + i * 12))   # 8% to 92%
+        else
+            # Light theme: 0=light (bg), 7=dark (fg)
+            l=$((92 - i * 12))  # 92% to 8%
         fi
-        local r=$((16#${hex_clean:0:2}))
-        local g=$((16#${hex_clean:2:2}))
-        local b=$((16#${hex_clean:4:2}))
-        complement+=($(rgb_to_hex $((255-r)) $((255-g)) $((255-b))))
+        SURFACE+=("$(hsl_to_hex "$bg_h" "$TINT" "$l")")
     done
 }
 
-# Initialize colors
-init_colors() {
-    generate_complements ENV_PRIMARY ENV_COMPLEMENT
-    generate_complements MODE_PRIMARY MODE_COMPLEMENT
-    generate_complements VERBS_PRIMARY VERBS_COMPLEMENT
-    generate_complements NOUNS_PRIMARY NOUNS_COMPLEMENT
+# =============================================================================
+# COLOR ACCESS FUNCTIONS
+# =============================================================================
+
+# Get color from palette by name and index
+# Usage: tds_color primary 3 → hex color
+tds_color() {
+    local palette="${1,,}"  # lowercase
+    local index="${2:-0}"
+
+    case "$palette" in
+        primary)   echo "${PRIMARY[$index]:-888888}" ;;
+        secondary) echo "${SECONDARY[$index]:-888888}" ;;
+        semantic)  echo "${SEMANTIC[$index]:-888888}" ;;
+        surface)   echo "${SURFACE[$index]:-888888}" ;;
+        *)         echo "888888" ;;
+    esac
 }
 
-# Call initialization
-init_colors
+# Apply color from palette
+# Usage: tds_apply primary 3 → sets terminal color
+tds_apply() {
+    local hex=$(tds_color "$1" "$2")
+    text_color "$hex"
+}
 
-# Color scheme functions (using array indices 0-15)
-env_color() {
+# =============================================================================
+# CONVENIENCE FUNCTIONS (using new names)
+# =============================================================================
+
+primary_color() {
     local index=$1 variant=${2:-primary}
-    local color
-    if (( index < 8 )); then
-        case "$variant" in
-            primary) color="${ENV_PRIMARY[$index]}" ;;
-            bright) color="$(brighten "${ENV_PRIMARY[$index]}")" ;;
-            dark) color="$(darken "${ENV_PRIMARY[$index]}")" ;;
-        esac
-    else
-        local comp_index=$((index - 8))
-        case "$variant" in
-            primary) color="${ENV_COMPLEMENT[$comp_index]}" ;;
-            bright) color="$(brighten "${ENV_COMPLEMENT[$comp_index]}")" ;;
-            dark) color="$(darken "${ENV_COMPLEMENT[$comp_index]}")" ;;
-        esac
-    fi
+    local color="${PRIMARY[$index]}"
+    case "$variant" in
+        bright) color="$(tds_bright "$color" 30)" ;;
+        dark)   color="$(tds_dim "$color" 30)" ;;
+    esac
     text_color "$color"
 }
 
-mode_color() {
+secondary_color() {
     local index=$1 variant=${2:-primary}
-    local color
-    if (( index < 8 )); then
-        case "$variant" in
-            primary) color="${MODE_PRIMARY[$index]}" ;;
-            bright) color="$(brighten "${MODE_PRIMARY[$index]}")" ;;
-            dark) color="$(darken "${MODE_PRIMARY[$index]}")" ;;
-        esac
-    else
-        local comp_index=$((index - 8))
-        case "$variant" in
-            primary) color="${MODE_COMPLEMENT[$comp_index]}" ;;
-            bright) color="$(brighten "${MODE_COMPLEMENT[$comp_index]}")" ;;
-            dark) color="$(darken "${MODE_COMPLEMENT[$comp_index]}")" ;;
-        esac
-    fi
+    local color="${SECONDARY[$index]}"
+    case "$variant" in
+        bright) color="$(tds_bright "$color" 30)" ;;
+        dark)   color="$(tds_dim "$color" 30)" ;;
+    esac
     text_color "$color"
 }
 
-verbs_color() {
-    local index=$1 variant=${2:-primary}
-    local color
-    if (( index < 8 )); then
-        case "$variant" in
-            primary) color="${VERBS_PRIMARY[$index]}" ;;
-            bright) color="$(brighten "${VERBS_PRIMARY[$index]}")" ;;
-            dark) color="$(darken "${VERBS_PRIMARY[$index]}")" ;;
-        esac
-    else
-        local comp_index=$((index - 8))
-        case "$variant" in
-            primary) color="${VERBS_COMPLEMENT[$comp_index]}" ;;
-            bright) color="$(brighten "${VERBS_COMPLEMENT[$comp_index]}")" ;;
-            dark) color="$(darken "${VERBS_COMPLEMENT[$comp_index]}")" ;;
-        esac
-    fi
-    text_color "$color"
+semantic_color() {
+    local index=$1
+    text_color "${SEMANTIC[$index]}"
 }
 
-nouns_color() {
-    local index=$1 variant=${2:-primary}
-    local color
-    if (( index < 8 )); then
-        case "$variant" in
-            primary) color="${NOUNS_PRIMARY[$index]}" ;;
-            bright) color="$(brighten "${NOUNS_PRIMARY[$index]}")" ;;
-            dark) color="$(darken "${NOUNS_PRIMARY[$index]}")" ;;
-        esac
-    else
-        local comp_index=$((index - 8))
-        case "$variant" in
-            primary) color="${NOUNS_COMPLEMENT[$comp_index]}" ;;
-            bright) color="$(brighten "${NOUNS_COMPLEMENT[$comp_index]}")" ;;
-            dark) color="$(darken "${NOUNS_COMPLEMENT[$comp_index]}")" ;;
-        esac
-    fi
-    text_color "$color"
+surface_color() {
+    local index=$1
+    text_color "${SURFACE[$index]}"
 }
+
+# =============================================================================
+# INITIALIZATION
+# =============================================================================
+
+# Run derivation with defaults
+tds_derive
