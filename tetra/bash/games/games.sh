@@ -581,6 +581,9 @@ games_unpak() {
 # =============================================================================
 
 games_doctor() {
+    local kill_orphans=0
+    [[ "$1" == "--kill" ]] && kill_orphans=1
+
     echo "Games Environment Diagnostics"
     echo "=============================="
     echo ""
@@ -666,6 +669,70 @@ games_doctor() {
     done
     echo ""
     echo "Total: $total games"
+    echo ""
+
+    # Orphan process detection
+    echo "Processes:"
+    local -a tsm_pids=()
+    local -a orphan_pids=()
+    local -A orphan_info=()
+
+    # Get TSM-managed PIDs
+    while IFS= read -r pid; do
+        [[ -n "$pid" ]] && tsm_pids+=("$pid")
+    done < <(tsm ls 2>/dev/null | awk 'NR>1 {print $3}')
+
+    # Game-related process patterns (binary names, not paths)
+    local patterns="bin/pulsar|quasar_local|magnetar|game_bridge"
+
+    # Find all game-related processes (exclude grep and claude shells)
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        # Skip Claude shell processes (false positives from command history)
+        [[ "$line" == *"claude"* ]] && continue
+        [[ "$line" == *"shell-snapshots"* ]] && continue
+
+        local pid=$(echo "$line" | awk '{print $2}')
+        local cmd=$(echo "$line" | awk '{for(i=11;i<=NF;i++) printf $i" "; print ""}')
+
+        # Check if managed by TSM
+        local managed=0
+        for tsm_pid in "${tsm_pids[@]}"; do
+            [[ "$pid" == "$tsm_pid" ]] && { managed=1; break; }
+        done
+
+        if ((managed == 0)); then
+            orphan_pids+=("$pid")
+            orphan_info[$pid]="$cmd"
+        fi
+    done < <(ps aux | grep -E "$patterns" | grep -v grep)
+
+    if ((${#orphan_pids[@]} == 0)); then
+        echo "  [OK] No orphan game processes"
+    else
+        echo "  [WARN] ${#orphan_pids[@]} orphan process(es) outside TSM:"
+        for pid in "${orphan_pids[@]}"; do
+            local cmd="${orphan_info[$pid]}"
+            # Truncate long commands
+            ((${#cmd} > 60)) && cmd="${cmd:0:57}..."
+            printf "    PID %-7s %s\n" "$pid" "$cmd"
+        done
+
+        if ((kill_orphans)); then
+            echo ""
+            echo "  Killing orphan processes..."
+            for pid in "${orphan_pids[@]}"; do
+                if kill "$pid" 2>/dev/null; then
+                    echo "    [OK] Killed PID $pid"
+                else
+                    echo "    [FAIL] Could not kill PID $pid"
+                fi
+            done
+        else
+            echo ""
+            echo "  To kill orphans: games doctor --kill"
+        fi
+    fi
 }
 
 # =============================================================================
@@ -814,7 +881,7 @@ games() {
 
         # Diagnostics
         doctor)
-            games_doctor
+            games_doctor "$@"
             ;;
 
         # Help (TDS-colored if available)
