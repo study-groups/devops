@@ -1,0 +1,22 @@
+# TSM Logs - streaming colorization
+# Inline patterns for log output
+
+# Section headers
+pattern ^===.*===$ heading
+
+# Bracketed tags like [gamma], [http]
+# @verbs = rainbow cycling, each unique tag gets consistent color
+pattern \[[^]]+\] @verbs
+
+# URLs and paths
+pattern https?://[^ ]+   info
+pattern /tmp/[^ ]+       muted
+
+# Status words
+pattern (online|running|active|success|Ready|Listening) success
+pattern (stopped|down|inactive|offline|disabled)        muted
+pattern (error|failed|critical|dead|ERROR|FAILED)       error
+pattern (warning|pending|starting|stopping|WARNING)     warning
+
+# Port numbers
+pattern :[0-9]{4,5}      info

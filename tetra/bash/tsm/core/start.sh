@@ -1,390 +1,230 @@
 #!/usr/bin/env bash
+# TSM Start - service resolution and process startup
 
-# TSM Universal Start - Works with ANY bash command
-# Smart port discovery from command arguments
+# === SERVICE RESOLUTION ===
 
-# Common directory names to skip when deriving project name
-# These are typically inside a project, not the project itself
-_TSM_SKIP_DIRS="dist|build|out|output|src|lib|app|public|static|assets|bin|pkg|target|node_modules"
+# Find a service definition file by name
+# Searches: $TSM_SERVICES_AVAILABLE, then org-specific paths
+# Returns: full path to .tsm file, or empty string if not found
+tsm_find_service() {
+    local name="$1"
+    [[ -z "$name" ]] && return 1
 
-# Get project name from path, walking up to skip common non-descriptive dirs
-# Example: /src/controldeck/dist -> controldeck
-#          /src/myproject -> myproject
-#          /tetra/bash/midi -> midi
-_tsm_get_project_name() {
-    local path="${1:-$PWD}"
-    local dir_name
-
-    # Walk up the path looking for a meaningful name
-    while [[ "$path" != "/" && "$path" != "." && -n "$path" ]]; do
-        dir_name=$(basename "$path")
-
-        # Skip if it matches common non-descriptive directories
-        if [[ ! "$dir_name" =~ ^($_TSM_SKIP_DIRS)$ ]]; then
-            echo "$dir_name"
-            return
-        fi
-
-        # Move up one level
-        path=$(dirname "$path")
-    done
-
-    # Fallback to basename of original path
-    basename "${1:-$PWD}"
-}
-
-# Discover port from command (4-5 digit integers)
-tsm_discover_port() {
-    local command="$1"
-    local env_file="$2"
-    local explicit_port="$3"
-    local parsed_port="${4:-}"  # Optional: pre-parsed ENV_PORT
-
-    # Priority: --port > env file > script file > command scan > none
-    [[ -n "$explicit_port" ]] && { echo "$explicit_port"; return 0; }
-
-    # Use pre-parsed port if available, otherwise read env file
-    if [[ -n "$parsed_port" ]]; then
-        echo "$parsed_port"
+    # 1. Check $TSM_SERVICES_AVAILABLE (primary location)
+    local svc_file="$TSM_SERVICES_AVAILABLE/${name}.tsm"
+    if [[ -f "$svc_file" ]]; then
+        echo "$svc_file"
         return 0
-    elif [[ -n "$env_file" && -f "$env_file" ]]; then
-        local port=$(_tsm_get_env_port "$env_file")
-        [[ -n "$port" ]] && { echo "$port"; return 0; }
     fi
 
-    # Check script file for PORT (if command is "node script.js" or "python script.py")
-    # Skip python -m module commands (they don't have script files to check)
-    local script_file=""
-    if [[ "$command" =~ (node|python|python3)[[:space:]]+([^[:space:]-][^[:space:]]*) ]]; then
-        script_file="${BASH_REMATCH[2]}"
-        if [[ -f "$script_file" ]]; then
-            # Look for PORT= or process.env.PORT with default value
-            local port=$(grep -oE '(PORT.*=.*(process\.env\.PORT.*\|\|.*)?[0-9]{4,5}|const.*PORT.*=.*[0-9]{4,5})' "$script_file" | grep -oE '[0-9]{4,5}' | head -1)
-            [[ -n "$port" ]] && { echo "$port"; return 0; }
-        fi
+    # 2. Check org-specific services-available
+    local orgs_dir="$TETRA_DIR/orgs"
+    if [[ -d "$orgs_dir" ]]; then
+        for org_dir in "$orgs_dir"/*/; do
+            [[ -d "$org_dir" ]] || continue
+            local org_svc="$org_dir/tsm/services-available/${name}.tsm"
+            if [[ -f "$org_svc" ]]; then
+                echo "$org_svc"
+                return 0
+            fi
+        done
     fi
 
-    # Scan command for port patterns (:8000, --port 8000, -p 8000, PORT=8000, or standalone 4-5 digit)
-    local port=$(echo "$command" | grep -oE '(:|--port|-p|PORT=| )[0-9]{4,5}' | grep -oE '[0-9]{4,5}' | head -1)
-    [[ -n "$port" ]] && { echo "$port"; return 0; }
-
-    echo ""
     return 1
 }
 
-# Generate process name
-tsm_generate_process_name() {
-    local command="$1"
-    local port="$2"
-    local explicit_name="$3"
-    local env_file="$4"
-    local parsed_name="${5:-}"  # Optional: pre-parsed ENV_NAME
+# Load service definition variables from .tsm file
+# Usage: tsm_load_service <name>
+# Sets: TSM_NAME, TSM_COMMAND, TSM_PORT, TSM_ENV, TSM_CWD, etc.
+tsm_load_service() {
+    local name="$1"
+    local svc_file
 
-    local base_name
-    if [[ -n "$explicit_name" ]]; then
-        base_name="$explicit_name"
-    else
-        # Use pre-parsed name if available, otherwise read env file
-        if [[ -n "$parsed_name" ]]; then
-            base_name="$parsed_name"
-        elif [[ -n "$env_file" && -f "$env_file" ]]; then
-            base_name=$(_tsm_get_env_name "$env_file")
-        fi
+    svc_file=$(tsm_find_service "$name") || return 1
 
-        # If still no name, try package.json
-        if [[ -z "$base_name" && -f "package.json" ]]; then
-            base_name=$(grep -E '"name"[[:space:]]*:' package.json | head -1 | grep -oE '"[^"]+"[[:space:]]*$' | tr -d '"' | tr -d ' ')
-        fi
+    # Clear previous values
+    TSM_NAME="" TSM_COMMAND="" TSM_PORT="" TSM_ENV="" TSM_CWD=""
+    TSM_ORG="" TSM_PORT_TYPE="" TSM_DESCRIPTION="" TSM_PRE_COMMAND=""
+    TSM_DEPS="" TSM_HEALTH_CHECK="" TSM_PORTS=""
 
-        # If still no name, extract from script file or module
-        if [[ -z "$base_name" ]]; then
-            # Get project name, walking up path to skip common dirs like dist/build
-            local dir_name=$(_tsm_get_project_name "$PWD")
+    # Source the service file
+    source "$svc_file" 2>/dev/null || {
+        tsm_error "failed to load service '$name'"
+        return 1
+    }
 
-            # Match: python script.py, node app.js, python -m module.name
-            if [[ "$command" =~ (node|python|python3)[[:space:]]+-m[[:space:]]+([a-zA-Z0-9_.]+) ]]; then
-                # Python module: combine project name + module name
-                # Example: python -m http.server in /src/controldeck/dist -> controldeck-http
-                local module_name="${BASH_REMATCH[2]}"
-                base_name="${dir_name}-${module_name%%.*}"
-            elif [[ "$command" =~ (node|python|python3)[[:space:]]+([^[:space:]-][^[:space:]]*) ]]; then
-                # Script file: combine project name + script name
-                # Example: python server.py in /src/controldeck/dist -> controldeck-server
-                local script_file="${BASH_REMATCH[2]}"
-                local script_base=$(basename "$script_file" .js 2>/dev/null || echo "$script_file")
-                script_base=$(basename "$script_base" .py 2>/dev/null || echo "$script_base")
-                base_name="${dir_name}-${script_base}"
-            else
-                # Fallback: just use project name
-                base_name="$dir_name"
+    return 0
+}
+
+# === START ===
+
+# Start any command as a managed process
+# Usage: tsm_start <service_name|command> [--port N] [--env FILE] [--name NAME]
+tsm_start() {
+    local command=""
+    local port=""
+    local env_file=""
+    local name=""
+    local start_cwd="$PWD"
+    local pre_command=""
+
+    # Check if first argument is a service name
+    if [[ $# -gt 0 && "$1" != -* && ! "$1" =~ [[:space:]/] ]]; then
+        if tsm_find_service "$1" &>/dev/null; then
+            # Load service definition
+            tsm_load_service "$1" || return $?
+
+            command="$TSM_COMMAND"
+            port="${TSM_PORT:-}"
+            env_file="${TSM_ENV:-}"
+            name="${TSM_NAME:-$1}"
+            start_cwd="${TSM_CWD:-$PWD}"
+            pre_command="${TSM_PRE_COMMAND:-}"
+
+            # Skip "none" as env value
+            [[ "$env_file" == "none" ]] && env_file=""
+
+            shift  # consume service name
+
+            # Allow CLI overrides for remaining args
+            while [[ $# -gt 0 ]]; do
+                case "$1" in
+                    --port|-p) port="$2"; shift 2 ;;
+                    --env|-e)  env_file="$2"; shift 2 ;;
+                    --name|-n) name="$2"; shift 2 ;;
+                    *) shift ;;  # ignore extra args for service mode
+                esac
+            done
+
+            # Change to service CWD first
+            cd "$start_cwd" 2>/dev/null || {
+                tsm_error "cannot cd to '$start_cwd'"
+                return 1
+            }
+
+            # Run pre-command after cd (so relative paths work)
+            if [[ -n "$pre_command" ]]; then
+                eval "$pre_command" || {
+                    tsm_error "pre-command failed: $pre_command"
+                    return 1
+                }
             fi
         fi
     fi
 
-    # Add port or timestamp (but don't double-append on restart)
-    if [[ -n "$port" && "$port" != "none" ]]; then
-        # Check if base_name already ends with -$port (from restart)
-        if [[ "$base_name" == *"-$port" ]]; then
-            echo "$base_name"
-        else
-            echo "${base_name}-${port}"
-        fi
-    else
-        echo "${base_name}-$(date +%s)"
-    fi
-}
-
-# Universal start function - works with any command
-tsm_start_any_command() {
-    local command="$1"
-    local env_file="$2"
-    local explicit_port="$3"
-    local explicit_name="$4"
-    local explicit_prehook="$5"  # Optional: --pre-hook value
-
-    [[ -z "$command" ]] && {
-        echo "tsm: command required" >&2
-        return 64
-    }
-
-    # Parse env file ONCE at the beginning (extracts PORT and NAME)
-    local ENV_PORT="" ENV_NAME=""
-    if [[ -n "$env_file" && -f "$env_file" ]]; then
-        # Safe parsing without eval - read output line by line
-        while IFS='=' read -r key value; do
-            case "$key" in
-                ENV_PORT) ENV_PORT="$value" ;;
-                ENV_NAME) ENV_NAME="$value" ;;
+    # Parse args (raw command mode)
+    if [[ -z "$command" ]]; then
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --port|-p) port="$2"; shift 2 ;;
+                --env|-e)  env_file="$2"; shift 2 ;;
+                --name|-n) name="$2"; shift 2 ;;
+                *)
+                    if [[ -z "$command" ]]; then
+                        command="$1"
+                    else
+                        command="$command $1"
+                    fi
+                    shift
+                    ;;
             esac
-        done < <(tsm_parse_env_file "$env_file")
+        done
     fi
 
-    # Detect process type and resolve interpreter
-    local process_type
-    process_type=$(tsm_detect_type "$command")
+    [[ -z "$command" ]] && { tsm_error "command required"; return 64; }
 
-    local interpreter
-    interpreter=$(tsm_resolve_interpreter "$process_type")
-
-    # Rewrite command with resolved interpreter
-    local final_command
-    if [[ -n "$interpreter" && "$process_type" != "command" ]]; then
-        final_command=$(tsm_rewrite_command_with_interpreter "$command" "$process_type" "$interpreter")
-    else
-        final_command="$command"
-    fi
-
-    # Apply port resolution ladder (6-step with IRON FIST env file priority)
-    local port template service_type
-    if declare -f tsm_resolve_port >/dev/null 2>&1; then
-        local resolution=$(tsm_resolve_port "$command" "$explicit_port" "$ENV_PORT")
-        IFS='|' read -r port template service_type <<< "$resolution"
-
-        # If template returned, rewrite command
-        if [[ "$template" != "{cmd}" ]]; then
-            final_command=$(tsm_apply_template "$final_command" "$port" "$template")
+    # Parse env file for PORT if provided
+    # TSM_ENV can be: "local" (file), "/path/to/file.env", or "VAR=val VAR2=val2" (inline)
+    local env_port=""
+    local env_inline=""
+    if [[ -n "$env_file" ]]; then
+        if [[ "$env_file" == *"="* ]]; then
+            # Inline vars: "PORT=4444 TETRA_ENV=local"
+            env_inline="$env_file"
+            env_file=""
+            # Extract PORT if present
+            if [[ "$env_inline" =~ PORT=([0-9]+) ]]; then
+                env_port="${BASH_REMATCH[1]}"
+            fi
+        else
+            # File reference
+            env_file=$(tsm_find_env_file "" "$env_file") || return $?
+            env_port=$(tsm_parse_env_port "$env_file")
         fi
-    else
-        # Fallback: use old discovery method
-        port=$(tsm_discover_port "$command" "$env_file" "$explicit_port" "$ENV_PORT")
-        template="{cmd}"
-        service_type="port"
     fi
 
-    [[ -z "$port" || "$port" == "none" ]] && port="none" && service_type="pid"
+    # Resolve port (3-step ladder)
+    local resolved_port=$(tsm_resolve_port "$port" "$env_port")
 
-    # Generate name (pass parsed value to avoid re-reading)
-    local name
-    name=$(tsm_generate_process_name "$command" "$port" "$explicit_name" "$env_file" "$ENV_NAME")
+    # Generate name
+    local proc_name=$(tsm_generate_name "$command" "$resolved_port" "$PWD" "$name")
 
     # Check if already running
-    if tsm_process_exists "$name"; then
-        echo "❌ Process '$name' already running" >&2
+    if tsm_process_alive "$proc_name"; then
+        tsm_error "process '$proc_name' already running"
         return 1
     fi
 
-    # Log start attempt (construct JSON safely)
-    local log_meta=$(jq -n --arg cmd "$command" --arg p "$port" '{command: $cmd, port: $p}')
-    tetra_log_try "tsm" "start" "$name" "$log_meta"
+    # Setup process directory
+    local proc_dir=$(tsm_process_dir "$proc_name")
+    mkdir -p "$proc_dir"
 
-    # Setup process directory (PM2-style)
-    local process_dir="$TSM_PROCESSES_DIR/$name"
-    mkdir -p "$process_dir"
+    local log_out="$proc_dir/current.out"
+    local log_err="$proc_dir/current.err"
+    local pid_file="$proc_dir/pid"
 
-    local log_out="$process_dir/current.out"
-    local log_err="$process_dir/current.err"
-    local pid_file="$process_dir/${name}.pid"
+    # Clean stale files
+    rm -f "$pid_file" "$log_out" "$log_err"
 
-    # Clean stale files from previous run
-    rm -f "$pid_file" "$log_out" "$log_err" "$process_dir/wrapper.err"
-
-    # Setup socket if service_type is socket
-    local socket_path=""
-    if [[ "$service_type" == "socket" ]] && declare -f tsm_socket_create >/dev/null 2>&1; then
-        socket_path=$(tsm_socket_create "$name")
-    fi
-
-    # Build environment activation and user env file
-    # Always source tetra.sh first so functions are available in subprocess
-    local env_setup="source \$HOME/tetra/tetra.sh"$'\n'
-
-    # Build pre-hook (priority: explicit > service-specific > type-based)
-    # Use explicit_name as service name for service-specific hook lookup
-    local prehook_cmd
-    if declare -f tsm_build_prehook >/dev/null 2>&1; then
-        prehook_cmd=$(tsm_build_prehook "$explicit_prehook" "$process_type" "$explicit_name")
-    else
-        # Fallback to old method if hooks.sh not loaded
-        prehook_cmd=$(tsm_build_env_activation "$process_type")
-    fi
-
-    [[ -n "$prehook_cmd" ]] && env_setup="${env_setup}$prehook_cmd"$'\n'
-
-    # Add user env file if specified
-    if [[ -n "$env_file" && -f "$env_file" ]]; then
-        env_setup="${env_setup}source '$env_file'"
-    fi
-
-    # Export PORT to environment (so processes can use process.env.PORT)
-    if [[ -n "$port" && "$port" != "none" ]]; then
-        env_setup="${env_setup}"$'\n'"export PORT='$port'"
-    fi
-
-    # Export socket path for socket-based services
-    if [[ -n "$socket_path" ]]; then
-        env_setup="${env_setup}"$'\n'"export TSM_SOCKET_PATH='$socket_path'"
-    fi
-
-    # Start process
-    local setsid_cmd
-    setsid_cmd=$(tsm_get_setsid) || {
-        echo "tsm: setsid not available. Run 'tsm setup'" >&2
+    # Get setsid
+    local setsid_cmd=$(tsm_get_setsid) || {
+        tsm_error "setsid not found. Install util-linux"
         return 1
     }
 
-    # Validate command for security
-    if ! _tsm_validate_command "$final_command"; then
-        echo "tsm: Command validation failed" >&2
-        return 1
+    # Build startup script
+    local startup="source \$HOME/tetra/tetra.sh"$'\n'
+    [[ -n "$env_file" ]] && startup="${startup}source '$env_file'"$'\n'
+    # Handle inline env vars (space-separated KEY=VALUE pairs)
+    if [[ -n "$env_inline" ]]; then
+        for pair in $env_inline; do
+            startup="${startup}export $pair"$'\n'
+        done
     fi
+    [[ -n "$resolved_port" && "$resolved_port" != "0" ]] && startup="${startup}export PORT='$resolved_port'"$'\n'
 
-    # Create wrapper error log to capture setup/bash errors
-    local log_wrapper="$process_dir/wrapper.err"
-
+    # Start process
     (
         $setsid_cmd bash -c "
-            $env_setup
-            $final_command </dev/null >>'${log_out}' 2>>'${log_err}' &
-            echo \$! > '${pid_file}'
-        " 2>>"${log_wrapper}" &
+            $startup
+            $command </dev/null >>'$log_out' 2>>'$log_err' &
+            echo \$! > '$pid_file'
+        " &
     )
 
-    # Wait for PID file (up to 5 seconds, checking every 100ms)
-    local wait_count=0
-    while [[ ! -f "$pid_file" && $wait_count -lt 50 ]]; do
+    # Wait for PID file
+    local count=0
+    while [[ ! -f "$pid_file" && $count -lt 50 ]]; do
         sleep 0.1
-        ((wait_count++))
+        ((count++))
     done
 
-    # Verify started
     if [[ ! -f "$pid_file" ]]; then
-        echo "❌ Failed to start: $name (no PID file after ${wait_count}00ms)" >&2
-
-        # Show wrapper errors if any (env file errors, pre-hook failures, etc.)
-        if [[ -f "$log_wrapper" && -s "$log_wrapper" ]]; then
-            echo "" >&2
-            echo "Startup wrapper errors:" >&2
-            tail -10 "$log_wrapper" >&2
-        fi
-
+        tsm_error "failed to start '$proc_name' (no PID)"
         return 1
     fi
 
     local pid=$(cat "$pid_file")
     if ! tsm_is_pid_alive "$pid"; then
-        echo "❌ Failed to start: $name (process died immediately)" >&2
-        echo >&2
-
-        # Check for port conflict first
-        if [[ "$port" != "none" ]] && command -v lsof >/dev/null 2>&1; then
-            local existing_pid=$(tsm_get_port_pid "$port")
-            if [[ -n "$existing_pid" ]]; then
-                local process_cmd=$(ps -p $existing_pid -o args= 2>/dev/null | head -c 80 || echo "unknown")
-                echo "🔴 Port $port is already in use!" >&2
-                echo "   Blocking process: PID $existing_pid" >&2
-                echo "   Command: $process_cmd" >&2
-                echo >&2
-                echo "Solutions:" >&2
-                echo "   • Stop the process: kill $existing_pid" >&2
-                echo "   • Or use a different port in your config" >&2
-                echo "   • Or use: tsm doctor" >&2
-                return 1
-            fi
-        fi
-
-        # No port conflict, show all available error logs
-        local has_errors=false
-
-        # Show wrapper errors (env file, pre-hook failures)
-        if [[ -f "$log_wrapper" && -s "$log_wrapper" ]]; then
-            echo "Startup wrapper errors:" >&2
-            tail -10 "$log_wrapper" >&2
-            has_errors=true
-        fi
-
-        # Show process stderr
-        if [[ -f "$log_err" && -s "$log_err" ]]; then
-            [[ "$has_errors" == "true" ]] && echo "" >&2
-            echo "Process error output:" >&2
-            tail -10 "$log_err" >&2
-            has_errors=true
-        fi
-
-        # If no errors captured, provide generic message
-        if [[ "$has_errors" == "false" ]]; then
-            echo "Process started but crashed immediately with no error output." >&2
-            echo "Check logs: $log_out and $log_err" >&2
-        fi
-
+        tsm_error "process died immediately"
+        [[ -f "$log_err" && -s "$log_err" ]] && tail -5 "$log_err" >&2
         return 1
     fi
 
-    # Create JSON metadata with service_type
-    local tsm_id=$(tsm_create_metadata \
-        "$name" \
-        "$pid" \
-        "$final_command" \
-        "$port" \
-        "$PWD" \
-        "$interpreter" \
-        "$process_type" \
-        "$env_file" \
-        "$explicit_prehook" \
-        "$service_type")
+    # Create metadata
+    local id=$(tsm_create_meta "$proc_name" "$pid" "$command" "$resolved_port" "$PWD" "$env_file")
 
-    # Log success (construct JSON safely)
-    local success_meta=$(jq -n --arg pid "$pid" --arg port "$port" --arg id "$tsm_id" \
-        '{pid: ($pid | tonumber), port: $port, tsm_id: ($id | tonumber)}')
-    tetra_log_success "tsm" "start" "$name" "$success_meta"
-
-    # Track port allocation
-    if [[ "$port" != "none" && "$port" != "0" ]] && declare -f tsm_track_port >/dev/null 2>&1; then
-        tsm_track_port "$port" "$name" "$pid"
-    fi
-
-    # Success message showing service type
-    local success_msg="✅ Started: $name (TSM ID: $tsm_id, PID: $pid"
-    if [[ "$port" != "none" && "$port" != "0" ]]; then
-        success_msg="$success_msg, Port: $port"
-    fi
-    if [[ "$service_type" == "socket" ]]; then
-        success_msg="$success_msg, Socket: ${socket_path##*/}"
-    fi
-    success_msg="$success_msg)"
-    echo "$success_msg"
+    echo "Started: $proc_name (id:$id pid:$pid port:${resolved_port:-none})"
 }
 
-export -f _tsm_get_project_name
-export -f tsm_discover_port
-export -f tsm_generate_process_name
-export -f tsm_start_any_command
+export -f tsm_find_service tsm_load_service tsm_start

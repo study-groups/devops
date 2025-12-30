@@ -1,118 +1,54 @@
 #!/usr/bin/env bash
+# TSM Startup - start all enabled services
 
-# TSM Startup Functions
-# Start all enabled services, show startup status
+# Start all enabled services
+tsm_startup() {
+    echo "Starting enabled services..."
 
-# Show startup status (what services would start)
-tetra_tsm_startup_status() {
-    echo "🚀 TSM Startup Configuration"
-    echo
+    mkdir -p "$TSM_SERVICES_ENABLED"
 
-    # Check if daemon is enabled
-    if command -v systemctl >/dev/null 2>&1; then
-        local daemon_status=$(systemctl is-enabled tsm.service 2>/dev/null || echo "not-installed")
-        case "$daemon_status" in
-            enabled)
-                echo "✅ Systemd daemon: enabled (will start on boot)"
-                ;;
-            disabled)
-                echo "⚪ Systemd daemon: disabled (will NOT start on boot)"
-                echo "   Run 'tsm daemon enable' to enable boot startup"
-                ;;
-            *)
-                echo "⚠️  Systemd daemon: not installed"
-                echo "   Run 'tsm daemon install @dev' to set up boot startup"
-                ;;
-        esac
-        echo
-    fi
+    local started=0
+    local failed=0
 
-    # List enabled services from central services-enabled
-    echo "📋 Services Configured for Autostart:"
+    for link in "$TSM_SERVICES_ENABLED"/*.tsm; do
+        [[ -L "$link" ]] || continue
 
-    local enabled_count=0
+        local name=$(basename "$link" .tsm)
+        local svc_file=$(readlink "$link")
 
-    [[ -d "$TSM_SERVICES_ENABLED" ]] || {
-        echo "  No services enabled"
-        echo "  Use 'tsm enable org/service' to enable services for autostart"
-        return
-    }
-
-    for service_link in "$TSM_SERVICES_ENABLED"/*.tsm; do
-        [[ -L "$service_link" ]] || continue
-
-        local link_name=$(basename "$service_link" .tsm)
-        local org="${link_name%%-*}"
-        local service_name="${link_name#*-}"
-
-        local service_file=$(readlink "$service_link")
-
-        if [[ ! -f "$service_file" ]]; then
-            echo "  ⚠️  $org/$service_name (service file missing)"
+        if [[ ! -f "$svc_file" ]]; then
+            echo "  [SKIP] $name (missing file)"
             continue
         fi
 
-        local port
-        port=$(source "$service_file" 2>/dev/null && echo "$TSM_PORT")
+        # Source service definition
+        local TSM_NAME="" TSM_COMMAND="" TSM_PORT="" TSM_ENV="" TSM_CWD=""
+        source "$svc_file" 2>/dev/null
 
-        local port_info=""
-        [[ -n "$port" ]] && port_info=" :$port"
+        echo "  Starting: $TSM_NAME"
 
-        local running_status=""
-        if tetra_tsm_is_running "$service_name" 2>/dev/null; then
-            running_status=" (currently running)"
-        fi
+        # Build start command
+        local args=("$TSM_COMMAND")
+        [[ -n "$TSM_PORT" ]] && args+=(--port "$TSM_PORT")
+        [[ -n "$TSM_ENV" ]] && args+=(--env "$TSM_ENV")
 
-        echo "  ✅ $org/$service_name$port_info$running_status"
-        ((enabled_count++))
-    done
+        # Run from service CWD
+        (
+            cd "${TSM_CWD:-$PWD}" 2>/dev/null || true
+            tsm_start "${args[@]}" >/dev/null 2>&1
+        )
 
-    if [[ $enabled_count -eq 0 ]]; then
-        echo "  No services enabled"
-        echo "  Use 'tsm enable org/service' to enable services for autostart"
-    fi
-
-    echo
-    echo "Commands:"
-    echo "  tsm services --enabled     - Show enabled services with details"
-    echo "  tsm startup                - Start all enabled services now"
-    echo "  tsm daemon enable          - Enable boot startup (systemd)"
-}
-
-# Start all enabled services from central services-enabled
-tetra_tsm_startup() {
-    echo "🚀 Starting enabled services..."
-
-    local started_count=0
-    local failed_count=0
-
-    [[ -d "$TSM_SERVICES_ENABLED" ]] || {
-        echo "No services enabled"
-        return 0
-    }
-
-    for service_link in "$TSM_SERVICES_ENABLED"/*.tsm; do
-        [[ -L "$service_link" ]] || continue
-
-        local link_name=$(basename "$service_link" .tsm)
-        local org="${link_name%%-*}"
-        local service_name="${link_name#*-}"
-
-        echo "Starting $org/$service_name..."
-
-        if tetra_tsm_start_service "$org/$service_name"; then
-            ((started_count++))
+        if [[ $? -eq 0 ]]; then
+            echo "    OK"
+            ((started++))
         else
-            ((failed_count++))
-            echo "❌ Failed to start $org/$service_name"
+            echo "    FAILED"
+            ((failed++))
         fi
     done
 
-    echo "✅ Startup complete: $started_count started, $failed_count failed"
-
-    mkdir -p "$TETRA_DIR/tsm"
-    echo "$(date): Started $started_count services, $failed_count failed" >> "$TETRA_DIR/tsm/startup.log"
+    echo ""
+    echo "Started: $started, Failed: $failed"
 }
 
-export -f tetra_tsm_startup_status
-export -f tetra_tsm_startup
+export -f tsm_startup
