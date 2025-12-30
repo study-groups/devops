@@ -45,16 +45,16 @@ tds> info:tokyo-night
 | Command | Description |
 |---------|-------------|
 | `show:palettes` | Show all 4 palette arrays with color swatches |
-| `palette:env` | Show ENV_PRIMARY palette |
-| `palette:mode` | Show MODE_PRIMARY palette |
-| `palette:verbs` | Show VERBS_PRIMARY palette |
-| `palette:nouns` | Show NOUNS_PRIMARY palette |
+| `palette:primary` | Show PRIMARY palette (rainbow colors) |
+| `palette:secondary` | Show SECONDARY palette (theme accents) |
+| `palette:semantic` | Show SEMANTIC palette (status colors) |
+| `palette:surface` | Show SURFACE palette (bg→fg gradient) |
 
 **Example:**
 ```
-tds> palette:mode
+tds> palette:secondary
 tds> switch:warm
-tds> palette:mode    # See how colors changed!
+tds> palette:secondary    # See how colors changed!
 ```
 
 ### Token Exploration
@@ -122,9 +122,9 @@ Themes (tokyo-night, neon, warm, cool, etc.)
    ↓
 Tokens (repl.prompt, content.heading.h1, etc.)
    ↓
-Palette References (mode:0, env:1, verbs:3, etc.)
+Palette References (secondary:0, primary:1, semantic:3, etc.)
    ↓
-Color Arrays (ENV_PRIMARY, MODE_PRIMARY, etc.)
+Color Arrays (PRIMARY, SECONDARY, SEMANTIC, SURFACE)
    ↓
 Hex Values (#3b82f6, #ea580c, etc.)
 ```
@@ -134,9 +134,9 @@ Hex Values (#3b82f6, #ea580c, etc.)
 ```
 Token:    repl.prompt
    ↓
-Resolves: mode:0
+Resolves: secondary:0
    ↓
-Looks up: MODE_PRIMARY[0]
+Looks up: SECONDARY[0]
    ↓
 In default theme:  #0088FF (blue)
 In warm theme:     #ea580c (orange)
@@ -160,9 +160,9 @@ Temperature themes provide visual phase-shifts when switching between modules:
 ### Explore Theme Differences
 
 ```bash
-tds> palette:mode              # See current palette
+tds> palette:secondary         # See current palette
 tds> switch:tokyo-night        # Switch theme
-tds> palette:mode              # See how palette changed
+tds> palette:secondary         # See how palette changed
 ```
 
 ### Understand Token System
@@ -245,7 +245,7 @@ Use TDS REPL to develop and test new themes:
 Use TDS REPL to pick colors for your code:
 
 ```bash
-tds> palette:verbs             # See action colors
+tds> palette:semantic          # See action/status colors
 tds> hex:#dc2626               # Test specific color
 tds> resolve:status.error      # See what semantic uses
 ```
@@ -256,9 +256,9 @@ If colors don't look right in your module:
 
 1. Launch TDS REPL
 2. Check active theme: `show:themes`
-3. Inspect palette: `palette:mode`
+3. Inspect palette: `palette:secondary`
 4. Resolve token: `resolve:your.token`
-5. Compare themes: `switch:tokyo-night` then `palette:mode`
+5. Compare themes: `switch:tokyo-night` then `palette:secondary`
 
 ## Related Documentation
 
@@ -270,12 +270,12 @@ If colors don't look right in your module:
 ## Quick Reference Card
 
 ```
-THEMES          PALETTES        TOKENS          COLORS
------------     -----------     -----------     -----------
-show:themes     palette:env     list:tokens     hex:#RRGGBB
-switch:warm     palette:mode    resolve:token   semantic:name
-info:warm       palette:verbs
-temp:cool       palette:nouns
+THEMES          PALETTES           TOKENS          COLORS
+-----------     ---------------    -----------     -----------
+show:themes     palette:primary    list:tokens     hex:#RRGGBB
+switch:warm     palette:secondary  resolve:token   semantic:name
+info:warm       palette:semantic
+temp:cool       palette:surface
 ```
 
 ---

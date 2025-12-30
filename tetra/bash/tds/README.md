@@ -17,9 +17,9 @@ tds_render_heading 1 "Title"
   ↓
 content.heading.h1 (semantic role)
   ↓
-mode:0 (color token → palette reference)
+secondary:0 (color token → palette reference)
   ↓
-MODE_PRIMARY[0] → "0088FF" (hex value)
+SECONDARY[0] → "0088FF" (hex value)
   ↓
 ANSI escape sequence
 ```
@@ -100,10 +100,10 @@ reset_color
 
 Tokens map to palette references in the format `palette:index`:
 
-- `env:0` → `ENV_PRIMARY[0]` (green family)
-- `mode:0` → `MODE_PRIMARY[0]` (blue family)
-- `verbs:0` → `VERBS_PRIMARY[0]` (red/orange family)
-- `nouns:0` → `NOUNS_PRIMARY[0]` (purple family)
+- `primary:0` → `PRIMARY[0]` (rainbow colors for cycling)
+- `secondary:0` → `SECONDARY[0]` (theme accent palette)
+- `semantic:0` → `SEMANTIC[0]` (status colors: error/warn/success/info)
+- `surface:0` → `SURFACE[0]` (background→foreground gradient)
 
 ## Color States
 
@@ -197,7 +197,7 @@ Edit `tokens/color_tokens.sh`:
 ```bash
 declare -A TDS_COLOR_TOKENS=(
     # ...
-    [my.new.token]="verbs:2"    # Orange from VERBS_PRIMARY[2]
+    [my.new.token]="semantic:2"    # Orange from SEMANTIC[2]
 )
 ```
 

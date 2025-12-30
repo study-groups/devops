@@ -99,8 +99,8 @@ tds_theme_info "tokyo-night"
 # Author: Enkia (adapted for TDS)
 # Description: Dark theme with vibrant colors...
 # Palettes:
-#   ENV_PRIMARY (8 colors)
-#   MODE_PRIMARY (8 colors)
+#   PRIMARY (8 colors)
+#   SECONDARY (8 colors)
 #   ...
 ```
 
@@ -159,10 +159,10 @@ Access theme palettes directly:
 
 ```bash
 # After theme is loaded, palettes are available:
-echo "${ENV_PRIMARY[0]}"    # First green color
-echo "${MODE_PRIMARY[0]}"   # First blue color
-echo "${VERBS_PRIMARY[0]}"  # First red/orange color
-echo "${NOUNS_PRIMARY[0]}"  # First purple color
+echo "${PRIMARY[0]}"    # First rainbow color
+echo "${SECONDARY[0]}"  # First theme accent color
+echo "${SEMANTIC[0]}"   # First status color (error)
+echo "${SURFACE[0]}"    # First surface color (bg)
 ```
 
 ### Semantic Colors (Theme-Independent)
@@ -191,35 +191,35 @@ Create `bash/tds/themes/my_theme.sh`:
 
 tds_load_theme_my_theme() {
     # Define 4 palettes (8 colors each)
-    declare -ga ENV_PRIMARY=(
+    declare -ga PRIMARY=(
         "COLOR1" "COLOR2" "COLOR3" "COLOR4"
         "COLOR5" "COLOR6" "COLOR7" "COLOR8"
     )
 
-    declare -ga MODE_PRIMARY=(
+    declare -ga SECONDARY=(
         "COLOR1" "COLOR2" "COLOR3" "COLOR4"
         "COLOR5" "COLOR6" "COLOR7" "COLOR8"
     )
 
-    declare -ga VERBS_PRIMARY=(
+    declare -ga SEMANTIC=(
         "COLOR1" "COLOR2" "COLOR3" "COLOR4"
         "COLOR5" "COLOR6" "COLOR7" "COLOR8"
     )
 
-    declare -ga NOUNS_PRIMARY=(
+    declare -ga SURFACE=(
         "COLOR1" "COLOR2" "COLOR3" "COLOR4"
         "COLOR5" "COLOR6" "COLOR7" "COLOR8"
     )
 
     # Generate complements (optional)
     if declare -f generate_complements >/dev/null 2>&1; then
-        declare -ga ENV_COMPLEMENT MODE_COMPLEMENT
-        declare -ga VERBS_COMPLEMENT NOUNS_COMPLEMENT
+        declare -ga PRIMARY_COMPLEMENT SECONDARY_COMPLEMENT
+        declare -ga SEMANTIC_COMPLEMENT SURFACE_COMPLEMENT
 
-        generate_complements ENV_PRIMARY ENV_COMPLEMENT
-        generate_complements MODE_PRIMARY MODE_COMPLEMENT
-        generate_complements VERBS_PRIMARY VERBS_COMPLEMENT
-        generate_complements NOUNS_PRIMARY NOUNS_COMPLEMENT
+        generate_complements PRIMARY PRIMARY_COMPLEMENT
+        generate_complements SECONDARY SECONDARY_COMPLEMENT
+        generate_complements SEMANTIC SEMANTIC_COMPLEMENT
+        generate_complements SURFACE SURFACE_COMPLEMENT
     fi
 
     # Theme metadata
@@ -253,29 +253,28 @@ tds_switch_theme "my-theme"
 
 ## Color Palette Guidelines
 
-### ENV Palette (Environments)
-Suggested progression: local → dev → staging → prod
-- Index 0: Local development (cyan/teal)
-- Index 1: Development server (green)
-- Index 2: Staging environment (yellow/orange)
-- Index 3: Production (red - caution!)
+### PRIMARY Palette (Rainbow Colors)
+Used for cycling through distinct colors
+- Index 0-7: Full spectrum for visual distinction
 
-### MODE Palette (Modes/Operations)
-Suggested: blues/purples for different operational modes
-- Index 0: Primary mode (blue)
-- Index 1: Secondary mode (darker blue)
-- Index 2-7: Additional modes/states
+### SECONDARY Palette (Theme Accents)
+Module-specific accent colors
+- Index 0: Primary accent (blue)
+- Index 1: Secondary accent
+- Index 2-7: Additional accents
 
-### VERBS Palette (Actions/Warnings)
-Suggested: warm colors (reds/oranges/yellows)
-- Index 0: Errors, critical actions (red)
-- Index 1: Warnings (orange)
-- Index 2-7: Other action types
+### SEMANTIC Palette (Status Colors)
+Status and action indicators
+- Index 0: Error (red)
+- Index 1: Warning (orange)
+- Index 2: Success (green)
+- Index 3: Info (blue)
+- Index 4-7: Additional status colors
 
-### NOUNS Palette (Entities/Objects)
-Suggested: purples/magentas for data/entities
-- Index 0: Primary entity type (purple)
-- Index 1-7: Other entity types
+### SURFACE Palette (Background→Foreground)
+Gradient from dark to light for UI surfaces
+- Index 0: Darkest (background)
+- Index 7: Lightest (foreground text)
 
 ## Troubleshooting
 
@@ -297,7 +296,7 @@ source bash/tds/tds.sh
 tds_active_theme
 
 # Check palette values
-echo "${ENV_PRIMARY[0]}"
+echo "${PRIMARY[0]}"
 
 # Reload theme
 tds_switch_theme "$(tds_active_theme)"
