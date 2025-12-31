@@ -137,6 +137,20 @@ declare -gA TDS_COLOR_TOKENS=(
 
 # Resolve color token to hex value
 # Args: token, state (normal|bright|dim)
+# Map token palette names to actual theme array names
+# Token system uses: mode, verbs, nouns, env
+# Theme system uses: SEMANTIC, SECONDARY, SURFACE, PRIMARY
+_tds_palette_array_name() {
+    local palette="$1"
+    case "$palette" in
+        mode)   echo "SEMANTIC" ;;
+        verbs)  echo "SECONDARY" ;;
+        nouns)  echo "SURFACE" ;;
+        env)    echo "PRIMARY" ;;
+        *)      echo "${palette^^}" ;;  # Try uppercase as fallback
+    esac
+}
+
 # Returns: hex color value
 tds_resolve_color() {
     local token="$1"
@@ -160,34 +174,37 @@ tds_resolve_color() {
         return 1
     fi
 
-    # Resolve to hex based on palette and state
-    local hex=""
-    local palette_upper="${palette^^}"
-    local primary_name="${palette_upper}_PRIMARY"
-    local complement_name="${palette_upper}_COMPLEMENT"
+    # Map token palette name to actual array name
+    local array_name=$(_tds_palette_array_name "$palette")
 
     # Validate palette exists
-    if ! declare -p "$primary_name" &>/dev/null; then
+    if ! declare -p "$array_name" &>/dev/null; then
         echo "$TDS_FALLBACK_TEXT"
-        return
+        return 1
     fi
 
-    local -n primary_arr="$primary_name"
+    local -n palette_arr="$array_name"
+    local hex=""
 
     case "$state" in
         bright)
-            if declare -p "$complement_name" &>/dev/null; then
-                local -n complement_arr="$complement_name"
-                hex="${complement_arr[$index]:-$TDS_FALLBACK_TEXT}"
-            else
-                hex="${primary_arr[$index]:-$TDS_FALLBACK_TEXT}"
-            fi
+            # For bright state, try to use a lighter variant
+            local bright_idx=$((index > 3 ? index - 4 : index + 4))
+            hex="${palette_arr[$bright_idx]:-${palette_arr[$index]:-$TDS_FALLBACK_TEXT}}"
             ;;
         dim)
-            hex="$(theme_aware_dim "${primary_arr[$index]:-$TDS_FALLBACK_TEXT}" 4)"
+            # For dim state, use dimmer indices or apply dimming
+            local dim_idx=$((index < 4 ? index + 4 : index))
+            if [[ -n "${palette_arr[$dim_idx]}" ]]; then
+                hex="${palette_arr[$dim_idx]}"
+            elif declare -F theme_aware_dim &>/dev/null; then
+                hex="$(theme_aware_dim "${palette_arr[$index]:-$TDS_FALLBACK_TEXT}" 4)"
+            else
+                hex="${palette_arr[$index]:-$TDS_FALLBACK_TEXT}"
+            fi
             ;;
         *)
-            hex="${primary_arr[$index]:-$TDS_FALLBACK_TEXT}"
+            hex="${palette_arr[$index]:-$TDS_FALLBACK_TEXT}"
             ;;
     esac
 

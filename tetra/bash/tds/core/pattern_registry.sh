@@ -202,48 +202,14 @@ tds_pattern_colorize() {
 
     token=$(tds_pattern_match "$text" "$category")
 
-    # Try to apply color
-    if declare -F text_color &>/dev/null; then
-        local hex=$(_tds_token_to_hex "$token")
-        text_color "$hex"
+    # Use tds_text_color if available (now works with fixed token resolution)
+    if declare -F tds_text_color &>/dev/null; then
+        tds_text_color "$token"
         printf '%s' "$text"
         reset_color
     else
         printf '%s' "$text"
     fi
-}
-
-# Resolve semantic token to hex color using actual palette arrays
-# This bypasses the broken token system and uses palettes directly
-_tds_token_to_hex() {
-    local token="$1"
-
-    # Map tokens to palette positions
-    case "$token" in
-        # Status tokens -> SEMANTIC palette
-        status.success|success)  echo "${SEMANTIC[2]:-43A047}" ;;
-        status.warning|warning)  echo "${SEMANTIC[1]:-FB8C00}" ;;
-        status.error|error)      echo "${SEMANTIC[0]:-E53935}" ;;
-        status.info|info)        echo "${SEMANTIC[3]:-1E88E5}" ;;
-
-        # Action tokens -> SECONDARY palette
-        action.primary)          echo "${SECONDARY[0]:-1E88E5}" ;;
-        action.secondary)        echo "${SECONDARY[1]:-FB8C00}" ;;
-        action.focus)            echo "${SECONDARY[6]:-8E24AA}" ;;
-
-        # Text tokens -> SURFACE palette
-        text.primary)            echo "${SURFACE[7]:-E9EAEB}" ;;
-        text.secondary)          echo "${SURFACE[6]:-C9CACE}" ;;
-        text.tertiary)           echo "${SURFACE[5]:-A9ABB1}" ;;
-        text.muted)              echo "${SURFACE[4]:-898C94}" ;;
-        text.disabled|text.dim)  echo "${SURFACE[3]:-6A6D75}" ;;
-
-        # Structural tokens -> PRIMARY palette
-        structural.primary)      echo "${PRIMARY[4]:-00ACC1}" ;;
-
-        # Default fallback
-        *)                       echo "${SURFACE[7]:-C0CAF5}" ;;
-    esac
 }
 
 # List all patterns in a category
