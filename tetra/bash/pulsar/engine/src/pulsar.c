@@ -701,8 +701,10 @@ static void process_command(char *line) {
         sa.sa_flags = SA_RESTART;
         sigaction(SIGWINCH, &sa, NULL);
 
-        /* Enable raw mode */
-        input_enable_raw_mode(&input_mgr);
+        /* Enable raw mode (skip in FIFO/headless mode - no terminal input) */
+        if (!fifo_mode) {
+            input_enable_raw_mode(&input_mgr);
+        }
 
         /* Clear screen and hide cursor */
         fprintf(tty, "\033[2J\033[H");  /* Clear screen */
@@ -748,8 +750,10 @@ static void process_command(char *line) {
                 }
             }
 
-            /* Handle input */
-            handle_input();
+            /* Handle input (skip in FIFO mode - no terminal) */
+            if (!fifo_mode) {
+                handle_input();
+            }
 
             /* Update sprites if not paused */
             if (!ui_ctx.paused) {
