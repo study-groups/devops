@@ -25,15 +25,16 @@
 
 # Get the directory path for a channel (v2 - flat structure)
 # Usage: _qa_get_channel_dir [channel]
+# Note: Uses TETRA_DIR directly to avoid issues when QA_DIR is temporarily modified
 # Examples:
-#   _qa_get_channel_dir         -> $QA_DIR/db (main database)
-#   _qa_get_channel_dir db      -> $QA_DIR/db (main database)
-#   _qa_get_channel_dir 1       -> $QA_DIR/channels/1
-#   _qa_get_channel_dir 2       -> $QA_DIR/channels/2
-#   _qa_get_channel_dir foo     -> $QA_DIR/channels/foo (named)
+#   _qa_get_channel_dir         -> $TETRA_DIR/qa/db (main database)
+#   _qa_get_channel_dir db      -> $TETRA_DIR/qa/db (main database)
+#   _qa_get_channel_dir 1       -> $TETRA_DIR/qa/channels/1
+#   _qa_get_channel_dir 2       -> $TETRA_DIR/qa/channels/2
+#   _qa_get_channel_dir foo     -> $TETRA_DIR/qa/channels/foo (named)
 _qa_get_channel_dir() {
     local channel="${1:-db}"
-    local base="${QA_DIR:-$TETRA_DIR/qa}"
+    local base="$TETRA_DIR/qa"
 
     case "$channel" in
         db|main|"")

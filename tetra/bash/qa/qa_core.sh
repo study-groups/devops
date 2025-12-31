@@ -110,9 +110,10 @@ _qa_validate_channel() {
 # Get channel directory path
 # Usage: _qa_get_channel_dir <channel>
 # Returns: path to channel directory
+# Note: Uses TETRA_DIR directly to avoid issues when QA_DIR is temporarily modified
 _qa_get_channel_dir() {
     local channel="$1"
-    local base="${QA_DIR:-$TETRA_DIR/qa}"
+    local base="$TETRA_DIR/qa"
 
     case "$channel" in
         db|main|"")
@@ -227,7 +228,7 @@ q_gpt_query ()
 {
     echo "Using $(_get_qa_engine)" >&2
     local api_endpoint="https://api.openai.com/v1/chat/completions"
-    local db="$QA_DIR/db"
+    local db="${QA_DB_DIR:-$QA_DIR/db}"
     local id=$(date +%s)
     local input="$*"
 
