@@ -23,6 +23,11 @@ tetra_nvm_activate(){
   export PATH="$nvm_path:$PATH"
 }
 
+# Alias for naming parity with tetra_python_activate
+tetra_node_activate() {
+  tetra_nvm_activate "$@"
+}
+
 tetra_nvm_install() {
     local ver=${1:-"v0.39.1"}
     echo "Using nvm version: $ver"

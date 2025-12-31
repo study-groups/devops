@@ -9,7 +9,7 @@
 source "$TETRA_SRC/bash/utils/function_helpers.sh"
 source "$TETRA_SRC/bash/tetra/modes/matrix.sh"
 source "$TETRA_SRC/bash/repl/temperature_loader.sh"
-source "$TETRA_SRC/bash/tetra/rendering/keychord.sh"
+source "$TETRA_SRC/bash/tcurses/tcurses_keychord.sh"
 
 # ============================================================================
 # STATE MANAGEMENT

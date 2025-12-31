@@ -35,6 +35,7 @@ tetra_python_install() {
 }
 
 # Function to activate pyenv and update PATH for the current session without duplicates
+# All output goes to stderr to avoid polluting pipelines
 tetra_python_activate() {
     if [[ -d "$PYENV_ROOT" ]]; then
         # Add to PATH only if not already included
@@ -50,9 +51,10 @@ tetra_python_activate() {
 
         eval "$("$PYENV_ROOT/bin/pyenv" init --path)"
         eval "$("$PYENV_ROOT/bin/pyenv" virtualenv-init -)"
-        echo "pyenv is activated. Current Python version: $("$PYENV_ROOT/bin/pyenv" global)"
+        echo "pyenv activated: $("$PYENV_ROOT/bin/pyenv" global)" >&2
     else
-        echo "pyenv is not installed. Run tetra_python_install first."
+        echo "pyenv not installed. Run tetra_python_install first." >&2
+        return 1
     fi
 }
 

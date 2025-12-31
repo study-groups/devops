@@ -218,54 +218,33 @@ tetra_create_lazy_function "tds" "tds"
 tetra_create_lazy_function "chroma" "chroma"
 
 # MagicFind module functions (LLM-assisted file search)
+# Command: mf  Alias: magicfind  Data: ~/tetra/magicfind/
+tetra_create_lazy_function "mf" "magicfind"
 tetra_create_lazy_function "magicfind" "magicfind"
 
-# MagicFind tab completion
-_magicfind_completion() {
+# mf tab completion
+_mf_completion() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
-    local prev="${COMP_WORDS[COMP_CWORD-1]}"
     local cmd="${COMP_WORDS[1]:-}"
 
     COMPREPLY=()
 
     # First argument - subcommands
     if [[ $COMP_CWORD -eq 1 ]]; then
-        COMPREPLY=($(compgen -W "spec specs rules db list show replay search similar doctor help" -- "$cur"))
+        COMPREPLY=($(compgen -W "rules db list show replay search similar help" -- "$cur"))
         return
     fi
 
     # Context-specific completions
     case "$cmd" in
-        spec|specs)
-            if [[ $COMP_CWORD -eq 2 ]]; then
-                # Spec subcommands + spec names
-                local specs_dir="${TETRA_SRC:-}/bash/magicfind/specs"
-                local specs=""
-                if [[ -d "$specs_dir" ]]; then
-                    for f in "$specs_dir"/*.scanspec; do
-                        [[ -f "$f" ]] && specs+="${f##*/} "
-                    done
-                    specs="${specs//.scanspec/}"
-                fi
-                COMPREPLY=($(compgen -W "list show run match compare duplicates help $specs" -- "$cur"))
-            fi
-            ;;
         rules)
-            if [[ $COMP_CWORD -eq 2 ]]; then
-                COMPREPLY=($(compgen -W "list add rm clear reset path" -- "$cur"))
-            fi
+            [[ $COMP_CWORD -eq 2 ]] && COMPREPLY=($(compgen -W "list add rm clear reset path" -- "$cur"))
             ;;
         db)
-            if [[ $COMP_CWORD -eq 2 ]]; then
-                COMPREPLY=($(compgen -W "stats clean path" -- "$cur"))
-            fi
-            ;;
-        doctor)
-            if [[ $COMP_CWORD -eq 2 ]]; then
-                COMPREPLY=($(compgen -W "--test" -- "$cur"))
-            fi
+            [[ $COMP_CWORD -eq 2 ]] && COMPREPLY=($(compgen -W "stats clean path" -- "$cur"))
             ;;
     esac
 }
-complete -F _magicfind_completion magicfind
+complete -F _mf_completion mf
+complete -F _mf_completion magicfind
 

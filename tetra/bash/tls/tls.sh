@@ -1,94 +1,271 @@
 #!/usr/bin/env bash
 
-# TLS - Time-ordered List with TDS styling
+# TLS - Time-ordered List with TDS colors
 # Main command implementation
 
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
 
-# TLS_DIR set by includes.sh, fallback for direct sourcing
 TLS_DIR="${TLS_DIR:-${TETRA_DIR:-$HOME/.tetra}/tls}"
 TLS_CONFIG_FILE="${TLS_DIR}/config/tls.conf"
 
-# Ensure config directory exists
 [[ -d "$TLS_DIR/config" ]] || mkdir -p "$TLS_DIR/config"
-
-# Load saved config if exists
 [[ -f "$TLS_CONFIG_FILE" ]] && source "$TLS_CONFIG_FILE"
 
-# Defaults (only if not already set)
 TLS_LIMIT="${TLS_LIMIT:-20}"
 TLS_DATE_FORMAT="${TLS_DATE_FORMAT:-%Y-%m-%d %H:%M}"
 TLS_SHOW_HIDDEN="${TLS_SHOW_HIDDEN:-false}"
-TLS_THEME="${TLS_THEME:-default}"
-TLS_COLUMNS="${TLS_COLUMNS:-auto}"
 
 # =============================================================================
-# COLOR SETUP - uses TDS module config
+# TDS COLOR SETUP
 # =============================================================================
 
-# Get ANSI escape for a TLS color token
-_tls_color() {
-    local token="$1"
-    if declare -f tds_module_escape >/dev/null 2>&1; then
-        tds_module_escape "tls" "$token"
+_TLS_HAS_TDS=false
+_TLS_USE_COLOR=false
+
+_tls_init_tds() {
+    # Already loaded?
+    if declare -F tds_text_color &>/dev/null; then
+        _TLS_HAS_TDS=true
+    elif [[ -f "${TETRA_SRC}/bash/tds/tds.sh" ]]; then
+        source "${TETRA_SRC}/bash/tds/tds.sh" 2>/dev/null && _TLS_HAS_TDS=true
+    fi
+
+    # Use color if TDS available and TTY
+    [[ "$_TLS_HAS_TDS" == true ]] && [[ -t 1 ]] && _TLS_USE_COLOR=true
+}
+
+# Initialize on load
+_tls_init_tds
+
+# =============================================================================
+# COLOR HELPERS
+# =============================================================================
+
+# Time-based token
+_tls_time_token() {
+    local mtime="$1"
+    local now=$(date +%s)
+    local age=$((now - mtime))
+
+    if [[ $age -lt 3600 ]]; then
+        echo "status.success"      # hot - green
+    elif [[ $age -lt 86400 ]]; then
+        echo "status.warning"      # warm - yellow
+    elif [[ $age -lt 604800 ]]; then
+        echo "text.primary"        # neutral
     else
-        echo ""
+        echo "text.muted"          # old - dim
     fi
 }
 
-_tls_init_colors() {
-    # All colors empty by default (plain output)
-    _TLS_C_HOT="" _TLS_C_WARM="" _TLS_C_NEUTRAL="" _TLS_C_DIM=""
-    _TLS_C_DIR="" _TLS_C_EXEC="" _TLS_C_LINK="" _TLS_C_FILE=""
-    _TLS_C_STAGED="" _TLS_C_MODIFIED="" _TLS_C_UNTRACKED="" _TLS_C_CLEAN=""
-    _TLS_C_HEADING="" _TLS_C_CODE="" _TLS_C_CONFIG="" _TLS_C_RESET=""
-    _TLS_C_BOLD="" _TLS_C_DIR_BOLD=""
+# File type token
+_tls_file_token() {
+    local path="$1"
+    local name=$(basename "$path")
 
-    # Only use colors if stdout is terminal
-    [[ ! -t 1 ]] && return
-
-    _TLS_C_BOLD=$'\e[1m'
-    _TLS_C_RESET=$'\e[0m'
-
-    # Use TDS module colors if available
-    if declare -f tds_module_escape >/dev/null 2>&1; then
-        _TLS_C_HOT=$(_tls_color "time.hot")
-        _TLS_C_WARM=$(_tls_color "time.warm")
-        _TLS_C_NEUTRAL=$(_tls_color "time.neutral")
-        _TLS_C_DIM=$(_tls_color "time.cool")
-        _TLS_C_DIR=$(_tls_color "file.directory")
-        _TLS_C_DIR_BOLD="${_TLS_C_BOLD}${_TLS_C_DIR}"
-        _TLS_C_EXEC=$(_tls_color "file.executable")
-        _TLS_C_LINK=$(_tls_color "file.symlink")
-        _TLS_C_FILE=$(_tls_color "file.regular")
-        _TLS_C_CODE=$(_tls_color "file.code")
-        _TLS_C_CONFIG=$(_tls_color "file.config")
-        _TLS_C_STAGED=$(_tls_color "git.staged")
-        _TLS_C_MODIFIED=$(_tls_color "git.modified")
-        _TLS_C_UNTRACKED=$(_tls_color "git.untracked")
-        _TLS_C_CLEAN=$(_tls_color "git.clean")
-        _TLS_C_HEADING=$(_tls_color "ui.heading")
+    if [[ -d "$path" ]]; then
+        echo "action.primary"      # directories - bright
+    elif [[ "$name" == *.sh ]]; then
+        echo "action.secondary"    # scripts - orange
+    elif [[ "$name" == *.md ]]; then
+        echo "structural.primary"  # docs - teal
+    elif [[ "$name" == *.toml || "$name" == *.json || "$name" == *.yaml || "$name" == *.yml ]]; then
+        echo "action.focus"        # config - purple
+    elif [[ -x "$path" ]]; then
+        echo "status.success"      # executable - green
     else
-        # Basic ANSI fallbacks
-        _TLS_C_DIM=$'\e[2m'
-        _TLS_C_DIR=$'\e[1;34m'
-        _TLS_C_DIR_BOLD=$'\e[1;34m'
-        _TLS_C_EXEC=$'\e[1;32m'
-        _TLS_C_LINK=$'\e[1;36m'
-        _TLS_C_FILE=$'\e[0m'
-        _TLS_C_HOT=$'\e[32m'
-        _TLS_C_WARM=$'\e[33m'
-        _TLS_C_NEUTRAL=$'\e[0m'
-        _TLS_C_CODE=$'\e[33m'
-        _TLS_C_CONFIG=$'\e[35m'
-        _TLS_C_STAGED=$'\e[32m'
-        _TLS_C_MODIFIED=$'\e[33m'
-        _TLS_C_UNTRACKED=$'\e[33m'
-        _TLS_C_CLEAN=$'\e[2m'
-        _TLS_C_HEADING=$'\e[1;36m'
+        echo "text.primary"
     fi
+}
+
+# Git status token
+# Uses TDS pattern registry if available
+_tls_git_token() {
+    local status="$1"
+
+    # Use pattern registry if available
+    if declare -F tds_pattern_match &>/dev/null; then
+        tds_pattern_match "$status" "git"
+        return
+    fi
+
+    # Fallback
+    case "$status" in
+        staged)    echo "status.success" ;;
+        modified)  echo "status.warning" ;;
+        untracked) echo "status.warning" ;;
+        clean)     echo "text.muted" ;;
+        *)         echo "text.muted" ;;
+    esac
+}
+
+# Conventional commit type token
+# Uses TDS pattern registry if available, falls back to hardcoded
+_tls_commit_type_token() {
+    local type="$1"
+
+    # Use pattern registry if available
+    if declare -F tds_pattern_match &>/dev/null; then
+        tds_pattern_match "$type" "commit"
+        return
+    fi
+
+    # Fallback for when TDS not loaded
+    case "$type" in
+        feat)     echo "status.success" ;;
+        fix)      echo "status.warning" ;;
+        refactor) echo "status.info" ;;
+        docs)     echo "action.focus" ;;
+        test)     echo "structural.primary" ;;
+        perf)     echo "status.success" ;;
+        style)    echo "text.tertiary" ;;
+        chore)    echo "text.muted" ;;
+        ci)       echo "text.disabled" ;;
+        build)    echo "text.disabled" ;;
+        revert)   echo "status.error" ;;
+        *)        echo "text.primary" ;;
+    esac
+}
+
+# =============================================================================
+# GIT LOG COLORIZATION
+# =============================================================================
+
+# Colorize git log --oneline output from stdin
+_tls_git_log_pipe() {
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        _tls_format_git_log_line "$line"
+    done
+}
+
+# Format a single git log --oneline line
+# Format: hash (refs) type(scope): message
+# Example: cd924a6e (HEAD -> main) feat(gamma): add game spawning
+_tls_format_git_log_line() {
+    local line="$1"
+    local hash="" refs="" rest="" type="" scope="" message=""
+
+    # Extract hash (first word, 7-40 hex chars)
+    local re_hash='^([a-f0-9]{7,40})[[:space:]]+(.*)'
+    if [[ "$line" =~ $re_hash ]]; then
+        hash="${BASH_REMATCH[1]}"
+        rest="${BASH_REMATCH[2]}"
+    else
+        # No hash found, print as-is
+        echo "$line"
+        return
+    fi
+
+    # Extract refs if present: (HEAD -> main, origin/main)
+    local re_refs='^\(([^)]+)\)[[:space:]]*(.*)'
+    if [[ "$rest" =~ $re_refs ]]; then
+        refs="${BASH_REMATCH[1]}"
+        rest="${BASH_REMATCH[2]}"
+    fi
+
+    # Extract conventional commit type and optional scope
+    # Matches: feat(scope): or feat: or just text
+    local re_type='^([a-z]+)(\([^)]+\))?:[[:space:]]*(.*)'
+    if [[ "$rest" =~ $re_type ]]; then
+        type="${BASH_REMATCH[1]}"
+        scope="${BASH_REMATCH[2]}"  # includes parens if present
+        message="${BASH_REMATCH[3]}"
+    else
+        message="$rest"
+    fi
+
+    # Build colorized output
+    if [[ "$_TLS_USE_COLOR" == true ]]; then
+        # Hash - muted
+        tds_text_color "text.muted"
+        printf '%s' "$hash"
+        reset_color
+        printf ' '
+
+        # Refs if present
+        if [[ -n "$refs" ]]; then
+            printf '('
+            _tls_format_refs "$refs"
+            printf ') '
+        fi
+
+        # Commit type if present
+        if [[ -n "$type" ]]; then
+            local token=$(_tls_commit_type_token "$type")
+            tds_text_color "$token"
+            printf '%s' "$type"
+            reset_color
+            # Scope in dimmer shade
+            if [[ -n "$scope" ]]; then
+                tds_text_color "text.tertiary"
+                printf '%s' "$scope"
+                reset_color
+            fi
+            tds_text_color "text.muted"
+            printf ':'
+            reset_color
+            printf ' '
+        fi
+
+        # Message
+        tds_text_color "text.primary"
+        printf '%s' "$message"
+        reset_color
+        printf '\n'
+    else
+        # No color - print original
+        echo "$line"
+    fi
+}
+
+# Format refs like "HEAD -> main, origin/main, origin/HEAD"
+_tls_format_refs() {
+    local refs="$1"
+    local first=true
+    local re_head_branch='HEAD[[:space:]]*->[[:space:]]*(.*)'
+
+    # Split on comma
+    IFS=',' read -ra parts <<< "$refs"
+    for part in "${parts[@]}"; do
+        part="${part## }"  # trim leading space
+        part="${part%% }"  # trim trailing space
+
+        [[ "$first" == true ]] || printf ', '
+        first=false
+
+        if [[ "$part" == HEAD* ]]; then
+            # HEAD -> branch
+            tds_text_color "status.error"
+            printf 'HEAD'
+            reset_color
+            if [[ "$part" =~ $re_head_branch ]]; then
+                tds_text_color "text.muted"
+                printf ' -> '
+                reset_color
+                tds_text_color "status.success"
+                printf '%s' "${BASH_REMATCH[1]}"
+                reset_color
+            fi
+        elif [[ "$part" == origin/* ]]; then
+            # Remote branch
+            tds_text_color "status.warning"
+            printf '%s' "$part"
+            reset_color
+        elif [[ "$part" == tag:* ]]; then
+            # Tag
+            tds_text_color "action.focus"
+            printf '%s' "$part"
+            reset_color
+        else
+            # Local branch
+            tds_text_color "status.success"
+            printf '%s' "$part"
+            reset_color
+        fi
+    done
 }
 
 # =============================================================================
@@ -97,18 +274,15 @@ _tls_init_colors() {
 
 _tls_format_time() {
     local mtime="$1"
-    local now=$(date +%s)
-    local age=$((now - mtime))
     local formatted=$(date -r "$mtime" +"$TLS_DATE_FORMAT" 2>/dev/null || date -d "@$mtime" +"$TLS_DATE_FORMAT" 2>/dev/null)
 
-    if [[ $age -lt 3600 ]]; then
-        printf "%s%s%s" "$_TLS_C_HOT" "$formatted" "$_TLS_C_RESET"
-    elif [[ $age -lt 86400 ]]; then
-        printf "%s%s%s" "$_TLS_C_WARM" "$formatted" "$_TLS_C_RESET"
-    elif [[ $age -lt 604800 ]]; then
-        printf "%s%s%s" "$_TLS_C_NEUTRAL" "$formatted" "$_TLS_C_RESET"
+    if [[ "$_TLS_USE_COLOR" == true ]]; then
+        local token=$(_tls_time_token "$mtime")
+        tds_text_color "$token"
+        printf '%s' "$formatted"
+        reset_color
     else
-        printf "%s%s%s" "$_TLS_C_DIM" "$formatted" "$_TLS_C_RESET"
+        printf '%s' "$formatted"
     fi
 }
 
@@ -154,6 +328,125 @@ _tls_time_bucket() {
     fi
 }
 
+# Format a single file path (for pipe mode)
+_tls_format_path() {
+    local path="$1"
+    local annotate="${2:-false}"
+    [[ ! -e "$path" ]] && { echo "$path"; return; }
+
+    local name=$(basename "$path")
+    local mtime=$(stat -f %m "$path" 2>/dev/null || echo 0)
+    local ftime=$(_tls_friendly_date "$mtime")
+
+    if [[ "$_TLS_USE_COLOR" == true ]]; then
+        local file_token=$(_tls_file_token "$path")
+        local time_token=$(_tls_time_token "$mtime")
+
+        printf "  "
+        [[ "$annotate" == "true" ]] && _tls_git_annotation "$path"
+        tds_text_color "$file_token"
+        if [[ -d "$path" ]]; then
+            printf "%-30s" "${name}/"
+        else
+            printf "%-30s" "$name"
+        fi
+        reset_color
+        printf "  "
+        tds_text_color "$time_token"
+        printf "%s" "$ftime"
+        reset_color
+        printf "\n"
+    else
+        printf "  "
+        [[ "$annotate" == "true" ]] && _tls_git_annotation "$path"
+        if [[ -d "$path" ]]; then
+            printf "%-30s  %s\n" "${name}/" "$ftime"
+        else
+            printf "%-30s  %s\n" "$name" "$ftime"
+        fi
+    fi
+}
+
+# Read file paths from stdin and format with tls styling
+_tls_pipe() {
+    local show_long="${1:-false}"
+    local annotate="${2:-false}"
+
+    if [[ "$show_long" == "true" ]]; then
+        # Print header for long format
+        if [[ "$_TLS_USE_COLOR" == true ]]; then
+            tds_text_color "structural.primary"
+            printf "  "
+            [[ "$annotate" == "true" ]] && printf "Git "
+            printf "%-16s  %-9s  Name\n" "Modified" "Size"
+            reset_color
+            tds_text_color "text.dim"
+            printf "──────────────────────────────────────────────────────────────────\n"
+            reset_color
+        else
+            printf "  "
+            [[ "$annotate" == "true" ]] && printf "Git "
+            printf "%-16s  %-9s  Name\n" "Modified" "Size"
+            printf "──────────────────────────────────────────────────────────────────\n"
+        fi
+    fi
+
+    while IFS= read -r path; do
+        [[ -z "$path" ]] && continue
+        if [[ "$show_long" == "true" ]]; then
+            _tls_format_path_long "$path" "$annotate"
+        else
+            _tls_format_path "$path" "$annotate"
+        fi
+    done
+}
+
+# Format a single file path in long format (for pipe mode)
+_tls_format_path_long() {
+    local path="$1"
+    local annotate="${2:-false}"
+
+    if [[ ! -e "$path" ]]; then
+        printf "  "
+        [[ "$annotate" == "true" ]] && printf "    "
+        printf "%-16s  %9s  %s\n" "?" "?" "$path"
+        return
+    fi
+
+    local mtime=$(stat -f %m "$path" 2>/dev/null || echo 0)
+    local name=$(basename "$path")
+
+    printf "  "
+    [[ "$annotate" == "true" ]] && _tls_git_annotation "$path"
+    _tls_format_time "$mtime"
+    printf "  "
+
+    if [[ -d "$path" ]]; then
+        local count=$(_tls_dir_count "$path")
+        if [[ "$_TLS_USE_COLOR" == true ]]; then
+            tds_text_color "text.muted"
+            printf "%4d items" "$count"
+            reset_color
+        else
+            printf "%4d items" "$count"
+        fi
+    else
+        local size=$(stat -f %z "$path" 2>/dev/null || echo 0)
+        local hsize=$(_tls_human_size "$size")
+        if [[ "$_TLS_USE_COLOR" == true ]]; then
+            tds_text_color "text.muted"
+            printf "%9s" "$hsize"
+            reset_color
+        else
+            printf "%9s" "$hsize"
+        fi
+    fi
+
+    printf "  "
+    _tls_format_name "$path"
+    echo
+}
+
 _tls_human_size() {
     local bytes="$1"
     if [[ $bytes -lt 1024 ]]; then
@@ -169,21 +462,22 @@ _tls_human_size() {
 
 _tls_dir_count() {
     local dir="$1"
-    local count=$(find "$dir" -maxdepth 1 -not -name ".*" -not -path "$dir" 2>/dev/null | wc -l | tr -d ' ')
-    echo "$count"
+    find "$dir" -maxdepth 1 -not -name ".*" -not -path "$dir" 2>/dev/null | wc -l | tr -d ' '
 }
 
-_tls_format_type() {
+_tls_format_name() {
     local path="$1"
+    local name=$(basename "$path")
+    local suffix=""
+    [[ -d "$path" ]] && suffix="/"
 
-    if [[ -d "$path" ]]; then
-        printf "%sd%s" "$_TLS_C_DIR" "$_TLS_C_RESET"
-    elif [[ -x "$path" ]]; then
-        printf "%sx%s" "$_TLS_C_EXEC" "$_TLS_C_RESET"
-    elif [[ -L "$path" ]]; then
-        printf "%sl%s" "$_TLS_C_LINK" "$_TLS_C_RESET"
+    if [[ "$_TLS_USE_COLOR" == true ]]; then
+        local token=$(_tls_file_token "$path")
+        tds_text_color "$token"
+        printf '%s%s' "$name" "$suffix"
+        reset_color
     else
-        printf "%s.%s" "$_TLS_C_FILE" "$_TLS_C_RESET"
+        printf '%s%s' "$name" "$suffix"
     fi
 }
 
@@ -198,107 +492,45 @@ _tls_git_annotation() {
     fi
 
     local status=$(git -C "$dir" status --porcelain -- "$file" 2>/dev/null | head -1)
+    local symbol=" · " git_status="clean"
 
     if [[ -z "$status" ]]; then
-        printf "%s · %s" "$_TLS_C_CLEAN" "$_TLS_C_RESET"
+        symbol=" · "; git_status="clean"
     elif [[ "$status" =~ ^[MADRC] ]]; then
-        printf "%s + %s" "$_TLS_C_STAGED" "$_TLS_C_RESET"
+        symbol=" + "; git_status="staged"
     elif [[ "$status" =~ ^.M ]]; then
-        printf "%s M %s" "$_TLS_C_MODIFIED" "$_TLS_C_RESET"
+        symbol=" M "; git_status="modified"
     elif [[ "$status" =~ ^\?\? ]]; then
-        printf "%s ? %s" "$_TLS_C_UNTRACKED" "$_TLS_C_RESET"
+        symbol=" ? "; git_status="untracked"
     else
-        printf "   "
+        printf "   "; return
+    fi
+
+    if [[ "$_TLS_USE_COLOR" == true ]]; then
+        local token=$(_tls_git_token "$git_status")
+        tds_text_color "$token"
+        printf '%s' "$symbol"
+        reset_color
+    else
+        printf '%s' "$symbol"
     fi
 }
 
-_tls_format_name() {
-    local path="$1"
-    local name=$(basename "$path")
-
-    if [[ -d "$path" ]]; then
-        printf "%s%s/%s" "$_TLS_C_DIR" "$name" "$_TLS_C_RESET"
-    elif [[ "$name" == *.sh ]]; then
-        printf "%s%s%s" "$_TLS_C_CODE" "$name" "$_TLS_C_RESET"
-    elif [[ "$name" == *.md ]]; then
-        printf "%s%s%s" "$_TLS_C_DIR" "$name" "$_TLS_C_RESET"
-    elif [[ "$name" == *.toml || "$name" == *.json || "$name" == *.yaml || "$name" == *.yml ]]; then
-        printf "%s%s%s" "$_TLS_C_CONFIG" "$name" "$_TLS_C_RESET"
-    elif [[ -x "$path" ]]; then
-        printf "%s%s%s" "$_TLS_C_EXEC" "$name" "$_TLS_C_RESET"
-    else
-        printf "%s" "$name"
-    fi
-}
-
-# Format name for multi-column display (simple, no trailing slash logic here)
-_tls_format_name_simple() {
-    local path="$1"
-    local name=$(basename "$path")
-
-    if [[ -d "$path" ]]; then
-        printf "%s%s/%s" "$_TLS_C_DIR_BOLD" "$name" "$_TLS_C_RESET"
-    elif [[ "$name" == *.sh ]]; then
-        printf "%s%s%s" "$_TLS_C_CODE" "$name" "$_TLS_C_RESET"
-    elif [[ "$name" == *.md ]]; then
-        printf "%s%s%s" "$_TLS_C_DIR" "$name" "$_TLS_C_RESET"
-    elif [[ "$name" == *.toml || "$name" == *.json || "$name" == *.yaml || "$name" == *.yml ]]; then
-        printf "%s%s%s" "$_TLS_C_CONFIG" "$name" "$_TLS_C_RESET"
-    elif [[ -x "$path" ]]; then
-        printf "%s%s%s" "$_TLS_C_EXEC" "$name" "$_TLS_C_RESET"
-    else
-        printf "%s" "$name"
-    fi
-}
-
-# Get display width of a name (excluding ANSI codes)
 _tls_name_width() {
     local path="$1"
     local name=$(basename "$path")
     [[ -d "$path" ]] && echo $((${#name} + 1)) || echo "${#name}"
 }
 
-# Multi-column output like ls
-_tls_print_columns() {
-    local -n items=$1
-    local term_width=${COLUMNS:-80}
-    local max_width=0
-    local padding=2
-
-    # Find max width
-    for item in "${items[@]}"; do
-        local w=$(_tls_name_width "$item")
-        (( w > max_width )) && max_width=$w
-    done
-
-    local col_width=$((max_width + padding))
-    local num_cols=$((term_width / col_width))
-    (( num_cols < 1 )) && num_cols=1
-
-    local count=0
-    for item in "${items[@]}"; do
-        local name_w=$(_tls_name_width "$item")
-        _tls_format_name_simple "$item"
-        local spaces=$((col_width - name_w))
-        printf "%*s" "$spaces" ""
-        ((count++))
-        if (( count % num_cols == 0 )); then
-            printf "\n"
-        fi
-    done
-    # Final newline if needed
-    (( count % num_cols != 0 )) && printf "\n"
-}
+# =============================================================================
+# LIST FUNCTIONS
+# =============================================================================
 
 _tls_list() {
     local path="${1:-.}"
     local show_long="${2:-false}"
     local annotate="${3:-false}"
 
-    # Init colors
-    _tls_init_colors
-
-    # Collect directories and files separately
     local dirs=() files=() recent_files=()
     local now=$(date +%s)
     local day_ago=$((now - 86400))
@@ -320,12 +552,11 @@ _tls_list() {
         fi
     done < <(find "$path" -maxdepth 1 -print0 2>/dev/null)
 
-    # Sort directories alphabetically (use readarray to avoid IFS issues)
+    # Sort
     local sorted_dirs=()
     readarray -t sorted_dirs < <(printf '%s\n' "${dirs[@]}" | sort -f)
     dirs=("${sorted_dirs[@]}")
 
-    # Sort recent files by mtime (newest first), then extract paths
     local sorted_recent=()
     if [[ ${#recent_files[@]} -gt 0 ]]; then
         while IFS= read -r line; do
@@ -333,130 +564,110 @@ _tls_list() {
         done < <(printf '%s\n' "${recent_files[@]}" | sort -rn -t: -k1)
     fi
 
-    # Sort older files alphabetically (use readarray to avoid IFS issues)
     local sorted_files=()
     readarray -t sorted_files < <(printf '%s\n' "${files[@]}" | sort -f)
     files=("${sorted_files[@]}")
 
     if [[ ${#dirs[@]} -eq 0 && ${#sorted_recent[@]} -eq 0 && ${#files[@]} -eq 0 ]]; then
-        printf "%sNo files found%s\n" "$_TLS_C_DIM" "$_TLS_C_RESET"
+        if [[ "$_TLS_USE_COLOR" == true ]]; then
+            tds_text_color "text.muted"
+            echo "No files found"
+            reset_color
+        else
+            echo "No files found"
+        fi
         return
     fi
 
     if [[ "$show_long" == "true" ]]; then
-        # Long format with timestamps
         _tls_list_long "$path" "$annotate"
     else
-        # Rich default view with size/count and relative time
         _tls_list_rich dirs sorted_recent files
     fi
 }
 
-# Rich default view with details
 _tls_list_rich() {
     local -n _dirs=$1
     local -n _recent=$2
     local -n _older=$3
 
-    # Print directories with item counts
-    if [[ ${#_dirs[@]} -gt 0 ]]; then
-        for entry in "${_dirs[@]}"; do
-            local name=$(basename "$entry")
-            local count=$(_tls_dir_count "$entry")
-            local mtime=$(stat -f %m "$entry" 2>/dev/null || echo 0)
-            local ftime=$(_tls_friendly_date "$mtime")
-            local tcolor=$(_tls_time_color "$mtime")
+    # Directories
+    for entry in "${_dirs[@]}"; do
+        local name=$(basename "$entry")
+        local count=$(_tls_dir_count "$entry")
+        local mtime=$(stat -f %m "$entry" 2>/dev/null || echo 0)
+        local ftime=$(_tls_friendly_date "$mtime")
 
-            printf "  %s%-24s%s %s%3d items%s  %s%s%s\n" \
-                "$_TLS_C_DIR_BOLD" "${name}/" "$_TLS_C_RESET" \
-                "$_TLS_C_DIM" "$count" "$_TLS_C_RESET" \
-                "$tcolor" "$ftime" "$_TLS_C_RESET"
-        done
-    fi
+        printf "  "
+        if [[ "$_TLS_USE_COLOR" == true ]]; then
+            tds_text_color "action.primary"
+            printf "%-24s" "${name}/"
+            reset_color
+            tds_text_color "text.muted"
+            printf " %3d items  " "$count"
+            local token=$(_tls_time_token "$mtime")
+            tds_text_color "$token"
+            printf "%s" "$ftime"
+            reset_color
+        else
+            printf "%-24s %3d items  %s" "${name}/" "$count" "$ftime"
+        fi
+        echo
+    done
 
-    # Print recent files with size and time
+    # Recent files
     if [[ ${#_recent[@]} -gt 0 ]]; then
-        [[ ${#_dirs[@]} -gt 0 ]] && printf "\n"
-        printf "%s── recent ──%s\n" "$_TLS_C_DIM" "$_TLS_C_RESET"
+        [[ ${#_dirs[@]} -gt 0 ]] && echo
+        if [[ "$_TLS_USE_COLOR" == true ]]; then
+            tds_text_color "text.muted"
+            echo "── recent ──"
+            reset_color
+        else
+            echo "── recent ──"
+        fi
         for entry in "${_recent[@]}"; do
-            local name=$(basename "$entry")
-            local size=$(stat -f %z "$entry" 2>/dev/null || echo 0)
-            local hsize=$(_tls_human_size "$size")
-            local mtime=$(stat -f %m "$entry" 2>/dev/null || echo 0)
-            local ftime=$(_tls_friendly_date "$mtime")
-            local tcolor=$(_tls_time_color "$mtime")
-            local ncolor=$(_tls_name_color "$entry")
-
-            printf "  %s%-24s%s %s%s%s  %s%s%s\n" \
-                "$ncolor" "$name" "$_TLS_C_RESET" \
-                "$_TLS_C_DIM" "$hsize" "$_TLS_C_RESET" \
-                "$tcolor" "$ftime" "$_TLS_C_RESET"
+            _tls_print_file_line "$entry"
         done
     fi
 
-    # Print older files with size and time
+    # Older files
     if [[ ${#_older[@]} -gt 0 ]]; then
-        [[ ${#_dirs[@]} -gt 0 || ${#_recent[@]} -gt 0 ]] && printf "\n"
+        [[ ${#_dirs[@]} -gt 0 || ${#_recent[@]} -gt 0 ]] && echo
         for entry in "${_older[@]}"; do
-            local name=$(basename "$entry")
-            local size=$(stat -f %z "$entry" 2>/dev/null || echo 0)
-            local hsize=$(_tls_human_size "$size")
-            local mtime=$(stat -f %m "$entry" 2>/dev/null || echo 0)
-            local ftime=$(_tls_friendly_date "$mtime")
-            local tcolor=$(_tls_time_color "$mtime")
-            local ncolor=$(_tls_name_color "$entry")
-
-            printf "  %s%-24s%s %s%s%s  %s%s%s\n" \
-                "$ncolor" "$name" "$_TLS_C_RESET" \
-                "$_TLS_C_DIM" "$hsize" "$_TLS_C_RESET" \
-                "$tcolor" "$ftime" "$_TLS_C_RESET"
+            _tls_print_file_line "$entry"
         done
     fi
 }
 
-# Get time-based color for an mtime
-_tls_time_color() {
-    local mtime="$1"
-    local now=$(date +%s)
-    local age=$((now - mtime))
+_tls_print_file_line() {
+    local entry="$1"
+    local name=$(basename "$entry")
+    local size=$(stat -f %z "$entry" 2>/dev/null || echo 0)
+    local hsize=$(_tls_human_size "$size")
+    local mtime=$(stat -f %m "$entry" 2>/dev/null || echo 0)
+    local ftime=$(_tls_friendly_date "$mtime")
 
-    if [[ $age -lt 3600 ]]; then
-        echo "$_TLS_C_HOT"
-    elif [[ $age -lt 86400 ]]; then
-        echo "$_TLS_C_WARM"
-    elif [[ $age -lt 604800 ]]; then
-        echo "$_TLS_C_NEUTRAL"
+    printf "  "
+    if [[ "$_TLS_USE_COLOR" == true ]]; then
+        local name_token=$(_tls_file_token "$entry")
+        tds_text_color "$name_token"
+        printf "%-24s" "$name"
+        reset_color
+        tds_text_color "text.muted"
+        printf " %s  " "$hsize"
+        local time_token=$(_tls_time_token "$mtime")
+        tds_text_color "$time_token"
+        printf "%s" "$ftime"
+        reset_color
     else
-        echo "$_TLS_C_DIM"
+        printf "%-24s %s  %s" "$name" "$hsize" "$ftime"
     fi
+    echo
 }
 
-# Get name color based on file type
-_tls_name_color() {
-    local path="$1"
-    local name=$(basename "$path")
-
-    if [[ -d "$path" ]]; then
-        echo "$_TLS_C_DIR"
-    elif [[ "$name" == *.sh ]]; then
-        echo "$_TLS_C_CODE"
-    elif [[ "$name" == *.md ]]; then
-        echo "$_TLS_C_DIR"
-    elif [[ "$name" == *.toml || "$name" == *.json || "$name" == *.yaml || "$name" == *.yml ]]; then
-        echo "$_TLS_C_CONFIG"
-    elif [[ -x "$path" ]]; then
-        echo "$_TLS_C_EXEC"
-    else
-        echo ""
-    fi
-}
-
-# Long format listing with size/count
 _tls_list_long() {
     local path="${1:-.}"
     local annotate="${2:-false}"
-
-    _tls_init_colors
 
     local entries=()
     while IFS= read -r line; do
@@ -464,10 +675,23 @@ _tls_list_long() {
     done < <(find "$path" -maxdepth 1 -not -name ".*" -not -path "$path" -exec stat -f '%m %N' {} \; 2>/dev/null | sort -rn)
 
     # Header
-    printf "%s  %-16s  %-9s  " "$_TLS_C_HEADING" "Modified" "Size"
-    [[ "$annotate" == "true" ]] && printf "Git "
-    printf "Name%s\n" "$_TLS_C_RESET"
-    printf "%s──────────────────────────────────────────────────────────────────%s\n" "$_TLS_C_DIM" "$_TLS_C_RESET"
+    if [[ "$_TLS_USE_COLOR" == true ]]; then
+        tds_text_color "structural.primary"
+        printf "  %-16s  %-9s  " "Modified" "Size"
+        [[ "$annotate" == "true" ]] && printf "Git "
+        printf "Name"
+        reset_color
+        echo
+        tds_text_color "text.dim"
+        printf "──────────────────────────────────────────────────────────────────"
+        reset_color
+        echo
+    else
+        printf "  %-16s  %-9s  " "Modified" "Size"
+        [[ "$annotate" == "true" ]] && printf "Git "
+        echo "Name"
+        echo "──────────────────────────────────────────────────────────────────"
+    fi
 
     for file in "${entries[@]}"; do
         [[ ! -e "$file" ]] && continue
@@ -477,44 +701,51 @@ _tls_list_long() {
         _tls_format_time "$mtime"
         printf "  "
 
-        # Size column: item count for dirs, file size for files
         if [[ -d "$file" ]]; then
             local count=$(_tls_dir_count "$file")
-            printf "%s%4d items%s  " "$_TLS_C_DIM" "$count" "$_TLS_C_RESET"
+            if [[ "$_TLS_USE_COLOR" == true ]]; then
+                tds_text_color "text.muted"
+                printf "%4d items" "$count"
+                reset_color
+            else
+                printf "%4d items" "$count"
+            fi
         else
             local size=$(stat -f %z "$file" 2>/dev/null || echo 0)
             local hsize=$(_tls_human_size "$size")
-            printf "%s%9s%s  " "$_TLS_C_DIM" "$hsize" "$_TLS_C_RESET"
+            if [[ "$_TLS_USE_COLOR" == true ]]; then
+                tds_text_color "text.muted"
+                printf "%9s" "$hsize"
+                reset_color
+            else
+                printf "%9s" "$hsize"
+            fi
         fi
 
+        printf "  "
         [[ "$annotate" == "true" ]] && _tls_git_annotation "$file"
         _tls_format_name "$file"
-        printf "\n"
+        echo
     done
 }
 
-# Tree format listing with time-grouped hierarchy
 _tls_tree() {
     local path="${1:-.}"
     local show_all="${2:-false}"
 
-    _tls_init_colors
-
-    # Bucket labels and colors
     declare -A bucket_label=(
         [hour]="Last Hour"
         [day]="Today"
         [week]="This Week"
         [older]="Older"
     )
-    declare -A bucket_color=(
-        [hour]="$_TLS_C_HOT"
-        [day]="$_TLS_C_WARM"
-        [week]="$_TLS_C_NEUTRAL"
-        [older]="$_TLS_C_DIM"
+    declare -A bucket_token=(
+        [hour]="status.success"
+        [day]="status.warning"
+        [week]="text.primary"
+        [older]="text.muted"
     )
 
-    # Collect files with mtimes
     local -A bucket_files=()
     local buckets=("hour" "day" "week" "older")
 
@@ -532,8 +763,15 @@ _tls_tree() {
         bucket_files[$bucket]+="$mtime:$entry"$'\n'
     done < <(find "$path" -maxdepth 1 -print0 2>/dev/null)
 
-    # Print header
-    printf "%s%s%s\n" "$_TLS_C_HEADING" "${path}" "$_TLS_C_RESET"
+    # Header
+    if [[ "$_TLS_USE_COLOR" == true ]]; then
+        tds_text_color "structural.primary"
+        printf '%s' "$path"
+        reset_color
+    else
+        printf '%s' "$path"
+    fi
+    echo
 
     local found_any=false
 
@@ -541,18 +779,28 @@ _tls_tree() {
         [[ -z "${bucket_files[$bucket]}" ]] && continue
         found_any=true
 
-        # Sort entries in bucket by mtime (newest first)
         local sorted_entries=()
         while IFS= read -r line; do
             [[ -n "$line" ]] && sorted_entries+=("${line#*:}")
         done < <(printf '%s' "${bucket_files[$bucket]}" | sort -rn -t: -k1)
 
         local count=${#sorted_entries[@]}
-        local color="${bucket_color[$bucket]}"
+        local token="${bucket_token[$bucket]}"
         local label="${bucket_label[$bucket]}"
 
         # Bucket header
-        printf "%s├── %s%s%s (%d)%s\n" "$_TLS_C_DIM" "$color" "$label" "$_TLS_C_DIM" "$count" "$_TLS_C_RESET"
+        if [[ "$_TLS_USE_COLOR" == true ]]; then
+            tds_text_color "text.muted"
+            printf "├── "
+            tds_text_color "$token"
+            printf "%s" "$label"
+            tds_text_color "text.muted"
+            printf " (%d)" "$count"
+            reset_color
+        else
+            printf "├── %s (%d)" "$label" "$count"
+        fi
+        echo
 
         local i=0
         for entry in "${sorted_entries[@]}"; do
@@ -560,19 +808,36 @@ _tls_tree() {
             local mtime=$(stat -f %m "$entry" 2>/dev/null || echo 0)
             local friendly=$(_tls_friendly_date "$mtime")
             local is_last=$(( i == count ))
-
-            # Tree branch character
             local branch="├──"
-            local prefix="│   "
-            [[ $is_last == 1 ]] && branch="└──" && prefix="    "
+            [[ $is_last == 1 ]] && branch="└──"
 
-            printf "%s│   %s%s " "$_TLS_C_DIM" "$branch" "$_TLS_C_RESET"
-            _tls_format_name_simple "$entry"
-            printf " %s%s%s\n" "$color" "$friendly" "$_TLS_C_RESET"
+            if [[ "$_TLS_USE_COLOR" == true ]]; then
+                tds_text_color "text.muted"
+                printf "│   %s " "$branch"
+                reset_color
+                _tls_format_name "$entry"
+                printf " "
+                tds_text_color "$token"
+                printf "%s" "$friendly"
+                reset_color
+            else
+                printf "│   %s " "$branch"
+                printf "%s " "$(basename "$entry")"
+                printf "%s" "$friendly"
+            fi
+            echo
         done
     done
 
-    [[ "$found_any" == "false" ]] && printf "%s└── (empty)%s\n" "$_TLS_C_DIM" "$_TLS_C_RESET"
+    if [[ "$found_any" == "false" ]]; then
+        if [[ "$_TLS_USE_COLOR" == true ]]; then
+            tds_text_color "text.muted"
+            echo "└── (empty)"
+            reset_color
+        else
+            echo "└── (empty)"
+        fi
+    fi
 }
 
 # =============================================================================
@@ -589,17 +854,7 @@ _tls_config() {
             echo "  limit       = $TLS_LIMIT"
             echo "  date_format = $TLS_DATE_FORMAT"
             echo "  show_hidden = $TLS_SHOW_HIDDEN"
-            echo "  theme       = $TLS_THEME"
-            echo "  columns     = $TLS_COLUMNS"
-            echo ""
             echo "  config_dir  = $TLS_DIR"
-            ;;
-        list)
-            echo "limit"
-            echo "date_format"
-            echo "show_hidden"
-            echo "theme"
-            echo "columns"
             ;;
         get)
             local key="$1"
@@ -607,8 +862,6 @@ _tls_config() {
                 limit)       echo "$TLS_LIMIT" ;;
                 date_format) echo "$TLS_DATE_FORMAT" ;;
                 show_hidden) echo "$TLS_SHOW_HIDDEN" ;;
-                theme)       echo "$TLS_THEME" ;;
-                columns)     echo "$TLS_COLUMNS" ;;
                 *) echo "Unknown key: $key"; return 1 ;;
             esac
             ;;
@@ -618,8 +871,6 @@ _tls_config() {
                 limit)       export TLS_LIMIT="$val" ;;
                 date_format) export TLS_DATE_FORMAT="$val" ;;
                 show_hidden) export TLS_SHOW_HIDDEN="$val" ;;
-                theme)       export TLS_THEME="$val" ;;
-                columns)     export TLS_COLUMNS="$val" ;;
                 *) echo "Unknown key: $key"; return 1 ;;
             esac
             echo "$key = $val"
@@ -627,28 +878,13 @@ _tls_config() {
         save)
             [[ -d "$TLS_DIR/config" ]] || mkdir -p "$TLS_DIR/config"
             cat > "$TLS_CONFIG_FILE" << EOF
-# TLS configuration - generated $(date +%Y-%m-%d)
 TLS_LIMIT="$TLS_LIMIT"
 TLS_DATE_FORMAT="$TLS_DATE_FORMAT"
 TLS_SHOW_HIDDEN="$TLS_SHOW_HIDDEN"
-TLS_THEME="$TLS_THEME"
-TLS_COLUMNS="$TLS_COLUMNS"
 EOF
             echo "Saved to $TLS_CONFIG_FILE"
             ;;
-        load)
-            if [[ -f "$TLS_CONFIG_FILE" ]]; then
-                source "$TLS_CONFIG_FILE"
-                echo "Loaded from $TLS_CONFIG_FILE"
-            else
-                echo "No config file at $TLS_CONFIG_FILE"
-                return 1
-            fi
-            ;;
-        path)
-            echo "$TLS_DIR"
-            ;;
-        *) echo "Unknown config command: $subcmd"; return 1 ;;
+        *) echo "Usage: tls config {show|get|set|save}"; return 1 ;;
     esac
 }
 
@@ -657,185 +893,75 @@ EOF
 # =============================================================================
 
 _tls_help() {
-    local topic="${1:-}"
-
-    # Init colors for help output
-    _tls_init_colors
-
-    local h="$_TLS_C_HEADING"  # headings
-    local c="$_TLS_C_CODE"     # commands/code
-    local d="$_TLS_C_DIM"      # dim/descriptions
-    local r="$_TLS_C_RESET"
-    local b="$_TLS_C_BOLD"
-
-    case "$topic" in
-        list)
-            printf "%stls list%s - List directory contents\n\n" "$h" "$r"
-            printf "%sUSAGE:%s\n" "$b" "$r"
-            printf "    %stls list%s [options] [path]\n" "$c" "$r"
-            printf "    %stls%s [path]              %s(list is default)%s\n\n" "$c" "$r" "$d" "$r"
-            printf "%sOPTIONS:%s\n" "$b" "$r"
-            printf "    %s-l%s    Long format with timestamps\n" "$c" "$r"
-            printf "    %s-a%s    Show git status annotations (with -l)\n\n" "$c" "$r"
-            printf "%sOUTPUT:%s\n" "$b" "$r"
-            printf "    Default: multi-column like ls\n"
-            printf "      %s- Directories first (bold, sorted alphabetically)%s\n" "$d" "$r"
-            printf "      %s- Recent files (< 24h, sorted by time, newest first)%s\n" "$d" "$r"
-            printf "      %s- Older files (sorted alphabetically)%s\n\n" "$d" "$r"
-            printf "    Long (%s-l%s): single column with timestamps\n" "$c" "$r"
-            printf "      %s- All entries sorted by modification time%s\n" "$d" "$r"
-            ;;
-        config)
-            printf "%stls config%s - Manage tls configuration\n\n" "$h" "$r"
-            printf "%sUSAGE:%s\n" "$b" "$r"
-            printf "    %stls config show%s           Show all settings\n" "$c" "$r"
-            printf "    %stls config list%s           List available keys\n" "$c" "$r"
-            printf "    %stls config get%s <key>      Get a setting\n" "$c" "$r"
-            printf "    %stls config set%s <key> <v>  Set a setting\n" "$c" "$r"
-            printf "    %stls config save%s           Save to config file\n" "$c" "$r"
-            printf "    %stls config load%s           Load from config file\n" "$c" "$r"
-            printf "    %stls config path%s           Show config directory\n\n" "$c" "$r"
-            printf "%sKEYS:%s\n" "$b" "$r"
-            printf "    %slimit%s        Number of entries for -l mode %s(default: 20)%s\n" "$c" "$r" "$d" "$r"
-            printf "    %sdate_format%s  strftime format %s(default: %%Y-%%m-%%d %%H:%%M)%s\n" "$c" "$r" "$d" "$r"
-            printf "    %sshow_hidden%s  Show hidden files %s(default: false)%s\n" "$c" "$r" "$d" "$r"
-            printf "    %stheme%s        Color theme %s(default: default)%s\n" "$c" "$r" "$d" "$r"
-            printf "    %scolumns%s      Column mode: auto or number %s(default: auto)%s\n" "$c" "$r" "$d" "$r"
-            ;;
-        colors)
-            printf "%stls colors%s - Time-based color coding\n\n" "$h" "$r"
-            printf "%sTIME COLORS%s (age of file):\n" "$b" "$r"
-            printf "    %sGreen%s   = less than 1 hour (hot)\n" "$_TLS_C_HOT" "$r"
-            printf "    %sYellow%s  = less than 1 day (warm)\n" "$_TLS_C_WARM" "$r"
-            printf "    %sWhite%s   = less than 1 week (neutral)\n" "$_TLS_C_NEUTRAL" "$r"
-            printf "    %sDim%s     = older (cool)\n\n" "$_TLS_C_DIM" "$r"
-            printf "%sTYPE INDICATORS:%s\n" "$b" "$r"
-            printf "    %sd%s = directory\n" "$_TLS_C_DIR" "$r"
-            printf "    %sx%s = executable\n" "$_TLS_C_EXEC" "$r"
-            printf "    %sl%s = symlink\n" "$_TLS_C_LINK" "$r"
-            printf "    . = regular file\n\n"
-            printf "%sGIT ANNOTATIONS%s (with -a):\n" "$b" "$r"
-            printf "    %s+%s  = staged\n" "$_TLS_C_STAGED" "$r"
-            printf "    %sM%s  = modified\n" "$_TLS_C_MODIFIED" "$r"
-            printf "    %s?%s  = untracked\n" "$_TLS_C_UNTRACKED" "$r"
-            printf "    %s·%s  = clean\n" "$_TLS_C_CLEAN" "$r"
-            ;;
-        tree)
-            printf "%stls -t%s - Hierarchical time-grouped view\n\n" "$h" "$r"
-            printf "%sUSAGE:%s\n" "$b" "$r"
-            printf "    %stls -t%s [path]\n" "$c" "$r"
-            printf "    %stls --tree%s [path]\n\n" "$c" "$r"
-            printf "%sOUTPUT:%s\n" "$b" "$r"
-            printf "    Files grouped by modification time:\n"
-            printf "    %s├── Last Hour%s     %s(< 1 hour ago)%s\n" "$_TLS_C_HOT" "$r" "$d" "$r"
-            printf "    %s├── Today%s         %s(< 24 hours ago)%s\n" "$_TLS_C_WARM" "$r" "$d" "$r"
-            printf "    %s├── This Week%s     %s(< 7 days ago)%s\n" "$_TLS_C_NEUTRAL" "$r" "$d" "$r"
-            printf "    %s└── Older%s         %s(> 7 days ago)%s\n\n" "$_TLS_C_DIM" "$r" "$d" "$r"
-            printf "%sTIME FORMAT:%s\n" "$b" "$r"
-            printf "    Friendly relative times: %sjust now%s, %s5 mins ago%s, %syesterday%s, etc.\n" "$c" "$r" "$c" "$r" "$c" "$r"
-            ;;
-        *)
-            printf "%stls%s - Time-ordered List\n\n" "$h" "$r"
-            printf "%sUSAGE:%s\n" "$b" "$r"
-            printf "    %stls%s [flags] [path]\n\n" "$c" "$r"
-            printf "%sFLAGS:%s\n" "$b" "$r"
-            printf "    %s-t%s  Tree view %s(time-grouped hierarchy)%s\n" "$c" "$r" "$d" "$r"
-            printf "    %s-l%s  Long view %s(detailed timestamps)%s\n" "$c" "$r" "$d" "$r"
-            printf "    %s-a%s  Show hidden files\n" "$c" "$r"
-            printf "    %s-g%s  Show git status %s(with -l)%s\n\n" "$c" "$r" "$d" "$r"
-            printf "%sSUBCOMMANDS:%s\n" "$b" "$r"
-            printf "    %sconfig%s          Manage configuration\n" "$c" "$r"
-            printf "    %shelp%s [topic]    Show help\n\n" "$c" "$r"
-            printf "%sEXAMPLES:%s\n" "$b" "$r"
-            printf "    %stls%s                     Rich view with sizes & times\n" "$c" "$r"
-            printf "    %stls -t%s                  Time-grouped tree view\n" "$c" "$r"
-            printf "    %stls -l%s                  Long format listing\n" "$c" "$r"
-            printf "    %stls -lg%s                 Long with git status\n" "$c" "$r"
-            printf "    %stls -ta%s                 Tree with hidden files\n" "$c" "$r"
-            printf "    %stls help colors%s         Color documentation\n\n" "$c" "$r"
-            ;;
-    esac
-}
-
-# =============================================================================
-# COLOR COMMAND
-# =============================================================================
-
-_tls_color_cmd() {
-    local subcmd="${1:-show}"
-    shift 2>/dev/null || true
-
-    case "$subcmd" in
-        show|preview)
-            if declare -f tds_module_show >/dev/null 2>&1; then
-                tds_module_show "tls"
-            else
-                echo "TDS module config not available"
-                return 1
-            fi
-            ;;
-        init|reset)
-            if declare -f tds_module_save >/dev/null 2>&1; then
-                tds_module_save "tls"
-                echo "Color config reset to defaults"
-            else
-                echo "TDS module config not available"
-                return 1
-            fi
-            ;;
-        edit)
-            local config_file
-            if declare -f tds_module_config_path >/dev/null 2>&1; then
-                config_file=$(tds_module_config_path "tls")
-                # Create if doesn't exist
-                [[ -f "$config_file" ]] || tds_module_save "tls" >/dev/null
-                ${EDITOR:-vi} "$config_file"
-                # Reload after edit
-                tds_module_load "tls" 2>/dev/null
-            else
-                echo "TDS module config not available"
-                return 1
-            fi
-            ;;
-        path)
-            if declare -f tds_module_config_path >/dev/null 2>&1; then
-                tds_module_config_path "tls"
-            else
-                echo "$TLS_DIR/config/colors.conf"
-            fi
-            ;;
-        get)
-            local token="$1"
-            if [[ -z "$token" ]]; then
-                echo "Usage: tls color get <token>"
-                return 1
-            fi
-            if declare -f tds_module_color >/dev/null 2>&1; then
-                tds_module_color "tls" "$token"
-            else
-                echo "TDS module config not available"
-                return 1
-            fi
-            ;;
-        help|*)
-            cat << 'EOF'
-tls color - Manage color configuration
-
-USAGE:
-    tls color show          Preview current colors
-    tls color edit          Open config in $EDITOR
-    tls color init          Reset to defaults
-    tls color path          Show config file path
-    tls color get <token>   Get hex color for token
-
-TOKENS:
-    time.hot, time.warm, time.neutral, time.cool
-    file.directory, file.executable, file.symlink, file.code, file.config
-    git.staged, git.modified, git.untracked, git.clean
-    ui.heading, ui.separator
-EOF
-            ;;
-    esac
+    if [[ "$_TLS_USE_COLOR" == true ]]; then
+        tds_text_color "structural.primary"
+        echo "tls - Time-ordered List"
+        reset_color
+        echo
+        tds_text_color "text.primary"
+        echo "USAGE:"
+        reset_color
+        echo "    tls [flags] [path]"
+        echo "    command | tls -     (file pipe mode)"
+        echo "    git log | tls -L    (git log colorizer)"
+        echo
+        tds_text_color "text.primary"
+        echo "FLAGS:"
+        reset_color
+        echo "    -t  Tree view (time-grouped)"
+        echo "    -l  Long view (detailed)"
+        echo "    -a  Show hidden files"
+        echo "    -g  Show git status"
+        echo "    -   Read paths from stdin (pipe mode)"
+        echo "    -L  Colorize git log --oneline output"
+        echo
+        tds_text_color "text.primary"
+        echo "PIPE SHORTCUTS:"
+        reset_color
+        echo "    -l-   Long format pipe      -g-   Git status pipe"
+        echo "    -lg-  Long + git pipe       -gl-  Same as -lg-"
+        echo
+        tds_text_color "text.primary"
+        echo "EXAMPLES:"
+        reset_color
+        echo "    tls                       List current directory"
+        echo "    tls -lg                   Long format with git status"
+        echo "    mf core | tls -           Pipe file list through tls"
+        echo "    git log --oneline | tls -L  Colorize git log"
+        echo
+        tds_text_color "text.primary"
+        echo "COMMIT TYPES:"
+        reset_color
+        echo "    feat (green)    fix (orange)   refactor (blue)"
+        echo "    docs (purple)   test (teal)    chore (muted)"
+        echo
+        tds_text_color "text.primary"
+        echo "SUBCOMMANDS:"
+        reset_color
+        echo "    config  Manage configuration"
+        echo "    help    Show this help"
+    else
+        echo "tls - Time-ordered List"
+        echo
+        echo "USAGE:"
+        echo "    tls [flags] [path]"
+        echo "    command | tls -     (file pipe mode)"
+        echo "    git log | tls -L    (git log colorizer)"
+        echo
+        echo "FLAGS:"
+        echo "    -t  Tree view    -l  Long view"
+        echo "    -a  Hidden       -g  Git status"
+        echo "    -   Pipe mode    -L  Git log colorizer"
+        echo
+        echo "PIPE SHORTCUTS:"
+        echo "    -l-  Long pipe   -g-  Git pipe   -lg-  Long+git pipe"
+        echo
+        echo "EXAMPLES:"
+        echo "    mf core | tls -             Pipe with default format"
+        echo "    git log --oneline | tls -L  Colorize git log"
+        echo
+        echo "SUBCOMMANDS: config, help"
+    fi
 }
 
 # =============================================================================
@@ -843,33 +969,46 @@ EOF
 # =============================================================================
 
 tls() {
-    # Subcommands that aren't listing
     case "$1" in
         config|c) shift; _tls_config "$@"; return ;;
-        color)    shift; _tls_color_cmd "$@"; return ;;
         help|h)   shift; _tls_help "$@"; return ;;
     esac
 
-    # Parse flags for listing modes
-    local path="." mode="rich" show_hidden="false" annotate="false"
+    local path="." mode="rich" show_hidden="false" annotate="false" pipe_mode="false" log_mode="false"
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            -|--pipe)   pipe_mode="true"; shift ;;
             -t|--tree)  mode="tree"; shift ;;
             -l|--long)  mode="long"; shift ;;
             -a|--all)   show_hidden="true"; shift ;;
             -g|--git)   annotate="true"; shift ;;
-            -tl|-lt)    mode="long"; shift ;;  # -t with -l = long
+            -L|--log)   log_mode="true"; pipe_mode="true"; shift ;;
+            -tl|-lt)    mode="long"; shift ;;
             -ta|-at)    mode="tree"; show_hidden="true"; shift ;;
             -la|-al)    mode="long"; show_hidden="true"; shift ;;
-            -lag|-gal|-alg|-gla|-lga|-agl) mode="long"; show_hidden="true"; annotate="true"; shift ;;
             -lg|-gl)    mode="long"; annotate="true"; shift ;;
+            # Pipe mode shortcuts
+            -l-)        mode="long"; pipe_mode="true"; shift ;;
+            -g-)        annotate="true"; pipe_mode="true"; shift ;;
+            -lg-|-gl-)  mode="long"; annotate="true"; pipe_mode="true"; shift ;;
             -*)         echo "Unknown option: $1"; return 1 ;;
             *)          path="$1"; shift ;;
         esac
     done
 
-    # Store hidden setting temporarily
+    # Pipe mode: read from stdin
+    if [[ "$pipe_mode" == "true" ]]; then
+        if [[ "$log_mode" == "true" ]]; then
+            _tls_git_log_pipe
+        else
+            local long_flag="false"
+            [[ "$mode" == "long" ]] && long_flag="true"
+            _tls_pipe "$long_flag" "$annotate"
+        fi
+        return
+    fi
+
     local old_hidden="$TLS_SHOW_HIDDEN"
     [[ "$show_hidden" == "true" ]] && TLS_SHOW_HIDDEN="true"
 
@@ -881,4 +1020,3 @@ tls() {
 
     TLS_SHOW_HIDDEN="$old_hidden"
 }
-

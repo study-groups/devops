@@ -122,6 +122,8 @@ declare -gA DE_PUSH=()         # [push] section
 declare -gA DE_PIPELINE=()     # [pipeline] section
 declare -gA DE_ALIAS=()        # [alias] section
 declare -gA DE_HISTORY=()      # [history] section
+declare -gA DE_REMOTE=()       # [remote] section - commands to run on remote
+declare -gA DE_POST=()         # [post] section - post-deploy commands
 
 DE_TOML=""                     # Current TOML file path
 DE_TOML_DIR=""                 # Directory containing TOML
@@ -139,6 +141,8 @@ _de_clear() {
     DE_PIPELINE=()
     DE_ALIAS=()
     DE_HISTORY=()
+    DE_REMOTE=()
+    DE_POST=()
     DE_TOML=""
     DE_TOML_DIR=""
 }
@@ -231,6 +235,8 @@ de_load() {
                 pipeline) DE_PIPELINE["$key"]="$val" ;;
                 alias)    DE_ALIAS["$key"]="$val" ;;
                 history)  DE_HISTORY["$key"]="$val" ;;
+                remote)   DE_REMOTE["$key"]="$val" ;;
+                post)     DE_POST["$key"]="$val" ;;
             esac
         fi
     done < "$toml"
@@ -406,6 +412,56 @@ _de_exec_push() {
     fi
 }
 
+# Execute remote command from [remote] section
+_de_exec_remote() {
+    local name="$1"
+    local env="$2"
+    local dry_run="${3:-0}"
+
+    local cmd="${DE_REMOTE[$name]}"
+    if [[ -z "$cmd" ]]; then
+        echo -e "  ${DE_CLR_WARN}[error]${DE_CLR_NC} No remote command: $name" >&2
+        return 1
+    fi
+
+    # Template expansion
+    cmd=$(_de_template "$cmd" "$env")
+
+    local ssh=$(_de_template "{{ssh}}" "$env")
+
+    echo -e "  ${DE_CLR_STEP}[remote:$name]${DE_CLR_NC}"
+    _de_print_cmd "" "$cmd"
+
+    if [[ "$dry_run" -eq 0 ]]; then
+        ssh "$ssh" "$cmd" || return 1
+    fi
+}
+
+# Execute post-deploy command from [post] section (runs on remote)
+_de_exec_post() {
+    local name="$1"
+    local env="$2"
+    local dry_run="${3:-0}"
+
+    local cmd="${DE_POST[$name]}"
+    if [[ -z "$cmd" ]]; then
+        echo -e "  ${DE_CLR_WARN}[error]${DE_CLR_NC} No post command: $name" >&2
+        return 1
+    fi
+
+    # Template expansion
+    cmd=$(_de_template "$cmd" "$env")
+
+    local ssh=$(_de_template "{{ssh}}" "$env")
+
+    echo -e "  ${DE_CLR_STEP}[post:$name]${DE_CLR_NC}"
+    _de_print_cmd "" "$cmd"
+
+    if [[ "$dry_run" -eq 0 ]]; then
+        ssh "$ssh" "$cmd" || return 1
+    fi
+}
+
 de_run() {
     local pipeline="${1:-default}"
     local env="$2"
@@ -498,6 +554,14 @@ de_run() {
                 fi
                 _de_exec_push "$env" "$files" "$dry_run" || return 1
                 ;;
+            remote:*)
+                local remote_name="${step#remote:}"
+                _de_exec_remote "$remote_name" "$env" "$dry_run" || return 1
+                ;;
+            post:*)
+                local post_name="${step#post:}"
+                _de_exec_post "$post_name" "$env" "$dry_run" || return 1
+                ;;
             *)
                 echo -e "  ${DE_CLR_WARN}[unknown]${DE_CLR_NC} $step" >&2
                 ;;
@@ -559,5 +623,5 @@ de_show() {
 export -f de_load de_run de_show de_pipelines de_files de_envs
 export -f _de_clear _de_parse_value _de_parse_array
 export -f _de_template _de_resolve_files
-export -f _de_exec_build _de_exec_push
+export -f _de_exec_build _de_exec_push _de_exec_remote _de_exec_post
 export -f _de_init_colors _de_format_size _de_print_cmd _de_print_file
