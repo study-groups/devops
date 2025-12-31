@@ -151,7 +151,10 @@
     // PT100 MERIDIAN - Multiplayer Terminal Game System
     // ═══════════════════════════════════════════════════════════════
 
-    const WS_URL = `ws://${window.location.hostname}:${window.location.port || 1985}/ws`;
+    // WebSocket URL: use ?wsport=XXXX param, or default to quasar's port 1985
+    const QUASAR_PORT = 1985;
+    const wsPort = new URLSearchParams(window.location.search).get('wsport') || QUASAR_PORT;
+    const WS_URL = `ws://${window.location.hostname}:${wsPort}/ws`;
     const RECONNECT_DELAY = 2000;
     const urlParams = new URLSearchParams(window.location.search);
     const skipDemo = urlParams.get('skipdemo') === 'true';

@@ -102,11 +102,17 @@ if (FEATURES.console_access) {
     const pty = require('node-pty');
 
     let ptyProcess = null;
+    let ptyReady = false;
+    let handlerCount = 0;  // Track how many onData handlers exist
+    const connectedSockets = new Set();
 
     const startLocalTerminal = () => {
-        if (ptyProcess) return ptyProcess;
+        if (ptyProcess) {
+            console.log('[PTY] Reusing existing terminal process');
+            return ptyProcess;
+        }
 
-        console.log('[PTY Manager] Starting terminal process...');
+        console.log('[PTY] Starting NEW terminal process...');
         const defaultProjectDir = `${process.env.HOME}/src/pixeljam`;
         ptyProcess = pty.spawn('bash', [], {
             name: 'xterm-color',
@@ -116,13 +122,33 @@ if (FEATURES.console_access) {
             env: process.env,
         });
 
-        ptyProcess.write('PS1="\\$ "\r\n');
-        ptyProcess.write('clear\r\n');
-        ptyProcess.write(`cd "${defaultProjectDir}" 2>/dev/null || echo "Note: ${defaultProjectDir} not found, staying in HOME"\r\n`);
+        // Silent init - discard output until ready
+        ptyProcess.write(`cd "${defaultProjectDir}" 2>/dev/null; clear\r\n`);
+
+        // Single output handler - broadcasts to all connected sockets
+        handlerCount++;
+        console.log(`[PTY] Registering onData handler #${handlerCount}`);
+        ptyProcess.onData((data) => {
+            const preview = data.replace(/[\r\n]/g, '\\n').substring(0, 50);
+            console.log(`[PTY] onData: ready=${ptyReady} sockets=${connectedSockets.size} bytes=${data.length} preview="${preview}"`);
+            if (ptyReady) {
+                for (const socket of connectedSockets) {
+                    socket.emit('output', data);
+                }
+            }
+        });
+
+        // Mark ready after init settles
+        setTimeout(() => {
+            console.log('[PTY] Marking ready, discarding init output');
+            ptyReady = true;
+        }, 100);
 
         ptyProcess.onExit(() => {
-            console.log('[PTY Manager] The shared terminal process has exited.');
+            console.log('[PTY] Process exited');
             ptyProcess = null;
+            ptyReady = false;
+            handlerCount = 0;
         });
 
         return ptyProcess;
@@ -130,25 +156,22 @@ if (FEATURES.console_access) {
 
     // Handle Socket.IO connections for local terminal
     io.on('connection', (socket) => {
-        console.log(`[Socket.IO] Client connected: ${socket.id}`);
+        console.log(`[Socket] Connected: ${socket.id} (total: ${connectedSockets.size + 1})`);
 
         const terminal = startLocalTerminal();
-        socket.emit('output', '\r\n--- 🟢 Client connected to local shell 🟢 ---\r\n');
-
-        // Forward terminal output to client
-        terminal.onData((data) => {
-            socket.emit('output', data);
-        });
+        connectedSockets.add(socket);
 
         // Handle input from client
         socket.on('input', (data) => {
+            console.log(`[Socket] Input from ${socket.id}: ${data.length} bytes`);
             if (terminal) {
                 terminal.write(data);
             }
         });
 
         socket.on('disconnect', () => {
-            console.log(`[Socket.IO] Client disconnected: ${socket.id}`);
+            connectedSockets.delete(socket);
+            console.log(`[Socket] Disconnected: ${socket.id} (remaining: ${connectedSockets.size})`);
         });
     });
 

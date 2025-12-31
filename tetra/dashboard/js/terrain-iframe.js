@@ -20,6 +20,7 @@ window.Terrain = window.Terrain || {};
 
 Terrain.Iframe = {
     ready: false,
+    initialized: false,
     name: null,
     onMessage: null,
     onReady: null,
@@ -38,6 +39,7 @@ Terrain.Iframe = {
      * @param {Object} opts - { name, onMessage, onReady }
      */
     init: function(opts) {
+        this.initialized = true;
         opts = opts || {};
         this.name = opts.name || this._detectName();
         this.onMessage = opts.onMessage || function(){};
@@ -102,17 +104,17 @@ Terrain.Iframe = {
 };
 
 // Auto-initialize on load (simple mode)
-// Can be overridden by calling Terrain.Iframe.init() with options
+// Skipped if init() was already called manually with options
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        if (!Terrain.Iframe.ready) {
+        if (!Terrain.Iframe.initialized) {
             Terrain.Iframe.init();
         }
     });
 } else {
     // DOM already loaded
     setTimeout(() => {
-        if (!Terrain.Iframe.ready) {
+        if (!Terrain.Iframe.initialized) {
             Terrain.Iframe.init();
         }
     }, 0);
