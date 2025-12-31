@@ -22,13 +22,15 @@ TEST_SELECTED_FILE=""
 test_prompt_state() {
     local color
     case "$TEST_STATE" in
-        ready)   color=$(env_color 2) ;;
-        working) color=$(verbs_color 2) ;;
-        done)    color=$(env_color 0) ;;
+        ready)   color="${SEMANTIC[2]:-43A047}" ;;  # success/green
+        working) color="${SEMANTIC[1]:-FB8C00}" ;;  # warning/orange
+        done)    color="${SEMANTIC[2]:-43A047}" ;;  # success/green
     esac
 
     if [[ ${COLOR_ENABLED:-0} -eq 1 ]]; then
-        printf "%b[%s]%b " "$color" "$TEST_STATE" "$(reset_color)"
+        text_color "$color"
+        printf "[%s] " "$TEST_STATE"
+        reset_color
     else
         printf "[%s] " "$TEST_STATE"
     fi
@@ -37,7 +39,9 @@ test_prompt_state() {
 test_prompt_counter() {
     if [[ $TEST_COUNTER -gt 0 ]]; then
         if [[ ${COLOR_ENABLED:-0} -eq 1 ]]; then
-            printf "%b(%d)%b " "$(mode_color 1)" "$TEST_COUNTER" "$(reset_color)"
+            text_color "${SECONDARY[1]:-C8A400}"
+            printf "(%d) " "$TEST_COUNTER"
+            reset_color
         else
             printf "(%d) " "$TEST_COUNTER"
         fi
@@ -47,7 +51,9 @@ test_prompt_counter() {
 test_prompt_base() {
     local exec_mode=$(repl_prompt_mode)
     if [[ ${COLOR_ENABLED:-0} -eq 1 ]]; then
-        printf "%b%s>%b " "$(mode_color 0)" "$exec_mode" "$(reset_color)"
+        text_color "${SECONDARY[0]:-E56335}"
+        printf "%s> " "$exec_mode"
+        reset_color
     else
         printf "%s> " "$exec_mode"
     fi
@@ -160,7 +166,9 @@ repl_register_slash_command "status" "test_cmd_status"
 # Welcome message
 echo ""
 if [[ ${COLOR_ENABLED:-0} -eq 1 ]]; then
-    printf "%bTest REPL - bash/repl Library Demo%b\n" "$(mode_color 0)" "$(reset_color)"
+    text_color "${SECONDARY[0]:-E56335}"
+    echo "Test REPL - bash/repl Library Demo"
+    reset_color
 else
     echo "Test REPL - bash/repl Library Demo"
 fi
