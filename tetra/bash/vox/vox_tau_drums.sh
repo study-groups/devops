@@ -31,10 +31,10 @@ declare -gA VOX_TAU_DRUM_DECAY=(
 )
 
 declare -gA VOX_TAU_DRUM_GAIN=(
-    [bd]=0.8  [kick]=0.8     # Bass drum: strong
-    [sd]=0.7  [snare]=0.7    # Snare: moderate
-    [cp]=0.5  [clap]=0.5     # Clap: softer
-    [hh]=0.4  [hihat]=0.4    # Hi-hat: subtle
+    [bd]=0.2  [kick]=0.2     # Bass drum: strong
+    [sd]=0.15 [snare]=0.15   # Snare: moderate
+    [cp]=0.1  [clap]=0.1     # Clap: softer
+    [hh]=0.1  [hihat]=0.1    # Hi-hat: subtle
 )
 
 #==============================================================================
@@ -58,11 +58,13 @@ vox_tau_drum_init() {
         # Configure voice
         vox_tau_send "VOICE $voice FREQ $freq" >/dev/null
         vox_tau_send "VOICE $voice GAIN $gain" >/dev/null
-        vox_tau_send "VOICE $voice DECAY $decay" >/dev/null 2>&1 || true
-        vox_tau_send "VOICE $voice WAVE PULSE" >/dev/null 2>&1 || true
+        vox_tau_send "VOICE $voice WAVE 0" >/dev/null  # SINE wave (pure)
+
+        # Set envelope: PERC mode, 5ms attack (snappy), decay from drum config
+        vox_tau_send "VOICE $voice ENV PERC 0.005 $decay" >/dev/null
 
         # Route to channel 0 (main output)
-        vox_tau_send "VOICE $voice CHAN 0" >/dev/null 2>&1 || true
+        vox_tau_send "VOICE $voice CHAN 0" >/dev/null
     done
 
     echo "Drum voices ready (bd:1, sd:2, cp:3, hh:4)" >&2
@@ -94,11 +96,8 @@ vox_tau_drum_trigger() {
         vox_tau_send "VOICE $voice GAIN $scaled_gain" >/dev/null
     fi
 
-    # Use ON/OFF with decay time for percussive sound
-    local decay="${VOX_TAU_DRUM_DECAY[$drum]:-0.1}"
-    vox_tau_send "VOICE $voice ON" >/dev/null
-    sleep "$decay"
-    vox_tau_send "VOICE $voice OFF" >/dev/null
+    # Use TRIG for click-free envelope (PERC mode handles decay automatically)
+    vox_tau_send "VOICE $voice TRIG" >/dev/null
 
     return 0
 }
@@ -107,29 +106,13 @@ vox_tau_drum_trigger() {
 # Usage: vox_tau_drum_chord bd sd hh
 vox_tau_drum_chord() {
     local drums=("$@")
-    local max_decay=0
 
-    # Turn all ON simultaneously
+    # Trigger all voices simultaneously (PERC mode handles decay)
     for drum in "${drums[@]}"; do
         local voice="${VOX_TAU_DRUM_VOICE[$drum]}"
-        local decay="${VOX_TAU_DRUM_DECAY[$drum]:-0.1}"
         if [[ -n "$voice" ]]; then
-            vox_tau_send "VOICE $voice ON" >/dev/null &
-            # Track longest decay
-            if (( $(echo "$decay > $max_decay" | bc -l) )); then
-                max_decay=$decay
-            fi
+            vox_tau_send "VOICE $voice TRIG" >/dev/null &
         fi
-    done
-    wait
-
-    # Wait for longest decay
-    sleep "$max_decay"
-
-    # Turn all OFF
-    for drum in "${drums[@]}"; do
-        local voice="${VOX_TAU_DRUM_VOICE[$drum]}"
-        [[ -n "$voice" ]] && vox_tau_send "VOICE $voice OFF" >/dev/null &
     done
     wait
 }

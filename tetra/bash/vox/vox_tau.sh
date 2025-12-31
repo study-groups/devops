@@ -12,6 +12,9 @@ source "${VOX_SRC}/vox_tau_daemon.sh"
 # Load drum synthesis (optional)
 [[ -f "${VOX_SRC}/vox_tau_drums.sh" ]] && source "${VOX_SRC}/vox_tau_drums.sh"
 
+# Load synth helpers (optional)
+[[ -f "${VOX_SRC}/vox_tau_synth.sh" ]] && source "${VOX_SRC}/vox_tau_synth.sh"
+
 #==============================================================================
 # SAMPLE SLOT MANAGEMENT
 #==============================================================================
@@ -250,6 +253,21 @@ vox_tau_cmd() {
             fi
             ;;
 
+        # Synth helpers (chords, envelopes)
+        synth|chord)
+            if declare -f vox_tau_synth_cmd &>/dev/null; then
+                # Allow "vox tau chord on Am7" as shortcut
+                if [[ "$cmd" == "chord" ]]; then
+                    vox_tau_synth_cmd chord "$@"
+                else
+                    vox_tau_synth_cmd "$@"
+                fi
+            else
+                echo "Error: synth module not loaded" >&2
+                return 1
+            fi
+            ;;
+
         # Help
         help|--help|-h)
             cat <<'EOF'
@@ -283,6 +301,12 @@ DRUMS:
   vox tau drum trigger bd Trigger single drum (bd/sd/cp/hh)
   vox tau drum preset house 128  Play preset pattern
   vox tau drum help       More drum options
+
+SYNTH:
+  vox tau chord on Am7    Start chord drone
+  vox tau chord off       Stop chord drone
+  vox tau chord play Dm7 2.0  Play chord with envelope
+  vox tau synth env       Envelope model documentation
 
 DIRECT:
   vox tau send <cmd>      Send raw command to tau-engine
