@@ -580,3 +580,12 @@ slam_to_black() {
     SCREEN_BACKGROUND="000000"
     term_bg_color "000000"
 }
+
+# =============================================================================
+# EXPORTS
+# =============================================================================
+export -f hex_to_256 hex_to_rgb rgb_to_hex
+export -f text_color bg_only term_bg_color reset_color
+export -f text_color_rl reset_color_rl
+export -f desaturate_hex get_effective_background theme_aware_dim
+export -f theme_dimmed_fg_only theme_dimmed_bg_only slam_to_black
