@@ -64,17 +64,24 @@ tsm_reset() {
 # =============================================================================
 
 # Map status value to TDS token
+# Uses TDS pattern registry for consistent colorization across tetra
 _tsm_status_token() {
-    case "$1" in
-        online|running|active|up|success|ok|enabled|yes|true)
-            echo "status.success" ;;
-        stopped|down|inactive|offline|disabled|no|false)
-            echo "text.muted" ;;
-        error|failed|critical|dead)
-            echo "status.error" ;;
-        warning|pending|starting|stopping|unknown|*)
-            echo "status.warning" ;;
-    esac
+    # Use pattern registry if available
+    if declare -F tds_pattern_match &>/dev/null; then
+        tds_pattern_match "$1" "status" 2>/dev/null || echo "status.warning"
+    else
+        # Fallback if TDS not loaded
+        case "$1" in
+            online|running|active|up|success|ok|enabled|yes|true)
+                echo "status.success" ;;
+            stopped|down|inactive|offline|disabled|no|false)
+                echo "text.muted" ;;
+            error|failed|critical|dead)
+                echo "status.error" ;;
+            *)
+                echo "status.warning" ;;
+        esac
+    fi
 }
 
 # Print colored status value

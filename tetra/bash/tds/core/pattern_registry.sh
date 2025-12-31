@@ -52,20 +52,42 @@ declare -gA TDS_PATTERNS_LOG=(
 )
 
 declare -gA TDS_PATTERNS_STATUS=(
-    # Process/service status
+    # Process/service status - success
     ["running"]="status.success"
     ["active"]="status.success"
     ["started"]="status.success"
     ["online"]="status.success"
     ["connected"]="status.success"
-    ["stopped"]="status.warning"
-    ["inactive"]="text.muted"
+    ["up"]="status.success"
+    ["ok"]="status.success"
+    ["success"]="status.success"
+    ["enabled"]="status.success"
+    ["yes"]="status.success"
+    ["true"]="status.success"
+
+    # Process/service status - warning
     ["pending"]="status.warning"
     ["waiting"]="status.warning"
+    ["starting"]="status.warning"
+    ["stopping"]="status.warning"
+
+    # Process/service status - error
     ["failed"]="status.error"
     ["error"]="status.error"
     ["dead"]="status.error"
     ["crashed"]="status.error"
+    ["critical"]="status.error"
+
+    # Process/service status - muted/inactive
+    ["stopped"]="text.muted"
+    ["inactive"]="text.muted"
+    ["offline"]="text.muted"
+    ["down"]="text.muted"
+    ["disabled"]="text.muted"
+    ["no"]="text.muted"
+    ["false"]="text.muted"
+
+    # Unknown
     ["unknown"]="text.disabled"
 )
 
