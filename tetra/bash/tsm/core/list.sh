@@ -186,7 +186,7 @@ _tsm_list_table() {
                     tds_text_color "accent.info"; printf "%-${w_user}s" "$owner"; reset_color; printf "  "
                 fi
                 tds_text_color "text.muted"; printf "%-${w_id}s" "$id"; reset_color; printf "  "
-                tds_text_color "text.primary"; printf "%-${w_name}s" "$name"; reset_color; printf "  "
+                tsm_format_name "$name" "$w_name"; printf "  "
                 tds_text_color "text.tertiary"; printf "%-${w_pid}s" "$pid"; reset_color; printf "  "
                 tds_text_color "text.tertiary"; printf "%-${w_port}s" "$port"; reset_color; printf "  "
                 local status_token=$(_tsm_status_token "$status")

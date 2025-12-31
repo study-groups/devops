@@ -161,6 +161,7 @@ tsm_msg_info() {
 declare -gA TSM_COL_TOKEN=(
     [id]="text.muted"
     [name]="text.primary"
+    [name_port]="status.success"       # port suffix in name (green)
     [pid]="text.tertiary"
     [port]="text.tertiary"
     [status]=""  # handled by tsm_colorize_status
@@ -176,6 +177,43 @@ tsm_col_esc() {
     tsm_esc "$token"
 }
 
+# Format process name with port suffix highlighted
+# Usage: tsm_format_name "gamma-8085" 20
+# Output: "gamma-" in text.primary, "8085" in action.secondary (orange)
+# Note: Caller is responsible for TTY check (use inside use_color block)
+tsm_format_name() {
+    local name="$1"
+    local width="${2:-0}"
+
+    # No TDS = no color
+    if [[ "$_TSM_HAS_TDS" != true ]]; then
+        printf "%-${width}s" "$name"
+        return
+    fi
+
+    # Match name-port pattern (e.g., "gamma-8085", "tetra-4444")
+    if [[ "$name" =~ ^(.+-)([0-9]+)$ ]]; then
+        local prefix="${BASH_REMATCH[1]}"
+        local port="${BASH_REMATCH[2]}"
+        local total_len=${#name}
+        local pad=$((width - total_len))
+
+        tds_text_color "text.primary"
+        printf '%s' "$prefix"
+        tds_text_color "status.success"
+        printf '%s' "$port"
+        reset_color
+
+        # Add padding if width specified
+        ((pad > 0)) && printf '%*s' "$pad" ""
+    else
+        # No port suffix, just colorize normally
+        tds_text_color "text.primary"
+        printf "%-${width}s" "$name"
+        reset_color
+    fi
+}
+
 # =============================================================================
 # EXPORTS
 # =============================================================================
@@ -183,5 +221,6 @@ tsm_col_esc() {
 export _TSM_HAS_TDS
 export -f tsm_esc tsm_reset
 export -f tsm_colorize_status tsm_status_esc _tsm_status_token
+export -f tsm_format_name
 export -f tsm_header tsm_success tsm_error tsm_warn tsm_msg_info
 export -f tsm_col_esc
