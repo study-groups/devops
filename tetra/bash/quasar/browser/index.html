@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PT100</title>
+  <style>
+    /* Fira Code - Monospace font with excellent Unicode box-drawing support */
+    @font-face {
+      font-family: 'Fira Code';
+      src: url('fonts/FiraCode-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: block;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #0a0a0a;
+      color: #0f0;
+      font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    #screen-container {
+      position: relative;
+      width: 100%;
+      max-width: 800px;
+      aspect-ratio: 4/3;
+    }
+
+    #terminal {
+      width: 100%;
+      height: 100%;
+      border: 2px solid #333;
+      box-shadow:
+        0 0 20px rgba(0, 255, 0, 0.15),
+        inset 0 0 60px rgba(0, 0, 0, 0.8);
+      image-rendering: pixelated;
+      background: #0a0a0a;
+    }
+
+    /* CRT effect overlay */
+    #crt-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.15) 0px,
+        rgba(0, 0, 0, 0.15) 1px,
+        transparent 1px,
+        transparent 2px
+      );
+    }
+
+    #status-bar {
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      font-size: 11px;
+      color: #444;
+    }
+
+    #status-bar.connected {
+      color: #0a0;
+    }
+
+    #audio-notice {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.95);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    #audio-notice.show {
+      display: flex;
+    }
+
+    #audio-notice h2 {
+      color: #0f0;
+      margin-bottom: 20px;
+      font-size: 14px;
+      letter-spacing: 4px;
+    }
+
+    #audio-notice button {
+      background: transparent;
+      border: 1px solid #0f0;
+      color: #0f0;
+      padding: 15px 40px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 16px;
+      letter-spacing: 2px;
+      transition: all 0.2s;
+    }
+
+    #audio-notice button:hover {
+      background: #0f0;
+      color: #000;
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="audio-notice" class="show">
+    <h2>PT100 MERIDIAN</h2>
+    <button id="start-btn">[ INITIALIZE ]</button>
+  </div>
+
+  <div id="screen-container">
+    <canvas id="terminal"></canvas>
+    <div id="crt-overlay"></div>
+  </div>
+
+  <div id="status-bar">
+    <span id="status">OFFLINE</span>
+    <span id="channel">CH:-- | MODE:---</span>
+    <span id="fps">--FPS</span>
+  </div>
+
+  <script src="terminal.js"></script>
+  <script src="quasar.js"></script>
+  <script>
+    // ═══════════════════════════════════════════════════════════════
+    // PT100 MERIDIAN - Multiplayer Terminal Game System
+    // ═══════════════════════════════════════════════════════════════
+
+    const WS_URL = `ws://${window.location.hostname}:${window.location.port || 1985}/ws`;
+    const RECONNECT_DELAY = 2000;
+    const urlParams = new URLSearchParams(window.location.search);
+    const skipDemo = urlParams.get('skipdemo') === 'true';
+    const embedMode = urlParams.get('embed') === 'true' || window.self !== window.top;
+    const urlChannel = urlParams.get('channel') ? parseInt(urlParams.get('channel')) : null;
+    const fullscreenMode = urlParams.get('fullscreen') === '1';
+
+    // State
+    let ws = null;
+    let terminal = null;
+    let audioInitialized = false;
+    let currentScreen = skipDemo ? 'menu' : 'intro';
+    let introPhase = 0;
+    let selectedGame = 0;
+    let selectedChannel = urlChannel || 3;
+    let frameCount = 0;
+    let lastScreenText = '';
+
+    // Latency tracking state
+    const latencyStats = {
+      samples: [],
+      rtt: 0,
+      avg: 0,
+      min: Infinity,
+      max: -Infinity,
+      jitter: 0,
+      lastPingTs: 0,
+      lastSeq: 0,
+      framesDropped: 0
+    };
+    let pingInterval = null;
+    let showDiagnostics = false;
+
+    // Channel configuration
+    let channelConfigs = null;
+    const defaultConfig = {
+      fontSize: 16,
+      scale: 1.0,
+      maxWidth: 800,
+      fg: '#00ff00',
+      bg: '#0a0a0a',
+      cols: 60,
+      rows: 24
+    };
+
+    // Load channel configs from config/channels.json
+    async function loadChannelConfigs() {
+      try {
+        const resp = await fetch('config/channels.json');
+        channelConfigs = await resp.json();
+      } catch (e) {
+        channelConfigs = { default: defaultConfig };
+      }
+    }
+
+    // Apply config for a channel
+    function applyChannelConfig(channel) {
+      const cfg = channelConfigs?.[String(channel)] || channelConfigs?.default || defaultConfig;
+
+      // Update terminal settings
+      if (terminal) {
+        terminal.fontSize = cfg.fontSize;
+        terminal.fg = cfg.fg;
+        terminal.bg = cfg.bg;
+        terminal.init();
+      }
+
+      // Update container scale/size
+      const container = document.getElementById('screen-container');
+      if (container) {
+        container.style.maxWidth = `${cfg.maxWidth}px`;
+        container.style.transform = `scale(${cfg.scale})`;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Latency Tracking
+    // ═══════════════════════════════════════════════════════════════
+
+    function updateLatencyStats(rtt) {
+      latencyStats.rtt = rtt;
+      latencyStats.samples.push(rtt);
+
+      // Keep only last 100 samples
+      if (latencyStats.samples.length > 100) {
+        latencyStats.samples.shift();
+      }
+
+      // Calculate stats
+      const sorted = [...latencyStats.samples].sort((a, b) => a - b);
+      latencyStats.min = sorted[0];
+      latencyStats.max = sorted[sorted.length - 1];
+      latencyStats.avg = Math.round(sorted.reduce((a, b) => a + b) / sorted.length);
+
+      // Calculate jitter (standard deviation)
+      const variance = sorted.reduce((sum, x) => sum + Math.pow(x - latencyStats.avg, 2), 0) / sorted.length;
+      latencyStats.jitter = Math.round(Math.sqrt(variance));
+    }
+
+    function sendPing() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        latencyStats.lastPingTs = performance.now();
+        ws.send(JSON.stringify({ t: 'ping', ts: latencyStats.lastPingTs }));
+      }
+    }
+
+    function handlePong(data) {
+      const now = performance.now();
+      const rtt = Math.round(now - data.clientTs);
+      updateLatencyStats(rtt);
+    }
+
+    function startPingLoop() {
+      if (pingInterval) return;
+      sendPing();
+      pingInterval = setInterval(sendPing, 2000);
+    }
+
+    function stopPingLoop() {
+      if (pingInterval) {
+        clearInterval(pingInterval);
+        pingInterval = null;
+      }
+    }
+
+    function getLatencyColor(rtt) {
+      if (rtt < 50) return '#0f0';   // Green
+      if (rtt < 100) return '#ff0';  // Yellow
+      return '#f00';                  // Red
+    }
+
+    function renderDiagnostics() {
+      const p95 = latencyStats.samples.length >= 20
+        ? latencyStats.samples.sort((a, b) => a - b)[Math.floor(latencyStats.samples.length * 0.95)]
+        : latencyStats.avg;
+
+      const lines = [
+        '╔═══════════════════════════════════════╗',
+        '║         LATENCY DIAGNOSTICS           ║',
+        '╠═══════════════════════════════════════╣',
+        `║ RTT:     ${String(latencyStats.rtt).padStart(4)}ms (avg ${String(latencyStats.avg).padStart(3)}ms)       ║`,
+        `║ Jitter:  ${String(latencyStats.jitter).padStart(4)}ms                       ║`,
+        `║ Min/Max: ${String(latencyStats.min).padStart(4)}ms / ${String(latencyStats.max).padStart(4)}ms          ║`,
+        `║ P95:     ${String(p95).padStart(4)}ms                       ║`,
+        `║ Frames:  ${String(frameCount).padStart(6)} recv, ${String(latencyStats.framesDropped).padStart(3)} drop  ║`,
+        `║ Sync:    PUSH (${serverFps || '--'} FPS)               ║`,
+        '╚═══════════════════════════════════════╝'
+      ];
+      return lines.join('\n');
+    }
+
+    // Elements
+    const statusEl = document.getElementById('status');
+    const channelEl = document.getElementById('channel');
+    const fpsEl = document.getElementById('fps');
+    const audioNotice = document.getElementById('audio-notice');
+    const startBtn = document.getElementById('start-btn');
+    const terminalCanvas = document.getElementById('terminal');
+
+    // Games registry - channel is the midi-mp channel for this game
+    const GAMES = [
+      { id: 'magnetar', name: 'MAGNETAR', desc: 'Arcade Space Shooter', channel: 0x40 },
+      { id: 'formant', name: 'FORMANT', desc: 'Formant Synthesizer', channel: 0x30 },
+      { id: 'trax', name: 'TRAX', desc: 'Multiplayer Dune Buggy Rally', channel: 9 }
+    ];
+
+    // ═══════════════════════════════════════════════════════════════
+    // ASCII Art Title Screens
+    // ═══════════════════════════════════════════════════════════════
+
+    const TITLE_PT100 = `
+
+
+         ██████╗ ████████╗ ██╗ ██████╗  ██████╗
+         ██╔══██╗╚══██╔══╝███║██╔═████╗██╔═████╗
+         ██████╔╝   ██║   ╚██║██║██╔██║██║██╔██║
+         ██╔═══╝    ██║    ██║████╔╝██║████╔╝██║
+         ██║        ██║    ██║╚██████╔╝╚██████╔╝
+         ╚═╝        ╚═╝    ╚═╝ ╚═════╝  ╚═════╝
+
+
+            ╔════════════════════════════════════╗
+            ║  MULTIPLAYER TERMINAL GAME SYSTEM  ║
+            ╚════════════════════════════════════╝
+
+                    256 CHANNELS  ·  OSC/MIDI
+                    WEBSOCKET  ·  UDP MULTICAST
+
+
+
+                                                 v0.0.5     `;
+
+    const TITLE_PULSAR = `
+
+
+     ██████╗ ██╗   ██╗██╗     ███████╗ █████╗ ██████╗
+     ██╔══██╗██║   ██║██║     ██╔════╝██╔══██╗██╔══██╗
+     ██████╔╝██║   ██║██║     ███████╗███████║██████╔╝
+     ██╔═══╝ ██║   ██║██║     ╚════██║██╔══██║██╔══██╗
+     ██║     ╚██████╔╝███████╗███████║██║  ██║██║  ██║
+     ╚═╝      ╚═════╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝
+
+            ╔════════════════════════════════════╗
+            ║    ASCII ANIMATION ENGINE          ║
+            ╚════════════════════════════════════╝
+
+              * SPRITES & COLLISION DETECTION
+              * PROCEDURAL GEOMETRY
+              * PHYSICS SIMULATION
+              * 60x24 TERMINAL VIEWPORT
+
+              +--------------------------------+
+              |  *   =======   o       ^       |
+              |      #######       @   |       |
+              |  O        [==]     /\\  v       |
+              +--------------------------------+
+                                                     `;
+
+    const TITLE_QUASAR = `
+
+
+      ██████╗ ██╗   ██╗ █████╗ ███████╗ █████╗ ██████╗
+     ██╔═══██╗██║   ██║██╔══██╗██╔════╝██╔══██╗██╔══██╗
+     ██║   ██║██║   ██║███████║███████╗███████║██████╔╝
+     ██║▄▄ ██║██║   ██║██╔══██║╚════██║██╔══██║██╔══██╗
+     ╚██████╔╝╚██████╔╝██║  ██║███████║██║  ██║██║  ██║
+      ╚══▀▀═╝  ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝
+
+            ╔════════════════════════════════════╗
+            ║    REALTIME CLIENT/SERVER ENGINE   ║
+            ╚════════════════════════════════════╝
+
+              * MIDI-MP DUPLICATOR & ROUTER
+              * 256 CHANNEL MULTIPLEXER
+              * window.QUASAR API
+
+              +-- AUDIO MODES ----------------+
+              |  TIA      Atari 2600 Style     |
+              |  PWM      Lo-Fi Synthesis      |
+              |  SIDPlus  C64 Extended         |
+              +--------------------------------+
+                                                     `;
+
+    const TITLE_MIDIMP = `
+
+
+       ███╗   ███╗██╗██████╗ ██╗      ███╗   ███╗██████╗
+       ████╗ ████║██║██╔══██╗██║      ████╗ ████║██╔══██╗
+       ██╔████╔██║██║██║  ██║██║█████╗██╔████╔██║██████╔╝
+       ██║╚██╔╝██║██║██║  ██║██║╚════╝██║╚██╔╝██║██╔═══╝
+       ██║ ╚═╝ ██║██║██████╔╝██║      ██║ ╚═╝ ██║██║
+       ╚═╝     ╚═╝╚═╝╚═════╝ ╚═╝      ╚═╝     ╚═╝╚═╝
+
+            +====================================+
+            |    MIDI MULTIPLAYER PROTOCOL       |
+            +====================================+
+
+              * UDP MULTICAST DISTRIBUTION
+              * 256 CHANNEL MULTIPLEXER
+              * OSC MESSAGE ROUTING
+              * WEBSOCKET BRIDGE
+
+              +--------------------------------+
+              |  CH 000-063   Local Players    |
+              |  CH 064-127   Remote Players   |
+              |  CH 128-255   System/Bots      |
+              +--------------------------------+
+                                                     `;
+
+    // ═══════════════════════════════════════════════════════════════
+    // Screen Rendering
+    // ═══════════════════════════════════════════════════════════════
+
+    // Send current screen to server for /api/screen endpoint
+    function reportScreen(screenText) {
+      if (ws && ws.readyState === WebSocket.OPEN && screenText !== lastScreenText) {
+        lastScreenText = screenText;
+        ws.send(JSON.stringify({ t: 'screen', screen: screenText }));
+      }
+    }
+
+    // Navigation: screens 0-3 are intro titles, screen 4 is game menu
+    const SCREEN_TITLES = [TITLE_PT100, TITLE_PULSAR, TITLE_QUASAR, TITLE_MIDIMP];
+    const SCREEN_COLORS = ['#00ff88', '#ff8800', '#00aaff', '#ff00ff', '#00ff00'];
+    const SCREEN_NAMES = ['PT100', 'PULSAR', 'QUASAR', 'MIDI-MP', 'GAME SELECT'];
+    let currentPage = 0;
+    const TOTAL_PAGES = 5; // 4 intro + 1 menu
+
+    function renderCurrentPage() {
+      if (currentPage < 4) {
+        // Intro screens (0-3)
+        terminal.setColors(SCREEN_COLORS[currentPage], '#0a0a0a');
+        const nav = `         < ${currentPage + 1}/${TOTAL_PAGES} >     [ <-/-> NAVIGATE ]  [ ENTER: SELECT ]`;
+        const screenWithNav = SCREEN_TITLES[currentPage] + '\n\n' + nav;
+        terminal.render(screenWithNav);
+        reportScreen(screenWithNav);
+        currentScreen = 'nav';
+      } else {
+        // Game menu (page 5)
+        terminal.setColors(SCREEN_COLORS[4], '#0a0a0a');
+        currentScreen = 'menu';
+        renderMenu();
+      }
+    }
+
+    function navigatePage(direction) {
+      if (audioInitialized) QUASAR.trigger('clank');
+
+      const newPage = currentPage + direction;
+      if (newPage >= 0 && newPage < TOTAL_PAGES) {
+        currentPage = newPage;
+        terminal.clear();
+        setTimeout(() => renderCurrentPage(), 50);
+      }
+    }
+
+    function renderMenu() {
+      // All lines must be exactly 60 chars (including border ║)
+      const W = 58; // Inner width (60 - 2 for borders)
+      const pad = (s, w) => s.length >= w ? s.slice(0, w) : s + ' '.repeat(w - s.length);
+      const center = (s, w) => {
+        const p = Math.max(0, w - s.length);
+        const left = Math.floor(p / 2);
+        return ' '.repeat(left) + s + ' '.repeat(p - left);
+      };
+
+      let lines = [];
+      lines.push('╔' + '═'.repeat(W) + '╗');
+      lines.push('║' + center('PT100 MERIDIAN', W) + '║');
+      lines.push('║' + center('GAME SELECT', W) + '║');
+      lines.push('╠' + '═'.repeat(W) + '╣');
+      lines.push('║' + ' '.repeat(W) + '║');
+
+      GAMES.forEach((game, i) => {
+        const selected = i === selectedGame;
+        const marker = selected ? '██ ► ' : '     ';
+        const tail = selected ? ' ██' : '   ';
+        const content = marker + game.name.padEnd(14) + game.desc.padEnd(34) + tail;
+        lines.push('║' + pad(content, W) + '║');
+      });
+
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('╠' + '═'.repeat(W) + '╣');
+      lines.push('║' + pad(`  CHANNEL: [ ${String(selectedChannel).padStart(3, '0')} ]      < 5/5 >    [ <- BACK ]`, W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + pad('  ┌' + '─'.repeat(52) + '┐', W) + '║');
+      lines.push('║' + pad('  │  ↑/↓  Select Game        →   Channel +1           │', W) + '║');
+      lines.push('║' + pad('  │  ENTER  Start Game       <-  Back to MIDI-MP      │', W) + '║');
+      lines.push('║' + pad('  └' + '─'.repeat(52) + '┘', W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('╠' + '═'.repeat(W) + '╣');
+      const status = `  MIDI-MP: ${ws?.readyState === WebSocket.OPEN ? 'ONLINE ' : 'OFFLINE'}  │  QUASAR: CH${String(selectedChannel).padStart(3,'0')}  │  TIA MODE`;
+      lines.push('║' + pad(status, W) + '║');
+      lines.push('╚' + '═'.repeat(W) + '╝');
+
+      const screen = lines.join('\n');
+
+      terminal.render(screen);
+      reportScreen(screen);
+      channelEl.textContent = `CH:${String(selectedChannel).padStart(3,'0')} | MODE:TIA`;
+    }
+
+    function renderConnecting() {
+      const game = GAMES[selectedGame];
+      const W = 58; // Inner width
+      const pad = (s, w) => s.length >= w ? s.slice(0, w) : s + ' '.repeat(w - s.length);
+      const center = (s, w) => {
+        const p = Math.max(0, w - s.length);
+        const left = Math.floor(p / 2);
+        return ' '.repeat(left) + s + ' '.repeat(p - left);
+      };
+
+      let lines = [];
+      lines.push('╔' + '═'.repeat(W) + '╗');
+      lines.push('║' + center('PT100 MERIDIAN', W) + '║');
+      lines.push('╠' + '═'.repeat(W) + '╣');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + center('INITIALIZING ' + game.name, W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + center('Channel: ' + String(game.channel).padStart(3, '0'), W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + center('░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░', W) + '║');
+      lines.push('║' + center('▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░', W) + '║');
+      lines.push('║' + center('░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░', W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + center('Spawning game bridge...', W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('║' + ' '.repeat(W) + '║');
+      lines.push('╚' + '═'.repeat(W) + '╝');
+
+      const screen = lines.join('\n');
+      terminal.render(screen);
+      reportScreen(screen);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // WebSocket & Game Bridge
+    // ═══════════════════════════════════════════════════════════════
+
+    function connect() {
+      ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => {
+        statusEl.textContent = 'ONLINE';
+        document.getElementById('status-bar').classList.add('connected');
+        startPingLoop();
+      };
+
+      ws.onclose = () => {
+        statusEl.textContent = 'OFFLINE';
+        document.getElementById('status-bar').classList.remove('connected');
+        stopPingLoop();
+        // Kill sound when connection drops
+        if (audioInitialized) QUASAR.stopAll();
+        setTimeout(connect, RECONNECT_DELAY);
+      };
+
+      ws.onerror = (err) => {
+        console.error('WebSocket error:', err);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          handleMessage(data);
+        } catch (err) {
+          console.error('Message parse error:', err);
+        }
+      };
+    }
+
+    function handleMessage(data) {
+      switch (data.t) {
+        case 'frame':
+          handleFrame(data);
+          break;
+        case 'pong':
+          handlePong(data);
+          break;
+        case 'sync':
+          if (data.snd && audioInitialized) {
+            QUASAR.processFrame({ snd: data.snd });
+          }
+          break;
+        case 'snd':
+          if (audioInitialized && data.snd) {
+            QUASAR.processFrame({ snd: data.snd });
+          }
+          break;
+        case 'bridge.ready':
+          // Game bridge is ready, switch to game mode
+          currentScreen = 'game';
+          break;
+      }
+    }
+
+    // Frame rate tracking
+    let incomingFrames = 0;
+    let lastFpsUpdate = performance.now();
+    let serverFps = 0;
+    let lastDisplay = '';
+    let pendingFrame = null;
+    let rafRunning = false;
+
+    // requestAnimationFrame render loop - syncs to display refresh
+    function rafLoop() {
+      if (pendingFrame && currentScreen === 'game') {
+        const display = pendingFrame.display;
+        if (display && display !== lastDisplay) {
+          lastDisplay = display;
+          terminal.renderWithAnsi(display);
+        }
+        if (audioInitialized && pendingFrame.snd) {
+          QUASAR.processFrame(pendingFrame);
+        }
+        pendingFrame = null;
+      }
+      if (rafRunning) {
+        requestAnimationFrame(rafLoop);
+      }
+    }
+
+    function handleFrame(frame) {
+      frameCount++;
+      incomingFrames++;
+
+      // Track dropped frames via seq
+      if (frame.seq && latencyStats.lastSeq > 0) {
+        const dropped = frame.seq - latencyStats.lastSeq - 1;
+        if (dropped > 0) {
+          latencyStats.framesDropped += dropped;
+        }
+      }
+      latencyStats.lastSeq = frame.seq || 0;
+
+      // Update FPS counter every second
+      const now = performance.now();
+      if (now - lastFpsUpdate >= 1000) {
+        serverFps = incomingFrames;
+        incomingFrames = 0;
+        lastFpsUpdate = now;
+      }
+
+      // Show latency with color coding
+      const latStr = latencyStats.rtt > 0 ? `LAT:${latencyStats.rtt}ms` : 'LAT:--';
+      fpsEl.textContent = `IN:${serverFps} ${latStr} DRAW:${terminal.getFPS()}`;
+      fpsEl.style.color = latencyStats.rtt > 0 ? getLatencyColor(latencyStats.rtt) : '';
+
+      // Queue frame for next RAF
+      pendingFrame = frame;
+
+      // Start RAF loop if not running
+      if (!rafRunning) {
+        rafRunning = true;
+        requestAnimationFrame(rafLoop);
+      }
+    }
+
+    function startGame() {
+      const game = GAMES[selectedGame];
+      currentScreen = 'connecting';
+      renderConnecting();
+
+      // Apply channel-specific display config
+      applyChannelConfig(game.channel);
+
+      // Request game bridge spawn
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          t: 'bridge.spawn',
+          game: game.id,
+          channel: game.channel
+        }));
+      }
+
+      // Timeout fallback - if still connecting after 3s, go to game mode anyway
+      // (bridge may be external and already sending frames)
+      setTimeout(() => {
+        if (currentScreen === 'connecting') {
+          currentScreen = 'game';
+        }
+      }, 3000);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Input Handling
+    // ═══════════════════════════════════════════════════════════════
+
+    // Kill sound on page unload/refresh - destroy AudioContext entirely
+    window.addEventListener('beforeunload', () => {
+      if (audioInitialized) QUASAR.destroy();
+    });
+    window.addEventListener('pagehide', () => {
+      if (audioInitialized) QUASAR.destroy();
+    });
+    window.addEventListener('visibilitychange', () => {
+      if (document.hidden && audioInitialized) QUASAR.stopAll();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      // Escape = kill all sound and return to menu
+      if (e.key === 'Escape') {
+        if (audioInitialized) QUASAR.stopAll();
+        if (currentScreen === 'game') {
+          currentScreen = 'menu';
+          lastDisplay = '';
+          rafRunning = false;
+          renderMenu();
+        }
+        e.preventDefault();
+        return;
+      }
+
+      // M = mute/kill sound
+      if (e.key === 'm' || e.key === 'M') {
+        if (audioInitialized) QUASAR.stopAll();
+        e.preventDefault();
+        return;
+      }
+
+      // D = toggle latency diagnostics panel
+      if (e.key === 'd' || e.key === 'D') {
+        showDiagnostics = !showDiagnostics;
+        if (showDiagnostics) {
+          terminal.render(renderDiagnostics());
+        } else {
+          // Re-render current screen
+          if (currentScreen === 'game' && pendingFrame) {
+            terminal.renderWithAnsi(pendingFrame.display);
+          } else if (currentScreen === 'menu') {
+            renderMenu();
+          }
+        }
+        e.preventDefault();
+        return;
+      }
+
+      // P = pop out DivGraphics (channel 8) in new tab
+      if (e.key === 'p' || e.key === 'P') {
+        const ch8 = channelConfigs?.['8'];
+        const popUrl = ch8?.popoutUrl || 'http://localhost:8080';
+        window.open(popUrl, '_blank');
+        e.preventDefault();
+        return;
+      }
+
+      // Handle navigation screens (intro titles)
+      if (currentScreen === 'nav') {
+        switch (e.key) {
+          case 'ArrowLeft':
+            navigatePage(-1);
+            e.preventDefault();
+            break;
+          case 'ArrowRight':
+          case 'Enter':
+          case ' ':
+            navigatePage(1);
+            e.preventDefault();
+            break;
+        }
+        return;
+      }
+
+      if (currentScreen === 'menu') {
+        switch (e.key) {
+          case 'ArrowUp':
+            selectedGame = (selectedGame - 1 + GAMES.length) % GAMES.length;
+            renderMenu();
+            if (audioInitialized) QUASAR.trigger('clank');
+            e.preventDefault();
+            break;
+          case 'ArrowDown':
+            selectedGame = (selectedGame + 1) % GAMES.length;
+            renderMenu();
+            if (audioInitialized) QUASAR.trigger('clank');
+            e.preventDefault();
+            break;
+          case 'ArrowLeft':
+            // Go back to last intro screen
+            navigatePage(-1);
+            e.preventDefault();
+            break;
+          case 'ArrowRight':
+            selectedChannel = Math.min(255, selectedChannel + 1);
+            renderMenu();
+            e.preventDefault();
+            break;
+          case 'Enter':
+            if (audioInitialized) QUASAR.trigger('pickup');
+            startGame();
+            e.preventDefault();
+            break;
+          case 'Escape':
+            // Go back to first screen
+            currentPage = 0;
+            renderCurrentPage();
+            e.preventDefault();
+            break;
+        }
+      } else if (currentScreen === 'game') {
+        // Forward input to game
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
+
+          ws.send(JSON.stringify({
+            t: 'input',
+            key: e.key,
+            code: e.code,
+            shift: e.shiftKey,
+            ctrl: e.ctrlKey,
+            alt: e.altKey,
+            channel: selectedChannel
+          }));
+
+          if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+            e.preventDefault();
+          }
+        }
+
+        // ESC returns to menu
+        if (e.key === 'Escape') {
+          currentScreen = 'menu';
+          renderMenu();
+          e.preventDefault();
+        }
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    // Initialization
+    // ═══════════════════════════════════════════════════════════════
+
+    startBtn.addEventListener('click', async () => {
+      try {
+        await QUASAR.init();
+        await QUASAR.resume();
+        audioInitialized = true;
+        audioNotice.classList.remove('show');
+
+        // Connect to server first
+        connect();
+
+        // Start at appropriate page
+        if (skipDemo) {
+          currentPage = 3; // Game menu
+        } else {
+          currentPage = 0; // First intro screen
+        }
+        renderCurrentPage();
+
+        // Play startup sound
+        QUASAR.trigger('pickup');
+      } catch (err) {
+        console.error('Audio init failed:', err);
+        // Continue without audio
+        audioNotice.classList.remove('show');
+        connect();
+        if (skipDemo) {
+          currentPage = 3;
+        } else {
+          currentPage = 0;
+        }
+        renderCurrentPage();
+      }
+    });
+
+    // Initialize terminal
+    terminal = new TerminalRenderer(terminalCanvas, {
+      cols: 60,
+      rows: 24,
+      fontSize: 16,
+      debug: false  // Set to true to see cell boundaries
+    });
+
+    // Load channel configs
+    loadChannelConfigs();
+
+    // Expose for debugging
+    window.terminal = terminal;
+    window.applyChannelConfig = applyChannelConfig;
+
+    // Auto-start in fullscreen mode (popped out DivGraphics)
+    if (fullscreenMode) {
+      document.body.style.background = '#000';
+      audioNotice.classList.remove('show');
+      connect();
+      // Go straight to game screen for channel 8
+      currentScreen = 'game';
+      applyChannelConfig(selectedChannel);
+    }
+    // Auto-start in embed mode (iframe)
+    else if (embedMode) {
+      audioNotice.classList.remove('show');
+      connect();
+      currentPage = skipDemo ? 4 : 0;
+      renderCurrentPage();
+
+      // Init audio on first interaction (required by browser autoplay policy)
+      const initAudioOnce = async () => {
+        if (!audioInitialized) {
+          try {
+            await QUASAR.init();
+            await QUASAR.resume();
+            audioInitialized = true;
+            QUASAR.trigger('pickup');
+          } catch (e) {
+            console.log('Audio init failed:', e);
+          }
+        }
+        document.removeEventListener('click', initAudioOnce);
+        document.removeEventListener('keydown', initAudioOnce);
+      };
+      document.addEventListener('click', initAudioOnce);
+      document.addEventListener('keydown', initAudioOnce);
+    } else {
+      // Show loading screen (only in non-embed mode)
+      terminal.render(`
+
+
+
+
+
+
+
+
+                    PT100 MERIDIAN
+
+               [ CLICK TO INITIALIZE ]
+
+
+
+
+
+
+
+
+
+
+
+
+
+`);
+    }
+
+    // Listen for postMessages from parent (Plenith TV)
+    window.addEventListener('message', (event) => {
+      if (!event.data || typeof event.data !== 'object') return;
+
+      // Handle game control messages
+      if (event.data.type === 'game:control') {
+        console.log('[Quasar] Received game control:', event.data.action);
+
+        if (event.data.action === 'stop' || event.data.action === 'reset') {
+          // Send reset to server - RESET THE GAME not the console
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              t: 'game.reset',
+              game: GAMES[selectedGame]?.id || 'trax'
+            }));
+          }
+          // Stay in game mode, don't go back to menu
+        }
+      }
+    });
+
+  </script>
+</body>
+</html>
+
+

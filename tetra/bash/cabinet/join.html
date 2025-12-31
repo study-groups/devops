@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Join Game - Cabinet</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: monospace;
+      background: #1a1a1a;
+      color: #0f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    h1 { margin-bottom: 10px; color: #0ff; }
+    #status {
+      padding: 10px 20px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+      background: #333;
+    }
+    #status.connected { background: #0a3; color: #fff; }
+    #status.error { background: #a00; color: #fff; }
+    #game-display {
+      font-family: monospace;
+      font-size: 14px;
+      line-height: 1.2;
+      white-space: pre;
+      background: #000;
+      padding: 10px;
+      border: 2px solid #333;
+      min-width: 500px;
+      min-height: 300px;
+    }
+    #controls {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+    }
+    input, button {
+      font-family: monospace;
+      font-size: 14px;
+      padding: 8px 16px;
+      border: 1px solid #0f0;
+      background: #000;
+      color: #0f0;
+    }
+    button:hover { background: #0f0; color: #000; cursor: pointer; }
+    #info {
+      margin-top: 20px;
+      color: #666;
+      text-align: center;
+      max-width: 500px;
+    }
+    .key { color: #ff0; }
+  </style>
+</head>
+<body>
+  <h1>CABINET</h1>
+  <div id="status">Disconnected</div>
+  <pre id="game-display">Waiting for connection...</pre>
+  <div id="controls">
+    <input type="text" id="host-url" placeholder="ws://localhost:8080" value="ws://localhost:8080">
+    <button id="connect-btn">Connect</button>
+  </div>
+  <div id="info">
+    <p>Controls:</p>
+    <p>P1: <span class="key">WASD</span> | P2: <span class="key">IJKL</span> or <span class="key">Arrows</span></p>
+    <p><span class="key">P</span> Pause | <span class="key">R</span> Reset | <span class="key">Q</span> Quit</p>
+  </div>
+
+  <script>
+    // Unified input format
+    function createInput(src, ctrl, val, pressed = null) {
+      const msg = { t: 'input', src, ctrl, val };
+      if (pressed !== null) msg.pressed = pressed;
+      return msg;
+    }
+
+    // WebSocket connection
+    let ws = null;
+    let playerId = null;
+    let slot = null;
+
+    const statusEl = document.getElementById('status');
+    const displayEl = document.getElementById('game-display');
+    const hostUrlEl = document.getElementById('host-url');
+    const connectBtn = document.getElementById('connect-btn');
+
+    function updateStatus(text, className = '') {
+      statusEl.textContent = text;
+      statusEl.className = className;
+    }
+
+    function connect() {
+      const url = hostUrlEl.value || 'ws://localhost:8080';
+
+      if (ws) {
+        ws.close();
+      }
+
+      updateStatus('Connecting...');
+      ws = new WebSocket(url);
+
+      ws.onopen = () => {
+        updateStatus('Connected', 'connected');
+        console.log('[join] Connected to', url);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          handleMessage(data);
+        } catch (e) {
+          console.error('[join] Parse error:', e);
+        }
+      };
+
+      ws.onclose = () => {
+        updateStatus('Disconnected');
+        ws = null;
+      };
+
+      ws.onerror = (err) => {
+        updateStatus('Connection error', 'error');
+        console.error('[join] WebSocket error:', err);
+      };
+    }
+
+    function handleMessage(data) {
+      if (data.t === 'welcome') {
+        playerId = data.playerId;
+        slot = data.slot;
+        updateStatus(`Connected as ${slot.toUpperCase()} (Player ${playerId})`, 'connected');
+      } else if (data.t === 'frame') {
+        displayEl.textContent = data.display || '';
+      } else if (data.t === 'players') {
+        console.log('[join] Players:', data.players);
+      }
+    }
+
+    function sendInput(input) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(input));
+      }
+    }
+
+    // Keyboard input
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT') return;
+
+      // Prevent default for game keys
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+        e.preventDefault();
+      }
+
+      const input = createInput('keyboard', e.code, 1, true);
+      sendInput(input);
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.target.tagName === 'INPUT') return;
+
+      const input = createInput('keyboard', e.code, 0, false);
+      sendInput(input);
+    });
+
+    // Gamepad polling
+    let gamepadPollId = null;
+    const lastGamepadState = {};
+
+    function pollGamepads() {
+      const gamepads = navigator.getGamepads();
+
+      for (const gp of gamepads) {
+        if (!gp) continue;
+
+        const last = lastGamepadState[gp.index] || { axes: [], buttons: [] };
+
+        // Check axes
+        for (let i = 0; i < gp.axes.length; i++) {
+          const val = gp.axes[i];
+          if (Math.abs(val - (last.axes[i] || 0)) > 0.01) {
+            const ctrl = ['left-x', 'left-y', 'right-x', 'right-y'][i] || `axis-${i}`;
+            sendInput(createInput('gamepad', ctrl, val));
+          }
+          last.axes[i] = val;
+        }
+
+        // Check buttons
+        for (let i = 0; i < gp.buttons.length; i++) {
+          const btn = gp.buttons[i];
+          const wasPressed = last.buttons[i] || false;
+
+          if (btn.pressed !== wasPressed) {
+            const ctrl = [
+              'a', 'b', 'x', 'y', 'l1', 'r1', 'l2', 'r2',
+              'select', 'start', 'l3', 'r3',
+              'dpad-up', 'dpad-down', 'dpad-left', 'dpad-right', 'home'
+            ][i] || `button-${i}`;
+
+            sendInput(createInput('gamepad', ctrl, btn.pressed ? 1 : 0, btn.pressed));
+          }
+          last.buttons[i] = btn.pressed;
+        }
+
+        lastGamepadState[gp.index] = last;
+      }
+
+      gamepadPollId = requestAnimationFrame(pollGamepads);
+    }
+
+    // Start gamepad polling when connected
+    window.addEventListener('gamepadconnected', (e) => {
+      console.log('[join] Gamepad connected:', e.gamepad.id);
+      if (!gamepadPollId) {
+        pollGamepads();
+      }
+    });
+
+    window.addEventListener('gamepaddisconnected', (e) => {
+      console.log('[join] Gamepad disconnected:', e.gamepad.id);
+    });
+
+    // Connect button
+    connectBtn.addEventListener('click', connect);
+
+    // Enter key to connect
+    hostUrlEl.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') connect();
+    });
+
+    // Auto-connect if URL has ?host= parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('host')) {
+      hostUrlEl.value = urlParams.get('host');
+      setTimeout(connect, 100);
+    }
+  </script>
+</body>
+</html>

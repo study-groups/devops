@@ -1,0 +1,29 @@
+{
+  "name": "quasar",
+  "version": "0.1.0",
+  "description": "Multi-mode audio synthesizer for tetra games (TIA, PWM, SIDPlus)",
+  "main": "quasar_server.js",
+  "scripts": {
+    "start": "node quasar_server.js",
+    "bridge:traks": "node bridges/traks_bridge.js",
+    "demo": "node bridges/traks_bridge.js"
+  },
+  "dependencies": {
+    "osc": "^2.4.4",
+    "speaker": "^0.5.5",
+    "ws": "^8.14.2"
+  },
+  "optionalDependencies": {
+    "node-pty": "^1.0.0"
+  },
+  "keywords": [
+    "audio",
+    "synthesizer",
+    "tia",
+    "atari",
+    "websocket",
+    "osc"
+  ],
+  "author": "tetra",
+  "license": "MIT"
+}

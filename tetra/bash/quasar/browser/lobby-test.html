@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>QUASAR Lobby</title>
+  <style>
+    body { background: #1a1a2e; color: #0f0; font-family: monospace; padding: 20px; }
+    .panel { background: #16213e; border: 1px solid #0f0; padding: 15px; margin: 10px 0; border-radius: 4px; }
+    button { background: #0f0; color: #000; border: none; padding: 8px 16px; margin: 5px; cursor: pointer; font-family: monospace; }
+    button:hover { background: #0a0; }
+    button:disabled { background: #333; color: #666; cursor: not-allowed; }
+    button.danger { background: #f00; }
+    button.danger:hover { background: #a00; }
+    input, select { background: #1a1a2e; color: #0f0; border: 1px solid #0f0; padding: 8px; margin: 5px; font-family: monospace; }
+    #log { height: 200px; overflow-y: auto; background: #000; padding: 10px; font-size: 12px; }
+    .msg-in { color: #0ff; }
+    .msg-out { color: #ff0; }
+    .msg-err { color: #f00; }
+    .msg-sys { color: #888; }
+    h1 { color: #0f0; border-bottom: 1px solid #0f0; padding-bottom: 10px; }
+    h3 { color: #0ff; margin: 0 0 10px 0; }
+    .status { padding: 5px 10px; border-radius: 3px; display: inline-block; }
+    .connected { background: #0f0; color: #000; }
+    .disconnected { background: #f00; color: #fff; }
+    .info { color: #888; font-size: 11px; }
+    .match-list { margin: 10px 0; }
+    .match-item { background: #0a0a1a; border: 1px solid #333; padding: 10px; margin: 5px 0; border-radius: 3px; display: flex; justify-content: space-between; align-items: center; }
+    .match-item.joinable { border-color: #0f0; }
+    .match-item .info { flex: 1; }
+    .match-item .game { color: #0ff; font-weight: bold; }
+    .match-item .players { color: #ff0; }
+    .match-item .state { color: #888; }
+    .player-badge { background: #0f0; color: #000; padding: 2px 8px; border-radius: 10px; font-size: 14px; font-weight: bold; }
+    .row { display: flex; gap: 10px; align-items: center; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h1>QUASAR Lobby</h1>
+
+  <div class="panel">
+    <h3>Connection</h3>
+    <div class="row">
+      <span id="status" class="status disconnected">Disconnected</span>
+      <button id="connectBtn" onclick="connect()">Connect</button>
+      <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+      <span id="playerBadge" class="player-badge" style="display:none">---</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Create Match</h3>
+    <div class="row">
+      <label>Name: <input type="text" id="playerName" value="Player" size="10" /></label>
+      <label>Game:
+        <select id="gameType">
+          <option value="quadrapole">quadrapole</option>
+          <option value="trax">trax</option>
+          <option value="formant">formant</option>
+          <option value="magnetar">magnetar</option>
+          <option value="pong">pong</option>
+        </select>
+      </label>
+      <button onclick="createMatch()" id="createBtn" disabled>Create Match</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Active Matches <button onclick="refreshMatches()" id="refreshBtn" disabled style="font-size:11px;padding:4px 8px;">Refresh</button></h3>
+    <div id="matchList" class="match-list">
+      <div class="info">Connect to see active matches</div>
+    </div>
+  </div>
+
+  <div class="panel" id="currentMatchPanel" style="display:none;">
+    <h3>Current Match: <span id="currentMatchId">---</span></h3>
+    <div class="row">
+      <span id="matchState" class="info">---</span>
+      <button onclick="startMatch()" id="startBtn">Start Game</button>
+      <button onclick="leaveMatch()" id="leaveBtn" class="danger">Leave</button>
+    </div>
+    <div id="matchPlayers" class="info"></div>
+  </div>
+
+  <div class="panel">
+    <h3>Message Log</h3>
+    <div id="log"></div>
+    <button onclick="clearLog()" style="font-size:11px;padding:4px 8px;">Clear</button>
+  </div>
+
+<script>
+let ws = null;
+let playerId = null;
+let monogram = null;
+let currentMatch = null;
+let heartbeatInterval = null;
+let refreshInterval = null;
+
+function log(msg, type = 'sys') {
+  const logEl = document.getElementById('log');
+  const time = new Date().toLocaleTimeString();
+  const line = document.createElement('div');
+  line.className = 'msg-' + type;
+  line.textContent = `[${time}] ${msg}`;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function clearLog() {
+  document.getElementById('log').innerHTML = '';
+}
+
+function updateStatus(connected) {
+  const el = document.getElementById('status');
+  el.textContent = connected ? 'Connected' : 'Disconnected';
+  el.className = 'status ' + (connected ? 'connected' : 'disconnected');
+
+  document.getElementById('connectBtn').disabled = connected;
+  document.getElementById('disconnectBtn').disabled = !connected;
+  document.getElementById('createBtn').disabled = !connected;
+  document.getElementById('refreshBtn').disabled = !connected;
+}
+
+function updatePlayerBadge() {
+  const badge = document.getElementById('playerBadge');
+  if (monogram) {
+    badge.textContent = monogram;
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function updateMatchPanel() {
+  const panel = document.getElementById('currentMatchPanel');
+  if (currentMatch) {
+    panel.style.display = 'block';
+    document.getElementById('currentMatchId').textContent = currentMatch.id;
+    document.getElementById('matchState').textContent = `State: ${currentMatch.state} | Players: ${currentMatch.playerCount}/${currentMatch.maxPlayers}`;
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+function connect() {
+  const wsUrl = `ws://${location.hostname || 'localhost'}:${location.port || 1985}/ws`;
+  log(`Connecting to ${wsUrl}...`);
+
+  ws = new WebSocket(wsUrl);
+
+  ws.onopen = () => {
+    log('Connected!', 'sys');
+    updateStatus(true);
+    refreshMatches();
+
+    // Auto-refresh matches every 3 seconds
+    refreshInterval = setInterval(refreshMatches, 3000);
+
+    // Heartbeat every 10 seconds
+    heartbeatInterval = setInterval(() => {
+      if (ws && ws.readyState === WebSocket.OPEN && playerId) {
+        send({ t: 'match.heartbeat' });
+      }
+    }, 10000);
+  };
+
+  ws.onclose = () => {
+    log('Disconnected', 'sys');
+    updateStatus(false);
+    playerId = null;
+    monogram = null;
+    currentMatch = null;
+    updatePlayerBadge();
+    updateMatchPanel();
+    clearInterval(heartbeatInterval);
+    clearInterval(refreshInterval);
+  };
+
+  ws.onerror = () => log('WebSocket error', 'err');
+
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.t !== 'heartbeat.ack') {
+      log(`← ${JSON.stringify(data)}`, 'in');
+    }
+    handleMessage(data);
+  };
+}
+
+function handleMessage(data) {
+  switch (data.t) {
+    case 'lobby.joined':
+      playerId = data.playerId;
+      monogram = data.monogram;
+      log(`Assigned monogram: ${monogram}`, 'sys');
+      updatePlayerBadge();
+      break;
+
+    case 'match.created':
+      currentMatch = { id: data.matchId, state: 'lobby', gameType: data.gameType, playerCount: data.players?.length || 1, maxPlayers: 4 };
+      log(`Match created: ${data.matchId}`, 'sys');
+      updateMatchPanel();
+      refreshMatches();
+      break;
+
+    case 'match.joined':
+      currentMatch = { id: data.matchId, state: data.state || 'lobby', gameType: data.gameType, playerCount: data.playerCount || 1, maxPlayers: data.maxPlayers || 4 };
+      log(`Joined match: ${data.matchId}`, 'sys');
+      updateMatchPanel();
+      break;
+
+    case 'match.started':
+      if (currentMatch) currentMatch.state = 'playing';
+      log(`Match started!`, 'sys');
+      updateMatchPanel();
+      break;
+
+    case 'match.ended':
+      log(`Match ended: ${data.reason}`, 'sys');
+      currentMatch = null;
+      updateMatchPanel();
+      refreshMatches();
+      break;
+
+    case 'player.joined':
+      log(`${data.player.monogram} joined (slot ${data.player.slot})`, 'sys');
+      if (currentMatch) currentMatch.playerCount++;
+      updateMatchPanel();
+      break;
+
+    case 'player.left':
+      log(`${data.player.monogram} left`, 'sys');
+      if (currentMatch) currentMatch.playerCount--;
+      updateMatchPanel();
+      break;
+
+    case 'error':
+      log(`Error: ${data.error}`, 'err');
+      break;
+
+    case 'sync':
+      log('Connected to server', 'sys');
+      break;
+  }
+}
+
+function disconnect() {
+  if (ws) {
+    ws.close();
+    ws = null;
+  }
+}
+
+function send(msg) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    if (msg.t !== 'match.heartbeat') {
+      log(`→ ${JSON.stringify(msg)}`, 'out');
+    }
+    ws.send(JSON.stringify(msg));
+  }
+}
+
+function createMatch() {
+  const name = document.getElementById('playerName').value || 'Player';
+  const gameType = document.getElementById('gameType').value;
+
+  // First get a monogram by "joining" the lobby
+  send({
+    t: 'lobby.join',
+    gameType: gameType,
+    name: name,
+    createImmediate: true  // Signal to create match immediately
+  });
+}
+
+function joinMatch(matchId) {
+  const name = document.getElementById('playerName').value || 'Player';
+
+  send({
+    t: 'match.join',
+    matchId: matchId,
+    name: name
+  });
+}
+
+function startMatch() {
+  if (!currentMatch) return;
+  send({ t: 'match.start', matchId: currentMatch.id });
+}
+
+function leaveMatch() {
+  send({ t: 'match.leave' });
+  currentMatch = null;
+  updateMatchPanel();
+}
+
+async function refreshMatches() {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+  try {
+    const res = await fetch('/api/matches');
+    const data = await res.json();
+
+    const list = document.getElementById('matchList');
+
+    if (!data.matches || data.matches.length === 0) {
+      list.innerHTML = '<div class="info">No active matches. Create one!</div>';
+      return;
+    }
+
+    list.innerHTML = data.matches.map(m => {
+      const isJoinable = m.joinable && (!currentMatch || currentMatch.id !== m.id);
+      const isCurrent = currentMatch && currentMatch.id === m.id;
+
+      return `
+        <div class="match-item ${isJoinable ? 'joinable' : ''}" ${isCurrent ? 'style="border-color:#ff0;"' : ''}>
+          <div class="info">
+            <span class="game">${m.gameType.toUpperCase()}</span>
+            <span class="players">${m.players}/${m.maxPlayers} players</span>
+            <span class="state">[${m.state}]</span>
+            <span style="color:#666;font-size:10px;">${m.id}</span>
+          </div>
+          ${isJoinable ? `<button onclick="joinMatch('${m.id}')">Join</button>` : ''}
+          ${isCurrent ? '<span style="color:#ff0;">← You</span>' : ''}
+        </div>
+      `;
+    }).join('');
+
+  } catch (e) {
+    log('Failed to fetch matches', 'err');
+  }
+}
+</script>
+</body>
+</html>
