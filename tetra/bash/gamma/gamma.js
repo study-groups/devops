@@ -149,7 +149,7 @@ class GammaService extends EventEmitter {
     handleHttpRequest(req, res) {
         // CORS headers
         res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
         if (req.method === 'OPTIONS') {
@@ -180,6 +180,11 @@ class GammaService extends EventEmitter {
             this.handleLeave(req, res);
         } else if (req.method === 'POST' && path === '/api/match/close') {
             this.handleClose(req, res);
+        } else if (req.method === 'POST' && path === '/api/match/extend') {
+            this.handleExtend(req, res);
+        } else if (req.method === 'DELETE' && path.startsWith('/api/match/')) {
+            const code = path.split('/')[3];
+            this.handleAdminDelete(req, res, code);
         } else if (req.method === 'GET' && path === '/api/lobby') {
             this.handleLobby(req, res, url.searchParams.get('game'));
         } else if (req.method === 'GET' && path === '/api/games') {
@@ -517,6 +522,80 @@ class GammaService extends EventEmitter {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: e.message }));
         }
+    }
+
+    async handleExtend(req, res) {
+        const body = await this.readBody(req);
+
+        try {
+            const data = JSON.parse(body);
+            const { code } = data;
+
+            if (!code) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'code is required' }));
+                return;
+            }
+
+            const upperCode = code.toUpperCase();
+            const match = this.matches.get(upperCode);
+            if (!match) {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Match not found' }));
+                return;
+            }
+
+            // Extend by 5 minutes
+            const newExpiry = match.extend();
+            this.matches.update(match);
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                ok: true,
+                code: upperCode,
+                expires: newExpiry,
+                timeRemaining: match.timeRemaining
+            }));
+
+            this.emit('match-extended', match);
+
+        } catch (e) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: e.message }));
+        }
+    }
+
+    // Admin delete - no token required (for dashboard/dev use)
+    async handleAdminDelete(req, res, code) {
+        if (!code) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'code is required' }));
+            return;
+        }
+
+        const upperCode = code.toUpperCase();
+        const match = this.matches.get(upperCode);
+        if (!match) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Match not found' }));
+            return;
+        }
+
+        // Kill spawned game if any
+        if (match.pid) {
+            this.games.kill(match.pid);
+        }
+
+        // Unregister all from midi-mp
+        await this.unregisterMatch(match);
+
+        this.matches.delete(upperCode);
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, deleted: upperCode }));
+
+        console.log(`[gamma] Match ${upperCode} deleted via admin`);
+        this.emit('match-closed', match);
     }
 
     handleLobby(req, res, game) {

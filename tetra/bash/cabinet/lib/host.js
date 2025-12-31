@@ -22,10 +22,13 @@ class Host {
     this.driver = options.driver || null;
     this.httpServer = options.server || null;  // Optional HTTP server to attach to
 
-    // Player connections: Map<ws, {id, slot, joinedAt}>
+    // Player connections: Map<ws, {id, slot, cid, nick, joinedAt, lastInput}>
     this.players = new Map();
     this.spectators = new Set();
     this.nextPlayerId = 1;
+
+    // Slot sharing: Map<slot, Set<ws>> - multiple connections per slot
+    this.slotConnections = { p1: new Set(), p2: new Set() };
 
     // Callbacks
     this._onPlayerJoin = null;
@@ -66,13 +69,58 @@ class Host {
   onPlayerLeave(callback) { this._onPlayerLeave = callback; }
   onInput(callback) { this._onInput = callback; }
 
-  // Assign player to slot or spectator
-  _assignSlot() {
+  // Assign player to slot (supports takeover and sharing)
+  _assignSlot(requestSlot = '', takeover = false, share = false) {
+    // Share mode: join requested slot even if occupied
+    if (share && (requestSlot === 'p1' || requestSlot === 'p2')) {
+      return requestSlot;
+    }
+
+    // Takeover mode: boot existing player from slot
+    if (takeover && (requestSlot === 'p1' || requestSlot === 'p2')) {
+      return requestSlot;  // Will handle eviction in caller
+    }
+
+    // Specific slot request (no takeover)
+    if (requestSlot === 'p1' || requestSlot === 'p2') {
+      const taken = [...this.players.values()].some(p => p.slot === requestSlot);
+      if (!taken) return requestSlot;
+      // Slot taken, fall through to auto-assign
+    }
+
+    // Auto-assign: find first open slot
     for (const slot of SLOTS) {
       const taken = [...this.players.values()].some(p => p.slot === slot);
       if (!taken) return slot;
     }
     return 'spectator';
+  }
+
+  // Get existing player in a slot (for takeover)
+  _getSlotOccupant(slot) {
+    for (const [ws, player] of this.players.entries()) {
+      if (player.slot === slot) return { ws, player };
+    }
+    return null;
+  }
+
+  // Evict player from slot (for takeover)
+  _evictFromSlot(slot, newPlayer) {
+    const occupant = this._getSlotOccupant(slot);
+    if (occupant) {
+      occupant.player.slot = 'spectator';
+      this.spectators.add(occupant.ws);
+      this.slotConnections[slot]?.delete(occupant.ws);
+      // Notify evicted player
+      occupant.ws.send(JSON.stringify({
+        t: 'takeover',
+        oldCid: occupant.player.cid,
+        newCid: newPlayer.cid,
+        newNick: newPlayer.nick,
+        slot
+      }));
+      console.log(`[host] ${occupant.player.nick || occupant.player.cid} evicted from ${slot} by ${newPlayer.nick || newPlayer.cid}`);
+    }
   }
 
   // Start local WebSocket server
@@ -86,50 +134,100 @@ class Host {
 
     this.wss.on('connection', (ws, req) => {
       const playerId = this.nextPlayerId++;
-      const slot = this._assignSlot();
-      const player = { id: playerId, slot, joinedAt: Date.now() };
+      // Start as pending until identify message received
+      const player = {
+        id: playerId,
+        slot: 'pending',
+        cid: null,
+        nick: null,
+        visits: 0,
+        joinedAt: Date.now(),
+        lastInput: Date.now()
+      };
 
-      if (slot === 'spectator') {
-        this.spectators.add(ws);
-      } else {
-        this.players.set(ws, player);
-      }
+      // Temporarily track connection
+      this.players.set(ws, player);
 
-      console.log(`[host] Player ${playerId} connected as ${slot}`);
+      console.log(`[host] Player ${playerId} connected (awaiting identity)`);
 
-      // Send welcome message
+      // Send welcome with pending slot (will update after identify)
       ws.send(JSON.stringify({
         t: 'welcome',
         playerId,
-        slot,
+        slot: 'pending',
         players: this._getPlayerList()
       }));
-
-      // Broadcast player joined
-      this._broadcastPlayerList();
-
-      // Send last frame if available
-      if (this.lastFrame) {
-        ws.send(JSON.stringify(this.lastFrame));
-      }
-
-      if (this._onPlayerJoin) {
-        this._onPlayerJoin(player, ws);
-      }
 
       ws.on('message', (msg) => {
         try {
           const data = JSON.parse(msg);
-          this._handleClientMessage(ws, player, data);
+
+          // Handle identity message
+          if (data.t === 'identify') {
+            player.cid = data.cid || `anon_${playerId}`;
+            player.nick = data.nick || `Player${playerId}`;
+            player.visits = data.visits || 1;
+
+            const requestSlot = data.requestSlot || '';
+            const takeover = data.takeover || false;
+            const share = requestSlot === 'share';
+
+            // Assign slot with takeover/share support
+            const slot = this._assignSlot(share ? '' : requestSlot, takeover, share);
+
+            // Handle takeover eviction
+            if (takeover && (requestSlot === 'p1' || requestSlot === 'p2')) {
+              this._evictFromSlot(requestSlot, player);
+            }
+
+            player.slot = slot;
+
+            // Track slot connections (for sharing)
+            if (slot === 'p1' || slot === 'p2') {
+              this.slotConnections[slot].add(ws);
+            } else {
+              this.spectators.add(ws);
+            }
+
+            console.log(`[host] ${player.nick} (${player.cid}) assigned to ${slot} (visits: ${player.visits})`);
+
+            // Send updated welcome
+            ws.send(JSON.stringify({
+              t: 'welcome',
+              playerId,
+              slot,
+              cid: player.cid,
+              nick: player.nick,
+              players: this._getPlayerList()
+            }));
+
+            this._broadcastPlayerList();
+
+            // Send last frame
+            if (this.lastFrame) {
+              ws.send(JSON.stringify(this.lastFrame));
+            }
+
+            if (this._onPlayerJoin) {
+              this._onPlayerJoin(player, ws);
+            }
+          } else {
+            player.lastInput = Date.now();
+            this._handleClientMessage(ws, player, data);
+          }
         } catch (e) {
           // Ignore parse errors
         }
       });
 
       ws.on('close', () => {
+        const slot = player.slot;
         this.players.delete(ws);
         this.spectators.delete(ws);
-        console.log(`[host] Player ${playerId} disconnected`);
+        if (slot === 'p1' || slot === 'p2') {
+          this.slotConnections[slot]?.delete(ws);
+        }
+        console.log(`[host] ${player.nick || 'Player ' + playerId} disconnected`);
         this._broadcastPlayerList();
         if (this._onPlayerLeave) {
           this._onPlayerLeave(player);
@@ -151,6 +249,26 @@ class Host {
       }
       if (this._onInput) {
         this._onInput(player, data);
+      }
+    } else if (data.t === 'query') {
+      // Dev API: query host state
+      if (data.what === 'players') {
+        ws.send(JSON.stringify({
+          t: 'players',
+          players: this._getPlayerList(),
+          spectators: this.spectators.size,
+          slots: {
+            p1: this.slotConnections.p1.size,
+            p2: this.slotConnections.p2.size
+          }
+        }));
+      } else if (data.what === 'state') {
+        ws.send(JSON.stringify({
+          t: 'state',
+          ...this.getPlayersData(),
+          frameSeq: this.frameSeq,
+          hasDriver: !!this.driver
+        }));
       }
     }
   }
@@ -242,10 +360,28 @@ class Host {
   }
 
   _getPlayerList() {
-    return [...this.players.values()].map(p => ({
-      id: p.id,
-      slot: p.slot
-    }));
+    return [...this.players.values()]
+      .filter(p => p.slot !== 'pending')  // Don't show pending connections
+      .map(p => ({
+        id: p.id,
+        slot: p.slot,
+        cid: p.cid,
+        nick: p.nick,
+        visits: p.visits,
+        idle: Math.floor((Date.now() - p.lastInput) / 1000)  // Seconds since last input
+      }));
+  }
+
+  // Expose player data for dev API
+  getPlayersData() {
+    return {
+      players: this._getPlayerList(),
+      spectators: this.spectators.size,
+      slots: {
+        p1: this.slotConnections.p1.size,
+        p2: this.slotConnections.p2.size
+      }
+    };
   }
 
   _broadcastPlayerList() {

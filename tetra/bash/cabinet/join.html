@@ -57,14 +57,32 @@
       max-width: 500px;
     }
     .key { color: #ff0; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
   </style>
 </head>
 <body>
   <h1>CABINET</h1>
   <div id="status">Disconnected</div>
+  <div id="match-timer" style="display:none;padding:5px 10px;background:#111;border:1px solid #030;font-size:12px;margin-bottom:10px;">
+    <span style="color:#050">Match expires in:</span> <span id="time-remaining">--:--</span>
+    <button id="extend-btn" style="margin-left:10px;background:#000;border:1px solid #0f0;color:#0f0;padding:2px 8px;cursor:pointer;font-family:monospace;">+5m</button>
+  </div>
   <pre id="game-display">Waiting for connection...</pre>
+  <div id="players-display" style="padding:5px 10px;margin-bottom:10px;background:#111;border:1px solid #030;font-size:12px;">
+    <span style="color:#050">No players connected</span>
+  </div>
   <div id="controls">
-    <input type="text" id="host-url" placeholder="ws://localhost:8080" value="ws://localhost:8080">
+    <input type="text" id="nick-input" placeholder="Nickname" style="width:80px" />
+    <input type="text" id="join-code" placeholder="Join Code" style="width:80px;text-transform:uppercase">
+    <button id="join-btn">Join</button>
+    <span style="color:#666;margin:0 5px">|</span>
+    <input type="text" id="host-url" placeholder="ws://localhost:8090" value="ws://localhost:8090">
+    <select id="slot-select" style="background:#000;color:#0f0;border:1px solid #0f0;padding:6px;">
+      <option value="">Auto</option>
+      <option value="p1">P1</option>
+      <option value="p2">P2</option>
+      <option value="share">Share</option>
+    </select>
     <button id="connect-btn">Connect</button>
   </div>
   <div id="info">
@@ -74,6 +92,54 @@
   </div>
 
   <script>
+    // ========================================
+    // CABINET IDENTITY (loose, dev-friendly)
+    // ========================================
+    const Cabinet = {
+      init() {
+        let data = localStorage.getItem('cabinet');
+        if (data) {
+          this.data = JSON.parse(data);
+          this.data.visits++;
+          this.data.lastSeen = Date.now();
+        } else {
+          this.data = {
+            cid: 'cab_' + Math.random().toString(36).substr(2, 6),
+            nick: 'Player' + Math.floor(Math.random() * 999),
+            visits: 1,
+            firstSeen: Date.now(),
+            lastSeen: Date.now(),
+            ua: navigator.userAgent.split(' ').slice(-2).join(' '),
+            slots: [],
+            wins: 0,
+            losses: 0
+          };
+        }
+        this.save();
+        console.log('[cabinet] Identity:', this.data.cid, this.data.nick);
+        return this;
+      },
+      save() {
+        localStorage.setItem('cabinet', JSON.stringify(this.data));
+      },
+      setNick(nick) {
+        this.data.nick = nick.substring(0, 12);
+        this.save();
+      },
+      recordSlot(slot) {
+        if (!this.data.slots.includes(slot)) {
+          this.data.slots.push(slot);
+          this.save();
+        }
+      },
+      // Expose for devs
+      dump() { return this.data; }
+    }.init();
+
+    // Expose globally for console access
+    window.Cabinet = Cabinet;
+    window.CAB = Cabinet.data;
+
     // Unified input format
     function createInput(src, ctrl, val, pressed = null) {
       const msg = { t: 'input', src, ctrl, val };
@@ -85,15 +151,163 @@
     let ws = null;
     let playerId = null;
     let slot = null;
+    let players = [];  // Track connected players
+    let matchCode = null;  // Current match code
+    let matchExpires = null;  // Match expiration timestamp
+    let timerInterval = null;  // Timer update interval
 
     const statusEl = document.getElementById('status');
     const displayEl = document.getElementById('game-display');
     const hostUrlEl = document.getElementById('host-url');
     const connectBtn = document.getElementById('connect-btn');
+    const joinCodeEl = document.getElementById('join-code');
+    const joinBtn = document.getElementById('join-btn');
+    const matchTimerEl = document.getElementById('match-timer');
+    const timeRemainingEl = document.getElementById('time-remaining');
+    const extendBtn = document.getElementById('extend-btn');
+
+    // GAMMA API endpoint
+    const GAMMA_URL = 'http://localhost:8085';
+
+    // Match timer functions
+    function formatTimeRemaining(ms) {
+      if (ms <= 0) return 'EXPIRED';
+      const secs = Math.floor(ms / 1000);
+      const mins = Math.floor(secs / 60);
+      const remainingSecs = secs % 60;
+      return `${mins}:${remainingSecs.toString().padStart(2, '0')}`;
+    }
+
+    function updateMatchTimer() {
+      if (!matchExpires) return;
+      const remaining = matchExpires - Date.now();
+      timeRemainingEl.textContent = formatTimeRemaining(remaining);
+
+      // Visual warning states
+      if (remaining <= 0) {
+        timeRemainingEl.style.color = '#f00';
+        timeRemainingEl.style.animation = 'none';
+        updateStatus('Match expired!', 'error');
+      } else if (remaining < 30000) {
+        timeRemainingEl.style.color = '#f00';
+        timeRemainingEl.style.animation = 'pulse 0.5s infinite';
+      } else if (remaining < 60000) {
+        timeRemainingEl.style.color = '#f80';
+        timeRemainingEl.style.animation = 'none';
+      } else {
+        timeRemainingEl.style.color = '#0f0';
+        timeRemainingEl.style.animation = 'none';
+      }
+    }
+
+    function startMatchTimer(expires) {
+      matchExpires = expires;
+      matchTimerEl.style.display = 'block';
+      updateMatchTimer();
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(updateMatchTimer, 1000);
+    }
+
+    function stopMatchTimer() {
+      matchExpires = null;
+      matchCode = null;
+      matchTimerEl.style.display = 'none';
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+    async function extendMatch() {
+      if (!matchCode) return;
+      try {
+        const resp = await fetch(`${GAMMA_URL}/api/match/extend`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: matchCode })
+        });
+        const result = await resp.json();
+        if (result.ok) {
+          matchExpires = result.expires;
+          updateMatchTimer();
+          console.log(`[cabinet] Extended match ${matchCode} by 5 minutes`);
+        }
+      } catch (e) {
+        console.error('[cabinet] Failed to extend match:', e);
+      }
+    }
+
+    // Extend button handler
+    extendBtn.addEventListener('click', extendMatch);
 
     function updateStatus(text, className = '') {
       statusEl.textContent = text;
       statusEl.className = className;
+    }
+
+    // Join game by code via GAMMA API
+    async function joinByCode() {
+      const code = joinCodeEl.value.trim().toUpperCase();
+      if (!code || code.length < 4) {
+        updateStatus('Enter a valid join code (e.g. HT92)', 'error');
+        return;
+      }
+
+      updateStatus('Resolving join code...');
+
+      try {
+        const resp = await fetch(`${GAMMA_URL}/api/match/join`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code })
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({ error: resp.statusText }));
+          updateStatus(`Join failed: ${err.error || 'Unknown error'}`, 'error');
+          return;
+        }
+
+        const data = await resp.json();
+
+        if (data.host) {
+          // Format: "host:port" or "localhost:8090"
+          const wsUrl = data.host.startsWith('ws://')
+            ? data.host
+            : `ws://${data.host}`;
+          hostUrlEl.value = wsUrl;
+
+          // Store match code for timer/extend
+          matchCode = code;
+
+          // Fetch full match info to get expiration
+          try {
+            const matchResp = await fetch(`${GAMMA_URL}/api/match/${code}`);
+            if (matchResp.ok) {
+              const matchInfo = await matchResp.json();
+              if (matchInfo.expires) {
+                startMatchTimer(matchInfo.expires);
+              }
+            }
+          } catch (e) {
+            console.log('[join] Could not fetch match expiration');
+          }
+
+          if (data.full) {
+            updateStatus(`Match full - connecting for takeover/spectate...`);
+            // Set slot to share mode for takeover
+            document.getElementById('slot-select').value = 'share';
+          } else {
+            updateStatus(`Found match: ${data.game || 'game'} - Connecting...`);
+          }
+          connect();
+        } else {
+          updateStatus('No host found for this code', 'error');
+        }
+      } catch (e) {
+        console.error('[join] Error:', e);
+        updateStatus(`Connection error: ${e.message}`, 'error');
+      }
     }
 
     function connect() {
@@ -109,6 +323,25 @@
       ws.onopen = () => {
         updateStatus('Connected', 'connected');
         console.log('[join] Connected to', url);
+
+        // Update nick from input if changed
+        const nickInput = document.getElementById('nick-input');
+        if (nickInput && nickInput.value) {
+          Cabinet.setNick(nickInput.value);
+        }
+
+        // Get slot preference
+        const slotPref = document.getElementById('slot-select')?.value || '';
+
+        // Send identity with slot preference
+        ws.send(JSON.stringify({
+          t: 'identify',
+          cid: Cabinet.data.cid,
+          nick: Cabinet.data.nick,
+          visits: Cabinet.data.visits,
+          requestSlot: slotPref,  // '', 'p1', 'p2', or 'share'
+          takeover: slotPref === 'p1' || slotPref === 'p2'  // Request takeover if specific slot
+        }));
       };
 
       ws.onmessage = (event) => {
@@ -122,6 +355,8 @@
 
       ws.onclose = () => {
         updateStatus('Disconnected');
+        updatePlayersDisplay([]);
+        stopMatchTimer();
         ws = null;
       };
 
@@ -131,15 +366,42 @@
       };
     }
 
+    function updatePlayersDisplay(playerList) {
+      players = playerList;
+      const el = document.getElementById('players-display');
+      if (!el) return;
+
+      if (playerList.length === 0) {
+        el.innerHTML = '<span style="color:#050">No players connected</span>';
+        return;
+      }
+
+      el.innerHTML = playerList.map(p => {
+        const isMe = p.cid === Cabinet.data.cid;
+        const color = isMe ? '#0ff' : '#0f0';
+        const marker = isMe ? ' (you)' : '';
+        return `<span style="color:${color}">${p.slot.toUpperCase()}: ${p.nick || p.cid || 'anon'}${marker}</span>`;
+      }).join(' | ');
+    }
+
     function handleMessage(data) {
       if (data.t === 'welcome') {
         playerId = data.playerId;
         slot = data.slot;
+        Cabinet.recordSlot(slot);
         updateStatus(`Connected as ${slot.toUpperCase()} (Player ${playerId})`, 'connected');
+        if (data.players) updatePlayersDisplay(data.players);
+      } else if (data.t === 'players') {
+        updatePlayersDisplay(data.players || []);
+        console.log('[join] Players:', data.players);
+      } else if (data.t === 'takeover') {
+        // Someone took over our slot
+        if (data.oldCid === Cabinet.data.cid) {
+          updateStatus(`Bumped to spectator by ${data.newNick}`, 'error');
+          slot = 'spectator';
+        }
       } else if (data.t === 'frame') {
         displayEl.textContent = data.display || '';
-      } else if (data.t === 'players') {
-        console.log('[join] Players:', data.players);
       }
     }
 
@@ -229,16 +491,25 @@
     // Connect button
     connectBtn.addEventListener('click', connect);
 
-    // Enter key to connect
+    // Join button
+    joinBtn.addEventListener('click', joinByCode);
+
+    // Enter key handlers
     hostUrlEl.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') connect();
     });
+    joinCodeEl.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') joinByCode();
+    });
 
-    // Auto-connect if URL has ?host= parameter
+    // Auto-connect if URL has ?host= or ?code= parameter
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('host')) {
       hostUrlEl.value = urlParams.get('host');
       setTimeout(connect, 100);
+    } else if (urlParams.has('code')) {
+      joinCodeEl.value = urlParams.get('code');
+      setTimeout(joinByCode, 100);
     }
   </script>
 </body>

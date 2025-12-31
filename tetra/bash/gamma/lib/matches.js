@@ -10,7 +10,8 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const DEFAULT_TTL = 2 * 60 * 60 * 1000;  // 2 hours
+const DEFAULT_TTL = 5 * 60 * 1000;  // 5 minutes
+const EXTEND_TTL = 5 * 60 * 1000;   // Extend by 5 minutes
 
 class Match {
     constructor(options) {
@@ -57,13 +58,24 @@ class Match {
     }
 
     /**
-     * Join match, returns { slot, token } or { error }
+     * Join match, returns { slot, token, host } or { full: true, host } for takeover
+     * Always returns host info so cabinet can connect and negotiate takeover
      */
-    join(name) {
+    join(name, allowTakeover = true) {
         // Find open slot
         const openSlot = Object.entries(this.slots).find(([_, s]) => s.status === 'open');
 
         if (!openSlot) {
+            // Match full - return host anyway for takeover/spectate
+            if (allowTakeover) {
+                return {
+                    full: true,
+                    host: this.host?.addr || null,
+                    transport: this.host?.transport || 'ws',
+                    game: this.game,
+                    slots: this.slots
+                };
+            }
             return { error: 'Match is full' };
         }
 
@@ -77,7 +89,12 @@ class Match {
 
         this.lastActivity = Date.now();
 
-        return { slot: slotName, token };
+        return {
+            slot: slotName,
+            token,
+            host: this.host?.addr || null,
+            transport: this.host?.transport || 'ws'
+        };
     }
 
     /**
@@ -109,11 +126,35 @@ class Match {
     }
 
     /**
-     * Extend expiration
+     * Extend expiration (heartbeat)
      */
     heartbeat(ttl = DEFAULT_TTL) {
         this.expires = Date.now() + ttl;
         this.lastActivity = Date.now();
+    }
+
+    /**
+     * Extend match by EXTEND_TTL (5 minutes)
+     * Returns new expiration timestamp
+     */
+    extend() {
+        this.expires += EXTEND_TTL;
+        this.lastActivity = Date.now();
+        return this.expires;
+    }
+
+    /**
+     * Get time remaining in ms
+     */
+    get timeRemaining() {
+        return Math.max(0, this.expires - Date.now());
+    }
+
+    /**
+     * Check if match is about to expire (within 1 minute)
+     */
+    get isExpiringSoon() {
+        return this.timeRemaining > 0 && this.timeRemaining < 60000;
     }
 
     /**
@@ -137,7 +178,9 @@ class Match {
             playerCount: this.playerCount,
             maxPlayers: this.maxPlayers,
             created: this.created,
-            expires: this.expires
+            expires: this.expires,
+            timeRemaining: this.timeRemaining,
+            expiringSoon: this.isExpiringSoon
         };
     }
 

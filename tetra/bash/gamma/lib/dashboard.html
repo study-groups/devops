@@ -1,47 +1,474 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>GAMMA - Game Match-Making Allocator</title>
+    <meta charset="UTF-8">
+    <title>GAMMA - Game Allocation & Match-Making</title>
     <style>
-        body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
-        h1 { color: #00d4ff; }
-        .stats { display: flex; gap: 20px; margin: 20px 0; }
-        .stat { background: #252540; padding: 15px 25px; border-radius: 8px; }
-        .stat-value { font-size: 24px; font-weight: bold; color: #00d4ff; }
-        .stat-label { font-size: 12px; color: #888; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #333; }
-        th { color: #888; font-weight: normal; }
-        code { background: #333; padding: 4px 8px; border-radius: 4px; font-size: 14px; }
-        .empty { color: #666; font-style: italic; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0a0a;
+            color: #0f0;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+        h1 {
+            font-size: 2.5rem;
+            letter-spacing: 0.3em;
+            text-shadow: 0 0 20px #0f0;
+            margin-bottom: 0.25rem;
+        }
+        .subtitle { color: #0a0; font-size: 0.9rem; margin-bottom: 2rem; }
+        .stats {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        .stat {
+            background: #111;
+            border: 1px solid #030;
+            padding: 1rem 1.5rem;
+            min-width: 140px;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #0f0;
+        }
+        .stat-label { font-size: 0.75rem; color: #0a0; }
+        h2 { color: #0f0; margin: 1.5rem 0 1rem; font-size: 1.2rem; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #111;
+        }
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid #030;
+        }
+        th { color: #0a0; font-weight: normal; font-size: 0.8rem; }
+        td { color: #0f0; }
+        code {
+            background: #1a1a1a;
+            color: #0f0;
+            padding: 0.2rem 0.5rem;
+            border: 1px solid #030;
+            font-size: 0.9rem;
+        }
+        .empty { color: #050; font-style: italic; padding: 1rem; }
+        .error { color: #f00; }
+        .actions { margin-top: 2rem; }
+        .btn {
+            display: inline-block;
+            background: transparent;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 0.5rem 1rem;
+            text-decoration: none;
+            font-family: monospace;
+            cursor: pointer;
+            margin-right: 0.5rem;
+        }
+        .btn:hover { background: #0f0; color: #000; }
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        .status-online { background: #0f0; }
+        .status-offline { background: #f00; }
+        .editable {
+            cursor: pointer;
+            border-bottom: 1px dashed #0a0;
+        }
+        .editable:hover { color: #0ff; }
+        input.edit-field {
+            background: #000;
+            border: 1px solid #0f0;
+            color: #0f0;
+            padding: 0.25rem 0.5rem;
+            font-family: monospace;
+            width: 100px;
+        }
+        .btn-small {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            margin-left: 0.5rem;
+        }
+        .btn-danger { border-color: #f00; color: #f00; }
+        .btn-danger:hover { background: #f00; color: #000; }
+        .create-form {
+            background: #111;
+            border: 1px solid #030;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .create-form input, .create-form select {
+            background: #000;
+            border: 1px solid #0f0;
+            color: #0f0;
+            padding: 0.5rem;
+            font-family: monospace;
+            margin-right: 0.5rem;
+        }
+        .match-link { color: #0ff; text-decoration: none; }
+        .match-link:hover { text-decoration: underline; }
+        .expiring-soon { animation: blink 1s ease-in-out infinite; border-color: #f80 !important; }
+        @keyframes blink { 0%, 100% { border-color: #f80; } 50% { border-color: #f00; } }
+        .time-warning { color: #f80; }
+        .time-critical { color: #f00; animation: pulse 0.5s ease-in-out infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .extend-btn { background: transparent; border: 1px solid #0f0; color: #0f0; padding: 0.2rem 0.5rem; font-family: monospace; cursor: pointer; margin-left: 0.5rem; }
+        .extend-btn:hover { background: #0f0; color: #000; }
     </style>
 </head>
 <body>
     <h1>GAMMA</h1>
-    <p>Game Match-Making Allocator v{{VERSION}}</p>
+    <p class="subtitle">
+        <span class="status-indicator" id="status-dot"></span>
+        <span id="status-text">Connecting...</span>
+    </p>
 
     <div class="stats">
         <div class="stat">
-            <div class="stat-value">{{ACTIVE_MATCHES}}</div>
+            <div class="stat-value" id="active-matches">-</div>
             <div class="stat-label">Active Matches</div>
         </div>
         <div class="stat">
-            <div class="stat-value">{{TOTAL_CREATED}}</div>
+            <div class="stat-value" id="total-created">-</div>
             <div class="stat-label">Total Created</div>
         </div>
         <div class="stat">
-            <div class="stat-value">{{PLAYERS_JOINED}}</div>
+            <div class="stat-value" id="players-joined">-</div>
             <div class="stat-label">Players Joined</div>
         </div>
         <div class="stat">
-            <div class="stat-value">{{UPTIME}}</div>
+            <div class="stat-value" id="uptime">-</div>
             <div class="stat-label">Uptime</div>
         </div>
     </div>
 
-    <h2>Active Matches</h2>
-    {{MATCHES_CONTENT}}
+    <div class="create-form">
+        <strong>Create Match:</strong>
+        <input type="text" id="new-game" placeholder="game" value="magnetar" style="width:80px">
+        <input type="text" id="new-addr" placeholder="host:port" value="localhost:8090" style="width:120px">
+        <select id="new-transport">
+            <option value="ws">WebSocket</option>
+            <option value="udp">UDP</option>
+        </select>
+        <button class="btn" onclick="createMatch()">Create</button>
+    </div>
 
-    <script>setTimeout(() => location.reload(), 5000);</script>
+    <h2>Active Matches <span style="color:#050;font-size:0.8rem">(click to expand)</span></h2>
+    <div id="matches-content">
+        <p class="empty">Loading...</p>
+    </div>
+
+    <div class="actions">
+        <button class="btn" onclick="refresh()">Refresh</button>
+        <button class="btn" onclick="queryAllHosts()">Query All Hosts</button>
+        <a href="/" class="btn">Back to Portal</a>
+    </div>
+
+    <script>
+        const GAMMA_API = 'http://localhost:8085';
+        let expandedMatch = null;
+        let matchInputLogs = {};  // Store input logs per match
+
+        function formatUptime(ms) {
+            const hours = Math.floor(ms / 3600000);
+            const mins = Math.floor((ms % 3600000) / 60000);
+            return `${hours}h ${mins}m`;
+        }
+
+        function formatExpiry(timestamp) {
+            const remaining = timestamp - Date.now();
+            if (remaining < 0) return 'expired';
+            const mins = Math.floor(remaining / 60000);
+            if (mins < 60) return `${mins}m`;
+            return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+        }
+
+        function formatTimeRemaining(ms) {
+            if (ms <= 0) return 'expired';
+            const secs = Math.floor(ms / 1000);
+            const mins = Math.floor(secs / 60);
+            const remainingSecs = secs % 60;
+            if (mins >= 60) {
+                const hours = Math.floor(mins / 60);
+                return `${hours}h ${mins % 60}m`;
+            }
+            if (mins > 0) {
+                return `${mins}:${remainingSecs.toString().padStart(2, '0')}`;
+            }
+            return `${secs}s`;
+        }
+
+        function formatCreatedTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        async function extendMatch(code) {
+            try {
+                const resp = await fetch(`${GAMMA_API}/api/match/extend`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code })
+                });
+                const result = await resp.json();
+                if (result.ok) {
+                    console.log(`[gamma] Extended ${code}, expires in ${formatTimeRemaining(result.timeRemaining)}`);
+                    refresh();
+                } else {
+                    console.error('[gamma] Extend failed:', result.error);
+                }
+            } catch (e) {
+                console.error('[gamma] Extend error:', e);
+            }
+        }
+
+        async function fetchStatus() {
+            try {
+                const resp = await fetch(`${GAMMA_API}/api/status`);
+                if (!resp.ok) throw new Error('API error');
+                const data = await resp.json();
+
+                document.getElementById('status-dot').className = 'status-indicator status-online';
+                document.getElementById('status-text').textContent = `Game Allocation & Match-Making v${data.version}`;
+                document.getElementById('active-matches').textContent = data.matches;
+                document.getElementById('total-created').textContent = data.stats.matchesCreated;
+                document.getElementById('players-joined').textContent = data.stats.playersJoined;
+                document.getElementById('uptime').textContent = formatUptime(data.uptime);
+            } catch (e) {
+                document.getElementById('status-dot').className = 'status-indicator status-offline';
+                document.getElementById('status-text').textContent = 'Offline - gamma not running on :8085';
+            }
+        }
+
+        async function fetchMatches() {
+            try {
+                const resp = await fetch(`${GAMMA_API}/api/matches`);
+                if (!resp.ok) throw new Error('API error');
+                const matches = await resp.json();
+
+                const container = document.getElementById('matches-content');
+
+                if (matches.length === 0) {
+                    container.innerHTML = '<p class="empty">No active matches. Create one above or start magnetar-host.</p>';
+                    return;
+                }
+
+                container.innerHTML = matches.map(m => renderMatchEntry(m)).join('');
+            } catch (e) {
+                document.getElementById('matches-content').innerHTML =
+                    '<p class="empty error">Could not load matches</p>';
+            }
+        }
+
+        function renderMatchEntry(m) {
+            const isExpanded = expandedMatch === m.code;
+            const wsUrl = `ws://${m.host?.addr || 'localhost:8090'}`;
+            const cabinetUrl = `/cabinet/join.html?code=${m.code}`;
+            const expiringSoon = m.expiringSoon || m.timeRemaining < 60000;
+            const timeClass = m.timeRemaining < 30000 ? 'time-critical' : (expiringSoon ? 'time-warning' : '');
+            const entryClass = expiringSoon ? 'expiring-soon' : '';
+
+            return `
+                <div class="match-entry ${entryClass}" style="background:#111;border:1px solid #030;margin-bottom:1rem;padding:1rem;">
+                    <div onclick="toggleExpand('${m.code}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+                        <div>
+                            <code style="font-size:1.5rem;letter-spacing:0.2em;">${m.code}</code>
+                            <span style="color:#0a0;margin-left:1rem;">${m.game}</span>
+                            <span style="color:#050;margin-left:1rem;">${m.playerCount}/${m.maxPlayers}</span>
+                            <span style="color:#030;margin-left:1rem;">${m.host?.transport || 'udp'}</span>
+                            <span class="${timeClass}" style="margin-left:1rem;font-size:0.85rem;">${formatTimeRemaining(m.timeRemaining || (m.expires - Date.now()))}</span>
+                        </div>
+                        <div id="actions-${m.code}">
+                            <button class="extend-btn" onclick="event.stopPropagation();extendMatch('${m.code}')" title="Extend by 5 minutes">+5m</button>
+                            <a href="${cabinetUrl}" class="match-link btn-small btn" target="_blank">Join</a>
+                            <button class="btn btn-small btn-danger" onclick="event.stopPropagation();confirmDelete('${m.code}')">Delete</button>
+                        </div>
+                    </div>
+                    ${isExpanded ? renderExpandedView(m) : ''}
+                </div>
+            `;
+        }
+
+        function renderExpandedView(m) {
+            const logs = matchInputLogs[m.code] || [];
+            const logHtml = logs.length === 0
+                ? '<span style="color:#050">No inputs captured. Query host to fetch.</span>'
+                : logs.slice(-10).map(l => `<div style="font-size:0.75rem;color:#0a0;">Δ${l.dt}ms ${l.slot} ${l.key}</div>`).join('');
+
+            const timeClass = m.timeRemaining < 30000 ? 'time-critical' : (m.timeRemaining < 60000 ? 'time-warning' : '');
+
+            return `
+                <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #030;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                        <div>
+                            <h4 style="color:#0a0;margin-bottom:0.5rem;">Connection Info</h4>
+                            <div style="font-size:0.85rem;">
+                                <div><span style="color:#050">Host:</span> ${m.host?.addr || 'unknown'}</div>
+                                <div><span style="color:#050">Transport:</span> ${m.host?.transport || 'udp'}</div>
+                                <div><span style="color:#050">Topic:</span> ${m.topic || 'n/a'}</div>
+                            </div>
+                            <h4 style="color:#0a0;margin:0.75rem 0 0.5rem;">Token Timing</h4>
+                            <div style="font-size:0.85rem;">
+                                <div><span style="color:#050">Created:</span> ${formatCreatedTime(m.created)}</div>
+                                <div><span style="color:#050">Expires:</span> ${new Date(m.expires).toLocaleTimeString()}</div>
+                                <div><span style="color:#050">Remaining:</span> <span class="${timeClass}">${formatTimeRemaining(m.timeRemaining || (m.expires - Date.now()))}</span>
+                                    <button class="extend-btn" onclick="extendMatch('${m.code}')">+5m</button>
+                                </div>
+                            </div>
+                            <button class="btn btn-small" style="margin-top:0.5rem" onclick="queryHost('${m.code}','${m.host?.addr}')">Query Host</button>
+                        </div>
+                        <div>
+                            <h4 style="color:#0a0;margin-bottom:0.5rem;">Slots</h4>
+                            <div style="font-size:0.85rem;">
+                                ${Object.entries(m.slots || {}).map(([slot, data]) => `
+                                    <div><span style="color:#050">${slot}:</span> ${data.status} ${data.name ? '(' + data.name + ')' : ''}</div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:1rem;">
+                        <h4 style="color:#0a0;margin-bottom:0.5rem;">Input Stream (last 10)</h4>
+                        <div id="input-log-${m.code}" style="background:#000;padding:0.5rem;max-height:100px;overflow-y:auto;">
+                            ${logHtml}
+                        </div>
+                    </div>
+
+                    <div style="margin-top:1rem;padding:0.75rem;background:#111;border:1px solid #030;font-size:0.75rem;line-height:1.6;">
+                        <div style="color:#0a0;margin-bottom:0.5rem;"><strong>How This Works:</strong></div>
+                        <div style="color:#0f0;">GAMMA allocates match codes (<span style="color:#0ff">${m.code}</span>). Cabinet resolves code → host address (<span style="color:#0ff">${m.host?.addr}</span>).</div>
+                        <div style="color:#0f0;">Data flow: Cabinet → WebSocket → Host → Pulsar engine. Frames broadcast back at 60fps.</div>
+                        <div style="color:#0f0;margin-bottom:0.5rem;">Input is lossy (UDP-like). State sync happens via periodic RENDER queries or on reconnect.</div>
+                        <div style="color:#0a0;margin-bottom:0.25rem;"><strong>Dev Endpoints:</strong></div>
+                        <div style="color:#050;font-family:monospace;">
+                          <div>GET <span style="color:#0f0">/api/matches</span> - List all</div>
+                          <div>POST <span style="color:#0f0">/api/match/join</span> {code:"${m.code}"} - Get host</div>
+                          <div>WS <span style="color:#0ff">ws://${m.host?.addr}</span> - Direct connect</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function toggleExpand(code) {
+            expandedMatch = expandedMatch === code ? null : code;
+            fetchMatches();
+        }
+
+        async function queryHost(code, addr) {
+            if (!addr) return;
+            const logEl = document.getElementById(`input-log-${code}`);
+            if (logEl) logEl.innerHTML = '<span style="color:#0a0">Querying host...</span>';
+
+            try {
+                const wsUrl = `ws://${addr}`;
+                const ws = new WebSocket(wsUrl);
+                ws.onopen = () => {
+                    ws.send(JSON.stringify({ t: 'query', what: 'players' }));
+                };
+                ws.onmessage = (e) => {
+                    const data = JSON.parse(e.data);
+                    console.log(`[gamma] Host ${code} response:`, data);
+                    if (data.t === 'players' && logEl) {
+                        const players = data.players || [];
+                        logEl.innerHTML = players.length === 0
+                            ? '<span style="color:#050">No players connected to host</span>'
+                            : players.map(p => `<div style="color:#0f0">${p.slot}: ${p.nick || p.cid} (idle: ${p.idle}s, visits: ${p.visits})</div>`).join('');
+                    }
+                    ws.close();
+                };
+                ws.onerror = () => {
+                    if (logEl) logEl.innerHTML = '<span style="color:#f00">Failed to connect to host</span>';
+                };
+                setTimeout(() => ws.close(), 3000);
+            } catch (e) {
+                console.error('Query failed:', e);
+                if (logEl) logEl.innerHTML = '<span style="color:#f00">Query failed</span>';
+            }
+        }
+
+        async function queryAllHosts() {
+            const resp = await fetch(`${GAMMA_API}/api/matches`);
+            const matches = await resp.json();
+            for (const m of matches) {
+                if (m.host?.addr) {
+                    queryHost(m.code, m.host.addr);
+                }
+            }
+        }
+
+        async function createMatch() {
+            const game = document.getElementById('new-game').value;
+            const addr = document.getElementById('new-addr').value;
+            const transport = document.getElementById('new-transport').value;
+            try {
+                const resp = await fetch(`${GAMMA_API}/api/match/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ game, addr, transport, slots: 2 })
+                });
+                const result = await resp.json();
+                console.log('Created match:', result);
+                if (result.code) {
+                    expandedMatch = result.code;  // Auto-expand new match
+                }
+                refresh();
+            } catch (e) {
+                console.error('Failed to create match:', e);
+            }
+        }
+
+        function confirmDelete(code) {
+            const el = document.getElementById(`actions-${code}`);
+            if (!el) return;
+            el.innerHTML = `
+                <span style="color:#f00;margin-right:0.5rem;">Delete ${code}?</span>
+                <button class="btn btn-small" onclick="event.stopPropagation();deleteMatch('${code}')">Yes</button>
+                <button class="btn btn-small" onclick="event.stopPropagation();cancelDelete('${code}')">No</button>
+            `;
+        }
+
+        function cancelDelete(code) {
+            fetchMatches();  // Re-render to restore buttons
+        }
+
+        async function deleteMatch(code) {
+            try {
+                const resp = await fetch(`${GAMMA_API}/api/match/${code}`, {
+                    method: 'DELETE'
+                });
+                const result = await resp.json();
+                if (result.ok) {
+                    console.log(`[gamma] Deleted match ${code}`);
+                } else {
+                    console.error('[gamma] Delete failed:', result.error);
+                }
+                refresh();
+            } catch (e) {
+                console.error('Failed to delete:', e);
+            }
+        }
+
+        function refresh() {
+            fetchStatus();
+            fetchMatches();
+        }
+
+        // Initial load
+        refresh();
+
+        // Auto-refresh every 5 seconds
+        setInterval(refresh, 5000);
+    </script>
 </body>
 </html>
