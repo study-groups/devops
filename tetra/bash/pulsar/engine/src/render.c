@@ -1,9 +1,45 @@
 /*
- * render.c - Sprite and game rendering
+ * render.c - Sprite and game rendering with isometric 3D support
  */
 
 #include "render.h"
 #include <math.h>
+
+/* Isometric projection constants */
+#define ISO_Z_SHIFT_X  4   /* Microgrid X shift per Z layer */
+#define ISO_Z_SHIFT_Y  2   /* Microgrid Y shift per Z layer (up) */
+
+/* Apply isometric projection to microgrid coordinates */
+static void iso_project(int mx, int my, int mz, int *sx, int *sy) {
+    /* Zaxxon-style: higher Z shifts right and up */
+    int iso_mx = mx + (mz * ISO_Z_SHIFT_X);
+    int iso_my = my - (mz * ISO_Z_SHIFT_Y);
+
+    /* Convert microgrid to terminal cells */
+    *sx = iso_mx / 2;   /* 2 microgrid = 1 terminal X */
+    *sy = iso_my / 4;   /* 4 microgrid = 1 terminal Y */
+}
+
+/* Get Z-layer visual indicator character */
+static char get_z_char(int mz) {
+    static const char z_chars[] = ".oO@";
+    if (mz < 0) mz = 0;
+    if (mz > Z_MAX) mz = Z_MAX;
+    return z_chars[mz];
+}
+
+/* Get Z-layer brightness modifier */
+static const char* get_z_brightness(int mz) {
+    static const char *brightness[] = {
+        "\033[2m",   /* Z=0: dim */
+        "",          /* Z=1: normal */
+        "\033[1m",   /* Z=2: bold */
+        "\033[1m"    /* Z=3: bold */
+    };
+    if (mz < 0) mz = 0;
+    if (mz > Z_MAX) mz = Z_MAX;
+    return brightness[mz];
+}
 
 /* Initialize render context */
 void render_init(RenderContext *ctx, FILE *tty, int cols, int rows) {
@@ -31,20 +67,21 @@ const char* render_get_color(int valence) {
     return colors[valence % 6];
 }
 
-/* Render a single sprite */
+/* Render a single sprite with isometric projection */
 void render_sprite(RenderContext *ctx, const Sprite *sprite,
                    const LayoutRegion *play_area) {
     if (!ctx->tty || !sprite->active) return;
 
-    /* Convert microgrid to terminal coords */
-    int cx = sprite->mx / 2;
-    int cy = sprite->my / 4;
+    /* Apply isometric projection (3D -> 2D) */
+    int cx, cy;
+    iso_project(sprite->mx, sprite->my, sprite->mz, &cx, &cy);
 
     /* Apply play area offset */
     cx += play_area->x;
     cy += play_area->y;
 
     const char *color = render_get_color(sprite->valence);
+    const char *bright = get_z_brightness(sprite->mz);
 
     /* Draw pulsar with rotating arms (8 arms) */
     for (int arm = 0; arm < 8; arm++) {
@@ -64,20 +101,25 @@ void render_sprite(RenderContext *ctx, const Sprite *sprite,
             if (ax >= play_area->x && ax < play_area->x + play_area->width &&
                 ay >= play_area->y && ay < play_area->y + play_area->height) {
                 char ch = (r == len) ? '*' : (r % 2 == 0 ? 'o' : '.');
-                fprintf(ctx->tty, "\033[%d;%dH%s%c\033[0m", ay + 1, ax + 1, color, ch);
+                /* Apply Z-layer brightness to color */
+                fprintf(ctx->tty, "\033[%d;%dH%s%s%c\033[0m",
+                        ay + 1, ax + 1, bright, color, ch);
             }
         }
     }
 }
 
-/* Render all sprites within play area */
+/* Render all sprites within play area with Z-ordering (painter's algorithm) */
 void render_sprites(RenderContext *ctx, const Sprite *sprites, int max_sprites,
                     const LayoutRegion *play_area) {
     if (!ctx->tty) return;
 
-    for (int i = 0; i < max_sprites; i++) {
-        if (sprites[i].active) {
-            render_sprite(ctx, &sprites[i], play_area);
+    /* Render in Z-order: low Z first, high Z last (on top) */
+    for (int z = 0; z <= Z_MAX; z++) {
+        for (int i = 0; i < max_sprites; i++) {
+            if (sprites[i].active && sprites[i].mz == z) {
+                render_sprite(ctx, &sprites[i], play_area);
+            }
         }
     }
 }

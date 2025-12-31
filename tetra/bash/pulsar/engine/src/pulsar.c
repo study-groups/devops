@@ -29,6 +29,8 @@
 #include "utils.h"
 #include "tgp.h"
 #include "osc.h"
+#include "collision.h"
+#include "osc_send.h"
 
 /* ========================================================================
  * GLOBAL STATE
@@ -57,6 +59,14 @@ static TGP_Context tgp_ctx;
 static int osc_mode = 0;  /* 0 = disabled, 1 = OSC mode */
 static OSC_Receiver osc_receiver;
 static int osc_sprite_id = -1;  /* Active sprite controlled by OSC */
+
+/* Collision detection and OSC sound triggers */
+static CollisionContext collision_ctx;
+static OSC_Sender osc_sender;
+static int collision_sound_enabled = 1;  /* Send collision sounds to QUASAR */
+
+/* Z velocity accumulator for layer transitions */
+static float z_accum[MAX_SPRITES];
 
 /* Event log (shared with utils.c) */
 Event event_log[MAX_EVENT_LOG];
@@ -298,9 +308,14 @@ static void update_cpu_usage(void) {
  * ======================================================================== */
 
 static void update_sprites(float dt) {
+    /* Get screen bounds for projectile culling */
+    int max_mx = ui_ctx.layout.cols * 2;   /* Microgrid max X */
+    int max_my = ui_ctx.layout.rows * 4;   /* Microgrid max Y */
+
     for (int i = 0; i < MAX_SPRITES; i++) {
         if (!sprites[i].active) continue;
 
+        /* Rotation and pulse animation */
         sprites[i].theta += sprites[i].dtheta * dt;
         sprites[i].phase += sprites[i].freq * dt * 2.0f * M_PI;
 
@@ -309,6 +324,30 @@ static void update_sprites(float dt) {
         while (sprites[i].theta < -M_PI) sprites[i].theta += 2.0f * M_PI;
         while (sprites[i].phase > M_PI) sprites[i].phase -= 2.0f * M_PI;
         while (sprites[i].phase < -M_PI) sprites[i].phase += 2.0f * M_PI;
+
+        /* 3D velocity integration */
+        sprites[i].mx += (int)(sprites[i].vx * dt);
+        sprites[i].my += (int)(sprites[i].vy * dt);
+
+        /* Z layer transitions (discrete snapping) */
+        if (sprites[i].vz != 0) {
+            z_accum[i] += sprites[i].vz * dt;
+            if (z_accum[i] >= 1.0f) {
+                if (sprites[i].mz < Z_MAX) sprites[i].mz++;
+                z_accum[i] = 0.0f;
+            } else if (z_accum[i] <= -1.0f) {
+                if (sprites[i].mz > 0) sprites[i].mz--;
+                z_accum[i] = 0.0f;
+            }
+        }
+
+        /* Bounds check: destroy projectiles that leave screen */
+        if (sprites[i].entity_type == ENTITY_PROJECTILE) {
+            if (sprites[i].mx < -50 || sprites[i].mx > max_mx + 50 ||
+                sprites[i].my < -50 || sprites[i].my > max_my + 50) {
+                sprites[i].active = 0;
+            }
+        }
     }
 }
 
@@ -442,10 +481,96 @@ static void process_command(char *line) {
             if (idx >= 0) {
                 sprites[idx].mx = mx;
                 sprites[idx].my = my;
+                sprites[idx].mz = 0;  /* Default Z layer */
+                sprites[idx].vx = 0;
+                sprites[idx].vy = 0;
+                sprites[idx].vz = 0;
+                sprites[idx].entity_type = ENTITY_PULSAR;
+                sprites[idx].owner = 0;
+                sprites[idx].radius = 0;
                 sprites[idx].len0 = len0;
                 sprites[idx].amp = amp;
                 sprites[idx].freq = freq;
                 sprites[idx].dtheta = dtheta;
+                sprites[idx].valence = valence;
+                sprites[idx].theta = 0;
+                sprites[idx].phase = 0;
+
+                printf("ID %d\n", sprites[idx].id);
+                fflush(stdout);
+            } else {
+                printf("ERR SPRITE_LIMIT\n");
+                fflush(stdout);
+            }
+        } else {
+            printf("ERR INVALID_PARAMS\n");
+            fflush(stdout);
+        }
+
+    } else if (strcmp(cmd, "SPAWN_PROJECTILE") == 0) {
+        /* SPAWN_PROJECTILE <mx> <my> <mz> <vx> <vy> <vz> <owner> <radius> <valence> */
+        int mx, my, mz, vx, vy, vz, owner, radius, valence;
+
+        if (sscanf(line, "SPAWN_PROJECTILE %d %d %d %d %d %d %d %d %d",
+                   &mx, &my, &mz, &vx, &vy, &vz, &owner, &radius, &valence) == 9) {
+            int idx = alloc_sprite();
+            if (idx >= 0) {
+                sprites[idx].mx = mx;
+                sprites[idx].my = my;
+                sprites[idx].mz = (mz < 0) ? 0 : (mz > Z_MAX) ? Z_MAX : mz;
+                sprites[idx].vx = vx;
+                sprites[idx].vy = vy;
+                sprites[idx].vz = vz;
+                sprites[idx].entity_type = ENTITY_PROJECTILE;
+                sprites[idx].owner = owner;
+                sprites[idx].radius = radius;
+                /* Projectile visual: small, fast pulsing */
+                sprites[idx].len0 = 3;
+                sprites[idx].amp = 2;
+                sprites[idx].freq = 4.0f;
+                sprites[idx].dtheta = 3.0f;
+                sprites[idx].valence = valence;
+                sprites[idx].theta = 0;
+                sprites[idx].phase = 0;
+
+                printf("ID %d\n", sprites[idx].id);
+                fflush(stdout);
+
+                /* Optional: send spawn sound to QUASAR */
+                if (collision_sound_enabled) {
+                    osc_send_spawn(&osc_sender, sprites[idx].id, mx, my, mz);
+                }
+            } else {
+                printf("ERR SPRITE_LIMIT\n");
+                fflush(stdout);
+            }
+        } else {
+            printf("ERR INVALID_PARAMS\n");
+            fflush(stdout);
+        }
+
+    } else if (strcmp(cmd, "SPAWN_PLAYER") == 0) {
+        /* SPAWN_PLAYER <mx> <my> <mz> <valence> */
+        int mx, my, mz, valence;
+
+        if (sscanf(line, "SPAWN_PLAYER %d %d %d %d",
+                   &mx, &my, &mz, &valence) == 4) {
+            int idx = alloc_sprite();
+            if (idx >= 0) {
+                sprites[idx].mx = mx;
+                sprites[idx].my = my;
+                sprites[idx].mz = (mz < 0) ? 0 : (mz > Z_MAX) ? Z_MAX : mz;
+                sprites[idx].vx = 0;
+                sprites[idx].vy = 0;
+                sprites[idx].vz = 0;
+                sprites[idx].entity_type = ENTITY_PLAYER;
+                sprites[idx].owner = 0;
+                sprites[idx].radius = 8;  /* Default player collision radius */
+                /* Player visual: larger, slower pulsing */
+                sprites[idx].len0 = 6;
+                sprites[idx].amp = 3;
+                sprites[idx].freq = 1.0f;
+                sprites[idx].dtheta = 0.5f;
                 sprites[idx].valence = valence;
                 sprites[idx].theta = 0;
                 sprites[idx].phase = 0;
@@ -470,8 +595,16 @@ static void process_command(char *line) {
             if (idx >= 0) {
                 if (strcmp(key, "mx") == 0) sprites[idx].mx = atoi(value);
                 else if (strcmp(key, "my") == 0) sprites[idx].my = atoi(value);
+                else if (strcmp(key, "mz") == 0) {
+                    int z = atoi(value);
+                    sprites[idx].mz = (z < 0) ? 0 : (z > Z_MAX) ? Z_MAX : z;
+                }
+                else if (strcmp(key, "vx") == 0) sprites[idx].vx = atoi(value);
+                else if (strcmp(key, "vy") == 0) sprites[idx].vy = atoi(value);
+                else if (strcmp(key, "vz") == 0) sprites[idx].vz = atoi(value);
                 else if (strcmp(key, "dtheta") == 0) sprites[idx].dtheta = atof(value);
                 else if (strcmp(key, "freq") == 0) sprites[idx].freq = atof(value);
+                else if (strcmp(key, "radius") == 0) sprites[idx].radius = atoi(value);
 
                 printf("OK SET\n");
             } else {
@@ -552,6 +685,13 @@ static void process_command(char *line) {
         /* Initialize render context */
         render_init(&render_ctx, tty, cols, rows);
 
+        /* Initialize collision detection */
+        collision_init(&collision_ctx);
+        memset(z_accum, 0, sizeof(z_accum));
+
+        /* Initialize OSC sender for sound triggers */
+        osc_send_init(&osc_sender, cols * 2, rows * 4);
+
         running = 1;
 
         /* Setup SIGWINCH handler for terminal resize */
@@ -614,6 +754,24 @@ static void process_command(char *line) {
             /* Update sprites if not paused */
             if (!ui_ctx.paused) {
                 update_sprites(dt);
+
+                /* Check for collisions */
+                collision_check(&collision_ctx, sprites, MAX_SPRITES);
+
+                /* Emit collision events */
+                for (int c = 0; c < collision_count(&collision_ctx); c++) {
+                    const CollisionEvent *e = collision_get(&collision_ctx, c);
+                    if (e) {
+                        /* Send OSC to QUASAR for sound */
+                        if (collision_sound_enabled) {
+                            osc_send_collision(&osc_sender, e);
+                        }
+                        /* Emit to stdout for game bridge */
+                        printf("EVENT collision id1=%d id2=%d x=%d y=%d z=%d energy=%.2f\n",
+                               e->id1, e->id2, e->x, e->y, e->z, e->energy);
+                        fflush(stdout);
+                    }
+                }
             }
 
             /* Update CPU usage periodically */
@@ -649,6 +807,7 @@ static void process_command(char *line) {
         fflush(stdout);
 
         input_cleanup(&input_mgr);
+        osc_send_cleanup(&osc_sender);
 
         /* Exit after RUN completes - don't go back to command loop */
         cleanup_child_processes();

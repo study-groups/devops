@@ -17,7 +17,9 @@ SOURCES = $(SRC_DIR)/pulsar.c \
           $(SRC_DIR)/utils.c \
           $(SRC_DIR)/toml.c \
           $(SRC_DIR)/tgp.c \
-          $(SRC_DIR)/osc.c
+          $(SRC_DIR)/osc.c \
+          $(SRC_DIR)/collision.c \
+          $(SRC_DIR)/osc_send.c
 
 # Object files
 OBJECTS = $(SOURCES:.c=.o)
@@ -30,7 +32,9 @@ HEADERS = $(SRC_DIR)/types.h \
           $(SRC_DIR)/render.h \
           $(SRC_DIR)/utils.h \
           $(SRC_DIR)/tgp.h \
-          $(SRC_DIR)/osc.h
+          $(SRC_DIR)/osc.h \
+          $(SRC_DIR)/collision.h \
+          $(SRC_DIR)/osc_send.h
 
 # Default target
 all: $(TARGET)

@@ -16,11 +16,38 @@
 /* Sprite system */
 #define MAX_SPRITES 256
 
-/* Sprite state */
+/* Entity type constants */
+#define ENTITY_PULSAR     0
+#define ENTITY_PLAYER     1
+#define ENTITY_PROJECTILE 2
+#define ENTITY_PARTICLE   3
+
+/* Z layer constants (Zaxxon-style isometric) */
+#define Z_GROUND  0
+#define Z_LOW     1
+#define Z_MID     2
+#define Z_HIGH    3
+#define Z_MAX     3
+
+/* Sprite/Entity state */
 typedef struct {
     int active;
     int id;
-    int mx, my;          /* microgrid position */
+
+    /* 3D position (microgrid) */
+    int mx, my;          /* X, Y microgrid position */
+    int mz;              /* Z layer (0-3, discrete) */
+
+    /* 3D velocity (microgrid units per second) */
+    int vx, vy;          /* X, Y velocity */
+    int vz;              /* Z velocity (for layer transitions) */
+
+    /* Entity classification */
+    int entity_type;     /* ENTITY_PULSAR, ENTITY_PLAYER, etc. */
+    int owner;           /* player_id (0-3) for projectiles */
+    int radius;          /* collision radius in microgrid units */
+
+    /* Pulsar animation (visual) */
     int len0;            /* base arm length */
     int amp;             /* pulse amplitude */
     float freq;          /* pulse frequency Hz */
