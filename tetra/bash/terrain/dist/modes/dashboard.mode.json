@@ -1,0 +1,64 @@
+{
+    "mode": {
+        "name": "Dashboard",
+        "version": "1.0.0",
+        "description": "Multi-pane dashboard with iframe panels"
+    },
+    "defaultTheme": "dark",
+    "canvas": {
+        "mode": "fixed",
+        "drag": false,
+        "pan": false,
+        "grid": false
+    },
+    "layout": {
+        "type": "grid",
+        "columns": "1fr 1fr",
+        "rows": "auto 1fr 1fr",
+        "areas": ["header header", "console tsm", "deploy logs"],
+        "gap": "1px"
+    },
+    "features": {
+        "designMode": false,
+        "panels": true,
+        "iframes": true,
+        "realtime": true,
+        "collapse": false
+    },
+    "header": {
+        "show": true,
+        "height": "48px",
+        "title": "TETRA"
+    },
+    "footer": {
+        "show": false
+    },
+    "ui": {
+        "homeBtn": false,
+        "addBtn": false,
+        "fab": false,
+        "configPanel": false
+    },
+    "panels": {
+        "console": {
+            "title": "CONSOLE",
+            "iframe": "console.iframe.html",
+            "area": "console"
+        },
+        "tsm": {
+            "title": "TSM",
+            "iframe": "tsm.iframe.html",
+            "area": "tsm"
+        },
+        "deploy": {
+            "title": "DEPLOY",
+            "iframe": "deploy.iframe.html",
+            "area": "deploy"
+        },
+        "logs": {
+            "title": "LOGS",
+            "iframe": "logs.iframe.html",
+            "area": "logs"
+        }
+    }
+}

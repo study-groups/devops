@@ -1,4 +1,0 @@
-TSM_PORT="8800"
-TSM_COMMAND="python3 -m http.server --bind 127.0.0.1 $TSM_PORT"
-TSM_PRE_COMMAND="tetra_python_activate"
-

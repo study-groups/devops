@@ -316,13 +316,22 @@ tetra() {
             fi
             ;;
 
-        tui|tcurses-tui)
-            local tui_file="$TETRA_SRC/bash/tetra/interfaces/tcurses-tui.sh"
-            if [[ -f "$tui_file" ]]; then
-                source "$tui_file"
-                tcurses_tui "$@"
+        tui|tui2)
+            local tui_file="$TETRA_SRC/bash/tetra/interfaces/tui2.sh"
+            if [[ -x "$tui_file" ]]; then
+                "$tui_file" "$@"
             else
-                echo "tcurses-tui not found: $tui_file" >&2
+                echo "tui2.sh not found: $tui_file" >&2
+                return 1
+            fi
+            ;;
+
+        tcui|tcurses-tui)
+            local tui_file="$TETRA_SRC/bash/tetra/interfaces/tcurses-tui.sh"
+            if [[ -x "$tui_file" ]]; then
+                "$tui_file" "$@"
+            else
+                echo "tcurses-tui.sh not found: $tui_file" >&2
                 return 1
             fi
             ;;

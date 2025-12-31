@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{TITLE}}</title>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent-primary: #58a6ff;
+            --accent-secondary: #1f6feb;
+            --success: #3fb950;
+            --warning: #d29922;
+            --error: #f85149;
+            --border: #30363d;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            padding: 1.5rem;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .sidebar-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+        }
+
+        .nav-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .nav-group-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .nav-item {
+            display: block;
+            padding: 0.4rem 0.75rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .nav-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+        .nav-item.active { background: var(--accent-secondary); color: #fff; }
+
+        /* Main Content */
+        .main {
+            padding: 2rem 3rem;
+            max-width: 900px;
+        }
+
+        .header {
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header .tagline {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        /* Topics */
+        .group {
+            margin-bottom: 3rem;
+        }
+
+        .group-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .topic {
+            margin-bottom: 2rem;
+        }
+
+        .topic-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--accent-primary);
+        }
+
+        .topic p {
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin-bottom: 1rem;
+        }
+
+        /* Content blocks */
+        code {
+            background: var(--bg-tertiary);
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .code-block {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+        }
+
+        ul, ol {
+            color: var(--text-secondary);
+            margin: 1rem 0;
+            padding-left: 1.5rem;
+        }
+
+        li { margin: 0.5rem 0; }
+
+        .info-box, .warning-box {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 6px;
+            border-left: 4px solid;
+        }
+
+        .info-box { border-color: var(--accent-primary); background: rgba(88,166,255,0.1); }
+        .warning-box { border-color: var(--warning); background: rgba(210,153,34,0.1); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="sidebar">
+            <div class="sidebar-title" id="sidebar-title">Reference</div>
+            <div id="nav-content">
+                <!-- Nav rendered by JS -->
+            </div>
+        </nav>
+
+        <main class="main">
+            <div class="header">
+                <h1 id="doc-title">Reference</h1>
+                <div class="tagline" id="doc-tagline"></div>
+            </div>
+            <div id="main-content">
+                <!-- Content rendered by JS -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Document Data -->
+    <script>
+        window.TerrainDocument = {{DOCUMENT}};
+        window.TerrainConfig = {{CONFIG}};
+    </script>
+
+    <!-- Reference Renderer -->
+    <script>
+        (function() {
+            const doc = window.TerrainDocument;
+            const meta = doc.metadata || {};
+            const groups = doc.groups || [];
+
+            // Set header
+            document.getElementById('doc-title').textContent = meta.title || 'Reference';
+            document.getElementById('doc-tagline').textContent = meta.tagline || meta.description || '';
+            document.getElementById('sidebar-title').textContent = meta.title || 'Reference';
+
+            function renderContentBlock(block) {
+                switch (block.type) {
+                    case 'paragraph':
+                        return '<p>' + (block.text || '') + '</p>';
+                    case 'list':
+                        const items = (block.items || []).map(i => '<li>' + i + '</li>').join('');
+                        return block.ordered ? '<ol>' + items + '</ol>' : '<ul>' + items + '</ul>';
+                    case 'code-block':
+                        return '<div class="code-block"><code>' + (block.code || '') + '</code></div>';
+                    case 'info-box':
+                        const inner = (block.content || []).map(renderContentBlock).join('');
+                        return '<div class="info-box">' + inner + '</div>';
+                    case 'warning-box':
+                        const wInner = (block.content || []).map(renderContentBlock).join('');
+                        return '<div class="warning-box">' + wInner + '</div>';
+                    default:
+                        return '';
+                }
+            }
+
+            // Build navigation
+            let navHtml = '';
+            groups.forEach(group => {
+                navHtml += '<div class="nav-group">';
+                navHtml += '<div class="nav-group-title">' + (group.title || group.id) + '</div>';
+                (group.topics || []).forEach(topic => {
+                    navHtml += '<a class="nav-item" href="#' + topic.id + '">' + (topic.title || topic.id) + '</a>';
+                });
+                navHtml += '</div>';
+            });
+            document.getElementById('nav-content').innerHTML = navHtml;
+
+            // Build main content
+            let mainHtml = '';
+            groups.forEach(group => {
+                mainHtml += '<section class="group" id="group-' + group.id + '">';
+                mainHtml += '<h2 class="group-title">' + (group.title || group.id) + '</h2>';
+                (group.topics || []).forEach(topic => {
+                    mainHtml += '<article class="topic" id="' + topic.id + '">';
+                    mainHtml += '<h3 class="topic-title">' + (topic.title || topic.id) + '</h3>';
+                    mainHtml += (topic.content || []).map(renderContentBlock).join('');
+                    mainHtml += '</article>';
+                });
+                mainHtml += '</section>';
+            });
+            document.getElementById('main-content').innerHTML = mainHtml;
+
+            // Nav click handling
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                    e.target.classList.add('active');
+                });
+            });
+
+            // Scrollspy
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const id = entry.target.id;
+                        document.querySelectorAll('.nav-item').forEach(i => {
+                            i.classList.toggle('active', i.getAttribute('href') === '#' + id);
+                        });
+                    }
+                });
+            }, { threshold: 0.5 });
+
+            document.querySelectorAll('.topic').forEach(t => observer.observe(t));
+        })();
+    </script>
+</body>
+</html>
