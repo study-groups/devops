@@ -71,6 +71,10 @@ rag_register_commands() {
     repl_register_slash_command "ms" rag_cmd_ms
     repl_register_slash_command "mi" rag_cmd_mi
 
+    # MagicFind integration
+    repl_register_slash_command "mf" rag_mf_command
+    repl_register_slash_command "find" rag_find_command
+
     # System commands
     repl_register_slash_command "status" rag_cmd_status
     repl_register_slash_command "cli" rag_cmd_cli

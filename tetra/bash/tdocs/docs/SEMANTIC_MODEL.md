@@ -5,19 +5,19 @@
 The Tetra Design System (TDS) defines four semantic dimensions that map naturally to document taxonomy:
 
 ```
-TDS Token        TDOCS Field        Meaning
+TDS Palette      TDOCS Field        Meaning
 ─────────────────────────────────────────────────────────────────────
-ENV_*         →  tags (system)   →  System/infrastructure tags
-MODULE_*      →  tags (modules)  →  Module/component tags
-VERBS_*       →  kind field      →  Action/purpose of document
-NOUNS_*       →  type field      →  Document class/category
+PRIMARY       →  tags (system)   →  System/infrastructure tags
+SECONDARY     →  tags (modules)  →  Module/component tags
+SEMANTIC      →  kind field      →  Action/purpose of document
+SURFACE       →  type field      →  Document class/category
 ```
 
 ## Detailed Mapping
 
 ### Nouns → Type (Document Class)
 
-**TDS Tokens**: `NOUNS_PRIMARY[0-7]`, `NOUNS_SECONDARY[0-7]`
+**TDS Palette**: `SURFACE[0-7]`
 
 **Maps to**: `doc_type` field in database
 
@@ -39,7 +39,7 @@ NOUNS_*       →  type field      →  Document class/category
 
 ### Verbs → Kind (Document Purpose)
 
-**TDS Tokens**: `VERBS_PRIMARY[0-7]`, `VERBS_SECONDARY[0-7]`
+**TDS Palette**: `SEMANTIC[0-7]`
 
 **Maps to**: New `kind` field (to be added)
 
@@ -57,7 +57,7 @@ NOUNS_*       →  type field      →  Document class/category
 
 ### Modules → Tags (Module Context)
 
-**TDS Tokens**: `MODE_PRIMARY[0-7]`, `MODE_SECONDARY[0-7]`
+**TDS Palette**: `SECONDARY[0-7]`
 
 **Maps to**: `tags` array (module-scoped tags)
 
@@ -70,7 +70,7 @@ NOUNS_*       →  type field      →  Document class/category
 
 ### Env → Tags (System Context)
 
-**TDS Tokens**: `ENV_PRIMARY[0-7]`, `ENV_SECONDARY[0-7]`
+**TDS Palette**: `PRIMARY[0-7]`
 
 **Maps to**: `tags` array (system-scoped tags)
 
@@ -121,17 +121,17 @@ type=specification kind=instruct   ⚠️
 Use TDS token palettes for consistent coloring:
 
 ```bash
-# Type uses NOUNS palette
-tds_text_color "tdocs.type.${type}"  # Maps to NOUNS_PRIMARY
+# Type uses SURFACE palette
+tds_text_color "tdocs.type.${type}"  # Maps to SURFACE
 
-# Kind uses VERBS palette
-tds_text_color "tdocs.kind.${kind}"  # Maps to VERBS_PRIMARY
+# Kind uses SEMANTIC palette
+tds_text_color "tdocs.kind.${kind}"  # Maps to SEMANTIC
 
-# Module tags use MODE palette
-tds_text_color "tdocs.tag.module.${module}"  # Maps to MODE_PRIMARY
+# Module tags use SECONDARY palette
+tds_text_color "tdocs.tag.module.${module}"  # Maps to SECONDARY
 
-# Env tags use ENV palette
-tds_text_color "tdocs.tag.env.${env_tag}"    # Maps to ENV_PRIMARY
+# Env tags use PRIMARY palette
+tds_text_color "tdocs.tag.env.${env_tag}"    # Maps to PRIMARY
 ```
 
 ## Examples

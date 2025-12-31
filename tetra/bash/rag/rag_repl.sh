@@ -28,6 +28,13 @@ fi
 
 # RAG-specific modules
 RAG_SRC="${TETRA_SRC}/bash/rag"
+
+# Core modules (command registry, stages, selector)
+source "$RAG_SRC/core/commands.sh"
+source "$RAG_SRC/core/stages.sh"
+source "$RAG_SRC/core/selector.sh"
+
+# REPL-specific modules
 source "$RAG_SRC/bash/rag_prompts.sh"
 source "$RAG_SRC/bash/rag_commands.sh"
 
@@ -465,7 +472,7 @@ _rag_repl_generate_completions() {
         echo "[RAG_COMPLETION] cmd='$cmd' subcmd='$subcmd' rest='$rest'" >&2
     fi
 
-    # Helper function to set hint and category
+    # Helper function to set hint and category from registry or custom
     _set_completion() {
         local item=$1
         local hint=$2
@@ -480,104 +487,98 @@ _rag_repl_generate_completions() {
         echo "$item"
     }
 
+    # Helper to emit completions from REPL registry
+    _emit_repl_subcmds() {
+        local parent="$1"
+        local subcmds=$(rag_get_repl_subcommands "$parent" 2>/dev/null)
+        local category=$(rag_get_repl_category "$parent" 2>/dev/null)
+
+        for sub in $subcmds; do
+            _set_completion "$sub" "$category • $sub" "$category"
+        done
+    }
+
     # If we have a command and space, complete subcommands
     if [[ -n "$cmd" && " $input " =~ " " ]]; then
         case "$cmd" in
             flow|f)
-                _set_completion "create" "Flow • Create new RAG flow with description" "Flow"
-                _set_completion "status" "Flow • Show current flow status and stage" "Flow"
-                _set_completion "list" "Flow • List all flows (local/global)" "Flow"
-                _set_completion "resume" "Flow • Resume a previous flow from checkpoint" "Flow"
-                _set_completion "promote" "Flow • Promote flow from local to global" "Flow"
+                if [[ -n "$subcmd" ]]; then return 0; fi
+                _emit_repl_subcmds "flow"
                 ;;
             evidence|e)
-                if [[ -n "$subcmd" ]]; then
-                    # Already have subcommand, no further completion
-                    return 0
-                fi
+                if [[ -n "$subcmd" ]]; then return 0; fi
                 _set_completion "add" "Evidence • Add file as evidence with selector" "Evidence"
                 _set_completion "list" "Evidence • List all evidence files with variables" "Evidence"
                 if [[ $has_evidence -eq 1 ]]; then
                     _set_completion "toggle" "Evidence • Toggle evidence active/skipped" "Evidence"
                     _set_completion "status" "Evidence • Show context status and token budget" "Evidence"
-                    # Add numeric completions for viewing evidence (only if count > 0)
-                    if [[ $evidence_count -gt 0 ]]; then
-                        for i in $(seq 1 $evidence_count); do
-                            _set_completion "$i" "Evidence • View evidence file #$i" "Evidence"
-                        done
-                    fi
+                    for i in $(seq 1 $evidence_count); do
+                        _set_completion "$i" "Evidence • View evidence file #$i" "Evidence"
+                    done
                 fi
                 ;;
             qa)
-                _set_completion "search" "QA • Search QA database for relevant Q&A pairs" "QA"
-                _set_completion "list" "QA • List recent QA entries" "QA"
-                _set_completion "view" "QA • View full QA entry with prompt and answer" "QA"
+                if [[ -n "$subcmd" ]]; then return 0; fi
+                _emit_repl_subcmds "qa"
                 if [[ $has_flow -eq 1 ]]; then
-                    _set_completion "add" "QA • Add QA entry as evidence to current flow" "QA"
+                    _set_completion "add" "QA • Add QA entry as evidence" "QA"
                 fi
                 ;;
             kb)
-                _set_completion "list" "KB • List knowledge base entries" "KB"
-                _set_completion "search" "KB • Search knowledge base" "KB"
+                if [[ -n "$subcmd" ]]; then return 0; fi
+                _emit_repl_subcmds "kb"
                 ;;
             *)
-                # No subcommand completions for other commands
                 return 0
                 ;;
         esac
     else
-        # Complete top-level slash commands with context-aware hints
+        # Complete top-level slash commands from registry with context-aware filtering
+        for entry in "${RAG_REPL_COMMANDS[@]}"; do
+            local repl_cmd="${entry%%:*}"
+            local rest="${entry#*:}"
+            rest="${rest#*:}"  # Skip subcmds
+            local hint="${rest%%:*}"
+            local category="${entry##*:}"
 
-        # Flow commands - always available
-        _set_completion "flow" "Flow • Create and manage RAG flows" "Flow"
-        _set_completion "f" "Flow • Alias for /flow" "Flow"
-
-        # Evidence commands - enhanced hints if flow exists
-        if [[ $has_flow -eq 1 ]]; then
-            _set_completion "evidence" "Evidence • Add/manage evidence (flow active: ${evidence_count}e)" "Evidence"
-            _set_completion "e" "Evidence • Alias for /evidence" "Evidence"
-        else
-            _set_completion "evidence" "Evidence • Add/manage evidence (create flow first)" "Evidence"
-            _set_completion "e" "Evidence • Alias for /evidence" "Evidence"
-        fi
-
-        # Context assembly - only suggest if we have evidence
-        if [[ $has_evidence -eq 1 ]]; then
-            _set_completion "select" "Assembly • Select evidence using query" "Assembly"
-            _set_completion "assemble" "Assembly • Build context from evidence to prompt.mdctx" "Assembly"
-            _set_completion "submit" "Assembly • Submit assembled context to QA agent" "Assembly"
-            _set_completion "r" "Assembly • View LLM response with colored markdown" "Assembly"
-        fi
-
-        # Prompt editing
-        if [[ $has_flow -eq 1 ]]; then
-            _set_completion "p" "Prompt • Edit or replace flow prompt/question" "Prompt"
-        fi
-
-        # Workflow guide
-        _set_completion "workflow" "Guide • Show step-by-step workflow guide" "Guide"
-
-        # QA and KB - always available
-        _set_completion "qa" "QA • Search and retrieve from QA history" "QA"
-        _set_completion "kb" "KB • Manage knowledge base entries" "KB"
-        if [[ $has_flow -eq 1 ]]; then
-            _set_completion "tag" "KB • Promote flow to knowledge base with tags" "KB"
-        fi
-
-        # Status and metadata
-        _set_completion "status" "Info • Show comprehensive RAG status" "Info"
-
-        # Melvin commands (modal context)
-        _set_completion "mc" "Melvin • Modal context message" "Melvin"
-        _set_completion "ms" "Melvin • Modal send" "Melvin"
-        _set_completion "mi" "Melvin • Modal info" "Melvin"
-
-        # CLI/prompt mode
-        _set_completion "cli" "Mode • Enter CLI/prompt mode" "Mode"
-
-        # Help
-        _set_completion "help" "Help • Show navigable help tree" "Help"
-        _set_completion "h" "Help • Alias for /help" "Help"
+            # Context-aware filtering
+            case "$repl_cmd" in
+                # Always show flow commands
+                flow|f)
+                    _set_completion "$repl_cmd" "$category • $hint" "$category"
+                    ;;
+                # Evidence: adjust hint based on flow state
+                evidence|e)
+                    if [[ $has_flow -eq 1 ]]; then
+                        _set_completion "$repl_cmd" "Evidence • Add/manage evidence (${evidence_count} files)" "Evidence"
+                    else
+                        _set_completion "$repl_cmd" "Evidence • Add/manage evidence (create flow first)" "Evidence"
+                    fi
+                    ;;
+                # Assembly commands: only show if has evidence
+                select|assemble|submit|r)
+                    if [[ $has_evidence -eq 1 ]]; then
+                        _set_completion "$repl_cmd" "$category • $hint" "$category"
+                    fi
+                    ;;
+                # Prompt: only show if has flow
+                p)
+                    if [[ $has_flow -eq 1 ]]; then
+                        _set_completion "$repl_cmd" "$category • $hint" "$category"
+                    fi
+                    ;;
+                # Tag: only show if has flow
+                tag)
+                    if [[ $has_flow -eq 1 ]]; then
+                        _set_completion "$repl_cmd" "$category • $hint" "$category"
+                    fi
+                    ;;
+                # All other commands: always show
+                *)
+                    _set_completion "$repl_cmd" "$category • $hint" "$category"
+                    ;;
+            esac
+        done
     fi
 }
 

@@ -1,0 +1,149 @@
+{
+  "version": "1.0",
+  "last_scan": "2025-12-26T03:55:45Z",
+  "scan_roots": [
+    "."
+  ],
+  "exclude": [
+    "node_modules",
+    ".git",
+    "vendor",
+    "tdocs"
+  ],
+  "by_hash": {
+    "3e5e2292dfac": {
+      "path": "./docs/FLOW_AND_SEMANTICS.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 9868
+    },
+    "20e1e8771036": {
+      "path": "./docs/archive/IMPLEMENTATION_STATUS.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 8540
+    },
+    "611c421f5702": {
+      "path": "./docs/archive/REFACTOR_PHASE2_NEXT.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 10459
+    },
+    "5f94a9752dd9": {
+      "path": "./docs/archive/PHASE2_COMPLETE.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 11257
+    },
+    "cb959f7a3c61": {
+      "path": "./docs/archive/METADATA_DESIGN.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 9077
+    },
+    "a0e18abc0623": {
+      "path": "./docs/archive/REFACTOR_PHASE1_SUMMARY.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 7421
+    },
+    "4aab32a499c0": {
+      "path": "./docs/archive/CONTEXT_REFERENCE.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 3570
+    },
+    "0c6c866df1a2": {
+      "path": "./docs/archive/DEMO_README.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 1489
+    },
+    "ababc319aca5": {
+      "path": "./docs/archive/CONTEXT_GUIDE.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 4058
+    },
+    "57be0afb06fe": {
+      "path": "./docs/archive/COMMAND_RATIONALIZATION.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 4495
+    },
+    "4eb2fb88882b": {
+      "path": "./docs/archive/QUICK_TEST.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 2791
+    },
+    "40f783810698": {
+      "path": "./docs/CONTEXT.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 2068
+    },
+    "834449cc2040": {
+      "path": "./docs/README.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 10954
+    },
+    "c108abf438d3": {
+      "path": "./docs/PROMPT_DESIGN.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 2978
+    },
+    "1499fdae63f8": {
+      "path": "./docs/TDS_INTEGRATION.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 4459
+    },
+    "aae036f81232": {
+      "path": "./docs/TDOCS_RAG_INTEGRATION.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 8181
+    },
+    "6b77f038b5ed": {
+      "path": "./docs/REVIEW_GUIDE.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 7315
+    },
+    "af432490f85a": {
+      "path": "./docs/COLOR_TOKENS_REFERENCE.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 5010
+    },
+    "b8a34d9fcd76": {
+      "path": "./docs/ARRAY_HANDLING.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 5952
+    },
+    "2ae0e12181ea": {
+      "path": "./docs/TAB_COMPLETION_GUIDE.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 7890
+    },
+    "8b3ee109f240": {
+      "path": "./docs/SEMANTIC_MODEL.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 7891
+    },
+    "64145fab4707": {
+      "path": "./README.md",
+      "updated": "2025-12-26T03:55:45Z",
+      "size": 3389
+    }
+  },
+  "by_path": {
+    "./docs/FLOW_AND_SEMANTICS.md": "3e5e2292dfac",
+    "./docs/archive/IMPLEMENTATION_STATUS.md": "20e1e8771036",
+    "./docs/archive/REFACTOR_PHASE2_NEXT.md": "611c421f5702",
+    "./docs/archive/PHASE2_COMPLETE.md": "5f94a9752dd9",
+    "./docs/archive/METADATA_DESIGN.md": "cb959f7a3c61",
+    "./docs/archive/REFACTOR_PHASE1_SUMMARY.md": "a0e18abc0623",
+    "./docs/archive/CONTEXT_REFERENCE.md": "4aab32a499c0",
+    "./docs/archive/DEMO_README.md": "0c6c866df1a2",
+    "./docs/archive/CONTEXT_GUIDE.md": "ababc319aca5",
+    "./docs/archive/COMMAND_RATIONALIZATION.md": "57be0afb06fe",
+    "./docs/archive/QUICK_TEST.md": "4eb2fb88882b",
+    "./docs/CONTEXT.md": "40f783810698",
+    "./docs/README.md": "834449cc2040",
+    "./docs/PROMPT_DESIGN.md": "c108abf438d3",
+    "./docs/TDS_INTEGRATION.md": "1499fdae63f8",
+    "./docs/TDOCS_RAG_INTEGRATION.md": "aae036f81232",
+    "./docs/REVIEW_GUIDE.md": "6b77f038b5ed",
+    "./docs/COLOR_TOKENS_REFERENCE.md": "af432490f85a",
+    "./docs/ARRAY_HANDLING.md": "b8a34d9fcd76",
+    "./docs/TAB_COMPLETION_GUIDE.md": "2ae0e12181ea",
+    "./docs/SEMANTIC_MODEL.md": "8b3ee109f240",
+    "./README.md": "64145fab4707"
+  }
+}

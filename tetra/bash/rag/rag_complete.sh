@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 # RAG Tab Completion - Multilevel data-driven completions
+# Uses shared command definitions from core/commands.sh
 
-_RAG_COMMANDS="quick q bundle compare diff session flow select evidence assemble plan submit repl r mc ms mi example ex status s help h init"
-_RAG_SESSION_SUBCMDS="create start status resume switch list"
-_RAG_FLOW_SUBCMDS="create start status resume list complete"
-_RAG_EVIDENCE_SUBCMDS="add list"
+# Source shared command definitions
+_RAG_COMPLETE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$_RAG_COMPLETE_DIR/core/commands.sh" ]]; then
+    source "$_RAG_COMPLETE_DIR/core/commands.sh"
+fi
+if [[ -f "$_RAG_COMPLETE_DIR/core/stages.sh" ]]; then
+    source "$_RAG_COMPLETE_DIR/core/stages.sh"
+fi
 
 # Get flow IDs for completion
 _rag_flow_ids() {
@@ -39,8 +44,8 @@ _rag_session_ids() {
     done
 }
 
-# Get evidence files in active flow
-_rag_evidence_files() {
+# Get evidence ranks in active flow
+_rag_evidence_ranks() {
     local flows_dir="${RAG_DIR:-$TETRA_DIR/rag}/flows"
     [[ -d "$PWD/rag/flows" ]] && flows_dir="$PWD/rag/flows"
 
@@ -71,10 +76,25 @@ _rag_complete() {
 
     COMPREPLY=()
 
-    # First arg: complete commands
+    # First arg: complete commands from registry
     if [[ $COMP_CWORD -eq 1 ]]; then
-        COMPREPLY=($(compgen -W "$_RAG_COMMANDS" -- "$cur"))
+        local commands
+        if command -v rag_get_commands >/dev/null 2>&1; then
+            commands=$(rag_get_commands)
+        else
+            # Fallback if commands.sh not loaded
+            commands="quick q bundle compare diff session flow evidence select assemble plan submit repl r mc ms mi example ex status s help h init"
+        fi
+        COMPREPLY=($(compgen -W "$commands" -- "$cur"))
         return
+    fi
+
+    # Get subcommands and options from registry
+    local subcmds=""
+    local opts=""
+    if command -v rag_get_subcommands >/dev/null 2>&1; then
+        subcmds=$(rag_get_subcommands "$cmd")
+        opts=$(rag_get_options "$cmd" "$subcmd")
     fi
 
     # Second+ arg: context-sensitive completion
@@ -82,8 +102,11 @@ _rag_complete() {
         # Quick mode: rag quick "<query>" <files...>
         quick|q)
             if [[ $COMP_CWORD -ge 3 ]]; then
-                # Complete with files after query
-                COMPREPLY=($(compgen -f -- "$cur"))
+                if [[ "$cur" == -* ]]; then
+                    COMPREPLY=($(compgen -W "$(rag_get_options quick)" -- "$cur"))
+                else
+                    COMPREPLY=($(compgen -f -- "$cur"))
+                fi
             fi
             ;;
 
@@ -92,7 +115,7 @@ _rag_complete() {
             if [[ "$prev" == "--output" || "$prev" == "-o" ]]; then
                 COMPREPLY=($(compgen -f -- "$cur"))
             elif [[ "$cur" == -* ]]; then
-                COMPREPLY=($(compgen -W "--output -o --exclude -x" -- "$cur"))
+                COMPREPLY=($(compgen -W "$opts" -- "$cur"))
             else
                 COMPREPLY=($(compgen -f -- "$cur"))
             fi
@@ -105,14 +128,14 @@ _rag_complete() {
             elif [[ "$prev" == "--output" || "$prev" == "-o" ]]; then
                 COMPREPLY=($(compgen -f -- "$cur"))
             elif [[ "$cur" == -* ]]; then
-                COMPREPLY=($(compgen -W "--output -o --context -c" -- "$cur"))
+                COMPREPLY=($(compgen -W "$opts" -- "$cur"))
             fi
             ;;
 
         # Session subcommands
         session)
             if [[ $COMP_CWORD -eq 2 ]]; then
-                COMPREPLY=($(compgen -W "$_RAG_SESSION_SUBCMDS" -- "$cur"))
+                COMPREPLY=($(compgen -W "$subcmds" -- "$cur"))
             elif [[ $COMP_CWORD -eq 3 ]]; then
                 case "$subcmd" in
                     resume|switch)
@@ -125,27 +148,44 @@ _rag_complete() {
         # Flow subcommands
         flow)
             if [[ $COMP_CWORD -eq 2 ]]; then
-                COMPREPLY=($(compgen -W "$_RAG_FLOW_SUBCMDS" -- "$cur"))
+                COMPREPLY=($(compgen -W "$subcmds" -- "$cur"))
             elif [[ $COMP_CWORD -eq 3 ]]; then
                 case "$subcmd" in
                     resume)
                         COMPREPLY=($(compgen -W "$(_rag_flow_ids)" -- "$cur"))
                         ;;
                     complete)
+                        local sub_opts=$(rag_get_options flow complete 2>/dev/null)
                         if [[ "$cur" == -* ]]; then
-                            COMPREPLY=($(compgen -W "--outcome -o --lesson -l --artifact -a --tag -t --effort -e" -- "$cur"))
+                            COMPREPLY=($(compgen -W "$sub_opts" -- "$cur"))
                         else
-                            COMPREPLY=($(compgen -W "success partial abandoned failed" -- "$cur"))
+                            local outcomes
+                            if command -v rag_get_outcomes >/dev/null 2>&1; then
+                                outcomes=$(rag_get_outcomes)
+                            else
+                                outcomes="success partial abandoned failed"
+                            fi
+                            COMPREPLY=($(compgen -W "$outcomes" -- "$cur"))
                         fi
+                        ;;
+                    list)
+                        COMPREPLY=($(compgen -W "--global" -- "$cur"))
                         ;;
                 esac
             elif [[ $COMP_CWORD -ge 4 ]]; then
                 case "$subcmd" in
                     complete)
                         if [[ "$prev" == "--outcome" || "$prev" == "-o" ]]; then
-                            COMPREPLY=($(compgen -W "success partial abandoned failed" -- "$cur"))
+                            local outcomes
+                            if command -v rag_get_option_values >/dev/null 2>&1; then
+                                outcomes=$(rag_get_option_values --outcome)
+                            else
+                                outcomes="success partial abandoned failed"
+                            fi
+                            COMPREPLY=($(compgen -W "$outcomes" -- "$cur"))
                         elif [[ "$cur" == -* ]]; then
-                            COMPREPLY=($(compgen -W "--outcome -o --lesson -l --artifact -a --tag -t --effort -e" -- "$cur"))
+                            local sub_opts=$(rag_get_options flow complete 2>/dev/null)
+                            COMPREPLY=($(compgen -W "$sub_opts" -- "$cur"))
                         fi
                         ;;
                 esac
@@ -155,18 +195,26 @@ _rag_complete() {
         # Evidence subcommands
         evidence)
             if [[ $COMP_CWORD -eq 2 ]]; then
-                COMPREPLY=($(compgen -W "$_RAG_EVIDENCE_SUBCMDS" -- "$cur"))
+                COMPREPLY=($(compgen -W "$subcmds" -- "$cur"))
             elif [[ $COMP_CWORD -eq 3 ]]; then
                 case "$subcmd" in
                     add)
-                        # Complete with files
                         COMPREPLY=($(compgen -f -- "$cur"))
+                        ;;
+                    toggle|remove)
+                        COMPREPLY=($(compgen -W "$(_rag_evidence_ranks)" -- "$cur"))
+                        ;;
+                esac
+            elif [[ $COMP_CWORD -eq 4 ]]; then
+                case "$subcmd" in
+                    toggle)
+                        COMPREPLY=($(compgen -W "on off" -- "$cur"))
                         ;;
                 esac
             fi
             ;;
 
-        # Select: complete with nothing (expects query string)
+        # Select: no args (expects query string)
         select)
             ;;
 
@@ -177,7 +225,7 @@ _rag_complete() {
         # Submit: complete with targets
         submit)
             if [[ $COMP_CWORD -eq 2 ]]; then
-                COMPREPLY=($(compgen -W "@qa @local" -- "$cur"))
+                COMPREPLY=($(compgen -W "$subcmds" -- "$cur"))
             fi
             ;;
 
@@ -186,7 +234,7 @@ _rag_complete() {
             if [[ "$prev" == "--output" || "$prev" == "-o" ]]; then
                 COMPREPLY=($(compgen -f -- "$cur"))
             elif [[ "$cur" == -* ]]; then
-                COMPREPLY=($(compgen -W "--output -o --exclude -x --example --recursive -r" -- "$cur"))
+                COMPREPLY=($(compgen -W "$opts" -- "$cur"))
             else
                 COMPREPLY=($(compgen -f -- "$cur"))
             fi
@@ -197,7 +245,7 @@ _rag_complete() {
                 COMPREPLY=($(compgen -W "$(_rag_mc_files)" -- "$cur"))
                 COMPREPLY+=($(compgen -f -X '!*.mc' -- "$cur"))
             elif [[ "$cur" == -* ]]; then
-                COMPREPLY=($(compgen -W "-y -Y --yes --force" -- "$cur"))
+                COMPREPLY=($(compgen -W "$opts" -- "$cur"))
             fi
             ;;
 
@@ -210,7 +258,13 @@ _rag_complete() {
 
         # Help: complete with commands
         help|h)
-            COMPREPLY=($(compgen -W "$_RAG_COMMANDS" -- "$cur"))
+            local commands
+            if command -v rag_get_commands >/dev/null 2>&1; then
+                commands=$(rag_get_commands)
+            else
+                commands="quick q bundle compare diff session flow evidence select assemble plan submit repl r mc ms mi example ex status s help h init"
+            fi
+            COMPREPLY=($(compgen -W "$commands" -- "$cur"))
             ;;
 
         # Status/Init/Repl: no additional args

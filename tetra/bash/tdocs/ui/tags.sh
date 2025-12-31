@@ -406,10 +406,10 @@ tdoc_render_compact() {
             fi
         fi
 
-        # Build metadata line with colored tags using TDS MODE 8 colors
+        # Build metadata line with colored tags using TDS SECONDARY 8 colors
         local tag_palette=()
-        if [[ -n "${MODE_PRIMARY[0]}" ]]; then
-            tag_palette=("${MODE_PRIMARY[@]}")
+        if [[ -n "${SECONDARY[0]}" ]]; then
+            tag_palette=("${SECONDARY[@]}")
         else
             tag_palette=(9 10 11 12 13 14 15 208)
         fi

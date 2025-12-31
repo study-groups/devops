@@ -45,6 +45,123 @@ _get_openai_api() { _qa_get OPENAI_API "$OPENAI_API_FILE"; }
 _get_qa_engine() { _qa_get QA_ENGINE "$QA_ENGINE_FILE"; }
 _get_qa_context() { _qa_get QA_CONTEXT "$QA_CONTEXT_FILE"; }
 
+# =============================================================================
+# ENTRY FILE EXTENSIONS
+# =============================================================================
+
+# All file extensions for a QA entry
+# Used by promote, move, clear, export operations
+QA_ENTRY_EXTENSIONS=(prompt answer data response meta metadata.json)
+
+# Subset of extensions for views (RAG export - no raw API data)
+QA_VIEW_EXTENSIONS=(prompt answer meta metadata.json)
+
+# Get all existing files for an entry
+# Usage: _qa_entry_files <dir> <id>
+# Returns: list of existing file paths (one per line)
+_qa_entry_files() {
+    local dir="$1"
+    local id="$2"
+    for ext in "${QA_ENTRY_EXTENSIONS[@]}"; do
+        [[ -f "$dir/$id.$ext" ]] && echo "$dir/$id.$ext"
+    done
+}
+
+# Copy all files for an entry to destination
+# Usage: _qa_entry_copy <src_dir> <id> <dest_dir>
+_qa_entry_copy() {
+    local src_dir="$1" id="$2" dest_dir="$3"
+    local count=0
+    for ext in "${QA_ENTRY_EXTENSIONS[@]}"; do
+        [[ -f "$src_dir/$id.$ext" ]] && cp "$src_dir/$id.$ext" "$dest_dir/" && ((count++))
+    done
+    echo "$count"
+}
+
+# Move all files for an entry to destination
+# Usage: _qa_entry_move <src_dir> <id> <dest_dir>
+_qa_entry_move() {
+    local src_dir="$1" id="$2" dest_dir="$3"
+    local count=0
+    for ext in "${QA_ENTRY_EXTENSIONS[@]}"; do
+        [[ -f "$src_dir/$id.$ext" ]] && mv "$src_dir/$id.$ext" "$dest_dir/" && ((count++))
+    done
+    echo "$count"
+}
+
+# Count entries in a directory
+# Usage: _qa_count_entries <dir>
+_qa_count_entries() {
+    local dir="$1"
+    local -a files=("$dir"/*.prompt)
+    [[ -e "${files[0]}" ]] && echo "${#files[@]}" || echo 0
+}
+
+# Validate channel name (alphanumeric, dash, underscore)
+# Usage: _qa_validate_channel <name>
+_qa_validate_channel() {
+    local name="$1"
+    if [[ ! "$name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        echo "Invalid channel name '$name': use a-z, 0-9, _, -" >&2
+        return 1
+    fi
+}
+
+# Get channel directory path
+# Usage: _qa_get_channel_dir <channel>
+# Returns: path to channel directory
+_qa_get_channel_dir() {
+    local channel="$1"
+    local base="${QA_DIR:-$TETRA_DIR/qa}"
+
+    case "$channel" in
+        db|main|"")
+            echo "$base/db"
+            ;;
+        [0-9]|[0-9][0-9])
+            echo "$base/channels/$channel"
+            ;;
+        *)
+            echo "$base/channels/$channel"
+            ;;
+    esac
+}
+
+# Platform-agnostic date calculation
+# Usage: _qa_date_ago <spec>
+# Examples: _qa_date_ago 1d, _qa_date_ago 2h, _qa_date_ago yesterday
+_qa_date_ago() {
+    local spec="$1"
+
+    # Try GNU date first (Linux), then BSD date (macOS)
+    if date --version &>/dev/null 2>&1; then
+        # GNU date
+        case "$spec" in
+            yesterday) date -d 'yesterday' +%s ;;
+            *h) date -d "${spec%h} hours ago" +%s ;;
+            *d) date -d "${spec%d} days ago" +%s ;;
+            *) date -d "$spec" +%s 2>/dev/null || echo 0 ;;
+        esac
+    else
+        # BSD/macOS date
+        case "$spec" in
+            yesterday) date -v-1d +%s ;;
+            *h) date -v-"${spec%h}"H +%s ;;
+            *d) date -v-"${spec%d}"d +%s ;;
+            *) date -jf "%Y-%m-%d" "$spec" +%s 2>/dev/null || echo 0 ;;
+        esac
+    fi
+}
+
+# Get all entry IDs from a channel, sorted by time
+# Usage: _qa_get_entry_ids <channel>
+_qa_get_entry_ids() {
+    local channel="$1"
+    local dir="$(_qa_get_channel_dir "$channel")"
+    ls -1 "$dir"/*.prompt 2>/dev/null |
+        sed 's/.*\///' | sed 's/\.prompt$//' | sort -n
+}
+
 _qa_sanitize_index ()
 {
     local index=$1
@@ -249,22 +366,29 @@ q-init() {
     mkdir -p "$QA_DIR/db"       # all queries and responses
 }
 
+# Get question - wrapper around _q_channel with smart argument parsing
+# Usage:
+#   q              - Last question from db
+#   q 3            - 3rd from last in db
+#   q myproject    - Last question from channel 'myproject'
+#   q myproject 2  - 2nd from last in channel 'myproject'
 q() {
-    # get the last question
-    local db="$QA_DIR/db"
-    local files
-    readarray -t files < <(command ls --color=never "$db"/*.prompt 2>/dev/null | sort -n)
-    if [[ ${#files[@]} -eq 0 ]]; then
-        echo "No queries found" >&2
-        return 1
+    # No args: db, index 0
+    if [[ -z "$1" ]]; then
+        _q_channel db 0
+        return
     fi
-    local last=$((${#files[@]}-1))
-    local indexFromLast=$(_qa_sanitize_index $1)
-    local index=$(($last-$indexFromLast))
-    local file="${files[$index]}"
-    # Strip ANSI color codes from file path
-    file=$(echo "$file" | sed 's/\x1b\[[0-9;]*m//g')
-    cat "$file"
+
+    # Pure number: db with index
+    if [[ "$1" =~ ^[0-9]+$ ]]; then
+        _q_channel db "$1"
+        return
+    fi
+
+    # Channel name (with optional @ prefix)
+    local channel="${1#@}"
+    shift
+    _q_channel "$channel" "${1:-0}"
 }
 
 qa_delete(){
@@ -285,30 +409,30 @@ qa_delete(){
     rm -f "$QA_DIR/db/$id".*
 }
 
-a()
-{
-    # get the last answer
-    local db="$QA_DIR/db"
-    local files
-    readarray -t files < <(command ls --color=never "$db"/*.answer 2>/dev/null | sort -n)
-    if [[ ${#files[@]} -eq 0 ]]; then
-        echo "No answers found" >&2
-        return 1
+# Get answer - wrapper around _a_channel with smart argument parsing
+# Usage:
+#   a              - Last answer from db
+#   a 3            - 3rd from last in db
+#   a myproject    - Last answer from channel 'myproject'
+#   a myproject 2  - 2nd from last in channel 'myproject'
+#   a @foo         - Last answer from channel 'foo' (@ prefix)
+a() {
+    # No args: db, index 0
+    if [[ -z "$1" ]]; then
+        _a_channel db 0
+        return
     fi
-    local last=$((${#files[@]}-1))
-    local lastIndex=$((${#files[@]}-1))
-    local indexFromLast=$(_qa_sanitize_index $1)
-    local index=$(($lastIndex-$indexFromLast))
-    local file="${files[$index]}"
-    # Strip ANSI color codes from file path
-    file=$(echo "$file" | sed 's/\x1b\[[0-9;]*m//g')
-    local id=$(basename "$file" .answer)
-    local info="[QA/global/$((index+1))/${lastIndex} $id]"
 
-    printf "[$id: $(head -n 1 $db/$id.prompt | _truncate_middle )]"
-    printf "\n\n"
-    cat "$file"
-    printf "\n$info\n"
+    # Pure number: db with index
+    if [[ "$1" =~ ^[0-9]+$ ]]; then
+        _a_channel db "$1"
+        return
+    fi
+
+    # Channel name (with optional @ prefix)
+    local channel="${1#@}"
+    shift
+    _a_channel "$channel" "${1:-0}"
 }
 
 qa_responses ()
@@ -416,5 +540,17 @@ fa() {
     fi
 }
 
-# Functions are available when module is loaded via lazy loading
-# No need to export since tetra handles module loading
+# =============================================================================
+# EXPORTS
+# =============================================================================
+
+export QA_ENTRY_EXTENSIONS QA_VIEW_EXTENSIONS
+
+export -f _truncate_middle _qa_get
+export -f _get_openai_api _get_qa_engine _get_qa_context
+export -f _qa_entry_files _qa_entry_copy _qa_entry_move
+export -f _qa_count_entries _qa_validate_channel _qa_get_channel_dir _qa_date_ago
+export -f _qa_get_entry_ids _qa_sanitize_index _qa_sanitize_input
+export -f _qa_read_input qa_query q_gpt_query
+export -f qa_help qa_status qa_set_apikey qa_set_engine qa_set_context
+export -f q a qa_delete qa_responses qa_test qa_list fa

@@ -20,10 +20,11 @@ QA_LOGS_DIR="${QA_DIR}/logs"
 # QA Module Management
 QA_MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# QA modules to source
+# QA modules to source (v2 - added qa_selector.sh)
 QA_MODULES=(
     "$QA_MODULE_DIR/qa_core.sh"
     "$QA_MODULE_DIR/qa_channels.sh"
+    "$QA_MODULE_DIR/qa_selector.sh"
     "$QA_MODULE_DIR/qa_views.sh"
     "$QA_MODULE_DIR/qa_doctor.sh"
     "$QA_MODULE_DIR/qa_repl.sh"
@@ -78,45 +79,48 @@ FIRST USE
   config engine gpt-4o  Set model
   qq "test query"       Verify it works
 
-REGULAR USE
-  qq "question"         Query (writes to /tmp/qa/1 + main archive)
-  qqq "scratch"         Scratch query (channel 2, no archive)
-  qq @research "query"  Query to named channel
-  a                     Show last answer (from main archive)
-  a1                    Show last answer (from working channel 1)
-  list [N]              List recent N entries (default 10)
-  list -t [N]           List truncated (single line per entry)
-  fa [N]                Show answer N with chroma rendering
-  search "topic"        Search all answers
+STRUCTURE
+  $TETRA_DIR/qa/
+  ├── db/               Main database (on the record)
+  ├── channels/         Named channels (tags)
+  │   ├── 1,2,3,4/      Scratch channels
+  │   └── my-project/   Named channels
+  └── views/            TOML-configured views for RAG
 
-CHANNELS
-  qq = qq1              Primary working channel (dual-writes to main)
-  qq2 qq3 qq4 qqq       Scratch channels (temp only)
-  a1 a2 a3 a4           Get answer from working channel
-  promote 2             Promote scratch -> main
-  promote 3 @research   Promote scratch -> named
+ASK QUESTIONS (qq writes)
+  qq "question"         Ask, write to db
+  qq :git "question"    Ask, write to channel "git"
+  qq :2 "question"      Ask, write to channel 2
+  qq1, qq2, qqq         Shortcuts for numbered channels
+
+VIEW (q and a read)
+  q                     Last question from db
+  q 5                   5th question back
+  q git                 Last question from channel "git"
+  q git 5               5th question back from "git"
+  a / a 5 / a git       Same pattern for answers
+
+CHANNEL MANAGEMENT
   channels              List all channels
+  channel create foo    Create named channel
+  promote 2 myproj      Rename channel 2 → myproj
+  merge git             Copy channel "git" → db
+  clear 2               Archive channel 2
 
-VIEWS (RAG export)
-  view create <name>    Create symlink collection
-  view add <name> <id>  Add entries to view
-  view export <name>    Export as JSONL for RAG
-  views                 List all views
+EXPORT
+  export                Export db as jsonl
+  export git md         Export channel as markdown
+  export --all jsonl    Export everything
 
 TOOLS
+  summary [channel]     LLM summary of channel
   doctor                Health check
-  summary               Usage statistics
   browse                Interactive browser
   repl                  Interactive shell
 
-ALL COMMANDS
-  Query     qq qq1-4 qqq query
-  Answer    a a1-4 last
-  Search    search browse
-  Channels  channels promote move clear channel
-  Views     view views
-  Config    config status doctor summary gc
-  Help      help
+VIEWS (RAG)
+  view create <name>    Create view with TOML config
+  view add <name> <id>  Add entries to view
 EOF
         return 0
     fi
@@ -226,8 +230,14 @@ EOF
                     ;;
             esac
             ;;
+        "export")
+            qa_export "$@"
+            ;;
         "promote")
-            qa_promote "$@"
+            qa_promote_channel "$@"
+            ;;
+        "merge")
+            qa_merge_channel "$@"
             ;;
         "move"|"mv")
             qa_move "$@"
@@ -272,8 +282,16 @@ EOF
     esac
 }
 
-# Shortcut command - routes through channel 1 (dual-writes to /tmp/qa/1 + main)
-# Supports @channel routing for named channels
+# Ask a question - writes to db or specified channel
+# Usage:
+#   qq my question          - Query to db (on the record)
+#   qq :git my question     - Query to channel "git"
+#   qq :2 my question       - Query to channel 2
+#   qq @foo my question     - Query to channel "foo" (@ prefix)
+#
+# To VIEW entries, use q (questions) or a (answers):
+#   q / q 5 / q git / q git 5
+#   a / a 5 / a git / a git 5
 qq() {
     # Ensure modules are loaded before using shortcut
     if [[ "${QA_MODULES_LOADED:-false}" != "true" ]]; then
@@ -281,14 +299,28 @@ qq() {
         export QA_MODULES_LOADED=true
     fi
 
-    # Check if first arg is @channel
-    if [[ "$1" =~ ^@ ]]; then
+    # Check for :channel syntax (write to named channel)
+    if [[ "$1" =~ ^: ]]; then
+        local channel="${1#:}"
+        shift
+        if [[ -z "$*" ]]; then
+            echo "Usage: qq :channel your question here" >&2
+            return 1
+        fi
+        _qq_channel "$channel" "$@"
+    # Check for @channel syntax (alternate prefix)
+    elif [[ "$1" =~ ^@ ]]; then
+        local channel="${1#@}"
+        shift
+        _qq_channel "$channel" "$@"
+    # Check for numeric channel
+    elif [[ "$1" =~ ^[0-9]+$ ]] && [[ -n "$2" ]]; then
         local channel="$1"
         shift
         _qq_channel "$channel" "$@"
     else
-        # Default: channel 1 (dual-writes to tmp + main)
-        _qq_channel 1 "$@"
+        # Default: write to db (on the record)
+        _qq_channel db "$@"
     fi
 }
 

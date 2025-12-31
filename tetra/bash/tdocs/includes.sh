@@ -19,8 +19,8 @@ source "$TDOCS_SRC/core/pdata.sh"
 # Source context integration (TPS T[org:project:subject] line)
 source "$TDOCS_SRC/tdocs_ctx.sh"
 
-# Source UI components (colors first for TDS integration)
-source "$TDOCS_SRC/ui/colors.sh"
+# Source UI components (tokens first for TDS integration)
+source "$TDOCS_SRC/ui/tokens.sh"
 source "$TDOCS_SRC/ui/color_explorer.sh"
 
 # Source core tdocs functionality (includes all core modules)

@@ -1,7 +1,22 @@
 #!/usr/bin/env bash
-# ast_bash.sh - Bash-specific AST operations for function parsing and replacement
+# ast_bash.sh - Bash-specific AST operations
+# Uses tree-sitter (via bash/lib/treesitter.sh) when available,
+# falls back to pure bash 5.2+ regex parsing
+
+# Source tree-sitter module if available
+_AST_TREESITTER_LOADED=false
+if [[ -f "${TETRA_SRC:-}/bash/lib/treesitter.sh" ]]; then
+    source "${TETRA_SRC}/bash/lib/treesitter.sh"
+    _AST_TREESITTER_LOADED=true
+fi
+
+# Check if tree-sitter is available for bash
+_ast_has_treesitter() {
+    $_AST_TREESITTER_LOADED && ts_available bash
+}
 
 # Extract a single function from a bash file
+# Usage: bash_extract_function <file> <func_name>
 bash_extract_function() {
   local file="$1"
   local func_name="$2"
@@ -16,73 +31,81 @@ bash_extract_function() {
     return 1
   fi
 
-  awk -v func="$func_name" '
-    BEGIN {
-      in_func = 0
-      brace_count = 0
-      found = 0
-    }
+  # Try tree-sitter first if available
+  if _ast_has_treesitter; then
+    local result
+    result=$(ts_extract_function "$file" "$func_name" 2>/dev/null)
+    if [[ $? -eq 0 && -n "$result" ]]; then
+      echo "$result"
+      return 0
+    fi
+    # Fall through to pure bash
+  fi
 
-    # Match function definition patterns
-    # Pattern 1: func() {
-    $0 ~ "^[[:space:]]*" func "[[:space:]]*\\(\\)[[:space:]]*\\{" {
-      found = 1
-      in_func = 1
-      brace_count = 0
+  # Pure bash 5.2+ fallback
+  local in_func=0
+  local brace_count=0
+  local found=0
+  local line trimmed name
 
-      # Count braces on this line
-      temp = $0
-      gsub(/[^\{\}]/, "", temp)
-      for (i = 1; i <= length(temp); i++) {
-        if (substr(temp, i, 1) == "{") brace_count++
-        else if (substr(temp, i, 1) == "}") brace_count--
-      }
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if ((in_func == 0)); then
+      # Check for function definition patterns
+      trimmed="${line#"${line%%[![:space:]]*}"}"  # ltrim
 
-      print $0
+      # Pattern 1: funcname() {
+      if [[ "$trimmed" =~ ^([a-zA-Z_][a-zA-Z0-9_]*)[[:space:]]*\(\)[[:space:]]*\{ ]]; then
+        name="${BASH_REMATCH[1]}"
+        if [[ "$name" == "$func_name" ]]; then
+          found=1
+          in_func=1
+          brace_count=0
+          # Count braces in this line
+          local temp="${line//[^\{\}]/}"
+          local i
+          for ((i=0; i<${#temp}; i++)); do
+            [[ "${temp:$i:1}" == "{" ]] && ((brace_count++))
+            [[ "${temp:$i:1}" == "}" ]] && ((brace_count--))
+          done
+          printf '%s\n' "$line"
+          ((brace_count <= 0)) && break
+          continue
+        fi
+      fi
 
-      if (brace_count <= 0) {
-        in_func = 0
-        exit
-      }
-      next
-    }
+      # Pattern 2: funcname() alone (brace on next line)
+      if [[ "$trimmed" =~ ^([a-zA-Z_][a-zA-Z0-9_]*)[[:space:]]*\(\)[[:space:]]*$ ]]; then
+        name="${BASH_REMATCH[1]}"
+        if [[ "$name" == "$func_name" ]]; then
+          found=1
+          in_func=1
+          brace_count=0
+          printf '%s\n' "$line"
+          continue
+        fi
+      fi
+    else
+      # Inside function - count braces
+      local temp="${line//[^\{\}]/}"
+      local i
+      for ((i=0; i<${#temp}; i++)); do
+        [[ "${temp:$i:1}" == "{" ]] && ((brace_count++))
+        [[ "${temp:$i:1}" == "}" ]] && ((brace_count--))
+      done
+      printf '%s\n' "$line"
+      ((brace_count <= 0)) && break
+    fi
+  done < "$file"
 
-    # Pattern 2: func()\n{
-    $0 ~ "^[[:space:]]*" func "[[:space:]]*\\(\\)[[:space:]]*$" {
-      found = 1
-      in_func = 1
-      brace_count = 0
-      print $0
-      next
-    }
-
-    in_func {
-      # Count braces
-      temp = $0
-      gsub(/[^\{\}]/, "", temp)
-      for (i = 1; i <= length(temp); i++) {
-        if (substr(temp, i, 1) == "{") brace_count++
-        else if (substr(temp, i, 1) == "}") brace_count--
-      }
-
-      print $0
-
-      if (brace_count <= 0) {
-        in_func = 0
-        exit
-      }
-    }
-
-    END {
-      if (!found) {
-        print "Error: Function \"" func "\" not found" > "/dev/stderr"
-        exit 1
-      }
-    }
-  ' "$file"
+  if ((found == 0)); then
+    echo "Error: Function \"$func_name\" not found" >&2
+    return 1
+  fi
+  return 0
 }
 
 # List all function names in a bash file
+# Usage: bash_list_functions <file>
 bash_list_functions() {
   local file="$1"
 
@@ -91,37 +114,67 @@ bash_list_functions() {
     return 1
   fi
 
-  # Extract function names using multiple patterns
-  awk '
-    # Pattern 1: function func_name() {
-    /^[[:space:]]*function[[:space:]]+[a-zA-Z0-9_]+[[:space:]]*\(\)[[:space:]]*\{?[[:space:]]*$/ {
-      match($0, /function[[:space:]]+([a-zA-Z0-9_]+)/, arr)
-      if (arr[1] != "") print arr[1]
-      next
-    }
+  # Try tree-sitter first if available
+  if _ast_has_treesitter; then
+    local result
+    result=$(ts_list_functions "$file" 2>/dev/null)
+    if [[ $? -eq 0 && -n "$result" ]]; then
+      echo "$result"
+      return 0
+    fi
+    # Fall through to pure bash
+  fi
 
-    # Pattern 2: func_name() {
-    /^[[:space:]]*[a-zA-Z0-9_]+[[:space:]]*\(\)[[:space:]]*\{/ {
-      match($0, /^[[:space:]]*([a-zA-Z0-9_]+)[[:space:]]*\(\)/, arr)
-      if (arr[1] != "") print arr[1]
-      next
-    }
+  # Pure bash 5.2+ fallback
+  local -A seen
+  local line trimmed name peek_next=0 pending_name=""
 
-    # Pattern 3: func_name() on its own line (followed by { on next line)
-    /^[[:space:]]*[a-zA-Z0-9_]+[[:space:]]*\(\)[[:space:]]*$/ {
-      match($0, /^[[:space:]]*([a-zA-Z0-9_]+)[[:space:]]*\(\)/, arr)
-      if (arr[1] != "") {
-        # Peek ahead to confirm next line is {
-        getline next_line
-        if (next_line ~ /^[[:space:]]*\{[[:space:]]*$/) {
-          print arr[1]
-        }
-      }
-    }
-  ' "$file" | sort -u
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    trimmed="${line#"${line%%[![:space:]]*}"}"  # ltrim
+
+    # Check if previous line was funcname() alone
+    if ((peek_next)); then
+      peek_next=0
+      if [[ "$trimmed" =~ ^\{[[:space:]]*$ ]]; then
+        if [[ -z "${seen[$pending_name]:-}" ]]; then
+          echo "$pending_name"
+          seen[$pending_name]=1
+        fi
+      fi
+      pending_name=""
+    fi
+
+    # Pattern 1: function funcname() { or function funcname {
+    if [[ "$trimmed" =~ ^function[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)[[:space:]]*(\(\))?[[:space:]]*\{? ]]; then
+      name="${BASH_REMATCH[1]}"
+      if [[ -z "${seen[$name]:-}" ]]; then
+        echo "$name"
+        seen[$name]=1
+      fi
+      continue
+    fi
+
+    # Pattern 2: funcname() {
+    if [[ "$trimmed" =~ ^([a-zA-Z_][a-zA-Z0-9_]*)[[:space:]]*\(\)[[:space:]]*\{ ]]; then
+      name="${BASH_REMATCH[1]}"
+      if [[ -z "${seen[$name]:-}" ]]; then
+        echo "$name"
+        seen[$name]=1
+      fi
+      continue
+    fi
+
+    # Pattern 3: funcname() alone (need to peek at next line)
+    if [[ "$trimmed" =~ ^([a-zA-Z_][a-zA-Z0-9_]*)[[:space:]]*\(\)[[:space:]]*$ ]]; then
+      pending_name="${BASH_REMATCH[1]}"
+      peek_next=1
+      continue
+    fi
+  done < "$file"
 }
 
 # Replace a function in a bash file (reads new function from stdin)
+# Usage: echo "$new_func" | bash_replace_function <file>
 bash_replace_function() {
   local file="$1"
 
@@ -130,23 +183,24 @@ bash_replace_function() {
     return 1
   fi
 
-  # Read input function into an array
+  # Read input function
+  local -a new_func_lines
   mapfile -t new_func_lines
+
   if [[ ${#new_func_lines[@]} -eq 0 ]]; then
     echo "Error: No function input provided via stdin" >&2
     return 1
   fi
 
-  # Detect function name from first or second line
+  # Detect function name from first line
   local first_line="${new_func_lines[0]}"
-  local func_name
+  local trimmed="${first_line#"${first_line%%[![:space:]]*}"}"
+  local func_name=""
 
-  # Try multiple patterns to extract function name
-  if [[ "$first_line" =~ ^[[:space:]]*function[[:space:]]+([a-zA-Z0-9_]+)[[:space:]]*\(\) ]]; then
-    # Pattern: function func_name()
+  # Extract function name
+  if [[ "$trimmed" =~ ^function[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*) ]]; then
     func_name="${BASH_REMATCH[1]}"
-  elif [[ "$first_line" =~ ^[[:space:]]*([a-zA-Z0-9_]+)[[:space:]]*\(\)[[:space:]]*\{?$ ]]; then
-    # Pattern: func_name() { or func_name()
+  elif [[ "$trimmed" =~ ^([a-zA-Z_][a-zA-Z0-9_]*)[[:space:]]*\(\) ]]; then
     func_name="${BASH_REMATCH[1]}"
   else
     echo "Error: Could not extract function name from input" >&2
@@ -154,121 +208,82 @@ bash_replace_function() {
     return 1
   fi
 
-  # Prepare new function code for awk by exporting it
-  export AWK_REPLACE_NEW_FUNCTION_CODE
-  AWK_REPLACE_NEW_FUNCTION_CODE="$(printf "%s\n" "${new_func_lines[@]}")"
+  # Read original file
+  local -a original_lines
+  mapfile -t original_lines < "$file"
 
-  # Use awk to replace or append the function
-  awk -v func="$func_name" '
-    BEGIN {
-      in_func = 0
-      func_found = 0
-      brace_count = 0
+  # Find and replace function
+  local in_func=0
+  local brace_count=0
+  local func_found=0
+  local -a output_lines
+  local line trimmed name
 
-      # Retrieve the new function code from the environment variable
-      raw_new_code = ENVIRON["AWK_REPLACE_NEW_FUNCTION_CODE"]
+  for line in "${original_lines[@]}"; do
+    if ((in_func)); then
+      # Count braces
+      local temp="${line//[^\{\}]/}"
+      local i
+      for ((i=0; i<${#temp}; i++)); do
+        [[ "${temp:$i:1}" == "{" ]] && ((brace_count++))
+        [[ "${temp:$i:1}" == "}" ]] && ((brace_count--))
+      done
+      ((brace_count <= 0)) && in_func=0
+      # Skip old function lines
+      continue
+    fi
 
-      # Remove trailing newline
-      sub(/\n$/, "", raw_new_code)
+    trimmed="${line#"${line%%[![:space:]]*}"}"
 
-      # Split the new function code into lines
-      split(raw_new_code, new_lines, "\n")
-    }
+    # Check if this line starts the function we're replacing
+    local is_match=0
 
-    function print_new_code() {
-      for (i = 1; i <= length(new_lines); i++) {
-        print new_lines[i]
-      }
-    }
+    # Pattern 1: funcname() {
+    if [[ "$trimmed" =~ ^([a-zA-Z_][a-zA-Z0-9_]*)[[:space:]]*\(\)[[:space:]]*\{ ]]; then
+      name="${BASH_REMATCH[1]}"
+      [[ "$name" == "$func_name" ]] && is_match=1
+    fi
 
-    {
-      if (in_func) {
-        # Count braces on this line
-        current_line_stripped_braces = $0
-        gsub(/[^\{\}]/, "", current_line_stripped_braces)
-        for (j = 1; j <= length(current_line_stripped_braces); j++) {
-          char = substr(current_line_stripped_braces, j, 1)
-          if (char == "{") brace_count++
-          else if (char == "}") brace_count--
-        }
-        if (brace_count <= 0) {
-          in_func = 0
-        }
-        next # Skip printing this old line
-      }
+    # Pattern 2: function funcname() { or function funcname {
+    if ((is_match == 0)) && [[ "$trimmed" =~ ^function[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*) ]]; then
+      name="${BASH_REMATCH[1]}"
+      [[ "$name" == "$func_name" ]] && is_match=1
+    fi
 
-      # Match function definition (covers func() { and func()\n{ styles)
-      # Also handle "function func_name()" style
-      if ($0 ~ "^[[:space:]]*(function[[:space:]]+)?" func "[[:space:]]*\\(\\)[[:space:]]*\\{[[:space:]]*$") {
-        # func() { or function func() {
-        in_func = 1
-        brace_count = 0
-        temp_braces = $0
-        gsub(/[^\{\}]/, "", temp_braces)
-        for (j = 1; j <= length(temp_braces); j++) {
-          if (substr(temp_braces, j, 1) == "{") brace_count++
-          else if (substr(temp_braces, j, 1) == "}") brace_count--
-        }
+    if ((is_match)); then
+      # Insert new function
+      for new_line in "${new_func_lines[@]}"; do
+        output_lines+=("$new_line")
+      done
+      func_found=1
 
-        func_found = 1
-        print_new_code()
-        if (brace_count <= 0) {
-          in_func = 0
-        }
-        next
-      } else if ($0 ~ "^[[:space:]]*(function[[:space:]]+)?" func "[[:space:]]*\\(\\)[[:space:]]*$") {
-        # func() or function func() (alone on a line)
-        getline next_line
-        if (next_line ~ "^[[:space:]]*\\{[[:space:]]*$") {
-          # next line is {
-          in_func = 1
-          brace_count = 0
-          temp_braces = next_line
-          gsub(/[^\{\}]/, "", temp_braces)
-          for (j = 1; j <= length(temp_braces); j++) {
-            if (substr(temp_braces, j, 1) == "{") brace_count++
-            else if (substr(temp_braces, j, 1) == "}") brace_count--
-          }
+      # Start counting braces for old function
+      in_func=1
+      brace_count=0
+      local temp="${line//[^\{\}]/}"
+      local i
+      for ((i=0; i<${#temp}; i++)); do
+        [[ "${temp:$i:1}" == "{" ]] && ((brace_count++))
+        [[ "${temp:$i:1}" == "}" ]] && ((brace_count--))
+      done
+      ((brace_count <= 0)) && in_func=0
+      continue
+    fi
 
-          func_found = 1
-          print_new_code()
-          # Do not print original $0 or next_line
-          if (brace_count <= 0) {
-            in_func = 0
-          }
-          next
-        } else {
-          # Not the function we are looking for
-          print $0
-          print next_line
-          next
-        }
-      }
+    output_lines+=("$line")
+  done
 
-      print $0 # Print lines that are not part of the function being replaced
-    }
-
-    END {
-      if (!func_found) {
-        # Append new function if not found
-        print ""
-        print "# Function \"" func "\" not found. Appending new function."
-        print_new_code()
-      }
-    }
-  ' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
-
-  local status=$?
-
-  # Unset the environment variable after use
-  unset AWK_REPLACE_NEW_FUNCTION_CODE
-
-  # Clean up temp file if it exists
-  if [[ -f "$file.tmp" ]]; then
-    rm "$file.tmp"
+  # If function not found, append it
+  if ((func_found == 0)); then
+    output_lines+=("")
+    output_lines+=("# Function \"$func_name\" not found. Appending new function.")
+    for new_line in "${new_func_lines[@]}"; do
+      output_lines+=("$new_line")
+    done
   fi
 
-  return $status
+  # Write output
+  printf '%s\n' "${output_lines[@]}" > "$file"
 }
 
 # Legacy compatibility wrappers

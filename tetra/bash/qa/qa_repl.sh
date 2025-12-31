@@ -1,20 +1,28 @@
 #!/usr/bin/env bash
 
-# QA REPL - Interactive Question & Answer system
+# QA REPL - Interactive Question & Answer system (v2)
+# Now with channel awareness and selector syntax
 
 # Load shared REPL utilities
 source "${TETRA_SRC:-$HOME/src/devops/tetra}/bash/utils/repl_utils.sh"
 
+# Current channel for REPL queries (default: db)
+QA_REPL_CHANNEL="${QA_REPL_CHANNEL:-db}"
+
 qa_repl() {
-    echo "QA Interactive REPL - Question & Answer System"
-    echo "Commands: query, set-engine, set-context, search, browse, help, status, exit"
+    echo "QA Interactive REPL (v2) - Question & Answer System"
+    echo "Commands: channels, query, search, browse, help, status, exit"
     echo "Current engine: $(_get_qa_engine)"
-    echo "Current context: $(_get_qa_context)"
-    echo "Tip: Type your question directly to query"
+    echo "Current channel: $QA_REPL_CHANNEL"
+    echo "Tip: Type your question directly to query the current channel"
+    echo "     Use 'channels' for channel help, 'channel <name>' to switch"
     echo
 
     while true; do
-        read -e -p "qa> " input
+        # Show current channel in prompt
+        local prompt="qa"
+        [[ "$QA_REPL_CHANNEL" != "db" ]] && prompt="qa[$QA_REPL_CHANNEL]"
+        read -e -p "$prompt> " input
 
         # Handle empty input
         [[ -z "$input" ]] && continue
@@ -69,11 +77,24 @@ qa_repl() {
                     echo "Current API key file: $OPENAI_API_FILE"
                 fi
                 ;;
-            "last"|"a")
+            "channel"|"ch")
                 if [[ -n "$args" ]]; then
-                    a "$args"
+                    QA_REPL_CHANNEL="$args"
+                    echo "Switched to channel: $QA_REPL_CHANNEL"
                 else
-                    a
+                    echo "Current channel: $QA_REPL_CHANNEL"
+                    echo "Usage: channel <name|number|db>"
+                fi
+                ;;
+            "channels")
+                qa_channels
+                ;;
+            "last"|"a")
+                # Show last answer from current channel
+                if [[ -n "$args" ]]; then
+                    _a_channel "$QA_REPL_CHANNEL" "$args"
+                else
+                    _a_channel "$QA_REPL_CHANNEL"
                 fi
                 ;;
             "search")
@@ -122,9 +143,9 @@ qa_repl() {
                 # Empty input, continue
                 ;;
             *)
-                # Treat as direct query
-                echo "Querying: $input"
-                qq "$input"
+                # Treat as direct query - route through current channel
+                echo "Querying [$QA_REPL_CHANNEL]: $input"
+                _qq_channel "$QA_REPL_CHANNEL" "$input"
                 ;;
         esac
     done
@@ -152,33 +173,65 @@ Usage:
   set-engine claude
 EOF
             ;;
+        "channels")
+            cat <<EOF
+QA Channel System:
+
+STRUCTURE
+  db/               Main database (on the record)
+  channels/1-4      Numbered scratch channels
+  channels/<name>   Named channels (tags)
+
+REPL CHANNEL COMMANDS
+  channel           Show current channel
+  channel db        Switch to main database
+  channel 2         Switch to channel 2
+  channel git       Switch to channel "git"
+  channels          List all channels with counts
+
+SHELL COMMANDS
+  qq :git question  Ask, write to channel "git"
+  qq :2 question    Ask, write to channel 2
+  q git             View last question from "git"
+  q git 5           View 5th back from "git"
+  a git             View last answer from "git"
+
+CHANNEL MANAGEMENT
+  qa channels       List channels
+  qa promote 2 foo  Move channel 2 → foo
+  qa clear 2        Archive channel 2
+  qa export git md  Export as markdown
+EOF
+            ;;
         "commands")
             cat <<EOF
 QA REPL Commands:
 
+Channel Commands:
+  channel [name]       - Show or switch channel (db, 1-4, name)
+  channels             - List all channels with counts
+
 Query Commands:
-  query <question>     - Ask a question explicitly
-  search <term>        - Search through previous answers
-  last [n]             - Show last answer (or nth from last)
-  browse [viewer]      - Browse answers (defaults to chroma)
-  browse-raw           - Browse with plain text viewer
+  <question>           - Query current channel directly
+  query <question>     - Query explicitly
+  search <term>        - Search through answers
+  last [n]             - Last answer from current channel
+  browse [viewer]      - Browse answers (chroma or raw)
   test                 - Run test query
 
 Configuration:
   set-engine <name>    - Set AI engine (gpt-4, claude, etc.)
-  set-context <text>   - Set default context for queries
+  set-context <text>   - Set default context
   set-apikey <key>     - Set API key
-  viewer [name]        - Show or set viewer (chroma or raw)
+  viewer [name]        - Show or set viewer
   status               - Show system status
 
 System:
-  help [topic]         - Show help (engines, commands)
+  help [topic]         - Show help (channels, commands, engines)
   clear                - Clear screen
-  pwd                  - Show current directory
-  ls [args]            - List files
   exit, quit, q        - Exit REPL
 
-Note: You can type your question directly
+Note: Questions go to the current channel (shown in prompt)
 EOF
             ;;
         *)
@@ -186,26 +239,28 @@ EOF
 QA Interactive REPL Help:
 
 Quick Start:
-  Type your question directly. No need for 'query' command.
+  Type your question directly - goes to current channel.
+  Prompt shows: qa> (db) or qa[2]> (channel 2)
+
+Channel Workflow:
+  channel db        Switch to main db (on the record)
+  channel git       Switch to channel "git"
+  channels          List all channels
 
 Examples:
   What is the capital of France?
-  How do I use git rebase?
-  Explain quantum computing
-
-Configuration:
-  set-engine gpt-4     - Use GPT-4 for responses
-  set-context "Python developer" - Set context for all queries
+  channel git                    # switch to git channel
+  How do I use git rebase?       # goes to channel git
 
 Browse History:
-  last                 - Show last answer
-  search <term>        - Find previous answers
-  browse               - Interactive answer browser (chroma by default)
-  browse raw           - Use plain text viewer
+  last              - Last answer from current channel
+  search <term>     - Find previous answers
+  browse            - Interactive browser
 
 Help Topics:
-  help commands        - All available commands
-  help engines         - Available AI engines
+  help channels     - Channel system explained
+  help commands     - All REPL commands
+  help engines      - Available AI engines
 
 Type 'exit' to quit the REPL.
 EOF
@@ -216,24 +271,29 @@ EOF
 _qa_repl_status() {
     echo "QA System Status:"
     echo "================"
+    echo "Current channel: $QA_REPL_CHANNEL"
     echo "Engine: $(_get_qa_engine)"
     echo "Context: $(_get_qa_context)"
     echo "Viewer: $(_qa_get_viewer)"
     echo ""
-    echo "Directories:"
+    echo "Directory structure:"
     echo "  QA_DIR: ${QA_DIR:-<not set>}"
-    echo "  DB Dir: ${QA_DB_DIR:-<not set>}"
-    echo "  Config Dir: ${QA_CONFIG_DIR:-<not set>}"
+    local base="${QA_DIR:-$TETRA_DIR/qa}"
+    [[ -d "$base/db" ]] && echo "  ✓ db/ (main database)" || echo "  ○ db/ (not created)"
+    [[ -d "$base/channels" ]] && echo "  ✓ channels/ (working channels)" || echo "  ○ channels/ (not created)"
+    [[ -d "$base/views" ]] && echo "  ✓ views/ (RAG collections)" || echo "  ○ views/ (not created)"
     echo ""
-    echo "Configuration files:"
-    [[ -f "$QA_ENGINE_FILE" ]] && echo "  ✓ Engine file: $QA_ENGINE_FILE" || echo "  ○ Engine file: $QA_ENGINE_FILE (default)"
-    [[ -f "$QA_CONTEXT_FILE" ]] && echo "  ✓ Context file: $QA_CONTEXT_FILE" || echo "  ○ Context file: $QA_CONTEXT_FILE (default)"
-    [[ -f "$OPENAI_API_FILE" ]] && echo "  ✓ API key file: $OPENAI_API_FILE" || echo "  ✗ API key file: $OPENAI_API_FILE (missing)"
+    echo "Configuration:"
+    [[ -f "$QA_ENGINE_FILE" ]] && echo "  ✓ Engine: $QA_ENGINE_FILE" || echo "  ○ Engine: (default)"
+    [[ -f "$QA_CONTEXT_FILE" ]] && echo "  ✓ Context: $QA_CONTEXT_FILE" || echo "  ○ Context: (none)"
+    [[ -f "$OPENAI_API_FILE" ]] && echo "  ✓ API key: configured" || echo "  ✗ API key: missing ($OPENAI_API_FILE)"
     echo ""
-    echo "Storage directories:"
-    [[ -d "$QA_DB_DIR" ]] && echo "  ✓ $QA_DB_DIR" || echo "  ✗ $QA_DB_DIR (missing)"
-    [[ -d "$QA_CONFIG_DIR" ]] && echo "  ✓ $QA_CONFIG_DIR" || echo "  ✗ $QA_CONFIG_DIR (missing)"
-    [[ -d "$QA_LOGS_DIR" ]] && echo "  ✓ $QA_LOGS_DIR" || echo "  ✗ $QA_LOGS_DIR (missing)"
+    echo "Channels:"
+    if type -t qa_channels &>/dev/null; then
+        qa_channels 2>/dev/null | head -10
+    else
+        echo "  (qa_channels not loaded)"
+    fi
 }
 
 # REPL function available when module is loaded

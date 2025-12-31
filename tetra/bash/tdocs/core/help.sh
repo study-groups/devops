@@ -39,7 +39,7 @@ _tdocs_c() {
 _tdocs_verbs() {
     local i=0
     for word in "$@"; do
-        _tdocs_help_color "${VERBS_PRIMARY[$((i % 8))]}"
+        _tdocs_help_color "${SEMANTIC[$((i % 8))]}"
         printf "%s " "$word"
         ((i++))
     done
@@ -48,12 +48,12 @@ _tdocs_verbs() {
 
 # Helper functions using TDS palettes
 _tdocs_help_section() {
-    _tdocs_c "${ENV_PRIMARY[0]}" "$1"
+    _tdocs_c "${PRIMARY[0]}" "$1"
     echo
 }
 
 _tdocs_help_subsection() {
-    _tdocs_c "${ENV_PRIMARY[1]}" "$1"
+    _tdocs_c "${PRIMARY[1]}" "$1"
     echo
 }
 
@@ -61,9 +61,9 @@ _tdocs_help_cmd() {
     local cmd="$1"
     local desc="$2"
     printf "  "
-    _tdocs_c "${MODE_PRIMARY[0]}" "$(printf '%-20s' "$cmd")"
+    _tdocs_c "${SECONDARY[0]}" "$(printf '%-20s' "$cmd")"
     printf " "
-    _tdocs_c "${NOUNS_PRIMARY[6]}" "$desc"
+    _tdocs_c "${SURFACE[6]}" "$desc"
     echo
 }
 
@@ -71,10 +71,10 @@ _tdocs_help_example() {
     local comment="$1"
     local example="$2"
     printf "  "
-    _tdocs_c "${NOUNS_PRIMARY[5]}" "# $comment"
+    _tdocs_c "${SURFACE[5]}" "# $comment"
     echo
     printf "  "
-    _tdocs_c "${ENV_PRIMARY[2]}" "$example"
+    _tdocs_c "${PRIMARY[2]}" "$example"
     echo
 }
 
@@ -86,23 +86,23 @@ tdocs_help_main() {
     _tdocs_help_subsection "Prompt Format:"
     # Build colored prompt example using TDS colors
     printf "  "
-    _tdocs_c "${NOUNS_PRIMARY[6]}" "["
-    _tdocs_c "${MODE_PRIMARY[1]}" "total"
+    _tdocs_c "${SURFACE[6]}" "["
+    _tdocs_c "${SECONDARY[1]}" "total"
     printf " "
-    _tdocs_c "${MODE_PRIMARY[0]}" "{"
-    _tdocs_c "${ENV_PRIMARY[1]}" "modules"
-    _tdocs_c "${MODE_PRIMARY[0]}" "}"
+    _tdocs_c "${SECONDARY[0]}" "{"
+    _tdocs_c "${PRIMARY[1]}" "modules"
+    _tdocs_c "${SECONDARY[0]}" "}"
     printf " "
-    _tdocs_c "${NOUNS_PRIMARY[6]}" "("
-    _tdocs_c "${ENV_PRIMARY[2]}" "type | intent"
-    _tdocs_c "${NOUNS_PRIMARY[6]}" ")"
-    _tdocs_c "${NOUNS_PRIMARY[6]}" "]"
+    _tdocs_c "${SURFACE[6]}" "("
+    _tdocs_c "${PRIMARY[2]}" "type | intent"
+    _tdocs_c "${SURFACE[6]}" ")"
+    _tdocs_c "${SURFACE[6]}" "]"
     printf " "
-    _tdocs_c "${NOUNS_PRIMARY[6]}" "["
-    _tdocs_c "${VERBS_PRIMARY[3]}" "lifecycle"
-    _tdocs_c "${NOUNS_PRIMARY[6]}" "]"
+    _tdocs_c "${SURFACE[6]}" "["
+    _tdocs_c "${SEMANTIC[3]}" "lifecycle"
+    _tdocs_c "${SURFACE[6]}" "]"
     printf " "
-    _tdocs_c "${MODE_PRIMARY[1]}" "n"
+    _tdocs_c "${SECONDARY[1]}" "n"
     printf " >\n"
     echo
 
@@ -137,11 +137,11 @@ EOF
     echo "  Intent (VERB)    - what it DOES:     define, instruct, analyze,"
     echo "                                        document, propose, track"
     echo "  Lifecycle        - maturity stage:"
-    printf "    "; _tdocs_c "${VERBS_PRIMARY[0]}" "C"; echo " Canonical  - authoritative, system of record"
-    printf "    "; _tdocs_c "${VERBS_PRIMARY[1]}" "S"; echo " Stable     - proven, reviewed, reliable"
-    printf "    "; _tdocs_c "${VERBS_PRIMARY[2]}" "W"; echo " Working    - functional, active development [DEFAULT]"
-    printf "    "; _tdocs_c "${VERBS_PRIMARY[3]}" "D"; echo " Draft      - work in progress, unreviewed"
-    printf "    "; _tdocs_c "${VERBS_PRIMARY[4]}" "X"; echo " Archived   - superseded, do not use"
+    printf "    "; _tdocs_c "${SEMANTIC[0]}" "C"; echo " Canonical  - authoritative, system of record"
+    printf "    "; _tdocs_c "${SEMANTIC[1]}" "S"; echo " Stable     - proven, reviewed, reliable"
+    printf "    "; _tdocs_c "${SEMANTIC[2]}" "W"; echo " Working    - functional, active development [DEFAULT]"
+    printf "    "; _tdocs_c "${SEMANTIC[3]}" "D"; echo " Draft      - work in progress, unreviewed"
+    printf "    "; _tdocs_c "${SEMANTIC[4]}" "X"; echo " Archived   - superseded, do not use"
     echo
     _tdocs_help_subsection "Examples:"
     _tdocs_help_example "All modules, no filters" "[92 {*} ()] [W:183] 92 >"
@@ -150,12 +150,12 @@ EOF
     echo
     echo "Display format: filename  Lifecycle  type  intent  tags"
     echo
-    printf "More: "; _tdocs_c "${MODE_PRIMARY[0]}" "help <topic>"; printf "  "; _tdocs_c "${NOUNS_PRIMARY[5]}" "review, lifecycle, taxonomy, filter, types, doctor"; echo
+    printf "More: "; _tdocs_c "${SECONDARY[0]}" "help <topic>"; printf "  "; _tdocs_c "${SURFACE[5]}" "review, lifecycle, taxonomy, filter, types, doctor"; echo
 }
 
 # Helper for inline command in heredoc (returns colored string)
 _tdocs_inline_cmd() {
-    _tdocs_c "${MODE_PRIMARY[0]}" "$1"
+    _tdocs_c "${SECONDARY[0]}" "$1"
 }
 
 # Module command help
@@ -323,8 +323,8 @@ tdocs_help_types() {
     local descs=("Formal specifications (authoritative)" "Standard/protocol definitions" "Reference material (lookup)" "How-to guides (instructional)" "Example/sample code" "Integration guides" "Analysis and research" "Bug fix documentation" "Refactoring notes" "Plans and roadmaps" "Summaries and overviews" "Scratch/temporary notes")
     for j in "${!types[@]}"; do
         printf "  "
-        _tdocs_c "${VERBS_PRIMARY[$((i % 8))]}" "$(printf '%-14s' "${types[$j]}")"
-        _tdocs_c "${NOUNS_PRIMARY[6]}" "${descs[$j]}"
+        _tdocs_c "${SEMANTIC[$((i % 8))]}" "$(printf '%-14s' "${types[$j]}")"
+        _tdocs_c "${SURFACE[6]}" "${descs[$j]}"
         echo
         ((i++))
     done
@@ -376,7 +376,7 @@ tdocs_help_lifecycle() {
     echo
 
     # Print lifecycle stages with VERBS palette
-    printf "  "; _tdocs_c "${VERBS_PRIMARY[0]}" "Canonical (C)"; echo "  - Authoritative, system of record"
+    printf "  "; _tdocs_c "${SEMANTIC[0]}" "Canonical (C)"; echo "  - Authoritative, system of record"
     echo "    • The definitive source for this information"
     echo "    • Fully reviewed and approved"
     echo "    • Used as reference by other documents"
@@ -384,7 +384,7 @@ tdocs_help_lifecycle() {
     echo "    • RAG evidence weight: primary"
     echo
 
-    printf "  "; _tdocs_c "${VERBS_PRIMARY[1]}" "Stable (S)"; echo "     - Proven, reviewed, reliable"
+    printf "  "; _tdocs_c "${SEMANTIC[1]}" "Stable (S)"; echo "     - Proven, reviewed, reliable"
     echo "    • Tested and verified to work"
     echo "    • Reviewed by at least one other person"
     echo "    • Production-ready"
@@ -392,7 +392,7 @@ tdocs_help_lifecycle() {
     echo "    • RAG evidence weight: secondary"
     echo
 
-    printf "  "; _tdocs_c "${VERBS_PRIMARY[2]}" "Working (W)"; echo "    - Functional, active development [DEFAULT]"
+    printf "  "; _tdocs_c "${SEMANTIC[2]}" "Working (W)"; echo "    - Functional, active development [DEFAULT]"
     echo "    • Currently works but may have rough edges"
     echo "    • Under active development"
     echo "    • May change frequently"
@@ -400,7 +400,7 @@ tdocs_help_lifecycle() {
     echo "    • RAG evidence weight: tertiary"
     echo
 
-    printf "  "; _tdocs_c "${VERBS_PRIMARY[3]}" "Draft (D)"; echo "      - Work in progress, unreviewed"
+    printf "  "; _tdocs_c "${SEMANTIC[3]}" "Draft (D)"; echo "      - Work in progress, unreviewed"
     echo "    • Still being written"
     echo "    • Not yet tested or reviewed"
     echo "    • May be incomplete"
@@ -408,7 +408,7 @@ tdocs_help_lifecycle() {
     echo "    • RAG evidence weight: excluded"
     echo
 
-    printf "  "; _tdocs_c "${VERBS_PRIMARY[4]}" "Archived (X)"; echo "   - Superseded, do not use"
+    printf "  "; _tdocs_c "${SEMANTIC[4]}" "Archived (X)"; echo "   - Superseded, do not use"
     echo "    • Replaced by newer document"
     echo "    • Kept for historical reference only"
     echo "    • Should not be used for new work"
@@ -457,10 +457,10 @@ $(_tdocs_help_section "SEMANTIC CATEGORIES")
   category    Core vs Other classification
 
 $(_tdocs_help_section "PALETTES")
-  env       ENV_PRIMARY - Environment colors (greens, cyans)
-  mode      MODE_PRIMARY - Mode colors (blues, grays)
-  verbs     VERBS_PRIMARY - Action colors (reds, oranges)
-  nouns     NOUNS_PRIMARY - Object colors (purples, magentas)
+  env       PRIMARY - Environment colors (greens, cyans)
+  mode      SECONDARY - Mode colors (blues, grays)
+  verbs     SEMANTIC - Action colors (reds, oranges)
+  nouns     SURFACE - Object colors (purples, magentas)
 
 $(_tdocs_help_section "EXAMPLES")
 $(_tdocs_help_example "Show all design tokens (recommended!)" "colors tokens")

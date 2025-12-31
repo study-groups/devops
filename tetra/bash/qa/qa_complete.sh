@@ -1,20 +1,21 @@
 #!/usr/bin/env bash
-# qa_complete.sh - Tab completion for qa command
+# qa_complete.sh - Tab completion for qa command (v3)
 #
 # Provides completion for:
 #   - qa subcommands
 #   - qa entry IDs (for view/delete)
 #   - config subcommands
-#   - channel names (@research, etc.)
+#   - channel names (numbered and named)
 #   - view names
 #   - viewer options (for browse)
+#   - :channel syntax for qq (write destination)
 
 # =============================================================================
 # COMPLETION DATA
 # =============================================================================
 
 # All qa subcommands (match qa.sh case statement)
-_QA_COMMANDS="query status help config last search browse channels channel promote move clear view views doctor summary gc test repl init"
+_QA_COMMANDS="query status help config last search browse channels channel export promote merge move clear view views doctor summary gc test repl init"
 
 # Config subcommands
 _QA_CONFIG_COMMANDS="show engine apikey context"
@@ -22,14 +23,17 @@ _QA_CONFIG_COMMANDS="show engine apikey context"
 # Channel subcommands
 _QA_CHANNEL_COMMANDS="create delete rename list"
 
-# View subcommands
-_QA_VIEW_COMMANDS="create add remove delete list show export"
+# View subcommands (v2 - added config)
+_QA_VIEW_COMMANDS="create add remove delete list show config export"
 
 # Browse viewers
 _QA_VIEWERS="chroma raw"
 
-# Working channel numbers (all in /tmp/qa/N)
+# Working channel numbers
 _QA_WORKING_CHANNELS="1 2 3 4"
+
+# Export formats
+_QA_EXPORT_FORMATS="jsonl md txt"
 
 # Engine options for completion
 _QA_ENGINES="gpt-4 gpt-4-turbo gpt-4o gpt-3.5-turbo claude-3-opus claude-3-sonnet"
@@ -59,24 +63,32 @@ _qa_complete_all_ids() {
     done
 }
 
-# List named channels (prefixed with @)
+# List named channels (v2 - scan channels directory)
 _qa_complete_named_channels() {
     local channels_dir="${QA_DIR:-$TETRA_DIR/qa}/channels"
     [[ -d "$channels_dir" ]] || return
 
     for dir in "$channels_dir"/*/; do
-        [[ -d "$dir" ]] && echo "@$(basename "$dir")"
+        [[ -d "$dir" ]] || continue
+        local name=$(basename "$dir")
+        # Skip archive and numbered channels
+        [[ "$name" == "archive" ]] && continue
+        [[ "$name" =~ ^[0-9]+$ ]] && continue
+        echo "$name"
     done
 }
 
 # List all channels (numbered + named)
 _qa_complete_all_channels() {
-    # Numbered temp channels
+    local channels_dir="${QA_DIR:-$TETRA_DIR/qa}/channels"
+
+    # Numbered channels (always show 1-4 as options)
     echo "1"
     echo "2"
     echo "3"
     echo "4"
-    # Named channels
+
+    # Named channels from directory
     _qa_complete_named_channels
 }
 
@@ -90,26 +102,27 @@ _qa_complete_views() {
     done
 }
 
-# List IDs in a specific channel
+# List IDs in a specific channel (v2 - flat structure)
 _qa_complete_channel_ids() {
     local channel="$1"
-    local db_dir
+    local base="${QA_DIR:-$TETRA_DIR/qa}"
+    local channel_dir
 
     case "$channel" in
-        1|2|3|4)
-            db_dir="/tmp/qa/$channel/db"
+        db|main|"")
+            channel_dir="$base/db"
             ;;
-        @*)
-            db_dir="${QA_DIR:-$TETRA_DIR/qa}/channels/${channel#@}/db"
+        [0-9]*)
+            channel_dir="$base/channels/$channel"
             ;;
-        main|"")
-            db_dir="${QA_DIR:-$TETRA_DIR/qa}/db"
+        *)
+            channel_dir="$base/channels/$channel"
             ;;
     esac
 
-    [[ -d "$db_dir" ]] || return
+    [[ -d "$channel_dir" ]] || return
 
-    ls -t "$db_dir"/*.answer 2>/dev/null | head -10 | while read -r f; do
+    ls -t "$channel_dir"/*.answer 2>/dev/null | head -10 | while read -r f; do
         basename "$f" .answer
     done
 }
@@ -164,9 +177,21 @@ _qa_complete() {
                 return
                 ;;
 
+            # Export takes channel name or --all
+            export)
+                COMPREPLY=($(compgen -W "db --all $(_qa_complete_all_channels)" -- "$cur"))
+                return
+                ;;
+
             # Promote takes source channel (working channels)
             promote)
                 COMPREPLY=($(compgen -W "$_QA_WORKING_CHANNELS" -- "$cur"))
+                return
+                ;;
+
+            # Merge takes channel to merge into db
+            merge)
+                COMPREPLY=($(compgen -W "$(_qa_complete_all_channels)" -- "$cur"))
                 return
                 ;;
 
@@ -209,6 +234,12 @@ _qa_complete() {
     # Third argument - context dependent
     if [[ $COMP_CWORD -eq 3 ]]; then
         case "$cmd" in
+            # Export: second arg is format
+            export)
+                COMPREPLY=($(compgen -W "$_QA_EXPORT_FORMATS" -- "$cur"))
+                return
+                ;;
+
             # Config subcommand values
             config|cfg)
                 case "$prev" in
@@ -328,27 +359,49 @@ _qa_complete() {
 # SHORTCUT COMPLETIONS
 # =============================================================================
 
-# qq completion - @channel names
+# qq completion - :channel syntax for write destination
+# Usage: qq :channel question  (write to channel)
+#        qq question           (write to db)
 _qq_complete() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
     COMPREPLY=()
 
-    # First arg could be @channel
-    if [[ $COMP_CWORD -eq 1 && "$cur" == @* ]]; then
-        COMPREPLY=($(compgen -W "$(_qa_complete_named_channels)" -- "$cur"))
+    # First arg: :channel syntax for destination
+    if [[ $COMP_CWORD -eq 1 ]]; then
+        if [[ "$cur" == :* ]]; then
+            # Complete channel name after :
+            local prefix="${cur#:}"
+            local channels="db $(_qa_complete_all_channels)"
+            COMPREPLY=($(compgen -P ":" -W "$channels" -- "$prefix"))
+        else
+            # Suggest :channel hints
+            COMPREPLY=($(compgen -W ":db :1 :2 :3 :4" -- "$cur"))
+        fi
     fi
+    # No completion for question text
 }
 
-# a/q completion - @channel or index
-_qa_answer_complete() {
+# qq1-4 completion - no special syntax, just ask questions
+# These numbered shortcuts directly write to their channel
+_qq_numbered_complete() {
+    # No completion needed - user just types their question
+    COMPREPLY=()
+}
+
+# a/q completion - channel or index for viewing
+# Usage: a [channel] [index]  or  q [channel] [index]
+# Examples: a, a 5, a git, a git 5
+_qa_view_complete() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
+    local prev="${COMP_WORDS[COMP_CWORD-1]}"
     COMPREPLY=()
 
     if [[ $COMP_CWORD -eq 1 ]]; then
-        if [[ "$cur" == @* ]]; then
-            COMPREPLY=($(compgen -W "$(_qa_complete_named_channels)" -- "$cur"))
-        else
-            # Suggest recent indices
+        # First arg: index or channel name
+        COMPREPLY=($(compgen -W "0 1 2 3 4 5 db $(_qa_complete_all_channels)" -- "$cur"))
+    elif [[ $COMP_CWORD -eq 2 ]]; then
+        # Second arg: index (if first was a channel)
+        if [[ ! "$prev" =~ ^[0-9]+$ ]]; then
             COMPREPLY=($(compgen -W "0 1 2 3 4 5" -- "$cur"))
         fi
     fi
@@ -360,14 +413,14 @@ _qa_answer_complete() {
 
 complete -F _qa_complete qa
 complete -F _qq_complete qq
-complete -F _qa_answer_complete a
+complete -F _qq_numbered_complete qq1 qq2 qq3 qq4 qqq
+complete -F _qa_view_complete a a1 a2 a3 a4 q q1 q2 q3 q4
 
 # =============================================================================
 # EXPORTS
 # =============================================================================
 
-export -f _qa_complete
+export -f _qa_complete _qq_complete _qq_numbered_complete _qa_view_complete
 export -f _qa_complete_ids _qa_complete_all_ids
 export -f _qa_complete_named_channels _qa_complete_all_channels
 export -f _qa_complete_views _qa_complete_channel_ids
-export -f _qq_complete _qa_answer_complete

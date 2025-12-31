@@ -18,7 +18,13 @@ RAG_MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # RAG modules to source (REPL modules loaded on-demand via 'rag repl')
 RAG_MODULES=(
+    # Core modules (command registry, stages, selector parser)
+    "$RAG_MODULE_DIR/core/commands.sh"
+    "$RAG_MODULE_DIR/core/stages.sh"
+    "$RAG_MODULE_DIR/core/selector.sh"
+    "$RAG_MODULE_DIR/core/magicfind.sh"
     "$RAG_MODULE_DIR/core/error.sh"
+    # Additional modules
     "$RAG_MODULE_DIR/bash/rag_selector.sh"
     "$RAG_MODULE_DIR/bash/aliases.sh"
     "$RAG_MODULE_DIR/bash/rag_tools.sh"
@@ -308,6 +314,14 @@ EOF
         "init")
             rag_init
             echo "RAG system initialized"
+            ;;
+        "mf")
+            # MagicFind integration
+            rag_mf_command "$@"
+            ;;
+        "find")
+            # Natural language search -> add as evidence
+            rag_find_command "$@"
             ;;
         *)
             echo "Unknown command: $action"

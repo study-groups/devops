@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# qa_views.sh - Symlink-based view collections for RAG export
+# qa_views.sh - TOML-configured view collections for RAG export (v2)
 #
-# Views are curated collections of QA entries via symlinks.
+# Views are curated collections of QA entries with TOML configuration.
 # Useful for:
 #   - Creating reference sets for RAG systems
 #   - Bundling related entries for export
-#   - Building training corpora
+#   - Building training corpora with context/system prompts
 #
 # Storage:
 #   $QA_DIR/views/<name>/
-#     ├── <id>.prompt -> ../../db/<id>.prompt
-#     ├── <id>.answer -> ../../db/<id>.answer
-#     └── view.manifest
+#     ├── view.toml              - Configuration with context
+#     ├── <id>.prompt -> ...     - Symlink to source
+#     ├── <id>.answer -> ...     - Symlink to source
+#     └── view.manifest          - List of entry IDs
 
 # =============================================================================
 # VIEW DIRECTORY MANAGEMENT
@@ -37,7 +38,7 @@ _qa_ensure_views_dir() {
 # VIEW CREATION AND MANAGEMENT
 # =============================================================================
 
-# Create a new view
+# Create a new view with TOML configuration
 # Usage: qa_view_create <name> [id...]
 qa_view_create() {
     local name="$1"
@@ -61,12 +62,34 @@ qa_view_create() {
     _qa_ensure_views_dir
     mkdir -p "$view_dir"
 
+    # Create TOML configuration
+    cat > "$view_dir/view.toml" << EOF
+[view]
+name = "$name"
+description = ""
+created = "$(date -Iseconds)"
+
+[source]
+# Where entries come from (for reference)
+channels = ["db"]
+
+[context]
+# RAG-specific configuration
+# system_prompt = "You are a helpful assistant..."
+# temperature = 0.7
+
+[export]
+format = "jsonl"
+include_metadata = true
+EOF
+
     # Initialize manifest
     echo "# View: $name" > "$view_dir/view.manifest"
     echo "# Created: $(date -Iseconds)" >> "$view_dir/view.manifest"
     echo "" >> "$view_dir/view.manifest"
 
     echo "Created view: $name"
+    echo "  Config: $view_dir/view.toml"
 
     # Add initial entries if provided
     if [[ $# -gt 0 ]]; then
@@ -110,64 +133,60 @@ qa_view_add() {
 
     # If --from specified, get IDs from that channel
     if [[ -n "$from_channel" ]]; then
-        local channel_db="$(_qa_get_channel_db "$from_channel")"
-        if [[ ! -d "$channel_db" ]]; then
+        local channel_dir="$(_qa_get_channel_dir "$from_channel")"
+        if [[ ! -d "$channel_dir" ]]; then
             echo "Channel $from_channel not found"
             return 1
         fi
 
         local channel_ids
         if [[ $last_n -gt 0 ]]; then
-            mapfile -t channel_ids < <(ls -t "$channel_db"/*.answer 2>/dev/null | head -"$last_n" | xargs -I{} basename {} .answer)
+            mapfile -t channel_ids < <(ls -t "$channel_dir"/*.answer 2>/dev/null | head -"$last_n" | xargs -I{} basename {} .answer)
         else
-            mapfile -t channel_ids < <(ls -t "$channel_db"/*.answer 2>/dev/null | xargs -I{} basename {} .answer)
+            mapfile -t channel_ids < <(ls -t "$channel_dir"/*.answer 2>/dev/null | xargs -I{} basename {} .answer)
         fi
         ids+=("${channel_ids[@]}")
     fi
 
     [[ ${#ids[@]} -eq 0 ]] && { echo "No IDs to add"; return 1; }
 
+    local base="${QA_DIR:-$TETRA_DIR/qa}"
     local added=0
     for id in "${ids[@]}"; do
-        # Find source files (check main db first, then channels)
-        local src_db=""
-        if [[ -f "$QA_DIR/db/$id.answer" ]]; then
-            src_db="$QA_DIR/db"
+        # Find source files (v2 structure - flat channels)
+        local src_dir=""
+
+        # Check main db first
+        if [[ -f "$base/db/$id.answer" ]]; then
+            src_dir="$base/db"
         else
-            # Check named channels
-            for cdir in "$QA_DIR/channels"/*/db; do
+            # Check all channels (flat structure)
+            for cdir in "$base/channels"/*/; do
+                [[ -d "$cdir" ]] || continue
+                [[ "$(basename "$cdir")" == "archive" ]] && continue
                 if [[ -f "$cdir/$id.answer" ]]; then
-                    src_db="$cdir"
+                    src_dir="$cdir"
                     break
                 fi
             done
-            # Check temp channels
-            if [[ -z "$src_db" ]]; then
-                for n in 2 3 4; do
-                    if [[ -f "/tmp/qa/$n/db/$id.answer" ]]; then
-                        src_db="/tmp/qa/$n/db"
-                        break
-                    fi
-                done
-            fi
         fi
 
-        if [[ -z "$src_db" ]]; then
+        if [[ -z "$src_dir" ]]; then
             echo "  Not found: $id"
             continue
         fi
 
         # Calculate relative path for symlink
         local rel_path
-        rel_path=$(python3 -c "import os; print(os.path.relpath('$src_db', '$view_dir'))" 2>/dev/null)
+        rel_path=$(python3 -c "import os; print(os.path.relpath('$src_dir', '$view_dir'))" 2>/dev/null)
         if [[ -z "$rel_path" ]]; then
             # Fallback to absolute paths if python not available
-            rel_path="$src_db"
+            rel_path="$src_dir"
         fi
 
-        # Create symlinks
-        for ext in prompt answer meta metadata.json; do
-            if [[ -f "$src_db/$id.$ext" ]]; then
+        # Create symlinks (views use subset - no data/response)
+        for ext in "${QA_VIEW_EXTENSIONS[@]}"; do
+            if [[ -f "$src_dir/$id.$ext" ]]; then
                 ln -sf "$rel_path/$id.$ext" "$view_dir/$id.$ext" 2>/dev/null
             fi
         done
@@ -195,7 +214,7 @@ qa_view_remove() {
     local removed=0
     for id in "$@"; do
         # Remove symlinks
-        for ext in prompt answer meta metadata.json; do
+        for ext in "${QA_VIEW_EXTENSIONS[@]}"; do
             rm -f "$view_dir/$id.$ext"
         done
 
@@ -264,6 +283,18 @@ qa_view_show() {
 
     echo "View: $name"
     echo "Path: $view_dir"
+
+    # Show TOML config summary if present
+    if [[ -f "$view_dir/view.toml" ]]; then
+        echo ""
+        echo "Config (view.toml):"
+        # Extract key values from TOML
+        local desc=$(grep -E '^description\s*=' "$view_dir/view.toml" 2>/dev/null | sed 's/.*=\s*"\(.*\)"/\1/')
+        local format=$(grep -E '^format\s*=' "$view_dir/view.toml" 2>/dev/null | sed 's/.*=\s*"\(.*\)"/\1/')
+        [[ -n "$desc" ]] && echo "  Description: $desc"
+        [[ -n "$format" ]] && echo "  Export format: $format"
+    fi
+
     echo ""
     echo "Entries:"
 
@@ -274,6 +305,54 @@ qa_view_show() {
         [[ -L "$view_dir/$id.prompt" ]] && prompt=$(head -c 60 "$view_dir/$id.prompt" 2>/dev/null)
         printf "  %s: %.60s...\n" "$id" "$prompt"
     done
+}
+
+# View or edit TOML configuration
+# Usage: qa_view_config <name> [edit]
+qa_view_config() {
+    local name="$1"
+    local action="${2:-show}"
+
+    [[ -z "$name" ]] && { echo "Usage: qa view config <name> [edit]"; return 1; }
+
+    local view_dir="$(_qa_view_dir "$name")"
+    [[ ! -d "$view_dir" ]] && { echo "View '$name' not found"; return 1; }
+
+    local toml_file="$view_dir/view.toml"
+
+    if [[ ! -f "$toml_file" ]]; then
+        echo "No view.toml found. Creating default..."
+        cat > "$toml_file" << EOF
+[view]
+name = "$name"
+description = ""
+created = "$(date -Iseconds)"
+
+[source]
+channels = ["db"]
+
+[context]
+# system_prompt = ""
+# temperature = 0.7
+
+[export]
+format = "jsonl"
+include_metadata = true
+EOF
+    fi
+
+    case "$action" in
+        show)
+            cat "$toml_file"
+            ;;
+        edit)
+            ${EDITOR:-vim} "$toml_file"
+            ;;
+        *)
+            echo "Unknown action: $action (use show or edit)"
+            return 1
+            ;;
+    esac
 }
 
 # =============================================================================
@@ -380,18 +459,23 @@ qa_view() {
         show)
             qa_view_show "$@"
             ;;
+        config|cfg)
+            qa_view_config "$@"
+            ;;
         export)
             qa_view_export "$@"
             ;;
         *)
-            echo "View commands:"
-            echo "  create <name> [id...]    Create view, optionally add entries"
+            echo "View commands (v2 with TOML):"
+            echo "  create <name> [id...]    Create view with TOML config"
             echo "  add <name> <id...>       Add entries to view"
-            echo "  add <name> --from @ch    Add entries from channel"
+            echo "  add <name> --from 2      Add entries from channel"
             echo "  remove <name> <id...>    Remove entries from view"
             echo "  delete <name>            Delete view"
             echo "  list                     List all views"
             echo "  show <name>              Show view contents"
+            echo "  config <name>            Show TOML configuration"
+            echo "  config <name> edit       Edit TOML configuration"
             echo "  export <name> [format]   Export (jsonl, md, txt)"
             ;;
     esac
@@ -403,4 +487,4 @@ qa_view() {
 
 export -f _qa_views_dir _qa_view_dir _qa_ensure_views_dir
 export -f qa_view_create qa_view_add qa_view_remove qa_view_delete
-export -f qa_views qa_view_show qa_view_export qa_view
+export -f qa_views qa_view_show qa_view_config qa_view_export qa_view
