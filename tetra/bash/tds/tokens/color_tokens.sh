@@ -3,18 +3,17 @@
 # TDS Color Token System
 # Three-layer indirection: Semantic Role → Color Token → Palette Reference → Hex Value
 #
-# PALETTE STRUCTURE:
-#   ENV   - ALTERNATE: two hue families [0-3]=A, [4-7]=B variants
-#   MODE  - STATUS: [0]=error [1]=warning [2]=success [3]=info [4-7]=dim versions
-#   VERBS - ACTIONS: [0]=primary [1]=secondary [2]=destructive [3]=constructive
-#                    [4]=accent [5]=highlight [6]=focus [7]=muted
-#   NOUNS - GRADIENT: [0]=darkest → [7]=lightest
-
+# TOKEN PALETTE MAPPING (token name -> theme array):
+#   mode  -> SEMANTIC   [0]=error [1]=warning [2]=success [3]=info [4-7]=dim
+#   verbs -> SECONDARY  [0]=primary [1]=secondary [2-7]=accent variations
+#   nouns -> SURFACE    [0]=darkest → [7]=brightest (bg to fg gradient)
+#   env   -> PRIMARY    [0-7]=hue variations for environment/context
+#
 # Color token definitions map semantic names to palette references
-# Format: "palette:index" where palette is env|mode|verbs|nouns, index is 0-7
+# Format: "palette:index" where palette is mode|verbs|nouns|env, index is 0-7
 declare -gA TDS_COLOR_TOKENS=(
     # =========================================================================
-    # STATUS tokens (MODE palette)
+    # STATUS tokens (mode -> SEMANTIC palette)
     # =========================================================================
     [status.error]="mode:0"
     [status.warning]="mode:1"
@@ -26,7 +25,7 @@ declare -gA TDS_COLOR_TOKENS=(
     [status.info.dim]="mode:7"
 
     # =========================================================================
-    # ACTION tokens (VERBS palette)
+    # ACTION tokens (verbs -> SECONDARY palette)
     # =========================================================================
     [action.primary]="verbs:0"
     [action.secondary]="verbs:1"
@@ -38,7 +37,7 @@ declare -gA TDS_COLOR_TOKENS=(
     [action.muted]="verbs:7"
 
     # =========================================================================
-    # TEXT tokens (NOUNS gradient)
+    # TEXT tokens (nouns -> SURFACE palette)
     # =========================================================================
     [text.darkest]="nouns:0"
     [text.dark]="nouns:1"
@@ -55,7 +54,7 @@ declare -gA TDS_COLOR_TOKENS=(
     [text.tertiary]="nouns:3"          # muted for tertiary
 
     # =========================================================================
-    # ENVIRONMENT tokens (ENV alternate palette)
+    # ENVIRONMENT tokens (env -> PRIMARY palette)
     # =========================================================================
     [env.a.primary]="env:0"
     [env.b.primary]="env:1"

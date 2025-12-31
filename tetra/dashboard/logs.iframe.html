@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Logs</title>
+    <style>
+        :root {
+            --paper-dark: #0a0a0a;
+            --paper-mid: #1a1a1a;
+            --ink: #e0e0e0;
+            --ink-muted: #666;
+            --one: #ff6b6b;
+            --two: #4ecdc4;
+            --three: #ffe66d;
+            --four: #6b5ce7;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--paper-dark);
+            color: var(--ink);
+            font-family: 'SF Mono', monospace;
+            font-size: 10px;
+            height: 100vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            color: var(--ink-muted);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--paper-mid);
+            flex-shrink: 0;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--ink-muted);
+        }
+        .status-dot.connected { background: var(--two); }
+        .status-dot.disconnected { background: var(--one); }
+        .refresh { cursor: pointer; }
+        .refresh:hover { color: var(--two); }
+        .filters {
+            display: flex;
+            gap: 8px;
+        }
+        .filter-btn {
+            background: transparent;
+            border: 1px solid var(--paper-mid);
+            color: var(--ink-muted);
+            padding: 2px 8px;
+            font-size: 9px;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+        .filter-btn.active {
+            border-color: var(--four);
+            color: var(--four);
+        }
+        .filter-btn:hover {
+            border-color: var(--four);
+        }
+        #logs {
+            flex: 1;
+            overflow-y: auto;
+        }
+        .log-line {
+            padding: 3px 12px;
+            border-bottom: 1px solid var(--paper-mid);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: flex;
+            gap: 8px;
+        }
+        .log-line.new {
+            background: rgba(78, 205, 196, 0.1);
+            animation: fade-bg 2s ease-out forwards;
+        }
+        @keyframes fade-bg {
+            to { background: transparent; }
+        }
+        .timestamp {
+            color: var(--ink-muted);
+            min-width: 55px;
+        }
+        .level {
+            min-width: 50px;
+            font-weight: 600;
+        }
+        .level-info { color: var(--two); }
+        .level-warn { color: var(--three); }
+        .level-error { color: var(--one); }
+        .level-debug { color: var(--four); }
+        .source {
+            color: var(--ink-muted);
+            min-width: 60px;
+        }
+        .message {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .empty { color: var(--ink-muted); padding: 20px; text-align: center; }
+        .error { color: var(--one); padding: 8px 12px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-left">
+            <span class="status-dot" id="status-dot"></span>
+            <span>Logs</span>
+        </div>
+        <div class="filters">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="deploy">Deploy</button>
+            <button class="filter-btn" data-filter="server">Server</button>
+        </div>
+        <span class="refresh" onclick="loadLogs()">&#8635;</span>
+    </div>
+    <div id="logs">
+        <div class="empty">Connecting...</div>
+    </div>
+
+    <script>
+        const logsEl = document.getElementById('logs');
+        const statusDot = document.getElementById('status-dot');
+        let eventSource = null;
+        let currentFilter = 'all';
+        let logs = [];
+        const MAX_LOGS = 200;
+
+        function formatTimestamp(ts) {
+            if (!ts) return '';
+            try {
+                const d = new Date(ts);
+                return d.toTimeString().slice(0, 8);
+            } catch {
+                return ts.slice(11, 19) || '';
+            }
+        }
+
+        function renderLogs() {
+            const filtered = currentFilter === 'all'
+                ? logs
+                : logs.filter(l => l.source === currentFilter);
+
+            if (filtered.length === 0) {
+                logsEl.innerHTML = '<div class="empty">(no logs)</div>';
+                return;
+            }
+
+            logsEl.innerHTML = filtered.map((log, i) => `
+                <div class="log-line${i === 0 && log.isNew ? ' new' : ''}">
+                    <span class="timestamp">${formatTimestamp(log.timestamp)}</span>
+                    <span class="level level-${log.level}">[${(log.level || 'info').toUpperCase()}]</span>
+                    <span class="source">${log.source || 'system'}</span>
+                    <span class="message">${escapeHtml(log.message || '')}</span>
+                </div>
+            `).join('');
+
+            // Mark as not new after render
+            if (logs.length > 0) {
+                logs[0].isNew = false;
+            }
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
+        function addLog(entry) {
+            entry.isNew = true;
+            logs.unshift(entry);
+            if (logs.length > MAX_LOGS) {
+                logs.pop();
+            }
+            renderLogs();
+
+            // Auto-scroll to top for new entries
+            logsEl.scrollTop = 0;
+        }
+
+        async function loadLogs() {
+            try {
+                const res = await fetch('/api/logs?limit=50');
+                const data = await res.json();
+                logs = data.logs || [];
+                renderLogs();
+            } catch (err) {
+                logsEl.innerHTML = '<div class="error">Failed to load logs</div>';
+            }
+        }
+
+        function connectSSE() {
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            statusDot.className = 'status-dot';
+
+            eventSource = new EventSource('/api/logs/stream');
+
+            eventSource.onopen = () => {
+                statusDot.className = 'status-dot connected';
+            };
+
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'connected') {
+                        // Initial connection, load existing logs
+                        loadLogs();
+                    } else {
+                        // New log entry
+                        addLog(data);
+                    }
+                } catch (e) {
+                    console.error('Failed to parse SSE data:', e);
+                }
+            };
+
+            eventSource.onerror = () => {
+                statusDot.className = 'status-dot disconnected';
+                // Reconnect after 5 seconds
+                setTimeout(connectSSE, 5000);
+            };
+        }
+
+        // Filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+                renderLogs();
+            });
+        });
+
+        // Start connection
+        connectSSE();
+
+    </script>
+    <script src="/js/terrain-iframe.js"></script>
+</body>
+</html>

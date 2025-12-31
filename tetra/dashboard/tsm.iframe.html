@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TSM</title>
+    <style>
+        :root {
+            --paper-dark: #0a0a0a;
+            --paper-mid: #1a1a1a;
+            --ink: #e0e0e0;
+            --ink-muted: #666;
+            --one: #ff6b6b;
+            --two: #4ecdc4;
+            --four: #6b5ce7;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--paper-dark);
+            color: var(--ink);
+            font-family: 'SF Mono', monospace;
+            font-size: 11px;
+            padding: 12px;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .service {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            border-bottom: 1px solid var(--paper-mid);
+            gap: 12px;
+        }
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+        .status-dot.online { background: var(--two); }
+        .status-dot.stopped { background: var(--one); }
+        .name { flex: 1; }
+        .port { color: var(--ink-muted); min-width: 50px; }
+        .uptime { color: var(--ink-muted); min-width: 40px; font-size: 10px; }
+        .actions button {
+            background: transparent;
+            border: 1px solid var(--paper-mid);
+            color: var(--ink-muted);
+            padding: 2px 8px;
+            font-size: 9px;
+            cursor: pointer;
+        }
+        .actions button:hover {
+            border-color: var(--four);
+            color: var(--four);
+        }
+        .header {
+            color: var(--ink-muted);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .refresh { cursor: pointer; }
+        .refresh:hover { color: var(--two); }
+        .empty { color: var(--ink-muted); padding: 20px; text-align: center; }
+        .error { color: var(--one); padding: 8px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <span>Services</span>
+        <span class="refresh" onclick="loadServices()">↻</span>
+    </div>
+    <div id="services">
+        <div class="empty">Loading...</div>
+    </div>
+
+    <script>
+        const servicesEl = document.getElementById('services');
+
+        async function loadServices() {
+            try {
+                const res = await fetch('/api/tsm/ls');
+                const data = await res.json();
+
+                if (!data.services || data.services.length === 0) {
+                    servicesEl.innerHTML = '<div class="empty">(no processes)</div>';
+                    return;
+                }
+
+                servicesEl.innerHTML = data.services.map(svc => `
+                    <div class="service">
+                        <div class="status-dot ${svc.status}"></div>
+                        <span class="name">${svc.name}</span>
+                        <span class="port">${svc.port ? ':' + svc.port : '-'}</span>
+                        <span class="uptime">${svc.uptime || '-'}</span>
+                        <div class="actions">
+                            <button onclick="toggleService('${svc.name}', '${svc.status}')">${svc.status === 'online' ? 'stop' : 'start'}</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                servicesEl.innerHTML = '<div class="error">Failed to load services</div>';
+            }
+        }
+
+        async function toggleService(name, status) {
+            const action = status === 'online' ? 'stop' : 'start';
+            try {
+                await fetch(`/api/tsm/${action}/${name}`, { method: 'POST' });
+                setTimeout(loadServices, 500);
+            } catch (err) {
+                console.error('Failed to ' + action + ' service:', err);
+            }
+        }
+
+        // Load on start
+        loadServices();
+
+        // Refresh every 5 seconds
+        setInterval(loadServices, 5000);
+
+    </script>
+    <script src="/js/terrain-iframe.js"></script>
+</body>
+</html>

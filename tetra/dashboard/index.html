@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TETRA Dashboard</title>
+    <style>
+        :root {
+            --paper-dark: #0a0a0a;
+            --paper-mid: #1a1a1a;
+            --paper-light: #2a2a2a;
+            --ink: #e0e0e0;
+            --ink-muted: #666;
+            --one: #ff6b6b;
+            --two: #4ecdc4;
+            --three: #ffe66d;
+            --four: #6b5ce7;
+            --border: #333;
+            --grip: #444;
+            --font-mono: 'SF Mono', 'Monaco', 'Consolas', monospace;
+
+            --header-height: 48px;
+            --divider-size: 6px;
+            --left-width: 50%;
+            --top-height: 50%;
+            --left-top-width: 50%;
+            --left-bot-width: 50%;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--paper-dark);
+            color: var(--ink);
+            font-family: var(--font-mono);
+            font-size: 12px;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .dashboard {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            height: var(--header-height);
+            background: var(--paper-mid);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 16px;
+            flex-shrink: 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: var(--one);
+        }
+        .logo span { color: var(--two); }
+
+        .status {
+            margin-left: auto;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--two);
+        }
+        .status-dot.disconnected { background: var(--one); }
+
+        .ssh-input {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .ssh-input input {
+            background: var(--paper-light);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            padding: 4px 8px;
+            font-family: inherit;
+            font-size: 11px;
+            border-radius: 2px;
+        }
+
+        .ssh-input button {
+            background: var(--four);
+            border: none;
+            color: var(--ink);
+            padding: 4px 12px;
+            font-family: inherit;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+        .ssh-input button:hover { opacity: 0.8; }
+
+        /* Pane container */
+        .panes {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .pane-row {
+            display: flex;
+            overflow: hidden;
+        }
+        .pane-row.top { height: var(--top-height); }
+        .pane-row.bottom { flex: 1; }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--paper-dark);
+        }
+
+        .panel-header {
+            background: var(--paper-mid);
+            padding: 8px 12px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--ink-muted);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .panel-header .icon { color: var(--four); }
+
+        .panel-content {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel-content iframe {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Dividers */
+        .divider {
+            background: var(--border);
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .divider-h {
+            height: var(--divider-size);
+            cursor: row-resize;
+        }
+
+        .divider-v {
+            width: var(--divider-size);
+            cursor: col-resize;
+        }
+
+        .divider:hover, .divider.active {
+            background: var(--four);
+        }
+
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <header class="header">
+            <div class="logo">TETRA<span>.</span></div>
+            <div class="ssh-input">
+                <input type="text" id="ssh-target" value="dev@137.184.226.163" placeholder="user@host">
+                <button id="connect-btn">Connect</button>
+            </div>
+            <div class="status">
+                <span id="status-text">Disconnected</span>
+                <div class="status-dot disconnected" id="status-dot"></div>
+            </div>
+        </header>
+
+        <div class="panes">
+            <!-- Top row -->
+            <div class="pane-row top">
+                <div class="panel" id="console" style="width: var(--left-top-width)">
+                    <div class="panel-header"><span class="icon">></span> CONSOLE</div>
+                    <div class="panel-content">
+                        <iframe src="console.iframe.html" id="console-iframe"></iframe>
+                    </div>
+                </div>
+                <div class="divider divider-v" id="divider-top-v"></div>
+                <div class="panel" id="tsm" style="flex: 1">
+                    <div class="panel-header"><span class="icon">~</span> TSM</div>
+                    <div class="panel-content">
+                        <iframe src="tsm.iframe.html" id="tsm-iframe"></iframe>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Horizontal divider -->
+            <div class="divider divider-h" id="divider-h"></div>
+
+            <!-- Bottom row -->
+            <div class="pane-row bottom">
+                <div class="panel" id="deploy" style="width: var(--left-bot-width)">
+                    <div class="panel-header"><span class="icon">^</span> DEPLOY</div>
+                    <div class="panel-content">
+                        <iframe src="deploy.iframe.html" id="deploy-iframe"></iframe>
+                    </div>
+                </div>
+                <div class="divider divider-v" id="divider-bot-v"></div>
+                <div class="panel" id="logs" style="flex: 1">
+                    <div class="panel-header"><span class="icon">#</span> LOGS</div>
+                    <div class="panel-content">
+                        <iframe src="logs.iframe.html" id="logs-iframe"></iframe>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Elements
+        const root = document.documentElement;
+        const panes = document.querySelector('.panes');
+        const dividerH = document.getElementById('divider-h');
+        const dividerTopV = document.getElementById('divider-top-v');
+        const dividerBotV = document.getElementById('divider-bot-v');
+
+        let dragging = null;
+        let startX, startY, startLeftTop, startLeftBot, startTop;
+
+        // === Pane size persistence ===
+        const STORAGE_KEY = 'tetra-dashboard-panes';
+
+        function savePaneSizes() {
+            const sizes = {
+                topHeight: getComputedStyle(root).getPropertyValue('--top-height').trim(),
+                leftTopWidth: getComputedStyle(root).getPropertyValue('--left-top-width').trim(),
+                leftBotWidth: getComputedStyle(root).getPropertyValue('--left-bot-width').trim()
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(sizes));
+        }
+
+        function loadPaneSizes() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    const sizes = JSON.parse(saved);
+                    if (sizes.topHeight) root.style.setProperty('--top-height', sizes.topHeight);
+                    if (sizes.leftTopWidth) root.style.setProperty('--left-top-width', sizes.leftTopWidth);
+                    if (sizes.leftBotWidth) root.style.setProperty('--left-bot-width', sizes.leftBotWidth);
+                }
+            } catch (e) {
+                console.warn('[Dashboard] Failed to load pane sizes:', e);
+            }
+        }
+
+        // Load saved sizes on startup
+        loadPaneSizes();
+
+        // Drag handlers
+        function onMouseDown(e, type) {
+            dragging = type;
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeftTop = parseFloat(getComputedStyle(root).getPropertyValue('--left-top-width'));
+            startLeftBot = parseFloat(getComputedStyle(root).getPropertyValue('--left-bot-width'));
+            startTop = parseFloat(getComputedStyle(root).getPropertyValue('--top-height'));
+
+            document.body.style.cursor = type === 'h' ? 'row-resize' : 'col-resize';
+            e.target.classList.add('active');
+
+            // Disable iframe pointer events during drag
+            document.querySelectorAll('iframe').forEach(f => f.style.pointerEvents = 'none');
+        }
+
+        dividerH.addEventListener('mousedown', (e) => onMouseDown(e, 'h'));
+        dividerTopV.addEventListener('mousedown', (e) => onMouseDown(e, 'top-v'));
+        dividerBotV.addEventListener('mousedown', (e) => onMouseDown(e, 'bot-v'));
+
+        document.addEventListener('mousemove', (e) => {
+            if (!dragging) return;
+
+            const panesRect = panes.getBoundingClientRect();
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+
+            if (dragging === 'h') {
+                const newTop = Math.max(20, Math.min(80, startTop + (dy / panesRect.height) * 100));
+                root.style.setProperty('--top-height', newTop + '%');
+            }
+
+            if (dragging === 'top-v') {
+                const newLeftTop = Math.max(20, Math.min(80, startLeftTop + (dx / panesRect.width) * 100));
+                root.style.setProperty('--left-top-width', newLeftTop + '%');
+            }
+
+            if (dragging === 'bot-v') {
+                const newLeftBot = Math.max(20, Math.min(80, startLeftBot + (dx / panesRect.width) * 100));
+                root.style.setProperty('--left-bot-width', newLeftBot + '%');
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (dragging) {
+                document.body.style.cursor = '';
+                document.querySelectorAll('.divider').forEach(el => el.classList.remove('active'));
+                document.querySelectorAll('iframe').forEach(f => f.style.pointerEvents = '');
+                savePaneSizes();
+                dragging = null;
+            }
+        });
+
+        // === Iframe messaging ===
+        const iframes = {
+            console: document.getElementById('console-iframe'),
+            tsm: document.getElementById('tsm-iframe'),
+            deploy: document.getElementById('deploy-iframe'),
+            logs: document.getElementById('logs-iframe')
+        };
+
+        window.addEventListener('message', (e) => {
+            const msg = e.data;
+            if (!msg || typeof msg !== 'object') return;
+
+            console.log('[Dashboard] Received:', msg);
+
+            if (msg.type === 'ready') {
+                console.log('[Dashboard] Panel ready:', msg.from);
+            }
+            if (msg.type === 'status') {
+                updateStatus(msg.connected);
+            }
+        });
+
+        function sendToPanel(panelId, data) {
+            const iframe = iframes[panelId];
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage(data, '*');
+            }
+        }
+
+        function broadcast(data) {
+            Object.keys(iframes).forEach(id => sendToPanel(id, data));
+        }
+
+        function updateStatus(connected) {
+            const dot = document.getElementById('status-dot');
+            const text = document.getElementById('status-text');
+            if (connected) {
+                dot.classList.remove('disconnected');
+                text.textContent = 'Connected';
+            } else {
+                dot.classList.add('disconnected');
+                text.textContent = 'Disconnected';
+            }
+        }
+
+        document.getElementById('connect-btn').addEventListener('click', () => {
+            const target = document.getElementById('ssh-target').value;
+            broadcast({ type: 'connect', target: target });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Console</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+    <style>
+        :root {
+            --paper-dark: #0a0a0a;
+            --paper-mid: #1a1a1a;
+            --ink: #e0e0e0;
+            --one: #ff6b6b;
+            --two: #4ecdc4;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        /* Dark scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--paper-dark);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #444;
+        }
+
+        body {
+            background: var(--paper-dark);
+            height: 100vh;
+            overflow: hidden;
+        }
+        #terminal {
+            width: 100%;
+            height: 100%;
+            padding: 8px;
+        }
+        .xterm { height: 100%; }
+    </style>
+</head>
+<body>
+    <div id="terminal"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <script src="/js/terrain-iframe.js"></script>
+    <script>
+        // Terminal setup
+        const term = new Terminal({
+            theme: {
+                background: '#0a0a0a',
+                foreground: '#e0e0e0',
+                cursor: '#4ecdc4',
+                cursorAccent: '#0a0a0a',
+                selection: 'rgba(78, 205, 196, 0.3)'
+            },
+            fontFamily: "'SF Mono', 'Monaco', 'Consolas', monospace",
+            fontSize: 13,
+            cursorBlink: true
+        });
+
+        const fitAddon = new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+
+        const container = document.getElementById('terminal');
+        term.open(container);
+        fitAddon.fit();
+
+        // Socket.io connection
+        let socket = null;
+
+        function connect() {
+            const serverUrl = window.location.origin || 'http://localhost:4444';
+
+            socket = io(serverUrl, {
+                transports: ['websocket', 'polling'],
+                upgrade: true,
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000,
+                timeout: 10000
+            });
+
+            socket.on('connect', () => {
+                const transport = socket.io.engine.transport.name;
+                console.log('[Console] Connected via:', transport);
+                Terrain.Iframe.send({ type: 'status', connected: true, transport });
+            });
+
+            socket.io.engine.on('upgrade', () => {
+                console.log('[Console] Upgraded to:', socket.io.engine.transport.name);
+            });
+
+            socket.on('output', (data) => {
+                term.write(data);
+            });
+
+            socket.on('disconnect', () => {
+                term.writeln('\r\n\x1b[31m[Disconnected]\x1b[0m\r\n');
+                Terrain.Iframe.send({ type: 'status', connected: false });
+            });
+
+            socket.on('connect_error', (err) => {
+                term.writeln('\x1b[31m[Connection error: ' + err.message + ']\x1b[0m');
+            });
+
+            // Send input to server
+            term.onData((data) => {
+                if (socket && socket.connected) {
+                    socket.emit('input', data);
+                }
+            });
+        }
+
+        // Handle resize
+        window.addEventListener('resize', () => {
+            fitAddon.fit();
+            if (socket && socket.connected) {
+                socket.emit('resize', { cols: term.cols, rows: term.rows });
+            }
+        });
+
+        // Initialize with explicit name
+        Terrain.Iframe.init({
+            name: 'console',
+            onMessage: function(msg) {
+                // Handle connect command from parent
+                if (msg.type === 'connect' && msg.target) {
+                    if (socket && socket.connected) {
+                        // Send ssh command to local PTY
+                        const sshCmd = 'ssh ' + msg.target + '\r';
+                        socket.emit('input', sshCmd);
+                        term.writeln('\x1b[33m[Connecting to ' + msg.target + '...]\x1b[0m');
+                    }
+                }
+            },
+            onReady: function() {
+                // Auto-connect to local PTY
+                connect();
+            }
+        });
+    </script>
+</body>
+</html>

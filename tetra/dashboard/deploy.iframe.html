@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Deploy</title>
+    <style>
+        :root {
+            --paper-dark: #0a0a0a;
+            --paper-mid: #1a1a1a;
+            --ink: #e0e0e0;
+            --ink-muted: #666;
+            --one: #ff6b6b;
+            --two: #4ecdc4;
+            --three: #ffe66d;
+            --four: #6b5ce7;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        /* Dark scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--paper-dark); }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+        body {
+            background: var(--paper-dark);
+            color: var(--ink);
+            font-family: 'SF Mono', monospace;
+            font-size: 11px;
+            padding: 12px;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .header {
+            color: var(--ink-muted);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .refresh { cursor: pointer; }
+        .refresh:hover { color: var(--two); }
+        .section { margin-bottom: 16px; }
+        .section-title {
+            color: var(--ink-muted);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--paper-mid);
+            padding-bottom: 4px;
+        }
+        .target {
+            background: var(--paper-mid);
+            padding: 8px 12px;
+            margin-bottom: 4px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .target-name {
+            color: var(--four);
+            font-weight: 700;
+            min-width: 80px;
+        }
+        .target-org {
+            color: var(--ink-muted);
+            font-size: 9px;
+            flex: 1;
+        }
+        .env-select {
+            background: var(--paper-dark);
+            border: 1px solid var(--paper-mid);
+            color: var(--ink);
+            padding: 2px 6px;
+            font-size: 9px;
+            border-radius: 2px;
+        }
+        button {
+            background: var(--four);
+            border: none;
+            color: var(--ink);
+            padding: 2px 6px;
+            font-size: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+        button:hover { opacity: 0.8; }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        button.danger { background: var(--one); }
+        .history-item {
+            padding: 4px 8px;
+            border-bottom: 1px solid var(--paper-mid);
+            display: flex;
+            gap: 8px;
+            font-size: 10px;
+        }
+        .history-item .timestamp {
+            color: var(--ink-muted);
+            min-width: 60px;
+        }
+        .history-item .target {
+            background: none;
+            padding: 0;
+            margin: 0;
+            color: var(--four);
+            min-width: 80px;
+        }
+        .history-item .env {
+            color: var(--three);
+            min-width: 50px;
+        }
+        .history-item .status {
+            min-width: 60px;
+        }
+        .history-item .status.success { color: var(--two); }
+        .history-item .status.failed { color: var(--one); }
+        .empty { color: var(--ink-muted); padding: 20px; text-align: center; }
+        .error { color: var(--one); padding: 8px; }
+        .output {
+            background: var(--paper-mid);
+            padding: 8px;
+            margin-top: 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <span>Deploy</span>
+        <span class="refresh" onclick="loadAll()">&#8635;</span>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Targets</div>
+        <div id="targets">
+            <div class="empty">Loading...</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Recent Deployments</div>
+        <div id="history">
+            <div class="empty">Loading...</div>
+        </div>
+    </div>
+
+    <div id="output-container" style="display: none;">
+        <div class="section-title">Output</div>
+        <div id="output" class="output"></div>
+    </div>
+
+    <script>
+        const targetsEl = document.getElementById('targets');
+        const historyEl = document.getElementById('history');
+        const outputEl = document.getElementById('output');
+        const outputContainer = document.getElementById('output-container');
+
+        const envs = ['dev', 'staging', 'prod'];
+
+        async function loadTargets() {
+            try {
+                const res = await fetch('/api/deploy/targets');
+                const data = await res.json();
+
+                if (!data.targets || data.targets.length === 0) {
+                    targetsEl.innerHTML = '<div class="empty">(no targets configured)</div>';
+                    return;
+                }
+
+                targetsEl.innerHTML = data.targets.map(t => {
+                    const targetEnvs = t.envs || ['dev'];
+                    return `
+                        <div class="target">
+                            <span class="target-name">${t.name}</span>
+                            <span class="target-org">${t.org || ''}</span>
+                            <select class="env-select" id="env-${t.name}">
+                                ${targetEnvs.map(e => `<option value="${e}">${e}</option>`).join('')}
+                            </select>
+                            <button onclick="dryRun('${t.name}')">Preview</button>
+                            <button class="danger" onclick="deploy('${t.name}')">Deploy</button>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                targetsEl.innerHTML = '<div class="error">Failed to load targets</div>';
+            }
+        }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch('/api/deploy/history');
+                const data = await res.json();
+
+                if (!data.history || data.history.length === 0) {
+                    historyEl.innerHTML = '<div class="empty">(no deployment history)</div>';
+                    return;
+                }
+
+                historyEl.innerHTML = data.history.slice(0, 10).map(h => {
+                    const ts = h.timestamp ? h.timestamp.split('T')[1]?.slice(0, 5) || h.timestamp.slice(11, 16) : '';
+                    return `
+                        <div class="history-item">
+                            <span class="timestamp">${ts}</span>
+                            <span class="target">${h.target}</span>
+                            <span class="env">${h.env}</span>
+                            <span class="status ${h.status}">${h.status}</span>
+                            <span class="duration">${h.duration || ''}s</span>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                historyEl.innerHTML = '<div class="error">Failed to load history</div>';
+            }
+        }
+
+        async function dryRun(target) {
+            const env = document.getElementById(`env-${target}`).value;
+            showOutput(`Previewing ${target} -> ${env}...`);
+
+            try {
+                const res = await fetch('/api/deploy/deploy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target, env, dryRun: true })
+                });
+                const data = await res.json();
+                showOutput(data.output || data.message || JSON.stringify(data, null, 2));
+            } catch (err) {
+                showOutput('Error: ' + err.message);
+            }
+        }
+
+        async function deploy(target) {
+            const env = document.getElementById(`env-${target}`).value;
+
+            if (env === 'prod' && !confirm(`Deploy ${target} to PRODUCTION?`)) {
+                return;
+            }
+
+            showOutput(`Deploying ${target} -> ${env}...`);
+
+            try {
+                const res = await fetch('/api/deploy/deploy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target, env, dryRun: false })
+                });
+                const data = await res.json();
+                showOutput(data.output || data.message || JSON.stringify(data, null, 2));
+                loadHistory();
+            } catch (err) {
+                showOutput('Error: ' + err.message);
+            }
+        }
+
+        function showOutput(text) {
+            outputContainer.style.display = 'block';
+            outputEl.textContent = text;
+        }
+
+        function loadAll() {
+            loadTargets();
+            loadHistory();
+        }
+
+        // Load on start
+        loadAll();
+
+    </script>
+    <script src="/js/terrain-iframe.js"></script>
+</body>
+</html>
