@@ -66,10 +66,10 @@ declare -gA TDS_COLOR_TOKENS=(
     [env.b.dim]="env:7"
 
     # =========================================================================
-    # STRUCTURAL tokens (mapped to new structure)
+    # STRUCTURAL tokens (env -> PRIMARY palette)
     # =========================================================================
-    [structural.primary]="env:0"       # ENV hue A
-    [structural.secondary]="env:1"     # ENV hue B
+    [structural.primary]="env:4"       # Cyan/teal
+    [structural.secondary]="env:5"     # Blue
     [structural.accent]="verbs:4"      # accent color
     [structural.muted]="nouns:3"       # muted gray
     [structural.separator]="nouns:2"   # dim gray

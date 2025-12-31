@@ -279,9 +279,110 @@ tds_pattern_load_config() {
 }
 
 # =============================================================================
+# TDS PATTERN COMMAND
+# =============================================================================
+
+_tds_pattern() {
+    local action="${1:-help}"
+    shift 2>/dev/null || true
+
+    case "$action" in
+        list|ls)
+            local category="${1:-commit}"
+            tds_pattern_list "$category"
+            ;;
+
+        categories|cats)
+            tds_pattern_categories
+            ;;
+
+        test|match)
+            local text="$1"
+            local category="${2:-commit}"
+            if [[ -z "$text" ]]; then
+                echo "Usage: tds pattern test <text> [category]"
+                return 1
+            fi
+            local token=$(tds_pattern_match "$text" "$category")
+            echo -n "\"$text\" in $category -> $token "
+            if declare -F text_color &>/dev/null && declare -F tds_resolve_color &>/dev/null; then
+                local hex=$(tds_resolve_color "$token")
+                text_color "$hex"
+                printf "████"
+                reset_color
+            fi
+            echo
+            ;;
+
+        add|register)
+            local pattern="$1"
+            local token="$2"
+            local category="${3:-custom}"
+            if [[ -z "$pattern" || -z "$token" ]]; then
+                echo "Usage: tds pattern add <pattern> <token> [category]"
+                return 1
+            fi
+            tds_pattern_register "$pattern" "$token" "$category"
+            echo "Registered: $pattern -> $token in $category"
+            ;;
+
+        demo)
+            echo "Pattern colorization demo:"
+            echo ""
+            echo -n "Commits:  "
+            for type in feat fix refactor docs test chore; do
+                tds_pattern_colorize "$type" "commit"
+                echo -n "  "
+            done
+            echo ""
+            echo -n "Logs:     "
+            for level in ERROR WARN INFO DEBUG; do
+                tds_pattern_colorize "$level" "log"
+                echo -n "  "
+            done
+            echo ""
+            echo -n "Status:   "
+            for status in running stopped failed pending; do
+                tds_pattern_colorize "$status" "status"
+                echo -n "  "
+            done
+            echo ""
+            echo -n "Envs:     "
+            for env in prod staging dev local; do
+                tds_pattern_colorize "$env" "env"
+                echo -n "  "
+            done
+            echo ""
+            ;;
+
+        help|--help|-h|"")
+            echo "tds pattern - Pattern-based colorization"
+            echo ""
+            echo "Usage: tds pattern <action> [args]"
+            echo ""
+            echo "Actions:"
+            echo "  list [category]              List patterns (default: commit)"
+            echo "  categories                   List all categories"
+            echo "  test <text> [category]       Test pattern matching"
+            echo "  add <pattern> <token> [cat]  Register custom pattern"
+            echo "  demo                         Show colorization demo"
+            echo ""
+            echo "Categories: commit, log, status, file, git, env, priority"
+            ;;
+
+        *)
+            echo "Unknown action: $action"
+            echo "Run 'tds pattern help' for usage"
+            return 1
+            ;;
+    esac
+}
+
+# =============================================================================
 # EXPORTS
 # =============================================================================
 
+export -f _tds_pattern
 export -f tds_pattern_match
 export -f tds_pattern_colorize
 export -f tds_pattern_list

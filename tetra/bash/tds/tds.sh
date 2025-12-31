@@ -125,6 +125,7 @@ tds() {
         theme)    _tds_theme "$@" ;;
         palette)  _tds_palette "$@" ;;
         token)    _tds_token "$@" ;;
+        pattern)  _tds_pattern "$@" ;;
         modules)  tds_modules "$@" ;;
         hex)      _tds_hex "$@" ;;
 
@@ -141,7 +142,7 @@ tds() {
 
         *)
             echo "Unknown: tds $resource"
-            echo "Resources: theme, palette, token, modules, hex"
+            echo "Resources: theme, palette, token, pattern, modules, hex"
             echo "Tools: doctor, repl, guide"
             return 1
             ;;
