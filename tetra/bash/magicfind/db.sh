@@ -1,28 +1,28 @@
 #!/usr/bin/env bash
 # magicfind database functions
-# Storage: $MAGICFIND_DIR/db/{timestamp}.{type}
+# Storage: $MF_DIR/db/{timestamp}.{type}
 # Types: query, cmd, result, meta, vars
 
 # Default similarity threshold (0-100)
-MAGICFIND_SIMILARITY_THRESHOLD="${MAGICFIND_SIMILARITY_THRESHOLD:-70}"
+MF_SIMILARITY_THRESHOLD="${MF_SIMILARITY_THRESHOLD:-70}"
 
 # Save a new record, returns timestamp ID
-_magicfind_db_new() {
+_mf_db_new() {
     local query="$1"
     local ts=$(date +%s)
-    echo "$query" > "$MAGICFIND_DIR/db/$ts.query"
+    echo "$query" > "$MF_DIR/db/$ts.query"
     echo "$ts"
 }
 
 # Save command for a record
-_magicfind_db_save_cmd() {
+_mf_db_save_cmd() {
     local ts="$1"
     local cmd="$2"
-    echo "$cmd" > "$MAGICFIND_DIR/db/$ts.cmd"
+    echo "$cmd" > "$MF_DIR/db/$ts.cmd"
 }
 
 # Save result for a record
-_magicfind_db_save_result() {
+_mf_db_save_result() {
     local ts="$1"
     local exit_code="$2"
     local output="$3"
@@ -31,55 +31,55 @@ _magicfind_db_save_result() {
         echo "time=$(date '+%Y-%m-%d %H:%M:%S')"
         echo "---"
         echo "$output" | head -50
-    } > "$MAGICFIND_DIR/db/$ts.result"
+    } > "$MF_DIR/db/$ts.result"
 }
 
 # Save metadata (prev link, status, etc.)
-_magicfind_db_save_meta() {
+_mf_db_save_meta() {
     local ts="$1"
     shift
     # Accept key=value pairs
-    printf '%s\n' "$@" > "$MAGICFIND_DIR/db/$ts.meta"
+    printf '%s\n' "$@" > "$MF_DIR/db/$ts.meta"
 }
 
 # Add to existing meta
-_magicfind_db_append_meta() {
+_mf_db_append_meta() {
     local ts="$1"
     shift
-    printf '%s\n' "$@" >> "$MAGICFIND_DIR/db/$ts.meta"
+    printf '%s\n' "$@" >> "$MF_DIR/db/$ts.meta"
 }
 
 # Get meta value
-_magicfind_db_get_meta() {
+_mf_db_get_meta() {
     local ts="$1"
     local key="$2"
-    local file="$MAGICFIND_DIR/db/$ts.meta"
+    local file="$MF_DIR/db/$ts.meta"
     [[ -f "$file" ]] && grep "^$key=" "$file" | cut -d= -f2-
 }
 
 # Get a field by timestamp
-_magicfind_db_get() {
+_mf_db_get() {
     local ts="$1"
     local type="${2:-query}"
-    local file="$MAGICFIND_DIR/db/$ts.$type"
+    local file="$MF_DIR/db/$ts.$type"
     [[ -f "$file" ]] && cat "$file"
 }
 
 # Check if record exists
-_magicfind_db_exists() {
+_mf_db_exists() {
     local ts="$1"
-    [[ -f "$MAGICFIND_DIR/db/$ts.query" ]]
+    [[ -f "$MF_DIR/db/$ts.query" ]]
 }
 
 # Tokenize a query (lowercase, split on non-alphanumeric, unique sorted)
-_magicfind_tokenize() {
+_mf_tokenize() {
     local query="${1,,}"  # lowercase
     echo "$query" | tr -cs 'a-z0-9' '\n' | grep -E '^.{2,}$' | sort -u | tr '\n' ' '
 }
 
 # Calculate Jaccard similarity between two token strings
 # Returns similarity as percentage (0-100)
-_magicfind_similarity() {
+_mf_similarity() {
     local tokens1="$1"
     local tokens2="$2"
 
@@ -112,27 +112,27 @@ _magicfind_similarity() {
 
 # Find similar query using Jaccard similarity
 # Returns timestamp of best match above threshold
-_magicfind_db_find_similar() {
+_mf_db_find_similar() {
     local query="$1"
-    local threshold="${2:-$MAGICFIND_SIMILARITY_THRESHOLD}"
-    local query_tokens=$(_magicfind_tokenize "$query")
+    local threshold="${2:-$MF_SIMILARITY_THRESHOLD}"
+    local query_tokens=$(_mf_tokenize "$query")
 
     local best_ts=""
     local best_score=0
 
-    for f in "$MAGICFIND_DIR/db"/*.query; do
+    for f in "$MF_DIR/db"/*.query; do
         [[ -f "$f" ]] || continue
 
         local ts="${f##*/}"
         ts="${ts%.query}"
 
         # Only consider successful queries
-        local status=$(_magicfind_db_get_meta "$ts" "status")
+        local status=$(_mf_db_get_meta "$ts" "status")
         [[ "$status" != "success" ]] && continue
 
         local stored=$(<"$f")
-        local stored_tokens=$(_magicfind_tokenize "$stored")
-        local score=$(_magicfind_similarity "$query_tokens" "$stored_tokens")
+        local stored_tokens=$(_mf_tokenize "$stored")
+        local score=$(_mf_similarity "$query_tokens" "$stored_tokens")
 
         if ((score > best_score)); then
             best_score=$score
@@ -150,11 +150,11 @@ _magicfind_db_find_similar() {
 
 # Find template match with variable extraction
 # Query: "find all .sh files" matches template "find all {{ext}} files"
-_magicfind_db_find_template() {
+_mf_db_find_template() {
     local query="$1"
     local normalized=$(echo "$query" | tr '[:upper:]' '[:lower:]')
 
-    for f in "$MAGICFIND_DIR/db"/*.query; do
+    for f in "$MF_DIR/db"/*.query; do
         [[ -f "$f" ]] || continue
         local stored=$(<"$f")
 
@@ -166,7 +166,7 @@ _magicfind_db_find_template() {
             if [[ "$normalized" =~ $pattern ]]; then
                 local ts="${f##*/}"
                 ts="${ts%.query}"
-                local status=$(_magicfind_db_get_meta "$ts" "status")
+                local status=$(_mf_db_get_meta "$ts" "status")
                 if [[ "$status" == "success" ]]; then
                     # Extract variable values
                     echo "$ts"
@@ -180,18 +180,18 @@ _magicfind_db_find_template() {
 }
 
 # List recent records
-_magicfind_db_list() {
+_mf_db_list() {
     local limit="${1:-20}"
 
-    ls -1 "$MAGICFIND_DIR/db"/*.query 2>/dev/null |
+    ls -1 "$MF_DIR/db"/*.query 2>/dev/null |
     while read -r f; do
         local ts="${f##*/}"
         ts="${ts%.query}"
         echo "$ts"
     done | sort -rn | head -n "$limit" |
     while read -r ts; do
-        local query=$(<"$MAGICFIND_DIR/db/$ts.query")
-        local status=$(_magicfind_db_get_meta "$ts" "status")
+        local query=$(<"$MF_DIR/db/$ts.query")
+        local status=$(_mf_db_get_meta "$ts" "status")
         local time=$(date -r "$ts" '+%m-%d %H:%M' 2>/dev/null || echo "???")
 
         local indicator="○"
@@ -203,43 +203,43 @@ _magicfind_db_list() {
 }
 
 # Show record details
-_magicfind_db_show() {
+_mf_db_show() {
     local ts="$1"
 
-    if [[ ! -f "$MAGICFIND_DIR/db/$ts.query" ]]; then
+    if [[ ! -f "$MF_DIR/db/$ts.query" ]]; then
         echo "Not found: $ts" >&2
         return 1
     fi
 
     echo "=== Query ($ts) ==="
-    cat "$MAGICFIND_DIR/db/$ts.query"
+    cat "$MF_DIR/db/$ts.query"
     echo ""
 
-    if [[ -f "$MAGICFIND_DIR/db/$ts.cmd" ]]; then
+    if [[ -f "$MF_DIR/db/$ts.cmd" ]]; then
         echo "=== Command ==="
-        cat "$MAGICFIND_DIR/db/$ts.cmd"
+        cat "$MF_DIR/db/$ts.cmd"
         echo ""
     fi
 
-    if [[ -f "$MAGICFIND_DIR/db/$ts.meta" ]]; then
+    if [[ -f "$MF_DIR/db/$ts.meta" ]]; then
         echo "=== Meta ==="
-        cat "$MAGICFIND_DIR/db/$ts.meta"
+        cat "$MF_DIR/db/$ts.meta"
         echo ""
     fi
 
-    if [[ -f "$MAGICFIND_DIR/db/$ts.result" ]]; then
+    if [[ -f "$MF_DIR/db/$ts.result" ]]; then
         echo "=== Result ==="
-        cat "$MAGICFIND_DIR/db/$ts.result"
+        cat "$MF_DIR/db/$ts.result"
     fi
 }
 
 # Replay a command
-_magicfind_db_replay() {
+_mf_db_replay() {
     local ts="$1"
     shift
     local vars=("$@")  # var=value pairs for substitution
 
-    local cmd=$(_magicfind_db_get "$ts" "cmd")
+    local cmd=$(_mf_db_get "$ts" "cmd")
     if [[ -z "$cmd" ]]; then
         echo "No command found: $ts" >&2
         return 1
@@ -257,9 +257,9 @@ _magicfind_db_replay() {
 }
 
 # Search queries (grep pattern)
-_magicfind_db_search() {
+_mf_db_search() {
     local pattern="$1"
-    grep -l "$pattern" "$MAGICFIND_DIR/db"/*.query 2>/dev/null |
+    grep -l "$pattern" "$MF_DIR/db"/*.query 2>/dev/null |
     while read -r f; do
         local ts="${f##*/}"
         ts="${ts%.query}"
@@ -269,22 +269,22 @@ _magicfind_db_search() {
 }
 
 # Search by similarity (ranked)
-_magicfind_db_similar() {
+_mf_db_similar() {
     local query="$1"
     local min_score="${2:-30}"
-    local query_tokens=$(_magicfind_tokenize "$query")
+    local query_tokens=$(_mf_tokenize "$query")
 
     local -a results
 
-    for f in "$MAGICFIND_DIR/db"/*.query; do
+    for f in "$MF_DIR/db"/*.query; do
         [[ -f "$f" ]] || continue
 
         local ts="${f##*/}"
         ts="${ts%.query}"
 
         local stored=$(<"$f")
-        local stored_tokens=$(_magicfind_tokenize "$stored")
-        local score=$(_magicfind_similarity "$query_tokens" "$stored_tokens")
+        local stored_tokens=$(_mf_tokenize "$stored")
+        local score=$(_mf_similarity "$query_tokens" "$stored_tokens")
 
         ((score >= min_score)) && results+=("$score:$ts:$stored")
     done
@@ -292,7 +292,7 @@ _magicfind_db_similar() {
     # Sort by score descending
     printf '%s\n' "${results[@]}" | sort -t: -k1 -rn |
     while IFS=: read -r score ts query; do
-        local status=$(_magicfind_db_get_meta "$ts" "status")
+        local status=$(_mf_db_get_meta "$ts" "status")
         local indicator="○"
         [[ "$status" == "success" ]] && indicator="●"
         [[ "$status" == "fail" ]] && indicator="✗"
@@ -301,30 +301,30 @@ _magicfind_db_similar() {
 }
 
 # Stats
-_magicfind_db_stats() {
-    local total=$(ls "$MAGICFIND_DIR/db"/*.query 2>/dev/null | wc -l | tr -d ' ')
-    local success=$(grep -l "status=success" "$MAGICFIND_DIR/db"/*.meta 2>/dev/null | wc -l | tr -d ' ')
-    local cached=$(grep -l "cached=true" "$MAGICFIND_DIR/db"/*.meta 2>/dev/null | wc -l | tr -d ' ')
+_mf_db_stats() {
+    local total=$(ls "$MF_DIR/db"/*.query 2>/dev/null | wc -l | tr -d ' ')
+    local success=$(grep -l "status=success" "$MF_DIR/db"/*.meta 2>/dev/null | wc -l | tr -d ' ')
+    local cached=$(grep -l "cached=true" "$MF_DIR/db"/*.meta 2>/dev/null | wc -l | tr -d ' ')
 
     echo "Records: $total"
     echo "Success: $success"
     echo "Cached:  $cached"
-    echo "Path:    $MAGICFIND_DIR/db"
+    echo "Path:    $MF_DIR/db"
 }
 
 # Clean old entries
-_magicfind_db_clean() {
+_mf_db_clean() {
     local days="${1:-30}"
     local cutoff=$(($(date +%s) - days * 86400))
     local count=0
 
-    for f in "$MAGICFIND_DIR/db"/*.query; do
+    for f in "$MF_DIR/db"/*.query; do
         [[ -f "$f" ]] || continue
         local ts="${f##*/}"
         ts="${ts%.query}"
 
         if [[ "$ts" -lt "$cutoff" ]]; then
-            rm -f "$MAGICFIND_DIR/db/$ts".*
+            rm -f "$MF_DIR/db/$ts".*
             ((count++))
         fi
     done

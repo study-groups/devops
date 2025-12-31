@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# magicfind - LLM-assisted file search with command database
-# Module loader
+# mf - LLM-assisted file search with command database
+# Module: bash/magicfind/  Command: mf  Data: ~/tetra/magicfind/
 
-MAGICFIND_SRC="${BASH_SOURCE[0]%/*}"
-MAGICFIND_DIR="${TETRA_DIR:-$HOME/tetra}/magicfind"
+MF_SRC="${BASH_SOURCE[0]%/*}"
+MF_DIR="${TETRA_DIR:-$HOME/tetra}/magicfind"
 
 # Ensure directories exist
-[[ -d "$MAGICFIND_DIR/db" ]] || mkdir -p "$MAGICFIND_DIR/db"
-[[ -d "$MAGICFIND_DIR/config" ]] || mkdir -p "$MAGICFIND_DIR/config"
+[[ -d "$MF_DIR/db" ]] || mkdir -p "$MF_DIR/db"
+[[ -d "$MF_DIR/config" ]] || mkdir -p "$MF_DIR/config"
 
 # Source module components
-source "$MAGICFIND_SRC/db.sh"
-source "$MAGICFIND_SRC/rules.sh"
-source "$MAGICFIND_SRC/scanspec.sh"
-source "$MAGICFIND_SRC/doctor.sh"
-source "$MAGICFIND_SRC/core.sh"
+source "$MF_SRC/db.sh"
+source "$MF_SRC/rules.sh"
+source "$MF_SRC/core.sh"
+
+# Function wrapper for discoverability
+magicfind() { mf "$@"; }
