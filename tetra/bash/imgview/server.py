@@ -46,13 +46,22 @@ def parse_args():
     return parser.parse_args()
 
 args = parse_args()
-if args.port == 0:
-    PORT = find_available_port(5000)
-elif args.port % 1000 == 0:
-    # Round number like 3000, 4000, 8000 means "find in this range"
-    PORT = find_available_port(args.port)
+
+# Priority: 1) CLI arg, 2) PORT env var (from TSM), 3) auto-allocate
+env_port = os.environ.get('PORT')
+if args.port != 0:
+    # Explicit CLI argument provided
+    if args.port % 1000 == 0:
+        # Round number like 3000, 4000, 8000 means "find in this range"
+        PORT = find_available_port(args.port)
+    else:
+        PORT = args.port
+elif env_port:
+    # TSM sets PORT env var
+    PORT = int(env_port)
 else:
-    PORT = args.port
+    # Default: auto-allocate from 5000+
+    PORT = find_available_port(5000)
 
 if PORT is None:
     print(f"No available port in range")
