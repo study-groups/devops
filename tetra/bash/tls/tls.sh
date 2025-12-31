@@ -80,53 +80,14 @@ _tls_file_token() {
     fi
 }
 
-# Git status token
-# Uses TDS pattern registry if available
+# Git status token - uses TDS pattern registry
 _tls_git_token() {
-    local status="$1"
-
-    # Use pattern registry if available
-    if declare -F tds_pattern_match &>/dev/null; then
-        tds_pattern_match "$status" "git"
-        return
-    fi
-
-    # Fallback
-    case "$status" in
-        staged)    echo "status.success" ;;
-        modified)  echo "status.warning" ;;
-        untracked) echo "status.warning" ;;
-        clean)     echo "text.muted" ;;
-        *)         echo "text.muted" ;;
-    esac
+    tds_pattern_match "$1" "git" 2>/dev/null || echo "text.muted"
 }
 
-# Conventional commit type token
-# Uses TDS pattern registry if available, falls back to hardcoded
+# Commit type token - uses TDS pattern registry
 _tls_commit_type_token() {
-    local type="$1"
-
-    # Use pattern registry if available
-    if declare -F tds_pattern_match &>/dev/null; then
-        tds_pattern_match "$type" "commit"
-        return
-    fi
-
-    # Fallback for when TDS not loaded
-    case "$type" in
-        feat)     echo "status.success" ;;
-        fix)      echo "status.warning" ;;
-        refactor) echo "status.info" ;;
-        docs)     echo "action.focus" ;;
-        test)     echo "structural.primary" ;;
-        perf)     echo "status.success" ;;
-        style)    echo "text.tertiary" ;;
-        chore)    echo "text.muted" ;;
-        ci)       echo "text.disabled" ;;
-        build)    echo "text.disabled" ;;
-        revert)   echo "status.error" ;;
-        *)        echo "text.primary" ;;
-    esac
+    tds_pattern_match "$1" "commit" 2>/dev/null || echo "text.primary"
 }
 
 # =============================================================================
