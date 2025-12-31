@@ -32,7 +32,10 @@ const server = http.createServer(app);
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(TETRA_DIR, 'dashboard')));
+// Serve dashboard from source (for development) or TETRA_DIR (for deployment)
+const dashboardPath = path.join(TETRA_SRC, 'dashboard');
+app.use(express.static(dashboardPath));
+console.log(`📁 Serving dashboard from: ${dashboardPath}`);
 
 // Serve devpages client
 const devpagesPath = path.join(TETRA_SRC, '../devpages/client');
@@ -50,10 +53,19 @@ const io = new Server(server, {
     }
 });
 
-// WebSocket server for SSH bridge
-const wss = new WebSocket.Server({
-    server,
-    path: '/ssh-bridge'
+// WebSocket server for SSH bridge (noServer to avoid conflict with Socket.IO)
+const wss = new WebSocket.Server({ noServer: true });
+
+// Manually route WebSocket upgrades to avoid Socket.IO/ws conflict
+server.on('upgrade', (request, socket, head) => {
+    const pathname = new URL(request.url, 'http://localhost').pathname;
+
+    if (pathname === '/ssh-bridge') {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+            wss.emit('connection', ws, request);
+        });
+    }
+    // Socket.IO handles its own /socket.io/ path automatically
 });
 
 // Environment-based feature flags
@@ -242,6 +254,7 @@ app.use('/api/tkm', require('./api/tkm'));
 app.use('/api/tsm', require('./api/tsm'));
 app.use('/api/deploy', require('./api/deploy'));
 app.use('/api/pbase', require('./api/pbase'));
+app.use('/api/logs', require('./api/logs'));
 
 // Environment data for frontend
 app.get('/api/env', (req, res) => {

@@ -1,57 +1,82 @@
 const express = require('express');
+const { execSync, exec } = require('child_process');
+const { BASH } = require('../lib/bash');
 const router = express.Router();
 
 /**
  * TSM API - Tetra Service Manager
- * Handles service lifecycle management, monitoring, and control
+ * Calls real TSM bash commands
  */
+
+function runTsm(cmd) {
+    const fullCmd = `source ~/tetra/tetra.sh && ${cmd}`;
+    return execSync(fullCmd, {
+        shell: BASH,
+        encoding: 'utf8',
+        timeout: 10000
+    });
+}
+
+// List services (JSON)
+router.get('/ls', (req, res) => {
+    try {
+        const output = runTsm('tsm ls --json');
+        const services = JSON.parse(output);
+        res.json({ services });
+    } catch (err) {
+        res.status(500).json({ error: err.message, services: [] });
+    }
+});
+
+// Service status
 router.get('/status', (req, res) => {
-    res.json({
-        service: 'tsm',
-        status: 'active',
-        services: [
-            {
-                name: 'tetra-4444',
-                status: 'running',
-                pid: process.pid,
-                uptime: process.uptime()
-            }
-        ],
-        message: 'Service management system'
-    });
+    try {
+        const output = runTsm('tsm ls --json');
+        const services = JSON.parse(output);
+        res.json({
+            service: 'tsm',
+            status: 'active',
+            count: services.length,
+            services
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-router.get('/services', (req, res) => {
-    res.json({
-        services: [
-            {
-                name: 'tetra-4444',
-                status: 'running',
-                port: 4444,
-                type: 'web-server'
-            }
-        ]
-    });
-});
-
+// Start service
 router.post('/start/:service', (req, res) => {
-    res.json({
-        message: `Service ${req.params.service} start requested`,
-        status: 'pending'
+    const service = req.params.service;
+    exec(`source ~/tetra/tetra.sh && tsm start ${service}`, { shell: BASH }, (err, stdout, stderr) => {
+        if (err) {
+            res.status(500).json({ error: stderr || err.message, status: 'failed' });
+        } else {
+            res.json({ message: stdout.trim(), status: 'started' });
+        }
     });
 });
 
+// Stop service
 router.post('/stop/:service', (req, res) => {
-    res.json({
-        message: `Service ${req.params.service} stop requested`,
-        status: 'pending'
+    const service = req.params.service;
+    exec(`source ~/tetra/tetra.sh && tsm stop ${service}`, { shell: BASH }, (err, stdout, stderr) => {
+        if (err) {
+            res.status(500).json({ error: stderr || err.message, status: 'failed' });
+        } else {
+            res.json({ message: stdout.trim(), status: 'stopped' });
+        }
     });
 });
 
+// Restart service
 router.post('/restart/:service', (req, res) => {
-    res.json({
-        message: `Service ${req.params.service} restart requested`,
-        status: 'pending'
+    const service = req.params.service;
+    exec(`source ~/tetra/tetra.sh && tsm restart ${service}`, { shell: BASH }, (err, stdout, stderr) => {
+        if (err) {
+            res.status(500).json({ error: stderr || err.message, status: 'failed' });
+        } else {
+            res.json({ message: stdout.trim(), status: 'restarted' });
+        }
     });
 });
 
