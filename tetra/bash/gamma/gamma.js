@@ -18,6 +18,10 @@ const path = require('path');
 const crypto = require('crypto');
 const { EventEmitter } = require('events');
 
+// TSM runtime visibility (one-liner pattern)
+const tsm = (d) => process.env.TSM_PROCESS_DIR &&
+    fs.writeFileSync(path.join(process.env.TSM_PROCESS_DIR, 'runtime.json'), JSON.stringify(d));
+
 const Matches = require('./lib/matches');
 const Codes = require('./lib/codes');
 const RateLimiter = require('./lib/rate-limiter');
@@ -39,6 +43,70 @@ const STATE_DIR = process.env.GAMMA_STATE_DIR || path.join(process.env.HOME, 'te
 const MIDI_MP_HOST = process.env.GAMMA_MIDI_MP_HOST || 'localhost';
 const MIDI_MP_PORT = parseInt(process.env.GAMMA_MIDI_MP_PORT || '1984');
 
+// Match port allocation range (256 ports)
+const MATCH_PORT_BASE = 1600;
+const MATCH_PORT_MAX = 1856;
+
+// =============================================================================
+// PORT ALLOCATOR
+// =============================================================================
+
+class PortAllocator {
+    constructor(base = MATCH_PORT_BASE, max = MATCH_PORT_MAX) {
+        this.base = base;
+        this.max = max;
+        this.allocated = new Set();
+    }
+
+    allocate() {
+        for (let port = this.base; port <= this.max; port++) {
+            if (!this.allocated.has(port)) {
+                this.allocated.add(port);
+                return port;
+            }
+        }
+        return null;  // All ports exhausted
+    }
+
+    release(port) {
+        this.allocated.delete(port);
+    }
+
+    isAllocated(port) {
+        return this.allocated.has(port);
+    }
+
+    next() {
+        for (let port = this.base; port <= this.max; port++) {
+            if (!this.allocated.has(port)) {
+                return port;
+            }
+        }
+        return null;
+    }
+
+    stats() {
+        return {
+            base: this.base,
+            max: this.max,
+            total: this.max - this.base + 1,
+            allocated: this.allocated.size,
+            available: (this.max - this.base + 1) - this.allocated.size,
+            next: this.next()
+        };
+    }
+
+    // Sync with existing matches (call on startup)
+    sync(matches) {
+        this.allocated.clear();
+        for (const match of matches) {
+            if (match.port >= this.base && match.port <= this.max) {
+                this.allocated.add(match.port);
+            }
+        }
+    }
+}
+
 // =============================================================================
 // GAMMA SERVICE
 // =============================================================================
@@ -54,6 +122,7 @@ class GammaService extends EventEmitter {
         this.matches = new Matches({ stateDir: STATE_DIR });
         this.codes = new Codes();
         this.games = new GameRegistry();
+        this.ports = new PortAllocator();
 
         // Rate limiters (per IP)
         this.createLimiter = new RateLimiter({ windowMs: 60000, maxRequests: 5 });   // 5 creates/min
@@ -84,6 +153,9 @@ class GammaService extends EventEmitter {
         // Load persisted matches
         this.matches.load();
 
+        // Sync port allocator with existing matches
+        this.ports.sync(this.matches.listAll());
+
         // Discover available games
         this.games.discover();
 
@@ -102,7 +174,14 @@ class GammaService extends EventEmitter {
 
         // Cleanup expired matches every 60s
         this.cleanupInterval = setInterval(() => {
-            this.matches.cleanupExpired();
+            const expired = this.matches.cleanupExpired();
+            // Release ports from expired matches
+            for (const match of expired) {
+                if (match.port) {
+                    this.ports.release(match.port);
+                    console.log(`[gamma] Match ${match.code} expired (port ${match.port} released)`);
+                }
+            }
         }, 60000);
 
         console.log(`[gamma] Ready`);
@@ -194,6 +273,8 @@ class GammaService extends EventEmitter {
             this.handleListGames(req, res);
         } else if (req.method === 'GET' && path === '/api/games/processes') {
             this.handleListProcesses(req, res);
+        } else if (req.method === 'GET' && path === '/api/ports') {
+            this.handlePortStats(req, res);
         } else if (req.method === 'GET') {
             // Try serving static files from cabinet directory
             this.serveStaticFile(req, res, path);
@@ -327,9 +408,26 @@ class GammaService extends EventEmitter {
             // Generate unique code
             const code = this.codes.generate(key => this.matches.has(key));
 
+            // Allocate port (use provided port or auto-allocate)
+            let matchPort = data.port;
+            if (!matchPort) {
+                matchPort = this.ports.allocate();
+                if (matchPort === null) {
+                    res.writeHead(503, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({
+                        error: 'No ports available',
+                        ports: this.ports.stats()
+                    }));
+                    return;
+                }
+            } else {
+                // Mark provided port as allocated
+                this.ports.allocated.add(matchPort);
+            }
+
             // Spawn game if requested
             let spawnResult = null;
-            let matchAddr = addr || `localhost:${7300 + this.stats.matchesCreated}`;
+            let matchAddr = addr || `localhost:${matchPort}`;
 
             if (spawn) {
                 try {
@@ -349,6 +447,7 @@ class GammaService extends EventEmitter {
                 maxPlayers,
                 transport,
                 addr: matchAddr,
+                port: matchPort,
                 public: isPublic,
                 pid: spawnResult?.pid || null
             });
@@ -366,6 +465,7 @@ class GammaService extends EventEmitter {
                 topic: match.topic,
                 expires: match.expires,
                 addr: matchAddr,
+                port: matchPort,
                 pid: spawnResult?.pid || null
             }));
 
@@ -516,6 +616,11 @@ class GammaService extends EventEmitter {
                 this.games.kill(match.pid);
             }
 
+            // Release allocated port
+            if (match.port) {
+                this.ports.release(match.port);
+            }
+
             // Unregister all from midi-mp
             await this.unregisterMatch(match);
 
@@ -594,6 +699,11 @@ class GammaService extends EventEmitter {
             this.games.kill(match.pid);
         }
 
+        // Release allocated port
+        if (match.port) {
+            this.ports.release(match.port);
+        }
+
         // Unregister all from midi-mp
         await this.unregisterMatch(match);
 
@@ -602,7 +712,7 @@ class GammaService extends EventEmitter {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, deleted: upperCode }));
 
-        console.log(`[gamma] Match ${upperCode} deleted via admin`);
+        console.log(`[gamma] Match ${upperCode} deleted via admin (port ${match.port} released)`);
         this.emit('match-closed', match);
     }
 
@@ -630,6 +740,12 @@ class GammaService extends EventEmitter {
         const processes = this.games.listProcesses();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(processes));
+    }
+
+    // Port allocation stats
+    handlePortStats(req, res) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(this.ports.stats()));
     }
 
     // Serve static files from cabinet directory
@@ -868,28 +984,13 @@ class GammaService extends EventEmitter {
 
     // Write runtime.json for TSM visibility
     _updateRuntime() {
-        const tsmDir = process.env.TSM_PROCESS_DIR;
-        if (!tsmDir) return;
-
-        const data = {
+        tsm({
             matches: this.matches.count(),
             active: this.matches.listAll().filter(m => m.players?.length > 0).length,
-            stats: {
-                created: this.stats.matchesCreated,
-                joined: this.stats.playersJoined
-            },
+            stats: { created: this.stats.matchesCreated, joined: this.stats.playersJoined },
             uptime: Math.floor((Date.now() - this.stats.startTime) / 1000),
             updated: Date.now()
-        };
-
-        try {
-            fs.writeFileSync(
-                path.join(tsmDir, 'runtime.json'),
-                JSON.stringify(data)
-            );
-        } catch (e) {
-            // Ignore write errors
-        }
+        });
     }
 }
 

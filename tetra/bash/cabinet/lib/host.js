@@ -15,8 +15,93 @@ const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
 
+// TSM runtime visibility (one-liner pattern)
+const tsm = (d) => process.env.TSM_PROCESS_DIR &&
+    fs.writeFileSync(path.join(process.env.TSM_PROCESS_DIR, 'runtime.json'), JSON.stringify(d));
+
 const MAX_PLAYERS = 4;
 const MAX_SPECTATORS = 4;
+
+// =============================================================================
+// CONNECTION - Transport-layer identity (socket, fingerprint)
+// =============================================================================
+
+class Connection {
+  static nextId = 1;
+
+  constructor(ws, req, options = {}) {
+    this.id = Connection.nextId++;
+    this.ws = ws;
+    this.createdAt = Date.now();
+
+    // Server-observed address
+    const remoteAddr = req?.socket?.remoteAddress?.replace('::ffff:', '') || 'unknown';
+    const remotePort = req?.socket?.remotePort || 0;
+
+    this.fingerprint = options.collectFingerprint ? {
+      serverSeen: `${remoteAddr}:${remotePort}`,
+      ip: remoteAddr,
+      port: remotePort,
+      clientStun: null,
+      natType: null
+    } : null;
+  }
+
+  setStunInfo(stun) {
+    if (!this.fingerprint || !stun) return;
+    this.fingerprint.clientStun = stun;
+    if (stun.ip === this.fingerprint.ip) {
+      this.fingerprint.natType = stun.port === this.fingerprint.port ? 'none' : 'symmetric';
+    } else {
+      this.fingerprint.natType = 'full';
+    }
+  }
+
+  get isOpen() { return this.ws.readyState === WebSocket.OPEN; }
+
+  send(data) {
+    if (this.isOpen) {
+      this.ws.send(typeof data === 'string' ? data : JSON.stringify(data));
+    }
+  }
+}
+
+// =============================================================================
+// PLAYER - Game-layer identity (slot, name, inputs)
+// =============================================================================
+
+class Player {
+  constructor(connection, options = {}) {
+    this.connection = connection;
+    this.id = connection.id;
+    this.slot = options.slot || 'pending';
+    this.cid = options.cid || null;
+    this.nick = options.nick || null;
+    this.visits = options.visits || 1;
+    this.joinedAt = Date.now();
+    this.lastInput = Date.now();
+  }
+
+  get fingerprint() { return this.connection.fingerprint; }
+  get ws() { return this.connection.ws; }
+
+  send(data) { this.connection.send(data); }
+
+  updateInput() { this.lastInput = Date.now(); }
+
+  idleSeconds() { return Math.floor((Date.now() - this.lastInput) / 1000); }
+
+  toPublic() {
+    return {
+      id: this.id,
+      slot: this.slot,
+      cid: this.cid,
+      nick: this.nick,
+      visits: this.visits,
+      idle: this.idleSeconds()
+    };
+  }
+}
 
 class Host {
   constructor(options = {}) {
@@ -484,36 +569,12 @@ class Host {
       players: this._getPlayerList(),
       spectators: this.spectators.size
     });
-    this._updateRuntime();
-  }
-
-  // Write runtime.json for TSM visibility
-  _updateRuntime() {
-    const tsmDir = process.env.TSM_PROCESS_DIR;
-    if (!tsmDir) return;
-
-    const data = {
-      ws: {
-        players: this.players.size,
-        spectators: this.spectators.size
-      },
-      slots: {},
-      updated: Date.now()
-    };
-
-    // Add per-slot connection counts
+    // TSM runtime update
+    const slots = {};
     for (const [slot, conns] of Object.entries(this.slotConnections)) {
-      data.slots[slot] = conns.size;
+      slots[slot] = conns.size;
     }
-
-    try {
-      fs.writeFileSync(
-        path.join(tsmDir, 'runtime.json'),
-        JSON.stringify(data)
-      );
-    } catch (e) {
-      // Ignore write errors (dir may not exist yet)
-    }
+    tsm({ ws: { players: this.players.size, spectators: this.spectators.size }, slots, updated: Date.now() });
   }
 }
 
