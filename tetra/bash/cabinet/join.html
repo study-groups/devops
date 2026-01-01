@@ -131,6 +131,97 @@
     window.Cabinet = Cabinet;
 
     // ========================================
+    // CONTROLDECK BRIDGE (BroadcastChannel)
+    // ========================================
+    const ControlDeckBridge = {
+      enabled: false,
+      stateChannel: null,
+      inputChannel: null,
+      gameChannel: null,  // Game-specific channel (e.g., controldeck-quadrapong-state)
+
+      init(gameType) {
+        if (!window.BroadcastChannel) {
+          console.log('[bridge] BroadcastChannel not supported');
+          return this;
+        }
+
+        // Generic state channel for any game
+        this.stateChannel = new BroadcastChannel('controldeck-game-state');
+
+        // Generic input channel for AI output
+        this.inputChannel = new BroadcastChannel('controldeck-game-input');
+
+        // Game-specific channel if game type known
+        if (gameType) {
+          this.setGame(gameType);
+        }
+
+        // Listen for AI output and convert to WebSocket input
+        this.inputChannel.onmessage = (e) => this.handleAiOutput(e.data);
+
+        this.enabled = true;
+        console.log('[bridge] ControlDeck bridge initialized');
+        return this;
+      },
+
+      setGame(gameType) {
+        const channelName = `controldeck-${gameType.toLowerCase()}-state`;
+        if (this.gameChannel) {
+          this.gameChannel.close();
+        }
+        this.gameChannel = new BroadcastChannel(channelName);
+        console.log('[bridge] Game channel:', channelName);
+
+        // Also listen on game-specific input channel
+        const inputChannelName = `controldeck-${gameType.toLowerCase()}-input`;
+        const gameInputChannel = new BroadcastChannel(inputChannelName);
+        gameInputChannel.onmessage = (e) => this.handleAiOutput(e.data);
+      },
+
+      broadcastState(state) {
+        if (!this.enabled) return;
+
+        const msg = {
+          t: 'state',
+          ts: Date.now(),
+          game: gameName,
+          state
+        };
+
+        // Broadcast to both generic and game-specific channels
+        if (this.stateChannel) {
+          this.stateChannel.postMessage(msg);
+        }
+        if (this.gameChannel) {
+          this.gameChannel.postMessage(msg);
+        }
+      },
+
+      handleAiOutput(data) {
+        // AI output format: { axes: [p1, p2, p3, p4], buttons: [...] }
+        if (!data || !data.axes) return;
+
+        // Convert axes to input messages for each player
+        const slots = ['p1', 'p2', 'p3', 'p4'];
+        for (let i = 0; i < Math.min(4, data.axes.length); i++) {
+          const axis = data.axes[i];
+          if (Math.abs(axis) > 0.01) {
+            // Send axis input for this slot
+            const input = {
+              t: 'input',
+              src: 'ai',
+              slot: slots[i],
+              axis: axis,
+              val: Math.abs(axis),
+              pressed: true
+            };
+            sendInput(input);
+          }
+        }
+      }
+    };
+
+    // ========================================
     // GAMMA DETECTION
     // ========================================
     const Gamma = {
@@ -314,6 +405,10 @@
       gameName = name;
       titleEl.textContent = name || 'Join Game';
       document.title = name ? `${name} - Cabinet` : 'Join Game';
+      // Update bridge with game type
+      if (name && ControlDeckBridge.enabled) {
+        ControlDeckBridge.setGame(name);
+      }
     }
 
     // Smart join - detect if input is code or ws:// URL
@@ -514,6 +609,10 @@
         if (data.game && !gameName) {
           updateTitle(data.game.toUpperCase());
         }
+        // Bridge: broadcast state to ControlDeck
+        if (data.state && ControlDeckBridge.enabled) {
+          ControlDeckBridge.broadcastState(data.state);
+        }
       }
     }
 
@@ -610,6 +709,9 @@
 
     // Initialize
     async function init() {
+      // Initialize ControlDeck bridge for AI integration
+      ControlDeckBridge.init();
+
       // Detect GAMMA availability
       await Gamma.detect();
 
