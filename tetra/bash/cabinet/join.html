@@ -164,7 +164,7 @@
     }
     #join-target { width: 180px; }
     #nick-input { width: 80px; }
-    #slot-select { width: 70px; }
+    #slot-select { width: 90px; }
 
     #join-btn {
       font-family: 'Courier New', monospace;
@@ -694,6 +694,13 @@
         const code = params.get('code');
         joinTargetEl.value = code;
         setTimeout(() => joinByCode(code.toUpperCase()), 100);
+      } else if (location.hostname && location.port) {
+        // Auto-detect: we're being served from a game server
+        // Pre-populate and auto-connect to the same host:port
+        const autoUrl = `ws://${location.host}`;
+        joinTargetEl.value = location.host;
+        wsUrl = autoUrl;
+        setTimeout(connect, 100);
       }
     }
 
