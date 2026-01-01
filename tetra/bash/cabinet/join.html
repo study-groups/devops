@@ -192,6 +192,23 @@
     #takeover-btn:hover { background: #300; color: #f00; }
     #takeover-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
+    /* AI Panel */
+    #ai-panel {
+      width: 100%;
+      max-width: 640px;
+      background: #0c0c0c;
+      border: 2px solid #222;
+      border-top: none;
+      padding: 8px 10px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    #ai-toggle.on { background: #030; color: #0f0; border-color: #060; }
+    .ai-axes { display: flex; gap: 8px; margin-left: auto; font-size: 11px; }
+    .ai-axes span { padding: 2px 6px; background: #111; border: 1px solid #333; }
+    .ai-axes span.active { color: #0f0; border-color: #0a0; }
+
     @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
   </style>
 </head>
@@ -243,6 +260,21 @@
     <button id="join-btn">Connect</button>
     <button id="takeover-btn" disabled>Takeover</button>
     <input type="text" id="nick-input" placeholder="Nick">
+  </div>
+
+  <!-- AI Control Panel -->
+  <div id="ai-panel">
+    <span class="hw-label">AI</span>
+    <button id="ai-toggle" class="hw-btn">OFF</button>
+    <span class="hw-label">Skill</span>
+    <input type="range" id="ai-skill" min="0" max="1" step="0.1" value="0.7" style="width:60px">
+    <span id="ai-skill-val" style="color:#0f0;font-size:11px;width:25px">0.7</span>
+    <span class="ai-axes">
+      <span id="ai-p1" style="color:#666">P1</span>
+      <span id="ai-p2" style="color:#666">P2</span>
+      <span id="ai-p3" style="color:#666">P3</span>
+      <span id="ai-p4" style="color:#666">P4</span>
+    </span>
   </div>
 
   <script>
@@ -335,6 +367,113 @@
               key: axis > 0 ? 'cw' : 'ccw',
               val: Math.abs(axis),
               pressed: true
+            });
+          }
+        }
+      }
+    };
+
+    // ========================================
+    // LOCAL AI CONTROLLER (Quadrapong)
+    // ========================================
+    const LocalAI = {
+      running: false,
+      intervalId: null,
+      state: {},
+      skill: 0.7,
+      TWO_PI: Math.PI * 2,
+
+      start() {
+        if (this.running) return;
+        this.running = true;
+        this.intervalId = setInterval(() => this.tick(), 33); // ~30fps
+        document.getElementById('ai-toggle').textContent = 'ON';
+        document.getElementById('ai-toggle').classList.add('on');
+      },
+
+      stop() {
+        this.running = false;
+        if (this.intervalId) clearInterval(this.intervalId);
+        this.intervalId = null;
+        document.getElementById('ai-toggle').textContent = 'OFF';
+        document.getElementById('ai-toggle').classList.remove('on');
+      },
+
+      updateState(newState) {
+        this.state = newState;
+      },
+
+      tick() {
+        const state = this.state;
+        if (!state.ball || !state.paddles || state.gameOver) return;
+
+        const axes = [0, 0, 0, 0];
+        const slots = ['p1', 'p2', 'p3', 'p4'];
+        const HALF_PI = Math.PI / 2;
+
+        const angleDiff = (a, b) => {
+          let diff = a - b;
+          while (diff > Math.PI) diff -= this.TWO_PI;
+          while (diff < -Math.PI) diff += this.TWO_PI;
+          return diff;
+        };
+
+        const predictIntersection = (slot) => {
+          const paddle = state.paddles[slot];
+          if (!paddle) return null;
+          const ball = state.ball;
+          const bx = ball.x || ball.r * Math.cos(ball.theta);
+          const by = ball.y || ball.r * Math.sin(ball.theta);
+          const vx = ball.vr * Math.cos(ball.theta) - ball.r * (ball.vtheta || 0) * Math.sin(ball.theta);
+          const vy = ball.vr * Math.sin(ball.theta) + ball.r * (ball.vtheta || 0) * Math.cos(ball.theta);
+
+          for (let t = 1; t <= 40; t++) {
+            const px = bx + vx * t * 1.5;
+            const py = by + vy * t * 1.5;
+            const pr = Math.sqrt(px * px + py * py);
+            let pTheta = Math.atan2(py, px);
+            if (pTheta < 0) pTheta += this.TWO_PI;
+            if (Math.abs(angleDiff(pTheta, paddle.angle)) < HALF_PI / 2 && pr >= 0.7) {
+              return pTheta + (Math.random() - 0.5) * 0.2 * (1 - this.skill);
+            }
+          }
+          return paddle.angle;
+        };
+
+        for (let i = 0; i < 4; i++) {
+          const slot = slots[i];
+          const paddle = state.paddles[slot];
+          if (!paddle) continue;
+
+          const targetAngle = predictIntersection(slot);
+          if (targetAngle === null) continue;
+
+          let desiredOffset = angleDiff(targetAngle, paddle.angle);
+          const maxOffset = Math.PI / 5;
+          desiredOffset = Math.max(-maxOffset, Math.min(maxOffset, desiredOffset));
+
+          const currentOffset = paddle.offset || 0;
+          const diff = desiredOffset - currentOffset;
+          const threshold = 0.05 * (1 - this.skill);
+
+          if (Math.abs(diff) > threshold) {
+            axes[i] = Math.sign(diff) * Math.min(1, Math.abs(diff) * 3) * this.skill;
+          }
+
+          // Update UI
+          const el = document.getElementById(`ai-${slot}`);
+          if (el) {
+            el.classList.toggle('active', Math.abs(axes[i]) > 0.1);
+          }
+        }
+
+        // Send inputs
+        for (let i = 0; i < 4; i++) {
+          if (Math.abs(axes[i]) > 0.01) {
+            sendInput({
+              t: 'input', src: 'ai', slot: slots[i],
+              axis: axes[i], key: axes[i] > 0 ? 'cw' : 'ccw',
+              val: Math.abs(axes[i]), pressed: true
             });
           }
         }
@@ -665,6 +804,10 @@
         if (data.state && ControlDeckBridge.enabled) {
           ControlDeckBridge.broadcastState(data.state, gameName);
         }
+        // Feed state to local AI
+        if (data.state) {
+          LocalAI.updateState(data.state);
+        }
       }
     }
 
@@ -742,6 +885,20 @@
     slotSelectEl.addEventListener('change', () => {
       const val = slotSelectEl.value;
       takeoverBtn.disabled = !val || !ws || ws.readyState !== WebSocket.OPEN;
+    });
+
+    // AI controls
+    document.getElementById('ai-toggle').addEventListener('click', () => {
+      if (LocalAI.running) {
+        LocalAI.stop();
+      } else {
+        LocalAI.start();
+      }
+    });
+
+    document.getElementById('ai-skill').addEventListener('input', (e) => {
+      LocalAI.skill = parseFloat(e.target.value);
+      document.getElementById('ai-skill-val').textContent = LocalAI.skill.toFixed(1);
     });
 
     // ========================================
