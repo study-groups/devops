@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # TSM Tab Completion
 
-_TSM_COMMANDS="start stop restart kill delete list ls info logs services save enable disable startup doctor caddy cleanup setup help"
+_TSM_COMMANDS="start stop restart kill delete list ls info logs services save enable disable startup doctor caddy stack cleanup setup help"
 
 # Get running process names
 _tsm_running_names() {
@@ -44,6 +44,20 @@ _tsm_enabled_services() {
     done
 }
 
+# Get stack names
+_tsm_stack_names() {
+    local orgs_dir="$TETRA_DIR/orgs"
+    [[ -d "$orgs_dir" ]] || return
+    for org_dir in "$orgs_dir"/*/; do
+        [[ -d "$org_dir" ]] || continue
+        local stacks_dir="$org_dir/tsm/stacks"
+        [[ -d "$stacks_dir" ]] || continue
+        for f in "$stacks_dir"/*.stack; do
+            [[ -f "$f" ]] && basename "$f" .stack
+        done
+    done
+}
+
 # Main completion function
 _tsm_complete() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
@@ -81,6 +95,20 @@ _tsm_complete() {
             ;;
         caddy)
             COMPREPLY=($(compgen -W "generate show start stop reload status" -- "$cur"))
+            ;;
+        stack)
+            if [[ $COMP_CWORD -eq 2 ]]; then
+                # Complete with stack sub-commands
+                COMPREPLY=($(compgen -W "start stop restart status list help" -- "$cur"))
+            elif [[ $COMP_CWORD -eq 3 ]]; then
+                # Complete with stack names for commands that need them
+                local subcmd="${COMP_WORDS[2]}"
+                case "$subcmd" in
+                    start|stop|restart|status)
+                        COMPREPLY=($(compgen -W "$(_tsm_stack_names)" -- "$cur"))
+                        ;;
+                esac
+            fi
             ;;
         list|ls)
             COMPREPLY=($(compgen -W "--all -a --ports -p --json" -- "$cur"))
