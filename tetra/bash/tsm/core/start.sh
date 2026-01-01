@@ -192,6 +192,8 @@ tsm_start() {
         done
     fi
     [[ -n "$resolved_port" && "$resolved_port" != "0" ]] && startup="${startup}export PORT='$resolved_port'"$'\n'
+    # Export process dir so services can write runtime.json
+    startup="${startup}export TSM_PROCESS_DIR='$proc_dir'"$'\n'
 
     # Start process
     (

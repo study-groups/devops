@@ -521,6 +521,26 @@ _tsm_list_long() {
                 fi
             fi
 
+            # Runtime info (service-reported metrics)
+            local runtime_file="${dir}runtime.json"
+            if [[ -f "$runtime_file" ]]; then
+                if [[ "$use_color" == true ]]; then
+                    tds_text_color "accent.warning"
+                fi
+                printf "  Runtime:       "
+                if [[ "$use_color" == true ]]; then
+                    reset_color
+                fi
+                # Format runtime.json as key=value pairs on one line
+                jq -r 'to_entries | map(
+                    if .value | type == "object" then
+                        .key + ":{" + (.value | to_entries | map(.key + "=" + (.value | tostring)) | join(",")) + "}"
+                    else
+                        .key + "=" + (.value | tostring)
+                    end
+                ) | join("  ")' "$runtime_file" 2>/dev/null
+            fi
+
             # -vvvv: Full metadata dump
             if [[ $verbosity -ge 4 ]]; then
                 echo "  ---"
@@ -553,25 +573,25 @@ _tsm_list_ports() {
     if [[ "$use_color" == true ]]; then
         tds_text_color "structural.primary"
         if [[ "$show_user" == true ]]; then
-            printf "%-10s  %-5s  %-26s  %-6s  %s" "USER" "PORT" "NAME" "PID" "PROTO"
+            printf "%-10s  %-5s  %-22s  %-6s  %-5s  %s" "USER" "PORT" "NAME" "PID" "PROTO" "CONN"
         else
-            printf "%-5s  %-26s  %-6s  %s" "PORT" "NAME" "PID" "PROTO"
+            printf "%-5s  %-22s  %-6s  %-5s  %s" "PORT" "NAME" "PID" "PROTO" "CONN"
         fi
         reset_color; echo
         tds_text_color "text.dim"
         if [[ "$show_user" == true ]]; then
-            printf "%-10s  %-5s  %-26s  %-6s  %s" "----------" "-----" "--------------------------" "------" "-----"
+            printf "%-10s  %-5s  %-22s  %-6s  %-5s  %s" "----------" "-----" "----------------------" "------" "-----" "----"
         else
-            printf "%-5s  %-26s  %-6s  %s" "-----" "--------------------------" "------" "-----"
+            printf "%-5s  %-22s  %-6s  %-5s  %s" "-----" "----------------------" "------" "-----" "----"
         fi
         reset_color; echo
     else
         if [[ "$show_user" == true ]]; then
-            printf "%-10s  %-5s  %-26s  %-6s  %s\n" "USER" "PORT" "NAME" "PID" "PROTO"
-            printf "%-10s  %-5s  %-26s  %-6s  %s\n" "----------" "-----" "--------------------------" "------" "-----"
+            printf "%-10s  %-5s  %-22s  %-6s  %-5s  %s\n" "USER" "PORT" "NAME" "PID" "PROTO" "CONN"
+            printf "%-10s  %-5s  %-22s  %-6s  %-5s  %s\n" "----------" "-----" "----------------------" "------" "-----" "----"
         else
-            printf "%-5s  %-26s  %-6s  %s\n" "PORT" "NAME" "PID" "PROTO"
-            printf "%-5s  %-26s  %-6s  %s\n" "-----" "--------------------------" "------" "-----"
+            printf "%-5s  %-22s  %-6s  %-5s  %s\n" "PORT" "NAME" "PID" "PROTO" "CONN"
+            printf "%-5s  %-22s  %-6s  %-5s  %s\n" "-----" "----------------------" "------" "-----" "----"
         fi
     fi
 
@@ -604,18 +624,27 @@ _tsm_list_ports() {
             local port=$(jq -r '.port // "-"' "$meta" 2>/dev/null)
             [[ "$port" == "null" || "$port" == "0" || "$port" == "-" ]] && continue
 
+            # Get connection count via lsof
+            local conn_count=$(tsm_port_connections "$port")
+
             if [[ "$use_color" == true ]]; then
                 if [[ "$show_user" == true ]]; then
                     tds_text_color "accent.info"; printf "%-10s" "$owner"; reset_color; printf "  "
                 fi
                 tds_text_color "text.tertiary"; printf "%-5s" "$port"; reset_color; printf "  "
-                tds_text_color "text.primary"; printf "%-26s" "$name"; reset_color; printf "  "
-                tds_text_color "text.muted"; printf "%-6s  %s" "$pid" "tcp"; reset_color; echo
+                tds_text_color "text.primary"; printf "%-22s" "$name"; reset_color; printf "  "
+                tds_text_color "text.muted"; printf "%-6s  %-5s  " "$pid" "tcp"; reset_color
+                if [[ "$conn_count" -gt 0 ]]; then
+                    tds_text_color "feedback.success"; printf "%s" "$conn_count"; reset_color
+                else
+                    printf "%s" "$conn_count"
+                fi
+                echo
             else
                 if [[ "$show_user" == true ]]; then
-                    printf "%-10s  %-5s  %-26s  %-6s  %s\n" "$owner" "$port" "$name" "$pid" "tcp"
+                    printf "%-10s  %-5s  %-22s  %-6s  %-5s  %s\n" "$owner" "$port" "$name" "$pid" "tcp" "$conn_count"
                 else
-                    printf "%-5s  %-26s  %-6s  %s\n" "$port" "$name" "$pid" "tcp"
+                    printf "%-5s  %-22s  %-6s  %-5s  %s\n" "$port" "$name" "$pid" "tcp" "$conn_count"
                 fi
             fi
         done

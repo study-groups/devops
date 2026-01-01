@@ -441,6 +441,36 @@ class Host {
       players: this._getPlayerList(),
       spectators: this.spectators.size
     });
+    this._updateRuntime();
+  }
+
+  // Write runtime.json for TSM visibility
+  _updateRuntime() {
+    const tsmDir = process.env.TSM_PROCESS_DIR;
+    if (!tsmDir) return;
+
+    const data = {
+      ws: {
+        players: this.players.size,
+        spectators: this.spectators.size
+      },
+      slots: {},
+      updated: Date.now()
+    };
+
+    // Add per-slot connection counts
+    for (const [slot, conns] of Object.entries(this.slotConnections)) {
+      data.slots[slot] = conns.size;
+    }
+
+    try {
+      fs.writeFileSync(
+        path.join(tsmDir, 'runtime.json'),
+        JSON.stringify(data)
+      );
+    } catch (e) {
+      // Ignore write errors (dir may not exist yet)
+    }
   }
 }
 

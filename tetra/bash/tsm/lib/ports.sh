@@ -130,6 +130,39 @@ tsm_parse_env_port() {
     grep -E '^PORT=' "$env_file" 2>/dev/null | head -1 | cut -d'=' -f2 | tr -d ' "'
 }
 
+# Count established connections on a port
+# Args: port
+# Returns: count of established connections
+tsm_port_connections() {
+    local port="$1"
+    [[ -z "$port" ]] && { echo "0"; return; }
+    command -v lsof >/dev/null 2>&1 || { echo "0"; return; }
+
+    # Count ESTABLISHED TCP connections to this port
+    local count=$(lsof -i ":$port" -sTCP:ESTABLISHED 2>/dev/null | grep -v "^COMMAND" | wc -l | tr -d ' ')
+    echo "${count:-0}"
+}
+
+# Get connection details for a port
+# Args: port
+# Returns: JSON-like connection info
+tsm_port_connection_details() {
+    local port="$1"
+    [[ -z "$port" ]] && return 1
+    command -v lsof >/dev/null 2>&1 || return 1
+
+    local listen=0 established=0
+
+    # Count LISTEN sockets
+    listen=$(lsof -i ":$port" -sTCP:LISTEN 2>/dev/null | grep -v "^COMMAND" | wc -l | tr -d ' ')
+
+    # Count ESTABLISHED connections
+    established=$(lsof -i ":$port" -sTCP:ESTABLISHED 2>/dev/null | grep -v "^COMMAND" | wc -l | tr -d ' ')
+
+    echo "listen=${listen:-0} established=${established:-0}"
+}
+
 export TSM_PORT_MIN TSM_PORT_MAX
 export -f tsm_port_available tsm_allocate_port tsm_resolve_port
 export -f tsm_detect_port tsm_port_pid tsm_port_type tsm_parse_env_port
+export -f tsm_port_connections tsm_port_connection_details

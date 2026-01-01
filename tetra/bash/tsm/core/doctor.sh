@@ -134,8 +134,8 @@ _doctor_ports() {
 
     echo "Scanning ports $min-$max..."
     echo ""
-    printf "%-6s  %-6s  %s\n" "PORT" "PID" "COMMAND"
-    printf "%-6s  %-6s  %s\n" "------" "------" "-------"
+    printf "%-6s  %-6s  %-5s  %s\n" "PORT" "PID" "CONN" "COMMAND"
+    printf "%-6s  %-6s  %-5s  %s\n" "------" "------" "-----" "-------"
 
     local found=0
     command -v lsof >/dev/null 2>&1 || { tsm_error "lsof required"; return 1; }
@@ -144,8 +144,9 @@ _doctor_ports() {
         local info=$(lsof -ti ":$port" 2>/dev/null | head -1)
         if [[ -n "$info" ]]; then
             local pid="$info"
-            local cmd=$(ps -p "$pid" -o args= 2>/dev/null | head -c 50)
-            printf "%-6s  %-6s  %s\n" "$port" "$pid" "$cmd"
+            local cmd=$(ps -p "$pid" -o args= 2>/dev/null | head -c 45)
+            local conn=$(tsm_port_connections "$port")
+            printf "%-6s  %-6s  %-5s  %s\n" "$port" "$pid" "$conn" "$cmd"
             ((found++))
         fi
     done
@@ -164,9 +165,11 @@ _doctor_port() {
     else
         local pid=$(tsm_port_pid "$port")
         local cmd=$(ps -p "$pid" -o args= 2>/dev/null | head -c 60)
+        local conn_info=$(tsm_port_connection_details "$port")
         echo "Port $port: in use"
-        echo "  PID:     $pid"
-        echo "  Command: $cmd"
+        echo "  PID:         $pid"
+        echo "  Command:     $cmd"
+        echo "  Connections: $conn_info"
     fi
 }
 
