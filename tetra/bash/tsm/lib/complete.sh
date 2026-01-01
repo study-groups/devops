@@ -86,11 +86,15 @@ _tsm_complete() {
             COMPREPLY=($(compgen -W "--all -a --ports -p --json" -- "$cur"))
             ;;
         start)
-            # Complete with options or file paths
+            # Complete with options or service names
             if [[ "$cur" == -* ]]; then
                 COMPREPLY=($(compgen -W "--port --env --name" -- "$cur"))
+            elif type _tsm_complete_services &>/dev/null; then
+                # Use service completion from boot_modules
+                local services=$(_tsm_complete_services "$cur")
+                COMPREPLY=($(compgen -W "$services" -- "$cur"))
             else
-                # Complete with executable files
+                # Fallback to executable files
                 COMPREPLY=($(compgen -f -- "$cur"))
             fi
             ;;
