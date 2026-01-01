@@ -280,6 +280,41 @@
     }.init();
 
     // ========================================
+    // CONTROLDECK BRIDGE (BroadcastChannel)
+    // ========================================
+    const ControlDeckBridge = {
+      enabled: false,
+      stateChannel: null,
+      gameChannel: null,
+
+      init(gameType) {
+        if (!window.BroadcastChannel) {
+          console.log('[bridge] BroadcastChannel not supported');
+          return this;
+        }
+        this.stateChannel = new BroadcastChannel('controldeck-game-state');
+        if (gameType) this.setGame(gameType);
+        this.enabled = true;
+        console.log('[bridge] ControlDeck bridge enabled');
+        return this;
+      },
+
+      setGame(gameType) {
+        if (this.gameChannel) this.gameChannel.close();
+        const name = `controldeck-${gameType.toLowerCase()}-state`;
+        this.gameChannel = new BroadcastChannel(name);
+        console.log('[bridge] Game channel:', name);
+      },
+
+      broadcastState(state, gameName) {
+        if (!this.enabled) return;
+        const msg = { t: 'state', ts: Date.now(), game: gameName, state };
+        if (this.stateChannel) this.stateChannel.postMessage(msg);
+        if (this.gameChannel) this.gameChannel.postMessage(msg);
+      }
+    };
+
+    // ========================================
     // GAMMA DETECTION
     // ========================================
     const Gamma = {
@@ -476,6 +511,10 @@
       gameName = name;
       gameNameEl.textContent = name || '---';
       document.title = name ? `${name} | ANSI Cabinet` : 'ANSI Cabinet';
+      // Update bridge with game type for game-specific channel
+      if (name && ControlDeckBridge.enabled) {
+        ControlDeckBridge.setGame(name);
+      }
     }
 
     async function smartJoin() {
@@ -595,6 +634,10 @@
       } else if (data.t === 'frame') {
         displayEl.innerHTML = ANSI.toHtml(data.display || '');
         if (data.game && !gameName) updateGameName(data.game.toUpperCase());
+        // Bridge: broadcast state to ControlDeck
+        if (data.state && ControlDeckBridge.enabled) {
+          ControlDeckBridge.broadcastState(data.state, gameName);
+        }
       }
     }
 
@@ -678,6 +721,9 @@
     // INIT
     // ========================================
     async function init() {
+      // Initialize ControlDeck bridge for AI integration
+      ControlDeckBridge.init();
+
       await Gamma.detect();
 
       if (Cabinet.data.nick) {
