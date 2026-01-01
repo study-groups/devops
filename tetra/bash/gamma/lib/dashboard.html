@@ -124,6 +124,10 @@
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         .extend-btn { background: transparent; border: 1px solid #0f0; color: #0f0; padding: 0.2rem 0.5rem; font-family: monospace; cursor: pointer; margin-left: 0.5rem; }
         .extend-btn:hover { background: #0f0; color: #000; }
+        .transport-info { font-size: 0.75rem; color: #0a0; margin-top: 0.5rem; padding: 0.5rem; background: #0a0a0a; border-left: 2px solid #030; }
+        .transport-info strong { color: #0f0; }
+        .port-display { display: inline-block; background: #000; border: 1px solid #030; color: #0a0; padding: 0.5rem; font-family: monospace; min-width: 60px; text-align: center; }
+        .host-fixed { color: #0a0; font-size: 0.85rem; }
     </style>
 </head>
 <body>
@@ -153,14 +157,21 @@
     </div>
 
     <div class="create-form">
-        <strong>Create Match:</strong>
-        <input type="text" id="new-game" placeholder="game" value="magnetar" style="width:80px">
-        <input type="text" id="new-addr" placeholder="host:port" value="localhost:8090" style="width:120px">
-        <select id="new-transport">
-            <option value="ws">WebSocket</option>
-            <option value="udp">UDP</option>
-        </select>
-        <button class="btn" onclick="createMatch()">Create</button>
+        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+            <strong>Create Match:</strong>
+            <input type="text" id="new-game" placeholder="game" value="magnetar" style="width:80px">
+            <span class="host-fixed">Host: <code>localhost:8090</code></span>
+            <span class="host-fixed">Port: <span id="next-port" class="port-display">1600</span></span>
+            <select id="new-transport">
+                <option value="ws">WebSocket</option>
+                <option value="udp">UDP</option>
+            </select>
+            <button class="btn" onclick="createMatch()">Create</button>
+            <span id="port-status" style="font-size:0.75rem;color:#050;"></span>
+        </div>
+        <div class="transport-info" id="transport-info">
+            <strong>WebSocket:</strong> Reliable, ordered delivery over TCP. Best for turn-based or low-frequency updates.
+        </div>
     </div>
 
     <h2>Active Matches <span style="color:#050;font-size:0.8rem">(click to expand)</span></h2>
@@ -175,9 +186,18 @@
     </div>
 
     <script>
-        const GAMMA_API = 'http://localhost:8085';
+        const GAMMA_API = '';  // Use relative URLs - works via Caddy proxy
+        const MATCH_PORT_BASE = 1600;
+        const MATCH_PORT_MAX = 1856;  // 256 matches max (1600-1856)
+        const GAME_HOST = 'localhost:8090';
         let expandedMatch = null;
         let matchInputLogs = {};  // Store input logs per match
+        let usedPorts = new Set();
+
+        const transportDescriptions = {
+            ws: '<strong>WebSocket:</strong> Reliable, ordered delivery over TCP. Best for turn-based or low-frequency updates. All messages guaranteed to arrive in order.',
+            udp: '<strong>UDP:</strong> Fast, connectionless datagrams. Best for real-time games (60fps input). Tolerates packet loss—newer state overwrites stale data. Lower latency than TCP.'
+        };
 
         function formatUptime(ms) {
             const hours = Math.floor(ms / 3600000);
@@ -213,6 +233,36 @@
             return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         }
 
+        function getNextAvailablePort() {
+            for (let port = MATCH_PORT_BASE; port <= MATCH_PORT_MAX; port++) {
+                if (!usedPorts.has(port)) return port;
+            }
+            return null; // All ports exhausted
+        }
+
+        function updatePortDisplay() {
+            const nextPort = getNextAvailablePort();
+            const portEl = document.getElementById('next-port');
+            const statusEl = document.getElementById('port-status');
+            if (nextPort === null) {
+                portEl.textContent = 'FULL';
+                portEl.style.color = '#f00';
+                statusEl.textContent = `All 256 ports in use (${MATCH_PORT_BASE}-${MATCH_PORT_MAX})`;
+                statusEl.style.color = '#f00';
+            } else {
+                portEl.textContent = nextPort;
+                portEl.style.color = '#0f0';
+                const available = MATCH_PORT_MAX - MATCH_PORT_BASE + 1 - usedPorts.size;
+                statusEl.textContent = `${available} of 256 ports available`;
+                statusEl.style.color = '#050';
+            }
+        }
+
+        function updateTransportInfo() {
+            const transport = document.getElementById('new-transport').value;
+            document.getElementById('transport-info').innerHTML = transportDescriptions[transport];
+        }
+
         async function extendMatch(code) {
             try {
                 const resp = await fetch(`${GAMMA_API}/api/match/extend`, {
@@ -246,7 +296,7 @@
                 document.getElementById('uptime').textContent = formatUptime(data.uptime);
             } catch (e) {
                 document.getElementById('status-dot').className = 'status-indicator status-offline';
-                document.getElementById('status-text').textContent = 'Offline - gamma not running on :8085';
+                document.getElementById('status-text').textContent = 'Offline - gamma-api unreachable';
             }
         }
 
@@ -255,6 +305,23 @@
                 const resp = await fetch(`${GAMMA_API}/api/matches`);
                 if (!resp.ok) throw new Error('API error');
                 const matches = await resp.json();
+
+                // Track used ports from active matches
+                usedPorts.clear();
+                matches.forEach(m => {
+                    if (m.port) usedPorts.add(m.port);
+                    // Also extract port from host addr if present
+                    if (m.host?.addr) {
+                        const portMatch = m.host.addr.match(/:(\d+)$/);
+                        if (portMatch) {
+                            const port = parseInt(portMatch[1]);
+                            if (port >= MATCH_PORT_BASE && port <= MATCH_PORT_MAX) {
+                                usedPorts.add(port);
+                            }
+                        }
+                    }
+                });
+                updatePortDisplay();
 
                 const container = document.getElementById('matches-content');
 
@@ -409,17 +476,25 @@
 
         async function createMatch() {
             const game = document.getElementById('new-game').value;
-            const addr = document.getElementById('new-addr').value;
             const transport = document.getElementById('new-transport').value;
+            const port = getNextAvailablePort();
+
+            if (port === null) {
+                alert('No ports available! Maximum 256 matches (ports 1600-1856). Delete some matches first.');
+                return;
+            }
+
+            const addr = GAME_HOST;  // Fixed game server host
             try {
                 const resp = await fetch(`${GAMMA_API}/api/match/create`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ game, addr, transport, slots: 2 })
+                    body: JSON.stringify({ game, addr, transport, port, slots: 2 })
                 });
                 const result = await resp.json();
-                console.log('Created match:', result);
+                console.log('Created match:', result, `on port ${port}`);
                 if (result.code) {
+                    usedPorts.add(port);  // Immediately mark port as used
                     expandedMatch = result.code;  // Auto-expand new match
                 }
                 refresh();
@@ -464,7 +539,12 @@
             fetchMatches();
         }
 
+        // Transport selector change handler
+        document.getElementById('new-transport').addEventListener('change', updateTransportInfo);
+
         // Initial load
+        updateTransportInfo();
+        updatePortDisplay();
         refresh();
 
         // Auto-refresh every 5 seconds

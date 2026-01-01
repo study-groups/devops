@@ -200,14 +200,100 @@
       border: 2px solid #222;
       border-top: none;
       padding: 8px 10px;
+    }
+    .ai-row {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       align-items: center;
     }
-    #ai-toggle.on { background: #030; color: #0f0; border-color: #060; }
-    .ai-axes { display: flex; gap: 8px; margin-left: auto; font-size: 11px; }
-    .ai-axes span { padding: 2px 6px; background: #111; border: 1px solid #333; }
-    .ai-axes span.active { color: #0f0; border-color: #0a0; }
+    .ai-player-btn {
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      padding: 6px 12px;
+      background: #1a1a1a;
+      color: #555;
+      border: 2px solid #333;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      min-width: 44px;
+      transition: all 0.15s;
+    }
+    .ai-player-btn:hover { background: #222; }
+    .ai-player-btn.off { color: #555; border-color: #333; background: #1a1a1a; }
+    .ai-player-btn.internal { color: #f80; border-color: #a50; background: #221100; }
+    .ai-player-btn.external { color: #0f0; border-color: #0a0; background: #002200; }
+    .ai-player-btn.active { animation: ai-pulse 0.3s ease-out; }
+    @keyframes ai-pulse { 0% { transform: scale(1.1); } 100% { transform: scale(1); } }
+
+    /* Selected player params */
+    #ai-params {
+      margin-top: 8px;
+      padding: 8px;
+      background: #111;
+      border: 1px solid #333;
+      display: none;
+    }
+    #ai-params.visible { display: block; }
+    #ai-params .param-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    #ai-params .param-label {
+      font-size: 10px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    #ai-params .param-mode {
+      font-size: 11px;
+      padding: 2px 6px;
+    }
+    #ai-params .param-mode.internal { color: #f80; }
+    #ai-params .param-mode.external { color: #0f0; }
+    #ai-params .param-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    #ai-params input[type="range"] {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      background: #000;
+      border: 1px solid #333;
+      cursor: pointer;
+    }
+    #ai-params input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      background: #222;
+      border: 2px solid #555;
+      cursor: pointer;
+    }
+    #ai-params input[type="range"]::-webkit-slider-thumb:hover {
+      background: #333;
+      border-color: #666;
+    }
+    #ai-params input[type="range"]::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      background: #222;
+      border: 2px solid #555;
+      border-radius: 0;
+      cursor: pointer;
+    }
+    #ai-params input[type="range"]::-moz-range-thumb:hover {
+      background: #333;
+      border-color: #666;
+    }
+    #ai-params .param-val { color: #0f0; font-size: 11px; width: 30px; text-align: right; }
 
     @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
   </style>
@@ -264,17 +350,24 @@
 
   <!-- AI Control Panel -->
   <div id="ai-panel">
-    <span class="hw-label">AI</span>
-    <button id="ai-toggle" class="hw-btn">OFF</button>
-    <span class="hw-label">Skill</span>
-    <input type="range" id="ai-skill" min="0" max="1" step="0.1" value="0.7" style="width:60px">
-    <span id="ai-skill-val" style="color:#0f0;font-size:11px;width:25px">0.7</span>
-    <span class="ai-axes">
-      <span id="ai-p1" style="color:#666">P1</span>
-      <span id="ai-p2" style="color:#666">P2</span>
-      <span id="ai-p3" style="color:#666">P3</span>
-      <span id="ai-p4" style="color:#666">P4</span>
-    </span>
+    <div class="ai-row">
+      <span class="hw-label">AI</span>
+      <button id="ai-p1" class="ai-player-btn off" data-slot="p1">P1</button>
+      <button id="ai-p2" class="ai-player-btn off" data-slot="p2">P2</button>
+      <button id="ai-p3" class="ai-player-btn off" data-slot="p3">P3</button>
+      <button id="ai-p4" class="ai-player-btn off" data-slot="p4">P4</button>
+    </div>
+    <div id="ai-params">
+      <div class="param-header">
+        <span class="param-label"><span id="param-slot">P1</span> AI Settings</span>
+        <span id="param-mode" class="param-mode internal">Internal</span>
+      </div>
+      <div class="param-row">
+        <span class="param-label">Skill</span>
+        <input type="range" id="ai-skill" min="0" max="1" step="0.1" value="0.7">
+        <span id="ai-skill-val" class="param-val">0.7</span>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -357,12 +450,15 @@
         if (!data || !data.axes) return;
         const slots = ['p1', 'p2', 'p3', 'p4'];
         for (let i = 0; i < Math.min(4, data.axes.length); i++) {
+          const slot = slots[i];
+          // Only forward external AI if player is set to 'external' mode
+          if (LocalAI.players[slot].mode !== 'external') continue;
           const axis = data.axes[i];
           if (Math.abs(axis) > 0.01) {
             sendInput({
               t: 'input',
               src: 'ai',
-              slot: slots[i],
+              slot: slot,
               axis: axis,
               key: axis > 0 ? 'cw' : 'ccw',
               val: Math.abs(axis),
@@ -380,27 +476,96 @@
       running: false,
       intervalId: null,
       state: {},
-      skill: 0.7,
       TWO_PI: Math.PI * 2,
+      MODES: ['off', 'internal', 'external'],
+      selectedSlot: null,
 
-      start() {
-        if (this.running) return;
-        this.running = true;
-        this.intervalId = setInterval(() => this.tick(), 33); // ~30fps
-        document.getElementById('ai-toggle').textContent = 'ON';
-        document.getElementById('ai-toggle').classList.add('on');
+      // Per-player settings
+      players: {
+        p1: { mode: 'off', skill: 0.7 },
+        p2: { mode: 'off', skill: 0.7 },
+        p3: { mode: 'off', skill: 0.7 },
+        p4: { mode: 'off', skill: 0.7 }
       },
 
-      stop() {
-        this.running = false;
-        if (this.intervalId) clearInterval(this.intervalId);
-        this.intervalId = null;
-        document.getElementById('ai-toggle').textContent = 'OFF';
-        document.getElementById('ai-toggle').classList.remove('on');
+      init() {
+        // Load saved settings
+        this.load();
+        // Restore button UI
+        ['p1', 'p2', 'p3', 'p4'].forEach(slot => this.updateButtonUI(slot));
+        // Start the tick loop (always running, checks modes internally)
+        this.running = true;
+        this.intervalId = setInterval(() => this.tick(), 33);
+      },
+
+      save() {
+        localStorage.setItem('cabinet-ai', JSON.stringify(this.players));
+      },
+
+      load() {
+        const saved = localStorage.getItem('cabinet-ai');
+        if (saved) {
+          try {
+            const data = JSON.parse(saved);
+            for (const slot of ['p1', 'p2', 'p3', 'p4']) {
+              if (data[slot]) {
+                this.players[slot].mode = data[slot].mode || 'off';
+                this.players[slot].skill = data[slot].skill ?? 0.7;
+              }
+            }
+          } catch (e) {}
+        }
+      },
+
+      cycleMode(slot) {
+        const player = this.players[slot];
+        const idx = this.MODES.indexOf(player.mode);
+        player.mode = this.MODES[(idx + 1) % this.MODES.length];
+        this.updateButtonUI(slot);
+        this.selectPlayer(slot);
+        this.save();
+        return player.mode;
+      },
+
+      setSkill(slot, skill) {
+        this.players[slot].skill = skill;
+        this.save();
+      },
+
+      selectPlayer(slot) {
+        this.selectedSlot = slot;
+        const player = this.players[slot];
+        const paramsEl = document.getElementById('ai-params');
+        const slotEl = document.getElementById('param-slot');
+        const modeEl = document.getElementById('param-mode');
+        const skillEl = document.getElementById('ai-skill');
+        const skillValEl = document.getElementById('ai-skill-val');
+
+        if (player.mode === 'off') {
+          paramsEl.classList.remove('visible');
+        } else {
+          paramsEl.classList.add('visible');
+          slotEl.textContent = slot.toUpperCase();
+          modeEl.textContent = player.mode.charAt(0).toUpperCase() + player.mode.slice(1);
+          modeEl.className = 'param-mode ' + player.mode;
+          skillEl.value = player.skill;
+          skillValEl.textContent = player.skill.toFixed(1);
+        }
+      },
+
+      updateButtonUI(slot) {
+        const btn = document.getElementById(`ai-${slot}`);
+        const player = this.players[slot];
+        btn.classList.remove('off', 'internal', 'external');
+        btn.classList.add(player.mode);
       },
 
       updateState(newState) {
         this.state = newState;
+      },
+
+      hasActiveAI() {
+        return Object.values(this.players).some(p => p.mode !== 'off');
       },
 
       tick() {
@@ -418,7 +583,7 @@
           return diff;
         };
 
-        const predictIntersection = (slot) => {
+        const predictIntersection = (slot, skill) => {
           const paddle = state.paddles[slot];
           if (!paddle) return null;
           const ball = state.ball;
@@ -434,7 +599,7 @@
             let pTheta = Math.atan2(py, px);
             if (pTheta < 0) pTheta += this.TWO_PI;
             if (Math.abs(angleDiff(pTheta, paddle.angle)) < HALF_PI / 2 && pr >= 0.7) {
-              return pTheta + (Math.random() - 0.5) * 0.2 * (1 - this.skill);
+              return pTheta + (Math.random() - 0.5) * 0.2 * (1 - skill);
             }
           }
           return paddle.angle;
@@ -442,10 +607,15 @@
 
         for (let i = 0; i < 4; i++) {
           const slot = slots[i];
+          const player = this.players[slot];
+
+          // Skip if mode is off or external (external handled by ControlDeckBridge)
+          if (player.mode !== 'internal') continue;
+
           const paddle = state.paddles[slot];
           if (!paddle) continue;
 
-          const targetAngle = predictIntersection(slot);
+          const targetAngle = predictIntersection(slot, player.skill);
           if (targetAngle === null) continue;
 
           let desiredOffset = angleDiff(targetAngle, paddle.angle);
@@ -454,22 +624,23 @@
 
           const currentOffset = paddle.offset || 0;
           const diff = desiredOffset - currentOffset;
-          const threshold = 0.05 * (1 - this.skill);
+          const threshold = 0.05 * (1 - player.skill);
 
           if (Math.abs(diff) > threshold) {
-            axes[i] = Math.sign(diff) * Math.min(1, Math.abs(diff) * 3) * this.skill;
+            axes[i] = Math.sign(diff) * Math.min(1, Math.abs(diff) * 3) * player.skill;
           }
 
-          // Update UI
-          const el = document.getElementById(`ai-${slot}`);
-          if (el) {
-            el.classList.toggle('active', Math.abs(axes[i]) > 0.1);
+          // Update UI - pulse on activity
+          const btn = document.getElementById(`ai-${slot}`);
+          if (btn && Math.abs(axes[i]) > 0.1) {
+            btn.classList.add('active');
+            setTimeout(() => btn.classList.remove('active'), 100);
           }
         }
 
-        // Send inputs
+        // Send inputs for internal AI
         for (let i = 0; i < 4; i++) {
-          if (Math.abs(axes[i]) > 0.01) {
+          if (this.players[slots[i]].mode === 'internal' && Math.abs(axes[i]) > 0.01) {
             sendInput({
               t: 'input', src: 'ai', slot: slots[i],
               axis: axes[i], key: axes[i] > 0 ? 'cw' : 'ccw',
@@ -484,14 +655,11 @@
     // GAMMA DETECTION
     // ========================================
     const Gamma = {
-      url: null,
       available: false,
       async detect() {
-        this.url = location.pathname.startsWith('/cabinet')
-          ? location.origin
-          : 'http://localhost:8085';
+        // Use relative URLs - requires access via Caddy proxy (:8080)
         try {
-          const resp = await fetch(`${this.url}/api/status`, {
+          const resp = await fetch('/api/status', {
             method: 'GET',
             signal: AbortSignal.timeout(2000)
           });
@@ -535,6 +703,65 @@
         return html;
       }
     };
+
+    // ========================================
+    // STUN FINGERPRINTING (behind flag)
+    // ========================================
+    const STUNFingerprint = {
+      enabled: false,
+      cached: null,
+      STUN_SERVER: 'stun:stun.l.google.com:19302',
+
+      init() {
+        // Enable via query param: ?stun=1
+        const params = new URLSearchParams(location.search);
+        this.enabled = params.get('stun') === '1';
+        if (this.enabled) console.log('[stun] Fingerprinting enabled');
+        return this;
+      },
+
+      async getPublicAddress() {
+        if (!this.enabled) return null;
+        if (this.cached) return this.cached;
+
+        try {
+          const pc = new RTCPeerConnection({
+            iceServers: [{ urls: this.STUN_SERVER }]
+          });
+
+          pc.createDataChannel('');  // Trigger ICE gathering
+
+          const result = await new Promise((resolve) => {
+            const timeout = setTimeout(() => { pc.close(); resolve(null); }, 3000);
+
+            pc.onicecandidate = (e) => {
+              if (e.candidate) {
+                // Parse srflx (server reflexive = public addr)
+                const match = e.candidate.candidate.match(/srflx.*?(\d+\.\d+\.\d+\.\d+)\s+(\d+)/);
+                if (match) {
+                  clearTimeout(timeout);
+                  resolve({ ip: match[1], port: parseInt(match[2]) });
+                  pc.close();
+                }
+              } else {
+                clearTimeout(timeout);
+                resolve(null);  // Gathering complete, no srflx found
+                pc.close();
+              }
+            };
+
+            pc.createOffer().then(o => pc.setLocalDescription(o));
+          });
+
+          this.cached = result;
+          if (result) console.log(`[stun] Public address: ${result.ip}:${result.port}`);
+          return result;
+        } catch (e) {
+          console.log('[stun] Query failed:', e.message);
+          return null;
+        }
+      }
+    }.init();
 
     // ========================================
     // STATE
@@ -609,7 +836,7 @@
     async function extendMatch() {
       if (!matchCode || !Gamma.available) return;
       try {
-        const resp = await fetch(`${Gamma.url}/api/match/extend`, {
+        const resp = await fetch(`/api/match/extend`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code: matchCode })
@@ -708,7 +935,7 @@
       slotDisplayEl.textContent = 'RESOLVING...';
 
       try {
-        const resp = await fetch(`${Gamma.url}/api/match/join`, {
+        const resp = await fetch(`/api/match/join`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code })
@@ -726,7 +953,7 @@
 
           // Get match expiration
           try {
-            const matchResp = await fetch(`${Gamma.url}/api/match/${code}`);
+            const matchResp = await fetch(`/api/match/${code}`);
             if (matchResp.ok) {
               const info = await matchResp.json();
               if (info.expires) startTimer(info.expires);
@@ -747,9 +974,12 @@
       slotDisplayEl.textContent = 'CONNECTING...';
       ws = new WebSocket(wsUrl);
 
-      ws.onopen = () => {
+      ws.onopen = async () => {
         const nickVal = nickInputEl.value.trim();
         if (nickVal) Cabinet.setNick(nickVal);
+
+        // Query STUN for public address (if enabled)
+        const stunInfo = await STUNFingerprint.getPublicAddress();
 
         const requestSlot = slotSelectEl.value;
         ws.send(JSON.stringify({
@@ -758,7 +988,8 @@
           nick: Cabinet.data.nick || undefined,
           visits: Cabinet.data.visits,
           requestSlot: requestSlot,
-          takeover: ['p1', 'p2', 'p3', 'p4'].includes(requestSlot)
+          takeover: ['p1', 'p2', 'p3', 'p4'].includes(requestSlot),
+          stun: stunInfo  // null if disabled or failed
         }));
       };
 
@@ -887,18 +1118,19 @@
       takeoverBtn.disabled = !val || !ws || ws.readyState !== WebSocket.OPEN;
     });
 
-    // AI controls
-    document.getElementById('ai-toggle').addEventListener('click', () => {
-      if (LocalAI.running) {
-        LocalAI.stop();
-      } else {
-        LocalAI.start();
-      }
+    // AI controls - per-player triple-toggle buttons
+    ['p1', 'p2', 'p3', 'p4'].forEach(slot => {
+      document.getElementById(`ai-${slot}`).addEventListener('click', () => {
+        LocalAI.cycleMode(slot);
+      });
     });
 
     document.getElementById('ai-skill').addEventListener('input', (e) => {
-      LocalAI.skill = parseFloat(e.target.value);
-      document.getElementById('ai-skill-val').textContent = LocalAI.skill.toFixed(1);
+      const skill = parseFloat(e.target.value);
+      document.getElementById('ai-skill-val').textContent = skill.toFixed(1);
+      if (LocalAI.selectedSlot) {
+        LocalAI.setSkill(LocalAI.selectedSlot, skill);
+      }
     });
 
     // ========================================
@@ -907,6 +1139,9 @@
     async function init() {
       // Initialize ControlDeck bridge for AI integration
       ControlDeckBridge.init();
+
+      // Initialize local AI (tick loop always runs, checks per-player modes)
+      LocalAI.init();
 
       await Gamma.detect();
 

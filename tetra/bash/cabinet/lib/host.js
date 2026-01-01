@@ -28,6 +28,7 @@ class Host {
     this.maxSpectators = options.maxSpectators || MAX_SPECTATORS;
     this.autoRespawn = options.autoRespawn !== false;  // Default: true
     this.respawnDelay = options.respawnDelay || 1000;  // ms
+    this.collectFingerprint = options.collectFingerprint || false;  // STUN fingerprinting flag
 
     // Build slot list based on maxPlayers
     this.slots = [];
@@ -178,6 +179,11 @@ class Host {
 
     this.wss.on('connection', (ws, req) => {
       const playerId = this.nextPlayerId++;
+
+      // Capture server-observed address (what STUN would tell them)
+      const remoteAddr = req.socket.remoteAddress?.replace('::ffff:', '') || 'unknown';
+      const remotePort = req.socket.remotePort || 0;
+
       // Start as pending until identify message received
       const player = {
         id: playerId,
@@ -186,13 +192,25 @@ class Host {
         nick: null,
         visits: 0,
         joinedAt: Date.now(),
-        lastInput: Date.now()
+        lastInput: Date.now(),
+        // Fingerprint data (populated if collectFingerprint enabled)
+        fingerprint: this.collectFingerprint ? {
+          serverSeen: `${remoteAddr}:${remotePort}`,
+          ip: remoteAddr,
+          port: remotePort,
+          clientStun: null,  // Filled when client sends ident with stun info
+          natType: null
+        } : null
       };
 
       // Temporarily track connection
       this.players.set(ws, player);
 
-      console.log(`[host] Player ${playerId} connected (awaiting identity)`);
+      if (this.collectFingerprint) {
+        console.log(`[host] Player ${playerId} connected from ${remoteAddr}:${remotePort} (awaiting identity)`);
+      } else {
+        console.log(`[host] Player ${playerId} connected (awaiting identity)`);
+      }
 
       // Send welcome with pending slot (will update after identify)
       ws.send(JSON.stringify({
@@ -211,6 +229,22 @@ class Host {
             player.cid = data.cid || `anon_${playerId}`;
             player.nick = data.nick || `Player${playerId}`;
             player.visits = data.visits || 1;
+
+            // Process client STUN info if fingerprinting enabled
+            if (this.collectFingerprint && player.fingerprint && data.stun) {
+              player.fingerprint.clientStun = data.stun;
+              // Detect NAT type by comparing server-seen port vs client STUN port
+              if (data.stun.ip === player.fingerprint.ip) {
+                if (data.stun.port === player.fingerprint.port) {
+                  player.fingerprint.natType = 'none';  // No NAT or hairpin
+                } else {
+                  player.fingerprint.natType = 'symmetric';  // Port changes per destination
+                }
+              } else {
+                player.fingerprint.natType = 'full';  // Different IP (carrier-grade NAT?)
+              }
+              console.log(`[host] ${player.cid} fingerprint: server=${player.fingerprint.serverSeen} stun=${data.stun.ip}:${data.stun.port} nat=${player.fingerprint.natType}`);
+            }
 
             const requestSlot = data.requestSlot || '';
             const takeover = data.takeover || false;
@@ -320,6 +354,15 @@ class Host {
           frameSeq: this.frameSeq,
           hasDriver: !!this.driver
         }));
+      }
+    } else if (data.t === 'game.reset') {
+      // Reset game (any player can trigger)
+      if (this.driver && typeof this.driver.reset === 'function') {
+        this.driver.reset();
+        console.log(`[host] Game reset by ${player.nick || player.cid}`);
+      } else if (this.driver) {
+        // Fallback: send 'r' key as input
+        this.driver.sendInput(player.slot, { key: 'r' });
       }
     }
   }
