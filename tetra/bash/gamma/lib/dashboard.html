@@ -2,541 +2,1113 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>GAMMA - Game Allocation & Match-Making</title>
+    <title>GAMMA - Game Lobby</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Courier New', monospace;
             background: #0a0a0a;
             color: #0f0;
-            padding: 2rem;
             min-height: 100vh;
         }
-        h1 {
-            font-size: 2.5rem;
-            letter-spacing: 0.3em;
-            text-shadow: 0 0 20px #0f0;
-            margin-bottom: 0.25rem;
+
+        /* Header */
+        header {
+            background: #111;
+            border-bottom: 1px solid #0f0;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        .subtitle { color: #0a0; font-size: 0.9rem; margin-bottom: 2rem; }
-        .stats {
+        .logo {
+            font-size: 1.5rem;
+            letter-spacing: 0.3em;
+            text-shadow: 0 0 10px #0f0;
+        }
+        .logo span { color: #0a0; font-size: 0.7rem; letter-spacing: 0.1em; }
+        .header-stats {
+            display: flex;
+            gap: 2rem;
+            font-size: 0.85rem;
+        }
+        .header-stat { color: #0a0; }
+        .header-stat strong { color: #0f0; }
+
+        /* Main layout */
+        main {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            min-height: calc(100vh - 60px);
+        }
+
+        /* Games section */
+        .games-section {
+            padding: 2rem;
+            overflow-y: auto;
+        }
+        .section-title {
+            font-size: 1rem;
+            color: #0a0;
+            margin-bottom: 1.5rem;
+            letter-spacing: 0.2em;
+        }
+
+        /* Game grid */
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* Game card */
+        .game-card {
+            background: #111;
+            border: 2px solid #030;
+            padding: 1.5rem;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .game-card:hover {
+            border-color: #0f0;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.1);
+        }
+        .game-card.selected {
+            border-color: #0f0;
+            background: #0a1a0a;
+        }
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+        .game-name {
+            font-size: 1.25rem;
+            letter-spacing: 0.1em;
+        }
+        .game-players {
+            background: #000;
+            border: 1px solid #030;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            color: #0a0;
+        }
+        .game-description {
+            font-size: 0.85rem;
+            color: #0a0;
+            line-height: 1.5;
+            margin-bottom: 1rem;
+        }
+        .game-meta {
             display: flex;
             gap: 1rem;
-            margin-bottom: 2rem;
-            flex-wrap: wrap;
+            font-size: 0.75rem;
+            color: #050;
+            margin-bottom: 1rem;
         }
-        .stat {
-            background: #111;
-            border: 1px solid #030;
-            padding: 1rem 1.5rem;
-            min-width: 140px;
+        .game-actions {
+            display: flex;
+            gap: 0.5rem;
         }
-        .stat-value {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #0f0;
-        }
-        .stat-label { font-size: 0.75rem; color: #0a0; }
-        h2 { color: #0f0; margin: 1.5rem 0 1rem; font-size: 1.2rem; }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: #111;
-        }
-        th, td {
-            padding: 0.75rem 1rem;
-            text-align: left;
-            border-bottom: 1px solid #030;
-        }
-        th { color: #0a0; font-weight: normal; font-size: 0.8rem; }
-        td { color: #0f0; }
-        code {
-            background: #1a1a1a;
-            color: #0f0;
-            padding: 0.2rem 0.5rem;
-            border: 1px solid #030;
-            font-size: 0.9rem;
-        }
-        .empty { color: #050; font-style: italic; padding: 1rem; }
-        .error { color: #f00; }
-        .actions { margin-top: 2rem; }
+
+        /* Buttons */
         .btn {
-            display: inline-block;
             background: transparent;
             color: #0f0;
             border: 1px solid #0f0;
             padding: 0.5rem 1rem;
-            text-decoration: none;
             font-family: monospace;
+            font-size: 0.85rem;
             cursor: pointer;
-            margin-right: 0.5rem;
+            transition: all 0.2s;
         }
-        .btn:hover { background: #0f0; color: #000; }
-        .status-indicator {
+        .btn:hover {
+            background: #0f0;
+            color: #000;
+        }
+        .btn-primary {
+            background: #0f0;
+            color: #000;
+        }
+        .btn-primary:hover {
+            background: #0a0;
+        }
+        .btn-small {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        .btn-danger {
+            border-color: #f00;
+            color: #f00;
+        }
+        .btn-danger:hover {
+            background: #f00;
+            color: #000;
+        }
+
+        /* Matches sidebar */
+        .matches-section {
+            background: #0d0d0d;
+            border-left: 1px solid #030;
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+        .matches-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        /* Match card */
+        .match-card {
+            background: #111;
+            border: 1px solid #030;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            transition: border-color 0.2s;
+        }
+        .match-card:hover {
+            border-color: #0a0;
+        }
+        .match-card.expiring {
+            border-color: #f80;
+            animation: pulse-border 1s ease-in-out infinite;
+        }
+        @keyframes pulse-border {
+            0%, 100% { border-color: #f80; }
+            50% { border-color: #f00; }
+        }
+        .match-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .match-code {
+            font-size: 1.1rem;
+            letter-spacing: 0.15em;
+            font-weight: bold;
+        }
+        .match-game {
+            font-size: 0.75rem;
+            color: #0a0;
+        }
+        .match-info {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.75rem;
+            color: #050;
+            margin-bottom: 0.75rem;
+        }
+        .match-time { color: #0a0; }
+        .match-time.warning { color: #f80; }
+        .match-time.critical { color: #f00; }
+        .match-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: #050;
+        }
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        /* Quick create modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.visible {
+            display: flex;
+        }
+        .modal {
+            background: #111;
+            border: 2px solid #0f0;
+            padding: 2rem;
+            min-width: 400px;
+        }
+        .modal h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+            letter-spacing: 0.1em;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: #0a0;
+            margin-bottom: 0.25rem;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            background: #000;
+            border: 1px solid #0f0;
+            color: #0f0;
+            padding: 0.5rem;
+            font-family: monospace;
+        }
+        .form-row {
+            display: flex;
+            gap: 1rem;
+        }
+        .form-row .form-group {
+            flex: 1;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+        }
+
+        /* Status dot */
+        .status-dot {
             display: inline-block;
             width: 8px;
             height: 8px;
             border-radius: 50%;
             margin-right: 0.5rem;
         }
-        .status-online { background: #0f0; }
-        .status-offline { background: #f00; }
-        .editable {
-            cursor: pointer;
-            border-bottom: 1px dashed #0a0;
+        .status-dot.online { background: #0f0; }
+        .status-dot.offline { background: #f00; }
+
+        /* Link styling */
+        a { color: #0ff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+            .matches-section {
+                border-left: none;
+                border-top: 1px solid #030;
+            }
         }
-        .editable:hover { color: #0ff; }
-        input.edit-field {
-            background: #000;
-            border: 1px solid #0f0;
+
+        /* FAB Button */
+        .fab-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            display: flex;
+            gap: 12px;
+            z-index: 500;
+        }
+        .fab {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: #111;
+            border: 2px solid #0f0;
             color: #0f0;
-            padding: 0.25rem 0.5rem;
-            font-family: monospace;
-            width: 100px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        .btn-small {
+        .fab:hover {
+            background: #0f0;
+            color: #000;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+        .fab.active {
+            background: #0f0;
+            color: #000;
+        }
+
+        /* Match Detail Panel */
+        .detail-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 400px;
+            height: 100vh;
+            background: #0d0d0d;
+            border-left: 2px solid #0f0;
+            z-index: 1000;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .detail-panel.visible {
+            transform: translateX(0);
+        }
+        .detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            background: #111;
+            border-bottom: 1px solid #030;
+        }
+        .detail-title {
+            font-size: 1.25rem;
+            letter-spacing: 0.15em;
+        }
+        .detail-close {
+            background: none;
+            border: none;
+            color: #0a0;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+        .detail-close:hover { color: #f00; }
+        .detail-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+        }
+        .detail-section {
+            margin-bottom: 1.5rem;
+        }
+        .detail-section-title {
             font-size: 0.75rem;
-            padding: 0.25rem 0.5rem;
-            margin-left: 0.5rem;
+            color: #0a0;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #030;
         }
-        .btn-danger { border-color: #f00; color: #f00; }
-        .btn-danger:hover { background: #f00; color: #000; }
-        .create-form {
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            font-size: 0.9rem;
+        }
+        .detail-row .label { color: #0a0; }
+        .detail-row .value { color: #0f0; font-family: monospace; }
+        .detail-row .value.warning { color: #f80; }
+        .detail-row .value.critical { color: #f00; }
+
+        /* Player list */
+        .player-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .player-slot {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
             background: #111;
             border: 1px solid #030;
-            padding: 1rem;
+        }
+        .player-slot.empty {
+            opacity: 0.5;
+            border-style: dashed;
+        }
+        .player-slot.connected {
+            border-color: #0f0;
+        }
+        .player-avatar {
+            width: 32px;
+            height: 32px;
+            background: #030;
+            border: 1px solid #0a0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+        }
+        .player-info { flex: 1; }
+        .player-name { color: #0f0; font-size: 0.9rem; }
+        .player-status { color: #050; font-size: 0.75rem; }
+        .player-slot.connected .player-status { color: #0a0; }
+
+        /* Detail actions */
+        .detail-actions {
+            padding: 1rem 1.5rem;
+            background: #111;
+            border-top: 1px solid #030;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .detail-actions .btn { flex: 1; min-width: 100px; }
+
+        /* Config form in detail */
+        .config-field {
             margin-bottom: 1rem;
         }
-        .create-form input, .create-form select {
+        .config-field label {
+            display: block;
+            font-size: 0.8rem;
+            color: #0a0;
+            margin-bottom: 0.25rem;
+        }
+        .config-field input,
+        .config-field select {
+            width: 100%;
             background: #000;
-            border: 1px solid #0f0;
+            border: 1px solid #030;
             color: #0f0;
             padding: 0.5rem;
             font-family: monospace;
-            margin-right: 0.5rem;
         }
-        .match-link { color: #0ff; text-decoration: none; }
-        .match-link:hover { text-decoration: underline; }
-        .expiring-soon { animation: blink 1s ease-in-out infinite; border-color: #f80 !important; }
-        @keyframes blink { 0%, 100% { border-color: #f80; } 50% { border-color: #f00; } }
-        .time-warning { color: #f80; }
-        .time-critical { color: #f00; animation: pulse 0.5s ease-in-out infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .extend-btn { background: transparent; border: 1px solid #0f0; color: #0f0; padding: 0.2rem 0.5rem; font-family: monospace; cursor: pointer; margin-left: 0.5rem; }
-        .extend-btn:hover { background: #0f0; color: #000; }
-        .transport-info { font-size: 0.75rem; color: #0a0; margin-top: 0.5rem; padding: 0.5rem; background: #0a0a0a; border-left: 2px solid #030; }
-        .transport-info strong { color: #0f0; }
-        .port-display { display: inline-block; background: #000; border: 1px solid #030; color: #0a0; padding: 0.5rem; font-family: monospace; min-width: 60px; text-align: center; }
-        .host-fixed { color: #0a0; font-size: 0.85rem; }
+        .config-field input:focus,
+        .config-field select:focus {
+            border-color: #0f0;
+            outline: none;
+        }
+
+        /* Empty detail state */
+        .detail-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #050;
+            text-align: center;
+            padding: 2rem;
+        }
+        .detail-empty-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.3;
+        }
     </style>
 </head>
 <body>
-    <h1>GAMMA</h1>
-    <p class="subtitle">
-        <span class="status-indicator" id="status-dot"></span>
-        <span id="status-text">Connecting...</span>
-    </p>
+    <header>
+        <div class="logo">
+            GAMMA
+            <span>Game Allocation & Match-Making</span>
+        </div>
+        <div class="header-stats">
+            <div class="header-stat">
+                <span class="status-dot" id="status-dot"></span>
+                <span id="status-text">Connecting...</span>
+            </div>
+            <div class="header-stat">
+                <strong id="match-count">0</strong> matches
+            </div>
+            <div class="header-stat">
+                <strong id="port-count">256</strong> ports free
+            </div>
+        </div>
+    </header>
 
-    <div class="stats">
-        <div class="stat">
-            <div class="stat-value" id="active-matches">-</div>
-            <div class="stat-label">Active Matches</div>
+    <main>
+        <section class="games-section">
+            <h2 class="section-title">AVAILABLE GAMES</h2>
+            <div class="games-grid" id="games-grid">
+                <!-- Games loaded dynamically -->
+                <div class="empty-state">
+                    <div class="empty-state-icon">⌛</div>
+                    <p>Loading games...</p>
+                </div>
+            </div>
+        </section>
+
+        <aside class="matches-section">
+            <div class="matches-header">
+                <h2 class="section-title" style="margin:0">ACTIVE MATCHES</h2>
+                <button class="btn btn-small" onclick="refresh()">↻</button>
+            </div>
+            <div id="matches-list">
+                <!-- Matches loaded dynamically -->
+            </div>
+        </aside>
+    </main>
+
+    <!-- FAB Container -->
+    <div class="fab-container">
+        <button class="fab" id="detail-fab" onclick="toggleDetailPanel()" title="Match Details">◇</button>
+    </div>
+
+    <!-- Match Detail Panel -->
+    <div class="detail-panel" id="detail-panel">
+        <div class="detail-header">
+            <span class="detail-title">MATCH DETAIL</span>
+            <button class="detail-close" onclick="closeDetailPanel()">&times;</button>
         </div>
-        <div class="stat">
-            <div class="stat-value" id="total-created">-</div>
-            <div class="stat-label">Total Created</div>
+        <div class="detail-body" id="detail-body">
+            <!-- Content rendered dynamically -->
         </div>
-        <div class="stat">
-            <div class="stat-value" id="players-joined">-</div>
-            <div class="stat-label">Players Joined</div>
-        </div>
-        <div class="stat">
-            <div class="stat-value" id="uptime">-</div>
-            <div class="stat-label">Uptime</div>
+        <div class="detail-actions" id="detail-actions">
+            <a class="btn btn-primary" id="detail-join-btn" href="#" target="_blank">Join</a>
+            <button class="btn" id="detail-extend-btn" onclick="selectedMatch && extendMatch(selectedMatch.code)">+5 min</button>
+            <button class="btn btn-danger" id="detail-delete-btn" onclick="selectedMatch && deleteMatch(selectedMatch.code)">Delete</button>
         </div>
     </div>
 
-    <div class="create-form">
-        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-            <strong>Create Match:</strong>
-            <input type="text" id="new-game" placeholder="game" value="magnetar" style="width:80px">
-            <span class="host-fixed">Host: <code>localhost:8090</code></span>
-            <span class="host-fixed">Port: <span id="next-port" class="port-display">1600</span></span>
-            <select id="new-transport">
-                <option value="ws">WebSocket</option>
-                <option value="udp">UDP</option>
-            </select>
-            <button class="btn" onclick="createMatch()">Create</button>
-            <span id="port-status" style="font-size:0.75rem;color:#050;"></span>
+    <!-- Create Match Modal -->
+    <div class="modal-overlay" id="create-modal">
+        <div class="modal">
+            <h2>CREATE MATCH</h2>
+            <div class="form-group">
+                <label>Game</label>
+                <input type="text" id="modal-game" readonly>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Max Players</label>
+                    <select id="modal-slots">
+                        <option value="2">2 Players</option>
+                        <option value="4" selected>4 Players</option>
+                        <option value="8">8 Players</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Visibility</label>
+                    <select id="modal-public">
+                        <option value="true">Public</option>
+                        <option value="false">Private</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Next Port</label>
+                <input type="text" id="modal-port" readonly>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="confirmCreate()">Create Match</button>
+                <button class="btn" onclick="closeModal()">Cancel</button>
+            </div>
         </div>
-        <div class="transport-info" id="transport-info">
-            <strong>WebSocket:</strong> Reliable, ordered delivery over TCP. Best for turn-based or low-frequency updates.
-        </div>
-    </div>
-
-    <h2>Active Matches <span style="color:#050;font-size:0.8rem">(click to expand)</span></h2>
-    <div id="matches-content">
-        <p class="empty">Loading...</p>
-    </div>
-
-    <div class="actions">
-        <button class="btn" onclick="refresh()">Refresh</button>
-        <button class="btn" onclick="queryAllHosts()">Query All Hosts</button>
-        <a href="/" class="btn">Back to Portal</a>
     </div>
 
     <script>
-        const GAMMA_API = '';  // Use relative URLs - works via Caddy proxy
-        const GAME_HOST = 'localhost:8090';
-        let expandedMatch = null;
-        let matchInputLogs = {};  // Store input logs per match
-        let portStats = { next: 1600, available: 256, total: 256 };  // Fetched from API
+        const API = '';  // Relative URLs via Caddy
+        let games = [];
+        let matches = [];
+        let portStats = { next: 1600, available: 256 };
+        let selectedGame = null;
 
-        const transportDescriptions = {
-            ws: '<strong>WebSocket:</strong> Reliable, ordered delivery over TCP. Best for turn-based or low-frequency updates. All messages guaranteed to arrive in order.',
-            udp: '<strong>UDP:</strong> Fast, connectionless datagrams. Best for real-time games (60fps input). Tolerates packet loss—newer state overwrites stale data. Lower latency than TCP.'
+        // Game metadata (could come from API)
+        const GAME_INFO = {
+            quadrapong: {
+                name: 'QUADRAPONG',
+                description: '4-player circular pong arena. Defend your sector, score on others!',
+                players: '2-4',
+                engine: 'gamepak'
+            },
+            magnetar: {
+                name: 'MAGNETAR',
+                description: 'Cooperative puzzle game with magnetic forces.',
+                players: '1-2',
+                engine: 'pulsar'
+            },
+            snake: {
+                name: 'SNAKE',
+                description: 'Classic snake game with multiplayer twist.',
+                players: '1-4',
+                engine: 'gamepak'
+            }
         };
 
-        function formatUptime(ms) {
-            const hours = Math.floor(ms / 3600000);
-            const mins = Math.floor((ms % 3600000) / 60000);
-            return `${hours}h ${mins}m`;
+        // Fetch status
+        async function fetchStatus() {
+            try {
+                const resp = await fetch(`${API}/api/status`);
+                const data = await resp.json();
+                document.getElementById('status-dot').className = 'status-dot online';
+                document.getElementById('status-text').textContent = `v${data.version}`;
+                document.getElementById('match-count').textContent = data.matches;
+            } catch (e) {
+                document.getElementById('status-dot').className = 'status-dot offline';
+                document.getElementById('status-text').textContent = 'Offline';
+            }
         }
 
-        function formatExpiry(timestamp) {
-            const remaining = timestamp - Date.now();
-            if (remaining < 0) return 'expired';
-            const mins = Math.floor(remaining / 60000);
-            if (mins < 60) return `${mins}m`;
-            return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+        // Fetch port stats
+        async function fetchPorts() {
+            try {
+                const resp = await fetch(`${API}/api/ports`);
+                portStats = await resp.json();
+                document.getElementById('port-count').textContent = portStats.available;
+                document.getElementById('modal-port').value = portStats.next || 'FULL';
+            } catch (e) {
+                console.error('Failed to fetch ports:', e);
+            }
         }
 
-        function formatTimeRemaining(ms) {
+        // Fetch games
+        async function fetchGames() {
+            try {
+                const resp = await fetch(`${API}/api/games`);
+                games = await resp.json();
+                renderGames();
+            } catch (e) {
+                console.error('Failed to fetch games:', e);
+                // Fallback to known games
+                games = [
+                    { id: 'quadrapong', name: 'quadrapong' },
+                    { id: 'magnetar', name: 'magnetar' }
+                ];
+                renderGames();
+            }
+        }
+
+        // Fetch matches
+        async function fetchMatches() {
+            try {
+                const resp = await fetch(`${API}/api/matches`);
+                matches = await resp.json();
+                renderMatches();
+            } catch (e) {
+                console.error('Failed to fetch matches:', e);
+            }
+        }
+
+        // Render games grid
+        function renderGames() {
+            const grid = document.getElementById('games-grid');
+
+            if (games.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🎮</div>
+                        <p>No games registered</p>
+                        <p style="font-size:0.8rem;margin-top:0.5rem">Add games to $TETRA_DIR/orgs/*/games/</p>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = games.map(game => {
+                const info = GAME_INFO[game.id] || GAME_INFO[game.name] || {
+                    name: game.name?.toUpperCase() || game.id?.toUpperCase(),
+                    description: 'Game description not available.',
+                    players: '1-4',
+                    engine: game.engine || 'unknown'
+                };
+                const activeMatches = matches.filter(m => m.game === game.id || m.game === game.name).length;
+
+                return `
+                    <div class="game-card" onclick="selectGame('${game.id || game.name}')">
+                        <div class="game-header">
+                            <div class="game-name">${info.name}</div>
+                            <div class="game-players">${info.players} players</div>
+                        </div>
+                        <div class="game-description">${info.description}</div>
+                        <div class="game-meta">
+                            <span>Engine: ${info.engine}</span>
+                            <span>Active: ${activeMatches}</span>
+                        </div>
+                        <div class="game-actions">
+                            <button class="btn btn-primary" onclick="event.stopPropagation();openCreateModal('${game.id || game.name}')">
+                                Create Match
+                            </button>
+                            <button class="btn" onclick="event.stopPropagation();quickPlay('${game.id || game.name}')">
+                                Quick Play
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Render matches list
+        function renderMatches() {
+            const list = document.getElementById('matches-list');
+
+            if (matches.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">○</div>
+                        <p>No active matches</p>
+                        <p style="font-size:0.75rem;margin-top:0.5rem">Create one from the games list</p>
+                    </div>
+                `;
+                return;
+            }
+
+            list.innerHTML = matches.map(m => {
+                const timeRemaining = m.timeRemaining || (m.expires - Date.now());
+                const timeClass = timeRemaining < 30000 ? 'critical' : (timeRemaining < 60000 ? 'warning' : '');
+                const isExpiring = timeRemaining < 60000;
+                const isSelected = selectedMatch && selectedMatch.code === m.code;
+
+                return `
+                    <div class="match-card ${isExpiring ? 'expiring' : ''} ${isSelected ? 'selected' : ''}"
+                         onclick="showMatchDetail('${m.code}')" style="cursor:pointer">
+                        <div class="match-header">
+                            <div class="match-code">${m.code}</div>
+                            <div class="match-game">${m.game}</div>
+                        </div>
+                        <div class="match-info">
+                            <span>${m.playerCount || 0}/${m.maxPlayers || 4} players</span>
+                            <span>Port ${m.port || '?'}</span>
+                            <span class="match-time ${timeClass}">${formatTime(timeRemaining)}</span>
+                        </div>
+                        <div class="match-actions">
+                            <a href="/match/${m.code}/" class="btn btn-small btn-primary" target="_blank" onclick="event.stopPropagation()">Join</a>
+                            <button class="btn btn-small" onclick="event.stopPropagation();extendMatch('${m.code}')">+5m</button>
+                            <button class="btn btn-small btn-danger" onclick="event.stopPropagation();deleteMatch('${m.code}')">×</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Format time remaining
+        function formatTime(ms) {
             if (ms <= 0) return 'expired';
             const secs = Math.floor(ms / 1000);
             const mins = Math.floor(secs / 60);
-            const remainingSecs = secs % 60;
             if (mins >= 60) {
-                const hours = Math.floor(mins / 60);
-                return `${hours}h ${mins % 60}m`;
+                return `${Math.floor(mins / 60)}h ${mins % 60}m`;
             }
             if (mins > 0) {
-                return `${mins}:${remainingSecs.toString().padStart(2, '0')}`;
+                return `${mins}:${(secs % 60).toString().padStart(2, '0')}`;
             }
             return `${secs}s`;
         }
 
-        function formatCreatedTime(timestamp) {
-            const date = new Date(timestamp);
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        // Select game
+        function selectGame(gameId) {
+            selectedGame = gameId;
+            document.querySelectorAll('.game-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
         }
 
-        async function fetchPortStats() {
+        // Open create modal
+        function openCreateModal(gameId) {
+            selectedGame = gameId;
+            document.getElementById('modal-game').value = gameId;
+            document.getElementById('modal-port').value = portStats.next || 'FULL';
+            document.getElementById('create-modal').classList.add('visible');
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('create-modal').classList.remove('visible');
+        }
+
+        // Confirm create match
+        async function confirmCreate() {
+            const game = document.getElementById('modal-game').value;
+            const slots = parseInt(document.getElementById('modal-slots').value);
+            const isPublic = document.getElementById('modal-public').value === 'true';
+
+            if (portStats.next === null) {
+                alert('No ports available!');
+                return;
+            }
+
             try {
-                const resp = await fetch(`${GAMMA_API}/api/ports`);
-                if (resp.ok) {
-                    portStats = await resp.json();
-                    updatePortDisplay();
+                const resp = await fetch(`${API}/api/match/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ game, slots, public: isPublic, spawn: true })
+                });
+                const result = await resp.json();
+
+                if (result.error) {
+                    alert(`Failed: ${result.error}`);
+                    return;
+                }
+
+                console.log('Created match:', result);
+                closeModal();
+                refresh();
+
+                // Open the match
+                if (result.code) {
+                    window.open(`/match/${result.code}/`, '_blank');
                 }
             } catch (e) {
-                console.error('[gamma] Failed to fetch port stats:', e);
+                console.error('Create failed:', e);
+                alert('Failed to create match');
             }
         }
 
-        function updatePortDisplay() {
-            const portEl = document.getElementById('next-port');
-            const statusEl = document.getElementById('port-status');
-            if (portStats.next === null) {
-                portEl.textContent = 'FULL';
-                portEl.style.color = '#f00';
-                statusEl.textContent = `All ${portStats.total} ports in use (${portStats.base}-${portStats.max})`;
-                statusEl.style.color = '#f00';
-            } else {
-                portEl.textContent = portStats.next;
-                portEl.style.color = '#0f0';
-                statusEl.textContent = `${portStats.available} of ${portStats.total} ports available`;
-                statusEl.style.color = '#050';
+        // Quick play - create and join immediately
+        async function quickPlay(gameId) {
+            try {
+                const resp = await fetch(`${API}/api/match/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ game: gameId, slots: 4, public: true, spawn: true })
+                });
+                const result = await resp.json();
+
+                if (result.code) {
+                    window.open(`/match/${result.code}/`, '_blank');
+                    refresh();
+                }
+            } catch (e) {
+                console.error('Quick play failed:', e);
             }
         }
 
-        function updateTransportInfo() {
-            const transport = document.getElementById('new-transport').value;
-            document.getElementById('transport-info').innerHTML = transportDescriptions[transport];
-        }
-
+        // Extend match
         async function extendMatch(code) {
             try {
-                const resp = await fetch(`${GAMMA_API}/api/match/extend`, {
+                await fetch(`${API}/api/match/extend`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ code })
                 });
-                const result = await resp.json();
-                if (result.ok) {
-                    console.log(`[gamma] Extended ${code}, expires in ${formatTimeRemaining(result.timeRemaining)}`);
-                    refresh();
-                } else {
-                    console.error('[gamma] Extend failed:', result.error);
-                }
-            } catch (e) {
-                console.error('[gamma] Extend error:', e);
-            }
-        }
-
-        async function fetchStatus() {
-            try {
-                const resp = await fetch(`${GAMMA_API}/api/status`);
-                if (!resp.ok) throw new Error('API error');
-                const data = await resp.json();
-
-                document.getElementById('status-dot').className = 'status-indicator status-online';
-                document.getElementById('status-text').textContent = `Game Allocation & Match-Making v${data.version}`;
-                document.getElementById('active-matches').textContent = data.matches;
-                document.getElementById('total-created').textContent = data.stats.matchesCreated;
-                document.getElementById('players-joined').textContent = data.stats.playersJoined;
-                document.getElementById('uptime').textContent = formatUptime(data.uptime);
-            } catch (e) {
-                document.getElementById('status-dot').className = 'status-indicator status-offline';
-                document.getElementById('status-text').textContent = 'Offline - gamma-api unreachable';
-            }
-        }
-
-        async function fetchMatches() {
-            try {
-                const resp = await fetch(`${GAMMA_API}/api/matches`);
-                if (!resp.ok) throw new Error('API error');
-                const matches = await resp.json();
-
-                const container = document.getElementById('matches-content');
-
-                if (matches.length === 0) {
-                    container.innerHTML = '<p class="empty">No active matches. Create one above or start magnetar-host.</p>';
-                    return;
-                }
-
-                container.innerHTML = matches.map(m => renderMatchEntry(m)).join('');
-            } catch (e) {
-                document.getElementById('matches-content').innerHTML =
-                    '<p class="empty error">Could not load matches</p>';
-            }
-        }
-
-        function renderMatchEntry(m) {
-            const isExpanded = expandedMatch === m.code;
-            const wsUrl = `ws://${m.host?.addr || 'localhost:8090'}`;
-            const cabinetUrl = `/cabinet/join.html?code=${m.code}`;
-            const expiringSoon = m.expiringSoon || m.timeRemaining < 60000;
-            const timeClass = m.timeRemaining < 30000 ? 'time-critical' : (expiringSoon ? 'time-warning' : '');
-            const entryClass = expiringSoon ? 'expiring-soon' : '';
-
-            return `
-                <div class="match-entry ${entryClass}" style="background:#111;border:1px solid #030;margin-bottom:1rem;padding:1rem;">
-                    <div onclick="toggleExpand('${m.code}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
-                        <div>
-                            <code style="font-size:1.5rem;letter-spacing:0.2em;">${m.code}</code>
-                            <span style="color:#0a0;margin-left:1rem;">${m.game}</span>
-                            <span style="color:#050;margin-left:1rem;">${m.playerCount}/${m.maxPlayers}</span>
-                            <span style="color:#030;margin-left:1rem;">${m.host?.transport || 'udp'}</span>
-                            <span class="${timeClass}" style="margin-left:1rem;font-size:0.85rem;">${formatTimeRemaining(m.timeRemaining || (m.expires - Date.now()))}</span>
-                        </div>
-                        <div id="actions-${m.code}">
-                            <button class="extend-btn" onclick="event.stopPropagation();extendMatch('${m.code}')" title="Extend by 5 minutes">+5m</button>
-                            <a href="${cabinetUrl}" class="match-link btn-small btn" target="_blank">Join</a>
-                            <button class="btn btn-small btn-danger" onclick="event.stopPropagation();confirmDelete('${m.code}')">Delete</button>
-                        </div>
-                    </div>
-                    ${isExpanded ? renderExpandedView(m) : ''}
-                </div>
-            `;
-        }
-
-        function renderExpandedView(m) {
-            const logs = matchInputLogs[m.code] || [];
-            const logHtml = logs.length === 0
-                ? '<span style="color:#050">No inputs captured. Query host to fetch.</span>'
-                : logs.slice(-10).map(l => `<div style="font-size:0.75rem;color:#0a0;">Δ${l.dt}ms ${l.slot} ${l.key}</div>`).join('');
-
-            const timeClass = m.timeRemaining < 30000 ? 'time-critical' : (m.timeRemaining < 60000 ? 'time-warning' : '');
-
-            return `
-                <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #030;">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-                        <div>
-                            <h4 style="color:#0a0;margin-bottom:0.5rem;">Connection Info</h4>
-                            <div style="font-size:0.85rem;">
-                                <div><span style="color:#050">Host:</span> ${m.host?.addr || 'unknown'}</div>
-                                <div><span style="color:#050">Transport:</span> ${m.host?.transport || 'udp'}</div>
-                                <div><span style="color:#050">Topic:</span> ${m.topic || 'n/a'}</div>
-                            </div>
-                            <h4 style="color:#0a0;margin:0.75rem 0 0.5rem;">Token Timing</h4>
-                            <div style="font-size:0.85rem;">
-                                <div><span style="color:#050">Created:</span> ${formatCreatedTime(m.created)}</div>
-                                <div><span style="color:#050">Expires:</span> ${new Date(m.expires).toLocaleTimeString()}</div>
-                                <div><span style="color:#050">Remaining:</span> <span class="${timeClass}">${formatTimeRemaining(m.timeRemaining || (m.expires - Date.now()))}</span>
-                                    <button class="extend-btn" onclick="extendMatch('${m.code}')">+5m</button>
-                                </div>
-                            </div>
-                            <button class="btn btn-small" style="margin-top:0.5rem" onclick="queryHost('${m.code}','${m.host?.addr}')">Query Host</button>
-                        </div>
-                        <div>
-                            <h4 style="color:#0a0;margin-bottom:0.5rem;">Slots</h4>
-                            <div style="font-size:0.85rem;">
-                                ${Object.entries(m.slots || {}).map(([slot, data]) => `
-                                    <div><span style="color:#050">${slot}:</span> ${data.status} ${data.name ? '(' + data.name + ')' : ''}</div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style="margin-top:1rem;">
-                        <h4 style="color:#0a0;margin-bottom:0.5rem;">Input Stream (last 10)</h4>
-                        <div id="input-log-${m.code}" style="background:#000;padding:0.5rem;max-height:100px;overflow-y:auto;">
-                            ${logHtml}
-                        </div>
-                    </div>
-
-                    <div style="margin-top:1rem;padding:0.75rem;background:#111;border:1px solid #030;font-size:0.75rem;line-height:1.6;">
-                        <div style="color:#0a0;margin-bottom:0.5rem;"><strong>How This Works:</strong></div>
-                        <div style="color:#0f0;">GAMMA allocates match codes (<span style="color:#0ff">${m.code}</span>). Cabinet resolves code → host address (<span style="color:#0ff">${m.host?.addr}</span>).</div>
-                        <div style="color:#0f0;">Data flow: Cabinet → WebSocket → Host → Pulsar engine. Frames broadcast back at 60fps.</div>
-                        <div style="color:#0f0;margin-bottom:0.5rem;">Input is lossy (UDP-like). State sync happens via periodic RENDER queries or on reconnect.</div>
-                        <div style="color:#0a0;margin-bottom:0.25rem;"><strong>Dev Endpoints:</strong></div>
-                        <div style="color:#050;font-family:monospace;">
-                          <div>GET <span style="color:#0f0">/api/matches</span> - List all</div>
-                          <div>POST <span style="color:#0f0">/api/match/join</span> {code:"${m.code}"} - Get host</div>
-                          <div>WS <span style="color:#0ff">ws://${m.host?.addr}</span> - Direct connect</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        function toggleExpand(code) {
-            expandedMatch = expandedMatch === code ? null : code;
-            fetchMatches();
-        }
-
-        async function queryHost(code, addr) {
-            if (!addr) return;
-            const logEl = document.getElementById(`input-log-${code}`);
-            if (logEl) logEl.innerHTML = '<span style="color:#0a0">Querying host...</span>';
-
-            try {
-                const wsUrl = `ws://${addr}`;
-                const ws = new WebSocket(wsUrl);
-                ws.onopen = () => {
-                    ws.send(JSON.stringify({ t: 'query', what: 'players' }));
-                };
-                ws.onmessage = (e) => {
-                    const data = JSON.parse(e.data);
-                    console.log(`[gamma] Host ${code} response:`, data);
-                    if (data.t === 'players' && logEl) {
-                        const players = data.players || [];
-                        logEl.innerHTML = players.length === 0
-                            ? '<span style="color:#050">No players connected to host</span>'
-                            : players.map(p => `<div style="color:#0f0">${p.slot}: ${p.nick || p.cid} (idle: ${p.idle}s, visits: ${p.visits})</div>`).join('');
-                    }
-                    ws.close();
-                };
-                ws.onerror = () => {
-                    if (logEl) logEl.innerHTML = '<span style="color:#f00">Failed to connect to host</span>';
-                };
-                setTimeout(() => ws.close(), 3000);
-            } catch (e) {
-                console.error('Query failed:', e);
-                if (logEl) logEl.innerHTML = '<span style="color:#f00">Query failed</span>';
-            }
-        }
-
-        async function queryAllHosts() {
-            const resp = await fetch(`${GAMMA_API}/api/matches`);
-            const matches = await resp.json();
-            for (const m of matches) {
-                if (m.host?.addr) {
-                    queryHost(m.code, m.host.addr);
-                }
-            }
-        }
-
-        async function createMatch() {
-            const game = document.getElementById('new-game').value;
-            const transport = document.getElementById('new-transport').value;
-
-            if (portStats.next === null) {
-                alert('No ports available! Maximum 256 matches. Delete some matches first.');
-                return;
-            }
-
-            const addr = GAME_HOST;  // Fixed game server host
-            try {
-                const resp = await fetch(`${GAMMA_API}/api/match/create`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ game, addr, transport, slots: 2 })
-                    // Port allocated server-side (atomic)
-                });
-                const result = await resp.json();
-                if (result.error) {
-                    alert(`Create failed: ${result.error}`);
-                    return;
-                }
-                console.log('Created match:', result, `on port ${result.port}`);
-                if (result.code) {
-                    expandedMatch = result.code;  // Auto-expand new match
-                }
                 refresh();
             } catch (e) {
-                console.error('Failed to create match:', e);
+                console.error('Extend failed:', e);
             }
         }
 
-        function confirmDelete(code) {
-            const el = document.getElementById(`actions-${code}`);
-            if (!el) return;
-            el.innerHTML = `
-                <span style="color:#f00;margin-right:0.5rem;">Delete ${code}?</span>
-                <button class="btn btn-small" onclick="event.stopPropagation();deleteMatch('${code}')">Yes</button>
-                <button class="btn btn-small" onclick="event.stopPropagation();cancelDelete('${code}')">No</button>
-            `;
-        }
-
-        function cancelDelete(code) {
-            fetchMatches();  // Re-render to restore buttons
-        }
-
+        // Delete match
         async function deleteMatch(code) {
+            if (!confirm(`Delete match ${code}?`)) return;
             try {
-                const resp = await fetch(`${GAMMA_API}/api/match/${code}`, {
-                    method: 'DELETE'
-                });
-                const result = await resp.json();
-                if (result.ok) {
-                    console.log(`[gamma] Deleted match ${code}`);
-                } else {
-                    console.error('[gamma] Delete failed:', result.error);
-                }
+                await fetch(`${API}/api/match/${code}`, { method: 'DELETE' });
                 refresh();
             } catch (e) {
-                console.error('Failed to delete:', e);
+                console.error('Delete failed:', e);
             }
         }
 
+        // Refresh all data
         function refresh() {
             fetchStatus();
+            fetchPorts();
+            fetchGames();
             fetchMatches();
-            fetchPortStats();
         }
 
-        // Transport selector change handler
-        document.getElementById('new-transport').addEventListener('change', updateTransportInfo);
-
         // Initial load
-        updateTransportInfo();
-        updatePortDisplay();
         refresh();
 
-        // Auto-refresh every 5 seconds
+        // Auto-refresh
         setInterval(refresh, 5000);
+
+        // Close modal on escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        // Close modal on overlay click
+        document.getElementById('create-modal').addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-overlay')) closeModal();
+        });
+
+        // =====================================================
+        // MATCH DETAIL PANEL
+        // =====================================================
+        let selectedMatch = null;
+        const detailPanel = document.getElementById('detail-panel');
+        const detailFab = document.getElementById('detail-fab');
+
+        // Toggle detail panel
+        function toggleDetailPanel() {
+            detailPanel.classList.toggle('visible');
+            detailFab.classList.toggle('active');
+            if (!detailPanel.classList.contains('visible')) {
+                selectedMatch = null;
+            }
+        }
+
+        // Close detail panel
+        function closeDetailPanel() {
+            detailPanel.classList.remove('visible');
+            detailFab.classList.remove('active');
+            selectedMatch = null;
+        }
+
+        // Show match detail
+        function showMatchDetail(code) {
+            const match = matches.find(m => m.code === code);
+            if (!match) return;
+
+            selectedMatch = match;
+            detailPanel.classList.add('visible');
+            detailFab.classList.add('active');
+            renderMatchDetail(match);
+        }
+
+        // Render match detail content
+        function renderMatchDetail(match) {
+            const body = document.getElementById('detail-body');
+            const timeRemaining = match.timeRemaining || (match.expires - Date.now());
+            const timeClass = timeRemaining < 30000 ? 'critical' : (timeRemaining < 60000 ? 'warning' : '');
+            const maxPlayers = match.maxPlayers || 4;
+            const playerCount = match.playerCount || 0;
+
+            // Build player slots
+            let playerSlots = '';
+            for (let i = 0; i < maxPlayers; i++) {
+                const player = match.players?.[i];
+                if (player) {
+                    playerSlots += `
+                        <div class="player-slot connected">
+                            <div class="player-avatar">P${i + 1}</div>
+                            <div class="player-info">
+                                <div class="player-name">${player.name || `Player ${i + 1}`}</div>
+                                <div class="player-status">Connected${player.latency ? ` • ${player.latency}ms` : ''}</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    playerSlots += `
+                        <div class="player-slot empty">
+                            <div class="player-avatar">--</div>
+                            <div class="player-info">
+                                <div class="player-name">Empty Slot</div>
+                                <div class="player-status">Waiting...</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            body.innerHTML = `
+                <div class="detail-section">
+                    <div class="detail-section-title">Match Info</div>
+                    <div class="detail-row">
+                        <span class="label">Code</span>
+                        <span class="value">${match.code}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Game</span>
+                        <span class="value">${match.game}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Port</span>
+                        <span class="value">${match.port || '?'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Time Left</span>
+                        <span class="value ${timeClass}">${formatTime(timeRemaining)}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Visibility</span>
+                        <span class="value">${match.public !== false ? 'Public' : 'Private'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Created</span>
+                        <span class="value">${match.created ? new Date(match.created).toLocaleTimeString() : '--'}</span>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <div class="detail-section-title">Players (${playerCount}/${maxPlayers})</div>
+                    <div class="player-list">
+                        ${playerSlots}
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <div class="detail-section-title">Configuration</div>
+                    <div class="config-field">
+                        <label>Max Players</label>
+                        <select id="detail-max-players" onchange="updateMatchConfig('${match.code}', 'maxPlayers', this.value)">
+                            <option value="2" ${maxPlayers === 2 ? 'selected' : ''}>2 Players</option>
+                            <option value="4" ${maxPlayers === 4 ? 'selected' : ''}>4 Players</option>
+                            <option value="8" ${maxPlayers === 8 ? 'selected' : ''}>8 Players</option>
+                        </select>
+                    </div>
+                    <div class="config-field">
+                        <label>Visibility</label>
+                        <select id="detail-visibility" onchange="updateMatchConfig('${match.code}', 'public', this.value === 'true')">
+                            <option value="true" ${match.public !== false ? 'selected' : ''}>Public</option>
+                            <option value="false" ${match.public === false ? 'selected' : ''}>Private</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <div class="detail-section-title">Server</div>
+                    <div class="detail-row">
+                        <span class="label">PID</span>
+                        <span class="value">${match.pid || '--'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Engine</span>
+                        <span class="value">${match.engine || 'gamepak'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Status</span>
+                        <span class="value">${match.status || 'running'}</span>
+                    </div>
+                </div>
+            `;
+
+            // Update action buttons
+            document.getElementById('detail-join-btn').href = `/match/${match.code}/`;
+        }
+
+        // Update match configuration
+        async function updateMatchConfig(code, key, value) {
+            try {
+                await fetch(`${API}/api/match/${code}/config`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ [key]: value })
+                });
+                refresh();
+            } catch (e) {
+                console.error('Config update failed:', e);
+            }
+        }
+
+        // Render empty detail state
+        function renderEmptyDetail() {
+            document.getElementById('detail-body').innerHTML = `
+                <div class="detail-empty">
+                    <div class="detail-empty-icon">◇</div>
+                    <p>No match selected</p>
+                    <p style="font-size: 0.8rem; margin-top: 0.5rem;">
+                        Click a match card to view details
+                    </p>
+                </div>
+            `;
+        }
+
+        // Update detail panel on refresh
+        function updateDetailPanel() {
+            if (selectedMatch) {
+                const updated = matches.find(m => m.code === selectedMatch.code);
+                if (updated) {
+                    renderMatchDetail(updated);
+                } else {
+                    renderEmptyDetail();
+                    selectedMatch = null;
+                }
+            }
+        }
+
+        // Hook into refresh
+        const originalRefresh = refresh;
+        refresh = function() {
+            originalRefresh();
+            setTimeout(updateDetailPanel, 100);
+        };
+
+        // Initialize empty state
+        renderEmptyDetail();
+
+        // Close on escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeDetailPanel();
+        });
     </script>
 </body>
 </html>
