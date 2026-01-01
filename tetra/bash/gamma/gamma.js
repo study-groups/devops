@@ -23,6 +23,9 @@ const Codes = require('./lib/codes');
 const RateLimiter = require('./lib/rate-limiter');
 const GameRegistry = require('./lib/games');
 
+// Cabinet static files directory
+const CABINET_DIR = path.join(__dirname, '../cabinet');
+
 // =============================================================================
 // CONSTANTS
 // =============================================================================
@@ -191,6 +194,9 @@ class GammaService extends EventEmitter {
             this.handleListGames(req, res);
         } else if (req.method === 'GET' && path === '/api/games/processes') {
             this.handleListProcesses(req, res);
+        } else if (req.method === 'GET') {
+            // Try serving static files from cabinet directory
+            this.serveStaticFile(req, res, path);
         } else {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Not found' }));
@@ -348,6 +354,7 @@ class GammaService extends EventEmitter {
             });
 
             this.stats.matchesCreated++;
+            this._updateRuntime();
 
             // Register with midi-mp
             await this.syncWithMidiMp('register', match);
@@ -411,6 +418,7 @@ class GammaService extends EventEmitter {
             }
 
             this.stats.playersJoined++;
+            this._updateRuntime();
             this.matches.update(match);
 
             // Register player route with midi-mp
@@ -624,6 +632,37 @@ class GammaService extends EventEmitter {
         res.end(JSON.stringify(processes));
     }
 
+    // Serve static files from cabinet directory
+    serveStaticFile(req, res, urlPath) {
+        const MIME_TYPES = {
+            '.html': 'text/html',
+            '.js': 'application/javascript',
+            '.css': 'text/css',
+            '.json': 'application/json',
+            '.woff2': 'font/woff2',
+            '.png': 'image/png',
+            '.svg': 'image/svg+xml'
+        };
+
+        // Strip /cabinet/ prefix if present
+        let filePath = urlPath.replace(/^\/cabinet/, '') || '/';
+        filePath = filePath === '/' ? '/join.html' : filePath;
+        filePath = path.join(CABINET_DIR, filePath);
+
+        const ext = path.extname(filePath);
+        const contentType = MIME_TYPES[ext] || 'text/plain';
+
+        fs.readFile(filePath, (err, content) => {
+            if (err) {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Not found' }));
+            } else {
+                res.writeHead(200, { 'Content-Type': contentType });
+                res.end(content);
+            }
+        });
+    }
+
     readBody(req, maxSize = 4096) {
         return new Promise((resolve, reject) => {
             let body = '';
@@ -726,6 +765,7 @@ class GammaService extends EventEmitter {
                         addr: cmd.addr
                     });
                     this.stats.matchesCreated++;
+                    this._updateRuntime();
                     // Register async (don't block response)
                     this.syncWithMidiMp('register', match);
                     return JSON.stringify({ code: match.code, token: match.hostToken });
@@ -736,6 +776,7 @@ class GammaService extends EventEmitter {
                     const result = m.join(cmd.name);
                     if (result.error) return JSON.stringify({ error: result.error });
                     this.stats.playersJoined++;
+                    this._updateRuntime();
                     this.matches.update(m);
                     // Register async (don't block response)
                     this.syncWithMidiMp('register', m, result.slot);
@@ -823,6 +864,32 @@ class GammaService extends EventEmitter {
                 resolve();
             });
         });
+    }
+
+    // Write runtime.json for TSM visibility
+    _updateRuntime() {
+        const tsmDir = process.env.TSM_PROCESS_DIR;
+        if (!tsmDir) return;
+
+        const data = {
+            matches: this.matches.count(),
+            active: this.matches.listAll().filter(m => m.players?.length > 0).length,
+            stats: {
+                created: this.stats.matchesCreated,
+                joined: this.stats.playersJoined
+            },
+            uptime: Math.floor((Date.now() - this.stats.startTime) / 1000),
+            updated: Date.now()
+        };
+
+        try {
+            fs.writeFileSync(
+                path.join(tsmDir, 'runtime.json'),
+                JSON.stringify(data)
+            );
+        } catch (e) {
+            // Ignore write errors
+        }
     }
 }
 
