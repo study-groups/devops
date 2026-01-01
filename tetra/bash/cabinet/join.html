@@ -3,93 +3,251 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Join Game</title>
+  <title>ANSI Cabinet</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: monospace;
-      background: #1a1a1a;
-      color: #0f0;
+      font-family: 'Courier New', monospace;
+      background: #0a0a0a;
+      color: #888;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 20px;
-    }
-    h1 { margin-bottom: 10px; color: #0ff; }
-    #status {
-      padding: 10px 20px;
-      margin-bottom: 20px;
-      border-radius: 4px;
-      background: #333;
-    }
-    #status.connected { background: #0a3; color: #fff; }
-    #status.error { background: #a00; color: #fff; }
-    #status.warning { background: #a50; color: #fff; }
-    #game-display {
-      font-family: monospace;
-      font-size: 14px;
-      line-height: 1.2;
-      white-space: pre;
-      background: #000;
       padding: 10px;
+    }
+
+    /* Brutalist header */
+    #header {
+      width: 100%;
+      max-width: 640px;
+      background: #111;
       border: 2px solid #333;
-      min-width: 500px;
-      min-height: 300px;
-    }
-    #controls {
-      margin-top: 20px;
+      padding: 8px 12px;
+      margin-bottom: 8px;
       display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      justify-content: center;
+      justify-content: space-between;
+      align-items: center;
     }
-    input, button, select {
-      font-family: monospace;
+    #header h1 {
       font-size: 14px;
-      padding: 8px 16px;
-      border: 1px solid #0f0;
-      background: #000;
-      color: #0f0;
+      font-weight: normal;
+      color: #666;
+      letter-spacing: 2px;
     }
-    button:hover { background: #0f0; color: #000; cursor: pointer; }
-    #join-target {
-      width: 220px;
-      text-align: center;
+    #header h1 span { color: #0a0; }
+    #game-name {
+      font-size: 16px;
+      color: #0ff;
+      letter-spacing: 3px;
+      font-weight: bold;
+    }
+
+    /* Hardware control panel */
+    #control-panel {
+      width: 100%;
+      max-width: 640px;
+      background: #0c0c0c;
+      border: 2px solid #222;
+      border-top: none;
+      padding: 6px 10px;
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .hw-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .hw-label {
+      font-size: 9px;
+      color: #444;
+      text-transform: uppercase;
       letter-spacing: 1px;
     }
-    #join-target::placeholder { letter-spacing: normal; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .hw-value {
+      font-size: 12px;
+      color: #0f0;
+      font-family: 'Courier New', monospace;
+    }
+    .hw-value.warning { color: #f80; }
+    .hw-value.critical { color: #f00; animation: blink 0.5s infinite; }
+
+    /* Hardware buttons */
+    .hw-btn {
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      padding: 4px 8px;
+      background: #1a1a1a;
+      color: #666;
+      border: 1px solid #333;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .hw-btn:hover { background: #222; color: #aaa; border-color: #444; }
+    .hw-btn:active { background: #333; }
+    .hw-btn.danger { border-color: #600; color: #a00; }
+    .hw-btn.danger:hover { background: #300; color: #f00; border-color: #800; }
+
+    /* Reset button - big red */
+    #reset-btn {
+      width: 50px;
+      height: 24px;
+      background: #200;
+      border: 2px solid #500;
+      border-radius: 3px;
+      color: #800;
+      font-weight: bold;
+      font-size: 9px;
+      cursor: pointer;
+    }
+    #reset-btn:hover { background: #300; color: #c00; border-color: #700; }
+    #reset-btn:active { background: #500; color: #fff; }
+
+    /* Game display */
+    #game-display {
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.15;
+      white-space: pre;
+      background: #000;
+      padding: 8px;
+      border: 2px solid #222;
+      min-width: 500px;
+      min-height: 300px;
+      color: #0f0;
+    }
+
+    /* Status bar */
+    #status-bar {
+      width: 100%;
+      max-width: 640px;
+      background: #0c0c0c;
+      border: 2px solid #222;
+      border-top: none;
+      padding: 6px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+    }
+    #slot-display { color: #0ff; }
+    #players-display { color: #050; }
+
+    /* Join controls */
+    #join-panel {
+      width: 100%;
+      max-width: 640px;
+      background: #111;
+      border: 2px solid #333;
+      border-top: none;
+      padding: 10px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    #join-panel input, #join-panel select {
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      padding: 6px 10px;
+      background: #0a0a0a;
+      color: #0f0;
+      border: 1px solid #333;
+    }
+    #join-panel input:focus, #join-panel select:focus {
+      outline: none;
+      border-color: #0a0;
+    }
+    #join-target { width: 180px; }
+    #nick-input { width: 80px; }
+    #slot-select { width: 70px; }
+
+    #join-btn {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      padding: 6px 16px;
+      background: #020;
+      color: #0a0;
+      border: 1px solid #0a0;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    #join-btn:hover { background: #030; color: #0f0; }
+
+    #takeover-btn {
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      padding: 4px 8px;
+      background: #200;
+      color: #a00;
+      border: 1px solid #500;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+    #takeover-btn:hover { background: #300; color: #f00; }
+    #takeover-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
   </style>
 </head>
 <body>
-  <h1 id="game-title">Join Game</h1>
-  <div id="status">Enter code or address</div>
-  <div id="match-timer" style="display:none;padding:5px 10px;background:#111;border:1px solid #030;font-size:12px;margin-bottom:10px;">
-    <span style="color:#050">Match expires in:</span> <span id="time-remaining">--:--</span>
-    <button id="extend-btn" style="margin-left:10px;background:#000;border:1px solid #0f0;color:#0f0;padding:2px 8px;cursor:pointer;font-family:monospace;">+5m</button>
+  <!-- Header -->
+  <div id="header">
+    <h1><span>ANSI</span> CABINET</h1>
+    <div id="game-name">---</div>
   </div>
-  <pre id="game-display">Waiting for connection...</pre>
-  <div id="players-display" style="padding:5px 10px;margin-bottom:10px;background:#111;border:1px solid #030;font-size:12px;">
-    <span style="color:#050">No players connected</span>
+
+  <!-- Hardware control panel -->
+  <div id="control-panel">
+    <div class="hw-group">
+      <span class="hw-label">TIME</span>
+      <span class="hw-value" id="time-remaining">--:--</span>
+    </div>
+    <button class="hw-btn" id="extend-btn">+5M</button>
+    <div style="flex:1"></div>
+    <button id="reset-btn">RESET</button>
   </div>
-  <div id="controls">
+
+  <!-- Game display -->
+  <pre id="game-display">
+    ╔═══════════════════════════════════════╗
+    ║                                       ║
+    ║         ANSI CABINET v1.0             ║
+    ║                                       ║
+    ║   Enter code or address to connect    ║
+    ║                                       ║
+    ╚═══════════════════════════════════════╝
+  </pre>
+
+  <!-- Status bar -->
+  <div id="status-bar">
+    <span id="slot-display">OFFLINE</span>
+    <span id="players-display"></span>
+  </div>
+
+  <!-- Join panel -->
+  <div id="join-panel">
     <input type="text" id="join-target" placeholder="CODE or ws://host:port" autocomplete="off">
-    <button id="join-btn">Join</button>
-    <select id="slot-select" style="padding:6px;">
-      <option value="">Auto</option>
+    <select id="slot-select">
+      <option value="">AUTO</option>
       <option value="p1">P1</option>
       <option value="p2">P2</option>
       <option value="p3">P3</option>
       <option value="p4">P4</option>
-      <option value="share">Share</option>
     </select>
-    <input type="text" id="nick-input" placeholder="Nick" style="width:80px" />
+    <button id="join-btn">Connect</button>
+    <button id="takeover-btn" disabled>Takeover</button>
+    <input type="text" id="nick-input" placeholder="Nick">
   </div>
 
   <script>
     // ========================================
-    // CABINET IDENTITY (loose, dev-friendly)
+    // CABINET IDENTITY
     // ========================================
     const Cabinet = {
       init() {
@@ -109,154 +267,44 @@
           };
         }
         this.save();
-        console.log('[cabinet] Identity:', this.data.cid);
         return this;
       },
-      save() {
-        localStorage.setItem('cabinet', JSON.stringify(this.data));
-      },
-      setNick(nick) {
-        this.data.nick = nick.substring(0, 12);
-        this.save();
-      },
+      save() { localStorage.setItem('cabinet', JSON.stringify(this.data)); },
+      setNick(nick) { this.data.nick = nick.substring(0, 12); this.save(); },
       recordSlot(slot) {
         if (!this.data.slots.includes(slot)) {
           this.data.slots.push(slot);
           this.save();
         }
-      },
-      dump() { return this.data; }
-    }.init();
-
-    window.Cabinet = Cabinet;
-
-    // ========================================
-    // CONTROLDECK BRIDGE (BroadcastChannel)
-    // ========================================
-    const ControlDeckBridge = {
-      enabled: false,
-      stateChannel: null,
-      inputChannel: null,
-      gameChannel: null,  // Game-specific channel (e.g., controldeck-quadrapong-state)
-
-      init(gameType) {
-        if (!window.BroadcastChannel) {
-          console.log('[bridge] BroadcastChannel not supported');
-          return this;
-        }
-
-        // Generic state channel for any game
-        this.stateChannel = new BroadcastChannel('controldeck-game-state');
-
-        // Generic input channel for AI output
-        this.inputChannel = new BroadcastChannel('controldeck-game-input');
-
-        // Game-specific channel if game type known
-        if (gameType) {
-          this.setGame(gameType);
-        }
-
-        // Listen for AI output and convert to WebSocket input
-        this.inputChannel.onmessage = (e) => this.handleAiOutput(e.data);
-
-        this.enabled = true;
-        console.log('[bridge] ControlDeck bridge initialized');
-        return this;
-      },
-
-      setGame(gameType) {
-        const channelName = `controldeck-${gameType.toLowerCase()}-state`;
-        if (this.gameChannel) {
-          this.gameChannel.close();
-        }
-        this.gameChannel = new BroadcastChannel(channelName);
-        console.log('[bridge] Game channel:', channelName);
-
-        // Also listen on game-specific input channel
-        const inputChannelName = `controldeck-${gameType.toLowerCase()}-input`;
-        const gameInputChannel = new BroadcastChannel(inputChannelName);
-        gameInputChannel.onmessage = (e) => this.handleAiOutput(e.data);
-      },
-
-      broadcastState(state) {
-        if (!this.enabled) return;
-
-        const msg = {
-          t: 'state',
-          ts: Date.now(),
-          game: gameName,
-          state
-        };
-
-        // Broadcast to both generic and game-specific channels
-        if (this.stateChannel) {
-          this.stateChannel.postMessage(msg);
-        }
-        if (this.gameChannel) {
-          this.gameChannel.postMessage(msg);
-        }
-      },
-
-      handleAiOutput(data) {
-        // AI output format: { axes: [p1, p2, p3, p4], buttons: [...] }
-        if (!data || !data.axes) return;
-
-        // Convert axes to input messages for each player
-        const slots = ['p1', 'p2', 'p3', 'p4'];
-        for (let i = 0; i < Math.min(4, data.axes.length); i++) {
-          const axis = data.axes[i];
-          if (Math.abs(axis) > 0.01) {
-            // Send axis input for this slot
-            const input = {
-              t: 'input',
-              src: 'ai',
-              slot: slots[i],
-              axis: axis,
-              val: Math.abs(axis),
-              pressed: true
-            };
-            sendInput(input);
-          }
-        }
       }
-    };
+    }.init();
 
     // ========================================
     // GAMMA DETECTION
     // ========================================
     const Gamma = {
-      // Detect GAMMA URL based on how we're served
       url: null,
       available: false,
-
       async detect() {
-        // If served from gamma-web, use same origin
-        if (location.pathname.startsWith('/cabinet')) {
-          this.url = location.origin;
-        } else {
-          // Standalone - try localhost:8085
-          this.url = 'http://localhost:8085';
-        }
-
-        // Check if GAMMA is responding
+        this.url = location.pathname.startsWith('/cabinet')
+          ? location.origin
+          : 'http://localhost:8085';
         try {
           const resp = await fetch(`${this.url}/api/status`, {
             method: 'GET',
             signal: AbortSignal.timeout(2000)
           });
-          if (resp.ok) {
-            this.available = true;
-            console.log('[gamma] Available at', this.url);
-          }
+          this.available = resp.ok;
         } catch (e) {
           this.available = false;
-          console.log('[gamma] Not available at', this.url);
         }
         return this.available;
       }
     };
 
-    // ANSI to HTML converter (xterm-style)
+    // ========================================
+    // ANSI PARSER
+    // ========================================
     const ANSI = {
       colors: {
         30: '#000', 31: '#a00', 32: '#0a0', 33: '#a50',
@@ -266,115 +314,97 @@
       },
       toHtml(text) {
         if (!text) return '';
-        // Escape HTML first
-        let html = text
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;');
-
-        // Parse ANSI codes: \x1b[...m
+        let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         html = html.replace(/\x1b\[([0-9;]+)m/g, (match, codes) => {
           const parts = codes.split(';');
-          let style = [];
-          let close = false;
-
+          let style = [], close = false;
           for (const code of parts) {
             const n = parseInt(code);
-            if (n === 0) {
-              close = true;  // Reset
-            } else if (n === 1) {
-              style.push('font-weight:bold');
-            } else if (n >= 30 && n <= 37 || n >= 90 && n <= 97) {
+            if (n === 0) close = true;
+            else if (n === 1) style.push('font-weight:bold');
+            else if ((n >= 30 && n <= 37) || (n >= 90 && n <= 97))
               style.push('color:' + (this.colors[n] || '#fff'));
-            } else if (n >= 40 && n <= 47) {
+            else if (n >= 40 && n <= 47)
               style.push('background:' + (this.colors[n - 10] || '#000'));
-            }
           }
-
           if (close) return '</span>';
           if (style.length) return '<span style="' + style.join(';') + '">';
           return '';
         });
-
         return html;
       }
     };
 
-    // Unified input format
-    function createInput(src, ctrl, val, pressed = null) {
-      const msg = { t: 'input', src, ctrl, val };
-      if (pressed !== null) msg.pressed = pressed;
-      return msg;
-    }
-
-    // WebSocket connection
+    // ========================================
+    // STATE
+    // ========================================
     let ws = null;
     let slot = null;
-    let gameName = null;  // Current game name
-    let players = [];  // Track connected players
-    let matchCode = null;  // Current match code
-    let matchExpires = null;  // Match expiration timestamp
-    let timerInterval = null;  // Timer update interval
-    let wsUrl = null;  // Current WebSocket URL
+    let gameName = null;
+    let matchCode = null;
+    let matchExpires = null;
+    let timerInterval = null;
+    let wsUrl = null;
 
-    const statusEl = document.getElementById('status');
     const displayEl = document.getElementById('game-display');
-    const titleEl = document.getElementById('game-title');
-    const joinTargetEl = document.getElementById('join-target');
-    const joinBtn = document.getElementById('join-btn');
-    const matchTimerEl = document.getElementById('match-timer');
+    const gameNameEl = document.getElementById('game-name');
+    const slotDisplayEl = document.getElementById('slot-display');
+    const playersDisplayEl = document.getElementById('players-display');
     const timeRemainingEl = document.getElementById('time-remaining');
+    const joinTargetEl = document.getElementById('join-target');
+    const slotSelectEl = document.getElementById('slot-select');
+    const nickInputEl = document.getElementById('nick-input');
+    const joinBtn = document.getElementById('join-btn');
+    const takeoverBtn = document.getElementById('takeover-btn');
+    const resetBtn = document.getElementById('reset-btn');
     const extendBtn = document.getElementById('extend-btn');
 
-    // Match timer functions
-    function formatTimeRemaining(ms) {
-      if (ms <= 0) return 'EXPIRED';
+    // ========================================
+    // TIMER
+    // ========================================
+    function formatTime(ms) {
+      if (ms <= 0) return '00:00';
       const secs = Math.floor(ms / 1000);
       const mins = Math.floor(secs / 60);
-      const remainingSecs = secs % 60;
-      return `${mins}:${remainingSecs.toString().padStart(2, '0')}`;
+      return `${mins.toString().padStart(2, '0')}:${(secs % 60).toString().padStart(2, '0')}`;
     }
 
-    function updateMatchTimer() {
-      if (!matchExpires) return;
+    function updateTimer() {
+      if (!matchExpires) {
+        timeRemainingEl.textContent = '--:--';
+        timeRemainingEl.className = 'hw-value';
+        return;
+      }
       const remaining = matchExpires - Date.now();
-      timeRemainingEl.textContent = formatTimeRemaining(remaining);
-
-      // Visual warning states
+      timeRemainingEl.textContent = formatTime(remaining);
       if (remaining <= 0) {
-        timeRemainingEl.style.color = '#f00';
-        timeRemainingEl.style.animation = 'none';
-        updateStatus('Match expired!', 'error');
-      } else if (remaining < 30000) {
-        timeRemainingEl.style.color = '#f00';
-        timeRemainingEl.style.animation = 'pulse 0.5s infinite';
+        timeRemainingEl.className = 'hw-value critical';
       } else if (remaining < 60000) {
-        timeRemainingEl.style.color = '#f80';
-        timeRemainingEl.style.animation = 'none';
+        timeRemainingEl.className = 'hw-value critical';
+      } else if (remaining < 180000) {
+        timeRemainingEl.className = 'hw-value warning';
       } else {
-        timeRemainingEl.style.color = '#0f0';
-        timeRemainingEl.style.animation = 'none';
+        timeRemainingEl.className = 'hw-value';
       }
     }
 
-    function startMatchTimer(expires) {
+    function startTimer(expires) {
       matchExpires = expires;
-      matchTimerEl.style.display = 'block';
-      updateMatchTimer();
+      updateTimer();
       if (timerInterval) clearInterval(timerInterval);
-      timerInterval = setInterval(updateMatchTimer, 1000);
+      timerInterval = setInterval(updateTimer, 1000);
     }
 
-    function stopMatchTimer() {
+    function stopTimer() {
       matchExpires = null;
-      matchCode = null;
-      matchTimerEl.style.display = 'none';
-      if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-      }
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = null;
+      updateTimer();
     }
 
+    // ========================================
+    // CONTROLS
+    // ========================================
     async function extendMatch() {
       if (!matchCode || !Gamma.available) return;
       try {
@@ -386,72 +416,91 @@
         const result = await resp.json();
         if (result.ok) {
           matchExpires = result.expires;
-          updateMatchTimer();
-          console.log(`[cabinet] Extended match ${matchCode} by 5 minutes`);
+          updateTimer();
         }
       } catch (e) {
-        console.error('[cabinet] Failed to extend match:', e);
+        console.error('[cabinet] Failed to extend:', e);
       }
     }
 
-    extendBtn.addEventListener('click', extendMatch);
-
-    function updateStatus(text, className = '') {
-      statusEl.textContent = text;
-      statusEl.className = className;
-    }
-
-    function updateTitle(name) {
-      gameName = name;
-      titleEl.textContent = name || 'Join Game';
-      document.title = name ? `${name} - Cabinet` : 'Join Game';
-      // Update bridge with game type
-      if (name && ControlDeckBridge.enabled) {
-        ControlDeckBridge.setGame(name);
+    function sendReset() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        // Send game reset command
+        ws.send(JSON.stringify({ t: 'game.reset' }));
       }
     }
 
-    // Smart join - detect if input is code or ws:// URL
-    async function smartJoin() {
-      const input = joinTargetEl.value.trim();
-      if (!input) {
-        updateStatus('Enter a code or ws://host:port', 'error');
+    function sendTakeover() {
+      const requestSlot = slotSelectEl.value;
+      if (!requestSlot || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+      // Re-identify with takeover request
+      ws.send(JSON.stringify({
+        t: 'identify',
+        cid: Cabinet.data.cid,
+        nick: Cabinet.data.nick || undefined,
+        visits: Cabinet.data.visits,
+        requestSlot: requestSlot,
+        takeover: true
+      }));
+    }
+
+    // ========================================
+    // CONNECTION
+    // ========================================
+    function updateSlotDisplay() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        slotDisplayEl.textContent = 'OFFLINE';
+        slotDisplayEl.style.color = '#666';
+      } else if (slot) {
+        const label = slot === 'spectator' ? 'SPECTATOR' : slot.toUpperCase();
+        slotDisplayEl.textContent = label + (matchCode ? ` [${matchCode}]` : '');
+        slotDisplayEl.style.color = slot === 'spectator' ? '#666' : '#0ff';
+      }
+    }
+
+    function updatePlayersDisplay(players) {
+      if (!players || players.length === 0) {
+        playersDisplayEl.textContent = '';
         return;
       }
+      playersDisplayEl.innerHTML = players.map(p => {
+        const isMe = p.cid === Cabinet.data.cid;
+        const color = isMe ? '#0ff' : '#050';
+        const name = p.nick || p.cid?.substring(0, 6) || 'anon';
+        return `<span style="color:${color}">${p.slot.toUpperCase()}:${name}</span>`;
+      }).join(' ');
+    }
 
-      // Direct WebSocket URL
+    function updateGameName(name) {
+      gameName = name;
+      gameNameEl.textContent = name || '---';
+      document.title = name ? `${name} | ANSI Cabinet` : 'ANSI Cabinet';
+    }
+
+    async function smartJoin() {
+      const input = joinTargetEl.value.trim();
+      if (!input) return;
+
       if (input.startsWith('ws://') || input.startsWith('wss://')) {
         wsUrl = input;
         connect();
-        return;
-      }
-
-      // Looks like host:port without ws://
-      if (input.includes(':') && /:\d+$/.test(input)) {
+      } else if (input.includes(':') && /:\d+$/.test(input)) {
         wsUrl = `ws://${input}`;
         connect();
-        return;
+      } else {
+        await joinByCode(input.toUpperCase());
       }
-
-      // Assume it's a GAMMA code
-      const code = input.toUpperCase();
-      if (code.length < 3 || code.length > 6) {
-        updateStatus('Invalid code format', 'error');
-        return;
-      }
-
-      await joinByCode(code);
     }
 
-    // Join game by code via GAMMA API
     async function joinByCode(code) {
       if (!Gamma.available) {
-        updateStatus('GAMMA not available - use ws://host:port', 'warning');
+        slotDisplayEl.textContent = 'NO GAMMA';
         return;
       }
 
-      updateStatus('Resolving code...');
       matchCode = code;
+      slotDisplayEl.textContent = 'RESOLVING...';
 
       try {
         const resp = await fetch(`${Gamma.url}/api/match/join`, {
@@ -461,279 +510,190 @@
         });
 
         if (!resp.ok) {
-          const err = await resp.json().catch(() => ({ error: resp.statusText }));
-          updateStatus(`Join failed: ${err.error || 'Unknown error'}`, 'error');
+          slotDisplayEl.textContent = 'NOT FOUND';
           return;
         }
 
         const data = await resp.json();
-
         if (data.host) {
           wsUrl = data.host.startsWith('ws://') ? data.host : `ws://${data.host}`;
+          if (data.game) updateGameName(data.game.toUpperCase());
 
-          // Update title with game name
-          if (data.game) {
-            updateTitle(data.game.toUpperCase());
-          }
-
-          // Fetch match info for expiration timer
+          // Get match expiration
           try {
             const matchResp = await fetch(`${Gamma.url}/api/match/${code}`);
             if (matchResp.ok) {
-              const matchInfo = await matchResp.json();
-              if (matchInfo.expires) startMatchTimer(matchInfo.expires);
-              if (matchInfo.game) updateTitle(matchInfo.game.toUpperCase());
+              const info = await matchResp.json();
+              if (info.expires) startTimer(info.expires);
             }
-          } catch (e) {
-            console.log('[join] Could not fetch match info');
-          }
+          } catch (e) {}
 
-          if (data.full) {
-            updateStatus('Match full - connecting as spectator...');
-            document.getElementById('slot-select').value = 'share';
-          } else {
-            updateStatus('Connecting...');
-          }
           connect();
-        } else {
-          updateStatus('No host found for this code', 'error');
         }
       } catch (e) {
-        console.error('[join] Error:', e);
-        updateStatus(`Connection error: ${e.message}`, 'error');
+        slotDisplayEl.textContent = 'ERROR';
       }
     }
 
     function connect() {
-      if (!wsUrl) {
-        updateStatus('No address specified', 'error');
-        return;
-      }
+      if (!wsUrl) return;
+      if (ws) ws.close();
 
-      if (ws) {
-        ws.close();
-      }
-
-      updateStatus('Connecting...');
+      slotDisplayEl.textContent = 'CONNECTING...';
       ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        console.log('[join] Connected to', wsUrl);
+        const nickVal = nickInputEl.value.trim();
+        if (nickVal) Cabinet.setNick(nickVal);
 
-        // Update nick from input if set
-        const nickInput = document.getElementById('nick-input');
-        if (nickInput && nickInput.value) {
-          Cabinet.setNick(nickInput.value);
-        }
-
-        // Get slot preference
-        const slotPref = document.getElementById('slot-select')?.value || '';
-
-        // Send identity with slot preference
+        const requestSlot = slotSelectEl.value;
         ws.send(JSON.stringify({
           t: 'identify',
           cid: Cabinet.data.cid,
           nick: Cabinet.data.nick || undefined,
           visits: Cabinet.data.visits,
-          requestSlot: slotPref,
-          takeover: ['p1', 'p2', 'p3', 'p4'].includes(slotPref)
+          requestSlot: requestSlot,
+          takeover: ['p1', 'p2', 'p3', 'p4'].includes(requestSlot)
         }));
       };
 
-      ws.onmessage = (event) => {
+      ws.onmessage = (e) => {
         try {
-          const data = JSON.parse(event.data);
-          handleMessage(data);
-        } catch (e) {
-          console.error('[join] Parse error:', e);
-        }
+          handleMessage(JSON.parse(e.data));
+        } catch (err) {}
       };
 
       ws.onclose = () => {
-        updateStatus('Disconnected');
+        slot = null;
+        updateSlotDisplay();
         updatePlayersDisplay([]);
-        stopMatchTimer();
-        ws = null;
+        stopTimer();
+        takeoverBtn.disabled = true;
       };
 
-      ws.onerror = (err) => {
-        updateStatus('Connection error', 'error');
-        console.error('[join] WebSocket error:', err);
+      ws.onerror = () => {
+        slotDisplayEl.textContent = 'ERROR';
       };
-    }
-
-    function updatePlayersDisplay(playerList) {
-      players = playerList;
-      const el = document.getElementById('players-display');
-      if (!el) return;
-
-      if (playerList.length === 0) {
-        el.innerHTML = '<span style="color:#050">No players connected</span>';
-        return;
-      }
-
-      el.innerHTML = playerList.map(p => {
-        const isMe = p.cid === Cabinet.data.cid;
-        const color = isMe ? '#0ff' : '#0f0';
-        const marker = isMe ? ' (you)' : '';
-        return `<span style="color:${color}">${p.slot.toUpperCase()}: ${p.nick || p.cid || 'anon'}${marker}</span>`;
-      }).join(' | ');
     }
 
     function handleMessage(data) {
       if (data.t === 'welcome') {
         slot = data.slot;
         Cabinet.recordSlot(slot);
-
-        // Update status with slot only (no confusing playerId)
-        const slotLabel = slot === 'spectator' ? 'SPECTATOR' : slot.toUpperCase();
-        const codeStr = matchCode ? ` [${matchCode}]` : '';
-        updateStatus(`Connected as ${slotLabel}${codeStr}`, 'connected');
-
-        // Update title if game name provided
-        if (data.game) {
-          updateTitle(data.game.toUpperCase());
-        }
-
+        updateSlotDisplay();
+        if (data.game) updateGameName(data.game.toUpperCase());
         if (data.players) updatePlayersDisplay(data.players);
+        // Enable takeover if we're spectator or want to switch
+        takeoverBtn.disabled = false;
       } else if (data.t === 'players') {
         updatePlayersDisplay(data.players || []);
       } else if (data.t === 'takeover') {
         if (data.oldCid === Cabinet.data.cid) {
-          updateStatus(`Moved to SPECTATOR`, 'warning');
           slot = 'spectator';
+          updateSlotDisplay();
         }
       } else if (data.t === 'frame') {
         displayEl.innerHTML = ANSI.toHtml(data.display || '');
-        // Update title from frame if provided
-        if (data.game && !gameName) {
-          updateTitle(data.game.toUpperCase());
-        }
-        // Bridge: broadcast state to ControlDeck
-        if (data.state && ControlDeckBridge.enabled) {
-          ControlDeckBridge.broadcastState(data.state);
-        }
+        if (data.game && !gameName) updateGameName(data.game.toUpperCase());
       }
     }
 
-    function sendInput(input) {
+    // ========================================
+    // INPUT
+    // ========================================
+    function sendInput(msg) {
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(input));
+        ws.send(JSON.stringify(msg));
       }
     }
 
-    // Keyboard input
     document.addEventListener('keydown', (e) => {
-      if (e.target.tagName === 'INPUT') return;
-
-      // Prevent default for game keys
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
         e.preventDefault();
       }
-
-      const input = createInput('keyboard', e.code, 1, true);
-      sendInput(input);
+      // Send both e.key and e.code for compatibility with different games
+      sendInput({ t: 'input', src: 'keyboard', key: e.key, ctrl: e.code, val: 1, pressed: true });
     });
 
     document.addEventListener('keyup', (e) => {
-      if (e.target.tagName === 'INPUT') return;
-
-      const input = createInput('keyboard', e.code, 0, false);
-      sendInput(input);
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      sendInput({ t: 'input', src: 'keyboard', key: e.key, ctrl: e.code, val: 0, pressed: false });
     });
 
-    // Gamepad polling
+    // Gamepad
     let gamepadPollId = null;
     const lastGamepadState = {};
 
     function pollGamepads() {
       const gamepads = navigator.getGamepads();
-
       for (const gp of gamepads) {
         if (!gp) continue;
-
         const last = lastGamepadState[gp.index] || { axes: [], buttons: [] };
 
-        // Check axes
         for (let i = 0; i < gp.axes.length; i++) {
           const val = gp.axes[i];
           if (Math.abs(val - (last.axes[i] || 0)) > 0.01) {
             const ctrl = ['left-x', 'left-y', 'right-x', 'right-y'][i] || `axis-${i}`;
-            sendInput(createInput('gamepad', ctrl, val));
+            sendInput({ t: 'input', src: 'gamepad', ctrl, val });
           }
           last.axes[i] = val;
         }
 
-        // Check buttons
         for (let i = 0; i < gp.buttons.length; i++) {
           const btn = gp.buttons[i];
           const wasPressed = last.buttons[i] || false;
-
           if (btn.pressed !== wasPressed) {
-            const ctrl = [
-              'a', 'b', 'x', 'y', 'l1', 'r1', 'l2', 'r2',
+            const ctrl = ['a', 'b', 'x', 'y', 'l1', 'r1', 'l2', 'r2',
               'select', 'start', 'l3', 'r3',
-              'dpad-up', 'dpad-down', 'dpad-left', 'dpad-right', 'home'
-            ][i] || `button-${i}`;
-
-            sendInput(createInput('gamepad', ctrl, btn.pressed ? 1 : 0, btn.pressed));
+              'dpad-up', 'dpad-down', 'dpad-left', 'dpad-right', 'home'][i] || `button-${i}`;
+            sendInput({ t: 'input', src: 'gamepad', ctrl, val: btn.pressed ? 1 : 0, pressed: btn.pressed });
           }
           last.buttons[i] = btn.pressed;
         }
-
         lastGamepadState[gp.index] = last;
       }
-
       gamepadPollId = requestAnimationFrame(pollGamepads);
     }
 
-    // Start gamepad polling when connected
-    window.addEventListener('gamepadconnected', (e) => {
-      console.log('[join] Gamepad connected:', e.gamepad.id);
-      if (!gamepadPollId) {
-        pollGamepads();
-      }
+    window.addEventListener('gamepadconnected', () => {
+      if (!gamepadPollId) pollGamepads();
     });
 
-    window.addEventListener('gamepaddisconnected', (e) => {
-      console.log('[join] Gamepad disconnected:', e.gamepad.id);
-    });
-
-    // Join button
+    // ========================================
+    // EVENT BINDINGS
+    // ========================================
     joinBtn.addEventListener('click', smartJoin);
+    joinTargetEl.addEventListener('keypress', (e) => { if (e.key === 'Enter') smartJoin(); });
+    resetBtn.addEventListener('click', sendReset);
+    extendBtn.addEventListener('click', extendMatch);
+    takeoverBtn.addEventListener('click', sendTakeover);
 
-    // Enter key handler
-    joinTargetEl.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') smartJoin();
+    slotSelectEl.addEventListener('change', () => {
+      const val = slotSelectEl.value;
+      takeoverBtn.disabled = !val || !ws || ws.readyState !== WebSocket.OPEN;
     });
 
-    // Initialize
+    // ========================================
+    // INIT
+    // ========================================
     async function init() {
-      // Initialize ControlDeck bridge for AI integration
-      ControlDeckBridge.init();
-
-      // Detect GAMMA availability
       await Gamma.detect();
 
-      // Restore nickname if saved
-      const nickInput = document.getElementById('nick-input');
-      if (Cabinet.data.nick && nickInput) {
-        nickInput.value = Cabinet.data.nick;
+      if (Cabinet.data.nick) {
+        nickInputEl.value = Cabinet.data.nick;
       }
 
-      // Auto-connect if URL has ?host= or ?code= parameter
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('host')) {
-        const host = urlParams.get('host');
+      const params = new URLSearchParams(location.search);
+      if (params.has('host')) {
+        const host = params.get('host');
         joinTargetEl.value = host;
         wsUrl = host.startsWith('ws://') ? host : `ws://${host}`;
         setTimeout(connect, 100);
-      } else if (urlParams.has('code')) {
-        const code = urlParams.get('code');
+      } else if (params.has('code')) {
+        const code = params.get('code');
         joinTargetEl.value = code;
         setTimeout(() => joinByCode(code.toUpperCase()), 100);
-      } else if (!Gamma.available) {
-        updateStatus('Enter ws://host:port to connect', 'warning');
       }
     }
 
