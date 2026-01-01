@@ -125,8 +125,8 @@ tds_derive() {
 # =============================================================================
 
 # Get color from palette by name and index
-# Usage: tds_color primary 3 → hex color
-tds_color() {
+# Usage: palette_color primary 3 → hex color
+palette_color() {
     local palette="${1,,}"  # lowercase
     local index="${2:-0}"
 
@@ -142,7 +142,7 @@ tds_color() {
 # Apply color from palette
 # Usage: tds_apply primary 3 → sets terminal color
 tds_apply() {
-    local hex=$(tds_color "$1" "$2")
+    local hex=$(palette_color "$1" "$2")
     text_color "$hex"
 }
 
