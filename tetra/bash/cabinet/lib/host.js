@@ -263,96 +263,67 @@ class Host {
     }
 
     this.wss.on('connection', (ws, req) => {
-      const playerId = this.nextPlayerId++;
+      // Create transport-layer connection
+      const connection = new Connection(ws, req, {
+        collectFingerprint: this.collectFingerprint
+      });
 
-      // Capture server-observed address (what STUN would tell them)
-      const remoteAddr = req.socket.remoteAddress?.replace('::ffff:', '') || 'unknown';
-      const remotePort = req.socket.remotePort || 0;
+      // Create game-layer player (pending until identify)
+      const player = new Player(connection);
 
-      // Start as pending until identify message received
-      const player = {
-        id: playerId,
-        slot: 'pending',
-        cid: null,
-        nick: null,
-        visits: 0,
-        joinedAt: Date.now(),
-        lastInput: Date.now(),
-        // Fingerprint data (populated if collectFingerprint enabled)
-        fingerprint: this.collectFingerprint ? {
-          serverSeen: `${remoteAddr}:${remotePort}`,
-          ip: remoteAddr,
-          port: remotePort,
-          clientStun: null,  // Filled when client sends ident with stun info
-          natType: null
-        } : null
-      };
-
-      // Temporarily track connection
+      // Track by websocket for lookups
       this.players.set(ws, player);
 
-      if (this.collectFingerprint) {
-        console.log(`[host] Player ${playerId} connected from ${remoteAddr}:${remotePort} (awaiting identity)`);
+      const fp = connection.fingerprint;
+      if (fp) {
+        console.log(`[host] Connection ${connection.id} from ${fp.serverSeen} (awaiting identity)`);
       } else {
-        console.log(`[host] Player ${playerId} connected (awaiting identity)`);
+        console.log(`[host] Connection ${connection.id} (awaiting identity)`);
       }
 
-      // Send welcome with pending slot (will update after identify)
-      ws.send(JSON.stringify({
+      // Send welcome with pending slot
+      player.send({
         t: 'welcome',
-        playerId,
+        playerId: player.id,
         slot: 'pending',
         players: this._getPlayerList()
-      }));
+      });
 
       ws.on('message', (msg) => {
         try {
           const data = JSON.parse(msg);
 
-          // Handle identity message
           if (data.t === 'identify') {
-            player.cid = data.cid || `anon_${playerId}`;
-            player.nick = data.nick || `Player${playerId}`;
+            player.cid = data.cid || `anon_${player.id}`;
+            player.nick = data.nick || `Player${player.id}`;
             player.visits = data.visits || 1;
 
-            // Process client STUN info if fingerprinting enabled
-            if (this.collectFingerprint && player.fingerprint && data.stun) {
-              player.fingerprint.clientStun = data.stun;
-              // Detect NAT type by comparing server-seen port vs client STUN port
-              if (data.stun.ip === player.fingerprint.ip) {
-                if (data.stun.port === player.fingerprint.port) {
-                  player.fingerprint.natType = 'none';  // No NAT or hairpin
-                } else {
-                  player.fingerprint.natType = 'symmetric';  // Port changes per destination
-                }
-              } else {
-                player.fingerprint.natType = 'full';  // Different IP (carrier-grade NAT?)
+            // Process STUN info via Connection
+            if (data.stun) {
+              connection.setStunInfo(data.stun);
+              if (connection.fingerprint) {
+                console.log(`[host] ${player.cid} fingerprint: server=${fp.serverSeen} stun=${data.stun.ip}:${data.stun.port} nat=${fp.natType}`);
               }
-              console.log(`[host] ${player.cid} fingerprint: server=${player.fingerprint.serverSeen} stun=${data.stun.ip}:${data.stun.port} nat=${player.fingerprint.natType}`);
             }
 
             const requestSlot = data.requestSlot || '';
             const takeover = data.takeover || false;
             const share = requestSlot === 'share';
 
-            // Assign slot with takeover/share support
             const slot = this._assignSlot(share ? '' : requestSlot, takeover, share);
 
-            // Handle takeover eviction
             if (takeover && (requestSlot === 'p1' || requestSlot === 'p2')) {
               this._evictFromSlot(requestSlot, player);
             }
 
             player.slot = slot;
 
-            // Handle rejected connection
             if (slot === 'rejected') {
-              ws.send(JSON.stringify({ t: 'rejected', reason: 'Server full' }));
+              player.send({ t: 'rejected', reason: 'Server full' });
               ws.close();
               return;
             }
 
-            // Track slot connections (for sharing)
             if (this._isPlayerSlot(slot)) {
               this.slotConnections[slot].add(ws);
             } else {
@@ -361,28 +332,26 @@ class Host {
 
             console.log(`[host] ${player.nick} (${player.cid}) assigned to ${slot} (visits: ${player.visits})`);
 
-            // Send updated welcome (no playerId - just slot)
-            ws.send(JSON.stringify({
+            player.send({
               t: 'welcome',
               slot,
               cid: player.cid,
               nick: player.nick,
               game: this.driver?.gameType || this.driver?.name || null,
               players: this._getPlayerList()
-            }));
+            });
 
             this._broadcastPlayerList();
 
-            // Send last frame
             if (this.lastFrame) {
-              ws.send(JSON.stringify(this.lastFrame));
+              player.send(this.lastFrame);
             }
 
             if (this._onPlayerJoin) {
               this._onPlayerJoin(player, ws);
             }
           } else {
-            player.lastInput = Date.now();
+            player.updateInput();
             this._handleClientMessage(ws, player, data);
           }
         } catch (e) {
@@ -397,7 +366,7 @@ class Host {
         if (this._isPlayerSlot(slot)) {
           this.slotConnections[slot]?.delete(ws);
         }
-        console.log(`[host] ${player.nick || 'Player ' + playerId} disconnected`);
+        console.log(`[host] ${player.nick || 'Connection ' + player.id} disconnected`);
         this._broadcastPlayerList();
         if (this._onPlayerLeave) {
           this._onPlayerLeave(player);
@@ -540,15 +509,8 @@ class Host {
 
   _getPlayerList() {
     return [...this.players.values()]
-      .filter(p => p.slot !== 'pending')  // Don't show pending connections
-      .map(p => ({
-        id: p.id,
-        slot: p.slot,
-        cid: p.cid,
-        nick: p.nick,
-        visits: p.visits,
-        idle: Math.floor((Date.now() - p.lastInput) / 1000)  // Seconds since last input
-      }));
+      .filter(p => p.slot !== 'pending')
+      .map(p => p.toPublic());
   }
 
   // Expose player data for dev API
@@ -578,4 +540,4 @@ class Host {
   }
 }
 
-module.exports = { Host };
+module.exports = { Host, Connection, Player };

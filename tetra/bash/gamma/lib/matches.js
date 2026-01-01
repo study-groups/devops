@@ -18,6 +18,7 @@ class Match {
         this.code = options.code;
         this.game = options.game;
         this.maxPlayers = options.maxPlayers || 2;
+        this.port = options.port || null;  // Allocated match port
 
         this.host = {
             addr: options.addr,
@@ -174,6 +175,7 @@ class Match {
             game: this.game,
             topic: this.topic,
             host: this.host,
+            port: this.port,
             slots,
             playerCount: this.playerCount,
             maxPlayers: this.maxPlayers,
@@ -192,6 +194,7 @@ class Match {
             code: this.code,
             game: this.game,
             maxPlayers: this.maxPlayers,
+            port: this.port,
             host: this.host,
             topic: this.topic,
             hostToken: this.hostToken,
@@ -328,20 +331,20 @@ class Matches {
     }
 
     cleanupExpired() {
-        let cleaned = 0;
+        const expired = [];
 
         for (const [code, match] of this.matches) {
             if (match.isExpired()) {
+                expired.push(match);
                 this.delete(code);
-                cleaned++;
             }
         }
 
-        if (cleaned > 0) {
-            console.log(`[gamma] Cleaned up ${cleaned} expired matches`);
+        if (expired.length > 0) {
+            console.log(`[gamma] Cleaned up ${expired.length} expired matches`);
         }
 
-        return cleaned;
+        return expired;  // Return expired matches for port release
     }
 }
 

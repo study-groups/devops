@@ -370,6 +370,10 @@
     </div>
   </div>
 
+  <!-- External modules -->
+  <script src="lib/config.js"></script>
+  <script src="lib/stun.js"></script>
+
   <script>
     // ========================================
     // CABINET IDENTITY
@@ -707,61 +711,11 @@
     // ========================================
     // STUN FINGERPRINTING (behind flag)
     // ========================================
-    const STUNFingerprint = {
-      enabled: false,
-      cached: null,
-      STUN_SERVER: 'stun:stun.l.google.com:19302',
-
-      init() {
-        // Enable via query param: ?stun=1
-        const params = new URLSearchParams(location.search);
-        this.enabled = params.get('stun') === '1';
-        if (this.enabled) console.log('[stun] Fingerprinting enabled');
-        return this;
-      },
-
-      async getPublicAddress() {
-        if (!this.enabled) return null;
-        if (this.cached) return this.cached;
-
-        try {
-          const pc = new RTCPeerConnection({
-            iceServers: [{ urls: this.STUN_SERVER }]
-          });
-
-          pc.createDataChannel('');  // Trigger ICE gathering
-
-          const result = await new Promise((resolve) => {
-            const timeout = setTimeout(() => { pc.close(); resolve(null); }, 3000);
-
-            pc.onicecandidate = (e) => {
-              if (e.candidate) {
-                // Parse srflx (server reflexive = public addr)
-                const match = e.candidate.candidate.match(/srflx.*?(\d+\.\d+\.\d+\.\d+)\s+(\d+)/);
-                if (match) {
-                  clearTimeout(timeout);
-                  resolve({ ip: match[1], port: parseInt(match[2]) });
-                  pc.close();
-                }
-              } else {
-                clearTimeout(timeout);
-                resolve(null);  // Gathering complete, no srflx found
-                pc.close();
-              }
-            };
-
-            pc.createOffer().then(o => pc.setLocalDescription(o));
-          });
-
-          this.cached = result;
-          if (result) console.log(`[stun] Public address: ${result.ip}:${result.port}`);
-          return result;
-        } catch (e) {
-          console.log('[stun] Query failed:', e.message);
-          return null;
-        }
-      }
-    }.init();
+    // STUNFingerprint class loaded from lib/stun.js
+    // CabinetConfig loaded from lib/config.js
+    const stunFingerprint = new STUNFingerprint({
+      enabled: CabinetConfig.flags.stun
+    });
 
     // ========================================
     // STATE
@@ -979,7 +933,7 @@
         if (nickVal) Cabinet.setNick(nickVal);
 
         // Query STUN for public address (if enabled)
-        const stunInfo = await STUNFingerprint.getPublicAddress();
+        const stunInfo = await stunFingerprint.getPublicAddress();
 
         const requestSlot = slotSelectEl.value;
         ws.send(JSON.stringify({
