@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Join Game - Cabinet</title>
+  <title>Join Game</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -25,6 +25,7 @@
     }
     #status.connected { background: #0a3; color: #fff; }
     #status.error { background: #a00; color: #fff; }
+    #status.warning { background: #a50; color: #fff; }
     #game-display {
       font-family: monospace;
       font-size: 14px;
@@ -40,8 +41,10 @@
       margin-top: 20px;
       display: flex;
       gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
     }
-    input, button {
+    input, button, select {
       font-family: monospace;
       font-size: 14px;
       padding: 8px 16px;
@@ -50,19 +53,18 @@
       color: #0f0;
     }
     button:hover { background: #0f0; color: #000; cursor: pointer; }
-    #info {
-      margin-top: 20px;
-      color: #666;
+    #join-target {
+      width: 220px;
       text-align: center;
-      max-width: 500px;
+      letter-spacing: 1px;
     }
-    .key { color: #ff0; }
+    #join-target::placeholder { letter-spacing: normal; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
   </style>
 </head>
 <body>
-  <h1>CABINET</h1>
-  <div id="status">Disconnected</div>
+  <h1 id="game-title">Join Game</h1>
+  <div id="status">Enter code or address</div>
   <div id="match-timer" style="display:none;padding:5px 10px;background:#111;border:1px solid #030;font-size:12px;margin-bottom:10px;">
     <span style="color:#050">Match expires in:</span> <span id="time-remaining">--:--</span>
     <button id="extend-btn" style="margin-left:10px;background:#000;border:1px solid #0f0;color:#0f0;padding:2px 8px;cursor:pointer;font-family:monospace;">+5m</button>
@@ -72,23 +74,17 @@
     <span style="color:#050">No players connected</span>
   </div>
   <div id="controls">
-    <input type="text" id="nick-input" placeholder="Nickname" style="width:80px" />
-    <input type="text" id="join-code" placeholder="Join Code" style="width:80px;text-transform:uppercase">
+    <input type="text" id="join-target" placeholder="CODE or ws://host:port" autocomplete="off">
     <button id="join-btn">Join</button>
-    <span style="color:#666;margin:0 5px">|</span>
-    <input type="text" id="host-url" placeholder="ws://localhost:8090" value="ws://localhost:8090">
-    <select id="slot-select" style="background:#000;color:#0f0;border:1px solid #0f0;padding:6px;">
+    <select id="slot-select" style="padding:6px;">
       <option value="">Auto</option>
       <option value="p1">P1</option>
       <option value="p2">P2</option>
+      <option value="p3">P3</option>
+      <option value="p4">P4</option>
       <option value="share">Share</option>
     </select>
-    <button id="connect-btn">Connect</button>
-  </div>
-  <div id="info">
-    <p>Controls:</p>
-    <p>P1: <span class="key">WASD</span> | P2: <span class="key">IJKL</span> or <span class="key">Arrows</span></p>
-    <p><span class="key">P</span> Pause | <span class="key">R</span> Reset | <span class="key">Q</span> Quit</p>
+    <input type="text" id="nick-input" placeholder="Nick" style="width:80px" />
   </div>
 
   <script>
@@ -105,18 +101,15 @@
         } else {
           this.data = {
             cid: 'cab_' + Math.random().toString(36).substr(2, 6),
-            nick: 'Player' + Math.floor(Math.random() * 999),
+            nick: '',
             visits: 1,
             firstSeen: Date.now(),
             lastSeen: Date.now(),
-            ua: navigator.userAgent.split(' ').slice(-2).join(' '),
-            slots: [],
-            wins: 0,
-            losses: 0
+            slots: []
           };
         }
         this.save();
-        console.log('[cabinet] Identity:', this.data.cid, this.data.nick);
+        console.log('[cabinet] Identity:', this.data.cid);
         return this;
       },
       save() {
@@ -132,13 +125,89 @@
           this.save();
         }
       },
-      // Expose for devs
       dump() { return this.data; }
     }.init();
 
-    // Expose globally for console access
     window.Cabinet = Cabinet;
-    window.CAB = Cabinet.data;
+
+    // ========================================
+    // GAMMA DETECTION
+    // ========================================
+    const Gamma = {
+      // Detect GAMMA URL based on how we're served
+      url: null,
+      available: false,
+
+      async detect() {
+        // If served from gamma-web, use same origin
+        if (location.pathname.startsWith('/cabinet')) {
+          this.url = location.origin;
+        } else {
+          // Standalone - try localhost:8085
+          this.url = 'http://localhost:8085';
+        }
+
+        // Check if GAMMA is responding
+        try {
+          const resp = await fetch(`${this.url}/api/status`, {
+            method: 'GET',
+            signal: AbortSignal.timeout(2000)
+          });
+          if (resp.ok) {
+            this.available = true;
+            console.log('[gamma] Available at', this.url);
+          }
+        } catch (e) {
+          this.available = false;
+          console.log('[gamma] Not available at', this.url);
+        }
+        return this.available;
+      }
+    };
+
+    // ANSI to HTML converter (xterm-style)
+    const ANSI = {
+      colors: {
+        30: '#000', 31: '#a00', 32: '#0a0', 33: '#a50',
+        34: '#00a', 35: '#a0a', 36: '#0aa', 37: '#aaa',
+        90: '#555', 91: '#f55', 92: '#5f5', 93: '#ff5',
+        94: '#55f', 95: '#f5f', 96: '#5ff', 97: '#fff'
+      },
+      toHtml(text) {
+        if (!text) return '';
+        // Escape HTML first
+        let html = text
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+
+        // Parse ANSI codes: \x1b[...m
+        html = html.replace(/\x1b\[([0-9;]+)m/g, (match, codes) => {
+          const parts = codes.split(';');
+          let style = [];
+          let close = false;
+
+          for (const code of parts) {
+            const n = parseInt(code);
+            if (n === 0) {
+              close = true;  // Reset
+            } else if (n === 1) {
+              style.push('font-weight:bold');
+            } else if (n >= 30 && n <= 37 || n >= 90 && n <= 97) {
+              style.push('color:' + (this.colors[n] || '#fff'));
+            } else if (n >= 40 && n <= 47) {
+              style.push('background:' + (this.colors[n - 10] || '#000'));
+            }
+          }
+
+          if (close) return '</span>';
+          if (style.length) return '<span style="' + style.join(';') + '">';
+          return '';
+        });
+
+        return html;
+      }
+    };
 
     // Unified input format
     function createInput(src, ctrl, val, pressed = null) {
@@ -149,25 +218,22 @@
 
     // WebSocket connection
     let ws = null;
-    let playerId = null;
     let slot = null;
+    let gameName = null;  // Current game name
     let players = [];  // Track connected players
     let matchCode = null;  // Current match code
     let matchExpires = null;  // Match expiration timestamp
     let timerInterval = null;  // Timer update interval
+    let wsUrl = null;  // Current WebSocket URL
 
     const statusEl = document.getElementById('status');
     const displayEl = document.getElementById('game-display');
-    const hostUrlEl = document.getElementById('host-url');
-    const connectBtn = document.getElementById('connect-btn');
-    const joinCodeEl = document.getElementById('join-code');
+    const titleEl = document.getElementById('game-title');
+    const joinTargetEl = document.getElementById('join-target');
     const joinBtn = document.getElementById('join-btn');
     const matchTimerEl = document.getElementById('match-timer');
     const timeRemainingEl = document.getElementById('time-remaining');
     const extendBtn = document.getElementById('extend-btn');
-
-    // GAMMA API endpoint
-    const GAMMA_URL = 'http://localhost:8085';
 
     // Match timer functions
     function formatTimeRemaining(ms) {
@@ -219,9 +285,9 @@
     }
 
     async function extendMatch() {
-      if (!matchCode) return;
+      if (!matchCode || !Gamma.available) return;
       try {
-        const resp = await fetch(`${GAMMA_URL}/api/match/extend`, {
+        const resp = await fetch(`${Gamma.url}/api/match/extend`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code: matchCode })
@@ -237,7 +303,6 @@
       }
     }
 
-    // Extend button handler
     extendBtn.addEventListener('click', extendMatch);
 
     function updateStatus(text, className = '') {
@@ -245,18 +310,56 @@
       statusEl.className = className;
     }
 
-    // Join game by code via GAMMA API
-    async function joinByCode() {
-      const code = joinCodeEl.value.trim().toUpperCase();
-      if (!code || code.length < 4) {
-        updateStatus('Enter a valid join code (e.g. HT92)', 'error');
+    function updateTitle(name) {
+      gameName = name;
+      titleEl.textContent = name || 'Join Game';
+      document.title = name ? `${name} - Cabinet` : 'Join Game';
+    }
+
+    // Smart join - detect if input is code or ws:// URL
+    async function smartJoin() {
+      const input = joinTargetEl.value.trim();
+      if (!input) {
+        updateStatus('Enter a code or ws://host:port', 'error');
         return;
       }
 
-      updateStatus('Resolving join code...');
+      // Direct WebSocket URL
+      if (input.startsWith('ws://') || input.startsWith('wss://')) {
+        wsUrl = input;
+        connect();
+        return;
+      }
+
+      // Looks like host:port without ws://
+      if (input.includes(':') && /:\d+$/.test(input)) {
+        wsUrl = `ws://${input}`;
+        connect();
+        return;
+      }
+
+      // Assume it's a GAMMA code
+      const code = input.toUpperCase();
+      if (code.length < 3 || code.length > 6) {
+        updateStatus('Invalid code format', 'error');
+        return;
+      }
+
+      await joinByCode(code);
+    }
+
+    // Join game by code via GAMMA API
+    async function joinByCode(code) {
+      if (!Gamma.available) {
+        updateStatus('GAMMA not available - use ws://host:port', 'warning');
+        return;
+      }
+
+      updateStatus('Resolving code...');
+      matchCode = code;
 
       try {
-        const resp = await fetch(`${GAMMA_URL}/api/match/join`, {
+        const resp = await fetch(`${Gamma.url}/api/match/join`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code })
@@ -271,34 +374,30 @@
         const data = await resp.json();
 
         if (data.host) {
-          // Format: "host:port" or "localhost:8090"
-          const wsUrl = data.host.startsWith('ws://')
-            ? data.host
-            : `ws://${data.host}`;
-          hostUrlEl.value = wsUrl;
+          wsUrl = data.host.startsWith('ws://') ? data.host : `ws://${data.host}`;
 
-          // Store match code for timer/extend
-          matchCode = code;
+          // Update title with game name
+          if (data.game) {
+            updateTitle(data.game.toUpperCase());
+          }
 
-          // Fetch full match info to get expiration
+          // Fetch match info for expiration timer
           try {
-            const matchResp = await fetch(`${GAMMA_URL}/api/match/${code}`);
+            const matchResp = await fetch(`${Gamma.url}/api/match/${code}`);
             if (matchResp.ok) {
               const matchInfo = await matchResp.json();
-              if (matchInfo.expires) {
-                startMatchTimer(matchInfo.expires);
-              }
+              if (matchInfo.expires) startMatchTimer(matchInfo.expires);
+              if (matchInfo.game) updateTitle(matchInfo.game.toUpperCase());
             }
           } catch (e) {
-            console.log('[join] Could not fetch match expiration');
+            console.log('[join] Could not fetch match info');
           }
 
           if (data.full) {
-            updateStatus(`Match full - connecting for takeover/spectate...`);
-            // Set slot to share mode for takeover
+            updateStatus('Match full - connecting as spectator...');
             document.getElementById('slot-select').value = 'share';
           } else {
-            updateStatus(`Found match: ${data.game || 'game'} - Connecting...`);
+            updateStatus('Connecting...');
           }
           connect();
         } else {
@@ -311,20 +410,22 @@
     }
 
     function connect() {
-      const url = hostUrlEl.value || 'ws://localhost:8080';
+      if (!wsUrl) {
+        updateStatus('No address specified', 'error');
+        return;
+      }
 
       if (ws) {
         ws.close();
       }
 
       updateStatus('Connecting...');
-      ws = new WebSocket(url);
+      ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        updateStatus('Connected', 'connected');
-        console.log('[join] Connected to', url);
+        console.log('[join] Connected to', wsUrl);
 
-        // Update nick from input if changed
+        // Update nick from input if set
         const nickInput = document.getElementById('nick-input');
         if (nickInput && nickInput.value) {
           Cabinet.setNick(nickInput.value);
@@ -337,10 +438,10 @@
         ws.send(JSON.stringify({
           t: 'identify',
           cid: Cabinet.data.cid,
-          nick: Cabinet.data.nick,
+          nick: Cabinet.data.nick || undefined,
           visits: Cabinet.data.visits,
-          requestSlot: slotPref,  // '', 'p1', 'p2', or 'share'
-          takeover: slotPref === 'p1' || slotPref === 'p2'  // Request takeover if specific slot
+          requestSlot: slotPref,
+          takeover: ['p1', 'p2', 'p3', 'p4'].includes(slotPref)
         }));
       };
 
@@ -386,22 +487,33 @@
 
     function handleMessage(data) {
       if (data.t === 'welcome') {
-        playerId = data.playerId;
         slot = data.slot;
         Cabinet.recordSlot(slot);
-        updateStatus(`Connected as ${slot.toUpperCase()} (Player ${playerId})`, 'connected');
+
+        // Update status with slot only (no confusing playerId)
+        const slotLabel = slot === 'spectator' ? 'SPECTATOR' : slot.toUpperCase();
+        const codeStr = matchCode ? ` [${matchCode}]` : '';
+        updateStatus(`Connected as ${slotLabel}${codeStr}`, 'connected');
+
+        // Update title if game name provided
+        if (data.game) {
+          updateTitle(data.game.toUpperCase());
+        }
+
         if (data.players) updatePlayersDisplay(data.players);
       } else if (data.t === 'players') {
         updatePlayersDisplay(data.players || []);
-        console.log('[join] Players:', data.players);
       } else if (data.t === 'takeover') {
-        // Someone took over our slot
         if (data.oldCid === Cabinet.data.cid) {
-          updateStatus(`Bumped to spectator by ${data.newNick}`, 'error');
+          updateStatus(`Moved to SPECTATOR`, 'warning');
           slot = 'spectator';
         }
       } else if (data.t === 'frame') {
-        displayEl.textContent = data.display || '';
+        displayEl.innerHTML = ANSI.toHtml(data.display || '');
+        // Update title from frame if provided
+        if (data.game && !gameName) {
+          updateTitle(data.game.toUpperCase());
+        }
       }
     }
 
@@ -488,29 +600,42 @@
       console.log('[join] Gamepad disconnected:', e.gamepad.id);
     });
 
-    // Connect button
-    connectBtn.addEventListener('click', connect);
-
     // Join button
-    joinBtn.addEventListener('click', joinByCode);
+    joinBtn.addEventListener('click', smartJoin);
 
-    // Enter key handlers
-    hostUrlEl.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') connect();
-    });
-    joinCodeEl.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') joinByCode();
+    // Enter key handler
+    joinTargetEl.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') smartJoin();
     });
 
-    // Auto-connect if URL has ?host= or ?code= parameter
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('host')) {
-      hostUrlEl.value = urlParams.get('host');
-      setTimeout(connect, 100);
-    } else if (urlParams.has('code')) {
-      joinCodeEl.value = urlParams.get('code');
-      setTimeout(joinByCode, 100);
+    // Initialize
+    async function init() {
+      // Detect GAMMA availability
+      await Gamma.detect();
+
+      // Restore nickname if saved
+      const nickInput = document.getElementById('nick-input');
+      if (Cabinet.data.nick && nickInput) {
+        nickInput.value = Cabinet.data.nick;
+      }
+
+      // Auto-connect if URL has ?host= or ?code= parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('host')) {
+        const host = urlParams.get('host');
+        joinTargetEl.value = host;
+        wsUrl = host.startsWith('ws://') ? host : `ws://${host}`;
+        setTimeout(connect, 100);
+      } else if (urlParams.has('code')) {
+        const code = urlParams.get('code');
+        joinTargetEl.value = code;
+        setTimeout(() => joinByCode(code.toUpperCase()), 100);
+      } else if (!Gamma.available) {
+        updateStatus('Enter ws://host:port to connect', 'warning');
+      }
     }
+
+    init();
   </script>
 </body>
 </html>

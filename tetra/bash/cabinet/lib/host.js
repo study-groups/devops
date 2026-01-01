@@ -12,8 +12,11 @@
  */
 
 const WebSocket = require('ws');
+const fs = require('fs');
+const path = require('path');
 
-const SLOTS = ['p1', 'p2'];
+const MAX_PLAYERS = 4;
+const MAX_SPECTATORS = 4;
 
 class Host {
   constructor(options = {}) {
@@ -21,14 +24,24 @@ class Host {
     this.quasarUrl = options.quasar || null;
     this.driver = options.driver || null;
     this.httpServer = options.server || null;  // Optional HTTP server to attach to
+    this.maxPlayers = options.maxPlayers || MAX_PLAYERS;
+    this.maxSpectators = options.maxSpectators || MAX_SPECTATORS;
+    this.autoRespawn = options.autoRespawn !== false;  // Default: true
+    this.respawnDelay = options.respawnDelay || 1000;  // ms
+
+    // Build slot list based on maxPlayers
+    this.slots = [];
+    this.slotConnections = {};
+    for (let i = 1; i <= this.maxPlayers; i++) {
+      const slot = `p${i}`;
+      this.slots.push(slot);
+      this.slotConnections[slot] = new Set();
+    }
 
     // Player connections: Map<ws, {id, slot, cid, nick, joinedAt, lastInput}>
     this.players = new Map();
     this.spectators = new Set();
     this.nextPlayerId = 1;
-
-    // Slot sharing: Map<slot, Set<ws>> - multiple connections per slot
-    this.slotConnections = { p1: new Set(), p2: new Set() };
 
     // Callbacks
     this._onPlayerJoin = null;
@@ -50,18 +63,37 @@ class Host {
       this._connectQuasar();
     }
     if (this.driver) {
-      this.driver.onFrame((frame) => this._handleFrame(frame));
-      this.driver.start();
+      this._startDriver();
     }
     console.log(`[host] Started on port ${this.port}`);
     return this;
   }
 
   stop() {
+    this.autoRespawn = false;  // Prevent respawn on intentional stop
     if (this.driver) this.driver.stop();
     if (this.wss) this.wss.close();
     if (this.quasarWs) this.quasarWs.close();
     console.log('[host] Stopped');
+  }
+
+  // Start/restart the driver with auto-respawn support
+  _startDriver() {
+    this.driver.onFrame((frame) => this._handleFrame(frame));
+    this.driver.onExit((code) => {
+      console.log(`[host] Game exited with code ${code}`);
+      if (this.autoRespawn) {
+        console.log(`[host] Respawning game in ${this.respawnDelay}ms...`);
+        this._broadcast({ t: 'game.respawn', delay: this.respawnDelay });
+        setTimeout(() => {
+          if (this.autoRespawn) {
+            console.log('[host] Respawning game');
+            this.driver.start();
+          }
+        }, this.respawnDelay);
+      }
+    });
+    this.driver.start();
   }
 
   // Event handlers
@@ -69,31 +101,43 @@ class Host {
   onPlayerLeave(callback) { this._onPlayerLeave = callback; }
   onInput(callback) { this._onInput = callback; }
 
+  // Check if slot is valid player slot
+  _isPlayerSlot(slot) {
+    return this.slots.includes(slot);
+  }
+
   // Assign player to slot (supports takeover and sharing)
   _assignSlot(requestSlot = '', takeover = false, share = false) {
     // Share mode: join requested slot even if occupied
-    if (share && (requestSlot === 'p1' || requestSlot === 'p2')) {
+    if (share && this._isPlayerSlot(requestSlot)) {
       return requestSlot;
     }
 
     // Takeover mode: boot existing player from slot
-    if (takeover && (requestSlot === 'p1' || requestSlot === 'p2')) {
+    if (takeover && this._isPlayerSlot(requestSlot)) {
       return requestSlot;  // Will handle eviction in caller
     }
 
     // Specific slot request (no takeover)
-    if (requestSlot === 'p1' || requestSlot === 'p2') {
+    if (this._isPlayerSlot(requestSlot)) {
       const taken = [...this.players.values()].some(p => p.slot === requestSlot);
       if (!taken) return requestSlot;
       // Slot taken, fall through to auto-assign
     }
 
     // Auto-assign: find first open slot
-    for (const slot of SLOTS) {
+    for (const slot of this.slots) {
       const taken = [...this.players.values()].some(p => p.slot === slot);
       if (!taken) return slot;
     }
-    return 'spectator';
+
+    // All player slots full, check spectator limit
+    if (this.spectators.size < this.maxSpectators) {
+      return 'spectator';
+    }
+
+    // Server full
+    return 'rejected';
   }
 
   // Get existing player in a slot (for takeover)
@@ -182,8 +226,15 @@ class Host {
 
             player.slot = slot;
 
+            // Handle rejected connection
+            if (slot === 'rejected') {
+              ws.send(JSON.stringify({ t: 'rejected', reason: 'Server full' }));
+              ws.close();
+              return;
+            }
+
             // Track slot connections (for sharing)
-            if (slot === 'p1' || slot === 'p2') {
+            if (this._isPlayerSlot(slot)) {
               this.slotConnections[slot].add(ws);
             } else {
               this.spectators.add(ws);
@@ -191,13 +242,13 @@ class Host {
 
             console.log(`[host] ${player.nick} (${player.cid}) assigned to ${slot} (visits: ${player.visits})`);
 
-            // Send updated welcome
+            // Send updated welcome (no playerId - just slot)
             ws.send(JSON.stringify({
               t: 'welcome',
-              playerId,
               slot,
               cid: player.cid,
               nick: player.nick,
+              game: this.driver?.gameType || this.driver?.name || null,
               players: this._getPlayerList()
             }));
 
@@ -224,7 +275,7 @@ class Host {
         const slot = player.slot;
         this.players.delete(ws);
         this.spectators.delete(ws);
-        if (slot === 'p1' || slot === 'p2') {
+        if (this._isPlayerSlot(slot)) {
           this.slotConnections[slot]?.delete(ws);
         }
         console.log(`[host] ${player.nick || 'Player ' + playerId} disconnected`);

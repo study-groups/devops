@@ -25,6 +25,11 @@ class TestPattern extends Gamepak {
         this.cols = options.cols || 80;
         this.rows = options.rows || 24;
         this.fps = options.fps || 30;
+        this.matchCode = options.matchCode || null;
+        this.maxPlayers = options.maxPlayers || options.slots || 2;
+        this.wsPort = options.port || 8090;
+        this.wsHost = options.host || 'localhost';
+        this.gammaUrl = options.gammaUrl || 'localhost:8085';
 
         // State
         this.frameCount = 0;
@@ -32,6 +37,7 @@ class TestPattern extends Gamepak {
         this.lastInputs = {};  // slot -> last input
         this.players = {};     // slot -> player info
         this.intervalId = null;
+        this.connectedClients = 0;
     }
 
     start() {
@@ -71,9 +77,21 @@ class TestPattern extends Gamepak {
 
     setPlayers(players) {
         this.players = {};
+        this.connectedClients = 0;
         for (const p of players) {
             this.players[p.slot] = p;
+            if (!p.isLocal) this.connectedClients++;
         }
+    }
+
+    setMatchCode(code) {
+        this.matchCode = code;
+    }
+
+    setConnectionInfo(info) {
+        if (info.port) this.wsPort = info.port;
+        if (info.host) this.wsHost = info.host;
+        if (info.gammaUrl) this.gammaUrl = info.gammaUrl;
     }
 
     _tick() {
@@ -94,25 +112,35 @@ class TestPattern extends Gamepak {
         const W = this.cols;
 
         // Header
+        const codeDisplay = this.matchCode || '----';
         lines.push(this._center('╔' + '═'.repeat(W - 2) + '╗', W));
-        lines.push(this._center('║' + this._center('CABINET TEST PATTERN', W - 2) + '║', W));
+        lines.push(this._center('║' + this._center(`CABINET TEST  [ ${codeDisplay} ]`, W - 2) + '║', W));
+        lines.push(this._center('╠' + '═'.repeat(W - 2) + '╣', W));
+
+        // Connection info
+        const wsUrl = `ws://${this.wsHost}:${this.wsPort}`;
+        const joinUrl = `http://${this.gammaUrl}/cabinet/join.html?code=${codeDisplay}`;
+        lines.push(this._center('║' + this._pad(`  WebSocket: ${wsUrl}`, W - 2) + '║', W));
+        lines.push(this._center('║' + this._pad(`  Join URL:  ${this.gammaUrl}/cabinet/?code=${codeDisplay}`, W - 2) + '║', W));
+        lines.push(this._center('║' + this._pad(`  Players:   ${Object.keys(this.players).length}/${this.maxPlayers}  (${this.connectedClients} remote)`, W - 2) + '║', W));
         lines.push(this._center('╠' + '═'.repeat(W - 2) + '╣', W));
 
         // Stats
-        lines.push(this._center('║' + this._pad(`Frame: ${this.frameCount}`, W - 2) + '║', W));
-        lines.push(this._center('║' + this._pad(`FPS: ${fps.toFixed(1)} (target: ${this.fps})`, W - 2) + '║', W));
-        lines.push(this._center('║' + this._pad(`Uptime: ${elapsed.toFixed(1)}s`, W - 2) + '║', W));
+        lines.push(this._center('║' + this._pad(`  Frame: ${this.frameCount}  FPS: ${fps.toFixed(1)}  Uptime: ${elapsed.toFixed(1)}s`, W - 2) + '║', W));
         lines.push(this._center('╠' + '═'.repeat(W - 2) + '╣', W));
 
         // Slot status
         lines.push(this._center('║' + this._center('SLOTS', W - 2) + '║', W));
         lines.push(this._center('╟' + '─'.repeat(W - 2) + '╢', W));
 
-        for (const slot of ['p1', 'p2']) {
+        for (let i = 1; i <= this.maxPlayers; i++) {
+            const slot = `p${i}`;
             const player = this.players[slot];
-            const status = player ? `Player ${player.id}` : '[ empty ]';
+            const status = player
+                ? (player.isLocal ? 'LOCAL' : (player.nick || `Player ${player.id}`))
+                : '[ empty ]';
             const input = this.lastInputs[slot];
-            const inputStr = input ? `Last: ${input.ctrl || input.key || '?'}` : '';
+            const inputStr = input ? `← ${input.ctrl || input.key || '?'}` : '';
             lines.push(this._center('║' + this._pad(`  ${slot.toUpperCase()}: ${status}  ${inputStr}`, W - 2) + '║', W));
         }
 
@@ -161,9 +189,12 @@ class TestPattern extends Gamepak {
     }
 
     _center(str, width) {
-        const pad = Math.max(0, width - str.length);
+        const len = str.length;
+        if (len >= width) return str.slice(0, width);
+        const pad = width - len;
         const left = Math.floor(pad / 2);
-        return ' '.repeat(left) + str;
+        const right = pad - left;
+        return ' '.repeat(left) + str + ' '.repeat(right);
     }
 
     _pad(str, width) {

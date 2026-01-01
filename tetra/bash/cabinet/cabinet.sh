@@ -2,23 +2,26 @@
 # cabinet.sh - CLI for hosting multiplayer game sessions
 #
 # Usage:
-#   cabinet start <game> [--port PORT] [--quasar URL]
-#   cabinet stop
-#   cabinet list
-#   cabinet join [URL]
+#   cabinet dev [options]           # Test pattern dev mode
+#   cabinet host <game> [options]   # Host a game
+#   cabinet join <url|code>         # Join a remote cabinet
+#   cabinet games                   # List available games
+#   cabinet start <game>            # Start game via TSM (background)
+#   cabinet stop                    # Stop running cabinet
+#   cabinet help [command]          # Show help
 #
 # Examples:
-#   cabinet start trax
-#   cabinet start trax --port 9000
-#   cabinet start trax --quasar ws://relay.example.com
+#   cabinet dev
+#   cabinet host magnetar --http
+#   cabinet join ws://192.168.1.5:8080
 
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
 
-CABINET_SRC="${TETRA_SRC}/bash/cabinet"
+CABINET_SRC="${CABINET_SRC:-${TETRA_SRC}/bash/cabinet}"
 CABINET_PID_FILE="${TETRA_DIR:?}/.cabinet.pid"
-CABINET_DEFAULT_PORT=8080
+# No default port - must be specified via --port or CABINET_PORT env
 
 # Game locations
 GAMES_DIR="${TETRA_DIR}/orgs/tetra/games"
@@ -55,7 +58,7 @@ cabinet_find_game() {
 
 cabinet_start() {
     local game=""
-    local port="$CABINET_DEFAULT_PORT"
+    local port="${CABINET_PORT:-}"
     local quasar=""
 
     # Parse arguments
@@ -81,7 +84,12 @@ cabinet_start() {
     done
 
     if [[ -z "$game" ]]; then
-        cabinet_error "Usage: cabinet start <game> [--port PORT] [--quasar URL]"
+        cabinet_error "Usage: cabinet start <game> --port PORT [--quasar URL]"
+        return 1
+    fi
+
+    if [[ -z "$port" ]]; then
+        cabinet_error "--port is required (or set CABINET_PORT env)"
         return 1
     fi
 
@@ -153,7 +161,11 @@ cabinet_list() {
 }
 
 cabinet_join() {
-    local url="${1:-ws://localhost:$CABINET_DEFAULT_PORT}"
+    local url="${1:-}"
+    if [[ -z "$url" ]]; then
+        cabinet_error "Usage: cabinet join <ws://host:port | match-code>"
+        return 1
+    fi
     local join_html="${CABINET_SRC}/join.html"
 
     if [[ ! -f "$join_html" ]]; then
@@ -175,27 +187,34 @@ cabinet_join() {
 
 cabinet_help() {
     cat << 'EOF'
-cabinet - Host multiplayer game sessions
+cabinet - Universal game cabinet
 
-USAGE:
-    cabinet <command> [options]
+COMMANDS
+  dev                   Run test pattern in dev mode
+  host <game>           Host a game for network play
+  join <url|code>       Join a remote cabinet
+  games                 List available games
+  start <game>          Start game in background
+  stop                  Stop running cabinet
+  help [command]        Show help for a command
 
-COMMANDS:
-    start <game>    Start hosting a game
-    stop            Stop the running cabinet
-    list            List available games
-    join [url]      Open join page in browser
-    help            Show this help
+EXAMPLES
+  cabinet dev --port 8090
+  cabinet dev --port 8090 --headless
+  cabinet host magnetar --port 8090
+  cabinet host magnetar --port 8090 --http
+  cabinet join ws://192.168.1.5:8090
+  cabinet join Z9A7
 
-OPTIONS:
-    --port PORT     WebSocket port (default: 8080)
-    --quasar URL    Register with Quasar relay for internet play
+OPTIONS
+  --port, -p N          Port number (REQUIRED for dev/host/start)
+  --headless            Run without local console player
+  --http                Serve join.html for browser access
+  --max-players N       Max player slots (default: 4)
+  --match-code CODE     Display match code in game
 
-EXAMPLES:
-    cabinet start trax
-    cabinet start trax --port 9000
-    cabinet start trax --quasar ws://relay.pixeljamarcade.com
-    cabinet join ws://192.168.1.100:8080
+ENVIRONMENT
+  CABINET_PORT          Default port if --port not specified
 EOF
 }
 
@@ -203,25 +222,33 @@ EOF
 # MAIN
 # ============================================================================
 
-cabinet_main() {
+cabinet() {
     local cmd="${1:-help}"
     shift 2>/dev/null || true
 
     case "$cmd" in
+        # Direct to cabinet.js (foreground execution)
+        dev|host|join|games)
+            node "$CABINET_SRC/cabinet.js" "$cmd" "$@"
+            ;;
+        # Process management (background/TSM style)
         start)
             cabinet_start "$@"
             ;;
         stop)
             cabinet_stop
             ;;
+        # Legacy
         list)
             cabinet_list
             ;;
-        join)
-            cabinet_join "$@"
-            ;;
+        # Help
         help|--help|-h)
-            cabinet_help
+            if [[ -n "$1" ]]; then
+                node "$CABINET_SRC/cabinet.js" help "$1"
+            else
+                cabinet_help
+            fi
             ;;
         *)
             cabinet_error "Unknown command: $cmd"
@@ -231,7 +258,15 @@ cabinet_main() {
     esac
 }
 
+# ============================================================================
+# TAB COMPLETION
+# ============================================================================
+
+[[ -f "$CABINET_SRC/lib/complete.sh" ]] && source "$CABINET_SRC/lib/complete.sh"
+
+export -f cabinet
+
 # Run if executed directly
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    cabinet_main "$@"
+    cabinet "$@"
 fi
