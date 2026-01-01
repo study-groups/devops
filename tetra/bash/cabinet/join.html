@@ -286,6 +286,8 @@
       enabled: false,
       stateChannel: null,
       gameChannel: null,
+      inputChannel: null,
+      gameInputChannel: null,
 
       init(gameType) {
         if (!window.BroadcastChannel) {
@@ -293,6 +295,8 @@
           return this;
         }
         this.stateChannel = new BroadcastChannel('controldeck-game-state');
+        this.inputChannel = new BroadcastChannel('controldeck-game-input');
+        this.inputChannel.onmessage = (e) => this.handleAiOutput(e.data);
         if (gameType) this.setGame(gameType);
         this.enabled = true;
         console.log('[bridge] ControlDeck bridge enabled');
@@ -301,9 +305,13 @@
 
       setGame(gameType) {
         if (this.gameChannel) this.gameChannel.close();
-        const name = `controldeck-${gameType.toLowerCase()}-state`;
-        this.gameChannel = new BroadcastChannel(name);
-        console.log('[bridge] Game channel:', name);
+        if (this.gameInputChannel) this.gameInputChannel.close();
+        const stateName = `controldeck-${gameType.toLowerCase()}-state`;
+        const inputName = `controldeck-${gameType.toLowerCase()}-input`;
+        this.gameChannel = new BroadcastChannel(stateName);
+        this.gameInputChannel = new BroadcastChannel(inputName);
+        this.gameInputChannel.onmessage = (e) => this.handleAiOutput(e.data);
+        console.log('[bridge] Game channels:', stateName, inputName);
       },
 
       broadcastState(state, gameName) {
@@ -311,6 +319,25 @@
         const msg = { t: 'state', ts: Date.now(), game: gameName, state };
         if (this.stateChannel) this.stateChannel.postMessage(msg);
         if (this.gameChannel) this.gameChannel.postMessage(msg);
+      },
+
+      handleAiOutput(data) {
+        if (!data || !data.axes) return;
+        const slots = ['p1', 'p2', 'p3', 'p4'];
+        for (let i = 0; i < Math.min(4, data.axes.length); i++) {
+          const axis = data.axes[i];
+          if (Math.abs(axis) > 0.01) {
+            sendInput({
+              t: 'input',
+              src: 'ai',
+              slot: slots[i],
+              axis: axis,
+              key: axis > 0 ? 'cw' : 'ccw',
+              val: Math.abs(axis),
+              pressed: true
+            });
+          }
+        }
       }
     };
 
