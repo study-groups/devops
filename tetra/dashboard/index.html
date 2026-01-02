@@ -175,6 +175,23 @@
             font-size: 9px;
             cursor: pointer;
             border-radius: 2px;
+            display: inline-flex;
+            gap: 0;
+        }
+
+        .env-btn .user-prefix {
+            opacity: 0.5;
+            cursor: pointer;
+            padding-right: 1px;
+        }
+
+        .env-btn .user-prefix:hover {
+            opacity: 1;
+        }
+
+        /* Hide user prefix when not in console view */
+        .panel:not([data-view="console"]) .env-btn .user-prefix {
+            display: none;
         }
 
         .env-btn:hover {
@@ -262,7 +279,7 @@
         <div class="panes">
             <!-- Top row -->
             <div class="pane-row top">
-                <div class="panel" data-panel="top-left" style="width: var(--left-top-width)">
+                <div class="panel" data-panel="top-left" data-view="console" style="width: var(--left-top-width)">
                     <div class="panel-header">
                         <select class="view-select">
                             <option value="console">> Console</option>
@@ -274,9 +291,9 @@
                         </select>
                         <div class="env-btns">
                             <button class="env-btn active" data-env="local">local</button>
-                            <button class="env-btn" data-env="dev">dev</button>
-                            <button class="env-btn" data-env="staging">stg</button>
-                            <button class="env-btn" data-env="prod">prod</button>
+                            <button class="env-btn" data-env="dev" data-user="root"><span class="user-prefix">r:</span>dev</button>
+                            <button class="env-btn" data-env="staging" data-user="root"><span class="user-prefix">r:</span>stg</button>
+                            <button class="env-btn" data-env="prod" data-user="root"><span class="user-prefix">r:</span>prod</button>
                         </div>
                         <button class="refresh-btn" title="Refresh">&#x21bb;</button>
                     </div>
@@ -285,7 +302,7 @@
                     </div>
                 </div>
                 <div class="divider divider-v" id="divider-top-v"></div>
-                <div class="panel" data-panel="top-right" style="flex: 1">
+                <div class="panel" data-panel="top-right" data-view="tsm" style="flex: 1">
                     <div class="panel-header">
                         <select class="view-select">
                             <option value="console">> Console</option>
@@ -297,9 +314,9 @@
                         </select>
                         <div class="env-btns">
                             <button class="env-btn active" data-env="local">local</button>
-                            <button class="env-btn" data-env="dev">dev</button>
-                            <button class="env-btn" data-env="staging">stg</button>
-                            <button class="env-btn" data-env="prod">prod</button>
+                            <button class="env-btn" data-env="dev" data-user="root"><span class="user-prefix">r:</span>dev</button>
+                            <button class="env-btn" data-env="staging" data-user="root"><span class="user-prefix">r:</span>stg</button>
+                            <button class="env-btn" data-env="prod" data-user="root"><span class="user-prefix">r:</span>prod</button>
                         </div>
                         <button class="refresh-btn" title="Refresh">&#x21bb;</button>
                     </div>
@@ -314,7 +331,7 @@
 
             <!-- Bottom row -->
             <div class="pane-row bottom">
-                <div class="panel" data-panel="bottom-left" style="width: var(--left-bot-width)">
+                <div class="panel" data-panel="bottom-left" data-view="deploy" style="width: var(--left-bot-width)">
                     <div class="panel-header">
                         <select class="view-select">
                             <option value="console">> Console</option>
@@ -326,9 +343,9 @@
                         </select>
                         <div class="env-btns">
                             <button class="env-btn active" data-env="local">local</button>
-                            <button class="env-btn" data-env="dev">dev</button>
-                            <button class="env-btn" data-env="staging">stg</button>
-                            <button class="env-btn" data-env="prod">prod</button>
+                            <button class="env-btn" data-env="dev" data-user="root"><span class="user-prefix">r:</span>dev</button>
+                            <button class="env-btn" data-env="staging" data-user="root"><span class="user-prefix">r:</span>stg</button>
+                            <button class="env-btn" data-env="prod" data-user="root"><span class="user-prefix">r:</span>prod</button>
                         </div>
                         <button class="refresh-btn" title="Refresh">&#x21bb;</button>
                     </div>
@@ -337,7 +354,7 @@
                     </div>
                 </div>
                 <div class="divider divider-v" id="divider-bot-v"></div>
-                <div class="panel" data-panel="bottom-right" style="flex: 1">
+                <div class="panel" data-panel="bottom-right" data-view="logs" style="flex: 1">
                     <div class="panel-header">
                         <select class="view-select">
                             <option value="console">> Console</option>
@@ -349,9 +366,9 @@
                         </select>
                         <div class="env-btns">
                             <button class="env-btn active" data-env="local">local</button>
-                            <button class="env-btn" data-env="dev">dev</button>
-                            <button class="env-btn" data-env="staging">stg</button>
-                            <button class="env-btn" data-env="prod">prod</button>
+                            <button class="env-btn" data-env="dev" data-user="root"><span class="user-prefix">r:</span>dev</button>
+                            <button class="env-btn" data-env="staging" data-user="root"><span class="user-prefix">r:</span>stg</button>
+                            <button class="env-btn" data-env="prod" data-user="root"><span class="user-prefix">r:</span>prod</button>
                         </div>
                         <button class="refresh-btn" title="Refresh">&#x21bb;</button>
                     </div>
@@ -453,16 +470,30 @@
 
             const view = viewSelect.value;
             const env = activeEnvBtn?.dataset.env || 'local';
+            const user = activeEnvBtn?.dataset.user || '';
             const org = getActiveOrg();
+
+            // Track current view for CSS (shows/hides user prefix)
+            panel.dataset.view = view;
 
             const viewConfig = VIEWS[view];
             if (!viewConfig) return;
 
             const params = new URLSearchParams({ env, org });
+            if (user) params.set('user', user);
             const newSrc = `${viewConfig.src}?${params}`;
 
-            // Always reload iframe with new env
-            iframe.src = newSrc;
+            // If only env changed, send message instead of reloading
+            if (envChangeOnly && iframe.contentWindow) {
+                sendToPanel(panel, {
+                    type: 'env-change',
+                    env,
+                    org,
+                    user
+                });
+            } else {
+                iframe.src = newSrc;
+            }
 
             // Save state
             savePanelState();
@@ -489,11 +520,37 @@
             }
 
             envBtns.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    // Toggle active state
+                // Handle prefix clicks separately to prevent bubbling issues
+                const prefix = btn.querySelector('.user-prefix');
+                if (prefix) {
+                    prefix.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const env = btn.dataset.env;
+                        // Environment-specific user options
+                        const userMap = {
+                            dev: ['root', 'dev'],
+                            staging: ['root', 'stg'],
+                            prod: ['root', 'prod']
+                        };
+                        const users = userMap[env] || ['root', 'dev'];
+                        const current = btn.dataset.user || 'root';
+                        const idx = users.indexOf(current);
+                        const next = users[(idx + 1) % users.length];
+                        btn.dataset.user = next;
+                        prefix.textContent = next[0] + ':';
+
+                        // If this button is active, reconnect with new user
+                        if (btn.classList.contains('active')) {
+                            updatePanelIframe(panel, true);
+                        }
+                    });
+                }
+
+                btn.addEventListener('click', (e) => {
+                    // Toggle active state and connect
                     envBtns.forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
-                    updatePanelIframe(panel, true); // envChangeOnly for console
+                    updatePanelIframe(panel, true);
                 });
             });
 

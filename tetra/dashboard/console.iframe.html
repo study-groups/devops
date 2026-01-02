@@ -131,6 +131,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         let currentEnv = urlParams.get('env') || 'local';
         let currentOrg = urlParams.get('org') || 'tetra';
+        let currentUser = urlParams.get('user') || ''; // Override user (empty = use config default)
         let connectedTo = 'local'; // Track what we're actually connected to
 
         // Exit current SSH session
@@ -166,16 +167,23 @@
                 const envs = await res.json();
                 const envConfig = envs[env];
 
-                if (envConfig?.ssh) {
+                if (envConfig?.ssh || envConfig?.host) {
                     if (socket && socket.connected) {
                         // Exit current SSH if connected to remote
                         if (connectedTo !== 'local') {
                             await exitSSH();
                         }
-                        const sshCmd = `ssh ${envConfig.ssh}\r`;
+
+                        // Build SSH target: use override user or config user
+                        let sshTarget = envConfig.ssh;
+                        if (currentUser && envConfig.host) {
+                            sshTarget = `${currentUser}@${envConfig.host}`;
+                        }
+
+                        const sshCmd = `ssh ${sshTarget}\r`;
                         socket.emit('input', sshCmd);
                         connectedTo = targetKey;
-                        term.writeln(`\x1b[33m[Connecting to ${env}: ${envConfig.ssh}...]\x1b[0m`);
+                        term.writeln(`\x1b[33m[Connecting to ${env}: ${sshTarget}...]\x1b[0m`);
                     }
                 }
             } catch (e) {
@@ -191,6 +199,7 @@
                 if (msg.type === 'env-change') {
                     currentOrg = msg.org || currentOrg;
                     currentEnv = msg.env || currentEnv;
+                    currentUser = msg.user ?? currentUser;
                     connectToEnv(currentOrg, currentEnv);
                 }
                 // Handle connect command from parent
