@@ -127,14 +127,75 @@
             }
         });
 
+        // Parse URL params
+        const urlParams = new URLSearchParams(window.location.search);
+        let currentEnv = urlParams.get('env') || 'local';
+        let currentOrg = urlParams.get('org') || 'tetra';
+        let connectedTo = 'local'; // Track what we're actually connected to
+
+        // Exit current SSH session
+        async function exitSSH() {
+            if (connectedTo === 'local') return;
+
+            // Ctrl+C to cancel any running command, then exit
+            socket.emit('input', '\x03');
+            await new Promise(r => setTimeout(r, 100));
+            socket.emit('input', 'exit\r');
+            await new Promise(r => setTimeout(r, 300));
+            connectedTo = 'local';
+        }
+
+        // Connect to remote if not local
+        async function connectToEnv(org, env) {
+            if (env === 'local') {
+                if (connectedTo !== 'local') {
+                    await exitSSH();
+                    term.writeln('\x1b[33m[Returned to local]\x1b[0m');
+                }
+                return;
+            }
+
+            // Already connected to this env?
+            const targetKey = `${org}:${env}`;
+            if (connectedTo === targetKey) {
+                return; // Already there
+            }
+
+            try {
+                const res = await fetch(`/api/environments?org=${encodeURIComponent(org)}`);
+                const envs = await res.json();
+                const envConfig = envs[env];
+
+                if (envConfig?.ssh) {
+                    if (socket && socket.connected) {
+                        // Exit current SSH if connected to remote
+                        if (connectedTo !== 'local') {
+                            await exitSSH();
+                        }
+                        const sshCmd = `ssh ${envConfig.ssh}\r`;
+                        socket.emit('input', sshCmd);
+                        connectedTo = targetKey;
+                        term.writeln(`\x1b[33m[Connecting to ${env}: ${envConfig.ssh}...]\x1b[0m`);
+                    }
+                }
+            } catch (e) {
+                term.writeln(`\x1b[31m[Failed to get SSH config for ${env}]\x1b[0m`);
+            }
+        }
+
         // Initialize with explicit name
         Terrain.Iframe.init({
             name: 'console',
             onMessage: function(msg) {
+                // Handle env change from parent
+                if (msg.type === 'env-change') {
+                    currentOrg = msg.org || currentOrg;
+                    currentEnv = msg.env || currentEnv;
+                    connectToEnv(currentOrg, currentEnv);
+                }
                 // Handle connect command from parent
                 if (msg.type === 'connect' && msg.target) {
                     if (socket && socket.connected) {
-                        // Send ssh command to local PTY
                         const sshCmd = 'ssh ' + msg.target + '\r';
                         socket.emit('input', sshCmd);
                         term.writeln('\x1b[33m[Connecting to ' + msg.target + '...]\x1b[0m');
@@ -144,6 +205,8 @@
             onReady: function() {
                 // Auto-connect to local PTY
                 connect();
+                // Then connect to initial env if not local
+                setTimeout(() => connectToEnv(currentOrg, currentEnv), 500);
             }
         });
     </script>

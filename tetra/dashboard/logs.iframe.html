@@ -15,6 +15,27 @@
             --four: #6b5ce7;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        /* Dark scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--paper-dark);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--paper-mid);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #333;
+        }
+        /* Firefox */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: var(--paper-mid) var(--paper-dark);
+        }
         body {
             background: var(--paper-dark);
             color: var(--ink);
@@ -52,9 +73,16 @@
         .status-dot.disconnected { background: var(--one); }
         .refresh { cursor: pointer; }
         .refresh:hover { color: var(--two); }
-        .filters {
+        .controls {
             display: flex;
             gap: 8px;
+            align-items: center;
+            flex: 1;
+            justify-content: center;
+        }
+        .filters {
+            display: flex;
+            gap: 4px;
         }
         .filter-btn {
             background: transparent;
@@ -71,6 +99,70 @@
         }
         .filter-btn:hover {
             border-color: var(--four);
+        }
+        .tsm-sources {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-left: 8px;
+            padding-left: 8px;
+            border-left: 1px solid var(--paper-mid);
+            max-width: 200px;
+        }
+        .tsm-tag {
+            background: var(--two);
+            color: var(--paper-dark);
+            padding: 1px 6px;
+            font-size: 8px;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .tsm-tag .close {
+            cursor: pointer;
+            opacity: 0.6;
+        }
+        .tsm-tag .close:hover {
+            opacity: 1;
+        }
+        .search-box {
+            background: var(--paper-mid);
+            border: 1px solid var(--paper-mid);
+            color: var(--ink);
+            font-family: inherit;
+            font-size: 9px;
+            padding: 2px 8px;
+            border-radius: 2px;
+            width: 120px;
+        }
+        .search-box:focus {
+            outline: none;
+            border-color: var(--four);
+        }
+        .search-box::placeholder {
+            color: var(--ink-muted);
+        }
+        .highlight {
+            background: rgba(255, 230, 109, 0.3);
+            color: var(--three);
+        }
+        .time-btn {
+            background: transparent;
+            border: 1px solid var(--paper-mid);
+            color: var(--ink-muted);
+            padding: 2px 8px;
+            font-size: 9px;
+            cursor: pointer;
+            border-radius: 2px;
+            white-space: nowrap;
+        }
+        .time-btn:hover {
+            border-color: var(--four);
+        }
+        .time-btn.active {
+            border-color: var(--three);
+            color: var(--three);
         }
         #logs {
             flex: 1;
@@ -123,10 +215,17 @@
             <span class="status-dot" id="status-dot"></span>
             <span>Logs</span>
         </div>
-        <div class="filters">
-            <button class="filter-btn active" data-filter="all">All</button>
-            <button class="filter-btn" data-filter="deploy">Deploy</button>
-            <button class="filter-btn" data-filter="server">Server</button>
+        <div class="controls">
+            <input type="text" class="search-box" id="search-input" placeholder="Search...">
+            <button class="time-btn" data-time="now" onclick="setTimeFilter('now')">⏱ Now</button>
+            <button class="time-btn" data-time="5m" onclick="setTimeFilter('5m')">5m</button>
+            <button class="time-btn" data-time="1h" onclick="setTimeFilter('1h')">1h</button>
+            <div class="filters">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="deploy">Deploy</button>
+                <button class="filter-btn" data-filter="server">Server</button>
+            </div>
+            <div class="tsm-sources" id="tsm-sources"></div>
         </div>
         <span class="refresh" onclick="loadLogs()">&#8635;</span>
     </div>
@@ -137,10 +236,53 @@
     <script>
         const logsEl = document.getElementById('logs');
         const statusDot = document.getElementById('status-dot');
+        const searchInput = document.getElementById('search-input');
+        const tsmSourcesEl = document.getElementById('tsm-sources');
+
         let eventSource = null;
         let currentFilter = 'all';
+        let searchQuery = '';
+        let sinceTimestamp = null; // null = show all, Date = show only after
         let logs = [];
+        let tsmLogs = {}; // { serviceName: [logs] }
+        let watchedServices = new Set(
+            JSON.parse(localStorage.getItem('tsm-watched-logs') || '[]')
+        );
         const MAX_LOGS = 200;
+        const TSM_POLL_INTERVAL = 3000;
+        let activeTimeFilter = null; // 'now', '5m', '1h', or null
+
+        function setTimeFilter(preset) {
+            const btns = document.querySelectorAll('.time-btn');
+
+            // Toggle off if clicking active button
+            if (activeTimeFilter === preset) {
+                activeTimeFilter = null;
+                sinceTimestamp = null;
+                btns.forEach(b => b.classList.remove('active'));
+                renderLogs();
+                return;
+            }
+
+            activeTimeFilter = preset;
+            btns.forEach(b => b.classList.remove('active'));
+
+            const now = Date.now();
+            switch (preset) {
+                case 'now':
+                    sinceTimestamp = new Date();
+                    break;
+                case '5m':
+                    sinceTimestamp = new Date(now - 5 * 60 * 1000);
+                    break;
+                case '1h':
+                    sinceTimestamp = new Date(now - 60 * 60 * 1000);
+                    break;
+            }
+
+            document.querySelector(`.time-btn[data-time="${preset}"]`)?.classList.add('active');
+            renderLogs();
+        }
 
         function formatTimestamp(ts) {
             if (!ts) return '';
@@ -152,10 +294,55 @@
             }
         }
 
+        function getAllLogs() {
+            // Combine server logs with TSM logs
+            const allLogs = [...logs];
+
+            for (const [service, serviceLogs] of Object.entries(tsmLogs)) {
+                allLogs.push(...serviceLogs);
+            }
+
+            // Sort by timestamp
+            allLogs.sort((a, b) => {
+                const ta = new Date(a.timestamp).getTime() || 0;
+                const tb = new Date(b.timestamp).getTime() || 0;
+                return tb - ta;
+            });
+
+            return allLogs.slice(0, MAX_LOGS);
+        }
+
+        function highlightText(text, query) {
+            if (!query) return escapeHtml(text);
+            const escaped = escapeHtml(text);
+            const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+            return escaped.replace(regex, '<span class="highlight">$1</span>');
+        }
+
         function renderLogs() {
-            const filtered = currentFilter === 'all'
-                ? logs
-                : logs.filter(l => l.source === currentFilter);
+            const allLogs = getAllLogs();
+
+            let filtered = currentFilter === 'all'
+                ? allLogs
+                : allLogs.filter(l => l.source === currentFilter);
+
+            // Apply time filter
+            if (sinceTimestamp) {
+                const sinceMs = sinceTimestamp.getTime();
+                filtered = filtered.filter(l => {
+                    const logTime = new Date(l.timestamp).getTime();
+                    return logTime >= sinceMs;
+                });
+            }
+
+            // Apply search filter
+            if (searchQuery) {
+                const q = searchQuery.toLowerCase();
+                filtered = filtered.filter(l =>
+                    (l.message || '').toLowerCase().includes(q) ||
+                    (l.source || '').toLowerCase().includes(q)
+                );
+            }
 
             if (filtered.length === 0) {
                 logsEl.innerHTML = '<div class="empty">(no logs)</div>';
@@ -167,7 +354,7 @@
                     <span class="timestamp">${formatTimestamp(log.timestamp)}</span>
                     <span class="level level-${log.level}">[${(log.level || 'info').toUpperCase()}]</span>
                     <span class="source">${log.source || 'system'}</span>
-                    <span class="message">${escapeHtml(log.message || '')}</span>
+                    <span class="message">${highlightText(log.message || '', searchQuery)}</span>
                 </div>
             `).join('');
 
@@ -251,8 +438,109 @@
             });
         });
 
+        // TSM log fetching
+        async function fetchTsmLogs(serviceName) {
+            try {
+                const res = await fetch(`/api/tsm/logs/${serviceName}?lines=30`);
+                const data = await res.json();
+
+                if (data.logs) {
+                    // Parse TSM log output into entries
+                    const lines = data.logs.split('\n').filter(Boolean);
+                    tsmLogs[serviceName] = lines.map(line => ({
+                        timestamp: new Date().toISOString(),
+                        level: line.includes('error') || line.includes('Error') ? 'error' :
+                               line.includes('warn') || line.includes('Warn') ? 'warn' : 'info',
+                        source: serviceName,
+                        message: line
+                    })).slice(-30);
+                }
+            } catch (e) {
+                console.warn(`Failed to fetch logs for ${serviceName}:`, e);
+            }
+        }
+
+        function renderTsmSources() {
+            if (watchedServices.size === 0) {
+                tsmSourcesEl.innerHTML = '';
+                return;
+            }
+
+            tsmSourcesEl.innerHTML = [...watchedServices].map(svc => `
+                <span class="tsm-tag">
+                    ${svc}
+                    <span class="close" onclick="removeTsmSource('${svc}')">×</span>
+                </span>
+            `).join('');
+        }
+
+        function removeTsmSource(serviceName) {
+            watchedServices.delete(serviceName);
+            delete tsmLogs[serviceName];
+            localStorage.setItem('tsm-watched-logs', JSON.stringify([...watchedServices]));
+            renderTsmSources();
+            renderLogs();
+
+            // Notify TSM iframe
+            window.parent.postMessage({
+                source: 'logs',
+                type: 'log-watch-change',
+                services: [...watchedServices]
+            }, '*');
+        }
+
+        async function pollTsmLogs() {
+            for (const service of watchedServices) {
+                await fetchTsmLogs(service);
+            }
+            if (watchedServices.size > 0) {
+                renderLogs();
+            }
+        }
+
+        // Listen for messages from parent/TSM iframe
+        window.addEventListener('message', (e) => {
+            const msg = e.data;
+            if (!msg || typeof msg !== 'object') return;
+
+            if (msg.type === 'log-watch-change' && msg.source === 'tsm') {
+                watchedServices = new Set(msg.services || []);
+                localStorage.setItem('tsm-watched-logs', JSON.stringify([...watchedServices]));
+
+                // Fetch logs for new services
+                for (const svc of watchedServices) {
+                    if (!tsmLogs[svc]) {
+                        fetchTsmLogs(svc);
+                    }
+                }
+
+                // Remove logs for unwatched services
+                for (const svc of Object.keys(tsmLogs)) {
+                    if (!watchedServices.has(svc)) {
+                        delete tsmLogs[svc];
+                    }
+                }
+
+                renderTsmSources();
+                renderLogs();
+            }
+        });
+
+        // Search handler
+        searchInput.addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            renderLogs();
+        });
+
         // Start connection
         connectSSE();
+        renderTsmSources();
+
+        // Initial TSM log fetch
+        pollTsmLogs();
+
+        // Poll TSM logs periodically
+        setInterval(pollTsmLogs, TSM_POLL_INTERVAL);
 
     </script>
     <script src="/js/terrain-iframe.js"></script>

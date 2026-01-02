@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TETRA Dashboard</title>
+    <title>TETRA Console</title>
     <style>
         :root {
             --paper-dark: #0a0a0a;
@@ -19,9 +19,9 @@
             --grip: #444;
             --font-mono: 'SF Mono', 'Monaco', 'Consolas', monospace;
 
-            --header-height: 48px;
+            --header-height: 40px;
+            --panel-header-height: 32px;
             --divider-size: 6px;
-            --left-width: 50%;
             --top-height: 50%;
             --left-top-width: 50%;
             --left-bot-width: 50%;
@@ -45,6 +45,7 @@
             height: 100vh;
         }
 
+        /* Main header */
         .header {
             height: var(--header-height);
             background: var(--paper-mid);
@@ -57,57 +58,52 @@
         }
 
         .logo {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 700;
             letter-spacing: 2px;
             color: var(--one);
         }
         .logo span { color: var(--two); }
 
+        .global-org {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-left: 24px;
+        }
+
+        .org-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--ink-muted);
+            padding: 4px 10px;
+            font-family: inherit;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 2px;
+            transition: all 0.15s;
+        }
+
+        .org-btn:hover {
+            border-color: var(--ink-muted);
+            color: var(--ink);
+        }
+
+        .org-btn.active {
+            background: var(--four);
+            border-color: var(--four);
+            color: var(--ink);
+        }
+
         .status {
             margin-left: auto;
             display: flex;
             gap: 12px;
             align-items: center;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--two);
-        }
-        .status-dot.disconnected { background: var(--one); }
-
-        .ssh-input {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        .ssh-input input {
-            background: var(--paper-light);
-            border: 1px solid var(--border);
-            color: var(--ink);
-            padding: 4px 8px;
-            font-family: inherit;
             font-size: 11px;
-            border-radius: 2px;
+            color: var(--ink-muted);
         }
-
-        .ssh-input button {
-            background: var(--four);
-            border: none;
-            color: var(--ink);
-            padding: 4px 12px;
-            font-family: inherit;
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            cursor: pointer;
-            border-radius: 2px;
-        }
-        .ssh-input button:hover { opacity: 0.8; }
 
         /* Pane container */
         .panes {
@@ -124,6 +120,7 @@
         .pane-row.top { height: var(--top-height); }
         .pane-row.bottom { flex: 1; }
 
+        /* Panel */
         .panel {
             display: flex;
             flex-direction: column;
@@ -132,20 +129,85 @@
         }
 
         .panel-header {
+            height: var(--panel-header-height);
             background: var(--paper-mid);
-            padding: 8px 12px;
+            padding: 0 8px;
             font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--ink-muted);
             border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             flex-shrink: 0;
         }
-        .panel-header .icon { color: var(--four); }
+
+        .panel-header select {
+            background: var(--paper-light);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            font-family: inherit;
+            font-size: 10px;
+            padding: 2px 4px;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+
+        .panel-header select:focus {
+            outline: none;
+            border-color: var(--four);
+        }
+
+        .panel-header .view-select {
+            min-width: 80px;
+            font-weight: 600;
+        }
+
+        .env-btns {
+            display: flex;
+            gap: 2px;
+        }
+
+        .env-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--ink-muted);
+            padding: 1px 6px;
+            font-family: inherit;
+            font-size: 9px;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+
+        .env-btn:hover {
+            border-color: var(--ink-muted);
+            color: var(--ink);
+        }
+
+        .env-btn.active {
+            border-color: var(--two);
+            color: var(--two);
+        }
+
+        .env-btn.active[data-env="dev"],
+        .env-btn.active[data-env="staging"] {
+            border-color: var(--three);
+            color: var(--three);
+        }
+
+        .env-btn.active[data-env="prod"] {
+            border-color: var(--one);
+            color: var(--one);
+        }
+
+        .panel-header .refresh-btn {
+            background: none;
+            border: none;
+            color: var(--ink-muted);
+            font-size: 14px;
+            cursor: pointer;
+            padding: 2px 6px;
+            margin-left: auto;
+        }
+        .panel-header .refresh-btn:hover { color: var(--ink); }
 
         .panel-content {
             flex: 1;
@@ -181,37 +243,68 @@
         .divider:hover, .divider.active {
             background: var(--four);
         }
-
     </style>
 </head>
 <body>
     <div class="dashboard">
         <header class="header">
-            <div class="logo">TETRA<span>.</span></div>
-            <div class="ssh-input">
-                <input type="text" id="ssh-target" value="dev@137.184.226.163" placeholder="user@host">
-                <button id="connect-btn">Connect</button>
+            <div class="logo">TETRA<span>.</span>CONSOLE</div>
+            <div class="global-org">
+                <button class="org-btn" data-org="nodeholder">NH</button>
+                <button class="org-btn" data-org="pixeljam-arcade">PJ</button>
+                <button class="org-btn active" data-org="tetra">TETRA</button>
             </div>
             <div class="status">
-                <span id="status-text">Disconnected</span>
-                <div class="status-dot disconnected" id="status-dot"></div>
+                <span id="status-text">local</span>
             </div>
         </header>
 
         <div class="panes">
             <!-- Top row -->
             <div class="pane-row top">
-                <div class="panel" id="console" style="width: var(--left-top-width)">
-                    <div class="panel-header"><span class="icon">></span> CONSOLE</div>
+                <div class="panel" data-panel="top-left" style="width: var(--left-top-width)">
+                    <div class="panel-header">
+                        <select class="view-select">
+                            <option value="console">> Console</option>
+                            <option value="tsm">~ TSM</option>
+                            <option value="deploy">^ Deploy</option>
+                            <option value="logs"># Logs</option>
+                            <option value="playwright">@ Playwright</option>
+                            <option value="tests">* Tests</option>
+                        </select>
+                        <div class="env-btns">
+                            <button class="env-btn active" data-env="local">local</button>
+                            <button class="env-btn" data-env="dev">dev</button>
+                            <button class="env-btn" data-env="staging">stg</button>
+                            <button class="env-btn" data-env="prod">prod</button>
+                        </div>
+                        <button class="refresh-btn" title="Refresh">&#x21bb;</button>
+                    </div>
                     <div class="panel-content">
-                        <iframe src="console.iframe.html" id="console-iframe"></iframe>
+                        <iframe src="console.iframe.html?env=local&org=tetra"></iframe>
                     </div>
                 </div>
                 <div class="divider divider-v" id="divider-top-v"></div>
-                <div class="panel" id="tsm" style="flex: 1">
-                    <div class="panel-header"><span class="icon">~</span> TSM</div>
+                <div class="panel" data-panel="top-right" style="flex: 1">
+                    <div class="panel-header">
+                        <select class="view-select">
+                            <option value="console">> Console</option>
+                            <option value="tsm" selected>~ TSM</option>
+                            <option value="deploy">^ Deploy</option>
+                            <option value="logs"># Logs</option>
+                            <option value="playwright">@ Playwright</option>
+                            <option value="tests">* Tests</option>
+                        </select>
+                        <div class="env-btns">
+                            <button class="env-btn active" data-env="local">local</button>
+                            <button class="env-btn" data-env="dev">dev</button>
+                            <button class="env-btn" data-env="staging">stg</button>
+                            <button class="env-btn" data-env="prod">prod</button>
+                        </div>
+                        <button class="refresh-btn" title="Refresh">&#x21bb;</button>
+                    </div>
                     <div class="panel-content">
-                        <iframe src="tsm.iframe.html" id="tsm-iframe"></iframe>
+                        <iframe src="tsm.iframe.html?env=local&org=tetra"></iframe>
                     </div>
                 </div>
             </div>
@@ -221,17 +314,49 @@
 
             <!-- Bottom row -->
             <div class="pane-row bottom">
-                <div class="panel" id="deploy" style="width: var(--left-bot-width)">
-                    <div class="panel-header"><span class="icon">^</span> DEPLOY</div>
+                <div class="panel" data-panel="bottom-left" style="width: var(--left-bot-width)">
+                    <div class="panel-header">
+                        <select class="view-select">
+                            <option value="console">> Console</option>
+                            <option value="tsm">~ TSM</option>
+                            <option value="deploy" selected>^ Deploy</option>
+                            <option value="logs"># Logs</option>
+                            <option value="playwright">@ Playwright</option>
+                            <option value="tests">* Tests</option>
+                        </select>
+                        <div class="env-btns">
+                            <button class="env-btn active" data-env="local">local</button>
+                            <button class="env-btn" data-env="dev">dev</button>
+                            <button class="env-btn" data-env="staging">stg</button>
+                            <button class="env-btn" data-env="prod">prod</button>
+                        </div>
+                        <button class="refresh-btn" title="Refresh">&#x21bb;</button>
+                    </div>
                     <div class="panel-content">
-                        <iframe src="deploy.iframe.html" id="deploy-iframe"></iframe>
+                        <iframe src="deploy.iframe.html?env=local&org=tetra"></iframe>
                     </div>
                 </div>
                 <div class="divider divider-v" id="divider-bot-v"></div>
-                <div class="panel" id="logs" style="flex: 1">
-                    <div class="panel-header"><span class="icon">#</span> LOGS</div>
+                <div class="panel" data-panel="bottom-right" style="flex: 1">
+                    <div class="panel-header">
+                        <select class="view-select">
+                            <option value="console">> Console</option>
+                            <option value="tsm">~ TSM</option>
+                            <option value="deploy">^ Deploy</option>
+                            <option value="logs" selected># Logs</option>
+                            <option value="playwright">@ Playwright</option>
+                            <option value="tests">* Tests</option>
+                        </select>
+                        <div class="env-btns">
+                            <button class="env-btn active" data-env="local">local</button>
+                            <button class="env-btn" data-env="dev">dev</button>
+                            <button class="env-btn" data-env="staging">stg</button>
+                            <button class="env-btn" data-env="prod">prod</button>
+                        </div>
+                        <button class="refresh-btn" title="Refresh">&#x21bb;</button>
+                    </div>
                     <div class="panel-content">
-                        <iframe src="logs.iframe.html" id="logs-iframe"></iframe>
+                        <iframe src="logs.iframe.html?env=local&org=tetra"></iframe>
                     </div>
                 </div>
             </div>
@@ -239,9 +364,236 @@
     </div>
 
     <script>
+        // ========================================================================
+        // TETRA Console - Unified Panel Manager
+        // ========================================================================
+
+        const VIEWS = {
+            console: { src: 'console.iframe.html' },
+            tsm: { src: 'tsm.iframe.html' },
+            deploy: { src: 'deploy.iframe.html' },
+            logs: { src: 'logs.iframe.html' },
+            playwright: { src: 'playwright.iframe.html' },
+            tests: { src: 'tests.iframe.html' }
+        };
+
+        const STORAGE_KEY = 'tetra-console-state';
+
+        // State
+        let environments = {};
+
         // Elements
         const root = document.documentElement;
         const panes = document.querySelector('.panes');
+        const panels = document.querySelectorAll('.panel');
+
+        // ========================================================================
+        // API Fetching
+        // ========================================================================
+
+        async function fetchEnvironments(org) {
+            try {
+                const res = await fetch(`/api/environments?org=${encodeURIComponent(org)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    environments[org] = Object.keys(data);
+                    return environments[org];
+                }
+            } catch (e) {
+                console.warn(`[Console] Failed to fetch environments for ${org}:`, e);
+            }
+            return ['local'];
+        }
+
+        // ========================================================================
+        // Panel Management
+        // ========================================================================
+
+        function getActiveOrg() {
+            const activeBtn = document.querySelector('.org-btn.active');
+            return activeBtn?.dataset.org || 'tetra';
+        }
+
+        async function updateEnvSelect(panel) {
+            const envSelect = panel.querySelector('.env-select');
+            if (!envSelect) return;
+
+            const org = getActiveOrg();
+            const envs = environments[org] || await fetchEnvironments(org);
+            const current = envSelect.value;
+
+            envSelect.innerHTML = envs.map(env =>
+                `<option value="${env}" ${env === current ? 'selected' : ''}>${env}</option>`
+            ).join('');
+
+            // Reset to local if current env not available
+            if (!envs.includes(current)) {
+                envSelect.value = 'local';
+            }
+
+            updateEnvClass(envSelect);
+        }
+
+        function updateEnvClass(envSelect) {
+            envSelect.classList.remove('status-local', 'status-remote', 'status-prod');
+            const env = envSelect.value;
+            if (env === 'local') {
+                envSelect.classList.add('status-local');
+            } else if (env === 'prod' || env === 'production') {
+                envSelect.classList.add('status-prod');
+            } else {
+                envSelect.classList.add('status-remote');
+            }
+        }
+
+        function updatePanelIframe(panel, envChangeOnly = false) {
+            const viewSelect = panel.querySelector('.view-select');
+            const activeEnvBtn = panel.querySelector('.env-btn.active');
+            const iframe = panel.querySelector('iframe');
+
+            const view = viewSelect.value;
+            const env = activeEnvBtn?.dataset.env || 'local';
+            const org = getActiveOrg();
+
+            const viewConfig = VIEWS[view];
+            if (!viewConfig) return;
+
+            const params = new URLSearchParams({ env, org });
+            const newSrc = `${viewConfig.src}?${params}`;
+
+            // Always reload iframe with new env
+            iframe.src = newSrc;
+
+            // Save state
+            savePanelState();
+        }
+
+        function refreshPanel(panel) {
+            const iframe = panel.querySelector('iframe');
+            if (iframe) {
+                iframe.src = iframe.src;
+            }
+        }
+
+        // ========================================================================
+        // Event Handlers
+        // ========================================================================
+
+        panels.forEach(panel => {
+            const viewSelect = panel.querySelector('.view-select');
+            const envBtns = panel.querySelectorAll('.env-btn');
+            const refreshBtn = panel.querySelector('.refresh-btn');
+
+            if (viewSelect) {
+                viewSelect.addEventListener('change', () => updatePanelIframe(panel));
+            }
+
+            envBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Toggle active state
+                    envBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    updatePanelIframe(panel, true); // envChangeOnly for console
+                });
+            });
+
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', () => refreshPanel(panel));
+            }
+        });
+
+        // Global org buttons
+        const orgBtns = document.querySelectorAll('.org-btn');
+        orgBtns.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                // Update button states
+                orgBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                // Update all panels with new org
+                for (const panel of panels) {
+                    await updateEnvSelect(panel);
+                    updatePanelIframe(panel);
+                }
+            });
+        });
+
+        // ========================================================================
+        // State Persistence
+        // ========================================================================
+
+        function savePanelState() {
+            const activeOrgBtn = document.querySelector('.org-btn.active');
+            const state = {
+                globalOrg: activeOrgBtn?.dataset.org || 'tetra',
+                panes: {
+                    topHeight: getComputedStyle(root).getPropertyValue('--top-height').trim(),
+                    leftTopWidth: getComputedStyle(root).getPropertyValue('--left-top-width').trim(),
+                    leftBotWidth: getComputedStyle(root).getPropertyValue('--left-bot-width').trim()
+                },
+                panels: {}
+            };
+
+            panels.forEach(panel => {
+                const id = panel.dataset.panel;
+                state.panels[id] = {
+                    view: panel.querySelector('.view-select')?.value,
+                    env: panel.querySelector('.env-select')?.value
+                };
+            });
+
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        }
+
+        function loadPanelState() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (!saved) return;
+
+                const state = JSON.parse(saved);
+
+                // Restore global org
+                if (state.globalOrg) {
+                    orgBtns.forEach(btn => {
+                        btn.classList.toggle('active', btn.dataset.org === state.globalOrg);
+                    });
+                }
+
+                // Restore pane sizes
+                if (state.panes) {
+                    if (state.panes.topHeight) root.style.setProperty('--top-height', state.panes.topHeight);
+                    if (state.panes.leftTopWidth) root.style.setProperty('--left-top-width', state.panes.leftTopWidth);
+                    if (state.panes.leftBotWidth) root.style.setProperty('--left-bot-width', state.panes.leftBotWidth);
+                }
+
+                // Restore panel state
+                if (state.panels) {
+                    panels.forEach(panel => {
+                        const id = panel.dataset.panel;
+                        const panelState = state.panels[id];
+                        if (!panelState) return;
+
+                        const viewSelect = panel.querySelector('.view-select');
+                        const envSelect = panel.querySelector('.env-select');
+
+                        if (viewSelect && panelState.view) viewSelect.value = panelState.view;
+                        if (envSelect && panelState.env) {
+                            envSelect.value = panelState.env;
+                            updateEnvClass(envSelect);
+                        }
+
+                        updatePanelIframe(panel);
+                    });
+                }
+            } catch (e) {
+                console.warn('[Console] Failed to load state:', e);
+            }
+        }
+
+        // ========================================================================
+        // Resizer
+        // ========================================================================
+
         const dividerH = document.getElementById('divider-h');
         const dividerTopV = document.getElementById('divider-top-v');
         const dividerBotV = document.getElementById('divider-bot-v');
@@ -249,36 +601,6 @@
         let dragging = null;
         let startX, startY, startLeftTop, startLeftBot, startTop;
 
-        // === Pane size persistence ===
-        const STORAGE_KEY = 'tetra-dashboard-panes';
-
-        function savePaneSizes() {
-            const sizes = {
-                topHeight: getComputedStyle(root).getPropertyValue('--top-height').trim(),
-                leftTopWidth: getComputedStyle(root).getPropertyValue('--left-top-width').trim(),
-                leftBotWidth: getComputedStyle(root).getPropertyValue('--left-bot-width').trim()
-            };
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(sizes));
-        }
-
-        function loadPaneSizes() {
-            try {
-                const saved = localStorage.getItem(STORAGE_KEY);
-                if (saved) {
-                    const sizes = JSON.parse(saved);
-                    if (sizes.topHeight) root.style.setProperty('--top-height', sizes.topHeight);
-                    if (sizes.leftTopWidth) root.style.setProperty('--left-top-width', sizes.leftTopWidth);
-                    if (sizes.leftBotWidth) root.style.setProperty('--left-bot-width', sizes.leftBotWidth);
-                }
-            } catch (e) {
-                console.warn('[Dashboard] Failed to load pane sizes:', e);
-            }
-        }
-
-        // Load saved sizes on startup
-        loadPaneSizes();
-
-        // Drag handlers
         function onMouseDown(e, type) {
             dragging = type;
             startX = e.clientX;
@@ -289,8 +611,6 @@
 
             document.body.style.cursor = type === 'h' ? 'row-resize' : 'col-resize';
             e.target.classList.add('active');
-
-            // Disable iframe pointer events during drag
             document.querySelectorAll('iframe').forEach(f => f.style.pointerEvents = 'none');
         }
 
@@ -309,12 +629,10 @@
                 const newTop = Math.max(20, Math.min(80, startTop + (dy / panesRect.height) * 100));
                 root.style.setProperty('--top-height', newTop + '%');
             }
-
             if (dragging === 'top-v') {
                 const newLeftTop = Math.max(20, Math.min(80, startLeftTop + (dx / panesRect.width) * 100));
                 root.style.setProperty('--left-top-width', newLeftTop + '%');
             }
-
             if (dragging === 'bot-v') {
                 const newLeftBot = Math.max(20, Math.min(80, startLeftBot + (dx / panesRect.width) * 100));
                 root.style.setProperty('--left-bot-width', newLeftBot + '%');
@@ -326,60 +644,73 @@
                 document.body.style.cursor = '';
                 document.querySelectorAll('.divider').forEach(el => el.classList.remove('active'));
                 document.querySelectorAll('iframe').forEach(f => f.style.pointerEvents = '');
-                savePaneSizes();
+                savePanelState();
                 dragging = null;
             }
         });
 
-        // === Iframe messaging ===
-        const iframes = {
-            console: document.getElementById('console-iframe'),
-            tsm: document.getElementById('tsm-iframe'),
-            deploy: document.getElementById('deploy-iframe'),
-            logs: document.getElementById('logs-iframe')
-        };
+        // ========================================================================
+        // Iframe Messaging
+        // ========================================================================
 
         window.addEventListener('message', (e) => {
             const msg = e.data;
             if (!msg || typeof msg !== 'object') return;
 
-            console.log('[Dashboard] Received:', msg);
+            // Forward log-watch-change messages between iframes
+            if (msg.type === 'log-watch-change') {
+                // Broadcast to all iframes
+                panels.forEach(panel => {
+                    const iframe = panel.querySelector('iframe');
+                    if (iframe?.contentWindow && iframe.contentWindow !== e.source) {
+                        iframe.contentWindow.postMessage(msg, '*');
+                    }
+                });
+                return;
+            }
+
+            if (msg.source !== 'terrain') return;
+
+            console.log('[Console] Message:', msg);
 
             if (msg.type === 'ready') {
-                console.log('[Dashboard] Panel ready:', msg.from);
-            }
-            if (msg.type === 'status') {
-                updateStatus(msg.connected);
+                console.log('[Console] Panel ready:', msg.from);
             }
         });
 
-        function sendToPanel(panelId, data) {
-            const iframe = iframes[panelId];
-            if (iframe && iframe.contentWindow) {
-                iframe.contentWindow.postMessage(data, '*');
+        function sendToPanel(panel, data) {
+            const iframe = panel.querySelector('iframe');
+            if (iframe?.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    ...data,
+                    source: 'terrain',
+                    timestamp: Date.now()
+                }, '*');
             }
         }
 
-        function broadcast(data) {
-            Object.keys(iframes).forEach(id => sendToPanel(id, data));
-        }
+        // ========================================================================
+        // Initialize
+        // ========================================================================
 
-        function updateStatus(connected) {
-            const dot = document.getElementById('status-dot');
-            const text = document.getElementById('status-text');
-            if (connected) {
-                dot.classList.remove('disconnected');
-                text.textContent = 'Connected';
-            } else {
-                dot.classList.add('disconnected');
-                text.textContent = 'Disconnected';
+        async function init() {
+            // Prefetch environments for all orgs
+            await Promise.all([
+                fetchEnvironments('tetra'),
+                fetchEnvironments('pixeljam-arcade'),
+                fetchEnvironments('nodeholder')
+            ]);
+
+            // Update env selects for current org
+            for (const panel of panels) {
+                await updateEnvSelect(panel);
             }
+
+            // Load saved state
+            loadPanelState();
         }
 
-        document.getElementById('connect-btn').addEventListener('click', () => {
-            const target = document.getElementById('ssh-target').value;
-            broadcast({ type: 'connect', target: target });
-        });
+        init();
     </script>
 </body>
 </html>
