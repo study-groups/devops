@@ -1,0 +1,137 @@
+/* TETRA Dashboard - Shared Styles */
+
+:root {
+    /* Colors - Paper/Ink naming */
+    --paper-dark: #0a0a0a;
+    --paper-mid: #1a1a1a;
+    --paper-light: #2a2a2a;
+    --ink: #e0e0e0;
+    --ink-muted: #666;
+    --border: #333;
+
+    /* Semantic colors */
+    --one: #ff6b6b;      /* red - error, danger, prod */
+    --two: #4ecdc4;      /* teal - success, online, local */
+    --three: #ffe66d;    /* yellow - warning, dev/staging */
+    --four: #6b5ce7;     /* purple - accent, active */
+
+    /* Typography */
+    --font-mono: 'SF Mono', 'Monaco', 'Consolas', monospace;
+}
+
+/* Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Dark scrollbars - WebKit */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: var(--paper-dark);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--paper-mid);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #333;
+}
+
+/* Dark scrollbars - Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--paper-mid) var(--paper-dark);
+}
+
+/* Base body */
+body {
+    background: var(--paper-dark);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 12px;
+}
+
+/* Common utilities */
+.empty {
+    color: var(--ink-muted);
+    padding: 20px;
+    text-align: center;
+}
+
+.error {
+    color: var(--one);
+    padding: 8px;
+}
+
+/* Status dot */
+.status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ink-muted);
+}
+.status-dot.online,
+.status-dot.connected {
+    background: var(--two);
+}
+.status-dot.stopped,
+.status-dot.offline,
+.status-dot.disconnected {
+    background: var(--one);
+}
+
+/* Common header pattern */
+.iframe-header {
+    color: var(--ink-muted);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--paper-mid);
+    flex-shrink: 0;
+}
+
+.iframe-header .refresh {
+    cursor: pointer;
+}
+.iframe-header .refresh:hover {
+    color: var(--two);
+}
+
+/* Common button styles */
+.btn {
+    background: transparent;
+    border: 1px solid var(--paper-mid);
+    color: var(--ink-muted);
+    padding: 2px 8px;
+    font-family: inherit;
+    font-size: 9px;
+    cursor: pointer;
+    border-radius: 2px;
+}
+.btn:hover {
+    border-color: var(--four);
+    color: var(--four);
+}
+.btn.active {
+    border-color: var(--four);
+    color: var(--four);
+}
+.btn.primary {
+    background: var(--four);
+    border-color: var(--four);
+    color: var(--ink);
+}
+.btn.danger {
+    background: var(--one);
+    border-color: var(--one);
+    color: var(--ink);
+}

@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tests</title>
+    <link rel="stylesheet" href="shared.css">
+    <style>
+        body {
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .toolbar {
+            background: var(--paper-mid);
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .toolbar select {
+            background: var(--paper-light);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            padding: 6px 10px;
+            font-family: inherit;
+            font-size: 11px;
+            border-radius: 2px;
+            min-width: 150px;
+        }
+
+        .toolbar button {
+            background: var(--four);
+            border: none;
+            color: var(--ink);
+            padding: 6px 14px;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+
+        .toolbar button:hover { opacity: 0.9; }
+        .toolbar button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .toolbar button.stop { background: var(--one); }
+        .toolbar button.secondary { background: var(--paper-light); }
+
+        .toolbar .spacer { flex: 1; }
+
+        .toolbar .status-badge {
+            padding: 4px 8px;
+            border-radius: 2px;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+        .status-badge.idle { background: var(--paper-light); }
+        .status-badge.running { background: var(--three); color: #000; }
+        .status-badge.passed { background: var(--two); color: #000; }
+        .status-badge.failed { background: var(--one); }
+
+        .content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .test-list {
+            width: 280px;
+            background: var(--paper-mid);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .test-list-header {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            font-size: 10px;
+            text-transform: uppercase;
+            color: var(--ink-muted);
+        }
+
+        .test-list-content {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .test-item {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .test-item:hover { background: var(--paper-light); }
+        .test-item.active { background: var(--four); }
+
+        .test-item .status-icon {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .status-icon.pending { background: var(--ink-muted); }
+        .status-icon.running { background: var(--three); }
+        .status-icon.passed { background: var(--two); }
+        .status-icon.failed { background: var(--one); }
+
+        .test-item .name {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 11px;
+        }
+
+        .test-item .duration {
+            font-size: 10px;
+            color: var(--ink-muted);
+        }
+
+        .output-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .output-header {
+            padding: 10px 12px;
+            background: var(--paper-mid);
+            border-bottom: 1px solid var(--border);
+            font-size: 10px;
+            text-transform: uppercase;
+            color: var(--ink-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .output-content {
+            flex: 1;
+            padding: 12px;
+            overflow: auto;
+            font-size: 11px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        .output-content .line { margin-bottom: 2px; }
+        .output-content .line.error { color: var(--one); }
+        .output-content .line.success { color: var(--two); }
+        .output-content .line.info { color: var(--four); }
+        .output-content .line.muted { color: var(--ink-muted); }
+
+        .summary {
+            padding: 12px;
+            background: var(--paper-mid);
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 24px;
+            font-size: 11px;
+            flex-shrink: 0;
+        }
+
+        .summary .stat {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .summary .stat .count { font-weight: 600; }
+        .summary .stat.passed .count { color: var(--two); }
+        .summary .stat.failed .count { color: var(--one); }
+        .summary .stat.pending .count { color: var(--ink-muted); }
+
+        .placeholder {
+            color: var(--ink-muted);
+            text-align: center;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <select id="suite-select">
+            <option value="">Select test suite...</option>
+            <option value="unit">Unit Tests</option>
+            <option value="integration">Integration Tests</option>
+            <option value="e2e">E2E Tests</option>
+        </select>
+        <button id="run-btn">Run All</button>
+        <button id="stop-btn" class="stop" disabled>Stop</button>
+        <span class="spacer"></span>
+        <span class="status-badge idle" id="status-badge">Idle</span>
+    </div>
+
+    <div class="content">
+        <div class="test-list">
+            <div class="test-list-header">Tests</div>
+            <div class="test-list-content" id="test-list">
+                <div class="placeholder">Select a test suite to begin</div>
+            </div>
+        </div>
+
+        <div class="output-panel">
+            <div class="output-header">
+                <span>Output</span>
+                <button id="clear-btn" style="background:none;border:none;color:var(--ink-muted);cursor:pointer;">Clear</button>
+            </div>
+            <div class="output-content" id="output">
+                <div class="line muted">Ready to run tests...</div>
+            </div>
+            <div class="summary">
+                <div class="stat passed"><span class="count" id="passed-count">0</span> passed</div>
+                <div class="stat failed"><span class="count" id="failed-count">0</span> failed</div>
+                <div class="stat pending"><span class="count" id="pending-count">0</span> pending</div>
+                <div class="stat"><span class="count" id="duration">0s</span> duration</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get org from URL params
+        const params = new URLSearchParams(window.location.search);
+        const ORG = params.get('org') || 'tetra';
+        const ENV = params.get('env') || 'local';
+
+        // Elements
+        const suiteSelect = document.getElementById('suite-select');
+        const runBtn = document.getElementById('run-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const statusBadge = document.getElementById('status-badge');
+        const testList = document.getElementById('test-list');
+        const output = document.getElementById('output');
+        const clearBtn = document.getElementById('clear-btn');
+        const passedCount = document.getElementById('passed-count');
+        const failedCount = document.getElementById('failed-count');
+        const pendingCount = document.getElementById('pending-count');
+        const durationEl = document.getElementById('duration');
+
+        // State
+        let running = false;
+        let tests = [];
+        let currentTest = null;
+        let stats = { passed: 0, failed: 0, pending: 0, duration: 0 };
+
+        // ========================================================================
+        // Mock Test Data (Replace with real API later)
+        // ========================================================================
+
+        const MOCK_SUITES = {
+            unit: [
+                { name: 'utils.test.js', tests: ['formatTime', 'parseConfig', 'validateInput'] },
+                { name: 'state.test.js', tests: ['setState', 'getState', 'resetState'] },
+                { name: 'events.test.js', tests: ['emit', 'on', 'off'] }
+            ],
+            integration: [
+                { name: 'api.test.js', tests: ['GET /status', 'POST /deploy', 'GET /logs'] },
+                { name: 'ssh.test.js', tests: ['connect', 'execute', 'disconnect'] }
+            ],
+            e2e: [
+                { name: 'dashboard.spec.js', tests: ['loads panels', 'resizes panes', 'switches views'] },
+                { name: 'deploy.spec.js', tests: ['selects target', 'runs deploy', 'shows output'] }
+            ]
+        };
+
+        // ========================================================================
+        // UI Functions
+        // ========================================================================
+
+        function setStatus(status) {
+            statusBadge.className = 'status-badge ' + status;
+            statusBadge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+        }
+
+        function log(message, type = '') {
+            const line = document.createElement('div');
+            line.className = 'line ' + type;
+            line.textContent = message;
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearOutput() {
+            output.innerHTML = '';
+        }
+
+        function updateStats() {
+            passedCount.textContent = stats.passed;
+            failedCount.textContent = stats.failed;
+            pendingCount.textContent = stats.pending;
+            durationEl.textContent = (stats.duration / 1000).toFixed(2) + 's';
+        }
+
+        function renderTestList(suite) {
+            const suiteData = MOCK_SUITES[suite];
+            if (!suiteData) {
+                testList.innerHTML = '<div class="placeholder">No tests found</div>';
+                return;
+            }
+
+            tests = [];
+            suiteData.forEach(file => {
+                file.tests.forEach(test => {
+                    tests.push({
+                        id: `${file.name}:${test}`,
+                        file: file.name,
+                        name: test,
+                        status: 'pending',
+                        duration: 0
+                    });
+                });
+            });
+
+            renderTests();
+            stats = { passed: 0, failed: 0, pending: tests.length, duration: 0 };
+            updateStats();
+        }
+
+        function renderTests() {
+            testList.innerHTML = tests.map(t => `
+                <div class="test-item ${t.id === currentTest ? 'active' : ''}" data-id="${t.id}">
+                    <div class="status-icon ${t.status}"></div>
+                    <div class="name">${t.name}</div>
+                    <div class="duration">${t.duration ? t.duration + 'ms' : ''}</div>
+                </div>
+            `).join('');
+
+            testList.querySelectorAll('.test-item').forEach(item => {
+                item.addEventListener('click', () => selectTest(item.dataset.id));
+            });
+        }
+
+        function selectTest(id) {
+            currentTest = id;
+            renderTests();
+            const test = tests.find(t => t.id === id);
+            if (test) {
+                log(`Selected: ${test.file} > ${test.name}`, 'info');
+            }
+        }
+
+        // ========================================================================
+        // Test Runner (Simulated)
+        // ========================================================================
+
+        async function runTests() {
+            if (running) return;
+            running = true;
+
+            runBtn.disabled = true;
+            stopBtn.disabled = false;
+            setStatus('running');
+            clearOutput();
+
+            const startTime = Date.now();
+            stats = { passed: 0, failed: 0, pending: tests.length, duration: 0 };
+
+            log(`Running ${tests.length} tests...`, 'info');
+            log('');
+
+            for (const test of tests) {
+                if (!running) break;
+
+                currentTest = test.id;
+                test.status = 'running';
+                renderTests();
+                log(`  ${test.file} > ${test.name}...`, 'muted');
+
+                // Simulate test execution
+                const duration = Math.floor(Math.random() * 200) + 50;
+                await new Promise(r => setTimeout(r, duration));
+
+                if (!running) break;
+
+                // Random pass/fail
+                const passed = Math.random() > 0.2;
+                test.status = passed ? 'passed' : 'failed';
+                test.duration = duration;
+
+                if (passed) {
+                    stats.passed++;
+                    log(`    ✓ passed (${duration}ms)`, 'success');
+                } else {
+                    stats.failed++;
+                    log(`    ✗ failed (${duration}ms)`, 'error');
+                    log(`      AssertionError: expected value to match`, 'error');
+                }
+
+                stats.pending--;
+                stats.duration = Date.now() - startTime;
+                updateStats();
+                renderTests();
+            }
+
+            running = false;
+            currentTest = null;
+            runBtn.disabled = false;
+            stopBtn.disabled = true;
+
+            if (stats.failed > 0) {
+                setStatus('failed');
+                log('');
+                log(`Tests failed: ${stats.failed} of ${tests.length}`, 'error');
+            } else {
+                setStatus('passed');
+                log('');
+                log(`All ${stats.passed} tests passed!`, 'success');
+            }
+
+            renderTests();
+        }
+
+        function stopTests() {
+            running = false;
+            log('');
+            log('Tests stopped by user', 'muted');
+        }
+
+        // ========================================================================
+        // Event Handlers
+        // ========================================================================
+
+        suiteSelect.addEventListener('change', () => {
+            const suite = suiteSelect.value;
+            if (suite) {
+                renderTestList(suite);
+                clearOutput();
+                log(`Loaded suite: ${suite}`, 'info');
+                log(`${tests.length} tests found`, 'muted');
+            }
+        });
+
+        runBtn.addEventListener('click', runTests);
+        stopBtn.addEventListener('click', stopTests);
+        clearBtn.addEventListener('click', clearOutput);
+
+        // ========================================================================
+        // Init
+        // ========================================================================
+
+        // Notify parent we're ready
+        window.parent.postMessage({
+            type: 'ready',
+            from: 'tests',
+            source: 'terrain'
+        }, '*');
+    </script>
+</body>
+</html>

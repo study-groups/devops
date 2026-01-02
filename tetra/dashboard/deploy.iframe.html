@@ -3,29 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <title>Deploy</title>
+    <link rel="stylesheet" href="shared.css">
     <style>
-        :root {
-            --paper-dark: #0a0a0a;
-            --paper-mid: #1a1a1a;
-            --ink: #e0e0e0;
-            --ink-muted: #666;
-            --one: #ff6b6b;
-            --two: #4ecdc4;
-            --three: #ffe66d;
-            --four: #6b5ce7;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        /* Dark scrollbars */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: var(--paper-dark); }
-        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #444; }
-
         body {
-            background: var(--paper-dark);
-            color: var(--ink);
-            font-family: 'SF Mono', monospace;
             font-size: 11px;
             padding: 12px;
             height: 100vh;
@@ -123,8 +103,6 @@
         }
         .history-item .status.success { color: var(--two); }
         .history-item .status.failed { color: var(--one); }
-        .empty { color: var(--ink-muted); padding: 20px; text-align: center; }
-        .error { color: var(--one); padding: 8px; }
         .output {
             background: var(--paper-mid);
             padding: 8px;

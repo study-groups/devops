@@ -4,35 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Console</title>
+    <link rel="stylesheet" href="shared.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
     <style>
-        :root {
-            --paper-dark: #0a0a0a;
-            --paper-mid: #1a1a1a;
-            --ink: #e0e0e0;
-            --one: #ff6b6b;
-            --two: #4ecdc4;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        /* Dark scrollbars */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: var(--paper-dark);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #333;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #444;
-        }
-
         body {
-            background: var(--paper-dark);
             height: 100vh;
             overflow: hidden;
         }

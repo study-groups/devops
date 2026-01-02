@@ -3,28 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <title>TSM</title>
+    <link rel="stylesheet" href="shared.css">
     <style>
-        :root {
-            --paper-dark: #0a0a0a;
-            --paper-mid: #1a1a1a;
-            --ink: #e0e0e0;
-            --ink-muted: #666;
-            --one: #ff6b6b;
-            --two: #4ecdc4;
-            --four: #6b5ce7;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        /* Dark scrollbars */
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: var(--paper-dark); }
-        ::-webkit-scrollbar-thumb { background: var(--paper-mid); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #333; }
-        * { scrollbar-width: thin; scrollbar-color: var(--paper-mid) var(--paper-dark); }
         body {
-            background: var(--paper-dark);
-            color: var(--ink);
-            font-family: 'SF Mono', monospace;
             font-size: 11px;
             padding: 12px;
             height: 100vh;
@@ -37,13 +18,6 @@
             border-bottom: 1px solid var(--paper-mid);
             gap: 12px;
         }
-        .status-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-        }
-        .status-dot.online { background: var(--two); }
-        .status-dot.stopped { background: var(--one); }
         .name { flex: 1; }
         .port { color: var(--ink-muted); min-width: 50px; }
         .uptime { color: var(--ink-muted); min-width: 40px; font-size: 10px; }
@@ -83,8 +57,6 @@
         }
         .refresh { cursor: pointer; }
         .refresh:hover { color: var(--two); }
-        .empty { color: var(--ink-muted); padding: 20px; text-align: center; }
-        .error { color: var(--one); padding: 8px; }
     </style>
 </head>
 <body>

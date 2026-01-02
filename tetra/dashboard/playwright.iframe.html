@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playwright</title>
+    <link rel="stylesheet" href="shared.css">
+    <style>
+        body {
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: var(--paper-mid);
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .header input {
+            flex: 1;
+            background: var(--paper-light);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            padding: 8px 12px;
+            font-family: inherit;
+            font-size: 12px;
+            border-radius: 2px;
+        }
+
+        .header input:focus {
+            outline: none;
+            border-color: var(--four);
+        }
+
+        .header button {
+            background: var(--four);
+            border: none;
+            color: var(--ink);
+            padding: 8px 16px;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+
+        .header button:hover { opacity: 0.9; }
+        .header button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .header button.secondary {
+            background: var(--paper-light);
+        }
+
+        .content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .preview {
+            flex: 1;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            color: var(--ink-muted);
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+
+        .preview-image {
+            flex: 1;
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .preview-image img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .preview-image .placeholder {
+            color: var(--ink-muted);
+            text-align: center;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: var(--paper-mid);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+            font-size: 10px;
+            text-transform: uppercase;
+            color: var(--ink-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-header button {
+            background: none;
+            border: none;
+            color: var(--ink-muted);
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .sidebar-header button:hover { color: var(--ink); }
+
+        .captures-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .capture-item {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+        }
+        .capture-item:hover { background: var(--paper-light); }
+        .capture-item.active { background: var(--four); }
+
+        .capture-item .url {
+            font-size: 11px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+
+        .capture-item .meta {
+            font-size: 10px;
+            color: var(--ink-muted);
+        }
+
+        .dom-panel {
+            height: 200px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dom-header {
+            padding: 8px 12px;
+            background: var(--paper-light);
+            font-size: 10px;
+            text-transform: uppercase;
+            color: var(--ink-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .dom-header button {
+            background: none;
+            border: none;
+            color: var(--ink-muted);
+            cursor: pointer;
+            font-size: 11px;
+        }
+        .dom-header button:hover { color: var(--ink); }
+
+        .dom-content {
+            flex: 1;
+            padding: 8px 12px;
+            overflow: auto;
+            font-size: 11px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .status {
+            padding: 8px 12px;
+            background: var(--paper-light);
+            border-top: 1px solid var(--border);
+            font-size: 10px;
+            color: var(--ink-muted);
+            flex-shrink: 0;
+        }
+
+        .status.capturing { color: var(--three); }
+        .status.success { color: var(--two); }
+        .status.error { color: var(--one); }
+
+        .loading {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid var(--ink-muted);
+            border-radius: 50%;
+            border-top-color: var(--four);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <input type="text" id="url-input" placeholder="https://example.com" value="http://localhost:8080">
+        <button id="capture-btn">Capture</button>
+        <button id="dom-only-btn" class="secondary">DOM Only</button>
+    </div>
+
+    <div class="content">
+        <div class="preview">
+            <div class="preview-header">
+                <span>Screenshot Preview</span>
+                <span id="capture-id"></span>
+            </div>
+            <div class="preview-image" id="preview">
+                <div class="placeholder">
+                    Enter a URL and click Capture<br>
+                    <small>Screenshots + DOM will be saved for Claude</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <span>Recent Captures</span>
+                <button id="refresh-list" title="Refresh">&#x21bb;</button>
+            </div>
+            <div class="captures-list" id="captures-list">
+                <!-- Populated dynamically -->
+            </div>
+            <div class="dom-panel">
+                <div class="dom-header">
+                    <span>DOM Text Content</span>
+                    <button id="copy-dom" title="Copy to Clipboard">Copy</button>
+                </div>
+                <div class="dom-content" id="dom-content">
+                    Select a capture to view DOM content
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="status" id="status">Ready</div>
+
+    <script>
+        // Get org from URL params
+        const params = new URLSearchParams(window.location.search);
+        const ORG = params.get('org') || 'tetra';
+
+        // Elements
+        const urlInput = document.getElementById('url-input');
+        const captureBtn = document.getElementById('capture-btn');
+        const domOnlyBtn = document.getElementById('dom-only-btn');
+        const preview = document.getElementById('preview');
+        const captureId = document.getElementById('capture-id');
+        const capturesList = document.getElementById('captures-list');
+        const domContent = document.getElementById('dom-content');
+        const copyDomBtn = document.getElementById('copy-dom');
+        const refreshListBtn = document.getElementById('refresh-list');
+        const status = document.getElementById('status');
+
+        let currentCapture = null;
+
+        // ========================================================================
+        // API Functions
+        // ========================================================================
+
+        async function captureUrl(url, extractDom = true) {
+            setStatus('capturing', 'Capturing...');
+            captureBtn.disabled = true;
+
+            try {
+                const res = await fetch('/api/playwright/capture', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, org: ORG, extractDom })
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    setStatus('success', `Captured: ${data.screenshotPath}`);
+                    loadCaptures();
+
+                    // Show the new capture
+                    const id = data.screenshotPath.split('/').pop().replace('.png', '');
+                    loadCapture(id);
+                } else {
+                    setStatus('error', `Error: ${data.error || 'Unknown error'}`);
+                }
+            } catch (e) {
+                setStatus('error', `Error: ${e.message}`);
+            } finally {
+                captureBtn.disabled = false;
+            }
+        }
+
+        async function loadCaptures() {
+            try {
+                const res = await fetch(`/api/playwright/list?org=${ORG}`);
+                if (!res.ok) throw new Error('Failed to load');
+
+                const captures = await res.json();
+                renderCapturesList(captures);
+            } catch (e) {
+                console.error('[Playwright] Failed to load captures:', e);
+            }
+        }
+
+        async function loadCapture(id) {
+            currentCapture = id;
+            captureId.textContent = id;
+
+            // Show screenshot
+            preview.innerHTML = `<img src="/api/playwright/screenshot/${ORG}/${id}" alt="Screenshot">`;
+
+            // Load DOM content
+            try {
+                const res = await fetch(`/api/playwright/combined/${ORG}/${id}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    domContent.textContent = data.textContent || 'No text content';
+                }
+            } catch (e) {
+                domContent.textContent = 'Failed to load DOM content';
+            }
+
+            // Highlight active item
+            document.querySelectorAll('.capture-item').forEach(item => {
+                item.classList.toggle('active', item.dataset.id === id);
+            });
+        }
+
+        async function deleteCapture(id) {
+            try {
+                await fetch(`/api/playwright/${ORG}/${id}`, { method: 'DELETE' });
+                loadCaptures();
+                if (currentCapture === id) {
+                    preview.innerHTML = '<div class="placeholder">Capture deleted</div>';
+                    domContent.textContent = '';
+                    currentCapture = null;
+                }
+            } catch (e) {
+                console.error('[Playwright] Failed to delete:', e);
+            }
+        }
+
+        // ========================================================================
+        // UI Functions
+        // ========================================================================
+
+        function renderCapturesList(captures) {
+            if (!captures.length) {
+                capturesList.innerHTML = '<div class="capture-item"><div class="url">No captures yet</div></div>';
+                return;
+            }
+
+            capturesList.innerHTML = captures.map(c => `
+                <div class="capture-item" data-id="${c.id}">
+                    <div class="url">${c.url}</div>
+                    <div class="meta">${new Date(c.timestamp).toLocaleString()}</div>
+                </div>
+            `).join('');
+
+            // Add click handlers
+            capturesList.querySelectorAll('.capture-item').forEach(item => {
+                item.addEventListener('click', () => loadCapture(item.dataset.id));
+            });
+        }
+
+        function setStatus(type, message) {
+            status.className = 'status ' + type;
+            status.textContent = message;
+        }
+
+        // ========================================================================
+        // Event Handlers
+        // ========================================================================
+
+        captureBtn.addEventListener('click', () => {
+            const url = urlInput.value.trim();
+            if (url) captureUrl(url, true);
+        });
+
+        domOnlyBtn.addEventListener('click', () => {
+            const url = urlInput.value.trim();
+            if (url) captureUrl(url, false);
+        });
+
+        urlInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const url = urlInput.value.trim();
+                if (url) captureUrl(url, true);
+            }
+        });
+
+        refreshListBtn.addEventListener('click', loadCaptures);
+
+        copyDomBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(domContent.textContent)
+                .then(() => setStatus('success', 'Copied to clipboard'))
+                .catch(() => setStatus('error', 'Failed to copy'));
+        });
+
+        // ========================================================================
+        // Init
+        // ========================================================================
+
+        // Notify parent we're ready
+        window.parent.postMessage({
+            type: 'ready',
+            from: 'playwright',
+            source: 'terrain'
+        }, '*');
+
+        // Load initial captures
+        loadCaptures();
+    </script>
+</body>
+</html>
