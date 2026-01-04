@@ -1,6 +1,6 @@
 {
       "name": "@nodeholder/pdata",
-      "version": "0.1.10",
+      "version": "0.2.0",
       "type": "module",
       "description": "PData service for secure file management",
       "keywords": [
@@ -29,17 +29,23 @@
       "files": [
             "index.js",
             "PData.js",
+            "UserManager.js",
+            "FileManager.js",
+            "CapabilityManager.js",
+            "AuthSrv.js",
+            "AuditLogger.js",
+            "adapters/",
             "routes.js",
             "userUtils.js",
             "manageUsers.js",
-            "README.md",
-            "tests/",
-            "utils/"
+            "logger.js",
+            "utils/",
+            "CHANGELOG.md"
       ],
-
       "dependencies": {
             "express-session": "^1.17.0",
             "fs-extra": "^11.3.0",
+            "minimatch": "^10.1.1",
             "multer": "^2.0.0",
             "passport": "^0.6.0"
       },
@@ -60,10 +66,10 @@
       },
       "scripts": {
             "setup-test-users": "node tests/setupTestUsers.js",
-            "test": "npm run setup-test-users && NODE_ENV=test NODE_OPTIONS='--experimental-vm-modules' npx jest --config jest.config.js",
-            "test:watch": "NODE_ENV=test NODE_OPTIONS='--experimental-vm-modules' npx jest --config jest.config.js --watch",
-            "test:api": "NODE_ENV=test NODE_OPTIONS='--experimental-vm-modules' npx jest --config jest.config.js tests/api.test.js",
-            "test:coverage": "NODE_ENV=test NODE_OPTIONS='--experimental-vm-modules' npx jest --config jest.config.js --coverage",
+            "test": "npm run setup-test-users && NODE_ENV=test SESSION_SECRET=test-secret NODE_OPTIONS='--experimental-vm-modules' npx jest --config jest.config.js",
+            "test:watch": "NODE_ENV=test SESSION_SECRET=test-secret NODE_OPTIONS='--experimental-vm-modules' npx jest --config jest.config.js --watch",
+            "test:api": "NODE_ENV=test SESSION_SECRET=test-secret NODE_OPTIONS='--experimental-vm-modules' npx jest --config jest.config.js tests/api.test.js",
+            "test:coverage": "NODE_ENV=test SESSION_SECRET=test-secret NODE_OPTIONS='--experimental-vm-modules' npx jest --config jest.config.js --coverage",
             "lint": "eslint .",
             "docs": "jsdoc -c jsdoc.json"
       }
