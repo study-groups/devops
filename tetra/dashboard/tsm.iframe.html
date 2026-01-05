@@ -62,87 +62,13 @@
 <body>
     <div class="header">
         <span>Services</span>
-        <span class="refresh" onclick="loadServices()">↻</span>
+        <span class="refresh" data-action="refresh">↻</span>
     </div>
     <div id="services">
         <div class="empty">Loading...</div>
     </div>
 
-    <script>
-        const servicesEl = document.getElementById('services');
-        const watchedServices = new Set(
-            JSON.parse(localStorage.getItem('tsm-watched-logs') || '[]')
-        );
-
-        function saveWatched() {
-            localStorage.setItem('tsm-watched-logs', JSON.stringify([...watchedServices]));
-        }
-
-        function toggleLogs(serviceName) {
-            if (watchedServices.has(serviceName)) {
-                watchedServices.delete(serviceName);
-            } else {
-                watchedServices.add(serviceName);
-            }
-            saveWatched();
-
-            // Notify parent (and thus logs iframe) about the change
-            window.parent.postMessage({
-                source: 'tsm',
-                type: 'log-watch-change',
-                services: [...watchedServices]
-            }, '*');
-
-            // Re-render to update button state
-            loadServices();
-        }
-
-        async function loadServices() {
-            try {
-                const res = await fetch('/api/tsm/ls');
-                const data = await res.json();
-
-                if (!data.services || data.services.length === 0) {
-                    servicesEl.innerHTML = '<div class="empty">(no processes)</div>';
-                    return;
-                }
-
-                servicesEl.innerHTML = data.services.map(svc => `
-                    <div class="service">
-                        <div class="status-dot ${svc.status}"></div>
-                        <span class="name">${svc.name}</span>
-                        <span class="port">${svc.port ? ':' + svc.port : '-'}</span>
-                        <span class="uptime">${svc.uptime || '-'}</span>
-                        <div class="actions">
-                            <button class="log-btn${watchedServices.has(svc.name) ? ' active' : ''}"
-                                    onclick="toggleLogs('${svc.name}')"
-                                    title="Watch logs">L</button>
-                            <button onclick="toggleService('${svc.name}', '${svc.status}')">${svc.status === 'online' ? 'stop' : 'start'}</button>
-                        </div>
-                    </div>
-                `).join('');
-            } catch (err) {
-                servicesEl.innerHTML = '<div class="error">Failed to load services</div>';
-            }
-        }
-
-        async function toggleService(name, status) {
-            const action = status === 'online' ? 'stop' : 'start';
-            try {
-                await fetch(`/api/tsm/${action}/${name}`, { method: 'POST' });
-                setTimeout(loadServices, 500);
-            } catch (err) {
-                console.error('Failed to ' + action + ' service:', err);
-            }
-        }
-
-        // Load on start
-        loadServices();
-
-        // Refresh every 5 seconds
-        setInterval(loadServices, 5000);
-
-    </script>
     <script src="/js/terrain-iframe.js"></script>
+    <script src="/js/tsm.js"></script>
 </body>
 </html>

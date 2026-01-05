@@ -233,8 +233,8 @@
 <body>
     <div class="header">
         <input type="text" id="url-input" placeholder="https://example.com" value="http://localhost:8080">
-        <button id="capture-btn">Capture</button>
-        <button id="dom-only-btn" class="secondary">DOM Only</button>
+        <button id="capture-btn" data-action="capture">Capture</button>
+        <button id="dom-only-btn" data-action="capture-dom-only" class="secondary">DOM Only</button>
     </div>
 
     <div class="content">
@@ -254,7 +254,7 @@
         <div class="sidebar">
             <div class="sidebar-header">
                 <span>Recent Captures</span>
-                <button id="refresh-list" title="Refresh">&#x21bb;</button>
+                <button id="refresh-list" data-action="refresh" title="Refresh">&#x21bb;</button>
             </div>
             <div class="captures-list" id="captures-list">
                 <!-- Populated dynamically -->
@@ -262,7 +262,7 @@
             <div class="dom-panel">
                 <div class="dom-header">
                     <span>DOM Text Content</span>
-                    <button id="copy-dom" title="Copy to Clipboard">Copy</button>
+                    <button id="copy-dom" data-action="copy-dom" title="Copy to Clipboard">Copy</button>
                 </div>
                 <div class="dom-content" id="dom-content">
                     Select a capture to view DOM content
@@ -273,179 +273,7 @@
 
     <div class="status" id="status">Ready</div>
 
-    <script>
-        // Get org from URL params
-        const params = new URLSearchParams(window.location.search);
-        const ORG = params.get('org') || 'tetra';
-
-        // Elements
-        const urlInput = document.getElementById('url-input');
-        const captureBtn = document.getElementById('capture-btn');
-        const domOnlyBtn = document.getElementById('dom-only-btn');
-        const preview = document.getElementById('preview');
-        const captureId = document.getElementById('capture-id');
-        const capturesList = document.getElementById('captures-list');
-        const domContent = document.getElementById('dom-content');
-        const copyDomBtn = document.getElementById('copy-dom');
-        const refreshListBtn = document.getElementById('refresh-list');
-        const status = document.getElementById('status');
-
-        let currentCapture = null;
-
-        // ========================================================================
-        // API Functions
-        // ========================================================================
-
-        async function captureUrl(url, extractDom = true) {
-            setStatus('capturing', 'Capturing...');
-            captureBtn.disabled = true;
-
-            try {
-                const res = await fetch('/api/playwright/capture', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url, org: ORG, extractDom })
-                });
-
-                const data = await res.json();
-
-                if (res.ok && data.success) {
-                    setStatus('success', `Captured: ${data.screenshotPath}`);
-                    loadCaptures();
-
-                    // Show the new capture
-                    const id = data.screenshotPath.split('/').pop().replace('.png', '');
-                    loadCapture(id);
-                } else {
-                    setStatus('error', `Error: ${data.error || 'Unknown error'}`);
-                }
-            } catch (e) {
-                setStatus('error', `Error: ${e.message}`);
-            } finally {
-                captureBtn.disabled = false;
-            }
-        }
-
-        async function loadCaptures() {
-            try {
-                const res = await fetch(`/api/playwright/list?org=${ORG}`);
-                if (!res.ok) throw new Error('Failed to load');
-
-                const captures = await res.json();
-                renderCapturesList(captures);
-            } catch (e) {
-                console.error('[Playwright] Failed to load captures:', e);
-            }
-        }
-
-        async function loadCapture(id) {
-            currentCapture = id;
-            captureId.textContent = id;
-
-            // Show screenshot
-            preview.innerHTML = `<img src="/api/playwright/screenshot/${ORG}/${id}" alt="Screenshot">`;
-
-            // Load DOM content
-            try {
-                const res = await fetch(`/api/playwright/combined/${ORG}/${id}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    domContent.textContent = data.textContent || 'No text content';
-                }
-            } catch (e) {
-                domContent.textContent = 'Failed to load DOM content';
-            }
-
-            // Highlight active item
-            document.querySelectorAll('.capture-item').forEach(item => {
-                item.classList.toggle('active', item.dataset.id === id);
-            });
-        }
-
-        async function deleteCapture(id) {
-            try {
-                await fetch(`/api/playwright/${ORG}/${id}`, { method: 'DELETE' });
-                loadCaptures();
-                if (currentCapture === id) {
-                    preview.innerHTML = '<div class="placeholder">Capture deleted</div>';
-                    domContent.textContent = '';
-                    currentCapture = null;
-                }
-            } catch (e) {
-                console.error('[Playwright] Failed to delete:', e);
-            }
-        }
-
-        // ========================================================================
-        // UI Functions
-        // ========================================================================
-
-        function renderCapturesList(captures) {
-            if (!captures.length) {
-                capturesList.innerHTML = '<div class="capture-item"><div class="url">No captures yet</div></div>';
-                return;
-            }
-
-            capturesList.innerHTML = captures.map(c => `
-                <div class="capture-item" data-id="${c.id}">
-                    <div class="url">${c.url}</div>
-                    <div class="meta">${new Date(c.timestamp).toLocaleString()}</div>
-                </div>
-            `).join('');
-
-            // Add click handlers
-            capturesList.querySelectorAll('.capture-item').forEach(item => {
-                item.addEventListener('click', () => loadCapture(item.dataset.id));
-            });
-        }
-
-        function setStatus(type, message) {
-            status.className = 'status ' + type;
-            status.textContent = message;
-        }
-
-        // ========================================================================
-        // Event Handlers
-        // ========================================================================
-
-        captureBtn.addEventListener('click', () => {
-            const url = urlInput.value.trim();
-            if (url) captureUrl(url, true);
-        });
-
-        domOnlyBtn.addEventListener('click', () => {
-            const url = urlInput.value.trim();
-            if (url) captureUrl(url, false);
-        });
-
-        urlInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                const url = urlInput.value.trim();
-                if (url) captureUrl(url, true);
-            }
-        });
-
-        refreshListBtn.addEventListener('click', loadCaptures);
-
-        copyDomBtn.addEventListener('click', () => {
-            navigator.clipboard.writeText(domContent.textContent)
-                .then(() => setStatus('success', 'Copied to clipboard'))
-                .catch(() => setStatus('error', 'Failed to copy'));
-        });
-
-        // ========================================================================
-        // Init
-        // ========================================================================
-
-        // Notify parent we're ready
-        window.parent.postMessage({
-            type: 'ready',
-            from: 'playwright',
-            source: 'terrain'
-        }, '*');
-
-        // Load initial captures
-        loadCaptures();
-    </script>
+    <script src="/js/terrain-iframe.js"></script>
+    <script src="/js/playwright.js"></script>
 </body>
 </html>
