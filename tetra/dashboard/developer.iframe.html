@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Developer</title>
+    <link rel="stylesheet" href="shared.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+        body {
+            font-size: 10px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+
+        /* SVG Diagram */
+        .diagram {
+            background: var(--paper-mid);
+            border-radius: 4px;
+            padding: 8px;
+            min-height: 120px;
+            flex-shrink: 0;
+        }
+        .diagram svg {
+            width: 100%;
+            height: 100px;
+        }
+        .node {
+            fill: var(--paper-light);
+            stroke: var(--border);
+            stroke-width: 1;
+        }
+        .node.active {
+            stroke: var(--four);
+            stroke-width: 2;
+        }
+        .node-label {
+            fill: var(--ink);
+            font-size: 9px;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+        .arrow {
+            stroke: var(--ink-muted);
+            stroke-width: 0.5;
+            fill: none;
+            opacity: 0.2;
+            transition: opacity 0.5s ease-out, stroke-width 0.3s ease-out;
+        }
+        .arrow.active {
+            opacity: 1;
+            stroke-width: 1.5;
+            transition: none;
+        }
+        .arrow.ready { stroke: var(--two); }
+        .arrow.env-change { stroke: var(--four); }
+        .arrow.log-watch-change { stroke: var(--three); }
+        .arrow.status { stroke: var(--two); }
+
+        /* Message Log */
+        .log-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 150px;
+            overflow: hidden;
+        }
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 8px;
+            background: var(--paper-mid);
+            border-radius: 4px 4px 0 0;
+        }
+        .log-title {
+            color: var(--ink-muted);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .log-controls {
+            display: flex;
+            gap: 8px;
+        }
+        .log-controls button {
+            background: transparent;
+            border: 1px solid var(--paper-mid);
+            color: var(--ink-muted);
+            padding: 2px 8px;
+            font-size: 9px;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+        .log-controls button:hover {
+            border-color: var(--four);
+            color: var(--four);
+        }
+        .log-controls button.active {
+            border-color: var(--two);
+            color: var(--two);
+        }
+        #messages {
+            flex: 1;
+            overflow-y: auto;
+            background: var(--paper-dark);
+            border: 1px solid var(--paper-mid);
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+        }
+        .msg-line {
+            padding: 3px 8px;
+            border-bottom: 1px solid var(--paper-mid);
+            font-family: var(--font-mono);
+            cursor: pointer;
+        }
+        .msg-line:hover {
+            background: var(--paper-mid);
+        }
+        .msg-line.new {
+            background: rgba(78, 205, 196, 0.1);
+            animation: fade-bg 2s ease-out forwards;
+        }
+        @keyframes fade-bg {
+            to { background: transparent; }
+        }
+        .msg-time { color: var(--ink-muted); }
+        .msg-type { font-weight: 600; }
+        .msg-type.ready { color: var(--two); }
+        .msg-type.env-change { color: var(--four); }
+        .msg-type.log-watch-change { color: var(--three); }
+        .msg-type.status { color: var(--two); }
+        .msg-type.injectTokens { color: var(--ink-muted); }
+        .msg-route { color: var(--ink-muted); }
+        .msg-payload {
+            display: none;
+            padding: 4px 8px 4px 20px;
+            background: var(--paper-mid);
+            font-size: 9px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .msg-line.expanded + .msg-payload {
+            display: block;
+        }
+
+        /* Examples Section */
+        .examples {
+            background: var(--paper-mid);
+            border-radius: 4px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .example {
+            border-bottom: 1px solid var(--paper-dark);
+        }
+        .example:last-child {
+            border-bottom: none;
+        }
+        .example-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .example-header:hover {
+            background: var(--paper-light);
+        }
+        .example-title {
+            color: var(--ink);
+            font-size: 10px;
+        }
+        .example-toggle {
+            color: var(--ink-muted);
+            font-size: 10px;
+        }
+        .example-content {
+            display: none;
+            padding: 8px;
+            background: var(--paper-dark);
+        }
+        .example.open .example-content {
+            display: block;
+        }
+        .example.open .example-toggle::before {
+            content: '\25BC';
+        }
+        .example-toggle::before {
+            content: '\25B6';
+        }
+        .code-block {
+            position: relative;
+            background: #1a1a1a;
+            border-radius: 4px;
+            padding: 8px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            line-height: 1.4;
+            overflow-x: auto;
+            white-space: pre;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            color: var(--ink-muted);
+            padding: 2px 6px;
+            font-size: 8px;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+        .copy-btn:hover {
+            border-color: var(--four);
+            color: var(--four);
+        }
+        .copy-btn.copied {
+            border-color: var(--two);
+            color: var(--two);
+        }
+
+        /* Reference Table */
+        .ref-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9px;
+        }
+        .ref-table th {
+            text-align: left;
+            padding: 4px 8px;
+            background: var(--paper-light);
+            color: var(--ink-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .ref-table td {
+            padding: 4px 8px;
+            border-bottom: 1px solid var(--paper-mid);
+        }
+        .ref-table code {
+            background: var(--paper-dark);
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-size: 9px;
+        }
+    </style>
+</head>
+<body>
+    <!-- SVG Diagram -->
+    <div class="diagram">
+        <svg viewBox="0 0 400 100" id="diagram">
+            <defs>
+                <!-- Per-panel colored arrowheads (smaller) -->
+                <marker id="arrow-console" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+                    <polygon points="0,0 6,2 0,4" fill="#4ecdc4"/>
+                </marker>
+                <marker id="arrow-tsm" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+                    <polygon points="0,0 6,2 0,4" fill="#ffe66d"/>
+                </marker>
+                <marker id="arrow-deploy" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+                    <polygon points="0,0 6,2 0,4" fill="#ff6b6b"/>
+                </marker>
+                <marker id="arrow-logs" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+                    <polygon points="0,0 6,2 0,4" fill="#6b5ce7"/>
+                </marker>
+                <marker id="arrow-caddy" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+                    <polygon points="0,0 6,2 0,4" fill="#ff9f43"/>
+                </marker>
+                <marker id="arrow-developer" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+                    <polygon points="0,0 6,2 0,4" fill="#a29bfe"/>
+                </marker>
+                <marker id="arrow-parent" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+                    <polygon points="0,0 6,2 0,4" fill="#dfe6e9"/>
+                </marker>
+            </defs>
+
+            <!-- Parent node (center top) -->
+            <rect class="node" id="node-parent" x="175" y="5" width="50" height="24" rx="3" style="stroke:#dfe6e9"/>
+            <text class="node-label" x="200" y="17">parent</text>
+
+            <!-- Iframe nodes (row below) - each with its own color -->
+            <rect class="node" id="node-console" x="10" y="60" width="50" height="24" rx="3" style="stroke:#4ecdc4"/>
+            <text class="node-label" x="35" y="72">console</text>
+
+            <rect class="node" id="node-tsm" x="90" y="60" width="40" height="24" rx="3" style="stroke:#ffe66d"/>
+            <text class="node-label" x="110" y="72">tsm</text>
+
+            <rect class="node" id="node-deploy" x="155" y="60" width="45" height="24" rx="3" style="stroke:#ff6b6b"/>
+            <text class="node-label" x="177" y="72">deploy</text>
+
+            <rect class="node" id="node-logs" x="220" y="60" width="40" height="24" rx="3" style="stroke:#6b5ce7"/>
+            <text class="node-label" x="240" y="72">logs</text>
+
+            <rect class="node" id="node-caddy" x="280" y="60" width="40" height="24" rx="3" style="stroke:#ff9f43"/>
+            <text class="node-label" x="300" y="72">caddy</text>
+
+            <rect class="node" id="node-developer" x="340" y="60" width="55" height="24" rx="3" style="stroke:#a29bfe"/>
+            <text class="node-label" x="367" y="72">developer</text>
+
+            <!-- All possible arrows (visible at low opacity, flash on message) -->
+            <!-- From each iframe TO parent -->
+            <line class="arrow" id="arrow-console-parent" x1="35" y1="60" x2="185" y2="29" marker-end="url(#arrow-console)"/>
+            <line class="arrow" id="arrow-tsm-parent" x1="110" y1="60" x2="195" y2="29" marker-end="url(#arrow-tsm)"/>
+            <line class="arrow" id="arrow-deploy-parent" x1="177" y1="60" x2="200" y2="29" marker-end="url(#arrow-deploy)"/>
+            <line class="arrow" id="arrow-logs-parent" x1="240" y1="60" x2="205" y2="29" marker-end="url(#arrow-logs)"/>
+            <line class="arrow" id="arrow-caddy-parent" x1="300" y1="60" x2="210" y2="29" marker-end="url(#arrow-caddy)"/>
+            <line class="arrow" id="arrow-developer-parent" x1="367" y1="60" x2="215" y2="29" marker-end="url(#arrow-developer)"/>
+
+            <!-- From parent TO each iframe -->
+            <line class="arrow" id="arrow-parent-console" x1="185" y1="29" x2="35" y2="60" marker-end="url(#arrow-parent)"/>
+            <line class="arrow" id="arrow-parent-tsm" x1="195" y1="29" x2="110" y2="60" marker-end="url(#arrow-parent)"/>
+            <line class="arrow" id="arrow-parent-deploy" x1="200" y1="29" x2="177" y2="60" marker-end="url(#arrow-parent)"/>
+            <line class="arrow" id="arrow-parent-logs" x1="205" y1="29" x2="240" y2="60" marker-end="url(#arrow-parent)"/>
+            <line class="arrow" id="arrow-parent-caddy" x1="210" y1="29" x2="300" y2="60" marker-end="url(#arrow-parent)"/>
+            <line class="arrow" id="arrow-parent-developer" x1="215" y1="29" x2="367" y2="60" marker-end="url(#arrow-parent)"/>
+
+            <!-- Horizontal: tsm ↔ logs -->
+            <line class="arrow" id="arrow-tsm-logs" x1="130" y1="72" x2="220" y2="72" marker-end="url(#arrow-tsm)"/>
+            <line class="arrow" id="arrow-logs-tsm" x1="220" y1="72" x2="130" y2="72" marker-end="url(#arrow-logs)"/>
+        </svg>
+    </div>
+
+    <!-- Message Log -->
+    <div class="log-section">
+        <div class="log-header">
+            <span class="log-title">Message Log</span>
+            <div class="log-controls">
+                <button id="pause-btn" data-action="pause" title="Pause/Resume">Pause</button>
+                <button id="clear-btn" data-action="clear" title="Clear log">Clear</button>
+            </div>
+        </div>
+        <div id="messages">
+            <div class="empty">(waiting for messages...)</div>
+        </div>
+    </div>
+
+    <!-- Protocol Examples -->
+    <div class="examples">
+        <div class="example" id="ex-send">
+            <div class="example-header" data-action="toggle-example" data-id="ex-send">
+                <span class="example-title">Sending messages from iframe</span>
+                <span class="example-toggle"></span>
+            </div>
+            <div class="example-content">
+                <div class="code-block" id="code-send">
+<button class="copy-btn" data-action="copy-code" data-id="code-send">Copy</button>
+// Send message to parent window
+Terrain.Iframe.send({
+    type: 'log-watch-change',
+    services: ['tetra-4444', 'gamma-web']
+});</div>
+            </div>
+        </div>
+
+        <div class="example" id="ex-receive">
+            <div class="example-header" data-action="toggle-example" data-id="ex-receive">
+                <span class="example-title">Receiving messages in iframe</span>
+                <span class="example-toggle"></span>
+            </div>
+            <div class="example-content">
+                <div class="code-block" id="code-receive">
+<button class="copy-btn" data-action="copy-code" data-id="code-receive">Copy</button>
+Terrain.Iframe.init({
+    name: 'myPanel',
+    onMessage: function(msg) {
+        if (msg.type === 'env-change') {
+            console.log('Env:', msg.env, msg.org);
+        }
+    }
+});</div>
+            </div>
+        </div>
+
+        <div class="example" id="ex-types">
+            <div class="example-header" data-action="toggle-example" data-id="ex-types">
+                <span class="example-title">Message types reference</span>
+                <span class="example-toggle"></span>
+            </div>
+            <div class="example-content">
+                <table class="ref-table">
+                    <tr><th>Type</th><th>Direction</th><th>Payload</th></tr>
+                    <tr><td><code>ready</code></td><td>iframe &rarr; parent</td><td><code>{from}</code></td></tr>
+                    <tr><td><code>env-change</code></td><td>parent &rarr; iframe</td><td><code>{env, org, user}</code></td></tr>
+                    <tr><td><code>log-watch-change</code></td><td>tsm &harr; logs</td><td><code>{services[]}</code></td></tr>
+                    <tr><td><code>status</code></td><td>console &rarr; parent</td><td><code>{connected, transport}</code></td></tr>
+                    <tr><td><code>injectTokens</code></td><td>parent &rarr; iframe</td><td><code>{tokens{}}</code></td></tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="example open" id="ex-flow">
+            <div class="example-header" data-action="toggle-example" data-id="ex-flow">
+                <span class="example-title">Message flow architecture</span>
+                <span class="example-toggle"></span>
+            </div>
+            <div class="example-content">
+                <div class="code-block" style="white-space: pre-wrap; font-size: 9px;">
+<strong>Terminology:</strong>
+  parent = index.html (the main dashboard window)
+  terrain = source name used by parent in messages
+  iframe = any panel (console, tsm, logs, deploy, etc.)
+
+<strong>Flow patterns:</strong>
+  1. Iframe announces ready:
+     console.iframe → parent: {type:'ready', from:'console'}
+
+  2. User clicks env button, parent broadcasts:
+     parent → all iframes: {type:'env-change', env:'dev', org:'tetra'}
+
+  3. TSM toggles log watch, parent routes to logs:
+     tsm.iframe → parent → logs.iframe: {type:'log-watch-change', services:[...]}
+
+  4. Console reports SSH status:
+     console.iframe → parent: {type:'status', connected:true}
+
+<strong>The parent acts as a message hub:</strong>
+  - Receives messages from iframes via postMessage
+  - Routes/broadcasts to other iframes as needed
+  - Adds _via:'parent' and _to:'target' for tracing</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/terrain-iframe.js"></script>
+    <script src="/js/developer.js"></script>
+</body>
+</html>

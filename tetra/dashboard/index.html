@@ -125,23 +125,28 @@
         }
 
         .panel-header select {
-            background: var(--paper-light);
-            border: 1px solid var(--border);
-            color: var(--ink);
+            background: transparent;
+            border: none;
+            color: var(--ink-muted);
             font-family: inherit;
             font-size: 10px;
-            padding: 2px 4px;
-            border-radius: 2px;
+            padding: 2px 6px;
             cursor: pointer;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
+
+        .panel-header select:hover {
+            color: var(--ink);
         }
 
         .panel-header select:focus {
             outline: none;
-            border-color: var(--four);
+            color: var(--ink);
         }
 
         .panel-header .view-select {
-            min-width: 80px;
             font-weight: 600;
         }
 
@@ -247,6 +252,7 @@
     </style>
 </head>
 <body>
+    <script src="/js/terrain-iframe.js"></script>
     <div class="dashboard">
         <header class="header">
             <div class="logo">TETRA<span>.</span>CONSOLE</div>
@@ -266,12 +272,15 @@
                 <div class="panel" data-panel="top-left" data-view="console" style="width: var(--left-top-width)">
                     <div class="panel-header">
                         <select class="view-select">
-                            <option value="console">> Console</option>
-                            <option value="tsm">~ TSM</option>
-                            <option value="deploy">^ Deploy</option>
-                            <option value="logs"># Logs</option>
-                            <option value="playwright">@ Playwright</option>
-                            <option value="tests">* Tests</option>
+                            <option value="console">Console</option>
+                            <option value="tsm">TSM</option>
+                            <option value="deploy">Deploy</option>
+                            <option value="logs">Logs</option>
+                            <option value="caddy">Caddy</option>
+                            <option value="capture">Capture</option>
+                            <option value="playwright">Playwright</option>
+                            <option value="tests">Tests</option>
+                            <option value="developer">Developer</option>
                         </select>
                         <div class="env-btns">
                             <button class="env-btn active" data-env="local">local</button>
@@ -289,12 +298,15 @@
                 <div class="panel" data-panel="top-right" data-view="tsm" style="flex: 1">
                     <div class="panel-header">
                         <select class="view-select">
-                            <option value="console">> Console</option>
-                            <option value="tsm" selected>~ TSM</option>
-                            <option value="deploy">^ Deploy</option>
-                            <option value="logs"># Logs</option>
-                            <option value="playwright">@ Playwright</option>
-                            <option value="tests">* Tests</option>
+                            <option value="console">Console</option>
+                            <option value="tsm" selected>TSM</option>
+                            <option value="deploy">Deploy</option>
+                            <option value="logs">Logs</option>
+                            <option value="caddy">Caddy</option>
+                            <option value="capture">Capture</option>
+                            <option value="playwright">Playwright</option>
+                            <option value="tests">Tests</option>
+                            <option value="developer">Developer</option>
                         </select>
                         <div class="env-btns">
                             <button class="env-btn active" data-env="local">local</button>
@@ -318,12 +330,15 @@
                 <div class="panel" data-panel="bottom-left" data-view="deploy" style="width: var(--left-bot-width)">
                     <div class="panel-header">
                         <select class="view-select">
-                            <option value="console">> Console</option>
-                            <option value="tsm">~ TSM</option>
-                            <option value="deploy" selected>^ Deploy</option>
-                            <option value="logs"># Logs</option>
-                            <option value="playwright">@ Playwright</option>
-                            <option value="tests">* Tests</option>
+                            <option value="console">Console</option>
+                            <option value="tsm">TSM</option>
+                            <option value="deploy" selected>Deploy</option>
+                            <option value="logs">Logs</option>
+                            <option value="caddy">Caddy</option>
+                            <option value="capture">Capture</option>
+                            <option value="playwright">Playwright</option>
+                            <option value="tests">Tests</option>
+                            <option value="developer">Developer</option>
                         </select>
                         <div class="env-btns">
                             <button class="env-btn active" data-env="local">local</button>
@@ -341,12 +356,15 @@
                 <div class="panel" data-panel="bottom-right" data-view="logs" style="flex: 1">
                     <div class="panel-header">
                         <select class="view-select">
-                            <option value="console">> Console</option>
-                            <option value="tsm">~ TSM</option>
-                            <option value="deploy">^ Deploy</option>
-                            <option value="logs" selected># Logs</option>
-                            <option value="playwright">@ Playwright</option>
-                            <option value="tests">* Tests</option>
+                            <option value="console">Console</option>
+                            <option value="tsm">TSM</option>
+                            <option value="deploy">Deploy</option>
+                            <option value="logs" selected>Logs</option>
+                            <option value="caddy">Caddy</option>
+                            <option value="capture">Capture</option>
+                            <option value="playwright">Playwright</option>
+                            <option value="tests">Tests</option>
+                            <option value="developer">Developer</option>
                         </select>
                         <div class="env-btns">
                             <button class="env-btn active" data-env="local">local</button>
@@ -374,8 +392,11 @@
             tsm: { src: 'tsm.iframe.html' },
             deploy: { src: 'deploy.iframe.html' },
             logs: { src: 'logs.iframe.html' },
+            caddy: { src: 'caddy.iframe.html' },
+            capture: { src: 'capture.iframe.html' },
             playwright: { src: 'playwright.iframe.html' },
-            tests: { src: 'tests.iframe.html' }
+            tests: { src: 'tests.iframe.html' },
+            developer: { src: 'developer.iframe.html' }
         };
 
         const STORAGE_KEY = 'tetra-console-state';
@@ -691,22 +712,40 @@
         });
 
         // ========================================================================
-        // Iframe Messaging
+        // Message Bus Setup (using Terrain.Bus from terrain-iframe.js)
+        // ========================================================================
+
+        // Configure Terrain.Bus for parent mode
+        Terrain.Bus.configure({ panels });
+
+        // Developer panels subscribe to ALL messages for visualization
+        Terrain.Bus.subscribe('*', (msg) => {
+            panels.forEach(panel => {
+                if (panel.dataset.view === 'developer') {
+                    const iframe = panel.querySelector('iframe');
+                    if (iframe?.contentWindow) {
+                        iframe.contentWindow.postMessage(msg, '*');
+                    }
+                }
+            });
+        });
+
+        // ========================================================================
+        // Iframe Message Handler
         // ========================================================================
 
         window.addEventListener('message', (e) => {
             const msg = e.data;
             if (!msg || typeof msg !== 'object') return;
 
-            // Forward log-watch-change messages between iframes
+            const from = msg.source || msg.from || 'unknown';
+
+            // Publish incoming message (source -> parent)
+            Terrain.Bus._notify({ ...msg, _from: from, _to: 'parent' });
+
+            // Route log-watch-change to all panels
             if (msg.type === 'log-watch-change') {
-                // Broadcast to all iframes
-                panels.forEach(panel => {
-                    const iframe = panel.querySelector('iframe');
-                    if (iframe?.contentWindow && iframe.contentWindow !== e.source) {
-                        iframe.contentWindow.postMessage(msg, '*');
-                    }
-                });
+                Terrain.Bus.broadcast(msg, e.source);
                 return;
             }
 
@@ -720,14 +759,12 @@
         });
 
         function sendToPanel(panel, data) {
-            const iframe = panel.querySelector('iframe');
-            if (iframe?.contentWindow) {
-                iframe.contentWindow.postMessage({
-                    ...data,
-                    source: 'terrain',
-                    timestamp: Date.now()
-                }, '*');
-            }
+            const fullMsg = {
+                ...data,
+                source: 'terrain',
+                timestamp: Date.now()
+            };
+            Terrain.Bus.route(panel, fullMsg);
         }
 
         // ========================================================================
