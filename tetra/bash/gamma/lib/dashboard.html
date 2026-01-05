@@ -146,6 +146,16 @@
             background: #f00;
             color: #000;
         }
+        .btn-danger.confirming {
+            background: #f00;
+            border-color: #f00;
+            color: #000;
+            animation: pulse-danger 0.5s infinite;
+        }
+        @keyframes pulse-danger {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
 
         /* Matches sidebar */
         .matches-section {
@@ -381,6 +391,19 @@
             overflow-y: auto;
             padding: 1.5rem;
         }
+        .detail-body::-webkit-scrollbar {
+            width: 8px;
+        }
+        .detail-body::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+        .detail-body::-webkit-scrollbar-thumb {
+            background: #0f0;
+            border-radius: 4px;
+        }
+        .detail-body::-webkit-scrollbar-thumb:hover {
+            background: #0a0;
+        }
         .detail-section {
             margin-bottom: 1.5rem;
         }
@@ -492,6 +515,33 @@
             margin-bottom: 1rem;
             opacity: 0.3;
         }
+
+        /* Card spinner */
+        .game-card.loading {
+            position: relative;
+            pointer-events: none;
+        }
+        .game-card.loading::after {
+            content: 'Building cabinet...';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #0f0;
+            font-family: monospace;
+            font-size: 0.9rem;
+            border-radius: 8px;
+            animation: pulse 1s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -601,27 +651,8 @@
         let portStats = { next: 1600, available: 256 };
         let selectedGame = null;
 
-        // Game metadata (could come from API)
-        const GAME_INFO = {
-            quadrapong: {
-                name: 'QUADRAPONG',
-                description: '4-player circular pong arena. Defend your sector, score on others!',
-                players: '2-4',
-                engine: 'gamepak'
-            },
-            magnetar: {
-                name: 'MAGNETAR',
-                description: 'Cooperative puzzle game with magnetic forces.',
-                players: '1-2',
-                engine: 'pulsar'
-            },
-            snake: {
-                name: 'SNAKE',
-                description: 'Classic snake game with multiplayer twist.',
-                players: '1-4',
-                engine: 'gamepak'
-            }
-        };
+        // Game metadata now comes from API (/api/games)
+        // Each game object includes: id, name, description, engine, players
 
         // Fetch status
         async function fetchStatus() {
@@ -657,11 +688,8 @@
                 renderGames();
             } catch (e) {
                 console.error('Failed to fetch games:', e);
-                // Fallback to known games
-                games = [
-                    { id: 'quadrapong', name: 'quadrapong' },
-                    { id: 'magnetar', name: 'magnetar' }
-                ];
+                // Fallback to empty - games come from API/game.toml
+                games = [];
                 renderGames();
             }
         }
@@ -693,30 +721,30 @@
             }
 
             grid.innerHTML = games.map(game => {
-                const info = GAME_INFO[game.id] || GAME_INFO[game.name] || {
-                    name: game.name?.toUpperCase() || game.id?.toUpperCase(),
-                    description: 'Game description not available.',
-                    players: '1-4',
-                    engine: game.engine || 'unknown'
-                };
-                const activeMatches = matches.filter(m => m.game === game.id || m.game === game.name).length;
+                // Use API data directly - all metadata comes from game.toml
+                const displayName = (game.name || game.id || 'Unknown').toUpperCase();
+                const description = game.description || 'Game description not available.';
+                const players = game.players || '1-4';
+                const engine = game.engine || 'gamepak';
+                const gameId = game.id || game.name;
+                const activeMatches = matches.filter(m => m.game === gameId).length;
 
                 return `
-                    <div class="game-card" onclick="selectGame('${game.id || game.name}')">
+                    <div class="game-card" onclick="selectGame('${gameId}')">
                         <div class="game-header">
-                            <div class="game-name">${info.name}</div>
-                            <div class="game-players">${info.players} players</div>
+                            <div class="game-name">${displayName}</div>
+                            <div class="game-players">${players} players</div>
                         </div>
-                        <div class="game-description">${info.description}</div>
+                        <div class="game-description">${description}</div>
                         <div class="game-meta">
-                            <span>Engine: ${info.engine}</span>
+                            <span>Engine: ${engine}</span>
                             <span>Active: ${activeMatches}</span>
                         </div>
                         <div class="game-actions">
-                            <button class="btn btn-primary" onclick="event.stopPropagation();openCreateModal('${game.id || game.name}')">
+                            <button class="btn btn-primary" onclick="event.stopPropagation();openCreateModal('${gameId}')">
                                 Create Match
                             </button>
-                            <button class="btn" onclick="event.stopPropagation();quickPlay('${game.id || game.name}')">
+                            <button class="btn" onclick="event.stopPropagation();quickPlay('${gameId}', event)">
                                 Quick Play
                             </button>
                         </div>
@@ -843,7 +871,10 @@
         }
 
         // Quick play - create and join immediately
-        async function quickPlay(gameId) {
+        async function quickPlay(gameId, event) {
+            const card = event.target.closest('.game-card');
+            if (card) card.classList.add('loading');
+
             try {
                 const resp = await fetch(`${API}/api/match/create`, {
                     method: 'POST',
@@ -853,11 +884,19 @@
                 const result = await resp.json();
 
                 if (result.code) {
+                    // Wait for game server to be ready
+                    await new Promise(r => setTimeout(r, 1000));
+                    if (card) card.classList.remove('loading');
                     window.open(`/match/${result.code}/`, '_blank');
                     refresh();
+                } else {
+                    if (card) card.classList.remove('loading');
+                    alert('Failed to create match: ' + (result.error || 'Unknown error'));
                 }
             } catch (e) {
+                if (card) card.classList.remove('loading');
                 console.error('Quick play failed:', e);
+                alert('Quick play failed: ' + e.message);
             }
         }
 
@@ -875,14 +914,60 @@
             }
         }
 
-        // Delete match
-        async function deleteMatch(code) {
-            if (!confirm(`Delete match ${code}?`)) return;
+        // Delete match with in-place confirmation
+        let pendingDelete = null;
+        let pendingDeleteTimeout = null;
+
+        function confirmDelete(code, btn) {
+            // If already confirming this code, do the delete
+            if (pendingDelete === code) {
+                doDelete(code);
+                return;
+            }
+
+            // Cancel any previous pending delete
+            cancelPendingDelete();
+
+            // Set up new pending delete
+            pendingDelete = code;
+            btn.textContent = 'Sure?';
+            btn.classList.add('confirming');
+
+            // Auto-cancel after 3 seconds
+            pendingDeleteTimeout = setTimeout(() => {
+                cancelPendingDelete();
+                renderMatches(); // Re-render to reset button
+            }, 3000);
+        }
+
+        function cancelPendingDelete() {
+            pendingDelete = null;
+            if (pendingDeleteTimeout) {
+                clearTimeout(pendingDeleteTimeout);
+                pendingDeleteTimeout = null;
+            }
+        }
+
+        async function doDelete(code) {
+            cancelPendingDelete();
             try {
                 await fetch(`${API}/api/match/${code}`, { method: 'DELETE' });
+                if (selectedMatch && selectedMatch.code === code) {
+                    closeDetailPanel();
+                }
                 refresh();
             } catch (e) {
                 console.error('Delete failed:', e);
+            }
+        }
+
+        // Legacy wrapper for direct calls
+        function deleteMatch(code) {
+            const btn = event?.target;
+            if (btn) {
+                confirmDelete(code, btn);
+            } else {
+                doDelete(code);
             }
         }
 
