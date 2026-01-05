@@ -1,4 +1,4 @@
-/* Capture UI Styles */
+/* Capture UI Styles - Uses shared.css components */
 
 body {
     height: 100vh;
@@ -7,6 +7,7 @@ body {
     flex-direction: column;
 }
 
+/* Header */
 .header {
     background: var(--paper-mid);
     padding: 12px;
@@ -21,28 +22,6 @@ body {
 .header input {
     flex: 1;
     min-width: 200px;
-    background: var(--paper-light);
-    border: 1px solid var(--border);
-    color: var(--ink);
-    padding: 8px 12px;
-    font-family: inherit;
-    font-size: 12px;
-    border-radius: 2px;
-}
-
-.header input:focus {
-    outline: none;
-    border-color: var(--four);
-}
-
-.header select {
-    background: var(--paper-light);
-    border: 1px solid var(--border);
-    color: var(--ink);
-    padding: 8px 12px;
-    font-family: inherit;
-    font-size: 11px;
-    border-radius: 2px;
 }
 
 .header button {
@@ -57,13 +36,11 @@ body {
     cursor: pointer;
     border-radius: 2px;
 }
-
 .header button:hover { opacity: 0.9; }
 .header button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
-
 .header button.secondary {
     background: var(--paper-light);
 }
@@ -77,6 +54,7 @@ body {
     font-weight: 600;
 }
 
+/* Main layout */
 .content {
     flex: 1;
     display: flex;
@@ -90,6 +68,7 @@ body {
     overflow: hidden;
 }
 
+/* Preview */
 .preview {
     flex: 1;
     padding: 12px;
@@ -140,7 +119,6 @@ body {
     max-height: 300px;
     overflow-y: auto;
 }
-
 .journey-builder.active { display: block; }
 
 .journey-builder h3 {
@@ -202,7 +180,8 @@ body {
     align-items: center;
 }
 
-.add-step select, .add-step input {
+.add-step select,
+.add-step input {
     background: var(--paper-light);
     border: 1px solid var(--border);
     color: var(--ink);
@@ -211,7 +190,6 @@ body {
     font-size: 11px;
     border-radius: 2px;
 }
-
 .add-step input { flex: 1; }
 
 .add-step button {
@@ -220,13 +198,9 @@ body {
     font-size: 10px;
 }
 
+/* Sidebar - extends shared .sidebar */
 .sidebar {
     width: 320px;
-    background: var(--paper-mid);
-    border-left: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
 }
 
 .sidebar-tabs {
@@ -250,26 +224,6 @@ body {
     border-bottom-color: var(--four);
 }
 
-.sidebar-header {
-    padding: 12px;
-    border-bottom: 1px solid var(--border);
-    font-size: 10px;
-    text-transform: uppercase;
-    color: var(--ink-muted);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.sidebar-header button {
-    background: none;
-    border: none;
-    color: var(--ink-muted);
-    cursor: pointer;
-    font-size: 12px;
-}
-.sidebar-header button:hover { color: var(--ink); }
-
 .list-panel {
     flex: 1;
     overflow-y: auto;
@@ -277,20 +231,26 @@ body {
 }
 .list-panel.active { display: block; }
 
-.captures-list, .sessions-list {
+.captures-list,
+.sessions-list {
     flex: 1;
     overflow-y: auto;
 }
 
-.capture-item, .session-item {
+/* Capture/Session items - extends shared .list-item */
+.capture-item,
+.session-item {
     padding: 10px 12px;
     border-bottom: 1px solid var(--border);
     cursor: pointer;
 }
-.capture-item:hover, .session-item:hover { background: var(--paper-light); }
-.capture-item.active, .session-item.active { background: var(--four); }
+.capture-item:hover,
+.session-item:hover { background: var(--paper-light); }
+.capture-item.active,
+.session-item.active { background: var(--four); }
 
-.capture-item .url, .session-item .name {
+.capture-item .url,
+.session-item .name {
     font-size: 11px;
     white-space: nowrap;
     overflow: hidden;
@@ -298,7 +258,8 @@ body {
     margin-bottom: 4px;
 }
 
-.capture-item .meta, .session-item .meta {
+.capture-item .meta,
+.session-item .meta {
     font-size: 10px;
     color: var(--ink-muted);
     display: flex;
@@ -306,42 +267,15 @@ body {
     align-items: center;
 }
 
-.capture-item .actions {
-    display: flex;
-    gap: 4px;
-    margin-top: 6px;
-}
-
-.capture-item .actions button {
-    background: var(--paper-light);
-    border: 1px solid var(--border);
-    color: var(--ink-muted);
-    padding: 4px 8px;
-    font-size: 9px;
-    cursor: pointer;
-    border-radius: 2px;
-}
-.capture-item .actions button:hover { color: var(--ink); }
-.capture-item .actions button.delete:hover { color: var(--ink-muted); }
-.capture-item .actions button.confirm {
-    color: var(--one);
-    border-color: var(--one);
-}
-
-.mode-badge, .session-badge {
-    background: var(--paper-dark);
-    padding: 1px 6px;
-    border-radius: 2px;
-    font-size: 9px;
-    text-transform: uppercase;
-}
-
+/* Actions row for captures/sessions */
+.capture-item .actions,
 .session-item .actions {
     display: flex;
     gap: 4px;
     margin-top: 6px;
 }
 
+.capture-item .actions button,
 .session-item .actions button {
     background: var(--paper-light);
     border: 1px solid var(--border);
@@ -351,13 +285,28 @@ body {
     cursor: pointer;
     border-radius: 2px;
 }
+.capture-item .actions button:hover,
 .session-item .actions button:hover { color: var(--ink); }
+
+.capture-item .actions button.delete:hover,
 .session-item .actions button.delete:hover { color: var(--ink-muted); }
+
+.capture-item .actions button.confirm,
 .session-item .actions button.confirm {
     color: var(--one);
     border-color: var(--one);
 }
 
+.mode-badge,
+.session-badge {
+    background: var(--paper-dark);
+    padding: 1px 6px;
+    border-radius: 2px;
+    font-size: 9px;
+    text-transform: uppercase;
+}
+
+/* Details panel */
 .details-panel {
     height: 200px;
     border-top: 1px solid var(--border);
@@ -400,25 +349,7 @@ body {
     word-break: break-all;
 }
 
-.tabs {
-    display: flex;
-    border-bottom: 1px solid var(--border);
-}
-
-.tab {
-    padding: 8px 12px;
-    font-size: 10px;
-    text-transform: uppercase;
-    color: var(--ink-muted);
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-}
-.tab:hover { color: var(--ink); }
-.tab.active {
-    color: var(--ink);
-    border-bottom-color: var(--four);
-}
-
+/* Status bar - extends shared .status-bar */
 .status {
     padding: 8px 12px;
     background: var(--paper-light);
@@ -427,31 +358,9 @@ body {
     color: var(--ink-muted);
     flex-shrink: 0;
 }
-
 .status.capturing { color: var(--three); }
 .status.success { color: var(--two); }
 .status.error { color: var(--one); }
-
-.loading {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    border: 2px solid var(--ink-muted);
-    border-radius: 50%;
-    border-top-color: var(--four);
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
-.empty-state {
-    padding: 20px;
-    text-align: center;
-    color: var(--ink-muted);
-    font-size: 11px;
-}
 
 /* Selector discovery */
 .selectors-status {
