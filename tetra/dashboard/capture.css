@@ -137,7 +137,7 @@ body {
     align-items: center;
     gap: 8px;
     padding: 8px;
-    background: var(--paper-light);
+    background: var(--paper-dark);
     border: 1px solid var(--border);
     border-radius: 2px;
     margin-bottom: 4px;
@@ -145,7 +145,7 @@ body {
 }
 
 .step-item .step-num {
-    background: var(--paper-dark);
+    background: var(--paper-mid);
     padding: 2px 6px;
     border-radius: 2px;
     font-size: 9px;
@@ -182,21 +182,22 @@ body {
 
 .add-step select,
 .add-step input {
-    background: var(--paper-light);
-    border: 1px solid var(--border);
-    color: var(--ink);
     padding: 6px 8px;
-    font-family: inherit;
     font-size: 11px;
-    border-radius: 2px;
 }
 .add-step input { flex: 1; }
 
 .add-step button {
-    background: var(--paper-light);
+    background: var(--four);
+    border: none;
+    color: var(--ink);
     padding: 6px 12px;
     font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 2px;
 }
+.add-step button:hover { opacity: 0.9; }
 
 /* Sidebar - extends shared .sidebar */
 .sidebar {
@@ -372,13 +373,8 @@ body {
 .selectors-status.ready { color: var(--two); }
 
 #selector-dropdown {
-    background: var(--paper-light);
-    border: 1px solid var(--border);
-    color: var(--ink);
     padding: 6px 8px;
-    font-family: inherit;
     font-size: 11px;
-    border-radius: 2px;
     max-width: 200px;
 }
 
@@ -422,7 +418,7 @@ body {
 .selector-list {
     max-height: 120px;
     overflow-y: auto;
-    background: var(--paper-light);
+    background: var(--paper-dark);
     border: 1px solid var(--border);
     border-radius: 2px;
 }

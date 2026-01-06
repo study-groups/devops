@@ -208,9 +208,14 @@ body {
 .status-bar.success { color: var(--two); }
 .status-bar.error { color: var(--one); }
 
-/* Form inputs */
-.input {
-    background: var(--paper-light);
+/* Form inputs - dark by default */
+.input,
+input[type="text"],
+input[type="url"],
+input[type="email"],
+input[type="password"],
+input[type="number"] {
+    background: var(--paper-dark);
     border: 1px solid var(--border);
     color: var(--ink);
     padding: 8px 12px;
@@ -218,11 +223,13 @@ body {
     font-size: 12px;
     border-radius: 2px;
 }
-.input:focus {
+.input:focus,
+input:focus {
     outline: none;
     border-color: var(--four);
 }
-.input::placeholder {
+.input::placeholder,
+input::placeholder {
     color: var(--ink-muted);
 }
 
@@ -231,8 +238,9 @@ body {
     font-size: 11px;
 }
 
-.select {
-    background: var(--paper-light);
+.select,
+select {
+    background: var(--paper-dark);
     border: 1px solid var(--border);
     color: var(--ink);
     padding: 8px 12px;
