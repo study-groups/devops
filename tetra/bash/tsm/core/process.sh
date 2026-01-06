@@ -9,10 +9,15 @@ tsm_stop() {
     local target="$1"
     local force="${2:-false}"
 
-    local name=$(tsm_resolve_name "$target" "true") || {
-        tsm_error "process '$target' not found"
+    [[ -z "$target" ]] && { tsm_error "usage: tsm stop <name|id>"; return 64; }
+
+    local name
+    name=$(tsm_resolve_name "$target" "true")
+    local rc=$?
+    if [[ $rc -ne 0 ]]; then
+        tsm_error "$(_tsm_resolve_error "$target" "$rc" "$name")"
         return 1
-    }
+    fi
 
     if ! tsm_process_alive "$name"; then
         echo "tsm: '$name' not running"
@@ -91,10 +96,15 @@ tsm_kill() {
 tsm_delete() {
     local target="$1"
 
-    local name=$(tsm_resolve_name "$target" "true") || {
-        tsm_error "process '$target' not found"
+    [[ -z "$target" ]] && { tsm_error "usage: tsm delete <name|id>"; return 64; }
+
+    local name
+    name=$(tsm_resolve_name "$target" "true")
+    local rc=$?
+    if [[ $rc -ne 0 ]]; then
+        tsm_error "$(_tsm_resolve_error "$target" "$rc" "$name")"
         return 1
-    }
+    fi
 
     # Stop if running
     tsm_process_alive "$name" && tsm_stop "$name" "true"
@@ -120,10 +130,15 @@ tsm_cleanup() {
 tsm_restart() {
     local target="$1"
 
-    local name=$(tsm_resolve_name "$target" "true") || {
-        tsm_error "process '$target' not found"
+    [[ -z "$target" ]] && { tsm_error "usage: tsm restart <name|id>"; return 64; }
+
+    local name
+    name=$(tsm_resolve_name "$target" "true")
+    local rc=$?
+    if [[ $rc -ne 0 ]]; then
+        tsm_error "$(_tsm_resolve_error "$target" "$rc" "$name")"
         return 1
-    }
+    fi
 
     local meta=$(tsm_meta_file "$name")
     [[ -f "$meta" ]] || { tsm_error "no metadata for '$name'"; return 1; }
@@ -133,6 +148,7 @@ tsm_restart() {
     local port=$(jq -r '.port // empty' "$meta")
     local cwd=$(jq -r '.cwd // empty' "$meta")
     local env_file=$(jq -r '.env_file // empty' "$meta")
+    local tsm_file=$(jq -r '.tsm_file // empty' "$meta")
     local old_id=$(jq -r '.id // empty' "$meta")
 
     # Stop if running
@@ -147,9 +163,20 @@ tsm_restart() {
         done
     fi
 
-    # Restart from original directory
+    # If we have a .tsm file, restart from that (preserves all inline env vars)
+    if [[ -n "$tsm_file" && "$tsm_file" != "null" && -f "$tsm_file" ]]; then
+        tsm_start "$tsm_file" --port "$port"
+        return $?
+    fi
+
+    # Fallback: restart from original directory with command
+    if [[ ! -d "$cwd" ]]; then
+        tsm_error "original directory missing: $cwd"
+        return 1
+    fi
+
     (
-        cd "$cwd" 2>/dev/null || true
+        cd "$cwd" || { tsm_error "cannot cd to $cwd"; exit 1; }
         if [[ -n "$env_file" && "$env_file" != "null" ]]; then
             tsm_start "$command" --port "$port" --env "$env_file" --name "${name%-*}"
         else
@@ -163,12 +190,15 @@ tsm_restart() {
 # Show detailed info for a process
 tsm_info() {
     local target="$1"
-    [[ -z "$target" ]] && { tsm_error "usage: tsm info <name|id>"; return 1; }
+    [[ -z "$target" ]] && { tsm_error "usage: tsm info <name|id>"; return 64; }
 
-    local name=$(tsm_resolve_name "$target" "true") || {
-        tsm_error "process '$target' not found"
+    local name
+    name=$(tsm_resolve_name "$target" "true")
+    local rc=$?
+    if [[ $rc -ne 0 ]]; then
+        tsm_error "$(_tsm_resolve_error "$target" "$rc" "$name")"
         return 1
-    }
+    fi
 
     local meta=$(tsm_meta_file "$name")
     [[ -f "$meta" ]] || { tsm_error "no metadata for '$name'"; return 1; }
@@ -210,23 +240,55 @@ tsm_logs() {
     local target="$1"
     local follow="${2:-}"
 
-    local name=$(tsm_resolve_name "$target" "true") || {
-        tsm_error "process '$target' not found"
+    [[ -z "$target" ]] && { tsm_error "usage: tsm logs <name|id> [-f]"; return 64; }
+
+    local name
+    name=$(tsm_resolve_name "$target" "true")
+    local rc=$?
+    if [[ $rc -ne 0 ]]; then
+        tsm_error "$(_tsm_resolve_error "$target" "$rc" "$name")"
         return 1
-    }
+    fi
 
     local dir=$(tsm_process_dir "$name")
     local log_out="$dir/current.out"
     local log_err="$dir/current.err"
 
+    # Check process dir exists
+    if [[ ! -d "$dir" ]]; then
+        tsm_error "process directory missing: $dir"
+        return 1
+    fi
+
     if [[ "$follow" == "-f" || "$follow" == "--follow" ]]; then
+        # Check files exist before tailing
+        if [[ ! -f "$log_out" && ! -f "$log_err" ]]; then
+            tsm_error "no log files found in $dir"
+            return 1
+        fi
         tail -f "$log_out" "$log_err" 2>/dev/null
     else
         echo "=== stdout ==="
-        tail -50 "$log_out" 2>/dev/null || echo "(no output)"
+        if [[ -f "$log_out" ]]; then
+            if [[ -s "$log_out" ]]; then
+                tail -50 "$log_out"
+            else
+                echo "(empty)"
+            fi
+        else
+            echo "(file not found: $log_out)"
+        fi
         echo ""
         echo "=== stderr ==="
-        tail -50 "$log_err" 2>/dev/null || echo "(no errors)"
+        if [[ -f "$log_err" ]]; then
+            if [[ -s "$log_err" ]]; then
+                tail -50 "$log_err"
+            else
+                echo "(empty)"
+            fi
+        else
+            echo "(file not found: $log_err)"
+        fi
     fi
 }
 

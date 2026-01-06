@@ -107,7 +107,7 @@ tsm_meta_file() {
 }
 
 # Create process metadata with simplified schema
-# Args: name pid command port cwd env_file
+# Args: name pid command port cwd env_file [tsm_file]
 tsm_create_meta() {
     local name="$1"
     local pid="$2"
@@ -115,6 +115,7 @@ tsm_create_meta() {
     local port="${4:-}"
     local cwd="${5:-$PWD}"
     local env_file="${6:-}"
+    local tsm_file="${7:-}"
 
     local id=$(tsm_get_next_id)
     local started=$(date +%s)
@@ -147,6 +148,7 @@ tsm_create_meta() {
         --argjson ports "$ports_json" \
         --arg cwd "$cwd" \
         --arg env_file "$env_file" \
+        --arg tsm_file "$tsm_file" \
         --argjson started "$started" \
         '{
             id: $id,
@@ -157,6 +159,7 @@ tsm_create_meta() {
             ports: $ports,
             cwd: $cwd,
             env_file: (if $env_file == "" then null else $env_file end),
+            tsm_file: (if $tsm_file == "" then null else $tsm_file end),
             status: "online",
             started: $started
         }' > "$meta"
