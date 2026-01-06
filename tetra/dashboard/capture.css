@@ -459,3 +459,74 @@ body {
     padding: 0 4px;
 }
 .selector-item button:hover { color: var(--two); }
+
+/* Session Details */
+.session-details {
+    font-size: 10px;
+}
+
+.session-section {
+    margin-bottom: 12px;
+}
+
+.session-section-header {
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+}
+
+.cookie-list,
+.storage-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.cookie-item,
+.storage-item {
+    display: grid;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--paper-mid);
+}
+
+.cookie-item {
+    grid-template-columns: 120px 80px 1fr 60px;
+}
+
+.storage-item {
+    grid-template-columns: 150px 1fr;
+}
+
+.cookie-name,
+.storage-key {
+    color: var(--four);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cookie-domain {
+    color: var(--ink-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cookie-value,
+.storage-value {
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+}
+
+.cookie-expires {
+    color: var(--ink-muted);
+    text-align: right;
+}

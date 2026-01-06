@@ -3,6 +3,7 @@
     const org = 'tetra'; // TODO: get from parent/context
     let journeySteps = [];
     let currentCapture = null;
+    let currentSession = null;
     let sessions = [];
     let extractedSelectors = { clickable: [], fillable: [] };
     let currentNavigateUrl = null;
@@ -494,7 +495,15 @@
                 </div>
             `).join('');
 
-            // Attach handlers
+            // Attach click handlers for selecting session
+            sessionsList.querySelectorAll('.session-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    if (e.target.tagName === 'BUTTON') return;
+                    selectSession(item.dataset.name);
+                });
+            });
+
+            // Use button handlers
             sessionsList.querySelectorAll('.use-session').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -522,6 +531,88 @@
         } catch (e) {
             sessionsList.innerHTML = `<div class="empty-state">Error loading sessions</div>`;
         }
+    }
+
+    async function selectSession(name) {
+        try {
+            const res = await fetch(`/api/capture/sessions/${org}/${name}/state`);
+            currentSession = await res.json();
+            currentCapture = null; // Clear capture selection
+
+            // Highlight selected
+            sessionsList.querySelectorAll('.session-item').forEach(item => {
+                item.classList.toggle('active', item.dataset.name === name);
+            });
+            capturesList.querySelectorAll('.capture-item').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            // Clear preview
+            preview.innerHTML = `<div class="placeholder">Session: ${name}</div>`;
+            captureId.textContent = name;
+
+            // Show session details
+            showSessionDetails();
+            setStatus(`Session: ${name} - ${currentSession.cookies?.length || 0} cookies`, 'success');
+        } catch (e) {
+            setStatus(`Error: ${e.message}`, 'error');
+        }
+    }
+
+    function showSessionDetails() {
+        if (!currentSession) return;
+
+        const cookies = currentSession.cookies || [];
+        const origins = currentSession.origins || [];
+
+        let html = '<div class="session-details">';
+
+        // Cookies section
+        html += `<div class="session-section">`;
+        html += `<div class="session-section-header">Cookies (${cookies.length})</div>`;
+        if (cookies.length === 0) {
+            html += '<div class="empty-state">No cookies</div>';
+        } else {
+            html += '<div class="cookie-list">';
+            cookies.forEach(c => {
+                const expires = c.expires > 0
+                    ? new Date(c.expires * 1000).toLocaleDateString()
+                    : 'Session';
+                html += `
+                    <div class="cookie-item">
+                        <span class="cookie-name">${escapeHtml(c.name)}</span>
+                        <span class="cookie-domain">${escapeHtml(c.domain || '')}</span>
+                        <span class="cookie-value" title="${escapeHtml(c.value)}">${escapeHtml(c.value.substring(0, 30))}${c.value.length > 30 ? '...' : ''}</span>
+                        <span class="cookie-expires">${expires}</span>
+                    </div>
+                `;
+            });
+            html += '</div>';
+        }
+        html += '</div>';
+
+        // LocalStorage section
+        origins.forEach(o => {
+            if (o.localStorage && o.localStorage.length > 0) {
+                html += `<div class="session-section">`;
+                html += `<div class="session-section-header">localStorage: ${escapeHtml(o.origin)} (${o.localStorage.length})</div>`;
+                html += '<div class="storage-list">';
+                o.localStorage.forEach(item => {
+                    const value = typeof item.value === 'string' ? item.value : JSON.stringify(item.value);
+                    html += `
+                        <div class="storage-item">
+                            <span class="storage-key">${escapeHtml(item.name)}</span>
+                            <span class="storage-value" title="${escapeHtml(value)}">${escapeHtml(value.substring(0, 50))}${value.length > 50 ? '...' : ''}</span>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                html += '</div>';
+            }
+        });
+
+        html += '</div>';
+        detailsContent.innerHTML = html;
     }
 
     async function deleteSession(name) {

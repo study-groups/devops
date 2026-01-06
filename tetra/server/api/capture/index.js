@@ -229,6 +229,43 @@ router.get('/sessions/:org/:name', (req, res) => {
 });
 
 /**
+ * GET /api/capture/sessions/:org/:name/state
+ * Get full session state (cookies + localStorage)
+ */
+router.get('/sessions/:org/:name/state', (req, res) => {
+    try {
+        const { org, name } = req.params;
+        const sessionDir = getSessionDir(org, name);
+        const statePath = path.join(sessionDir, 'state.json');
+        const metaPath = path.join(sessionDir, 'meta.json');
+
+        if (!fs.existsSync(statePath)) {
+            return res.status(404).json({ error: 'Session not found' });
+        }
+
+        const state = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
+        const meta = fs.existsSync(metaPath)
+            ? JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
+            : {};
+
+        // Summarize for display
+        res.json({
+            name,
+            ...meta,
+            cookies: state.cookies || [],
+            origins: (state.origins || []).map(o => ({
+                origin: o.origin,
+                localStorage: o.localStorage || []
+            }))
+        });
+
+    } catch (error) {
+        console.error('[API/capture] Session state error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * DELETE /api/capture/sessions/:org/:name
  * Delete a saved session
  */
