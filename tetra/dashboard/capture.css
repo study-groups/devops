@@ -68,9 +68,48 @@ body {
     overflow: hidden;
 }
 
+/* Resize handle between preview and journey */
+.resize-handle {
+    height: 6px;
+    background: var(--paper-mid);
+    cursor: ns-resize;
+    flex-shrink: 0;
+    position: relative;
+    display: none; /* Hidden until journey mode */
+}
+
+.resize-handle::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 2px;
+    background: var(--border);
+    border-radius: 1px;
+}
+
+.resize-handle:hover {
+    background: var(--paper-light);
+}
+
+.resize-handle:hover::after {
+    background: var(--four);
+}
+
+.resize-handle.active {
+    background: var(--four);
+}
+
+.resize-handle.visible {
+    display: block;
+}
+
 /* Preview */
 .preview {
     flex: 1;
+    min-height: 100px;
     padding: 12px;
     display: flex;
     flex-direction: column;
@@ -116,10 +155,13 @@ body {
     border-top: 1px solid var(--border);
     background: var(--paper-mid);
     padding: 12px;
-    max-height: 300px;
+    min-height: 150px;
+    max-height: 70%;
     overflow-y: auto;
+    flex-shrink: 0;
 }
 .journey-builder.active { display: block; }
+.journey-builder.resizing { transition: none; }
 
 .journey-builder h3 {
     margin: 0 0 12px 0;

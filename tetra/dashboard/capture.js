@@ -28,6 +28,9 @@
     const selectorDropdown = document.getElementById('selector-dropdown');
     const selectorsPanel = document.getElementById('selectors-panel');
     const selectorsStatus = document.getElementById('selectors-status');
+    const resizeHandle = document.getElementById('resize-handle');
+    const mainPanel = document.querySelector('.main-panel');
+    const previewPanel = document.querySelector('.preview');
 
     // Initialize
     async function init() {
@@ -46,7 +49,9 @@
         });
 
         modeSelect.addEventListener('change', () => {
-            journeyBuilder.classList.toggle('active', modeSelect.value === 'journey');
+            const isJourney = modeSelect.value === 'journey';
+            journeyBuilder.classList.toggle('active', isJourney);
+            resizeHandle.classList.toggle('visible', isJourney);
         });
 
         sessionSelect.addEventListener('change', () => {
@@ -90,6 +95,52 @@
                 showDetails(tab.dataset.tab);
             });
         });
+
+        // Resize handle drag
+        initResizeHandle();
+    }
+
+    function initResizeHandle() {
+        let isResizing = false;
+        let startY = 0;
+        let startHeight = 0;
+
+        resizeHandle.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            startY = e.clientY;
+            startHeight = journeyBuilder.offsetHeight;
+            resizeHandle.classList.add('active');
+            journeyBuilder.classList.add('resizing');
+            document.body.style.cursor = 'ns-resize';
+            document.body.style.userSelect = 'none';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+
+            const deltaY = startY - e.clientY;
+            const newHeight = Math.max(150, Math.min(startHeight + deltaY, mainPanel.offsetHeight - 100));
+            journeyBuilder.style.height = newHeight + 'px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                resizeHandle.classList.remove('active');
+                journeyBuilder.classList.remove('resizing');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                // Save preference
+                localStorage.setItem('capture-journey-height', journeyBuilder.style.height);
+            }
+        });
+
+        // Restore saved height
+        const savedHeight = localStorage.getItem('capture-journey-height');
+        if (savedHeight) {
+            journeyBuilder.style.height = savedHeight;
+        }
     }
 
     // Show/hide selector dropdown based on action type
@@ -403,6 +454,7 @@
                                 renderSteps();
                                 modeSelect.value = 'journey';
                                 journeyBuilder.classList.add('active');
+                                resizeHandle.classList.add('visible');
                                 setStatus(`Loaded ${journeySteps.length} steps from journey`, 'success');
                             }
                         } catch (e) {
@@ -414,6 +466,7 @@
                             urlInput.value = url;
                             modeSelect.value = mode;
                             journeyBuilder.classList.remove('active');
+                            resizeHandle.classList.remove('visible');
                             setStatus(`URL ready: ${url}`, 'success');
                         }
                     }
@@ -654,7 +707,9 @@
             // Set mode to match
             if (mode && modeSelect.querySelector(`option[value="${mode}"]`)) {
                 modeSelect.value = mode;
-                journeyBuilder.classList.toggle('active', mode === 'journey');
+                const isJourney = mode === 'journey';
+                journeyBuilder.classList.toggle('active', isJourney);
+                resizeHandle.classList.toggle('visible', isJourney);
             }
 
             // Show details
