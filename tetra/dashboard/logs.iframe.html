@@ -12,25 +12,11 @@
             display: flex;
             flex-direction: column;
         }
-        .header {
-            color: var(--ink-muted);
-            font-size: 9px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            padding: 8px 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--paper-mid);
-            flex-shrink: 0;
-        }
         .header-left {
             display: flex;
             align-items: center;
             gap: 12px;
         }
-        .refresh { cursor: pointer; }
-        .refresh:hover { color: var(--two); }
         .controls {
             display: flex;
             gap: 8px;
@@ -42,21 +28,9 @@
             display: flex;
             gap: 4px;
         }
-        .filter-btn {
-            background: transparent;
-            border: 1px solid var(--paper-mid);
-            color: var(--ink-muted);
-            padding: 2px 8px;
-            font-size: 9px;
-            cursor: pointer;
-            border-radius: 2px;
-        }
-        .filter-btn.active {
-            border-color: var(--four);
-            color: var(--four);
-        }
-        .filter-btn:hover {
-            border-color: var(--four);
+        .time-btn.active {
+            border-color: var(--three);
+            color: var(--three);
         }
         .tsm-sources {
             display: flex;
@@ -64,7 +38,7 @@
             gap: 4px;
             margin-left: 8px;
             padding-left: 8px;
-            border-left: 1px solid var(--paper-mid);
+            border-left: 1px solid var(--border);
             max-width: 200px;
         }
         .tsm-tag {
@@ -86,7 +60,7 @@
         }
         .search-box {
             background: var(--paper-mid);
-            border: 1px solid var(--paper-mid);
+            border: 1px solid var(--border);
             color: var(--ink);
             font-family: inherit;
             font-size: 9px;
@@ -105,30 +79,13 @@
             background: rgba(255, 230, 109, 0.3);
             color: var(--three);
         }
-        .time-btn {
-            background: transparent;
-            border: 1px solid var(--paper-mid);
-            color: var(--ink-muted);
-            padding: 2px 8px;
-            font-size: 9px;
-            cursor: pointer;
-            border-radius: 2px;
-            white-space: nowrap;
-        }
-        .time-btn:hover {
-            border-color: var(--four);
-        }
-        .time-btn.active {
-            border-color: var(--three);
-            color: var(--three);
-        }
         #logs {
             flex: 1;
             overflow-y: auto;
         }
         .log-line {
             padding: 3px 12px;
-            border-bottom: 1px solid var(--paper-mid);
+            border-bottom: 1px solid var(--border);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -166,21 +123,21 @@
     </style>
 </head>
 <body>
-    <div class="header">
+    <div class="iframe-header">
         <div class="header-left">
             <span class="status-dot" id="status-dot"></span>
             <span>Logs</span>
         </div>
         <div class="controls">
             <input type="text" class="search-box" id="search-input" placeholder="Search...">
-            <button class="time-btn" data-action="time-filter" data-time="now">⏱ Now</button>
-            <button class="time-btn" data-action="time-filter" data-time="5m">5m</button>
-            <button class="time-btn" data-action="time-filter" data-time="1h">1h</button>
+            <button class="btn time-btn" data-action="time-filter" data-time="now">⏱ Now</button>
+            <button class="btn time-btn" data-action="time-filter" data-time="5m">5m</button>
+            <button class="btn time-btn" data-action="time-filter" data-time="1h">1h</button>
             <div class="filters">
-                <button class="filter-btn active" data-action="filter" data-filter="all">All</button>
-                <button class="filter-btn" data-action="filter" data-filter="deploy">Deploy</button>
-                <button class="filter-btn" data-action="filter" data-filter="server">Server</button>
-                <button class="filter-btn" data-action="filter" data-filter="msg">Msg</button>
+                <button class="btn active" data-action="filter" data-filter="all">All</button>
+                <button class="btn" data-action="filter" data-filter="deploy">Deploy</button>
+                <button class="btn" data-action="filter" data-filter="server">Server</button>
+                <button class="btn" data-action="filter" data-filter="msg">Msg</button>
             </div>
             <div class="tsm-sources" id="tsm-sources"></div>
         </div>
