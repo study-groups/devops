@@ -1,0 +1,344 @@
+/* GAMMA Cabinet Styles */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 100%;
+  height: 100%;
+}
+body {
+  font-family: 'Courier New', monospace;
+  background: #0a0a0a;
+  color: #888;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+}
+
+/* ========================================
+   HEADER BAR
+   ======================================== */
+#header {
+  width: 100%;
+  max-width: 640px;
+  background: linear-gradient(180deg, #1a0a1a 0%, #0a0a1a 100%);
+  border: 2px solid #606;
+  padding: 8px 12px;
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+#gamma-logo {
+  font-size: 14px;
+  font-weight: bold;
+  color: #f0f;
+  text-decoration: none;
+  letter-spacing: 1px;
+}
+#gamma-logo:hover { color: #f5f; }
+#match-code {
+  font-size: 16px;
+  font-weight: bold;
+  color: #0ff;
+  letter-spacing: 2px;
+  min-width: 60px;
+}
+#match-code.offline { color: #444; }
+.timer-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#time-remaining {
+  font-size: 14px;
+  color: #0f0;
+  min-width: 45px;
+}
+#time-remaining.warning { color: #f80; }
+#time-remaining.critical { color: #f00; animation: blink 0.5s infinite; }
+@keyframes blink { 50% { opacity: 0.3; } }
+#extend-btn {
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  padding: 2px 6px;
+  background: #1a1a1a;
+  color: #666;
+  border: 1px solid #333;
+  cursor: pointer;
+}
+#extend-btn:hover { background: #222; color: #0f0; border-color: #0a0; }
+#game-name {
+  flex: 1;
+  text-align: right;
+  font-size: 12px;
+  color: #0ff;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+#console-reset-btn {
+  width: 28px;
+  height: 28px;
+  background: #200;
+  border: 2px solid #500;
+  color: #800;
+  font-weight: bold;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#console-reset-btn:hover { background: #300; color: #f00; border-color: #700; }
+#console-reset-btn:active { background: #500; color: #fff; }
+
+/* ========================================
+   GAME DISPLAY
+   ======================================== */
+#game-display {
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.15;
+  white-space: pre;
+  background: #000;
+  padding: 8px;
+  border: 2px solid #333;
+  border-top: none;
+  min-width: 500px;
+  min-height: 300px;
+  max-width: 640px;
+  width: 100%;
+  color: #0f0;
+  text-align: center;
+}
+
+/* ========================================
+   CONTROL BAR
+   ======================================== */
+#control-bar {
+  width: 100%;
+  max-width: 640px;
+  background: #111;
+  border: 2px solid #333;
+  border-top: none;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+/* D-Pad */
+.dpad {
+  display: grid;
+  grid-template-columns: 26px 26px 26px;
+  grid-template-rows: 26px 26px 26px;
+  gap: 2px;
+}
+.dpad-btn {
+  background: #1a1a1a;
+  border: 2px solid #333;
+  color: #444;
+  font-size: 11px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.dpad-btn:hover { background: #222; color: #666; }
+.dpad-btn.active { background: #030; color: #0f0; border-color: #0f0; }
+.dpad-up { grid-column: 2; grid-row: 1; border-radius: 4px 4px 0 0; }
+.dpad-down { grid-column: 2; grid-row: 3; border-radius: 0 0 4px 4px; }
+.dpad-left { grid-column: 1; grid-row: 2; border-radius: 4px 0 0 4px; }
+.dpad-right { grid-column: 3; grid-row: 2; border-radius: 0 4px 4px 0; }
+.dpad-center { grid-column: 2; grid-row: 2; background: #0a0a0a; border-color: #222; cursor: default; color: #222; }
+
+/* Dial / Paddle Control */
+#dial-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+#dial {
+  width: 60px;
+  height: 60px;
+  background: #0a0a0a;
+  border: 3px solid #333;
+  border-radius: 50%;
+  position: relative;
+}
+#dial-indicator {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 4px;
+  height: 20px;
+  background: #0f0;
+  transform-origin: bottom center;
+  transform: translateX(-50%) rotate(0deg);
+  border-radius: 2px;
+}
+#dial.active { border-color: #0f0; }
+#dial-keys {
+  display: flex;
+  gap: 2px;
+}
+.dial-key {
+  font-size: 8px;
+  color: #333;
+  background: #111;
+  border: 1px solid #222;
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+.dial-key.active { color: #0f0; border-color: #0f0; background: #020; }
+
+/* Brutalist Control Buttons */
+.ctrl-btn {
+  font-family: 'Courier New', monospace;
+  font-size: 9px;
+  font-weight: bold;
+  padding: 6px 10px;
+  background: #111;
+  color: #0a0;
+  border: 2px solid #0a0;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.ctrl-btn:hover { background: #1a1a1a; color: #0f0; border-color: #0f0; }
+.ctrl-btn:active { background: #0a0; color: #000; }
+.ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.ctrl-btn-square {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  font-weight: bold;
+  width: 32px;
+  height: 32px;
+  background: #111;
+  color: #a00;
+  border: 2px solid #a00;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ctrl-btn-square:hover { background: #200; color: #f00; border-color: #f00; }
+.ctrl-btn-square:active { background: #a00; color: #000; }
+
+/* ========================================
+   PLAYER DECK
+   ======================================== */
+#player-deck {
+  width: 100%;
+  max-width: 640px;
+  background: #0c0c0c;
+  border: 2px solid #333;
+  border-top: none;
+  padding: 10px 16px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+.player-slot {
+  width: 70px;
+  background: #111;
+  border: 2px solid #333;
+  padding: 6px 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  border-radius: 4px;
+}
+.player-slot:hover { border-color: #555; background: #151515; }
+.player-slot.none { border-color: #333; }
+.player-slot.int { border-color: #0a0; }
+.player-slot.ext { border-color: #06f; }
+.player-slot.you { border-color: #0ff; background: #0a1a1a; }
+.player-slot.human { border-color: #f80; }
+.player-label {
+  font-size: 11px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.player-slot.none .player-label { color: #444; }
+.player-slot.int .player-label { color: #0f0; }
+.player-slot.ext .player-label { color: #0af; }
+.player-slot.you .player-label { color: #0ff; }
+.player-slot.human .player-label { color: #f80; }
+.player-state {
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 3px 6px;
+  background: #1a1a1a;
+  border-radius: 2px;
+}
+.player-slot.none .player-state { color: #333; }
+.player-slot.int .player-state { color: #0f0; background: #010; }
+.player-slot.ext .player-state { color: #0af; background: #001; }
+.player-slot.you .player-state { color: #0ff; background: #022; font-size: 11px; }
+.player-slot.human .player-state { color: #f80; background: #110; }
+
+/* ========================================
+   CONNECT BAR
+   ======================================== */
+#connect-bar {
+  width: 100%;
+  max-width: 640px;
+  background: #0a0a0a;
+  border: 2px solid #222;
+  border-top: none;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+#connect-bar label {
+  font-size: 10px;
+  color: #555;
+  text-transform: uppercase;
+}
+#code-input {
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  padding: 6px 10px;
+  background: #111;
+  color: #0f0;
+  border: 1px solid #333;
+  width: 80px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-align: center;
+}
+#code-input:focus { outline: none; border-color: #0a0; }
+#connect-btn {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  padding: 6px 14px;
+  background: #020;
+  color: #0a0;
+  border: 1px solid #0a0;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+#connect-btn:hover { background: #030; color: #0f0; }
+.spacer { flex: 1; }
+#nick-display {
+  font-size: 11px;
+  color: #666;
+}
+#nick-display span { color: #0ff; cursor: pointer; }
+#nick-display span:hover { text-decoration: underline; }
+#connection-status {
+  font-size: 10px;
+  color: #444;
+}
+#connection-status.connected { color: #0f0; }
+#connection-status.error { color: #f00; }
