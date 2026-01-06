@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { Server } = require('socket.io');
 const GamepadHandler = require('./gamepad-handler');
+const PatrolLoop = require('./patrol');
 
 // Environment configuration
 const TETRA_ENV = process.env.TETRA_ENV || 'local';
@@ -72,14 +73,24 @@ server.on('upgrade', (request, socket, head) => {
 const FEATURES = {
     console_access: ['local', 'dev'].includes(TETRA_ENV),
     limited_console: TETRA_ENV === 'staging',
-    proxy_only: TETRA_ENV === 'production'
+    proxy_only: TETRA_ENV === 'production',
+    patrol_enabled: TETRA_ENV !== 'local',
+    gamepad_enabled: process.env.TETRA_GAMEPAD === '1' // Opt-in: TETRA_GAMEPAD=1
 };
 
 console.log('🔧 Feature flags:', FEATURES);
 
-// Gamepad Handler (optional, runs alongside server)
+// Patrol loop - runs on deployed servers (not local)
+let patrol = null;
+if (FEATURES.patrol_enabled) {
+    const patrolInterval = parseInt(process.env.TSM_PATROL_INTERVAL) || 30000;
+    patrol = new PatrolLoop({ interval: patrolInterval });
+    console.log(`🔄 Patrol will start after server is ready (interval: ${patrolInterval/1000}s)`);
+}
+
+// Gamepad Handler (opt-in with TETRA_GAMEPAD=1)
 let gamepadHandler = null;
-if (FEATURES.console_access) {
+if (FEATURES.gamepad_enabled) {
     try {
         gamepadHandler = new GamepadHandler({
             optional: true,      // Don't fail if no gamepad
@@ -96,86 +107,103 @@ if (FEATURES.console_access) {
     }
 }
 
-// Local Terminal (Socket.IO)
+// Local Terminal (Socket.IO) with PTY Sessions - one per org:env
 if (FEATURES.console_access) {
-    // Create a simple terminal manager for local shell
-    const pty = require('node-pty');
+    const PtySessionManager = require('./pty-sessions');
+    const ptyManager = new PtySessionManager();
 
-    let ptyProcess = null;
-    let ptyReady = false;
-    let handlerCount = 0;  // Track how many onData handlers exist
-    const connectedSockets = new Set();
+    // Handle Socket.IO connections for terminal sessions
+    io.on('connection', (socket) => {
+        // Track current environment per socket
+        let currentOrg = 'tetra';
+        let currentEnv = 'local';
+        let currentKey = null;
 
-    const startLocalTerminal = () => {
-        if (ptyProcess) {
-            console.log('[PTY] Reusing existing terminal process');
-            return ptyProcess;
-        }
+        console.log(`[Socket] Connected: ${socket.id}`);
 
-        console.log('[PTY] Starting NEW terminal process...');
-        const defaultProjectDir = `${process.env.HOME}/src/pixeljam`;
-        ptyProcess = pty.spawn('bash', [], {
-            name: 'xterm-color',
-            cols: 80,
-            rows: 30,
-            cwd: process.env.HOME,
-            env: process.env,
-        });
+        // Get session key for current org:env
+        const getKey = () => `${socket.id}:${currentOrg}:${currentEnv}`;
 
-        // Silent init - discard output until ready
-        ptyProcess.write(`cd "${defaultProjectDir}" 2>/dev/null; clear\r\n`);
+        // Switch to an environment (creates PTY if needed)
+        const switchEnv = (org, env, sshTarget) => {
+            const newKey = `${socket.id}:${org}:${env}`;
 
-        // Single output handler - broadcasts to all connected sockets
-        handlerCount++;
-        console.log(`[PTY] Registering onData handler #${handlerCount}`);
-        ptyProcess.onData((data) => {
-            const preview = data.replace(/[\r\n]/g, '\\n').substring(0, 50);
-            console.log(`[PTY] onData: ready=${ptyReady} sockets=${connectedSockets.size} bytes=${data.length} preview="${preview}"`);
-            if (ptyReady) {
-                for (const socket of connectedSockets) {
-                    socket.emit('output', data);
-                }
+            // Same env? Just ensure connected
+            if (newKey === currentKey) {
+                console.log(`[Socket] Already at ${newKey}`);
+                return;
+            }
+
+            // Create/get the session for new env
+            ptyManager.getOrCreate(socket.id, org, env, {
+                sshTarget,
+                cols: 120,
+                rows: 30
+            });
+
+            // Switch socket from old to new
+            ptyManager.switchSocket(socket, currentKey, newKey);
+
+            currentOrg = org;
+            currentEnv = env;
+            currentKey = newKey;
+
+            console.log(`[Socket] ${socket.id} switched to: ${newKey}`);
+        };
+
+        // Start with local session
+        switchEnv('tetra', 'local', null);
+
+        // Handle env-change from console iframe
+        socket.on('env-change', ({ org, env, sshTarget }) => {
+            if (org && env) {
+                switchEnv(org, env, sshTarget || null);
             }
         });
-
-        // Mark ready after init settles
-        setTimeout(() => {
-            console.log('[PTY] Marking ready, discarding init output');
-            ptyReady = true;
-        }, 100);
-
-        ptyProcess.onExit(() => {
-            console.log('[PTY] Process exited');
-            ptyProcess = null;
-            ptyReady = false;
-            handlerCount = 0;
-        });
-
-        return ptyProcess;
-    };
-
-    // Handle Socket.IO connections for local terminal
-    io.on('connection', (socket) => {
-        console.log(`[Socket] Connected: ${socket.id} (total: ${connectedSockets.size + 1})`);
-
-        const terminal = startLocalTerminal();
-        connectedSockets.add(socket);
 
         // Handle input from client
         socket.on('input', (data) => {
-            console.log(`[Socket] Input from ${socket.id}: ${data.length} bytes`);
-            if (terminal) {
-                terminal.write(data);
+            if (currentKey) {
+                ptyManager.write(currentKey, data);
             }
         });
 
+        // Handle resize
+        socket.on('resize', ({ cols, rows }) => {
+            if (currentKey && cols && rows) {
+                ptyManager.resize(currentKey, cols, rows);
+            }
+        });
+
+        // Cleanup on disconnect
         socket.on('disconnect', () => {
-            connectedSockets.delete(socket);
-            console.log(`[Socket] Disconnected: ${socket.id} (remaining: ${connectedSockets.size})`);
+            ptyManager.cleanupSocket(socket.id);
+            console.log(`[Socket] Disconnected: ${socket.id}`);
         });
     });
 
-    console.log('🖥️ Local Terminal enabled');
+    // API: List PTY sessions
+    app.get('/api/sessions', (req, res) => {
+        res.json(ptyManager.listSessions());
+    });
+
+    // API: Kill a session by key
+    app.delete('/api/sessions/:key', (req, res) => {
+        const { key } = req.params;
+        const killed = ptyManager.killSession(decodeURIComponent(key));
+        res.json({ success: killed, key });
+    });
+
+    // Note: Creating sessions via API not supported in per-socket model
+    // Sessions are created automatically when socket connects + env-change
+    app.post('/api/sessions', (req, res) => {
+        res.status(400).json({
+            error: 'Sessions are created automatically via socket env-change event',
+            hint: 'Connect via Socket.IO and emit env-change'
+        });
+    });
+
+    console.log('🖥️ PTY Session Manager enabled (per-env sessions)');
 }
 
 // SSH Bridge (WebSocket)
@@ -278,6 +306,11 @@ app.use('/api/tsm', require('./api/tsm'));
 app.use('/api/deploy', require('./api/deploy'));
 app.use('/api/pbase', require('./api/pbase'));
 app.use('/api/logs', require('./api/logs'));
+app.use('/api/orgs', require('./api/orgs'));
+app.use('/api/environments', require('./api/environments'));
+app.use('/api/playwright', require('./api/playwright'));
+app.use('/api/capture', require('./api/capture'));
+app.use('/api/caddy', require('./api/caddy'));
 
 // Environment data for frontend
 app.get('/api/env', (req, res) => {
@@ -294,6 +327,7 @@ app.get('/health', (req, res) => {
         service: 'tetra-4444',
         environment: TETRA_ENV,
         features: FEATURES,
+        patrol: patrol ? patrol.getStats() : null,
         status: 'healthy',
         timestamp: new Date().toISOString()
     });
@@ -308,6 +342,44 @@ app.get('/status', (req, res) => {
         memory: process.memoryUsage(),
         environment: TETRA_ENV,
         port: PORT
+    });
+});
+
+// Patrol endpoints (for monitoring patrol loop status)
+app.get('/patrol/status', (req, res) => {
+    if (!patrol) {
+        return res.json({
+            enabled: false,
+            reason: 'Patrol disabled in local environment'
+        });
+    }
+    res.json({
+        enabled: true,
+        ...patrol.getStats()
+    });
+});
+
+app.get('/patrol/log', (req, res) => {
+    if (!patrol) {
+        return res.json({ log: [], enabled: false });
+    }
+    res.json({
+        log: patrol.getLog(),
+        enabled: true
+    });
+});
+
+app.post('/patrol/check', (req, res) => {
+    if (!patrol) {
+        return res.status(400).json({
+            error: 'Patrol disabled in local environment',
+            enabled: false
+        });
+    }
+    const result = patrol.checkNow();
+    res.json({
+        ...result,
+        enabled: true
     });
 });
 
@@ -330,11 +402,17 @@ server.listen(PORT, '127.0.0.1', () => {
     console.log(`✅ Tetra server running on http://127.0.0.1:${PORT}`);
     console.log(`📊 Environment: ${TETRA_ENV}`);
     console.log(`🔌 WebSocket SSH bridge: ${FEATURES.console_access ? 'enabled' : 'disabled'}`);
+
+    // Start patrol loop after server is ready (non-local only)
+    if (patrol) {
+        patrol.start();
+    }
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
     console.log('🛑 Received SIGTERM, shutting down gracefully');
+    if (patrol) patrol.stop();
     server.close(() => {
         console.log('✅ Server closed');
         process.exit(0);
@@ -343,6 +421,7 @@ process.on('SIGTERM', () => {
 
 process.on('SIGINT', () => {
     console.log('🛑 Received SIGINT, shutting down gracefully');
+    if (patrol) patrol.stop();
     server.close(() => {
         console.log('✅ Server closed');
         process.exit(0);
