@@ -14,8 +14,12 @@
     const sessionSelect = document.getElementById('session-select');
     const sessionIndicator = document.getElementById('session-indicator');
     const captureBtn = document.getElementById('capture-btn');
-    const preview = document.getElementById('preview');
+    const previewScreenshot = document.getElementById('preview-screenshot');
+    const previewDom = document.getElementById('preview-dom');
+    const previewText = document.getElementById('preview-text');
+    const previewMeta = document.getElementById('preview-meta');
     const captureId = document.getElementById('capture-id');
+    let activePreviewTab = 'screenshot';
     const capturesList = document.getElementById('captures-list');
     const sessionsList = document.getElementById('sessions-list');
     const detailsContent = document.getElementById('details-content');
@@ -87,7 +91,7 @@
             });
         });
 
-        // Details tabs
+        // Details tabs (sidebar)
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -95,6 +99,20 @@
                 showDetails(tab.dataset.tab);
             });
         });
+
+        // Preview tabs
+        document.querySelectorAll('.preview-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.preview-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.preview-pane').forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                activePreviewTab = tab.dataset.preview;
+                document.getElementById('preview-' + activePreviewTab).classList.add('active');
+            });
+        });
+
+        // Copy preview content
+        document.getElementById('copy-preview').addEventListener('click', copyPreviewContent);
 
         // Resize handle drag
         initResizeHandle();
@@ -141,6 +159,68 @@
         if (savedHeight) {
             journeyBuilder.style.height = savedHeight;
         }
+    }
+
+    function copyPreviewContent() {
+        let content = '';
+        switch (activePreviewTab) {
+            case 'screenshot':
+                // Can't copy image directly, copy URL instead
+                const img = previewScreenshot.querySelector('img');
+                content = img ? img.src : '';
+                break;
+            case 'dom':
+                content = previewDom.querySelector('.preview-code')?.textContent || '';
+                break;
+            case 'text':
+                content = previewText.querySelector('.preview-code')?.textContent || '';
+                break;
+            case 'meta':
+                content = previewMeta.querySelector('.preview-code')?.textContent || '';
+                break;
+        }
+        if (content) {
+            navigator.clipboard.writeText(content);
+            setStatus(`Copied ${activePreviewTab} content to clipboard`, 'success');
+        }
+    }
+
+    function updatePreviewPanes(capture) {
+        // Screenshot
+        if (capture.screenshotUrl) {
+            previewScreenshot.innerHTML = `<img src="${capture.screenshotUrl}" alt="Screenshot">`;
+        } else {
+            previewScreenshot.innerHTML = '<div class="placeholder">No screenshot available</div>';
+        }
+
+        // Text
+        previewText.querySelector('.preview-code').textContent = capture.textContent || '(no text content)';
+
+        // DOM - fetch if available
+        if (capture.domUrl) {
+            fetch(capture.domUrl)
+                .then(r => r.text())
+                .then(html => {
+                    previewDom.querySelector('.preview-code').textContent = html;
+                })
+                .catch(() => {
+                    previewDom.querySelector('.preview-code').textContent = '(DOM not available)';
+                });
+        } else {
+            previewDom.querySelector('.preview-code').textContent = '(DOM not available - use Full mode)';
+        }
+
+        // Meta
+        const meta = {
+            id: capture.id,
+            url: capture.url,
+            finalUrl: capture.finalUrl,
+            title: capture.title,
+            mode: capture.mode,
+            timestamp: capture.timestamp,
+            duration: capture.duration
+        };
+        previewMeta.querySelector('.preview-code').textContent = JSON.stringify(meta, null, 2);
     }
 
     // Show/hide selector dropdown based on action type
@@ -375,9 +455,14 @@
                 captureId.textContent = result.id;
                 currentCapture = result;
 
-                // Show screenshot
+                // Update preview panes
                 const screenshotUrl = `/api/capture/${org}/${mode}/${result.id}/screenshot`;
-                preview.innerHTML = `<img src="${screenshotUrl}" alt="Screenshot">`;
+                const domUrl = mode === 'full' ? `/api/capture/${org}/${mode}/${result.id}/dom` : null;
+                updatePreviewPanes({
+                    ...result,
+                    screenshotUrl,
+                    domUrl
+                });
 
                 // Reload lists
                 loadCaptures();
@@ -600,8 +685,11 @@
                 item.classList.remove('active');
             });
 
-            // Clear preview
-            preview.innerHTML = `<div class="placeholder">Session: ${name}</div>`;
+            // Clear preview - show session info
+            previewScreenshot.innerHTML = `<div class="placeholder">Session: ${name}</div>`;
+            previewDom.querySelector('.preview-code').textContent = '(session selected - no DOM)';
+            previewText.querySelector('.preview-code').textContent = '(session selected - no text)';
+            previewMeta.querySelector('.preview-code').textContent = JSON.stringify(currentSession, null, 2);
             captureId.textContent = name;
 
             // Show session details
@@ -687,16 +775,27 @@
         try {
             const res = await fetch(`/api/capture/${org}/${mode}/${id}`);
             currentCapture = await res.json();
+            currentSession = null; // Clear session selection
 
             // Highlight selected
             capturesList.querySelectorAll('.capture-item').forEach(item => {
                 item.classList.toggle('active', item.dataset.id === id);
             });
+            sessionsList.querySelectorAll('.session-item').forEach(item => {
+                item.classList.remove('active');
+            });
 
-            // Show screenshot
+            // Build URLs for resources
             const screenshotUrl = `/api/capture/${org}/${mode}/${id}/screenshot`;
-            preview.innerHTML = `<img src="${screenshotUrl}" alt="Screenshot">`;
+            const domUrl = mode === 'full' ? `/api/capture/${org}/${mode}/${id}/dom` : null;
+
+            // Update preview panes
             captureId.textContent = id;
+            updatePreviewPanes({
+                ...currentCapture,
+                screenshotUrl,
+                domUrl
+            });
 
             // Populate URL input for easy redo
             const urlToUse = captureUrl || currentCapture.url || currentCapture.finalUrl;
@@ -712,9 +811,9 @@
                 resizeHandle.classList.toggle('visible', isJourney);
             }
 
-            // Show details
+            // Show details in sidebar
             showDetails('text');
-            setStatus(`Loaded: ${id} - URL ready for redo`, 'success');
+            setStatus(`Loaded: ${id}`, 'success');
         } catch (e) {
             setStatus(`Error: ${e.message}`, 'error');
         }

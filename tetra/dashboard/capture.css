@@ -106,7 +106,7 @@ body {
     display: block;
 }
 
-/* Preview */
+/* Preview with tabs */
 .preview {
     flex: 1;
     min-height: 100px;
@@ -121,30 +121,112 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 8px;
-    color: var(--ink-muted);
-    font-size: 10px;
-    text-transform: uppercase;
+    flex-shrink: 0;
 }
 
-.preview-image {
+.preview-tabs {
+    display: flex;
+    gap: 4px;
+}
+
+.preview-tab {
+    padding: 6px 12px;
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    background: var(--paper-mid);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    cursor: pointer;
+}
+
+.preview-tab:hover {
+    background: var(--paper-light);
+}
+
+.preview-tab.active {
+    background: var(--four);
+    color: var(--ink);
+    border-color: var(--four);
+}
+
+.preview-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    color: var(--ink-muted);
+}
+
+.preview-actions .btn {
+    padding: 4px 8px;
+    font-size: 9px;
+}
+
+.preview-content {
     flex: 1;
     background: var(--paper-mid);
     border: 1px solid var(--border);
     border-radius: 2px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     overflow: hidden;
     position: relative;
 }
 
-.preview-image img {
+.preview-pane {
+    display: none;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+}
+
+.preview-pane.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#preview-screenshot.active {
+    align-items: center;
+    justify-content: center;
+}
+
+#preview-dom.active,
+#preview-text.active,
+#preview-meta.active {
+    display: block;
+}
+
+.preview-pane img {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
 }
 
-.preview-image .placeholder {
+.preview-pane .preview-code {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--ink);
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow: auto;
+    box-sizing: border-box;
+}
+
+#preview-dom .preview-code {
+    color: var(--four);
+}
+
+#preview-meta .preview-code {
+    color: var(--two);
+}
+
+.placeholder {
+    font-size: 12px;
     color: var(--ink-muted);
     text-align: center;
 }

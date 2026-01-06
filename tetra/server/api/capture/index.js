@@ -369,6 +369,21 @@ router.get('/:org/:mode/:id/screenshot', (req, res) => {
 });
 
 /**
+ * GET /api/capture/:org/:mode/:id/dom
+ * Get DOM HTML for full captures
+ */
+router.get('/:org/:mode/:id/dom', (req, res) => {
+    const { org, mode, id } = req.params;
+    const domPath = path.join(getCaptureDir(org), mode, id, 'dom.html');
+
+    if (!fs.existsSync(domPath)) {
+        return res.status(404).json({ error: 'DOM not available (only for full captures)' });
+    }
+
+    res.type('text/html').sendFile(domPath);
+});
+
+/**
  * GET /api/capture/:org/:mode/:id/file/:filename
  * Get any file from capture directory
  */

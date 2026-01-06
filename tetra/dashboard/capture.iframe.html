@@ -27,13 +27,32 @@
         <div class="main-panel">
             <div class="preview">
                 <div class="preview-header">
-                    <span>Screenshot Preview</span>
-                    <span id="capture-id"></span>
+                    <div class="preview-tabs">
+                        <div class="preview-tab active" data-preview="screenshot">Screenshot</div>
+                        <div class="preview-tab" data-preview="dom">DOM</div>
+                        <div class="preview-tab" data-preview="text">Text</div>
+                        <div class="preview-tab" data-preview="meta">Meta</div>
+                    </div>
+                    <div class="preview-actions">
+                        <span id="capture-id"></span>
+                        <button id="copy-preview" class="btn" title="Copy content">Copy</button>
+                    </div>
                 </div>
-                <div class="preview-image" id="preview">
-                    <div class="placeholder">
-                        Enter a URL and click Capture<br>
-                        <small>Quick: screenshot + text | Full: + structure + perf | Extract: interactions | Journey: multi-step</small>
+                <div class="preview-content">
+                    <div class="preview-pane active" id="preview-screenshot">
+                        <div class="placeholder">
+                            Enter a URL and click Capture<br>
+                            <small>Quick: screenshot + text | Full: + DOM + structure | Journey: multi-step</small>
+                        </div>
+                    </div>
+                    <div class="preview-pane" id="preview-dom">
+                        <pre class="preview-code"></pre>
+                    </div>
+                    <div class="preview-pane" id="preview-text">
+                        <pre class="preview-code"></pre>
+                    </div>
+                    <div class="preview-pane" id="preview-meta">
+                        <pre class="preview-code"></pre>
                     </div>
                 </div>
             </div>
