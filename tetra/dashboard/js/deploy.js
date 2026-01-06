@@ -25,8 +25,8 @@ async function loadTargets() {
                     <select class="env-select" data-target="${t.name}">
                         ${targetEnvs.map(e => `<option value="${e}">${e}</option>`).join('')}
                     </select>
-                    <button data-action="dry-run" data-target="${t.name}">Preview</button>
-                    <button class="danger" data-action="deploy" data-target="${t.name}">Deploy</button>
+                    <button class="btn deploy-btn" data-action="dry-run" data-target="${t.name}">Preview</button>
+                    <button class="btn deploy-btn danger" data-action="deploy" data-target="${t.name}">Deploy</button>
                 </div>
             `;
         }).join('');

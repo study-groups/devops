@@ -11,17 +11,6 @@
             height: 100vh;
             overflow-y: auto;
         }
-        .header {
-            color: var(--ink-muted);
-            font-size: 9px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-            display: flex;
-            justify-content: space-between;
-        }
-        .refresh { cursor: pointer; }
-        .refresh:hover { color: var(--two); }
         .section { margin-bottom: 16px; }
         .section-title {
             color: var(--ink-muted);
@@ -29,7 +18,7 @@
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-bottom: 8px;
-            border-bottom: 1px solid var(--paper-mid);
+            border-bottom: 1px solid var(--border);
             padding-bottom: 4px;
         }
         .target {
@@ -53,32 +42,19 @@
         }
         .env-select {
             background: var(--paper-dark);
-            border: 1px solid var(--paper-mid);
+            border: 1px solid var(--border);
             color: var(--ink);
             padding: 2px 6px;
             font-size: 9px;
             border-radius: 2px;
         }
-        button {
-            background: var(--four);
-            border: none;
-            color: var(--ink);
+        .deploy-btn {
             padding: 2px 6px;
             font-size: 8px;
-            font-weight: 600;
-            text-transform: uppercase;
-            cursor: pointer;
-            border-radius: 2px;
         }
-        button:hover { opacity: 0.8; }
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        button.danger { background: var(--one); }
         .history-item {
             padding: 4px 8px;
-            border-bottom: 1px solid var(--paper-mid);
+            border-bottom: 1px solid var(--border);
             display: flex;
             gap: 8px;
             font-size: 10px;
@@ -116,7 +92,7 @@
     </style>
 </head>
 <body>
-    <div class="header">
+    <div class="iframe-header" style="padding: 0 0 8px 0; border: none;">
         <span>Deploy</span>
         <span class="refresh" onclick="loadAll()">&#8635;</span>
     </div>
