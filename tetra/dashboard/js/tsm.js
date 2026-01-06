@@ -49,11 +49,11 @@ async function loadServices() {
                 <span class="port">${svc.port ? ':' + svc.port : '-'}</span>
                 <span class="uptime">${svc.uptime || '-'}</span>
                 <div class="actions">
-                    <button class="log-btn${state.watchedServices.has(svc.name) ? ' active' : ''}"
+                    <button class="btn log-btn${state.watchedServices.has(svc.name) ? ' active' : ''}"
                             data-action="toggle-logs"
                             data-service="${svc.name}"
                             title="Watch logs">L</button>
-                    <button data-action="toggle-service"
+                    <button class="btn" data-action="toggle-service"
                             data-service="${svc.name}"
                             data-status="${svc.status}">${svc.status === 'online' ? 'stop' : 'start'}</button>
                 </div>

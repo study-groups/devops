@@ -15,30 +15,13 @@
             display: flex;
             align-items: center;
             padding: 8px;
-            border-bottom: 1px solid var(--paper-mid);
+            border-bottom: 1px solid var(--border);
             gap: 12px;
         }
-        .name { flex: 1; }
-        .port { color: var(--ink-muted); min-width: 50px; }
-        .uptime { color: var(--ink-muted); min-width: 40px; font-size: 10px; }
-        .actions {
-            display: flex;
-            gap: 4px;
-        }
-        .actions button {
-            background: transparent;
-            border: 1px solid var(--paper-mid);
-            color: var(--ink-muted);
-            padding: 2px 8px;
-            font-size: 9px;
-            cursor: pointer;
-        }
-        .actions button:hover {
-            border-color: var(--four);
-            color: var(--four);
-        }
+        .service .name { flex: 1; }
+        .service .port { color: var(--ink-muted); min-width: 50px; }
+        .service .uptime { color: var(--ink-muted); min-width: 40px; font-size: 10px; }
         .log-btn {
-            font-size: 9px !important;
             font-weight: 600;
             min-width: 18px;
         }
@@ -46,21 +29,10 @@
             border-color: var(--two) !important;
             color: var(--two) !important;
         }
-        .header {
-            color: var(--ink-muted);
-            font-size: 9px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-            display: flex;
-            justify-content: space-between;
-        }
-        .refresh { cursor: pointer; }
-        .refresh:hover { color: var(--two); }
     </style>
 </head>
 <body>
-    <div class="header">
+    <div class="iframe-header" style="padding: 0 0 8px 0; border: none;">
         <span>Services</span>
         <span class="refresh" data-action="refresh">↻</span>
     </div>
