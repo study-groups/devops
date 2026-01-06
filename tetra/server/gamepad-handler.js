@@ -218,10 +218,10 @@ class GamepadHandler {
     const devices = HID.devices();
     console.log(`🔍 Found ${devices.length} HID devices`);
 
-    // Look for gamepad/joystick devices
+    // Look for gamepad/joystick devices ONLY
+    // Exclude mice/trackpads (usage 0x02) and keyboards (usage 0x06)
     const gamepadDevices = devices.filter(d =>
-      d.usage === 0x05 || // Gamepad
-      d.usage === 0x04 || // Joystick
+      (d.usage === 0x05 || d.usage === 0x04) && // Gamepad or Joystick only
       d.usagePage === 0x01 // Generic Desktop
     );
 
