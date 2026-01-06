@@ -50,7 +50,7 @@
             display: flex;
             align-items: center;
             padding: 6px 8px;
-            border-bottom: 1px solid var(--paper-mid);
+            border-bottom: 1px solid var(--border);
             gap: 8px;
         }
         .route:last-child {
@@ -144,47 +144,10 @@
             white-space: pre-wrap;
             word-break: break-all;
         }
-        .tabs {
+        .caddy-tabs {
             display: flex;
             gap: 4px;
             margin-bottom: 8px;
-        }
-        .tab {
-            background: transparent;
-            border: 1px solid var(--paper-mid);
-            color: var(--ink-muted);
-            padding: 4px 10px;
-            font-family: inherit;
-            font-size: 9px;
-            cursor: pointer;
-            border-radius: 2px;
-        }
-        .tab:hover {
-            border-color: var(--ink-muted);
-            color: var(--ink);
-        }
-        .tab.active {
-            border-color: var(--four);
-            color: var(--four);
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-        .header-title {
-            color: var(--ink-muted);
-            font-size: 9px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .refresh {
-            cursor: pointer;
-            color: var(--ink-muted);
-        }
-        .refresh:hover {
-            color: var(--two);
         }
         .error-entry {
             padding: 6px 8px;
@@ -204,16 +167,16 @@
     </style>
 </head>
 <body>
-    <div class="header">
-        <span class="header-title">Caddy Reverse Proxy</span>
+    <div class="iframe-header" style="padding: 0 0 8px 0; border: none;">
+        <span>Caddy Reverse Proxy</span>
         <span class="refresh" data-action="refresh">&#x21bb;</span>
     </div>
 
-    <div class="tabs">
-        <button class="tab active" data-action="tab" data-tab="overview">Overview</button>
-        <button class="tab" data-action="tab" data-tab="logs">Logs</button>
-        <button class="tab" data-action="tab" data-tab="errors">Errors</button>
-        <button class="tab" data-action="tab" data-tab="info">Info</button>
+    <div class="caddy-tabs">
+        <button class="btn active" data-action="tab" data-tab="overview">Overview</button>
+        <button class="btn" data-action="tab" data-tab="logs">Logs</button>
+        <button class="btn" data-action="tab" data-tab="errors">Errors</button>
+        <button class="btn" data-action="tab" data-tab="info">Info</button>
     </div>
 
     <div id="tab-overview" class="tab-content">

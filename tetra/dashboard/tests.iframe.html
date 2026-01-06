@@ -23,34 +23,20 @@
             flex-shrink: 0;
         }
 
-        .toolbar select {
-            background: var(--paper-light);
-            border: 1px solid var(--border);
-            color: var(--ink);
-            padding: 6px 10px;
-            font-family: inherit;
-            font-size: 11px;
-            border-radius: 2px;
+        .toolbar .select {
             min-width: 150px;
         }
 
-        .toolbar button {
-            background: var(--four);
-            border: none;
-            color: var(--ink);
+        .toolbar .btn.primary {
             padding: 6px 14px;
-            font-family: inherit;
-            font-size: 11px;
             font-weight: 600;
             text-transform: uppercase;
-            cursor: pointer;
-            border-radius: 2px;
         }
 
-        .toolbar button:hover { opacity: 0.9; }
-        .toolbar button:disabled { opacity: 0.5; cursor: not-allowed; }
-        .toolbar button.stop { background: var(--one); }
-        .toolbar button.secondary { background: var(--paper-light); }
+        .toolbar .btn.stop {
+            background: var(--one);
+            border-color: var(--one);
+        }
 
         .toolbar .spacer { flex: 1; }
 
@@ -192,14 +178,14 @@
 </head>
 <body>
     <div class="toolbar">
-        <select id="suite-select">
+        <select class="select" id="suite-select">
             <option value="">Select test suite...</option>
             <option value="unit">Unit Tests</option>
             <option value="integration">Integration Tests</option>
             <option value="e2e">E2E Tests</option>
         </select>
-        <button id="run-btn" data-action="run">Run All</button>
-        <button id="stop-btn" data-action="stop" class="stop" disabled>Stop</button>
+        <button class="btn primary" id="run-btn" data-action="run">Run All</button>
+        <button class="btn stop" id="stop-btn" data-action="stop" disabled>Stop</button>
         <span class="spacer"></span>
         <span class="status-badge idle" id="status-badge">Idle</span>
     </div>
@@ -215,7 +201,7 @@
         <div class="output-panel">
             <div class="output-header">
                 <span>Output</span>
-                <button id="clear-btn" data-action="clear" style="background:none;border:none;color:var(--ink-muted);cursor:pointer;">Clear</button>
+                <button class="btn" id="clear-btn" data-action="clear">Clear</button>
             </div>
             <div class="output-content" id="output">
                 <div class="line muted">Ready to run tests...</div>

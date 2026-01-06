@@ -89,20 +89,7 @@
             display: flex;
             gap: 8px;
         }
-        .log-controls button {
-            background: transparent;
-            border: 1px solid var(--paper-mid);
-            color: var(--ink-muted);
-            padding: 2px 8px;
-            font-size: 9px;
-            cursor: pointer;
-            border-radius: 2px;
-        }
-        .log-controls button:hover {
-            border-color: var(--four);
-            color: var(--four);
-        }
-        .log-controls button.active {
+        .log-controls .btn.active {
             border-color: var(--two);
             color: var(--two);
         }
@@ -211,17 +198,6 @@
             position: absolute;
             top: 4px;
             right: 4px;
-            background: var(--paper-mid);
-            border: 1px solid var(--border);
-            color: var(--ink-muted);
-            padding: 2px 6px;
-            font-size: 8px;
-            cursor: pointer;
-            border-radius: 2px;
-        }
-        .copy-btn:hover {
-            border-color: var(--four);
-            color: var(--four);
         }
         .copy-btn.copied {
             border-color: var(--two);
@@ -334,8 +310,8 @@
         <div class="log-header">
             <span class="log-title">Message Log</span>
             <div class="log-controls">
-                <button id="pause-btn" data-action="pause" title="Pause/Resume">Pause</button>
-                <button id="clear-btn" data-action="clear" title="Clear log">Clear</button>
+                <button class="btn" id="pause-btn" data-action="pause" title="Pause/Resume">Pause</button>
+                <button class="btn" id="clear-btn" data-action="clear" title="Clear log">Clear</button>
             </div>
         </div>
         <div id="messages">
@@ -352,7 +328,7 @@
             </div>
             <div class="example-content">
                 <div class="code-block" id="code-send">
-<button class="copy-btn" data-action="copy-code" data-id="code-send">Copy</button>
+<button class="btn copy-btn" data-action="copy-code" data-id="code-send">Copy</button>
 // Send message to parent window
 Terrain.Iframe.send({
     type: 'log-watch-change',
@@ -368,7 +344,7 @@ Terrain.Iframe.send({
             </div>
             <div class="example-content">
                 <div class="code-block" id="code-receive">
-<button class="copy-btn" data-action="copy-code" data-id="code-receive">Copy</button>
+<button class="btn copy-btn" data-action="copy-code" data-id="code-receive">Copy</button>
 Terrain.Iframe.init({
     name: 'myPanel',
     onMessage: function(msg) {
