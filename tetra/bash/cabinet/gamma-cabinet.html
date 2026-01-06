@@ -6,6 +6,10 @@
   <title>GAMMA Cabinet</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+    }
     body {
       font-family: 'Courier New', monospace;
       background: #0a0a0a;
@@ -14,6 +18,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
       padding: 10px;
     }
 
@@ -78,7 +83,7 @@
       letter-spacing: 2px;
       text-transform: uppercase;
     }
-    #reset-btn {
+    #console-reset-btn {
       width: 28px;
       height: 28px;
       background: #200;
@@ -91,8 +96,8 @@
       align-items: center;
       justify-content: center;
     }
-    #reset-btn:hover { background: #300; color: #f00; border-color: #700; }
-    #reset-btn:active { background: #500; color: #fff; }
+    #console-reset-btn:hover { background: #300; color: #f00; border-color: #700; }
+    #console-reset-btn:active { background: #500; color: #fff; }
 
     /* ========================================
        GAME DISPLAY
@@ -111,6 +116,7 @@
       max-width: 640px;
       width: 100%;
       color: #0f0;
+      text-align: center;
     }
 
     /* ========================================
@@ -125,95 +131,110 @@
       padding: 12px 16px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 16px;
+      justify-content: center;
+      gap: 20px;
     }
 
     /* D-Pad */
     .dpad {
       display: grid;
-      grid-template-columns: 24px 24px 24px;
-      grid-template-rows: 24px 24px 24px;
+      grid-template-columns: 26px 26px 26px;
+      grid-template-rows: 26px 26px 26px;
       gap: 2px;
     }
     .dpad-btn {
       background: #1a1a1a;
-      border: 1px solid #333;
-      color: #333;
-      font-size: 12px;
+      border: 2px solid #333;
+      color: #444;
+      font-size: 11px;
+      font-weight: bold;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
       transition: all 0.1s;
     }
-    .dpad-btn:hover { background: #222; }
+    .dpad-btn:hover { background: #222; color: #666; }
     .dpad-btn.active { background: #030; color: #0f0; border-color: #0f0; }
     .dpad-up { grid-column: 2; grid-row: 1; border-radius: 4px 4px 0 0; }
     .dpad-down { grid-column: 2; grid-row: 3; border-radius: 0 0 4px 4px; }
     .dpad-left { grid-column: 1; grid-row: 2; border-radius: 4px 0 0 4px; }
     .dpad-right { grid-column: 3; grid-row: 2; border-radius: 0 4px 4px 0; }
-    .dpad-center { grid-column: 2; grid-row: 2; background: #0a0a0a; border-color: #222; cursor: default; }
+    .dpad-center { grid-column: 2; grid-row: 2; background: #0a0a0a; border-color: #222; cursor: default; color: #222; }
 
-    /* Game Control Buttons */
-    .game-controls {
+    /* Dial / Paddle Control */
+    #dial-container {
       display: flex;
-      gap: 12px;
+      flex-direction: column;
       align-items: center;
+      gap: 4px;
     }
-    #play-btn {
+    #dial {
+      width: 60px;
+      height: 60px;
+      background: #0a0a0a;
+      border: 3px solid #333;
+      border-radius: 50%;
+      position: relative;
+    }
+    #dial-indicator {
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      width: 4px;
+      height: 20px;
+      background: #0f0;
+      transform-origin: bottom center;
+      transform: translateX(-50%) rotate(0deg);
+      border-radius: 2px;
+    }
+    #dial.active { border-color: #0f0; }
+    #dial-keys {
+      display: flex;
+      gap: 2px;
+    }
+    .dial-key {
+      font-size: 8px;
+      color: #333;
+      background: #111;
+      border: 1px solid #222;
+      padding: 2px 4px;
+      border-radius: 2px;
+    }
+    .dial-key.active { color: #0f0; border-color: #0f0; background: #020; }
+
+    /* Brutalist Control Buttons */
+    .ctrl-btn {
       font-family: 'Courier New', monospace;
-      font-size: 14px;
-      padding: 10px 24px;
-      background: #020;
+      font-size: 9px;
+      font-weight: bold;
+      padding: 6px 10px;
+      background: #111;
       color: #0a0;
       border: 2px solid #0a0;
       cursor: pointer;
       text-transform: uppercase;
-      letter-spacing: 3px;
-      font-weight: bold;
+      letter-spacing: 1px;
     }
-    #play-btn:hover { background: #030; color: #0f0; border-color: #0f0; }
-    #play-btn:active { background: #050; }
-    #play-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-    #ctrl-reset-btn {
+    .ctrl-btn:hover { background: #1a1a1a; color: #0f0; border-color: #0f0; }
+    .ctrl-btn:active { background: #0a0; color: #000; }
+    .ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .ctrl-btn-square {
       font-family: 'Courier New', monospace;
-      font-size: 10px;
-      padding: 6px 12px;
-      background: #200;
-      color: #800;
-      border: 1px solid #500;
-      cursor: pointer;
-      text-transform: uppercase;
-    }
-    #ctrl-reset-btn:hover { background: #300; color: #f00; border-color: #700; }
-
-    /* Action Buttons */
-    .action-buttons {
-      display: grid;
-      grid-template-columns: 28px 28px;
-      grid-template-rows: 28px 28px;
-      gap: 3px;
-    }
-    .action-btn {
-      background: #1a1a1a;
-      border: 1px solid #333;
-      color: #333;
-      font-size: 10px;
+      font-size: 12px;
       font-weight: bold;
+      width: 32px;
+      height: 32px;
+      background: #111;
+      color: #a00;
+      border: 2px solid #a00;
+      cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: all 0.1s;
     }
-    .action-btn:hover { background: #222; }
-    .action-btn.active { background: #030; color: #0f0; border-color: #0f0; }
-    .btn-a { color: #393; border-color: #393; }
-    .btn-b { color: #933; border-color: #933; }
-    .btn-x { color: #339; border-color: #339; }
-    .btn-y { color: #993; border-color: #993; }
+    .ctrl-btn-square:hover { background: #200; color: #f00; border-color: #f00; }
+    .ctrl-btn-square:active { background: #a00; color: #000; }
 
     /* ========================================
        PLAYER DECK
@@ -224,83 +245,50 @@
       background: #0c0c0c;
       border: 2px solid #333;
       border-top: none;
-      padding: 12px 16px;
+      padding: 10px 16px;
       display: flex;
       justify-content: center;
-      gap: 12px;
+      gap: 8px;
     }
     .player-slot {
-      width: 100px;
+      width: 70px;
       background: #111;
       border: 2px solid #333;
-      padding: 8px;
+      padding: 6px 8px;
       text-align: center;
       cursor: pointer;
       transition: all 0.15s;
+      border-radius: 4px;
     }
-    .player-slot:hover { border-color: #555; }
+    .player-slot:hover { border-color: #555; background: #151515; }
     .player-slot.none { border-color: #333; }
     .player-slot.int { border-color: #0a0; }
     .player-slot.ext { border-color: #06f; }
     .player-slot.you { border-color: #0ff; background: #0a1a1a; }
     .player-slot.human { border-color: #f80; }
     .player-label {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: bold;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
     .player-slot.none .player-label { color: #444; }
     .player-slot.int .player-label { color: #0f0; }
     .player-slot.ext .player-label { color: #0af; }
     .player-slot.you .player-label { color: #0ff; }
     .player-slot.human .player-label { color: #f80; }
-
-    /* Paddle indicator */
-    .paddle-display {
-      height: 40px;
-      margin: 6px 0;
-      position: relative;
-      background: #0a0a0a;
-      border: 1px solid #222;
-    }
-    .paddle-track {
-      position: absolute;
-      left: 50%;
-      top: 4px;
-      bottom: 4px;
-      width: 2px;
-      background: #222;
-      transform: translateX(-50%);
-    }
-    .paddle-knob {
-      position: absolute;
-      left: 50%;
-      width: 20px;
-      height: 6px;
-      background: #333;
-      border-radius: 2px;
-      transform: translateX(-50%);
-      top: 50%;
-      margin-top: -3px;
-      transition: top 0.05s;
-    }
-    .player-slot.int .paddle-knob { background: #0a0; }
-    .player-slot.ext .paddle-knob { background: #06f; }
-    .player-slot.you .paddle-knob { background: #0ff; }
-    .player-slot.human .paddle-knob { background: #f80; }
-
     .player-state {
-      font-size: 9px;
+      font-size: 10px;
+      font-weight: bold;
       text-transform: uppercase;
       letter-spacing: 1px;
       padding: 3px 6px;
       background: #1a1a1a;
       border-radius: 2px;
     }
-    .player-slot.none .player-state { color: #444; }
+    .player-slot.none .player-state { color: #333; }
     .player-slot.int .player-state { color: #0f0; background: #010; }
     .player-slot.ext .player-state { color: #0af; background: #001; }
-    .player-slot.you .player-state { color: #0ff; background: #011; }
+    .player-slot.you .player-state { color: #0ff; background: #022; font-size: 11px; }
     .player-slot.human .player-state { color: #f80; background: #110; }
 
     /* ========================================
@@ -363,8 +351,9 @@
 </head>
 <body>
 
-  <!-- Header: GAMMA | CODE | TIMER | GAME | RESET -->
+  <!-- Header: GAMMA RESET | GAMMA | CODE | TIMER | GAME | GAME RESET -->
   <div id="header">
+    <button id="console-reset-btn" title="GAMMA Console Reset">R</button>
     <a id="gamma-logo" href="/" title="GAMMA Lobby">GAMMA</a>
     <span id="match-code" class="offline">----</span>
     <div class="timer-group">
@@ -372,67 +361,61 @@
       <button id="extend-btn" title="Extend +5 minutes">+5M</button>
     </div>
     <span id="game-name">---</span>
-    <button id="reset-btn" title="Reset Game">R</button>
+    <button id="game-reset-btn" class="ctrl-btn-square reset" title="Game Reset">R</button>
   </div>
 
   <!-- Game Display -->
   <pre id="game-display"></pre>
 
-  <!-- Control Bar: D-PAD | PLAY/RESET | ACTION BUTTONS -->
+  <!-- Control Bar -->
   <div id="control-bar">
-    <div class="dpad">
-      <button class="dpad-btn dpad-up" data-dir="up">▲</button>
-      <button class="dpad-btn dpad-left" data-dir="left">◄</button>
-      <div class="dpad-btn dpad-center">●</div>
-      <button class="dpad-btn dpad-right" data-dir="right">►</button>
-      <button class="dpad-btn dpad-down" data-dir="down">▼</button>
+    <div class="dpad" id="dpad-left">
+      <button class="dpad-btn dpad-up" data-dir="up" data-player="1">W</button>
+      <button class="dpad-btn dpad-left" data-dir="left" data-player="1">A</button>
+      <div class="dpad-btn dpad-center">+</div>
+      <button class="dpad-btn dpad-right" data-dir="right" data-player="1">D</button>
+      <button class="dpad-btn dpad-down" data-dir="down" data-player="1">S</button>
     </div>
 
-    <div class="game-controls">
-      <button id="play-btn">▶ PLAY</button>
-      <button id="ctrl-reset-btn">RESET</button>
+    <div id="dial-container">
+      <div id="dial">
+        <div id="dial-indicator"></div>
+      </div>
+      <div id="dial-keys">
+        <span class="dial-key" data-key="f">F</span>
+        <span class="dial-key" data-key="t">T</span>
+        <span class="dial-key" data-key="g">G</span>
+        <span class="dial-key" data-key="h">H</span>
+      </div>
     </div>
 
-    <div class="action-buttons">
-      <button class="action-btn btn-a" data-btn="a">A</button>
-      <button class="action-btn btn-b" data-btn="b">B</button>
-      <button class="action-btn btn-x" data-btn="x">X</button>
-      <button class="action-btn btn-y" data-btn="y">Y</button>
+    <div class="dpad" id="dpad-right">
+      <button class="dpad-btn dpad-up" data-dir="up" data-player="2">I</button>
+      <button class="dpad-btn dpad-left" data-dir="left" data-player="2">J</button>
+      <div class="dpad-btn dpad-center">+</div>
+      <button class="dpad-btn dpad-right" data-dir="right" data-player="2">L</button>
+      <button class="dpad-btn dpad-down" data-dir="down" data-player="2">K</button>
     </div>
+
+    <button id="play-btn" class="ctrl-btn">[START]</button>
   </div>
 
   <!-- Player Deck -->
   <div id="player-deck">
     <div class="player-slot none" data-slot="p1">
       <div class="player-label">P1</div>
-      <div class="paddle-display">
-        <div class="paddle-track"></div>
-        <div class="paddle-knob" id="paddle-p1"></div>
-      </div>
       <div class="player-state">NONE</div>
     </div>
     <div class="player-slot none" data-slot="p2">
       <div class="player-label">P2</div>
-      <div class="paddle-display">
-        <div class="paddle-track"></div>
-        <div class="paddle-knob" id="paddle-p2"></div>
-      </div>
       <div class="player-state">NONE</div>
     </div>
     <div class="player-slot none" data-slot="p3">
       <div class="player-label">P3</div>
-      <div class="paddle-display">
-        <div class="paddle-track"></div>
-        <div class="paddle-knob" id="paddle-p3"></div>
-      </div>
       <div class="player-state">NONE</div>
     </div>
     <div class="player-slot none" data-slot="p4">
       <div class="player-label">P4</div>
-      <div class="paddle-display">
-        <div class="paddle-track"></div>
-        <div class="paddle-knob" id="paddle-p4"></div>
-      </div>
       <div class="player-state">NONE</div>
     </div>
   </div>
@@ -559,7 +542,6 @@
     let mySlot = null;
     let gameName = null;
     let playerStates = { p1: 'none', p2: 'none', p3: 'none', p4: 'none' };
-    let paddlePositions = { p1: 0.5, p2: 0.5, p3: 0.5, p4: 0.5 };
 
     // ========================================
     // DOM ELEMENTS
@@ -568,10 +550,12 @@
     const timeRemainingEl = document.getElementById('time-remaining');
     const extendBtn = document.getElementById('extend-btn');
     const gameNameEl = document.getElementById('game-name');
-    const resetBtn = document.getElementById('reset-btn');
+    const consoleResetBtn = document.getElementById('console-reset-btn');
+    const gameResetBtn = document.getElementById('game-reset-btn');
     const gameDisplayEl = document.getElementById('game-display');
     const playBtn = document.getElementById('play-btn');
-    const ctrlResetBtn = document.getElementById('ctrl-reset-btn');
+    const dial = document.getElementById('dial');
+    const dialIndicator = document.getElementById('dial-indicator');
     const codeInput = document.getElementById('code-input');
     const connectBtn = document.getElementById('connect-btn');
     const nickValueEl = document.getElementById('nick-value');
@@ -620,59 +604,67 @@
       el.className = `player-slot ${state}`;
       const stateEl = el.querySelector('.player-state');
 
-      if (state === 'you') {
-        stateEl.textContent = name || 'YOU';
-      } else if (state === 'human') {
-        stateEl.textContent = name || 'HUMAN';
-      } else if (state === 'int') {
-        stateEl.textContent = 'INT AI';
-      } else if (state === 'ext') {
-        stateEl.textContent = 'EXT AI';
-      } else {
-        stateEl.textContent = 'NONE';
-      }
+      // State display text
+      const stateText = {
+        'you': 'YOU',
+        'human': name || 'HUMAN',
+        'int': 'INT',
+        'ext': 'EXT',
+        'none': '---'
+      };
+      stateEl.textContent = stateText[state] || '---';
 
       playerStates[slot] = state;
     }
 
-    function updatePaddlePosition(slot, position) {
-      // position: 0 = top, 1 = bottom, 0.5 = center
-      const knob = document.getElementById(`paddle-${slot}`);
-      if (knob) {
-        const top = 4 + (position * 24); // 4px to 28px range
-        knob.style.top = `${top}px`;
-        knob.style.marginTop = '0';
+    // ========================================
+    // DIAL CONTROL
+    // ========================================
+    let dialAngle = 0; // -135 to +135 degrees
+    let dialStep = 15; // degrees per click
+
+    function updateDial(angle) {
+      dialAngle = Math.max(-135, Math.min(135, angle));
+      if (dialIndicator) {
+        dialIndicator.style.transform = `translateX(-50%) rotate(${dialAngle}deg)`;
       }
-      paddlePositions[slot] = position;
     }
 
+    function activateDial() {
+      if (dial) dial.classList.add('active');
+    }
+
+    function deactivateDial() {
+      if (dial) dial.classList.remove('active');
+    }
+
+    // F=CCW, H=CW, T=increase step, G=decrease step
+    function turnDialCCW() { updateDial(dialAngle - dialStep); }
+    function turnDialCW() { updateDial(dialAngle + dialStep); }
+    function increaseDialStep() { dialStep = Math.min(45, dialStep + 5); }
+    function decreaseDialStep() { dialStep = Math.max(5, dialStep - 5); }
+
+    function setDialKeyActive(key, active) {
+      const el = document.querySelector(`.dial-key[data-key="${key}"]`);
+      if (el) el.classList.toggle('active', active);
+    }
+
+    // Click cycles: YOU -> INT -> EXT -> NONE -> YOU
+    // HUMAN slots (other players) cannot be changed
     function cyclePlayerState(slot) {
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
       const current = playerStates[slot];
 
-      // State transitions:
-      // NONE -> take over as human (YOU)
-      // INT  -> take over as human (YOU)
-      // EXT  -> take over as human (YOU)
-      // YOU  -> release to INT AI
-      // HUMAN (other player) -> can't take over
+      // Can't change another human's slot
+      if (current === 'human') return;
 
-      if (current === 'human') {
-        // Can't take over another human's slot
-        return;
-      }
+      // Cycle order: you -> int -> ext -> none -> you
+      const cycle = { 'you': 'int', 'int': 'ext', 'ext': 'none', 'none': 'you' };
+      const next = cycle[current] || 'you';
 
-      if (current === 'you') {
-        // Release our slot - cycle to AI
-        ws.send(JSON.stringify({
-          t: 'slot.setAI',
-          slot,
-          mode: 'int'  // Release to internal AI
-        }));
-        updatePlayerSlot(slot, 'int');
-      } else {
-        // Take over this slot (none, int, or ext)
+      if (next === 'you') {
+        // Take over this slot
         ws.send(JSON.stringify({
           t: 'identify',
           cid: Cabinet.data.cid,
@@ -681,18 +673,16 @@
           requestSlot: slot,
           takeover: true
         }));
+        mySlot = slot;
+        activateDial();
+      } else {
+        // Set to AI mode or none
+        if (current === 'you') {
+          mySlot = null;
+          deactivateDial();
+        }
+        ws.send(JSON.stringify({ t: 'slot.setAI', slot, mode: next === 'none' ? null : next }));
       }
-    }
-
-    // Long press on player slot cycles AI modes: int -> ext -> none -> int
-    function cycleAIMode(slot) {
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
-
-      const current = playerStates[slot];
-      if (current === 'you' || current === 'human') return;
-
-      const next = { 'none': 'int', 'int': 'ext', 'ext': 'none' }[current] || 'int';
-      ws.send(JSON.stringify({ t: 'slot.setAI', slot, mode: next }));
       updatePlayerSlot(slot, next);
     }
 
@@ -732,12 +722,6 @@
       if (ws && ws.readyState === WebSocket.OPEN && mySlot) {
         ws.send(JSON.stringify({ t: 'input', key, pressed }));
       }
-    }
-
-    // D-pad visual feedback
-    function setDpadActive(dir, active) {
-      const btn = document.querySelector(`.dpad-btn[data-dir="${dir}"]`);
-      if (btn) btn.classList.toggle('active', active);
     }
 
     // ========================================
@@ -827,6 +811,7 @@
       ws.onclose = () => {
         mySlot = null;
         updateConnectionStatus('DISCONNECTED');
+        deactivateDial();
         // Reset player states
         ['p1', 'p2', 'p3', 'p4'].forEach(s => updatePlayerSlot(s, 'none'));
       };
@@ -841,6 +826,7 @@
         case 'welcome':
           mySlot = msg.slot;
           updateConnectionStatus('CONNECTED');
+          if (mySlot) activateDial();
           if (msg.game) {
             gameName = msg.game.toUpperCase();
             gameNameEl.textContent = gameName;
@@ -858,12 +844,13 @@
           if (msg.display) {
             gameDisplayEl.innerHTML = ansiToHtml(msg.display);
           }
-          // Update paddle positions from state
-          if (msg.state && msg.state.paddles) {
-            for (const [slot, paddle] of Object.entries(msg.state.paddles)) {
-              // Normalize offset to 0-1 range
-              const pos = 0.5 + (paddle.offset / 0.63); // paddleMaxOffset ≈ 0.63
-              updatePaddlePosition(slot, Math.max(0, Math.min(1, pos)));
+          // Update dial from game state
+          if (msg.state && msg.state.paddles && mySlot) {
+            const paddle = msg.state.paddles[mySlot];
+            if (paddle) {
+              // Convert offset to dial angle (-135 to +135)
+              const angle = (paddle.offset / 0.63) * 135;
+              updateDial(angle);
             }
           }
           break;
@@ -880,6 +867,7 @@
         case 'slot.assigned':
           mySlot = msg.slot;
           updatePlayerSlot(msg.slot, 'you', Cabinet.data.nick);
+          activateDial();
           break;
       }
     }
@@ -887,57 +875,134 @@
     // ========================================
     // KEYBOARD INPUT
     // ========================================
+    // Player 1: WASD, Player 2: IJKL, Dial: FTGH
     const keyMap = {
-      'KeyW': 'up', 'ArrowUp': 'up',
-      'KeyS': 'down', 'ArrowDown': 'down',
-      'KeyA': 'left', 'ArrowLeft': 'left',
-      'KeyD': 'right', 'ArrowRight': 'right',
-      'Space': 'a', 'Enter': 'a',
-      'KeyZ': 'a', 'KeyX': 'b',
-      'KeyC': 'x', 'KeyV': 'y'
+      // Player 1
+      'KeyW': { dir: 'up', player: 1 },
+      'KeyS': { dir: 'down', player: 1 },
+      'KeyA': { dir: 'left', player: 1 },
+      'KeyD': { dir: 'right', player: 1 },
+      // Player 2
+      'KeyI': { dir: 'up', player: 2 },
+      'KeyK': { dir: 'down', player: 2 },
+      'KeyJ': { dir: 'left', player: 2 },
+      'KeyL': { dir: 'right', player: 2 },
+    };
+
+    // Dial keys: F=CCW, H=CW, T=faster, G=slower
+    const dialKeyMap = {
+      'KeyF': { action: 'ccw', key: 'f' },
+      'KeyH': { action: 'cw', key: 'h' },
+      'KeyT': { action: 'faster', key: 't' },
+      'KeyG': { action: 'slower', key: 'g' },
+    };
+
+    // Direction -> game input key
+    const gameKeyMap = {
+      'up': 'w', 'down': 's', 'left': 'a', 'right': 'd'
     };
 
     const activeKeys = new Set();
 
+    function setDpadBtnActive(dir, player, active) {
+      const dpadId = player === 1 ? '#dpad-left' : '#dpad-right';
+      const btn = document.querySelector(`${dpadId} .dpad-${dir}`);
+      if (btn) btn.classList.toggle('active', active);
+    }
+
     document.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT') return;
+      if (activeKeys.has(e.code)) return;
 
-      const action = keyMap[e.code];
-      if (action && !activeKeys.has(e.code)) {
+      // D-pad keys
+      const mapping = keyMap[e.code];
+      if (mapping) {
         activeKeys.add(e.code);
-        setDpadActive(action, true);
+        setDpadBtnActive(mapping.dir, mapping.player, true);
 
-        // Map to game keys
-        const gameKey = {
-          'up': 'w', 'down': 's', 'left': 'a', 'right': 'd',
-          'a': ' ', 'b': 'x', 'x': 'c', 'y': 'v'
-        }[action];
+        // Send game input
+        const gameKey = gameKeyMap[mapping.dir];
         if (gameKey) sendInput(gameKey, true);
+
+        // Turn dial on left/right (player 1 controls dial)
+        if (mapping.player === 1) {
+          if (mapping.dir === 'left') turnDialCCW();
+          if (mapping.dir === 'right') turnDialCW();
+        }
+
+        e.preventDefault();
+        return;
+      }
+
+      // Dial keys
+      const dialMapping = dialKeyMap[e.code];
+      if (dialMapping) {
+        activeKeys.add(e.code);
+        setDialKeyActive(dialMapping.key, true);
+
+        if (dialMapping.action === 'ccw') turnDialCCW();
+        if (dialMapping.action === 'cw') turnDialCW();
+        if (dialMapping.action === 'faster') increaseDialStep();
+        if (dialMapping.action === 'slower') decreaseDialStep();
 
         e.preventDefault();
       }
     });
 
     document.addEventListener('keyup', (e) => {
-      const action = keyMap[e.code];
-      if (action && activeKeys.has(e.code)) {
-        activeKeys.delete(e.code);
-        setDpadActive(action, false);
+      if (!activeKeys.has(e.code)) return;
 
-        const gameKey = {
-          'up': 'w', 'down': 's', 'left': 'a', 'right': 'd',
-          'a': ' ', 'b': 'x', 'x': 'c', 'y': 'v'
-        }[action];
+      const mapping = keyMap[e.code];
+      if (mapping) {
+        activeKeys.delete(e.code);
+        setDpadBtnActive(mapping.dir, mapping.player, false);
+
+        const gameKey = gameKeyMap[mapping.dir];
         if (gameKey) sendInput(gameKey, false);
+        return;
+      }
+
+      const dialMapping = dialKeyMap[e.code];
+      if (dialMapping) {
+        activeKeys.delete(e.code);
+        setDialKeyActive(dialMapping.key, false);
       }
     });
 
     // ========================================
     // EVENT LISTENERS
     // ========================================
-    playBtn.addEventListener('click', sendPlay);
-    ctrlResetBtn.addEventListener('click', sendReset);
-    resetBtn.addEventListener('click', sendReset);
+    let isPlaying = false;
+
+    playBtn.addEventListener('click', () => {
+      if (!isPlaying) {
+        sendReset();  // game.reset starts gameplay
+        isPlaying = true;
+        playBtn.textContent = '[PAUSE]';
+      } else {
+        // Send pause
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ t: 'game.pause' }));
+        }
+        isPlaying = false;
+        playBtn.textContent = '[START]';
+      }
+    });
+
+    gameResetBtn.addEventListener('click', () => {
+      // Game reset - shows ASCIIPONG boot animation
+      sendPlay();  // game.play shows boot animation
+      isPlaying = false;
+      playBtn.textContent = '[START]';
+    });
+
+    consoleResetBtn.addEventListener('click', () => {
+      // GAMMA console reset - show colorful boot screen
+      renderBootScreen();
+      isPlaying = false;
+      playBtn.textContent = '[START]';
+      if (ws) ws.close();
+    });
     extendBtn.addEventListener('click', extendMatch);
 
     connectBtn.addEventListener('click', () => {
@@ -956,14 +1021,10 @@
       }
     });
 
-    // Player slot clicks - left click to take over, right click to cycle AI mode
+    // Player slot clicks - click to cycle through states
     playerSlots.forEach(slot => {
       slot.addEventListener('click', () => {
         cyclePlayerState(slot.dataset.slot);
-      });
-      slot.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        cycleAIMode(slot.dataset.slot);
       });
     });
 
@@ -991,25 +1052,30 @@
     // BOOT SCREEN
     // ========================================
     function renderBootScreen() {
-      const lines = [
-        '╔══════════════════════════════════════════════════════╗',
-        '║                                                      ║',
-        '║   ██████╗  █████╗ ███╗   ███╗███╗   ███╗ █████╗     ║',
-        '║  ██╔════╝ ██╔══██╗████╗ ████║████╗ ████║██╔══██╗    ║',
-        '║  ██║  ███╗███████║██╔████╔██║██╔████╔██║███████║    ║',
-        '║  ██║   ██║██╔══██║██║╚██╔╝██║██║╚██╔╝██║██╔══██║    ║',
-        '║  ╚██████╔╝██║  ██║██║ ╚═╝ ██║██║ ╚═╝ ██║██║  ██║    ║',
-        '║   ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝    ║',
-        '║                                                      ║',
-        '║              A N S I   C A B I N E T                 ║',
-        '║                                                      ║',
-        '╠══════════════════════════════════════════════════════╣',
-        '║                                                      ║',
-        '║  Enter match code or wait for auto-connect...        ║',
-        '║                                                      ║',
-        '╚══════════════════════════════════════════════════════╝'
+      const colors = ['#f0f', '#0ff', '#0f0', '#ff0', '#f80', '#f55'];
+      const gammaArt = [
+        '██████╗  █████╗ ███╗   ███╗███╗   ███╗ █████╗ ',
+        '██╔════╝ ██╔══██╗████╗ ████║████╗ ████║██╔══██╗',
+        '██║  ███╗███████║██╔████╔██║██╔████╔██║███████║',
+        '██║   ██║██╔══██║██║╚██╔╝██║██║╚██╔╝██║██╔══██║',
+        '╚██████╔╝██║  ██║██║ ╚═╝ ██║██║ ╚═╝ ██║██║  ██║',
+        ' ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝'
       ];
-      gameDisplayEl.innerHTML = '<span style="color:#f0f">' + lines.join('\n') + '</span>';
+
+      let html = '\n\n';
+
+      // Color each line of GAMMA differently
+      gammaArt.forEach((line, i) => {
+        const color = colors[i % colors.length];
+        html += `<span style="color:${color}">${line}</span>\n`;
+      });
+
+      html += '\n';
+      html += '<span style="color:#0ff">A N S I</span>   <span style="color:#f0f">C A B I N E T</span>\n';
+      html += '\n';
+      html += '<span style="color:#888">Enter match code or wait for auto-connect...</span>\n';
+
+      gameDisplayEl.innerHTML = html;
     }
 
     // Show boot screen on load if no auto-join
