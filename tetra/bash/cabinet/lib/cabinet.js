@@ -220,41 +220,58 @@ function setDialKeyActive(key, active) {
   if (el) el.classList.toggle('active', active);
 }
 
-// Click cycles: YOU -> INT -> EXT -> NONE -> YOU
+// Click cycles: NONE -> YOU -> INT -> EXT -> NONE
 // HUMAN slots (other players) cannot be changed
 function cyclePlayerState(slot) {
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
-
   const current = playerStates[slot];
 
   // Can't change another human's slot
   if (current === 'human') return;
 
-  // Cycle order: you -> int -> ext -> none -> you
-  const cycle = { 'you': 'int', 'int': 'ext', 'ext': 'none', 'none': 'you' };
+  // Cycle order: none -> you -> int -> ext -> none
+  const cycle = { 'none': 'you', 'you': 'int', 'int': 'ext', 'ext': 'none' };
   const next = cycle[current] || 'you';
 
-  if (next === 'you') {
-    // Take over this slot
-    ws.send(JSON.stringify({
-      t: 'identify',
-      cid: Cabinet.data.cid,
-      nick: Cabinet.data.nick,
-      visits: Cabinet.data.visits,
-      requestSlot: slot,
-      takeover: true
-    }));
-    mySlot = slot;
-    activateDial();
+  // Update local state immediately
+  updatePlayerSlot(slot, next);
+
+  // If connected, send appropriate message
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    if (next === 'you') {
+      // Take over this slot
+      ws.send(JSON.stringify({
+        t: 'player.claim',
+        slot: slot,
+        cid: Cabinet.data.cid,
+        nick: Cabinet.data.nick
+      }));
+      mySlot = slot;
+      activateDial();
+    } else if (next === 'int' || next === 'ext') {
+      // Set to AI mode
+      ws.send(JSON.stringify({ t: 'player.ai', slot, mode: next }));
+      if (current === 'you') {
+        mySlot = null;
+        deactivateDial();
+      }
+    } else {
+      // Set to none (release slot)
+      ws.send(JSON.stringify({ t: 'player.release', slot }));
+      if (current === 'you') {
+        mySlot = null;
+        deactivateDial();
+      }
+    }
   } else {
-    // Set to AI mode or none
-    if (current === 'you') {
+    // Not connected - just update local UI
+    if (next === 'you') {
+      mySlot = slot;
+      activateDial();
+    } else if (current === 'you') {
       mySlot = null;
       deactivateDial();
     }
-    ws.send(JSON.stringify({ t: 'slot.setAI', slot, mode: next === 'none' ? null : next }));
   }
-  updatePlayerSlot(slot, next);
 }
 
 // ========================================
@@ -561,8 +578,8 @@ playBtn.addEventListener('click', () => {
 });
 
 gameResetBtn.addEventListener('click', () => {
-  // Game reset - shows ASCIIPONG boot animation
-  sendPlay();  // game.play shows boot animation
+  // Game reset - shows boot animation
+  sendPlay();
   isPlaying = false;
   playBtn.textContent = '[START]';
 });
