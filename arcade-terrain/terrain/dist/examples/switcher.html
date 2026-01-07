@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terrain Theme Switcher</title>
+    <link id="theme-stylesheet" rel="stylesheet" href="../themes/dark.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 2rem;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 {
+            color: var(--accent-primary);
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+        .subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+        .theme-selector {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        .theme-btn {
+            padding: 0.75rem 1.5rem;
+            border: 2px solid var(--border-visible);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+        .theme-btn:hover {
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+        }
+        .theme-btn.active {
+            border-color: var(--accent-primary);
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+        }
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+        .demo-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: all 0.2s ease;
+        }
+        .demo-card:hover {
+            border-color: var(--border-visible);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .demo-card h3 {
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+        .color-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.8rem;
+        }
+        .color-swatch {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .color-name {
+            color: var(--text-muted);
+            font-family: monospace;
+            flex: 1;
+        }
+        .color-value {
+            color: var(--text-secondary);
+            font-family: monospace;
+            font-size: 0.75rem;
+        }
+        .btn-row {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid currentColor;
+            background: transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            transition: all 0.15s ease;
+        }
+        .btn-primary { color: var(--accent-primary); }
+        .btn-primary:hover { background: var(--accent-primary); color: var(--bg-primary); }
+        .btn-success { color: var(--success); }
+        .btn-success:hover { background: var(--success); color: var(--bg-primary); }
+        .btn-error { color: var(--error); }
+        .btn-error:hover { background: var(--error); color: white; }
+        .btn-warning { color: var(--warning); }
+        .btn-warning:hover { background: var(--warning); color: var(--bg-primary); }
+        .text-demo p { margin-bottom: 0.5rem; line-height: 1.5; }
+        .text-primary { color: var(--text-primary); }
+        .text-secondary { color: var(--text-secondary); }
+        .text-muted { color: var(--text-muted); }
+        code {
+            background: var(--bg-tertiary);
+            color: var(--text-code);
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.85em;
+        }
+        .input-demo input {
+            width: 100%;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 0.75rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+        .input-demo input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+        .input-demo input::placeholder {
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Theme Switcher</h1>
+        <p class="subtitle">Click a theme to see TUT tokens in action</p>
+
+        <div class="theme-selector">
+            <button class="theme-btn active" data-theme="dark">Dark</button>
+            <button class="theme-btn" data-theme="midnight">Midnight</button>
+            <button class="theme-btn" data-theme="forest">Forest</button>
+            <button class="theme-btn" data-theme="amber">Amber</button>
+        </div>
+
+        <div class="demo-grid">
+            <div class="demo-card">
+                <h3>Background Tokens</h3>
+                <div class="color-row">
+                    <div class="color-swatch" style="background: var(--bg-primary);"></div>
+                    <span class="color-name">--bg-primary</span>
+                    <span class="color-value" id="val-bg-primary"></span>
+                </div>
+                <div class="color-row">
+                    <div class="color-swatch" style="background: var(--bg-secondary);"></div>
+                    <span class="color-name">--bg-secondary</span>
+                    <span class="color-value" id="val-bg-secondary"></span>
+                </div>
+                <div class="color-row">
+                    <div class="color-swatch" style="background: var(--bg-tertiary);"></div>
+                    <span class="color-name">--bg-tertiary</span>
+                    <span class="color-value" id="val-bg-tertiary"></span>
+                </div>
+            </div>
+
+            <div class="demo-card">
+                <h3>Accent Tokens</h3>
+                <div class="color-row">
+                    <div class="color-swatch" style="background: var(--accent-primary);"></div>
+                    <span class="color-name">--accent-primary</span>
+                    <span class="color-value" id="val-accent-primary"></span>
+                </div>
+                <div class="color-row">
+                    <div class="color-swatch" style="background: var(--success);"></div>
+                    <span class="color-name">--success</span>
+                    <span class="color-value" id="val-success"></span>
+                </div>
+                <div class="color-row">
+                    <div class="color-swatch" style="background: var(--error);"></div>
+                    <span class="color-name">--error</span>
+                    <span class="color-value" id="val-error"></span>
+                </div>
+                <div class="color-row">
+                    <div class="color-swatch" style="background: var(--warning);"></div>
+                    <span class="color-name">--warning</span>
+                    <span class="color-value" id="val-warning"></span>
+                </div>
+            </div>
+
+            <div class="demo-card">
+                <h3>Buttons</h3>
+                <div class="btn-row">
+                    <button class="btn btn-primary">Primary</button>
+                    <button class="btn btn-success">Success</button>
+                    <button class="btn btn-error">Error</button>
+                    <button class="btn btn-warning">Warning</button>
+                </div>
+            </div>
+
+            <div class="demo-card">
+                <h3>Typography</h3>
+                <div class="text-demo">
+                    <p class="text-primary"><strong>Primary</strong> - Main content text</p>
+                    <p class="text-secondary">Secondary - Supporting text</p>
+                    <p class="text-muted">Muted - Labels and hints</p>
+                    <p>Inline <code>code snippet</code> example</p>
+                </div>
+            </div>
+
+            <div class="demo-card">
+                <h3>Form Inputs</h3>
+                <div class="input-demo">
+                    <input type="text" placeholder="Placeholder text...">
+                    <input type="text" value="Filled input value">
+                </div>
+            </div>
+
+            <div class="demo-card">
+                <h3>Border Tokens</h3>
+                <div class="color-row">
+                    <div class="color-swatch" style="background: var(--border);"></div>
+                    <span class="color-name">--border</span>
+                    <span class="color-value" id="val-border"></span>
+                </div>
+                <div class="color-row">
+                    <div class="color-swatch" style="background: var(--border-visible);"></div>
+                    <span class="color-name">--border-visible</span>
+                    <span class="color-value" id="val-border-visible"></span>
+                </div>
+                <div class="color-row">
+                    <div class="color-swatch" style="background: var(--border-active);"></div>
+                    <span class="color-name">--border-active</span>
+                    <span class="color-value" id="val-border-active"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const themeButtons = document.querySelectorAll('.theme-btn');
+        const themeStylesheet = document.getElementById('theme-stylesheet');
+
+        const tokenIds = [
+            'bg-primary', 'bg-secondary', 'bg-tertiary',
+            'accent-primary', 'success', 'error', 'warning',
+            'border', 'border-visible', 'border-active'
+        ];
+
+        function updateTokenValues() {
+            const style = getComputedStyle(document.documentElement);
+            tokenIds.forEach(id => {
+                const el = document.getElementById('val-' + id);
+                if (el) {
+                    const value = style.getPropertyValue('--' + id).trim();
+                    el.textContent = value;
+                }
+            });
+        }
+
+        function switchTheme(theme) {
+            themeStylesheet.href = '../themes/' + theme + '.css';
+            themeButtons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.theme === theme);
+            });
+            // Wait for stylesheet to load
+            setTimeout(updateTokenValues, 100);
+        }
+
+        themeButtons.forEach(btn => {
+            btn.addEventListener('click', () => switchTheme(btn.dataset.theme));
+        });
+
+        // Initial token values
+        updateTokenValues();
+    </script>
+</body>
+</html>

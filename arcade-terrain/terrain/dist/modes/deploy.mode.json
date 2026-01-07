@@ -1,0 +1,52 @@
+{
+    "mode": {
+        "name": "Deploy",
+        "version": "1.0.0",
+        "description": "Deployment target management - CLI-focused cards"
+    },
+    "defaultTheme": "amber",
+    "canvas": {
+        "mode": "freerange",
+        "drag": true,
+        "pan": true,
+        "grid": true
+    },
+    "layout": {
+        "type": "canvas",
+        "gap": "16px"
+    },
+    "features": {
+        "designMode": false,
+        "toasts": true,
+        "persistence": true,
+        "fonts": false,
+        "nodes": true
+    },
+    "header": {
+        "show": false,
+        "title": "Deploy Targets"
+    },
+    "ui": {
+        "homeBtn": true,
+        "addBtn": false,
+        "fab": false,
+        "configPanel": true
+    },
+    "toasts": {
+        "navigator": true,
+        "tokens": false,
+        "fonts": false,
+        "projects": true,
+        "storage": false
+    },
+    "discovery": {
+        "type": "toml",
+        "pattern": "**/tetra-deploy.toml",
+        "configPath": "deploy/targets.json"
+    },
+    "card": {
+        "showCli": true,
+        "showEdit": false,
+        "showStatus": true
+    }
+}

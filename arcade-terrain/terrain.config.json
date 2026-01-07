@@ -1,0 +1,110 @@
+{
+    "terrain": {
+        "name": "Pixeljam Arcade",
+        "version": "2.0.0"
+    },
+    "mode": "site",
+    "theme": "lava",
+
+    "features": {
+        "auth": true,
+        "gameCards": true,
+        "nodes": false,
+        "graph": false
+    },
+
+    "routes": {
+        "home": "/",
+        "games": "/games",
+        "play": "/play/:gameId",
+        "account": "/account",
+        "admin": "/admin"
+    },
+
+    "auth": {
+        "provider": "pdata",
+        "required": false,
+        "protectedRoutes": ["/admin"],
+        "adminRoutes": ["/admin"],
+        "loginRedirect": "/",
+        "logoutRedirect": "/"
+    },
+
+    "header": {
+        "show": true,
+        "height": "64px",
+        "title": "PIXELJAM",
+        "sticky": true,
+        "controls": [
+            {
+                "type": "button",
+                "id": "theme-toggle",
+                "icon": "\u25d0",
+                "action": "theme:next",
+                "title": "Change theme"
+            },
+            {
+                "type": "button",
+                "id": "user-menu",
+                "icon": "\u2630",
+                "action": "user:menu",
+                "title": "Menu"
+            }
+        ]
+    },
+
+    "footer": {
+        "show": true,
+        "height": "48px",
+        "content": "\u00a9 Pixeljam"
+    },
+
+    "ui": {
+        "themeToggle": true,
+        "userMenu": true
+    },
+
+    "discovery": {
+        "type": "api",
+        "source": "/api/games",
+        "fallback": "data/games.json"
+    },
+
+    "card": {
+        "type": "game",
+        "showThumbnail": true,
+        "showDescription": true,
+        "showPlayCount": true
+    },
+
+    "scripts": [
+        "terrain/js/core/events.js",
+        "terrain/js/core/state.js",
+        "terrain/js/core/auth.js",
+        "terrain/js/core/router.js",
+        "js/arcade.boot.js"
+    ],
+
+    "styles": [
+        "terrain/css/core.css",
+        "terrain/css/tokens.css",
+        "terrain/css/components/game-cards.css",
+        "terrain/css/components/arcade-logo.css",
+        "terrain/assets/arcade-fonts.css",
+        "css/arcade.css"
+    ],
+
+    "api": {
+        "games": "/api/games",
+        "auth": "/api/auth"
+    },
+
+    "states": {
+        "admin": {
+            "features": { "designMode": true }
+        },
+        "kiosk": {
+            "ui": { "themeToggle": false, "userMenu": false }
+        }
+    }
+}

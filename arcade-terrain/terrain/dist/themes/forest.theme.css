@@ -1,0 +1,46 @@
+/**
+ * Terrain Theme: Forest Green
+ * TUT-compatible design tokens
+ */
+:root {
+    /* Raw Palette - Forest greens */
+    --p1: #0d1210;
+    --p2: #1a2420;
+    --p3: #243530;
+    --p4: #2e4540;
+    --p5: #e8f5e9;
+    --p6: #ef5350;
+    --p7: #66bb6a;
+    --p8: #4db6ac;
+
+    --s1: #ffb74d;
+    --s2: #4db6ac;
+    --s3: #ffd54f;
+    --s4: #81c784;
+
+    --t2: #1e3028;
+    --t3: #2e4038;
+    --t4: #4a6258;
+    --t6: #90a498;
+
+    /* Semantic Tokens (TUT) */
+    --bg-primary: var(--p1);
+    --bg-secondary: var(--p2);
+    --bg-tertiary: var(--p3);
+    --bg-hover: var(--p4);
+
+    --border: var(--t2);
+    --border-visible: var(--t3);
+    --border-active: var(--s2);
+
+    --text-primary: var(--p5);
+    --text-secondary: var(--t6);
+    --text-muted: var(--t4);
+    --text-code: var(--s4);
+
+    --accent-primary: var(--s2);
+    --accent-secondary: var(--s1);
+    --success: var(--p7);
+    --error: var(--p6);
+    --warning: var(--s3);
+}

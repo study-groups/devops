@@ -1,0 +1,120 @@
+/**
+ * Layout Styles
+ * Page structure, header, footer, grid
+ */
+
+/* Base document */
+html, body {
+  height: 100%;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+/* App container */
+#pja-app {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Page structure */
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  flex: 1;
+  width: 100%;
+  max-width: var(--page-width);
+  margin: 0 auto;
+  padding: var(--space-4);
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--paper-light);
+}
+
+.header-minimal {
+  background: transparent;
+  border-bottom: none;
+}
+
+.logo {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: bold;
+  color: var(--color-primary);
+  letter-spacing: 0.1em;
+}
+
+/* Navigation */
+.nav {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.nav-link {
+  color: var(--color-text-muted);
+  transition: color var(--transition-fast);
+}
+
+.nav-link:hover,
+.nav-link.active {
+  color: var(--color-primary);
+}
+
+.back-link {
+  color: var(--color-text-muted);
+  transition: color var(--transition-fast);
+}
+
+.back-link:hover {
+  color: var(--color-text);
+}
+
+/* Footer */
+.footer {
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  background: var(--color-surface);
+  border-top: 1px solid var(--paper-light);
+}
+
+.footer p {
+  margin: var(--space-1) 0;
+}
+
+/* Theme toggle button */
+.theme-toggle {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-full);
+  background: var(--paper-dark);
+  border: 2px solid var(--paper-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.theme-toggle:hover {
+  border-color: var(--color-primary);
+  transform: scale(1.1);
+}
+
+.theme-icon::before {
+  content: "◐";
+  font-size: 1.25rem;
+  color: var(--color-text);
+}

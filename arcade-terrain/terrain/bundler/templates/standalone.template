@@ -1,0 +1,74 @@
+(function() {
+    'use strict';
+
+    // TERRAIN bridge shim for standalone use
+    var TERRAIN = window.TERRAIN || (window.TERRAIN = {
+        version: 'shim',
+        modules: {},
+        Events: {
+            _handlers: {},
+            on: function(e, h) {
+                (this._handlers[e] = this._handlers[e] || []).push(h);
+            },
+            emit: function(e, d) {
+                (this._handlers[e] || []).forEach(function(h) { h(d); });
+            },
+            off: function(e, h) {
+                if (!this._handlers[e]) return;
+                if (h) {
+                    this._handlers[e] = this._handlers[e].filter(function(x) { return x !== h; });
+                } else {
+                    delete this._handlers[e];
+                }
+            }
+        },
+        Bridge: {
+            _handlers: new Map(),
+            send: function(target, event, data) {
+                target.postMessage({ type: event, payload: data, source: 'terrain' }, '*');
+            },
+            broadcast: function(event, data) {
+                var msg = { type: event, payload: data, source: 'terrain' };
+                if (window.parent !== window) window.parent.postMessage(msg, '*');
+                this._dispatch(event, data);
+            },
+            on: function(event, handler) {
+                if (!this._handlers.has(event)) this._handlers.set(event, new Set());
+                this._handlers.get(event).add(handler);
+            },
+            off: function(event, handler) {
+                var h = this._handlers.get(event);
+                if (h) handler ? h.delete(handler) : this._handlers.delete(event);
+            },
+            _dispatch: function(event, data) {
+                var h = this._handlers.get(event);
+                if (h) h.forEach(function(fn) { fn(data); });
+                var w = this._handlers.get('*');
+                if (w) w.forEach(function(fn) { fn(event, data); });
+            }
+        },
+        register: function(name, mod) {
+            this.modules[name] = mod;
+            this[name] = mod;
+        },
+        get: function(name) {
+            return this.modules[name];
+        }
+    });
+
+    // Listen for cross-iframe messages
+    window.addEventListener('message', function(e) {
+        if (e.data?.source === 'terrain') {
+            TERRAIN.Bridge._dispatch(e.data.type, e.data.payload);
+        }
+    });
+
+    // === BEGIN MODULE ===
+{{MODULE_CONTENT}}
+    // === END MODULE ===
+
+    // Register and expose globally
+    TERRAIN.register('{{NAME}}', {{NAME}});
+    window.{{NAME}} = {{NAME}};
+
+})();

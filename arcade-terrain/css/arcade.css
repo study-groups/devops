@@ -1,0 +1,201 @@
+/**
+ * Pixeljam Arcade - App Styles
+ * Extends terrain base styles
+ */
+
+/* Page layouts */
+.arcade-page {
+    min-height: 100%;
+    padding: var(--gap-md, 1rem);
+}
+
+/* Hero section */
+.arcade-hero {
+    text-align: center;
+    padding: var(--gap-xl, 4rem) var(--gap-md, 1rem);
+    background: var(--bg-secondary);
+    border-radius: var(--curve-md, 0.5rem);
+    margin-bottom: var(--gap-lg, 1.5rem);
+}
+
+.arcade-hero-title {
+    font-family: 'PJ43', var(--font-primary, sans-serif);
+    font-size: clamp(2rem, 8vw, 3rem);
+    color: var(--accent-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin: 0 0 var(--gap-md, 1rem);
+}
+
+.arcade-hero-subtitle {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    margin: 0 0 var(--gap-lg, 1.5rem);
+}
+
+/* Featured section */
+.arcade-featured {
+    margin-bottom: var(--gap-lg, 1.5rem);
+}
+
+.arcade-featured h2 {
+    font-size: 1.25rem;
+    color: var(--text-primary);
+    margin-bottom: var(--gap-md, 1rem);
+}
+
+/* Game container (play page) */
+.arcade-game-header {
+    display: flex;
+    align-items: center;
+    gap: var(--gap-md, 1rem);
+    margin-bottom: var(--gap-md, 1rem);
+}
+
+.arcade-game-header h1 {
+    font-size: 1.25rem;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.arcade-game-container {
+    position: relative;
+    background: var(--shade, #000);
+    border-radius: var(--curve-md, 0.5rem);
+    overflow: hidden;
+    aspect-ratio: 16/9;
+}
+
+.arcade-game-container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+.arcade-game-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--shade, #000);
+    color: var(--text-muted);
+}
+
+.loading-spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 3px solid var(--border-visible);
+    border-top-color: var(--accent-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: var(--gap-md, 1rem);
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Account/Admin pages */
+.arcade-account,
+.arcade-admin,
+.arcade-login,
+.arcade-denied,
+.arcade-404 {
+    max-width: 600px;
+    margin: var(--gap-xl, 4rem) auto;
+    text-align: center;
+}
+
+.arcade-account h1,
+.arcade-admin h1,
+.arcade-login h1,
+.arcade-denied h1,
+.arcade-404 h1 {
+    font-size: 2rem;
+    color: var(--text-primary);
+    margin-bottom: var(--gap-md, 1rem);
+}
+
+.arcade-404 h1 {
+    font-size: 6rem;
+    color: var(--accent-primary);
+    line-height: 1;
+}
+
+/* Buttons */
+.terrain-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--gap-sm, 0.5rem) var(--gap-md, 1rem);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: var(--curve-sm, 0.25rem);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-visible);
+    cursor: pointer;
+    transition: all var(--tempo-fast, 150ms) ease;
+    text-decoration: none;
+}
+
+.terrain-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent-primary);
+}
+
+.terrain-btn-primary {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--bg-primary);
+}
+
+.terrain-btn-primary:hover {
+    background: var(--accent-secondary);
+    border-color: var(--accent-secondary);
+}
+
+/* User info */
+.arcade-user-info {
+    background: var(--bg-secondary);
+    padding: var(--gap-lg, 1.5rem);
+    border-radius: var(--curve-md, 0.5rem);
+    margin-top: var(--gap-lg, 1.5rem);
+}
+
+.arcade-user-info p {
+    margin-bottom: var(--gap-md, 1rem);
+    color: var(--text-primary);
+}
+
+/* Navigation menu */
+.arcade-nav {
+    display: flex;
+    gap: var(--gap-sm, 0.5rem);
+    margin-left: var(--gap-lg, 1.5rem);
+}
+
+.arcade-nav-link {
+    padding: var(--gap-xs, 0.25rem) var(--gap-sm, 0.5rem);
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: var(--curve-sm, 0.25rem);
+    transition: all var(--tempo-fast, 150ms) ease;
+}
+
+.arcade-nav-link:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+.arcade-nav-link.active {
+    color: var(--accent-primary);
+}

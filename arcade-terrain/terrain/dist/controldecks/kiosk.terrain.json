@@ -1,0 +1,43 @@
+{
+    "terrain": {
+        "name": "Kiosk",
+        "version": "1.0.0",
+        "description": "Presentation mode - minimal UI, no editing"
+    },
+    "canvas": {
+        "mode": "fixed",
+        "drag": false,
+        "pan": false,
+        "grid": false
+    },
+    "layout": {
+        "type": "centered",
+        "gap": "24px",
+        "maxWidth": "960px"
+    },
+    "features": {
+        "designMode": false,
+        "toasts": false,
+        "persistence": false,
+        "fonts": false,
+        "nodes": true
+    },
+    "header": {
+        "show": true,
+        "title": "Showcase"
+    },
+    "ui": {
+        "homeBtn": false,
+        "addBtn": false,
+        "fab": false,
+        "configPanel": false
+    },
+    "toasts": {
+        "navigator": false,
+        "tokens": false,
+        "fonts": false,
+        "projects": false,
+        "storage": false
+    },
+    "theme": "forest"
+}

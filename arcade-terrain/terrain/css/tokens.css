@@ -1,0 +1,127 @@
+/**
+ * Terrain Design Tokens
+ * TUT-compatible CSS Custom Properties
+ */
+
+:root {
+    /* ═══════════════════════════════════════════════════════════════
+       PRIMARY PALETTE - Core UI
+       ═══════════════════════════════════════════════════════════════ */
+    --p1: #0a0a0a;  /* Deep black */
+    --p2: #1a1a1a;  /* Dark grey */
+    --p3: #2a2a2a;  /* Medium grey */
+    --p4: #3a3a3a;  /* Light grey */
+    --p5: #ffffff;  /* White */
+    --p6: #ff4444;  /* Alert red */
+    --p7: #00ff00;  /* Success green */
+    --p8: #0088ff;  /* Primary blue */
+
+    /* ═══════════════════════════════════════════════════════════════
+       SECONDARY PALETTE - Accents
+       ═══════════════════════════════════════════════════════════════ */
+    --s1: #ff6b35;  /* Tomato */
+    --s2: #4a9eff;  /* Bright blue */
+    --s3: #ffd700;  /* Gold */
+    --s4: #00ffaa;  /* Cyan */
+    --s5: #ff00ff;  /* Magenta */
+    --s6: #88ff88;  /* Light green */
+    --s7: #ffaa00;  /* Orange */
+    --s8: #aa88ff;  /* Purple */
+
+    /* ═══════════════════════════════════════════════════════════════
+       TERTIARY PALETTE - Utility
+       ═══════════════════════════════════════════════════════════════ */
+    --t1: #111111;  /* Grid dark */
+    --t2: #222222;  /* Border */
+    --t3: #444444;  /* Border light */
+    --t4: #666666;  /* Text muted */
+    --t5: #888888;  /* Text secondary */
+    --t6: #aaaaaa;  /* Text light */
+    --t7: #cccccc;  /* Text bright */
+    --t8: #eeeeee;  /* Text brightest */
+
+    /* ═══════════════════════════════════════════════════════════════
+       SEMANTIC TOKENS - Backgrounds (TUT-compatible)
+       ═══════════════════════════════════════════════════════════════ */
+    --bg-primary: var(--p1);
+    --bg-secondary: var(--p2);
+    --bg-tertiary: var(--p3);
+    --bg-hover: var(--p4);
+
+    /* ═══════════════════════════════════════════════════════════════
+       SEMANTIC TOKENS - Borders (TUT-compatible)
+       ═══════════════════════════════════════════════════════════════ */
+    --border: var(--t2);
+    --border-visible: var(--t3);
+    --border-active: var(--s2);
+
+    /* ═══════════════════════════════════════════════════════════════
+       SEMANTIC TOKENS - Text (TUT-compatible)
+       ═══════════════════════════════════════════════════════════════ */
+    --text-primary: var(--p5);
+    --text-secondary: var(--t6);
+    --text-muted: var(--t4);
+    --text-code: var(--s4);
+
+    /* ═══════════════════════════════════════════════════════════════
+       SEMANTIC TOKENS - Accents & Status (TUT-compatible)
+       ═══════════════════════════════════════════════════════════════ */
+    --accent-primary: var(--s2);
+    --accent-secondary: var(--s1);
+    --success: var(--p7);
+    --error: var(--p6);
+    --warning: var(--s3);
+
+    /* ═══════════════════════════════════════════════════════════════
+       DEPTH - Shadows
+       ═══════════════════════════════════════════════════════════════ */
+    --depth-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --depth-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --depth-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+
+    /* ═══════════════════════════════════════════════════════════════
+       CURVES - Border Radius
+       ═══════════════════════════════════════════════════════════════ */
+    --curve-sm: 4px;
+    --curve-md: 8px;
+    --curve-lg: 12px;
+    --curve-full: 9999px;
+
+    /* ═══════════════════════════════════════════════════════════════
+       GAPS - Spacing
+       ═══════════════════════════════════════════════════════════════ */
+    --gap-xs: 4px;
+    --gap-sm: 8px;
+    --gap-md: 16px;
+    --gap-lg: 24px;
+    --gap-xl: 32px;
+
+    /* ═══════════════════════════════════════════════════════════════
+       TEMPO - Animation Timing
+       ═══════════════════════════════════════════════════════════════ */
+    --tempo-fast: 0.15s ease;
+    --tempo-normal: 0.3s ease;
+    --tempo-slow: 0.5s ease;
+
+    /* ═══════════════════════════════════════════════════════════════
+       Z-INDEX - Stacking Layers
+       ═══════════════════════════════════════════════════════════════ */
+    --z-base: 1;
+    --z-dropdown: 100;
+    --z-sticky: 200;
+    --z-sidebar: 300;
+    --z-header: 400;
+    --z-panel: 500;
+    --z-fab: 600;
+    --z-toast: 700;
+    --z-modal: 800;
+    --z-tooltip: 900;
+    --z-max: 9999;
+
+    /* ═══════════════════════════════════════════════════════════════
+       TYPOGRAPHY
+       ═══════════════════════════════════════════════════════════════ */
+    --font-primary: 'SF Mono', 'Monaco', 'Courier New', monospace;
+    --font-secondary: 'SF Mono', 'Monaco', 'Courier New', monospace;
+    --font-code: 'Courier New', monospace;
+}

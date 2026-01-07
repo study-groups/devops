@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>Pixeljam Arcade</title>
+
+    <!-- Terrain Platform -->
+    <link rel="stylesheet" href="terrain/css/core.css">
+    <link rel="stylesheet" href="terrain/css/tokens.css">
+    <link rel="stylesheet" href="terrain/dist/themes/lava.theme.css" id="terrain-theme">
+
+    <!-- App Styles -->
+    <link rel="stylesheet" href="terrain/css/core.css">
+    <link rel="stylesheet" href="terrain/css/tokens.css">
+    <link rel="stylesheet" href="terrain/css/components/game-cards.css">
+    <link rel="stylesheet" href="terrain/css/components/arcade-logo.css">
+    <link rel="stylesheet" href="terrain/assets/arcade-fonts.css">
+    <link rel="stylesheet" href="css/arcade.css">
+
+    <style>
+        /* Generated layout from terrain.config.json */
+        :root {
+            --layout-columns: 1fr;
+        }
+
+        .terrain-app {
+            display: grid;
+            grid-template-columns: var(--layout-columns);
+            grid-template-rows: auto 1fr;
+            grid-template-areas:
+                "header header"
+                "main sidebar";
+            min-height: 100vh;
+            background: var(--bg-primary);
+        }
+
+        .terrain-header {
+            grid-area: header;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 16px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-primary);
+        }
+
+        .terrain-header-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .terrain-header-icon {
+            font-size: 20px;
+        }
+
+        .terrain-header-controls {
+            display: flex;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .terrain-main {
+            grid-area: main;
+            padding: 16px;
+            overflow-y: auto;
+        }
+
+        .terrain-sidebar {
+            grid-area: sidebar;
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border-primary);
+            overflow-y: auto;
+        }
+
+        .terrain-panel {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        .terrain-panel-header {
+            padding: 10px 12px;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-primary);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .terrain-panel-content {
+            padding: 12px;
+        }
+
+        .terrain-btn {
+            padding: 6px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-primary);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .terrain-btn:hover {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: var(--bg-primary);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.4s ease;
+        }
+
+        .loading-overlay.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-text {
+            font-size: 18pt;
+            font-weight: 700;
+            color: var(--accent-primary);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-text">LOADING</div>
+    </div>
+
+    <div class="terrain-app" id="terrain-app">
+        <!-- Header -->
+        <header class="terrain-header">
+            <div class="terrain-header-title">
+                <span class="terrain-header-icon"></span>
+                <span>PIXELJAM</span>
+            </div>
+            <div class="terrain-header-controls" id="header-controls">
+                <button class="terrain-btn" id="theme-toggle" data-action="theme:next" title="Change theme">◐</button>
+                <button class="terrain-btn" id="user-menu" data-action="user:menu" title="Menu">☰</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="terrain-main" id="terrain-main">
+
+        </main>
+
+        <!-- Sidebar -->
+        <aside class="terrain-sidebar" id="terrain-sidebar">
+
+        </aside>
+    </div>
+
+    <!-- Terrain Core -->
+    <script src="terrain/js/core/config.js"></script>
+    <script src="terrain/js/core/events.js"></script>
+    <script src="terrain/js/core/state.js"></script>
+    <script src="terrain/js/core/mode.js"></script>
+
+    <!-- Merged Config (mode defaults + app overrides) -->
+    <script>
+        window.TerrainConfig = {
+  "mode": "site",
+  "defaultTheme": "dark",
+  "canvas": {
+    "mode": "fixed",
+    "drag": false,
+    "pan": false,
+    "grid": false
+  },
+  "layout": {
+    "type": "grid",
+    "columns": "1fr",
+    "rows": "auto 1fr auto",
+    "areas": [
+      "header",
+      "main",
+      "footer"
+    ],
+    "maxWidth": "1200px",
+    "gap": "0"
+  },
+  "features": {
+    "designMode": false,
+    "toasts": true,
+    "persistence": true,
+    "router": true,
+    "auth": true,
+    "nodes": false,
+    "graph": false,
+    "gameCards": true
+  },
+  "header": {
+    "show": true,
+    "height": "64px",
+    "sticky": true,
+    "title": "PIXELJAM",
+    "controls": [
+      {
+        "type": "button",
+        "id": "theme-toggle",
+        "icon": "◐",
+        "action": "theme:next",
+        "title": "Change theme"
+      },
+      {
+        "type": "button",
+        "id": "user-menu",
+        "icon": "☰",
+        "action": "user:menu",
+        "title": "Menu"
+      }
+    ]
+  },
+  "footer": {
+    "show": true,
+    "height": "48px",
+    "content": "© Pixeljam"
+  },
+  "ui": {
+    "homeBtn": true,
+    "themeToggle": true,
+    "userMenu": true
+  },
+  "toasts": {
+    "navigator": false,
+    "tokens": false,
+    "storage": true
+  },
+  "routes": {
+    "home": "/",
+    "games": "/games",
+    "play": "/play/:gameId",
+    "account": "/account",
+    "admin": "/admin"
+  },
+  "auth": {
+    "required": false,
+    "protectedRoutes": [
+      "/admin"
+    ],
+    "provider": "pdata",
+    "adminRoutes": [
+      "/admin"
+    ],
+    "loginRedirect": "/",
+    "logoutRedirect": "/"
+  },
+  "terrain": {
+    "name": "Pixeljam Arcade",
+    "version": "2.0.0"
+  },
+  "theme": "lava",
+  "discovery": {
+    "type": "api",
+    "source": "/api/games",
+    "fallback": "data/games.json"
+  },
+  "card": {
+    "type": "game",
+    "showThumbnail": true,
+    "showDescription": true,
+    "showPlayCount": true
+  },
+  "scripts": [
+    "terrain/js/core/events.js",
+    "terrain/js/core/state.js",
+    "terrain/js/core/auth.js",
+    "terrain/js/core/router.js",
+    "js/arcade.boot.js"
+  ],
+  "styles": [
+    "terrain/css/core.css",
+    "terrain/css/tokens.css",
+    "terrain/css/components/game-cards.css",
+    "terrain/css/components/arcade-logo.css",
+    "terrain/assets/arcade-fonts.css",
+    "css/arcade.css"
+  ],
+  "api": {
+    "games": "/api/games",
+    "auth": "/api/auth"
+  },
+  "states": {
+    "admin": {
+      "features": {
+        "designMode": true
+      }
+    },
+    "kiosk": {
+      "ui": {
+        "themeToggle": false,
+        "userMenu": false
+      }
+    }
+  }
+};
+    </script>
+
+    <!-- App Scripts -->
+    <script src="terrain/js/core/events.js"></script>
+    <script src="terrain/js/core/state.js"></script>
+    <script src="terrain/js/core/auth.js"></script>
+    <script src="terrain/js/core/router.js"></script>
+    <script src="js/arcade.boot.js"></script>
+
+    <!-- Boot -->
+    <script>
+        (async function() {
+            // Initialize from merged config (no fetch needed)
+            const config = window.TerrainConfig;
+            const theme = config.theme || config.defaultTheme || 'dark';
+
+            // Apply theme
+            const themeLink = document.getElementById('terrain-theme');
+            if (themeLink) {
+                themeLink.href = 'terrain/dist/themes/' + theme + '.theme.css';
+            }
+
+            // Initialize Terrain.Config if available
+            if (Terrain.Config && Terrain.Config.init) {
+                Terrain.Config.init(config);
+            }
+
+            // Hide loading overlay
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) {
+                overlay.classList.add('fade-out');
+                setTimeout(() => overlay.remove(), 400);
+            }
+
+            // Emit ready event
+            if (Terrain.Events) {
+                Terrain.Events.emit('TERRAIN_READY', {
+                    app: 'Pixeljam Arcade',
+                    mode: 'site',
+                    theme: theme
+                });
+            }
+
+            console.log('[Terrain] Ready:', 'Pixeljam Arcade', 'mode:', 'site', 'theme:', theme);
+        })();
+    </script>
+</body>
+</html>

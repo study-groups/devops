@@ -1,0 +1,29 @@
+/**
+ * Lava Theme
+ * Warm oranges and reds on dark background
+ */
+
+[data-theme="lava"] {
+  --color-background: #1c1f25;
+  --color-surface: #323232;
+  --color-surface-light: #616161;
+  --color-text: #bbbbbb;
+  --color-text-muted: rgba(187, 187, 187, 0.6);
+  --color-primary: #ff9900;
+  --color-secondary: #f04f4a;
+  --color-accent: #00e1cf;
+  --color-success: #65ac07;
+  --color-shade: #130902;
+
+  /* DaisyUI compat */
+  --ink: #bbbbbb;
+  --one: #ff9900;
+  --two: #f04f4a;
+  --three: #00e1cf;
+  --four: #65ac07;
+  --paper-light: #616161;
+  --paper-mid: #1c1f25;
+  --paper-dark: #323232;
+  --shade: #130902;
+  --text-one: #f04f4a;
+}

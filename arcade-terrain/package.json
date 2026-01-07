@@ -1,0 +1,17 @@
+{
+  "name": "arcade-terrain",
+  "version": "0.2.0",
+  "type": "module",
+  "description": "Games discovery and ranking platform",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "rebuild-index": "node lib/rebuild-index.js"
+  },
+  "keywords": ["arcade", "games", "pixeljam", "ranking"],
+  "license": "MIT",
+  "dependencies": {
+    "@nodeholder/pdata": "^0.1.10",
+    "@tetra/gamepak": "file:../tetra/bash/gamepak"
+  }
+}

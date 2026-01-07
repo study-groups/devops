@@ -1,0 +1,23 @@
+(function(TERRAIN) {
+    'use strict';
+
+    // Ensure TERRAIN exists
+    if (!TERRAIN) {
+        console.error('[{{NAME}}] TERRAIN not found');
+        return;
+    }
+
+    // Check if already registered
+    if (TERRAIN.modules?.['{{NAME}}']) {
+        console.warn('[{{NAME}}] Already registered');
+        return;
+    }
+
+    // === BEGIN MODULE ===
+{{MODULE_CONTENT}}
+    // === END MODULE ===
+
+    // Register with TERRAIN
+    TERRAIN.register('{{NAME}}', {{NAME}});
+
+})(window.TERRAIN);

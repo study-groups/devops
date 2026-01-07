@@ -1,0 +1,221 @@
+/**
+ * Terrain Game Cards Component
+ * Grid-based game listing cards for arcade mode
+ */
+
+/* Game Grid Container */
+.game-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: var(--gap-lg, 1.5rem);
+    padding: var(--gap-md, 1rem);
+}
+
+@media (max-width: 600px) {
+    .game-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Game Card */
+.game-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--curve-md, 0.5rem);
+    overflow: hidden;
+    cursor: pointer;
+    transition: all var(--tempo-fast, 150ms) ease;
+    position: relative;
+}
+
+.game-card:hover {
+    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+    box-shadow: var(--depth-md, 0 4px 12px rgba(0,0,0,0.3));
+}
+
+.game-card:active {
+    transform: translateY(0);
+}
+
+/* Thumbnail */
+.game-card-thumb {
+    aspect-ratio: 16/9;
+    background: var(--bg-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+}
+
+.game-card-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--tempo-normal, 200ms) ease;
+}
+
+.game-card:hover .game-card-thumb img {
+    transform: scale(1.05);
+}
+
+/* Play overlay on hover */
+.game-card-thumb::after {
+    content: "PLAY";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    color: var(--accent-primary);
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    opacity: 0;
+    transition: opacity var(--tempo-fast, 150ms) ease;
+}
+
+.game-card:hover .game-card-thumb::after {
+    opacity: 1;
+}
+
+/* Placeholder number for games without thumbnails */
+.game-card-number {
+    font-size: 3rem;
+    font-weight: bold;
+    color: var(--text-muted);
+}
+
+/* Card Body */
+.game-card-body {
+    padding: var(--gap-md, 1rem);
+}
+
+.game-card-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 var(--gap-xs, 0.25rem);
+    font-family: var(--font-primary, inherit);
+}
+
+.game-card-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    margin: 0;
+}
+
+/* Card Meta */
+.game-card-meta {
+    display: flex;
+    gap: var(--gap-sm, 0.5rem);
+    padding: var(--gap-sm, 0.5rem) var(--gap-md, 1rem);
+    background: var(--bg-primary);
+    border-top: 1px solid var(--border);
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.game-card-tag {
+    background: var(--bg-tertiary);
+    padding: 2px 6px;
+    border-radius: var(--curve-sm, 0.25rem);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Featured badge */
+.game-card.featured::before {
+    content: "FEATURED";
+    position: absolute;
+    top: var(--gap-sm, 0.5rem);
+    right: var(--gap-sm, 0.5rem);
+    background: var(--accent-primary);
+    color: var(--bg-primary);
+    padding: 4px 8px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border-radius: var(--curve-sm, 0.25rem);
+    z-index: 1;
+}
+
+/* Loading placeholder / shimmer */
+.game-card.loading .game-card-thumb {
+    background: linear-gradient(
+        90deg,
+        var(--bg-tertiary) 25%,
+        var(--bg-secondary) 50%,
+        var(--bg-tertiary) 75%
+    );
+    background-size: 200% 100%;
+    animation: card-shimmer 1.5s infinite;
+}
+
+.game-card.loading .game-card-thumb::after {
+    display: none;
+}
+
+@keyframes card-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Hero Section for Arcade */
+.arcade-hero {
+    text-align: center;
+    padding: var(--gap-xl, 4rem) var(--gap-md, 1rem);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+}
+
+.arcade-hero-title {
+    font-size: clamp(2rem, 8vw, 3rem);
+    font-weight: bold;
+    color: var(--accent-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin: 0 0 var(--gap-md, 1rem);
+}
+
+.arcade-hero-subtitle {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    margin: 0 0 var(--gap-lg, 1.5rem);
+}
+
+/* Filter Bar */
+.arcade-filters {
+    display: flex;
+    gap: var(--gap-sm, 0.5rem);
+    padding: var(--gap-md, 1rem);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+
+.arcade-filter-btn {
+    padding: var(--gap-xs, 0.25rem) var(--gap-sm, 0.5rem);
+    font-size: 12px;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid transparent;
+    border-radius: var(--curve-sm, 0.25rem);
+    cursor: pointer;
+    transition: all var(--tempo-fast, 150ms) ease;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.arcade-filter-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+}
+
+.arcade-filter-btn.active {
+    color: var(--accent-primary);
+    border-color: var(--accent-primary);
+}

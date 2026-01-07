@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Terrain</title>
+
+    <!-- Font CDN Links - Dynamic loading -->
+    <link id="font-primary-link" rel="stylesheet" href="">
+    <link id="font-secondary-link" rel="stylesheet" href="">
+    <link id="font-code-link" rel="stylesheet" href="">
+
+    <!-- Core styles loaded by bootloader -->
+    <style>
+        /* Inline critical styles for loading state */
+        :root {
+            --bg-primary: #0a0a0a;
+            --accent-primary: #4a9eff;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            overflow: hidden;
+            background: #0a0a0a;
+            font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: #0a0a0a;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.4s ease;
+        }
+        .loading-overlay.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .loading-text {
+            font-size: 22pt;
+            font-weight: 700;
+            color: #4a9eff;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-text">LOADING</div>
+    </div>
+
+    <!-- Main canvas -->
+    <div id="canvas">
+        <canvas id="grid-canvas"></canvas>
+        <div id="canvas-content"></div>
+    </div>
+
+    <!-- Navigation buttons -->
+    <button class="add-project-btn" id="home-btn">HOME</button>
+    <button class="add-project-btn hidden" id="add-project-btn" style="left: calc(50% + 80px);">+ ADD</button>
+
+    <!-- Right side toasts -->
+    <div class="toast toast-stack-right hidden" id="toast-navigator">
+        <div class="toast-title">NAVIGATOR</div>
+        <div class="toast-content">
+            <div class="token-row">
+                <span class="nav-label">Scale</span>
+                <span class="nav-value" id="scale-display">1.00</span>x
+            </div>
+            <div class="token-row">
+                <span class="nav-label">Position</span>
+                (<span class="nav-value" id="x-display">0</span>, <span class="nav-value" id="y-display">0</span>)
+            </div>
+            <div class="token-row">
+                <span class="nav-label">Grid</span>
+                <span class="nav-value" id="grid-display">50</span>px
+            </div>
+        </div>
+    </div>
+
+    <div class="toast toast-stack-right hidden" id="toast-3d-navigator">
+        <div class="toast-title">3D NAVIGATOR</div>
+        <div class="toast-content">
+            <div class="token-row">
+                <span class="coord-axis coord-x">X:</span>
+                <span id="coord-x">0.00</span>
+            </div>
+            <div class="token-row">
+                <span class="coord-axis coord-y">Y:</span>
+                <span id="coord-y">0.00</span>
+            </div>
+            <div class="token-row">
+                <span class="coord-axis coord-z">Z:</span>
+                <span id="coord-z">1.000</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast toast-stack-right hidden" id="toast-realworld">
+        <div class="toast-title">REAL WORLD</div>
+        <div class="toast-content">
+            <div class="token-row">
+                <span class="token-name">Unit Cube:</span>
+                <span id="unit-cube-size">1.0</span>m
+            </div>
+            <div class="token-row">
+                <span class="token-name">Grid Unit:</span>
+                <span id="real-grid-unit">0.050</span>m
+            </div>
+        </div>
+    </div>
+
+    <div class="toast toast-stack-right hidden" id="toast-modifiers">
+        <div class="toast-title">MODIFIERS</div>
+        <div class="toast-content">
+            <div class="token-row">
+                <span class="token-name">Stack Control:</span>
+                <span id="mod-stack-value">8</span>
+            </div>
+            <div class="token-row">
+                <span class="token-name">Mode:</span>
+                <span id="mod-stack-mode">spread</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Left side toasts -->
+    <div class="toast toast-stack-left hidden" id="toast-design-tokens">
+        <div class="toast-title">DESIGN TOKENS</div>
+        <div class="toast-content">
+            <div class="token-row">
+                <span class="token-name">bg-primary</span>
+                <span class="token-value">#0a0a0a</span>
+            </div>
+            <div class="token-row">
+                <span class="token-name">accent-primary</span>
+                <span class="token-value">#4a9eff</span>
+            </div>
+            <div class="token-row">
+                <span class="token-name">text-primary</span>
+                <span class="token-value">#ffffff</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast toast-stack-left hidden" id="toast-fonts">
+        <div class="toast-title">TYPOGRAPHY</div>
+        <div class="toast-content">
+            <div class="token-row">
+                <span class="token-name">font-primary</span>
+            </div>
+            <div style="margin-bottom: 6px; color: #ffffff;">
+                The quick brown fox
+            </div>
+        </div>
+    </div>
+
+    <div class="toast toast-stack-left hidden" id="toast-projects">
+        <div class="toast-title">PROJECTS</div>
+        <div class="toast-content" id="toast-projects-content">
+            <!-- Dynamically populated -->
+        </div>
+    </div>
+
+    <div class="toast toast-stack-left hidden" id="toast-storage">
+        <div class="toast-title">STORAGE</div>
+        <div class="toast-content" id="toast-storage-content">
+            <!-- Dynamically populated -->
+        </div>
+    </div>
+
+    <!-- FAB buttons -->
+    <div class="fab-container">
+        <button class="fab fab-config" title="Config">&#9881;</button>
+        <!-- Design FAB added by TUT when ?design=true -->
+    </div>
+
+    <!-- Popup overlay -->
+    <div class="popup-overlay" id="popup-overlay">
+        <div class="popup-content" onclick="event.stopPropagation()">
+            <div id="popup-body"></div>
+        </div>
+    </div>
+
+    <!-- Config panel -->
+    <div class="config-panel" id="config-panel">
+        <div class="config-header">
+            <h3>CONFIG</h3>
+        </div>
+
+        <div class="config-quick-actions">
+            <button data-action="config:collapse-all">COLLAPSE</button>
+            <button data-action="config:expand-all">EXPAND</button>
+            <button data-action="config:export">EXPORT</button>
+        </div>
+
+        <!-- UI Elements Section -->
+        <div class="config-section">
+            <div class="config-section-header">
+                <h4>UI ELEMENTS</h4>
+                <span class="collapse-icon">&#9660;</span>
+            </div>
+            <div class="config-section-content">
+                <div class="config-item">
+                    <button id="toggle-projects" class="active">PROJECTS</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-grid" class="active">GRID</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-home-btn" class="active">HOME BTN</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-add-btn">ADD BTN</button>
+                </div>
+                <div class="config-item">
+                    <label>Grid Size</label>
+                    <input type="range" id="grid-size" min="10" max="200" step="10" value="50">
+                    <div class="value-display"><span id="grid-size-val">50</span>px</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toasts Section -->
+        <div class="config-section">
+            <div class="config-section-header">
+                <h4>TOASTS</h4>
+                <span class="collapse-icon">&#9660;</span>
+            </div>
+            <div class="config-section-content">
+                <div class="config-item">
+                    <button id="toggle-toast-navigator">NAVIGATOR</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-toast-design-tokens">TOKENS</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-toast-fonts">FONTS</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-toast-projects">PROJECTS</button>
+                </div>
+                <div class="config-item">
+                    <button id="toggle-toast-storage">STORAGE</button>
+                </div>
+                <div class="config-item">
+                    <label>Spacing</label>
+                    <input type="range" id="stack-spacing" min="-50" max="100" step="1" value="8">
+                    <div class="value-display"><span id="stack-spacing-val">8</span> <span id="stack-mode">spread</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions Section -->
+        <div class="config-section">
+            <div class="config-section-header">
+                <h4>ACTIONS</h4>
+                <span class="collapse-icon">&#9660;</span>
+            </div>
+            <div class="config-section-content">
+                <div class="config-item">
+                    <button data-action="canvas:reset">RESET VIEW</button>
+                </div>
+                <div class="config-item">
+                    <button data-action="config:save">SAVE</button>
+                </div>
+                <div class="config-item">
+                    <button data-action="config:close">CLOSE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Core modules (loaded inline for boot speed) -->
+    <script src="js/core/config.js"></script>
+    <script src="js/core/events.js"></script>
+    <script src="js/core/state.js"></script>
+    <script src="js/bootloader.js"></script>
+</body>
+</html>

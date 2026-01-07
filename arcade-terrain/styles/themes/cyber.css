@@ -1,0 +1,28 @@
+/**
+ * Cyber Theme
+ * Neon cyberpunk aesthetic
+ */
+
+[data-theme="cyber"] {
+  --color-background: #1e062a;
+  --color-surface: #3a1b56;
+  --color-surface-light: #6136ff;
+  --color-text: #dddddd;
+  --color-text-muted: rgba(221, 221, 221, 0.6);
+  --color-primary: #ed1dff;
+  --color-secondary: #c5d941;
+  --color-accent: #ff9b0b;
+  --color-success: #00ff9a;
+  --color-shade: #121212;
+
+  /* DaisyUI compat */
+  --ink: #dddddd;
+  --one: #ed1dff;
+  --two: #c5d941;
+  --three: #ff9b0b;
+  --four: #00ff9a;
+  --paper-light: #6136ff;
+  --paper-mid: #0f2a63;
+  --paper-dark: #3a1b56;
+  --shade: #121212;
+}

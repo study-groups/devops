@@ -1,0 +1,42 @@
+{
+    "terrain": {
+        "name": "Freerange",
+        "version": "1.0.0",
+        "description": "Full infinite canvas with all features enabled"
+    },
+    "canvas": {
+        "mode": "freerange",
+        "drag": true,
+        "pan": true,
+        "grid": true
+    },
+    "layout": {
+        "type": "canvas",
+        "gap": "16px"
+    },
+    "features": {
+        "designMode": true,
+        "toasts": true,
+        "persistence": true,
+        "fonts": true,
+        "nodes": true
+    },
+    "header": {
+        "show": false,
+        "title": "Terrain"
+    },
+    "ui": {
+        "homeBtn": true,
+        "addBtn": true,
+        "fab": true,
+        "configPanel": true
+    },
+    "toasts": {
+        "navigator": true,
+        "tokens": true,
+        "fonts": true,
+        "projects": true,
+        "storage": true
+    },
+    "theme": "dark"
+}

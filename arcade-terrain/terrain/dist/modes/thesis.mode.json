@@ -1,0 +1,58 @@
+{
+    "mode": {
+        "name": "Thesis",
+        "version": "1.0.0",
+        "description": "Academic thesis with structured navigation"
+    },
+    "defaultTheme": "dark",
+    "canvas": {
+        "mode": "fixed",
+        "drag": false,
+        "pan": false,
+        "grid": false
+    },
+    "layout": {
+        "type": "sidebar",
+        "sidebarWidth": "320px",
+        "maxWidth": "1400px"
+    },
+    "features": {
+        "designMode": false,
+        "toasts": false,
+        "persistence": true,
+        "fonts": false,
+        "nodes": false,
+        "tableOfContents": true,
+        "chapterNav": true,
+        "figureList": true,
+        "scrollSpy": true
+    },
+    "header": {
+        "show": true,
+        "title": "Thesis"
+    },
+    "ui": {
+        "homeBtn": true,
+        "addBtn": false,
+        "fab": false,
+        "configPanel": false,
+        "tocPanel": true,
+        "searchBar": true
+    },
+    "toasts": {
+        "navigator": false,
+        "tokens": false,
+        "fonts": false,
+        "projects": false,
+        "storage": false
+    },
+    "discovery": {
+        "type": "json",
+        "pattern": "*.thesis.json"
+    },
+    "card": {
+        "showCli": false,
+        "showEdit": false,
+        "showStatus": false
+    }
+}

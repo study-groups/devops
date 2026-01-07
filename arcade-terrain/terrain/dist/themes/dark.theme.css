@@ -1,0 +1,46 @@
+/**
+ * Terrain Theme: Dark (Default)
+ * TUT-compatible design tokens
+ */
+:root {
+    /* Raw Palette */
+    --p1: #0a0a0a;
+    --p2: #1a1a1a;
+    --p3: #2a2a2a;
+    --p4: #3a3a3a;
+    --p5: #ffffff;
+    --p6: #ff4444;
+    --p7: #00ff00;
+    --p8: #0088ff;
+
+    --s1: #ff6b35;
+    --s2: #4a9eff;
+    --s3: #ffd700;
+    --s4: #00ffaa;
+
+    --t2: #222222;
+    --t3: #444444;
+    --t4: #666666;
+    --t6: #aaaaaa;
+
+    /* Semantic Tokens (TUT) */
+    --bg-primary: var(--p1);
+    --bg-secondary: var(--p2);
+    --bg-tertiary: var(--p3);
+    --bg-hover: var(--p4);
+
+    --border: var(--t2);
+    --border-visible: var(--t3);
+    --border-active: var(--s2);
+
+    --text-primary: var(--p5);
+    --text-secondary: var(--t6);
+    --text-muted: var(--t4);
+    --text-code: var(--s4);
+
+    --accent-primary: var(--s2);
+    --accent-secondary: var(--s1);
+    --success: var(--p7);
+    --error: var(--p6);
+    --warning: var(--s3);
+}

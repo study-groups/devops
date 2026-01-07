@@ -1,0 +1,38 @@
+/**
+ * LCD Theme
+ * Game Boy-style green LCD display
+ */
+
+[data-theme="lcd"] {
+  --color-background: #6b9c7b;
+  --color-surface: #6b9c7b;
+  --color-surface-light: #265b3d;
+  --color-text: #b6efcc;
+  --color-text-muted: rgba(182, 239, 204, 0.7);
+  --color-primary: #b6efcc;
+  --color-secondary: #6b9c7b;
+  --color-accent: #b6efcc;
+  --color-success: #b6efcc;
+  --color-shade: #162c24;
+
+  /* DaisyUI compat */
+  --ink: #b6efcc;
+  --one: #b6efcc;
+  --two: #6b9c7b;
+  --three: #b6efcc;
+  --four: #b6efcc;
+  --paper-light: #265b3d;
+  --paper-mid: #265b3d;
+  --paper-dark: #6b9c7b;
+  --shade: #162c24;
+}
+
+/* LCD-specific effects */
+[data-theme="lcd"] .image-tint {
+  background: var(--paper-light);
+  mix-blend-mode: color;
+}
+
+[data-theme="lcd"] .image-clamp {
+  filter: brightness(0.1) brightness(6);
+}

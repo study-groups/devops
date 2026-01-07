@@ -1,0 +1,11 @@
+/**
+ * Features CSS Bundle
+ * Non-critical styles loaded async
+ * Includes: components, animations
+ */
+
+/* Components */
+@import "../components/buttons.css";
+@import "../components/cards.css";
+@import "../components/hero.css";
+@import "../components/game.css";

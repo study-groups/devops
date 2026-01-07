@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terrain ControlDeck Switcher</title>
+    <link rel="stylesheet" href="../themes/dark.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 {
+            color: var(--accent-primary);
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+        .subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+        .deck-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .deck-card {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .deck-card:hover {
+            border-color: var(--accent-primary);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            transform: translateY(-2px);
+        }
+        .deck-card.active {
+            border-color: var(--accent-primary);
+            background: rgba(74, 158, 255, 0.1);
+        }
+        .deck-name {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .deck-desc {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+        .deck-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .feature-badge {
+            padding: 0.25rem 0.5rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+        .feature-badge.enabled {
+            color: var(--success);
+            border-color: var(--success);
+        }
+        .feature-badge.disabled {
+            color: var(--error);
+            border-color: var(--error);
+        }
+        .theme-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .theme-dark { background: #1a1a1a; color: #4a9eff; }
+        .theme-midnight { background: #0d1117; color: #58a6ff; }
+        .theme-forest { background: #0d1210; color: #4db6ac; }
+        .theme-amber { background: #1a1410; color: #ffb300; }
+        .preview-frame {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 2rem;
+        }
+        .preview-header {
+            background: var(--bg-tertiary);
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .preview-title {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .preview-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border-visible);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+        .btn:hover {
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+        }
+        .btn-primary {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            color: var(--bg-primary);
+        }
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+        iframe {
+            width: 100%;
+            height: 500px;
+            border: none;
+        }
+        .url-display {
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            padding: 0.5rem 1rem;
+            background: var(--bg-primary);
+            border-top: 1px solid var(--border);
+        }
+        code {
+            background: var(--bg-tertiary);
+            color: var(--text-code);
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.85em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ControlDeck Switcher</h1>
+        <p class="subtitle">Test different behavioral modes for Terrain</p>
+
+        <div class="deck-grid" id="deck-grid">
+            <!-- Populated by JS -->
+        </div>
+
+        <div class="options-bar" style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                <input type="checkbox" id="design-mode" style="width: 18px; height: 18px; accent-color: var(--accent-primary);">
+                <span style="color: var(--text-secondary);">Design Mode</span>
+                <code>?design=true</code>
+            </label>
+        </div>
+
+        <div class="preview-frame">
+            <div class="preview-header">
+                <span class="preview-title">Preview</span>
+                <div class="preview-actions">
+                    <button class="btn" onclick="refreshPreview()">Refresh</button>
+                    <button class="btn btn-primary" onclick="openInNewTab()">Open in New Tab</button>
+                </div>
+            </div>
+            <iframe id="preview" src="../../index-modular.html"></iframe>
+            <div class="url-display" id="url-display">../../index-modular.html</div>
+        </div>
+
+        <div style="margin-top: 2rem; color: var(--text-secondary); font-size: 0.85rem;">
+            <p><strong>Usage:</strong> Add <code>?deck=name</code> to any terrain URL:</p>
+            <ul style="margin: 0.5rem 0 0 1.5rem;">
+                <li><code>index-modular.html?deck=freerange</code></li>
+                <li><code>index-modular.html?deck=contained</code></li>
+                <li><code>index-modular.html?deck=kiosk</code></li>
+                <li><code>index-modular.html?deck=deploy</code></li>
+            </ul>
+            <p style="margin-top: 0.75rem;"><strong>Design Mode:</strong> Add <code>&design=true</code> to enable the FAB design panel:</p>
+            <ul style="margin: 0.5rem 0 0 1.5rem;">
+                <li><code>index-modular.html?deck=contained&design=true</code></li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const DECKS = [
+            {
+                id: 'freerange',
+                name: 'Freerange',
+                icon: '🌍',
+                desc: 'Full infinite canvas with all features enabled. Drag, pan, zoom freely.',
+                theme: 'dark',
+                features: { drag: true, pan: true, grid: true, designMode: true, toasts: true }
+            },
+            {
+                id: 'contained',
+                name: 'Contained',
+                icon: '📊',
+                desc: 'Fixed dashboard layout. No canvas interaction, sidebar-focused.',
+                theme: 'midnight',
+                features: { drag: false, pan: false, grid: false, designMode: false, toasts: true }
+            },
+            {
+                id: 'kiosk',
+                name: 'Kiosk',
+                icon: '🖼️',
+                desc: 'Presentation mode. Minimal UI, no editing, centered layout.',
+                theme: 'forest',
+                features: { drag: false, pan: false, grid: false, designMode: false, toasts: false }
+            },
+            {
+                id: 'deploy',
+                name: 'Deploy',
+                icon: '🚀',
+                desc: 'Deployment target management. CLI-focused cards with status.',
+                theme: 'amber',
+                features: { drag: true, pan: true, grid: true, designMode: false, toasts: true }
+            }
+        ];
+
+        let currentDeck = 'freerange';
+        let designMode = false;
+
+        // Bind design mode checkbox
+        document.getElementById('design-mode').addEventListener('change', (e) => {
+            designMode = e.target.checked;
+            updatePreview();
+        });
+
+        function buildUrl() {
+            let url = `../../index-modular.html?deck=${currentDeck}`;
+            if (designMode) {
+                url += '&design=true';
+            }
+            return url;
+        }
+
+        function renderDecks() {
+            const grid = document.getElementById('deck-grid');
+            grid.innerHTML = DECKS.map(deck => `
+                <div class="deck-card ${deck.id === currentDeck ? 'active' : ''}" onclick="selectDeck('${deck.id}')">
+                    <div class="deck-name">
+                        <span>${deck.icon}</span>
+                        <span>${deck.name}</span>
+                        <span class="theme-badge theme-${deck.theme}">${deck.theme}</span>
+                    </div>
+                    <div class="deck-desc">${deck.desc}</div>
+                    <div class="deck-features">
+                        ${Object.entries(deck.features).map(([key, val]) => `
+                            <span class="feature-badge ${val ? 'enabled' : 'disabled'}">${key}</span>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function selectDeck(deckId) {
+            currentDeck = deckId;
+            renderDecks();
+            updatePreview();
+        }
+
+        function updatePreview() {
+            const url = buildUrl();
+            document.getElementById('preview').src = url;
+            document.getElementById('url-display').textContent = url;
+        }
+
+        function refreshPreview() {
+            const iframe = document.getElementById('preview');
+            iframe.src = iframe.src;
+        }
+
+        function openInNewTab() {
+            window.open(buildUrl(), '_blank');
+        }
+
+        renderDecks();
+    </script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+TSM_PORT="8410"
+TSM_DIR="$(dirname "${BASH_SOURCE[0]}")"
+TSM_COMMAND="cd $TSM_DIR && PORT=$TSM_PORT node server.js"
+

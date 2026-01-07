@@ -1,0 +1,16 @@
+/**
+ * Core CSS Bundle
+ * Critical styles loaded synchronously
+ * Includes: reset, variables, themes, layout
+ */
+
+/* Base */
+@import "../base/reset.css";
+@import "../base/variables.css";
+@import "../base/layout.css";
+
+/* Themes */
+@import "../themes/lava.css";
+@import "../themes/tv.css";
+@import "../themes/lcd.css";
+@import "../themes/cyber.css";

@@ -1,0 +1,383 @@
+/**
+ * Terrain Config Panel Styles
+ */
+
+.config-panel {
+    position: fixed;
+    bottom: 100px;
+    right: var(--gap-lg);
+    background: var(--bg-primary);
+    border: 2px solid var(--border-visible);
+    border-radius: var(--curve-sm);
+    padding: var(--gap-lg);
+    min-width: 320px;
+    max-width: 400px;
+    max-height: 80vh;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: var(--depth-lg);
+    transform: translateY(20px);
+    opacity: 0;
+    pointer-events: none;
+    transition: var(--tempo-normal);
+}
+
+.config-panel.active {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: all;
+}
+
+.config-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--gap-md);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: var(--gap-sm);
+}
+
+.config-panel h3 {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 900;
+}
+
+/* Quick actions */
+.config-quick-actions {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--gap-xs);
+    margin-bottom: var(--gap-md);
+}
+
+.config-quick-actions button {
+    background: transparent;
+    border: 1px solid var(--border-visible);
+    color: var(--text-primary);
+    padding: 4px var(--gap-sm);
+    border-radius: var(--curve-sm);
+    cursor: pointer;
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: var(--tempo-fast);
+    min-height: 20px;
+}
+
+.config-quick-actions button:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+.config-quick-actions button:active {
+    background: var(--accent-primary);
+    color: var(--bg-primary);
+}
+
+/* Preset actions */
+.config-preset-actions {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--gap-xs);
+    margin: 0 var(--gap-sm) var(--gap-md) var(--gap-sm);
+}
+
+.config-preset-actions button {
+    background: transparent;
+    border: 1px solid var(--border-visible);
+    color: var(--text-primary);
+    padding: 2px var(--gap-xs);
+    border-radius: var(--curve-sm);
+    cursor: pointer;
+    font-size: 7px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: var(--tempo-fast);
+    min-height: 14px;
+}
+
+.config-preset-actions button:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+.config-preset-actions button.saved {
+    border-color: var(--success);
+}
+
+.config-preset-actions button.long-pressing {
+    background: var(--warning);
+    border-color: var(--warning);
+    color: var(--bg-primary);
+}
+
+/* Sections */
+.config-section {
+    margin-bottom: var(--gap-lg);
+}
+
+.config-section:last-child {
+    margin-bottom: 0;
+}
+
+.config-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    margin-bottom: var(--gap-sm);
+}
+
+.config-section-header h4 {
+    font-size: 10px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 700;
+}
+
+.config-section-header .collapse-icon {
+    font-size: 10px;
+    color: var(--text-muted);
+    transition: var(--tempo-fast);
+}
+
+.config-section-header .collapse-icon.collapsed {
+    transform: rotate(-90deg);
+}
+
+.config-section-content {
+    max-height: 1000px;
+    overflow: hidden;
+    transition: max-height 0.6s ease;
+}
+
+.config-section-content.collapsed {
+    max-height: 0;
+}
+
+/* Config items */
+.config-item {
+    margin-bottom: var(--gap-md);
+}
+
+.config-item:last-child {
+    margin-bottom: 0;
+}
+
+.config-item label {
+    display: block;
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-bottom: var(--gap-xs);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+}
+
+.config-item button {
+    background: transparent;
+    border: 1px solid var(--border-visible);
+    color: var(--text-primary);
+    padding: var(--gap-xs) var(--gap-sm);
+    border-radius: var(--curve-sm);
+    cursor: pointer;
+    font-size: 9px;
+    width: 100%;
+    transition: var(--tempo-fast);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-family: inherit;
+    min-height: 24px;
+}
+
+.config-item button:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+.config-item button.active {
+    background: transparent;
+    color: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+/* Selects */
+.config-item select {
+    width: 100%;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: var(--gap-sm);
+    border-radius: var(--curve-sm);
+    font-size: 10px;
+    font-family: var(--font-code);
+    transition: var(--tempo-fast);
+    cursor: pointer;
+}
+
+.config-item select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.config-item select:hover {
+    border-color: var(--border-visible);
+}
+
+/* Range inputs */
+.config-item input[type="range"] {
+    width: 100%;
+    height: 2px;
+    background: var(--border);
+    outline: none;
+    -webkit-appearance: none;
+}
+
+.config-item input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--accent-primary);
+    cursor: pointer;
+    border-radius: 0;
+}
+
+.config-item input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: var(--accent-primary);
+    cursor: pointer;
+    border-radius: 0;
+}
+
+.config-item .value-display {
+    font-size: 11px;
+    color: var(--accent-primary);
+    margin-top: var(--gap-xs);
+    font-weight: 700;
+}
+
+/* Text/number inputs */
+.config-item input[type="text"],
+.config-item input[type="number"],
+.config-item textarea {
+    width: 100%;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: var(--gap-sm);
+    border-radius: var(--curve-sm);
+    font-size: 10px;
+    font-family: var(--font-code);
+    transition: var(--tempo-fast);
+}
+
+.config-item input[type="text"]:focus,
+.config-item input[type="number"]:focus,
+.config-item textarea:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.config-item textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+/* Scrollbar */
+.config-panel::-webkit-scrollbar {
+    width: 8px;
+}
+
+.config-panel::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+.config-panel::-webkit-scrollbar-thumb {
+    background: var(--border-visible);
+    border-radius: 0;
+}
+
+.config-panel::-webkit-scrollbar-thumb:hover {
+    background: var(--border-active);
+}
+
+/* Popup button styles */
+.popup-btn {
+    background: transparent;
+    border: 1px solid var(--border-visible);
+    color: var(--text-primary);
+    padding: var(--gap-sm) var(--gap-lg);
+    border-radius: var(--curve-sm);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: var(--tempo-fast);
+    font-family: inherit;
+}
+
+.popup-btn:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+.popup-btn-confirm {
+    border-color: var(--success);
+    color: var(--success);
+}
+
+.popup-btn-cancel {
+    border-color: var(--error);
+    color: var(--error);
+}
+
+.popup-input {
+    width: 100%;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-visible);
+    color: var(--text-primary);
+    padding: var(--gap-sm);
+    border-radius: var(--curve-sm);
+    font-size: 12px;
+    font-family: var(--font-code);
+    margin-bottom: var(--gap-md);
+}
+
+.popup-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+/* Nuclear button */
+.nuclear-button {
+    width: 100%;
+    background: transparent;
+    border: 2px solid var(--error);
+    color: var(--error);
+    padding: var(--gap-sm);
+    border-radius: var(--curve-sm);
+    cursor: pointer;
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: var(--tempo-fast);
+    font-family: inherit;
+    margin-top: var(--gap-md);
+}
+
+.nuclear-button:hover {
+    background: var(--error);
+    color: var(--bg-primary);
+}

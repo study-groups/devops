@@ -1,0 +1,105 @@
+/**
+ * Game Page Styles
+ */
+
+.main-game {
+  padding: 0;
+  max-width: none;
+}
+
+.game-container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--header-height));
+}
+
+.game-frame-wrapper {
+  flex: 1;
+  position: relative;
+  background: var(--shade);
+}
+
+.game-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: var(--shade);
+}
+
+.game-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--shade);
+  color: var(--color-text-muted);
+}
+
+.loading-spinner {
+  width: 3rem;
+  height: 3rem;
+  border: 3px solid var(--paper-light);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: var(--space-4);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.game-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border-top: 2px solid var(--paper-light);
+}
+
+.game-title {
+  font-size: var(--text-lg);
+  color: var(--color-text);
+}
+
+.game-controls {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* Error pages */
+.page-404,
+.page-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+}
+
+.page-404 h1,
+.page-error h1 {
+  font-size: 6rem;
+  color: var(--color-primary);
+  line-height: 1;
+}
+
+.page-404 p,
+.page-error p {
+  color: var(--color-text-muted);
+  margin: var(--space-4) 0;
+}
+
+.page-error pre {
+  background: var(--paper-dark);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--two);
+  max-width: 100%;
+  overflow-x: auto;
+}

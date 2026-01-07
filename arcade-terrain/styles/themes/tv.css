@@ -1,0 +1,28 @@
+/**
+ * TV Theme
+ * CRT monitor aesthetic with green phosphor
+ */
+
+[data-theme="tv"] {
+  --color-background: #161616;
+  --color-surface: #393a38;
+  --color-surface-light: #676d69;
+  --color-text: #a2bac3;
+  --color-text-muted: rgba(162, 186, 195, 0.6);
+  --color-primary: #1fff6a;
+  --color-secondary: #ecb200;
+  --color-accent: #ff685d;
+  --color-success: #608eff;
+  --color-shade: #030102;
+
+  /* DaisyUI compat */
+  --ink: #a2bac3;
+  --one: #1fff6a;
+  --two: #ecb200;
+  --three: #ff685d;
+  --four: #608eff;
+  --paper-light: #676d69;
+  --paper-mid: #161616;
+  --paper-dark: #393a38;
+  --shade: #030102;
+}

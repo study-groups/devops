@@ -1,0 +1,50 @@
+/**
+ * Hero Section Styles
+ */
+
+.hero {
+  text-align: center;
+  padding: var(--space-16) var(--space-4);
+}
+
+.hero-title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 8vw, var(--text-display));
+  font-weight: bold;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: var(--space-4);
+}
+
+.hero-subtitle {
+  font-size: var(--text-lg);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-8);
+}
+
+/* Featured section */
+.featured {
+  padding: var(--space-8) 0;
+}
+
+.featured h2 {
+  font-size: var(--text-xl);
+  margin-bottom: var(--space-6);
+  color: var(--color-text);
+}
+
+/* Page header (for listing pages) */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.page-header h1 {
+  font-size: var(--text-xl);
+  color: var(--color-text);
+}

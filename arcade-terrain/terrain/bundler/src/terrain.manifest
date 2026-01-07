@@ -1,0 +1,20 @@
+# TERRAIN Core Build Manifest
+
+[module]
+name = "TERRAIN"
+version = "1.0.0"
+description = "Platform foundation for modular web applications"
+
+[build]
+output = "dist/terrain.js"
+wrapper = "none"
+
+[sources]
+order = [
+    "core/terrain.js",
+    "core/events.js",
+    "core/config.js",
+    "core/utils.js",
+    "core/state.js",
+    "core/bridge.js"
+]

@@ -1,0 +1,69 @@
+{
+    "mode": {
+        "name": "Control",
+        "version": "1.0.0",
+        "description": "Grid-based control panel with snapping rules and panels"
+    },
+    "defaultTheme": "dark",
+    "canvas": {
+        "mode": "fixed",
+        "drag": false,
+        "pan": false,
+        "grid": true
+    },
+    "layout": {
+        "type": "grid",
+        "columns": "1fr 320px",
+        "rows": "auto 1fr auto",
+        "areas": ["header header", "main sidebar", "footer footer"],
+        "gap": "0"
+    },
+    "grid": {
+        "snap": true,
+        "snapSize": 8,
+        "showLines": false,
+        "responsive": true,
+        "breakpoint": 900
+    },
+    "features": {
+        "designMode": false,
+        "toasts": false,
+        "persistence": true,
+        "fonts": false,
+        "nodes": false,
+        "panels": true,
+        "collapse": true,
+        "realtime": true
+    },
+    "header": {
+        "show": true,
+        "height": "48px",
+        "title": ""
+    },
+    "footer": {
+        "show": false,
+        "height": "32px"
+    },
+    "ui": {
+        "homeBtn": false,
+        "addBtn": false,
+        "fab": false,
+        "configPanel": false
+    },
+    "toasts": {
+        "navigator": false,
+        "tokens": false,
+        "fonts": false,
+        "projects": false,
+        "storage": false
+    },
+    "discovery": {
+        "type": "config",
+        "source": "app.terrain.json"
+    },
+    "card": {
+        "showCli": false,
+        "showEdit": false,
+        "showStatus": true
+    }
+}
