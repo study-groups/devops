@@ -168,15 +168,11 @@ spaces_list() {
     _spaces_resolve "$symbol" || return 1
 
     echo "Listing: $SPACES_URI"
-    echo "Endpoint: $SPACES_ENDPOINT"
     echo ""
 
-    s3cmd ls "$SPACES_URI" \
-        --access_key="$SPACES_ACCESS_KEY" \
-        --secret_key="$SPACES_SECRET_KEY" \
-        --host="$SPACES_HOST" \
-        --host-bucket="%(bucket)s.$SPACES_HOST" \
-        --region="$SPACES_REGION"
+    local cfg=$(_spaces_s3cfg)
+    s3cmd ls "$SPACES_URI" --config="$cfg"
+    rm -f "$cfg"
 }
 
 # Download file from Spaces
@@ -192,12 +188,11 @@ spaces_get() {
         echo "Getting: $SPACES_URI → $dest"
     fi
 
-    s3cmd get "$SPACES_URI" "$dest" \
-        --access_key="$SPACES_ACCESS_KEY" \
-        --secret_key="$SPACES_SECRET_KEY" \
-        --host="$SPACES_HOST" \
-        --host-bucket="%(bucket)s.$SPACES_HOST" \
-        --region="$SPACES_REGION"
+    local cfg=$(_spaces_s3cfg)
+    s3cmd get "$SPACES_URI" "$dest" --config="$cfg"
+    local rc=$?
+    rm -f "$cfg"
+    return $rc
 }
 
 # Upload file to Spaces
@@ -216,13 +211,11 @@ spaces_put() {
 
     echo "Putting: $source → $SPACES_URI"
 
-    s3cmd put "$source" "$SPACES_URI" \
-        --access_key="$SPACES_ACCESS_KEY" \
-        --secret_key="$SPACES_SECRET_KEY" \
-        --host="$SPACES_HOST" \
-        --host-bucket="%(bucket)s.$SPACES_HOST" \
-        --region="$SPACES_REGION" \
-        $options
+    local cfg=$(_spaces_s3cfg)
+    s3cmd put "$source" "$SPACES_URI" --config="$cfg" $options
+    local rc=$?
+    rm -f "$cfg"
+    return $rc
 }
 
 # Sync directories
@@ -232,6 +225,8 @@ spaces_sync() {
     shift 2
     local options="$*"
 
+    local cfg rc
+
     # Determine which is remote
     if [[ "$source" =~ ^(@spaces|[a-z-]+:) ]]; then
         # Remote to local
@@ -239,27 +234,22 @@ spaces_sync() {
         local remote_uri="$SPACES_URI"
         echo "Syncing: $remote_uri → $dest"
 
-        s3cmd sync "$remote_uri" "$dest" \
-            --access_key="$SPACES_ACCESS_KEY" \
-            --secret_key="$SPACES_SECRET_KEY" \
-            --host="$SPACES_HOST" \
-            --host-bucket="%(bucket)s.$SPACES_HOST" \
-            --region="$SPACES_REGION" \
-            $options
+        cfg=$(_spaces_s3cfg)
+        s3cmd sync "$remote_uri" "$dest" --config="$cfg" $options
+        rc=$?
     else
         # Local to remote
         _spaces_resolve "$dest" || return 1
         local remote_uri="$SPACES_URI"
         echo "Syncing: $source → $remote_uri"
 
-        s3cmd sync "$source" "$remote_uri" \
-            --access_key="$SPACES_ACCESS_KEY" \
-            --secret_key="$SPACES_SECRET_KEY" \
-            --host="$SPACES_HOST" \
-            --host-bucket="%(bucket)s.$SPACES_HOST" \
-            --region="$SPACES_REGION" \
-            $options
+        cfg=$(_spaces_s3cfg)
+        s3cmd sync "$source" "$remote_uri" --config="$cfg" $options
+        rc=$?
     fi
+
+    rm -f "$cfg"
+    return $rc
 }
 
 # Get public URL
@@ -279,7 +269,7 @@ spaces_delete() {
 
     _spaces_resolve "$symbol" || return 1
 
-    echo "⚠️  Deleting: $SPACES_URI"
+    echo "Deleting: $SPACES_URI"
     read -p "Are you sure? [y/N]: " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -287,17 +277,30 @@ spaces_delete() {
         return 1
     fi
 
-    s3cmd del "$SPACES_URI" \
-        --access_key="$SPACES_ACCESS_KEY" \
-        --secret_key="$SPACES_SECRET_KEY" \
-        --host="$SPACES_HOST" \
-        --host-bucket="%(bucket)s.$SPACES_HOST" \
-        --region="$SPACES_REGION" \
-        $options
+    local cfg=$(_spaces_s3cfg)
+    s3cmd del "$SPACES_URI" --config="$cfg" $options
+    local rc=$?
+    rm -f "$cfg"
+    return $rc
+}
+
+# Generate s3cmd config for current credentials
+# Returns path to temp config file (caller must rm)
+_spaces_s3cfg() {
+    local cfg="${TMPDIR:-/tmp}/spaces-s3cfg-$$"
+    cat > "$cfg" <<EOF
+[default]
+access_key = $SPACES_ACCESS_KEY
+secret_key = $SPACES_SECRET_KEY
+host_base = $SPACES_HOST
+host_bucket = %(bucket)s.$SPACES_HOST
+use_https = True
+EOF
+    echo "$cfg"
 }
 
 # Export functions
-export -f _spaces_resolve
+export -f _spaces_resolve _spaces_s3cfg
 export -f spaces_list
 export -f spaces_get
 export -f spaces_put

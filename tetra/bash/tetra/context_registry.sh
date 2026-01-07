@@ -33,6 +33,7 @@ declare -gA CTX_SCHEMAS=(
     [deploy]="org:target:env"
     [tut]="org:subject:type"
     [games]="org:project:subject"
+    [spaces]="org:bucket:path"
 )
 
 # Slot descriptions per module
@@ -60,6 +61,10 @@ declare -gA CTX_SLOT_DESC=(
     [games.1]="Organization name"
     [games.2]="Game project"
     [games.3]="Subject/mode"
+
+    [spaces.1]="Organization (tetra.toml source)"
+    [spaces.2]="Bucket name"
+    [spaces.3]="Path prefix"
 )
 
 # =============================================================================
