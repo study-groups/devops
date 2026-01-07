@@ -1,95 +1,202 @@
-tetra_tmux_new(){
-  local sessionName="${1:-"untitled-session"}"
-  local scriptName="${2:-"/dev/null"}"
-  tmux new-session -d -s "$sessionName" "$scriptName"
+#!/usr/bin/env bash
+# Tetra Tmux Session Manager
+# Session naming: tetra-{org}-{proj}-{env}
+# Example: tetra-pixeljam-api-local, tetra-tetra-dashboard-prod
+
+TMUX_PREFIX="${TMUX_PREFIX:-tetra}"
+
+# Build session name from components
+# Usage: _tmux_session_name [org] [proj] [env]
+_tmux_session_name() {
+    local org="${1:-$TETRA_ORG}"
+    local proj="${2:-default}"
+    local env="${3:-local}"
+    echo "${TMUX_PREFIX}-${org}-${proj}-${env}"
 }
 
-tetra_tmux_list(){
-  tmux list-sessions # aka tmux ls
+# Parse session name into components
+# Usage: _tmux_parse_session <session_name>
+# Sets: TMUX_ORG, TMUX_PROJ, TMUX_ENV
+_tmux_parse_session() {
+    local name="$1"
+    name="${name#${TMUX_PREFIX}-}"  # Remove prefix
+    IFS='-' read -r TMUX_ORG TMUX_PROJ TMUX_ENV <<< "$name"
 }
 
-tetra_tmux_join ()
-{
-    tmux has-session -t $1  2>/dev/null &&  \
-    tmux attach-session -t $1 || \
-    tmux new-session -s $1
-}
+# List all tetra sessions
+# Usage: tmux_list [--json]
+tmux_list() {
+    local json=false
+    [[ "$1" == "--json" ]] && json=true
 
-
-
-tetra_tmux_run() {
-    if ! tmux has-session -t "$1" 2>/dev/null; then
-        export TETRA_SRC
-        tmux new-session -d -s "$1"
-        # Source the bootstrap script and redirect output to /dev/null
-        tmux send-keys -t "${1}" "source \$TETRA_SRC/bootstrap.sh &> /dev/null" C-m
-        # Send any additional commands passed to the function
-        tmux send-keys -t "${1}" "${@:2}" C-m
-        tetra_tmux_join $1
+    if $json; then
+        tmux list-sessions -F '{"name":"#{session_name}","created":#{session_created},"attached":#{session_attached},"windows":#{session_windows}}' 2>/dev/null | \
+            grep "\"name\":\"${TMUX_PREFIX}-" | \
+            sed 's/attached":1/attached":true/g; s/attached":0/attached":false/g' | \
+            jq -s '.' 2>/dev/null || echo '[]'
     else
-        tetra_tmux_join $1
+        echo "TETRA SESSIONS:"
+        tmux list-sessions 2>/dev/null | grep "^${TMUX_PREFIX}-" | while read -r line; do
+            local sess="${line%%:*}"
+            _tmux_parse_session "$sess"
+            printf "  %-30s  org:%-10s proj:%-15s env:%s\n" "$sess" "$TMUX_ORG" "$TMUX_PROJ" "$TMUX_ENV"
+        done
     fi
 }
 
-tetra_tmux_restart() {
-    # Ensure correct shell is used and source the bootstrap script
-    tmux new-session -d -s "$1" "/bin/bash --rcfile $TETRA_SRC/bootstrap.sh"
-    
-    # After ensuring session is ready, send the command
-    tmux send-keys -t "$1" "tetra_python_run webhook-flask.py" C-m
-    if tmux has-session -t "$1" 2>/dev/null; then
-        tmux kill-session -t "$1"
-        echo "Session $1 killed. Creating a new one."
-        tmux new-session -d -s "$1" "/bin/bash --rcfile $TETRA_SRC/bootstrap.sh"
-        tmux send-keys -t "$1" "tetra_python_run webhook-flask.py" C-m
+# Join (attach or create) a session
+# Usage: tmux_join [org] [proj] [env]
+#    or: tmux_join <full-session-name>
+tmux_join() {
+    local session_name
+
+    # If single arg with dashes, treat as full session name
+    if [[ $# -eq 1 && "$1" == *-*-* ]]; then
+        session_name="$1"
+        [[ "$session_name" != ${TMUX_PREFIX}-* ]] && session_name="${TMUX_PREFIX}-${session_name}"
     else
-        echo "$1 not found, creating new session."
-        tmux new-session -d -s "$1" "/bin/bash --rcfile $TETRA_SRC/bootstrap.sh"
-        tmux send-keys -t "$1" "tetra_python_run webhook-flask.py" C-m
+        session_name=$(_tmux_session_name "$1" "$2" "$3")
     fi
-        tetra_tmux_join $1
+
+    if tmux has-session -t "$session_name" 2>/dev/null; then
+        echo "Attaching to: $session_name"
+        tmux attach-session -t "$session_name"
+    else
+        echo "Creating: $session_name"
+        tmux new-session -s "$session_name"
+    fi
 }
 
+# Create a new detached session
+# Usage: tmux_new [org] [proj] [env] [--cmd "command"]
+tmux_new() {
+    local org="" proj="" env="" cmd=""
 
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --cmd|-c) cmd="$2"; shift 2 ;;
+            *)
+                [[ -z "$org" ]] && { org="$1"; shift; continue; }
+                [[ -z "$proj" ]] && { proj="$1"; shift; continue; }
+                [[ -z "$env" ]] && { env="$1"; shift; continue; }
+                shift ;;
+        esac
+    done
 
-# Function to kill a tmux session
-tetra_tmux_kill() {
-    tmux kill-session -t "$1"
+    local session_name=$(_tmux_session_name "$org" "$proj" "$env")
+
+    if tmux has-session -t "$session_name" 2>/dev/null; then
+        echo "Session exists: $session_name"
+        return 1
+    fi
+
+    echo "Creating: $session_name"
+    tmux new-session -d -s "$session_name"
+
+    # Source tetra.sh in the new session
+    tmux send-keys -t "$session_name" "source \$HOME/tetra/tetra.sh" C-m
+
+    # Run optional command
+    [[ -n "$cmd" ]] && tmux send-keys -t "$session_name" "$cmd" C-m
+
+    echo "Created (detached): $session_name"
 }
 
-tetra_tmux_kill_server(){
-  echo "Will kill everything tmux."
-  tmux list-sessions
-  read -p "Sure? ctrl-c to exit."
-  tmux kill-server
+# Kill a session
+# Usage: tmux_kill [org] [proj] [env]
+#    or: tmux_kill <full-session-name>
+tmux_kill() {
+    local session_name
+
+    if [[ $# -eq 1 && "$1" == *-*-* ]]; then
+        session_name="$1"
+        [[ "$session_name" != ${TMUX_PREFIX}-* ]] && session_name="${TMUX_PREFIX}-${session_name}"
+    else
+        session_name=$(_tmux_session_name "$1" "$2" "$3")
+    fi
+
+    if tmux kill-session -t "$session_name" 2>/dev/null; then
+        echo "Killed: $session_name"
+    else
+        echo "Not found: $session_name"
+        return 1
+    fi
 }
 
-tetra_tmux_load_conf(){
-  local confFile="$TETRA_SRC/tetra.tmux.conf"
-  tmux source-file "$confFile"
+# Kill all tetra sessions
+# Usage: tmux_kill_all [--force]
+tmux_kill_all() {
+    local force=false
+    [[ "$1" == "--force" || "$1" == "-f" ]] && force=true
+
+    local sessions
+    sessions=$(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep "^${TMUX_PREFIX}-")
+
+    if [[ -z "$sessions" ]]; then
+        echo "No tetra sessions found"
+        return 0
+    fi
+
+    echo "Sessions to kill:"
+    echo "$sessions" | sed 's/^/  /'
+
+    if ! $force; then
+        read -rp "Kill all? [y/N] " confirm
+        [[ "$confirm" != [yY] ]] && { echo "Aborted"; return 1; }
+    fi
+
+    echo "$sessions" | while read -r sess; do
+        tmux kill-session -t "$sess" && echo "Killed: $sess"
+    done
 }
 
-# Function to list all active tmux sessions
-tetra_tmux_list_sessions() {
-    tmux list-sessions
+# Send command to a session
+# Usage: tmux_send <session> <command>
+#    or: tmux_send <org> <proj> <env> <command>
+tmux_send() {
+    local session_name cmd
+
+    if [[ $# -eq 2 ]]; then
+        session_name="$1"
+        cmd="$2"
+        [[ "$session_name" != ${TMUX_PREFIX}-* ]] && session_name="${TMUX_PREFIX}-${session_name}"
+    elif [[ $# -ge 4 ]]; then
+        session_name=$(_tmux_session_name "$1" "$2" "$3")
+        cmd="${*:4}"
+    else
+        echo "Usage: tmux_send <session> <cmd> OR tmux_send <org> <proj> <env> <cmd>"
+        return 1
+    fi
+
+    if tmux has-session -t "$session_name" 2>/dev/null; then
+        tmux send-keys -t "$session_name" "$cmd" C-m
+        echo "Sent to $session_name: $cmd"
+    else
+        echo "Session not found: $session_name"
+        return 1
+    fi
 }
 
-# Function to list all panes in a specified tmux session
-tetra_tmux_list_panes() {
+# Capture output from a session's pane
+# Usage: tmux_capture <session> [lines]
+tmux_capture() {
     local session_name="$1"
-    tmux list-panes -t "$session_name"
+    local lines="${2:-50}"
+
+    [[ "$session_name" != ${TMUX_PREFIX}-* ]] && session_name="${TMUX_PREFIX}-${session_name}"
+
+    tmux capture-pane -t "$session_name" -p -S "-${lines}"
 }
 
-# Function to capture the buffer of a specific pane in a specific tmux session
-tetra_tmux_capture_pane() {
-    local session_name="$1"
-    local pane_id="$2"
-    tmux capture-pane -p -t "${session_name}:${pane_id}"
+# Quick session for current directory's project
+# Uses: TETRA_ORG, directory name as proj, "local" as env
+tmux_here() {
+    local proj=$(basename "$PWD")
+    local env="${1:-local}"
+    tmux_join "${TETRA_ORG:-tetra}" "$proj" "$env"
 }
 
-# Example usage:
-# source this_script.sh
-# tetra_tmux_list_sessions
-# tetra_tmux_list_panes session_name
-# tetra_tmux_capture_pane session_name pane_id
-
+# Export functions
+export -f _tmux_session_name _tmux_parse_session
+export -f tmux_list tmux_join tmux_new tmux_kill tmux_kill_all
+export -f tmux_send tmux_capture tmux_here
