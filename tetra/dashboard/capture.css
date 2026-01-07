@@ -54,6 +54,71 @@ body {
     font-weight: 600;
 }
 
+/* Capture types checkboxes */
+.capture-types {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    background: var(--paper-dark);
+    padding: 4px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+}
+
+.capture-types label {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    color: var(--ink-light);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.capture-types label:hover {
+    color: var(--ink);
+}
+
+.capture-types input[type="checkbox"] {
+    width: 12px;
+    height: 12px;
+    margin: 0;
+    cursor: pointer;
+}
+
+.capture-types input[type="checkbox"]:checked + * {
+    color: var(--four);
+}
+
+.steps-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--ink-light);
+    cursor: pointer;
+    padding: 4px 8px;
+    background: var(--paper-dark);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+}
+
+.steps-toggle:hover {
+    border-color: var(--four);
+}
+
+.steps-toggle input[type="checkbox"] {
+    width: 12px;
+    height: 12px;
+    margin: 0;
+}
+
+.steps-toggle:has(input:checked) {
+    background: var(--four);
+    color: var(--ink);
+    border-color: var(--four);
+}
+
 /* Main layout */
 .content {
     flex: 1;
@@ -104,6 +169,39 @@ body {
 
 .resize-handle.visible {
     display: block;
+}
+
+/* Horizontal resize handle (between main panel and sidebar) */
+.resize-handle-h {
+    width: 6px;
+    background: var(--paper-mid);
+    cursor: ew-resize;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.resize-handle-h::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px;
+    height: 40px;
+    background: var(--border);
+    border-radius: 1px;
+}
+
+.resize-handle-h:hover {
+    background: var(--paper-light);
+}
+
+.resize-handle-h:hover::after {
+    background: var(--four);
+}
+
+.resize-handle-h.active {
+    background: var(--four);
 }
 
 /* Preview with tabs */
@@ -245,11 +343,39 @@ body {
 .journey-builder.active { display: block; }
 .journey-builder.resizing { transition: none; }
 
-.journey-builder h3 {
-    margin: 0 0 12px 0;
+.journey-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.journey-header h3 {
+    margin: 0;
     font-size: 11px;
     text-transform: uppercase;
     color: var(--ink-muted);
+}
+
+.journey-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.journey-name-input {
+    width: 120px;
+    padding: 4px 8px;
+    font-size: 10px;
+    background: var(--paper-dark);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    border-radius: 2px;
+}
+
+.journey-name-input:focus {
+    border-color: var(--four);
+    outline: none;
 }
 
 .step-list {
@@ -326,6 +452,52 @@ body {
 /* Sidebar - extends shared .sidebar */
 .sidebar {
     width: 320px;
+    min-width: 200px;
+    max-width: 600px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-lists {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 100px;
+}
+
+/* Vertical resize handle in sidebar */
+.resize-handle-v {
+    height: 6px;
+    background: var(--paper-mid);
+    cursor: ns-resize;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.resize-handle-v::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 2px;
+    background: var(--border);
+    border-radius: 1px;
+}
+
+.resize-handle-v:hover {
+    background: var(--paper-light);
+}
+
+.resize-handle-v:hover::after {
+    background: var(--four);
+}
+
+.resize-handle-v.active {
+    background: var(--four);
 }
 
 .sidebar-tabs {
@@ -357,25 +529,84 @@ body {
 .list-panel.active { display: block; }
 
 .captures-list,
-.sessions-list {
+.sessions-list,
+.journeys-list {
     flex: 1;
     overflow-y: auto;
 }
 
-/* Capture/Session items - extends shared .list-item */
+/* Domain grouping for captures */
+.domain-group {
+    border-bottom: 1px solid var(--border);
+}
+
+.domain-header {
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--paper-light);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.domain-header:hover {
+    background: var(--paper-mid);
+}
+
+.expand-icon {
+    font-size: 8px;
+    width: 12px;
+    text-align: center;
+}
+
+.domain-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.domain-count {
+    color: var(--ink-muted);
+    font-weight: normal;
+    font-size: 10px;
+}
+
+.domain-items {
+    display: none;
+}
+
+.domain-group.expanded .domain-items {
+    display: block;
+}
+
+.domain-items .capture-item {
+    padding-left: 24px;
+}
+
+/* Capture/Session/Journey items - extends shared .list-item */
 .capture-item,
-.session-item {
+.session-item,
+.journey-item {
     padding: 10px 12px;
     border-bottom: 1px solid var(--border);
     cursor: pointer;
 }
 .capture-item:hover,
-.session-item:hover { background: var(--paper-light); }
+.session-item:hover,
+.journey-item:hover { background: var(--paper-light); }
 .capture-item.active,
-.session-item.active { background: var(--four); }
+.session-item.active,
+.journey-item.active { background: var(--four); }
 
 .capture-item .url,
-.session-item .name {
+.session-item .name,
+.journey-item .name {
     font-size: 11px;
     white-space: nowrap;
     overflow: hidden;
@@ -384,7 +615,8 @@ body {
 }
 
 .capture-item .meta,
-.session-item .meta {
+.session-item .meta,
+.journey-item .meta {
     font-size: 10px;
     color: var(--ink-muted);
     display: flex;
@@ -392,16 +624,18 @@ body {
     align-items: center;
 }
 
-/* Actions row for captures/sessions */
+/* Actions row for captures/sessions/journeys */
 .capture-item .actions,
-.session-item .actions {
+.session-item .actions,
+.journey-item .actions {
     display: flex;
     gap: 4px;
     margin-top: 6px;
 }
 
 .capture-item .actions button,
-.session-item .actions button {
+.session-item .actions button,
+.journey-item .actions button {
     background: var(--paper-light);
     border: 1px solid var(--border);
     color: var(--ink-muted);
@@ -411,32 +645,42 @@ body {
     border-radius: 2px;
 }
 .capture-item .actions button:hover,
-.session-item .actions button:hover { color: var(--ink); }
+.session-item .actions button:hover,
+.journey-item .actions button:hover { color: var(--ink); }
 
 .capture-item .actions button.delete:hover,
-.session-item .actions button.delete:hover { color: var(--ink-muted); }
+.session-item .actions button.delete:hover,
+.journey-item .actions button.delete:hover { color: var(--ink-muted); }
 
 .capture-item .actions button.confirm,
-.session-item .actions button.confirm {
+.session-item .actions button.confirm,
+.journey-item .actions button.confirm {
     color: var(--one);
     border-color: var(--one);
 }
 
-.mode-badge,
+.capture-badge,
 .session-badge {
     background: var(--paper-dark);
     padding: 1px 6px;
     border-radius: 2px;
     font-size: 9px;
-    text-transform: uppercase;
+    color: var(--ink-muted);
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* Details panel */
 .details-panel {
     height: 200px;
+    min-height: 80px;
+    max-height: 70%;
     border-top: 1px solid var(--border);
     display: flex;
     flex-direction: column;
+    flex-shrink: 0;
 }
 
 .details-header {
@@ -653,4 +897,100 @@ body {
 .cookie-expires {
     color: var(--ink-muted);
     text-align: right;
+}
+
+/* Session Editor */
+.session-editor {
+    font-size: 11px;
+}
+
+.edit-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.edit-row input {
+    flex: 1;
+    padding: 6px 8px;
+    font-size: 11px;
+    background: var(--paper-dark);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    border-radius: 2px;
+}
+
+.cookie-edit-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.cookie-edit-item {
+    display: grid;
+    grid-template-columns: 100px 1fr 80px 24px;
+    gap: 4px;
+    align-items: center;
+}
+
+.cookie-edit-item input {
+    padding: 4px 6px;
+    font-size: 10px;
+    background: var(--paper-dark);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    border-radius: 2px;
+}
+
+.cookie-edit-item input:focus {
+    border-color: var(--four);
+    outline: none;
+}
+
+.btn-small {
+    background: var(--paper-light);
+    border: 1px solid var(--border);
+    color: var(--ink-muted);
+    padding: 2px 6px;
+    font-size: 10px;
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.btn-small:hover {
+    color: var(--ink);
+    border-color: var(--four);
+}
+
+.session-section-header .btn-small {
+    margin-left: 8px;
+}
+
+.editor-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+
+.editor-actions .btn {
+    padding: 6px 12px;
+    font-size: 10px;
+    background: var(--four);
+    border: none;
+    color: var(--ink);
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.editor-actions .btn:hover {
+    opacity: 0.9;
+}
+
+.editor-actions .btn.secondary {
+    background: var(--paper-light);
+    border: 1px solid var(--border);
 }

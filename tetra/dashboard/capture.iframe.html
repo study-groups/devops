@@ -10,12 +10,20 @@
 <body>
     <div class="header">
         <input type="text" id="url-input" placeholder="https://example.com" value="http://localhost:8080">
-        <select id="mode-select">
-            <option value="quick">Quick</option>
+        <select id="preset-select">
+            <option value="">Custom</option>
+            <option value="quick" selected>Quick</option>
             <option value="full">Full</option>
             <option value="extract">Extract</option>
-            <option value="journey">Journey</option>
         </select>
+        <div class="capture-types" id="capture-types">
+            <label><input type="checkbox" value="screenshot" checked> img</label>
+            <label><input type="checkbox" value="dom"> dom</label>
+            <label><input type="checkbox" value="text" checked> txt</label>
+            <label><input type="checkbox" value="structure"> struct</label>
+            <label><input type="checkbox" value="interactions"> interact</label>
+        </div>
+        <label class="steps-toggle"><input type="checkbox" id="steps-mode"> Steps</label>
         <select id="session-select">
             <option value="">No Session</option>
         </select>
@@ -42,7 +50,7 @@
                     <div class="preview-pane active" id="preview-screenshot">
                         <div class="placeholder">
                             Enter a URL and click Capture<br>
-                            <small>Quick: screenshot + text | Full: + DOM + structure | Journey: multi-step</small>
+                            <small>Select what to capture: img, dom, txt, struct, interact | Enable Steps for multi-step</small>
                         </div>
                     </div>
                     <div class="preview-pane" id="preview-dom">
@@ -60,7 +68,14 @@
             <div class="resize-handle" id="resize-handle" title="Drag to resize"></div>
 
             <div class="journey-builder" id="journey-builder">
-                <h3>Journey Steps <span id="selectors-status" class="selectors-status"></span></h3>
+                <div class="journey-header">
+                    <h3>Journey Steps <span id="selectors-status" class="selectors-status"></span></h3>
+                    <div class="journey-actions">
+                        <input type="text" id="journey-name" class="journey-name-input" placeholder="journey name">
+                        <button id="save-journey-btn" class="btn-small">Save</button>
+                        <button id="clear-journey-btn" class="btn-small">Clear</button>
+                    </div>
+                </div>
                 <div class="step-list" id="step-list"></div>
                 <div class="add-step">
                     <select id="step-action">
@@ -69,6 +84,7 @@
                         <option value="fill">Fill</option>
                         <option value="wait">Wait</option>
                         <option value="waitForSelector">Wait for Selector</option>
+                        <option value="evaluate">Evaluate JS</option>
                         <option value="saveSession">Save Session</option>
                     </select>
                     <input type="text" id="step-param1" placeholder="URL / Selector / Session name">
@@ -97,27 +113,42 @@
             </div>
         </div>
 
+        <div class="resize-handle-h" id="resize-handle-h" title="Drag to resize"></div>
+
         <div class="sidebar">
-            <div class="sidebar-tabs">
-                <div class="sidebar-tab active" data-panel="captures">Captures</div>
-                <div class="sidebar-tab" data-panel="sessions">Sessions</div>
+            <div class="sidebar-lists">
+                <div class="sidebar-tabs">
+                    <div class="sidebar-tab active" data-panel="captures">Captures</div>
+                    <div class="sidebar-tab" data-panel="sessions">Sessions</div>
+                    <div class="sidebar-tab" data-panel="journeys">Journeys</div>
+                </div>
+
+                <div class="list-panel active" id="captures-panel">
+                    <div class="sidebar-header">
+                        <span>Recent Captures</span>
+                        <button id="refresh-list" title="Refresh">&#x21bb;</button>
+                    </div>
+                    <div class="captures-list" id="captures-list"></div>
+                </div>
+
+                <div class="list-panel" id="sessions-panel">
+                    <div class="sidebar-header">
+                        <span>Saved Sessions</span>
+                        <button id="refresh-sessions" title="Refresh">&#x21bb;</button>
+                    </div>
+                    <div class="sessions-list" id="sessions-list"></div>
+                </div>
+
+                <div class="list-panel" id="journeys-panel">
+                    <div class="sidebar-header">
+                        <span>Saved Journeys</span>
+                        <button id="refresh-journeys" title="Refresh">&#x21bb;</button>
+                    </div>
+                    <div class="journeys-list" id="journeys-list"></div>
+                </div>
             </div>
 
-            <div class="list-panel active" id="captures-panel">
-                <div class="sidebar-header">
-                    <span>Recent Captures</span>
-                    <button id="refresh-list" title="Refresh">&#x21bb;</button>
-                </div>
-                <div class="captures-list" id="captures-list"></div>
-            </div>
-
-            <div class="list-panel" id="sessions-panel">
-                <div class="sidebar-header">
-                    <span>Saved Sessions</span>
-                    <button id="refresh-sessions" title="Refresh">&#x21bb;</button>
-                </div>
-                <div class="sessions-list" id="sessions-list"></div>
-            </div>
+            <div class="resize-handle-v" id="resize-handle-v" title="Drag to resize"></div>
 
             <div class="details-panel">
                 <div class="tabs">
