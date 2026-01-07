@@ -20,6 +20,14 @@ function getSessionsDir(org) {
     return path.join(ORGS_DIR, org, 'captures', 'sessions');
 }
 
+function getJourneysDir(org) {
+    return path.join(ORGS_DIR, org, 'captures', 'journeys');
+}
+
+function getJourneyPath(org, name) {
+    return path.join(getJourneysDir(org), `${name}.json`);
+}
+
 function generateId() {
     const now = new Date();
     const date = now.toISOString().replace(/[-:]/g, '').split('.')[0];
@@ -101,6 +109,8 @@ module.exports = {
     getCaptureDir,
     getSessionDir,
     getSessionsDir,
+    getJourneysDir,
+    getJourneyPath,
     generateId,
     ensureDir,
     runPlaywrightScript

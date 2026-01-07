@@ -1,13 +1,17 @@
 /**
- * Capture API - Route Definitions
+ * Capture API - Unified Model
  *
- * Modes:
- *   - quick: Screenshot + text content (fast, lightweight)
- *   - full: Rich extraction (structure, accessibility, performance)
- *   - journey: Multi-step capture with state tracking
- *   - extract: Interaction map for automation
+ * One capture type with composable outputs:
+ *   - url: Starting URL (optional if first step is goto)
+ *   - steps: Actions to perform (optional) - uses Playwright action names
+ *   - capture: What to capture ["screenshot", "dom", "text", "structure", "accessibility", "performance", "interactions", "semantic"]
+ *   - preset: Shorthand for common capture combos ("quick", "full", "extract")
  *
- * Storage: $TETRA_DIR/orgs/<org>/captures/
+ * Supported step actions (Playwright-standard):
+ *   goto, click, fill, type, press, check, uncheck, selectOption, hover,
+ *   wait, waitForTimeout, waitForSelector, waitForLoadState, evaluate, saveSession
+ *
+ * Storage: $TETRA_DIR/orgs/<org>/captures/<id>/
  */
 const express = require('express');
 const router = express.Router();
@@ -18,17 +22,23 @@ const {
     getCaptureDir,
     getSessionDir,
     getSessionsDir,
+    getJourneysDir,
+    getJourneyPath,
     generateId,
     ensureDir,
     runPlaywrightScript
 } = require('./helpers');
 
-const {
-    buildQuickScript,
-    buildFullScript,
-    buildJourneyScript,
-    buildExtractScript
-} = require('./scripts');
+const { buildCaptureScript } = require('./scripts');
+
+// Presets map to capture arrays
+const PRESETS = {
+    quick: ['screenshot', 'text'],
+    full: ['screenshot', 'dom', 'text', 'structure', 'accessibility', 'performance'],
+    extract: ['screenshot', 'interactions', 'semantic']
+};
+
+const VALID_CAPTURES = ['screenshot', 'dom', 'text', 'structure', 'accessibility', 'performance', 'interactions', 'semantic'];
 
 // ============================================================================
 // Main Capture Endpoint
@@ -36,18 +46,38 @@ const {
 
 /**
  * POST /api/capture
- * Main capture endpoint
+ * Unified capture endpoint
  */
 router.post('/', async (req, res) => {
     try {
-        const { url, org = 'tetra', mode = 'quick', steps, extract, session } = req.body;
+        const {
+            url,
+            org = 'tetra',
+            steps = [],
+            capture = ['screenshot'],
+            preset,
+            session
+        } = req.body;
 
-        if (!url && mode !== 'journey') {
-            return res.status(400).json({ error: 'url required' });
+        // Resolve captures from preset or explicit list
+        let captureList = preset ? PRESETS[preset] : capture;
+        if (!captureList || !Array.isArray(captureList)) {
+            captureList = ['screenshot'];
         }
 
-        if (mode === 'journey' && (!steps || !Array.isArray(steps))) {
-            return res.status(400).json({ error: 'steps array required for journey mode' });
+        // Validate capture types
+        const invalidCaptures = captureList.filter(c => !VALID_CAPTURES.includes(c));
+        if (invalidCaptures.length > 0) {
+            return res.status(400).json({
+                error: `Invalid capture types: ${invalidCaptures.join(', ')}`,
+                valid: VALID_CAPTURES
+            });
+        }
+
+        // Need either url or a goto step
+        const hasGoto = steps.some(s => s.action === 'goto');
+        if (!url && !hasGoto) {
+            return res.status(400).json({ error: 'url required (or first step must be goto)' });
         }
 
         // Validate session exists if specified
@@ -60,36 +90,22 @@ router.post('/', async (req, res) => {
 
         const id = generateId();
         const captureDir = getCaptureDir(org);
-        const outputDir = path.join(captureDir, mode, id);
+        const outputDir = path.join(captureDir, id);
         ensureDir(outputDir);
 
-        // Session options for script builders
-        const sessionOptions = {
+        // Build and run script
+        const script = buildCaptureScript({
+            url,
+            steps,
+            captureList,
+            outputDir,
+            id,
             session,
             sessionsDir: getSessionsDir(org)
-        };
+        });
 
-        let script;
-        let timeout = 60000;
-
-        switch (mode) {
-            case 'quick':
-                script = buildQuickScript(url, outputDir, id, sessionOptions);
-                break;
-            case 'full':
-                script = buildFullScript(url, outputDir, id, sessionOptions);
-                timeout = 90000;
-                break;
-            case 'journey':
-                script = buildJourneyScript(steps, outputDir, id, sessionOptions);
-                timeout = steps.length * 30000 + 30000; // 30s per step + buffer
-                break;
-            case 'extract':
-                script = buildExtractScript(url, outputDir, id, extract || ['interactions', 'semantic'], sessionOptions);
-                break;
-            default:
-                return res.status(400).json({ error: `Unknown mode: ${mode}` });
-        }
+        // Timeout: base 30s + 20s per step + 10s per capture type
+        const timeout = 30000 + (steps.length * 20000) + (captureList.length * 10000);
 
         const result = await runPlaywrightScript(script, outputDir, timeout);
         result.outputDir = outputDir;
@@ -112,39 +128,34 @@ router.post('/', async (req, res) => {
  */
 router.get('/list', (req, res) => {
     try {
-        const { org = 'tetra', mode } = req.query;
+        const { org = 'tetra' } = req.query;
         const captureDir = getCaptureDir(org);
 
         if (!fs.existsSync(captureDir)) {
             return res.json([]);
         }
 
-        const modes = mode ? [mode] : ['quick', 'full', 'journey', 'extract'];
         const captures = [];
+        const entries = fs.readdirSync(captureDir);
 
-        for (const m of modes) {
-            const modeDir = path.join(captureDir, m);
-            if (!fs.existsSync(modeDir)) continue;
+        for (const id of entries) {
+            const idPath = path.join(captureDir, id);
+            if (!fs.statSync(idPath).isDirectory()) continue;
 
-            const ids = fs.readdirSync(modeDir).filter(f => {
-                return fs.statSync(path.join(modeDir, f)).isDirectory();
-            });
-
-            for (const id of ids) {
-                const metaPath = path.join(modeDir, id, m === 'journey' ? 'manifest.json' : 'meta.json');
-                if (fs.existsSync(metaPath)) {
-                    try {
-                        const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
-                        captures.push({
-                            id,
-                            mode: m,
-                            url: meta.url || meta.finalUrl,
-                            timestamp: meta.timestamp,
-                            title: meta.title,
-                            success: meta.success !== false
-                        });
-                    } catch {}
-                }
+            const manifestPath = path.join(idPath, 'manifest.json');
+            if (fs.existsSync(manifestPath)) {
+                try {
+                    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+                    captures.push({
+                        id,
+                        url: manifest.url || manifest.finalUrl,
+                        timestamp: manifest.timestamp,
+                        title: manifest.title,
+                        capture: manifest.capture,
+                        stepCount: manifest.steps?.length || 0,
+                        success: manifest.success !== false
+                    });
+                } catch {}
             }
         }
 
@@ -159,7 +170,7 @@ router.get('/list', (req, res) => {
 });
 
 // ============================================================================
-// Session Management (MUST come before wildcard /:org/:mode/:id routes)
+// Session Management
 // ============================================================================
 
 /**
@@ -190,7 +201,6 @@ router.get('/sessions', (req, res) => {
                 }
             });
 
-        // Sort by lastUsed/created descending
         sessions.sort((a, b) => {
             const aTime = a.lastUsed || a.created || '';
             const bTime = b.lastUsed || b.created || '';
@@ -206,68 +216,7 @@ router.get('/sessions', (req, res) => {
 });
 
 /**
- * GET /api/capture/sessions/:org/:name
- * Get session metadata
- */
-router.get('/sessions/:org/:name', (req, res) => {
-    try {
-        const { org, name } = req.params;
-        const sessionDir = getSessionDir(org, name);
-        const metaPath = path.join(sessionDir, 'meta.json');
-
-        if (!fs.existsSync(metaPath)) {
-            return res.status(404).json({ error: 'Session not found' });
-        }
-
-        const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
-        res.json({ name, ...meta });
-
-    } catch (error) {
-        console.error('[API/capture] Session get error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-/**
- * GET /api/capture/sessions/:org/:name/state
- * Get full session state (cookies + localStorage)
- */
-router.get('/sessions/:org/:name/state', (req, res) => {
-    try {
-        const { org, name } = req.params;
-        const sessionDir = getSessionDir(org, name);
-        const statePath = path.join(sessionDir, 'state.json');
-        const metaPath = path.join(sessionDir, 'meta.json');
-
-        if (!fs.existsSync(statePath)) {
-            return res.status(404).json({ error: 'Session not found' });
-        }
-
-        const state = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
-        const meta = fs.existsSync(metaPath)
-            ? JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
-            : {};
-
-        // Summarize for display
-        res.json({
-            name,
-            ...meta,
-            cookies: state.cookies || [],
-            origins: (state.origins || []).map(o => ({
-                origin: o.origin,
-                localStorage: o.localStorage || []
-            }))
-        });
-
-    } catch (error) {
-        console.error('[API/capture] Session state error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-/**
  * DELETE /api/capture/sessions/:org/:name
- * Delete a saved session
  */
 router.delete('/sessions/:org/:name', (req, res) => {
     try {
@@ -287,115 +236,146 @@ router.delete('/sessions/:org/:name', (req, res) => {
     }
 });
 
-/**
- * POST /api/capture/sessions/:org/:name/touch
- * Update lastUsed timestamp for a session
- */
-router.post('/sessions/:org/:name/touch', (req, res) => {
-    try {
-        const { org, name } = req.params;
-        const sessionDir = getSessionDir(org, name);
-        const metaPath = path.join(sessionDir, 'meta.json');
+// ============================================================================
+// Journey Templates (saved step sequences)
+// ============================================================================
 
-        if (!fs.existsSync(metaPath)) {
-            return res.status(404).json({ error: 'Session not found' });
+/**
+ * GET /api/capture/journeys
+ * List saved journey templates
+ */
+router.get('/journeys', (req, res) => {
+    try {
+        const { org = 'tetra' } = req.query;
+        const journeysDir = getJourneysDir(org);
+
+        if (!fs.existsSync(journeysDir)) {
+            return res.json([]);
         }
 
-        const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
-        meta.lastUsed = new Date().toISOString();
-        fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+        const journeys = fs.readdirSync(journeysDir)
+            .filter(f => f.endsWith('.json'))
+            .map(f => {
+                const filePath = path.join(journeysDir, f);
+                try {
+                    const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+                    return { name: f.replace('.json', ''), ...data };
+                } catch {
+                    return { name: f.replace('.json', ''), error: 'Failed to read' };
+                }
+            });
 
-        res.json({ touched: true, name, lastUsed: meta.lastUsed });
+        journeys.sort((a, b) => {
+            const aTime = a.updated || a.created || '';
+            const bTime = b.updated || b.created || '';
+            return bTime.localeCompare(aTime);
+        });
+
+        res.json(journeys);
 
     } catch (error) {
-        console.error('[API/capture] Session touch error:', error);
+        console.error('[API/capture] Journeys list error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * POST /api/capture/journeys/:org/:name
+ * Save a journey template
+ */
+router.post('/journeys/:org/:name', (req, res) => {
+    try {
+        const { org, name } = req.params;
+        const { steps, capture, description } = req.body;
+
+        if (!steps || !Array.isArray(steps)) {
+            return res.status(400).json({ error: 'steps array required' });
+        }
+
+        if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+            return res.status(400).json({ error: 'Invalid name. Use only letters, numbers, dashes, underscores.' });
+        }
+
+        const journeysDir = getJourneysDir(org);
+        ensureDir(journeysDir);
+
+        const journeyPath = getJourneyPath(org, name);
+        const isNew = !fs.existsSync(journeyPath);
+        const now = new Date().toISOString();
+
+        const journey = {
+            steps,
+            capture: capture || ['screenshot'],
+            description: description || '',
+            created: isNew ? now : (JSON.parse(fs.readFileSync(journeyPath, 'utf-8')).created || now),
+            updated: now,
+            stepCount: steps.length
+        };
+
+        fs.writeFileSync(journeyPath, JSON.stringify(journey, null, 2));
+
+        res.json({ saved: true, name, isNew, stepCount: steps.length });
+
+    } catch (error) {
+        console.error('[API/capture] Journey save error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * DELETE /api/capture/journeys/:org/:name
+ */
+router.delete('/journeys/:org/:name', (req, res) => {
+    try {
+        const { org, name } = req.params;
+        const journeyPath = getJourneyPath(org, name);
+
+        if (!fs.existsSync(journeyPath)) {
+            return res.status(404).json({ error: 'Journey not found' });
+        }
+
+        fs.unlinkSync(journeyPath);
+        res.json({ deleted: true, name });
+
+    } catch (error) {
+        console.error('[API/capture] Journey delete error:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
 // ============================================================================
-// Capture Detail Routes (wildcard - must come after /sessions/*)
+// Capture Detail Routes
 // ============================================================================
 
 /**
- * GET /api/capture/:org/:mode/:id
- * Get capture metadata
+ * GET /api/capture/:org/:id
+ * Get capture manifest
  */
-router.get('/:org/:mode/:id', (req, res) => {
-    const { org, mode, id } = req.params;
-    const metaFile = mode === 'journey' ? 'manifest.json' : 'meta.json';
-    const metaPath = path.join(getCaptureDir(org), mode, id, metaFile);
+router.get('/:org/:id', (req, res) => {
+    const { org, id } = req.params;
+    const manifestPath = path.join(getCaptureDir(org), id, 'manifest.json');
 
-    if (!fs.existsSync(metaPath)) {
+    if (!fs.existsSync(manifestPath)) {
         return res.status(404).json({ error: 'Capture not found' });
     }
 
-    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
-    res.json(meta);
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+    res.json(manifest);
 });
 
 /**
- * GET /api/capture/:org/:mode/:id/screenshot
- * Get screenshot image
- */
-router.get('/:org/:mode/:id/screenshot', (req, res) => {
-    const { org, mode, id } = req.params;
-    const { step } = req.query;
-
-    let screenshotPath;
-    if (mode === 'journey') {
-        const stepsDir = path.join(getCaptureDir(org), mode, id, 'steps');
-        if (step) {
-            const stepNum = String(step).padStart(3, '0');
-            screenshotPath = path.join(stepsDir, `${stepNum}-after.png`);
-        } else {
-            // Find the last step screenshot
-            if (fs.existsSync(stepsDir)) {
-                const files = fs.readdirSync(stepsDir).filter(f => f.endsWith('-after.png')).sort();
-                if (files.length > 0) {
-                    screenshotPath = path.join(stepsDir, files[files.length - 1]);
-                }
-            }
-        }
-    } else {
-        screenshotPath = path.join(getCaptureDir(org), mode, id, 'screenshot.png');
-    }
-
-    if (!screenshotPath || !fs.existsSync(screenshotPath)) {
-        return res.status(404).json({ error: 'Screenshot not found' });
-    }
-
-    res.sendFile(screenshotPath);
-});
-
-/**
- * GET /api/capture/:org/:mode/:id/dom
- * Get DOM HTML for full captures
- */
-router.get('/:org/:mode/:id/dom', (req, res) => {
-    const { org, mode, id } = req.params;
-    const domPath = path.join(getCaptureDir(org), mode, id, 'dom.html');
-
-    if (!fs.existsSync(domPath)) {
-        return res.status(404).json({ error: 'DOM not available (only for full captures)' });
-    }
-
-    res.type('text/html').sendFile(domPath);
-});
-
-/**
- * GET /api/capture/:org/:mode/:id/file/:filename
+ * GET /api/capture/:org/:id/file/:filename
  * Get any file from capture directory
  */
-router.get('/:org/:mode/:id/file/:filename', (req, res) => {
-    const { org, mode, id, filename } = req.params;
+router.get('/:org/:id/file/:filename', (req, res) => {
+    const { org, id, filename } = req.params;
 
     // Security: prevent path traversal
     if (filename.includes('..') || filename.includes('/')) {
         return res.status(400).json({ error: 'Invalid filename' });
     }
 
-    const filePath = path.join(getCaptureDir(org), mode, id, filename);
+    const filePath = path.join(getCaptureDir(org), id, filename);
 
     if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'File not found' });
@@ -405,21 +385,20 @@ router.get('/:org/:mode/:id/file/:filename', (req, res) => {
 });
 
 /**
- * DELETE /api/capture/:org/:mode/:id
+ * DELETE /api/capture/:org/:id
  * Delete a capture
  */
-router.delete('/:org/:mode/:id', (req, res) => {
+router.delete('/:org/:id', (req, res) => {
     try {
-        const { org, mode, id } = req.params;
-        const captureDir = path.join(getCaptureDir(org), mode, id);
+        const { org, id } = req.params;
+        const captureDir = path.join(getCaptureDir(org), id);
 
         if (!fs.existsSync(captureDir)) {
             return res.status(404).json({ error: 'Capture not found' });
         }
 
-        // Recursively delete directory
         fs.rmSync(captureDir, { recursive: true, force: true });
-        res.json({ deleted: true, id, mode });
+        res.json({ deleted: true, id });
 
     } catch (error) {
         console.error('[API/capture] Delete error:', error);
