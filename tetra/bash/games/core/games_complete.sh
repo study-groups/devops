@@ -4,9 +4,9 @@
 #
 # Provides completion for:
 #   - games subcommands
+#   - ctx with dynamic org:project:subject completion
 #   - game names (for play, info, controls, pak)
 #   - game slugs from manifest (for get, set, rm, access, url, deploy)
-#   - org names
 #   - gamepak files (for unpak)
 #   - zip files (for upload)
 #   - help topics
@@ -15,13 +15,15 @@
 # COMPLETION DATA
 # =============================================================================
 
-_GAMES_COMMANDS="list play info controls org orgs search pak unpak doctor help"
+_GAMES_COMMANDS="ctx list play info controls search pak unpak doctor help"
 _GAMES_COMMANDS+=" get set add rm import access"          # CRUD
 _GAMES_COMMANDS+=" upload url"                             # Upload
 _GAMES_COMMANDS+=" deploy deploy-all deploy-status"        # Deploy
-_GAMES_COMMANDS+=" manifest"                               # Manifest
+_GAMES_COMMANDS+=" manifest preflight"                     # Manifest + preflight
 
-_GAMES_HELP_TOPICS="play orgs pak crud upload deploy manifest all"
+_GAMES_CTX_SUBCOMMANDS="set clear status"
+
+_GAMES_HELP_TOPICS="ctx play pak crud upload deploy manifest preflight all"
 
 _GAMES_ROLES="guest user premium dev admin"
 _GAMES_SUBSCRIPTIONS="free basic pro enterprise"
@@ -30,15 +32,15 @@ _GAMES_SUBSCRIPTIONS="free basic pro enterprise"
 # HELPER FUNCTIONS
 # =============================================================================
 
-# Get active org
+# Get active org from TPS context
 _games_complete_active_org() {
-    if [[ -n "$GAMES_ORG" ]]; then
-        echo "$GAMES_ORG"
-    elif [[ -n "$GAMES_CTX_ORG" ]]; then
-        echo "$GAMES_CTX_ORG"
-    else
-        echo "tetra"
+    # Prefer TPS context, fall back to legacy vars
+    if type tps_ctx &>/dev/null; then
+        local org
+        org=$(tps_ctx get games org 2>/dev/null)
+        [[ -n "$org" ]] && { echo "$org"; return; }
     fi
+    echo "${GAMES_CTX_ORG:-${TETRA_ORG:-tetra}}"
 }
 
 # List organization names
@@ -50,15 +52,114 @@ _games_complete_orgs() {
     done
 }
 
-# List game names in current org (filesystem)
-_games_complete_games() {
-    local org=$(_games_complete_active_org)
+# List game names in a specific org
+_games_complete_games_in_org() {
+    local org="${1:-$(_games_complete_active_org)}"
     local games_dir="$TETRA_DIR/orgs/$org/games"
     [[ -d "$games_dir" ]] || return
 
     for game_dir in "$games_dir"/*/; do
         [[ -d "$game_dir" ]] && basename "$game_dir"
     done
+}
+
+# List game names in current org (filesystem)
+_games_complete_games() {
+    _games_complete_games_in_org "$(_games_complete_active_org)"
+}
+
+# List subjects/versions for a game (subdirs or version tags)
+_games_complete_subjects() {
+    local org="$1"
+    local game="$2"
+    local game_dir="$TETRA_DIR/orgs/$org/games/$game"
+    [[ -d "$game_dir" ]] || return
+
+    # Return subdirectories as subjects
+    for sub_dir in "$game_dir"/*/; do
+        [[ -d "$sub_dir" ]] && basename "$sub_dir"
+    done
+}
+
+# =============================================================================
+# CTX COMPLETION - Dynamic org:project:subject
+# =============================================================================
+
+# Complete ctx argument with colon-separated values
+# Format: org:project:subject
+_games_complete_ctx_arg() {
+    local cur="$1"
+    local completions=()
+
+    # Count colons to determine completion level
+    local colons="${cur//[^:]}"
+    local level=${#colons}
+
+    case $level in
+        0)
+            # No colons yet - complete org names (with trailing colon)
+            # Also include ctx subcommands (set, clear, status)
+            if [[ -z "$cur" ]]; then
+                # Empty - show orgs with colons and subcommands
+                for org in $(_games_complete_orgs); do
+                    completions+=("${org}:")
+                done
+                completions+=($_GAMES_CTX_SUBCOMMANDS)
+            elif [[ "$cur" == *: ]]; then
+                # Trailing colon - move to project completion
+                local org="${cur%:}"
+                for game in $(_games_complete_games_in_org "$org"); do
+                    completions+=("${org}:${game}:")
+                done
+            else
+                # Partial org name - complete orgs
+                for org in $(_games_complete_orgs); do
+                    [[ "$org" == "$cur"* ]] && completions+=("${org}:")
+                done
+                # Also match subcommands
+                for subcmd in $_GAMES_CTX_SUBCOMMANDS; do
+                    [[ "$subcmd" == "$cur"* ]] && completions+=("$subcmd")
+                done
+            fi
+            ;;
+        1)
+            # One colon - org:project
+            local org="${cur%%:*}"
+            local project_prefix="${cur#*:}"
+
+            if [[ "$cur" == *: && -z "$project_prefix" ]]; then
+                # Just "org:" - show all projects
+                for game in $(_games_complete_games_in_org "$org"); do
+                    completions+=("${org}:${game}:")
+                done
+            elif [[ "$cur" == *:: ]]; then
+                # "org:project:" - move to subject
+                local project="${cur%:}"
+                project="${project#*:}"
+                for subj in $(_games_complete_subjects "$org" "$project"); do
+                    completions+=("${org}:${project}:${subj}")
+                done
+            else
+                # Partial project - complete projects
+                for game in $(_games_complete_games_in_org "$org"); do
+                    [[ "$game" == "$project_prefix"* ]] && completions+=("${org}:${game}:")
+                done
+            fi
+            ;;
+        2)
+            # Two colons - org:project:subject
+            local org="${cur%%:*}"
+            local rest="${cur#*:}"
+            local project="${rest%%:*}"
+            local subject_prefix="${rest#*:}"
+
+            for subj in $(_games_complete_subjects "$org" "$project"); do
+                [[ "$subj" == "$subject_prefix"* ]] && completions+=("${org}:${project}:${subj}")
+            done
+            ;;
+    esac
+
+    printf '%s\n' "${completions[@]}"
 }
 
 # List game slugs from manifest (for CRUD operations)
@@ -115,8 +216,14 @@ _games_complete() {
     # Second argument - depends on command
     if [[ $COMP_CWORD -eq 2 ]]; then
         case "$cmd" in
+            # Context - dynamic org:project:subject completion
+            ctx|context)
+                # Disable default space append for colon completion
+                compopt -o nospace
+                COMPREPLY=($(compgen -W "$(_games_complete_ctx_arg "$cur")" -- "$cur"))
+                ;;
             # Filesystem game names
-            play|run|info|controls|ctrl|pak|pack|backup)
+            play|run|info|controls|ctrl|pak|pack|backup|preflight|check)
                 COMPREPLY=($(compgen -W "$(_games_complete_games)" -- "$cur"))
                 ;;
             # Manifest slugs
@@ -142,10 +249,6 @@ _games_complete() {
             # Deploy-all/status takes host
             deploy-all|deploy-status)
                 # No completion for hosts
-                ;;
-            # Org names
-            org)
-                COMPREPLY=($(compgen -W "$(_games_complete_orgs)" -- "$cur"))
                 ;;
             # Gamepak files
             unpak|unpack|restore)

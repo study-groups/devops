@@ -83,6 +83,10 @@ if [[ -f "$GAMES_SRC/core/games_deploy.sh" ]]; then
     source "$GAMES_SRC/core/games_deploy.sh"
 fi
 
+if [[ -f "$GAMES_SRC/core/games_preflight.sh" ]]; then
+    source "$GAMES_SRC/core/games_preflight.sh"
+fi
+
 # =============================================================================
 # ORG COMMANDS
 # =============================================================================
@@ -577,10 +581,248 @@ games_unpak() {
 }
 
 # =============================================================================
-# DOCTOR - Diagnose environment
+# DOCTOR - Game management and diagnostics
 # =============================================================================
 
+# Rename a game across all touch points
+games_doctor_rename() {
+    local old="$1" new="$2"
+
+    if [[ -z "$old" || -z "$new" ]]; then
+        echo "Usage: games doctor rename <old-name> <new-name>" >&2
+        return 1
+    fi
+
+    local org=$(_games_get_org)
+    local games_dir=$(_games_get_dir)
+    local old_dir="${games_dir}/${old}"
+    local new_dir="${games_dir}/${new}"
+
+    # Validate
+    if [[ ! -d "$old_dir" ]]; then
+        echo "Game not found: $old" >&2
+        echo "Looked in: $old_dir" >&2
+        return 1
+    fi
+
+    if [[ -d "$new_dir" ]]; then
+        echo "Target already exists: $new" >&2
+        echo "Path: $new_dir" >&2
+        return 1
+    fi
+
+    echo "Renaming game: $old -> $new"
+    echo "Org: $org"
+    echo ""
+
+    local errors=0
+
+    # 1. Rename directory
+    echo "[1/6] Renaming directory..."
+    if mv "$old_dir" "$new_dir"; then
+        echo "  [OK] ${old}/ -> ${new}/"
+    else
+        echo "  [FAIL] Could not rename directory" >&2
+        return 1
+    fi
+
+    # 2. Update game.toml
+    echo "[2/6] Updating game.toml..."
+    if [[ -f "${new_dir}/game.toml" ]]; then
+        # Update id field
+        if grep -q "^id = " "${new_dir}/game.toml"; then
+            sed -i '' "s/^id = \"[^\"]*\"/id = \"$new\"/" "${new_dir}/game.toml"
+            echo "  [OK] Updated id = \"$new\""
+        fi
+        # Update name field (capitalize first letter)
+        local new_name="${new^}"
+        if grep -q "^name = " "${new_dir}/game.toml"; then
+            sed -i '' "s/^name = \"[^\"]*\"/name = \"$new_name\"/" "${new_dir}/game.toml"
+            echo "  [OK] Updated name = \"$new_name\""
+        fi
+    else
+        echo "  [SKIP] No game.toml found"
+    fi
+
+    # 3. Update manifest (games.json) if exists
+    echo "[3/6] Checking manifest..."
+    local manifest="${TETRA_DIR}/orgs/${org}/games/games.json"
+    if [[ -f "$manifest" ]]; then
+        if jq -e ".games[\"$old\"]" "$manifest" >/dev/null 2>&1; then
+            local tmp=$(mktemp)
+            jq --arg old "$old" --arg new "$new" '
+                .games[$new] = .games[$old] |
+                .games[$new].slug = $new |
+                del(.games[$old])
+            ' "$manifest" > "$tmp" && mv "$tmp" "$manifest"
+            echo "  [OK] Renamed entry in games.json"
+        else
+            echo "  [SKIP] Game not in manifest"
+        fi
+    else
+        echo "  [SKIP] No games.json manifest"
+    fi
+
+    # 4. Update enabled symlink
+    echo "[4/6] Checking enabled symlinks..."
+    local enabled_link="$GAMES_SRC/enabled/$old"
+    if [[ -L "$enabled_link" ]]; then
+        rm "$enabled_link"
+        ln -s "../available/$new" "$GAMES_SRC/enabled/$new"
+        echo "  [OK] Updated symlink in enabled/"
+    else
+        echo "  [SKIP] No enabled symlink"
+    fi
+
+    # Also check available directory (source code location)
+    local avail_old="$GAMES_SRC/available/$old"
+    local avail_new="$GAMES_SRC/available/$new"
+    if [[ -d "$avail_old" ]]; then
+        mv "$avail_old" "$avail_new"
+        echo "  [OK] Renamed in available/"
+    fi
+
+    # 5. Rename runtime dir
+    echo "[5/6] Checking runtime directory..."
+    local runtime_old="${TETRA_DIR}/games/${old}"
+    local runtime_new="${TETRA_DIR}/games/${new}"
+    if [[ -d "$runtime_old" ]]; then
+        mv "$runtime_old" "$runtime_new"
+        echo "  [OK] Renamed runtime dir"
+    else
+        echo "  [SKIP] No runtime directory"
+    fi
+
+    # 6. Warn about external references
+    echo "[6/6] Checking for external references..."
+    games_doctor_refs "$old"
+
+    echo ""
+    echo "Rename complete: $old -> $new"
+}
+
+# Move a game to a different org
+games_doctor_move() {
+    local game="$1" target_org="$2"
+
+    if [[ -z "$game" || -z "$target_org" ]]; then
+        echo "Usage: games doctor move <game> <target-org>" >&2
+        return 1
+    fi
+
+    local src_org=$(_games_get_org)
+    local src_dir="${TETRA_DIR}/orgs/${src_org}/games/${game}"
+    local dst_dir="${TETRA_DIR}/orgs/${target_org}/games/${game}"
+
+    # Validate source
+    if [[ ! -d "$src_dir" ]]; then
+        echo "Game not found: $game in org $src_org" >&2
+        return 1
+    fi
+
+    # Validate target org exists
+    if [[ ! -d "${TETRA_DIR}/orgs/${target_org}" ]]; then
+        echo "Target org not found: $target_org" >&2
+        echo "Create it first: mkdir -p ${TETRA_DIR}/orgs/${target_org}/games" >&2
+        return 1
+    fi
+
+    # Check target doesn't exist
+    if [[ -d "$dst_dir" ]]; then
+        echo "Game already exists in target org: $dst_dir" >&2
+        return 1
+    fi
+
+    echo "Moving game: $game"
+    echo "From: $src_org -> $target_org"
+    echo ""
+
+    # Ensure target games dir exists
+    mkdir -p "${TETRA_DIR}/orgs/${target_org}/games"
+
+    # Move the game
+    if mv "$src_dir" "$dst_dir"; then
+        echo "[OK] Moved to: $dst_dir"
+    else
+        echo "[FAIL] Could not move game" >&2
+        return 1
+    fi
+
+    # Update game.toml org field if present
+    if [[ -f "${dst_dir}/game.toml" ]]; then
+        if grep -q "^org = " "${dst_dir}/game.toml"; then
+            sed -i '' "s/^org = \"[^\"]*\"/org = \"$target_org\"/" "${dst_dir}/game.toml"
+            echo "[OK] Updated org in game.toml"
+        fi
+    fi
+
+    echo ""
+    echo "Move complete. Switch to org: games org $target_org"
+}
+
+# Find references to a game name in the codebase
+games_doctor_refs() {
+    local game="$1"
+
+    if [[ -z "$game" ]]; then
+        echo "Usage: games doctor refs <game-name>" >&2
+        return 1
+    fi
+
+    echo ""
+    echo "References to '$game' in codebase:"
+
+    local count=0
+    while IFS= read -r file; do
+        [[ -z "$file" ]] && continue
+        # Skip node_modules and .git
+        [[ "$file" == *"node_modules"* ]] && continue
+        [[ "$file" == *".git/"* ]] && continue
+        echo "  $file"
+        ((count++))
+    done < <(grep -rl "$game" "$TETRA_SRC" --include="*.md" --include="*.html" --include="*.js" --include="*.sh" 2>/dev/null | head -30)
+
+    if ((count == 0)); then
+        echo "  (no references found)"
+    else
+        echo ""
+        echo "Found $count file(s) referencing '$game'"
+        echo "Review and update these manually if needed."
+    fi
+}
+
+# Main doctor dispatch
 games_doctor() {
+    local subcmd="${1:-}"
+
+    case "$subcmd" in
+        rename)
+            shift
+            games_doctor_rename "$@"
+            ;;
+        move)
+            shift
+            games_doctor_move "$@"
+            ;;
+        refs)
+            shift
+            games_doctor_refs "$@"
+            ;;
+        --kill)
+            games_doctor_main --kill
+            ;;
+        ""|help|-h)
+            games_doctor_main
+            ;;
+        *)
+            # Unknown subcommand - pass to main diagnostics
+            games_doctor_main "$@"
+            ;;
+    esac
+}
+
+# Environment diagnostics (original doctor functionality)
+games_doctor_main() {
     local kill_orphans=0
     [[ "$1" == "--kill" ]] && kill_orphans=1
 
@@ -879,6 +1121,16 @@ games() {
             games_deploy_status "$@"
             ;;
 
+        # Preflight / Deploy-readiness
+        preflight|check)
+            if declare -f games_preflight >/dev/null 2>&1; then
+                games_preflight "$@"
+            else
+                echo "Error: games_preflight module not loaded" >&2
+                return 1
+            fi
+            ;;
+
         # Diagnostics
         doctor)
             games_doctor "$@"
@@ -916,6 +1168,11 @@ MANIFEST CRUD (direct editing - like admin UI)
   games rm <slug>                Remove game from manifest
   games import <dir>             Import game.toml into manifest
   games access <slug> [opts]     Set access control (--role, --auth)
+
+PREFLIGHT (deploy-readiness)
+  games preflight <game>         Validate SDK + lifecycle handlers
+  games preflight --all          Validate all games in org
+  games preflight <game> --json  Machine-readable output
 
 UPLOAD & DEPLOY (like admin UI)
   games upload <file.zip>        Upload and extract game ZIP
@@ -975,6 +1232,10 @@ export -f games_search
 export -f games_pak
 export -f games_unpak
 export -f games_doctor
+export -f games_doctor_main
+export -f games_doctor_rename
+export -f games_doctor_move
+export -f games_doctor_refs
 export -f _games_get_org
 export -f _games_get_dir
 

@@ -1,0 +1,203 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://tetra.dev/schemas/games.json",
+  "title": "Games Manifest Schema",
+  "description": "Schema for games.json - the source of truth for game distribution",
+  "type": "object",
+  "required": ["_config", "games"],
+  "properties": {
+    "_config": {
+      "type": "object",
+      "description": "Manifest configuration and metadata",
+      "required": ["generated_at", "storage"],
+      "properties": {
+        "generated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of manifest generation"
+        },
+        "version": {
+          "type": "string",
+          "default": "1.0.0",
+          "description": "Manifest schema version"
+        },
+        "storage": {
+          "type": "object",
+          "required": ["s3_bucket", "s3_endpoint"],
+          "properties": {
+            "s3_bucket": {
+              "type": "string",
+              "description": "DO Spaces bucket name",
+              "examples": ["pja-games"]
+            },
+            "s3_endpoint": {
+              "type": "string",
+              "format": "uri",
+              "description": "DO Spaces endpoint URL",
+              "examples": ["https://sfo3.digitaloceanspaces.com"]
+            },
+            "cdn_url": {
+              "type": "string",
+              "format": "uri",
+              "description": "CDN base URL for game assets"
+            }
+          }
+        }
+      }
+    },
+    "games": {
+      "type": "object",
+      "description": "Map of game slug to game configuration",
+      "additionalProperties": {
+        "$ref": "#/definitions/game"
+      }
+    }
+  },
+  "definitions": {
+    "game": {
+      "type": "object",
+      "required": ["slug", "name", "url_path", "access_control"],
+      "properties": {
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "URL-safe identifier (lowercase, hyphens only)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name for the game"
+        },
+        "summary": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Short description (max 200 chars)"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "default": "1.0.0",
+          "description": "Semantic version"
+        },
+        "url_path": {
+          "type": "string",
+          "description": "Path to index.html relative to games root",
+          "examples": ["dino-run/index.html"]
+        },
+        "url_path_demo": {
+          "type": "string",
+          "description": "Optional demo version path"
+        },
+        "url_path_dev": {
+          "type": "string",
+          "description": "Optional development version path"
+        },
+        "src": {
+          "type": "string",
+          "description": "API path for game files proxy",
+          "examples": ["/api/game-files/dino-run/index.html"]
+        },
+        "thumbnail": {
+          "type": "string",
+          "description": "Path to thumbnail image",
+          "examples": ["dino-run/thumbnail.jpg"]
+        },
+        "show": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether game appears in public listings"
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Categorization tags",
+          "examples": [["arcade", "runner", "casual"]]
+        },
+        "access_control": {
+          "$ref": "#/definitions/access_control"
+        },
+        "sdk": {
+          "$ref": "#/definitions/sdk_config"
+        },
+        "preflight": {
+          "$ref": "#/definitions/preflight_status"
+        }
+      }
+    },
+    "access_control": {
+      "type": "object",
+      "description": "Access control settings",
+      "properties": {
+        "requires_auth": {
+          "type": "boolean",
+          "default": false,
+          "description": "Requires user authentication"
+        },
+        "min_role": {
+          "type": "string",
+          "enum": ["guest", "user", "premium", "admin"],
+          "default": "guest",
+          "description": "Minimum user role required"
+        },
+        "min_subscription": {
+          "type": "string",
+          "enum": ["free", "basic", "premium", "enterprise"],
+          "default": "free",
+          "description": "Minimum subscription tier required"
+        }
+      }
+    },
+    "sdk_config": {
+      "type": "object",
+      "description": "PJA SDK integration details",
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "Required SDK version"
+        },
+        "handlers": {
+          "type": "object",
+          "description": "Implemented SDK handlers",
+          "properties": {
+            "lifecycle": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["onStart", "onStop", "onPause", "onResume"]
+              }
+            },
+            "volume": {
+              "type": "boolean",
+              "description": "Implements onVolumeChange"
+            },
+            "input": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["onGamepad", "onGamepadAxis", "onMidiCC", "onKey"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "preflight_status": {
+      "type": "object",
+      "description": "Last preflight check results",
+      "properties": {
+        "passed": {
+          "type": "boolean"
+        },
+        "checked_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "errors": {
+          "type": "integer"
+        },
+        "warnings": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

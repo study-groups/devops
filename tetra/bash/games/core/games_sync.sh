@@ -193,27 +193,45 @@ games_fetch() {
 # =============================================================================
 
 # Pull games from S3 to local
-# Usage: games_pull [org] [category] [--dry-run]
+# Usage: games_pull [--org <org>] [--dry-run]
 games_pull() {
-    local org="${1:-$(_games_get_org)}"
-    local category="${2:-pja-games}"
-    shift 2 2>/dev/null || true
-    local options="$*"
+    local org=""
+    local dry_run=""
+    local game=""
 
-    _games_s3_config "$org" "$category" || return 1
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --org|-o) org="$2"; shift ;;
+            --dry-run|-n) dry_run="--dry-run" ;;
+            -*) echo "Unknown option: $1" >&2; return 1 ;;
+            *) game="$1" ;;
+        esac
+        shift
+    done
 
-    local local_dir
-    local_dir=$(games_get_category_dir "$org" "$category" 2>/dev/null) || \
-        local_dir="$TETRA_DIR/orgs/$org/games"
+    org="${org:-$(_games_get_org)}"
+    _games_s3_config "$org" || return 1
 
+    local local_dir="${TETRA_DIR}/orgs/${org}/games"
     local symbol
-    symbol=$(_games_spaces_symbol)
 
-    echo "Pull: @spaces:$symbol -> $local_dir"
+    if [[ -n "$game" ]]; then
+        # Pull specific game
+        symbol=$(_games_spaces_symbol "$game/")
+        local_dir="${local_dir}/${game}"
+        echo "Pull: $game"
+    else
+        # Pull all games
+        symbol=$(_games_spaces_symbol)
+        echo "Pull: all games"
+    fi
+
+    echo "From: @spaces:$symbol"
+    echo "To:   $local_dir"
     echo ""
 
     mkdir -p "$local_dir"
-    spaces_sync "$symbol" "$local_dir/" $options
+    spaces_sync "$symbol" "$local_dir/" $dry_run
 
     local result=$?
     echo ""
@@ -226,37 +244,73 @@ games_pull() {
 }
 
 # Push games from local to S3
-# Usage: games_push [org] [category] [--dry-run]
+# Usage: games_push [<game>] [--org <org>] [--dry-run] [--skip-preflight]
 games_push() {
-    local org="${1:-$(_games_get_org)}"
-    local category="${2:-pja-games}"
-    shift 2 2>/dev/null || true
-    local options="$*"
+    local org=""
+    local dry_run=""
+    local game=""
+    local skip_preflight=false
 
-    _games_s3_config "$org" "$category" || return 1
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --org|-o) org="$2"; shift ;;
+            --dry-run|-n) dry_run="--dry-run" ;;
+            --skip-preflight) skip_preflight=true ;;
+            -*) echo "Unknown option: $1" >&2; return 1 ;;
+            *) game="$1" ;;
+        esac
+        shift
+    done
 
-    local local_dir
-    local_dir=$(games_get_category_dir "$org" "$category" 2>/dev/null) || \
-        local_dir="$TETRA_DIR/orgs/$org/games"
+    org="${org:-$(_games_get_org)}"
+    _games_s3_config "$org" || return 1
 
-    if [[ ! -d "$local_dir" ]]; then
-        echo "Error: local directory not found: $local_dir" >&2
-        return 1
+    local local_dir="${TETRA_DIR}/orgs/${org}/games"
+    local symbol
+
+    if [[ -n "$game" ]]; then
+        # Push specific game
+        local_dir="${local_dir}/${game}"
+        symbol=$(_games_spaces_symbol "$game/")
+
+        if [[ ! -d "$local_dir" ]]; then
+            echo "Error: Game not found: $local_dir" >&2
+            return 1
+        fi
+
+        echo "Push: $game"
+    else
+        # Push all games
+        symbol=$(_games_spaces_symbol)
+        echo "Push: all games"
     fi
 
-    local symbol
-    symbol=$(_games_spaces_symbol)
-
-    echo "Push: $local_dir -> @spaces:$symbol"
+    echo "From: $local_dir"
+    echo "To:   @spaces:$symbol"
     echo ""
 
-    # Validate before push if function exists
-    if declare -f games_validate >/dev/null 2>&1; then
-        echo "Validating games before push..."
-        if ! games_validate "$org" "$category" 2>/dev/null; then
+    # Run preflight before push
+    if ! $skip_preflight && declare -f games_preflight >/dev/null 2>&1; then
+        echo "Running preflight checks..."
+        echo ""
+
+        local preflight_failed=false
+        if [[ -n "$game" ]]; then
+            if ! games_preflight "$game" --org "$org" 2>/dev/null; then
+                preflight_failed=true
+            fi
+        else
+            if ! games_preflight --all --org "$org" 2>/dev/null; then
+                preflight_failed=true
+            fi
+        fi
+
+        if $preflight_failed; then
             echo ""
-            echo "Warning: some games failed validation" >&2
-            read -p "Continue anyway? [y/N]: " -n 1 -r
+            echo "Preflight failed. Options:" >&2
+            echo "  1. Fix the issues above" >&2
+            echo "  2. Use --skip-preflight to bypass" >&2
+            read -p "Push anyway? [y/N]: " -n 1 -r
             echo
             if [[ ! $REPLY =~ ^[Yy]$ ]]; then
                 echo "Cancelled"
@@ -266,12 +320,13 @@ games_push() {
         echo ""
     fi
 
-    spaces_sync "$local_dir/" "$symbol" --acl-public $options
+    spaces_sync "$local_dir/" "$symbol" --acl-public $dry_run
 
     local result=$?
     echo ""
     if ((result == 0)); then
         echo "Push complete."
+        echo "CDN URL: https://${GAMES_S3_BUCKET}.sfo3.digitaloceanspaces.com/${GAMES_S3_PREFIX}"
     else
         echo "Push failed (exit code: $result)"
     fi
