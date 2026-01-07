@@ -91,18 +91,27 @@ class GameRegistry extends EventEmitter {
                     const content = fs.readFileSync(tomlPath, 'utf8');
                     const config = parseToml(content);
 
-                    if (!config.game?.id) continue;
+                    // Support both [game] section and top-level fields
+                    const g = config.game || config;
+                    const gameId = g.id || gameName;
+
+                    if (!gameId) continue;
 
                     const game = {
-                        id: config.game.id,
-                        name: config.game.name || config.game.id,
+                        id: gameId,
+                        name: g.name || gameId,
+                        description: g.description || '',
                         org,
                         dir: gameDir,
-                        entry: config.game.entry,
-                        port: config.game.port,
-                        engine: config.game.engine,
-                        players: config.settings?.players || 2,
-                        settings: config.settings || {}
+                        entry: g.entry || g.repl,
+                        port: g.port,
+                        engine: g.engine || 'gamepak',
+                        players: config.settings?.players || g.players || 2,
+                        settings: config.settings || {},
+                        geometry: {
+                            width: config.settings?.arena_width || 60,
+                            height: config.settings?.arena_height || 24
+                        }
                     };
 
                     this.games.set(game.id, game);

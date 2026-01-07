@@ -2,13 +2,13 @@
   "name": "@tetra/gamma",
   "version": "1.0.0",
   "description": "GAMMA - Game Match-Making Allocator",
-  "main": "gamma.js",
+  "main": "gamma-api.js",
   "bin": {
-    "gamma": "./gamma.js"
+    "gamma-api": "./gamma-api.js"
   },
   "scripts": {
-    "start": "node gamma.js",
-    "dev": "node gamma.js -v"
+    "start": "node gamma-api.js",
+    "dev": "node gamma-api.js -v"
   },
   "keywords": [
     "tetra",

@@ -26,7 +26,7 @@ info() { echo -e "${YELLOW}INFO${NC} $1"; }
 step() { echo -e "${CYAN}━━━━${NC} $1"; }
 
 # Config
-GAMMA_URL="${GAMMA_URL:-http://localhost:8085}"
+GAMMA_URL="${GAMMA_URL:-http://localhost:1980}"
 TRAX_PORT="${TRAX_PORT:-8080}"
 TRAX_WS="ws://localhost:$TRAX_PORT"
 

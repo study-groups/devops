@@ -19,7 +19,7 @@ fail() { echo -e "${RED}FAIL${NC} $1"; exit 1; }
 info() { echo -e "${YELLOW}INFO${NC} $1"; }
 
 # Setup
-GAMMA_HTTP_PORT="${GAMMA_HTTP_PORT:-8085}"
+GAMMA_HTTP_PORT="${GAMMA_HTTP_PORT:-1980}"
 GAMMA_URL="http://localhost:$GAMMA_HTTP_PORT"
 
 echo "========================================"

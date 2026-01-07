@@ -8,7 +8,7 @@
 : "${GAMMA_DIR:=$TETRA_DIR/gamma}"
 
 # Service ports
-GAMMA_HTTP_PORT="${GAMMA_HTTP_PORT:-8085}"
+GAMMA_HTTP_PORT="${GAMMA_HTTP_PORT:-1980}"
 GAMMA_UDP_PORT="${GAMMA_UDP_PORT:-1985}"
 GAMMA_SOCKET="/tmp/tetra/gamma.sock"
 
@@ -96,7 +96,7 @@ gamma() {
         start)
             echo "Starting gamma..."
             if tsm start --name gamma --port "$GAMMA_HTTP_PORT" \
-                node "$GAMMA_SRC/gamma.js" --http-port "$GAMMA_HTTP_PORT" --udp-port "$GAMMA_UDP_PORT"; then
+                node "$GAMMA_SRC/gamma-api.js" --http-port "$GAMMA_HTTP_PORT" --udp-port "$GAMMA_UDP_PORT"; then
                 echo "Gamma started"
                 echo "  Dashboard: http://localhost:$GAMMA_HTTP_PORT/"
                 echo "  UDP: :$GAMMA_UDP_PORT"
