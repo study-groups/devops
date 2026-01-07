@@ -11,8 +11,9 @@ _mf_generate() {
 
 Requirements:
 - Output ONLY the bash command, no explanation
-- Use find, grep, rg, or similar standard tools
-- Work in current directory unless path specified
+- Use rg (ripgrep), find, or grep (prefer rg for text search)
+- Search RECURSIVELY from current directory unless path specified
+- For case-insensitive search use -i flag
 - Handle errors gracefully (use 2>/dev/null if needed)"
 
     # Add rules if enabled

@@ -262,6 +262,43 @@ _tetra_doctor() {
         echo -e "$fail"
     fi
 
+    # NVM_DIR
+    printf "  NVM_DIR:   "
+    if [[ "$NVM_DIR" == *"tetra"* ]]; then
+        echo -e "$ok ($NVM_DIR)"
+    elif [[ -n "$NVM_DIR" ]]; then
+        echo -e "$fail (not tetra: $NVM_DIR)"
+    else
+        echo -e "$fail (not set)"
+    fi
+
+    # Node available
+    printf "  Node:      "
+    local node_path
+    node_path="$(which node 2>/dev/null)"
+    if [[ -z "$node_path" ]]; then
+        echo -e "$fail (not found)"
+    elif [[ "$node_path" == *"tetra"* ]]; then
+        local node_ver
+        node_ver="$(node --version 2>/dev/null)"
+        echo -e "$ok ($node_ver from tetra)"
+    else
+        local node_ver
+        node_ver="$(node --version 2>/dev/null)"
+        echo -e "$fail ($node_ver from $node_path)"
+        echo "         Expected: \$TETRA_DIR/nvm/versions/node/*/bin/node"
+        echo "         Fix: Check ~/.bashrc order - tetra.sh must load AFTER homebrew PATH"
+    fi
+
+    # nvm function
+    printf "  nvm:       "
+    if declare -f nvm >/dev/null 2>&1; then
+        echo -e "$ok (loaded)"
+    else
+        echo -e "$fail (not loaded)"
+        echo "         Fix: source \$NVM_DIR/nvm.sh"
+    fi
+
     echo ""
 }
 

@@ -54,9 +54,14 @@ _org_help() {
     echo -e "  ${C}pdata status${N}       Show PData projects/subjects"
     echo -e "  ${C}pdata init${N}         Initialize PData for org"
     echo ""
+    echo -e "${Y}SECRETS${N}"
+    echo -e "  ${C}secrets sync${N}       Sync ~/nh/<org>/*.env → secrets.env"
+    echo -e "  ${C}secrets list${N}       Show secret keys"
+    echo -e "  ${C}secrets edit${N}       Edit secrets.env"
+    echo ""
     echo -e "${Y}ALL COMMANDS${N}"
     echo -e "  ${D}Orgs${N}    status list switch create init alias unalias"
-    echo -e "  ${D}Build${N}   sections build import pdata"
+    echo -e "  ${D}Build${N}   sections build import pdata secrets"
     echo -e "  ${D}Toml${N}    view section get set edit validate path"
     echo -e "  ${D}Env${N}     env"
 }
@@ -115,6 +120,7 @@ _org_validate_toml_syntax() {
 source "$ORG_SRC/org_toml.sh"
 source "$ORG_SRC/org_env.sh"
 source "$ORG_SRC/org_build.sh"
+source "$ORG_SRC/org_secrets.sh"
 source "$ORG_SRC/org_complete.sh"
 
 # =============================================================================
@@ -655,6 +661,11 @@ EOF
                     echo "  init     Initialize PData for org"
                     ;;
             esac
+            ;;
+
+        # Secrets management
+        secrets|sec)
+            org_secrets "$@"
             ;;
 
         # SSH - delegate to tkm or use variables directly

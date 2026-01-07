@@ -1,0 +1,8 @@
+# Tetra project rules for magicfind and rag tools
+# These rules are automatically included in LLM prompts
+
+never search inside node_modules directories
+never search inside .git directories
+never search inside archive/ directories unless explicitly requested
+prefer searching in bash/ directory for shell scripts
+use macOS stat syntax: stat -f "%m %N" not stat -c

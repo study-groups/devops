@@ -471,7 +471,7 @@ ws.onmessage = (event) => {
 
 ### Reusability
 One protocol works for:
-- Games (rhythm, cymatics, quadrapong)
+- Games (rhythm games, cymatics visualizers, multiplayer arcade)
 - VJ software
 - Education tools
 - Art installations
@@ -577,9 +577,9 @@ node midi.js -i "VMX8 Bluetooth" --verbose
 ## Next Steps
 
 1. **Build a game using midi-mp**
-   - Cymatica (cymatics visualizer)
-   - Rhythm game (beat matching)
-   - Quadrapong (4-player pong)
+   - Cymatics visualizer
+   - Rhythm/beat matching game
+   - Multiplayer arcade game
 
 2. **Add WebSocket relay**
    - Browser-based multiplayer games

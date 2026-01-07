@@ -477,6 +477,17 @@ class MessageRouter extends EventEmitter {
 
         console.log(`[midi-mp] Ready on UDP:${this.port}`);
 
+        // TSM runtime visibility
+        const tsm = (d) => process.env.TSM_PROCESS_DIR &&
+            fs.writeFileSync(path.join(process.env.TSM_PROCESS_DIR, 'runtime.json'), JSON.stringify(d));
+        setInterval(() => tsm({
+            channels: this.registry.nameIndex.size,
+            subs: this.registry.subscriptions.size,
+            in: this.stats.messagesIn,
+            out: this.stats.messagesOut,
+            up: Math.floor((Date.now() - this.stats.startTime) / 1000)
+        }), 5000);
+
         return this;
     }
 
@@ -1151,6 +1162,7 @@ class MessageRouter extends EventEmitter {
 
         return args;
     }
+
 }
 
 // =============================================================================

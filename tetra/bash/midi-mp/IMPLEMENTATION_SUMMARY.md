@@ -128,7 +128,7 @@ VMX8 Controller
 
 ### 1. **Reusability**
 One protocol works for:
-- Games (rhythm, cymatics, quadrapong)
+- Games (rhythm games, cymatics visualizers, multiplayer arcade)
 - VJ software (Resolume, etc.)
 - Education (teacher → students)
 - Art installations
