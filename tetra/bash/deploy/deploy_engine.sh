@@ -276,6 +276,9 @@ _de_template() {
         [cwd]="${DE_TARGET[cwd]}"
         [local]="$DE_TOML_DIR"
         [files]="$files"
+        [target_dir]="${DE_TARGET[target_dir]}"
+        [remote_build]="${DE_TARGET[remote_build]}"
+        [branch]="${DE_ENV["$env.branch"]:-${DE_ENV["${inherit:-}.branch"]:-main}}"
     )
 
     _deploy_template_core "$str" _tmpl_vars
@@ -321,6 +324,7 @@ _de_exec_build() {
 
     local pre="${DE_BUILD[pre]}"
     if [[ -n "$pre" && -z "$_DE_PRE_RAN" ]]; then
+        pre=$(_de_template "$pre" "$env")
         _de_print_cmd "[pre]" "$pre"
         if [[ "$dry_run" -eq 0 ]]; then
             pushd "$DE_TOML_DIR" >/dev/null || return 1

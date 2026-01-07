@@ -445,9 +445,349 @@ deploy_env_promote() {
 }
 
 # =============================================================================
+# GENERATE ORG-LEVEL ENV FILES
+# =============================================================================
+
+# Generate org-level env file for an environment
+# Uses local.env as template and injects secrets from secrets.env
+#
+# Usage: deploy env generate <env> [--org=<org>]
+#   env  - target environment (local, dev, staging, prod)
+#   --org - organization name (default: TETRA_ORG or 'tetra')
+#
+# Files:
+#   Template: $TETRA_DIR/orgs/<org>/env/local.env
+#   Secrets:  $TETRA_DIR/orgs/<org>/secrets.env
+#   Output:   $TETRA_DIR/orgs/<org>/env/<env>.env
+deploy_env_generate() {
+    local env=""
+    local org="${TETRA_ORG:-tetra}"
+
+    # Parse args
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --org=*) org="${1#--org=}"; shift ;;
+            --org)   org="$2"; shift 2 ;;
+            -*)      echo "Unknown option: $1"; return 1 ;;
+            *)       [[ -z "$env" ]] && env="$1"; shift ;;
+        esac
+    done
+
+    if [[ -z "$env" ]]; then
+        echo "Usage: deploy env generate <env> [--org=<org>]"
+        echo "  env: local, dev, staging, prod"
+        echo "  --org: organization (default: $org)"
+        return 1
+    fi
+
+    local org_dir="$TETRA_DIR/orgs/$org"
+    local env_dir="$org_dir/env"
+    local template="$env_dir/local.env"
+    local secrets="$org_dir/secrets.env"
+    local output="$env_dir/${env}.env"
+
+    # Check org exists
+    if [[ ! -d "$org_dir" ]]; then
+        echo "Org not found: $org_dir"
+        return 1
+    fi
+
+    # Create env dir if needed
+    mkdir -p "$env_dir"
+
+    # Check template exists
+    if [[ ! -f "$template" ]]; then
+        echo "Template not found: $template"
+        echo "Create $template with base environment variables first."
+        return 1
+    fi
+
+    # Load secrets for envsubst
+    if [[ -f "$secrets" ]]; then
+        set -a; source "$secrets"; set +a
+        echo "Loaded secrets: $secrets"
+    else
+        echo "No secrets file: $secrets (continuing without secrets)"
+    fi
+
+    # Export TETRA_ENV for substitution
+    export TETRA_ENV="$env"
+
+    # Process template: apply envsubst for $VAR and ${VAR} patterns
+    local content
+    content=$(envsubst < "$template")
+
+    # Warn if output exists
+    if [[ -f "$output" ]]; then
+        echo "Overwriting: $output"
+    fi
+
+    # Write output with restricted permissions
+    echo "$content" > "$output"
+    chmod 600 "$output"
+
+    echo "Generated: $output"
+    echo "  Template: $template"
+    echo "  Secrets:  ${secrets:-none}"
+}
+
+# =============================================================================
+# CREATE TSM FROM ENV.TOML
+# =============================================================================
+
+# Parse env.toml and generate self-contained .tsm file
+# Usage: deploy_env_create <env> [source_dir] [--dry-run]
+#
+# Reads: env.toml in source_dir (or current dir)
+# Writes: <name>-<env>.tsm to services-available
+#
+# env.toml format:
+#   [service]
+#   name = "arcade"
+#   command = "node build/index.js"
+#   description = "..."
+#   org = "pixeljam"
+#
+#   [shared]
+#   NODE_ENV = "production"
+#   ...
+#
+#   [secrets]
+#   DO_SPACES_KEY = "$DO_SPACES_KEY"
+#
+#   [local]
+#   PORT = "8580"
+#   cwd = "$HOME/src/..."
+#
+#   [dev]
+#   PORT = "8580"
+#   cwd = "/home/dev/src/..."
+#
+deploy_env_create() {
+    local env=""
+    local source_dir="."
+    local dry_run=false
+    local output_dir=""
+
+    # Parse args
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --dry-run|-n) dry_run=true; shift ;;
+            --output=*) output_dir="${1#--output=}"; shift ;;
+            --output|-o) output_dir="$2"; shift 2 ;;
+            -*) echo "Unknown option: $1"; return 1 ;;
+            *)
+                if [[ -z "$env" ]]; then
+                    env="$1"
+                else
+                    source_dir="$1"
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$env" ]]; then
+        echo "Usage: deploy env create <env> [source_dir] [--dry-run] [--output=dir]"
+        echo "  env: local, dev, staging, prod"
+        echo "  source_dir: directory containing env.toml (default: .)"
+        echo "  --output: output directory (default: services-available)"
+        return 1
+    fi
+
+    local toml_file="$source_dir/env.toml"
+    if [[ ! -f "$toml_file" ]]; then
+        echo "Not found: $toml_file"
+        return 1
+    fi
+
+    # Parse env.toml
+    local name="" command="" description="" org="" cwd=""
+    local -A shared_vars env_vars secrets_vars
+
+    _deploy_parse_toml "$toml_file" "$env" \
+        name command description org cwd \
+        shared_vars env_vars secrets_vars || return 1
+
+    # Validate required fields
+    if [[ -z "$name" ]]; then
+        echo "Missing [service] name in env.toml"
+        return 1
+    fi
+    if [[ -z "$command" ]]; then
+        echo "Missing [service] command in env.toml"
+        return 1
+    fi
+
+    # Determine org for secrets
+    [[ -z "$org" ]] && org="${TETRA_ORG:-tetra}"
+
+    # Load org secrets
+    local secrets_file="$TETRA_DIR/orgs/$org/secrets.env"
+    if [[ -f "$secrets_file" ]]; then
+        set -a; source "$secrets_file"; set +a
+    fi
+
+    # Merge: shared + env-specific (env overrides shared)
+    local -A merged_vars
+    for key in "${!shared_vars[@]}"; do
+        merged_vars["$key"]="${shared_vars[$key]}"
+    done
+    for key in "${!env_vars[@]}"; do
+        merged_vars["$key"]="${env_vars[$key]}"
+    done
+
+    # Resolve secrets ($VAR → actual value)
+    for key in "${!secrets_vars[@]}"; do
+        local val="${secrets_vars[$key]}"
+        if [[ "$val" == \$* ]]; then
+            local var_name="${val#\$}"
+            var_name="${var_name#\{}"
+            var_name="${var_name%\}}"
+            merged_vars["$key"]="${!var_name:-}"
+        else
+            merged_vars["$key"]="$val"
+        fi
+    done
+
+    # Get PORT and CWD from merged vars or env-specific
+    local port="${merged_vars[PORT]:-${env_vars[PORT]:-8080}}"
+    [[ -z "$cwd" ]] && cwd="${env_vars[cwd]:-${merged_vars[cwd]:-\$PWD}}"
+
+    # Expand $HOME in cwd for display
+    local cwd_expanded=$(echo "$cwd" | envsubst)
+
+    # Determine output
+    [[ -z "$output_dir" ]] && output_dir="$TSM_SERVICES_AVAILABLE"
+    [[ -z "$output_dir" ]] && output_dir="$TETRA_DIR/orgs/$org/tsm/services-available"
+
+    local output_file="$output_dir/${name}-${env}.tsm"
+
+    # Generate .tsm content
+    local content=""
+    content+="#!/usr/bin/env bash"$'\n'
+    content+="# Generated from env.toml [$env] - do not edit"$'\n'
+    content+="# Regenerate: deploy env create $env $source_dir"$'\n'
+    content+="# Source: $toml_file"$'\n'
+    content+=""$'\n'
+    content+="TSM_NAME=\"${name}-${env}\""$'\n'
+    content+="TSM_COMMAND=\"$command\""$'\n'
+    content+="TSM_PORT=$port"$'\n'
+    content+="TSM_CWD=\"$cwd\""$'\n'
+    [[ -n "$description" ]] && content+="TSM_DESCRIPTION=\"$description\""$'\n'
+    content+=""$'\n'
+    content+="# Environment variables"$'\n'
+
+    # Sort keys for consistent output
+    local sorted_keys=($(echo "${!merged_vars[@]}" | tr ' ' '\n' | sort))
+    for key in "${sorted_keys[@]}"; do
+        local val="${merged_vars[$key]}"
+        # Skip cwd - it's TSM_CWD
+        [[ "$key" == "cwd" ]] && continue
+        content+="export ${key}=\"${val}\""$'\n'
+    done
+
+    if [[ "$dry_run" == "true" ]]; then
+        echo "=== DRY RUN: deploy env create $env ==="
+        echo ""
+        echo "Would write to: $output_file"
+        echo ""
+        echo "--- Content ---"
+        echo "$content"
+        return 0
+    fi
+
+    # Ensure output directory exists
+    mkdir -p "$output_dir"
+
+    # Write file
+    echo "$content" > "$output_file"
+    chmod 755 "$output_file"
+
+    echo "Created: $output_file"
+    echo "  From: $toml_file [$env]"
+    echo "  Port: $port"
+    echo "  CWD:  $cwd"
+}
+
+# Parse TOML file - simple parser for our env.toml format
+# Sets variables via nameref
+_deploy_parse_toml() {
+    local file="$1"
+    local target_env="$2"
+    local -n _name="$3"
+    local -n _command="$4"
+    local -n _description="$5"
+    local -n _org="$6"
+    local -n _cwd="$7"
+    local -n _shared="$8"
+    local -n _env="$9"
+    local -n _secrets="${10}"
+
+    local current_section=""
+    local in_target_env=false
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Skip empty lines and comments
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+
+        # Trim whitespace
+        line="${line#"${line%%[![:space:]]*}"}"
+        line="${line%"${line##*[![:space:]]}"}"
+
+        # Section header: [name]
+        if [[ "$line" =~ ^\[([a-zA-Z_][a-zA-Z0-9_]*)\]$ ]]; then
+            current_section="${BASH_REMATCH[1]}"
+            in_target_env=false
+            [[ "$current_section" == "$target_env" ]] && in_target_env=true
+            continue
+        fi
+
+        # Key = "value" or key = 'value' or key = value
+        if [[ "$line" =~ ^([a-zA-Z_][a-zA-Z0-9_]*)[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+            local key="${BASH_REMATCH[1]}"
+            local val="${BASH_REMATCH[2]}"
+
+            # Strip quotes
+            val="${val#\"}" ; val="${val%\"}"
+            val="${val#\'}" ; val="${val%\'}"
+
+            case "$current_section" in
+                service)
+                    case "$key" in
+                        name) _name="$val" ;;
+                        command) _command="$val" ;;
+                        description) _description="$val" ;;
+                        org) _org="$val" ;;
+                    esac
+                    ;;
+                shared)
+                    _shared["$key"]="$val"
+                    ;;
+                secrets)
+                    _secrets["$key"]="$val"
+                    ;;
+                *)
+                    if [[ "$in_target_env" == "true" ]]; then
+                        if [[ "$key" == "cwd" ]]; then
+                            _cwd="$val"
+                        else
+                            _env["$key"]="$val"
+                        fi
+                    fi
+                    ;;
+            esac
+        fi
+    done < "$file"
+
+    return 0
+}
+
+# =============================================================================
 # EXPORTS
 # =============================================================================
 
 export -f deploy_env_validate deploy_env_diff deploy_env_push deploy_env_pull
-export -f deploy_env_edit deploy_env_status deploy_env_promote
+export -f deploy_env_edit deploy_env_status deploy_env_promote deploy_env_generate
+export -f deploy_env_create _deploy_parse_toml
 export -f _deploy_env_mask_values

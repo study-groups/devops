@@ -2,30 +2,58 @@
 Description=Tetra Service Manager
 Documentation=https://github.com/tetra
 After=network.target
+Wants=network.target
 
 [Service]
-Type=forking
+Type=simple
 User={{user}}
+Group={{user}}
 WorkingDirectory={{home}}/tetra
+
+# Environment
 Environment=HOME={{home}}
 Environment=TETRA_DIR={{home}}/tetra
 Environment=TETRA_SRC={{home}}/tetra
+Environment=TETRA_ENV={{env}}
+Environment=TETRA_ORG={{org}}
+Environment=NODE_ENV=production
+Environment=PORT=4444
 
-# Start all enabled services
-ExecStart=/bin/bash -c 'source {{home}}/tetra/tetra.sh && tsm startup'
+# Ensure runtime directories exist
+ExecStartPre=/bin/bash -c 'mkdir -p {{home}}/tetra/tsm/runtime/{processes,logs,cache}'
 
-# Stop all services gracefully
+# Start all enabled services first
+ExecStartPre=/bin/bash -c 'source {{home}}/tetra/tetra.sh && tsm startup'
+
+# tetra-4444 IS the main process - runs patrol loop on non-local
+ExecStart=/bin/bash -c 'source {{home}}/tetra/tetra.sh && cd $TETRA_SRC/server && node server.js'
+
+# Graceful stop - stop all TSM services
 ExecStop=/bin/bash -c 'source {{home}}/tetra/tetra.sh && tsm stop "*"'
 
-# Reload/restart all services
+# Reload - restart services
 ExecReload=/bin/bash -c 'source {{home}}/tetra/tetra.sh && tsm restart "*"'
 
-# Service stays "active" after ExecStart completes
-RemainAfterExit=yes
-
-# Restart policy
-Restart=on-failure
+# Restart policy - always restart tetra-4444
+Restart=always
 RestartSec=10
+
+# Timeouts
+TimeoutStartSec=120s
+TimeoutStopSec=60s
+
+# Security
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tsm
 
 [Install]
 WantedBy=multi-user.target

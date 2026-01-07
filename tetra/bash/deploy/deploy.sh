@@ -1133,6 +1133,8 @@ deploy() {
         env|e)
             shift
             case "$1" in
+                create) shift; deploy_env_create "$@" ;;
+                generate) shift; deploy_env_generate "$@" ;;
                 promote) shift; deploy_env_promote "$@" ;;
                 validate) shift; deploy_env_validate "$@" ;;
                 diff) shift; deploy_env_diff "$@" ;;

@@ -38,14 +38,17 @@ DEPLOY_SSH_OPTIONS="${DEPLOY_SSH_OPTIONS:--o BatchMode=yes -o ConnectTimeout=$DE
 # Core template substitution using nameref (bash 5.2+)
 # Usage: _deploy_template_core <string> <assoc_array_name>
 # Array keys: ssh, host, auth_user, work_user, user, name, remote, cwd,
-#             domain, env, local, source, files, timestamp
+#             domain, env, local, source, files, timestamp, target_dir,
+#             remote_build, branch, port
 _deploy_template_core() {
     local str="$1"
     local -n _vars="$2"
 
-    # Expand {{user}} in cwd/remote first (common pattern)
+    # Expand {{user}} in cwd/remote/remote_build first (common pattern)
     local cwd="${_vars[cwd]:-}"
     cwd="${cwd//\{\{user\}\}/${_vars[user]:-}}"
+    local remote_build="${_vars[remote_build]:-}"
+    remote_build="${remote_build//\{\{user\}\}/${_vars[user]:-}}"
 
     # Core substitutions
     str="${str//\{\{ssh\}\}/${_vars[ssh]:-}}"
@@ -61,6 +64,12 @@ _deploy_template_core() {
     str="${str//\{\{local\}\}/${_vars[local]:-}}"
     str="${str//\{\{source\}\}/${_vars[source]:-}}"
     str="${str//\{\{files\}\}/${_vars[files]:-}}"
+
+    # New template vars for TSM deployment
+    str="${str//\{\{target_dir\}\}/${_vars[target_dir]:-}}"
+    str="${str//\{\{remote_build\}\}/$remote_build}"
+    str="${str//\{\{branch\}\}/${_vars[branch]:-main}}"
+    str="${str//\{\{port\}\}/${_vars[port]:-8080}}"
 
     # Dynamic values
     [[ "$str" == *"{{timestamp}}"* ]] && str="${str//\{\{timestamp\}\}/$(date -Iseconds)}"
