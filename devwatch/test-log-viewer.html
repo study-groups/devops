@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Viewer Test</title>
+    <link rel="stylesheet" href="server/static/css/log-viewer.css">
+    <style>
+        /* Mock some design tokens for testing */
+        :root {
+            --pja-bg-primary: #1a1a1a;
+            --pja-bg-secondary: #2a2a2a;
+            --pja-bg-tertiary: #3a3a3a;
+            --pja-bg-elevated: #2d2d2d;
+            --pja-text-primary: #ffffff;
+            --pja-text-secondary: #cccccc;
+            --pja-text-muted: #888888;
+            --pja-text-inverse: #000000;
+            --pja-border-primary: #404040;
+            --pja-border-secondary: #505050;
+            --pja-border-muted: #303030;
+            --pja-border-accent: #606060;
+            --pja-accent-primary: #0066cc;
+            --pja-accent-primary-hover: #0052a3;
+            --pja-accent-secondary: #00aa88;
+            --pja-input-bg: #2a2a2a;
+            --pja-input-border: #505050;
+            --pja-input-focus: #0066cc;
+            --pja-error: #dc2626;
+            --pja-warning: #f59e0b;
+            --pja-info: #3b82f6;
+            --pja-success: #10b981;
+            --pja-font-mono: 'Courier New', monospace;
+            --pja-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="log-viewer-container">
+        <!-- Header with controls -->
+        <div class="log-header">
+            <div class="log-header-row">
+                <h1 class="log-title">📋 System Logs</h1>
+                <div class="log-actions">
+                    <button id="refresh-btn" class="log-btn primary" title="Refresh logs">
+                        ↻ Refresh
+                    </button>
+                    <button id="copy-all-btn" class="log-btn" title="Copy visible logs">
+                        📋 Copy
+                    </button>
+                    <div class="log-count" id="log-count">0/0</div>
+                </div>
+            </div>
+            
+            <div class="log-header-row">
+                <div class="log-search-container">
+                    <input type="text" id="search-input" class="log-search" 
+                           placeholder="Search logs... (message, source, type)">
+                </div>
+                
+                <div class="filter-group">
+                    <span class="filter-label">Levels:</span>
+                    <div class="level-filters">
+                        <button class="level-filter error active" data-level="error">Error</button>
+                        <button class="level-filter warn active" data-level="warn">Warn</button>
+                        <button class="level-filter info active" data-level="info">Info</button>
+                        <button class="level-filter debug" data-level="debug">Debug</button>
+                    </div>
+                </div>
+                
+                <div class="filter-group">
+                    <span class="filter-label">Sources:</span>
+                    <div id="source-filters" class="level-filters">
+                        <button class="level-filter active">server</button>
+                        <button class="level-filter active">monitor</button>
+                        <button class="level-filter active">api</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log display area -->
+        <div class="log-display" id="log-display">
+            <table class="log-table">
+                <thead class="log-table-header">
+                    <tr>
+                        <th>Time</th>
+                        <th>Level</th>
+                        <th>Type</th>
+                        <th>Source</th>
+                        <th>Message</th>
+                        <th>Data</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="log-entry error">
+                        <td class="log-timestamp">2024-01-15 14:30:25</td>
+                        <td class="log-level error">ERROR</td>
+                        <td class="log-type">API</td>
+                        <td class="log-source">server.api.auth</td>
+                        <td class="log-message">Authentication failed for user</td>
+                        <td class="log-data">{"userId": 123, "reason": "invalid_token"}</td>
+                    </tr>
+                    <tr class="log-entry warn">
+                        <td class="log-timestamp">2024-01-15 14:29:15</td>
+                        <td class="log-level warn">WARN</td>
+                        <td class="log-type">NGINX</td>
+                        <td class="log-source">monitor.nginx</td>
+                        <td class="log-message">High response time detected</td>
+                        <td class="log-data">{"responseTime": 2500, "endpoint": "/api/data"}</td>
+                    </tr>
+                    <tr class="log-entry info">
+                        <td class="log-timestamp">2024-01-15 14:28:45</td>
+                        <td class="log-level info">INFO</td>
+                        <td class="log-type">SERVER</td>
+                        <td class="log-source">server.startup</td>
+                        <td class="log-message">Server started successfully</td>
+                        <td class="log-data">{"port": 9324, "env": "production"}</td>
+                    </tr>
+                    <tr class="log-entry debug">
+                        <td class="log-timestamp">2024-01-15 14:28:30</td>
+                        <td class="log-level debug">DEBUG</td>
+                        <td class="log-type">DB</td>
+                        <td class="log-source">server.db.connection</td>
+                        <td class="log-message">Database connection established</td>
+                        <td class="log-data">{"host": "localhost", "database": "pja_logs"}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>DevWatch</title>
+
+    <!-- Terrain Platform -->
+    <link rel="stylesheet" href="terrain/css/core.css">
+    <link rel="stylesheet" href="terrain/css/tokens.css">
+    <link rel="stylesheet" href="terrain/dist/themes/dark.theme.css" id="terrain-theme">
+
+    <!-- DevWatch Tokens -->
+    <link rel="stylesheet" href="css/devwatch.tokens.css">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-code, 'SF Mono', 'Monaco', 'Courier New', monospace);
+        }
+
+        /* Grid Layout from devwatch.mode.json */
+        .devwatch-app {
+            display: grid;
+            grid-template-columns: 260px 1fr 300px;
+            grid-template-rows: 48px 1fr 220px;
+            grid-template-areas:
+                "header   header   header"
+                "sidebar  main     metrics"
+                "sidebar  logs     logs";
+            height: 100vh;
+            gap: 1px;
+            background: var(--border, #333);
+        }
+
+        .panel {
+            background: var(--bg-secondary);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .panel iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+
+        .panel-header { grid-area: header; }
+        .panel-sidebar { grid-area: sidebar; }
+        .panel-main { grid-area: main; }
+        .panel-metrics { grid-area: metrics; }
+        .panel-logs { grid-area: logs; }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: var(--bg-primary);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            transition: opacity 0.4s ease;
+        }
+
+        .loading-overlay.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-logo {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--devwatch-primary, #22d3ee);
+            letter-spacing: 4px;
+        }
+
+        .loading-bar {
+            width: 200px;
+            height: 3px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .loading-progress {
+            height: 100%;
+            width: 0%;
+            background: var(--devwatch-primary, #22d3ee);
+            transition: width 0.3s ease;
+        }
+
+        .loading-status {
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-logo">DEVWATCH</div>
+        <div class="loading-bar">
+            <div class="loading-progress" id="loading-progress"></div>
+        </div>
+        <div class="loading-status" id="loading-status">Initializing...</div>
+    </div>
+
+    <!-- Main App Grid -->
+    <div class="devwatch-app" id="devwatch-app">
+        <div class="panel panel-header">
+            <iframe src="panels/header.html" id="panel-header"></iframe>
+        </div>
+        <div class="panel panel-sidebar">
+            <iframe src="panels/test-matrix.html" id="panel-sidebar"></iframe>
+        </div>
+        <div class="panel panel-main">
+            <iframe src="panels/test-runner.html" id="panel-main"></iframe>
+        </div>
+        <div class="panel panel-metrics">
+            <iframe src="panels/metrics.html" id="panel-metrics"></iframe>
+        </div>
+        <div class="panel panel-logs">
+            <iframe src="panels/logs.html" id="panel-logs"></iframe>
+        </div>
+    </div>
+
+    <!-- Terrain Core -->
+    <script src="terrain/js/core/config.js"></script>
+    <script src="terrain/js/core/events.js"></script>
+    <script src="terrain/js/core/state.js"></script>
+    <script src="terrain/js/core/terrain-bridge.js"></script>
+
+    <!-- DevWatch Config -->
+    <script>
+        window.DevWatchConfig = {
+            mode: 'devwatch',
+            version: '1.0.0',
+            theme: 'dark',
+            api: {
+                base: '/api',
+                playwright: '/api/playwright',
+                logs: '/api/logs',
+                metrics: '/api/monitoring',
+                system: '/api/system'
+            },
+            panels: ['header', 'sidebar', 'main', 'metrics', 'logs']
+        };
+    </script>
+
+    <!-- DevWatch Bridge (Host-side iframe communication) -->
+    <script>
+        (function() {
+            'use strict';
+
+            const DevWatch = {
+                panels: {},
+                readyCount: 0,
+                totalPanels: 5,
+
+                init: function() {
+                    this.setupPanels();
+                    this.setupMessageHandler();
+                    this.updateLoadingProgress(10, 'Setting up panels...');
+                },
+
+                setupPanels: function() {
+                    const panelIds = ['header', 'sidebar', 'main', 'metrics', 'logs'];
+                    panelIds.forEach(id => {
+                        const iframe = document.getElementById('panel-' + id);
+                        if (iframe) {
+                            this.panels[id] = {
+                                iframe: iframe,
+                                ready: false,
+                                window: null
+                            };
+                            iframe.onload = () => this.onPanelLoad(id);
+                        }
+                    });
+                },
+
+                onPanelLoad: function(id) {
+                    const panel = this.panels[id];
+                    if (panel) {
+                        panel.window = panel.iframe.contentWindow;
+                    }
+                    this.updateLoadingProgress(
+                        10 + (this.readyCount / this.totalPanels) * 60,
+                        'Loading ' + id + '...'
+                    );
+                },
+
+                setupMessageHandler: function() {
+                    window.addEventListener('message', (event) => {
+                        // Security: Only accept messages from same origin
+                        if (event.origin !== window.location.origin) return;
+
+                        const data = event.data;
+                        if (!data || !data.type) return;
+
+                        this.handleMessage(data, event.source);
+                    });
+                },
+
+                handleMessage: function(data, source) {
+                    // Find which panel sent the message
+                    let fromPanel = data.from;
+                    if (!fromPanel) {
+                        for (const [id, panel] of Object.entries(this.panels)) {
+                            if (panel.window === source) {
+                                fromPanel = id;
+                                break;
+                            }
+                        }
+                    }
+
+                    switch (data.type) {
+                        case 'ready':
+                            this.onPanelReady(fromPanel);
+                            break;
+
+                        case 'run-tests':
+                            this.handleRunTests(data);
+                            break;
+
+                        case 'stop-tests':
+                            this.handleStopTests();
+                            break;
+
+                        case 'get-metrics':
+                            this.fetchMetrics();
+                            break;
+
+                        default:
+                            // Route to other panels if needed
+                            this.routeMessage(data, fromPanel);
+                    }
+                },
+
+                onPanelReady: function(panelId) {
+                    const panel = this.panels[panelId];
+                    if (panel && !panel.ready) {
+                        panel.ready = true;
+                        this.readyCount++;
+                        console.log('[DevWatch] Panel ready:', panelId, '(' + this.readyCount + '/' + this.totalPanels + ')');
+
+                        this.updateLoadingProgress(
+                            70 + (this.readyCount / this.totalPanels) * 30,
+                            'Panel ' + panelId + ' ready'
+                        );
+
+                        if (this.readyCount >= this.totalPanels) {
+                            this.onAllReady();
+                        }
+                    }
+                },
+
+                onAllReady: function() {
+                    console.log('[DevWatch] All panels ready');
+                    this.updateLoadingProgress(100, 'Ready');
+
+                    // Hide loading overlay
+                    setTimeout(() => {
+                        const overlay = document.getElementById('loading-overlay');
+                        if (overlay) {
+                            overlay.classList.add('fade-out');
+                            setTimeout(() => overlay.remove(), 400);
+                        }
+                    }, 300);
+
+                    // Fetch initial data
+                    this.fetchMetrics();
+                    this.fetchLogs();
+                },
+
+                sendToPanel: function(panelId, data) {
+                    const panel = this.panels[panelId];
+                    if (panel && panel.window) {
+                        panel.window.postMessage(data, window.location.origin);
+                    }
+                },
+
+                broadcast: function(data, excludePanel) {
+                    Object.entries(this.panels).forEach(([id, panel]) => {
+                        if (id !== excludePanel && panel.window) {
+                            panel.window.postMessage(data, window.location.origin);
+                        }
+                    });
+                },
+
+                routeMessage: function(data, fromPanel) {
+                    // Route messages between panels
+                    if (data.target) {
+                        this.sendToPanel(data.target, data);
+                    } else {
+                        // Broadcast to all other panels
+                        this.broadcast(data, fromPanel);
+                    }
+                },
+
+                // API Handlers
+                async handleRunTests(data) {
+                    const tests = data.tests || [{ env: 'dev', browser: 'chromium' }];
+                    console.log('[DevWatch] Running tests:', tests);
+
+                    this.sendToPanel('main', { type: 'test-output', message: 'Starting test run...' });
+                    this.broadcast({ type: 'test-status', running: true });
+
+                    try {
+                        const response = await fetch('/api/playwright/run', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ tests })
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Failed to start tests');
+                        }
+
+                        // For now, simulate test results
+                        // TODO: Connect to actual Playwright execution
+                        this.simulateTestRun();
+                    } catch (error) {
+                        this.sendToPanel('main', { type: 'test-output', message: 'Error: ' + error.message });
+                        this.broadcast({ type: 'test-status', running: false });
+                    }
+                },
+
+                simulateTestRun: function() {
+                    // Simulate a test run for demo purposes
+                    const tests = [
+                        'games.spec.js > should load game page',
+                        'games.spec.js > should display game canvas',
+                        'metrics.spec.js > should measure LCP',
+                        'game-flow.spec.js > navigation test'
+                    ];
+
+                    let passed = 0, failed = 0;
+
+                    tests.forEach((test, i) => {
+                        setTimeout(() => {
+                            this.sendToPanel('main', { type: 'test-start', test });
+
+                            setTimeout(() => {
+                                const success = Math.random() > 0.2;
+                                if (success) {
+                                    passed++;
+                                    this.sendToPanel('main', {
+                                        type: 'test-pass',
+                                        test,
+                                        duration: Math.floor(Math.random() * 2000) + 500
+                                    });
+                                } else {
+                                    failed++;
+                                    this.sendToPanel('main', {
+                                        type: 'test-fail',
+                                        test,
+                                        error: 'Assertion failed'
+                                    });
+                                }
+
+                                // Last test
+                                if (i === tests.length - 1) {
+                                    setTimeout(() => {
+                                        this.sendToPanel('main', {
+                                            type: 'test-complete',
+                                            passed,
+                                            failed,
+                                            skipped: 0
+                                        });
+                                        this.broadcast({
+                                            type: 'test-status',
+                                            running: false,
+                                            passed: failed === 0,
+                                            failed
+                                        });
+                                    }, 500);
+                                }
+                            }, Math.random() * 1000 + 500);
+                        }, i * 2000);
+                    });
+                },
+
+                handleStopTests: function() {
+                    console.log('[DevWatch] Stopping tests');
+                    // TODO: Actually stop running tests
+                    this.broadcast({ type: 'test-status', running: false });
+                },
+
+                async fetchMetrics() {
+                    try {
+                        const response = await fetch('/api/monitoring/latest');
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.sendToPanel('metrics', {
+                                type: 'metrics-update',
+                                lcp: data.lcp || 2100,
+                                ttfb: data.ttfb || 450,
+                                fcp: data.fcp || 1200
+                            });
+                        }
+                    } catch (error) {
+                        console.warn('[DevWatch] Failed to fetch metrics:', error);
+                        // Send demo data
+                        this.sendToPanel('metrics', {
+                            type: 'metrics-update',
+                            lcp: 2100 + Math.random() * 500,
+                            ttfb: 450 + Math.random() * 200,
+                            fcp: 1200 + Math.random() * 300
+                        });
+                    }
+                },
+
+                async fetchLogs() {
+                    try {
+                        const response = await fetch('/api/logs/recent?limit=50');
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.logs) {
+                                this.sendToPanel('logs', { type: 'logs-batch', logs: data.logs });
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('[DevWatch] Failed to fetch logs:', error);
+                    }
+                },
+
+                updateLoadingProgress: function(percent, status) {
+                    const progress = document.getElementById('loading-progress');
+                    const statusEl = document.getElementById('loading-status');
+                    if (progress) progress.style.width = percent + '%';
+                    if (statusEl) statusEl.textContent = status;
+                }
+            };
+
+            // Initialize when DOM is ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => DevWatch.init());
+            } else {
+                DevWatch.init();
+            }
+
+            // Export for debugging
+            window.DevWatch = DevWatch;
+        })();
+    </script>
+</body>
+</html>

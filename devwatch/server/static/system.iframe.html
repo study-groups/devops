@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Control Panel</title>
+    <link rel="stylesheet" href="/static/css/devwatch.css">
+    <link rel="stylesheet" href="/static/css/components/devwatch-column-panel.css">
+    <link rel="stylesheet" href="/static/css/components/pja-runtime-context.css">
+    <link rel="stylesheet" href="/static/css/components/devwatch-columns.css">
+    <link rel="stylesheet" href="/static/css/components/pja-docs-manager.css">
+</head>
+<body class="devwatch-iframe-body pcb-theme" data-theme="technical">
+    <div class="system-control-panel">
+        <header class="panel-header">
+            <h1 class="panel-title">Configuration</h1>
+            <div class="panel-actions">
+                <button id="message-test-btn" class="devwatch-button devwatch-button--ghost" title="Test iframe communication">Msg Test</button>
+                <button id="ping-host-btn" class="devwatch-button devwatch-button--ghost" title="Send ping to host">Ping Host</button>
+                <a href="/static/system-info.html" target="_blank" class="devwatch-button devwatch-button--ghost" title="Open detailed system info">Info ↗</a>
+            </div>
+        </header>
+
+        <div class="panel-content">
+            <div class="devwatch-columns" style="--devwatch-column-one-width: 320px;">
+                <!-- Left Panel: Configuration and Theme -->
+                <div class="devwatch-column">
+                    <div class="devwatch-tabs">
+                        <div class="devwatch-tab-list">
+                            <button class="devwatch-tab is-active" data-tab="system" data-target-panel="system-monitor-panel">System</button>
+                            <button class="devwatch-tab" data-tab="messages" data-target-panel="message-log-panel">Messages</button>
+                            <button class="devwatch-tab" data-tab="docs" data-target-panel="docs-panel">Docs</button>
+                        </div>
+                    </div>
+                    
+                    <div class="devwatch-tab-panel-container">
+                        <div id="system" class="devwatch-tab-panel is-active">
+                            <div class="devwatch-section is-open">
+                                <div class="devwatch-section-header">
+                                    <h4 class="devwatch-section-title">Theme Selection</h4>
+                                </div>
+                                <div class="devwatch-section-content">
+                                    <div id="theme-selector-container">
+                                        <!-- Theme selector will be inserted here -->
+                                    </div>
+                                    <p class="devwatch-text-muted" style="margin-top: var(--devwatch-space-sm);">Theme changes apply system-wide across all interfaces.</p>
+                                </div>
+                            </div>
+                            <div class="devwatch-section is-open">
+                                <div class="devwatch-section-header">
+                                    <h4 class="devwatch-section-title">Icon Management</h4>
+                                    <div class="devwatch-section-actions">
+                                        <button id="icon-editor-btn" class="devwatch-button devwatch-button--ghost devwatch-button--small">
+                                            Edit Icons
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="devwatch-section-content">
+                                    <div class="devwatch-icon-grid" id="system-icon-grid">
+                                        <!-- Icons will be loaded here -->
+                                    </div>
+                                    <p class="devwatch-text-muted" style="margin-top: var(--devwatch-space-sm);">Click "Edit Icons" to open the PIF editor in the right panel.</p>
+                                </div>
+                            </div>
+                             <div class="devwatch-section is-open">
+                                <div class="devwatch-section-header">
+                                    <h4 class="devwatch-section-title">Runtime Context</h4>
+                                </div>
+                                <div class="devwatch-section-content">
+                                    <div class="runtime-grid">
+                                        <div class="runtime-item">
+                                            <code>PW_DIR</code>
+                                            <span id="summary-pw-dir" class="runtime-value">--</span>
+                                        </div>
+                                        <div class="runtime-item">
+                                            <code>PW_SRC</code>
+                                            <span id="summary-pw-src" class="runtime-value">--</span>
+                                        </div>
+                                        <div class="runtime-item">
+                                            <code>PWD</code>
+                                            <span id="summary-pwd" class="runtime-value">--</span>
+                                        </div>
+                                        <div class="runtime-item">
+                                            <code>HOST</code>
+                                            <span id="summary-server" class="runtime-value">--</span>
+                                        </div>
+                                        <div class="runtime-item">
+                                            <code>USER</code>
+                                            <span id="summary-user" class="runtime-value">--</span>
+                                        </div>
+                                        <div class="runtime-item">
+                                            <code>IP</code>
+                                            <span id="summary-ip" class="runtime-value">--</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="messages" class="devwatch-tab-panel">
+                            <div class="devwatch-section is-open">
+                                <div class="devwatch-section-header">
+                                    <h4 class="devwatch-section-title">Message Testing</h4>
+                                </div>
+                                <div class="devwatch-section-content">
+                                    <div class="config-grid">
+                                        <div class="config-item">
+                                            <label for="message-target">Target:</label>
+                                            <select id="message-target" class="devwatch-select">
+                                                <option value="host" selected>Host</option>
+                                                <option value="all">All iframes</option>
+                                                <!-- Dynamic options for specific iframes can be added here -->
+                                            </select>
+                                        </div>
+                                        <div class="config-item">
+                                            <label for="message-type">Message Type:</label>
+                                            <select id="message-type" class="devwatch-select">
+                                                <option value="ping">Ping</option>
+                                                <option value="pja-custom-test">Custom Test</option>
+                                                <option value="devwatch-theme-update">Theme Update</option>
+                                                <option value="pja-title-update">Title Update</option>
+                                                <option value="pja-asset-list">Asset List</option>
+                                            </select>
+                                        </div>
+                                        <div class="config-item">
+                                            <label for="message-data">Message Data (JSON):</label>
+                                            <textarea id="message-data" class="devwatch-textarea" rows="3" placeholder='{"key": "value"}'></textarea>
+                                        </div>
+                                    </div>
+                                    <button id="send-message-btn" class="devwatch-button devwatch-button--ghost devwatch-button--accent devwatch-button--small" style="width: 100%; margin-top: 0.5rem;">Send Message</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="docs" class="devwatch-tab-panel">
+                            <!-- Docs content will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="devwatch-column-resizer"></div>
+
+                <!-- Right Panel: System Stats and Directory Info -->
+                <div class="devwatch-column devwatch-column--fluid" id="right-column">
+                    <div id="system-monitor-panel" class="devwatch-column-panel">
+                        <div class="devwatch-section is-open devwatch-section--monitor">
+                            <div class="devwatch-section-header">
+                                <h4 class="devwatch-section-title">System Monitor</h4>
+                                <div class="devwatch-section-actions">
+                                    <a href="/static/system-info.html" target="_blank" class="devwatch-button devwatch-button--ghost devwatch-button--small" title="Open System Architecture Info">
+                                        Info
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="devwatch-section-content">
+                                <!-- System Stats Grid -->
+                                <div class="devwatch-stat-card-grid">
+                                    <div class="devwatch-stat-card">
+                                        <h4 class="devwatch-stat-card__title">CPU Usage</h4>
+                                        <div class="devwatch-stat-card__value" id="cpu-usage">--</div>
+                                    </div>
+                                    <div class="devwatch-stat-card">
+                                        <h4 class="devwatch-stat-card__title">Memory</h4>
+                                        <div class="devwatch-stat-card__value" id="memory-usage">--</div>
+                                    </div>
+                                    <div class="devwatch-stat-card">
+                                        <h4 class="devwatch-stat-card__title">Disk Space</h4>
+                                        <div class="devwatch-stat-card__value" id="disk-usage">--</div>
+                                    </div>
+                                    <div class="devwatch-stat-card">
+                                        <h4 class="devwatch-stat-card__title">Processes</h4>
+                                        <div class="devwatch-stat-card__value" id="process-count">--</div>
+                                    </div>
+                                </div>
+
+                                <!-- Directory Stats -->
+                                <div class="devwatch-directory-stats">
+                                    <div class="devwatch-directory-stats__header">
+                                        <div class="devwatch-directory-stats__cell">Directory</div>
+                                        <div class="devwatch-directory-stats__cell">Files</div>
+                                        <div class="devwatch-directory-stats__cell">Size</div>
+                                        <div class="devwatch-directory-stats__cell">Modified</div>
+                                    </div>
+                                    <div class="devwatch-directory-stats__body" id="directory-stats-body">
+                                        <!-- JS will populate this -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="message-log-panel" class="devwatch-column-panel">
+                        <div class="devwatch-section is-open">
+                            <div class="devwatch-section-header">
+                                <h4 class="devwatch-section-title">Message Log</h4>
+                                <div class="devwatch-section-actions">
+                                    <button id="clear-log-btn" class="devwatch-button devwatch-button--ghost devwatch-button--small">Clear Log</button>
+                                </div>
+                            </div>
+                            <div class="devwatch-section-content">
+                                <div id="message-log" class="devwatch-code-block">
+                                    <div class="devwatch-text-muted" style="font-style: italic;">Message log will appear here...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="docs-panel" class="devwatch-column-panel">
+                        <div class="devwatch-section is-open">
+                            <div class="devwatch-section-header">
+                                <h4 class="devwatch-section-title">Documentation Viewer</h4>
+                            </div>
+                            <div class="devwatch-section-content">
+                                <p>Docs-specific content will go here.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="icon-editor-panel" class="devwatch-column-panel" style="display: none;">
+                        <div class="devwatch-section is-open">
+                            <div class="devwatch-section-header">
+                                <h4 class="devwatch-section-title">PIF Icon Editor</h4>
+                                <div class="devwatch-section-actions">
+                                    <button id="back-to-monitor-btn" class="devwatch-button devwatch-button--ghost devwatch-button--small">
+                                        ← Back to Monitor
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="devwatch-section-content">
+                                <div id="pif-editor-container">
+                                    <!-- PIF Editor will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        window.mermaid = mermaid;
+    </script>
+    <script src="/static/js/devwatch-iframe.js"></script>
+    <script src="/static/js/theme-manager.js"></script>
+    <script src="/static/js/devwatch-section.js"></script>
+    <script src="/static/js/devwatch-panel-manager.js"></script>
+    <script src="/static/js/devwatch-ranked-list.js"></script>
+    <script src="/static/js/devwatch-confirm-button.js"></script>
+    <script src="/static/js/system-control-panel.js"></script>
+    <script src="/static/js/docs-manager.js"></script>
+    <script src="/static/js/icon-manager.js"></script>
+    <script src="/static/js/devwatch-icon-editor.js"></script>
+</body>
+</html>

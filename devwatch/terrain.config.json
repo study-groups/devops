@@ -1,0 +1,43 @@
+{
+  "app": {
+    "name": "DevWatch",
+    "version": "1.0.0",
+    "description": "Development monitoring and test management dashboard"
+  },
+  "mode": "devwatch",
+  "theme": "dark",
+  "terrain": {
+    "source": "symlink",
+    "path": "../tetra/bash/terrain"
+  },
+  "server": {
+    "port": 4400,
+    "staticPath": "/static/terrain"
+  },
+  "panels": {
+    "test-runner": {
+      "title": "Test Runner",
+      "iframe": "panels/test-runner.html"
+    },
+    "test-matrix": {
+      "title": "Test Matrix",
+      "iframe": "panels/test-matrix.html"
+    },
+    "logs": {
+      "title": "Logs",
+      "iframe": "panels/logs.html"
+    },
+    "metrics": {
+      "title": "Metrics",
+      "iframe": "panels/metrics.html"
+    },
+    "system": {
+      "title": "System",
+      "iframe": "panels/system.html"
+    },
+    "health": {
+      "title": "Health Check",
+      "iframe": "panels/health.html"
+    }
+  }
+}

@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playwright Testing System - Architecture Info</title>
+    <link rel="stylesheet" href="/static/css/system-info.css">
+</head>
+<body>
+    <div class="info-container">
+        <div class="info-header">
+            <h1 id="standalone-title" style="display: none;">Playwright Testing System Architecture</h1>
+            <p>Filesystem API, Environment Variables, and System Documentation</p>
+        </div>
+        
+        <!-- RUNTIME ENVIRONMENT SUMMARY -->
+        <div class="info-section" id="runtime-environment" style="margin-bottom: 16px;">
+            <h2>Runtime Environment</h2>
+            <div class="key-value">
+                <div class="key">PD_DIR:</div>
+                <div class="value"><span id="summary-pd-dir">Loading...</span></div>
+
+                <div class="key">PW_DIR:</div>
+                <div class="value"><span id="summary-pw-dir">Loading...</span></div>
+
+                <div class="key">PW_SRC:</div>
+                <div class="value"><span id="summary-pw-src">Loading...</span></div>
+
+                <div class="key">PWD:</div>
+                <div class="value"><span id="summary-pwd">Loading...</span></div>
+
+                <div class="key">Server:</div>
+                <div class="value"><span id="summary-server">Loading...</span></div>
+
+                <div class="key">User:</div>
+                <div class="value"><span id="summary-user">Loading...</span></div>
+
+                <div class="key">IP Address:</div>
+                <div class="value"><span id="summary-ip">Loading...</span></div>
+
+                <div class="key">Monitoring:</div>
+                <div class="value"><span id="summary-monitoring">Loading...</span></div>
+            </div>
+        </div>
+
+        <div class="nav-menu">
+            <a href="#overview">System Overview</a>
+            <a href="#filesystem-api">Filesystem API</a>
+            <a href="#environment-variables">Environment Variables</a>
+            <a href="#api-endpoints">API Endpoints</a>
+            <a href="#monitoring">Monitoring</a>
+        </div>
+
+        <!-- SYSTEM OVERVIEW -->
+        <div class="info-section" id="overview">
+            <h2>System Overview</h2>
+            
+            <div class="key-value">
+                <div class="key">Architecture:</div>
+                <div class="value">Node.js/Express backend + Filesystem API + S3 Storage + Playwright test runner</div>
+                
+                <div class="key">Main Entry Point:</div>
+                <div class="value"><span class="highlight">server/index.js</span> (Express server)</div>
+                
+                <div class="key">Filesystem API:</div>
+                <div class="value"><span class="highlight">/api/filesystem</span> → Comprehensive directory analysis</div>
+                
+                <div class="key">Permission System:</div>
+                <div class="value"><span class="highlight">PD_DIR</span> → Primary data directory with access control</div>
+                
+                <div class="key">S3 Storage:</div>
+                <div class="value"><span class="highlight">Digital Ocean Spaces</span> → Game files and assets</div>
+                
+                <div class="key">Admin Interface:</div>
+                <div class="value"><span class="highlight">/admin</span> route → <span class="highlight">routes/admin.js</span></div>
+                
+                <div class="key">Data Storage:</div>
+                <div class="value"><span class="highlight">PD_DATA</span> → Logs, results, configuration (<span class="highlight">PD_DATA=PD_DIR/data</span>)</div>
+            </div>
+            
+            <div class="warning">
+                <strong>Security Model:</strong> System uses <span class="highlight">PD_DIR</span> as root for all file operations, 
+                <span class="highlight">Digital Ocean Spaces</span> for game storage, and path validation for API access control.
+            </div>
+        </div>
+
+        <!-- FILE STRUCTURE -->
+        <div class="info-section" id="file-structure">
+            <h2>Complete File Structure</h2>
+            
+            <div class="file-structure">
+                <div class="file-tree">
+<span class="folder">playwright/</span>
+├── <span class="file">README.md</span>
+├── <span class="folder">server/</span>
+│   ├── <span class="file">index.js</span>
+│   ├── <span class="folder">routes/</span>
+│   │   ├── <span class="api">admin.js</span>
+│   │   └── <span class="api">api.js</span>
+│   ├── <span class="folder">static/</span>
+│   │   ├── <span class="file">dashboard-client.js</span>
+│   │   ├── <span class="file">testing-matrix.js</span>
+│   │   ├── <span class="file">notification-system.js</span>
+│   │   ├── <span class="file">dashboard-logger.js</span>
+│   │   ├── <span class="file">test-runner-monitor.js</span>
+│   │   ├── <span class="file">testing-matrix.css</span>
+│   │   ├── <span class="file">system-logger.css</span>
+│   │   ├── <span class="file">test-runner-monitor.css</span>
+│   │   └── <span class="file">info.html</span>
+│   └── <span class="folder">utils/</span>
+│       ├── <span class="file">stats.js</span>
+│       └── <span class="file">database.js</span>
+├── <span class="folder">config/</span>
+│   └── <span class="config">testing-system-config.json</span>
+├── <span class="folder">docs/</span>
+├── <span class="folder">logs/</span>
+├── <span class="folder">node_modules/</span>
+├── <span class="folder">playwright-report/</span>
+├── <span class="folder">reporters/</span>
+├── <span class="folder">tests/</span>
+├── <span class="folder">utils/</span>
+├── <span class="file">arcade-control.sh</span>
+├── <span class="file">e.c.js</span>
+├── <span class="file">ecosystem.config.js</span>
+├── <span class="file">package.json</span>
+├── <span class="file">package-lock.json</span>
+└── <span class="config">playwright.config.standard.js</span>
+</div>
+            </div>
+        </div>
+
+        <!-- TEST SUITE MANAGER REMOVED -->
+
+        <!-- FILESYSTEM API -->
+        <div class="info-section" id="filesystem-api">
+            <h2>Filesystem API</h2>
+            
+            <div class="data-flow">
+                <div class="flow-step" id="apiTrigger" style="cursor: pointer; border: 2px solid #00aa00;" onclick="queryFilesystemAPI()" title="Click to query live API">
+                    Client Request<br>/api/filesystem
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step" id="envStep" style="cursor: pointer;" onclick="showEnvironmentData()" title="Click to show environment variables">
+                    Directory Analysis<br>Environment Info
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step" id="healthStep" style="cursor: pointer;" onclick="showSystemHealth()" title="Click to show system health">
+                    System Health<br>Process Metrics
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step" id="jsonStep" style="cursor: pointer;" onclick="toggleRawOutput()" title="Click to toggle raw JSON">
+                    JSON Response<br>View as JSON
+                </div>
+            </div>
+
+            <div id="curlCommand" style="display: none; margin-top: 15px; padding: 10px; background: #1a1a1a; border: 1px solid #333; border-radius: 4px; color: #00ff00; font-family: monospace; white-space: pre-wrap;"></div>
+
+            
+            <div id="loadingIndicator" style="display: none; color: #ffaa00; margin: 15px 0; text-align: center;">
+                Loading filesystem data...
+            </div>
+            
+            <div id="errorMessage" style="display: none; color: #ff4444; margin: 15px 0; padding: 10px; background: #440000; border-radius: 4px;">
+            </div>
+
+            <div id="filesystemResults" style="display: none;">
+                <!-- Raw Technical Output with JSON Viewer -->
+                <div id="rawOutput" style="display: none; margin: 20px 0;">
+                    <div id="jsonViewer"></div>
+                </div>
+                
+                <!-- Environment Variables Section -->
+                <div id="envOutput" style="display: none; margin: 20px 0;">
+                    <h4 style="color: #00ff00; margin-bottom: 15px;">Environment Variables</h4>
+                    
+                    <!-- PW/PD Related Variables -->
+                    <div style="margin-bottom: 25px;">
+                        <h5 style="color: #ffaa00; margin-bottom: 10px;">Playwright & System Variables (<span id="pwVarCount">0</span>)</h5>
+                        <div style="overflow-x: auto;">
+                            <table class="endpoint-table" id="pwEnvTable">
+                                <thead>
+                                    <tr>
+                                        <th>Variable</th>
+                                        <th>Value</th>
+                                        <th>Key Variable</th>
+                                        <th>Path Status</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pwEnvTableBody">
+                                    <!-- Dynamic content -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- System Variables (Collapsible) -->
+                    <div style="margin-bottom: 15px;">
+                        <button id="systemVarsToggle" onclick="toggleSystemVars()" style="
+                            background: #333;
+                            color: #ccc;
+                            border: 1px solid #555;
+                            padding: 8px 12px;
+                            border-radius: 4px;
+                            cursor: pointer;
+                            font-size: 14px;
+                            margin-bottom: 10px;
+                        ">▶ Show System Variables (<span id="systemVarCount">0</span>)</button>
+                        
+                        <div id="systemVarsSection" style="display: none;">
+                            <div style="overflow-x: auto;">
+                                <table class="endpoint-table" id="systemEnvTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Variable</th>
+                                            <th>Value</th>
+                                            <th>Key Variable</th>
+                                            <th>Path Status</th>
+                                            <th>Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="systemEnvTableBody">
+                                        <!-- Dynamic content -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Health Table -->
+                <div id="healthOutput" style="display: none; margin: 20px 0;">
+                    <h4 style="color: #00ff00; margin-bottom: 10px;">System Health:</h4>
+                    <div style="overflow-x: auto;">
+                        <table class="endpoint-table" id="healthTable">
+                            <thead>
+                                <tr>
+                                    <th>Metric</th>
+                                    <th>Current Value</th>
+                                    <th>Details</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="healthTableBody">
+                                <!-- Dynamic content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div style="margin: 15px 0; padding: 10px; background: #2a2a2a; border-radius: 4px; font-size: 12px; color: #ccc;">
+                    <strong>Last Updated:</strong> <span id="lastUpdated"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ENVIRONMENT VARIABLES -->
+        <div class="info-section" id="environment-variables">
+            <h2>Environment Variables</h2>
+            
+            <h3>Core System Variables:</h3>
+            <div class="key-value">
+                <div class="key">PD_DIR:</div>
+                <div class="value">Primary data directory - where data lives | <span class="highlight">Permission system root</span></div>
+                
+                <div class="key">PD_DATA:</div>
+                <div class="value">Playwright data storage - reports, logs, test results</div>
+                
+                <div class="key">LOG_DIR:</div>
+                <div class="value">Application logs location</div>
+                
+                <div class="key">NODE_ENV:</div>
+                <div class="value">Runtime environment (development/production)</div>
+                
+                <div class="key">PORT:</div>
+                <div class="value">Main server port for HTTP connections</div>
+                
+                <div class="key">HOST:</div>
+                <div class="value">Server hostname or IP address</div>
+            </div>
+            
+            <h3>Digital Ocean Spaces Configuration:</h3>
+            <div class="key-value">
+                <div class="key">DO_SPACES_KEY:</div>
+                <div class="value">Access key ID for Digital Ocean Spaces authentication</div>
+                
+                <div class="key">DO_SPACES_SECRET:</div>
+                <div class="value">Secret access key for Digital Ocean Spaces authentication</div>
+                
+                <div class="key">DO_SPACES_BUCKET:</div>
+                <div class="value">DigitalOcean Spaces bucket for game files</div>
+                
+                <div class="key">AUDIT_BUCKET:</div>
+                <div class="value">Audit logs storage bucket</div>
+                
+                <div class="key">Endpoint:</div>
+                <div class="value"><span class="highlight">https://sfo3.digitaloceanspaces.com</span></div>
+                
+                <div class="key">Region:</div>
+                <div class="value"><span class="highlight">sfo3</span> (San Francisco 3)</div>
+            </div>
+            
+            <h3>S3 Client Configuration:</h3>
+            <div id="s3ConfigViewer"></div>
+            
+            <script>
+                // S3 Configuration Data
+                const s3ConfigData = {
+                    "imports": [
+                        "S3Client",
+                        "GetObjectCommand", 
+                        "PutObjectCommand"
+                    ],
+                    "module": "@aws-sdk/client-s3",
+                    "clientConfiguration": {
+                        "endpoint": "https://sfo3.digitaloceanspaces.com",
+                        "region": "sfo3",
+                        "credentials": {
+                            "accessKeyId": "process.env.DO_SPACES_KEY",
+                            "secretAccessKey": "process.env.DO_SPACES_SECRET"
+                        }
+                    },
+                    "bucketName": "process.env.DO_SPACES_BUCKET || 'pja-games'",
+                    "usage": {
+                        "description": "Digital Ocean Spaces S3-compatible storage client",
+                        "purpose": "Game file storage and retrieval",
+                        "environment": "San Francisco 3 (sfo3) region"
+                    }
+                };
+                
+                // Create S3 config JSON viewer when page loads
+                document.addEventListener('DOMContentLoaded', function() {
+                    // Show h1 title only in standalone mode (not iframe)
+                    if (window === window.top) {
+                        // The page is not inside an iframe - show title
+                        document.getElementById('standalone-title').style.display = 'block';
+                        console.log("Info: Running in standalone mode - title visible");
+                    } else {
+                        // The page is running inside an iframe - hide title
+                        console.log("Info: Running inside an iframe - title hidden");
+                    }
+
+                    const s3Container = document.getElementById('s3ConfigViewer');
+                    if (s3Container && typeof createJsonViewer === 'function') {
+                        createJsonViewer('s3Config', 'S3 Client Setup Configuration', s3ConfigData, s3Container);
+                    }
+                });
+            </script>
+            
+            <h3>Permission System (PD_DIR):</h3>
+            <div class="key-value">
+                <div class="key">Access Control:</div>
+                <div class="value">API access limited to PD_DIR path for security</div>
+                
+                <div class="key">Path Validation:</div>
+                <div class="value">All file operations must be within PD_DIR boundaries</div>
+                
+                <div class="key">Directory Structure:</div>
+                <div class="value"><span class="highlight">PD_DATA</span> contains logs, results, and configuration</div>
+                
+                <div class="key">Security Model:</div>
+                <div class="value">Prevents directory traversal and unauthorized file access</div>
+            </div>
+        </div>
+
+        <!-- API ENDPOINTS -->
+        <div class="info-section" id="api-endpoints">
+            <h2>API Endpoints Reference</h2>
+            
+            <table class="endpoint-table">
+                <thead>
+                    <tr>
+                        <th>Method</th>
+                        <th>Endpoint</th>
+                        <th>Description</th>
+                        <th>File Location</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="method">GET</td>
+                        <td>/api/filesystem</td>
+                        <td>Comprehensive filesystem analysis and environment info</td>
+                        <td>api.js:39</td>
+                    </tr>
+                    <tr>
+                        <td class="method">GET</td>
+                        <td>/api/directory-stats/:env</td>
+                        <td>Directory statistics and file counts</td>
+                        <td>api.js:2177</td>
+                    </tr>
+                    <tr>
+                        <td class="method">GET</td>
+                        <td>/api/game-files/[...path]</td>
+                        <td>S3 Gateway - Proxies files from Digital Ocean Spaces</td>
+                        <td>game-files/[...path]/+server.js:25</td>
+                    </tr>
+                    <tr>
+                        <td class="method">GET</td>
+                        <td>/api/admin/manifest</td>
+                        <td>Retrieve game manifest from S3 storage</td>
+                        <td>admin/manifest/+server.js:19</td>
+                    </tr>
+                    <tr>
+                        <td class="method">POST</td>
+                        <td>/api/admin/upload-game</td>
+                        <td>Upload game files directly to Digital Ocean Spaces</td>
+                        <td>admin/upload-game/+server.js:293</td>
+                    </tr>
+                    <tr>
+                        <td class="method">GET</td>
+                        <td>/api/system/info</td>
+                        <td>Server system information and health</td>
+                        <td>api.js:1558</td>
+                    </tr>
+                    <tr>
+                        <td class="method">GET</td>
+                        <td>/api/logs/aggregated</td>
+                        <td>Aggregated logs from all environments</td>
+                        <td>api.js:892</td>
+                    </tr>
+                    <tr>
+                        <td class="method">POST</td>
+                        <td>/api/logs/perform-load-test/:env</td>
+                        <td>Real page load test with performance metrics</td>
+                        <td>api.js:1024</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+
+
+        <!-- MONITORING SYSTEM -->
+        <div class="info-section" id="monitoring">
+            <h2>Monitoring & Logging</h2>
+            
+            <h3>Filesystem Monitoring:</h3>
+            <div class="key-value">
+                <div class="key">Directory Analysis:</div>
+                <div class="value">Real-time file counts, sizes, and modification times</div>
+                
+                <div class="key">PD_DIR Tracking:</div>
+                <div class="value">Monitor disk usage within <span class="highlight">PD_DATA</span> boundaries</div>
+                
+                <div class="key">Access Control:</div>
+                <div class="value">Log and validate all filesystem operations against PD_DIR</div>
+                
+                <div class="key">S3 Integration:</div>
+                <div class="value">Track upload status and Digital Ocean Spaces connectivity</div>
+                
+                <div class="key">Environment Variables:</div>
+                <div class="value">Monitor critical config variables and path resolution</div>
+            </div>
+            
+            <h3>System Health Monitoring:</h3>
+            <div class="key-value">
+                <div class="key">Memory Usage:</div>
+                <div class="value">Total, free, and usage percentage tracking</div>
+                
+                <div class="key">Disk Space:</div>
+                <div class="value">Available space and usage alerts</div>
+                
+                <div class="key">Process Monitoring:</div>
+                <div class="value">Track Node.js processes, CPU usage, and load averages</div>
+                
+                <div class="key">Network Health:</div>
+                <div class="value">S3 connectivity and API response times</div>
+            </div>
+            
+            <h3>Logging Structure:</h3>
+            <div class="key-value">
+                <div class="key">Central Logs:</div>
+                <div class="value"><span class="highlight">PD_DATA/logs/central-events.jsonl</span></div>
+                
+                <div class="key">System Activity:</div>
+                <div class="value"><span class="highlight">PW_DIR/logs/server/server.log</span></div>
+                
+                <div class="key">Environment Logs:</div>
+                <div class="value"><span class="highlight">PD_DATA/logs/playwright-monitor-{env}.log</span></div>
+                
+                <div class="key">Aggregated API:</div>
+                <div class="value"><span class="highlight">/api/logs/aggregated</span> → Unified log access</div>
+                
+                <div class="key">Permission Logs:</div>
+                <div class="value">Track filesystem access attempts and path validation</div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h2>Quick Actions</h2>
+            <div class="nav-menu">
+                <a href="/admin">Back to Admin</a>
+                <a href="#top" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">Top</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/info.js"></script>
+    <script>
+    // Populate Runtime Environment summary
+    document.addEventListener('DOMContentLoaded', async function() {
+        try {
+            const envRes = await fetch('/api/environment');
+            const env = await envRes.json();
+            const byId = (id) => document.getElementById(id);
+            byId('summary-pd-dir').textContent = env.PD_DIR || 'Not available';
+            byId('summary-pw-dir').textContent = env.PW_DIR || 'Not available';
+            byId('summary-pw-src').textContent = env.PW_SRC || 'Not available';
+            byId('summary-pwd').textContent = env.PROCESS_PWD || 'Not available';
+            byId('summary-server').textContent = env.SERVER_INFO || 'Not available';
+            byId('summary-user').textContent = env.USER_INFO || 'Not available';
+            byId('summary-ip').textContent = env.IP_INFO || 'Not available';
+        } catch (_) {}
+
+        try {
+            const monRes = await fetch('/api/monitoring/status');
+            if (monRes.ok) {
+                const mon = await monRes.json();
+                const anyActive = mon && mon.monitoring && Object.values(mon.monitoring).some(s => s.isRunning);
+                document.getElementById('summary-monitoring').textContent = anyActive ? 'Active' : 'Stopped';
+            } else {
+                document.getElementById('summary-monitoring').textContent = 'Unknown';
+            }
+        } catch (_) {
+            document.getElementById('summary-monitoring').textContent = 'Unknown';
+        }
+    });
+    </script>
+    <!-- TSM completely removed from info.html - use standalone version at tsm-standalone.html -->
+</body>
+</html>

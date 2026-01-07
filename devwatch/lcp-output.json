@@ -1,0 +1,12 @@
+
+🎯 LCP Metrics:
+✅ dev-chrome-desktop: 1320ms LCP - Report: /reports/index.html?t=2025-08-11T21-48-09-118Z
+[
+  {
+    "lcp": 1320,
+    "timestamp": "2025-08-11T21:48:09.119Z",
+    "project": "dev-chrome-desktop",
+    "status": "passed",
+    "reportUrl": "/reports/index.html?t=2025-08-11T21-48-09-118Z"
+  }
+]

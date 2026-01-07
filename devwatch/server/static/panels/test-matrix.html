@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Matrix</title>
+    <link rel="stylesheet" href="../terrain/css/iframe-base.css">
+    <link rel="stylesheet" href="../css/devwatch.tokens.css">
+    <style>
+        body {
+            background: var(--bg-secondary);
+            padding: 12px;
+        }
+        .section-title {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--border);
+        }
+        .env-group {
+            margin-bottom: 16px;
+        }
+        .env-header {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .env-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        .env-dot.dev { background: var(--env-dev); }
+        .env-dot.staging { background: var(--env-staging); }
+        .env-dot.prod { background: var(--env-prod); }
+        .browser-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .browser-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 8px;
+            background: var(--bg-primary);
+            border-radius: var(--curve-sm);
+            cursor: pointer;
+            transition: var(--tempo-fast);
+            border: 1px solid transparent;
+        }
+        .browser-item:hover {
+            border-color: var(--border-visible);
+        }
+        .browser-item.selected {
+            border-color: var(--devwatch-primary);
+            background: var(--bg-tertiary);
+        }
+        .browser-name {
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .browser-icon {
+            width: 14px;
+            height: 14px;
+            border-radius: 2px;
+        }
+        .browser-icon.chromium { background: var(--browser-chromium); }
+        .browser-icon.firefox { background: var(--browser-firefox); }
+        .browser-icon.webkit { background: var(--browser-webkit); }
+        .status-badge {
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        .status-badge.pass { background: var(--test-pass); color: #000; }
+        .status-badge.fail { background: var(--test-fail); color: #fff; }
+        .status-badge.idle { background: var(--bg-tertiary); color: var(--text-muted); }
+        .run-all-btn {
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px;
+            background: var(--devwatch-primary);
+            color: #000;
+            border: none;
+            border-radius: var(--curve-sm);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: var(--tempo-fast);
+        }
+        .run-all-btn:hover {
+            filter: brightness(1.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="section-title">Test Matrix</div>
+
+    <div class="env-group">
+        <div class="env-header">
+            <span class="env-dot dev"></span>
+            Development
+        </div>
+        <div class="browser-list" id="dev-browsers">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+
+    <div class="env-group">
+        <div class="env-header">
+            <span class="env-dot staging"></span>
+            Staging
+        </div>
+        <div class="browser-list" id="staging-browsers">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+
+    <div class="env-group">
+        <div class="env-header">
+            <span class="env-dot prod"></span>
+            Production
+        </div>
+        <div class="browser-list" id="prod-browsers">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+
+    <button class="run-all-btn" onclick="runSelected()">Run Selected Tests</button>
+
+    <script src="../terrain/js/terrain.js"></script>
+    <script>
+        const browsers = ['chromium', 'firefox', 'webkit'];
+        const envs = ['dev', 'staging', 'prod'];
+        const selected = new Set();
+
+        function renderBrowsers() {
+            envs.forEach(env => {
+                const container = document.getElementById(env + '-browsers');
+                container.innerHTML = browsers.map(browser => `
+                    <div class="browser-item" data-env="${env}" data-browser="${browser}"
+                         onclick="toggleSelection('${env}', '${browser}')">
+                        <span class="browser-name">
+                            <span class="browser-icon ${browser}"></span>
+                            ${browser.charAt(0).toUpperCase() + browser.slice(1)}
+                        </span>
+                        <span class="status-badge idle">--</span>
+                    </div>
+                `).join('');
+            });
+        }
+
+        function toggleSelection(env, browser) {
+            const key = env + ':' + browser;
+            const el = document.querySelector(`[data-env="${env}"][data-browser="${browser}"]`);
+            if (selected.has(key)) {
+                selected.delete(key);
+                el.classList.remove('selected');
+            } else {
+                selected.add(key);
+                el.classList.add('selected');
+            }
+        }
+
+        function runSelected() {
+            const tests = Array.from(selected).map(key => {
+                const [env, browser] = key.split(':');
+                return { env, browser };
+            });
+            Terrain.Iframe.send({
+                type: 'run-tests',
+                tests: tests.length ? tests : [{ env: 'dev', browser: 'chromium' }]
+            });
+        }
+
+        Terrain.Iframe.init({
+            onMessage: function(data) {
+                if (data.type === 'test-result') {
+                    updateResult(data.env, data.browser, data.status);
+                }
+            },
+            onReady: function() {
+                renderBrowsers();
+                Terrain.Iframe.send({ type: 'ready', from: 'test-matrix' });
+            }
+        });
+
+        function updateResult(env, browser, status) {
+            const el = document.querySelector(`[data-env="${env}"][data-browser="${browser}"] .status-badge`);
+            if (el) {
+                el.className = 'status-badge ' + status;
+                el.textContent = status === 'pass' ? 'PASS' : status === 'fail' ? 'FAIL' : '--';
+            }
+        }
+
+        renderBrowsers();
+    </script>
+</body>
+</html>

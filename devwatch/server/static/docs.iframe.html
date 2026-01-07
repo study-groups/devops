@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentation</title>
+
+    <link rel="stylesheet" href="/static/css/base/design-tokens.css">
+    <link rel="stylesheet" href="/static/css/docs.css">
+
+    <style>
+        /* TDS Document Styles - Hybrid RFC-inspired format */
+        :root {
+            --tds-text-primary: var(--devwatch-text-primary, #c0caf5);
+            --tds-bg-primary: var(--devwatch-bg-primary, #1a1b26);
+            --tds-bg-secondary: var(--devwatch-bg-secondary, #24283b);
+            --tds-heading-h1: var(--devwatch-accent-primary, #7aa2f7);
+            --tds-heading-h2: var(--devwatch-accent-secondary, #7dcfff);
+            --tds-heading-h3: #bb9af7;
+            --tds-heading-h4: #9ece6a;
+            --tds-code-bg: var(--devwatch-bg-tertiary, #24283b);
+            --tds-code-text: #9ece6a;
+            --tds-code-block-bg: #1f2335;
+            --tds-code-block-text: #a9b1d6;
+            --tds-border-accent: var(--devwatch-border-accent, #7aa2f7);
+            --tds-border-primary: var(--devwatch-border-primary, #3b4261);
+            --tds-quote-border: #565f89;
+            --tds-quote-bg: rgba(86, 95, 137, 0.1);
+            --tds-quote-text: #9aa5ce;
+            --tds-link: #7dcfff;
+            --tds-link-hover: #7aa2f7;
+            --tds-emphasis-bold: #e0af68;
+            --tds-emphasis-italic: #bb9af7;
+            --tds-info: #7dcfff;
+            --tds-warning: #e0af68;
+            --tds-error: #f7768e;
+            --tds-success: #9ece6a;
+            --tds-text-muted: var(--devwatch-text-muted, #565f89);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--tds-bg-primary);
+            color: var(--tds-text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .docs-wrapper {
+            display: flex;
+            height: 100vh;
+        }
+
+        .docs-sidebar {
+            width: 250px;
+            background-color: var(--tds-bg-secondary);
+            border-right: 1px solid var(--tds-border-primary);
+            overflow-y: auto;
+            padding: 1rem;
+            flex-shrink: 0;
+        }
+
+        .docs-sidebar h3 {
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--tds-text-muted);
+            margin: 0 0 0.5rem;
+        }
+
+        .docs-nav-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .docs-nav-item {
+            padding: 0.5rem;
+            cursor: pointer;
+            border-radius: 4px;
+            color: var(--tds-text-primary);
+            font-size: 0.875rem;
+        }
+
+        .docs-nav-item:hover {
+            background-color: rgba(122, 162, 247, 0.1);
+        }
+
+        .docs-nav-item.active {
+            background-color: rgba(122, 162, 247, 0.2);
+            color: var(--tds-heading-h1);
+        }
+
+        .docs-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+        }
+
+        /* TDS Document Article Styles */
+        .tds-doc {
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .tds-doc h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--tds-heading-h1);
+            margin: 2rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--tds-border-accent);
+        }
+
+        .tds-doc h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--tds-heading-h2);
+            margin: 1.5rem 0 0.75rem;
+        }
+
+        .tds-doc h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--tds-heading-h3);
+            margin: 1.25rem 0 0.5rem;
+        }
+
+        .tds-doc h4, .tds-doc h5, .tds-doc h6 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--tds-heading-h4);
+            margin: 1rem 0 0.5rem;
+        }
+
+        .tds-doc p {
+            margin: 0.75rem 0;
+        }
+
+        .tds-doc code {
+            font-family: 'Courier New', Monaco, 'Ubuntu Mono', monospace;
+            font-size: 0.9em;
+            background-color: var(--tds-code-bg);
+            color: var(--tds-code-text);
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+        }
+
+        .tds-doc pre {
+            font-family: 'Courier New', Monaco, 'Ubuntu Mono', monospace;
+            font-size: 0.875rem;
+            background-color: var(--tds-code-block-bg);
+            color: var(--tds-code-block-text);
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            line-height: 1.5;
+            margin: 1rem 0;
+            border-left: 4px solid var(--tds-border-accent);
+        }
+
+        .tds-doc pre code {
+            background: none;
+            padding: 0;
+            font-size: inherit;
+            color: inherit;
+        }
+
+        .tds-doc ul, .tds-doc ol {
+            margin: 0.75rem 0;
+            padding-left: 1.5rem;
+        }
+
+        .tds-doc li {
+            margin: 0.25rem 0;
+        }
+
+        .tds-doc li::marker {
+            color: var(--tds-heading-h1);
+        }
+
+        .tds-doc blockquote {
+            margin: 1rem 0;
+            padding: 0.5rem 1rem;
+            border-left: 4px solid var(--tds-quote-border);
+            background-color: var(--tds-quote-bg);
+            color: var(--tds-quote-text);
+            font-style: italic;
+        }
+
+        .tds-doc a {
+            color: var(--tds-link);
+            text-decoration: underline;
+        }
+
+        .tds-doc a:hover {
+            color: var(--tds-link-hover);
+        }
+
+        .tds-doc hr {
+            border: none;
+            border-top: 1px solid var(--tds-border-primary);
+            margin: 2rem 0;
+        }
+
+        .tds-doc strong {
+            font-weight: 700;
+            color: var(--tds-emphasis-bold);
+        }
+
+        .tds-doc em {
+            font-style: italic;
+            color: var(--tds-emphasis-italic);
+        }
+
+        /* Note sections */
+        .tds-doc .note {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-left: 4px solid var(--tds-info);
+            background-color: rgba(125, 207, 255, 0.1);
+        }
+
+        .tds-doc .warning {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-left: 4px solid var(--tds-warning);
+            background-color: rgba(224, 175, 104, 0.1);
+        }
+
+        .tds-doc table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        .tds-doc th, .tds-doc td {
+            padding: 0.5rem;
+            border: 1px solid var(--tds-border-primary);
+            text-align: left;
+        }
+
+        .tds-doc th {
+            background-color: var(--tds-bg-secondary);
+            font-weight: 600;
+        }
+
+        /* Loading state */
+        .docs-loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--tds-text-muted);
+        }
+
+        /* Search */
+        .docs-search {
+            padding: 0.5rem;
+            margin-bottom: 1rem;
+            width: 100%;
+            box-sizing: border-box;
+            background-color: var(--tds-bg-primary);
+            border: 1px solid var(--tds-border-primary);
+            border-radius: 4px;
+            color: var(--tds-text-primary);
+            font-size: 0.875rem;
+        }
+
+        .docs-search:focus {
+            outline: none;
+            border-color: var(--tds-border-accent);
+        }
+    </style>
+</head>
+<body data-theme="matrix">
+    <div class="docs-wrapper">
+        <aside class="docs-sidebar">
+            <input type="text" class="docs-search" placeholder="Search docs...">
+            <h3>Documentation</h3>
+            <ul class="docs-nav-list" id="docs-nav">
+                <li class="docs-nav-item active" data-doc="readme">README</li>
+                <li class="docs-nav-item" data-doc="architecture">Architecture</li>
+                <li class="docs-nav-item" data-doc="conventions">Conventions</li>
+                <li class="docs-nav-item" data-doc="api">API Reference</li>
+            </ul>
+        </aside>
+        <main class="docs-content">
+            <article class="tds-doc" id="docs-article">
+                <div class="docs-loading">Loading documentation...</div>
+            </article>
+        </main>
+    </div>
+
+    <script src="/static/js/devwatch-style-sdk.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        // Initialize DevWatch Style SDK for theme sync
+        if (typeof DevWatchStyleSDK !== 'undefined') {
+            window.styleSDK = new DevWatchStyleSDK();
+        }
+
+        // Document loader
+        const docsContent = document.getElementById('docs-article');
+        const navItems = document.querySelectorAll('.docs-nav-item');
+
+        // Map doc IDs to file paths
+        const docMap = {
+            'readme': '/static/README.md',
+            'architecture': '/static/README-architecture-separation.md',
+            'conventions': '/static/devwatch-conventions.md',
+            'api': '/api/docs'
+        };
+
+        async function loadDoc(docId) {
+            const path = docMap[docId];
+            if (!path) return;
+
+            docsContent.innerHTML = '<div class="docs-loading">Loading...</div>';
+
+            try {
+                const response = await fetch(path);
+                if (!response.ok) throw new Error('Document not found');
+
+                const text = await response.text();
+
+                // Use marked to parse markdown
+                if (typeof marked !== 'undefined') {
+                    docsContent.innerHTML = marked.parse(text);
+                } else {
+                    docsContent.innerHTML = '<pre>' + text + '</pre>';
+                }
+
+                // Update active nav item
+                navItems.forEach(item => {
+                    item.classList.toggle('active', item.dataset.doc === docId);
+                });
+
+                // Update title via SDK
+                if (window.styleSDK) {
+                    const title = docsContent.querySelector('h1')?.textContent || 'Documentation';
+                    window.styleSDK.setTitle(title);
+                }
+            } catch (error) {
+                docsContent.innerHTML = '<div class="docs-loading">Error loading document: ' + error.message + '</div>';
+            }
+        }
+
+        // Navigation click handlers
+        navItems.forEach(item => {
+            item.addEventListener('click', () => {
+                loadDoc(item.dataset.doc);
+            });
+        });
+
+        // Search functionality
+        const searchInput = document.querySelector('.docs-search');
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            navItems.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(query) ? '' : 'none';
+            });
+        });
+
+        // Load initial doc
+        loadDoc('readme');
+    </script>
+</body>
+</html>

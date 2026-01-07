@@ -1,0 +1,97 @@
+/**
+ * DevWatch Component: Section
+ * A versatile container for distinct blocks of content. Can be collapsible and draggable.
+ */
+
+.devwatch-section {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--devwatch-bg-secondary);
+    border: 1px solid var(--devwatch-border-primary);
+    border-radius: var(--devwatch-radius-md);
+    overflow: hidden;
+    transition: all var(--devwatch-transition-normal);
+    box-shadow: var(--devwatch-shadow-sm);
+}
+
+.devwatch-section:hover {
+    border-color: var(--devwatch-border-secondary);
+}
+
+.devwatch-section.is-open {
+    border-color: var(--devwatch-border-secondary);
+}
+
+/* Draggable states */
+.devwatch-section.is-draggable {
+    cursor: grab;
+}
+
+.devwatch-section.is-dragging {
+    cursor: grabbing;
+    opacity: 0.8;
+    transform: rotate(2deg) scale(1.01);
+    z-index: 1000;
+    box-shadow: var(--devwatch-shadow-lg);
+}
+
+/* Header */
+.devwatch-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: var(--devwatch-bg-tertiary);
+    padding: var(--devwatch-space-md) var(--devwatch-space-lg);
+    border-bottom: 1px solid var(--devwatch-border-primary);
+    user-select: none;
+    cursor: pointer;
+    transition: background-color var(--devwatch-transition-normal);
+}
+
+.devwatch-section-header:hover {
+    background-color: var(--devwatch-bg-elevated);
+}
+
+.devwatch-section-title-area {
+    display: flex;
+    align-items: center;
+    gap: var(--devwatch-space-sm);
+    flex: 1;
+}
+
+.devwatch-section-title {
+    font-size: var(--devwatch-font-size-md);
+    font-weight: var(--devwatch-font-weight-semibold);
+    color: var(--devwatch-text-primary);
+    margin: 0;
+}
+
+.devwatch-section--monitor .devwatch-section-title {
+    color: var(--devwatch-accent-good);
+}
+
+.devwatch-section-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--devwatch-space-sm);
+}
+
+.devwatch-section-toggle-icon {
+    transition: transform 0.3s ease-out;
+}
+
+.devwatch-section:not(.is-open) .devwatch-section-toggle-icon {
+    transform: rotate(-90deg);
+}
+
+/* Content */
+.devwatch-section-content {
+    padding: var(--devwatch-space-md);
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+.devwatch-section:not(.is-open) .devwatch-section-content {
+    display: none;
+}

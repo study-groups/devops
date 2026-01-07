@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Suite Manager - Standalone</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            background: #1a1a1a;
+            padding: 15px 20px;
+            border-bottom: 3px solid #4CAF50;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            color: #4CAF50;
+            font-size: 1.8em;
+        }
+
+        .header p {
+            margin: 5px 0 0 0;
+            color: #aaa;
+            font-size: 1em;
+        }
+
+        .navigation {
+            background: #2a2a2a;
+            padding: 10px 20px;
+            border-bottom: 1px solid #444;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 15px;
+        }
+
+        .nav-link {
+            color: #4CAF50;
+            text-decoration: none;
+            padding: 6px 12px;
+            border: 1px solid #4CAF50;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+            font-size: 0.9em;
+        }
+
+        .nav-link:hover {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .nav-status {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            font-size: 0.9em;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4CAF50;
+        }
+
+        .status-dot.warning { background: #FF9800; }
+        .status-dot.error { background: #f44336; }
+
+        .main-content {
+            height: calc(100vh - 140px);
+            overflow: hidden;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .loading-spinner {
+            color: #4CAF50;
+            font-size: 2em;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .keyboard-shortcuts {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(42, 42, 42, 0.9);
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #444;
+            font-size: 0.8em;
+            color: #aaa;
+            max-width: 300px;
+        }
+
+        .shortcuts-title {
+            color: #4CAF50;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .shortcut-item {
+            margin: 2px 0;
+        }
+
+        .shortcut-key {
+            background: #333;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+            color: #FFC107;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 5px;
+            right: 8px;
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 1.2em;
+            cursor: pointer;
+        }
+
+        .close-btn:hover {
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1 id="standalone-title" style="display: none;">🧪 Test Suite Manager - Standalone</h1>
+            <p>Comprehensive Playwright test suite management and execution</p>
+        </div>
+    </div>
+
+    <div class="navigation">
+        <div class="nav-links">
+            <a href="#" id="tsm-link" class="nav-link" style="display: none;">🧪 Test Suite Manager</a>
+            <a href="#" id="filesystem-link" class="nav-link">🗂️ Filesystem Monitor</a>
+            <a href="/playwright-report" class="nav-link">📈 Test Reports</a>
+            <a href="/" class="nav-link">⚙️ Admin Dashboard</a>
+            <a href="/" class="nav-link">🏠 Home</a>
+        </div>
+        <div class="nav-status">
+            <div class="status-indicator">
+                <span class="status-dot" id="server-status"></span>
+                <span>Server: <span id="server-status-text">Unknown</span></span>
+            </div>
+            <div class="status-indicator">
+                <span class="status-dot" id="test-status"></span>
+                <span>Tests: <span id="test-status-text">Ready</span></span>
+            </div>
+            <div class="status-indicator">
+                <span class="status-dot" id="env-status"></span>
+                <span>Env: <span id="env-status-text">Dev</span></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content" id="main-content-area">
+        <!-- The test suite manager will be injected here -->
+        <div id="manager-container">
+            <div class="loading-overlay">
+                <div class="loading-spinner">🔄</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keyboard shortcuts help -->
+    <div id="keyboard-shortcuts-widget" class="keyboard-shortcuts">
+        <button class="close-btn">&times;</button>
+        <div class="shortcuts-title">⌨️ Keyboard Shortcuts</div>
+        <div class="shortcut-item"><span class="shortcut-key">Ctrl+R</span> Run selected test</div>
+        <div class="shortcut-item"><span class="shortcut-key">Ctrl+A</span> Run all tests</div>
+        <div class="shortcut-item"><span class="shortcut-key">Ctrl+E</span> Edit selected suite</div>
+        <div class="shortcut-item"><span class="shortcut-key">Ctrl+S</span> Save changes</div>
+        <div class="shortcut-item"><span class="shortcut-key">Escape</span> Cancel edit</div>
+        <div class="shortcut-item"><span class="shortcut-key">F5</span> Refresh suites</div>
+    </div>
+
+    <div id="diagnostics-widget" class="keyboard-shortcuts" style="bottom: 180px; max-width: 320px; border-color: #FF9800;">
+        <button class="close-btn">&times;</button>
+        <div class="shortcuts-title" style="color: #FF9800;">ℹ️ Diagnostics</div>
+        <div class="shortcut-item"><strong>Storage:</strong> Client-side is stateless.</div>
+        <div class="shortcut-item"><strong>Data Source:</strong> All test suites and configurations are fetched from the server via the <code>/api/filesystem</code> endpoint on initialization.</div>
+        <div class="shortcut-item"><strong>Log Handling:</strong> Execution logs are displayed in real-time and are not persisted on the client.</div>
+    </div>
+
+    <!-- Load the test suite manager -->
+    <script src="/static/js/test-suite-manager.js"></script>
+    <script>
+        // Use the current origin as the API base
+        window.TEST_SUITE_API_BASE = window.location.origin;
+ 
+        // Initialize the test suite manager when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            const isIframe = new URLSearchParams(window.location.search).get('iframe') === 'true';
+
+            // Hide header and nav if in iframe
+            if (isIframe) {
+                const header = document.querySelector('.header');
+                const navigation = document.querySelector('.navigation');
+                if (header) header.style.display = 'none';
+                if (navigation) navigation.style.display = 'none';
+                
+                // Adjust height
+                const mainContent = document.querySelector('.main-content');
+                if(mainContent) mainContent.style.height = '100vh';
+            }
+
+            // Show h1 title only in standalone mode (not iframe)
+            if (window === window.top) {
+                // The page is not inside an iframe - show title
+                document.getElementById('standalone-title').style.display = 'block';
+                console.log("TSM Standalone: Running in standalone mode - title visible");
+            } else {
+                // The page is running inside an iframe - hide title
+                console.log("TSM Standalone: Running inside an iframe - title hidden");
+            }
+
+            // Check server status
+            checkServerStatus();
+            
+            // Remove loading overlay
+            const loadingOverlay = document.querySelector('.loading-overlay');
+            if (loadingOverlay) {
+                setTimeout(() => {
+                    loadingOverlay.style.opacity = '0';
+                    setTimeout(() => loadingOverlay.remove(), 300);
+                }, 1000);
+            }
+
+            // Initialize test suite manager
+            if (window.TestSuiteManager) {
+                // Override the container target to use the standalone container
+                const originalCreateUI = TestSuiteManager.prototype.createUI;
+                TestSuiteManager.prototype.createUI = function() {
+                    originalCreateUI.call(this);
+                    
+                    // Move the manager to the proper container
+                    const manager = document.getElementById('test-suite-manager');
+                    const container = document.getElementById('manager-container');
+                    if (manager && container) {
+                        container.appendChild(manager);
+                    }
+                };
+
+                window.testSuiteManager = new TestSuiteManager();
+                console.log('✅ Standalone Test Suite Manager initialized');
+            } else {
+                console.error('❌ Failed to load Test Suite Manager');
+            }
+        });
+
+        // Check server and environment status
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(`${window.TEST_SUITE_API_BASE}/api/environment`);
+                const data = await response.json();
+                
+                updateStatus('server', 'good', 'Online');
+                updateStatus('env', 'good', 'Connected');
+                updateStatus('test', 'good', 'Ready');
+
+                // Expose PW_DIR and PW_SRC in diagnostics
+                const diagnosticsWidget = document.getElementById('diagnostics-widget');
+                if (diagnosticsWidget) {
+                    const pwDirDiv = document.createElement('div');
+                    pwDirDiv.className = 'shortcut-item';
+                    pwDirDiv.innerHTML = `<strong>PW_DIR:</strong> ${data.PW_DIR}`;
+                    diagnosticsWidget.appendChild(pwDirDiv);
+
+                    const pwSrcDiv = document.createElement('div');
+                    pwSrcDiv.className = 'shortcut-item';
+                    pwSrcDiv.innerHTML = `<strong>PW_SRC:</strong> ${data.PW_SRC}`;
+                    diagnosticsWidget.appendChild(pwSrcDiv);
+                }
+                
+            } catch (error) {
+                updateStatus('server', 'error', 'Offline');
+                updateStatus('test', 'warning', 'Unknown');
+                updateStatus('env', 'error', 'Unknown');
+            }
+        }
+
+        function updateStatus(type, status, text) {
+            const statusDot = document.getElementById(`${type}-status`);
+            const statusText = document.getElementById(`${type}-status-text`);
+            
+            if (statusDot && statusText) {
+                statusDot.className = `status-dot ${status === 'good' ? '' : status}`;
+                statusText.textContent = text;
+            }
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'r') {
+                e.preventDefault();
+                if (window.testSuiteManager) window.testSuiteManager.runSelectedTest();
+            }
+            
+            if (e.ctrlKey && e.key === 'a') {
+                e.preventDefault();
+                if (window.testSuiteManager) window.testSuiteManager.runAllTests();
+            }
+            
+            if (e.ctrlKey && e.key === 'e') {
+                e.preventDefault();
+                if (window.testSuiteManager) window.testSuiteManager.enableSuiteEditing();
+            }
+            
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                if (window.testSuiteManager) window.testSuiteManager.saveSuiteChanges();
+            }
+            
+            if (e.key === 'Escape') {
+                if (window.testSuiteManager) window.testSuiteManager.cancelSuiteEditing();
+            }
+            
+            if (e.key === 'F5') {
+                e.preventDefault();
+                if (window.testSuiteManager) window.testSuiteManager.loadTestSuites();
+            }
+        });
+
+        // Add console commands for debugging
+        window.testSuite = {
+            run: () => window.testSuiteManager?.runSelectedTest(),
+            runAll: () => window.testSuiteManager?.runAllTests(),
+            refresh: () => window.testSuiteManager?.loadTestSuites(),
+            manager: () => window.testSuiteManager,
+            debug: true
+        };
+
+        console.log('🧪 Standalone Test Suite Manager Console Commands Loaded');
+
+        // Widget management
+        document.addEventListener('DOMContentLoaded', () => {
+            const widgets = ['keyboard-shortcuts-widget', 'diagnostics-widget'];
+
+            // Check localStorage to hide closed widgets
+            widgets.forEach(id => {
+                if (localStorage.getItem(id) === 'closed') {
+                    document.getElementById(id).style.display = 'none';
+                }
+            });
+
+            // Add close functionality
+            document.querySelectorAll('.close-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const widget = e.target.parentElement;
+                    widget.style.display = 'none';
+                    localStorage.setItem(widget.id, 'closed');
+                });
+            });
+        });
+    </script>
+    <script>
+        // Dynamic content switching
+        document.addEventListener('DOMContentLoaded', () => {
+            const mainContentArea = document.getElementById('main-content-area');
+            const tsmContainer = document.getElementById('manager-container');
+            const tsmLink = document.getElementById('tsm-link');
+            const filesystemLink = document.getElementById('filesystem-link');
+            const headerTitle = document.querySelector('.header h1');
+            let tsmContentCache = tsmContainer.innerHTML;
+
+            filesystemLink.addEventListener('click', async (e) => {
+                e.preventDefault();
+                // Filesystem monitor functionality removed - use separate system-info.html page
+alert('Filesystem Monitor moved to separate page: /static/system-info.html');
+            });
+
+            tsmLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                mainContentArea.innerHTML = tsmContentCache;
+                headerTitle.innerHTML = '&#128295; Test Suite Manager - Standalone';
+                tsmLink.style.display = 'none';
+                filesystemLink.style.display = 'inline-block';
+            });
+
+            async function loadFilesystemData() {
+                const contentArea = document.getElementById('filesystem-content');
+                try {
+                    const apiBase = window.TEST_SUITE_API_BASE || '';
+                    const response = await fetch(`${apiBase}/api/filesystem`);
+                    const data = await response.json();
+                    let html = '';
+                    for (const [name, info] of Object.entries(data.directories)) {
+                        html += `
+                            <div class="dir-item" style="margin-bottom: 1em; padding: 1em; background-color: #2c2c2c; border-radius: 5px;">
+                                <div class="dir-name" style="font-weight: bold; color: #FFC107;">${name}</div>
+                                <div><strong>Path:</strong> ${info.path}</div>
+                                <div><strong>Description:</strong> ${info.description || 'No description'}</div>
+                            </div>
+                        `;
+                    }
+                    contentArea.innerHTML = html;
+                } catch (error) {
+                    contentArea.innerHTML = '<p style="color: #f44336;">Error loading filesystem data.</p>';
+                    console.error('Error loading filesystem data:', error);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+/* Minimal system control panel styles */
+.devwatch-theme-selector {
+    margin: var(--devwatch-space-md);
+}
+
+.devwatch-theme-selector label {
+    display: block;
+    margin-bottom: var(--devwatch-space-sm);
+    color: var(--devwatch-text-secondary);
+    font-size: var(--devwatch-font-size-xs);
+}
+
+.devwatch-theme-selector select {
+    width: 100%;
+    padding: var(--devwatch-space-sm);
+    border: 1px solid var(--devwatch-border-primary);
+    border-radius: var(--devwatch-radius-sm);
+    background: var(--devwatch-bg-primary);
+    color: var(--devwatch-text-primary);
+    font-size: var(--devwatch-font-size-sm);
+}

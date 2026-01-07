@@ -1,0 +1,113 @@
+/* Add styles for the new dashboard layout */
+.dashboard-container {
+    display: flex;
+    height: 100vh;
+}
+
+.dashboard-sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background-color: var(--secondary-bg-color);
+    border-right: 1px solid var(--border-color);
+    padding: 20px;
+    overflow-y: auto;
+    transition: width 0.3s ease, padding 0.3s ease;
+    position: relative;
+}
+
+.dashboard-sidebar.collapsed {
+    width: 50px;
+    padding: 20px 10px;
+}
+
+.sidebar-title {
+    font-size: 1.4rem;
+    color: var(--primary-color);
+    margin: 0 0 1rem 0;
+    white-space: nowrap;
+}
+
+.sidebar-view-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar-view-link {
+    display: block;
+    padding: 0.75rem 1rem;
+    color: var(--text-color);
+    text-decoration: none;
+    border-radius: 0.25rem;
+    margin-bottom: 0.5rem;
+    transition: background-color 0.2s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-view-link .link-text {
+    opacity: 1;
+    transition: opacity 0.2s ease;
+}
+
+.dashboard-sidebar.collapsed .sidebar-view-link .link-text {
+    opacity: 0;
+}
+
+.sidebar-toggle-btn {
+    position: absolute;
+    top: 10px;
+    right: -15px;
+    width: 30px;
+    height: 30px;
+    background-color: var(--header-bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-color);
+    z-index: 10;
+    transition: transform 0.3s ease;
+}
+
+.dashboard-sidebar.collapsed .sidebar-toggle-btn {
+    transform: rotate(180deg);
+}
+
+.sidebar-view-link:hover {
+    background-color: var(--header-bg-color);
+}
+
+.sidebar-view-link.active {
+    background-color: var(--primary-color);
+    color: var(--primary-bg-color);
+    font-weight: bold;
+}
+
+/* Takeover mode for System Monitor */
+.dashboard-main-content.is-takeover-mode .devwatch-collapsible-section[data-view="system"] {
+    height: calc(100% - 40px); /* Account for padding */
+    display: flex;
+    flex-direction: column;
+}
+
+.dashboard-main-content.is-takeover-mode .devwatch-collapsible-section[data-view="system"] .devwatch-collapsible-content {
+    flex-grow: 1;
+    max-height: 100%; /* Override the default collapse style */
+}
+
+/* Hide other sections in takeover mode */
+.dashboard-main-content.is-takeover-mode .devwatch-collapsible-section:not([data-view="system"]) {
+    display: none;
+}
+
+.devwatch-collapsible-section.hidden-view {
+    display: block; /* Keep the element in the layout */
+    visibility: hidden;
+    position: absolute;
+    top: -9999px; /* Move it off-screen */
+    left: -9999px;
+}

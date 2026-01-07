@@ -1,0 +1,4 @@
+htpasswd
+playwright-report
+.last-run.json
+pw_data/

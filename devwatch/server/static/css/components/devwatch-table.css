@@ -1,0 +1,504 @@
+/**
+ * DevWatch Component: Table
+ * A component for displaying tabular data with resizable columns and expandable rows.
+ */
+
+.devwatch-table {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    border: 1px solid var(--devwatch-border-primary);
+    border-radius: var(--devwatch-radius-lg);
+}
+
+.devwatch-table__header {
+    display: flex;
+    border-bottom: 2px solid var(--devwatch-border-primary);
+    background: var(--devwatch-bg-elevated);
+    flex-shrink: 0;
+}
+
+.devwatch-table__header-cell {
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--devwatch-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+.devwatch-table__header-cell:hover {
+    background: var(--devwatch-bg-tertiary);
+}
+
+.devwatch-table__resizer {
+    width: 5px;
+    cursor: col-resize;
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background: var(--devwatch-border-secondary);
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.devwatch-table__header-cell:hover .devwatch-table__resizer {
+    opacity: 1;
+}
+
+.devwatch-table__sort-indicator {
+    margin-left: 4px;
+    font-size: 10px;
+}
+
+.devwatch-table__body {
+    flex-grow: 1;
+    overflow: auto;
+}
+
+.devwatch-table__row {
+    display: flex;
+    border-bottom: 1px solid var(--devwatch-border-muted);
+}
+
+.devwatch-table__row:hover {
+    background: var(--devwatch-bg-secondary);
+}
+
+.devwatch-table__row.is-expanded {
+    background-color: var(--devwatch-bg-tertiary);
+}
+
+.devwatch-table__cell {
+    padding: 8px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 0;
+}
+
+.devwatch-table__row-details {
+    background-color: var(--devwatch-bg-secondary);
+    padding: var(--devwatch-space-lg);
+    border-left: 3px solid var(--devwatch-border-accent);
+    /* This will span all columns if the parent row is a grid/subgrid */
+    grid-column: 1 / -1; 
+}
+
+/* 
+  Note: The following context menu and other specific styles might be better
+  as separate components in the future, but are kept here for now as they are
+  tightly coupled with the table's current implementation.
+*/
+
+/* Context Menu - Consider refactoring to pja-context-menu.css */
+.devwatch-context-menu {
+    position: absolute;
+    background-color: var(--devwatch-bg-elevated);
+    border: 1px solid var(--devwatch-border-primary);
+    border-radius: var(--devwatch-radius-md);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    padding: var(--devwatch-space-sm) 0;
+    z-index: 1000;
+    min-width: 250px;
+}
+
+.devwatch-context-menu-title {
+    padding: var(--devwatch-space-m) var(--devwatch-space-l);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--devwatch-text-muted);
+    text-transform: uppercase;
+}
+
+.devwatch-context-menu-item {
+    padding: 12px var(--devwatch-space-l);
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.devwatch-context-menu-item:hover {
+    background-color: var(--devwatch-color-bg-hover);
+}
+
+.devwatch-context-menu-item.active {
+    font-weight: 600;
+    color: var(--devwatch-color-accent-fg);
+}
+
+.devwatch-context-menu-separator {
+    height: 1px;
+    background-color: var(--devwatch-border-primary);
+    margin: var(--devwatch-space-m) 0;
+}
+
+/* Log Details Tabbed View */
+.log-details-tabbed-container {
+    margin-top: var(--devwatch-space-m);
+}
+
+.log-tab-content {
+    display: flex;
+    gap: var(--devwatch-space-l);
+    padding: var(--devwatch-space-m);
+}
+
+.log-details-column {
+    flex: 1;
+}
+
+.log-details-column h4 {
+    margin: 0 0 var(--devwatch-space-s) 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--devwatch-text-primary);
+}
+
+.log-details-column-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--devwatch-space-s);
+}
+
+.stack-container {
+    background-color: var(--devwatch-bg-secondary);
+    border: 1px solid var(--devwatch-border-primary);
+    border-radius: var(--devwatch-border-radius-s);
+    padding: var(--devwatch-space-m);
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.stack-trace-link {
+    color: var(--devwatch-color-accent-fg);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.stack-trace-link:hover {
+    color: var(--devwatch-color-accent-fg-hover);
+}
+
+/* Source Code Display */
+.source-view-container {
+    margin-top: var(--devwatch-space-m);
+}
+
+.source-code-wrapper {
+    border: 1px solid var(--devwatch-border-primary);
+    border-radius: var(--devwatch-border-radius-s);
+    overflow: hidden;
+}
+
+.source-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--devwatch-space-s) var(--devwatch-space-m);
+    background-color: var(--devwatch-bg-secondary);
+    border-bottom: 1px solid var(--devwatch-border-primary);
+    gap: var(--devwatch-space-m);
+}
+
+.source-header h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--devwatch-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.source-view-tabs {
+    display: flex;
+    flex-grow: 1;
+    justify-content: center;
+}
+
+.source-view-tabs .source-tab {
+    padding: 4px 12px;
+    border-radius: var(--devwatch-border-radius-m);
+    border: 1px solid transparent;
+}
+
+.source-view-tabs .source-tab.active {
+    background-color: var(--devwatch-bg-primary);
+    border-color: var(--devwatch-border-primary);
+    font-weight: 600;
+}
+
+.ast-view-container {
+    padding: var(--devwatch-space-m);
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.finding-process {
+    margin-top: var(--devwatch-space-l);
+    padding: var(--devwatch-space-m);
+    background-color: var(--devwatch-bg-secondary);
+    border-radius: var(--devwatch-border-radius-s);
+}
+
+.finding-process h5 {
+    margin: 0 0 var(--devwatch-space-s) 0;
+}
+
+/* Generic Collapsible Section */
+.collapsible-header {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.collapsible-toggle {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    margin-right: var(--devwatch-space-sm);
+}
+
+.collapsible-toggle::before {
+    content: '▼';
+    display: inline-block;
+    transition: transform var(--devwatch-transition-fast);
+    color: var(--devwatch-text-muted);
+    font-size: 10px;
+}
+
+.collapsible-section.collapsed .collapsible-toggle::before {
+    transform: rotate(-90deg);
+}
+
+.collapsible-section.collapsed .collapsible-content {
+    display: none;
+}
+
+/* JSON Viewer Styles */
+.devwatch-json-viewer {
+    font-family: var(--devwatch-font-mono);
+    font-size: var(--devwatch-font-size-xs);
+    line-height: 1.4;
+    background-color: var(--devwatch-bg-secondary);
+    border-radius: var(--devwatch-radius-sm);
+    padding: var(--devwatch-space-sm);
+}
+
+.devwatch-json-entry {
+    position: relative;
+}
+
+.devwatch-json-row {
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.devwatch-json-key {
+    color: var(--devwatch-accent-secondary);
+    margin-right: var(--devwatch-space-sm);
+}
+
+.devwatch-json-value {
+    flex-grow: 1;
+}
+
+.devwatch-json-value.devwatch-json-string { color: var(--devwatch-text-primary); }
+.devwatch-json-value.devwatch-json-number { color: var(--devwatch-warning); }
+.devwatch-json-value.devwatch-json-boolean { color: var(--devwatch-accent-primary); }
+.devwatch-json-value.devwatch-json-null { color: var(--devwatch-text-muted); }
+
+.devwatch-json-toggle {
+    cursor: pointer;
+    user-select: none;
+    margin-right: var(--devwatch-space-sm);
+    color: var(--devwatch-text-muted);
+}
+
+.devwatch-json-toggle::before {
+    content: '▶';
+    display: inline-block;
+    transition: transform var(--devwatch-transition-fast);
+}
+
+.devwatch-json-toggle.expanded::before {
+    content: '▼';
+    transform: rotate(90deg);
+}
+
+.devwatch-json-bracket {
+    color: var(--devwatch-text-secondary);
+    margin: 0 var(--devwatch-space-sm);
+}
+
+.devwatch-json-summary {
+    color: var(--devwatch-text-muted);
+    font-style: italic;
+}
+
+.devwatch-json-comma {
+    color: var(--devwatch-text-secondary);
+    margin-right: var(--devwatch-space-sm);
+}
+
+.devwatch-json-nested {
+    border-left: 1px solid var(--devwatch-border-muted);
+    margin-left: 8px;
+}
+
+/* Chain of Thought Styles */
+.cot-container {
+    padding: var(--devwatch-space-m);
+}
+
+.cot-thought {
+    margin-bottom: var(--devwatch-space-m);
+}
+
+.cot-subtask {
+    margin: var(--devwatch-space-m) 0;
+    padding: var(--devwatch-space-m);
+    background-color: var(--devwatch-bg-tertiary);
+    border-radius: var(--devwatch-radius-md);
+    border-left: 3px solid var(--devwatch-border-accent);
+}
+
+.cot-subtask h6 {
+    margin: 0 0 var(--devwatch-space-sm) 0;
+    color: var(--devwatch-accent-primary);
+    font-size: var(--devwatch-font-size-sm);
+}
+
+.cot-subtask p {
+    margin: var(--devwatch-space-sm) 0;
+    font-size: var(--devwatch-font-size-xs);
+}
+
+.cot-result {
+    margin-top: var(--devwatch-space-m);
+    padding: var(--devwatch-space-sm);
+    background-color: var(--devwatch-bg-secondary);
+    border-radius: var(--devwatch-radius-sm);
+    font-family: var(--devwatch-font-mono);
+}
+
+.cot-value {
+    color: var(--devwatch-accent-secondary);
+    font-weight: 600;
+}
+
+.cot-value.cot-error {
+    color: var(--devwatch-error);
+}
+
+.cot-meta-hint {
+    color: var(--devwatch-success);
+    font-weight: 600;
+    font-style: italic;
+}
+
+.cot-filtered {
+    color: var(--devwatch-text-muted);
+    font-size: var(--devwatch-font-size-xs);
+    font-style: italic;
+}
+
+.cot-pending {
+    color: var(--devwatch-warning);
+    font-style: italic;
+}
+
+.cot-final {
+    margin-top: var(--devwatch-space-l);
+    padding: var(--devwatch-space-m);
+    background-color: var(--devwatch-success-bg);
+    border: 1px solid var(--devwatch-success);
+    border-radius: var(--devwatch-radius-md);
+}
+
+.cot-final h6 {
+    margin: 0 0 var(--devwatch-space-sm) 0;
+    color: var(--devwatch-success);
+}
+
+.cot-source-format {
+    font-family: var(--devwatch-font-mono);
+    font-size: var(--devwatch-font-size-lg);
+    color: var(--devwatch-text-primary);
+    text-align: center;
+    padding: var(--devwatch-space-sm);
+    background-color: var(--devwatch-bg-primary);
+    border-radius: var(--devwatch-radius-sm);
+}
+
+.source-editor-buttons {
+    display: flex;
+    align-items: center;
+    gap: var(--devwatch-space-s);
+}
+
+.source-line-info {
+    font-size: 12px;
+    color: var(--devwatch-text-muted);
+    background-color: var(--devwatch-color-accent-bg);
+    color: var(--devwatch-color-accent-fg);
+    padding: 2px 8px;
+    border-radius: var(--devwatch-border-radius-s);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.source-line-info:hover {
+    background-color: var(--devwatch-color-accent-bg-hover);
+}
+
+.source-code-container {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    max-height: 500px;
+    overflow: auto;
+    margin: 0;
+    padding: var(--devwatch-space-s);
+    background-color: var(--devwatch-bg-primary);
+}
+
+.highlighted-line {
+    display: block;
+    color: var(--devwatch-accent-primary);
+}
+
+.devwatch-json-entry.expandable > .devwatch-json-row .devwatch-json-toggle {
+    cursor: pointer;
+}
+
+.devwatch-json-entry.expandable > .devwatch-json-row .devwatch-json-toggle::before {
+    content: '▶';
+    display: inline-block;
+    margin-right: 4px;
+    color: var(--devwatch-text-muted);
+    transition: transform var(--devwatch-transition-fast);
+}
+
+.devwatch-json-entry.expandable > .devwatch-json-row .devwatch-json-toggle.expanded::before {
+    content: '▼';
+    transform: rotate(90deg);
+}

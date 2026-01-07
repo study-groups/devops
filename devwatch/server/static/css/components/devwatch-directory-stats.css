@@ -1,0 +1,39 @@
+/**
+ * DevWatch Component: Directory Stats
+ * A component for displaying directory listing information in a terminal-style table.
+ */
+.devwatch-directory-stats {
+    font-family: var(--devwatch-font-mono);
+    font-size: var(--devwatch-font-size-sm);
+    margin-top: var(--devwatch-space-lg);
+}
+
+.devwatch-directory-stats__header,
+.devwatch-directory-stats__row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 2fr;
+    gap: var(--devwatch-space-md);
+    padding: var(--devwatch-space-xs) 0;
+}
+
+.devwatch-directory-stats__header {
+    color: var(--devwatch-text-muted);
+    font-weight: var(--devwatch-font-weight-bold);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--devwatch-border-primary);
+    margin-bottom: var(--devwatch-space-sm);
+}
+
+.devwatch-directory-stats__row {
+    border-bottom: 1px solid var(--devwatch-border-primary);
+}
+
+.devwatch-directory-stats__row:last-child {
+    border-bottom: none;
+}
+
+.devwatch-directory-stats__cell {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

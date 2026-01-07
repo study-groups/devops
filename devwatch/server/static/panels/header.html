@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevWatch Header</title>
+    <link rel="stylesheet" href="../terrain/css/iframe-base.css">
+    <link rel="stylesheet" href="../css/devwatch.tokens.css">
+    <style>
+        body {
+            background: var(--bg-primary);
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .logo {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--devwatch-primary);
+            letter-spacing: 2px;
+        }
+        .version {
+            font-size: 10px;
+            color: var(--text-muted);
+            background: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: var(--curve-sm);
+        }
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--health-unknown);
+        }
+        .status-dot.healthy { background: var(--health-healthy); }
+        .status-dot.degraded { background: var(--health-degraded); }
+        .status-dot.unhealthy { background: var(--health-unhealthy); }
+        .env-badge {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 3px 8px;
+            border-radius: var(--curve-sm);
+            letter-spacing: 0.5px;
+        }
+        .env-badge.dev { background: var(--env-dev); color: #000; }
+        .env-badge.staging { background: var(--env-staging); color: #000; }
+        .env-badge.prod { background: var(--env-prod); color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="brand">
+        <span class="logo">DEVWATCH</span>
+        <span class="version">v1.0.0</span>
+    </div>
+    <div class="status-bar">
+        <div class="status-item">
+            <span class="status-dot healthy" id="serverStatus"></span>
+            <span>Server</span>
+        </div>
+        <div class="status-item">
+            <span class="status-dot" id="testsStatus"></span>
+            <span id="testsLabel">Tests Idle</span>
+        </div>
+        <span class="env-badge dev" id="envBadge">DEV</span>
+    </div>
+
+    <script src="../terrain/js/terrain.js"></script>
+    <script>
+        Terrain.Iframe.init({
+            onMessage: function(data) {
+                if (data.type === 'test-status') {
+                    updateTestStatus(data);
+                } else if (data.type === 'env-change') {
+                    updateEnv(data.env);
+                }
+            },
+            onReady: function() {
+                Terrain.Iframe.send({ type: 'ready', from: 'header' });
+            }
+        });
+
+        function updateTestStatus(data) {
+            const dot = document.getElementById('testsStatus');
+            const label = document.getElementById('testsLabel');
+            if (data.running) {
+                dot.className = 'status-dot';
+                dot.style.background = 'var(--test-running)';
+                label.textContent = 'Running...';
+            } else if (data.passed) {
+                dot.className = 'status-dot healthy';
+                label.textContent = 'All Passed';
+            } else {
+                dot.className = 'status-dot unhealthy';
+                label.textContent = data.failed + ' Failed';
+            }
+        }
+
+        function updateEnv(env) {
+            const badge = document.getElementById('envBadge');
+            badge.className = 'env-badge ' + env;
+            badge.textContent = env.toUpperCase();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PJA Log Viewer</title>
+    <link rel="stylesheet" href="/static/css/devwatch.css">
+</head>
+<body>
+    <div class="devwatch-log-viewer-container pja-card">
+        <!-- Header with controls -->
+        <div class="log-header">
+            <div class="log-header-row">
+                <h1 class="log-title">📋 Event Logs</h1>
+                <div class="log-search-container">
+                    <input type="text" id="search-input" class="devwatch-input" 
+                           placeholder="Search logs... (message, source, type)">
+                </div>
+                <div class="log-actions">
+                    <button id="refresh-btn" class="devwatch-btn devwatch-btn-primary" title="Refresh logs">
+                        ↻ Refresh
+                    </button>
+                    <button id="copy-all-btn" class="devwatch-btn devwatch-btn-secondary" title="Copy visible logs">
+                        📋 Copy
+                    </button>
+                    <button id="show-all-btn" class="devwatch-btn devwatch-btn-secondary" title="Show all logs">
+                        Show All
+                    </button>
+                    <button id="clear-logs-btn" class="devwatch-button devwatch-button--ghost" title="Clear all logs from browser storage">
+                        Clear
+                    </button>
+                    <div class="log-count pja-text-muted" id="log-count">0/0</div>
+                </div>
+            </div>
+            
+            <div class="log-header-row">
+                <div class="filter-group">
+                    <span class="filter-label">Levels:</span>
+                    <div class="level-filters">
+                        <button class="level-filter error active" data-level="error">Error</button>
+                        <button class="level-filter warn active" data-level="warn">Warn</button>
+                        <button class="level-filter info active" data-level="info">Info</button>
+                        <button class="level-filter debug" data-level="debug">Debug</button>
+                    </div>
+                </div>
+                <div class="filter-group-separator"></div>
+                <div class="filter-group">
+                    <span class="filter-label">Type:</span>
+                    <div id="type-filters" class="source-filters"></div>
+                </div>
+                <div class="filter-group">
+                    <span class="filter-label">Module:</span>
+                    <div id="module-filters" class="source-filters"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log display area -->
+        <div class="log-display" id="log-display">
+            <div class="log-loading pja-text-muted">Loading logs...</div>
+        </div>
+    </div>
+
+    <script src="/static/js/theme-manager.js"></script>
+    <script src="/static/js/devwatch-ui-column-view.js?v=2"></script>
+    <script src="/static/js/devwatch-ui-ast-viewer.js?v=2"></script>
+    <script src="/static/js/devwatch-code-viewer.js?v=2"></script>
+    <script src="/static/js/log-service.js?v=2"></script>
+    <script src="/static/js/filter-manager.js?v=2"></script>
+    <script src="/static/js/log-display.js?v=2"></script>
+    <script src="/static/js/log-details.js?v=2"></script>
+    
+    <!-- Dynamically load the log viewer script to prevent caching -->
+    <script>
+        (function() {
+            const script = document.createElement('script');
+            script.src = `/static/js/log-viewer.js?v=${Date.now()}`;
+            document.body.appendChild(script);
+        })();
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,18 @@
+/* DevWatch Iframer (host-side) minimal styles */
+
+.devwatch-iframe {
+  width: 100%;
+  height: 70vh;
+  border: 1px solid #3a3a3d;
+  border-radius: 6px;
+  background: #111;
+}
+
+.devwatch-iframe.small {
+  height: 40vh;
+}
+
+.devwatch-iframe.tall {
+  height: 85vh;
+}
+

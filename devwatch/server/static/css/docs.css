@@ -1,0 +1,86 @@
+/* docs.css */
+#docs-container-wrapper {
+    padding: 1rem;
+}
+
+.docs-container {
+    display: flex;
+    gap: 1rem;
+    height: calc(100vh - 2rem);
+}
+
+.docs-list-container {
+    flex: 0 0 250px;
+    border: 1px solid var(--devwatch-border-primary);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    background-color: var(--devwatch-bg-secondary);
+}
+
+.docs-list-container h3 {
+    margin: 0 0 1rem 0;
+}
+
+#docs-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#docs-list li a {
+    display: block;
+    padding: 0.5rem;
+    text-decoration: none;
+    color: var(--devwatch-text-primary);
+    border-radius: 0.25rem;
+}
+
+#docs-list li a:hover {
+    background-color: var(--devwatch-bg-tertiary);
+}
+
+.docs-editor-container {
+    flex: 1;
+    border: 1px solid var(--devwatch-border-primary);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    background-color: var(--devwatch-bg-secondary);
+    display: flex;
+    flex-direction: column;
+}
+
+#doc-viewer {
+    flex: 1;
+    overflow-y: auto;
+}
+
+#doc-editor {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+}
+
+#doc-editor.active {
+    display: flex;
+}
+
+#doc-filename {
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--devwatch-border-secondary);
+    border-radius: 0.25rem;
+}
+
+#doc-content {
+    flex: 1;
+    resize: none;
+    border: 1px solid var(--devwatch-border-secondary);
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+}
+
+#new-doc-btn, #save-doc-btn, #toggle-view-btn {
+    margin-top: 1rem;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+}

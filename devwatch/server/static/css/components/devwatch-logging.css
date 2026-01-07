@@ -1,0 +1,542 @@
+/**
+ * DevWatch Component: Logging
+ * Styles for the log viewer component.
+ */
+
+/* ============================================
+   LOG CONTAINER STYLES
+   ============================================ */
+
+/* Layout Structure */
+.log-viewer-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: var(--devwatch-bg-primary);
+    color: var(--devwatch-text-primary);
+    font-family: var(--devwatch-font-mono);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+/* Header & Controls */
+.log-header {
+    background: var(--devwatch-bg-elevated);
+    border-bottom: 2px solid var(--devwatch-border-primary);
+    padding: 12px 16px;
+    flex-shrink: 0;
+    box-shadow: var(--devwatch-shadow-sm);
+}
+
+.log-header-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.log-header-row:last-child {
+    margin-bottom: 0;
+}
+
+.log-header-row:first-child {
+    /* Top row with title, search, and actions */
+    justify-content: space-between;
+}
+
+.log-header-row:last-child {
+    /* Bottom row with filters */
+    justify-content: flex-start;
+}
+
+.filter-row {
+    justify-content: flex-start;
+}
+
+.log-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--devwatch-accent-primary);
+    margin: 0;
+}
+
+.log-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.log-search-container {
+    flex: 1;
+    max-width: 400px;
+    min-width: 200px;
+}
+
+.log-search {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--devwatch-border-secondary);
+    border-radius: 6px;
+    background: var(--devwatch-input-bg);
+    color: var(--devwatch-text-primary);
+    font-size: 13px;
+    font-family: inherit;
+    transition: all 0.2s ease;
+}
+
+.log-search:focus {
+    outline: none;
+    border-color: var(--devwatch-accent-primary);
+    box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
+}
+
+.log-search::placeholder {
+    color: var(--devwatch-text-muted);
+}
+
+/* Filter Controls */
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-label {
+    font-size: 11px;
+    color: var(--devwatch-text-muted);
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.level-filters, .source-filters {
+    display: flex;
+    gap: 5px;
+}
+
+.source-filters {
+    flex-wrap: wrap;
+}
+
+.filter-group-separator {
+    width: 1px;
+    background-color: var(--devwatch-border-primary);
+    align-self: stretch;
+    margin: 0 10px;
+}
+
+.level-filter {
+    padding: 4px 8px;
+    font-size: 12px;
+    border: 1px solid transparent;
+    border-radius: var(--devwatch-radius-sm);
+    background-color: var(--devwatch-bg-tertiary);
+    color: var(--devwatch-text-secondary);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.level-filter:hover {
+    background-color: var(--devwatch-bg-elevated);
+}
+
+.level-filter.active {
+    background: var(--devwatch-accent-primary);
+    color: var(--devwatch-text-inverse);
+    border-color: var(--devwatch-accent-primary);
+}
+
+.level-filter.error.active {
+    background: var(--devwatch-error);
+    border-color: var(--devwatch-error);
+}
+
+.level-filter.warn.active {
+    background: var(--devwatch-warning);
+    border-color: var(--devwatch-warning);
+}
+
+.level-filter.info.active {
+    background: var(--devwatch-info);
+    border-color: var(--devwatch-info);
+}
+
+.level-filter.debug.active {
+    background: var(--devwatch-text-muted);
+    border-color: var(--devwatch-text-muted);
+}
+
+/* Action Buttons */
+.log-actions .devwatch-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+}
+
+.log-btn {
+    padding: 6px 12px;
+    border: 1px solid var(--devwatch-border-secondary);
+    border-radius: 4px;
+    background: var(--devwatch-bg-secondary);
+    color: var(--devwatch-text-primary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.log-btn:hover {
+    background: var(--devwatch-bg-tertiary);
+    border-color: var(--devwatch-border-accent);
+}
+
+.log-btn.primary {
+    background: var(--devwatch-accent-primary);
+    color: var(--devwatch-text-inverse);
+    border-color: var(--devwatch-accent-primary);
+}
+
+.log-btn.primary:hover {
+    background: var(--devwatch-accent-primary-hover);
+}
+
+.log-count {
+    font-size: 11px;
+    color: var(--devwatch-text-muted);
+    padding: 6px 8px;
+    background: var(--devwatch-bg-tertiary);
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+/* Log Display Area */
+.log-display {
+    flex: 1;
+    overflow: auto;
+    background: var(--devwatch-bg-primary);
+    position: relative;
+}
+
+.log-level {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-align: center;
+    display: inline-block;
+}
+
+.log-level.error {
+    background: rgba(220, 38, 38, 0.1);
+    color: var(--devwatch-error);
+}
+
+.log-level.warn {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--devwatch-warning);
+}
+
+.log-level.info {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--devwatch-info);
+}
+
+.log-level.debug {
+    background: rgba(128, 128, 128, 0.1);
+    color: var(--devwatch-text-muted);
+}
+
+.log-details-header {
+    padding-bottom: var(--devwatch-space-sm);
+    margin-bottom: var(--devwatch-space-md);
+    border-bottom: 1px solid var(--devwatch-border-secondary);
+    font-size: var(--devwatch-font-size-xs);
+    color: var(--devwatch-text-muted);
+}
+
+.log-details-label {
+    font-weight: 600;
+    color: var(--devwatch-text-secondary);
+    margin-right: 4px;
+}
+
+.log-details-label:not(:first-child) {
+    margin-left: var(--devwatch-space-md);
+}
+
+.log-details-body {
+    display: flex;
+    gap: var(--devwatch-space-lg);
+    margin-top: var(--devwatch-space-md);
+}
+
+.log-details-column {
+    flex: 1;
+    min-width: 0;
+}
+
+.log-details-column-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--devwatch-space-sm);
+}
+
+.log-details-column h4 {
+    margin: 0;
+    font-size: var(--devwatch-font-size-md);
+    color: var(--devwatch-text-primary);
+}
+
+.log-data-details pre {
+    background-color: var(--devwatch-bg-tertiary);
+    padding: var(--devwatch-space-md);
+    border-radius: var(--devwatch-radius-md);
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 400px;
+    overflow: auto;
+}
+
+.stack-container {
+    font-family: var(--devwatch-font-mono);
+    font-size: var(--devwatch-font-size-sm);
+    background-color: var(--devwatch-bg-tertiary);
+    padding: var(--devwatch-space-md);
+    border-radius: var(--devwatch-radius-md);
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.stack-frame {
+    margin-bottom: var(--devwatch-space-sm);
+}
+
+.stack-function {
+    color: var(--devwatch-text-muted);
+}
+
+.stack-trace-link {
+    color: var(--devwatch-accent-primary);
+    text-decoration: none;
+    margin-left: var(--devwatch-space-sm);
+    border-bottom: 1px dotted var(--devwatch-accent-primary);
+    transition: all 0.2s;
+}
+
+.stack-trace-link:hover {
+    text-decoration: underline;
+    color: var(--devwatch-accent-primary-hover);
+    border-bottom-style: solid;
+    background: var(--devwatch-bg-tertiary);
+    padding: 1px 2px;
+    border-radius: 2px;
+}
+
+.log-details-column-header .btn-copy-log-data {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--devwatch-text-muted);
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.log-details-column-header .btn-copy-log-data:hover {
+    color: var(--devwatch-text-primary);
+    text-decoration: underline;
+}
+
+/* Expandable Data */
+.log-data-expanded {
+    background: var(--devwatch-bg-tertiary);
+    border: 1px solid var(--devwatch-border-secondary);
+    border-radius: 4px;
+    padding: 8px;
+    margin-top: 4px;
+    font-size: 11px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* Empty States */
+.log-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: var(--devwatch-text-muted);
+    text-align: center;
+}
+
+.log-empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.log-empty-message {
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.log-empty-hint {
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.log-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100px;
+    color: var(--devwatch-text-muted);
+    font-size: 14px;
+}
+
+.log-loading::before {
+    content: "⟳";
+    margin-right: 8px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Log File Preview */
+.log-file-preview {
+    margin-top: 16px;
+    border-top: 1px solid var(--devwatch-border-primary);
+    padding-top: 16px;
+}
+
+.log-file-preview-content .source-code-wrapper {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.log-file-preview .loading,
+.log-file-preview .error {
+    text-align: center;
+    padding: 20px;
+    color: var(--devwatch-text-muted);
+}
+
+.log-file-preview .error {
+    color: var(--devwatch-error);
+}
+
+/* Log Viewer Scrollbar Styling */
+.log-display::-webkit-scrollbar {
+    width: 8px;
+}
+
+.log-display::-webkit-scrollbar-track {
+    background: var(--devwatch-bg-secondary);
+}
+
+.log-display::-webkit-scrollbar-thumb {
+    background: var(--devwatch-border-secondary);
+    border-radius: 4px;
+}
+
+.log-display::-webkit-scrollbar-thumb:hover {
+    background: var(--devwatch-border-accent);
+}
+
+/* Log Viewer Accessibility */
+.log-entry:focus-within {
+    outline: 2px solid var(--devwatch-accent-primary);
+    outline-offset: -2px;
+}
+
+/* Log Entry Line */
+.log-entry {
+    display: grid;
+    grid-template-columns: 100px 70px 80px 150px 1fr;
+    gap: var(--devwatch-space-lg);
+    align-items: flex-start;
+    padding: var(--devwatch-space-md) var(--devwatch-space-sm);
+    border-bottom: 1px solid var(--devwatch-border-muted);
+    font-family: var(--devwatch-font-mono);
+    font-size: var(--devwatch-font-size-sm);
+    cursor: pointer;
+    transition: background-color var(--devwatch-transition-fast);
+}
+
+.log-entry:hover {
+    background-color: var(--devwatch-bg-tertiary);
+}
+
+.log-entry.selected {
+    background-color: var(--devwatch-accent-muted);
+}
+
+.log-timestamp,
+.log-level-badge,
+.log-type-badge,
+.log-from,
+.log-message {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.log-message {
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* Log Viewer Print Styles */
+@media print {
+    .log-header,
+    .log-actions {
+        display: none;
+    }
+    
+    .log-display {
+        overflow: visible;
+        height: auto;
+    }
+    
+    .log-entry {
+        break-inside: avoid;
+    }
+}
+
+/* Log Viewer Responsive Design */
+@media (max-width: 768px) {
+    .log-header-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    
+    .log-search-container {
+        max-width: none;
+    }
+    
+    .filter-group {
+        justify-content: space-between;
+    }
+    
+    .log-actions {
+        justify-content: center;
+    }
+}

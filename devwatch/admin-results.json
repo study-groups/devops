@@ -1,0 +1,17 @@
+[
+  {
+    "id": "1754619584547-ia1cdxs6r",
+    "title": "should navigate through home -> games -> cornhole-hero and cheap-golf",
+    "environment": "dev",
+    "browser": "chrome",
+    "status": "interrupted",
+    "duration": 396,
+    "url": "https://dev.pixeljamarcade.com",
+    "error": {
+      "message": "Error: page.screenshot: Target page, context or browser has been closed",
+      "stack": "Error: page.screenshot: Target page, context or browser has been closed\n    at /home/dev/src/pixeljam/pja/arcade/playwright/tests/game-flow.spec.js:92:42"
+    },
+    "timestamp": "2025-08-08T02:19:44.547Z",
+    "projectName": "dev-chrome-desktop"
+  }
+]

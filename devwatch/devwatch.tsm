@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# TSM Service: devwatch - Development Monitoring Dashboard
+
+export TSM_NAME="devwatch"
+export TSM_CWD="$HOME/src/devops/devwatch"
+export TSM_PORT="4400"
+export PORT="4400"
+export PW_DIR=$HOME/tetra/orgs/tetra/devwatch
+export TSM_COMMAND="node server/index.js"
+
+# Environment file (sourced before command runs)
+export TSM_ENV_FILES="none"
+
+# Optional
+export TSM_DESCRIPTION="DevWatch - Development monitoring and test dashboard"
+#export TSM_HEALTH_CHECK="http://127.0.0.1:9324/health"

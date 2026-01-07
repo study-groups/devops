@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Runner</title>
+    <link rel="stylesheet" href="/static/css/pja-ui.css">
+    <link rel="stylesheet" href="/static/css/design-tokens.css">
+    <link rel="stylesheet" href="/static/css/devwatch-iframe.css">
+    <script src="/static/js/devwatch-iframe.js"></script>
+    <script src="/static/js/theme-manager.js"></script>
+    <script src="/static/js/test-runner.js"></script>
+    <style>
+        .devwatch-main-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .devwatch-header {
+            flex-shrink: 0;
+        }
+        .main-layout {
+            display: flex;
+            flex-grow: 1;
+            overflow: hidden;
+            gap: 1rem;
+            padding: 1rem;
+        }
+        .job-builder-panel {
+            flex: 1;
+            min-width: 350px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        .activity-log-panel {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+        }
+        .devwatch-card {
+             background-color: #2a2a2d;
+             border: 1px solid #444;
+             border-radius: 8px;
+             padding: 1rem;
+             display: flex;
+             flex-direction: column;
+        }
+        .devwatch-card h4 {
+            margin-top: 0;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            background-color: #333;
+            border: 1px solid #555;
+            color: #fff;
+        }
+        .devwatch-btn-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+        #saved-jobs-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+        }
+        .saved-job-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            border-bottom: 1px solid #444;
+            cursor: pointer;
+        }
+        .saved-job-item:hover {
+            background-color: #3a3a3d;
+        }
+         .saved-job-item .job-name {
+            font-weight: bold;
+        }
+        .activity-log-panel .devwatch-card {
+            flex-grow: 1;
+        }
+        #activity-log {
+            flex-grow: 1;
+            overflow-y: auto;
+            background-color: #1e1e1e;
+            padding: 0.5rem;
+            border-radius: 4px;
+        }
+        .log-entry-details pre {
+             white-space: pre-wrap;
+             word-wrap: break-word;
+             color: #ddd;
+             background-color: #252526;
+             padding: 10px;
+             border-radius: 5px;
+        }
+    </style>
+</head>
+<body class="devwatch-iframe-body tsv-theme">
+    <div class="devwatch-main-container">
+        <header class="devwatch-header">
+            <div class="devwatch-title">
+                <h1>Playwright Job Runner</h1>
+                <div style="background: #ff6b35; color: white; padding: 0.5rem 1rem; border-radius: 0.25rem; font-size: 0.875rem; margin-top: 0.5rem;">
+                    ⚠️ DEPRECATED: This interface has been replaced by <a href="/static/command-runner.iframe.html" style="color: white; text-decoration: underline;">Command Runner</a>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-layout">
+            <div class="job-builder-panel">
+                    <div class="devwatch-card">
+                    <h4>Job Builder</h4>
+                    <div class="form-group">
+                        <label for="job-name">Job Name</label>
+                        <input type="text" id="job-name" placeholder="e.g., Mobile Smoke Test">
+                    </div>
+                    <details class="devwatch-card" style="padding: 0.5rem 1rem;">
+                        <summary style="cursor: pointer;">Advanced filters</summary>
+                        <div class="devwatch-grid-2" style="gap: 1rem; margin: 0.75rem 0 0.5rem;">
+                            <div class="form-group">
+                                <label for="environment-select">Environment</label>
+                                <select id="environment-select">
+                                    <option value="dev">Development</option>
+                                    <option value="staging">Staging</option>
+                                    <option value="prod">Production</option>
+                                    <option value="local">Local</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="update-snapshots-toggle">Update Snapshots</label>
+                                <label class="devwatch-switch" style="transform: scale(0.9); transform-origin: left;">
+                                    <input type="checkbox" id="update-snapshots-toggle">
+                                    <span class="devwatch-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin: 0.25rem 0 0.75rem;">
+                            <label for="tags-input">Semantic Tags (comma-separated)</label>
+                            <input type="text" id="tags-input" placeholder="e.g., mobile, smoke, login">
+                        </div>
+                        <div class="devwatch-grid-2" style="gap: 1rem; margin-bottom: 0.5rem;">
+                            <div class="form-group">
+                                <label for="project-select">Project (browser/device)</label>
+                                <select id="project-select">
+                                    <option value="">Default</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="headless-toggle">Headless</label>
+                                <label class="devwatch-switch" style="transform: scale(0.9); transform-origin: left;">
+                                    <input type="checkbox" id="headless-toggle" checked>
+                                    <span class="devwatch-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0.5rem;">
+                            <label for="test-file-select">Test File</label>
+                            <div class="devwatch-btn-group" style="gap: 0.5rem;">
+                                <select id="test-file-select">
+                                    <option value="">All tests</option>
+                                </select>
+                            </div>
+                            <div id="tests-dir-note" style="margin-top: 6px; font-size: 12px; opacity: 0.8;"></div>
+                            <div id="options-note" style="margin-top: 6px; font-size: 12px; opacity: 0.8;">
+                                Project controls browser/device/viewport. Toggle Headless for UI. Update Snapshots rewrites image snapshots.
+                            </div>
+                        </div>
+                    </details>
+                    <div class="devwatch-btn-group">
+                        <button id="run-job-btn" class="devwatch-btn">Run</button>
+                        <button id="dry-run-btn" class="devwatch-btn devwatch-btn-secondary">Dry Run</button>
+                        <button id="save-job-btn" class="devwatch-btn devwatch-btn-secondary">Save Job</button>
+                    </div>
+                     <div class="form-group" style="margin-top: 0.5rem;">
+                         <label>Paste CLI (optional):</label>
+                         <input type="text" id="cli-input" placeholder="npx playwright test ..." />
+                     </div>
+                     <div class="form-group" style="margin-top: 0.25rem;">
+                         <label>Generated Command:</label>
+                         <div id="generated-command" class="cli-command-display" style="min-height: 40px;">npx playwright test</div>
+                     </div>
+                </div>
+                <div class="devwatch-card" style="flex-grow: 1;">
+                    <h4>Saved Jobs</h4>
+                    <ul id="saved-jobs-list">
+                        <!-- Jobs will be populated here -->
+                    </ul>
+                </div>
+            </div>
+
+            <div class="activity-log-panel">
+                 <div class="devwatch-card">
+                    <h4>Activity Log</h4>
+                    <div id="activity-log" class="devwatch-status-display"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

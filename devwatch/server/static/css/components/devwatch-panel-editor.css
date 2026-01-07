@@ -1,0 +1,418 @@
+/**
+ * DevWatch Panel Editor CSS
+ * Styling for the panel inspector/debugger modal
+ */
+
+/* ===== MODAL OVERLAY ===== */
+.devwatch-panel-editor {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.devwatch-panel-editor--visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.devwatch-panel-editor__backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(4px);
+}
+
+/* ===== MODAL DIALOG ===== */
+.devwatch-panel-editor__dialog {
+    position: relative;
+    width: 90vw;
+    max-width: 1200px;
+    height: 80vh;
+    margin: 5vh auto;
+    background-color: var(--devwatch-bg-primary, #1a1a1a);
+    border: 1px solid var(--devwatch-border-primary, #333);
+    border-radius: var(--devwatch-radius-lg, 12px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ===== HEADER ===== */
+.devwatch-panel-editor__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--devwatch-space-lg, 1.5rem);
+    background-color: var(--devwatch-bg-secondary, #252525);
+    border-bottom: 1px solid var(--devwatch-border-primary, #333);
+    flex-shrink: 0;
+}
+
+.devwatch-panel-editor__title {
+    margin: 0;
+    font-size: var(--devwatch-font-size-lg, 18px);
+    font-weight: 600;
+    color: var(--devwatch-text-primary, #fff);
+}
+
+.devwatch-panel-editor__close {
+    background: none;
+    border: none;
+    color: var(--devwatch-text-muted, #888);
+    font-size: 24px;
+    cursor: pointer;
+    padding: var(--devwatch-space-xs, 0.5rem);
+    border-radius: var(--devwatch-radius-sm, 4px);
+    transition: all 0.2s ease;
+    line-height: 1;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.devwatch-panel-editor__close:hover {
+    background-color: var(--devwatch-bg-tertiary, #2a2a2a);
+    color: var(--devwatch-text-primary, #fff);
+}
+
+/* ===== CONTENT AREA ===== */
+.devwatch-panel-editor__content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ===== TABS ===== */
+.devwatch-panel-editor__tabs {
+    display: flex;
+    background-color: var(--devwatch-bg-tertiary, #2a2a2a);
+    border-bottom: 1px solid var(--devwatch-border-primary, #333);
+    flex-shrink: 0;
+}
+
+.devwatch-panel-editor__tab {
+    background: none;
+    border: none;
+    padding: var(--devwatch-space-md, 1rem) var(--devwatch-space-lg, 1.5rem);
+    color: var(--devwatch-text-muted, #888);
+    font-size: var(--devwatch-font-size-sm, 14px);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 2px solid transparent;
+}
+
+.devwatch-panel-editor__tab:hover {
+    background-color: var(--devwatch-bg-quaternary, #333);
+    color: var(--devwatch-text-primary, #fff);
+}
+
+.devwatch-panel-editor__tab--active {
+    color: var(--devwatch-accent-primary, #4a9eff);
+    border-bottom-color: var(--devwatch-accent-primary, #4a9eff);
+    background-color: var(--devwatch-bg-quaternary, #333);
+}
+
+/* ===== TAB PANELS ===== */
+.devwatch-panel-editor__panels {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+.devwatch-panel-editor__panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: var(--devwatch-space-lg, 1.5rem);
+    overflow-y: auto;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.devwatch-panel-editor__panel--active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* ===== DEBUG SECTIONS ===== */
+.devwatch-debug-section {
+    margin-bottom: var(--devwatch-space-xl, 2rem);
+}
+
+.devwatch-debug-section h3 {
+    margin: 0 0 var(--devwatch-space-md, 1rem) 0;
+    font-size: var(--devwatch-font-size-md, 16px);
+    font-weight: 600;
+    color: var(--devwatch-accent-primary, #4a9eff);
+    border-bottom: 1px solid var(--devwatch-border-primary, #333);
+    padding-bottom: var(--devwatch-space-sm, 0.75rem);
+}
+
+/* ===== DEBUG GRID ===== */
+.devwatch-debug-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--devwatch-space-md, 1rem);
+}
+
+.devwatch-debug-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--devwatch-space-xs, 0.5rem);
+    padding: var(--devwatch-space-md, 1rem);
+    background-color: var(--devwatch-bg-secondary, #252525);
+    border: 1px solid var(--devwatch-border-primary, #333);
+    border-radius: var(--devwatch-radius-sm, 4px);
+}
+
+.devwatch-debug-item label {
+    font-size: var(--devwatch-font-size-xs, 12px);
+    font-weight: 600;
+    color: var(--devwatch-text-muted, #888);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.devwatch-debug-item code {
+    background-color: var(--devwatch-bg-tertiary, #2a2a2a);
+    color: var(--devwatch-accent-secondary, #ffaa00);
+    padding: var(--devwatch-space-xs, 0.5rem);
+    border-radius: var(--devwatch-radius-xs, 2px);
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: var(--devwatch-font-size-xs, 12px);
+}
+
+.devwatch-debug-item span {
+    color: var(--devwatch-text-primary, #fff);
+    font-size: var(--devwatch-font-size-sm, 14px);
+}
+
+/* ===== DEBUG STYLES ===== */
+.devwatch-debug-styles {
+    display: flex;
+    flex-direction: column;
+    gap: var(--devwatch-space-xs, 0.5rem);
+}
+
+.devwatch-debug-style-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--devwatch-space-sm, 0.75rem);
+    background-color: var(--devwatch-bg-secondary, #252525);
+    border: 1px solid var(--devwatch-border-primary, #333);
+    border-radius: var(--devwatch-radius-sm, 4px);
+}
+
+.devwatch-debug-style-item label {
+    font-weight: 500;
+    color: var(--devwatch-text-primary, #fff);
+    min-width: 120px;
+}
+
+.devwatch-debug-style-item code {
+    background-color: var(--devwatch-bg-tertiary, #2a2a2a);
+    color: var(--devwatch-accent-secondary, #ffaa00);
+    padding: var(--devwatch-space-xs, 0.5rem);
+    border-radius: var(--devwatch-radius-xs, 2px);
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: var(--devwatch-font-size-xs, 12px);
+    flex: 1;
+    text-align: right;
+}
+
+/* ===== DEBUG CLASSES ===== */
+.devwatch-debug-classes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--devwatch-space-xs, 0.5rem);
+}
+
+.devwatch-debug-class {
+    background-color: var(--devwatch-accent-primary, #4a9eff);
+    color: #fff;
+    padding: var(--devwatch-space-xs, 0.5rem) var(--devwatch-space-sm, 0.75rem);
+    border-radius: var(--devwatch-radius-sm, 4px);
+    font-size: var(--devwatch-font-size-xs, 12px);
+    font-weight: 500;
+}
+
+/* ===== DEBUG LIST ===== */
+.devwatch-debug-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--devwatch-space-sm, 0.75rem);
+}
+
+.devwatch-debug-list-item {
+    padding: var(--devwatch-space-md, 1rem);
+    background-color: var(--devwatch-bg-secondary, #252525);
+    border: 1px solid var(--devwatch-border-primary, #333);
+    border-radius: var(--devwatch-radius-sm, 4px);
+}
+
+.devwatch-debug-list-item strong {
+    color: var(--devwatch-text-primary, #fff);
+    font-weight: 600;
+}
+
+.devwatch-debug-list-item code {
+    background-color: var(--devwatch-bg-tertiary, #2a2a2a);
+    color: var(--devwatch-text-muted, #888);
+    padding: var(--devwatch-space-xs, 0.5rem);
+    border-radius: var(--devwatch-radius-xs, 2px);
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: var(--devwatch-font-size-xs, 12px);
+    margin-left: var(--devwatch-space-sm, 0.75rem);
+}
+
+.devwatch-debug-sub-info {
+    margin-top: var(--devwatch-space-sm, 0.75rem);
+    font-size: var(--devwatch-font-size-xs, 12px);
+    color: var(--devwatch-text-muted, #888);
+    line-height: 1.4;
+}
+
+/* ===== DEBUG CODE BLOCKS ===== */
+.devwatch-debug-code {
+    background-color: var(--devwatch-bg-quaternary, #1e1e1e);
+    border: 1px solid var(--devwatch-border-primary, #333);
+    border-radius: var(--devwatch-radius-sm, 4px);
+    padding: var(--devwatch-space-md, 1rem);
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: var(--devwatch-font-size-xs, 12px);
+    color: var(--devwatch-text-primary, #fff);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    line-height: 1.5;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* ===== FOOTER ===== */
+.devwatch-panel-editor__footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--devwatch-space-md, 1rem);
+    padding: var(--devwatch-space-lg, 1.5rem);
+    background-color: var(--devwatch-bg-secondary, #252525);
+    border-top: 1px solid var(--devwatch-border-primary, #333);
+    flex-shrink: 0;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 768px) {
+    .devwatch-panel-editor__dialog {
+        width: 95vw;
+        height: 90vh;
+        margin: 2.5vh auto;
+    }
+    
+    .devwatch-debug-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .devwatch-panel-editor__tabs {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+    }
+    
+    .devwatch-panel-editor__tab {
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+}
+
+/* ===== SCROLLBAR STYLING ===== */
+.devwatch-panel-editor__panel::-webkit-scrollbar,
+.devwatch-debug-code::-webkit-scrollbar {
+    width: 8px;
+}
+
+.devwatch-panel-editor__panel::-webkit-scrollbar-track,
+.devwatch-debug-code::-webkit-scrollbar-track {
+    background-color: var(--devwatch-bg-tertiary, #2a2a2a);
+}
+
+.devwatch-panel-editor__panel::-webkit-scrollbar-thumb,
+.devwatch-debug-code::-webkit-scrollbar-thumb {
+    background-color: var(--devwatch-border-secondary, #444);
+    border-radius: 4px;
+}
+
+.devwatch-panel-editor__panel::-webkit-scrollbar-thumb:hover,
+.devwatch-debug-code::-webkit-scrollbar-thumb:hover {
+    background-color: var(--devwatch-accent-primary, #4a9eff);
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeInScale {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.devwatch-panel-editor--visible .devwatch-panel-editor__dialog {
+    animation: fadeInScale 0.3s ease-out;
+}
+
+/* ===== FOCUS STYLES ===== */
+.devwatch-panel-editor__tab:focus,
+.devwatch-panel-editor__close:focus {
+    outline: 2px solid var(--devwatch-accent-primary, #4a9eff);
+    outline-offset: 2px;
+}
+
+/* ===== LIGHT THEME OVERRIDES ===== */
+.devwatch-theme-light .devwatch-panel-editor__dialog {
+    background-color: #ffffff;
+    border-color: #e0e0e0;
+}
+
+.devwatch-theme-light .devwatch-panel-editor__header {
+    background-color: #f8f9fa;
+    border-color: #e0e0e0;
+}
+
+.devwatch-theme-light .devwatch-panel-editor__title {
+    color: #212529;
+}
+
+.devwatch-theme-light .devwatch-debug-section h3 {
+    color: #0d6efd;
+    border-color: #e0e0e0;
+}
+
+.devwatch-theme-light .devwatch-debug-item {
+    background-color: #f8f9fa;
+    border-color: #e0e0e0;
+}
+
+.devwatch-theme-light .devwatch-debug-code {
+    background-color: #f8f9fa;
+    border-color: #e0e0e0;
+    color: #212529;
+}

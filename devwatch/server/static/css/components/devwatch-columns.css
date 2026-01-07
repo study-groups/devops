@@ -1,0 +1,45 @@
+.devwatch-columns {
+    display: grid;
+    grid-template-columns: minmax(300px, 1fr) 5px 3fr;
+    height: 100%;
+    width: 100%;
+}
+
+.devwatch-column {
+    overflow: auto;
+    min-width: 0; /* Prevents overflow issues with flex/grid children */
+    padding: 0; /* Remove padding to eliminate gap */
+}
+
+.devwatch-column-resizer {
+    background-color: var(--devwatch-border-primary);
+    cursor: col-resize;
+    z-index: 10;
+}
+
+/* Responsive stacking for narrow screens */
+.devwatch-columns.is-narrow {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    gap: 1rem; /* Add some space between stacked rows */
+}
+
+.devwatch-columns.is-narrow .devwatch-column-resizer {
+    display: none; /* Hide resizer in narrow view */
+}
+
+/* Allow content within stacked columns to grow to full width */
+.devwatch-columns.is-narrow .devwatch-column {
+    width: 100%;
+}
+
+/* Force two-column layout above the narrow breakpoint */
+@media (min-width: 831px) {
+    .devwatch-columns:not(.is-narrow) {
+        display: grid;
+        grid-template-columns: minmax(300px, 1fr) 5px 3fr;
+    }
+    .devwatch-columns:not(.is-narrow) .devwatch-column-resizer {
+        display: block;
+    }
+}

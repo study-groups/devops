@@ -1,0 +1,32 @@
+/**
+ * DevWatch Component: Stat Card
+ * A card for displaying a single, important metric, matching the classic look.
+ */
+.devwatch-stat-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--devwatch-space-md);
+    padding: var(--devwatch-space-sm) 0;
+}
+
+.devwatch-stat-card {
+    background-color: transparent;
+    border: none;
+    padding: var(--devwatch-space-sm);
+    text-align: left;
+}
+
+.devwatch-stat-card__title {
+    font-size: var(--devwatch-font-size-md);
+    font-weight: var(--devwatch-font-weight-bold);
+    color: var(--devwatch-text-primary);
+    margin-bottom: var(--devwatch-space-xs);
+}
+
+.devwatch-stat-card__value {
+    font-size: var(--devwatch-font-size-2xl);  /* Extra large font size */
+    color: var(--devwatch-accent-primary);  /* Use the theme's accent primary color */
+    font-family: var(--devwatch-font-sans);
+    padding: var(--devwatch-space-md);
+    line-height: 1.2;  /* Tighten line height for large numbers */
+}

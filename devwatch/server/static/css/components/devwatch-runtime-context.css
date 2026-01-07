@@ -1,0 +1,36 @@
+.runtime-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--devwatch-space-xs);
+    background-color: var(--devwatch-bg-secondary);
+    padding: var(--devwatch-space-xs);
+    border-radius: var(--devwatch-radius-sm);
+}
+
+.runtime-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--devwatch-bg-primary);
+    padding: var(--devwatch-space-xs);
+    border-radius: var(--devwatch-radius-xs);
+    gap: var(--devwatch-space-sm);
+}
+
+.runtime-item code {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    color: var(--devwatch-text-accent);
+    text-align: left;
+    flex-shrink: 0;
+}
+
+.runtime-item .runtime-value {
+    font-family: monospace;
+    color: var(--devwatch-text-secondary);
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}

@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cron Job Runner</title>
+    
+    <!-- PJA Panel System -->
+    <link rel="stylesheet" href="/static/css/base/design-tokens.css">
+    <link rel="stylesheet" href="/static/css/components/devwatch-panel-system.css">
+    <link rel="stylesheet" href="/static/css/devwatch.css">
+    
+    <style>
+        /* Custom form styling for cron interface */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-control {
+            background: var(--devwatch-color-surface, rgba(255, 255, 255, 0.05));
+            border: 1px solid var(--devwatch-color-border, rgba(255, 255, 255, 0.2));
+            border-radius: var(--devwatch-border-radius-sm, 4px);
+            color: var(--devwatch-color-text, #fff);
+            padding: 8px 12px;
+            font-size: var(--devwatch-font-size-sm, 14px);
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: var(--devwatch-border-radius-sm, 4px);
+            font-size: var(--devwatch-font-size-sm, 14px);
+            font-weight: var(--devwatch-font-weight-medium, 500);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary {
+            background: var(--devwatch-color-accent, #0066cc);
+            color: var(--devwatch-color-accent-text, #fff);
+        }
+        
+        .btn-primary:hover {
+            background: var(--devwatch-color-accent-hover, #0052a3);
+            transform: translateY(-1px);
+        }
+        
+        .env-toggles {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+        }
+        
+        .env-toggles input[type="checkbox"] {
+            margin-right: 4px;
+        }
+        
+        .env-toggles label {
+            display: flex;
+            align-items: center;
+            color: var(--devwatch-color-text, #fff);
+            font-size: var(--devwatch-font-size-sm, 14px);
+            cursor: pointer;
+        }
+        
+        .command-input-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .command-input-group input {
+            flex: 1;
+        }
+
+        .btn-secondary {
+            background: var(--devwatch-color-surface-raised, rgba(255, 255, 255, 0.1));
+            color: var(--devwatch-color-text, #fff);
+            border: 1px solid var(--devwatch-color-border, rgba(255, 255, 255, 0.2));
+        }
+
+        .btn-secondary:hover {
+            background: var(--devwatch-color-surface-hover, rgba(255, 255, 255, 0.15));
+        }
+
+        /* Muted status colors for pass/fail */
+        .result-status.success {
+            color: #4CAF50; /* Muted Green */
+            background-color: rgba(76, 175, 80, 0.15);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        
+        .result-status.error {
+            color: #F44336; /* Muted Red */
+            background-color: rgba(244, 67, 54, 0.15);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        
+
+        
+        /* Resize handle styles */
+        .devwatch-panel-resize-handle {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 10px;
+            cursor: ns-resize;
+            background: rgba(255,255,255,0.1);
+            z-index: 10;
+        }
+
+        .devwatch-panel-resize-handle:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .devwatch-panel.resizing {
+            opacity: 0.7;
+        }
+
+        .cron-panel-full-width-toggle {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 24px;
+            height: 24px;
+            background: var(--devwatch-color-surface-variant, rgba(255,255,255,0.1));
+            border: 1px solid var(--devwatch-color-border, rgba(255, 255, 255, 0.2));
+            border-radius: 4px;
+            color: var(--devwatch-color-text-muted, #666);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 100;
+            transition: all 0.3s ease;
+        }
+
+        .cron-panel-full-width-toggle:hover {
+            background: var(--devwatch-color-surface-hover, rgba(255,255,255,0.15));
+            color: var(--devwatch-color-text, #fff);
+        }
+
+        .is-full-width {
+            width: 100% !important;
+            max-width: none !important;
+        }
+
+        .is-resizing {
+            opacity: 0.7;
+            transition: none;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        }
+
+
+
+        .layout-manager {
+            padding: 8px;
+        }
+
+        .layout-manager .form-group {
+            margin-bottom: 12px;
+        }
+
+        .layout-manager label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--devwatch-color-text, #fff);
+            font-size: var(--devwatch-font-size-sm, 14px);
+        }
+
+        .layout-manager input[type="checkbox"] {
+            margin: 0;
+        }
+
+        .layout-manager select {
+            width: 100%;
+            margin-top: 4px;
+        }
+
+        .resize-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-small {
+            flex: 1;
+            padding: 6px 8px;
+            font-size: 12px;
+        }
+
+        .btn-full {
+            width: 100%;
+            padding: 8px 12px;
+        }
+
+
+    </style>
+</head>
+<body class="devwatch-iframe-body cron-theme">
+
+    <div id="cron-layout-container">
+        <!-- Layout and panels will be generated here by cron.js -->
+    </div>
+
+    <!-- Core Dependencies -->
+    <script src="/static/js/logger.js" defer></script>
+    <script src="/static/js/theme-manager.js" defer></script>
+    <script src="/static/js/devwatch-iframe.js" defer></script>
+    
+    <!-- PJA Panel System -->
+    <script src="/static/js/devwatch-panel-system.js" defer></script>
+    
+    <!-- PJA Enhanced Panels -->
+    <script src="/static/js/devwatch-enhanced-panels.js" defer></script>
+    
+    <!-- Cron Logic -->
+    <script src="/static/js/cron.js" defer></script>
+
+    <!-- PJA Resizable Grid -->
+    <script src="/static/js/devwatch-resizable-grid.js" defer></script>
+
+    <!-- Enhanced Panel Initialization -->
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Wait for cron.js to create the layout and panels first
+        setTimeout(() => {
+            const mainLayout = document.getElementById('cron-main-layout');
+            if (!mainLayout) {
+                console.warn('Main layout not found, panels may not be initialized yet');
+                return;
+            }
+
+            // Add Layout Manager panel to left column - FORCE CREATE IT
+            const leftColumn = mainLayout.querySelector('.devwatch-column--left');
+            if (leftColumn) {
+                // Create as regular panel first to ensure it works
+                const layoutManagerPanel = new DevWatchPanel({
+                    id: 'layout-manager-panel',
+                    title: 'Layout Manager',
+                    content: createLayoutManagerContent(),
+                    position: 'left',
+                    isCollapsed: false
+                });
+
+                // Register and add to layout
+                window.DevWatchPanelManager.registerPanel(layoutManagerPanel);
+                leftColumn.appendChild(layoutManagerPanel.element);
+                console.log('Layout Manager panel created and added to left column');
+            } else {
+                console.error('Left column not found! Cannot add Layout Manager panel');
+            }
+
+            // Convert existing panels to enhanced resizable panels
+            const allPanels = mainLayout.querySelectorAll('.devwatch-panel:not(.devwatch-enhanced-panel)');
+            allPanels.forEach(panelElement => {
+                const isLeftColumn = panelElement.closest('.devwatch-column--left');
+                
+                // Create enhanced panel with same content
+                const enhancedPanel = new DevWatchEnhancedPanel({
+                    id: panelElement.id + '-enhanced',
+                    title: panelElement.querySelector('.devwatch-panel__title')?.textContent || 'Panel',
+                    content: panelElement.querySelector('.devwatch-panel__content')?.innerHTML || '',
+                    position: isLeftColumn ? 'left' : 'right',
+                    isCollapsed: panelElement.classList.contains('devwatch-panel--collapsed'),
+                    isResizable: true,
+                    resizeMode: isLeftColumn ? 'height' : 'both',
+                    minWidth: isLeftColumn ? 200 : 250,
+                    maxWidth: isLeftColumn ? 350 : 800,
+                    minHeight: 150,
+                    maxHeight: 800,
+                    width: isLeftColumn ? 280 : 320,
+                    height: 250
+                });
+
+                // Replace original panel
+                panelElement.parentNode.replaceChild(enhancedPanel.element, panelElement);
+                
+                // Register with panel manager
+                window.DevWatchPanelManager.registerPanel(enhancedPanel);
+            });
+
+            console.log('Enhanced panels initialized');
+        }, 100);
+
+        function createLayoutManagerContent() {
+            return `
+                <div class="layout-manager">
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="enable-resizable-panels" checked> 
+                            Enable Resizable Panels
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="enable-panel-dragging" checked> 
+                            Enable Panel Dragging
+                        </label>
+                    </div>
+                    <div class="form-group resize-buttons">
+                        <button class="btn btn-secondary btn-small" onclick="resizeAllPanels('smallest')">Smallest</button>
+                        <button class="btn btn-secondary btn-small" onclick="resizeAllPanels('largest')">Largest</button>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-secondary btn-full" onclick="alignPanels()">Align</button>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-secondary btn-full" onclick="resetPanelLayout()">Reset Layout</button>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-secondary btn-full" onclick="savePanelLayout()">Save Layout</button>
+                    </div>
+                    <div class="form-group">
+                        <label for="layout-preset">Layout Preset:</label>
+                        <select id="layout-preset" class="form-control">
+                            <option value="default">Default</option>
+                            <option value="compact">Compact</option>
+                            <option value="expanded">Expanded</option>
+                        </select>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Global layout management functions
+        window.resetPanelLayout = () => {
+            const panels = document.querySelectorAll('.devwatch-enhanced-panel');
+            panels.forEach(panel => {
+                const isLeft = panel.closest('.devwatch-column--left');
+                panel.style.width = isLeft ? '280px' : '320px';
+                panel.style.height = '250px';
+            });
+            console.log('Panel layout reset');
+        };
+
+        window.resizeAllPanels = (size) => {
+            // Only resize panels in right column
+            const rightColumn = document.querySelector('.devwatch-column--right');
+            if (!rightColumn) return;
+            
+            const rightPanels = rightColumn.querySelectorAll('.devwatch-enhanced-panel, .devwatch-panel');
+            
+            if (size === 'smallest') {
+                rightPanels.forEach(panel => {
+                    panel.style.width = '250px';
+                    panel.style.height = '150px';
+                });
+                console.log('Right column panels resized to smallest');
+            } else if (size === 'largest') {
+                // Find the largest dimensions among all right panels
+                let maxWidth = 0;
+                let maxHeight = 0;
+                
+                rightPanels.forEach(panel => {
+                    const width = panel.offsetWidth || parseInt(panel.style.width) || 250;
+                    const height = panel.offsetHeight || parseInt(panel.style.height) || 200;
+                    maxWidth = Math.max(maxWidth, width);
+                    maxHeight = Math.max(maxHeight, height);
+                });
+                
+                // Apply the largest dimensions to all panels
+                rightPanels.forEach(panel => {
+                    panel.style.width = `${maxWidth}px`;
+                    panel.style.height = `${maxHeight}px`;
+                });
+                
+                console.log(`Right column panels resized to largest: ${maxWidth}x${maxHeight}`);
+            }
+        };
+
+        window.alignPanels = () => {
+            const rightColumn = document.querySelector('.devwatch-column--right');
+            if (!rightColumn) return;
+            
+            const panels = Array.from(rightColumn.querySelectorAll('.devwatch-enhanced-panel, .devwatch-panel'));
+            
+            // Reset column to normal flow to preserve drag/drop functionality
+            rightColumn.style.display = '';
+            rightColumn.style.flexWrap = '';
+            rightColumn.style.gap = '';
+            rightColumn.style.alignContent = '';
+            rightColumn.style.alignItems = '';
+            
+            // Just clean up panel positioning without breaking drag/drop
+            panels.forEach(panel => {
+                panel.style.position = '';
+                panel.style.display = '';
+                panel.style.margin = '0 0 1rem 0';
+                panel.style.flexShrink = '';
+                panel.style.flexGrow = '';
+                // Keep existing width/height - don't change sizes
+            });
+            
+            console.log(`Aligned ${panels.length} panels (drag/drop preserved)`);
+        };
+
+        window.savePanelLayout = () => {
+            const layout = {};
+            const panels = document.querySelectorAll('.devwatch-enhanced-panel');
+            panels.forEach(panel => {
+                layout[panel.id] = {
+                    width: panel.style.width,
+                    height: panel.style.height,
+                    collapsed: panel.classList.contains('devwatch-panel--collapsed')
+                };
+            });
+            localStorage.setItem('cron-panel-layout', JSON.stringify(layout));
+            console.log('Panel layout saved');
+        };
+    });
+    </script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+/**
+ * DevWatch Custom Tokens
+ * Extends terrain's token system with test-specific semantic colors
+ */
+
+:root {
+  /* Test Status Colors */
+  --test-pass: #4ade80;          /* Green - tests passed */
+  --test-fail: #f87171;          /* Red - tests failed */
+  --test-skip: #94a3b8;          /* Gray - tests skipped */
+  --test-running: #60a5fa;       /* Blue - tests in progress */
+  --test-flaky: #fbbf24;         /* Yellow/amber - flaky tests */
+  --test-timeout: #fb923c;       /* Orange - timed out */
+
+  /* Performance Thresholds (Core Web Vitals) */
+  --lcp-good: #4ade80;           /* < 2.5s - Good */
+  --lcp-needs-work: #fbbf24;     /* 2.5-4s - Needs Improvement */
+  --lcp-poor: #f87171;           /* > 4s - Poor */
+
+  --ttfb-good: #4ade80;          /* < 800ms */
+  --ttfb-needs-work: #fbbf24;    /* 800-1800ms */
+  --ttfb-poor: #f87171;          /* > 1800ms */
+
+  --fcp-good: #4ade80;           /* < 1.8s */
+  --fcp-needs-work: #fbbf24;     /* 1.8-3s */
+  --fcp-poor: #f87171;           /* > 3s */
+
+  /* Health Check Status */
+  --health-healthy: #4ade80;
+  --health-degraded: #fbbf24;
+  --health-unhealthy: #f87171;
+  --health-unknown: #94a3b8;
+
+  /* Environment Colors */
+  --env-dev: #60a5fa;            /* Blue */
+  --env-staging: #fbbf24;        /* Yellow */
+  --env-prod: #f87171;           /* Red (caution) */
+  --env-local: #a78bfa;          /* Purple */
+
+  /* Browser Icons */
+  --browser-chromium: #4285f4;
+  --browser-firefox: #ff7139;
+  --browser-webkit: #0099ff;
+
+  /* DevWatch Brand */
+  --devwatch-primary: #22d3ee;   /* Cyan accent */
+  --devwatch-secondary: #818cf8; /* Indigo accent */
+
+  /* Panel Borders */
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --panel-border-active: var(--devwatch-primary);
+
+  /* Log Levels */
+  --log-error: #f87171;
+  --log-warn: #fbbf24;
+  --log-info: #60a5fa;
+  --log-debug: #94a3b8;
+  --log-success: #4ade80;
+}
+
+/* Dark theme overrides (default) */
+[data-theme="dark"] {
+  --panel-bg: #1e293b;
+  --panel-header-bg: #0f172a;
+}
+
+/* Light theme overrides */
+[data-theme="light"] {
+  --test-pass: #16a34a;
+  --test-fail: #dc2626;
+  --test-skip: #64748b;
+  --test-running: #2563eb;
+  --test-flaky: #d97706;
+
+  --panel-bg: #f8fafc;
+  --panel-header-bg: #e2e8f0;
+  --panel-border: rgba(0, 0, 0, 0.1);
+}

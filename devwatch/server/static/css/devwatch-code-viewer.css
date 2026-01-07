@@ -1,0 +1,117 @@
+/**
+ * DevWatch Code Viewer Styles
+ */
+.devwatch-code-viewer-wrapper {
+    background-color: var(--devwatch-bg-tertiary);
+    border: 1px solid var(--devwatch-border-primary);
+    border-radius: var(--devwatch-radius-md);
+    margin-top: var(--devwatch-space-md);
+    overflow: hidden;
+}
+
+.devwatch-code-viewer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--devwatch-space-sm) var(--devwatch-space-md);
+    background-color: var(--devwatch-bg-elevated);
+    border-bottom: 1px solid var(--devwatch-border-primary);
+    user-select: none;
+}
+
+.devwatch-code-viewer-title {
+    font-size: var(--devwatch-font-size-sm);
+    font-weight: var(--devwatch-font-weight-semibold);
+    color: var(--devwatch-text-muted);
+}
+
+.devwatch-code-viewer-actions {
+    display: flex;
+    gap: var(--devwatch-space-sm);
+}
+
+.devwatch-code-viewer-copy-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.devwatch-code-viewer-copy-btn:disabled:hover {
+    background-color: transparent;
+    border-color: var(--devwatch-border-secondary);
+}
+
+.devwatch-code-viewer-content {
+    position: relative;
+}
+
+.devwatch-code-viewer {
+    font-family: var(--devwatch-font-mono);
+    font-size: var(--devwatch-font-size-sm);
+    overflow: auto;
+    max-height: 400px;
+}
+
+.devwatch-tab-content {
+    display: none;
+}
+
+.devwatch-tab-content.active {
+    display: block;
+}
+
+.devwatch-code-line {
+    display: flex;
+    padding: 2px var(--devwatch-space-sm);
+    border-left: 3px solid transparent;
+}
+
+.devwatch-line-number {
+    user-select: none;
+    text-align: right;
+    width: 40px;
+    padding-right: var(--devwatch-space-md);
+    color: var(--devwatch-text-muted);
+    flex-shrink: 0;
+}
+
+.devwatch-line-content {
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: var(--devwatch-text-primary);
+    user-select: text;
+    cursor: text;
+}
+
+.devwatch-line-content::selection {
+    background-color: var(--devwatch-accent-muted);
+    color: var(--devwatch-text-primary);
+}
+
+.devwatch-line-content::-moz-selection {
+    background-color: var(--devwatch-accent-muted);
+    color: var(--devwatch-text-primary);
+}
+
+.devwatch-code-line.highlighted {
+    background-color: var(--devwatch-accent-muted);
+    border-left-color: var(--devwatch-accent-primary);
+}
+
+.devwatch-code-viewer-extra {
+    /* Container for tab content - no default styling */
+    position: relative;
+}
+
+.devwatch-action-content {
+    padding: var(--devwatch-space-md);
+    background-color: var(--devwatch-bg-secondary);
+    border-top: 1px solid var(--devwatch-border-primary);
+    min-height: 200px;
+}
+
+.devwatch-code-viewer-loading,
+.devwatch-code-viewer-error {
+    padding: var(--devwatch-space-lg);
+    text-align: center;
+    color: var(--devwatch-text-muted);
+}

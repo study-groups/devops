@@ -1,0 +1,595 @@
+/**
+ * PJA SDK - A simplified, lightweight iframe SDK.
+ */
+
+// --- Global APP Namespace ---
+window.APP = window.APP || {};
+
+// --- Simple Event Bus ---
+(function initEventBus(ns) {
+    if (ns.bus) return; // don't re-init
+    const listeners = new Map();
+    const middlewares = new Set();
+    ns.bus = {
+        on(eventName, handler) {
+            if (!listeners.has(eventName)) listeners.set(eventName, new Set());
+            listeners.get(eventName).add(handler);
+            return () => ns.bus.off(eventName, handler);
+        },
+        off(eventName, handler) {
+            const set = listeners.get(eventName);
+            if (set) set.delete(handler);
+        },
+        use(mw) {
+            // mw signature: (eventName, payload) => void | Promise<void>
+            if (typeof mw === 'function') middlewares.add(mw);
+            return () => middlewares.delete(mw);
+        },
+        async emit(eventName, payload) {
+            // Run middlewares first
+            for (const mw of Array.from(middlewares)) {
+                try { await mw(eventName, payload); } catch (_) { /* ignore */ }
+            }
+            // Then notify listeners
+            const set = listeners.get(eventName);
+            if (!set) return;
+            for (const handler of Array.from(set)) {
+                try { handler(payload); } catch (e) { /* ignore */ }
+            }
+        }
+    };
+
+    // Optional: system-log middleware (logs selected app events server-side)
+    ns.bus.use(async (eventName, payload) => {
+        try {
+            // Only log namespaced app events to avoid noise
+            if (!eventName || typeof eventName !== 'string') return;
+            if (!/^[a-z]+\:/.test(eventName)) return; // e.g., 'named-tests:updated'
+            // Allow opt-out per event
+            if (payload && payload.__skipSystemLog) return;
+            await fetch('/api/logs/system', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    level: 'INFO',
+                    type: 'APP',
+                    from: 'pja-iframe',
+                    message: eventName,
+                    data: {
+                        payload,
+                        href: window.location.href
+                    }
+                })
+            });
+        } catch (_) { /* ignore */ }
+    });
+})(window.APP);
+
+// --- Logging Utility ---
+(function(ns) {
+    // Check if a more advanced logger (from logger.js) is already in place.
+    // The presence of `logToServer` is a good indicator.
+    if (ns.log && ns.log.logToServer) {
+        ns.log.info('frontend.pja-iframe', 'Advanced logger already present. Skipping simple logger initialization.');
+        return;
+    }
+
+    // If no advanced logger, define a simple fallback that sends to the server.
+    const log = (level, from, message, data) => {
+        const timestamp = new Date().toISOString();
+        
+        // Always log to the console for immediate debugging
+        const consoleLevel = { 'info': 'log', 'warn': 'warn', 'error': 'error' }[level] || 'log';
+        console[consoleLevel](`[${timestamp}] [PJA ${level.toUpperCase()}] ${from} -`, message, data || '');
+        
+        // Check if logs should be displayed in the system panel.
+        const shouldShowInPanel = localStorage.getItem('pja-show-ui-logs') === 'true';
+        if (!shouldShowInPanel) {
+            return;
+        }
+
+        const logEntry = {
+            level: level.toUpperCase(),
+            from: `pja-iframe.${from}`,
+            message,
+            data,
+            timestamp
+        };
+        
+        // Post a message to the host window so it can be routed to the system panel
+        window.parent.postMessage({
+            source: 'pja-iframe-log',
+            type: 'log-event',
+            data: logEntry
+        }, '*');
+    };
+
+    ns.log = {
+        info: (from, message, data) => log('info', from, message, data),
+        warn: (from, message, data) => log('warn', from, message, data),
+        error: (from, message, data) => log('error', from, message, data),
+    };
+})(window.APP);
+
+
+// --- PJA Utilities ---
+(function(ns) {
+    ns.utils = {
+        timestamp() {
+            return new Date().toLocaleString();
+        },
+        generateId() {
+            return `pja_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        },
+        storage: {
+            get(key, defaultValue = null) {
+                try {
+                    const item = localStorage.getItem(`pja_${key}`);
+                    return item ? JSON.parse(item) : defaultValue;
+                } catch (error) {
+                    ns.log.warn(`Error reading from storage:`, error);
+                    return defaultValue;
+                }
+            },
+            set(key, value) {
+                try {
+                    localStorage.setItem(`pja_${key}`, JSON.stringify(value));
+                } catch (error) {
+                    ns.log.warn(`Error writing to storage:`, error);
+                }
+            },
+            remove(key) {
+                 try {
+                    localStorage.removeItem(`pja_${key}`);
+                } catch (error) {
+                    ns.log.warn(`Error removing from storage:`, error);
+                }
+            }
+        }
+    };
+})(window.APP);
+
+// --- Main PJA SDK Class ---
+class PjaSdk {
+    constructor(options = {}) {
+        this.isIframe = window.self !== window.top;
+        this.config = {
+            enableActivityLog: options.enableActivityLog !== false, // default true
+            hideTitle: options.hideTitle !== false,
+            autoSendTitle: options.autoSendTitle !== false,
+        };
+        // Lifecycle hooks
+        this.hooks = {
+            onReady: options.onReady || (() => {}),
+            onMessage: options.onMessage || (() => {}),
+            onUnload: options.onUnload || (() => {}),
+        };
+        this.activityLog = [];
+        this.maxLogEntries = 100;
+        this.logContainer = null;
+        
+        console.log('[PJA SDK] Constructor called:', {
+            isIframe: this.isIframe,
+            pathname: window.location.pathname,
+            windowSelf: window.self,
+            windowTop: window.top,
+            equal: window.self === window.top
+        });
+        
+        if (this.isIframe) {
+            this.init();
+        } else {
+            APP.log.warn('frontend.pja-iframe', 'Not running in an iframe context. SDK will initialize with limited functionality.');
+            // Still send asset information and initialize for standalone debugging
+            this.initStandalone();
+        }
+    }
+
+    init() {
+        this.sendMessage('pja-iframe-ready', { url: window.location.href });
+        
+        window.addEventListener('message', event => this.handleHostMessage(event));
+        window.addEventListener('beforeunload', () => this.hooks.onUnload());
+
+        // Wait for all resources to load before sending asset list
+        window.addEventListener('load', () => {
+            this.sendAssetLists();
+            this.hooks.onReady(this); // Fire onReady hook
+
+            // Auto-send title if configured
+            if (this.config.autoSendTitle) {
+                this.sendTitle();
+            }
+    
+            // Auto-hide title if configured
+            if (this.config.hideTitle) {
+                this.hideTitle();
+            }
+
+            // Listen for DOM changes to update title
+            this.observeTitleChanges();
+        });
+        
+        if (this.config.enableActivityLog) {
+            this.initializeActivityLog();
+        }
+        APP.log.info('frontend.pja-iframe', 'Iframe SDK Initialized.');
+    }
+
+    initStandalone() {
+        // Initialize for standalone mode - still gather asset info for debugging
+        window.addEventListener('load', () => {
+            this.sendAssetLists();
+        });
+        
+        // Initialize activity log if container exists
+        if (document.getElementById('activity-log')) {
+            this.config.enableActivityLog = true;
+            this.initializeActivityLog();
+        }
+        
+        // Make asset information available globally for debugging
+        window.PJAAssets = {
+            css: [],
+            js: [],
+            url: window.location.href,
+            isStandalone: true
+        };
+        
+        APP.log.info('frontend.pja-iframe', 'PJA SDK initialized in standalone mode.');
+    }
+
+    handleHostMessage(event) {
+        // Basic security, ignore messages from other windows
+        if (event.source !== window.parent) return;
+
+        const { source, type, data } = event.data;
+        if (source !== 'pja-host') return;
+
+        // Fire generic onMessage hook for any incoming message
+        this.hooks.onMessage({ type, data });
+
+        // Log incoming messages if message testing is active
+        if (window.systemControlPanel && window.systemControlPanel.logMessage) {
+            window.systemControlPanel.logMessage('in', type, data, true);
+        }
+
+        if (type === 'pja-set-theme') {
+            this.setTheme(data.theme);
+        } else if (type === 'ping') {
+            // Respond to ping from host
+            this.sendMessage('pong', {
+                ...data,
+                response: 'pong from iframe',
+                timestamp: Date.now(),
+                iframeReceived: data.timestamp || Date.now()
+            });
+        } else if (type === 'pja-host-test') {
+            // Handle test messages from host
+            this.sendMessage('pja-iframe-test-response', {
+                originalMessage: data,
+                response: 'Test message received by iframe',
+                timestamp: Date.now()
+            });
+        }
+    }
+
+    // --- Title Management ---
+    sendTitle() {
+        const title = this.getTitle();
+        this.sendMessage('pja-title-update', { title: title });
+    }
+
+    getTitle() {
+        // Try multiple ways to get the title according to PJA conventions
+        const titleElement = document.querySelector('h1, .pja-title, [data-pja-title]');
+        if (titleElement) {
+            return titleElement.textContent.trim();
+        }
+        return document.title || 'Untitled';
+    }
+
+    hideTitle() {
+        // Hide title elements according to PJA conventions
+        const titleSelectors = [
+            'h1:first-of-type',
+            '.pja-title',
+            '[data-pja-title]',
+            '.iframe-title'
+        ];
+
+        titleSelectors.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(el => {
+                el.style.display = 'none';
+                el.setAttribute('data-pja-hidden', 'true');
+            });
+        });
+    }
+
+    showTitle() {
+        const hiddenElements = document.querySelectorAll('[data-pja-hidden="true"]');
+        hiddenElements.forEach(el => {
+            el.style.display = '';
+            el.removeAttribute('data-pja-hidden');
+        });
+    }
+    
+    observeTitleChanges() {
+        // Watch for title changes
+        const titleObserver = new MutationObserver(() => {
+            if (this.config.autoSendTitle) {
+                this.sendTitle();
+            }
+        });
+
+        // Observe title element changes
+        const titleElement = document.querySelector('title');
+        if (titleElement) {
+            titleObserver.observe(titleElement, { childList: true, characterData: true });
+        }
+
+        // Observe h1 changes
+        const h1Elements = document.querySelectorAll('h1');
+        h1Elements.forEach(h1 => {
+            titleObserver.observe(h1, { childList: true, characterData: true, subtree: true });
+        });
+    }
+
+    setTheme(theme) {
+        if (theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            APP.log.info('frontend.pja-iframe', `Theme set to: ${theme}`);
+        }
+    }
+
+    sendMessage(type, data = {}) {
+        if (!this.isIframe) return;
+        
+        window.parent.postMessage({
+            source: 'pja-iframe',
+            type,
+            data,
+        }, '*');
+    }
+    
+    sendAssetLists() {
+        try {
+            const cssFiles = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(link => link.href.split('/').pop());
+            const jsFiles = Array.from(document.querySelectorAll('script[src]')).map(script => script.src.split('/').pop());
+            
+            // Always populate global assets for debugging
+            if (window.PJAAssets) {
+                window.PJAAssets.css = cssFiles;
+                window.PJAAssets.js = jsFiles;
+            }
+            
+            // Send message only if in iframe context
+            if (this.isIframe) {
+                this.sendMessage('pja-asset-list', { css: cssFiles, js: jsFiles });
+            } else {
+                console.log('[PJA SDK] Asset lists collected (standalone):', { css: cssFiles, js: jsFiles });
+            }
+        } catch (e) {
+            if (this.isIframe) {
+                this.sendMessage('pja-asset-list', { error: true });
+            } else {
+                console.error('[PJA SDK] Error collecting assets:', e);
+            }
+        }
+    }
+    
+    // --- Activity Log ---
+    initializeActivityLog() {
+        this.logContainer = document.getElementById('activity-log') || document.querySelector('.pja-status-display');
+        
+        if (this.logContainer) {
+            const storedLogs = APP.utils.storage.get('playwright_log', []);
+            this.activityLog = storedLogs;
+            this.renderFullLog();
+        }
+    }
+
+    renderFullLog() {
+        if (!this.logContainer) return;
+        this.logContainer.innerHTML = '';
+        this.activityLog.forEach(entry => this.updateLogDisplayDOM(entry, false));
+    }
+
+    addLogEntry(message, type = 'info', data = {}) {
+        const entry = {
+            id: APP.utils.generateId(),
+            message,
+            type,
+            timestamp: APP.utils.timestamp(),
+            data
+        };
+
+        this.activityLog.unshift(entry);
+        if (this.activityLog.length > this.maxLogEntries) {
+            this.activityLog = this.activityLog.slice(0, this.maxLogEntries);
+        }
+
+        APP.utils.storage.set('playwright_log', this.activityLog);
+        
+        if (this.logContainer) {
+            this.updateLogDisplayDOM(entry, true);
+        }
+
+        this.sendMessage('pja-custom-activity-update', entry);
+        
+        APP.log.info('frontend.pja-iframe', message, data);
+
+        return entry; // allow callers to update later
+    }
+    
+    updateLogDisplayDOM(entry, prepend = false) {
+        if (!this.logContainer) return;
+
+        const logEntryDiv = document.createElement('div');
+        logEntryDiv.className = 'log-entry';
+        logEntryDiv.setAttribute('data-log-id', entry.id);
+
+        const summary = document.createElement('div');
+        summary.className = 'log-entry-summary';
+        summary.style.display = 'flex';
+        summary.style.alignItems = 'center';
+        summary.style.gap = '8px';
+        const leftSpan = document.createElement('span');
+        leftSpan.innerHTML = `<span class="pja-timestamp">[${entry.timestamp}]</span> <span class="pja-${entry.type}">${entry.message}</span>`;
+        summary.appendChild(leftSpan);
+
+        const actions = document.createElement('div');
+        actions.style.marginLeft = 'auto';
+        actions.style.display = 'flex';
+        actions.style.gap = '6px';
+
+        const toggleBtn = document.createElement('button');
+        toggleBtn.type = 'button';
+        toggleBtn.title = 'Show data';
+        toggleBtn.textContent = '▸';
+        toggleBtn.style.background = 'transparent';
+        toggleBtn.style.border = 'none';
+        toggleBtn.style.color = '#aaa';
+        toggleBtn.style.cursor = 'pointer';
+        toggleBtn.style.opacity = '0.5';
+
+        const copyBtn = document.createElement('button');
+        copyBtn.type = 'button';
+        copyBtn.title = 'Copy data';
+        copyBtn.textContent = '⧉';
+        copyBtn.style.background = 'transparent';
+        copyBtn.style.border = 'none';
+        copyBtn.style.color = '#aaa';
+        copyBtn.style.cursor = 'pointer';
+        copyBtn.style.opacity = '0.4';
+
+        actions.appendChild(copyBtn);
+        actions.appendChild(toggleBtn);
+        summary.appendChild(actions);
+        logEntryDiv.appendChild(summary);
+
+        const detailsContent = this.formatEntryDetails(entry.data);
+        if (detailsContent) {
+            const data = document.createElement('div');
+            data.className = 'log-entry-details';
+            data.style.display = 'none';
+            data.appendChild(detailsContent);
+            logEntryDiv.appendChild(data);
+
+            const toggle = () => {
+                const isHidden = data.style.display === 'none';
+                data.style.display = isHidden ? 'block' : 'none';
+                toggleBtn.textContent = isHidden ? '▾' : '▸';
+            };
+            logEntryDiv.addEventListener('dblclick', toggle);
+            toggleBtn.addEventListener('click', (e) => { e.stopPropagation(); toggle(); });
+
+            copyBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                try {
+                    let textToCopy = '';
+                    if (detailsContent && detailsContent.tagName === 'PRE') {
+                        textToCopy = detailsContent.textContent || '';
+                    } else if (entry && entry.data) {
+                        textToCopy = JSON.stringify(entry.data, null, 2);
+                    } else {
+                        textToCopy = entry.message || '';
+                    }
+                    await navigator.clipboard.writeText(textToCopy);
+                    copyBtn.textContent = '✅';
+                    setTimeout(() => { copyBtn.textContent = '⧉'; }, 1500);
+                } catch (err) {
+                    APP.log.warn('frontend.pja-iframe', 'Copy failed', err);
+                }
+            });
+        }
+
+        if (prepend) {
+            this.logContainer.prepend(logEntryDiv);
+        } else {
+            this.logContainer.appendChild(logEntryDiv);
+        }
+    }
+
+    formatEntryDetails(data) {
+        if (!data || Object.keys(data).length === 0) return null;
+
+        const pre = document.createElement('pre');
+        let content = '';
+        
+        if (data.isDryRun) {
+            content = `Dry Run Results\n-----------------\n`;
+            content += `Command: ${data.command}\n\n`;
+            content += data.rawOutput || 'No tests found.';
+        } else if (data.results && data.results.stats) {
+            const stats = data.results.stats;
+            content = `Test Run Summary\n----------------\n`;
+            content += `Start Time: ${new Date(stats.startTime).toLocaleString()}\n`;
+            content += `Duration: ${(stats.duration / 1000).toFixed(2)}s\n\n`;
+            content += `Total Tests: ${stats.total}, Passed: ${stats.passed}, Failed: ${stats.failed}, Skipped: ${stats.skipped}\n`;
+        } else {
+            content = JSON.stringify(data, null, 2);
+        }
+        
+        pre.textContent = content;
+        return pre;
+    }
+
+    // Update an existing log entry in-place (for active job)
+    updateLogEntry(entryId, { message, dataText, data, collapsed } = {}) {
+        const logEntryDiv = this.logContainer?.querySelector(`[data-log-id="${entryId}"]`);
+        if (!logEntryDiv) return false;
+
+        if (typeof message === 'string') {
+            const summary = logEntryDiv.querySelector('.log-entry-summary');
+            if (summary) {
+                const left = summary.querySelector('span');
+                if (left) left.innerHTML = `<span class="pja-timestamp">[${APP.utils.timestamp()}]</span> <span class="pja-info">${message}</span>`;
+            }
+        }
+
+        if (typeof dataText === 'string' || data) {
+            let details = logEntryDiv.querySelector('.log-entry-details');
+            if (!details) {
+                details = document.createElement('div');
+                details.className = 'log-entry-details';
+                details.style.display = 'block';
+                logEntryDiv.appendChild(details);
+            }
+            details.innerHTML = '';
+            const pre = document.createElement('pre');
+            pre.textContent = typeof dataText === 'string' ? dataText : JSON.stringify(data, null, 2);
+            details.appendChild(pre);
+        }
+
+        if (typeof collapsed === 'boolean') {
+            const details = logEntryDiv.querySelector('.log-entry-details');
+            const toggleBtn = logEntryDiv.querySelector('.log-entry-summary button:last-child');
+            if (details && toggleBtn) {
+                details.style.display = collapsed ? 'none' : 'block';
+                toggleBtn.textContent = collapsed ? '▸' : '▾';
+            }
+        }
+        return true;
+    }
+}
+
+// --- Global Initialization ---
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize for any iframe.html file or when explicitly requested
+    const shouldInitialize = window.location.pathname.includes('.iframe.html') || 
+                             document.querySelector('meta[name="pja-iframe-enabled"]') ||
+                             document.body.classList.contains('pja-iframe-body');
+    
+    if (shouldInitialize) {
+        // Initialize even in standalone if an activity log container exists
+        const sdk = new PjaSdk();
+        
+        window.APP.sdk = sdk;
+        
+        console.log('[PJA] SDK initialized and attached to APP.sdk for:', window.location.pathname);
+    } else {
+        console.log('[PJA] SDK not initialized - no iframe context detected for:', window.location.pathname);
+    }
+});

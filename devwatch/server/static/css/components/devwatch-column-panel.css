@@ -1,0 +1,19 @@
+.devwatch-column-panel {
+    display: none;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.devwatch-column-panel.is-active {
+    display: block;
+}
+
+.devwatch-column {
+    position: relative;
+}
+
+.devwatch-column-pja-column--fluid {
+    flex-grow: 1;
+    min-width: 0; /* Allows flex items to shrink below their content size */
+}

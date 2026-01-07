@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Helper</title>
+    
+    <link rel="stylesheet" href="/static/css/devwatch.css">
+    
+    <style>
+        .api-helper-container {
+            padding: var(--devwatch-space-lg);
+            background: var(--devwatch-bg-primary);
+            color: var(--devwatch-text-primary);
+            font-family: var(--devwatch-font-mono);
+        }
+
+        .api-title {
+            color: var(--devwatch-accent-primary);
+            margin: 0 0 var(--devwatch-space-xl) 0;
+            font-size: var(--devwatch-font-size-2xl);
+            border-bottom: 2px solid var(--devwatch-accent-primary);
+            padding-bottom: var(--devwatch-space-lg);
+        }
+
+        .api-summary {
+            background: var(--devwatch-bg-secondary);
+            border: 1px solid var(--devwatch-border-primary);
+            border-radius: var(--devwatch-radius-md);
+            padding: var(--devwatch-space-lg);
+            margin-bottom: var(--devwatch-space-xl);
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--devwatch-space-lg);
+        }
+
+        .summary-card {
+            text-align: center;
+            padding: var(--devwatch-space-md);
+            background: var(--devwatch-bg-tertiary);
+            border-radius: var(--devwatch-radius-sm);
+        }
+
+        .summary-number {
+            font-size: var(--devwatch-font-size-2xl);
+            font-weight: 700;
+            color: var(--devwatch-accent-primary);
+            display: block;
+        }
+
+        .summary-label {
+            font-size: var(--devwatch-font-size-sm);
+            color: var(--devwatch-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .api-filters {
+            display: flex;
+            gap: var(--devwatch-space-md);
+            margin-bottom: var(--devwatch-space-lg);
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: var(--devwatch-space-sm);
+            align-items: center;
+        }
+
+        .filter-group label {
+            font-size: var(--devwatch-font-size-sm);
+            color: var(--devwatch-text-secondary);
+        }
+
+        .filter-select, .filter-input {
+            padding: var(--devwatch-space-sm);
+            border: 1px solid var(--devwatch-border-primary);
+            border-radius: var(--devwatch-radius-sm);
+            background: var(--devwatch-bg-secondary);
+            color: var(--devwatch-text-primary);
+            font-family: var(--devwatch-font-mono);
+            font-size: var(--devwatch-font-size-sm);
+        }
+
+        .filter-input {
+            width: 200px;
+        }
+
+        .api-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--devwatch-bg-secondary);
+            border: 1px solid var(--devwatch-border-primary);
+            border-radius: var(--devwatch-radius-md);
+            overflow: hidden;
+        }
+
+        .api-table th {
+            background: var(--devwatch-bg-tertiary);
+            color: var(--devwatch-text-primary);
+            padding: var(--devwatch-space-md);
+            text-align: left;
+            font-weight: 600;
+            font-size: var(--devwatch-font-size-sm);
+            border-bottom: 1px solid var(--devwatch-border-primary);
+        }
+
+        .api-table td {
+            padding: var(--devwatch-space-md);
+            border-bottom: 1px solid var(--devwatch-border-muted);
+            font-size: var(--devwatch-font-size-sm);
+            vertical-align: top;
+        }
+
+        .api-table tr:hover {
+            background: var(--devwatch-bg-elevated);
+        }
+
+        .method-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: white;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .method-get { background: #28a745; }
+        .method-post { background: #007bff; }
+        .method-put { background: #ffc107; color: #212529; }
+        .method-delete { background: #dc3545; }
+        .method-patch { background: #6f42c1; }
+
+        .endpoint-path {
+            font-family: var(--devwatch-font-mono);
+            color: var(--devwatch-accent-primary);
+            font-weight: 500;
+        }
+
+        .module-location {
+            font-family: var(--devwatch-font-mono);
+            color: var(--devwatch-text-muted);
+            font-size: var(--devwatch-font-size-xs);
+        }
+
+        .module-file {
+            color: var(--devwatch-accent-secondary);
+        }
+
+        .test-button {
+            background: var(--devwatch-button-primary-bg);
+            color: var(--devwatch-button-primary-text);
+            border: none;
+            padding: 4px 8px;
+            border-radius: var(--devwatch-radius-sm);
+            font-size: var(--devwatch-font-size-xs);
+            cursor: pointer;
+            transition: all var(--devwatch-transition-fast);
+        }
+
+        .test-button:hover {
+            background: var(--devwatch-accent-primary-hover);
+        }
+
+        .description {
+            color: var(--devwatch-text-secondary);
+            font-style: italic;
+        }
+
+        .loading {
+            text-align: center;
+            padding: var(--devwatch-space-xl);
+            color: var(--devwatch-text-muted);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: var(--devwatch-space-sm);
+        }
+
+        .status-active { background: #28a745; }
+        .status-deprecated { background: #ffc107; }
+        .status-unknown { background: #6c757d; }
+    </style>
+</head>
+<body class="devwatch-iframe-body">
+    <div class="api-helper-container">
+        <h1 class="api-title" id="standalone-title" style="display: none;">API Helper</h1>
+
+        <div class="api-summary" id="api-summary">
+            <div class="summary-card">
+                <span class="summary-number" id="total-endpoints">-</span>
+                <span class="summary-label">Total Endpoints</span>
+            </div>
+            <div class="summary-card">
+                <span class="summary-number" id="total-modules">-</span>
+                <span class="summary-label">Modules</span>
+            </div>
+            <div class="summary-card">
+                <span class="summary-number" id="get-count">-</span>
+                <span class="summary-label">GET</span>
+            </div>
+            <div class="summary-card">
+                <span class="summary-number" id="post-count">-</span>
+                <span class="summary-label">POST</span>
+            </div>
+        </div>
+
+        <div class="api-filters">
+            <div class="filter-group">
+                <label for="method-filter">Method:</label>
+                <select id="method-filter" class="filter-select">
+                    <option value="">All Methods</option>
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="DELETE">DELETE</option>
+                    <option value="PATCH">PATCH</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="module-filter">Module:</label>
+                <select id="module-filter" class="filter-select">
+                    <option value="">All Modules</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="search-filter">Search:</label>
+                <input type="text" id="search-filter" class="filter-input" placeholder="Search endpoints...">
+            </div>
+        </div>
+
+        <table class="api-table">
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>Endpoint</th>
+                    <th>Module</th>
+                    <th>Location</th>
+                    <th>Description</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="endpoints-table">
+                <tr>
+                    <td colspan="6" class="loading">Loading API endpoints...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script src="/static/js/theme-manager.js"></script>
+    <script src="/static/js/devwatch-iframe.js"></script>
+    <script src="/static/js/api-helper.js"></script>
+</body>
+</html>

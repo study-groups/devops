@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Runner</title>
+    <link rel="stylesheet" href="../terrain/css/iframe-base.css">
+    <link rel="stylesheet" href="../css/devwatch.tokens.css">
+    <style>
+        body {
+            background: var(--bg-secondary);
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .toolbar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .toolbar-btn {
+            padding: 8px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--curve-sm);
+            color: var(--text-primary);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--tempo-fast);
+        }
+        .toolbar-btn:hover {
+            border-color: var(--devwatch-primary);
+        }
+        .toolbar-btn.primary {
+            background: var(--devwatch-primary);
+            color: #000;
+            border-color: var(--devwatch-primary);
+        }
+        .toolbar-btn.primary:hover {
+            filter: brightness(1.1);
+        }
+        .output {
+            flex: 1;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--curve-sm);
+            padding: 12px;
+            overflow-y: auto;
+            font-family: var(--font-code);
+            font-size: 11px;
+            line-height: 1.6;
+        }
+        .output-line {
+            display: flex;
+            gap: 8px;
+        }
+        .output-line .time {
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+        .output-line .icon {
+            flex-shrink: 0;
+            width: 16px;
+            text-align: center;
+        }
+        .output-line.pass .icon { color: var(--test-pass); }
+        .output-line.fail .icon { color: var(--test-fail); }
+        .output-line.running .icon { color: var(--test-running); }
+        .output-line.info .icon { color: var(--text-muted); }
+        .output-line .message {
+            flex: 1;
+        }
+        .summary {
+            margin-top: 12px;
+            padding: 12px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--curve-sm);
+            display: flex;
+            justify-content: space-around;
+        }
+        .summary-item {
+            text-align: center;
+        }
+        .summary-value {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .summary-value.pass { color: var(--test-pass); }
+        .summary-value.fail { color: var(--test-fail); }
+        .summary-value.skip { color: var(--test-skip); }
+        .summary-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button class="toolbar-btn primary" onclick="runTests()">Run Tests</button>
+        <button class="toolbar-btn" onclick="stopTests()">Stop</button>
+        <button class="toolbar-btn" onclick="clearOutput()">Clear</button>
+    </div>
+
+    <div class="output" id="output">
+        <div class="output-line info">
+            <span class="time">--:--:--</span>
+            <span class="icon">ℹ</span>
+            <span class="message">Ready. Select tests from the matrix and click Run.</span>
+        </div>
+    </div>
+
+    <div class="summary">
+        <div class="summary-item">
+            <div class="summary-value pass" id="passCount">0</div>
+            <div class="summary-label">Passed</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-value fail" id="failCount">0</div>
+            <div class="summary-label">Failed</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-value skip" id="skipCount">0</div>
+            <div class="summary-label">Skipped</div>
+        </div>
+    </div>
+
+    <script src="../terrain/js/terrain.js"></script>
+    <script>
+        const output = document.getElementById('output');
+        let testProcess = null;
+
+        function timestamp() {
+            return new Date().toLocaleTimeString('en-US', { hour12: false });
+        }
+
+        function addLine(type, message) {
+            const icons = { pass: '✓', fail: '✗', running: '●', info: 'ℹ' };
+            const line = document.createElement('div');
+            line.className = 'output-line ' + type;
+            line.innerHTML = `
+                <span class="time">${timestamp()}</span>
+                <span class="icon">${icons[type] || '•'}</span>
+                <span class="message">${message}</span>
+            `;
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearOutput() {
+            output.innerHTML = '';
+            addLine('info', 'Output cleared.');
+            updateSummary(0, 0, 0);
+        }
+
+        function updateSummary(pass, fail, skip) {
+            document.getElementById('passCount').textContent = pass;
+            document.getElementById('failCount').textContent = fail;
+            document.getElementById('skipCount').textContent = skip;
+        }
+
+        function runTests() {
+            addLine('running', 'Starting test run...');
+            Terrain.Iframe.send({ type: 'run-tests', from: 'test-runner' });
+        }
+
+        function stopTests() {
+            addLine('info', 'Stopping tests...');
+            Terrain.Iframe.send({ type: 'stop-tests' });
+        }
+
+        Terrain.Iframe.init({
+            onMessage: function(data) {
+                switch(data.type) {
+                    case 'test-start':
+                        addLine('running', 'Running: ' + data.test);
+                        break;
+                    case 'test-pass':
+                        addLine('pass', data.test + ' (' + data.duration + 'ms)');
+                        break;
+                    case 'test-fail':
+                        addLine('fail', data.test + ': ' + data.error);
+                        break;
+                    case 'test-complete':
+                        updateSummary(data.passed, data.failed, data.skipped);
+                        addLine('info', `Completed: ${data.passed} passed, ${data.failed} failed, ${data.skipped} skipped`);
+                        break;
+                    case 'test-output':
+                        addLine('info', data.message);
+                        break;
+                }
+            },
+            onReady: function() {
+                Terrain.Iframe.send({ type: 'ready', from: 'test-runner' });
+            }
+        });
+    </script>
+</body>
+</html>

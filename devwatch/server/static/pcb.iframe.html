@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playwright Command Builder</title>
+    
+    <!-- PJA Panel System -->
+    <link rel="stylesheet" href="/static/css/base/design-tokens.css">
+    <link rel="stylesheet" href="/static/css/components/devwatch-panel-system.css">
+    <link rel="stylesheet" href="/static/css/components/devwatch-panel-editor.css">
+    
+    <!-- PrismJS for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css">
+    
+    <style>
+        /* Ghost Button Styles */
+        .devwatch-button--ghost {
+            background-color: transparent;
+            border: 1px solid var(--devwatch-border-primary);
+            color: var(--devwatch-text-primary);
+            transition: all var(--devwatch-transition-fast) ease;
+        }
+
+        .devwatch-button--ghost:hover {
+            background-color: var(--devwatch-bg-tertiary);
+            border-color: var(--devwatch-accent-primary);
+            color: var(--devwatch-accent-primary);
+        }
+
+        .devwatch-button--ghost:focus {
+            outline: 2px solid var(--devwatch-accent-primary);
+            outline-offset: 2px;
+        }
+
+        /* Additional PJA UI Refinements */
+        .devwatch-select, .devwatch-input {
+            transition: all var(--devwatch-transition-fast) ease;
+            border: 1px solid var(--devwatch-border-primary);
+        }
+
+        .devwatch-select:focus, .devwatch-input:focus {
+            border-color: var(--devwatch-accent-primary);
+            box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+        }
+        
+        /* Two-column layout for test options */
+        .test-options-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--devwatch-space-md, 1rem);
+        }
+        
+        .test-options-column {
+            display: flex;
+            flex-direction: column;
+            gap: var(--devwatch-space-md, 1rem);
+        }
+        
+        .form-section {
+            margin-bottom: var(--devwatch-space-md, 1rem);
+        }
+        
+        .form-section-title {
+            font-size: var(--devwatch-font-size-xs, 12px);
+            font-weight: var(--devwatch-font-weight-semibold, 600);
+            color: var(--devwatch-accent-primary, #4a9eff);
+            margin: 0 0 var(--devwatch-space-sm, 0.75rem) 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .form-section-content {
+            padding-left: var(--devwatch-space-md, 1rem);
+            border-left: 2px solid var(--devwatch-border-primary, #333);
+        }
+        
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: var(--devwatch-space-sm, 0.75rem);
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: var(--devwatch-space-sm, 0.75rem);
+            cursor: pointer;
+        }
+        
+        /* Responsive: stack columns on smaller screens */
+        @media (max-width: 768px) {
+            .test-options-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Command Header Styles */
+        .command-header {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .copy-btn {
+            position: absolute;
+            right: 0.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+        }
+
+        .copy-btn .copy-icon {
+            font-size: 1rem;
+            opacity: 0.6;
+            transition: opacity 0.2s ease;
+        }
+
+        .copy-btn:hover .copy-icon {
+            opacity: 1;
+        }
+
+        .copy-btn .copy-feedback {
+            font-size: 0.75rem;
+            margin-left: 0.25rem;
+            color: var(--devwatch-accent-primary);
+            transition: opacity 0.3s ease;
+        }
+
+        .devwatch-code-block {
+            position: relative;
+            padding-right: 3rem; /* Make space for copy button */
+        }
+
+        /* Saved Commands List Styles */
+        .saved-command-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--devwatch-space-sm);
+            background-color: var(--devwatch-bg-tertiary);
+            border-radius: var(--devwatch-radius-sm);
+            margin-bottom: var(--devwatch-space-xs);
+            transition: background-color 0.2s ease;
+        }
+
+        .saved-command-item:hover {
+            background-color: var(--devwatch-bg-quaternary);
+        }
+
+        .saved-command-name {
+            font-weight: var(--devwatch-font-weight-medium);
+            flex-grow: 1;
+            margin-right: var(--devwatch-space-sm);
+        }
+
+        .saved-command-timestamp {
+            font-size: var(--devwatch-font-size-xs);
+            color: var(--devwatch-text-muted);
+            margin-right: var(--devwatch-space-sm);
+        }
+
+        .saved-command-actions {
+            display: flex;
+            gap: var(--devwatch-space-xs);
+        }
+
+        .saved-command-actions .devwatch-button--ghost {
+            padding: var(--devwatch-space-xs) var(--devwatch-space-sm);
+            font-size: var(--devwatch-font-size-xs);
+        }
+
+        /* Command Actions in Generated Command Panel */
+        .command-actions {
+            display: flex;
+            align-items: center;
+            gap: var(--devwatch-space-xs);
+        }
+
+        .save-btn .save-icon,
+        .copy-btn .copy-icon {
+            font-size: 1rem;
+            opacity: 0.6;
+            transition: opacity 0.2s ease;
+        }
+
+        .save-btn:hover .save-icon,
+        .copy-btn:hover .copy-icon {
+            opacity: 1;
+        }
+    </style>
+    
+</head>
+<body class="devwatch-iframe-body">
+    
+    <div id="standalone-title" style="display:none;">
+        <h1>Playwright Command Builder</h1>
+    </div>
+
+    <div id="pcb-layout-container">
+        <!-- Layout and panels will be generated here -->
+    </div>
+
+    <!-- Core Dependencies -->
+    <script src="/static/js/logger.js"></script>
+    <script src="/static/js/theme-manager.js"></script>
+    <script src="/static/js/devwatch-iframe.js"></script>
+    
+    <!-- PJA Panel System -->
+    <script src="/static/js/devwatch-panel-system.js"></script>
+    <script src="/static/js/devwatch-panel-editor.js"></script>
+    
+    <!-- PCB Logic -->
+    <script src="/static/js/pcb-new.js"></script>
+    
+    <!-- PrismJS for syntax highlighting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    
+</body>
+</html>

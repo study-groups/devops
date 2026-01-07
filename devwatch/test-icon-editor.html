@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Icon Editor</title>
+    <link rel="stylesheet" href="/static/css/pja.css">
+    <link rel="stylesheet" href="/static/css/components/pja-icon-editor.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: var(--pja-bg-primary);
+            color: var(--pja-text-primary);
+        }
+        #test-container {
+            width: 100%;
+            height: 80vh;
+            border: 2px solid var(--pja-border-accent);
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body data-theme="matrix">
+    <h1>PIF Icon Editor Test</h1>
+    <button id="create-editor-btn" style="padding: 10px 20px; margin-bottom: 20px;">Create Editor</button>
+    <div id="test-container"></div>
+
+    <script src="/static/js/pja-icon-editor.js"></script>
+    <script>
+        document.getElementById('create-editor-btn').addEventListener('click', () => {
+            const container = document.getElementById('test-container');
+            console.log('Creating test editor...');
+            console.log('PIFIconEditor available:', typeof window.PIFIconEditor);
+            
+            if (typeof window.PIFIconEditor === 'function') {
+                try {
+                    const editor = new window.PIFIconEditor(container);
+                    console.log('Test editor created successfully!');
+                } catch (error) {
+                    console.error('Error creating test editor:', error);
+                    container.innerHTML = `<div style="padding: 20px; color: red;">Error: ${error.message}</div>`;
+                }
+            } else {
+                container.innerHTML = `<div style="padding: 20px; color: orange;">PIFIconEditor not available. Type: ${typeof window.PIFIconEditor}</div>`;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Command Runner</title>
+    
+    <!-- PJA Panel System -->
+    <link rel="stylesheet" href="/static/css/base/design-tokens.css">
+    <link rel="stylesheet" href="/static/css/components/devwatch-panel-system.css">
+    <link rel="stylesheet" href="/static/css/components/devwatch-panel-editor.css">
+    <link rel="stylesheet" href="/static/css/devwatch.css">
+    
+    <!-- PrismJS for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css">
+</head>
+<body class="devwatch-iframe-body command-runner-theme">
+
+    <div id="standalone-title" style="display:none;">
+        <h1 class="devwatch-title">Command Runner</h1>
+    </div>
+
+    <div id="command-runner-layout-container">
+        <!-- Layout and panels will be generated here by command-runner.js -->
+    </div>
+
+    <!-- Core Dependencies -->
+    <script src="/static/js/logger.js" defer></script>
+    <script src="/static/js/theme-manager.js" defer></script>
+    <script src="/static/js/devwatch-iframe.js" defer></script>
+    <script src="/static/js/devwatch-activity-bus.js" defer></script>
+    
+    <!-- PJA Panel System -->
+    <script src="/static/js/devwatch-panel-system.js" defer></script>
+    <script src="/static/js/devwatch-panel-editor.js" defer></script>
+    
+    <!-- Command Runner Logic (depends on all of the above) -->
+    <script src="/static/js/command-runner.js" defer></script>
+
+    <!-- PrismJS for syntax highlighting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js" defer></script>
+
+    <style>
+        /* Panel header controls styling */
+        .devwatch-panel__menu,
+        .devwatch-panel__search {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* Search input styling */
+        .devwatch-panel__search input {
+            background: var(--devwatch-color-surface-variant, rgba(255, 255, 255, 0.05));
+            border: 1px solid var(--devwatch-color-border-subtle, rgba(255, 255, 255, 0.1));
+            color: var(--devwatch-color-text-secondary, #888);
+            border-radius: var(--devwatch-border-radius-sm, 3px);
+            padding: 3px 6px;
+            transition: all 0.2s ease;
+        }
+        
+        .devwatch-panel__search input:focus {
+            outline: none;
+            border-color: var(--devwatch-color-accent, #0066cc);
+            background: var(--devwatch-color-surface, rgba(255, 255, 255, 0.08));
+            color: var(--devwatch-color-text, #fff);
+        }
+        
+        .devwatch-panel__search input::placeholder {
+            color: var(--devwatch-color-text-muted, #666);
+            font-size: 10px;
+        }
+        
+        /* Activity link styling */
+        .activity-link {
+            color: var(--devwatch-color-accent, var(--devwatch-color-primary, #0066cc));
+            text-decoration: none;
+            font-weight: 500;
+            padding: 2px 6px;
+            border-radius: var(--devwatch-border-radius-sm, 3px);
+            background: var(--devwatch-color-accent-bg, rgba(0, 102, 204, 0.1));
+            border: 1px solid var(--devwatch-color-accent-border, rgba(0, 102, 204, 0.2));
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .activity-link:hover {
+            color: var(--devwatch-color-accent-hover, var(--devwatch-color-primary-hover, #004499));
+            background: var(--devwatch-color-accent-bg-hover, rgba(0, 102, 204, 0.15));
+            border-color: var(--devwatch-color-accent-border-hover, rgba(0, 102, 204, 0.4));
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px var(--devwatch-shadow-sm, rgba(0, 0, 0, 0.1));
+        }
+        
+        .activity-link:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px var(--devwatch-shadow-xs, rgba(0, 0, 0, 0.05));
+        }
+        
+        /* Add icon to activity links */
+        .activity-link::after {
+            content: "📊";
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+        
+        /* Status icons in activity log */
+        .log-entry .log-message {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        /* Selected Command Card Styling */
+        .selected-command-card {
+            background: var(--devwatch-color-surface, rgba(255, 255, 255, 0.02));
+            border: 1px solid var(--devwatch-color-border, rgba(255, 255, 255, 0.1));
+            border-radius: var(--devwatch-border-radius, 6px);
+            padding: 0;
+            margin: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px var(--devwatch-shadow, rgba(0, 0, 0, 0.1));
+        }
+        
+        .selected-command-header {
+            background: var(--devwatch-color-surface-variant, rgba(255, 255, 255, 0.03));
+            border-bottom: 1px solid var(--devwatch-color-border-subtle, rgba(255, 255, 255, 0.08));
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .command-title-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .command-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--devwatch-color-text, #fff);
+            margin: 0;
+        }
+        
+        .command-type-tag {
+            background: var(--devwatch-color-accent, #0066cc);
+            color: var(--devwatch-color-accent-text, #fff);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .command-preview-section {
+            padding: 16px;
+            border-bottom: 1px solid var(--devwatch-color-border-subtle, rgba(255, 255, 255, 0.05));
+        }
+        
+        .command-preview-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--devwatch-color-text-secondary, #aaa);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .command-preview-code {
+            background: var(--devwatch-color-surface-code, rgba(0, 0, 0, 0.3));
+            border: 1px solid var(--devwatch-color-border-code, rgba(255, 255, 255, 0.1));
+            border-radius: 4px;
+            padding: 12px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            color: var(--devwatch-color-text-code, #e6e6e6);
+            line-height: 1.4;
+            word-break: break-all;
+            white-space: pre-wrap;
+        }
+        
+        .command-meta-section {
+            padding: 16px;
+        }
+        
+        .meta-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+        }
+        
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .meta-label {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--devwatch-color-text-muted, #888);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .meta-value {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--devwatch-color-text, #fff);
+        }
+        
+        .meta-value.env-dev {
+            color: var(--devwatch-color-warning, #ffa500);
+        }
+        
+        .meta-value.env-staging {
+            color: var(--devwatch-color-info, #17a2b8);
+        }
+        
+        .meta-value.env-prod {
+            color: var(--devwatch-color-danger, #dc3545);
+        }
+        
+        .meta-value.never-run {
+            color: var(--devwatch-color-text-muted, #666);
+            font-style: italic;
+        }
+        
+        .meta-value.has-run {
+            color: var(--devwatch-color-success, #28a745);
+        }
+        
+        .command-description-section {
+            padding: 16px;
+            border-top: 1px solid var(--devwatch-color-border-subtle, rgba(255, 255, 255, 0.05));
+            background: var(--devwatch-color-surface-variant, rgba(255, 255, 255, 0.01));
+        }
+        
+        .description-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--devwatch-color-text-secondary, #aaa);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .description-text {
+            font-size: 14px;
+            color: var(--devwatch-color-text-secondary, #ccc);
+            line-height: 1.5;
+        }
+        
+        /* Saved Commands Card Styling */
+        .saved-command-card {
+            background: var(--devwatch-color-surface, rgba(255, 255, 255, 0.02));
+            border: 1px solid var(--devwatch-color-border, rgba(255, 255, 255, 0.1));
+            border-radius: var(--devwatch-border-radius, 6px);
+            margin: 8px 0;
+            overflow: hidden;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .saved-command-card:hover {
+            border-color: var(--devwatch-color-accent, #0066cc);
+            background: var(--devwatch-color-surface-hover, rgba(255, 255, 255, 0.04));
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px var(--devwatch-shadow, rgba(0, 0, 0, 0.15));
+        }
+        
+        .saved-command-card.selected {
+            border-color: var(--devwatch-color-accent, #0066cc);
+            background: var(--devwatch-color-accent-bg, rgba(0, 102, 204, 0.1));
+            box-shadow: 0 0 0 1px var(--devwatch-color-accent, #0066cc);
+        }
+        
+        .command-card-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--devwatch-color-border-subtle, rgba(255, 255, 255, 0.05));
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        
+        .command-title-section {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .command-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--devwatch-color-text, #fff);
+            margin-bottom: 6px;
+            line-height: 1.3;
+        }
+        
+        .command-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .command-type-badge {
+            background: var(--devwatch-color-surface-variant, rgba(255, 255, 255, 0.08));
+            color: var(--devwatch-color-text-secondary, #ccc);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+        
+        .command-type-badge.system {
+            background: var(--devwatch-color-info-bg, rgba(23, 162, 184, 0.2));
+            color: var(--devwatch-color-info, #17a2b8);
+        }
+        
+        .environment-badge {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: var(--devwatch-color-warning, #ffa500);
+            color: var(--devwatch-color-surface, #000) !important;
+            opacity: 0.9;
+        }
+        
+        .environment-badge.dev {
+            background: var(--devwatch-color-warning, #ffa500);
+        }
+        
+        .environment-badge.staging {
+            background: var(--devwatch-color-info, #17a2b8);
+        }
+        
+        .environment-badge.prod {
+            background: var(--devwatch-color-danger, #dc3545);
+        }
+        
+        .command-card-body {
+            padding: 12px 16px;
+v            transition: all 0.2s ease;
+            max-height: 200px;
+            overflow: hidden;
+        }
+        
+        .command-card-body.collapsed {
+            max-height: 40px;
+            padding: 8px 16px;
+        }
+        
+        .command-card-body.expanded {
+            max-height: 300px;
+        }
+        
+        .command-preview {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 11px;
+            color: var(--devwatch-color-text-code, #e6e6e6);
+            background: var(--devwatch-color-surface-code, rgba(0, 0, 0, 0.2));
+            padding: 8px;
+            border-radius: 3px;
+            margin-bottom: 8px;
+            word-break: break-all;
+            line-height: 1.4;
+            border: 1px solid var(--devwatch-color-border-subtle, rgba(255, 255, 255, 0.05));
+        }
+        
+        .command-description {
+            font-size: 12px;
+            color: var(--devwatch-color-text-secondary, #aaa);
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        
+        .command-timestamp {
+            font-size: 10px;
+            color: var(--devwatch-color-text-muted, #666);
+            font-style: italic;
+        }
+        
+        /* Ghost button with green accent */
+        .devwatch-button--ghost.devwatch-button--accent {
+            color: var(--devwatch-color-success, #28a745);
+            border: 1px solid var(--devwatch-color-success, #28a745);
+            background: transparent;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+        
+        .devwatch-button--ghost.devwatch-button--accent:hover {
+            background: var(--devwatch-color-success, #28a745);
+            color: var(--devwatch-color-surface, #fff);
+            border-color: var(--devwatch-color-success, #28a745);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px var(--devwatch-shadow-sm, rgba(40, 167, 69, 0.3));
+        }
+        
+        .devwatch-button--ghost.devwatch-button--accent:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px var(--devwatch-shadow-xs, rgba(40, 167, 69, 0.2));
+        }
+    </style>
+
+</body>
+</html>

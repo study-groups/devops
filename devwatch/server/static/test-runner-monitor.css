@@ -1,0 +1,484 @@
+/* Test Runner Monitor Styles */
+
+.test-runner-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.test-runner-modal.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.test-runner-modal.minimized {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(4px);
+}
+
+.modal-container {
+    position: relative;
+    background: #1a1a1a;
+    border: 2px solid #00ff00;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 900px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 40px rgba(0, 255, 0, 0.1);
+}
+
+.modal-header {
+    background: #2a2a2a;
+    border-bottom: 1px solid #333;
+    padding: 15px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: 6px 6px 0 0;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #00ff00;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 18px;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.minimize-btn, .close-btn {
+    background: #333;
+    border: 1px solid #555;
+    color: #ccc;
+    padding: 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.minimize-btn:hover, .close-btn:hover {
+    background: #444;
+    color: #fff;
+}
+
+.close-btn:hover {
+    background: #ff4444;
+    border-color: #ff6666;
+}
+
+.modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.test-run-overview {
+    background: #2a2a2a;
+    border: 1px solid #333;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.run-stats {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 15px;
+    gap: 10px;
+}
+
+.stat-item {
+    text-align: center;
+    flex: 1;
+}
+
+.stat-label {
+    display: block;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.stat-value {
+    display: block;
+    font-size: 24px;
+    font-weight: bold;
+    color: #00ff00;
+}
+
+.progress-section {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.progress-bar-container {
+    flex: 1;
+    position: relative;
+    background: #333;
+    border-radius: 10px;
+    height: 20px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #00aa00, #00ff00);
+    border-radius: 10px;
+    transition: width 0.5s ease;
+    width: 0%;
+}
+
+.progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 12px;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.time-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: #888;
+    min-width: 120px;
+}
+
+.current-activity {
+    background: #2a2a2a;
+    border: 1px solid #333;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.current-activity h4 {
+    margin: 0 0 12px 0;
+    color: #00ff00;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+}
+
+.activity-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.activity-details > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.activity-details .label {
+    font-size: 12px;
+    color: #888;
+    text-transform: uppercase;
+}
+
+.activity-details .value {
+    font-weight: bold;
+    color: #fff;
+}
+
+.progress-steps {
+    background: #2a2a2a;
+    border: 1px solid #333;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.progress-steps h4 {
+    margin: 0 0 15px 0;
+    color: #00ff00;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+}
+
+.steps-container {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid #333;
+}
+
+.step:last-child {
+    border-bottom: none;
+}
+
+.step-icon {
+    width: 20px;
+    text-align: center;
+    font-size: 14px;
+}
+
+.step.pending .step-icon {
+    color: #666;
+}
+
+.step.active .step-icon {
+    color: #ffaa00;
+    animation: rotate 1s linear infinite;
+}
+
+.step.complete .step-icon {
+    color: #00ff00;
+}
+
+.step.failed .step-icon {
+    color: #ff4444;
+}
+
+.step-text {
+    flex: 1;
+    color: #ccc;
+}
+
+.step.active .step-text {
+    color: #fff;
+    font-weight: bold;
+}
+
+.step-time {
+    font-size: 11px;
+    color: #666;
+    min-width: 60px;
+    text-align: right;
+}
+
+.live-results {
+    background: #2a2a2a;
+    border: 1px solid #333;
+    border-radius: 5px;
+    padding: 15px;
+}
+
+.live-results h4 {
+    margin: 0 0 15px 0;
+    color: #00ff00;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+}
+
+.toggle-results {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    margin-left: auto;
+    padding: 2px;
+}
+
+.toggle-results:hover {
+    color: #00ff00;
+}
+
+.results-container {
+    max-height: 150px;
+    overflow-y: auto;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 3px;
+    padding: 10px;
+}
+
+.results-placeholder {
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    padding: 20px;
+}
+
+.modal-footer {
+    background: #2a2a2a;
+    border-top: 1px solid #333;
+    padding: 15px 20px;
+    border-radius: 0 0 6px 6px;
+}
+
+.footer-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.footer-actions button {
+    padding: 8px 12px;
+    border-radius: 3px;
+    border: 1px solid;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-secondary {
+    background: #333;
+    border-color: #555;
+    color: #ccc;
+}
+
+.btn-secondary:hover {
+    background: #444;
+    color: #fff;
+}
+
+.btn-danger {
+    background: #ff4444;
+    border-color: #ff6666;
+    color: #fff;
+}
+
+.btn-danger:hover {
+    background: #ff6666;
+    border-color: #ff8888;
+}
+
+/* Minimized indicator */
+.monitor-indicator {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #2a2a2a;
+    border: 2px solid #00ff00;
+    border-radius: 25px;
+    padding: 10px 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #00ff00;
+    font-size: 12px;
+    font-weight: bold;
+    z-index: 9999;
+    box-shadow: 0 4px 12px rgba(0, 255, 0, 0.2);
+}
+
+.monitor-indicator button {
+    background: none;
+    border: none;
+    color: #00ff00;
+    cursor: pointer;
+    padding: 2px;
+    margin-left: 8px;
+}
+
+.monitor-indicator button:hover {
+    color: #fff;
+}
+
+/* Animations */
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.rotating {
+    animation: rotate 1s linear infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .modal-container {
+        width: 95%;
+        max-height: 95vh;
+    }
+    
+    .run-stats {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .stat-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .stat-label, .stat-value {
+        display: inline;
+    }
+    
+    .progress-section {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+    }
+    
+    .activity-details {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .footer-actions {
+        flex-direction: column;
+    }
+    
+    .footer-actions button {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .modal-header {
+        padding: 10px 15px;
+    }
+    
+    .modal-body {
+        padding: 15px;
+    }
+    
+    .modal-footer {
+        padding: 10px 15px;
+    }
+    
+    .modal-header h3 {
+        font-size: 16px;
+    }
+}

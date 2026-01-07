@@ -1,0 +1,89 @@
+/**
+ * DevWatch Component: Tabs
+ */
+
+.devwatch-tabs {
+    display: flex;
+    flex-direction: column;
+}
+
+.devwatch-tab-list {
+    display: flex;
+    background-color: var(--devwatch-bg-secondary);
+    border-bottom: 1px solid var(--devwatch-border-primary);
+}
+
+.devwatch-tab {
+    display: flex;
+    align-items: center;
+    gap: var(--devwatch-space-sm);
+    background: none;
+    border: none;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--devwatch-text-muted);
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+    position: relative;
+    margin-bottom: -1px; /* Overlap border */
+}
+
+.devwatch-tab:hover {
+    color: var(--devwatch-text-primary);
+    background-color: var(--devwatch-bg-tertiary);
+}
+
+.devwatch-tab.is-active {
+    color: var(--devwatch-accent-primary);
+    border-bottom-color: var(--devwatch-accent-primary);
+    background-color: var(--devwatch-bg-tertiary);
+}
+
+.devwatch-tab-icon {
+    font-size: var(--devwatch-font-size-sm);
+}
+
+.devwatch-tab-badge {
+    background-color: var(--devwatch-accent-primary);
+    color: var(--devwatch-text-inverse);
+    border-radius: var(--devwatch-radius-sm);
+    padding: 2px var(--devwatch-space-xs);
+    font-size: var(--devwatch-font-size-xs);
+    margin-left: var(--devwatch-space-sm);
+}
+
+.devwatch-tab-status {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-left: var(--devwatch-space-sm);
+}
+
+.devwatch-tab-status.is-success { background-color: var(--devwatch-success); }
+.devwatch-tab-status.is-error { background-color: var(--devwatch-error); }
+.devwatch-tab-status.is-warning { background-color: var(--devwatch-warning); }
+.devwatch-tab-status.is-loading {
+    background-color: var(--devwatch-info);
+    animation: devwatch-pulse 1.5s infinite;
+}
+
+.devwatch-tab-panel-container {
+    flex: 1;
+    overflow-y: auto;
+    background-color: var(--devwatch-bg-primary);
+}
+
+.devwatch-tab-panel {
+    display: none;
+    padding: 1rem;
+}
+
+.devwatch-tab-panel.is-active {
+    display: block;
+}
+
+@keyframes devwatch-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}

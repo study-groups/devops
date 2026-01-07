@@ -1,0 +1,94 @@
+/* devwatch-ui-cot.css */
+
+.cot-container {
+    padding: 1rem;
+    font-family: var(--devwatch-font-sans);
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--devwatch-text-color);
+}
+
+.cot-thought, .cot-subtask {
+    border: 1px solid var(--devwatch-border-color);
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    background-color: var(--devwatch-bg-secondary);
+}
+
+.collapsible-header {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    background-color: var(--devwatch-bg-tertiary);
+    border-bottom: 1px solid var(--devwatch-border-color);
+    transition: background-color 0.2s ease;
+}
+
+.collapsible-header:hover {
+    background-color: var(--devwatch-bg-hover);
+}
+
+.collapsible-content {
+    padding: 1rem;
+    border-top: 1px solid var(--devwatch-border-color);
+    display: block;
+}
+
+.collapsible-section.collapsed > .collapsible-content {
+    display: none;
+}
+
+.collapsible-toggle {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    border-left: 6px solid currentColor;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    margin-right: 10px;
+    transition: transform 0.2s ease;
+}
+
+.collapsible-section.collapsed .collapsible-toggle {
+    transform: rotate(90deg);
+}
+
+.cot-result {
+    margin-top: 1rem;
+    padding: 0.5rem;
+    background-color: var(--devwatch-bg-primary);
+    border: 1px solid var(--devwatch-border-color-light);
+    border-radius: 4px;
+    font-family: var(--devwatch-font-mono);
+}
+
+.cot-value {
+    color: var(--devwatch-accent-color);
+    font-weight: bold;
+}
+
+.cot-value.cot-error {
+    color: var(--devwatch-error);
+}
+
+.cot-final {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--devwatch-border-color-light);
+}
+
+.cot-source-format {
+    font-size: 1.2em;
+    font-weight: bold;
+    font-family: var(--devwatch-font-mono);
+    text-align: center;
+    padding: 1rem;
+    background-color: var(--devwatch-bg-primary);
+    border-radius: 4px;
+}
+
+.cot-filtered {
+    font-style: italic;
+    color: var(--devwatch-text-muted);
+}

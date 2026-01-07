@@ -1,0 +1,81 @@
+{
+  "mode": {
+    "name": "DevWatch",
+    "version": "1.0.0",
+    "description": "Development monitoring dashboard with test management"
+  },
+  "defaultTheme": "dark",
+  "canvas": {
+    "mode": "fixed",
+    "drag": false,
+    "pan": false,
+    "grid": false
+  },
+  "layout": {
+    "type": "grid",
+    "columns": "260px 1fr 300px",
+    "rows": "48px 1fr 220px",
+    "areas": [
+      "header   header   header",
+      "sidebar  main     metrics",
+      "sidebar  logs     logs"
+    ],
+    "gap": "1px"
+  },
+  "features": {
+    "designMode": false,
+    "panels": true,
+    "iframes": true,
+    "realtime": true,
+    "persistence": true,
+    "toasts": true,
+    "collapse": false
+  },
+  "header": {
+    "show": true,
+    "height": "48px",
+    "title": "DevWatch"
+  },
+  "footer": {
+    "show": false
+  },
+  "ui": {
+    "homeBtn": false,
+    "addBtn": false,
+    "fab": false,
+    "configPanel": true
+  },
+  "panels": {
+    "header": {
+      "title": "DevWatch",
+      "iframe": "panels/header.html",
+      "area": "header"
+    },
+    "sidebar": {
+      "title": "Test Matrix",
+      "iframe": "panels/test-matrix.html",
+      "area": "sidebar"
+    },
+    "main": {
+      "title": "Test Runner",
+      "iframe": "panels/test-runner.html",
+      "area": "main"
+    },
+    "metrics": {
+      "title": "Metrics",
+      "iframe": "panels/metrics.html",
+      "area": "metrics"
+    },
+    "logs": {
+      "title": "Logs",
+      "iframe": "panels/logs.html",
+      "area": "logs"
+    }
+  },
+  "constants": {
+    "HEADER_HEIGHT": 48,
+    "SIDEBAR_WIDTH": 260,
+    "METRICS_WIDTH": 300,
+    "LOGS_HEIGHT": 220
+  }
+}

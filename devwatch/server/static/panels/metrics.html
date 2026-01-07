@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metrics</title>
+    <link rel="stylesheet" href="../terrain/css/iframe-base.css">
+    <link rel="stylesheet" href="../css/devwatch.tokens.css">
+    <style>
+        body {
+            background: var(--bg-secondary);
+            padding: 12px;
+        }
+        .section-title {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        .metrics-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .metric-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--curve-sm);
+            padding: 12px;
+        }
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .metric-name {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        .metric-badge {
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        .metric-badge.good { background: var(--lcp-good); color: #000; }
+        .metric-badge.needs-work { background: var(--lcp-needs-work); color: #000; }
+        .metric-badge.poor { background: var(--lcp-poor); color: #fff; }
+        .metric-value {
+            font-size: 28px;
+            font-weight: 700;
+            font-family: var(--font-code);
+        }
+        .metric-value.good { color: var(--lcp-good); }
+        .metric-value.needs-work { color: var(--lcp-needs-work); }
+        .metric-value.poor { color: var(--lcp-poor); }
+        .metric-unit {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-left: 4px;
+        }
+        .metric-target {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        .history-bar {
+            display: flex;
+            gap: 2px;
+            margin-top: 8px;
+            height: 20px;
+            align-items: flex-end;
+        }
+        .history-point {
+            flex: 1;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            min-height: 4px;
+            transition: var(--tempo-fast);
+        }
+        .history-point.good { background: var(--lcp-good); }
+        .history-point.needs-work { background: var(--lcp-needs-work); }
+        .history-point.poor { background: var(--lcp-poor); }
+    </style>
+</head>
+<body>
+    <div class="section-title">Core Web Vitals</div>
+
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-name">LCP (Largest Contentful Paint)</span>
+                <span class="metric-badge good" id="lcpBadge">Good</span>
+            </div>
+            <div>
+                <span class="metric-value good" id="lcpValue">--</span>
+                <span class="metric-unit">ms</span>
+            </div>
+            <div class="metric-target">Target: &lt; 2500ms</div>
+            <div class="history-bar" id="lcpHistory"></div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-name">TTFB (Time to First Byte)</span>
+                <span class="metric-badge good" id="ttfbBadge">Good</span>
+            </div>
+            <div>
+                <span class="metric-value good" id="ttfbValue">--</span>
+                <span class="metric-unit">ms</span>
+            </div>
+            <div class="metric-target">Target: &lt; 800ms</div>
+            <div class="history-bar" id="ttfbHistory"></div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-name">FCP (First Contentful Paint)</span>
+                <span class="metric-badge good" id="fcpBadge">Good</span>
+            </div>
+            <div>
+                <span class="metric-value good" id="fcpValue">--</span>
+                <span class="metric-unit">ms</span>
+            </div>
+            <div class="metric-target">Target: &lt; 1800ms</div>
+            <div class="history-bar" id="fcpHistory"></div>
+        </div>
+    </div>
+
+    <script src="../terrain/js/terrain.js"></script>
+    <script>
+        const thresholds = {
+            lcp: { good: 2500, needsWork: 4000 },
+            ttfb: { good: 800, needsWork: 1800 },
+            fcp: { good: 1800, needsWork: 3000 }
+        };
+
+        const history = { lcp: [], ttfb: [], fcp: [] };
+
+        function getStatus(metric, value) {
+            const t = thresholds[metric];
+            if (value < t.good) return 'good';
+            if (value < t.needsWork) return 'needs-work';
+            return 'poor';
+        }
+
+        function updateMetric(metric, value) {
+            const status = getStatus(metric, value);
+            document.getElementById(metric + 'Value').textContent = Math.round(value);
+            document.getElementById(metric + 'Value').className = 'metric-value ' + status;
+            document.getElementById(metric + 'Badge').className = 'metric-badge ' + status;
+            document.getElementById(metric + 'Badge').textContent =
+                status === 'good' ? 'Good' : status === 'needs-work' ? 'Needs Work' : 'Poor';
+
+            // Update history
+            history[metric].push({ value, status });
+            if (history[metric].length > 10) history[metric].shift();
+            renderHistory(metric);
+        }
+
+        function renderHistory(metric) {
+            const container = document.getElementById(metric + 'History');
+            const max = Math.max(...history[metric].map(h => h.value), 1);
+            container.innerHTML = history[metric].map(h => {
+                const height = Math.max((h.value / max) * 100, 10);
+                return `<div class="history-point ${h.status}" style="height: ${height}%"></div>`;
+            }).join('');
+        }
+
+        Terrain.Iframe.init({
+            onMessage: function(data) {
+                if (data.type === 'metrics-update') {
+                    if (data.lcp !== undefined) updateMetric('lcp', data.lcp);
+                    if (data.ttfb !== undefined) updateMetric('ttfb', data.ttfb);
+                    if (data.fcp !== undefined) updateMetric('fcp', data.fcp);
+                }
+            },
+            onReady: function() {
+                Terrain.Iframe.send({ type: 'ready', from: 'metrics' });
+                // Request initial metrics
+                Terrain.Iframe.send({ type: 'get-metrics' });
+            }
+        });
+
+        // Initialize history bars
+        ['lcp', 'ttfb', 'fcp'].forEach(m => renderHistory(m));
+    </script>
+</body>
+</html>

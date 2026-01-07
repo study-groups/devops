@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logs</title>
+    <link rel="stylesheet" href="../terrain/css/iframe-base.css">
+    <link rel="stylesheet" href="../css/devwatch.tokens.css">
+    <style>
+        body {
+            background: var(--bg-secondary);
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .log-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border);
+        }
+        .log-title {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+        }
+        .log-filters {
+            display: flex;
+            gap: 4px;
+            margin-left: auto;
+        }
+        .filter-btn {
+            padding: 3px 8px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: var(--curve-sm);
+            font-size: 9px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--tempo-fast);
+            text-transform: uppercase;
+        }
+        .filter-btn.active {
+            border-color: var(--devwatch-primary);
+            color: var(--devwatch-primary);
+        }
+        .filter-btn.error { color: var(--log-error); }
+        .filter-btn.error.active { border-color: var(--log-error); }
+        .filter-btn.warn { color: var(--log-warn); }
+        .filter-btn.warn.active { border-color: var(--log-warn); }
+        .filter-btn.info { color: var(--log-info); }
+        .filter-btn.info.active { border-color: var(--log-info); }
+        .clear-btn {
+            padding: 3px 8px;
+            background: var(--bg-tertiary);
+            border: none;
+            border-radius: var(--curve-sm);
+            font-size: 9px;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+        .log-container {
+            flex: 1;
+            overflow-y: auto;
+            font-family: var(--font-code);
+            font-size: 11px;
+        }
+        .log-entry {
+            display: flex;
+            gap: 8px;
+            padding: 4px 12px;
+            border-bottom: 1px solid var(--bg-tertiary);
+        }
+        .log-entry:hover {
+            background: var(--bg-primary);
+        }
+        .log-time {
+            color: var(--text-muted);
+            flex-shrink: 0;
+            width: 70px;
+        }
+        .log-level {
+            flex-shrink: 0;
+            width: 50px;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 10px;
+        }
+        .log-level.error { color: var(--log-error); }
+        .log-level.warn { color: var(--log-warn); }
+        .log-level.info { color: var(--log-info); }
+        .log-level.debug { color: var(--log-debug); }
+        .log-source {
+            color: var(--devwatch-secondary);
+            flex-shrink: 0;
+            width: 80px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .log-message {
+            flex: 1;
+            color: var(--text-primary);
+            word-break: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="log-toolbar">
+        <span class="log-title">Logs</span>
+        <div class="log-filters">
+            <button class="filter-btn error active" onclick="toggleFilter('error')">Error</button>
+            <button class="filter-btn warn active" onclick="toggleFilter('warn')">Warn</button>
+            <button class="filter-btn info active" onclick="toggleFilter('info')">Info</button>
+            <button class="filter-btn active" onclick="toggleFilter('debug')">Debug</button>
+        </div>
+        <button class="clear-btn" onclick="clearLogs()">Clear</button>
+    </div>
+
+    <div class="log-container" id="logs">
+        <!-- Log entries will be added here -->
+    </div>
+
+    <script src="../terrain/js/terrain.js"></script>
+    <script>
+        const logsContainer = document.getElementById('logs');
+        const filters = { error: true, warn: true, info: true, debug: true };
+        const logs = [];
+        const MAX_LOGS = 500;
+
+        function toggleFilter(level) {
+            filters[level] = !filters[level];
+            const btn = document.querySelector(`.filter-btn.${level}`) ||
+                        document.querySelectorAll('.filter-btn')[3]; // debug fallback
+            btn.classList.toggle('active', filters[level]);
+            renderLogs();
+        }
+
+        function clearLogs() {
+            logs.length = 0;
+            logsContainer.innerHTML = '';
+        }
+
+        function addLog(entry) {
+            logs.push(entry);
+            if (logs.length > MAX_LOGS) logs.shift();
+
+            if (filters[entry.level]) {
+                const el = createLogElement(entry);
+                logsContainer.appendChild(el);
+                logsContainer.scrollTop = logsContainer.scrollHeight;
+            }
+        }
+
+        function createLogElement(entry) {
+            const el = document.createElement('div');
+            el.className = 'log-entry';
+            el.innerHTML = `
+                <span class="log-time">${entry.time}</span>
+                <span class="log-level ${entry.level}">${entry.level}</span>
+                <span class="log-source">${entry.source || 'system'}</span>
+                <span class="log-message">${escapeHtml(entry.message)}</span>
+            `;
+            return el;
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function renderLogs() {
+            logsContainer.innerHTML = '';
+            logs.filter(l => filters[l.level]).forEach(l => {
+                logsContainer.appendChild(createLogElement(l));
+            });
+        }
+
+        function timestamp() {
+            return new Date().toLocaleTimeString('en-US', { hour12: false });
+        }
+
+        Terrain.Iframe.init({
+            onMessage: function(data) {
+                if (data.type === 'log') {
+                    addLog({
+                        time: data.time || timestamp(),
+                        level: data.level || 'info',
+                        source: data.source || data.from,
+                        message: data.message
+                    });
+                } else if (data.type === 'logs-batch') {
+                    data.logs.forEach(l => addLog(l));
+                }
+            },
+            onReady: function() {
+                Terrain.Iframe.send({ type: 'ready', from: 'logs' });
+                addLog({ time: timestamp(), level: 'info', source: 'system', message: 'Log viewer ready' });
+            }
+        });
+    </script>
+</body>
+</html>

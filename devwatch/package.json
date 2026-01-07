@@ -1,0 +1,29 @@
+{
+  "name": "devwatch",
+  "version": "1.0.0",
+  "description": "Development monitoring and test management dashboard",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:dev": "PLAYWRIGHT_TARGET_ENV=dev npx playwright test",
+    "test:staging": "PLAYWRIGHT_TARGET_ENV=staging npx playwright test",
+    "test:prod": "PLAYWRIGHT_TARGET_ENV=prod npx playwright test",
+    "test:headed": "PLAYWRIGHT_HEADLESS=false npx playwright test",
+    "server": "node server/index.js",
+    "report": "npx playwright show-report"
+  },
+  "devDependencies": {
+    "@babel/parser": "^7.28.3",
+    "@playwright/test": "^1.52.0"
+  },
+  "dependencies": {
+    "@babel/traverse": "^7.28.3",
+    "@babel/types": "^7.28.2",
+    "bree": "^9.2.4",
+    "chokidar": "^4.0.3",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "human-interval": "^2.0.1",
+    "js-yaml": "^4.1.0",
+    "marked": "^0.8.2"
+  }
+}

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playwright Command Builder</title>
+    <link rel="stylesheet" href="/static/css/pja-ui.css">
+    <link rel="stylesheet" href="/static/css/design-tokens.css">
+    <link rel="stylesheet" href="/static/css/devwatch-iframe.css">
+    <script src="/static/js/devwatch-style-sdk.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+</head>
+<body class="devwatch-iframe-body pcb-theme">
+    <div class="devwatch-container">
+        <h1 class="devwatch-title" id="standalone-title" style="display: none;">⚡ Playwright Command Builder</h1>
+
+        <div class="main-layout">
+            <!-- Left column: thin, with Test Files and Named Tests (collapsible) -->
+            <div style="flex:0 0 260px; display:flex; flex-direction:column; gap:8px;">
+                <div class="file-explorer-panel">
+                    <details open>
+                        <summary class="panel-title" style="cursor:pointer;">Test Files</summary>
+                        <div id="file-list" class="file-list"></div>
+                    </details>
+                </div>
+                <div class="file-explorer-panel">
+                    <details open>
+                        <summary class="panel-title" style="cursor:pointer;">Named Tests</summary>
+                        <div style="padding:8px;">
+                            <ul id="nt-list" style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:6px;"></ul>
+                        </div>
+                    </details>
+                </div>
+                <div class="file-explorer-panel">
+                    <details open>
+                        <summary class="panel-title" style="cursor:pointer;">Info</summary>
+                        <div style="padding:8px;">
+                            <div id="pcb-info-text" style="font-size:12px; opacity:.85;">
+                                Scanning <code>/home/dev/src/pixeljam/pja/arcade/playwright/tests</code> for <code>*.spec.js</code> files. Nested folders and .ts files are not included.
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <!-- Right column: wide, stacked full width sections -->
+            <div class="test-builder-panel">
+                <!-- Code Viewer (collapsible) -->
+                <details id="code-viewer" open style="margin:5px;">
+                    <summary class="test-builder-header" style="cursor:pointer;">
+                        <h2 class="panel-title" style="margin:0;">Code Viewer</h2>
+                        <div style="margin-left:auto; display:flex; align-items:center; gap:8px; padding-right:8px;">
+                            <div id="active-file-path" class="active-file-path-display"></div>
+                            <button id="pcb-popout" class="ghost-btn" title="Open in new tab">↗ Pop out</button>
+                        </div>
+                    </summary>
+                    <div class="test-content-display">
+                        <pre style="min-height:220px;">
+<code id="test-content" class="language-javascript"></code>
+                        </pre>
+                    </div>
+                </details>
+
+                <!-- Test Options (moved from CLI; edits the TestObject) -->
+                <details id="options-section" open style="margin:12px 5px 0 5px;">
+                    <summary style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+                        <span class="cli-title">Test Options</span>
+                    </summary>
+                    <div class="devwatch-card" style="padding:10px; margin-top:8px;">
+                        <div class="command-options">
+                            <div class="option-group">
+                                <label for="project-select">Project:</label>
+                                <select id="project-select"></select>
+                            </div>
+                            <div class="option-group">
+                                <label for="reporter-select">Reporter:</label>
+                                <select id="reporter-select">
+                                    <option>list</option>
+                                    <option>html</option>
+                                    <option>dot</option>
+                                    <option>json</option>
+                                </select>
+                            </div>
+                            <div class="option-group">
+                                <input type="checkbox" id="headless-checkbox" checked>
+                                <label for="headless-checkbox">Headless</label>
+                            </div>
+                            <div class="option-group">
+                                <input type="checkbox" id="update-snapshots-checkbox">
+                                <label for="update-snapshots-checkbox">Update Snapshots</label>
+                            </div>
+                            <div class="option-group">
+                                <label for="env-select">Environment:</label>
+                                <select id="env-select">
+                                    <option value="dev">dev</option>
+                                    <option value="staging">staging</option>
+                                    <option value="prod">prod</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="output-override-group">
+                            <label for="output-dir-input">Output Dir:</label>
+                            <input type="text" id="output-dir-input" placeholder="Override default...">
+                        </div>
+                    </div>
+                </details>
+
+                <!-- JSON (collapsible by default) -->
+                <details id="json-section" style="margin:12px 5px 0 5px;">
+                    <summary style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+                        <span class="cli-title">Named Test JSON</span>
+                        <span style="display:flex; gap:6px;">
+                            <button id="save-named-test-btn" class="ghost-btn" title="Save as Named Test">💾 Save</button>
+                            <button id="copy-json-btn" class="ghost-btn" title="Copy JSON">📋</button>
+                        </span>
+                    </summary>
+                    <div class="devwatch-card" style="padding:10px; margin-top:8px;">
+                        <div class="devwatch-grid-2" style="gap:8px; align-items:end;">
+                            <div>
+                                <label for="nt-name">Name</label>
+                                <input id="nt-name" type="text" placeholder="e.g., Mobile Smoke" style="font-size:12px;padding:6px;">
+                            </div>
+                            <div>
+                                <label for="nt-selected-file">Selected spec file</label>
+                                <input id="nt-selected-file" type="text" readonly style="font-size:12px;padding:6px;opacity:0.8;">
+                            </div>
+                        </div>
+                        <details style="margin-top:8px;">
+                            <summary>Auth & HAR</summary>
+                            <div class="devwatch-grid-3" style="gap:8px;margin-top:8px;">
+                                <div>
+                                    <label for="nt-user">User</label>
+                                    <input id="nt-user" type="text" placeholder="user" style="font-size:12px;padding:6px;">
+                                </div>
+                                <div>
+                                    <label for="nt-pass">Password</label>
+                                    <input id="nt-pass" type="password" placeholder="password" style="font-size:12px;padding:6px;">
+                                </div>
+                                <div>
+                                    <label for="nt-token">Auth Token</label>
+                                    <input id="nt-token" type="text" placeholder="token" style="font-size:12px;padding:6px;">
+                                </div>
+                            </div>
+                            <div class="devwatch-grid-3" style="gap:8px;margin-top:8px;align-items:end;">
+                                <div>
+                                    <label><input id="nt-har-capture" type="checkbox"> Capture HAR</label>
+                                </div>
+                                <div>
+                                    <label for="nt-har-path">HAR Path</label>
+                                    <input id="nt-har-path" type="text" placeholder="optional path" style="font-size:12px;padding:6px;">
+                                </div>
+                                <div>
+                                    <label for="nt-har-mode">Mode</label>
+                                    <select id="nt-har-mode" style="font-size:12px;padding:6px;">
+                                        <option value="minimal">minimal</option>
+                                        <option value="full">full</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </details>
+                        <pre style="margin-top:10px; max-height:240px; overflow:auto;"><code id="named-test-json" class="language-json">{}</code></pre>
+                    </div>
+                </details>
+
+                <!-- CLI (collapsible by default) -->
+                <details class="cli-panel" style="margin:12px 5px 0 5px;">
+                    <summary style="display:flex;align-items:center;gap:8px;justify-content:space-between;cursor:pointer;">
+                        <h3 class="cli-title" style="margin:0;">Command Line Interface</h3>
+                        <span style="display:flex; gap:6px; align-items:center;">
+                            <button id="copy-command-btn" title="Copy Command" class="ghost-btn">📋</button>
+                        </span>
+                    </summary>
+                    <div class="cli-command-builder" style="margin-top:8px;">
+                        <div class="cli-command-container">
+                            <div id="cli-command" class="cli-command-display"></div>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Output Paths (collapsible by default) -->
+                <details class="paths-panel" style="margin:12px 5px 0 5px;">
+                    <summary class="cli-title" style="cursor:pointer;">Output Paths</summary>
+                    <div class="output-paths-display" style="margin-top:6px;">
+                        <div id="output-paths" class="paths-content"></div>
+                        <div style="margin-top:8px;display:flex;justify-content:flex-end;">
+                            <button id="view-report-btn" class="ghost-btn">View Report</button>
+                        </div>
+                    </div>
+                </details>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/devwatch-iframe.js"></script>
+    <script src="/static/js/pcb.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
+    <script>hljs.highlightAll();</script>
+</body>
+</html>

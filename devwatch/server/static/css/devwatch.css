@@ -1,0 +1,28 @@
+/**
+ * DevWatch UI - Main CSS Entry Point
+ *
+ * This file imports all other CSS files in the correct order to build the DevWatch UI.
+ * Order of imports:
+ * 1. Base styles (design tokens, global resets)
+ * 2. Layout styles (grid systems, page structure)
+ * 3. Component styles (buttons, tabs, sections, etc.)
+ */
+
+@import url('./base/design-tokens.css');
+@import url('./components/devwatch-button.css');
+@import url('./components/devwatch-tabs.css');
+@import url('./components/devwatch-section.css');
+
+@import url('./layout/devwatch-columns.css');
+@import url('./layout/devwatch-dashboard.css');
+
+/* Page-specific styles */
+@import url('../dashboard/styles.css');
+@import url('../icons.css');
+@import url('../testing-matrix.css');
+
+@import url('./components/devwatch-table.css');
+@import url('./components/devwatch-code-viewer.css');
+@import url('./components/devwatch-logging.css');
+@import url('./components/devwatch-stat-card.css');
+@import url('./components/devwatch-directory-stats.css');

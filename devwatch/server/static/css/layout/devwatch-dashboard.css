@@ -1,0 +1,77 @@
+/**
+ * DevWatch Layout: Dashboard
+ * Styles for main application layouts like the Command Runner and System Control Panel.
+ */
+
+/* Command Runner Layout */
+.main-layout {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.commands-panel {
+    flex: 0 0 350px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--devwatch-border-primary);
+    background-color: var(--devwatch-bg-secondary);
+    overflow-y: auto;
+    height: 100vh;
+}
+
+.content-panel {
+    flex: 1;
+    overflow: hidden;
+}
+
+/* System Control Panel Layout */
+.system-control-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.panel-header {
+    flex-shrink: 0;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--devwatch-border-primary);
+    background-color: var(--devwatch-bg-secondary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.panel-title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--devwatch-text-primary);
+}
+
+.panel-header.iframe-mode {
+    display: none;
+}
+
+.panel-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.panel-content {
+    flex: 1;
+    overflow: hidden;
+    background-color: var(--devwatch-bg-primary);
+}
+
+.panel-title-bar {
+    background-color: var(--devwatch-bg-elevated);
+    padding: var(--devwatch-space-sm) var(--devwatch-space-md);
+    margin: 0;
+    font-size: var(--devwatch-font-size-sm);
+    font-weight: 700;
+    border-bottom: 1px solid var(--devwatch-border-primary);
+    color: var(--devwatch-text-primary);
+}

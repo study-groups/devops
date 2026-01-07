@@ -1,0 +1,866 @@
+/**
+ * DevWatch Panel System CSS
+ * Formal styling for the DevWatch UI Panel architecture
+ */
+
+/* ===== COLUMN LAYOUT ===== */
+.devwatch-column-layout {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    gap: 0;
+    overflow: hidden;
+}
+
+.devwatch-column {
+    display: flex;
+    flex-direction: column;
+    gap: var(--devwatch-space-md, 1rem);
+    padding: var(--devwatch-space-md, 1rem);
+    overflow-y: auto;
+    overflow-x: hidden;
+    background-color: var(--devwatch-bg-primary, #1a1a1a);
+    transition: background-color 0.2s ease;
+}
+
+.devwatch-column--left {
+    /* No border - user hates thin lines */
+}
+
+.devwatch-column--right {
+    flex: 1;
+}
+
+/* Column drag states */
+.devwatch-column--drag-over {
+    background-color: var(--devwatch-bg-secondary, #252525);
+    box-shadow: inset 0 0 0 2px var(--devwatch-accent-primary, #4a9eff);
+}
+
+/* ===== COLUMN RESIZER ===== */
+.devwatch-column-resizer {
+    width: 5px;
+    background-color: var(--devwatch-border-primary, #333);
+    cursor: col-resize;
+    position: relative;
+    transition: background-color 0.2s ease;
+    flex-shrink: 0;
+}
+
+.devwatch-column-resizer:hover,
+.devwatch-column-resizer--active {
+    background-color: var(--devwatch-accent-primary, #4a9eff);
+}
+
+.devwatch-column-resizer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -2px;
+    right: -2px;
+    bottom: 0;
+    /* Invisible hit area for easier grabbing */
+}
+
+/* ===== PANEL COMPONENT ===== */
+.devwatch-panel {
+    background-color: var(--devwatch-bg-secondary, #252525);
+    border: none;
+    border-radius: var(--devwatch-radius-md, 8px);
+    overflow: hidden;
+    transition: all 0.2s ease;
+    box-shadow: none;
+}
+
+.devwatch-panel:hover {
+    /* No border changes */
+}
+
+/* Panel states */
+.devwatch-panel--collapsed .devwatch-panel__content {
+    display: none;
+}
+
+.devwatch-panel--draggable {
+    cursor: grab;
+}
+
+.devwatch-panel--dragging {
+    cursor: grabbing;
+    opacity: 0.8;
+    transform: rotate(1deg) scale(1.02);
+    z-index: 1000;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+.devwatch-panel--drag-over {
+    border-color: var(--devwatch-accent-primary, #4a9eff);
+    box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.3);
+}
+
+/* ===== COLLAPSED PANEL STATE ===== */
+.devwatch-panel--collapsed,
+.devwatch-enhanced-panel.devwatch-panel--collapsed {
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 42px !important;
+    overflow: hidden;
+}
+
+.devwatch-panel--collapsed .devwatch-panel__content,
+.devwatch-enhanced-panel.devwatch-panel--collapsed .devwatch-panel__content {
+    display: none !important;
+}
+
+.devwatch-panel--collapsed .devwatch-resize-handle,
+.devwatch-enhanced-panel.devwatch-panel--collapsed .devwatch-resize-handle {
+    display: none !important;
+}
+
+/* ===== ENHANCED PANEL STYLES ===== */
+.devwatch-enhanced-panel {
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.devwatch-enhanced-panel:hover {
+    /* No border changes */
+}
+
+/* ===== RESIZE HANDLES ===== */
+.devwatch-resize-handle {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.1);
+    transition: background 0.2s ease;
+    z-index: 10;
+}
+
+.devwatch-resize-handle:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.devwatch-resize-right {
+    top: 0;
+    right: 0;
+    width: 4px;
+    height: 100%;
+    cursor: ew-resize;
+}
+
+.devwatch-resize-bottom {
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    cursor: ns-resize;
+}
+
+.devwatch-resize-corner {
+    bottom: 0;
+    right: 0;
+    width: 12px;
+    height: 12px;
+    cursor: nw-resize;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.devwatch-panel-resizing {
+    opacity: 0.8;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+}
+
+/* ===== PANEL HEADER ===== */
+.devwatch-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: var(--devwatch-bg-tertiary, #2a2a2a);
+    padding: var(--devwatch-space-sm, 0.75rem) var(--devwatch-space-md, 1rem);
+    border-bottom: 1px solid var(--devwatch-border-primary, #333);
+    user-select: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.devwatch-panel__header:hover {
+    background-color: var(--devwatch-bg-quaternary, #333);
+}
+
+.devwatch-panel__header--ctrl-active {
+    background-color: var(--devwatch-bg-quaternary, #333);
+    box-shadow: inset 0 0 0 1px var(--devwatch-accent-primary, #4a9eff);
+    cursor: help;
+}
+
+.devwatch-panel__header--ctrl-active::after {
+    content: "Ctrl+Long-click to inspect";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--devwatch-bg-primary, #1a1a1a);
+    color: var(--devwatch-text-primary, #fff);
+    padding: var(--devwatch-space-xs, 0.5rem) var(--devwatch-space-sm, 0.75rem);
+    border: 1px solid var(--devwatch-accent-primary, #4a9eff);
+    border-radius: var(--devwatch-radius-sm, 4px);
+    font-size: var(--devwatch-font-size-xs, 12px);
+    white-space: nowrap;
+    z-index: 1000;
+    pointer-events: none;
+    opacity: 0.9;
+}
+
+.devwatch-panel__title-area {
+    display: flex;
+    align-items: center;
+    gap: var(--devwatch-space-sm, 0.75rem);
+    flex: 1;
+}
+
+.devwatch-panel__drag-handle {
+    color: var(--devwatch-text-muted, #888);
+    font-size: 14px;
+    cursor: grab;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+}
+
+.devwatch-panel__drag-handle:hover {
+    opacity: 1;
+}
+
+.devwatch-panel__title {
+    margin: 0;
+    font-size: var(--devwatch-font-size-sm, 14px);
+    font-weight: 600;
+    color: var(--devwatch-text-primary, #fff);
+    line-height: 1.2;
+}
+
+.devwatch-panel__controls {
+    display: flex;
+    align-items: center;
+    gap: var(--devwatch-space-xs, 0.5rem);
+}
+
+.devwatch-panel__toggle {
+    background: none;
+    border: 1px solid transparent;
+    color: var(--devwatch-text-muted, #888);
+    cursor: pointer;
+    padding: var(--devwatch-space-xs, 0.5rem);
+    border-radius: var(--devwatch-radius-sm, 4px);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+}
+
+.devwatch-panel__toggle:hover {
+    background-color: var(--devwatch-bg-quaternary, #333);
+    border-color: var(--devwatch-border-secondary, #444);
+    color: var(--devwatch-text-primary, #fff);
+}
+
+.devwatch-panel__toggle:focus {
+    outline: none;
+    border-color: var(--devwatch-accent-primary, #4a9eff);
+    box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.3);
+}
+
+.devwatch-panel__toggle-icon {
+    font-size: 12px;
+    line-height: 1;
+    transition: transform 0.2s ease;
+}
+
+.devwatch-panel--collapsed .devwatch-panel__toggle-icon {
+    transform: rotate(-90deg);
+}
+
+/* ===== PANEL CONTENT ===== */
+.devwatch-panel__content {
+    padding: var(--devwatch-space-md, 1rem);
+    color: var(--devwatch-text-primary, #fff);
+    line-height: 1.5;
+}
+
+.devwatch-panel__content:empty {
+    display: none;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 768px) {
+    .devwatch-column-layout {
+        flex-direction: column;
+        gap: var(--devwatch-space-md, 1rem);
+    }
+    
+    .devwatch-column-resizer {
+        display: none;
+    }
+    
+    .devwatch-column--left {
+        border-right: none;
+        border-bottom: 1px solid var(--devwatch-border-primary, #333);
+    }
+    
+    .devwatch-column {
+        max-height: 50vh;
+    }
+}
+
+/* ===== ACCESSIBILITY ===== */
+.devwatch-panel__toggle:focus {
+    outline: 2px solid var(--devwatch-accent-primary, #4a9eff);
+    outline-offset: 2px;
+}
+
+.devwatch-panel--draggable:focus {
+    outline: 2px solid var(--devwatch-accent-primary, #4a9eff);
+    outline-offset: 2px;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes panel-expand {
+    from {
+        max-height: 0;
+        opacity: 0;
+    }
+    to {
+        max-height: 1000px;
+        opacity: 1;
+    }
+}
+
+@keyframes panel-collapse {
+    from {
+        max-height: 1000px;
+        opacity: 1;
+    }
+    to {
+        max-height: 0;
+        opacity: 0;
+    }
+}
+
+.devwatch-panel__content {
+    animation: panel-expand 0.2s ease-out;
+}
+
+.devwatch-panel--collapsed .devwatch-panel__content {
+    animation: panel-collapse 0.2s ease-out;
+}
+
+/* ===== DARK THEME OVERRIDES ===== */
+.devwatch-theme-dark .devwatch-panel {
+    background-color: #1e1e1e;
+    border-color: #404040;
+}
+
+.devwatch-theme-dark .devwatch-panel__header {
+    background-color: #2d2d2d;
+    border-color: #404040;
+}
+
+.devwatch-theme-dark .devwatch-column {
+    background-color: #141414;
+}
+
+/* ===== LIGHT THEME OVERRIDES ===== */
+.devwatch-theme-light .devwatch-panel {
+    background-color: #ffffff;
+    border-color: #e0e0e0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.devwatch-theme-light .devwatch-panel__header {
+    background-color: #f8f9fa;
+    border-color: #e0e0e0;
+}
+
+.devwatch-theme-light .devwatch-panel__title {
+    color: #212529;
+}
+
+.devwatch-theme-light .devwatch-column {
+    background-color: #f5f5f5;
+}
+
+.devwatch-theme-light .devwatch-column-resizer {
+    background-color: #dee2e6;
+}
+
+/* ===== PCB SPECIFIC STYLES ===== */
+.devwatch-form-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--devwatch-space-sm, 0.75rem);
+}
+
+.devwatch-form-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--devwatch-space-xs, 0.5rem);
+}
+
+.devwatch-form-row label {
+    font-size: var(--devwatch-font-size-sm, 14px);
+    font-weight: 500;
+    color: var(--devwatch-text-primary, #fff);
+}
+
+.devwatch-input, .devwatch-select {
+    padding: var(--devwatch-space-sm, 0.75rem);
+    border: 1px solid var(--devwatch-border-primary, #333);
+    border-radius: var(--devwatch-radius-sm, 4px);
+    background-color: var(--devwatch-bg-tertiary, #2a2a2a);
+    color: var(--devwatch-text-primary, #fff);
+    font-size: var(--devwatch-font-size-sm, 14px);
+    transition: border-color 0.2s ease;
+}
+
+.devwatch-input:focus, .devwatch-select:focus {
+    outline: none;
+    border-color: var(--devwatch-accent-primary, #4a9eff);
+}
+
+.devwatch-checkbox {
+    margin-right: var(--devwatch-space-xs, 0.5rem);
+}
+
+.devwatch-button {
+    padding: var(--devwatch-space-sm, 0.75rem) var(--devwatch-space-md, 1rem);
+    border: 1px solid var(--devwatch-border-primary, #333);
+    border-radius: var(--devwatch-radius-sm, 4px);
+    background-color: var(--devwatch-bg-tertiary, #2a2a2a);
+    color: var(--devwatch-text-primary, #fff);
+    font-size: var(--devwatch-font-size-sm, 14px);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.devwatch-button:hover {
+    background-color: var(--devwatch-bg-quaternary, #333);
+    border-color: var(--devwatch-border-secondary, #444);
+}
+
+.devwatch-button--primary {
+    background-color: var(--devwatch-accent-primary, #4a9eff);
+    border-color: var(--devwatch-accent-primary, #4a9eff);
+}
+
+.devwatch-button--primary:hover {
+    background-color: var(--devwatch-accent-secondary, #3a8eef);
+}
+
+.devwatch-button--secondary {
+    background-color: var(--devwatch-accent-tertiary, #6c757d);
+    border-color: var(--devwatch-accent-tertiary, #6c757d);
+}
+
+.devwatch-button--ghost {
+    background-color: transparent;
+    border-color: var(--devwatch-border-primary, #333);
+}
+
+.devwatch-code-block {
+    background-color: var(--devwatch-bg-quaternary, #1e1e1e);
+    border: 1px solid var(--devwatch-border-primary, #333);
+    border-radius: var(--devwatch-radius-sm, 4px);
+    padding: var(--devwatch-space-md, 1rem);
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: var(--devwatch-font-size-xs, 12px);
+    overflow-x: auto;
+}
+
+.file-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--devwatch-space-xs, 0.5rem);
+}
+
+.file-item {
+    padding: var(--devwatch-space-sm, 0.75rem);
+    border: 1px solid var(--devwatch-border-primary, #333);
+    border-radius: var(--devwatch-radius-sm, 4px);
+    background-color: var(--devwatch-bg-tertiary, #2a2a2a);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: var(--devwatch-font-size-sm, 14px);
+}
+
+.file-item:hover {
+    background-color: var(--devwatch-bg-quaternary, #333);
+    border-color: var(--devwatch-border-secondary, #444);
+}
+
+.file-item.active {
+    background-color: var(--devwatch-accent-primary, #4a9eff);
+    border-color: var(--devwatch-accent-primary, #4a9eff);
+    color: #fff;
+}
+
+.env-variables-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--devwatch-space-sm, 0.75rem);
+}
+
+.path-item {
+    padding: var(--devwatch-space-sm, 0.75rem);
+    background-color: var(--devwatch-bg-tertiary, #2a2a2a);
+    border-radius: var(--devwatch-radius-sm, 4px);
+    font-size: var(--devwatch-font-size-sm, 14px);
+}
+
+.path-item code {
+    color: var(--devwatch-accent-secondary, #ffaa00);
+}
+
+/* Tab Mode Styles */
+.devwatch-column--tab-mode {
+    display: flex;
+    flex-direction: column;
+}
+
+.devwatch-column-tabs {
+    display: flex;
+    background-color: var(--devwatch-bg-tertiary, #2a2a2a);
+    border-bottom: 1px solid var(--devwatch-border-primary, #333);
+    padding: var(--devwatch-space-xs, 0.5rem);
+    gap: var(--devwatch-space-xs, 0.5rem);
+}
+
+.devwatch-column-tab {
+    background-color: transparent;
+    border: 1px solid transparent;
+    color: var(--devwatch-text-muted, #888);
+    padding: var(--devwatch-space-xs, 0.5rem) var(--devwatch-space-sm, 0.75rem);
+    border-radius: var(--devwatch-radius-sm, 4px);
+    cursor: pointer;
+    transition: all var(--devwatch-transition-fast, 0.2s) ease;
+    font-size: var(--devwatch-font-size-sm, 14px);
+}
+
+.devwatch-column-tab:hover {
+    background-color: var(--devwatch-bg-quaternary, #333);
+    color: var(--devwatch-text-primary, #fff);
+}
+
+.devwatch-column-tab--active {
+    background-color: var(--devwatch-accent-primary, #4a9eff);
+    color: var(--devwatch-text-inverse, #fff);
+    border-color: var(--devwatch-accent-primary, #4a9eff);
+}
+
+.devwatch-column-panel-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--devwatch-space-md, 1rem);
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.devwatch-column--tab-mode .devwatch-column-panel-container {
+    /* In tab mode, panels are switched, not stacked, so no gap is needed. */
+    gap: 0;
+}
+
+.devwatch-column--tab-mode .devwatch-column-panel-container .devwatch-panel {
+    display: none;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    /* When a panel is active, JavaScript will set its display to 'block' */
+}
+
+.devwatch-column--tab-mode .devwatch-column-panel-container .devwatch-panel:first-child {
+    display: block;
+}
+
+.devwatch-panel__content .activity-log .log-entry {
+    display: grid;
+    grid-template-columns: 100px 120px 1fr;
+    gap: 10px;
+    align-items: start;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--devwatch-border-color-light);
+    font-size: 12px;
+    line-height: 1.4;
+    font-family: var(--devwatch-font-family-mono);
+}
+
+.devwatch-panel__content .activity-log .log-entry:last-child {
+    border-bottom: none;
+}
+
+.devwatch-panel__content .activity-log .log-timestamp,
+.devwatch-panel__content .activity-log .log-from,
+.devwatch-panel__content .activity-log .log-message {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.devwatch-panel__content .activity-log .log-timestamp {
+    color: var(--devwatch-text-muted);
+}
+
+.devwatch-panel__content .activity-log .log-from {
+    font-weight: 600;
+    color: var(--devwatch-accent-color-secondary);
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.devwatch-panel__content .activity-log .log-level-info .log-from { color: #75a4ff; }
+.devwatch-panel__content .activity-log .log-level-warn .log-from { color: #ffc454; }
+.devwatch-panel__content .activity-log .log-level-error .log-from { color: #ff6e6e; }
+
+.devwatch-panel__content .activity-log .log-message {
+    color: var(--devwatch-text-normal);
+}
+
+/* --- Command Runner Log Entries --- */
+.command-runner-log .log-entry {
+    display: flex;
+    flex-direction: column;
+    padding: var(--devwatch-space-md);
+    border-bottom: 1px solid var(--devwatch-border-primary);
+    font-family: var(--devwatch-font-mono);
+    font-size: var(--devwatch-font-size-sm);
+    transition: background-color var(--devwatch-transition-fast);
+}
+
+.command-runner-log .log-entry:hover {
+    background-color: var(--devwatch-bg-tertiary);
+}
+
+.command-runner-log .log-entry:last-child {
+    border-bottom: none;
+}
+
+.command-runner-log .log-entry-header {
+    display: flex;
+    align-items: center;
+    gap: var(--devwatch-space-md);
+    margin-bottom: var(--devwatch-space-sm);
+}
+
+.command-runner-log .log-entry-timestamp {
+    color: var(--devwatch-text-muted);
+    font-size: var(--devwatch-font-size-xs);
+    min-width: 80px;
+}
+
+.command-runner-log .log-entry-message {
+    flex: 1;
+    font-weight: 500;
+}
+
+.command-runner-log .log-entry-message.success {
+    color: var(--devwatch-success);
+}
+
+.command-runner-log .log-entry-message.error {
+    color: var(--devwatch-error);
+}
+
+.command-runner-log .log-entry-message.info {
+    color: var(--devwatch-info);
+}
+
+.command-runner-log .log-entry-message.warn {
+    color: var(--devwatch-warning);
+}
+
+.command-runner-log .log-entry-details {
+    margin-top: var(--devwatch-space-sm);
+    padding: var(--devwatch-space-sm);
+    background-color: var(--devwatch-bg-secondary);
+    border-radius: var(--devwatch-radius-md);
+    font-size: var(--devwatch-font-size-xs);
+    color: var(--devwatch-text-secondary);
+}
+
+/* --- Results Panel --- */
+.results-list .result-item {
+    padding: var(--devwatch-space-lg);
+    border-bottom: 1px solid var(--devwatch-border-primary);
+    display: grid;
+    grid-template-areas:
+        "title actions"
+        "command command"
+        "meta meta";
+    grid-template-columns: 1fr auto;
+    gap: var(--devwatch-space-sm);
+    align-items: start;
+    transition: background-color var(--devwatch-transition-fast);
+}
+
+.results-list .result-item:hover {
+    background-color: var(--devwatch-bg-tertiary);
+}
+
+.results-list .result-item:last-child {
+    border-bottom: none;
+}
+
+.results-list .result-title {
+    grid-area: title;
+    font-weight: 600;
+    font-size: var(--devwatch-font-size-md);
+    margin-bottom: var(--devwatch-space-xs);
+}
+
+.results-list .result-item.status-success .result-title {
+    color: var(--devwatch-success);
+}
+
+.results-list .result-item.status-error .result-title {
+    color: var(--devwatch-error);
+}
+
+.results-list .result-item.status-warning .result-title {
+    color: var(--devwatch-warning);
+}
+
+.results-list .result-item.status-info .result-title {
+    color: var(--devwatch-info);
+}
+
+.results-list .result-timestamp {
+    font-size: var(--devwatch-font-size-xs);
+    color: var(--devwatch-text-muted);
+    font-family: var(--devwatch-font-mono);
+}
+
+.results-list .result-command {
+    grid-area: command;
+    font-family: var(--devwatch-font-mono);
+    font-size: var(--devwatch-font-size-xs);
+    color: var(--devwatch-text-secondary);
+    background-color: var(--devwatch-bg-secondary);
+    padding: var(--devwatch-space-sm);
+    border-radius: var(--devwatch-radius-md);
+    white-space: pre-wrap;
+    word-break: break-all;
+    border: 1px solid var(--devwatch-border-primary);
+}
+
+.results-list .result-meta {
+    grid-area: meta;
+    font-size: var(--devwatch-font-size-xs);
+    color: var(--devwatch-text-muted);
+    display: flex;
+    gap: var(--devwatch-space-md);
+    flex-wrap: wrap;
+}
+
+.results-list .result-meta-item {
+    display: flex;
+    align-items: center;
+    gap: var(--devwatch-space-xs);
+}
+
+.results-list .result-meta-label {
+    font-weight: 600;
+    color: var(--devwatch-text-secondary);
+}
+
+.results-list .result-actions {
+    grid-area: actions;
+    display: flex;
+    gap: var(--devwatch-space-sm);
+}
+
+/* Command Runner Ghost Buttons */
+.command-runner-ghost-btn {
+    background: transparent;
+    border: 1px solid var(--devwatch-border-primary);
+    color: var(--devwatch-text-secondary);
+    padding: var(--devwatch-space-sm) var(--devwatch-space-md);
+    border-radius: var(--devwatch-radius-sm);
+    cursor: pointer;
+    font-size: var(--devwatch-font-size-xs);
+    font-family: var(--devwatch-font-mono);
+    transition: all var(--devwatch-transition-fast);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--devwatch-space-xs);
+}
+
+.command-runner-ghost-btn:hover {
+    border-color: var(--devwatch-accent-primary);
+    color: var(--devwatch-accent-primary);
+    background-color: var(--devwatch-bg-tertiary);
+}
+
+.command-runner-ghost-btn.success {
+    border-color: var(--devwatch-success);
+    color: var(--devwatch-success);
+}
+
+.command-runner-ghost-btn.success:hover {
+    background-color: var(--devwatch-success-bg);
+}
+
+.command-runner-ghost-btn.error {
+    border-color: var(--devwatch-error);
+    color: var(--devwatch-error);
+}
+
+.command-runner-ghost-btn.error:hover {
+    background-color: var(--devwatch-error-bg);
+}
+
+.command-runner-ghost-btn.info {
+    border-color: var(--devwatch-info);
+    color: var(--devwatch-info);
+}
+
+.command-runner-ghost-btn.info:hover {
+    background-color: var(--devwatch-info-bg);
+}
+
+/* Command Runner Status Indicators */
+.command-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--devwatch-space-xs);
+    font-size: var(--devwatch-font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.command-status-badge.success {
+    color: var(--devwatch-success);
+}
+
+.command-status-badge.error {
+    color: var(--devwatch-error);
+}
+
+.command-status-badge.warning {
+    color: var(--devwatch-warning);
+}
+
+.command-status-badge.info {
+    color: var(--devwatch-info);
+}
+
+.command-status-badge.running {
+    color: var(--devwatch-info);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PJA Design System Demo</title>
+    <link rel="stylesheet" href="/static/css/pja-ui.css">
+    <link rel="stylesheet" href="/static/css/design-tokens.css">
+    <link rel="stylesheet" href="/static/css/devwatch-iframe.css">
+    <style>
+        .demo-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: var(--devwatch-space-xl);
+        }
+        
+        .demo-section {
+            margin-bottom: var(--devwatch-space-2xl);
+        }
+        
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--devwatch-space-lg);
+            margin-top: var(--devwatch-space-lg);
+        }
+        
+        .color-swatch {
+            padding: var(--devwatch-space-md);
+            border-radius: var(--devwatch-radius-md);
+            border: 1px solid var(--devwatch-border-primary);
+            text-align: center;
+            font-size: var(--devwatch-font-size-xs);
+        }
+        
+        .primary-bg { background-color: var(--devwatch-bg-primary); }
+        .secondary-bg { background-color: var(--devwatch-bg-secondary); }
+        .tertiary-bg { background-color: var(--devwatch-bg-tertiary); }
+        .elevated-bg { background-color: var(--devwatch-bg-elevated); }
+        
+        .accent-primary { background-color: var(--devwatch-accent-primary); color: var(--devwatch-text-inverse); }
+        .accent-secondary { background-color: var(--devwatch-accent-secondary); color: var(--devwatch-text-inverse); }
+        .success { background-color: var(--devwatch-success); color: var(--devwatch-text-inverse); }
+        .warning { background-color: var(--devwatch-warning); color: var(--devwatch-text-inverse); }
+        .error { background-color: var(--devwatch-error); color: var(--devwatch-text-inverse); }
+        .info { background-color: var(--devwatch-info); color: var(--devwatch-text-inverse); }
+        
+        .typography-demo h1, .typography-demo h2, .typography-demo h3 {
+            margin: var(--devwatch-space-sm) 0;
+        }
+        
+        .component-showcase {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--devwatch-space-lg);
+            align-items: center;
+        }
+        
+        .form-demo {
+            max-width: 300px;
+        }
+        
+        .form-demo input, .form-demo select {
+            margin-bottom: var(--devwatch-space-md);
+        }
+    </style>
+</head>
+<body class="devwatch-iframe-body">
+    <div class="demo-container">
+        <h1 class="devwatch-title">🎨 PJA Design System Demo</h1>
+        
+        <!-- Theme Selector -->
+        <div class="demo-section">
+            <div class="devwatch-card">
+                <h2>Theme Selection</h2>
+                <div id="theme-selector-container" style="max-width: 300px;"></div>
+                <p style="color: var(--devwatch-text-muted); font-size: var(--devwatch-font-size-sm); margin-top: var(--devwatch-space-md);">
+                    Select a theme to see the design tokens in action across all components.
+                </p>
+            </div>
+        </div>
+        
+        <!-- Color Palette -->
+        <div class="demo-section">
+            <div class="devwatch-card">
+                <h2>Color Palette</h2>
+                <h3>Background Colors</h3>
+                <div class="demo-grid">
+                    <div class="color-swatch primary-bg">Primary Background</div>
+                    <div class="color-swatch secondary-bg">Secondary Background</div>
+                    <div class="color-swatch tertiary-bg">Tertiary Background</div>
+                    <div class="color-swatch elevated-bg">Elevated Background</div>
+                </div>
+                
+                <h3>Accent & Status Colors</h3>
+                <div class="demo-grid">
+                    <div class="color-swatch accent-primary">Primary Accent</div>
+                    <div class="color-swatch accent-secondary">Secondary Accent</div>
+                    <div class="color-swatch success">Success</div>
+                    <div class="color-swatch warning">Warning</div>
+                    <div class="color-swatch error">Error</div>
+                    <div class="color-swatch info">Info</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Typography -->
+        <div class="demo-section">
+            <div class="devwatch-card typography-demo">
+                <h2>Typography Scale</h2>
+                <h1>Heading 1 - XL Text</h1>
+                <h2>Heading 2 - Large Text</h2>
+                <h3>Heading 3 - Medium Text</h3>
+                <p style="font-size: var(--devwatch-font-size-sm);">Body text - Small (Default)</p>
+                <p style="font-size: var(--devwatch-font-size-xs); color: var(--devwatch-text-muted);">Caption text - Extra Small</p>
+            </div>
+        </div>
+        
+        <!-- Component Showcase -->
+        <div class="demo-section">
+            <div class="devwatch-card">
+                <h2>Component Showcase</h2>
+                <div class="component-showcase">
+                    <button class="devwatch-btn devwatch-btn-primary">Primary Button</button>
+                    <button class="devwatch-btn devwatch-btn-secondary">Secondary Button</button>
+                    <button class="devwatch-btn devwatch-btn-small">Small Button</button>
+                    <button class="ghost-btn">Ghost Button</button>
+                </div>
+                
+                <div class="form-demo" style="margin-top: var(--devwatch-space-lg);">
+                    <h3>Form Elements</h3>
+                    <input type="text" placeholder="Text input..." />
+                    <select>
+                        <option>Select option...</option>
+                        <option>Option 1</option>
+                        <option>Option 2</option>
+                    </select>
+                    <textarea placeholder="Textarea..." rows="3"></textarea>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Status Messages -->
+        <div class="demo-section">
+            <div class="devwatch-card">
+                <h2>Status Messages</h2>
+                <div style="display: flex; flex-direction: column; gap: var(--devwatch-space-md);">
+                    <div class="devwatch-success-bg" style="padding: var(--devwatch-space-md); border-radius: var(--devwatch-radius-md); border-left: 4px solid var(--devwatch-success);">
+                        <span class="devwatch-success">✅ Success:</span> Operation completed successfully
+                    </div>
+                    <div class="devwatch-warning-bg" style="padding: var(--devwatch-space-md); border-radius: var(--devwatch-radius-md); border-left: 4px solid var(--devwatch-warning);">
+                        <span class="devwatch-warning">⚠️ Warning:</span> This action requires attention
+                    </div>
+                    <div class="devwatch-error-bg" style="padding: var(--devwatch-space-md); border-radius: var(--devwatch-radius-md); border-left: 4px solid var(--devwatch-error);">
+                        <span class="devwatch-error">❌ Error:</span> Something went wrong
+                    </div>
+                    <div class="devwatch-info-bg" style="padding: var(--devwatch-space-md); border-radius: var(--devwatch-radius-md); border-left: 4px solid var(--devwatch-info);">
+                        <span class="devwatch-info">ℹ️ Info:</span> Additional information available
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Design Token Reference -->
+        <div class="demo-section">
+            <div class="devwatch-card">
+                <h2>Design Token Reference</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--devwatch-space-lg);">
+                    <div>
+                        <h4>Spacing Scale</h4>
+                        <ul style="list-style: none; padding: 0; font-size: var(--devwatch-font-size-xs);">
+                            <li style="margin-bottom: var(--devwatch-space-xs);">--devwatch-space-xs: 4px</li>
+                            <li style="margin-bottom: var(--devwatch-space-xs);">--devwatch-space-sm: 8px</li>
+                            <li style="margin-bottom: var(--devwatch-space-xs);">--devwatch-space-md: 12px</li>
+                            <li style="margin-bottom: var(--devwatch-space-xs);">--devwatch-space-lg: 16px</li>
+                            <li style="margin-bottom: var(--devwatch-space-xs);">--devwatch-space-xl: 24px</li>
+                            <li style="margin-bottom: var(--devwatch-space-xs);">--devwatch-space-2xl: 32px</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4>Typography Scale</h4>
+                        <ul style="list-style: none; padding: 0; font-size: var(--devwatch-font-size-xs);">
+                            <li style="margin-bottom: var(--devwatch-space-xs);">--devwatch-font-size-xs: 12px</li>
+                            <li style="margin-bottom: var(--devwatch-space-xs);">--devwatch-font-size-sm: 14px</li>
+                            <li style="margin-bottom: var(--devwatch-space-xs);">--devwatch-font-size-md: 16px</li>
+                            <li style="margin-bottom: var(--devwatch-space-xs);">--devwatch-font-size-lg: 18px</li>
+                            <li style="margin-bottom: var(--devwatch-space-xs);">--devwatch-font-size-xl: 20px</li>
+                            <li style="margin-bottom: var(--devwatch-space-xs);">--devwatch-font-size-2xl: 24px</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4>Available Themes</h4>
+                        <ul style="list-style: none; padding: 0; font-size: var(--devwatch-font-size-xs);">
+                            <li style="margin-bottom: var(--devwatch-space-xs);">🟢 Matrix (Default)</li>
+                            <li style="margin-bottom: var(--devwatch-space-xs);">🟣 Cyberpunk</li>
+                            <li style="margin-bottom: var(--devwatch-space-xs);">🔮 Retro (Classic)</li>
+                            <li style="margin-bottom: var(--devwatch-space-xs);">⚪ Minimal</li>
+                            <li style="margin-bottom: var(--devwatch-space-xs);">⚫ Terminal</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/theme-manager.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const container = document.getElementById('theme-selector-container');
+            if (container && window.DevWatchThemeManager) {
+                window.DevWatchThemeManager.createThemeSelector(container);
+            }
+        });
+    </script>
+</body>
+</html>

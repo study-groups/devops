@@ -1,0 +1,91 @@
+/**
+ * DevWatch Component: Button
+ */
+
+:root {
+    --devwatch-button-padding: var(--devwatch-space-md) var(--devwatch-space-lg);
+    --devwatch-button-font-size: var(--devwatch-font-size-sm);
+    --devwatch-button-radius: var(--devwatch-radius-md);
+}
+
+.devwatch-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--devwatch-space-sm);
+    padding: var(--devwatch-button-padding);
+    font-size: var(--devwatch-button-font-size);
+    border-radius: var(--devwatch-button-radius);
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-family: inherit;
+    text-decoration: none;
+    user-select: none;
+    transition: all var(--devwatch-transition-fast);
+}
+
+/* Primary Button */
+.devwatch-button--primary {
+    background-color: var(--devwatch-button-primary-bg);
+    color: var(--devwatch-button-primary-text);
+    border-color: var(--devwatch-button-primary-bg);
+}
+
+.devwatch-button--primary:hover {
+    background-color: var(--devwatch-accent-primary-hover);
+    border-color: var(--devwatch-accent-primary-hover);
+}
+
+/* Secondary Button */
+.devwatch-button--secondary {
+    background-color: var(--devwatch-button-secondary-bg);
+    color: var(--devwatch-button-secondary-text);
+    border-color: var(--devwatch-border-primary);
+}
+
+.devwatch-button--secondary:hover {
+    border-color: var(--devwatch-border-accent);
+    background-color: var(--devwatch-bg-tertiary);
+}
+
+/* Ghost Button */
+.devwatch-button--ghost {
+    background: transparent;
+    color: var(--devwatch-text-muted);
+    border-color: var(--devwatch-border-secondary);
+}
+
+.devwatch-button--ghost:hover {
+    border-color: var(--devwatch-border-accent);
+    color: var(--devwatch-text-primary);
+    background-color: var(--devwatch-bg-tertiary);
+}
+
+/* Active State for Toggles */
+.devwatch-button.is-active {
+    background-color: var(--devwatch-accent-muted);
+    color: var(--devwatch-accent-primary);
+    border-color: var(--devwatch-accent-primary);
+}
+
+/* Disabled State */
+.devwatch-button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.devwatch-button:disabled:hover {
+    background-color: initial;
+    border-color: initial;
+}
+
+/* Size Variants */
+.devwatch-button--small {
+    --devwatch-button-padding: var(--devwatch-space-sm) var(--devwatch-space-md);
+    --devwatch-button-font-size: var(--devwatch-font-size-xs);
+}
+
+.devwatch-button-group {
+    display: flex;
+    gap: var(--devwatch-space-md);
+}

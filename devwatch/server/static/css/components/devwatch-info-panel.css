@@ -1,0 +1,106 @@
+.devwatch-info-panel .overlay-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: var(--devwatch-space-sm);
+    margin-bottom: var(--devwatch-space-md);
+    border-bottom: 1px solid var(--devwatch-border-secondary);
+}
+
+.devwatch-info-panel .overlay-title {
+    font-size: var(--devwatch-font-size-md);
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: var(--devwatch-space-sm);
+}
+
+.devwatch-info-panel .overlay-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--devwatch-space-md);
+}
+
+.devwatch-info-panel .info-section {
+    background-color: var(--devwatch-bg-secondary);
+    padding: var(--devwatch-space-sm);
+    border-radius: var(--devwatch-radius-sm);
+    border: 1px solid var(--devwatch-border-primary);
+}
+
+.devwatch-info-panel .info-section h4 {
+    margin-top: 0;
+    margin-bottom: var(--devwatch-space-sm);
+    font-size: var(--devwatch-font-size-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--devwatch-space-xs);
+    color: var(--devwatch-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.devwatch-info-panel .kv-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--devwatch-space-xs);
+    font-size: var(--devwatch-font-size-xs);
+}
+
+.devwatch-info-panel .kv {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--devwatch-space-sm);
+    padding: 2px 0;
+}
+
+.devwatch-info-panel .kv .k {
+    font-weight: bold;
+    color: var(--devwatch-text-secondary);
+    white-space: nowrap;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+}
+
+.devwatch-info-panel .kv .v {
+    color: var(--devwatch-text-primary);
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.devwatch-info-panel .file-list {
+    list-style: none;
+    padding-left: 0;
+    margin: var(--devwatch-space-sm) 0;
+    font-size: var(--devwatch-font-size-xs);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--devwatch-space-xs);
+}
+
+.devwatch-info-panel .file-list li {
+    background-color: var(--devwatch-bg-primary);
+    padding: 2px 6px;
+    border-radius: var(--devwatch-radius-sm);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.devwatch-info-panel .file-list-empty {
+    font-style: italic;
+    color: var(--devwatch-text-muted);
+    font-size: var(--devwatch-font-size-xs);
+}
+
+.devwatch-info-panel .break-all {
+    word-break: break-all;
+    white-space: normal;
+}

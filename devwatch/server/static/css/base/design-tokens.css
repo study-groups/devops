@@ -1,0 +1,607 @@
+/**
+ * DevWatch Design Tokens - Centralized design system
+ * All themes and design tokens for consistent styling across all components and iframes
+ */
+
+/* ============================================
+   BASE DESIGN TOKENS - Theme Independent
+   ============================================ */
+
+:root {
+  /* Spacing Scale */
+  --devwatch-space-xs: 0.25rem;    /* 4px */
+  --devwatch-space-sm: 0.5rem;     /* 8px */
+  --devwatch-space-md: 0.75rem;    /* 12px */
+  --devwatch-space-lg: 1rem;       /* 16px */
+  --devwatch-space-xl: 1.5rem;     /* 24px */
+  --devwatch-space-2xl: 2rem;      /* 32px */
+  --devwatch-space-3xl: 3rem;      /* 48px */
+  
+  /* Typography Scale */
+  --devwatch-font-size-xs: 0.75rem;   /* 12px */
+  --devwatch-font-size-sm: 0.875rem;  /* 14px */
+  --devwatch-font-size-md: 1rem;      /* 16px */
+  --devwatch-font-size-lg: 1.125rem;  /* 18px */
+  --devwatch-font-size-xl: 1.25rem;   /* 20px */
+  --devwatch-font-size-2xl: 1.5rem;   /* 24px */
+  --devwatch-font-size-3xl: 2rem;     /* 32px */
+  --devwatch-font-size-4xl: 3rem;     /* 48px */
+  
+  /* Font Families */
+  --devwatch-font-mono: 'Courier New', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  --devwatch-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  
+  /* Border Radius */
+  --devwatch-radius-sm: 3px;
+  --devwatch-radius-md: 6px;
+  --devwatch-radius-lg: 8px;
+  --devwatch-radius-xl: 12px;
+  
+  /* Shadows */
+  --devwatch-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --devwatch-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+  --devwatch-shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.4);
+  
+  /* Z-Index Scale */
+  --devwatch-z-dropdown: 1000;
+  --devwatch-z-modal: 2000;
+  --devwatch-z-tooltip: 3000;
+  
+  /* Icon Color System */
+  --devwatch-icon-primary: var(--devwatch-text-primary);
+  --devwatch-icon-secondary: var(--devwatch-text-secondary);
+  --devwatch-icon-accent: var(--devwatch-accent-primary);
+  --devwatch-icon-stroke: var(--devwatch-border-primary);
+  --devwatch-icon-background: transparent;
+  
+  /* Layout */
+  --devwatch-sidebar-width: 260px;
+  --devwatch-header-height: 60px;
+  --devwatch-content-max-width: 1200px;
+  
+  /* Transitions */
+  --devwatch-transition-fast: 0.15s ease;
+  --devwatch-transition-normal: 0.25s ease;
+  --devwatch-transition-slow: 0.35s ease;
+}
+
+/* ============================================
+   DARK THEME (Default) - "matrix"
+   ============================================ */
+
+[data-theme="matrix"], :root {
+  /* Background Colors */
+  --devwatch-bg-primary: #0a0a0a;
+  --devwatch-bg-secondary: #1a1a1a;
+  --devwatch-bg-tertiary: #2a2a2a;
+  --devwatch-bg-elevated: #333333;
+  --devwatch-bg-overlay: rgba(0, 0, 0, 0.8);
+  
+  /* Text Colors */
+  --devwatch-text-primary: #00ff00;
+  --devwatch-text-secondary: #88ff88;
+  --devwatch-text-muted: #666666;
+  --devwatch-text-disabled: #444444;
+  --devwatch-text-inverse: #000000;
+  
+  /* Accent Colors */
+  --devwatch-accent-primary: #00ff00;
+  --devwatch-accent-primary-hover: #00cc00;
+  --devwatch-accent-primary-active: #00aa00;
+  --devwatch-accent-secondary: #00aaff;
+  --devwatch-accent-secondary-hover: #0099dd;
+  
+  /* Status Colors */
+  --devwatch-success: #00cc66;
+  --devwatch-success-bg: #0a2a1a;
+  --devwatch-warning: #ffcc00;
+  --devwatch-warning-bg: #2a2a0a;
+  --devwatch-error: #ff4444;
+  --devwatch-error-bg: #2a0a0a;
+  --devwatch-info: #00aaff;
+  --devwatch-info-bg: #0a1a2a;
+  
+  /* Border Colors */
+  --devwatch-border-primary: #2a2a2a;
+  --devwatch-border-secondary: #333333;
+  --devwatch-border-accent: #00ff00;
+  --devwatch-border-muted: #1a1a1a;
+  
+  /* Component Specific */
+  --devwatch-input-bg: #1a1a1a;
+  --devwatch-input-border: #333333;
+  --devwatch-input-focus: #00ff00;
+  --devwatch-button-primary-bg: #00ff00;
+  --devwatch-button-primary-text: #000000;
+  --devwatch-button-secondary-bg: #333333;
+  --devwatch-button-secondary-text: #00ff00;
+}
+
+[data-theme="cyber"] {
+  /* Background Colors */
+  --devwatch-bg-primary: #0f0f23;
+  --devwatch-bg-secondary: #1a1a2e;
+  --devwatch-bg-tertiary: #16213e;
+  --devwatch-bg-elevated: #0f3460;
+  --devwatch-bg-overlay: rgba(15, 23, 42, 0.9);
+  
+  /* Text Colors */
+  --devwatch-text-primary: #00ffff;
+  --devwatch-text-secondary: #00cccc;
+  --devwatch-text-muted: #00aaaa;
+  --devwatch-text-disabled: #008888;
+  --devwatch-text-inverse: #000000;
+  
+  /* Accent Colors */
+  --devwatch-accent-primary: #00ffff;
+  --devwatch-accent-primary-hover: #00cccc;
+  --devwatch-accent-primary-active: #00aaaa;
+  --devwatch-accent-secondary: #ff00ff;
+  --devwatch-accent-secondary-hover: #cc00cc;
+  
+  /* Status Colors */
+  --devwatch-success: #06ffa5;
+  --devwatch-success-bg: #0a2a1f;
+  --devwatch-warning: #ffbe0b;
+  --devwatch-warning-bg: #2a250a;
+  --devwatch-error: #ff006e;
+  --devwatch-error-bg: #2a0a1a;
+  --devwatch-info: #3a86ff;
+  --devwatch-info-bg: #0a1a2a;
+  
+  /* Border Colors */
+  --devwatch-border-primary: #3a3f44;
+  --devwatch-border-secondary: #495057;
+  --devwatch-border-accent: #ff006e;
+  --devwatch-border-muted: #2a2f34;
+  
+  /* Component Specific */
+  --devwatch-input-bg: #1a1a2e;
+  --devwatch-input-border: #495057;
+  --devwatch-input-focus: #ff006e;
+  --devwatch-button-primary-bg: #ff006e;
+  --devwatch-button-primary-text: #ffffff;
+  --devwatch-button-secondary-bg: #495057;
+  --devwatch-button-secondary-text: #ff006e;
+}
+
+[data-theme="retro"] {
+  /* Background Colors - Subtle, understated grays */
+  --devwatch-bg-primary: #1e1e1e;
+  --devwatch-bg-secondary: #2a2a2d;
+  --devwatch-bg-tertiary: #333333;
+  --devwatch-bg-elevated: #3a3a3d;
+  --devwatch-bg-overlay: rgba(30, 30, 30, 0.9);
+  
+  /* Text Colors */
+  --devwatch-text-primary: #cccccc;
+  --devwatch-text-secondary: #aaaaaa;
+  --devwatch-text-muted: #888888;
+  --devwatch-text-disabled: #666666;
+  --devwatch-text-inverse: #000000;
+  
+  /* Accent Colors */
+  --devwatch-accent-primary: #4caf50;
+  --devwatch-accent-primary-hover: #45a049;
+  --devwatch-accent-primary-active: #3d8b40;
+  --devwatch-accent-secondary: #2196f3;
+  --devwatch-accent-secondary-hover: #1e88e5;
+  
+  /* Status Colors */
+  --devwatch-success: #4CAF50;
+  --devwatch-success-bg: #1a2e1a;
+  --devwatch-warning: #FFC107;
+  --devwatch-warning-bg: #2a2a1a;
+  --devwatch-error: #f44336;
+  --devwatch-error-bg: #2a1a1a;
+  --devwatch-info: #2196F3;
+  --devwatch-info-bg: #1a1a2a;
+  
+  /* Border Colors - Very subtle, low contrast */
+  --devwatch-border-primary: #3a3a3a;
+  --devwatch-border-secondary: #444444;
+  --devwatch-border-accent: #4CAF50;
+  --devwatch-border-muted: #2a2a2a;
+  
+  /* Component Specific - Clean, minimal */
+  --devwatch-input-bg: #2a2a2d;
+  --devwatch-input-border: #444444;
+  --devwatch-input-focus: #4CAF50;
+  --devwatch-button-primary-bg: #4CAF50;
+  --devwatch-button-primary-text: #ffffff;
+  --devwatch-button-secondary-bg: #555555;
+  --devwatch-button-secondary-text: #e0e0e0;
+}
+
+[data-theme="bright"] {
+  /* Background Colors */
+  --devwatch-bg-primary: #ffffff;
+  --devwatch-bg-secondary: #f8f9fa;
+  --devwatch-bg-tertiary: #e9ecef;
+  --devwatch-bg-elevated: #ffffff;
+  --devwatch-bg-overlay: rgba(255, 255, 255, 0.9);
+  
+  /* Text Colors */
+  --devwatch-text-primary: #212529;
+  --devwatch-text-secondary: #495057;
+  --devwatch-text-muted: #6c757d;
+  --devwatch-text-disabled: #adb5bd;
+  --devwatch-text-inverse: #ffffff;
+  
+  /* Accent Colors */
+  --devwatch-accent-primary: #007bff;
+  --devwatch-accent-primary-hover: #0056b3;
+  --devwatch-accent-primary-active: #004085;
+  --devwatch-accent-secondary: #28a745;
+  --devwatch-accent-secondary-hover: #218838;
+  
+  /* Status Colors */
+  --devwatch-success: #198754;
+  --devwatch-success-bg: #d1e7dd;
+  --devwatch-warning: #ffc107;
+  --devwatch-warning-bg: #fff3cd;
+  --devwatch-error: #dc3545;
+  --devwatch-error-bg: #f8d7da;
+  --devwatch-info: #0dcaf0;
+  --devwatch-info-bg: #d1ecf1;
+  
+  /* Border Colors */
+  --devwatch-border-primary: #e1e5e9;
+  --devwatch-border-secondary: #dee2e6;
+  --devwatch-border-accent: #0d6efd;
+  --devwatch-border-muted: #f1f3f4;
+  
+  /* Component Specific */
+  --devwatch-input-bg: #ffffff;
+  --devwatch-input-border: #ced4da;
+  --devwatch-input-focus: #0d6efd;
+  --devwatch-button-primary-bg: #0d6efd;
+  --devwatch-button-primary-text: #ffffff;
+  --devwatch-button-secondary-bg: #6c757d;
+  --devwatch-button-secondary-text: #ffffff;
+}
+
+/* ============================================
+   TERMINAL THEME - "terminal"
+   ============================================ */
+
+[data-theme="terminal"] {
+  /* Background Colors */
+  --devwatch-bg-primary: #000000;
+  --devwatch-bg-secondary: #111111;
+  --devwatch-bg-tertiary: #222222;
+  --devwatch-bg-elevated: #333333;
+  --devwatch-bg-overlay: rgba(0, 0, 0, 0.9);
+  
+  /* Text Colors */
+  --devwatch-text-primary: #ffffff;
+  --devwatch-text-secondary: #cccccc;
+  --devwatch-text-muted: #888888;
+  --devwatch-text-disabled: #555555;
+  --devwatch-text-inverse: #000000;
+  
+  /* Accent Colors */
+  --devwatch-accent-primary: #ffffff;
+  --devwatch-accent-primary-hover: #eeeeee;
+  --devwatch-accent-primary-active: #dddddd;
+  --devwatch-accent-secondary: #cccccc;
+  --devwatch-accent-secondary-hover: #bbbbbb;
+  
+  /* Status Colors */
+  --devwatch-success: #00ff00;
+  --devwatch-success-bg: #002200;
+  --devwatch-warning: #ffff00;
+  --devwatch-warning-bg: #222200;
+  --devwatch-error: #ff0000;
+  --devwatch-error-bg: #220000;
+  --devwatch-info: #00ffff;
+  --devwatch-info-bg: #002222;
+  
+  /* Border Colors */
+  --devwatch-border-primary: #2a2a2a;
+  --devwatch-border-secondary: #333333;
+  --devwatch-border-accent: #ffffff;
+  --devwatch-border-muted: #1a1a1a;
+  
+  /* Component Specific */
+  --devwatch-input-bg: #111111;
+  --devwatch-input-border: #333333;
+  --devwatch-input-focus: #ffffff;
+  --devwatch-button-primary-bg: #ffffff;
+  --devwatch-button-primary-text: #000000;
+  --devwatch-button-secondary-bg: #333333;
+  --devwatch-button-secondary-text: #ffffff;
+}
+
+/* ============================================
+   PHOSPHOR THEME - Brutal Glowing Green
+   ============================================ */
+
+[data-theme="phosphor"] {
+  /* Background Colors - Deep blacks for maximum contrast */
+  --devwatch-bg-primary: #000000;
+  --devwatch-bg-secondary: #0a0f0a;
+  --devwatch-bg-tertiary: #0f1f0f;
+  --devwatch-bg-elevated: #1a2a1a;
+  --devwatch-bg-overlay: rgba(0, 0, 0, 0.95);
+  
+  /* Text Colors - Intense glowing greens */
+  --devwatch-text-primary: #00ff41;
+  --devwatch-text-secondary: #39ff14;
+  --devwatch-text-muted: #00aa00;
+  --devwatch-text-disabled: #004400;
+  --devwatch-text-inverse: #000000;
+  
+  /* Accent Colors - Electric greens */
+  --devwatch-accent-primary: #39ff14;
+  --devwatch-accent-primary-hover: #00ff41;
+  --devwatch-accent-primary-active: #00cc33;
+  --devwatch-accent-secondary: #00ffaa;
+  --devwatch-accent-secondary-hover: #00cc88;
+  
+  /* Status Colors - Brutal neon palette */
+  --devwatch-success: #39ff14;
+  --devwatch-success-bg: #0a2a0a;
+  --devwatch-warning: #ffff00;
+  --devwatch-warning-bg: #2a2a00;
+  --devwatch-error: #ff0040;
+  --devwatch-error-bg: #2a0010;
+  --devwatch-info: #00ffff;
+  --devwatch-info-bg: #002a2a;
+  
+  /* Border Colors - Glowing edges */
+  --devwatch-border-primary: #00ff41;
+  --devwatch-border-secondary: #00aa00;
+  --devwatch-border-muted: #006600;
+  --devwatch-border-accent: #39ff14;
+  
+  /* Input Colors - Terminal-style inputs */
+  --devwatch-input-bg: #000000;
+  --devwatch-input-border: #00ff41;
+  --devwatch-input-focus: #39ff14;
+  --devwatch-button-primary-bg: #00ff41;
+  --devwatch-button-primary-text: #000000;
+  --devwatch-button-secondary-bg: #0a2a0a;
+  --devwatch-button-secondary-text: #39ff14;
+}
+
+/* Phosphor theme special effects */
+[data-theme="phosphor"] {
+  /* Add subtle glow to text */
+  text-shadow: 0 0 2px currentColor;
+}
+
+[data-theme="phosphor"] h1,
+[data-theme="phosphor"] h2,
+[data-theme="phosphor"] h3 {
+  text-shadow: 0 0 4px currentColor, 0 0 8px currentColor;
+}
+
+[data-theme="phosphor"] .devwatch-btn {
+  box-shadow: 0 0 4px var(--devwatch-accent-primary);
+  transition: all 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-theme="phosphor"] .devwatch-btn:hover {
+  box-shadow: 0 0 8px var(--devwatch-accent-primary), 0 0 16px var(--devwatch-accent-primary);
+  text-shadow: 0 0 4px currentColor;
+}
+
+[data-theme="phosphor"] input:focus,
+[data-theme="phosphor"] select:focus,
+[data-theme="phosphor"] textarea:focus {
+  box-shadow: 0 0 0 2px var(--devwatch-input-focus), 0 0 8px var(--devwatch-input-focus);
+  text-shadow: 0 0 2px currentColor;
+}
+
+[data-theme="phosphor"] .ghost-btn {
+  border-color: var(--devwatch-accent-primary);
+  box-shadow: 0 0 2px var(--devwatch-accent-primary);
+}
+
+[data-theme="phosphor"] .ghost-btn:hover {
+  box-shadow: 0 0 6px var(--devwatch-accent-primary), 0 0 12px var(--devwatch-accent-primary);
+  text-shadow: 0 0 2px currentColor;
+}
+
+/* ============================================
+   COMPONENT STYLES USING DESIGN TOKENS
+   ============================================ */
+
+/* Pre-Theme Load Styling to prevent FOUC */
+body.devwatch-pre-theme-load {
+  transition: filter 0.4s ease, opacity 0.4s ease;
+  filter: blur(4px) grayscale(20%);
+  opacity: 0.8;
+}
+
+/* Base Body Styles */
+body {
+  font-family: var(--devwatch-font-mono);
+  background-color: var(--devwatch-bg-primary);
+  color: var(--devwatch-text-primary);
+  margin: 0;
+  padding: var(--devwatch-space-lg);
+  font-size: var(--devwatch-font-size-sm);
+  line-height: 1.5;
+  transition: background-color var(--devwatch-transition-normal), color var(--devwatch-transition-normal);
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--devwatch-text-primary);
+  margin: 0 0 var(--devwatch-space-md) 0;
+}
+
+h1 { font-size: var(--devwatch-font-size-2xl); }
+h2 { font-size: var(--devwatch-font-size-xl); }
+h3 { font-size: var(--devwatch-font-size-lg); }
+h4 { font-size: var(--devwatch-font-size-md); }
+
+/* Buttons */
+.devwatch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--devwatch-space-sm);
+  padding: var(--devwatch-space-md) var(--devwatch-space-lg);
+  border-radius: var(--devwatch-radius-md);
+  border: none;
+  font-family: inherit;
+  font-size: var(--devwatch-font-size-sm);
+  cursor: pointer;
+  transition: all var(--devwatch-transition-fast);
+  text-decoration: none;
+}
+
+.devwatch-btn-primary {
+  background-color: var(--devwatch-button-primary-bg);
+  color: var(--devwatch-button-primary-text);
+}
+
+.devwatch-btn-primary:hover {
+  background-color: var(--devwatch-accent-primary-hover);
+}
+
+.devwatch-btn-secondary {
+  background-color: var(--devwatch-button-secondary-bg);
+  color: var(--devwatch-button-secondary-text);
+  border: 1px solid var(--devwatch-border-primary);
+}
+
+.devwatch-btn-secondary:hover {
+  border-color: var(--devwatch-border-accent);
+}
+
+.devwatch-btn-small {
+  padding: var(--devwatch-space-sm) var(--devwatch-space-md);
+  font-size: var(--devwatch-font-size-xs);
+}
+
+/* Ghost Button (used throughout PCB) */
+.ghost-btn {
+  background: transparent;
+  border: 1px solid var(--devwatch-border-primary);
+  color: var(--devwatch-text-secondary);
+  padding: var(--devwatch-space-sm) var(--devwatch-space-md);
+  border-radius: var(--devwatch-radius-sm);
+  cursor: pointer;
+  font-size: var(--devwatch-font-size-xs);
+  transition: all var(--devwatch-transition-fast);
+}
+
+.ghost-btn:hover {
+  border-color: var(--devwatch-border-accent);
+  color: var(--devwatch-text-primary);
+  background-color: var(--devwatch-bg-tertiary);
+}
+
+/* Theme-specific ghost button adjustments */
+[data-theme="retro"] .ghost-btn {
+  border-color: var(--devwatch-border-muted);
+  opacity: 0.8;
+}
+
+[data-theme="retro"] .ghost-btn:hover {
+  opacity: 1;
+  border-color: var(--devwatch-accent-primary);
+  background-color: rgba(76, 175, 80, 0.1);
+}
+
+/* Bright theme specific adjustments for better contrast */
+[data-theme="bright"] {
+  /* Ensure good contrast for focus states */
+  --devwatch-shadow-focus: 0 0 0 2px rgba(13, 110, 253, 0.25);
+}
+
+[data-theme="bright"] input:focus,
+[data-theme="bright"] select:focus,
+[data-theme="bright"] textarea:focus {
+  box-shadow: var(--devwatch-shadow-focus);
+}
+
+/* Cards */
+.devwatch-card {
+  background-color: var(--devwatch-bg-secondary);
+  border: 1px solid var(--devwatch-border-primary);
+  border-radius: var(--devwatch-radius-md);
+  padding: var(--devwatch-space-lg);
+  margin-bottom: var(--devwatch-space-lg);
+  box-shadow: var(--devwatch-shadow-sm);
+}
+
+/* Form Elements */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+select,
+textarea {
+  background-color: var(--devwatch-input-bg);
+  border: 1px solid var(--devwatch-input-border);
+  color: var(--devwatch-text-primary);
+  padding: var(--devwatch-space-md);
+  border-radius: var(--devwatch-radius-md);
+  font-family: inherit;
+  font-size: var(--devwatch-font-size-sm);
+  transition: all var(--devwatch-transition-fast);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--devwatch-input-focus);
+    box-shadow: 0 0 0 2px rgba(0, 255, 0, 0.3);
+}
+
+/* Status Classes */
+.devwatch-success { color: var(--devwatch-success); }
+.devwatch-warning { color: var(--devwatch-warning); }
+.devwatch-error { color: var(--devwatch-error); }
+.devwatch-info { color: var(--devwatch-info); }
+
+.devwatch-success-bg { background-color: var(--devwatch-success-bg); }
+.devwatch-warning-bg { background-color: var(--devwatch-warning-bg); }
+.devwatch-error-bg { background-color: var(--devwatch-error-bg); }
+.devwatch-info-bg { background-color: var(--devwatch-info-bg); }
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--devwatch-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--devwatch-border-secondary);
+  border-radius: var(--devwatch-radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--devwatch-border-accent);
+}
+
+/* Minimal theme specific adjustments for better contrast */
+[data-theme="minimal"] {
+  /* Ensure good contrast for focus states */
+  --devwatch-shadow-focus: 0 0 0 2px rgba(13, 110, 253, 0.25);
+}
+
+[data-theme="minimal"] input:focus,
+[data-theme="minimal"] select:focus,
+[data-theme="minimal"] textarea:focus {
+  box-shadow: var(--devwatch-shadow-focus);
+}
+
+/* Print styles */
+@media print {
+  * {
+    background: white !important;
+    color: black !important;
+  }
+}

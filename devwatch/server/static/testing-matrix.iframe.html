@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Testing Matrix Dashboard</title>
+    
+    <link rel="stylesheet" href="/static/css/devwatch.css">
+    <script src="/static/js/devwatch-style-sdk.js"></script>
+    
+    <link rel="stylesheet" href="/static/testing-matrix.css">
+    <style>
+        /* Simple Matrix Styles */
+        .matrix-controls {
+            display: flex;
+            flex-direction: row !important; /* FORCE HORIZONTAL ALIGNMENT */
+            align-items: center;
+            justify-content: center; /* Center the group of items */
+            gap: 0.5em;
+            padding: 0.25em;
+            margin-bottom: 2em;
+            max-width: 80%; /* Occupy max 80% of the width */
+            margin-left: auto; /* Center the control bar */
+            margin-right: auto;
+        }
+        
+        .spec-control-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+            border: 1px solid var(--devwatch-color-border);
+            padding: 4px 8px;
+            border-radius: var(--devwatch-border-radius-sm);
+            background-color: var(--devwatch-color-surface);
+        }
+        
+        .control-section {
+            display: flex;
+            align-items: center;
+            gap: 0.25em;
+        }
+        
+        .control-buttons {
+            display: flex;
+            align-items: center;
+            gap: 0.25em;
+        }
+        
+        .spec-label {
+            font-weight: var(--devwatch-font-weight-semibold);
+            color: var(--devwatch-color-text-primary);
+            white-space: nowrap;
+        }
+        
+        .spec-select {
+            padding: 8px 12px;
+            border: 1px solid var(--devwatch-color-border);
+            background: var(--devwatch-color-surface);
+            color: var(--devwatch-color-text-primary);
+            border-radius: var(--devwatch-border-radius-sm);
+            font-size: var(--devwatch-font-size-sm);
+            min-width: 160px;
+            border: none;
+            background-color: transparent;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
+        
+        .control-btn {
+            padding: 8px 16px;
+            border: 1px solid var(--devwatch-color-border);
+            background: var(--devwatch-color-surface);
+            color: var(--devwatch-color-text-primary);
+            border-radius: var(--devwatch-border-radius-sm);
+            cursor: pointer;
+            font-weight: var(--devwatch-font-weight-medium);
+        }
+        
+        .control-btn:hover {
+            background: var(--devwatch-color-primary-50);
+            border-color: var(--devwatch-color-primary);
+        }
+        
+        .run-btn {
+            background: var(--devwatch-color-success);
+            color: white;
+            border-color: var(--devwatch-color-success);
+        }
+        
+        .run-btn:hover {
+            background: var(--devwatch-color-success-600);
+        }
+        
+        .simple-matrix {
+            display: grid;
+            gap: var(--devwatch-spacing-sm);
+            grid-template-columns: repeat(2, 1fr);
+            padding: var(--devwatch-spacing-xs);
+            justify-content: center;
+            width: 90%;
+        }
+        
+        .matrix-cell {
+            background: var(--devwatch-color-surface);
+            border: 2px solid var(--devwatch-color-border);
+            border-radius: var(--devwatch-border-radius-md);
+            padding: var(--devwatch-spacing-lg);
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            gap: var(--devwatch-spacing-md);
+            cursor: pointer;
+            transition: all var(--devwatch-transition-base);
+        }
+        
+        .matrix-cell:hover {
+            border-color: var(--devwatch-color-primary);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .matrix-cell.configured {
+            border-color: var(--devwatch-color-success);
+            background: var(--devwatch-color-success-50);
+        }
+        
+        .matrix-cell.running {
+            border-color: var(--devwatch-color-warning);
+            background: var(--devwatch-color-warning-50);
+        }
+        
+        .cell-config {
+            display: flex;
+            flex-direction: column;
+            gap: var(--devwatch-spacing-sm);
+        }
+        
+        .config-row {
+            display: flex;
+            align-items: center;
+            gap: var(--devwatch-spacing-sm);
+        }
+        
+        .config-label {
+            font-weight: var(--devwatch-font-weight-semibold);
+            color: var(--devwatch-color-text-primary);
+            min-width: 80px;
+        }
+        
+        .config-select {
+            flex: 1;
+            padding: 4px 8px;
+            border: 1px solid var(--devwatch-color-border);
+            border-radius: var(--devwatch-border-radius-sm);
+            background: var(--devwatch-color-surface);
+            color: var(--devwatch-color-text-primary);
+        }
+        
+        .cell-actions {
+            display: flex;
+            justify-content: center;
+            margin-top: var(--devwatch-spacing-sm);
+        }
+        
+        .cell-btn {
+            padding: 4px 16px;
+            border: 1px solid var(--devwatch-color-border);
+            background: var(--devwatch-color-surface);
+            color: var(--devwatch-color-text-primary);
+            border-radius: var(--devwatch-border-radius-sm);
+            cursor: pointer;
+            font-size: var(--devwatch-font-size-xs);
+            height: 28px;
+            min-width: 80px;
+        }
+        
+        .cell-btn.primary {
+            background: var(--devwatch-color-primary);
+            color: white;
+            border-color: var(--devwatch-color-primary);
+        }
+        
+        .cell-btn:hover {
+            background: var(--devwatch-color-primary-50);
+            border-color: var(--devwatch-color-primary);
+        }
+        
+        .cell-btn.primary:hover {
+            background: var(--devwatch-color-primary-600);
+        }
+        
+        .cell-status {
+            display: flex;
+            align-items: center;
+            gap: var(--devwatch-spacing-xs);
+            font-size: var(--devwatch-font-size-sm);
+            font-weight: var(--devwatch-font-weight-medium);
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--devwatch-color-gray-400);
+        }
+        
+        .status-dot.configured { background: var(--devwatch-color-success); }
+        .status-dot.running { background: var(--devwatch-color-warning); }
+        .status-dot.passed { background: var(--devwatch-color-success); }
+        .status-dot.failed { background: var(--devwatch-color-error); }
+    </style>
+</head>
+<body class="devwatch-iframe-body matrix-theme">
+    <div class="devwatch-container">
+        <h1 class="devwatch-title" id="standalone-title" style="display: none;">🧩 Testing Matrix Dashboard</h1>
+
+        <!-- Matrix Controls -->
+        <div class="matrix-controls">
+            <div class="spec-control-group">
+                <label class="spec-label">Test Spec:</label>
+                <select id="test-spec-select" class="spec-select">
+                    <option value="game-flow.spec.js">game-flow.spec.js</option>
+                    <option value="metrics.spec.js">metrics.spec.js</option>
+                    <option value="custom.spec.js">custom.spec.js</option>
+                </select>
+            </div>
+            <button id="add-row-btn" class="control-btn">+ Add Row</button>
+            <button id="add-column-btn" class="control-btn">+ Add Column</button>
+            <button id="run-all-btn" class="control-btn run-btn">Run All Tests</button>
+            <button id="show-results-btn" class="control-btn">Show Results</button>
+        </div>
+        
+        <!-- Simple Matrix Grid -->
+        <div class="simple-matrix" id="simple-matrix">
+            <!-- Matrix will be generated here -->
+        </div>
+    </div>
+
+    <script src="/static/js/devwatch-namespace.js"></script>
+    <script src="/static/js/theme-manager.js"></script>
+    <script src="/static/js/notification-system.js"></script>
+    <script src="/static/js/logger.js"></script>
+    <script src="/static/js/logs-drawer.js"></script>
+    <script src="/static/js/devwatch-iframer.js"></script>
+    <script src="/static/js/info-system.js"></script>
+    <script src="/static/js/testing-matrix.js"></script>
+    <script>
+        // PJA Iframe Communication
+        class TestingMatrixIframe {
+            constructor() {
+                this.parentOrigin = window.location.origin;
+                this.setupIframeComm();
+            }
+
+            setupIframeComm() {
+                // Send ready message to parent
+                this.postToParent({
+                    type: 'iframe_ready',
+                    source: 'testing-matrix',
+                    data: { ready: true }
+                });
+
+                // Listen for messages from parent
+                window.addEventListener('message', (event) => {
+                    if (event.origin !== this.parentOrigin) return;
+
+                    const { type, data } = event.data;
+                    switch (type) {
+                        case 'resize_iframe':
+                            this.handleResize(data);
+                            break;
+                        case 'run_matrix_tests':
+                            this.handleRunTests(data);
+                            break;
+                        case 'theme_changed':
+                            this.handleThemeChange(data);
+                            break;
+                    }
+                });
+
+                // Auto-resize based on content
+                this.setupAutoResize();
+            }
+
+            postToParent(message) {
+                if (window.parent !== window) {
+                    window.parent.postMessage(message, this.parentOrigin);
+                }
+            }
+
+            handleResize(data) {
+                if (data.height) {
+                    document.body.style.minHeight = data.height + 'px';
+                }
+            }
+
+            handleRunTests(data) {
+                // Trigger test run from parent command
+                if (window.testingMatrix && data.selections) {
+                    window.testingMatrix.selectedCells = new Set(data.selections);
+                    window.testingMatrix.runSelectedTests();
+                }
+            }
+
+            handleThemeChange(data) {
+                // Handle theme changes from parent
+                document.body.className = data.theme || '';
+            }
+
+            setupAutoResize() {
+                // Observe content changes and notify parent of size changes
+                const resizeObserver = new ResizeObserver((entries) => {
+                    const height = document.body.scrollHeight;
+                    this.postToParent({
+                        type: 'content_resized',
+                        source: 'testing-matrix',
+                        data: { height, width: document.body.scrollWidth }
+                    });
+                });
+
+                resizeObserver.observe(document.body);
+
+                // Also send initial size
+                setTimeout(() => {
+                    this.postToParent({
+                        type: 'content_resized',
+                        source: 'testing-matrix',
+                        data: { 
+                            height: document.body.scrollHeight,
+                            width: document.body.scrollWidth 
+                        }
+                    });
+                }, 500);
+            }
+
+            // Public method to notify parent of matrix events
+            notifyMatrixEvent(eventType, data) {
+                this.postToParent({
+                    type: 'matrix_event',
+                    source: 'testing-matrix',
+                    eventType,
+                    data
+                });
+            }
+        }
+
+        // Simple Matrix Implementation
+        class SimpleTestMatrix {
+            constructor() {
+                this.matrix = [];
+                this.rows = 2;
+                this.cols = 2;
+                this.resultsMode = false;
+                this.selectedSpec = 'game-flow.spec.js';
+                this.init();
+            }
+
+            init() {
+                this.createInitialMatrix();
+                this.render();
+                this.setupEventListeners();
+            }
+
+            createInitialMatrix() {
+                for (let row = 0; row < this.rows; row++) {
+                    this.matrix[row] = [];
+                    for (let col = 0; col < this.cols; col++) {
+                        this.matrix[row][col] = {
+                            environment: 'dev',
+                            browser: 'chrome',
+                            device: 'desktop',
+                            game: 'cornhole-hero',
+                            status: 'unconfigured'
+                        };
+                    }
+                }
+            }
+
+            setupEventListeners() {
+                document.getElementById('add-row-btn').addEventListener('click', () => this.addRow());
+                document.getElementById('add-column-btn').addEventListener('click', () => this.addColumn());
+                document.getElementById('show-results-btn').addEventListener('click', () => this.toggleResultsMode());
+                document.getElementById('run-all-btn').addEventListener('click', () => this.runAllTests());
+                document.getElementById('test-spec-select').addEventListener('change', (e) => {
+                    this.selectedSpec = e.target.value;
+                    console.log('Selected test spec:', this.selectedSpec);
+                });
+            }
+
+            toggleResultsMode() {
+                this.resultsMode = !this.resultsMode;
+                const btn = document.getElementById('show-results-btn');
+                btn.textContent = this.resultsMode ? 'Show Config' : 'Show Results';
+                this.render();
+            }
+
+            addRow() {
+                const newRow = [];
+                for (let col = 0; col < this.cols; col++) {
+                    newRow[col] = {
+                        environment: 'dev',
+                        browser: 'chrome',
+                        device: 'desktop',
+                        game: 'cornhole-hero',
+                        status: 'unconfigured'
+                    };
+                }
+                this.matrix.unshift(newRow); // Add at the beginning (top)
+                this.rows++;
+                this.render();
+            }
+
+            addColumn() {
+                for (let row = 0; row < this.rows; row++) {
+                    this.matrix[row].push({
+                        environment: 'dev',
+                        browser: 'chrome',
+                        device: 'desktop',
+                        game: 'cornhole-hero',
+                        status: 'unconfigured'
+                    });
+                }
+                this.cols++;
+                this.render();
+            }
+
+            updateCell(row, col, config) {
+                this.matrix[row][col] = { ...this.matrix[row][col], ...config, status: 'configured' };
+                this.render();
+            }
+
+            runTest(row, col) {
+                this.matrix[row][col].status = 'running';
+                this.matrix[row][col].testSpec = this.selectedSpec; // Save which spec was used
+                this.render();
+                
+                // Simulate test execution
+                const duration = 2000 + Math.random() * 3000;
+                setTimeout(() => {
+                    const passed = Math.random() > 0.3;
+                    this.matrix[row][col].status = passed ? 'passed' : 'failed';
+                    this.matrix[row][col].duration = Math.round(duration);
+                    this.matrix[row][col].result = passed ? 'All tests passed' : 'Some tests failed';
+                    this.render();
+                }, duration);
+            }
+
+            runAllTests() {
+                for (let row = 0; row < this.rows; row++) {
+                    for (let col = 0; col < this.cols; col++) {
+                        if (this.matrix[row][col].status !== 'running') {
+                            setTimeout(() => this.runTest(row, col), Math.random() * 1000);
+                        }
+                    }
+                }
+            }
+
+            render() {
+                const container = document.getElementById('simple-matrix');
+                container.style.gridTemplateColumns = `repeat(${this.cols}, 1fr)`;
+                
+                container.innerHTML = '';
+                
+                for (let row = 0; row < this.rows; row++) {
+                    for (let col = 0; col < this.cols; col++) {
+                        const cell = this.matrix[row][col];
+                        const cellElement = this.createCellElement(row, col, cell);
+                        container.appendChild(cellElement);
+                    }
+                }
+            }
+
+            createCellElement(row, col, cell) {
+                const div = document.createElement('div');
+                div.className = `matrix-cell ${cell.status}`;
+                
+                if (this.resultsMode) {
+                    // Results mode - show test results and metrics
+                    div.innerHTML = `
+                        <div class="cell-status">
+                            <span class="status-dot ${cell.status}"></span>
+                            <span>Cell ${row + 1},${col + 1} - ${cell.status}</span>
+                        </div>
+                        
+                        <div class="cell-config">
+                            <div class="config-row">
+                                <span class="config-label">Config:</span>
+                                <span>${cell.environment} / ${cell.browser} / ${cell.device} / ${cell.game}</span>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Spec:</span>
+                                <span>${cell.testSpec || this.selectedSpec}</span>
+                            </div>
+                            ${cell.duration ? `<div class="config-row"><span class="config-label">Duration:</span><span>${cell.duration}ms</span></div>` : ''}
+                            ${cell.result ? `<div class="config-row"><span class="config-label">Result:</span><span>${cell.result}</span></div>` : ''}
+                        </div>
+                        
+                        <div class="cell-actions">
+                            <button class="cell-btn primary run-cell">Run Again</button>
+                        </div>
+                    `;
+                } else {
+                    // Configuration mode - show dropdowns
+                    div.innerHTML = `
+                        <div class="cell-status">
+                            <span class="status-dot ${cell.status}"></span>
+                            <span>Cell ${row + 1},${col + 1} - ${cell.status}</span>
+                        </div>
+                        
+                        <div class="cell-config">
+                            <div class="config-row">
+                                <span class="config-label">Env:</span>
+                                <select class="config-select" data-field="environment">
+                                    <option value="dev" ${cell.environment === 'dev' ? 'selected' : ''}>dev</option>
+                                    <option value="staging" ${cell.environment === 'staging' ? 'selected' : ''}>staging</option>
+                                    <option value="prod" ${cell.environment === 'prod' ? 'selected' : ''}>prod</option>
+                                </select>
+                            </div>
+                            
+                            <div class="config-row">
+                                <span class="config-label">Browser:</span>
+                                <select class="config-select" data-field="browser">
+                                    <option value="chrome" ${cell.browser === 'chrome' ? 'selected' : ''}>chrome</option>
+                                    <option value="firefox" ${cell.browser === 'firefox' ? 'selected' : ''}>firefox</option>
+                                    <option value="safari" ${cell.browser === 'safari' ? 'selected' : ''}>safari</option>
+                                </select>
+                            </div>
+                            
+                            <div class="config-row">
+                                <span class="config-label">Device:</span>
+                                <select class="config-select" data-field="device">
+                                    <option value="desktop" ${cell.device === 'desktop' ? 'selected' : ''}>desktop</option>
+                                    <option value="mobile" ${cell.device === 'mobile' ? 'selected' : ''}>mobile</option>
+                                </select>
+                            </div>
+                            
+                            <div class="config-row">
+                                <span class="config-label">Game:</span>
+                                <select class="config-select" data-field="game">
+                                    <option value="cornhole-hero" ${cell.game === 'cornhole-hero' ? 'selected' : ''}>cornhole-hero</option>
+                                    <option value="cheap-golf" ${cell.game === 'cheap-golf' ? 'selected' : ''}>cheap-golf</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="cell-actions">
+                            <button class="cell-btn primary run-cell">Run Test</button>
+                        </div>
+                    `;
+                }
+
+                // Add event listeners for this cell
+                const selects = div.querySelectorAll('.config-select');
+                selects.forEach(select => {
+                    select.addEventListener('change', (e) => {
+                        const field = e.target.getAttribute('data-field');
+                        const value = e.target.value;
+                        this.updateCell(row, col, { [field]: value });
+                    });
+                });
+
+                const runBtn = div.querySelector('.run-cell');
+                runBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.runTest(row, col);
+                });
+
+                return div;
+            }
+        }
+
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            window.testingMatrixIframe = new TestingMatrixIframe();
+            window.simpleMatrix = new SimpleTestMatrix();
+        });
+    </script>
+</body>
+</html>

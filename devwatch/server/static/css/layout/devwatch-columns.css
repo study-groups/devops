@@ -1,0 +1,68 @@
+/**
+ * DevWatch Layout: Columns
+ * Provides responsive, flexible column layouts.
+ */
+
+.devwatch-columns {
+    display: flex;
+    flex-direction: row;
+    gap: var(--devwatch-space-sm);
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+.devwatch-column {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background-color: var(--devwatch-bg-primary);
+    border: 1px solid var(--devwatch-border-primary);
+    border-radius: var(--devwatch-radius-lg);
+    min-width: 200px; /* Minimum width before collapsing */
+    height: 100%;
+    flex-shrink: 0;
+}
+
+/* Column Sizing */
+.devwatch-column--fixed {
+    flex: 0 0 auto;
+}
+
+.devwatch-column--fluid {
+    flex: 1 1 auto;
+}
+
+/* Specific Widths (example) */
+.devwatch-column--width-sm { width: 250px; }
+.devwatch-column--width-md { width: 350px; }
+
+/* Resizer */
+.devwatch-column-resizer {
+    flex: 0 0 5px;
+    background-color: var(--devwatch-border-primary);
+    cursor: col-resize;
+    transition: background-color 0.2s ease;
+}
+
+.devwatch-column-resizer:hover {
+    background-color: var(--devwatch-accent-primary);
+}
+
+/* Responsive layout for smaller screens */
+@media (max-width: 1024px) {
+    .devwatch-columns {
+        flex-direction: column;
+        height: auto;
+    }
+
+    .devwatch-column {
+        width: 100%;
+        margin-bottom: var(--devwatch-space-sm);
+    }
+
+    .devwatch-column-resizer {
+        display: none;
+    }
+}
