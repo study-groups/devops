@@ -100,19 +100,19 @@ class IntrospectionBootstrap {
 
     diagnoseTopBarController() {
         logMessage('📊 TopBarController Diagnosis:', 'info', 'BOOTSTRAP');
-        
+
         if (window.topBarController) {
             const controller = window.topBarController;
             logMessage(`✅ TopBarController exists`, 'info', 'BOOTSTRAP');
             logMessage(`   - Initialized: ${controller.initialized}`, 'info', 'BOOTSTRAP');
             logMessage(`   - Action handlers: ${controller.actionHandlers?.size || 0}`, 'info', 'BOOTSTRAP');
-            
+
             if (controller.actionHandlers) {
                 const actions = Array.from(controller.actionHandlers.keys());
                 logMessage(`   - Available actions: ${actions.join(', ')}`, 'info', 'BOOTSTRAP');
             }
         } else {
-            logMessage('❌ TopBarController not found', 'error', 'BOOTSTRAP');
+            logMessage('⚠️ TopBarController not yet initialized (normal during bootstrap)', 'warn', 'BOOTSTRAP');
         }
     }
 
@@ -121,9 +121,9 @@ class IntrospectionBootstrap {
         
         const viewControlButtons = [
             'edit-toggle',
-            'preview-toggle', 
+            'preview-toggle',
             'log-toggle-btn',
-            'preview-reload-btn'
+            'refresh-btn'
         ];
 
         viewControlButtons.forEach(buttonId => {
@@ -140,11 +140,11 @@ class IntrospectionBootstrap {
 
     diagnoseKeyboardShortcuts() {
         logMessage('📊 Keyboard Shortcuts Diagnosis:', 'info', 'BOOTSTRAP');
-        
+
         if (this.systems.keyboardShortcuts) {
             const shortcuts = this.systems.keyboardShortcuts.getShortcuts();
             logMessage(`✅ ${shortcuts.length} shortcuts registered`, 'info', 'BOOTSTRAP');
-            
+
             // Test a few key shortcuts
             const testShortcuts = ['alt+t', 'alt+p', 'alt+l', 'ctrl+s'];
             testShortcuts.forEach(keyCombo => {
@@ -156,19 +156,21 @@ class IntrospectionBootstrap {
                 }
             });
         } else {
-            logMessage('❌ Keyboard shortcut manager not available', 'error', 'BOOTSTRAP');
+            // Keyboard shortcuts are intentionally disabled to prevent conflicts
+            logMessage('ℹ️ Keyboard shortcut manager disabled (by design)', 'info', 'BOOTSTRAP');
         }
     }
 
     diagnoseSimplifiedWorkspace() {
-        logMessage('📊 SimplifiedWorkspace Diagnosis:', 'info', 'BOOTSTRAP');
-        
-        // Check for workspace elements
+        logMessage('📊 Workspace Diagnosis:', 'info', 'BOOTSTRAP');
+
+        // Check for workspace elements (actual IDs from index.html)
         const workspaceElements = [
-            'simplified-workspace',
-            'workspace-container',
-            'main-content',
-            'view-controls'
+            'view-controls-container',
+            'workspace-sidebar',
+            'workspace-editor',
+            'workspace-preview',
+            'log-container'
         ];
 
         workspaceElements.forEach(elementId => {
@@ -180,13 +182,13 @@ class IntrospectionBootstrap {
             }
         });
 
-        // Check Redux state
-        if (window.appStore) {
-            const state = window.appStore.getState();
-            logMessage('✅ Redux store available', 'info', 'BOOTSTRAP');
+        // Check Redux state (window.APP.store is the actual location)
+        if (window.APP?.store) {
+            const state = window.APP.store.getState();
+            logMessage('✅ Redux store available (window.APP.store)', 'info', 'BOOTSTRAP');
             logMessage(`   - UI state: ${JSON.stringify(state.ui || {})}`, 'info', 'BOOTSTRAP');
         } else {
-            logMessage('❌ Redux store not available', 'error', 'BOOTSTRAP');
+            logMessage('⚠️ Redux store not yet initialized (normal during bootstrap)', 'warn', 'BOOTSTRAP');
         }
     }
 

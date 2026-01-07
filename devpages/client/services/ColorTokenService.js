@@ -16,16 +16,20 @@ import { ColorThemes } from '../styles/tokens/color-themes.js';
 
 export class ColorTokenService {
     constructor() {
-        this.currentTheme = 'light'; // Default to light, not dark
+        // Detect theme from ThemeInitializer's data-theme attribute
+        const docTheme = document?.documentElement?.getAttribute('data-theme');
+        this.currentTheme = docTheme || 'dark'; // Match ThemeInitializer default
         this.currentPalettes = null;
         this.init();
     }
 
     /**
-     * Initialize with default theme
+     * Initialize with detected or default theme
      */
     init() {
-        this.setTheme('light'); // Use light theme by default
+        // Use detected theme, don't override what ThemeInitializer set
+        const docTheme = document?.documentElement?.getAttribute('data-theme') || 'dark';
+        this.setTheme(docTheme);
     }
 
     /**

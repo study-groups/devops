@@ -220,6 +220,27 @@ h6 {
 /* Color variables removed - now set by ThemeInitializer.js in <head> */
 /* This prevents CSS :root from overriding inline styles */
 
+/* === CSS Variable Aliases === */
+/* Maps expected names to ThemeInitializer names for compatibility */
+:root {
+  /* Foreground aliases (CSS uses --color-fg, ThemeInitializer sets --color-text) */
+  --color-fg: var(--color-text);
+  --color-fg-muted: var(--color-text-muted);
+  --color-fg-alt: var(--color-text-secondary);
+
+  /* Background aliases - simple fallbacks for browser compatibility */
+  --color-bg-hover: var(--color-bg-alt);
+
+  /* Border aliases */
+  --color-border-secondary: var(--color-divider, var(--color-border));
+  --color-border-hover: var(--color-border);
+  --color-border-default: var(--color-border);
+
+  /* Primary aliases */
+  --color-primary-foreground: var(--color-text-inverse, #ffffff);
+  --color-primary-hover: var(--color-primary-emphasis, var(--color-primary-default));
+}
+
 /* ===== DESIGN DENSITY SYSTEM ===== */
 
 /* Compact Density */
