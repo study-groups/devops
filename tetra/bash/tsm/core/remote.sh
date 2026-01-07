@@ -2,7 +2,9 @@
 # TSM Remote - Execute TSM commands on remote hosts via SSH
 #
 # Usage:
-#   tsm @dev ls -A                  # Use deploy target
+#   tsm @dev ls -A                  # Use deploy target (@prefix)
+#   tsm --remote=dev ls -A          # Use deploy target (--remote=)
+#   tsm --remote dev ls -A          # Use deploy target (--remote)
 #   tsm -H root@host ls -A          # Explicit host
 #   tsm @dev logs arcade -f         # Stream logs from remote
 
@@ -136,7 +138,11 @@ tsm_parse_remote_args() {
 }
 
 # Wrapper for tsm that handles remote targets
-# If @target or -H host is found, execute remotely
+# If @target, --remote=target, or -H host is found, execute remotely
+# Syntax:
+#   tsm @dev ls           # @target prefix
+#   tsm --remote=dev ls   # --remote= flag
+#   tsm -H user@host ls   # explicit host
 tsm_maybe_remote() {
     local first_arg="$1"
 
@@ -146,6 +152,42 @@ tsm_maybe_remote() {
         shift
 
         # Resolve target to SSH connection
+        local ssh_target=$(tsm_resolve_target "$target")
+        [[ -z "$ssh_target" ]] && return 1
+
+        tsm_info "Remote: $ssh_target"
+        tsm_remote "$ssh_target" "$@"
+        return $?
+    fi
+
+    # Check for --remote=TARGET syntax (new)
+    if [[ "$first_arg" == --remote=* ]]; then
+        local target="${first_arg#--remote=}"
+        shift
+
+        # Resolve target to SSH connection (add @ prefix if not present)
+        [[ "$target" != @* ]] && target="@$target"
+        local ssh_target=$(tsm_resolve_target "$target")
+        [[ -z "$ssh_target" ]] && return 1
+
+        tsm_info "Remote: $ssh_target"
+        tsm_remote "$ssh_target" "$@"
+        return $?
+    fi
+
+    # Check for --remote TARGET syntax (with space)
+    if [[ "$first_arg" == "--remote" ]]; then
+        shift
+        local target="$1"
+        shift
+
+        if [[ -z "$target" ]]; then
+            tsm_error "Missing target for --remote flag"
+            return 1
+        fi
+
+        # Resolve target to SSH connection (add @ prefix if not present)
+        [[ "$target" != @* ]] && target="@$target"
         local ssh_target=$(tsm_resolve_target "$target")
         [[ -z "$ssh_target" ]] && return 1
 

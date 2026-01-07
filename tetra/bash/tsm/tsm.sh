@@ -20,6 +20,7 @@ source "$TSM_SRC/core/start.sh"
 source "$TSM_SRC/core/process.sh"
 source "$TSM_SRC/core/list.sh"
 source "$TSM_SRC/core/doctor.sh"
+source "$TSM_SRC/core/build.sh"
 
 # Phase 3: Services
 source "$TSM_SRC/services/registry.sh"
@@ -28,6 +29,7 @@ source "$TSM_SRC/services/stack.sh"
 
 # Phase 4: Optional enhancements
 [[ -f "$TSM_SRC/core/remote.sh" ]] && source "$TSM_SRC/core/remote.sh"
+[[ -f "$TSM_SRC/core/patrol.sh" ]] && source "$TSM_SRC/core/patrol.sh"
 [[ -f "$TSM_SRC/lib/complete.sh" ]] && source "$TSM_SRC/lib/complete.sh"
 [[ -f "$TSM_SRC/lib/help.sh" ]] && source "$TSM_SRC/lib/help.sh"
 [[ -f "$TSM_SRC/lib/help_render.sh" ]] && source "$TSM_SRC/lib/help_render.sh"
@@ -59,6 +61,7 @@ tsm() {
         ports)    tsm_list --ports "$@" ;;
         info)     tsm_info "$@" ;;
         logs)     tsm_logs "$@" ;;
+        describe) tsm_describe "$@" ;;
 
         # Services
         services) tsm_services "$@" ;;
@@ -69,8 +72,12 @@ tsm() {
         startup)  tsm_startup "$@" ;;
         stack)    tsm_stack "$@" ;;
 
+        # Build
+        build)    tsm_build "$@" ;;
+
         # Diagnostics
         doctor)   tsm_doctor "$@" ;;
+        patrol)   tsm_patrol "$@" ;;
 
         # Multi-user
         users)    tsm_list_users "$@" ;;
@@ -108,13 +115,16 @@ _tsm_help() {
 TSM - Tetra Service Manager
 
 LIFECYCLE   start, stop, restart, kill, delete
-INSPECT     list [-A], info, logs, ports
+INSPECT     list [-A], info, logs, ports, describe
 SERVICES    services, save, enable, disable, startup, stack
-SYSTEM      doctor, cleanup, setup, users
+SYSTEM      doctor, patrol, cleanup, setup, users
 INTEGRATE   caddy
 REMOTE      @target or -H user@host prefix
 
-tsm ls -A for all users | tsm @dev ls for remote
+tsm start ./app.tsm           Start from .tsm file
+tsm start ./app.tsm --dryrun  Preview without starting
+tsm describe ./app.tsm        Show config & env influence
+tsm help start                Detailed command help
 EOF
 }
 

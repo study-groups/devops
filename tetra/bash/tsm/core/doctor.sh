@@ -107,6 +107,64 @@ _doctor_health() {
     fi
     echo ""
 
+    # Active ports - comprehensive view
+    echo "Active Ports:"
+    local tsm_pids=()
+    local tsm_ports=()
+
+    # Collect all TSM-managed PIDs and ports
+    for dir in "$TSM_PROCESSES_DIR"/*/; do
+        [[ -d "$dir" ]] || continue
+        local name=$(basename "$dir")
+        [[ "$name" == .* ]] && continue
+        local meta="${dir}meta.json"
+        [[ -f "$meta" ]] || continue
+        local pid=$(jq -r '.pid // empty' "$meta" 2>/dev/null)
+        local port=$(jq -r '.port // empty' "$meta" 2>/dev/null)
+        [[ -n "$pid" ]] && tsm_pids+=("$pid")
+        [[ -n "$port" ]] && tsm_ports+=("$port")
+    done
+
+    # Get all listening ports
+    local port_count=0 external_count=0
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        local pid=$(echo "$line" | awk '{print $2}')
+        local port_info=$(echo "$line" | awk '{print $9}')
+        local port=$(echo "$port_info" | sed 's/.*://' | sed 's/\*//')
+
+        # Skip non-numeric ports
+        [[ "$port" =~ ^[0-9]+$ ]] || continue
+
+        local cmd=$(ps -p "$pid" -o args= 2>/dev/null | head -c 40)
+        [[ -z "$cmd" ]] && continue
+
+        # Check if TSM-managed
+        local is_tsm=false
+        for tpid in "${tsm_pids[@]}"; do
+            [[ "$pid" == "$tpid" ]] && { is_tsm=true; break; }
+        done
+
+        ((port_count++))
+        if [[ "$is_tsm" == "true" ]]; then
+            printf "  [TSM] %5s  pid:%-6s  %s\n" "$port" "$pid" "$cmd"
+        else
+            printf "  [EXT] %5s  pid:%-6s  %s\n" "$port" "$pid" "$cmd"
+            ((external_count++))
+        fi
+    done < <(lsof -iTCP -sTCP:LISTEN -nP 2>/dev/null | grep -v "^COMMAND" | sort -t: -k2 -n)
+
+    if [[ $port_count -eq 0 ]]; then
+        echo "  No listening ports found"
+    else
+        echo ""
+        echo "  Total: $port_count ports ($external_count external)"
+        if [[ $external_count -gt 0 ]]; then
+            ((warnings++))
+        fi
+    fi
+    echo ""
+
     # Summary
     echo "Summary:"
     if [[ $errors -eq 0 && $warnings -eq 0 ]]; then

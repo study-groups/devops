@@ -124,10 +124,11 @@ tsm_port_type() {
 }
 
 # Parse PORT from env file content
+# Handles both "PORT=xxx" and "export PORT=xxx"
 tsm_parse_env_port() {
     local env_file="$1"
     [[ -f "$env_file" ]] || return 1
-    grep -E '^PORT=' "$env_file" 2>/dev/null | head -1 | cut -d'=' -f2 | tr -d ' "'
+    grep -E '^(export )?PORT=' "$env_file" 2>/dev/null | head -1 | sed 's/^export //' | cut -d'=' -f2 | tr -d ' "'
 }
 
 # Count established connections on a port

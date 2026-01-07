@@ -152,9 +152,16 @@ tsm_get_next_id() {
 # === NAME RESOLUTION ===
 
 # Resolve input (name, partial, or ID) to process name
+# Returns: process name on stdout, error code indicates failure type
+#   0 = success
+#   1 = not found
+#   2 = ambiguous (multiple matches)
+#   3 = found but stopped (when include_stopped=false)
 tsm_resolve_name() {
     local input="$1"
     local include_stopped="${2:-false}"
+
+    [[ -z "$input" ]] && return 1
 
     # Numeric = ID lookup
     if [[ "$input" =~ ^[0-9]+$ ]]; then
@@ -164,11 +171,17 @@ tsm_resolve_name() {
             [[ -f "$meta" ]] || continue
             local id=$(jq -r '.id // empty' "$meta" 2>/dev/null)
             if [[ "$id" == "$input" ]]; then
-                basename "$dir"
+                local name=$(basename "$dir")
+                # Check if stopped when include_stopped=false
+                if [[ "$include_stopped" != "true" ]] && ! tsm_is_running "$name"; then
+                    echo "$name" # Still output name for error messages
+                    return 3     # Found but stopped
+                fi
+                echo "$name"
                 return 0
             fi
         done
-        return 1
+        return 1  # ID not found
     fi
 
     # Exact match
@@ -176,27 +189,63 @@ tsm_resolve_name() {
         if [[ "$include_stopped" == "true" ]] || tsm_is_running "$input"; then
             echo "$input"
             return 0
+        else
+            echo "$input"  # Output name for error messages
+            return 3       # Found but stopped
         fi
     fi
 
     # Fuzzy match
     local -a matches=()
+    local -a stopped_matches=()
     for dir in "$TSM_PROCESSES_DIR"/*/; do
         [[ -d "$dir" ]] || continue
         local name=$(basename "$dir")
         [[ "$name" == .* ]] && continue
-        [[ "$include_stopped" != "true" ]] && ! tsm_is_running "$name" && continue
-        [[ "$name" == *"$input"* ]] && matches+=("$name")
+        [[ "$name" == *"$input"* ]] || continue
+
+        if tsm_is_running "$name"; then
+            matches+=("$name")
+        else
+            stopped_matches+=("$name")
+        fi
     done
 
+    # Include stopped if requested
+    [[ "$include_stopped" == "true" ]] && matches+=("${stopped_matches[@]}")
+
     case ${#matches[@]} in
-        0) return 1 ;;
-        1) echo "${matches[0]}"; return 0 ;;
+        0)
+            # Check if we had stopped matches
+            if [[ ${#stopped_matches[@]} -gt 0 && "$include_stopped" != "true" ]]; then
+                echo "${stopped_matches[0]}"
+                return 3  # Found but stopped
+            fi
+            return 1  # Not found
+            ;;
+        1)
+            echo "${matches[0]}"
+            return 0
+            ;;
         *)
             tsm_error "ambiguous: '$input' matches ${#matches[@]} processes"
             for m in "${matches[@]}"; do echo "  $m" >&2; done
             return 2
             ;;
+    esac
+}
+
+# Helper to get descriptive error for resolve_name return codes
+_tsm_resolve_error() {
+    local input="$1"
+    local code="$2"
+    local name="$3"  # May be set even on failure
+
+    case "$code" in
+        1) echo "not found: '$input'" ;;
+        2) echo "ambiguous: '$input' (see above)" ;;
+        3) echo "'${name:-$input}' exists but is stopped (use -a to include stopped)" ;;
+        *) echo "unknown error resolving '$input'" ;;
     esac
 }
 
@@ -219,35 +268,114 @@ tsm_validate_env_file() {
     return 0
 }
 
-# Auto-detect env file from common locations
+# Find env file - supports org-level env names and file paths
+# Usage: tsm_find_env_file <script> <explicit>
+#
+# <explicit> can be:
+#   "local"|"dev"|"staging"|"prod" → $TETRA_DIR/orgs/$TETRA_ORG/env/<name>.env
+#   "/path/to/file"                 → absolute path used directly
+#   "file.env"                      → resolved relative to script dir or PWD
+#   ""                              → auto-detect from common locations
 tsm_find_env_file() {
     local script="$1"
     local explicit="$2"
 
-    # Explicit file provided
+    # Explicit value provided
     if [[ -n "$explicit" ]]; then
+        # Check if it's an environment name (local/dev/staging/prod)
+        if [[ "$explicit" =~ ^(local|dev|staging|prod)$ ]]; then
+            local org="${TETRA_ORG:-tetra}"
+            local env_path="$TETRA_DIR/orgs/$org/env/${explicit}.env"
+            if [[ -f "$env_path" ]]; then
+                echo "$env_path"
+                return 0
+            else
+                tsm_error "org env file not found: $env_path"
+                return 66
+            fi
+        fi
+
+        # Absolute path
         if [[ "$explicit" == /* ]]; then
-            echo "$explicit"
-        elif [[ -f "$(dirname "$script")/$explicit" ]]; then
+            if [[ -f "$explicit" ]]; then
+                echo "$explicit"
+                return 0
+            else
+                tsm_error "env file '$explicit' not found"
+                return 66
+            fi
+        fi
+
+        # Relative path - try script dir first, then PWD
+        if [[ -n "$script" && -f "$(dirname "$script")/$explicit" ]]; then
             echo "$(dirname "$script")/$explicit"
+            return 0
         elif [[ -f "$explicit" ]]; then
             echo "$PWD/$explicit"
+            return 0
         else
             tsm_error "env file '$explicit' not found"
             return 66
         fi
-        return 0
     fi
 
-    # Auto-detect
-    local dir=$(dirname "$script")
-    local candidates=("$dir/.env" "$dir/env/dev.env" "$dir/env/local.env" "$PWD/.env")
+    # Auto-detect from common locations
+    local dir="${script:+$(dirname "$script")}"
+    local candidates=()
+    [[ -n "$dir" ]] && candidates+=("$dir/.env" "$dir/env/dev.env" "$dir/env/local.env")
+    candidates+=("$PWD/.env")
+
     for c in "${candidates[@]}"; do
         [[ -f "$c" ]] && { echo "$c"; return 0; }
     done
 
     echo ""  # No env file found, that's okay
     return 0
+}
+
+# === ENV PARSING ===
+
+# Get single value from env file without full sourcing
+# Usage: tsm_env_get <file> <key>
+tsm_env_get() {
+    local file="$1" key="$2"
+    local line value
+
+    [[ -f "$file" ]] || return 1
+    [[ -n "$key" ]] || return 1
+
+    # Match "export KEY=val" or "KEY=val"
+    line=$(grep -E "^(export )?${key}=" "$file" 2>/dev/null) || return 1
+
+    # Extract value after first =
+    value="${line#*=}"
+
+    # Strip quotes
+    value="${value#\"}" ; value="${value%\"}"
+    value="${value#\'}" ; value="${value%\'}"
+
+    echo "$value"
+}
+
+# Get multiple values from env file
+# Usage: tsm_env_gets <file> <key1> [key2] [key3] ...
+# Output: KEY1=value1\nKEY2=value2\n...
+tsm_env_gets() {
+    local file="$1"; shift
+    local key
+
+    [[ -f "$file" ]] || return 1
+
+    for key in "$@"; do
+        local val
+        val=$(tsm_env_get "$file" "$key") && printf "%s=%s\n" "$key" "$val"
+    done
+}
+
+# Parse PORT from env file (without full sourcing)
+tsm_parse_env_port() {
+    local env_file="$1"
+    tsm_env_get "$env_file" PORT
 }
 
 # === PATH HELPERS ===
@@ -299,8 +427,9 @@ export -f tsm_error tsm_warn
 export -f tsm_json_error tsm_json_success
 export -f tsm_is_pid_alive tsm_is_running
 export -f tsm_get_next_id
-export -f tsm_resolve_name
+export -f tsm_resolve_name _tsm_resolve_error
 export -f tsm_validate_script tsm_validate_env_file tsm_find_env_file
+export -f tsm_env_get tsm_env_gets tsm_parse_env_port
 export -f tsm_resolve_path
 export -f _tsm_safe_remove_dir
 export -f tsm_term_width tsm_format_uptime

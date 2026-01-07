@@ -129,18 +129,18 @@ tsm_success() {
 # Print error message
 tsm_error() {
     if [[ "$_TSM_HAS_TDS" == true ]] && [[ -t 2 ]]; then
-        tds_status "error" "$1" >&2
+        tds_status "error" "tsm: $1" >&2
     else
-        echo "$1" >&2
+        echo "tsm: $1" >&2
     fi
 }
 
 # Print warning message
 tsm_warn() {
     if [[ "$_TSM_HAS_TDS" == true ]] && [[ -t 2 ]]; then
-        tds_status "warning" "$1" >&2
+        tds_status "warning" "tsm: $1" >&2
     else
-        echo "warning: $1" >&2
+        echo "tsm: warning - $1" >&2
     fi
 }
 

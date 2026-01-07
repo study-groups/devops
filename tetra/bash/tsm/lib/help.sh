@@ -35,17 +35,30 @@ declare -gA TSM_HELP
 TSM_HELP[start]='Start a new managed process.
 
 USAGE
-  tsm start <command> [options]
+  tsm start <service|./path.tsm|command> [options]
 
 OPTIONS
-  --port N      Explicit port (else auto-detect or allocate 8000-8999)
-  --env FILE    Environment file to source before starting
+  --port N      Explicit port (overrides env/service config)
+  --env FILE    Environment file or name (local/dev/staging/prod)
   --name NAME   Custom process name (else derived from directory)
+  --dryrun, -n  Show what would happen without starting
+
+INPUTS
+  service       Registered service name (from tsm services)
+  ./path.tsm    Path to a .tsm service definition file
+  command       Raw command to run (quote if contains spaces)
+
+PORT RESOLUTION (3-step ladder)
+  1. --port argument (wins if provided)
+  2. PORT= from env file
+  3. Auto-allocate from 8000-8999
 
 EXAMPLES
-  tsm start "node server.js" --port 3000
-  tsm start "./run.sh" --env .env
-  tsm start "python app.py" --name myapi'
+  tsm start http                         # Start registered service
+  tsm start ./myapp.tsm                  # Start from .tsm file
+  tsm start ./myapp.tsm --env dev        # With org env override
+  tsm start ./myapp.tsm --dryrun         # Preview without starting
+  tsm start "node server.js" --port 3000 # Raw command mode'
 
 TSM_HELP[stop]='Stop a running process gracefully.
 
@@ -101,7 +114,7 @@ OPTIONS
 
 By default shows only running processes.'
 
-TSM_HELP[info]='Show detailed information about a process.
+TSM_HELP[info]='Show detailed information about a running process.
 
 USAGE
   tsm info <name|id>
@@ -111,6 +124,35 @@ ARGUMENTS
 
 Shows: name, ID, PID, status, port, command, CWD, env file,
 uptime, CPU/memory usage, and log file locations.'
+
+TSM_HELP[describe]='Describe a .tsm file or service definition.
+
+USAGE
+  tsm describe <service|./path.tsm> [--env FILE]
+
+ARGUMENTS
+  service      Registered service name (from tsm services)
+  ./path.tsm   Path to a .tsm service definition file
+
+OPTIONS
+  --env FILE   Override environment file for port/config preview
+
+Shows the complete service configuration including:
+  - Source file location and metadata
+  - Command and working directory
+  - Port specification and resolution
+  - Environment file resolution
+  - Dependencies and health checks
+
+Use this to understand how env influences startup BEFORE running.
+
+EXAMPLES
+  tsm describe http                    # Describe registered service
+  tsm describe ./myapp.tsm             # Describe .tsm file
+  tsm describe ./myapp.tsm --env prod  # Preview with prod env
+
+RELATED
+  tsm start ./myapp.tsm --dryrun       # Runtime preview (actual port alloc)'
 
 TSM_HELP[logs]='View process logs.
 
