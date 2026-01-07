@@ -119,7 +119,7 @@ class TestPattern extends Gamepak {
 
         // Connection info
         const wsUrl = `ws://${this.wsHost}:${this.wsPort}`;
-        const joinUrl = `http://${this.gammaUrl}/cabinet/join.html?code=${codeDisplay}`;
+        const joinUrl = `http://${this.gammaUrl}/cabinet/gamma-cabinet.html?code=${codeDisplay}`;
         lines.push(this._center('║' + this._pad(`  WebSocket: ${wsUrl}`, W - 2) + '║', W));
         lines.push(this._center('║' + this._pad(`  Join URL:  ${this.gammaUrl}/cabinet/?code=${codeDisplay}`, W - 2) + '║', W));
         lines.push(this._center('║' + this._pad(`  Players:   ${Object.keys(this.players).length}/${this.maxPlayers}  (${this.connectedClients} remote)`, W - 2) + '║', W));

@@ -166,10 +166,10 @@ cabinet_join() {
         cabinet_error "Usage: cabinet join <ws://host:port | match-code>"
         return 1
     fi
-    local join_html="${CABINET_SRC}/join.html"
+    local join_html="${CABINET_SRC}/cabinet.html"
 
     if [[ ! -f "$join_html" ]]; then
-        cabinet_error "join.html not found: $join_html"
+        cabinet_error "cabinet.html not found: $join_html"
         return 1
     fi
 
@@ -209,7 +209,7 @@ EXAMPLES
 OPTIONS
   --port, -p N          Port number (REQUIRED for dev/host/start)
   --headless            Run without local console player
-  --http                Serve join.html for browser access
+  --http                Serve cabinet.html for browser access
   --max-players N       Max player slots (default: 4)
   --match-code CODE     Display match code in game
 

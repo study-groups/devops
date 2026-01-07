@@ -414,7 +414,7 @@ class ConsoleDisplay {
     }
 }
 
-// Simple HTTP server for serving join.html
+// Simple HTTP server for serving cabinet.html
 function createHttpServer(port, cabinetDir) {
     const MIME_TYPES = {
         '.html': 'text/html',
@@ -430,7 +430,7 @@ function createHttpServer(port, cabinetDir) {
 
         // Strip /cabinet/ prefix if present
         let filePath = urlPath.replace(/^\/cabinet/, '') || '/';
-        filePath = filePath === '/' ? '/join.html' : filePath;
+        filePath = filePath === '/' ? '/gamma-cabinet.html' : filePath;
         filePath = path.join(cabinetDir, filePath);
 
         const ext = path.extname(filePath);
@@ -698,7 +698,7 @@ function showHelp(topic = null) {
             case 'host':
                 console.log('Options:');
                 console.log('  --port, -p N       Port number (REQUIRED)');
-                console.log('  --http             Serve join.html for browser access');
+                console.log('  --http             Serve gamma-cabinet.html for browser access');
                 console.log('  --headless         Run as server (no local console)');
                 console.log('  --match-code CODE  Display match code in game');
                 console.log('  --max-players N    Max player slots (default: 4)');
@@ -735,7 +735,7 @@ function showHelp(topic = null) {
     console.log('OPTIONS');
     console.log('  --port, -p N          Port number (REQUIRED for dev/host)');
     console.log('  --headless            Run without local console player');
-    console.log('  --http                Serve join.html for browser access');
+    console.log('  --http                Serve gamma-cabinet.html for browser access');
     console.log('  --max-players N       Max player slots (default: 4)');
     console.log('  --match-code CODE     Display match code in game');
     console.log('');
@@ -838,7 +838,7 @@ async function main() {
     console.log(`[cabinet] Mode: ${args.mode}`);
     if (args.mode === 'host') {
         console.log(`[cabinet] Hosting on ws://localhost:${args.port}`);
-        console.log('[cabinet] Browser: open join.html, connect to above URL');
+        console.log('[cabinet] Browser: open gamma-cabinet.html, connect to above URL');
     }
     console.log('[cabinet] Starting in 1 second...');
     console.log('');

@@ -418,6 +418,12 @@ class Host {
         // Fallback: send 'r' key as input
         this.driver.sendInput(player.slot, { key: 'r' });
       }
+    } else if (data.t === 'game.play') {
+      // Start game (any player can trigger)
+      if (this.driver && typeof this.driver.play === 'function') {
+        this.driver.play();
+        console.log(`[host] Game started by ${player.nick || player.cid}`);
+      }
     }
   }
 
@@ -465,8 +471,12 @@ class Host {
         this.driver.sendInput(slot, data);
       }
     } else if (data.t === 'game.reset') {
-      if (this.driver) {
-        this.driver.sendKey('r');
+      if (this.driver && typeof this.driver.reset === 'function') {
+        this.driver.reset();
+      }
+    } else if (data.t === 'game.play') {
+      if (this.driver && typeof this.driver.play === 'function') {
+        this.driver.play();
       }
     }
   }

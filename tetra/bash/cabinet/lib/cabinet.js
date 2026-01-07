@@ -114,6 +114,21 @@ let mySlot = null;
 let gameName = null;
 let playerStates = { p1: 'none', p2: 'none', p3: 'none', p4: 'none' };
 
+// Cabinet boot state machine
+const CabinetState = {
+  GAMMA_BOOT: 'gamma_boot',   // Showing GAMMA logo, waiting for code+START
+  GAME_BOOT: 'game_boot',     // Showing game info, waiting for START
+  IN_GAME: 'in_game'          // Normal gameplay
+};
+let cabinetState = CabinetState.GAMMA_BOOT;
+
+// Game metadata (stored from welcome/join)
+let gameMetadata = {
+  name: null,
+  geometry: { width: 60, height: 24 },
+  engine: 'gamepak'
+};
+
 // ========================================
 // DOM ELEMENTS
 // ========================================
@@ -351,6 +366,14 @@ async function joinByCode(code) {
       if (data.game) {
         gameName = data.game.toUpperCase();
         gameNameEl.textContent = gameName;
+        gameMetadata.name = gameName;
+      }
+      // Store game metadata if provided
+      if (data.geometry) {
+        gameMetadata.geometry = data.geometry;
+      }
+      if (data.engine) {
+        gameMetadata.engine = data.engine;
       }
       updateMatchCode(code.toUpperCase());
 
@@ -418,6 +441,14 @@ function handleMessage(msg) {
       if (msg.game) {
         gameName = msg.game.toUpperCase();
         gameNameEl.textContent = gameName;
+        gameMetadata.name = gameName;
+      }
+      // Store additional game metadata if provided
+      if (msg.geometry) {
+        gameMetadata.geometry = msg.geometry;
+      }
+      if (msg.engine) {
+        gameMetadata.engine = msg.engine;
       }
       // Update player states from welcome
       if (msg.players) {
@@ -426,9 +457,16 @@ function handleMessage(msg) {
           updatePlayerSlot(p.slot, state, p.nick);
         });
       }
+      // Stay in GAMMA_BOOT - user must press START to see game boot screen
       break;
 
     case 'frame':
+      // If we get frames while in boot states, transition to IN_GAME
+      if (cabinetState === CabinetState.GAMMA_BOOT || cabinetState === CabinetState.GAME_BOOT) {
+        cabinetState = CabinetState.IN_GAME;
+        isPlaying = true;
+        playBtn.textContent = '[PAUSE]';
+      }
       if (msg.display) {
         gameDisplayEl.innerHTML = ansiToHtml(msg.display);
       }
@@ -563,8 +601,28 @@ document.addEventListener('keyup', (e) => {
 let isPlaying = false;
 
 playBtn.addEventListener('click', () => {
+  // State-aware START button behavior
+  if (cabinetState === CabinetState.GAMMA_BOOT) {
+    // First START: transition to GAME_BOOT if connected
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      cabinetState = CabinetState.GAME_BOOT;
+      renderGameBootScreen();
+    }
+    return;
+  }
+
+  if (cabinetState === CabinetState.GAME_BOOT) {
+    // Second START: begin gameplay
+    cabinetState = CabinetState.IN_GAME;
+    sendPlay();
+    isPlaying = true;
+    playBtn.textContent = '[PAUSE]';
+    return;
+  }
+
+  // IN_GAME: toggle play/pause
   if (!isPlaying) {
-    sendReset();  // game.reset starts gameplay
+    sendPlay();
     isPlaying = true;
     playBtn.textContent = '[PAUSE]';
   } else {
@@ -585,11 +643,32 @@ gameResetBtn.addEventListener('click', () => {
 });
 
 consoleResetBtn.addEventListener('click', () => {
-  // GAMMA console reset - show colorful boot screen
-  renderBootScreen();
-  isPlaying = false;
-  playBtn.textContent = '[START]';
+  // GAMMA console reset - full reset
   if (ws) ws.close();
+
+  // Reset all state
+  cabinetState = CabinetState.GAMMA_BOOT;
+  isPlaying = false;
+  matchCode = null;
+  matchExpires = null;
+  gameName = null;
+  mySlot = null;
+  gameMetadata = { name: null, geometry: { width: 60, height: 24 }, engine: 'gamepak' };
+
+  // Reset UI
+  playBtn.textContent = '[START]';
+  updateMatchCode(null);
+  gameNameEl.textContent = '---';
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = null;
+  timeRemainingEl.textContent = '--:--';
+  timeRemainingEl.className = '';
+  updateConnectionStatus('OFFLINE');
+  ['p1', 'p2', 'p3', 'p4'].forEach(s => updatePlayerSlot(s, 'none'));
+  deactivateDial();
+
+  // Show GAMMA boot screen
+  renderBootScreen();
 });
 extendBtn.addEventListener('click', extendMatch);
 
@@ -662,6 +741,30 @@ function renderBootScreen() {
   html += '<span style="color:#0ff">A N S I</span>   <span style="color:#f0f">C A B I N E T</span>\n';
   html += '\n';
   html += '<span style="color:#888">Enter match code or wait for auto-connect...</span>\n';
+
+  gameDisplayEl.innerHTML = html;
+}
+
+// Game boot screen - shows game info before starting
+function renderGameBootScreen() {
+  const name = gameMetadata.name || gameName || '???';
+  const { width, height } = gameMetadata.geometry;
+  const engine = gameMetadata.engine || 'gamepak';
+
+  let html = '\n';
+  html += '<span style="color:#0f0">══════════════════════════════════════════════════</span>\n';
+  html += '\n';
+  html += '<span style="color:#f0f">                     L O A D I N G</span>\n';
+  html += '\n';
+  html += '\n';
+  html += `<span style="color:#0f0">    GAME:</span>     <span style="color:#fff">${name.toUpperCase()}</span>\n`;
+  html += `<span style="color:#0f0">    SCREEN:</span>   <span style="color:#fff">${width} × ${height}</span>\n`;
+  html += `<span style="color:#0f0">    ENGINE:</span>   <span style="color:#fff">${engine.toUpperCase()}</span>\n`;
+  html += '\n';
+  html += '\n';
+  html += '<span style="color:#f0f">                 ▓ PRESS START ▓</span>\n';
+  html += '\n';
+  html += '<span style="color:#0f0">══════════════════════════════════════════════════</span>\n';
 
   gameDisplayEl.innerHTML = html;
 }
