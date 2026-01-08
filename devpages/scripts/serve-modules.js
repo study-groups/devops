@@ -56,8 +56,27 @@ function startDevServer(port = 4000) {
     // Module serving middleware
     app.use(createModuleMiddleware());
 
-    // Serve the client directory
-    app.use(express.static(path.join(PROJECT_ROOT, 'client')));
+    // Serve the client directory at /client path
+    app.use('/client', express.static(path.join(PROJECT_ROOT, 'client')));
+
+    // Also serve css directory
+    app.use('/css', express.static(path.join(PROJECT_ROOT, 'client/css')));
+
+    // Serve tetra.js from tetra source (TETRA_SRC or relative path)
+    const tetraSrc = process.env.TETRA_SRC || path.resolve(PROJECT_ROOT, '../tetra');
+    app.use('/tetra', express.static(tetraSrc));
+
+    // API stubs - return empty responses to prevent client errors
+    app.get('/api/spaces/config', (req, res) => res.json({}));
+    app.get('/api/tetra/config/publishing', (req, res) => res.json({}));
+    app.get('/api/config', (req, res) => res.json({}));
+    app.get('/env', (req, res) => res.json({}));
+
+    // Auth API stubs
+    app.get('/api/auth/user', (req, res) => res.json({ user: null }));
+    app.post('/api/auth/login', (req, res) => res.json({ success: false, message: 'Auth not configured' }));
+    app.post('/api/auth/logout', (req, res) => res.json({ success: true }));
+    app.post('/api/auth/token/generate', (req, res) => res.json({ token: null }));
 
     // Fallback to index.html for SPA-like routing
     app.get('*', (req, res) => {

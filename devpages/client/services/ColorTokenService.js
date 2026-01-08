@@ -20,34 +20,80 @@ export class ColorTokenService {
         const docTheme = document?.documentElement?.getAttribute('data-theme');
         this.currentTheme = docTheme || 'dark'; // Match ThemeInitializer default
         this.currentPalettes = null;
-        this.init();
+        this._themeServiceUnsubscribe = null;
+
+        // Initialize palettes WITHOUT updating CSS variables
+        // CSS variables are managed by ThemeInitializer/ThemeService
+        this.initPalettes();
     }
 
     /**
-     * Initialize with detected or default theme
+     * Initialize palettes only (no CSS variable updates)
+     * CSS variables are owned by ThemeService, not ColorTokenService
      */
-    init() {
-        // Use detected theme, don't override what ThemeInitializer set
+    initPalettes() {
         const docTheme = document?.documentElement?.getAttribute('data-theme') || 'dark';
-        this.setTheme(docTheme);
+        const theme = ColorThemes.getTheme(docTheme);
+        if (theme) {
+            this.currentTheme = docTheme;
+            this.currentPalettes = theme.palettes;
+        } else {
+            const defaultTheme = ColorThemes.getTheme('default');
+            this.currentTheme = 'default';
+            this.currentPalettes = defaultTheme?.palettes || ColorPalettes;
+        }
+    }
+
+    /**
+     * Subscribe to ThemeService for coordinated theme changes
+     * Called by ThemeService after initialization
+     */
+    subscribeToThemeService(themeService) {
+        if (this._themeServiceUnsubscribe) {
+            this._themeServiceUnsubscribe();
+        }
+        this._themeServiceUnsubscribe = themeService.subscribe((theme) => {
+            console.log('[ColorTokenService] Theme changed via ThemeService:', theme?.mode || theme?.id);
+            const themeName = theme?.mode || 'dark';
+            this.setThemeWithoutCSSUpdate(themeName);
+        });
+        console.log('[ColorTokenService] Subscribed to ThemeService');
+    }
+
+    /**
+     * Set theme internally without updating CSS variables
+     * CSS variables are managed by ThemeService
+     */
+    setThemeWithoutCSSUpdate(themeName) {
+        const theme = ColorThemes.getTheme(themeName);
+        if (theme) {
+            this.currentTheme = themeName;
+            this.currentPalettes = theme.palettes;
+        }
     }
 
     /**
      * Set active theme
+     * @param {string} themeName - Theme name to set
+     * @param {Object} options - Options
+     * @param {boolean} options.updateCSS - Whether to update CSS variables (default: false, since ThemeService owns CSS)
      */
-    setTheme(themeName) {
+    setTheme(themeName, { updateCSS = false } = {}) {
         const theme = ColorThemes.getTheme(themeName);
         if (!theme) {
             console.error(`Theme not found: ${themeName}, using default`);
-            this.setTheme('default');
+            this.setTheme('default', { updateCSS });
             return;
         }
 
         this.currentTheme = themeName;
         this.currentPalettes = theme.palettes;
 
-        // Update CSS variables
-        this.updateCSSVariables();
+        // Only update CSS variables if explicitly requested
+        // By default, ThemeService owns CSS variable management
+        if (updateCSS) {
+            this.updateCSSVariables();
+        }
     }
 
     /**

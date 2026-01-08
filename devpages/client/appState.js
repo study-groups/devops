@@ -22,7 +22,6 @@ import { persistenceMiddleware } from './store/middleware/persistenceMiddleware.
 // Reducers
 import authReducer from './store/slices/authSlice.js';
 import pathReducer from './store/slices/pathSlice.js';
-import pathV2Reducer from './store/slices/pathSlice.v2.js';
 import { settingsReducer } from './store/slices/settingsSlice.js';
 import logReducer from './store/slices/logSlice.js';
 import { uiReducer, uiInitialState } from './store/uiSlice.js';
@@ -44,6 +43,9 @@ import { reduxLogMiddleware } from './store/middleware/reduxLogMiddleware.js';
 import { apiSlice } from './store/apiSlice.js';
 // Panel middleware removed - clean application
 
+// EventBus store injection (breaks circular dependency)
+import { setEventBusStore } from './eventBus.js';
+
 // Thunks and Actions
 import { authThunks } from './store/slices/authSlice.js';
 import { pathThunks, pathSlice } from './store/slices/pathSlice.js';
@@ -56,8 +58,7 @@ import { panelThunks } from './store/slices/panelSlice.js';
 // --- Root Reducer Configuration ---
 const rootReducer = {
     auth: authReducer,
-    path: pathReducer,
-    pathV2: pathV2Reducer, // New path slice - will replace path once migration complete
+    path: pathReducer,  // Consolidated v2 path slice with v1 compatibility
     settings: settingsReducer,
     log: logReducer,
     ui: uiReducer,
@@ -160,9 +161,9 @@ function initializeStore(preloadedState = {}) {
         });
 
         dispatch = appStore.dispatch;
-        
-        // Initialize the Dock Manager after the store is created
-        // dockManager.initialize(); // This line was removed as per the new_code, as dockManager is no longer imported.
+
+        // Inject store into eventBus (breaks circular dependency)
+        setEventBusStore(appStore);
 
         // Grouped thunks are now initialized here, after the store is created
         // This breaks the circular dependency race condition
@@ -195,6 +196,10 @@ function initializeStore(preloadedState = {}) {
             devTools: true,
         });
         dispatch = appStore.dispatch;
+
+        // Inject store into eventBus (fallback path)
+        setEventBusStore(appStore);
+
         // Ensure thunks are available even in fallback path
         thunks = {
             auth: authThunks,

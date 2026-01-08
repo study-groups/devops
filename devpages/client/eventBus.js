@@ -9,8 +9,13 @@
  * Common event naming convention: 'domain:action'
  * Examples: 'editor:contentChanged', 'auth:loginRequested', 'file:save'
  */
-import { appStore } from './appState.js';
 import { logEventBusEvent } from './store/slices/commSlice.js';
+
+// Store injection to break circular dependency with appState.js
+let _appStore = null;
+export function setEventBusStore(store) {
+    _appStore = store;
+}
 
 export class EventBus {
     constructor() {
@@ -39,8 +44,8 @@ export class EventBus {
             payload: data,
             timestamp: new Date().toISOString()
         };
-        if (appStore) {
-            appStore.dispatch(logEventBusEvent(logEntry));
+        if (_appStore) {
+            _appStore.dispatch(logEventBusEvent(logEntry));
         }
 
         if (!this.handlers.has(eventName)) {

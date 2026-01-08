@@ -15,6 +15,7 @@
 
 import { STORAGE_KEYS, migrateLegacyKeys } from '../constants/storageKeys.js';
 import { BUILT_IN_THEMES, DEFAULT_THEME_ID, getThemeById, validateTheme } from '../constants/themes.js';
+import { colorTokenService } from './ColorTokenService.js';
 
 class ThemeService {
   constructor() {
@@ -73,6 +74,11 @@ class ThemeService {
 
     // Setup embed message listener
     this.setupEmbedMessaging();
+
+    // Coordinate with ColorTokenService
+    if (colorTokenService) {
+      colorTokenService.subscribeToThemeService(this);
+    }
 
     this.initialized = true;
     console.log('[ThemeService] Initialized with theme:', this.currentTheme?.id);

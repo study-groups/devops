@@ -7,7 +7,7 @@
  * - No side effects, no data fetching
  */
 
-import { selectBreadcrumbs, selectCurrentPath } from '../store/slices/pathSlice.v2.js';
+import { selectBreadcrumbs, selectCurrentPath } from '../store/slices/pathSlice.js';
 import { getPathNavigator } from '../services/PathNavigator.js';
 
 export class BreadcrumbsComponent {

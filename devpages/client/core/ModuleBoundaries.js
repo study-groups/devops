@@ -11,17 +11,15 @@ export const MODULE_BOUNDARIES = {
         path: 'client/core/',
         responsibilities: [
             'Application initialization (AppInitializer)',
-            'Event delegation (EventDelegationManager)', 
             'Module boundary enforcement',
             'System-wide utilities'
         ],
         owns: [
             'window.APP initialization',
-            'Global event delegation',
             'Module registration'
         ],
         dependencies: [],
-        exports: ['AppInitializer', 'EventDelegationManager', 'ModuleBoundaries']
+        exports: ['AppInitializer', 'ModuleBoundaries']
     },
 
     // Authentication and user management

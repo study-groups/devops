@@ -10,8 +10,7 @@
  * This is the ONLY place that should dispatch navigation actions.
  */
 
-import { navigateTo, navigateBack, navigateForward, setError } from '../store/slices/pathSlice.v2.js';
-import { _navigateToPath } from '../store/slices/pathSlice.js'; // Old slice for compatibility
+import { navigateTo, navigateBack, navigateForward, setError, _navigateToPath } from '../store/slices/pathSlice.js';
 import { apiSlice } from '../store/apiSlice.js';
 
 export class PathNavigator {
