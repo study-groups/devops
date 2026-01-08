@@ -20,6 +20,8 @@ export function setEventBusStore(store) {
 export class EventBus {
     constructor() {
         this.handlers = new Map();
+        // Track subscriptions by source (panel ID, component ID, etc.) for cleanup
+        this.sourceSubscriptions = new Map();
     }
 
     on(event, handler) {
@@ -36,6 +38,97 @@ export class EventBus {
             handlers.delete(handler);
         }
         return this;
+    }
+
+    /**
+     * Subscribe with source tracking for automatic cleanup
+     * @param {string} sourceId - ID of subscribing component (panel ID, etc.)
+     * @param {string} eventName - Event name
+     * @param {Function} handler - Event handler
+     * @returns {Function} Unsubscribe function
+     */
+    subscribeAs(sourceId, eventName, handler) {
+        if (!sourceId || !eventName || typeof handler !== 'function') {
+            console.error('[EventBus] Invalid subscribeAs parameters', { sourceId, eventName });
+            return () => {};
+        }
+
+        // Track subscription for cleanup
+        if (!this.sourceSubscriptions.has(sourceId)) {
+            this.sourceSubscriptions.set(sourceId, []);
+        }
+
+        // Wrap handler for error handling
+        const wrappedHandler = (data) => {
+            try {
+                const result = handler(data);
+                if (result && typeof result.catch === 'function') {
+                    result.catch(error => {
+                        console.error(`[EventBus] Async error in handler for ${eventName} (source: ${sourceId}):`, error);
+                    });
+                }
+            } catch (error) {
+                console.error(`[EventBus] Error in handler for ${eventName} (source: ${sourceId}):`, error);
+            }
+        };
+
+        this.on(eventName, wrappedHandler);
+        this.sourceSubscriptions.get(sourceId).push({ eventName, handler: wrappedHandler });
+
+        // Return unsubscribe function
+        return () => {
+            this.off(eventName, wrappedHandler);
+            this._removeSourceSubscription(sourceId, wrappedHandler);
+        };
+    }
+
+    /**
+     * Clean up all subscriptions for a source
+     * @param {string} sourceId - Source ID to cleanup
+     */
+    cleanupSource(sourceId) {
+        const subs = this.sourceSubscriptions.get(sourceId);
+        if (!subs) return;
+
+        for (const { eventName, handler } of subs) {
+            this.off(eventName, handler);
+        }
+        this.sourceSubscriptions.delete(sourceId);
+        console.log(`[EventBus] Cleaned up subscriptions for source: ${sourceId}`);
+    }
+
+    /**
+     * Get all sources with active subscriptions
+     * @returns {string[]} Array of source IDs
+     */
+    getActiveSources() {
+        return Array.from(this.sourceSubscriptions.keys());
+    }
+
+    /**
+     * Get subscription count for a source
+     * @param {string} sourceId
+     * @returns {number}
+     */
+    getSourceSubscriptionCount(sourceId) {
+        const subs = this.sourceSubscriptions.get(sourceId);
+        return subs ? subs.length : 0;
+    }
+
+    /**
+     * @private
+     */
+    _removeSourceSubscription(sourceId, handler) {
+        const subs = this.sourceSubscriptions.get(sourceId);
+        if (!subs) return;
+
+        const index = subs.findIndex(s => s.handler === handler);
+        if (index !== -1) {
+            subs.splice(index, 1);
+        }
+        if (subs.length === 0) {
+            this.sourceSubscriptions.delete(sourceId);
+        }
     }
 
     emit(eventName, data) {

@@ -58,11 +58,6 @@ const panelSlice = createSlice({
     reducers: {
         createPanel: (state, action) => {
             const { id, title, type, position, size, visible = false, collapsed = false, zIndex, config } = action.payload;
-            
-            // Defensively ensure the panels object exists on the state
-            if (!state.panels) {
-                state.panels = {};
-            }
 
             // Don't overwrite existing panel state - just update what's needed
             if (state.panels[id]) {
@@ -242,17 +237,14 @@ const panelSlice = createSlice({
         // New unified panel state actions (replacing uiSlice actions)
         setSidebarPanelExpanded: (state, action) => {
             const { panelId, expanded } = action.payload;
-            
+
             // Update in panels if it exists
-            if (state.panels && state.panels[panelId]) {
+            if (state.panels[panelId]) {
                 state.panels[panelId].sidebarExpanded = expanded;
                 state.panels[panelId].lastUpdated = Date.now();
             }
-            
+
             // Always maintain sidebarPanels for sidebar state
-            if (!state.sidebarPanels) {
-                state.sidebarPanels = {};
-            }
             if (!state.sidebarPanels[panelId]) {
                 state.sidebarPanels[panelId] = { expanded: false };
             }
@@ -392,9 +384,6 @@ const panelSlice = createSlice({
         // Panel ordering actions
         setPanelOrder: (state, action) => {
             const { category, panelIds } = action.payload;
-            if (!state.panelOrders) {
-                state.panelOrders = { dev: [], settings: [], publish: [] };
-            }
             state.panelOrders[category] = panelIds;
         },
 
@@ -412,9 +401,6 @@ const panelSlice = createSlice({
 
         initializePanelOrder: (state, action) => {
             const { category, panelIds } = action.payload;
-            if (!state.panelOrders) {
-                state.panelOrders = { dev: [], settings: [], publish: [] };
-            }
             // Only initialize if category order is empty
             if (!state.panelOrders[category] || state.panelOrders[category].length === 0) {
                 state.panelOrders[category] = panelIds;

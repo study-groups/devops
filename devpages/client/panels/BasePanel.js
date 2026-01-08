@@ -12,6 +12,7 @@
 import { appStore } from '../appState.js';
 import { panelActions } from '../store/slices/panelSlice.js';
 import { zIndexManager } from '../utils/ZIndexManager.js';
+import { eventBus } from '../eventBus.js';
 
 /**
  * Simple EventEmitter for panel-to-panel communication
@@ -143,8 +144,8 @@ export class BasePanel {
             isOpen: false
         };
 
-        // Global event bus (for inter-panel communication)
-        this.globalEvents = window.APP?.panels?.eventBus;
+        // Global event bus (unified eventBus with subscription tracking)
+        this.globalEvents = eventBus;
         this.globalSubscriptions = [];
 
         // Bind methods
@@ -497,7 +498,8 @@ export class BasePanel {
             return () => {};
         }
 
-        const unsubscribe = this.globalEvents.subscribe(this.id, event, callback);
+        // Use unified eventBus.subscribeAs for tracked subscriptions
+        const unsubscribe = this.globalEvents.subscribeAs(this.id, event, callback);
         this.globalSubscriptions.push(unsubscribe);
         return unsubscribe;
     }
@@ -514,7 +516,12 @@ export class BasePanel {
             return;
         }
 
-        this.globalEvents.publish(this.id, event, data);
+        // Emit with standardized payload including source
+        this.globalEvents.emit(event, {
+            source: this.id,
+            timestamp: Date.now(),
+            data: data
+        });
     }
 
     /**
@@ -525,9 +532,9 @@ export class BasePanel {
         this.globalSubscriptions.forEach(unsubscribe => unsubscribe());
         this.globalSubscriptions = [];
 
-        // Cleanup panel event bus subscriptions
+        // Cleanup all tracked subscriptions for this panel via unified eventBus
         if (this.globalEvents) {
-            this.globalEvents.cleanup(this.id);
+            this.globalEvents.cleanupSource(this.id);
         }
 
         // Unregister from ZIndexManager

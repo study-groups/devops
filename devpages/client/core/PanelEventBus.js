@@ -1,14 +1,21 @@
 /**
  * PanelEventBus.js - Global event bus for inter-panel communication
  *
- * Provides a standardized way for panels to communicate with each other
- * without tight coupling. Built on top of existing pubsub system.
+ * @deprecated This module is deprecated. Use the unified eventBus from '../eventBus.js' instead.
+ * The unified eventBus now includes:
+ * - subscribeAs(sourceId, event, handler) - Subscribe with source tracking
+ * - cleanupSource(sourceId) - Cleanup all subscriptions for a source
+ * - getActiveSources() - Get all active source IDs
  *
- * Features:
- * - Panel-to-panel communication
- * - Automatic subscription tracking
- * - Cleanup on panel destroy
- * - Event payload standardization
+ * Migration:
+ *   Before: panelEventBus.subscribe(panelId, event, callback)
+ *   After:  eventBus.subscribeAs(panelId, event, callback)
+ *
+ *   Before: panelEventBus.publish(panelId, event, data)
+ *   After:  eventBus.emit(event, { source: panelId, timestamp: Date.now(), data })
+ *
+ *   Before: panelEventBus.cleanup(panelId)
+ *   After:  eventBus.cleanupSource(panelId)
  */
 
 /**
@@ -30,7 +37,15 @@ export class PanelEventBus {
             eventCounts: new Map()
         };
 
-        console.log('[PanelEventBus] Initialized');
+        this._deprecationWarned = false;
+        console.log('[PanelEventBus] Initialized (DEPRECATED - use eventBus from eventBus.js)');
+    }
+
+    _warnDeprecation(method) {
+        if (!this._deprecationWarned) {
+            console.warn(`[PanelEventBus] DEPRECATED: ${method}() called. Migrate to unified eventBus from eventBus.js`);
+            this._deprecationWarned = true;
+        }
     }
 
     /**
@@ -55,6 +70,7 @@ export class PanelEventBus {
      * @returns {Function} Unsubscribe function
      */
     subscribe(panelId, event, callback) {
+        this._warnDeprecation('subscribe');
         if (!this.pubsub) {
             console.error('[PanelEventBus] Not initialized. Call initialize() first.');
             return () => {};
@@ -104,6 +120,7 @@ export class PanelEventBus {
      * @param {*} data - Event data
      */
     publish(panelId, event, data) {
+        this._warnDeprecation('publish');
         if (!this.pubsub) {
             console.error('[PanelEventBus] Not initialized. Call initialize() first.');
             return;

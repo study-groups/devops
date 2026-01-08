@@ -17,6 +17,7 @@
 import { configureStore } from '/node_modules/@reduxjs/toolkit/dist/redux-toolkit.browser.mjs';
 import panelReducer from './store/slices/panelSlice.js';
 import { storageService } from './services/storageService.js';
+import { deepMerge } from './utils/deepMerge.js';
 import { persistenceMiddleware } from './store/middleware/persistenceMiddleware.js';
 
 // Reducers
@@ -94,16 +95,14 @@ export { appStore, dispatch, initializeStore };
 function safeLoadPersistedState(key, defaultState = {}) {
     try {
         const persistedState = storageService.getItem(key);
-        const result = persistedState ? { ...defaultState, ...persistedState } : defaultState;
+        // Deep merge preserves nested defaults when persisted state is missing properties
+        const result = persistedState ? deepMerge(defaultState, persistedState) : defaultState;
 
         if (key === 'ui') {
             console.log(`[AppState.safeLoadPersistedState] 🔍 LOADING '${key}':`, {
                 'persistedState from localStorage': persistedState,
                 'defaultState': defaultState,
-                'defaultState.logVisible': defaultState?.logVisible,
-                'persistedState?.logVisible': persistedState?.logVisible,
-                'merged result': result,
-                'result.logVisible': result?.logVisible
+                'merged result (deep)': result
             });
         }
 
