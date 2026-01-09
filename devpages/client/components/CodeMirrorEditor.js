@@ -13,7 +13,8 @@ import { markdown } from '@codemirror/lang-markdown';
 import { json } from '@codemirror/lang-json';
 import { html } from '@codemirror/lang-html';
 import { css } from '@codemirror/lang-css';
-import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, bracketMatching, foldGutter, foldKeymap } from '@codemirror/language';
+import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, bracketMatching, foldGutter, foldKeymap, HighlightStyle } from '@codemirror/language';
+import { tags } from '@lezer/highlight';
 
 // Dark theme styling
 const darkTheme = EditorView.theme({
@@ -85,9 +86,6 @@ const darkTheme = EditorView.theme({
 }, { dark: true });
 
 // Syntax highlighting colors (VS Code-like dark theme)
-import { HighlightStyle } from '@codemirror/language';
-import { tags } from '@lezer/highlight';
-
 const darkHighlightStyle = HighlightStyle.define([
     { tag: tags.keyword, color: '#569cd6' },
     { tag: tags.operator, color: '#d4d4d4' },
