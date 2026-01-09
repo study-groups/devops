@@ -8,14 +8,36 @@
 #   -vvv    : Multiline detailed format per service
 #   -vvvv   : Full metadata dump
 
-# List running processes
-# Usage: tsm_list [-v|-vv|-vvv|-vvvv] [--all|-a] [-A|--all-users] [--ports|-p] [--json]
+# List running processes or service definitions
+# Usage: tsm_list [available|enabled] [-v...] [-a] [-U] [-p] [-g] [--org ORG] [--json]
+#
+# Modes:
+#   (default)  - Running processes
+#   available  - Service definitions in services-available/
+#   enabled    - Service definitions in services-enabled/
+#
+# Flags:
+#   -a         - Include stopped processes (running mode only)
+#   -U         - All users (requires root)
+#   --org ORG  - Filter by org name
+#   -g         - Group by stack
+#   -p         - Port-focused view
+#   --json     - JSON output
 tsm_list() {
+    local mode="running"
     local verbosity=0
     local show_all=false
     local show_ports=false
     local json_output=false
     local all_users=false
+    local group_by_stack=false
+    local filter_org=""
+
+    # Check for mode as first positional arg
+    case "${1:-}" in
+        available|avail) mode="available"; shift ;;
+        enabled)         mode="enabled"; shift ;;
+    esac
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -24,9 +46,11 @@ tsm_list() {
             -vv)             verbosity=2 ;;
             -v)              verbosity=1 ;;
             -a|--all)        show_all=true ;;
-            -A|--all-users)  all_users=true ;;
+            -U|--all-users)  all_users=true ;;
+            --org)           filter_org="$2"; shift ;;
             -p|--ports)      show_ports=true ;;
             --json)          json_output=true ;;
+            -g|--group)      group_by_stack=true ;;
             *)               break ;;
         esac
         shift
@@ -34,21 +58,34 @@ tsm_list() {
 
     # Set global for helper functions
     _TSM_LIST_ALL_USERS="$all_users"
+    _TSM_LIST_FILTER_ORG="$filter_org"
 
-    # Sweep stale processes first
-    _tsm_sweep_stale
+    case "$mode" in
+        available)
+            _tsm_list_available "$json_output"
+            ;;
+        enabled)
+            _tsm_list_enabled "$json_output"
+            ;;
+        running)
+            # Sweep stale processes first
+            _tsm_sweep_stale
 
-    if [[ "$json_output" == "true" ]]; then
-        _tsm_list_json "$show_all"
-    elif [[ "$show_ports" == "true" ]]; then
-        _tsm_list_ports
-    elif [[ $verbosity -ge 3 ]]; then
-        _tsm_list_long "$show_all" "$verbosity"
-    elif [[ $verbosity -ge 1 ]]; then
-        _tsm_list_verbose "$show_all" "$verbosity"
-    else
-        _tsm_list_table "$show_all"
-    fi
+            if [[ "$json_output" == "true" ]]; then
+                _tsm_list_json "$show_all"
+            elif [[ "$show_ports" == "true" ]]; then
+                _tsm_list_ports
+            elif [[ "$group_by_stack" == "true" ]]; then
+                _tsm_list_grouped "$show_all"
+            elif [[ $verbosity -ge 3 ]]; then
+                _tsm_list_long "$show_all" "$verbosity"
+            elif [[ $verbosity -ge 1 ]]; then
+                _tsm_list_verbose "$show_all" "$verbosity"
+            else
+                _tsm_list_table "$show_all"
+            fi
+            ;;
+    esac
 }
 
 # Sweep stale (dead) processes
@@ -208,6 +245,186 @@ _tsm_list_table() {
     done
 
     [[ $count -eq 0 ]] && echo "(no processes)"
+}
+
+# Stack-grouped table format (-g, --group)
+_tsm_list_grouped() {
+    local show_all="$1"
+    local show_user=false
+
+    [[ "$_TSM_LIST_ALL_USERS" == "true" ]] && tsm_multi_user_enabled && show_user=true
+    [[ -z "${_TSM_COLORS_LOADED:-}" ]] && source "${TETRA_SRC}/bash/tsm/lib/colors.sh"
+
+    local use_color=false
+    [[ "$_TSM_HAS_TDS" == true ]] && [[ -t 1 ]] && use_color=true
+
+    # Collect processes by stack
+    declare -A stack_procs  # stack_name -> newline-separated process dirs
+    local standalone_procs=""
+
+    # Get process directories
+    local processes_dirs=()
+    if [[ "$show_user" == true ]]; then
+        mapfile -t processes_dirs < <(tsm_get_all_process_dirs)
+    else
+        [[ -d "$TSM_PROCESSES_DIR" ]] && processes_dirs+=("$TSM_PROCESSES_DIR")
+    fi
+
+    # First pass: collect and categorize by stack
+    for processes_dir in "${processes_dirs[@]}"; do
+        [[ -d "$processes_dir" ]] || continue
+
+        for dir in "$processes_dir"/*/; do
+            [[ -d "$dir" ]] || continue
+            local name=$(basename "$dir")
+            [[ "$name" == .* ]] && continue
+
+            local meta="${dir}meta.json"
+            [[ -f "$meta" ]] || continue
+
+            local status=$(jq -r '.status // "unknown"' "$meta" 2>/dev/null)
+            local pid=$(jq -r '.pid // "-"' "$meta" 2>/dev/null)
+
+            if tsm_is_pid_alive "$pid"; then
+                status="online"
+            else
+                [[ "$status" == "online" ]] && status="stopped"
+            fi
+
+            [[ "$show_all" != "true" && "$status" != "online" ]] && continue
+
+            local stack=$(jq -r '.stack // empty' "$meta" 2>/dev/null)
+
+            if [[ -n "$stack" && "$stack" != "null" ]]; then
+                stack_procs[$stack]+="${dir}"$'\n'
+            else
+                standalone_procs+="${dir}"$'\n'
+            fi
+        done
+    done
+
+    # Get sorted stack names
+    local sorted_stacks=()
+    for stack in "${!stack_procs[@]}"; do
+        sorted_stacks+=("$stack")
+    done
+    IFS=$'\n' sorted_stacks=($(sort <<<"${sorted_stacks[*]}")); unset IFS
+
+    local w_id=3 w_name=22 w_pid=6 w_port=5 w_status=7 w_uptime=10
+    local total_count=0
+
+    # Print each stack group
+    for stack in "${sorted_stacks[@]}"; do
+        # Stack header
+        if [[ "$use_color" == true ]]; then
+            tds_text_color "accent.warning"
+            printf "=== %s ===" "$stack"
+            reset_color
+            echo
+        else
+            printf "=== %s ===\n" "$stack"
+        fi
+
+        # Column headers
+        _tsm_grouped_header "$use_color" "$w_id" "$w_name" "$w_pid" "$w_port" "$w_status" "$w_uptime"
+
+        # Print processes in this stack
+        while IFS= read -r dir; do
+            [[ -z "$dir" ]] && continue
+            _tsm_grouped_row "$dir" "$use_color" "$w_id" "$w_name" "$w_pid" "$w_port" "$w_status" "$w_uptime"
+            ((total_count++))
+        done <<< "${stack_procs[$stack]}"
+
+        echo  # Blank line between stacks
+    done
+
+    # Print standalone services
+    if [[ -n "$standalone_procs" ]]; then
+        if [[ "$use_color" == true ]]; then
+            tds_text_color "text.muted"
+            printf "=== [standalone] ==="
+            reset_color
+            echo
+        else
+            printf "=== [standalone] ===\n"
+        fi
+
+        _tsm_grouped_header "$use_color" "$w_id" "$w_name" "$w_pid" "$w_port" "$w_status" "$w_uptime"
+
+        while IFS= read -r dir; do
+            [[ -z "$dir" ]] && continue
+            _tsm_grouped_row "$dir" "$use_color" "$w_id" "$w_name" "$w_pid" "$w_port" "$w_status" "$w_uptime"
+            ((total_count++))
+        done <<< "$standalone_procs"
+    fi
+
+    [[ $total_count -eq 0 ]] && echo "(no processes)"
+}
+
+# Helper: print table header for grouped output
+_tsm_grouped_header() {
+    local use_color="$1" w_id="$2" w_name="$3" w_pid="$4" w_port="$5" w_status="$6" w_uptime="$7"
+
+    if [[ "$use_color" == true ]]; then
+        tds_text_color "structural.primary"
+        printf "%-${w_id}s  %-${w_name}s  %-${w_pid}s  %-${w_port}s  %-${w_status}s  %s" \
+            "ID" "NAME" "PID" "PORT" "STATUS" "UPTIME"
+        reset_color
+        echo
+        tds_text_color "text.dim"
+        printf "%-${w_id}s  %-${w_name}s  %-${w_pid}s  %-${w_port}s  %-${w_status}s  %s" \
+            "---" "----------------------" "------" "-----" "-------" "------"
+        reset_color
+        echo
+    else
+        printf "%-${w_id}s  %-${w_name}s  %-${w_pid}s  %-${w_port}s  %-${w_status}s  %s\n" \
+            "ID" "NAME" "PID" "PORT" "STATUS" "UPTIME"
+        printf "%-${w_id}s  %-${w_name}s  %-${w_pid}s  %-${w_port}s  %-${w_status}s  %s\n" \
+            "---" "----------------------" "------" "-----" "-------" "------"
+    fi
+}
+
+# Helper: print single process row for grouped output
+_tsm_grouped_row() {
+    local dir="$1" use_color="$2" w_id="$3" w_name="$4" w_pid="$5" w_port="$6" w_status="$7" w_uptime="$8"
+
+    local meta="${dir}meta.json"
+    [[ -f "$meta" ]] || return
+
+    local name=$(basename "$dir")
+    local id=$(jq -r '.id // .tsm_id // "-"' "$meta" 2>/dev/null)
+    local pid=$(jq -r '.pid // "-"' "$meta" 2>/dev/null)
+    local port=$(jq -r '.port // "-"' "$meta" 2>/dev/null)
+    local status=$(jq -r '.status // "unknown"' "$meta" 2>/dev/null)
+    local started=$(jq -r '.started // .start_time // empty' "$meta" 2>/dev/null)
+
+    if tsm_is_pid_alive "$pid"; then
+        status="online"
+    else
+        [[ "$status" == "online" ]] && status="stopped"
+    fi
+
+    local uptime="-"
+    if [[ "$status" == "online" && -n "$started" ]]; then
+        uptime=$(tsm_format_uptime $(($(date +%s) - started)))
+    fi
+
+    [[ ${#name} -gt $w_name ]] && name="${name:0:$((w_name-3))}..."
+    [[ "$port" == "null" || "$port" == "0" ]] && port="-"
+
+    if [[ "$use_color" == true ]]; then
+        tds_text_color "text.muted"; printf "%-${w_id}s" "$id"; reset_color; printf "  "
+        tsm_format_name "$name" "$w_name"; printf "  "
+        tds_text_color "text.tertiary"; printf "%-${w_pid}s" "$pid"; reset_color; printf "  "
+        tds_text_color "text.tertiary"; printf "%-${w_port}s" "$port"; reset_color; printf "  "
+        local status_token=$(_tsm_status_token "$status")
+        tds_text_color "$status_token"; printf "%-${w_status}s" "$status"; reset_color; printf "  "
+        tds_text_color "text.muted"; printf "%s" "$uptime"; reset_color
+        echo
+    else
+        printf "%-${w_id}s  %-${w_name}s  %-${w_pid}s  %-${w_port}s  %-${w_status}s  %s\n" \
+            "$id" "$name" "$pid" "$port" "$status" "$uptime"
+    fi
 }
 
 # Verbose table format (-v, -vv)
@@ -723,4 +940,374 @@ _tsm_list_json() {
     echo "]"
 }
 
-export -f tsm_list _tsm_sweep_stale _tsm_list_table _tsm_list_verbose _tsm_list_long _tsm_list_ports _tsm_list_json
+# === AVAILABLE/ENABLED SERVICE LISTING ===
+
+# Get all services-available directories (current user or all users if -U)
+_tsm_get_services_dirs() {
+    local type="$1"  # "available" or "enabled"
+    local dirs=()
+
+    if [[ "$_TSM_LIST_ALL_USERS" == "true" ]] && tsm_multi_user_enabled; then
+        # All users' orgs
+        while IFS= read -r user_home; do
+            for org_dir in "$user_home"/tetra/orgs/*/; do
+                [[ -d "$org_dir" ]] || continue
+                local services_dir="${org_dir}tsm/services-${type}"
+                [[ -d "$services_dir" ]] && echo "$services_dir"
+            done
+        done < <(tsm_discover_user_homes)
+    else
+        # Current user's orgs only
+        for org_dir in "$TETRA_DIR"/orgs/*/; do
+            [[ -d "$org_dir" ]] || continue
+            local services_dir="${org_dir}tsm/services-${type}"
+            [[ -d "$services_dir" ]] && echo "$services_dir"
+        done
+    fi
+}
+
+# Extract org name from services path
+# /home/dev/tetra/orgs/tetra/tsm/services-available -> tetra
+_tsm_extract_org() {
+    local path="$1"
+    if [[ "$path" =~ /orgs/([^/]+)/tsm/ ]]; then
+        echo "${BASH_REMATCH[1]}"
+    else
+        echo "unknown"
+    fi
+}
+
+# Check if a service is enabled (has symlink in services-enabled)
+_tsm_is_enabled() {
+    local name="$1"
+    local org="$2"
+    local user_home="$3"
+
+    local enabled_dir
+    if [[ -n "$user_home" ]]; then
+        enabled_dir="$user_home/tetra/orgs/$org/tsm/services-enabled"
+    else
+        enabled_dir="$TETRA_DIR/orgs/$org/tsm/services-enabled"
+    fi
+
+    [[ -L "$enabled_dir/${name}.tsm" ]]
+}
+
+# List available services
+_tsm_list_available() {
+    local json_output="$1"
+    local show_user=false
+    local count=0
+
+    [[ "$_TSM_LIST_ALL_USERS" == "true" ]] && tsm_multi_user_enabled && show_user=true
+    [[ -z "${_TSM_COLORS_LOADED:-}" ]] && source "${TETRA_SRC}/bash/tsm/lib/colors.sh"
+
+    local use_color=false
+    [[ "$_TSM_HAS_TDS" == true ]] && [[ -t 1 ]] && use_color=true
+
+    if [[ "$json_output" == "true" ]]; then
+        _tsm_list_available_json
+        return
+    fi
+
+    # Column widths
+    local w_user=10 w_org=12 w_name=20 w_port=6 w_en=3 w_cmd=40
+
+    # Header
+    if [[ "$use_color" == true ]]; then
+        tds_text_color "structural.primary"
+        if [[ "$show_user" == true ]]; then
+            printf "%-${w_user}s  %-${w_org}s  %-${w_name}s  %-${w_port}s  %-${w_en}s  %s" \
+                "USER" "ORG" "NAME" "PORT" "EN" "COMMAND"
+        else
+            printf "%-${w_org}s  %-${w_name}s  %-${w_port}s  %-${w_en}s  %s" \
+                "ORG" "NAME" "PORT" "EN" "COMMAND"
+        fi
+        reset_color; echo
+        tds_text_color "text.dim"
+        if [[ "$show_user" == true ]]; then
+            printf "%-${w_user}s  %-${w_org}s  %-${w_name}s  %-${w_port}s  %-${w_en}s  %s" \
+                "----------" "------------" "--------------------" "------" "---" "----------------------------------------"
+        else
+            printf "%-${w_org}s  %-${w_name}s  %-${w_port}s  %-${w_en}s  %s" \
+                "------------" "--------------------" "------" "---" "----------------------------------------"
+        fi
+        reset_color; echo
+    else
+        if [[ "$show_user" == true ]]; then
+            printf "%-${w_user}s  %-${w_org}s  %-${w_name}s  %-${w_port}s  %-${w_en}s  %s\n" \
+                "USER" "ORG" "NAME" "PORT" "EN" "COMMAND"
+            printf "%-${w_user}s  %-${w_org}s  %-${w_name}s  %-${w_port}s  %-${w_en}s  %s\n" \
+                "----------" "------------" "--------------------" "------" "---" "----------------------------------------"
+        else
+            printf "%-${w_org}s  %-${w_name}s  %-${w_port}s  %-${w_en}s  %s\n" \
+                "ORG" "NAME" "PORT" "EN" "COMMAND"
+            printf "%-${w_org}s  %-${w_name}s  %-${w_port}s  %-${w_en}s  %s\n" \
+                "------------" "--------------------" "------" "---" "----------------------------------------"
+        fi
+    fi
+
+    # Iterate services
+    while IFS= read -r services_dir; do
+        [[ -d "$services_dir" ]] || continue
+
+        local org=$(_tsm_extract_org "$services_dir")
+
+        # Apply org filter
+        [[ -n "$_TSM_LIST_FILTER_ORG" && "$org" != "$_TSM_LIST_FILTER_ORG" ]] && continue
+
+        local owner=""
+        [[ "$show_user" == true ]] && owner=$(tsm_extract_username "$services_dir")
+
+        # Get user home for enabled check
+        local user_home=""
+        if [[ "$services_dir" =~ ^(/home/[^/]+|/Users/[^/]+|/root) ]]; then
+            user_home="${BASH_REMATCH[1]}"
+        fi
+
+        for f in "$services_dir"/*.tsm; do
+            [[ -f "$f" ]] || continue
+            local name=$(basename "$f" .tsm)
+
+            # Read service definition
+            local TSM_NAME="" TSM_COMMAND="" TSM_PORT=""
+            source "$f" 2>/dev/null
+
+            local port="${TSM_PORT:-auto}"
+            local cmd="${TSM_COMMAND:-}"
+            [[ ${#cmd} -gt $w_cmd ]] && cmd="${cmd:0:$((w_cmd-3))}..."
+
+            # Check if enabled
+            local enabled=" "
+            if _tsm_is_enabled "$name" "$org" "$user_home"; then
+                enabled="*"
+            fi
+
+            if [[ "$use_color" == true ]]; then
+                if [[ "$show_user" == true ]]; then
+                    tds_text_color "accent.info"; printf "%-${w_user}s" "$owner"; reset_color; printf "  "
+                fi
+                tds_text_color "text.muted"; printf "%-${w_org}s" "$org"; reset_color; printf "  "
+                tds_text_color "text.primary"; printf "%-${w_name}s" "$name"; reset_color; printf "  "
+                tds_text_color "text.tertiary"; printf "%-${w_port}s" "$port"; reset_color; printf "  "
+                if [[ "$enabled" == "*" ]]; then
+                    tds_text_color "feedback.success"; printf "%-${w_en}s" "$enabled"; reset_color
+                else
+                    printf "%-${w_en}s" "$enabled"
+                fi
+                printf "  "
+                tds_text_color "text.muted"; printf "%s" "$cmd"; reset_color
+                echo
+            else
+                if [[ "$show_user" == true ]]; then
+                    printf "%-${w_user}s  %-${w_org}s  %-${w_name}s  %-${w_port}s  %-${w_en}s  %s\n" \
+                        "$owner" "$org" "$name" "$port" "$enabled" "$cmd"
+                else
+                    printf "%-${w_org}s  %-${w_name}s  %-${w_port}s  %-${w_en}s  %s\n" \
+                        "$org" "$name" "$port" "$enabled" "$cmd"
+                fi
+            fi
+
+            ((count++))
+        done
+    done < <(_tsm_get_services_dirs "available")
+
+    [[ $count -eq 0 ]] && echo "(no services available)"
+}
+
+# List enabled services
+_tsm_list_enabled() {
+    local json_output="$1"
+    local show_user=false
+    local count=0
+
+    [[ "$_TSM_LIST_ALL_USERS" == "true" ]] && tsm_multi_user_enabled && show_user=true
+    [[ -z "${_TSM_COLORS_LOADED:-}" ]] && source "${TETRA_SRC}/bash/tsm/lib/colors.sh"
+
+    local use_color=false
+    [[ "$_TSM_HAS_TDS" == true ]] && [[ -t 1 ]] && use_color=true
+
+    if [[ "$json_output" == "true" ]]; then
+        _tsm_list_enabled_json
+        return
+    fi
+
+    # Column widths
+    local w_user=10 w_org=12 w_name=20 w_port=6 w_cmd=40
+
+    # Header
+    if [[ "$use_color" == true ]]; then
+        tds_text_color "structural.primary"
+        if [[ "$show_user" == true ]]; then
+            printf "%-${w_user}s  %-${w_org}s  %-${w_name}s  %-${w_port}s  %s" \
+                "USER" "ORG" "NAME" "PORT" "COMMAND"
+        else
+            printf "%-${w_org}s  %-${w_name}s  %-${w_port}s  %s" \
+                "ORG" "NAME" "PORT" "COMMAND"
+        fi
+        reset_color; echo
+        tds_text_color "text.dim"
+        if [[ "$show_user" == true ]]; then
+            printf "%-${w_user}s  %-${w_org}s  %-${w_name}s  %-${w_port}s  %s" \
+                "----------" "------------" "--------------------" "------" "----------------------------------------"
+        else
+            printf "%-${w_org}s  %-${w_name}s  %-${w_port}s  %s" \
+                "------------" "--------------------" "------" "----------------------------------------"
+        fi
+        reset_color; echo
+    else
+        if [[ "$show_user" == true ]]; then
+            printf "%-${w_user}s  %-${w_org}s  %-${w_name}s  %-${w_port}s  %s\n" \
+                "USER" "ORG" "NAME" "PORT" "COMMAND"
+            printf "%-${w_user}s  %-${w_org}s  %-${w_name}s  %-${w_port}s  %s\n" \
+                "----------" "------------" "--------------------" "------" "----------------------------------------"
+        else
+            printf "%-${w_org}s  %-${w_name}s  %-${w_port}s  %s\n" \
+                "ORG" "NAME" "PORT" "COMMAND"
+            printf "%-${w_org}s  %-${w_name}s  %-${w_port}s  %s\n" \
+                "------------" "--------------------" "------" "----------------------------------------"
+        fi
+    fi
+
+    # Iterate enabled services
+    while IFS= read -r services_dir; do
+        [[ -d "$services_dir" ]] || continue
+
+        local org=$(_tsm_extract_org "$services_dir")
+
+        # Apply org filter
+        [[ -n "$_TSM_LIST_FILTER_ORG" && "$org" != "$_TSM_LIST_FILTER_ORG" ]] && continue
+
+        local owner=""
+        [[ "$show_user" == true ]] && owner=$(tsm_extract_username "$services_dir")
+
+        for f in "$services_dir"/*.tsm; do
+            [[ -L "$f" ]] || continue  # Only symlinks in enabled
+            [[ -f "$f" ]] || continue
+            local name=$(basename "$f" .tsm)
+
+            # Read service definition
+            local TSM_NAME="" TSM_COMMAND="" TSM_PORT=""
+            source "$f" 2>/dev/null
+
+            local port="${TSM_PORT:-auto}"
+            local cmd="${TSM_COMMAND:-}"
+            [[ ${#cmd} -gt $w_cmd ]] && cmd="${cmd:0:$((w_cmd-3))}..."
+
+            if [[ "$use_color" == true ]]; then
+                if [[ "$show_user" == true ]]; then
+                    tds_text_color "accent.info"; printf "%-${w_user}s" "$owner"; reset_color; printf "  "
+                fi
+                tds_text_color "text.muted"; printf "%-${w_org}s" "$org"; reset_color; printf "  "
+                tds_text_color "feedback.success"; printf "%-${w_name}s" "$name"; reset_color; printf "  "
+                tds_text_color "text.tertiary"; printf "%-${w_port}s" "$port"; reset_color; printf "  "
+                tds_text_color "text.muted"; printf "%s" "$cmd"; reset_color
+                echo
+            else
+                if [[ "$show_user" == true ]]; then
+                    printf "%-${w_user}s  %-${w_org}s  %-${w_name}s  %-${w_port}s  %s\n" \
+                        "$owner" "$org" "$name" "$port" "$cmd"
+                else
+                    printf "%-${w_org}s  %-${w_name}s  %-${w_port}s  %s\n" \
+                        "$org" "$name" "$port" "$cmd"
+                fi
+            fi
+
+            ((count++))
+        done
+    done < <(_tsm_get_services_dirs "enabled")
+
+    [[ $count -eq 0 ]] && echo "(no services enabled)"
+}
+
+# JSON output for available services
+_tsm_list_available_json() {
+    local first=true
+    local show_user=false
+
+    [[ "$_TSM_LIST_ALL_USERS" == "true" ]] && tsm_multi_user_enabled && show_user=true
+
+    echo "["
+    while IFS= read -r services_dir; do
+        [[ -d "$services_dir" ]] || continue
+
+        local org=$(_tsm_extract_org "$services_dir")
+        [[ -n "$_TSM_LIST_FILTER_ORG" && "$org" != "$_TSM_LIST_FILTER_ORG" ]] && continue
+
+        local owner=""
+        [[ "$show_user" == true ]] && owner=$(tsm_extract_username "$services_dir")
+
+        local user_home=""
+        if [[ "$services_dir" =~ ^(/home/[^/]+|/Users/[^/]+|/root) ]]; then
+            user_home="${BASH_REMATCH[1]}"
+        fi
+
+        for f in "$services_dir"/*.tsm; do
+            [[ -f "$f" ]] || continue
+            local name=$(basename "$f" .tsm)
+
+            local TSM_NAME="" TSM_COMMAND="" TSM_PORT=""
+            source "$f" 2>/dev/null
+
+            local enabled="false"
+            _tsm_is_enabled "$name" "$org" "$user_home" && enabled="true"
+
+            $first || echo ","
+            first=false
+
+            if [[ "$show_user" == true ]]; then
+                printf '  {"user":"%s","org":"%s","name":"%s","port":"%s","enabled":%s,"command":"%s"}' \
+                    "$owner" "$org" "$name" "${TSM_PORT:-auto}" "$enabled" "${TSM_COMMAND:-}"
+            else
+                printf '  {"org":"%s","name":"%s","port":"%s","enabled":%s,"command":"%s"}' \
+                    "$org" "$name" "${TSM_PORT:-auto}" "$enabled" "${TSM_COMMAND:-}"
+            fi
+        done
+    done < <(_tsm_get_services_dirs "available")
+    echo ""
+    echo "]"
+}
+
+# JSON output for enabled services
+_tsm_list_enabled_json() {
+    local first=true
+    local show_user=false
+
+    [[ "$_TSM_LIST_ALL_USERS" == "true" ]] && tsm_multi_user_enabled && show_user=true
+
+    echo "["
+    while IFS= read -r services_dir; do
+        [[ -d "$services_dir" ]] || continue
+
+        local org=$(_tsm_extract_org "$services_dir")
+        [[ -n "$_TSM_LIST_FILTER_ORG" && "$org" != "$_TSM_LIST_FILTER_ORG" ]] && continue
+
+        local owner=""
+        [[ "$show_user" == true ]] && owner=$(tsm_extract_username "$services_dir")
+
+        for f in "$services_dir"/*.tsm; do
+            [[ -L "$f" ]] || continue
+            [[ -f "$f" ]] || continue
+            local name=$(basename "$f" .tsm)
+
+            local TSM_NAME="" TSM_COMMAND="" TSM_PORT=""
+            source "$f" 2>/dev/null
+
+            $first || echo ","
+            first=false
+
+            if [[ "$show_user" == true ]]; then
+                printf '  {"user":"%s","org":"%s","name":"%s","port":"%s","command":"%s"}' \
+                    "$owner" "$org" "$name" "${TSM_PORT:-auto}" "${TSM_COMMAND:-}"
+            else
+                printf '  {"org":"%s","name":"%s","port":"%s","command":"%s"}' \
+                    "$org" "$name" "${TSM_PORT:-auto}" "${TSM_COMMAND:-}"
+            fi
+        done
+    done < <(_tsm_get_services_dirs "enabled")
+    echo ""
+    echo "]"
+}
+
+export -f tsm_list _tsm_sweep_stale _tsm_list_table _tsm_list_grouped _tsm_grouped_header _tsm_grouped_row _tsm_list_verbose _tsm_list_long _tsm_list_ports _tsm_list_json
+export -f _tsm_get_services_dirs _tsm_extract_org _tsm_is_enabled _tsm_list_available _tsm_list_enabled _tsm_list_available_json _tsm_list_enabled_json

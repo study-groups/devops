@@ -44,7 +44,7 @@ OPTIONS
   --dryrun, -n  Show what would happen without starting
 
 INPUTS
-  service       Registered service name (from tsm services)
+  service       Registered service name (from tsm ls available)
   ./path.tsm    Path to a .tsm service definition file
   command       Raw command to run (quote if contains spaces)
 
@@ -101,18 +101,35 @@ ARGUMENTS
 
 Stops the process if running, then removes all metadata and logs.'
 
-TSM_HELP[list]='List managed processes.
+TSM_HELP[list]='List processes or service definitions.
 
 USAGE
-  tsm list [options]
-  tsm ls [options]
+  tsm ls [available|enabled] [options]
+
+MODES
+  (default)     Running processes
+  available     Service definitions catalog (services-available/)
+  enabled       Auto-start services (services-enabled/)
 
 OPTIONS
-  -a, --all     Include stopped processes
-  -p, --ports   Port-focused view (PORT, NAME, PID, PROTO)
-  --json        JSON output for scripting
+  -a, --all        Include stopped processes (running mode)
+  -U, --all-users  Show all users (requires root)
+  --org ORG        Filter by organization name
+  -p, --ports      Port-focused view
+  -g, --group      Group by stack
+  --json           JSON output for scripting
 
-By default shows only running processes.'
+EXAMPLES
+  tsm ls                        # Running processes
+  tsm ls -a                     # Include stopped
+  tsm ls -U                     # All users (root only)
+  tsm ls available              # Service definitions
+  tsm ls available --org tetra  # Filter by org
+  tsm ls enabled                # Auto-start services
+  tsm ls enabled --json         # JSON output
+
+LIFECYCLE
+  .tsm file → tsm add → available → tsm enable → enabled → tsm start → running'
 
 TSM_HELP[info]='Show detailed information about a running process.
 
@@ -131,7 +148,7 @@ USAGE
   tsm describe <service|./path.tsm> [--env FILE]
 
 ARGUMENTS
-  service      Registered service name (from tsm services)
+  service      Registered service name (from tsm ls available)
   ./path.tsm   Path to a .tsm service definition file
 
 OPTIONS
@@ -169,14 +186,6 @@ Logs are stored per-process:
   stdout: $TSM_DIR/runtime/processes/<name>/current.out
   stderr: $TSM_DIR/runtime/processes/<name>/current.err'
 
-TSM_HELP[services]='List saved service definitions.
-
-USAGE
-  tsm services
-
-Shows all .tsm service files in $TSM_SERVICES_DIR.
-Enabled services are marked with [enabled].'
-
 TSM_HELP[save]='Save a service definition for later use.
 
 USAGE
@@ -192,33 +201,35 @@ OPTIONS
 
 Creates a .tsm file in $TSM_SERVICES_DIR.'
 
-TSM_HELP[enable]='Enable a service for startup.
+TSM_HELP[enable]='Enable a service for auto-start.
 
 USAGE
   tsm enable <name>
 
 ARGUMENTS
-  name    Service name (from tsm services)
+  name    Service name (from tsm ls available)
 
-Creates a symlink in $TSM_SERVICES_DIR/enabled/.'
+Promotes a service from services-available/ to services-enabled/.
+Enabled services start with "tsm startup".'
 
-TSM_HELP[disable]='Disable a service from startup.
+TSM_HELP[disable]='Disable a service from auto-start.
 
 USAGE
   tsm disable <name>
 
 ARGUMENTS
-  name    Service name
+  name    Service name (from tsm ls enabled)
 
-Removes the symlink from $TSM_SERVICES_DIR/enabled/.'
+Demotes a service from services-enabled/ back to services-available/.
+The service remains available but will not start with "tsm startup".'
 
 TSM_HELP[startup]='Start all enabled services.
 
 USAGE
   tsm startup
 
-Starts each service in $TSM_SERVICES_DIR/enabled/.
-Typically called at system boot or after tetra init.'
+Starts each service listed in "tsm ls enabled".
+Typically called at system boot or by systemd tetra.service.'
 
 TSM_HELP[doctor]='Run diagnostics and health checks.
 

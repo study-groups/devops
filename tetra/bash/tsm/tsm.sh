@@ -10,6 +10,7 @@ TSM_SRC="${TSM_SRC:-$TETRA_SRC/bash/tsm}"
 source "$TSM_SRC/lib/platform.sh"
 source "$TSM_SRC/lib/utils.sh"
 source "$TSM_SRC/lib/colors.sh"
+source "$TSM_SRC/lib/hooks.sh"
 source "$TSM_SRC/core/init.sh"
 
 # Phase 2: Core
@@ -33,6 +34,9 @@ source "$TSM_SRC/services/stack.sh"
 [[ -f "$TSM_SRC/lib/complete.sh" ]] && source "$TSM_SRC/lib/complete.sh"
 [[ -f "$TSM_SRC/lib/help.sh" ]] && source "$TSM_SRC/lib/help.sh"
 [[ -f "$TSM_SRC/lib/help_render.sh" ]] && source "$TSM_SRC/lib/help_render.sh"
+
+# Phase 5: Integrations (eager-load for hook registration)
+[[ -f "$TSM_SRC/integrations/caddy.sh" ]] && source "$TSM_SRC/integrations/caddy.sh"
 
 # === CLI ROUTER ===
 
@@ -64,7 +68,6 @@ tsm() {
         describe) tsm_describe "$@" ;;
 
         # Services
-        services) tsm_services "$@" ;;
         add)      tsm_add "$@" ;;
         save)     tsm_save "$@" ;;
         enable)   tsm_enable "$@" ;;
@@ -115,14 +118,21 @@ _tsm_help() {
 TSM - Tetra Service Manager
 
 LIFECYCLE   start, stop, restart, kill, delete
-INSPECT     list [-A], info, logs, ports, describe
-SERVICES    services, save, enable, disable, startup, stack
+LIST        ls [available|enabled] [-U] [--org ORG]
+INSPECT     info, logs, ports, describe
+SERVICES    save, enable, disable, startup, stack
 SYSTEM      doctor, patrol, cleanup, setup, users
 INTEGRATE   caddy
 REMOTE      @target or -H user@host prefix
 
+tsm ls                        Running processes (default)
+tsm ls -a                     Include stopped processes
+tsm ls -U                     All users (requires root)
+tsm ls available              Service definitions catalog
+tsm ls enabled                Services that start on startup
+tsm ls available --org tetra  Filter by org
+
 tsm start ./app.tsm           Start from .tsm file
-tsm start ./app.tsm --dryrun  Preview without starting
 tsm describe ./app.tsm        Show config & env influence
 tsm help start                Detailed command help
 EOF

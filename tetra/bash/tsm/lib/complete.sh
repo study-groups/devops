@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # TSM Tab Completion
 
-_TSM_COMMANDS="start stop restart kill delete list ls info logs services save enable disable startup doctor caddy stack cleanup setup help"
+_TSM_COMMANDS="start stop restart kill delete list ls info logs describe save add enable disable startup doctor caddy stack build cleanup setup users help"
 
 # Get running process names
 _tsm_running_names() {
@@ -54,6 +54,30 @@ _tsm_stack_names() {
         [[ -d "$stacks_dir" ]] || continue
         for f in "$stacks_dir"/*.stack; do
             [[ -f "$f" ]] && basename "$f" .stack
+        done
+    done
+}
+
+# Get org names
+_tsm_org_names() {
+    local orgs_dir="$TETRA_DIR/orgs"
+    [[ -d "$orgs_dir" ]] || return
+    for org_dir in "$orgs_dir"/*/; do
+        [[ -d "$org_dir" ]] || continue
+        basename "$org_dir"
+    done
+}
+
+# Get available service names (across all orgs)
+_tsm_available_services() {
+    local orgs_dir="$TETRA_DIR/orgs"
+    [[ -d "$orgs_dir" ]] || return
+    for org_dir in "$orgs_dir"/*/; do
+        [[ -d "$org_dir" ]] || continue
+        local services_dir="$org_dir/tsm/services-available"
+        [[ -d "$services_dir" ]] || continue
+        for f in "$services_dir"/*.tsm; do
+            [[ -f "$f" ]] && basename "$f" .tsm
         done
     done
 }
@@ -111,19 +135,53 @@ _tsm_complete() {
             fi
             ;;
         list|ls)
-            COMPREPLY=($(compgen -W "--all -a --ports -p --json" -- "$cur"))
+            # Handle subcommands and flags
+            if [[ $COMP_CWORD -eq 2 ]]; then
+                # Complete with subcommands and common flags
+                COMPREPLY=($(compgen -W "available avail enabled -a --all -U --all-users -p --ports -g --group --json" -- "$cur"))
+            else
+                local subcmd="${COMP_WORDS[2]}"
+                case "$subcmd" in
+                    available|avail|enabled)
+                        # Complete with flags for available/enabled
+                        if [[ "$prev" == "--org" ]]; then
+                            # Complete org names
+                            COMPREPLY=($(compgen -W "$(_tsm_org_names)" -- "$cur"))
+                        else
+                            COMPREPLY=($(compgen -W "-U --all-users --org --json" -- "$cur"))
+                        fi
+                        ;;
+                    *)
+                        # Flags for running processes view
+                        COMPREPLY=($(compgen -W "-a --all -U --all-users -p --ports -g --group --json" -- "$cur"))
+                        ;;
+                esac
+            fi
             ;;
         start)
-            # Complete with options or service names
+            # Complete with options, .tsm files, or directories
             if [[ "$cur" == -* ]]; then
-                COMPREPLY=($(compgen -W "--port --env --name" -- "$cur"))
-            elif type _tsm_complete_services &>/dev/null; then
-                # Use service completion from boot_modules
-                local services=$(_tsm_complete_services "$cur")
-                COMPREPLY=($(compgen -W "$services" -- "$cur"))
+                COMPREPLY=($(compgen -W "--port --env --name --dryrun" -- "$cur"))
             else
-                # Fallback to executable files
-                COMPREPLY=($(compgen -f -- "$cur"))
+                # Complete .tsm files and directories for navigation
+                local IFS=$'\n'
+                local entries=()
+
+                # Get matching files/dirs
+                while IFS= read -r path; do
+                    [[ -z "$path" ]] && continue
+                    if [[ -d "$path" ]]; then
+                        # Add trailing slash for directories
+                        entries+=("${path}/")
+                    elif [[ "$path" == *.tsm ]]; then
+                        entries+=("$path")
+                    fi
+                done < <(compgen -f -- "$cur" 2>/dev/null)
+
+                COMPREPLY=("${entries[@]}")
+
+                # Prevent space after directory completion
+                [[ ${#COMPREPLY[@]} -eq 1 && "${COMPREPLY[0]}" == */ ]] && compopt -o nospace
             fi
             ;;
         save)
