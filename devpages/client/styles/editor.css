@@ -64,4 +64,19 @@
     margin-left: 4px;
     min-width: 20px;
     text-align: left;
+}
+
+/* CodeMirror container */
+.codemirror-container {
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.codemirror-container .cm-editor {
+    height: 100%;
+}
+
+.codemirror-container .cm-scroller {
+    overflow: auto;
 } 
