@@ -30,7 +30,14 @@ const fileSlice = createSlice({
         loadFilePending: (state, action) => {
             state.status = 'loading';
             state.error = null;
-            state.currentFile.pathname = action.payload.pathname;
+            // Reset currentFile atomically to prevent stale content showing for new path
+            state.currentFile = {
+                pathname: action.payload.pathname,
+                content: null,  // null indicates "loading", empty string means "empty file"
+                originalContent: null,
+                isModified: false,
+                lastModified: null
+            };
         },
         loadFileSuccess: (state, action) => {
             state.status = 'succeeded';

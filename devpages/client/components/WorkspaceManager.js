@@ -60,36 +60,50 @@ class WorkspaceManager {
 
     handleStateChange() {
         const state = appStore.getState();
-        const fileContent = state.file?.currentFile?.content;
-        const filePath = state.file?.currentFile?.pathname;
-        const editorContent = state.editor?.content;
-        
-        // CRITICAL FIX: Only handle UI visibility changes when they actually change
-        // Don't call updateZoneVisibility on every state change
-        const currentUI = {
-            leftSidebarVisible: state.ui?.leftSidebarVisible,
-            editorVisible: state.ui?.editorVisible,
-            previewVisible: state.ui?.previewVisible
-        };
-        
-        if (!this.lastUIState || JSON.stringify(currentUI) !== JSON.stringify(this.lastUIState)) {
-            console.log('[WorkspaceManager] UI visibility changed, updating zones');
-            this.updateZoneVisibility(state);
-            this.lastUIState = currentUI;
+
+        // Fast early-exit: skip if none of the slices we care about have changed (reference equality)
+        const fileSlice = state.file;
+        const uiSlice = state.ui;
+        const editorSlice = state.editor;
+
+        if (fileSlice === this._lastFileSlice &&
+            uiSlice === this._lastUISlice &&
+            editorSlice === this._lastEditorSlice) {
+            return; // Nothing we care about has changed
         }
-        
-        // Only act when file content changes
-        if (fileContent !== undefined && (fileContent !== this.lastFileContent || filePath !== this.lastFilePath)) {
-            console.log(`[WorkspaceManager] New file content detected: ${filePath} (${fileContent.length} chars)`);
+
+        this._lastFileSlice = fileSlice;
+        this._lastUISlice = uiSlice;
+        this._lastEditorSlice = editorSlice;
+
+        const fileContent = fileSlice?.currentFile?.content;
+        const filePath = fileSlice?.currentFile?.pathname;
+        const editorContent = editorSlice?.content;
+
+        // Handle UI visibility changes
+        const leftSidebarVisible = uiSlice?.leftSidebarVisible;
+        const editorVisible = uiSlice?.editorVisible;
+        const previewVisible = uiSlice?.previewVisible;
+
+        if (leftSidebarVisible !== this._lastLeftSidebarVisible ||
+            editorVisible !== this._lastEditorVisible ||
+            previewVisible !== this._lastPreviewVisible) {
+            this.updateZoneVisibility(state);
+            this._lastLeftSidebarVisible = leftSidebarVisible;
+            this._lastEditorVisible = editorVisible;
+            this._lastPreviewVisible = previewVisible;
+        }
+
+        // Handle file content changes (skip if content is null = still loading)
+        if (fileContent != null && (fileContent !== this.lastFileContent || filePath !== this.lastFilePath)) {
             this.setupWorkspaceForFile(fileContent, filePath);
             this.updateEditorContent(fileContent);
             this.lastFileContent = fileContent;
             this.lastFilePath = filePath;
         }
-        
+
         // Auto-update preview when editor content changes
         if (editorContent && editorContent !== this.lastEditorContent && filePath) {
-            console.log(`[WorkspaceManager] Editor content changed, updating preview (${editorContent.length} chars)`);
             this.updatePreviewFromEditor(editorContent, filePath);
             this.lastEditorContent = editorContent;
         }
