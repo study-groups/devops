@@ -325,7 +325,8 @@ export class PreviewView extends ViewInterface {
         log.info?.('VIEW', 'RELOAD_FILE', 'Reloading current file from server');
 
         const state = appStore.getState();
-        const currentPathname = state.path?.currentPathname;
+        // v2 pathSlice: current.pathname
+        const currentPathname = state.path?.current?.pathname;
 
         if (!currentPathname) {
             log.warn?.('VIEW', 'NO_FILE', 'No current file to reload');

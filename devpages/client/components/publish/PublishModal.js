@@ -39,13 +39,14 @@ export class PublishModal {
 
   async checkPublishStatus() {
     const state = appStore.getState();
-    const currentFile = state.file?.currentPathname;
-    
+    // v2: pathname at file.currentFile.pathname
+    const currentFile = state.file?.currentFile?.pathname;
+
     if (!currentFile) {
       this.publishStatus = { isPublished: false, url: null };
       return;
     }
-    
+
     this.publishStatus = await PublishAPI.checkStatus(currentFile);
     this.updatePublishStatus();
   }
@@ -139,7 +140,7 @@ export class PublishModal {
 
   updatePublishStatus() {
     const state = appStore.getState();
-    const currentFile = state.file?.currentPathname;
+    const currentFile = state.file?.currentFile?.pathname;
     
     // Update file name
     const fileNameEl = this.modal.querySelector('.file-name');
@@ -268,9 +269,10 @@ export class PublishModal {
       updateStatus('🔍 Pre-flight checks...', 10);
       
       const state = appStore.getState();
-      const currentFile = state.file?.currentPathname;
+      const currentFile = state.file?.currentFile?.pathname;
 
-      if (!currentFile || state.file?.isDirectorySelected) {
+      // v2: isDirectorySelected from path.current.type
+      if (!currentFile || state.path?.current?.type === 'directory') {
         throw new Error('No file selected for publishing');
       }
 
@@ -337,7 +339,7 @@ export class PublishModal {
     if (this.isProcessing) return;
 
     const state = appStore.getState();
-    const currentFile = state.file?.currentPathname;
+    const currentFile = state.file?.currentFile?.pathname;
     const activeConfig = selectActiveConfigurationDecrypted(state);
 
     if (!currentFile) {

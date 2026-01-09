@@ -75,7 +75,8 @@ export function setVirtualBasePath(newBasePath) {
  */
 export function getAvailableBasePaths() {
     const state = appStore.getState();
-    const topDirs = state.file.availableTopLevelDirs || [];
+    // v2: topLevelDirs is at path.topLevelDirs, not file.availableTopLevelDirs
+    const topDirs = state.path?.topLevelDirs || [];
     
     // Start with root (empty string)
     const basePaths = [''];

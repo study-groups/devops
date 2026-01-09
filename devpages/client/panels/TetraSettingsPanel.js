@@ -36,11 +36,6 @@ export class TetraSettingsPanel extends BasePanel {
                     <div class="toolbar-left">
                         <h3 style="margin: 0; font-size: 14px; font-weight: 600;">Tetra Analytics Control</h3>
                     </div>
-                    <div class="toolbar-right">
-                        <button id="refresh-btn" class="devpages-btn-icon" title="Refresh">
-                            <span>↻</span>
-                        </button>
-                    </div>
                 </div>
 
                 <div class="tetra-settings-container" style="padding: 16px; overflow-y: auto; height: calc(100% - 48px);">
@@ -242,6 +237,12 @@ export class TetraSettingsPanel extends BasePanel {
 
     onMount(container) {
         super.onMount(container);
+
+        // Store container for floating panels
+        if (container) {
+            this.mountedContainer = container;
+        }
+
         this.attachListeners();
         this.attachCollapseListeners();
         this.updateStatistics();
@@ -255,9 +256,6 @@ export class TetraSettingsPanel extends BasePanel {
     attachListeners() {
         const container = this.getContainer();
         if (!container) return;
-
-        // Refresh button
-        container.querySelector('#refresh-btn')?.addEventListener('click', () => this.refresh());
 
         // Tracking controls
         container.querySelector('#enable-console-logging')?.addEventListener('change', (e) => {
@@ -471,7 +469,7 @@ export class TetraSettingsPanel extends BasePanel {
     }
 
     getContainer() {
-        return this.element?.querySelector('.panel-body') || this.element || this.container;
+        return this.mountedContainer || this.element?.querySelector('.panel-body') || this.element;
     }
 
     onDestroy() {

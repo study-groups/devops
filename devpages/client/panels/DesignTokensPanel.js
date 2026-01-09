@@ -531,15 +531,12 @@ export class DesignTokensPanel extends BasePanel {
         return grouped;
     }
 
-    // Modify onMount to ensure element is created
     async onMount(container) {
         try {
             super.onMount(container);
-            this.container = container;
             if (this.tokens.length === 0) {
                 await this.loadDesignTokens();
             }
-            
             this.updateTokensDisplay();
             this.attachEventListeners();
         } catch (error) {
@@ -731,14 +728,6 @@ export class DesignTokensPanel extends BasePanel {
             container.classList.toggle('list-view', !isColorGrid && !isNameValueGrid);
             container.innerHTML = this.renderTokens();
         }
-    }
-
-    /**
-     * Get the container element where our content lives
-     * STANDARD PATTERN - queries .panel-body first
-     */
-    getContainer() {
-        return this.element?.querySelector('.panel-body') || this.element || this.container;
     }
 
     // Add a method to get debug info for panel registry

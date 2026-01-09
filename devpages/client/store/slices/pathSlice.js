@@ -269,6 +269,13 @@ const pathSlice = createSlice({
         apiSlice.endpoints.getDirectoryListing.matchFulfilled,
         (state, action) => {
           const { pathname, dirs, files } = action.payload;
+          console.log('[pathSlice REDUCER] getDirectoryListing.matchFulfilled:', {
+            pathname,
+            dirsCount: dirs?.length,
+            filesCount: files?.length,
+            currentPathname: state.current.pathname,
+            currentType: state.current.type
+          });
           state.status = 'succeeded';
 
           // Update v2 state
@@ -443,10 +450,14 @@ export const pathThunks = {
 
     if (isDirectory) {
       log.debug('PATH', ` Fetching directory listing for: '${pathname}'`);
+      console.log('[pathThunks DEBUG] Fetching directory listing for:', pathname);
       try {
-        const result = await dispatch(apiSlice.endpoints.getDirectoryListing.initiate(pathname)).unwrap();
+        // Force refetch to ensure reducer updates currentListing even for cached paths
+        const result = await dispatch(apiSlice.endpoints.getDirectoryListing.initiate(pathname, { forceRefetch: true })).unwrap();
+        console.log('[pathThunks DEBUG] Directory listing result:', result);
         log.debug('PATH', ` Directory listing fetched successfully:`, result);
       } catch (error) {
+        console.error('[pathThunks DEBUG] Directory listing error:', error);
         log.error('PATH', ` Failed to fetch directory listing for ${pathname}:`, error);
       }
     } else {
@@ -459,7 +470,8 @@ export const pathThunks = {
         log.debug('PATH', ` Parent path calculated as: '${parentPath}'`);
         if (parentPath) {
           log.debug('PATH', ` Fetching parent directory listing for: '${parentPath}'`);
-          const parentResult = await dispatch(apiSlice.endpoints.getDirectoryListing.initiate(parentPath)).unwrap();
+          // Force refetch to ensure reducer updates currentListing
+          const parentResult = await dispatch(apiSlice.endpoints.getDirectoryListing.initiate(parentPath, { forceRefetch: true })).unwrap();
           log.debug('PATH', ` Parent directory listing fetched:`, parentResult);
         }
       } catch (error) {

@@ -18,7 +18,6 @@ export class UIInspectorPanel extends BasePanel {
             ...config
         });
         
-        this.refreshInterval = null;
         this.inspectorData = {};
         this.jsonViewer = new JsonViewer();
     }
@@ -26,18 +25,6 @@ export class UIInspectorPanel extends BasePanel {
     renderContent() {
         return `
             <div class="devpages-panel-content">
-                <!-- Panel Toolbar -->
-                <div class="devpages-panel-toolbar">
-                    <button id="refresh-ui-inspector" class="devpages-btn-ghost devpages-btn-primary">
-                        <span>↻</span>
-                        <span>Refresh</span>
-                    </button>
-                    <label class="devpages-flex-center devpages-flex-gap-sm">
-                        <input type="checkbox" id="auto-refresh-ui" class="devpages-input-compact" />
-                        <span class="devpages-text-muted">Auto-refresh (5s)</span>
-                    </label>
-                </div>
-
                 <!-- UI Inspector Sections -->
                 <div class="devpages-panel-sections">
                     <!-- Slice Overview Section -->
@@ -408,46 +395,11 @@ export class UIInspectorPanel extends BasePanel {
 
     onMount(container = null) {
         console.log('[UIInspectorPanel] onMount called', { container });
-        
-        // Set container if provided (for sidebar mode)
-        if (container) {
-            this.sidebarContainer = container;
-        }
-
-        // Call parent onMount first
         super.onMount(container);
 
-        // Add UI Inspector specific styles
         this.addUIInspectorStyles();
-
-        // Attach listeners and refresh
-        this.attachEventListeners();
         this.attachCollapseListeners();
         this.refresh();
-    }
-
-    attachEventListeners() {
-        const container = this.getContainer();
-        if (!container) {
-            console.warn('[UIInspectorPanel] No container found for attaching listeners');
-            return;
-        }
-
-        // Find buttons within the container
-        const refreshBtn = container.querySelector('#refresh-ui-inspector');
-        const autoRefreshToggle = container.querySelector('#auto-refresh-ui');
-
-        refreshBtn?.addEventListener('click', () => {
-            this.refresh();
-        });
-
-        autoRefreshToggle?.addEventListener('change', (e) => {
-            if (e.target.checked) {
-                this.startAutoRefresh();
-            } else {
-                this.stopAutoRefresh();
-            }
-        });
     }
 
     attachCollapseListeners() {
@@ -641,33 +593,6 @@ export class UIInspectorPanel extends BasePanel {
                 </div>
             </div>
         `;
-    }
-
-    startAutoRefresh() {
-        this.stopAutoRefresh();
-        this.refreshInterval = setInterval(() => {
-            this.refresh();
-        }, 5000);
-    }
-
-    stopAutoRefresh() {
-        if (this.refreshInterval) {
-            clearInterval(this.refreshInterval);
-            this.refreshInterval = null;
-        }
-    }
-
-    /**
-     * Get the container element where our content lives
-     * STANDARD PATTERN - queries .panel-body first
-     */
-    getContainer() {
-        return this.element?.querySelector('.panel-body') || this.element || this.container;
-    }
-
-    onDestroy() {
-        this.stopAutoRefresh();
-        super.onDestroy();
     }
 
     // Hash generation utility for component identification

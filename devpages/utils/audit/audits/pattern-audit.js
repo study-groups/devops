@@ -16,7 +16,7 @@ export class PatternAudit extends BaseAudit {
         });
 
         this.checks = options.checks || [];
-        this.directories = options.directories || ['client', 'redux'];
+        this.directories = options.directories || ['client'];
     }
 
     async audit() {

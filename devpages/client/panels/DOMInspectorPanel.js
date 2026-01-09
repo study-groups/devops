@@ -449,24 +449,15 @@ export class DOMInspectorPanel extends BasePanel {
 
     onMount(container) {
         super.onMount(container);
-
-        // Use this.element if container not provided (called from BasePanel.mount())
-        this.container = container || this.element;
-
-        // Initialize utilities
         this.initializeUtilities();
 
-        // Get container references from the panel element
         const el = this.getContainer();
         this.treeContainer = el.querySelector('#tree-content');
         this.detailsContainer = el.querySelector('#details-container');
         this.splitter = el.querySelector('#splitter');
         this.highlightOverlay = el.querySelector('#highlight-overlay');
 
-        // Attach event listeners
         this.attachEventListeners();
-
-        // Build initial tree
         this.buildDOMTree();
     }
 
@@ -1106,11 +1097,6 @@ export class DOMInspectorPanel extends BasePanel {
         });
 
         return rules;
-    }
-
-    getContainer() {
-        // Return the panel body (where our content is rendered)
-        return this.element?.querySelector('.panel-body') || this.element || this.container;
     }
 
     onDestroy() {

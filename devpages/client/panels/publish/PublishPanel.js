@@ -209,6 +209,11 @@ export class PublishPanel extends BasePanel {
     async onMount(container) {
         super.onMount(container);
 
+        // Store container for floating panels
+        if (container) {
+            this.mountedContainer = container;
+        }
+
         // Subscribe to Redux store updates
         this.unsubscribe = appStore.subscribe(() => this.handleStoreChange());
 
@@ -668,10 +673,10 @@ export class PublishPanel extends BasePanel {
 
     /**
      * Get the container element where our content lives
-     * STANDARD PATTERN - queries .panel-body first
+     * Checks mountedContainer first (for floating panels), then standard locations
      */
     getContainer() {
-        return this.element?.querySelector('.panel-body') || this.element || this.container;
+        return this.mountedContainer || this.element?.querySelector('.panel-body') || this.element;
     }
 
     /**

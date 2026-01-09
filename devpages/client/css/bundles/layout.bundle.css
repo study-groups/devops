@@ -1,3 +1,9 @@
+/* Bundle: layout */
+/* Generated: 2026-01-07 21:33:24 */
+/* Files: 7 */
+
+
+/* === workspace-layout.css === */
 /**
  * workspace-layout.css
  * Semantic workspace layout: sidebar, editor, preview areas
@@ -1048,7 +1054,9 @@ body.resizing .panel-resize-handle {
 /* Generic data-driven visibility */
 [data-visible="false"] {
     display: none !important;
-} /* client/styles/sidebar.css */
+} 
+/* === sidebar.css === */
+/* client/styles/sidebar.css */
 /* Legacy styles - being migrated to new BEM structure */
 
 /* Legacy class mappings for backward compatibility */
@@ -1445,6 +1453,757 @@ body.resizing .panel-resize-handle {
 .devpages-panel-subsection.collapsed .devpages-panel-subsection-content {
     display: none;
 }
+
+/* === panels.css === */
+/**
+ * Unified Panel System Styles
+ *
+ * Consolidated from:
+ * - panel-system.css (base panel styles)
+ * - floating-panels.css (floating panel variants)
+ *
+ * Provides:
+ * - Base panel structure and layout
+ * - Floating panel variants
+ * - Drag and resize handles
+ * - Panel states (collapsed, focused, etc.)
+ * - Diagnostic and type-specific styles
+ * - Responsive design
+ *
+ * Note: theme-editor-panel.css and dom-inspector-panel.css
+ * are bundled separately by the server in panels.bundle.css
+ */
+
+/* ========================================
+   BASE PANEL STYLES
+   ======================================== */
+
+.base-panel {
+    position: absolute;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--panel-shadow);
+    font-family: var(--font-family-ui);
+    font-size: var(--font-size-sm);
+    min-width: 250px;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    user-select: none;
+    z-index: var(--z-modal);
+    transition: all var(--transition-base),
+                opacity 0.1s ease-in-out,
+                transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    opacity: 0 !important;
+    transform: scale(0.95) !important;
+    visibility: hidden;
+}
+
+.base-panel.is-visible {
+    opacity: 1 !important;
+    transform: scale(1) !important;
+    visibility: visible !important;
+}
+
+.base-panel.collapsed {
+    height: 40px !important;
+    min-height: 40px;
+}
+
+.base-panel.collapsed .panel-body {
+    display: none !important;
+}
+
+.base-panel:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-background), var(--panel-shadow);
+}
+
+/* ========================================
+   PANEL HEADER
+   ======================================== */
+
+.base-panel-header {
+    background: var(--panel-header-bg);
+    border-bottom: 1px solid var(--panel-header-border-color);
+    padding: var(--space-2) var(--space-3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: move;
+    height: 40px;
+    box-sizing: border-box;
+    transition: background-color var(--transition-fast);
+}
+
+.base-panel-header:hover {
+    background: var(--color-bg-hover);
+}
+
+.panel-title {
+    font-weight: var(--font-weight-medium);
+    color: var(--panel-title-color);
+    font-size: var(--font-size-base);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+}
+
+.panel-controls {
+    display: flex;
+    gap: 4px;
+}
+
+.panel-btn {
+    background: transparent;
+    border: none;
+    color: var(--panel-control-color);
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-base);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-lg);
+    line-height: 1;
+    transition: all var(--transition-fast);
+}
+
+.panel-btn:hover {
+    background: var(--panel-control-hover-bg);
+    color: var(--color-fg);
+}
+
+.panel-btn:active {
+    background: var(--color-bg-active);
+}
+
+/* ========================================
+   PANEL BODY
+   ======================================== */
+
+.panel-body {
+    flex: 1;
+    padding: var(--space-3);
+    overflow: auto;
+    background: var(--panel-bg);
+    color: var(--color-fg);
+}
+
+.panel-placeholder {
+    color: var(--color-fg-muted);
+    font-style: italic;
+    text-align: center;
+    padding: 40px 20px;
+}
+
+/* ========================================
+   RESIZE HANDLE
+   ======================================== */
+
+.panel-resize-handle {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 16px;
+    height: 16px;
+    cursor: nwse-resize;
+    background: transparent;
+    border-bottom: 2px solid var(--panel-resize-handle-color);
+    border-right: 2px solid var(--panel-resize-handle-color);
+    opacity: 0.6;
+    transition: opacity var(--transition-fast);
+}
+
+.panel-resize-handle:hover {
+    opacity: 1;
+    border-color: var(--color-primary);
+}
+
+/* Alternative resize handle (floating style) */
+.resize-handle-se {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 16px;
+    height: 16px;
+    cursor: se-resize;
+    background: linear-gradient(-45deg,
+        transparent 0%, transparent 40%,
+        var(--color-border-secondary) 40%, var(--color-border-secondary) 50%,
+        transparent 50%, transparent 100%);
+    opacity: 0.5;
+    transition: opacity var(--transition-fast);
+}
+
+.resize-handle-se:hover {
+    opacity: 1;
+    background: linear-gradient(-45deg,
+        transparent 0%, transparent 40%,
+        var(--color-primary) 40%, var(--color-primary) 50%,
+        transparent 50%, transparent 100%);
+}
+
+/* ========================================
+   FLOATING PANEL VARIANT
+   ======================================== */
+
+.floating-panel {
+    position: fixed;
+    background: var(--color-bg-elevated, #ffffff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: var(--radius-lg, 8px);
+    box-shadow: var(--shadow-xl, 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.05));
+    z-index: var(--z-modal, 1050);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition:
+        box-shadow var(--transition-base, 0.2s),
+        transform var(--transition-base, 0.2s);
+}
+
+.floating-panel:hover {
+    box-shadow:
+        0 20px 25px -5px rgba(0,0,0,0.1),
+        0 10px 10px -5px rgba(0,0,0,0.04);
+    transform: translateY(-1px);
+}
+
+.floating-panel-header {
+    background: var(--color-bg-elevated);
+    border-bottom: 1px solid var(--color-border);
+    padding: 2px 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: move;
+    height: 24px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.floating-panel-header:hover {
+    background: var(--color-bg-hover);
+}
+
+.floating-panel-title {
+    color: var(--color-fg);
+    font-weight: var(--font-weight-medium);
+    font-size: 10px;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 4px;
+}
+
+.floating-panel-controls {
+    display: flex;
+    gap: 1px;
+    align-items: center;
+    opacity: 0.6;
+    flex-shrink: 0;
+}
+
+.floating-panel-header:hover .floating-panel-controls {
+    opacity: 1;
+}
+
+.floating-panel-collapse,
+.floating-panel-close {
+    color: var(--color-fg-muted);
+    background: transparent;
+    border: none;
+    border-radius: 2px;
+    padding: 0;
+    width: 12px;
+    height: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 8px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.floating-panel-collapse:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-fg);
+}
+
+.floating-panel-close:hover {
+    background: var(--color-error-background);
+    color: var(--color-error);
+}
+
+.floating-panel.collapsed {
+    height: auto !important;
+    min-height: 24px;
+}
+
+.floating-panel.collapsed .floating-panel-content {
+    display: none !important;
+}
+
+.floating-panel.collapsed .floating-panel-collapse {
+    transform: none;
+}
+
+.floating-panel-content {
+    background: var(--color-bg);
+    padding: var(--space-3);
+    flex: 1;
+    overflow-y: auto;
+}
+
+/* ========================================
+   PANEL TYPE SPECIFIC STYLES
+   ======================================== */
+
+.panel-diagnostic {
+    border-color: var(--diagnostic-color, #ff6b35);
+}
+
+.panel-diagnostic .base-panel-header {
+    background: var(--diagnostic-bg, #2a1f1a);
+    border-bottom-color: var(--diagnostic-color, #ff6b35);
+}
+
+.panel-component {
+    border-color: var(--component-color, #45b7d1);
+}
+
+.panel-network {
+    border-color: var(--network-color, #96ceb4);
+}
+
+/* ========================================
+   GENERIC PANEL CONTENT SYSTEM
+   ======================================== */
+
+.dp-panel-content {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.dp-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color, #444);
+    margin-bottom: 12px;
+}
+
+.dp-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+    background: var(--bg-tertiary, #333);
+    border: 1px solid var(--border-color, #555);
+    color: var(--text-primary, #fff);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.dp-btn:hover {
+    background: var(--bg-hover, #444);
+}
+
+.dp-btn-primary {
+    background: var(--color-primary, #0066cc);
+    border-color: var(--color-primary, #0066cc);
+}
+
+.dp-btn-primary:hover {
+    background: var(--color-primary-dark, #0052a3);
+}
+
+.dp-btn-icon {
+    margin-right: 4px;
+}
+
+.dp-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dp-toggle-input {
+    margin: 0;
+}
+
+.dp-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-secondary, #ccc);
+}
+
+.dp-sections {
+    flex: 1;
+    overflow: auto;
+}
+
+.dp-section {
+    margin-bottom: 16px;
+}
+
+.dp-section-header {
+    margin: 0 0 8px 0;
+    color: var(--accent-color, #0066cc);
+    font-size: 12px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-color, #444);
+    padding-bottom: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dp-section-header:hover {
+    color: var(--color-primary, #0066cc);
+}
+
+.dp-section-icon {
+    transition: transform 0.2s ease;
+}
+
+.dp-section:not(.collapsed) .dp-section-icon {
+    transform: rotate(90deg);
+}
+
+.dp-section.collapsed .dp-section-content {
+    display: none;
+}
+
+.dp-section-title {
+    flex: 1;
+}
+
+.dp-section-badge {
+    font-size: 10px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    background: var(--bg-tertiary, #333);
+}
+
+.dp-content {
+    background: var(--bg-secondary, #2a2a2a);
+    border: 1px solid var(--border-color, #444);
+    border-radius: 3px;
+    padding: 8px;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+/* ========================================
+   SUBSECTIONS
+   ======================================== */
+
+.dp-subsection {
+    margin-bottom: 12px;
+    border: 1px solid var(--border-color, #444);
+    border-radius: 3px;
+    background: var(--bg-secondary, #2a2a2a);
+}
+
+.dp-subsection.collapsed .dp-subsection-content {
+    display: none;
+}
+
+.dp-subsection-header {
+    padding: 6px 8px;
+    background: var(--bg-tertiary, #333);
+    border-bottom: 1px solid var(--border-color, #444);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background-color 0.2s ease;
+}
+
+.dp-subsection-header:hover {
+    background: var(--bg-hover, #444);
+}
+
+.dp-subsection-icon {
+    transition: transform 0.2s ease;
+}
+
+.dp-subsection:not(.collapsed) .dp-subsection-icon {
+    transform: rotate(90deg);
+}
+
+.dp-subsection-title {
+    flex: 1;
+    color: var(--text-primary, #fff);
+}
+
+.dp-subsection-content {
+    padding: 8px;
+    font-size: 11px;
+    line-height: 1.4;
+    background: var(--bg-primary, #1e1e1e);
+}
+
+/* ========================================
+   PANEL DATA DISPLAY COMPONENTS
+   ======================================== */
+
+/* Status Grid */
+.status-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.status-grid > div {
+    padding: 4px;
+    background: var(--bg-tertiary, #333);
+    border-radius: 2px;
+}
+
+/* Component List */
+.component-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.component-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 8px;
+    background: var(--bg-tertiary, #333);
+    border-radius: 2px;
+    font-size: 10px;
+}
+
+.component-name {
+    font-weight: 600;
+    color: var(--text-primary, #fff);
+}
+
+.component-type {
+    color: var(--text-secondary, #888);
+    font-style: italic;
+}
+
+.component-status {
+    color: var(--success-color, #4ecdc4);
+}
+
+/* Redux Info */
+.redux-info {
+    font-size: 11px;
+}
+
+.redux-info > div {
+    margin-bottom: 6px;
+    padding: 4px;
+    background: var(--bg-tertiary, #333);
+    border-radius: 2px;
+}
+
+.redux-info details {
+    margin-top: 8px;
+}
+
+.redux-info summary {
+    cursor: pointer;
+    padding: 4px;
+    background: var(--bg-tertiary, #333);
+    border-radius: 2px;
+    margin-bottom: 4px;
+}
+
+.state-dump {
+    background: var(--bg-primary, #1e1e1e);
+    border: 1px solid var(--border-color, #444);
+    border-radius: 3px;
+    padding: 8px;
+    font-size: 10px;
+    line-height: 1.3;
+    overflow: auto;
+    max-height: 200px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Metrics Grid */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.metrics-grid > div {
+    padding: 4px;
+    background: var(--bg-tertiary, #333);
+    border-radius: 2px;
+    font-size: 10px;
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+
+@media (max-width: 768px) {
+    .base-panel {
+        min-width: 280px;
+    }
+
+    .status-grid,
+    .metrics-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* === editor.css === */
+/* client/styles/editor.css */
+
+#editor-container,
+.editor-container {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.editor-textarea {
+    flex-grow: 1;
+    width: 100%;
+    height: 100%;
+    border: none;
+    padding: 10px;
+    box-sizing: border-box;
+    font-family: monospace;
+    font-size: 14px;
+    resize: none;
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+}
+
+.editor-textarea:focus {
+    outline: none;
+}
+
+/* Drag and drop visual feedback */
+.editor-textarea.drag-over {
+    border: 2px dashed var(--color-accent, #4a90e2) !important;
+    background-color: var(--color-bg-highlight, rgba(74, 144, 226, 0.05)) !important;
+    cursor: copy !important;
+}
+
+.editor-info-bar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 4px 10px;
+    background-color: var(--color-bg-secondary, #f5f5f5);
+    border-top: 1px solid var(--color-border, #ddd);
+    font-family: monospace;
+    font-size: 12px;
+    color: var(--color-text-muted, #666);
+    flex-shrink: 0;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    margin-right: 20px;
+    min-width: fit-content;
+    white-space: nowrap;
+}
+
+.info-item:last-child {
+    margin-right: 0;
+}
+
+.info-item span {
+    font-weight: 500;
+    color: var(--color-text, #333);
+    margin-left: 4px;
+    min-width: 20px;
+    text-align: left;
+} 
+/* === resizable.css === */
+/*
+ * resizable.css
+ *
+ * Defines the styles for the resizable panels and scrollbars
+ * to ensure a consistent look and feel with the application's color scheme.
+ */
+
+.resizer {
+    background-color: transparent;
+    cursor: ew-resize;
+    height: 100%;
+    width: 4px;
+    z-index: 100;
+    display: block;
+    flex: 0 0 4px;
+    opacity: 1;
+    visibility: visible;
+}
+
+.resizer:hover {
+    background-color: var(--accent-color, #999);
+}
+
+/* Ensure panels respect width changes */
+#workspace-sidebar {
+    flex: 0 0 auto;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#workspace-preview {
+    flex: 0 0 auto;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#workspace-editor {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--background-color);
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: var(--border-color);
+    border-radius: 4px;
+    border: 2px solid var(--background-color);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: var(--accent-color);
+}
+
+/* === top-bar-minimal.css === */
 /**
  * top-bar-minimal.css
  * Minimal top bar with just file type badge
@@ -1539,4 +2298,163 @@ body.resizing .panel-resize-handle {
 /* Adjust main content to account for minimal top bar */
 main {
     margin-top: 40px;
+} 
+/* === splash-screen.css === */
+/* client/styles/splash-screen.css */
+
+/* Splash Screen Styles */
+#devpages-splash {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #808080; /* Neutral gray background */
+    display: flex;
+    align-items: flex-start; /* Changed from center to flex-start */
+    justify-content: center;
+    padding-top: 33vh; /* Position content at top 1/3 of screen */
+    z-index: 10000;
+    font-family: var(--font-family-sans, system-ui, -apple-system, sans-serif);
+    transition: opacity 0.3s ease-out;
+}
+
+#devpages-splash.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.splash-content {
+    text-align: center;
+    color: #1e3a8a; /* Dark blue text on gray background */
+}
+
+.splash-logo {
+    font-size: 2.5rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+}
+
+.splash-version {
+    font-size: 1rem;
+    color: rgba(30, 58, 138, 0.7); /* Semi-transparent dark blue for version */
+    font-weight: 400;
+}
+
+/* Hide main content during splash */
+body.splash-active nav,
+body.splash-active main {
+    visibility: hidden;
+}
+
+/* Additional splash screen enhancements ready for future use */
+
+/* Loading animation (can be enabled later) */
+.splash-loading {
+    margin-top: 1rem;
+    opacity: 0.7;
+}
+
+.splash-loading::after {
+    content: '';
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.5); /* White border for gray background */
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: splash-spin 1s ease-in-out infinite;
+}
+
+@keyframes splash-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Progress bar (can be enabled later) */
+.splash-progress {
+    width: 200px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2); /* Light track on gray */
+    border-radius: 2px;
+    margin: 1rem auto 0;
+    overflow: hidden;
+}
+
+.splash-progress-bar {
+    height: 100%;
+    background: #ffffff; /* White progress bar */
+    border-radius: 2px;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+}
+
+/* Status text (can be enabled later) */
+.splash-status {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7); /* Semi-transparent white */
+    opacity: 0.8;
+}
+
+/* Bootloader Error Styles */
+body.boot-failed {
+    background: #1a1a1a;
+    color: #e0e0e0;
+}
+
+.boot-error {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #2a2a2a;
+    border: 2px solid #ff4444;
+    border-radius: 8px;
+    padding: 2rem;
+    max-width: 600px;
+    width: 90%;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    font-family: var(--font-family-sans, system-ui, -apple-system, sans-serif);
+    z-index: 10001;
+}
+
+.boot-error h2 {
+    color: #ff6666;
+    margin: 0 0 1rem 0;
+    font-size: 1.5rem;
+}
+
+.boot-error p {
+    margin: 0.5rem 0;
+    line-height: 1.5;
+}
+
+.boot-error details {
+    margin-top: 1.5rem;
+    background: #1a1a1a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 1rem;
+}
+
+.boot-error summary {
+    cursor: pointer;
+    font-weight: bold;
+    color: #ccc;
+    margin-bottom: 0.5rem;
+}
+
+.boot-error pre {
+    background: #000;
+    color: #0f0;
+    padding: 1rem;
+    border-radius: 4px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    margin: 0.5rem 0;
 } 

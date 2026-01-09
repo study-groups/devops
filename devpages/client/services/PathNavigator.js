@@ -212,7 +212,7 @@ export class PathNavigator {
         // Fetch directory listing
         console.log('[PathNavigator] Fetching directory listing:', pathname);
         this.pendingFetch = this.store.dispatch(
-          apiSlice.endpoints.getDirectoryListing.initiate(pathname)
+          apiSlice.endpoints.getDirectoryListing.initiate(pathname, { forceRefetch: true })
         );
         await this.pendingFetch.unwrap();
         console.log('[PathNavigator] Directory listing loaded');
@@ -229,7 +229,7 @@ export class PathNavigator {
         const parentPath = this._getParentPath(pathname);
         if (parentPath) {
           this.pendingFetch = this.store.dispatch(
-            apiSlice.endpoints.getDirectoryListing.initiate(parentPath)
+            apiSlice.endpoints.getDirectoryListing.initiate(parentPath, { forceRefetch: true })
           );
           await this.pendingFetch.unwrap();
           console.log('[PathNavigator] Parent directory listing loaded');

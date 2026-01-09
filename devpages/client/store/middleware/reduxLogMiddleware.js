@@ -4,6 +4,38 @@
  * It includes aggregation to prevent flooding the console with repetitive actions.
  */
 
+// Debug flag - persisted to localStorage, controls whether Redux actions are logged
+let DEBUG_REDUX_LOG = localStorage.getItem('ReduxLog.debug') !== 'false'; // Default ON for backwards compat
+
+// Expose debug toggle globally with persistence
+window.ReduxLog = window.ReduxLog || {};
+Object.defineProperty(window.ReduxLog, 'debug', {
+    get: () => DEBUG_REDUX_LOG,
+    set: (v) => {
+        DEBUG_REDUX_LOG = !!v;
+        localStorage.setItem('ReduxLog.debug', DEBUG_REDUX_LOG);
+        console.log(`[ReduxLog] Debug mode: ${DEBUG_REDUX_LOG ? 'ON' : 'OFF'}`);
+    }
+});
+
+// Register with Console Tools registry (deferred to ensure registry is loaded)
+setTimeout(() => {
+    if (window.consoleTools) {
+        window.consoleTools.register({
+            name: 'ReduxLog',
+            description: 'Control Redux action dispatch logging',
+            icon: '🔄',
+            toggle: () => { window.ReduxLog.debug = !window.ReduxLog.debug; },
+            isEnabled: () => DEBUG_REDUX_LOG,
+            commands: [
+                { name: 'on', fn: () => { window.ReduxLog.debug = true; }, description: 'Enable Redux logging' },
+                { name: 'off', fn: () => { window.ReduxLog.debug = false; }, description: 'Disable Redux logging' },
+                { name: 'status', fn: () => console.log(`ReduxLog debug: ${DEBUG_REDUX_LOG ? 'ON' : 'OFF'}`), description: 'Show current state' }
+            ]
+        });
+    }
+}, 100);
+
 // The global logger will be initialized lazily to avoid race conditions during boot.
 let log;
 
@@ -296,6 +328,11 @@ function flushLastAction() {
  * A Redux middleware that logs actions and aggregates repetitive ones.
  */
 export const reduxLogMiddleware = store => next => action => {
+    // Skip logging if debug mode is disabled
+    if (!DEBUG_REDUX_LOG) {
+        return next(action);
+    }
+
     if (typeof action === 'object' && action.type && !ignoreList.includes(action.type)) {
         
         const sanitized = sanitizeAction(action);

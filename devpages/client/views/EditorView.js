@@ -348,7 +348,8 @@ export class EditorView extends ViewInterface {
 
     async autoSave() {
         const state = appStore.getState();
-        if (state.file && state.file.currentPathname && state.auth && state.auth.isAuthenticated) {
+        // v2: pathname is at file.currentFile.pathname
+        if (state.file?.currentFile?.pathname && state.auth?.isAuthenticated) {
             try {
                 await this.saveFile(true); // Silent save
             } catch (error) {

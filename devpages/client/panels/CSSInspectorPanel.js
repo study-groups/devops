@@ -198,16 +198,6 @@ export class CSSInspectorPanel extends BasePanel {
 
     onMount(container) {
         super.onMount(container);
-        console.log('[CSSInspectorPanel] onMount called');
-        console.log('[CSSInspectorPanel] this.element:', this.element);
-        console.log('[CSSInspectorPanel] container:', container);
-
-        // Store the container for sidebar panels
-        if (container && !this.element) {
-            this.container = container;
-            console.log('[CSSInspectorPanel] Stored container for sidebar');
-        }
-
         this.attachListeners();
         this.attachCollapseListeners();
     }
@@ -1773,11 +1763,6 @@ export class CSSInspectorPanel extends BasePanel {
             console.error('[CSSInspectorPanel] Failed to copy:', err);
             alert('❌ Failed to copy to clipboard');
         }
-    }
-
-    getContainer() {
-        // Return the panel body (where our content is rendered)
-        return this.element?.querySelector('.panel-body') || this.element || this.container;
     }
 
     onDestroy() {

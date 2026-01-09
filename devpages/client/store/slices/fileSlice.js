@@ -100,10 +100,11 @@ export const fileThunks = {
     saveFile: () => async (dispatch, getState) => {
         const state = getState();
         const { currentFile } = state.file;
-        const { currentPathname } = state.path;
+        // v2 pathSlice: pathname is at state.path.current.pathname
+        const pathCurrentPathname = state.path?.current?.pathname;
         const editorContent = state.editor?.content || currentFile.content;
-        
-        const pathname = currentFile.pathname || currentPathname;
+
+        const pathname = currentFile.pathname || pathCurrentPathname;
         if (!pathname) {
             console.warn('[fileSlice] No file selected for saving');
             return;

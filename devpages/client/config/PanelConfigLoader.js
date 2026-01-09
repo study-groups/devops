@@ -60,6 +60,16 @@ const panelConfig = {
             content_type: 'interactive',
             data_sources: ['css_properties', 'computed_styles', 'css_rules', 'css_variables', 'stylesheets', 'stacking_contexts']
         },
+        'console-tools': {
+            title: 'Console Tools',
+            description: 'IIFE utilities with console commands',
+            category: 'dev',
+            sidebar: true,
+            floating: true,
+            default_expanded: false,
+            content_type: 'interactive',
+            data_sources: ['console_tools_registry']
+        },
         'design-tokens': {
             title: 'Design Tokens',
             description: 'Design system tokens and theming',
@@ -80,40 +90,6 @@ const panelConfig = {
             content_type: 'interactive',
             data_sources: ['theme_config', 'css_variables', 'theme_service']
         },
-        'debug-logging': {
-            title: 'Debug & Logging',
-            description: 'Unified TETRA analytics + app logging control (replaces Log Settings + Tetra Analytics)',
-            category: 'settings',
-            sidebar: true,
-            floating: true,
-            default_expanded: false,
-            content_type: 'interactive',
-            data_sources: ['tetra_config', 'tetra_buffer', 'session_info', 'log_config', 'console_state']
-        },
-        'log-settings': {
-            title: 'Log Settings (DEPRECATED)',
-            description: '⚠️ DEPRECATED: Use Debug & Logging panel instead',
-            category: 'settings',
-            sidebar: true,
-            floating: true,
-            default_expanded: false,
-            content_type: 'form',
-            data_sources: ['log_config', 'console_state'],
-            deprecated: true,
-            replacement: 'debug-logging'
-        },
-        'tetra-settings': {
-            title: 'Tetra Analytics (DEPRECATED)',
-            description: '⚠️ DEPRECATED: Use Debug & Logging panel instead',
-            category: 'settings',
-            sidebar: true,
-            floating: true,
-            default_expanded: false,
-            content_type: 'interactive',
-            data_sources: ['tetra_config', 'tetra_buffer', 'session_info'],
-            deprecated: true,
-            replacement: 'debug-logging'
-        },
         'preview-rendering': {
             title: 'Preview & Rendering',
             description: 'Control preview rendering features and plugins (Mermaid, KaTeX, SVG)',
@@ -123,16 +99,6 @@ const panelConfig = {
             default_expanded: false,
             content_type: 'interactive',
             data_sources: ['plugin_config', 'preview_settings']
-        },
-        'tetra-config': {
-            title: 'TETRA Config',
-            description: 'View and manage TETRA configuration from tetra.toml',
-            category: 'dev',
-            sidebar: true,
-            floating: true,
-            default_expanded: false,
-            content_type: 'interactive',
-            data_sources: ['tetra_toml', 'publishing_configs', 'secrets']
         },
         'publish-manager': {
             title: 'Publish Manager',

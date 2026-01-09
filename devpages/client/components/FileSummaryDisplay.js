@@ -20,8 +20,10 @@ export function createFileSummaryDisplay(containerId) {
             const file = appState.file || {};
             const content = file.content || '';
             
-            const fileName = file.currentPathname ? 
-                file.currentPathname.split('/').pop() : null;
+            // v2: pathname is at file.currentFile.pathname
+            const currentPathname = file.currentFile?.pathname;
+            const fileName = currentPathname ?
+                currentPathname.split('/').pop() : null;
             
             const lineCount = content ? content.split('\n').length : 0;
             
@@ -32,7 +34,7 @@ export function createFileSummaryDisplay(containerId) {
             
             return {
                 fileName,
-                filePath: file.currentPathname || null,
+                filePath: currentPathname || null,
                 fileSize: content.length,
                 lineCount,
                 status
@@ -103,8 +105,9 @@ export function createFileSummaryDisplay(containerId) {
         const newFile = newState.file;
         const prevFile = prevState.file;
 
-        if (newFile.currentPathname !== prevFile.currentPathname ||
-            newFile.currentContent !== prevFile.currentContent) {
+        // v2: pathname is at file.currentFile.pathname
+        if (newFile?.currentFile?.pathname !== prevFile?.currentFile?.pathname ||
+            newFile?.currentFile?.content !== prevFile?.currentFile?.content) {
             render();
         }
     }

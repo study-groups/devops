@@ -65,6 +65,28 @@ export class PreviewRenderingPanel extends BasePanel {
     }
 
     /**
+     * onMount is called by SidebarManager for floating panels
+     */
+    onMount(container) {
+        super.onMount(container);
+
+        // Store container for floating panels
+        if (container) {
+            this.mountedContainer = container;
+        }
+
+        // Subscribe to plugin state changes
+        if (!this.unsubscribe) {
+            this.unsubscribe = appStore.subscribe(() => {
+                this.render();
+            });
+        }
+
+        // Attach event listeners
+        this.attachEventListeners();
+    }
+
+    /**
      * Update render method - refreshes the panel content
      */
     render() {
@@ -607,10 +629,10 @@ Inline: $E = mc^2$`;
 
     /**
      * Get the container element where our content lives
-     * STANDARD PATTERN - queries .panel-body first
+     * Checks mountedContainer first (for floating panels), then standard locations
      */
     getContainer() {
-        return this.element?.querySelector('.panel-body') || this.element || this.container;
+        return this.mountedContainer || this.element?.querySelector('.panel-body') || this.element;
     }
 
     /**

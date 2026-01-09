@@ -26,14 +26,6 @@ export class DiagnosticPanel extends BasePanel {
     renderContent() {
         return `
             <div class="devpages-panel-content">
-                <!-- Panel Toolbar -->
-                <div class="devpages-panel-toolbar">
-                    <button id="refresh-diagnostics" class="devpages-btn-ghost devpages-btn-primary">
-                        <span>↻</span>
-                        <span>Refresh</span>
-                    </button>
-                </div>
-
                 <!-- Diagnostic Sections -->
                 <div class="devpages-panel-sections">
                     <!-- System Overview Section -->
@@ -92,20 +84,9 @@ export class DiagnosticPanel extends BasePanel {
 
     onMount(container = null) {
         console.log('[DiagnosticPanel] onMount called', { container });
-        
-        // Set container if provided
-        if (container) {
-            this.sidebarContainer = container;
-        }
-
-        // Call parent onMount
         super.onMount(container);
 
-        // Add diagnostic-specific styles
         this.addDiagnosticStyles();
-
-        // Attach listeners to the correct container
-        this.attachDiagnosticListeners();
         this.attachCollapseListeners();
         this.refreshDiagnostics();
     }
@@ -237,21 +218,6 @@ export class DiagnosticPanel extends BasePanel {
                 content.classList.toggle('collapsed');
                 icon.textContent = subsection.classList.contains('collapsed') ? '▶' : '▼';
             }
-        });
-    }
-
-    attachDiagnosticListeners() {
-        const container = this.getContainer();
-        if (!container) {
-            console.warn('[DiagnosticPanel] No container found for attaching listeners');
-            return;
-        }
-
-        // Find buttons within the container
-        const refreshBtn = container.querySelector('#refresh-diagnostics');
-
-        refreshBtn?.addEventListener('click', () => {
-            this.refreshDiagnostics();
         });
     }
 
@@ -1092,14 +1058,6 @@ export class DiagnosticPanel extends BasePanel {
             }
         `;
         document.head.appendChild(style);
-    }
-
-    /**
-     * Get the container element where our content lives
-     * STANDARD PATTERN - queries .panel-body first
-     */
-    getContainer() {
-        return this.element?.querySelector('.panel-body') || this.element || this.container;
     }
 
     onDestroy() {

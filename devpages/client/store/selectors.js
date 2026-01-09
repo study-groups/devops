@@ -20,14 +20,20 @@ export const getTheme = (state) => state.ui.theme;
 
 // ===== FILE SELECTORS =====
 // Defensive selectors that handle undefined state gracefully
-export const getCurrentPathname = (state) => state.file?.currentPathname || '';
-export const getIsDirectorySelected = (state) => state.file?.isDirectorySelected || false;
-export const getCurrentListing = (state) => state.file?.currentListing || null;
-export const getParentListing = (state) => state.file?.parentListing || null;
-export const getAvailableTopLevelDirs = (state) => state.file?.availableTopLevelDirs || [];
+// v2: pathname from file.currentFile.pathname or path.current.pathname
+export const getCurrentPathname = (state) =>
+    state.file?.currentFile?.pathname || state.path?.current?.pathname || '';
+// v2: isDirectorySelected from path.current.type
+export const getIsDirectorySelected = (state) => state.path?.current?.type === 'directory';
+// v2: currentListing from path.currentListing
+export const getCurrentListing = (state) => state.path?.currentListing || null;
+export const getParentListing = (state) => state.path?.parentListing || null;
+// v2: topLevelDirs from path.topLevelDirs
+export const getAvailableTopLevelDirs = (state) => state.path?.topLevelDirs || [];
 export const getFileError = (state) => state.file?.error || null;
-export const getIsFileSaving = (state) => state.file?.isSaving || false;
-export const getIsFileLoading = (state) => state.file?.isLoading || false;
+// v2: status-based flags
+export const getIsFileSaving = (state) => state.file?.status === 'saving' || state.path?.isSaving || false;
+export const getIsFileLoading = (state) => state.file?.status === 'loading' || state.path?.status === 'loading';
 
 // Derived selectors that combine state using other selectors
 export const getCurrentFilePath = (state) => 

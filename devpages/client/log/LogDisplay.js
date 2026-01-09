@@ -14,6 +14,36 @@ import { setLogDisplayInstance } from './LogCore.js';
 import { expandLogEntry as expandLogEntryFunction, collapseLogEntry as collapseLogEntryFunction } from './logEntryExpansion.js';
 import { getRenderer } from './logRenderers.js';
 
+// Debug flag - persisted to localStorage
+let DEBUG_LOG_DISPLAY = localStorage.getItem('LogDisplay.debug') === 'true';
+
+// Expose debug toggle globally with persistence
+window.LogDisplay = window.LogDisplay || {};
+Object.defineProperty(window.LogDisplay, 'debug', {
+    get: () => DEBUG_LOG_DISPLAY,
+    set: (v) => {
+        DEBUG_LOG_DISPLAY = !!v;
+        localStorage.setItem('LogDisplay.debug', DEBUG_LOG_DISPLAY);
+        console.log(`[LogDisplay] Debug mode: ${DEBUG_LOG_DISPLAY ? 'ON' : 'OFF'}`);
+    }
+});
+
+// Register with Console Tools registry
+if (window.consoleTools) {
+    window.consoleTools.register({
+        name: 'LogDisplay',
+        description: 'Control LogDisplay verbose debugging output',
+        icon: '📋',
+        toggle: () => { window.LogDisplay.debug = !window.LogDisplay.debug; },
+        isEnabled: () => DEBUG_LOG_DISPLAY,
+        commands: [
+            { name: 'on', fn: () => { window.LogDisplay.debug = true; }, description: 'Enable debug logging' },
+            { name: 'off', fn: () => { window.LogDisplay.debug = false; }, description: 'Disable debug logging' },
+            { name: 'status', fn: () => console.log(`LogDisplay debug: ${DEBUG_LOG_DISPLAY ? 'ON' : 'OFF'}`), description: 'Show current state' }
+        ]
+    });
+}
+
 export class LogDisplay {
     constructor(options) {
         this.id = options.id || 'log-display';
@@ -75,7 +105,7 @@ export class LogDisplay {
         
         // Apply initial state
         const initialState = this.store.getState();
-        console.log('[LogDisplay.onMount] 🔍 INITIAL STATE:', {
+        if (DEBUG_LOG_DISPLAY) console.log('[LogDisplay.onMount] 🔍 INITIAL STATE:', {
             'ui.logVisible': initialState.ui?.logVisible,
             'ui object': initialState.ui,
             'full ui': JSON.stringify(initialState.ui, null, 2)
@@ -573,7 +603,7 @@ export class LogDisplay {
             const isVisible = state.ui?.logVisible === true;
             const logHeight = state.ui?.logHeight || 150;
 
-            console.log('[LogDisplay.onStateChange] 🔍 STATE CHANGE:', {
+            if (DEBUG_LOG_DISPLAY) console.log('[LogDisplay.onStateChange] 🔍 STATE CHANGE:', {
                 'ui.logVisible': state.ui?.logVisible,
                 'isVisible': isVisible,
                 'current classes': logContainer.className,
@@ -593,11 +623,11 @@ export class LogDisplay {
             if (isVisible) {
                 logContainer.classList.remove('log-hidden');
                 logContainer.classList.add('log-visible');
-                console.log('[LogDisplay.onStateChange] ✅ Set log-visible');
+                if (DEBUG_LOG_DISPLAY) console.log('[LogDisplay.onStateChange] ✅ Set log-visible');
             } else {
                 logContainer.classList.remove('log-visible');
                 logContainer.classList.add('log-hidden');
-                console.log('[LogDisplay.onStateChange] ❌ Set log-hidden');
+                if (DEBUG_LOG_DISPLAY) console.log('[LogDisplay.onStateChange] ❌ Set log-hidden');
             }
         }
 

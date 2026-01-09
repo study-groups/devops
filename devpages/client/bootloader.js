@@ -118,10 +118,6 @@ async function bootCore() {
         const { publishConfigThunks } = await import('./store/slices/publishConfigSlice.js');
         await dispatch(publishConfigThunks.initializeFromEnv());
         log.info('PUBLISH_CONFIG_INIT', '✅ Publish configurations initialized from environment');
-
-        // Fetch TETRA configurations from tetra.toml
-        await dispatch(publishConfigThunks.fetchTetraConfigs());
-        log.info('TETRA_CONFIG_INIT', '✅ TETRA configurations loaded from tetra.toml');
     } catch (error) {
         log.warn('PUBLISH_CONFIG_INIT_FAILED', '⚠️ Failed to initialize publish configurations:', error);
     }

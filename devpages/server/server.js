@@ -15,7 +15,6 @@ const FileStore = connectSessionFileStore(session);
 // --- Local Imports ---
 import { port, uploadsDirectory, env } from './config.js';
 import { authMiddleware } from './middleware/auth.js';
-import { TetraMetrics, createTetraMiddleware } from '../tetra/tetra.js';
 // import { CapabilityManager } from './middleware/capabilities.js';
 import authRoutes from './routes/auth.js';
 import saveRoutes from './routes/save.js';
@@ -27,12 +26,10 @@ import configRoutes from './routes/configRoutes.js';
 import { PData } from '../pdata/PData.js';
 import pdataRoutes from './routes/pdataRoutes.js';
 import cssRoutes from './routes/css.js';
-import tetraRoutes from './routes/tetraRoutes.js';
 import spacesRouter from './routes/spaces.js';
 import publishRouter from './routes/publish.js';
 import imagesRouter from './routes/images.js';
 import systemRouter from './routes/system.js';
-import { TetraConfig } from './utils/tetraConfig.js';
 // import settingsRoutes from './routes/settings.js';
 // import s3Routes from './routes/s3.js';
 
@@ -52,7 +49,6 @@ if (!pdDir) {
 const app = express();
 let pdataInstance;
 let capabilityManager;
-let tetraInstance;
 
 try {
     const dataDir = path.join(pdDir, 'data');
@@ -61,45 +57,10 @@ try {
     }
 	pdataInstance = new PData();
 	console.log('[Server] PData initialized successfully.');
-
-	// Initialize Tetra metrics
-	tetraInstance = new TetraMetrics({
-		environment: process.env.NODE_ENV || 'development',
-		enableConsoleLogging: true,
-		enablePerformanceTracking: true,
-		enableAnalytics: true
-	});
-	console.log('[Server] Tetra metrics initialized successfully.');
-
-	console.log('[Server] CapabilityManager initialized successfully.');
 } catch (error) {
     console.error('[Server] CRITICAL: PData failed to initialize.', error);
 	process.exit(1);
 }
-
-// Initialize TETRA Configuration (async)
-(async () => {
-	if (process.env.TETRA_CONFIG && process.env.TETRA_SECRETS) {
-		try {
-			const tetraConfig = new TetraConfig(
-				process.env.TETRA_CONFIG,
-				process.env.TETRA_SECRETS
-			);
-			await tetraConfig.load();
-			app.locals.tetraConfig = tetraConfig;
-			console.log('[Server] TETRA config loaded successfully');
-
-			const configs = tetraConfig.getPublishingConfigs();
-			console.log(`[Server] TETRA: ${configs.length} publishing configs available`);
-		} catch (error) {
-			console.warn('[Server] TETRA config failed to load:', error.message);
-			console.warn('[Server] Publishing will use localStorage configs only');
-		}
-	} else {
-		console.warn('[Server] TETRA environment variables not set (TETRA_CONFIG, TETRA_SECRETS)');
-		console.warn('[Server] Publishing will use localStorage configs only');
-	}
-})();
 
 const s3ClientInstance = (() => {
     const requiredEnvVars = ['DO_SPACES_KEY', 'DO_SPACES_SECRET', 'DO_SPACES_REGION', 'DO_SPACES_ENDPOINT'];
@@ -127,16 +88,8 @@ app.use((req, res, next) => {
   console.log(`[REQUEST] ${req.method} ${req.url}`);
   req.pdata = pdataInstance;
   req.s3Client = s3ClientInstance;
-  req.tetra = tetraInstance;
-    next();
-  });
-
-// 1a. Tetra Metrics Middleware
-app.use(createTetraMiddleware({
-  enableConsoleLogging: true,
-  enablePerformanceTracking: true,
-  userId: null // Will be set after auth
-}));
+  next();
+});
 
 // Make capability manager available to all routes
 app.locals.capabilityManager = capabilityManager;
@@ -180,7 +133,6 @@ app.use('/client', express.static(path.join(projectRoot, 'client'), staticOption
 app.use('/packages', express.static(path.join(projectRoot, 'packages'), staticOptions));
 app.use('/redux', express.static(path.join(projectRoot, 'redux'), staticOptions));
 app.use('/node_modules', express.static(path.join(projectRoot, 'node_modules'), staticOptions));
-app.use('/tetra', express.static(path.join(projectRoot, '../tetra'), staticOptions));
 app.use('/uploads', express.static(uploadsDirectory, staticOptions));
 app.use(express.static(path.join(projectRoot, 'public'), staticOptions));
 
@@ -193,7 +145,6 @@ app.use('/api/files', authMiddleware, filesRouter);
 app.use('/api/save', authMiddleware, express.text({ type: 'text/plain' }), express.json(), saveRoutes);
 app.use('/api/cli', express.json(), authMiddleware, cliRoutes);
 app.use('/api/pdata', authMiddleware, pdataRoutes);
-app.use('/api/tetra', tetraRoutes);
 app.use('/api/spaces', spacesRouter);
 app.use('/api/publish', authMiddleware, publishRouter);
 app.use('/api/images', authMiddleware, imagesRouter);
@@ -204,6 +155,10 @@ app.use('/css', cssRoutes);
 
 // 5. Application Routes (HTML serving, etc.)
 app.get('/', (req, res) => {
+    // Prevent caching of index.html to avoid stale import maps
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     res.sendFile(path.join(projectRoot, 'client', 'index.html'));
 });
 app.use('/login', (req, res) => {

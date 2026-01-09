@@ -6,9 +6,6 @@
  * main entry point.
  */
 
-// New unified panels
-import './DebugLoggingPanel.js'; // NEW: Unified TETRA + App logging (replaces TetraSettingsPanel + LogSettingsPanel)
-
 // Active panels
 import './dev/FileBrowserPanel.js';
 import './publish/PublishPanel.js'; // Unified publish panel
@@ -18,11 +15,8 @@ import './UIInspectorPanel.js';
 import './ThemeManagementPanel.js'; // New v2.0 theme manager
 import './DOMInspectorPanel.js';
 import './CSSInspectorPanel.js'; // Advanced CSS inspection with z-index visualization
-import './TetraConfigPanel.js';
 import './PreviewRenderingPanel.js'; // Preview & rendering settings
-
-// Legacy panels (deprecated - kept for backwards compatibility)
-import './TetraSettingsPanel.js'; // DEPRECATED: Use DebugLoggingPanel instead
+import './ConsoleToolsPanel.js'; // Console tools discovery panel
 
 // Note: CSS is loaded via server bundles (/css/bundles/*.bundle.css)
 // Not imported directly in JavaScript modules

@@ -125,8 +125,9 @@ export function createPathManagerComponent(targetElementId) {
         const isOverallLoading = isPathLoading || isFileLoading;
         const isSaving = fileState.isSaving; // Use enhanced selector property
         
-        const currentPathname = pathState.currentPathname || '';
-        const isDirectorySelected = pathState.isDirectorySelected;
+        // v2 pathSlice stores these in the 'current' object
+        const currentPathname = pathState.current?.pathname || '';
+        const isDirectorySelected = pathState.current?.type === 'directory';
         
         const user = authState.user;
         const username = user?.username;
@@ -146,13 +147,29 @@ export function createPathManagerComponent(targetElementId) {
             listingForSelectorWillBeNull: !pathState.currentListing || pathState.currentListing.pathname !== selectedDirectoryPath
         });
 
-        // Handle path matching with normalization for root paths
+        // Handle path matching with normalization (strip leading/trailing slashes for comparison)
         let listingForSelector = null;
         if (pathState.currentListing) {
+            const normalizePath = (p) => {
+                if (p === null || p === undefined || p === '' || p === '/') return '';
+                return p.replace(/^\/+|\/+$/g, ''); // Strip leading/trailing slashes
+            };
+
             const currentListingPath = pathState.currentListing.pathname;
-            const normalizedCurrentPath = currentListingPath === null || currentListingPath === '' ? '/' : currentListingPath;
-            const normalizedSelectedPath = selectedDirectoryPath === null || selectedDirectoryPath === '' ? '/' : selectedDirectoryPath;
-            
+            const normalizedCurrentPath = normalizePath(currentListingPath);
+            const normalizedSelectedPath = normalizePath(selectedDirectoryPath);
+
+            // DEBUG: Track path matching for dropdown population
+            console.log('[PathManager DEBUG]', {
+                currentListingPath,
+                selectedDirectoryPath,
+                normalizedCurrentPath,
+                normalizedSelectedPath,
+                pathsMatch: normalizedCurrentPath === normalizedSelectedPath,
+                dirs: pathState.currentListing?.dirs,
+                files: pathState.currentListing?.files
+            });
+
             log.debug('PATH', 'PathManager render - Path normalization:', {
                 originalCurrentPath: currentListingPath,
                 normalizedCurrentPath,
@@ -160,10 +177,13 @@ export function createPathManagerComponent(targetElementId) {
                 normalizedSelectedPath,
                 pathsMatch: normalizedCurrentPath === normalizedSelectedPath
             });
-            
+
             if (normalizedCurrentPath === normalizedSelectedPath) {
                 listingForSelector = pathState.currentListing;
             }
+        } else {
+            // DEBUG: No currentListing available
+            console.log('[PathManager DEBUG] No currentListing in state. pathState.status:', pathState.status);
         }
         
         // If we're viewing a file but don't have the parent directory listing, load it
@@ -176,7 +196,7 @@ export function createPathManagerComponent(targetElementId) {
                 setTimeout(() => {
                     log.debug('PATH', `PathManager render - Dispatching getDirectoryListing for: '${selectedDirectoryPath}'`);
                     // Only fetch the directory listing, don't change the current path
-                    appStore.dispatch(apiSlice.endpoints.getDirectoryListing.initiate(selectedDirectoryPath));
+                    appStore.dispatch(apiSlice.endpoints.getDirectoryListing.initiate(selectedDirectoryPath, { forceRefetch: true }));
                 }, 0);
             }
         } else if (isDirectorySelected || listingForSelector) {
@@ -436,8 +456,9 @@ export function createPathManagerComponent(targetElementId) {
         const selectedType = selectedOption.dataset.type;
 
         const pathState = appStore.getState().path;
-        const currentPathname = pathState.currentPathname;
-        const isDirectorySelected = pathState.isDirectorySelected;
+        // v2 pathSlice stores these in the 'current' object
+        const currentPathname = pathState.current?.pathname;
+        const isDirectorySelected = pathState.current?.type === 'directory';
 
         // Determine current directory for building new paths
         let currentDirectory = null;
@@ -509,7 +530,8 @@ export function createPathManagerComponent(targetElementId) {
             const pathState = state.path;
             const contextName = state.context?.activeContext || 'default'; // Get active context
 
-            if (pathState.isDirectorySelected || !pathState.currentPathname) {
+            // v2: Use current.type and current.pathname
+            if (pathState.current?.type === 'directory' || !pathState.current?.pathname) {
                 log.warn('NOTE', 'NO_FILE_SELECTED', 'Cannot add note: No file selected or directory view.');
                 alert('Please select a file to add to context.');
                 return;
@@ -524,7 +546,7 @@ export function createPathManagerComponent(targetElementId) {
             }
 
             const markdownContent = editor.value;
-            const pathname = pathState.currentPathname;
+            const pathname = pathState.current?.pathname;
             
             originalText = noteBtn.textContent;
             noteBtn.textContent = 'Adding...';
@@ -629,7 +651,8 @@ export function createPathManagerComponent(targetElementId) {
         // URL parameter handling is done by the bootloader, so we don't need to duplicate it here
         // Just log the current state for debugging
         const currentState = appStore.getState();
-        const currentPathname = currentState.path?.currentPathname;
+        // v2: pathname is at path.current.pathname
+        const currentPathname = currentState.path?.current?.pathname;
         const authState = currentState.auth;
 
         log.debug('PATH', 'PathManager mount - Current state on mount:', {

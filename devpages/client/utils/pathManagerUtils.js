@@ -119,11 +119,12 @@ export const pathUtils = {
 export const topDirUtils = {
     
     /**
-     * Get available top-level directories from file state
+     * Get available top-level directories from path state
+     * v2: topLevelDirs is at path.topLevelDirs, not file.availableTopLevelDirs
      */
     getAvailableTopLevelDirs() {
-        const fileState = appStore.getState().file || {};
-        return fileState.availableTopLevelDirs || [];
+        const pathState = appStore.getState().path || {};
+        return pathState.topLevelDirs || [];
     },
 
     /**

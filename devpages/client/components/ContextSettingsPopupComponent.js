@@ -68,7 +68,8 @@ function ContextSettingsPopupComponent(popupId = 'context-settings-popup') {
 
         const { contextSettings, settings, file, path } = props;
         const currentSelectedOrg = settings.selectedOrg || 'pixeljam-arcade';
-        const currentDisplayPathname = file.currentPathname || path.currentPathname || '';
+        // v2: pathname from file.currentFile.pathname or path.current.pathname
+        const currentDisplayPathname = file?.currentFile?.pathname || path?.current?.pathname || '';
         
         const orgOptionsHTML = `
             <option value="pixeljam-arcade" ${currentSelectedOrg === 'pixeljam-arcade' ? 'selected' : ''}>pixeljam-arcade</option>

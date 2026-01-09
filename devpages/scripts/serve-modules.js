@@ -62,13 +62,8 @@ function startDevServer(port = 4000) {
     // Also serve css directory
     app.use('/css', express.static(path.join(PROJECT_ROOT, 'client/css')));
 
-    // Serve tetra.js from tetra source (TETRA_SRC or relative path)
-    const tetraSrc = process.env.TETRA_SRC || path.resolve(PROJECT_ROOT, '../tetra');
-    app.use('/tetra', express.static(tetraSrc));
-
     // API stubs - return empty responses to prevent client errors
     app.get('/api/spaces/config', (req, res) => res.json({}));
-    app.get('/api/tetra/config/publishing', (req, res) => res.json({}));
     app.get('/api/config', (req, res) => res.json({}));
     app.get('/env', (req, res) => res.json({}));
 

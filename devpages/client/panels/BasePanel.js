@@ -9,8 +9,36 @@
  * - Debug integration
  */
 
-import { appStore } from '../appState.js';
-import { panelActions } from '../store/slices/panelSlice.js';
+// Lazy getters to break circular dependency: appState → panelSlice → BasePanel → appState
+let _appStore = null;
+let _panelActions = null;
+
+function getAppStore() {
+    if (!_appStore) {
+        // appStore is set via setAppStore() after store initialization
+        console.warn('[BasePanel] appStore not yet initialized');
+    }
+    return _appStore;
+}
+
+function getPanelActions() {
+    if (!_panelActions) {
+        // Lazy import panelActions
+        import('../store/slices/panelSlice.js').then(m => {
+            _panelActions = m.panelActions;
+        });
+    }
+    return _panelActions;
+}
+
+// Called by appState.js after store is created
+export function setAppStore(store) {
+    _appStore = store;
+    // Also load panelActions now
+    import('../store/slices/panelSlice.js').then(m => {
+        _panelActions = m.panelActions;
+    });
+}
 import { zIndexManager } from '../utils/ZIndexManager.js';
 import { eventBus } from '../eventBus.js';
 
@@ -166,7 +194,7 @@ export class BasePanel {
     initializeReduxState() {
         if (!this.config.useRedux) return;
 
-        appStore.dispatch(panelActions.createPanel({
+        getAppStore().dispatch(getPanelActions().createPanel({
             id: this.id,
             title: this.title,
             type: this.type,
@@ -181,7 +209,7 @@ export class BasePanel {
      */
     getState() {
         if (this.config.useRedux) {
-            const reduxState = appStore.getState().panels?.panels?.[this.id];
+            const reduxState = getAppStore().getState().panels?.panels?.[this.id];
             if (reduxState) {
                 // Compatibility layer: support old nested state structure
                 if (reduxState.floatingState && !reduxState.x) {
@@ -209,7 +237,7 @@ export class BasePanel {
 
         // Sync to Redux if enabled
         if (this.config.useRedux) {
-            appStore.dispatch(panelActions.updatePanel({
+            getAppStore().dispatch(getPanelActions().updatePanel({
                 id: this.id,
                 updates
             }));
@@ -548,7 +576,7 @@ export class BasePanel {
 
         // Clean up Redux state if used
         if (this.config.useRedux) {
-            appStore.dispatch(panelActions.removePanel(this.id));
+            getAppStore().dispatch(getPanelActions().removePanel(this.id));
         }
 
         this.mounted = false;
@@ -556,10 +584,29 @@ export class BasePanel {
     }
 
     // Lifecycle hooks - override in subclasses
-    onMount() {}
+
+    /**
+     * Called when panel is mounted. Stores the container reference for floating panels.
+     * @param {HTMLElement|null} container - The container element (for floating panels)
+     */
+    onMount(container = null) {
+        if (container) {
+            this.mountedContainer = container;
+        }
+    }
+
     onShow() {}
     onHide() {}
     onDestroy() {}
+
+    /**
+     * Get the container element where panel content lives.
+     * Checks mountedContainer first (for floating panels), then standard locations.
+     * @returns {HTMLElement|null} The container element
+     */
+    getContainer() {
+        return this.mountedContainer || this.element?.querySelector('.panel-body') || this.element || null;
+    }
 
     // Debug helpers
     getDebugInfo() {

@@ -29,8 +29,6 @@ export class SourceInferencer {
         'design-tokens': { file: 'client/panels/DesignTokensPanel.js', component: 'DesignTokensPanel' },
         'theme-management': { file: 'client/panels/ThemeManagementPanel.js', component: 'ThemeManagementPanel' },
         'publish': { file: 'client/panels/publish/PublishPanel.js', component: 'PublishPanel' },
-        'tetra-config': { file: 'client/panels/TetraConfigPanel.js', component: 'TetraConfigPanel' },
-        'tetra-settings': { file: 'client/panels/TetraSettingsPanel.js', component: 'TetraSettingsPanel' },
         'diagnostic': { file: 'client/panels/DiagnosticPanel.js', component: 'DiagnosticPanel' },
         'system-diagnostics': { file: 'client/panels/DiagnosticPanel.js', component: 'DiagnosticPanel' }
       },

@@ -216,8 +216,9 @@ export async function downloadStaticHTML() {
 
         // 3. Get File Info for Naming
         const state = appStore.getState();
-        const currentPathname = state.file?.currentPathname || null;
-        const isDirectory = state.file?.isDirectorySelected || false;
+        // v2: pathname from file.currentFile.pathname, isDirectory from path.current.type
+        const currentPathname = state.file?.currentFile?.pathname || null;
+        const isDirectory = state.path?.current?.type === 'directory';
         let descriptiveNamePart = 'static-preview';
 
         if (currentPathname && !isDirectory) {

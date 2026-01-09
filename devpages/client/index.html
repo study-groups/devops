@@ -7,6 +7,9 @@
     <title>DevPages</title>
     <link rel="icon" type="image/x-icon" href="/client/favicon.ico">
 
+    <!-- Console filter: Controls verbose [bracketed] logging. Must load first. -->
+    <script src="/client/utils/console-filter.js"></script>
+
     <!-- CRITICAL: Synchronous theme initialization MUST run BEFORE CSS loads -->
     <!-- This ensures CSS variables are set before CSS bundles parse -->
     <script src="/client/services/ThemeInitializer.js"></script>
@@ -138,90 +141,11 @@
     <!-- Default: log-visible to match Redux default logVisible: true -->
     <div id="log-container" class="log-visible"></div>
 
-    <!-- Tetra Analytics -->
-    <script src="/tetra/tetra.js"></script>
-    <script>
-        // Initialize Tetra client tracking
-        if (window.TetraClientTracker) {
-            // Load saved preferences from localStorage
-            const savedPrefs = (() => {
-                try {
-                    const saved = localStorage.getItem('tetraPreferences');
-                    const parsed = saved ? JSON.parse(saved) : {};
-                    console.log('[Tetra] Loaded preferences from localStorage:', parsed);
-                    return parsed;
-                } catch (error) {
-                    console.error('[Tetra] Failed to load preferences:', error);
-                    return {};
-                }
-            })();
+    <!-- Console Tools Registry (load before tool IIFEs) -->
+    <script src="/client/utils/console-tools-registry.js"></script>
 
-            // Merge saved preferences with defaults
-            const tetraConfig = {
-                environment: 'development',
-                enableConsoleLogging: savedPrefs.enableConsoleLogging !== undefined ? savedPrefs.enableConsoleLogging : true,
-                enableAnalytics: savedPrefs.enableAnalytics !== undefined ? savedPrefs.enableAnalytics : true,
-                enablePerformanceTracking: savedPrefs.enablePerformanceTracking !== undefined ? savedPrefs.enablePerformanceTracking : true,
-                enableMouseTracking: savedPrefs.enableMouseTracking !== undefined ? savedPrefs.enableMouseTracking : false,
-                logSearchQueries: false, // Don't log sensitive search data
-                includeEventsInFlush: false // Keep logs clean
-            };
-            console.log('[Tetra] Initializing with config:', tetraConfig);
-            window.tetra = new TetraClientTracker(tetraConfig);
-
-            // Track feature usage
-            document.addEventListener('DOMContentLoaded', function() {
-                // Track major UI interactions
-                document.addEventListener('click', function(e) {
-                    const button = e.target.closest('button');
-                    const link = e.target.closest('a');
-
-                    if (button && button.id) {
-                        tetra.trackFeatureUse(`button_${button.id}`);
-                    }
-
-                    if (link && link.href) {
-                        tetra.trackFeatureUse('link_click', {
-                            href: link.href,
-                            text: link.textContent?.substring(0, 50)
-                        });
-                    }
-                });
-
-                // Track panel interactions
-                const observer = new MutationObserver(function(mutations) {
-                    mutations.forEach(function(mutation) {
-                        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                            const target = mutation.target;
-                            if (target.classList.contains('panel-active') && target.id) {
-                                tetra.trackFeatureUse(`panel_${target.id}`, {
-                                    action: 'activated'
-                                });
-                            }
-                        }
-                    });
-                });
-
-                observer.observe(document.body, {
-                    attributes: true,
-                    subtree: true,
-                    attributeFilter: ['class']
-                });
-
-                // Track search when available
-                const searchInput = document.querySelector('input[type="search"], .search-input');
-                if (searchInput) {
-                    searchInput.addEventListener('input', function(e) {
-                        if (e.target.value.length >= 3) {
-                            tetra.trackSearch('[search_query]', 0, false);
-                        }
-                    });
-                }
-            });
-
-            console.log('Tetra client tracking initialized');
-        }
-    </script>
+    <!-- Console telemetry (opt-in via: telemetry.enable()) -->
+    <script src="/client/utils/telemetry.js"></script>
 
     <script type="module" src="/client/index.js"></script>
 </body>

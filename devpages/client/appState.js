@@ -47,6 +47,9 @@ import { apiSlice } from './store/apiSlice.js';
 // EventBus store injection (breaks circular dependency)
 import { setEventBusStore } from './eventBus.js';
 
+// BasePanel store injection (breaks circular dependency)
+import { setAppStore } from './panels/BasePanel.js';
+
 // Thunks and Actions
 import { authThunks } from './store/slices/authSlice.js';
 import { pathThunks, pathSlice } from './store/slices/pathSlice.js';
@@ -164,6 +167,9 @@ function initializeStore(preloadedState = {}) {
         // Inject store into eventBus (breaks circular dependency)
         setEventBusStore(appStore);
 
+        // Inject store into BasePanel (breaks circular dependency)
+        setAppStore(appStore);
+
         // Grouped thunks are now initialized here, after the store is created
         // This breaks the circular dependency race condition
         thunks = {
@@ -198,6 +204,9 @@ function initializeStore(preloadedState = {}) {
 
         // Inject store into eventBus (fallback path)
         setEventBusStore(appStore);
+
+        // Inject store into BasePanel (fallback path)
+        setAppStore(appStore);
 
         // Ensure thunks are available even in fallback path
         thunks = {

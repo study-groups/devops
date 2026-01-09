@@ -118,9 +118,6 @@ export class FileBrowserPanel extends BasePanel {
                                     <span class="fb-stat-label">Orphaned:</span>
                                     <span class="fb-stat-value" id="orphaned-images">-</span>
                                 </div>
-                                <button class="fb-action-btn fb-action-btn-sm" data-action="refresh-stats">
-                                    <span class="btn-text">Refresh Stats</span>
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -130,17 +127,11 @@ export class FileBrowserPanel extends BasePanel {
     }
 
     onMount(container = null) {
-        if (container) {
-            this.sidebarContainer = container;
-        }
-
         super.onMount(container);
 
         this.checkAdminStatus();
         this.addStyles();
         this.attachEventListeners();
-
-        // Load data in background
         this.loadSystemInfo();
         this.loadStats();
     }
@@ -415,9 +406,6 @@ export class FileBrowserPanel extends BasePanel {
             case 'delete-unused-images':
                 await this.deleteUnusedImages();
                 break;
-            case 'refresh-stats':
-                await this.loadStats();
-                break;
         }
     }
 
@@ -507,14 +495,6 @@ export class FileBrowserPanel extends BasePanel {
             console.error('[FileBrowser] Failed to delete unused images:', error);
             this.showFeedback(`Failed to delete unused images: ${error.message}`, 'error');
         }
-    }
-
-    /**
-     * Get the container element where our content lives
-     * STANDARD PATTERN - queries .panel-body first
-     */
-    getContainer() {
-        return this.element?.querySelector('.panel-body') || this.element || this.sidebarContainer;
     }
 
     addStyles() {

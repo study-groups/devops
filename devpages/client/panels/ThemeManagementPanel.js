@@ -547,10 +547,10 @@ export class ThemeManagementPanel extends BasePanel {
 
     /**
      * Get the container element where our content lives
-     * STANDARD PATTERN - queries .panel-body first
+     * Checks container first (for floating panels), then standard locations
      */
     getContainer() {
-        return this.element?.querySelector('.panel-body') || this.element || this.container;
+        return this.container || this.element?.querySelector('.panel-body') || this.element;
     }
 
     updateDisplay() {

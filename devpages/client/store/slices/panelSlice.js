@@ -13,7 +13,17 @@
 
 import { createSlice } from '@reduxjs/toolkit';
 import { panelConfigLoader } from '../../config/PanelConfigLoader.js';
-import { panelRegistry } from '../../panels/BasePanel.js';
+
+// Lazy getter to break circular dependency: panelSlice → BasePanel → appState → panelSlice
+let _panelRegistry = null;
+
+async function getPanelRegistry() {
+    if (!_panelRegistry) {
+        const module = await import('../../panels/BasePanel.js');
+        _panelRegistry = module.panelRegistry;
+    }
+    return _panelRegistry;
+}
 
 const initialState = {
     // Runtime panel instances with full state
@@ -58,6 +68,11 @@ const panelSlice = createSlice({
     reducers: {
         createPanel: (state, action) => {
             const { id, title, type, position, size, visible = false, collapsed = false, zIndex, config } = action.payload;
+
+            // Defensive: ensure panels exists (may be missing from persisted state)
+            if (!state.panels) {
+                state.panels = {};
+            }
 
             // Don't overwrite existing panel state - just update what's needed
             if (state.panels[id]) {
@@ -238,10 +253,20 @@ const panelSlice = createSlice({
         setSidebarPanelExpanded: (state, action) => {
             const { panelId, expanded } = action.payload;
 
+            // Defensive: ensure panels exists
+            if (!state.panels) {
+                state.panels = {};
+            }
+
             // Update in panels if it exists
             if (state.panels[panelId]) {
                 state.panels[panelId].sidebarExpanded = expanded;
                 state.panels[panelId].lastUpdated = Date.now();
+            }
+
+            // Defensive: ensure sidebarPanels exists
+            if (!state.sidebarPanels) {
+                state.sidebarPanels = {};
             }
 
             // Always maintain sidebarPanels for sidebar state
@@ -253,10 +278,10 @@ const panelSlice = createSlice({
 
         toggleSidebarPanel: (state, action) => {
             const panelId = action.payload;
-            const currentExpanded = state.panels[panelId]?.sidebarExpanded || 
-                                  state.sidebarPanels[panelId]?.expanded || 
+            const currentExpanded = state.panels?.[panelId]?.sidebarExpanded ||
+                                  state.sidebarPanels?.[panelId]?.expanded ||
                                   false;
-            
+
             // Use the existing setSidebarPanelExpanded logic
             panelSlice.caseReducers.setSidebarPanelExpanded(state, {
                 payload: { panelId, expanded: !currentExpanded }
@@ -384,15 +409,23 @@ const panelSlice = createSlice({
         // Panel ordering actions
         setPanelOrder: (state, action) => {
             const { category, panelIds } = action.payload;
+            // Defensive: ensure panelOrders exists (may be missing from persisted state)
+            if (!state.panelOrders) {
+                state.panelOrders = { dev: [], settings: [], publish: [] };
+            }
             state.panelOrders[category] = panelIds;
         },
 
         reorderPanel: (state, action) => {
             const { category, fromIndex, toIndex } = action.payload;
-            if (!state.panelOrders || !state.panelOrders[category]) {
+            // Defensive: ensure panelOrders exists
+            if (!state.panelOrders) {
+                state.panelOrders = { dev: [], settings: [], publish: [] };
+            }
+            if (!state.panelOrders[category]) {
                 return;
             }
-            
+
             const panelIds = [...state.panelOrders[category]];
             const [movedPanel] = panelIds.splice(fromIndex, 1);
             panelIds.splice(toIndex, 0, movedPanel);
@@ -401,6 +434,10 @@ const panelSlice = createSlice({
 
         initializePanelOrder: (state, action) => {
             const { category, panelIds } = action.payload;
+            // Defensive: ensure panelOrders exists
+            if (!state.panelOrders) {
+                state.panelOrders = { dev: [], settings: [], publish: [] };
+            }
             // Only initialize if category order is empty
             if (!state.panelOrders[category] || state.panelOrders[category].length === 0) {
                 state.panelOrders[category] = panelIds;
@@ -427,6 +464,8 @@ export const panelThunks = {
     // Create panel using unified registry (PREFERRED METHOD)
     createPanelUnified: (panelType, overrides = {}) => async (dispatch) => {
         try {
+            const panelRegistry = await getPanelRegistry();
+
             // Check if panel type is available in unified registry
             if (!panelRegistry.isTypeAvailable(panelType)) {
                 console.error(`[panelThunks] Panel type not available: ${panelType}`);
@@ -520,6 +559,8 @@ export const panelThunks = {
             const existingPanels = state.panels?.panels || {};
             let createdCount = 0;
             
+            const panelRegistry = await getPanelRegistry();
+
             for (const [panelId, panelConfig] of Object.entries(sidebarPanels)) {
                 // Only create if doesn't exist
                 if (!existingPanels[panelId]) {

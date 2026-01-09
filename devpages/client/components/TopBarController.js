@@ -64,7 +64,9 @@ export class TopBarController {
             e.stopPropagation();
             
             const state = appStore.getState();
-            const { currentPathname, isDirectorySelected } = state.path;
+            // v2 pathSlice: current.pathname and current.type
+            const currentPathname = state.path?.current?.pathname;
+            const isDirectorySelected = state.path?.current?.type === 'directory';
             const isModified = state.editor?.isModified || false; // Use editor isModified state
 
             if (!currentPathname || isDirectorySelected) {
@@ -206,8 +208,8 @@ export class TopBarController {
                     isAuthenticated: state.auth?.isAuthenticated,
                     isLoading: state.ui?.isLoading,
                     fileStatus: state.file?.status,
-                    currentPathname: state.path?.currentPathname,
-                    isDirectorySelected: state.path?.isDirectorySelected,
+                    currentPathname: state.path?.current?.pathname,
+                    isDirectorySelected: state.path?.current?.type === 'directory',
                     isModified: state.editor?.isModified
                 };
                 
@@ -334,8 +336,9 @@ export class TopBarController {
         const saveButton = document.querySelector('#save-btn');
         if (saveButton) {
             const path = state.path || {};
-            const currentPathname = path.currentPathname;
-            const isDirectorySelected = path.isDirectorySelected;
+            // v2 pathSlice: current.pathname and current.type
+            const currentPathname = path.current?.pathname;
+            const isDirectorySelected = path.current?.type === 'directory';
             
             const editor = state.editor || {};
             const isEditorModified = editor.isModified || false;

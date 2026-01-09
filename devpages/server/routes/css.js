@@ -59,8 +59,7 @@ const CSS_BUNDLES = {
         'client/styles/dom-inspector-panel.css',
         'client/styles/css-inspector-panel.css',
         'client/panels/publish/PublishPanelStyles.css',
-        'client/panels/publish/ConfigManagerStyles.css',
-        'client/panels/TetraConfigPanelStyles.css'
+        'client/panels/publish/ConfigManagerStyles.css'
     ],
     content: [
         'client/styles/8-content/markdown-base.css',

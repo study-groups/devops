@@ -1,0 +1,57 @@
+# tetra-build.toml - DevPages Build Configuration
+# Run: tetra build (from project root)
+
+[build]
+name = "devpages"
+output = "client/css/bundles"
+
+# CSS Bundle Definitions
+# Each bundle concatenates listed files into {name}.bundle.css
+
+[bundles.css]
+
+# Core: Foundation styles loaded first
+core = [
+  "client/styles/reset.css",
+  "client/styles/system.css",
+  "client/styles/typography.css",
+  "client/styles/design-tokens.css",
+  "client/styles/design-tokens-colors.css",
+  "client/styles/design-tokens-spacing.css",
+  "client/styles/design-tokens-typography.css",
+  "client/styles/design-tokens-z-index.css",
+  "client/styles/utilities.css"
+]
+
+# Layout: Workspace structure
+layout = [
+  "client/layout/workspace-layout.css",
+  "client/styles/sidebar.css",
+  "client/styles/panels.css",
+  "client/styles/editor.css",
+  "client/styles/resizable.css",
+  "client/styles/top-bar-minimal.css",
+  "client/styles/splash-screen.css"
+]
+
+# Features: UI components and interactions
+features = [
+  "client/styles/tags-and-buttons.css",
+  "client/styles/icons.css",
+  "client/styles/viewControls.css",
+  "client/styles/ui-system.css",
+  "client/styles/ui-inspector.css",
+  "client/styles/design-system.css",
+  "client/styles/fileSummaryDisplay.css"
+]
+
+# Panels: Panel-specific styles
+panels = [
+  "client/styles/design-system-panels.css",
+  "client/styles/design-tokens-panel.css",
+  "client/styles/theme-editor-panel.css",
+  "client/styles/theme-management-panel.css",
+  "client/styles/css-inspector-panel.css",
+  "client/styles/dom-inspector-panel.css",
+  "client/styles/preview-rendering-panel.css"
+]

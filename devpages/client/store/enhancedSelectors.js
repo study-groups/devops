@@ -71,31 +71,35 @@ export const getFileState = createMemoizedSelector(
         const file = state.file || {};
         const currentFile = file.currentFile || {};
         const path = state.path || {};
-        
+        // v2 pathSlice: current.pathname and current.type
+        const pathCurrent = path.current || {};
+
         return {
             // Get path info from path slice (source of truth for navigation)
-            isDirectorySelected: path.isDirectorySelected || false,
+            // v2: isDirectorySelected derived from path.current.type
+            isDirectorySelected: pathCurrent.type === 'directory',
             currentListing: path.currentListing || null,
             parentListing: path.parentListing || null,
-            availableTopLevelDirs: path.availableTopLevelDirs || [],
-            
+            availableTopLevelDirs: path.topLevelDirs || [],
+
             // Get file-specific info from file slice
             error: file.error || null,
             content: currentFile.content || '',
             isModified: currentFile.isModified || false,
-            
+
             // Include currentFile for backward compatibility
             currentFile: currentFile,
-            
-            // COMBINED PATH INFO: Use file.currentFile.pathname as primary, fallback to path.currentPathname
-            currentPathname: currentFile.pathname || path.currentPathname || '',
-            
+
+            // COMBINED PATH INFO: Use file.currentFile.pathname as primary, fallback to path.current.pathname
+            currentPathname: currentFile.pathname || pathCurrent.pathname || '',
+
             // STATUS INFO: Map file slice status to legacy boolean properties
             isSaving: file.status === 'loading',
             isLoading: file.status === 'loading'
         };
     },
-    (state) => `${state.file?.status}-${state.file?.currentFile?.pathname}-${state.path?.currentPathname}-${state.path?.isDirectorySelected}` // Recompute when relevant parts change
+    // v2: Use path.current.pathname and path.current.type for cache key
+    (state) => `${state.file?.status}-${state.file?.currentFile?.pathname}-${state.path?.current?.pathname}-${state.path?.current?.type}`
 );
 
 /**
@@ -114,7 +118,7 @@ export const getCurrentFileInfo = createMemoizedSelector(
             isSaving: fileState.isSaving
         };
     },
-    (state) => `${state.file?.currentPathname}-${state.file?.isDirectorySelected}-${state.file?.isLoading}`
+    (state) => `${state.file?.currentFile?.pathname}-${state.path?.current?.type}-${state.file?.status}`
 );
 
 // ===== ENHANCED UI SELECTORS =====
@@ -178,7 +182,7 @@ export const getEditorState = createMemoizedSelector(
             isSaving: fileInfo.isSaving
         };
     },
-    (state) => `${state.editor?.content}-${state.editor?.isModified}-${state.auth?.isAuthenticated}-${state.file?.currentPathname}`
+    (state) => `${state.editor?.content}-${state.editor?.isModified}-${state.auth?.isAuthenticated}-${state.file?.currentFile?.pathname}`
 );
 
 // ===== ENHANCED PREVIEW SELECTORS =====
@@ -201,7 +205,7 @@ export const getPreviewState = createMemoizedSelector(
             canPreview: !!fileInfo.path
         };
     },
-    (state) => `${state.preview?.status}-${state.preview?.content}-${state.file?.currentPathname}`
+    (state) => `${state.preview?.status}-${state.preview?.content}-${state.file?.currentFile?.pathname}`
 );
 
 // ===== COMPOSITE SELECTORS =====
@@ -225,7 +229,8 @@ export const getAppReadinessState = createMemoizedSelector(
                          !uiState.isLoading
         };
     },
-    (state) => `${state.auth?.authChecked}-${state.file?.availableTopLevelDirs?.length}-${state.ui?.isLoading}`
+    // v2: topLevelDirs is at path.topLevelDirs, not file.availableTopLevelDirs
+    (state) => `${state.auth?.authChecked}-${state.path?.topLevelDirs?.length}-${state.ui?.isLoading}`
 );
 
 /**
@@ -250,7 +255,7 @@ export const getPanelLayoutState = createMemoizedSelector(
             previewVisible: ui.previewVisible
         };
     },
-    (state) => `${state.auth?.isAuthenticated}-${state.file?.currentPathname}-${state.ui?.viewMode}-${state.ui?.leftSidebarVisible}-${state.ui?.editorVisible}-${state.ui?.previewVisible}`
+    (state) => `${state.auth?.isAuthenticated}-${state.file?.currentFile?.pathname}-${state.ui?.viewMode}-${state.ui?.leftSidebarVisible}-${state.ui?.editorVisible}-${state.ui?.previewVisible}`
 );
 
 // ===== UTILITY FUNCTIONS =====

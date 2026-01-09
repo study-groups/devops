@@ -1,3 +1,9 @@
+/* Bundle: core */
+/* Generated: 2026-01-07 21:33:24 */
+/* Files: 9 */
+
+
+/* === reset.css === */
 /* DevPages Reset CSS - First in loading sequence */
 /* Provides foundational reset and base styles for the application */
 
@@ -102,7 +108,9 @@ input, textarea, select {
   * {
     border-color: currentColor;
   }
-} /* DevPages Classic Theme - System CSS */
+} 
+/* === system.css === */
+/* DevPages Classic Theme - System CSS */
 /* CSS for the DevPages system interface (not content/preview areas) */
 
 /* === SYSTEM INTERFACE STYLES === */
@@ -732,7 +740,9 @@ body::-webkit-scrollbar-thumb:hover,
 .icon-grid .icon-item:hover .icon-symbol {
     color: var(--color-primary);
     background-color: var(--color-bg-hover);
-} /**
+} 
+/* === typography.css === */
+/**
  * Typography
  * Semantic font family definitions based on document usage
  */
@@ -743,10 +753,14 @@ body::-webkit-scrollbar-thumb:hover,
   --font-family-body: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-family-code: ui-monospace, 'SF Mono', Monaco, 'Roboto Mono', monospace;
   --font-family-ui: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-} /* Design Tokens - Main Import Hub */
+} 
+/* === design-tokens.css === */
+/* Design Tokens - Main Import Hub */
 @import 'design-tokens-colors.css';
 @import 'design-tokens-typography.css';
 @import 'design-tokens-spacing.css';
+
+/* === design-tokens-colors.css === */
 /**
  * TDS Color Tokens - Auto-generated CSS Variables
  * Theme: default
@@ -888,6 +902,8 @@ body::-webkit-scrollbar-thumb:hover,
   --color-components-environment-staging: #AA4400; /* verbs:2 */
   --color-components-environment-prod: #FF0044; /* verbs:0 */
 }
+
+/* === design-tokens-spacing.css === */
 :root {
     /* Spacing Scale */
     --spacing-0: 0;
@@ -921,6 +937,8 @@ body::-webkit-scrollbar-thumb:hover,
     --transition-duration-slow: 0.3s;
     --transition-easing-default: cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* === design-tokens-typography.css === */
 :root {
     /* Font Families */
     --font-family-system: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 
@@ -967,6 +985,20 @@ body::-webkit-scrollbar-thumb:hover,
     --text-transform-capitalize: capitalize;
     --text-transform-none: none;
 }
+
+/* === design-tokens-z-index.css === */
+:root {
+    --z-index-default: 1;
+    --z-index-dropdown: 10;
+    --z-index-sticky: 100;
+    --z-index-popover: 1000;
+    --z-index-modal: 1100;
+    --z-index-overlay: 1200;
+    --z-index-tooltip: 1300;
+    --z-index-max: 9999;
+}
+
+/* === utilities.css === */
 /**
  * Utility Classes
  * Atomic CSS classes for common styling patterns
