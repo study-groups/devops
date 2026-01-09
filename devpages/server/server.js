@@ -30,6 +30,7 @@ import spacesRouter from './routes/spaces.js';
 import publishRouter from './routes/publish.js';
 import imagesRouter from './routes/images.js';
 import systemRouter from './routes/system.js';
+import astRoutes from './routes/astRoutes.js';
 // import settingsRoutes from './routes/settings.js';
 // import s3Routes from './routes/s3.js';
 
@@ -149,6 +150,7 @@ app.use('/api/spaces', spacesRouter);
 app.use('/api/publish', authMiddleware, publishRouter);
 app.use('/api/images', authMiddleware, imagesRouter);
 app.use('/api/system', authMiddleware, systemRouter);
+app.use('/api/ast', authMiddleware, astRoutes);
 // app.use('/api/s3', s3Routes);
 // app.use('/api/settings', settingsRoutes);
 app.use('/css', cssRoutes);

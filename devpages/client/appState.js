@@ -36,6 +36,7 @@ import systemReducer from './store/slices/systemSlice.js';
 import { commReducer } from './store/slices/commSlice.js';
 import editorReducer from './store/slices/editorSlice.js';
 import { imageReducer } from './store/slices/imageSlice.js';
+import astReducer from './store/slices/astSlice.js';
 
 // Middleware
 import { reduxLogMiddleware } from './store/middleware/reduxLogMiddleware.js';
@@ -73,6 +74,7 @@ const rootReducer = {
     communications: commReducer,
     editor: editorReducer,
     image: imageReducer,
+    ast: astReducer,
 };
 
 // --- Store Singleton ---

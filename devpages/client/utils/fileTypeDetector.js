@@ -60,7 +60,17 @@ export function detectFileType(pathname) {
             extension: 'js',
             icon: '⚡',
             label: 'JavaScript',
-            supportsPreview: false,
+            supportsPreview: true,
+            supportsAstPreview: true,
+            editorMode: 'javascript'
+        },
+        'mjs': {
+            type: 'javascript',
+            extension: 'mjs',
+            icon: '⚡',
+            label: 'JavaScript (ES Module)',
+            supportsPreview: true,
+            supportsAstPreview: true,
             editorMode: 'javascript'
         },
         'json': {
@@ -109,4 +119,14 @@ export function supportsPreview(pathname) {
 export function supportsSectionsMode(pathname) {
     const fileType = detectFileType(pathname);
     return fileType.supportsSections === true;
+}
+
+/**
+ * Check if file type supports AST preview
+ * @param {string} pathname - File path
+ * @returns {boolean}
+ */
+export function supportsAstPreview(pathname) {
+    const fileType = detectFileType(pathname);
+    return fileType.supportsAstPreview === true;
 }

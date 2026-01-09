@@ -15,7 +15,8 @@ import { UIInspectorPanel } from '../panels/UIInspectorPanel.js';
 import { PreviewRenderingPanel } from '../panels/PreviewRenderingPanel.js';
 import { sidebarVisibilityController } from '../layout/SidebarVisibilityController.js';
 import { PreviewView } from '../views/PreviewView.js';
-import { detectFileType } from '../utils/fileTypeDetector.js';
+import { ASTPreviewView } from '../views/ASTPreviewView.js';
+import { detectFileType, supportsAstPreview } from '../utils/fileTypeDetector.js';
 
 
 class WorkspaceManager {
@@ -30,6 +31,7 @@ class WorkspaceManager {
         this.sidebarTabs = new Map(); // Track sidebar content tabs
         this.panelsInitialized = false;
         this.previewView = null; // Iframe-based preview view
+        this.astPreviewView = null; // AST-based preview for JS files
     }
 
     initialize() {
@@ -610,6 +612,9 @@ class WorkspaceManager {
     }
 
     createPreview(container, content, filePath) {
+        // Check if this file type supports AST preview (JavaScript)
+        const useAstPreview = supportsAstPreview(filePath);
+
         // Create wrapper structure with top bar
         container.innerHTML = `
             <div class="preview-section">
@@ -627,41 +632,67 @@ class WorkspaceManager {
         const previewSection = container.querySelector('.preview-section');
         previewSection.insertBefore(this.previewTopBar.getElement(), previewSection.firstChild);
 
-        // Create and mount iframe-based PreviewView FIRST
-        if (!this.previewView) {
-            this.previewView = new PreviewView();
-        }
-
-        // Mount preview view in the preview section
-        this.previewView.onMount(previewSection);
-
-        // Set initial stats and status
-        this.previewTopBar
-            .setStats({ 'mode': 'markdown' })
-            .setStatus('loading', 'Rendering...');
-
-        // Add refresh button to preview top bar (after previewView is created)
-        this.previewTopBar.addAction({
-            id: 'refresh-preview',
-            label: '↻',
-            title: 'Refresh Preview',
-            className: 'refresh-btn',
-            onClick: () => {
-                if (this.previewView) {
-                    this.previewView.forceRefresh();
-                }
+        if (useAstPreview) {
+            // Use AST preview for JavaScript files
+            if (!this.astPreviewView) {
+                this.astPreviewView = new ASTPreviewView();
             }
-        });
 
-        // Update top bar when preview updates
-        setTimeout(() => {
+            // Mount AST preview view
+            this.astPreviewView.mount(previewSection);
+
+            // Set initial stats and status
             this.previewTopBar
-                .setStats({
-                    'mode': 'markdown',
-                    'size': content ? `${Math.round(content.length / 1024)}kb` : '0kb'
-                })
-                .setStatus('ready');
-        }, 200);
+                .setStats({ 'mode': 'AST' })
+                .setStatus('loading', 'Parsing...');
+
+            // Update top bar when ready
+            setTimeout(() => {
+                this.previewTopBar
+                    .setStats({
+                        'mode': 'AST',
+                        'size': content ? `${Math.round(content.length / 1024)}kb` : '0kb'
+                    })
+                    .setStatus('ready');
+            }, 200);
+
+        } else {
+            // Use markdown preview for other files
+            if (!this.previewView) {
+                this.previewView = new PreviewView();
+            }
+
+            // Mount preview view in the preview section
+            this.previewView.onMount(previewSection);
+
+            // Set initial stats and status
+            this.previewTopBar
+                .setStats({ 'mode': 'markdown' })
+                .setStatus('loading', 'Rendering...');
+
+            // Add refresh button to preview top bar (after previewView is created)
+            this.previewTopBar.addAction({
+                id: 'refresh-preview',
+                label: '↻',
+                title: 'Refresh Preview',
+                className: 'refresh-btn',
+                onClick: () => {
+                    if (this.previewView) {
+                        this.previewView.forceRefresh();
+                    }
+                }
+            });
+
+            // Update top bar when preview updates
+            setTimeout(() => {
+                this.previewTopBar
+                    .setStats({
+                        'mode': 'markdown',
+                        'size': content ? `${Math.round(content.length / 1024)}kb` : '0kb'
+                    })
+                    .setStatus('ready');
+            }, 200);
+        }
     }
 
     async renderPreview(container, content, filePath) {
