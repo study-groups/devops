@@ -283,16 +283,17 @@ class WorkspaceManager {
     }
 
     setupWorkspaceForFile(content, filePath) {
-        const state = appStore.getState();
-        
-        console.log('[WorkspaceManager] Setting up workspace for file...');
-        
-        // Respect user's persisted visibility preferences - don't force zones visible
-        
+        // Cancel any pending setup to prevent race conditions with stale closures
+        // This ensures only the LAST content value is used
+        if (this._setupWorkspaceTimeout) {
+            clearTimeout(this._setupWorkspaceTimeout);
+        }
+
         // Wait for UI state to update, then populate containers
-        setTimeout(() => {
+        this._setupWorkspaceTimeout = setTimeout(() => {
             this.populateWorkspaceContainers(content, filePath);
             this.initializeZoneTopBars();
+            this._setupWorkspaceTimeout = null;
         }, 100);
     }
 
@@ -434,13 +435,19 @@ class WorkspaceManager {
         
         container.innerHTML = `
             <div class="editor-section">
-                <textarea 
-                    id="md-editor" 
-                    class="markdown-editor" 
+                <textarea
+                    id="md-editor"
+                    class="markdown-editor"
                     placeholder="Start typing..."
-                >${content}</textarea>
+                ></textarea>
             </div>
         `;
+
+        // Set content via JavaScript to properly handle HTML characters in markdown
+        const editorTextarea = container.querySelector('#md-editor');
+        if (editorTextarea) {
+            editorTextarea.value = content;
+        }
         
         // Create programmable top bar
         this.editorTopBar = new ZoneTopBar(container, {

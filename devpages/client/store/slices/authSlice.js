@@ -1,26 +1,45 @@
 /**
- * New Auth Slice - Clean RTK Query + PData integration
- * 
- * This replaces the old authSlice.js with a clean implementation that:
- * 1. Uses RTK Query for all API calls
- * 2. Integrates properly with PData token system
- * 3. Provides a unified authentication flow
+ * Auth Slice - Plain Redux with async thunks
+ *
+ * Clean implementation without RTK Query:
+ * 1. Uses plain fetch via api.js
+ * 2. Integrates with PData token system
+ * 3. Provides unified authentication flow
  */
 
 import { createSlice } from '@reduxjs/toolkit';
-import { apiSlice } from '../apiSlice.js';
+import { authApi } from '../api.js';
+
+// Helper to persist auth state
+const persistAuthState = (state) => {
+  try {
+    const stateToPersist = {
+      isAuthenticated: state.isAuthenticated,
+      user: state.user,
+      token: state.token,
+      tokenExpiresAt: state.tokenExpiresAt,
+      authChecked: state.authChecked,
+    };
+    localStorage.setItem('devpages_auth_state', JSON.stringify(stateToPersist));
+  } catch (e) {
+    console.warn('[Auth] Failed to save auth state to localStorage:', e);
+  }
+};
+
+const clearPersistedAuthState = () => {
+  try {
+    localStorage.removeItem('devpages_auth_state');
+  } catch (e) {
+    console.warn('[Auth] Failed to clear auth state from localStorage:', e);
+  }
+};
 
 // Initial state
 const initialState = {
-  // User authentication status
   isAuthenticated: false,
   user: null,
-  
-  // PData token for API access
   token: null,
   tokenExpiresAt: null,
-  
-  // UI state
   isLoading: false,
   error: null,
   authChecked: false,
@@ -31,17 +50,14 @@ const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    // Clear any auth errors
     clearError: (state) => {
       state.error = null;
     },
-    
-    // Set loading state
+
     setLoading: (state, action) => {
       state.isLoading = action.payload;
     },
-    
-    // Clear all auth state (for logout)
+
     clearAuth: (state) => {
       state.isAuthenticated = false;
       state.user = null;
@@ -49,187 +65,109 @@ const authSlice = createSlice({
       state.tokenExpiresAt = null;
       state.error = null;
       state.isLoading = false;
+      clearPersistedAuthState();
     },
-    
-    // Set PData token
+
     setToken: (state, action) => {
       const { token, expiresAt } = action.payload;
       state.token = token;
       state.tokenExpiresAt = expiresAt;
-
-      // Also persist this change
-      try {
-        const stateToPersist = {
-          isAuthenticated: state.isAuthenticated,
-          user: state.user,
-          token: state.token,
-          tokenExpiresAt: state.tokenExpiresAt,
-          isLoading: state.isLoading,
-          error: state.error,
-          authChecked: state.authChecked
-        };
-        localStorage.setItem('devpages_auth_state', JSON.stringify(stateToPersist));
-      } catch (e) {
-        console.warn('[Auth] Failed to save auth state to localStorage:', e);
-      }
+      persistAuthState(state);
     },
-    
-    // Mark auth as checked (for initial load)
+
     setAuthChecked: (state, action) => {
       state.authChecked = action.payload;
     },
-  },
-  
-  // Handle RTK Query actions
-  extraReducers: (builder) => {
-    builder
-      // Handle login
-      .addMatcher(
-        apiSlice.endpoints.login.matchPending,
-        (state) => {
-          state.isLoading = true;
-          state.error = null;
-        }
-      )
-      .addMatcher(
-        apiSlice.endpoints.login.matchFulfilled,
-        (state, action) => {
-          state.isLoading = false;
-          state.isAuthenticated = true;
-          state.user = action.payload.user;
-          state.authChecked = true;
-          state.error = null;
-          
-          // Store auth state in localStorage for persistence
-          try {
-            const stateToPersist = {
-              isAuthenticated: state.isAuthenticated,
-              user: state.user,
-              token: state.token,
-              tokenExpiresAt: state.tokenExpiresAt,
-              isLoading: state.isLoading,
-              error: state.error,
-              authChecked: state.authChecked
-            };
-            localStorage.setItem('devpages_auth_state', JSON.stringify(stateToPersist));
-          } catch (e) {
-            console.warn('[Auth] Failed to save auth state to localStorage:', e);
-          }
-        }
-      )
-      .addMatcher(
-        apiSlice.endpoints.login.matchRejected,
-        (state, action) => {
-          state.isLoading = false;
-          state.isAuthenticated = false;
-          state.user = null;
-          state.token = null;
-          state.tokenExpiresAt = null;
-          state.error = action.error?.message || 'Login failed';
-          state.authChecked = true;
-        }
-      )
-      
-      // Handle token generation
-      .addMatcher(
-        apiSlice.endpoints.generateToken.matchFulfilled,
-        (state, action) => {
-          const { token, expiresAt } = action.payload;
-          state.token = token;
-          state.tokenExpiresAt = expiresAt;
-        }
-      )
-      
-      // Handle getCurrentUser
-      .addMatcher(
-        apiSlice.endpoints.getCurrentUser.matchPending,
-        (state) => {
-          if (!state.authChecked) {
-            state.isLoading = true;
-          }
-        }
-      )
-      .addMatcher(
-        apiSlice.endpoints.getCurrentUser.matchFulfilled,
-        (state, action) => {
-          state.isLoading = false;
-          state.isAuthenticated = action.payload.isAuthenticated;
-          state.user = action.payload.user;
-          state.authChecked = true;
-          state.error = null;
 
-          // Store auth state in localStorage for persistence
-          try {
-            if (action.payload.isAuthenticated) {
-              const stateToPersist = {
-                isAuthenticated: state.isAuthenticated,
-                user: state.user,
-                token: state.token,
-                tokenExpiresAt: state.tokenExpiresAt,
-                isLoading: state.isLoading,
-                error: state.error,
-                authChecked: state.authChecked
-              };
-              localStorage.setItem('devpages_auth_state', JSON.stringify(stateToPersist));
-            } else {
-              // Clear localStorage if user is not authenticated
-              localStorage.removeItem('devpages_auth_state');
-            }
-          } catch (e) {
-            console.warn('[Auth] Failed to save auth state to localStorage:', e);
-          }
-        }
-      )
-      .addMatcher(
-        apiSlice.endpoints.getCurrentUser.matchRejected,
-        (state, action) => {
-          state.isLoading = false;
-          state.authChecked = true;
-          state.isAuthenticated = false;
-          state.user = null;
-          state.token = null;
-          state.tokenExpiresAt = null;
-          
-          // Only set error if it's not a 401 (which is expected for unauthenticated users)
-          if (action.error?.status !== 401) {
-            state.error = action.error?.message || 'Failed to check authentication';
-          }
-          
-          // Clear localStorage
-          try {
-            localStorage.removeItem('devpages_auth_state');
-          } catch (e) {
-            console.warn('[Auth] Failed to clear auth state from localStorage:', e);
-          }
-        }
-      )
-      
-      // Handle logout
-      .addMatcher(
-        apiSlice.endpoints.logout.matchFulfilled,
-        (state, action) => {
-          state.isAuthenticated = false;
-          state.user = null;
-          state.token = null;
-          state.tokenExpiresAt = null;
-          state.error = null;
-          state.isLoading = false;
-          
-          // Clear localStorage
-          try {
-            localStorage.removeItem('devpages_auth_state');
-          } catch (e) {
-            console.warn('[Auth] Failed to clear auth state from localStorage:', e);
-          }
-          
-          console.log('[Auth] Logout completed, clearing API cache');
-        }
-      );
+    // Login flow reducers
+    loginStart: (state) => {
+      state.isLoading = true;
+      state.error = null;
+    },
+
+    loginSuccess: (state, action) => {
+      state.isLoading = false;
+      state.isAuthenticated = true;
+      state.user = action.payload.user;
+      state.authChecked = true;
+      state.error = null;
+      persistAuthState(state);
+    },
+
+    loginFailure: (state, action) => {
+      state.isLoading = false;
+      state.isAuthenticated = false;
+      state.user = null;
+      state.token = null;
+      state.tokenExpiresAt = null;
+      state.error = action.payload;
+      state.authChecked = true;
+      clearPersistedAuthState();
+    },
+
+    // Auth check reducers
+    authCheckStart: (state) => {
+      if (!state.authChecked) {
+        state.isLoading = true;
+      }
+    },
+
+    authCheckSuccess: (state, action) => {
+      state.isLoading = false;
+      state.isAuthenticated = action.payload.isAuthenticated;
+      state.user = action.payload.user;
+      state.authChecked = true;
+      state.error = null;
+      if (action.payload.isAuthenticated) {
+        persistAuthState(state);
+      } else {
+        clearPersistedAuthState();
+      }
+    },
+
+    authCheckFailure: (state, action) => {
+      state.isLoading = false;
+      state.authChecked = true;
+      state.isAuthenticated = false;
+      state.user = null;
+      state.token = null;
+      state.tokenExpiresAt = null;
+      // Only set error if it's not a 401
+      if (action.payload?.status !== 401) {
+        state.error = action.payload?.message || 'Failed to check authentication';
+      }
+      clearPersistedAuthState();
+    },
+
+    // Logout reducers
+    logoutSuccess: (state) => {
+      state.isAuthenticated = false;
+      state.user = null;
+      state.token = null;
+      state.tokenExpiresAt = null;
+      state.error = null;
+      state.isLoading = false;
+      clearPersistedAuthState();
+      console.log('[Auth] Logout completed');
+    },
   },
 });
 
 // Export actions
-export const { clearError, setLoading, clearAuth, setToken, setAuthChecked } = authSlice.actions;
+export const {
+  clearError,
+  setLoading,
+  clearAuth,
+  setToken,
+  setAuthChecked,
+  loginStart,
+  loginSuccess,
+  loginFailure,
+  authCheckStart,
+  authCheckSuccess,
+  authCheckFailure,
+  logoutSuccess,
+} = authSlice.actions;
 
 // Selectors
 export const selectIsAuthenticated = (state) => state.auth.isAuthenticated;
@@ -240,7 +178,7 @@ export const selectIsLoading = (state) => state.auth.isLoading;
 export const selectToken = (state) => state.auth.token;
 export const selectTokenExpiresAt = (state) => state.auth.tokenExpiresAt;
 
-// Thunks for complex auth flows
+// Thunks for async auth flows
 export const authThunks = {
   /**
    * Initialize authentication - check current status and generate token if needed
@@ -248,42 +186,40 @@ export const authThunks = {
   initializeAuth: () => async (dispatch, getState) => {
     try {
       console.log('[Auth] Starting authentication initialization...');
-      
-      // First, check if user is authenticated
-      const result = await dispatch(apiSlice.endpoints.getCurrentUser.initiate()).unwrap();
-      
+      dispatch(authCheckStart());
+
+      const result = await authApi.getCurrentUser();
+
+      dispatch(authCheckSuccess(result));
+
       if (result.isAuthenticated) {
         console.log('[Auth] User is authenticated, generating PData token...');
-        
-        // User is authenticated, generate a PData token for API access
+
         try {
-          const tokenResult = await dispatch(apiSlice.endpoints.generateToken.initiate({
+          const tokenResult = await authApi.generateToken({
             expiryHours: 24,
-            description: 'Session API Token'
-          })).unwrap();
-          
+            description: 'Session API Token',
+          });
+
           dispatch(setToken({
             token: tokenResult.token,
-            expiresAt: tokenResult.expiresAt
+            expiresAt: tokenResult.expiresAt,
           }));
-          
+
           console.log('[Auth] Authentication initialized with PData token');
-          dispatch(setAuthChecked(true));
-          
-          // For existing authenticated users, navigate to their home directory
+
+          // Navigate authenticated user to appropriate directory
           setTimeout(async () => {
             try {
               const { pathThunks } = await import('./pathSlice.js');
               const username = result.user.username;
               const userRole = result.user.role || 'user';
-              
-              // For regular users, navigate to their home directory
+
               if (userRole !== 'admin') {
                 const userHomePath = `users/${username}`;
                 console.log(`[Auth] Navigating authenticated user to home directory: ${userHomePath}`);
                 dispatch(pathThunks.navigateToPath({ pathname: userHomePath, isDirectory: true }));
               } else {
-                // For admin users, load top-level directories
                 console.log('[Auth] Authenticated admin user - loading top-level directories');
                 dispatch(pathThunks.loadTopLevelDirectories());
               }
@@ -291,59 +227,54 @@ export const authThunks = {
               console.warn('[Auth] Failed to navigate after auth initialization:', navError);
             }
           }, 100);
-          
         } catch (tokenError) {
           console.warn('[Auth] Failed to generate PData token:', tokenError);
-          // Continue without token - session auth will still work
-          dispatch(setAuthChecked(true));
         }
       } else {
         console.log('[Auth] User is not authenticated');
-        dispatch(setAuthChecked(true));
       }
     } catch (error) {
       console.warn('[Auth] Failed to initialize authentication:', error);
-      dispatch(setAuthChecked(true));
+      dispatch(authCheckFailure(error));
     }
   },
-  
+
   /**
    * Login with username/password and generate PData token
    */
   loginWithCredentials: (credentials) => async (dispatch) => {
     try {
-      // Login with session
-      const loginResult = await dispatch(apiSlice.endpoints.login.initiate(credentials)).unwrap();
-      
-      // Generate PData token for API access
+      dispatch(loginStart());
+
+      const loginResult = await authApi.login(credentials);
+      dispatch(loginSuccess(loginResult));
+
+      // Generate PData token
       try {
-        const tokenResult = await dispatch(apiSlice.endpoints.generateToken.initiate({
+        const tokenResult = await authApi.generateToken({
           expiryHours: 24,
-          description: 'Session API Token'
-        })).unwrap();
-        
+          description: 'Session API Token',
+        });
+
         dispatch(setToken({
           token: tokenResult.token,
-          expiresAt: tokenResult.expiresAt
+          expiresAt: tokenResult.expiresAt,
         }));
-        
+
         console.log('[Auth] Login successful with PData token');
-        
-        // After successful login, navigate to user's home directory
-        // Import pathThunks dynamically to avoid circular dependency
+
+        // Navigate to user's home directory
         setTimeout(async () => {
           try {
             const { pathThunks } = await import('./pathSlice.js');
             const username = loginResult.user.username;
             const userRole = loginResult.user.role || 'user';
-            
-            // For regular users, navigate to their home directory
+
             if (userRole !== 'admin') {
               const userHomePath = `users/${username}`;
               console.log(`[Auth] Navigating to user home directory: ${userHomePath}`);
               dispatch(pathThunks.navigateToPath({ pathname: userHomePath, isDirectory: true }));
             } else {
-              // For admin users, load top-level directories
               console.log('[Auth] Admin user - loading top-level directories');
               dispatch(pathThunks.loadTopLevelDirectories());
             }
@@ -351,7 +282,7 @@ export const authThunks = {
             console.warn('[Auth] Failed to navigate after login:', navError);
           }
         }, 100);
-        
+
         return { success: true, user: loginResult.user };
       } catch (tokenError) {
         console.warn('[Auth] Login successful but failed to generate PData token:', tokenError);
@@ -359,35 +290,27 @@ export const authThunks = {
       }
     } catch (error) {
       console.error('[Auth] Login failed:', error);
+      dispatch(loginFailure(error.message || 'Login failed'));
       return { success: false, error: error.message };
     }
   },
-  
+
   /**
    * Logout and clear all auth state
    */
   logoutAsync: () => async (dispatch) => {
     try {
-      // First, clear auth state immediately to prevent UI components from getting stuck
+      // Clear auth state immediately
       dispatch(clearAuth());
-      
+
       // Then perform server logout
-      await dispatch(apiSlice.endpoints.logout.initiate()).unwrap();
-      console.log('[Auth] Logout successful');
-      
-      // Finally, clear all RTK Query cache after auth state is cleared
-      dispatch(apiSlice.util.resetApiState());
-      
+      await authApi.logout();
+      dispatch(logoutSuccess());
+
       return { success: true };
     } catch (error) {
       console.warn('[Auth] Server logout failed, clearing local state anyway:', error);
-      
-      // Ensure auth state is cleared even if server logout fails
-      dispatch(clearAuth());
-      
-      // Clear all RTK Query cache even if server logout failed
-      dispatch(apiSlice.util.resetApiState());
-      
+      dispatch(logoutSuccess());
       return { success: true };
     }
   },
@@ -396,4 +319,4 @@ export const authThunks = {
 // Export reducer
 export default authSlice.reducer;
 
-console.log('[Auth Slice] New RTK Query + PData auth slice initialized');
+console.log('[Auth Slice] Plain Redux auth slice initialized');

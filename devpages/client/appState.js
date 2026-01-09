@@ -36,13 +36,9 @@ import systemReducer from './store/slices/systemSlice.js';
 import { commReducer } from './store/slices/commSlice.js';
 import editorReducer from './store/slices/editorSlice.js';
 import { imageReducer } from './store/slices/imageSlice.js';
-// Panel system restored with modern architecture
-
 
 // Middleware
 import { reduxLogMiddleware } from './store/middleware/reduxLogMiddleware.js';
-import { apiSlice } from './store/apiSlice.js';
-// Panel middleware removed - clean application
 
 // EventBus store injection (breaks circular dependency)
 import { setEventBusStore } from './eventBus.js';
@@ -77,9 +73,6 @@ const rootReducer = {
     communications: commReducer,
     editor: editorReducer,
     image: imageReducer,
-    // RTK Query API slice
-    [apiSlice.reducerPath]: apiSlice.reducer
-    // Panel system restored with modern architecture
 };
 
 // --- Store Singleton ---
@@ -149,13 +142,8 @@ function initializeStore(preloadedState = {}) {
             reducer: rootReducer,
             preloadedState: initialState,
             middleware: (getDefaultMiddleware) =>
-                getDefaultMiddleware({
-                    serializableCheck: {
-                        ignoredActions: [apiSlice.util.resetApiState.type],
-                    },
-                })
+                getDefaultMiddleware()
                 .concat(
-                    apiSlice.middleware,
                     reduxLogMiddleware,
                     persistenceMiddleware
                 ),
@@ -181,8 +169,8 @@ function initializeStore(preloadedState = {}) {
             system: { initializeComponent },
             panels: panelThunks,
         };
-        
-        console.log('[AppState] ✅ Central Redux store initialized with robust persistence.');
+
+        console.log('[AppState] ✅ Central Redux store initialized.');
 
         // Expose the store to the window for debugging and easy access
         if (typeof window !== 'undefined') {
@@ -194,7 +182,7 @@ function initializeStore(preloadedState = {}) {
         return { appStore, dispatch };
     } catch (error) {
         console.error('[AppState] ❌ Failed to initialize Redux store:', error);
-        
+
         // Fallback store creation with minimal configuration
         appStore = configureStore({
             reducer: rootReducer,

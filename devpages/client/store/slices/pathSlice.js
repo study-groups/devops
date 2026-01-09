@@ -10,7 +10,7 @@
  */
 
 import { createSlice } from '/node_modules/@reduxjs/toolkit/dist/redux-toolkit.browser.mjs';
-import { apiSlice } from '../apiSlice.js';
+import { filesApi } from '../api.js';
 import { fileThunks } from './fileSlice.js';
 import { getParentPath } from '../../utils/pathUtils.js';
 
@@ -26,30 +26,6 @@ const log = (() => {
         error: () => {}
     };
 })();
-
-/**
- * Path State Model
- *
- * current: {
- *   pathname: string,           // Current path (e.g., "users/mike/docs")
- *   type: 'file' | 'directory', // What we're viewing
- *   listing: null | {           // Directory listing (null for files)
- *     dirs: string[],
- *     files: string[]
- *   }
- * }
- *
- * history: Array<{               // Navigation history
- *   pathname: string,
- *   type: 'file' | 'directory',
- *   timestamp: number
- * }>
- *
- * historyIndex: number           // Current position in history (-1 = no history)
- *
- * status: 'idle' | 'loading' | 'succeeded' | 'failed'
- * error: null | { message: string, code: string }
- */
 
 const initialState = {
   current: {
@@ -77,17 +53,14 @@ const pathSlice = createSlice({
   reducers: {
     /**
      * Navigate to a new path
-     * This is the ONLY way to change current path
      */
     navigateTo: (state, action) => {
       const { pathname, type } = action.payload;
 
-      // Clear any forward history when navigating to new location
       if (state.historyIndex < state.history.length - 1) {
         state.history = state.history.slice(0, state.historyIndex + 1);
       }
 
-      // Add to history
       state.history.push({
         pathname,
         type,
@@ -95,21 +68,16 @@ const pathSlice = createSlice({
       });
       state.historyIndex = state.history.length - 1;
 
-      // Update current location
       state.current = {
         pathname,
         type,
-        listing: null // Will be loaded separately
+        listing: null
       };
 
-      // Reset status for new navigation
       state.status = 'idle';
       state.error = null;
     },
 
-    /**
-     * Navigate back in history
-     */
     navigateBack: (state) => {
       if (state.historyIndex > 0) {
         state.historyIndex--;
@@ -124,9 +92,6 @@ const pathSlice = createSlice({
       }
     },
 
-    /**
-     * Navigate forward in history
-     */
     navigateForward: (state) => {
       if (state.historyIndex < state.history.length - 1) {
         state.historyIndex++;
@@ -141,39 +106,25 @@ const pathSlice = createSlice({
       }
     },
 
-    /**
-     * Update listing for current directory
-     * Called after successful directory fetch
-     */
     setListing: (state, action) => {
       const { pathname, dirs, files } = action.payload;
 
-      // Only update if this is still the current path
       if (state.current.pathname === pathname) {
         state.current.listing = { dirs, files };
         state.status = 'succeeded';
       }
     },
 
-    /**
-     * Set loading state
-     */
     setLoading: (state) => {
       state.status = 'loading';
       state.error = null;
     },
 
-    /**
-     * Set error state
-     */
     setError: (state, action) => {
       state.status = 'failed';
       state.error = action.payload;
     },
 
-    /**
-     * Clear error
-     */
     clearError: (state) => {
       state.error = null;
       if (state.status === 'failed') {
@@ -181,45 +132,31 @@ const pathSlice = createSlice({
       }
     },
 
-    // Legacy reducers for v1 compatibility
-    /**
-     * Set saving state
-     */
     setSaving: (state, action) => {
       state.isSaving = action.payload;
     },
 
-    /**
-     * Set top-level directories
-     */
     setTopDirs: (state, action) => {
       state.topLevelDirs = action.payload;
+      state.status = 'succeeded';
     },
 
-    /**
-     * Legacy navigation action (v1 compatibility)
-     */
     _navigateToPath: (state, action) => {
       const { pathname, isDirectory } = action.payload;
       log.debug('PATH', ` _navigateToPath reducer - Setting path to '${pathname}', isDirectory: ${isDirectory}`);
 
-      // Update v2 state
       state.current = {
         pathname,
         type: isDirectory ? 'directory' : 'file',
         listing: null
       };
 
-      // Update legacy state
       if (pathname === '' || pathname === '/') {
         state.currentListing = { pathname: null, dirs: [], files: [] };
       }
       state.status = 'idle';
     },
 
-    /**
-     * Set current path (v1 compatibility)
-     */
     setCurrentPath: (state, action) => {
       const { pathname, isDirectory } = action.payload;
       state.current = {
@@ -227,113 +164,81 @@ const pathSlice = createSlice({
         type: isDirectory ? 'directory' : 'file',
         listing: null
       };
-    }
+    },
+
+    // New reducers for async operations (replacing extraReducers)
+    topDirsLoading: (state) => {
+      state.status = 'loading';
+      state.error = null;
+    },
+
+    topDirsSuccess: (state, action) => {
+      state.status = 'succeeded';
+      state.topLevelDirs = action.payload || [];
+      state.error = null;
+    },
+
+    topDirsFailure: (state, action) => {
+      state.status = 'failed';
+      state.error = { message: action.payload || 'Failed to load top-level directories', code: 'FETCH_ERROR' };
+      state.topLevelDirs = [];
+    },
+
+    directoryListingLoading: (state) => {
+      state.status = 'loading';
+      state.error = null;
+    },
+
+    directoryListingSuccess: (state, action) => {
+      const { pathname, dirs, files } = action.payload;
+      console.log('[pathSlice] directoryListingSuccess:', {
+        pathname,
+        dirsCount: dirs?.length,
+        filesCount: files?.length,
+        currentPathname: state.current.pathname,
+        currentType: state.current.type
+      });
+      state.status = 'succeeded';
+
+      if (state.current.pathname === pathname && state.current.type === 'directory') {
+        state.current.listing = { dirs, files };
+      }
+
+      state.currentListing = { pathname, dirs: dirs || [], files: files || [] };
+      state.error = null;
+    },
+
+    directoryListingFailure: (state, action) => {
+      state.status = 'failed';
+      state.error = { message: action.payload?.message || 'Failed to load directory', code: 'FETCH_ERROR' };
+      state.currentListing = { pathname: action.payload?.pathname, dirs: [], files: [] };
+    },
+
+    saveFileStart: (state) => {
+      state.isSaving = true;
+    },
+
+    saveFileSuccess: (state) => {
+      state.isSaving = false;
+    },
+
+    saveFileFailure: (state, action) => {
+      state.isSaving = false;
+      state.error = { message: action.payload || 'Failed to save file', code: 'SAVE_ERROR' };
+    },
+
+    clearPathState: (state) => {
+      console.log('[PathSlice] Clearing path state on logout');
+      state.current = { pathname: null, type: 'directory', listing: null };
+      state.history = [];
+      state.historyIndex = -1;
+      state.topLevelDirs = [];
+      state.currentListing = { pathname: null, dirs: [], files: [] };
+      state.status = 'idle';
+      state.error = null;
+      state.isSaving = false;
+    },
   },
-
-  extraReducers: (builder) => {
-    builder
-      // Handle top-level directories loading
-      .addMatcher(
-        apiSlice.endpoints.getTopLevelDirectories.matchPending,
-        (state) => {
-          state.status = 'loading';
-          state.error = null;
-        }
-      )
-      .addMatcher(
-        apiSlice.endpoints.getTopLevelDirectories.matchFulfilled,
-        (state, action) => {
-          state.status = 'succeeded';
-          state.topLevelDirs = action.payload || [];
-          state.error = null;
-        }
-      )
-      .addMatcher(
-        apiSlice.endpoints.getTopLevelDirectories.matchRejected,
-        (state, action) => {
-          state.status = 'failed';
-          state.error = { message: action.error?.message || 'Failed to load top-level directories', code: 'FETCH_ERROR' };
-          state.topLevelDirs = [];
-        }
-      )
-
-      // Handle directory listing
-      .addMatcher(
-        apiSlice.endpoints.getDirectoryListing.matchPending,
-        (state) => {
-          state.status = 'loading';
-          state.error = null;
-        }
-      )
-      .addMatcher(
-        apiSlice.endpoints.getDirectoryListing.matchFulfilled,
-        (state, action) => {
-          const { pathname, dirs, files } = action.payload;
-          console.log('[pathSlice REDUCER] getDirectoryListing.matchFulfilled:', {
-            pathname,
-            dirsCount: dirs?.length,
-            filesCount: files?.length,
-            currentPathname: state.current.pathname,
-            currentType: state.current.type
-          });
-          state.status = 'succeeded';
-
-          // Update v2 state
-          if (state.current.pathname === pathname && state.current.type === 'directory') {
-            state.current.listing = { dirs, files };
-          }
-
-          // Update legacy state (currentListing)
-          state.currentListing = { pathname, dirs: dirs || [], files: files || [] };
-          state.error = null;
-        }
-      )
-      .addMatcher(
-        apiSlice.endpoints.getDirectoryListing.matchRejected,
-        (state, action) => {
-          state.status = 'failed';
-          state.error = { message: action.error?.message || 'Failed to load directory', code: 'FETCH_ERROR' };
-          state.currentListing = { pathname: action.meta.arg, dirs: [], files: [] };
-        }
-      )
-
-      // Handle file saving
-      .addMatcher(
-        apiSlice.endpoints.saveFile.matchPending,
-        (state) => {
-          state.isSaving = true;
-        }
-      )
-      .addMatcher(
-        apiSlice.endpoints.saveFile.matchFulfilled,
-        (state) => {
-          state.isSaving = false;
-        }
-      )
-      .addMatcher(
-        apiSlice.endpoints.saveFile.matchRejected,
-        (state, action) => {
-          state.isSaving = false;
-          state.error = { message: action.error?.message || 'Failed to save file', code: 'SAVE_ERROR' };
-        }
-      )
-
-      // Handle logout - clear path state
-      .addMatcher(
-        apiSlice.endpoints.logout.matchFulfilled,
-        (state) => {
-          console.log('[PathSlice] Clearing path state on logout');
-          state.current = { pathname: null, type: 'directory', listing: null };
-          state.history = [];
-          state.historyIndex = -1;
-          state.topLevelDirs = [];
-          state.currentListing = { pathname: null, dirs: [], files: [] };
-          state.status = 'idle';
-          state.error = null;
-          state.isSaving = false;
-        }
-      );
-  }
 });
 
 export const {
@@ -347,10 +252,20 @@ export const {
   setSaving,
   setTopDirs,
   _navigateToPath,
-  setCurrentPath
+  setCurrentPath,
+  topDirsLoading,
+  topDirsSuccess,
+  topDirsFailure,
+  directoryListingLoading,
+  directoryListingSuccess,
+  directoryListingFailure,
+  saveFileStart,
+  saveFileSuccess,
+  saveFileFailure,
+  clearPathState,
 } = pathSlice.actions;
 
-// v2 Selectors (use state.path since we're replacing pathV2 with path)
+// Selectors
 export const selectCurrentPath = (state) => state.path.current;
 export const selectPathHistory = (state) => state.path.history;
 export const selectHistoryIndex = (state) => state.path.historyIndex;
@@ -366,10 +281,6 @@ export const selectIsSaving = (state) => state.path.isSaving;
 export const selectTopLevelDirs = (state) => state.path.topLevelDirs;
 export const selectCurrentListing = (state) => state.path.currentListing;
 
-/**
- * Parse pathname into breadcrumb segments
- * Returns: Array<{ name: string, path: string }>
- */
 export const selectBreadcrumbs = (state) => {
   const pathname = state.path.current.pathname;
   if (!pathname || pathname === '/') {
@@ -391,9 +302,6 @@ export const selectBreadcrumbs = (state) => {
   return breadcrumbs;
 };
 
-/**
- * Get parent directory path
- */
 export const selectParentPath = (state) => {
   const pathname = state.path.current.pathname;
   if (!pathname || pathname === '/') {
@@ -406,7 +314,7 @@ export const selectParentPath = (state) => {
   return segments.length === 0 ? '/' : `/${segments.join('/')}`;
 };
 
-// Enhanced thunks that use RTK Query
+// Thunks using plain fetch via api.js
 export const pathThunks = {
   /**
    * Universal navigation thunk. Updates path state and fetches relevant data.
@@ -414,11 +322,10 @@ export const pathThunks = {
   navigateToPath: ({ pathname, isDirectory }) => async (dispatch, getState) => {
     log.debug('PATH', ` navigateToPath called with pathname='${pathname}', isDirectory=${isDirectory}`);
 
-    // Dispatch the synchronous action to update the path immediately
     dispatch(_navigateToPath({ pathname, isDirectory }));
     log.debug('PATH', ` Path state updated to pathname='${pathname}', isDirectory=${isDirectory}`);
 
-    // Update the browser URL to reflect the current path
+    // Update browser URL
     try {
       if (pathname && pathname !== '/' && pathname !== '') {
         const baseUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
@@ -436,7 +343,7 @@ export const pathThunks = {
       console.error('[Path] Failed to update URL:', error);
     }
 
-    // Check if user is authenticated before making API calls
+    // Check authentication
     const state = getState();
     const isAuthenticated = state.auth?.isAuthenticated;
     const authChecked = state.auth?.authChecked;
@@ -450,14 +357,15 @@ export const pathThunks = {
 
     if (isDirectory) {
       log.debug('PATH', ` Fetching directory listing for: '${pathname}'`);
-      console.log('[pathThunks DEBUG] Fetching directory listing for:', pathname);
+      dispatch(directoryListingLoading());
       try {
-        // Force refetch to ensure reducer updates currentListing even for cached paths
-        const result = await dispatch(apiSlice.endpoints.getDirectoryListing.initiate(pathname, { forceRefetch: true })).unwrap();
-        console.log('[pathThunks DEBUG] Directory listing result:', result);
+        const result = await filesApi.getDirectoryListing(pathname);
+        console.log('[pathThunks] Directory listing result:', result);
+        dispatch(directoryListingSuccess(result));
         log.debug('PATH', ` Directory listing fetched successfully:`, result);
       } catch (error) {
-        console.error('[pathThunks DEBUG] Directory listing error:', error);
+        console.error('[pathThunks] Directory listing error:', error);
+        dispatch(directoryListingFailure({ message: error.message, pathname }));
         log.error('PATH', ` Failed to fetch directory listing for ${pathname}:`, error);
       }
     } else {
@@ -470,8 +378,9 @@ export const pathThunks = {
         log.debug('PATH', ` Parent path calculated as: '${parentPath}'`);
         if (parentPath) {
           log.debug('PATH', ` Fetching parent directory listing for: '${parentPath}'`);
-          // Force refetch to ensure reducer updates currentListing
-          const parentResult = await dispatch(apiSlice.endpoints.getDirectoryListing.initiate(parentPath, { forceRefetch: true })).unwrap();
+          dispatch(directoryListingLoading());
+          const parentResult = await filesApi.getDirectoryListing(parentPath);
+          dispatch(directoryListingSuccess(parentResult));
           log.debug('PATH', ` Parent directory listing fetched:`, parentResult);
         }
       } catch (error) {
@@ -480,15 +389,12 @@ export const pathThunks = {
     }
   },
 
-  /**
-   * Fetch listing by path using RTK Query
-   */
   fetchListingByPath: ({ pathname, isDirectory }) => async (dispatch, getState) => {
     return dispatch(pathThunks.navigateToPath({ pathname, isDirectory }));
   },
 
   /**
-   * Load top-level directories using RTK Query
+   * Load top-level directories
    */
   loadTopLevelDirectories: () => async (dispatch, getState) => {
     log.debug('PATH', ` loadTopLevelDirectories called`);
@@ -504,22 +410,42 @@ export const pathThunks = {
       return [];
     }
 
+    dispatch(topDirsLoading());
     try {
       log.debug('PATH', ` Fetching top-level directories...`);
-      const result = await dispatch(apiSlice.endpoints.getTopLevelDirectories.initiate()).unwrap();
+      const result = await filesApi.getTopLevelDirectories();
       log.debug('PATH', ` Top-level directories fetched:`, result);
+      dispatch(topDirsSuccess(result));
       return result;
     } catch (error) {
       log.error('PATH', ' Failed to load top-level directories:', error);
+      dispatch(topDirsFailure(error.message));
       return [];
+    }
+  },
+
+  /**
+   * Fetch directory listing without navigation (for sibling panels, etc.)
+   */
+  fetchDirectoryListing: (pathname) => async (dispatch, getState) => {
+    const state = getState();
+    if (!state.auth?.isAuthenticated) {
+      return null;
+    }
+
+    dispatch(directoryListingLoading());
+    try {
+      const result = await filesApi.getDirectoryListing(pathname);
+      dispatch(directoryListingSuccess(result));
+      return result;
+    } catch (error) {
+      dispatch(directoryListingFailure({ message: error.message, pathname }));
+      return null;
     }
   },
 };
 
-// Export the slice for access to actions
 export { pathSlice };
-
-// Export reducer
 export default pathSlice.reducer;
 
-console.log('[Path Slice] v2 path slice initialized (with v1 compatibility)');
+console.log('[Path Slice] Plain Redux path slice initialized (with v1 compatibility)');

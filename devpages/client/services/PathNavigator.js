@@ -10,8 +10,8 @@
  * This is the ONLY place that should dispatch navigation actions.
  */
 
-import { navigateTo, navigateBack, navigateForward, setError, _navigateToPath } from '../store/slices/pathSlice.js';
-import { apiSlice } from '../store/apiSlice.js';
+import { navigateTo, navigateBack, navigateForward, setError, _navigateToPath, directoryListingLoading, directoryListingSuccess, directoryListingFailure } from '../store/slices/pathSlice.js';
+import { filesApi } from '../store/api.js';
 
 export class PathNavigator {
   constructor(store, options = {}) {
@@ -130,7 +130,6 @@ export class PathNavigator {
    * Called on page load if ?pathname= exists
    */
   async handleDeepLink(pathname) {
-    console.log('[PathNavigator] Handling deep link:', pathname);
     await this.navigate(pathname, { updateURL: false }); // Don't update URL again
   }
 
@@ -211,10 +210,9 @@ export class PathNavigator {
       if (type === 'directory') {
         // Fetch directory listing
         console.log('[PathNavigator] Fetching directory listing:', pathname);
-        this.pendingFetch = this.store.dispatch(
-          apiSlice.endpoints.getDirectoryListing.initiate(pathname, { forceRefetch: true })
-        );
-        await this.pendingFetch.unwrap();
+        this.store.dispatch(directoryListingLoading());
+        const result = await filesApi.getDirectoryListing(pathname);
+        this.store.dispatch(directoryListingSuccess(result));
         console.log('[PathNavigator] Directory listing loaded');
       } else {
         // Fetch file content
@@ -228,10 +226,9 @@ export class PathNavigator {
         // Also fetch the parent directory listing for the file browser
         const parentPath = this._getParentPath(pathname);
         if (parentPath) {
-          this.pendingFetch = this.store.dispatch(
-            apiSlice.endpoints.getDirectoryListing.initiate(parentPath, { forceRefetch: true })
-          );
-          await this.pendingFetch.unwrap();
+          this.store.dispatch(directoryListingLoading());
+          const parentResult = await filesApi.getDirectoryListing(parentPath);
+          this.store.dispatch(directoryListingSuccess(parentResult));
           console.log('[PathNavigator] Parent directory listing loaded');
         }
       }

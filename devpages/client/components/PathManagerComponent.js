@@ -8,7 +8,6 @@ import { diagnoseTopDirIssue } from '/client/utils/topDirDiagnostic.js';
 import { uiThunks } from '/client/store/uiSlice.js';
 import { getCommonAppState, getFileState, getAuthState, getUIState } from '/client/store/enhancedSelectors.js';
 import { topBarController } from './TopBarController.js';
-import { apiSlice } from '/client/store/apiSlice.js';
 import { getPathNavigator } from '/client/services/PathNavigator.js';
 
 const log = window.APP?.services?.log?.createLogger('PathManagerComponent') || {
@@ -194,9 +193,9 @@ export function createPathManagerComponent(targetElementId) {
                 log.debug('PATH', `PathManager render - Missing parent directory listing for '${selectedDirectoryPath}', loading...`);
                 // Use a timeout to avoid infinite re-renders
                 setTimeout(() => {
-                    log.debug('PATH', `PathManager render - Dispatching getDirectoryListing for: '${selectedDirectoryPath}'`);
+                    log.debug('PATH', `PathManager render - Dispatching fetchDirectoryListing for: '${selectedDirectoryPath}'`);
                     // Only fetch the directory listing, don't change the current path
-                    appStore.dispatch(apiSlice.endpoints.getDirectoryListing.initiate(selectedDirectoryPath, { forceRefetch: true }));
+                    appStore.dispatch(pathThunks.fetchDirectoryListing(selectedDirectoryPath));
                 }, 0);
             }
         } else if (isDirectorySelected || listingForSelector) {
