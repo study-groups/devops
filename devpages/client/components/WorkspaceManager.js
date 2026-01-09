@@ -17,7 +17,6 @@ import { sidebarVisibilityController } from '../layout/SidebarVisibilityControll
 import { PreviewView } from '../views/PreviewView.js';
 import { ASTPreviewView } from '../views/ASTPreviewView.js';
 import { detectFileType, supportsAstPreview } from '../utils/fileTypeDetector.js';
-import { CodeMirrorEditor } from './CodeMirrorEditor.js';
 
 
 class WorkspaceManager {
@@ -33,7 +32,6 @@ class WorkspaceManager {
         this.panelsInitialized = false;
         this.previewView = null; // Iframe-based preview view
         this.astPreviewView = null; // AST-based preview for JS files
-        this.codeMirrorEditor = null; // CodeMirror editor instance
     }
 
     initialize() {
@@ -450,68 +448,64 @@ class WorkspaceManager {
 
     createEditor(container, content, filePath) {
         const fileName = filePath ? filePath.split('/').pop() : 'file.md';
-
+        
         container.innerHTML = `
             <div class="editor-section">
-                <div id="codemirror-container" class="codemirror-container"></div>
+                <textarea
+                    id="md-editor"
+                    class="markdown-editor"
+                    placeholder="Start typing..."
+                ></textarea>
             </div>
         `;
 
+        // Set content via JavaScript to properly handle HTML characters in markdown
+        const editorTextarea = container.querySelector('#md-editor');
+        if (editorTextarea) {
+            editorTextarea.value = content;
+        }
+        
         // Create programmable top bar
         this.editorTopBar = new ZoneTopBar(container, {
             title: '',
             showStats: true,
             showStatus: false
         });
-
+        
         // Insert top bar at the beginning
         const editorSection = container.querySelector('.editor-section');
         editorSection.insertBefore(this.editorTopBar.getElement(), editorSection.firstChild);
-
+        
         // Detect file type
         const fileType = detectFileType(fileName);
 
-        // Set initial stats with file type
+        // Set initial stats with file type (no emoji, type first on left)
         this.editorTopBar.setStats({
             'type': fileType.label,
             'chars': content.length,
             'lines': content.split('\n').length
         });
+        
+        // Set up editor functionality
+        const textarea = container.querySelector('#md-editor');
+        if (textarea) {
+            // Auto-save on changes
+            textarea.addEventListener('input', () => {
+                // Update Redux state
+                appStore.dispatch({ type: 'editor/setContent', payload: textarea.value });
 
-        // Create CodeMirror editor
-        const cmContainer = container.querySelector('#codemirror-container');
-        if (cmContainer) {
-            // Destroy previous instance if exists
-            if (this.codeMirrorEditor) {
-                this.codeMirrorEditor.destroy();
-            }
-
-            // Create new CodeMirror editor
-            this.codeMirrorEditor = new CodeMirrorEditor({
-                filePath,
-                onChange: (newContent) => {
-                    // Update Redux state
-                    appStore.dispatch({ type: 'editor/setContent', payload: newContent });
-
-                    // Update stats in real-time
-                    this.editorTopBar.setStats({
-                        'chars': newContent.length,
-                        'lines': newContent.split('\n').length
-                    });
-                }
-            });
-
-            this.codeMirrorEditor.mount(cmContainer, content, filePath);
-
-            // Listen for goto-line events from AST preview
-            import('../eventBus.js').then(({ eventBus }) => {
-                eventBus.off('editor:goto-line'); // Remove old listener
-                eventBus.on('editor:goto-line', ({ line }) => {
-                    if (this.codeMirrorEditor) {
-                        this.codeMirrorEditor.gotoLine(line);
-                    }
+                // Update stats in real-time
+                this.editorTopBar.setStats({
+                    'chars': textarea.value.length,
+                    'lines': textarea.value.split('\n').length
                 });
             });
+
+            // Setup paste handler for images
+            this.setupImagePasteHandler(textarea);
+
+            // Setup drag and drop handler for images
+            this.setupImageDragDropHandler(textarea);
         }
     }
 
@@ -767,10 +761,11 @@ class WorkspaceManager {
 
 
     updateEditorContent(content) {
-        // Update the CodeMirror editor when file content changes
-        if (this.codeMirrorEditor && this.codeMirrorEditor.getContent() !== content) {
+        // Update the editor textarea when file content changes
+        const textarea = document.getElementById('md-editor');
+        if (textarea && textarea.value !== content) {
             console.log('[WorkspaceManager] Updating editor content');
-            this.codeMirrorEditor.setContent(content);
+            textarea.value = content;
 
             // Update stats if available
             if (this.editorTopBar) {
