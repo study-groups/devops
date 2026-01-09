@@ -64,4 +64,50 @@
     margin-left: 4px;
     min-width: 20px;
     text-align: left;
+}
+
+/* Editor content container (CodeMirror or textarea) */
+.editor-content {
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.editor-content .cm-editor {
+    height: 100%;
+}
+
+.editor-content .cm-scroller {
+    overflow: auto;
+}
+
+/* Editor options menu */
+.editor-options-menu {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 13px;
+    color: var(--text-primary, #d4d4d4);
+}
+
+.editor-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.editor-option:hover {
+    background: var(--bg-hover, rgba(255,255,255,0.1));
+}
+
+.option-check, .option-icon {
+    width: 18px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-muted, #888);
+}
+
+.option-check:not(:empty) {
+    color: var(--color-success, #4caf50);
 } 

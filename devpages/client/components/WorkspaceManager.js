@@ -18,6 +18,9 @@ import { PreviewView } from '../views/PreviewView.js';
 import { ASTPreviewView } from '../views/ASTPreviewView.js';
 import { detectFileType, supportsAstPreview } from '../utils/fileTypeDetector.js';
 
+// CodeMirror loaded dynamically
+let CodeMirrorEditor = null;
+let codeMirrorLoadAttempted = false;
 
 class WorkspaceManager {
     constructor() {
@@ -32,6 +35,7 @@ class WorkspaceManager {
         this.panelsInitialized = false;
         this.previewView = null; // Iframe-based preview view
         this.astPreviewView = null; // AST-based preview for JS files
+        this.codeMirrorEditor = null; // CodeMirror editor instance
     }
 
     initialize() {
@@ -448,63 +452,220 @@ class WorkspaceManager {
 
     createEditor(container, content, filePath) {
         const fileName = filePath ? filePath.split('/').pop() : 'file.md';
-        
+
         container.innerHTML = `
             <div class="editor-section">
-                <textarea
-                    id="md-editor"
-                    class="markdown-editor"
-                    placeholder="Start typing..."
-                ></textarea>
+                <div id="editor-content" class="editor-content"></div>
             </div>
         `;
 
-        // Set content via JavaScript to properly handle HTML characters in markdown
-        const editorTextarea = container.querySelector('#md-editor');
-        if (editorTextarea) {
-            editorTextarea.value = content;
-        }
-        
         // Create programmable top bar
         this.editorTopBar = new ZoneTopBar(container, {
             title: '',
             showStats: true,
             showStatus: false
         });
-        
+
         // Insert top bar at the beginning
         const editorSection = container.querySelector('.editor-section');
         editorSection.insertBefore(this.editorTopBar.getElement(), editorSection.firstChild);
-        
+
         // Detect file type
         const fileType = detectFileType(fileName);
 
-        // Set initial stats with file type (no emoji, type first on left)
+        // Set initial stats
         this.editorTopBar.setStats({
             'type': fileType.label,
             'chars': content.length,
             'lines': content.split('\n').length
         });
-        
-        // Set up editor functionality
+
+        // Add editor options menu
+        this.editorTopBar.addAction({
+            id: 'editor-options',
+            label: '⚙',
+            title: 'Editor Options',
+            className: 'editor-options-btn',
+            onClick: (e) => this.showEditorOptionsMenu(e)
+        });
+
+        // Initialize editor (CodeMirror or fallback)
+        const editorContent = container.querySelector('#editor-content');
+        this.initEditor(editorContent, content, filePath);
+    }
+
+    showEditorOptionsMenu(e) {
+        // Remove existing menu if any
+        const existing = document.querySelector('.editor-options-menu');
+        if (existing) {
+            existing.remove();
+            return;
+        }
+
+        const menu = document.createElement('div');
+        menu.className = 'editor-options-menu';
+        menu.innerHTML = `
+            <div class="editor-option" data-action="wrap-toggle">
+                <span class="option-check">${this.editorWrap ? '✓' : ''}</span>
+                Word Wrap
+            </div>
+            <div class="editor-option" data-action="font-size-up">
+                <span class="option-icon">A+</span>
+                Increase Font
+            </div>
+            <div class="editor-option" data-action="font-size-down">
+                <span class="option-icon">A-</span>
+                Decrease Font
+            </div>
+            <div class="editor-option" data-action="minimap-toggle">
+                <span class="option-check">${this.showMinimap ? '✓' : ''}</span>
+                Show Minimap
+            </div>
+        `;
+
+        // Position menu below button
+        const btn = e.target.closest('.editor-options-btn');
+        const rect = btn.getBoundingClientRect();
+        menu.style.cssText = `
+            position: fixed;
+            top: ${rect.bottom + 4}px;
+            right: ${window.innerWidth - rect.right}px;
+            background: var(--bg-secondary, #252526);
+            border: 1px solid var(--border-color, #454545);
+            border-radius: 4px;
+            padding: 4px 0;
+            z-index: 1000;
+            min-width: 150px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        `;
+
+        // Handle clicks
+        menu.addEventListener('click', (ev) => {
+            const option = ev.target.closest('.editor-option');
+            if (!option) return;
+
+            const action = option.dataset.action;
+            switch (action) {
+                case 'wrap-toggle':
+                    this.editorWrap = !this.editorWrap;
+                    this.applyEditorOption('wrap', this.editorWrap);
+                    break;
+                case 'font-size-up':
+                    this.editorFontSize = (this.editorFontSize || 13) + 1;
+                    this.applyEditorOption('fontSize', this.editorFontSize);
+                    break;
+                case 'font-size-down':
+                    this.editorFontSize = Math.max(10, (this.editorFontSize || 13) - 1);
+                    this.applyEditorOption('fontSize', this.editorFontSize);
+                    break;
+                case 'minimap-toggle':
+                    this.showMinimap = !this.showMinimap;
+                    // Minimap would require CodeMirror extension
+                    break;
+            }
+            menu.remove();
+        });
+
+        // Close on outside click
+        const closeHandler = (ev) => {
+            if (!menu.contains(ev.target) && !btn.contains(ev.target)) {
+                menu.remove();
+                document.removeEventListener('click', closeHandler);
+            }
+        };
+        setTimeout(() => document.addEventListener('click', closeHandler), 0);
+
+        document.body.appendChild(menu);
+    }
+
+    applyEditorOption(option, value) {
+        if (this.codeMirrorEditor?.view) {
+            const cm = this.codeMirrorEditor.view;
+            if (option === 'fontSize') {
+                cm.dom.style.fontSize = `${value}px`;
+            } else if (option === 'wrap') {
+                // Would need reconfiguration for word wrap
+            }
+        } else {
+            const textarea = document.getElementById('md-editor');
+            if (textarea) {
+                if (option === 'fontSize') {
+                    textarea.style.fontSize = `${value}px`;
+                } else if (option === 'wrap') {
+                    textarea.style.whiteSpace = value ? 'pre-wrap' : 'pre';
+                    textarea.style.overflowWrap = value ? 'break-word' : 'normal';
+                }
+            }
+        }
+    }
+
+    async initEditor(container, content, filePath) {
+        // Try to load CodeMirror
+        if (!codeMirrorLoadAttempted) {
+            codeMirrorLoadAttempted = true;
+            try {
+                const module = await import('./CodeMirrorEditor.js');
+                CodeMirrorEditor = module.CodeMirrorEditor;
+                console.log('[WorkspaceManager] CodeMirror loaded successfully');
+            } catch (error) {
+                console.warn('[WorkspaceManager] CodeMirror failed to load, using textarea:', error.message);
+                CodeMirrorEditor = null;
+            }
+        }
+
+        if (CodeMirrorEditor) {
+            // Use CodeMirror
+            if (this.codeMirrorEditor) {
+                this.codeMirrorEditor.destroy();
+            }
+
+            this.codeMirrorEditor = new CodeMirrorEditor({
+                filePath,
+                onChange: (newContent) => {
+                    appStore.dispatch({ type: 'editor/setContent', payload: newContent });
+                    this.editorTopBar?.setStats({
+                        'chars': newContent.length,
+                        'lines': newContent.split('\n').length
+                    });
+                }
+            });
+
+            this.codeMirrorEditor.mount(container, content, filePath);
+
+            // Listen for goto-line events from AST preview
+            import('../eventBus.js').then(({ eventBus }) => {
+                eventBus.off('editor:goto-line');
+                eventBus.on('editor:goto-line', ({ line }) => {
+                    this.codeMirrorEditor?.gotoLine(line);
+                });
+            });
+        } else {
+            // Fallback to textarea
+            this.createTextareaEditor(container, content);
+        }
+    }
+
+    createTextareaEditor(container, content) {
+        container.innerHTML = `
+            <textarea id="md-editor" class="markdown-editor"
+                style="width:100%;height:100%;font-family:monospace;font-size:13px;
+                background:#1e1e1e;color:#d4d4d4;border:none;padding:12px;resize:none;"
+                placeholder="Start typing..."></textarea>
+        `;
+
         const textarea = container.querySelector('#md-editor');
         if (textarea) {
-            // Auto-save on changes
-            textarea.addEventListener('input', () => {
-                // Update Redux state
-                appStore.dispatch({ type: 'editor/setContent', payload: textarea.value });
+            textarea.value = content;
 
-                // Update stats in real-time
-                this.editorTopBar.setStats({
+            textarea.addEventListener('input', () => {
+                appStore.dispatch({ type: 'editor/setContent', payload: textarea.value });
+                this.editorTopBar?.setStats({
                     'chars': textarea.value.length,
                     'lines': textarea.value.split('\n').length
                 });
             });
 
-            // Setup paste handler for images
             this.setupImagePasteHandler(textarea);
-
-            // Setup drag and drop handler for images
             this.setupImageDragDropHandler(textarea);
         }
     }
@@ -761,19 +922,26 @@ class WorkspaceManager {
 
 
     updateEditorContent(content) {
-        // Update the editor textarea when file content changes
-        const textarea = document.getElementById('md-editor');
-        if (textarea && textarea.value !== content) {
-            console.log('[WorkspaceManager] Updating editor content');
-            textarea.value = content;
-
-            // Update stats if available
-            if (this.editorTopBar) {
-                this.editorTopBar.setStats({
-                    'chars': content.length,
-                    'lines': content.split('\n').length
-                });
+        // Update CodeMirror or textarea when file content changes
+        if (this.codeMirrorEditor) {
+            if (this.codeMirrorEditor.getContent() !== content) {
+                console.log('[WorkspaceManager] Updating CodeMirror content');
+                this.codeMirrorEditor.setContent(content);
             }
+        } else {
+            const textarea = document.getElementById('md-editor');
+            if (textarea && textarea.value !== content) {
+                console.log('[WorkspaceManager] Updating textarea content');
+                textarea.value = content;
+            }
+        }
+
+        // Update stats if available
+        if (this.editorTopBar) {
+            this.editorTopBar.setStats({
+                'chars': content.length,
+                'lines': content.split('\n').length
+            });
         }
     }
 
