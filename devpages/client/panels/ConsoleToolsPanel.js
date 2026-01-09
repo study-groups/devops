@@ -101,10 +101,6 @@ export class ConsoleToolsPanel extends BasePanel {
     }
 
     onMount(container = null) {
-        if (container) {
-            this.mountedContainer = container;
-        }
-
         super.onMount(container);
         this.addStyles();
         this.attachToolListeners();
@@ -185,10 +181,6 @@ export class ConsoleToolsPanel extends BasePanel {
         if (listEl) {
             listEl.innerHTML = this.renderToolsList();
         }
-    }
-
-    getContainer() {
-        return this.mountedContainer || this.element?.querySelector('.panel-body') || this.element;
     }
 
     addStyles() {

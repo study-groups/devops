@@ -209,11 +209,6 @@ export class PublishPanel extends BasePanel {
     async onMount(container) {
         super.onMount(container);
 
-        // Store container for floating panels
-        if (container) {
-            this.mountedContainer = container;
-        }
-
         // Subscribe to Redux store updates
         this.unsubscribe = appStore.subscribe(() => this.handleStoreChange());
 
@@ -669,14 +664,6 @@ export class PublishPanel extends BasePanel {
             this.showError('Theme Validation Error', `Could not validate theme: ${error.message}`);
             return false;
         }
-    }
-
-    /**
-     * Get the container element where our content lives
-     * Checks mountedContainer first (for floating panels), then standard locations
-     */
-    getContainer() {
-        return this.mountedContainer || this.element?.querySelector('.panel-body') || this.element;
     }
 
     /**

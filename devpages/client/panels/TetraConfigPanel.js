@@ -23,11 +23,6 @@ export class TetraConfigPanel extends BasePanel {
     async onMount(container) {
         super.onMount(container);
 
-        // Store container for floating panels
-        if (container) {
-            this.mountedContainer = container;
-        }
-
         await this.loadConfig();
         this.attachListeners();
     }
@@ -352,14 +347,6 @@ export class TetraConfigPanel extends BasePanel {
             this.error = error.message;
             this.refresh();
         }
-    }
-
-    /**
-     * Get the container element where our content lives
-     * Checks mountedContainer first (for floating panels), then standard locations
-     */
-    getContainer() {
-        return this.mountedContainer || this.element?.querySelector('.panel-body') || this.element;
     }
 
     destroy() {

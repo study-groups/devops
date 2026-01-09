@@ -238,11 +238,6 @@ export class TetraSettingsPanel extends BasePanel {
     onMount(container) {
         super.onMount(container);
 
-        // Store container for floating panels
-        if (container) {
-            this.mountedContainer = container;
-        }
-
         this.attachListeners();
         this.attachCollapseListeners();
         this.updateStatistics();
@@ -466,10 +461,6 @@ export class TetraSettingsPanel extends BasePanel {
             console.error('[TetraSettings] Failed to load preferences:', error);
             return null;
         }
-    }
-
-    getContainer() {
-        return this.mountedContainer || this.element?.querySelector('.panel-body') || this.element;
     }
 
     onDestroy() {

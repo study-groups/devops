@@ -432,19 +432,15 @@ export class ThemeManagementPanel extends BasePanel {
         return '20px';
     }
 
-    // Event handling
     onMount(container) {
         super.onMount(container);
-        this.container = container;
 
-        // Subscribe to theme changes
         this.unsubscribe = themeService.subscribe((theme) => {
             this.currentTheme = theme;
             this.updateDisplay();
         });
 
         this.attachEventListeners();
-        console.log('[ThemeManagementPanel] Mounted and subscribed to theme changes');
     }
 
     onUnmount() {
@@ -543,14 +539,6 @@ export class ThemeManagementPanel extends BasePanel {
                 this.copyExport();
             }
         });
-    }
-
-    /**
-     * Get the container element where our content lives
-     * Checks container first (for floating panels), then standard locations
-     */
-    getContainer() {
-        return this.container || this.element?.querySelector('.panel-body') || this.element;
     }
 
     updateDisplay() {

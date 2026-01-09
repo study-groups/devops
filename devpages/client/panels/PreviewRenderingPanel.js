@@ -70,11 +70,6 @@ export class PreviewRenderingPanel extends BasePanel {
     onMount(container) {
         super.onMount(container);
 
-        // Store container for floating panels
-        if (container) {
-            this.mountedContainer = container;
-        }
-
         // Subscribe to plugin state changes
         if (!this.unsubscribe) {
             this.unsubscribe = appStore.subscribe(() => {
@@ -625,14 +620,6 @@ Inline: $E = mc^2$`;
         this.render();
         this.refreshPreview();
         log?.info('PANEL', 'RESET', 'All settings reset to defaults');
-    }
-
-    /**
-     * Get the container element where our content lives
-     * Checks mountedContainer first (for floating panels), then standard locations
-     */
-    getContainer() {
-        return this.mountedContainer || this.element?.querySelector('.panel-body') || this.element;
     }
 
     /**

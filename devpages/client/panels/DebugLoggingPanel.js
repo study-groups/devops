@@ -561,11 +561,6 @@ export class DebugLoggingPanel extends BasePanel {
     onMount(container) {
         super.onMount(container);
 
-        // Store container for floating panels
-        if (container) {
-            this.mountedContainer = container;
-        }
-
         this.attachListeners();
         this.attachCollapseListeners();
         this.updateTetraStatistics();
@@ -981,10 +976,6 @@ export class DebugLoggingPanel extends BasePanel {
         a.download = filename;
         a.click();
         URL.revokeObjectURL(url);
-    }
-
-    getContainer() {
-        return this.mountedContainer || this.element?.querySelector('.panel-body') || this.element;
     }
 
     onDestroy() {
