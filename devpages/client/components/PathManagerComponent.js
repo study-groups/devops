@@ -158,17 +158,6 @@ export function createPathManagerComponent(targetElementId) {
             const normalizedCurrentPath = normalizePath(currentListingPath);
             const normalizedSelectedPath = normalizePath(selectedDirectoryPath);
 
-            // DEBUG: Track path matching for dropdown population
-            console.log('[PathManager DEBUG]', {
-                currentListingPath,
-                selectedDirectoryPath,
-                normalizedCurrentPath,
-                normalizedSelectedPath,
-                pathsMatch: normalizedCurrentPath === normalizedSelectedPath,
-                dirs: pathState.currentListing?.dirs,
-                files: pathState.currentListing?.files
-            });
-
             log.debug('PATH', 'PathManager render - Path normalization:', {
                 originalCurrentPath: currentListingPath,
                 normalizedCurrentPath,
@@ -180,9 +169,6 @@ export function createPathManagerComponent(targetElementId) {
             if (normalizedCurrentPath === normalizedSelectedPath) {
                 listingForSelector = pathState.currentListing;
             }
-        } else {
-            // DEBUG: No currentListing available
-            console.log('[PathManager DEBUG] No currentListing in state. pathState.status:', pathState.status);
         }
         
         // If we're viewing a file but don't have the parent directory listing, load it
