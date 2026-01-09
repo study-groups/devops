@@ -287,18 +287,21 @@ class WorkspaceManager {
         const sidebarZone = document.getElementById('workspace-sidebar');
         if (sidebarZone) {
             sidebarZone.style.display = leftSidebarVisible ? 'flex' : 'none';
+            sidebarZone.setAttribute('data-visible', leftSidebarVisible ? 'true' : 'false');
         }
         
         // Update editor zone visibility
         const editorZone = document.getElementById('workspace-editor');
         if (editorZone) {
             editorZone.style.display = editorVisible ? 'flex' : 'none';
+            editorZone.setAttribute('data-editor-visible', editorVisible ? 'true' : 'false');
         }
-        
+
         // Update preview zone visibility
         const previewZone = document.getElementById('workspace-preview');
         if (previewZone) {
             previewZone.style.display = previewVisible ? 'flex' : 'none';
+            previewZone.setAttribute('data-preview-visible', previewVisible ? 'true' : 'false');
         }
     }
 

@@ -471,6 +471,14 @@
     display: none !important;
 }
 
+/* Preview fills remaining space when editor is hidden */
+.workspace-container:has(.workspace-editor[data-editor-visible="false"]) .workspace-preview,
+.workspace-container:has(#workspace-editor[data-editor-visible="false"]) #workspace-preview {
+    flex: 1 !important;
+    border-left: none;
+}
+
+
 /* Hide right resizer when preview is hidden */
 .workspace-preview[data-preview-visible="false"] + .workspace-resizer,
 #resizer-right[data-preview-visible="false"] {
