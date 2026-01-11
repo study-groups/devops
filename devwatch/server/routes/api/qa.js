@@ -16,8 +16,14 @@ router.post('/query', async (req, res) => {
         return res.status(400).json({ error: 'Prompt is required' });
     }
 
+    // Build full prompt with context
+    let fullPrompt = prompt;
+    if (context && context.trim()) {
+        fullPrompt = `Given this context:\n\n${context}\n\n${prompt}`;
+    }
+
     // Sanitize prompt - escape special characters for shell
-    const sanitizedPrompt = prompt
+    const sanitizedPrompt = fullPrompt
         .replace(/\\/g, '\\\\')
         .replace(/"/g, '\\"')
         .replace(/\$/g, '\\$')
@@ -27,15 +33,7 @@ router.post('/query', async (req, res) => {
     // qq :channel "prompt" - use channel prefix if not 'db'
     const channelArg = channel !== 'db' ? `:${channel} ` : '';
 
-    // Create a temporary context file if context is provided
-    let contextSetup = '';
-    if (context && context.trim()) {
-        // Write context to temp file and set QA_CONTEXT env var
-        const contextBase64 = Buffer.from(context).toString('base64');
-        contextSetup = `export QA_CONTEXT="$(echo '${contextBase64}' | base64 -d)"; `;
-    }
-
-    const command = `source ~/tetra/tetra.sh && ${contextSetup}qq ${channelArg}"${sanitizedPrompt}"`;
+    const command = `source ~/tetra/tetra.sh && qq ${channelArg}"${sanitizedPrompt}"`;
 
     console.log('[QA] Executing query:', { channel, promptLength: prompt.length, hasContext: !!context });
 
