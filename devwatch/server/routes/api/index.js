@@ -61,6 +61,8 @@ const astRoutes = require('./ast');
 const matrixRoutes = require('./matrix');
 const monitoringRoutes = require('./monitoring');
 const resultsRoutes = require('./results');
+const contextsRoutes = require('./contexts');
+const qaRoutes = require('./qa');
 
 // User info endpoint for dashboard
 router.get('/user', (req, res) => {
@@ -97,6 +99,8 @@ router.use('/ast', astRoutes);
 router.use('/matrix', matrixRoutes);
 router.use('/monitoring', monitoringRoutes);
 router.use('/results', resultsRoutes);
+router.use('/contexts', contextsRoutes);
+router.use('/qa', qaRoutes);
 
 // Alias routes for backward compatibility
 router.use('/environment', systemRoutes); // Alias to /system/environment
