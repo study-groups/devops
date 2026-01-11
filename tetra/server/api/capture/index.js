@@ -56,8 +56,20 @@ router.post('/', async (req, res) => {
             steps = [],
             capture = ['screenshot'],
             preset,
-            session
+            session,
+            viewport
         } = req.body;
+
+        // Validate viewport if provided
+        if (viewport) {
+            const { width, height } = viewport;
+            if (!Number.isInteger(width) || !Number.isInteger(height) ||
+                width < 320 || width > 3840 || height < 200 || height > 2160) {
+                return res.status(400).json({
+                    error: 'Invalid viewport dimensions. Width: 320-3840, Height: 200-2160'
+                });
+            }
+        }
 
         // Resolve captures from preset or explicit list
         let captureList = preset ? PRESETS[preset] : capture;
@@ -101,7 +113,8 @@ router.post('/', async (req, res) => {
             outputDir,
             id,
             session,
-            sessionsDir: getSessionsDir(org)
+            sessionsDir: getSessionsDir(org),
+            viewport
         });
 
         // Timeout: base 30s + 20s per step + 10s per capture type

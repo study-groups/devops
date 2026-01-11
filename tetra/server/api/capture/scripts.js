@@ -20,7 +20,8 @@ function buildCaptureScript(options) {
         outputDir,
         id,
         session,
-        sessionsDir
+        sessionsDir,
+        viewport
     } = options;
 
     const manifestPath = path.join(outputDir, 'manifest.json');
@@ -28,9 +29,21 @@ function buildCaptureScript(options) {
         ? path.join(sessionsDir, session, 'state.json')
         : null;
 
-    const contextOptionsCode = sessionStatePath
-        ? `{ storageState: JSON.parse(fs.readFileSync(${JSON.stringify(sessionStatePath)}, 'utf-8')) }`
-        : `{}`;
+    // Build context options with optional viewport and session
+    const viewportCode = viewport
+        ? `{ width: ${viewport.width}, height: ${viewport.height} }`
+        : null;
+
+    let contextOptionsCode;
+    if (sessionStatePath && viewportCode) {
+        contextOptionsCode = `{ storageState: JSON.parse(fs.readFileSync(${JSON.stringify(sessionStatePath)}, 'utf-8')), viewport: ${viewportCode} }`;
+    } else if (sessionStatePath) {
+        contextOptionsCode = `{ storageState: JSON.parse(fs.readFileSync(${JSON.stringify(sessionStatePath)}, 'utf-8')) }`;
+    } else if (viewportCode) {
+        contextOptionsCode = `{ viewport: ${viewportCode} }`;
+    } else {
+        contextOptionsCode = `{}`;
+    }
 
     return `
 const { chromium } = require('playwright');
@@ -315,6 +328,10 @@ async function runCaptures(page, outputDir, captureList, prefix = '') {
                     }, null, 2));
                     stepResult.sessionSaved = step.name;
                     break;
+                case 'setViewport':
+                    await page.setViewportSize({ width: step.width, height: step.height });
+                    stepResult.viewport = { width: step.width, height: step.height };
+                    break;
             }
 
             // Per-step captures
@@ -347,6 +364,7 @@ async function runCaptures(page, outputDir, captureList, prefix = '') {
         timestamp: new Date().toISOString(),
         duration: Date.now() - startTime,
         capture: captureList,
+        viewport: ${viewport ? JSON.stringify(viewport) : 'null'},
         steps: stepResults.length > 0 ? stepResults : undefined,
         ...finalCaptures
     };

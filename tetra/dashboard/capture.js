@@ -8,15 +8,19 @@
     let extractedSelectors = { clickable: [], fillable: [] };
     let currentNavigateUrl = null;
 
-    // Presets map
+    // Presets map: capture types + optional wait strategy
     const PRESETS = {
-        quick: ['screenshot', 'text'],
-        full: ['screenshot', 'dom', 'text', 'structure', 'accessibility', 'performance'],
-        extract: ['screenshot', 'interactions', 'semantic']
+        quick: { capture: ['screenshot', 'text'] },
+        full: { capture: ['screenshot', 'dom', 'text', 'structure'] },
+        extract: { capture: ['screenshot', 'interactions'] },
+        spa: { capture: ['screenshot', 'dom', 'text'], waitFor: '[data-ready]' }
     };
 
     // Domain grouping state - localhost domains default expanded
     const expandedDomains = new Set();
+
+    // Capture cache for instant switching
+    const captureCache = new Map();
 
     // Helper: extract domain from URL
     function extractDomain(url) {
@@ -40,10 +44,14 @@
     // DOM elements
     const urlInput = document.getElementById('url-input');
     const presetSelect = document.getElementById('preset-select');
+    const waitForInput = document.getElementById('wait-for');
+    const viewportWidth = document.getElementById('viewport-width');
+    const viewportHeight = document.getElementById('viewport-height');
     const captureTypesEl = document.getElementById('capture-types');
     const stepsMode = document.getElementById('steps-mode');
     const sessionSelect = document.getElementById('session-select');
-    const sessionIndicator = document.getElementById('session-indicator');
+    const optionsToggle = document.getElementById('options-toggle');
+    const headerOptions = document.getElementById('header-options');
     const captureBtn = document.getElementById('capture-btn');
     const previewScreenshot = document.getElementById('preview-screenshot');
     const previewDom = document.getElementById('preview-dom');
@@ -53,7 +61,7 @@
     let activePreviewTab = 'screenshot';
     const capturesList = document.getElementById('captures-list');
     const sessionsList = document.getElementById('sessions-list');
-    const journeysList = document.getElementById('journeys-list');
+    const apiDocs = document.getElementById('api-docs');
     const detailsContent = document.getElementById('details-content');
     const status = document.getElementById('status');
     const journeyBuilder = document.getElementById('journey-builder');
@@ -74,22 +82,23 @@
     const detailsPanel = document.querySelector('.details-panel');
     const contentArea = document.querySelector('.content');
 
-    // Get selected capture types from checkboxes
+    // Get selected capture types from pill buttons
     function getSelectedCaptures() {
-        const checks = captureTypesEl.querySelectorAll('input[type="checkbox"]:checked');
-        return Array.from(checks).map(c => c.value);
+        const pills = captureTypesEl.querySelectorAll('.pill.active');
+        return Array.from(pills).map(p => p.dataset.type);
     }
 
-    // Set capture type checkboxes
+    // Set capture type pills
     function setSelectedCaptures(types) {
-        captureTypesEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-            cb.checked = types.includes(cb.value);
+        captureTypesEl.querySelectorAll('.pill').forEach(pill => {
+            pill.classList.toggle('active', types.includes(pill.dataset.type));
         });
     }
 
     // Initialize
     async function init() {
-        await Promise.all([loadCaptures(), loadSessions(), loadJourneys()]);
+        await Promise.all([loadCaptures(), loadSessions()]);
+        renderApiDocs();
         attachEventListeners();
     }
 
@@ -97,7 +106,7 @@
         captureBtn.addEventListener('click', doCapture);
         document.getElementById('refresh-list').addEventListener('click', loadCaptures);
         document.getElementById('refresh-sessions').addEventListener('click', loadSessions);
-        document.getElementById('refresh-journeys').addEventListener('click', loadJourneys);
+        document.getElementById('copy-api-docs').addEventListener('click', copyApiDocs);
         document.getElementById('add-step-btn').addEventListener('click', addStep);
         document.getElementById('copy-content').addEventListener('click', copyContent);
         document.getElementById('refresh-selectors').addEventListener('click', () => {
@@ -106,42 +115,45 @@
         document.getElementById('save-journey-btn').addEventListener('click', saveJourney);
         document.getElementById('clear-journey-btn').addEventListener('click', clearJourney);
 
-        // Preset dropdown changes capture types
+        // Options toggle (gear button)
+        optionsToggle.addEventListener('click', () => {
+            headerOptions.classList.toggle('active');
+            optionsToggle.classList.toggle('active');
+        });
+
+        // Preset dropdown changes capture types and waitFor
         presetSelect.addEventListener('change', () => {
             const preset = presetSelect.value;
             if (preset && PRESETS[preset]) {
-                setSelectedCaptures(PRESETS[preset]);
+                setSelectedCaptures(PRESETS[preset].capture);
+                waitForInput.value = PRESETS[preset].waitFor || '';
             }
         });
 
-        // Capture type changes clear preset if not matching
-        captureTypesEl.addEventListener('change', () => {
-            const selected = getSelectedCaptures();
-            let matchedPreset = '';
-            for (const [name, types] of Object.entries(PRESETS)) {
-                if (types.length === selected.length && types.every(t => selected.includes(t))) {
-                    matchedPreset = name;
-                    break;
+        // Capture type pill clicks
+        captureTypesEl.addEventListener('click', (e) => {
+            const pill = e.target.closest('.pill');
+            if (pill) {
+                pill.classList.toggle('active');
+                // Update preset dropdown to match
+                const selected = getSelectedCaptures();
+                let matchedPreset = '';
+                for (const [name, config] of Object.entries(PRESETS)) {
+                    const types = config.capture;
+                    if (types.length === selected.length && types.every(t => selected.includes(t))) {
+                        matchedPreset = name;
+                        break;
+                    }
                 }
+                presetSelect.value = matchedPreset;
             }
-            presetSelect.value = matchedPreset;
         });
 
-        // Steps mode toggle
-        stepsMode.addEventListener('change', () => {
-            const isSteps = stepsMode.checked;
-            journeyBuilder.classList.toggle('active', isSteps);
-            resizeHandle.classList.toggle('visible', isSteps);
-        });
-
-        sessionSelect.addEventListener('change', () => {
-            const session = sessionSelect.value;
-            if (session) {
-                sessionIndicator.textContent = session;
-                sessionIndicator.style.display = 'inline-block';
-            } else {
-                sessionIndicator.style.display = 'none';
-            }
+        // Steps/Journey mode toggle (pill button)
+        stepsMode.addEventListener('click', () => {
+            const isActive = stepsMode.classList.toggle('active');
+            journeyBuilder.classList.toggle('active', isActive);
+            resizeHandle.classList.toggle('visible', isActive);
         });
 
         stepAction.addEventListener('change', () => {
@@ -158,33 +170,19 @@
         });
 
         // Sidebar tabs
-        document.querySelectorAll('.sidebar-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.list-panel').forEach(p => p.classList.remove('active'));
-                tab.classList.add('active');
-                document.getElementById(tab.dataset.panel + '-panel').classList.add('active');
-            });
-        });
+        setupTabs('.sidebar-lists > .tabs', { panelSelector: '.list-panel' });
 
-        // Details tabs (sidebar)
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                showDetails(tab.dataset.tab);
-            });
-        });
+        // Details tabs
+        setupTabs('.details-panel > .tabs', { dataAttr: 'tab', onSwitch: showDetails });
 
         // Preview tabs
-        document.querySelectorAll('.preview-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.preview-tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.preview-pane').forEach(p => p.classList.remove('active'));
-                tab.classList.add('active');
-                activePreviewTab = tab.dataset.preview;
-                document.getElementById('preview-' + activePreviewTab).classList.add('active');
-            });
+        setupTabs('.preview-header .tabs', {
+            panelSelector: '.preview-pane',
+            dataAttr: 'preview',
+            onSwitch: (value) => {
+                activePreviewTab = value;
+                if (value === 'dom') loadDomContent();
+            }
         });
 
         // Copy preview content
@@ -340,18 +338,13 @@
         // Text
         previewText.querySelector('.preview-code').textContent = capture.textContent || '(no text content)';
 
-        // DOM - fetch if available
-        if (capture.domUrl) {
-            fetch(capture.domUrl)
-                .then(r => r.text())
-                .then(html => {
-                    previewDom.querySelector('.preview-code').textContent = html;
-                })
-                .catch(() => {
-                    previewDom.querySelector('.preview-code').textContent = '(DOM not available)';
-                });
-        } else {
+        // DOM - lazy load, just mark as pending
+        previewDom.dataset.url = capture.domUrl || '';
+        previewDom.dataset.loaded = 'false';
+        if (!capture.domUrl) {
             previewDom.querySelector('.preview-code').textContent = '(DOM not captured - enable "dom" checkbox)';
+        } else {
+            previewDom.querySelector('.preview-code').textContent = '(click to load DOM)';
         }
 
         // Meta
@@ -365,6 +358,22 @@
             duration: capture.duration
         };
         previewMeta.querySelector('.preview-code').textContent = JSON.stringify(meta, null, 2);
+    }
+
+    function loadDomContent() {
+        const url = previewDom.dataset.url;
+        if (!url || previewDom.dataset.loaded === 'true') return;
+
+        previewDom.querySelector('.preview-code').textContent = 'Loading...';
+        fetch(url)
+            .then(r => r.text())
+            .then(html => {
+                previewDom.querySelector('.preview-code').textContent = html;
+                previewDom.dataset.loaded = 'true';
+            })
+            .catch(() => {
+                previewDom.querySelector('.preview-code').textContent = '(DOM not available)';
+            });
     }
 
     function updateSelectorUI(action) {
@@ -494,6 +503,7 @@
             case 'waitForSelector': return 'Selector';
             case 'evaluate': return 'JavaScript code';
             case 'saveSession': return 'Session name';
+            case 'setViewport': return 'Width x Height (e.g., 375x667)';
             default: return 'Parameter';
         }
     }
@@ -514,6 +524,12 @@
             case 'waitForSelector': step.selector = param1; break;
             case 'evaluate': step.script = param1; break;
             case 'saveSession': step.name = param1; break;
+            case 'setViewport':
+                // Parse "1280x720" or "1280,720" format
+                const dims = param1.split(/[x,]/);
+                step.width = parseInt(dims[0]) || 1280;
+                step.height = parseInt(dims[1]) || 720;
+                break;
         }
 
         journeySteps.push(step);
@@ -534,41 +550,24 @@
         renderSteps();
     }
 
-    async function saveJourney() {
+    function saveJourney() {
         const nameInput = document.getElementById('journey-name');
-        const name = nameInput.value.trim();
-
-        if (!name) {
-            setStatus('Enter a journey name', 'error');
-            nameInput.focus();
-            return;
-        }
+        const name = nameInput.value.trim() || 'draft';
 
         if (journeySteps.length === 0) {
             setStatus('Add at least one step', 'error');
             return;
         }
 
-        try {
-            const res = await fetch(`/api/capture/journeys/${org}/${name}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    steps: journeySteps,
-                    capture: getSelectedCaptures()
-                })
-            });
-            const result = await res.json();
-
-            if (result.saved) {
-                setStatus(`Journey "${name}" saved (${result.stepCount} steps)`, 'success');
-                loadJourneys();
-            } else {
-                setStatus(`Error: ${result.error}`, 'error');
-            }
-        } catch (e) {
-            setStatus(`Error: ${e.message}`, 'error');
-        }
+        // Save to localStorage as a quick draft
+        const draft = {
+            name,
+            steps: journeySteps,
+            capture: getSelectedCaptures(),
+            saved: Date.now()
+        };
+        localStorage.setItem(`capture-draft-${org}`, JSON.stringify(draft));
+        setStatus(`Steps saved as "${name}" draft`, 'success');
     }
 
     function clearJourney() {
@@ -596,39 +595,44 @@
         }
     }
 
-    async function loadJourney(name) {
+    function loadJourneyDraft() {
+        // Load steps from localStorage draft
+        const draftJson = localStorage.getItem(`capture-draft-${org}`);
+        if (!draftJson) {
+            setStatus('No saved draft', 'error');
+            return;
+        }
+
         try {
-            const res = await fetch(`/api/capture/journeys?org=${org}`);
-            const journeys = await res.json();
-            const journey = journeys.find(j => j.name === name);
-
-            if (journey && journey.steps) {
-                journeySteps = journey.steps;
-                renderSteps();
-                document.getElementById('journey-name').value = name;
-
-                // Enable steps mode
-                stepsMode.checked = true;
-                journeyBuilder.classList.add('active');
-                resizeHandle.classList.add('visible');
-
-                // Set capture types from journey
-                if (journey.capture) {
-                    setSelectedCaptures(journey.capture);
-                    presetSelect.value = '';
-                }
-
-                // Extract selectors from first navigate step
-                const navigateStep = journeySteps.find(s => s.action === 'navigate');
-                if (navigateStep) {
-                    currentNavigateUrl = navigateStep.url;
-                    extractSelectors(navigateStep.url);
-                }
-
-                setStatus(`Loaded journey "${name}" (${journeySteps.length} steps)`, 'success');
-            }
+            const draft = JSON.parse(draftJson);
+            loadStepsIntoBuilder(draft.steps, draft.name, draft.capture);
+            setStatus(`Loaded draft "${draft.name}" (${draft.steps.length} steps)`, 'success');
         } catch (e) {
-            setStatus(`Error: ${e.message}`, 'error');
+            setStatus('Error loading draft', 'error');
+        }
+    }
+
+    function loadStepsIntoBuilder(steps, name = '', captureTypes = null) {
+        journeySteps = steps || [];
+        renderSteps();
+        document.getElementById('journey-name').value = name;
+
+        // Enable steps mode
+        stepsMode.classList.add('active');
+        journeyBuilder.classList.add('active');
+        resizeHandle.classList.add('visible');
+
+        // Set capture types if provided
+        if (captureTypes) {
+            setSelectedCaptures(captureTypes);
+            presetSelect.value = '';
+        }
+
+        // Extract selectors from first navigate step
+        const navigateStep = journeySteps.find(s => s.action === 'navigate');
+        if (navigateStep) {
+            currentNavigateUrl = navigateStep.url;
+            extractSelectors(navigateStep.url);
         }
     }
 
@@ -658,7 +662,7 @@
 
     async function doCapture() {
         const url = urlInput.value.trim();
-        const isStepsMode = stepsMode.checked;
+        const isStepsMode = stepsMode.classList.contains('active');
         const session = sessionSelect.value || null;
         const captureTypes = getSelectedCaptures();
 
@@ -681,11 +685,23 @@
         captureBtn.disabled = true;
 
         try {
+            const waitFor = waitForInput.value.trim();
             const body = {
                 org,
                 capture: captureTypes,
                 session
             };
+
+            // Add viewport if specified
+            const vw = parseInt(viewportWidth.value);
+            const vh = parseInt(viewportHeight.value);
+            if (vw && vh) {
+                body.viewport = { width: vw, height: vh };
+            }
+
+            if (waitFor) {
+                body.waitForSelector = waitFor;
+            }
 
             if (isStepsMode) {
                 body.steps = journeySteps;
@@ -733,14 +749,16 @@
         const captureTypes = (c.capture || []).join(', ') || 'screenshot';
         return `
             <div class="capture-item" data-id="${c.id}" data-url="${escapeAttr(c.url || '')}">
-                <div class="url">${escapeHtml(displayUrl)}</div>
-                <div class="meta">
-                    <span class="capture-badge">${captureTypes}</span>
-                    <span>${formatTime(c.timestamp)}</span>
+                <div class="capture-row">
+                    <span class="url">${escapeHtml(displayUrl)}</span>
+                    <span class="time">${formatTime(c.timestamp)}</span>
                 </div>
-                <div class="actions">
-                    <button class="use-capture" data-id="${c.id}" data-url="${escapeAttr(c.url || '')}">Use</button>
-                    <button class="delete delete-capture" data-id="${c.id}">Del</button>
+                <div class="capture-row">
+                    <span class="capture-badge">${captureTypes}</span>
+                    <span class="actions">
+                        <button class="use-capture" data-id="${c.id}" data-url="${escapeAttr(c.url || '')}">Use</button>
+                        <button class="delete delete-capture" data-id="${c.id}">Del</button>
+                    </span>
                 </div>
             </div>
         `;
@@ -834,13 +852,13 @@
                                 return step;
                             });
                             renderSteps();
-                            stepsMode.checked = true;
+                            stepsMode.classList.add('active');
                             journeyBuilder.classList.add('active');
                             resizeHandle.classList.add('visible');
                             setStatus(`Loaded ${journeySteps.length} steps`, 'success');
                         } else if (url) {
                             urlInput.value = url;
-                            stepsMode.checked = false;
+                            stepsMode.classList.remove('active');
                             journeyBuilder.classList.remove('active');
                             resizeHandle.classList.remove('visible');
                             setStatus(`URL ready: ${url}`, 'success');
@@ -859,19 +877,7 @@
 
             // Delete button handlers
             capturesList.querySelectorAll('.delete-capture').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
-                    e.stopPropagation();
-                    if (btn.classList.contains('confirm')) {
-                        await deleteCapture(btn.dataset.id);
-                    } else {
-                        btn.classList.add('confirm');
-                        btn.textContent = 'del?';
-                        setTimeout(() => {
-                            btn.classList.remove('confirm');
-                            btn.textContent = 'Del';
-                        }, 2000);
-                    }
-                });
+                setupDeleteButton(btn, () => deleteCapture(btn.dataset.id));
             });
 
             // Domain header toggle handlers
@@ -902,6 +908,7 @@
             const res = await fetch(`/api/capture/${org}/${id}`, { method: 'DELETE' });
             const result = await res.json();
             if (result.deleted) {
+                captureCache.delete(id);
                 setStatus(`Deleted: ${id}`, 'success');
                 loadCaptures();
             } else {
@@ -963,19 +970,7 @@
             });
 
             sessionsList.querySelectorAll('.delete-session').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
-                    e.stopPropagation();
-                    if (btn.classList.contains('confirm')) {
-                        await deleteSession(btn.dataset.name);
-                    } else {
-                        btn.classList.add('confirm');
-                        btn.textContent = 'del?';
-                        setTimeout(() => {
-                            btn.classList.remove('confirm');
-                            btn.textContent = 'Del';
-                        }, 2000);
-                    }
-                });
+                setupDeleteButton(btn, () => deleteSession(btn.dataset.name));
             });
         } catch (e) {
             sessionsList.innerHTML = `<div class="empty-state">Error loading sessions</div>`;
@@ -1074,90 +1069,152 @@
         }
     }
 
-    async function loadJourneys() {
-        try {
-            const res = await fetch(`/api/capture/journeys?org=${org}`);
-            const journeys = await res.json();
+    // API Documentation
+    function getApiDocsContent() {
+        const baseUrl = window.location.origin;
+        return `# Capture API
 
-            if (journeys.length === 0) {
-                journeysList.innerHTML = '<div class="empty-state">No saved journeys<br><small>Enable Steps mode and click Save</small></div>';
-                return;
-            }
+Base URL: ${baseUrl}
 
-            journeysList.innerHTML = journeys.map(j => `
-                <div class="journey-item" data-name="${j.name}">
-                    <div class="name">${j.name}</div>
-                    <div class="meta">
-                        <span>${j.stepCount || 0} steps</span>
-                        <span>${formatTime(j.updated || j.created)}</span>
-                    </div>
-                    <div class="actions">
-                        <button class="load-journey" data-name="${j.name}">Load</button>
-                        <button class="delete delete-journey" data-name="${j.name}">Del</button>
-                    </div>
-                </div>
-            `).join('');
+## Capture a Page
+POST /api/capture
+Content-Type: application/json
 
-            journeysList.querySelectorAll('.load-journey').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    loadJourney(btn.dataset.name);
-                });
-            });
+{
+  "url": "https://example.com",
+  "org": "${org}",
+  "capture": ["screenshot", "dom", "text"],
+  "waitForSelector": "#main-content"
+}
 
-            journeysList.querySelectorAll('.delete-journey').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
-                    e.stopPropagation();
-                    if (btn.classList.contains('confirm')) {
-                        await deleteJourney(btn.dataset.name);
-                    } else {
-                        btn.classList.add('confirm');
-                        btn.textContent = 'del?';
-                        setTimeout(() => {
-                            btn.classList.remove('confirm');
-                            btn.textContent = 'Del';
-                        }, 2000);
-                    }
-                });
-            });
-        } catch (e) {
-            journeysList.innerHTML = `<div class="empty-state">Error loading journeys</div>`;
-        }
+### Capture Types
+- screenshot: PNG image
+- dom: Full HTML
+- text: Visible text content
+- struct: Page structure
+- interact: Clickable/fillable elements
+
+### Wait Strategies (pick one)
+- "waitForSelector": "#element-id"  (best for SPAs)
+- "waitForTimeout": 2000            (ms delay)
+- "waitUntil": "networkidle0"       (no requests for 500ms)
+- "waitUntil": "domcontentloaded"   (faster, less reliable)
+
+## Viewport Configuration
+Set browser window dimensions:
+
+{
+  "url": "https://example.com",
+  "org": "${org}",
+  "viewport": {"width": 1280, "height": 720},
+  "capture": ["screenshot"]
+}
+
+### Common Viewport Sizes
+- Desktop: 1920x1080, 1440x900, 1280x720
+- Tablet: 768x1024, 1024x768
+- Mobile: 375x667, 414x896
+
+## Multi-Step Capture
+POST /api/capture
+{
+  "org": "${org}",
+  "capture": ["screenshot"],
+  "steps": [
+    {"action": "navigate", "url": "https://example.com/login"},
+    {"action": "waitForSelector", "selector": "#login-form"},
+    {"action": "fill", "selector": "#email", "value": "user@example.com"},
+    {"action": "fill", "selector": "#password", "value": "secret"},
+    {"action": "click", "selector": "button[type=submit]"},
+    {"action": "waitForSelector", "selector": ".dashboard"},
+    {"action": "saveSession", "name": "logged-in"}
+  ]
+}
+
+### Step Actions
+- navigate: {"action": "navigate", "url": "..."}
+- click: {"action": "click", "selector": "..."}
+- fill: {"action": "fill", "selector": "...", "value": "..."}
+- wait: {"action": "wait", "ms": 1000}
+- waitForSelector: {"action": "waitForSelector", "selector": "..."}
+- evaluate: {"action": "evaluate", "script": "return document.title"}
+- saveSession: {"action": "saveSession", "name": "..."}
+- setViewport: {"action": "setViewport", "width": 375, "height": 667}
+
+### Dynamic Viewport (in steps)
+Resize during a journey for responsive testing:
+{"action": "setViewport", "width": 375, "height": 667}
+
+## List Captures
+GET /api/capture/list?org=${org}
+
+## Get Capture
+GET /api/capture/${org}/{id}
+
+## Get Capture File
+GET /api/capture/${org}/{id}/file/{filename}
+
+## Delete Capture
+DELETE /api/capture/${org}/{id}
+
+## Sessions
+GET /api/capture/sessions?org=${org}
+DELETE /api/capture/sessions/${org}/{name}
+
+## Use Session in Capture
+POST /api/capture
+{
+  "url": "https://example.com/dashboard",
+  "org": "${org}",
+  "session": "logged-in",
+  "capture": ["screenshot"]
+}`;
     }
 
-    async function deleteJourney(name) {
-        try {
-            const res = await fetch(`/api/capture/journeys/${org}/${name}`, { method: 'DELETE' });
-            const result = await res.json();
-            if (result.deleted) {
-                setStatus(`Deleted journey: ${name}`, 'success');
-                loadJourneys();
-            } else {
-                setStatus('Error deleting journey', 'error');
-            }
-        } catch (e) {
-            setStatus(`Error: ${e.message}`, 'error');
-        }
+    function renderApiDocs() {
+        const content = getApiDocsContent();
+        apiDocs.innerHTML = `<pre class="api-docs-content">${escapeHtml(content)}</pre>`;
+    }
+
+    function copyApiDocs() {
+        const content = getApiDocsContent();
+        navigator.clipboard.writeText(content).then(() => {
+            setStatus('API docs copied', 'success');
+        }).catch(() => {
+            setStatus('Copy failed', 'error');
+        });
     }
 
     async function selectCapture(id, captureUrl) {
-        try {
-            const res = await fetch(`/api/capture/${org}/${id}`);
-            currentCapture = await res.json();
-            currentSession = null;
+        // Immediate visual feedback
+        capturesList.querySelectorAll('.capture-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.id === id);
+        });
+        sessionsList.querySelectorAll('.session-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        currentSession = null;
+        captureId.textContent = id;
 
-            capturesList.querySelectorAll('.capture-item').forEach(item => {
-                item.classList.toggle('active', item.dataset.id === id);
-            });
-            sessionsList.querySelectorAll('.session-item').forEach(item => {
-                item.classList.remove('active');
-            });
+        try {
+            // Check cache first
+            if (captureCache.has(id)) {
+                currentCapture = captureCache.get(id);
+            } else {
+                const res = await fetch(`/api/capture/${org}/${id}`);
+                currentCapture = await res.json();
+                captureCache.set(id, currentCapture);
+                // Limit cache size
+                if (captureCache.size > 20) {
+                    const firstKey = captureCache.keys().next().value;
+                    captureCache.delete(firstKey);
+                }
+            }
 
             // Build URLs for resources
             const screenshotUrl = currentCapture.screenshotFile ? `/api/capture/${org}/${id}/file/${currentCapture.screenshotFile}` : null;
             const domUrl = currentCapture.domFile ? `/api/capture/${org}/${id}/file/${currentCapture.domFile}` : null;
 
-            captureId.textContent = id;
             updatePreviewPanes({
                 ...currentCapture,
                 screenshotUrl,
@@ -1176,7 +1233,7 @@
 
             // Toggle steps mode based on capture
             const hasSteps = currentCapture.steps && currentCapture.steps.length > 0;
-            stepsMode.checked = hasSteps;
+            stepsMode.classList.toggle('active', hasSteps);
             journeyBuilder.classList.toggle('active', hasSteps);
             resizeHandle.classList.toggle('visible', hasSteps);
 

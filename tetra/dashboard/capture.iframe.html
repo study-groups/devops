@@ -9,37 +9,52 @@
 </head>
 <body>
     <div class="header">
-        <input type="text" id="url-input" placeholder="https://example.com" value="http://localhost:8080">
-        <select id="preset-select">
-            <option value="">Custom</option>
-            <option value="quick" selected>Quick</option>
-            <option value="full">Full</option>
-            <option value="extract">Extract</option>
-        </select>
-        <div class="capture-types" id="capture-types">
-            <label><input type="checkbox" value="screenshot" checked> img</label>
-            <label><input type="checkbox" value="dom"> dom</label>
-            <label><input type="checkbox" value="text" checked> txt</label>
-            <label><input type="checkbox" value="structure"> struct</label>
-            <label><input type="checkbox" value="interactions"> interact</label>
+        <div class="header-main">
+            <input type="text" id="url-input" placeholder="https://example.com" value="http://localhost:8080">
+            <button id="capture-btn">Capture</button>
+            <button id="options-toggle" class="btn-icon" title="Options">&#9881;</button>
         </div>
-        <label class="steps-toggle"><input type="checkbox" id="steps-mode"> Steps</label>
-        <select id="session-select">
-            <option value="">No Session</option>
-        </select>
-        <span id="session-indicator" class="session-indicator" style="display: none;"></span>
-        <button id="capture-btn">Capture</button>
+        <div class="header-options" id="header-options">
+            <div class="option-group">
+                <select id="preset-select">
+                    <option value="">Custom</option>
+                    <option value="quick" selected>Quick</option>
+                    <option value="full">Full</option>
+                    <option value="extract">Extract</option>
+                    <option value="spa">SPA</option>
+                </select>
+                <input type="text" id="wait-for" class="wait-for-input" placeholder="waitFor selector">
+                <div class="viewport-group">
+                    <input type="number" id="viewport-width" placeholder="W" min="320" max="3840" title="Viewport width (320-3840)">
+                    <span class="viewport-sep">x</span>
+                    <input type="number" id="viewport-height" placeholder="H" min="200" max="2160" title="Viewport height (200-2160)">
+                </div>
+                <div class="pill-group" id="capture-types">
+                    <button type="button" class="pill active" data-type="screenshot">img</button>
+                    <button type="button" class="pill" data-type="dom">dom</button>
+                    <button type="button" class="pill active" data-type="text">txt</button>
+                    <button type="button" class="pill" data-type="structure">struct</button>
+                    <button type="button" class="pill" data-type="interactions">interact</button>
+                </div>
+            </div>
+            <div class="option-group">
+                <select id="session-select">
+                    <option value="">(no session)</option>
+                </select>
+                <button type="button" class="pill" id="steps-mode">Steps</button>
+            </div>
+        </div>
     </div>
 
     <div class="content">
         <div class="main-panel">
             <div class="preview">
                 <div class="preview-header">
-                    <div class="preview-tabs">
-                        <div class="preview-tab active" data-preview="screenshot">Screenshot</div>
-                        <div class="preview-tab" data-preview="dom">DOM</div>
-                        <div class="preview-tab" data-preview="text">Text</div>
-                        <div class="preview-tab" data-preview="meta">Meta</div>
+                    <div class="tabs tabs--pill">
+                        <div class="tab active" data-preview="screenshot">Screenshot</div>
+                        <div class="tab" data-preview="dom">DOM</div>
+                        <div class="tab" data-preview="text">Text</div>
+                        <div class="tab" data-preview="meta">Meta</div>
                     </div>
                     <div class="preview-actions">
                         <span id="capture-id"></span>
@@ -69,9 +84,9 @@
 
             <div class="journey-builder" id="journey-builder">
                 <div class="journey-header">
-                    <h3>Journey Steps <span id="selectors-status" class="selectors-status"></span></h3>
+                    <h3>Steps <span id="selectors-status" class="selectors-status"></span></h3>
                     <div class="journey-actions">
-                        <input type="text" id="journey-name" class="journey-name-input" placeholder="journey name">
+                        <input type="text" id="journey-name" class="journey-name-input" placeholder="draft name">
                         <button id="save-journey-btn" class="btn-small">Save</button>
                         <button id="clear-journey-btn" class="btn-small">Clear</button>
                     </div>
@@ -86,6 +101,7 @@
                         <option value="waitForSelector">Wait for Selector</option>
                         <option value="evaluate">Evaluate JS</option>
                         <option value="saveSession">Save Session</option>
+                        <option value="setViewport">Set Viewport</option>
                     </select>
                     <input type="text" id="step-param1" placeholder="URL / Selector / Session name">
                     <select id="selector-dropdown" style="display: none;">
@@ -117,10 +133,10 @@
 
         <div class="sidebar">
             <div class="sidebar-lists">
-                <div class="sidebar-tabs">
-                    <div class="sidebar-tab active" data-panel="captures">Captures</div>
-                    <div class="sidebar-tab" data-panel="sessions">Sessions</div>
-                    <div class="sidebar-tab" data-panel="journeys">Journeys</div>
+                <div class="tabs tabs--equal">
+                    <div class="tab active" data-panel="captures">Captures</div>
+                    <div class="tab" data-panel="sessions">Sessions</div>
+                    <div class="tab" data-panel="api">API</div>
                 </div>
 
                 <div class="list-panel active" id="captures-panel">
@@ -139,12 +155,12 @@
                     <div class="sessions-list" id="sessions-list"></div>
                 </div>
 
-                <div class="list-panel" id="journeys-panel">
+                <div class="list-panel" id="api-panel">
                     <div class="sidebar-header">
-                        <span>Saved Journeys</span>
-                        <button id="refresh-journeys" title="Refresh">&#x21bb;</button>
+                        <span>Capture API</span>
+                        <button id="copy-api-docs" title="Copy all">Copy</button>
                     </div>
-                    <div class="journeys-list" id="journeys-list"></div>
+                    <div class="api-docs" id="api-docs"></div>
                 </div>
             </div>
 
@@ -169,6 +185,7 @@
 
     <div class="status" id="status">Ready</div>
 
+    <script src="ui-helpers.js"></script>
     <script src="capture.js"></script>
 </body>
 </html>
