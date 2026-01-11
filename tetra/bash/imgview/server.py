@@ -69,22 +69,25 @@ if PORT is None:
 BASE_DIR = Path(args.directory).resolve()
 TMP_DIR = BASE_DIR / "tmp"
 
+IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg'}
+
 def get_images():
-    """Get all PNG images sorted by creation time, excluding ._ and part files."""
+    """Get all images sorted by creation time, excluding ._ and part files."""
     images = []
-    for f in BASE_DIR.glob("**/*.png"):
-        if f.name.startswith("._") or "part" in f.name.lower():
-            continue
-        if TMP_DIR in f.parents or f.parent == TMP_DIR:
-            continue
-        stat = f.stat()
-        ctime = stat.st_birthtime if hasattr(stat, 'st_birthtime') else stat.st_mtime
-        images.append({
-            "path": str(f.relative_to(BASE_DIR)),
-            "name": f.name,
-            "size": stat.st_size,
-            "ctime": ctime
-        })
+    for ext in IMAGE_EXTENSIONS:
+        for f in BASE_DIR.glob(f"**/*{ext}"):
+            if f.name.startswith("._") or "part" in f.name.lower():
+                continue
+            if TMP_DIR in f.parents or f.parent == TMP_DIR:
+                continue
+            stat = f.stat()
+            ctime = stat.st_birthtime if hasattr(stat, 'st_birthtime') else stat.st_mtime
+            images.append({
+                "path": str(f.relative_to(BASE_DIR)),
+                "name": f.name,
+                "size": stat.st_size,
+                "ctime": ctime
+            })
     images.sort(key=lambda x: x["ctime"])
     return images
 
@@ -93,13 +96,14 @@ def get_trash():
     if not TMP_DIR.exists():
         return []
     trash = []
-    for f in TMP_DIR.glob("*.png"):
-        stat = f.stat()
-        trash.append({
-            "path": str(f.relative_to(BASE_DIR)),
-            "name": f.name,
-            "size": stat.st_size
-        })
+    for ext in IMAGE_EXTENSIONS:
+        for f in TMP_DIR.glob(f"*{ext}"):
+            stat = f.stat()
+            trash.append({
+                "path": str(f.relative_to(BASE_DIR)),
+                "name": f.name,
+                "size": stat.st_size
+            })
     return trash
 
 def format_size(size):
@@ -151,8 +155,9 @@ class ImageViewerHandler(SimpleHTTPRequestHandler):
     def handle_rename(self, data):
         old_path = BASE_DIR / data["path"]
         new_name = data["newName"]
-        if not new_name.endswith(".png"):
-            new_name += ".png"
+        old_ext = old_path.suffix.lower()
+        if not any(new_name.lower().endswith(ext) for ext in IMAGE_EXTENSIONS):
+            new_name += old_ext
         new_path = old_path.parent / new_name
 
         if old_path.exists() and not new_path.exists():
@@ -200,8 +205,9 @@ class ImageViewerHandler(SimpleHTTPRequestHandler):
 
     def handle_empty_trash(self):
         if TMP_DIR.exists():
-            for f in TMP_DIR.glob("*.png"):
-                f.unlink()
+            for ext in IMAGE_EXTENSIONS:
+                for f in TMP_DIR.glob(f"*{ext}"):
+                    f.unlink()
             self.send_json({"success": True, "deleted": True})
         else:
             self.send_json({"success": True, "deleted": False})
@@ -445,10 +451,12 @@ class ImageViewerHandler(SimpleHTTPRequestHandler):
                 active = "active" if i == 0 else ""
                 size_str = format_size(img["size"])
                 date_str = datetime.fromtimestamp(img["ctime"]).strftime("%Y-%m-%d %H:%M")
+                dir_name = str(Path(img["path"]).parent)
+                dir_display = f'<span class="meta">{dir_name}/</span>' if dir_name != "." else ""
                 html += f'''  <div class="slide {active}" data-path="{img["path"]}" data-index="{i}">
     <img src="{img["path"]}">
     <div class="file-info">
-      <span class="filename" onclick="renameFile({i})">{img["name"]}</span>
+      {dir_display}<span class="filename" onclick="renameFile({i})">{img["name"]}</span>
       <span class="meta">{date_str}</span>
       <span class="meta">{size_str}</span>
       <span class="meta">{i+1}/{len(images)}</span>
@@ -527,7 +535,7 @@ function renameFile(index) {{
   renamingIndex = index;
   const slide = slides[index];
   const currentName = slide.querySelector('.filename').textContent;
-  document.getElementById('newFileName').value = currentName.replace('.png', '');
+  document.getElementById('newFileName').value = currentName.replace(/\.(png|jpg|jpeg)$/i, '');
   document.getElementById('renameModal').classList.add('active');
   document.getElementById('newFileName').focus();
 }}
