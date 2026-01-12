@@ -68,4 +68,4 @@ Player ──► gamma (get match info) ──► game host address
 
 - [midi-mp](../midi-mp/) - Message routing layer
 - [quasar](../quasar/) - Sound daemon + WebSocket relay
-- [cabinet](../cabinet/) - Browser game client
+- [ansicab](../ansicab/) - ANSI terminal game cabinet

@@ -1,36 +1,50 @@
 #!/usr/bin/env bash
+# tdocs v2 - Minimal document management with mount points and numbered lists
+#
+# Core concepts:
+#   mount  - directories to scan for docs
+#   tls    - numbered list with slot memory
+#   view   - access docs by slot:index
+#   tag    - free-form labels
+#
+# Usage:
+#   tdocs mount add ~/path          # add mount point
+#   tdocs ls                         # list all docs → slot 0
+#   tdocs view 4                     # view 4th doc from current list
+#   tdocs view 1:3                   # view 3rd doc from previous list
+#   tdocs tag 4 sdk api              # tag doc with labels
 
-# tdocs module includes
-# Entry point for the tdocs (Tetra Document Manager) module
+[[ "${BASH_VERSINFO[0]}" -lt 5 || ("${BASH_VERSINFO[0]}" -eq 5 && "${BASH_VERSINFO[1]}" -lt 2) ]] && {
+    echo "[tdocs] ERROR: Requires bash 5.2+" >&2
+    return 1
+}
 
-# Load module utilities
-source "$TETRA_SRC/bash/utils/module_init.sh"
-source "$TETRA_SRC/bash/utils/function_helpers.sh"
+# Paths
+TDOCS_SRC="${TETRA_SRC:?}/bash/tdocs"
+TDOCS_DIR="${TETRA_DIR:?}/tdocs"
+TDOCS_MOUNTS="${TDOCS_DIR}/mounts.json"
+TDOCS_SLOTS="${TDOCS_DIR}/slots"
+TDOCS_TAGS="${TDOCS_DIR}/tags.json"
 
-# Initialize module with standard tetra conventions
-tetra_module_init_with_alias "tdocs" "TDOCS"
+# Slot configuration
+TDOCS_SLOT_COUNT=5  # Keep last 5 lists in memory
 
-# Source TPS for context integration (if available)
-tetra_source_if_exists "$TETRA_SRC/bash/tps/includes.sh"
+# Ensure directories exist
+mkdir -p "$TDOCS_DIR" "$TDOCS_SLOTS"
 
-# Source PData core (needed by tdocs_ctx)
-source "$TDOCS_SRC/core/pdata.sh"
+# Initialize mounts file if missing
+[[ -f "$TDOCS_MOUNTS" ]] || echo '{"mounts":[]}' > "$TDOCS_MOUNTS"
+[[ -f "$TDOCS_TAGS" ]] || echo '{}' > "$TDOCS_TAGS"
 
-# Source context integration (TPS T[org:project:subject] line)
-source "$TDOCS_SRC/tdocs_ctx.sh"
+# Load core modules
+source "$TDOCS_SRC/core/mount.sh"
+source "$TDOCS_SRC/core/tls.sh"
+source "$TDOCS_SRC/core/view.sh"
+source "$TDOCS_SRC/core/tag.sh"
+source "$TDOCS_SRC/lib/hash.sh"
 
-# Source UI components (tokens first for TDS integration)
-source "$TDOCS_SRC/ui/tokens.sh"
-source "$TDOCS_SRC/ui/color_explorer.sh"
-
-# Source core tdocs functionality (includes all core modules)
+# Load main dispatcher
 source "$TDOCS_SRC/tdocs.sh"
 
-# Source tab completion
-source "$TDOCS_SRC/tdocs_completion.sh"
-
-# Source tree help registration
-source "$TDOCS_SRC/tdocs_tree.sh" 2>/dev/null || true
-
-# Initialize module (creates directories, indexes, help tree)
-tdocs_module_init
+export TDOCS_SRC TDOCS_DIR TDOCS_MOUNTS TDOCS_SLOTS TDOCS_TAGS TDOCS_SLOT_COUNT
+export -f tdocs

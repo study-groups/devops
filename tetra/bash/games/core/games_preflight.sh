@@ -39,7 +39,9 @@ readonly PREFLIGHT_SDK_PATTERNS=(
     'pja-sdk.js'
     'pja-sdk.min.js'
     '/lib/pja-sdk'
-    'cabinet/lib/pja-sdk'
+    'pja/sdk/pja-sdk'
+    'pja/dist/pja-sdk'
+    'ansicab/lib/pja-sdk'
 )
 
 # =============================================================================

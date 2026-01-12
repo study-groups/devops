@@ -20,7 +20,7 @@ const path = require('path');
 const http = require('http');
 
 const VERSION = '1.0.0';
-const CABINET_DIR = path.join(__dirname, '../../..', 'cabinet');
+const ANSICAB_DIR = path.join(__dirname, '../../..', 'ansicab');
 
 // ─────────────────────────────────────────────────────────────
 // Utility
@@ -505,9 +505,9 @@ const MIME_TYPES = {
 };
 
 function serveStaticFile(req, res, urlPath) {
-    let filePath = urlPath.replace(/^\/cabinet/, '') || '/';
+    let filePath = urlPath.replace(/^\/ansicab/, '') || '/';
     filePath = filePath === '/' ? '/gamma-cabinet.html' : filePath;
-    filePath = path.join(CABINET_DIR, filePath);
+    filePath = path.join(ANSICAB_DIR, filePath);
 
     const ext = path.extname(filePath);
     const contentType = MIME_TYPES[ext] || 'text/plain';

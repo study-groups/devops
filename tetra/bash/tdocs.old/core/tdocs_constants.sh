@@ -77,6 +77,7 @@ declare -ga TDOC_TYPES=(
     "spec"
     "standard"
     "reference"
+    "sdk"
     # Why types
     "investigation"
     "architecture"
@@ -129,6 +130,7 @@ declare -gA TDOC_TYPE_TO_MODE=(
     [spec]="ref"
     [standard]="ref"
     [reference]="ref"
+    [sdk]="ref"
     # Why mode
     [investigation]="why"
     [architecture]="why"
@@ -149,7 +151,7 @@ declare -gA TDOC_TYPE_TO_MODE=(
 # Discovery mode to types mapping (inverse of above)
 declare -gA TDOC_MODE_TYPES=(
     [learn]="guide example tutorial"
-    [ref]="spec standard reference"
+    [ref]="spec standard reference sdk"
     [why]="investigation architecture explanation"
     [track]="summary bug-fix refactor changelog"
     [plan]="plan proposal roadmap"
@@ -176,6 +178,7 @@ declare -gA TDOC_TYPE_BASE_RANKS=(
     [spec]="1.0"
     [standard]="1.0"
     [reference]="1.0"
+    [sdk]="1.0"
     # Guide types - medium base rank
     [guide]="0.6"
     [example]="0.6"
