@@ -209,6 +209,13 @@ export class FileBrowserPanel extends BasePanel {
                 credentials: 'include'
             });
 
+            if (response.status === 401) {
+                // Not logged in - silently handle
+                this.systemInfo = null;
+                this.updateSystemInfoDisplay();
+                return;
+            }
+
             if (!response.ok) {
                 throw new Error(`Failed to load system info: ${response.status}`);
             }
@@ -280,6 +287,13 @@ export class FileBrowserPanel extends BasePanel {
             const response = await fetch('/api/system/file-tree', {
                 credentials: 'include'
             });
+
+            if (response.status === 401) {
+                // Not logged in - silently handle
+                this.fileTree = null;
+                this.updateFileTreeDisplay();
+                return;
+            }
 
             if (!response.ok) {
                 throw new Error(`Failed to load file tree: ${response.status}`);
@@ -369,6 +383,12 @@ export class FileBrowserPanel extends BasePanel {
             const response = await fetch('/api/images/stats', {
                 credentials: 'include'
             });
+
+            if (response.status === 401) {
+                // Not logged in - silently handle
+                this.updateStatsDisplay(null);
+                return;
+            }
 
             if (!response.ok) {
                 throw new Error(`Failed to load stats: ${response.status}`);

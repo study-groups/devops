@@ -25,11 +25,11 @@ export function createGlobalFetch(log) {
             const response = await fetch(url, { ...fetchOptions, credentials: 'include' });
             const responseContext = { ...context, status: response.status };
 
-            // Log non-ok responses as warnings, but not 401s on the user endpoint
+            // Log non-ok responses as warnings, but not 401s (user not logged in is normal)
             if (!response.ok) {
-                if (response.status === 401 && url.includes('/api/auth/user')) {
+                if (response.status === 401) {
                     if (!silent) {
-                        log.debug('FETCH', 'AUTH_CHECK_UNAUTHENTICATED', `Unauthenticated session check on ${url}`, responseContext);
+                        log.debug('FETCH', 'AUTH_UNAUTHENTICATED', `Unauthenticated request to ${url}`, responseContext);
                     }
                 } else {
                     log.warn('FETCH', 'RESPONSE_NOT_OK', `Non-OK response from ${url}: ${response.status}`, responseContext);

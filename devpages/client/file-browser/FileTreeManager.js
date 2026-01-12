@@ -190,11 +190,15 @@ export class FileTreeManager {
         log.info('FILE_TREE', 'FETCH_START', `Fetching file tree for path: ${pathname}`);
         try {
             const response = await window.APP.services.globalFetch(`/api/files/list?pathname=${encodeURIComponent(pathname)}`);
+            if (response.status === 401) {
+                // Not logged in - return empty tree silently
+                return [];
+            }
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             const data = await response.json();
-            
+
             const joinPath = (...parts) => {
                 const newPath = parts.join('/');
                 return newPath.replace(/\/+/g, '/');
