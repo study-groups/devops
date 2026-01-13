@@ -69,6 +69,7 @@ tsm() {
 
         # Services
         add)      tsm_add "$@" ;;
+        promote)  tsm_promote "$@" ;;
         save)     tsm_save "$@" ;;
         enable)   tsm_enable "$@" ;;
         disable)  tsm_disable "$@" ;;
@@ -120,6 +121,7 @@ TSM - Tetra Service Manager
 LIFECYCLE   start, stop, restart, kill, delete
 LIST        ls [available|enabled] [-U] [--org ORG]
 INSPECT     info, logs, ports, describe
+BUILD       build <env>, promote [file.tsm]
 SERVICES    save, enable, disable, startup, stack
 SYSTEM      doctor, patrol, cleanup, setup, users
 INTEGRATE   caddy
@@ -132,6 +134,9 @@ tsm ls available              Service definitions catalog
 tsm ls enabled                Services that start on startup
 tsm ls available --org tetra  Filter by org
 
+tsm build local               Build .tsm from ./tsm/env.toml
+tsm promote                   Promote built .tsm to services-available
+tsm enable arcade-terrain-local  Enable for auto-start
 tsm start ./app.tsm           Start from .tsm file
 tsm describe ./app.tsm        Show config & env influence
 tsm help start                Detailed command help
