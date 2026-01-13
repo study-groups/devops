@@ -524,9 +524,180 @@ _deploy_items_get_value() {
 }
 
 # =============================================================================
+# CTX COMMAND - Main context dispatcher
+# =============================================================================
+
+# Usage:
+#   deploy ctx                     Show current context
+#   deploy ctx <org>               Set org (shows available targets)
+#   deploy ctx <org> <target>      Set org + target (shows available envs)
+#   deploy ctx <org> <target> <env> Set all three
+#   deploy ctx set <org> [target] [env]  Explicit set
+#   deploy ctx clear               Clear context
+#   deploy ctx status              Show status (same as no args)
+
+deploy_ctx() {
+    local cmd="${1:-status}"
+
+    case "$cmd" in
+        status|s|'')
+            deploy_ctx_status
+            ;;
+        set)
+            shift
+            deploy_ctx_set "$@"
+            ;;
+        clear|c)
+            deploy_clear_context
+            ;;
+        help|h|--help)
+            deploy_ctx_help
+            ;;
+        *)
+            # Positional args: <org> [target] [env]
+            deploy_ctx_set "$@"
+            ;;
+    esac
+}
+
+# Set context with cascading args
+deploy_ctx_set() {
+    local org="$1"
+    local target="$2"
+    local env="$3"
+
+    # No args - show status
+    if [[ -z "$org" ]]; then
+        deploy_ctx_status
+        return 0
+    fi
+
+    # Validate org
+    if [[ ! -d "$TETRA_DIR/orgs/$org" ]]; then
+        echo "org not found: $org" >&2
+        echo "available: $(ls "$TETRA_DIR/orgs" 2>/dev/null | tr '\n' ' ')" >&2
+        return 1
+    fi
+
+    export DEPLOY_CTX_ORG="$org"
+
+    # If target specified, validate and set
+    if [[ -n "$target" ]]; then
+        local toml=$(_deploy_find_target "$target" 2>/dev/null)
+        if [[ -z "$toml" ]]; then
+            echo "target not found: $target" >&2
+            _deploy_ctx_list_targets "$org"
+            return 1
+        fi
+        export DEPLOY_CTX_TARGET="$target"
+        export DEPLOY_CTX_PIPELINE=""
+        deploy_items_reset
+    else
+        export DEPLOY_CTX_TARGET=""
+        export DEPLOY_CTX_PIPELINE=""
+    fi
+
+    # If env specified, set it
+    if [[ -n "$env" ]]; then
+        export DEPLOY_CTX_ENV="$env"
+    else
+        export DEPLOY_CTX_ENV=""
+    fi
+
+    _deploy_ctx_save
+
+    # Show result with hints
+    deploy_ctx_status
+
+    # Show next steps
+    if [[ -z "$target" ]]; then
+        echo ""
+        _deploy_ctx_list_targets "$org"
+    elif [[ -z "$env" ]]; then
+        echo ""
+        _deploy_ctx_list_envs
+    fi
+}
+
+# List targets for an org
+_deploy_ctx_list_targets() {
+    local org="$1"
+    local targets_dir="$TETRA_DIR/orgs/$org/targets"
+    [[ ! -d "$targets_dir" ]] && return
+
+    local targets=()
+    for f in "$targets_dir"/*.toml; do
+        [[ -f "$f" ]] && targets+=("$(basename "$f" .toml)")
+    done
+    for d in "$targets_dir"/*/; do
+        [[ -d "$d" && -f "$d/tetra-deploy.toml" ]] && targets+=("$(basename "$d")/")
+    done
+
+    if [[ ${#targets[@]} -gt 0 ]]; then
+        echo "targets: ${targets[*]}"
+    fi
+}
+
+# List envs (from org or common)
+_deploy_ctx_list_envs() {
+    if type org_env_names &>/dev/null; then
+        local envs=$(org_env_names 2>/dev/null | tr '\n' ' ')
+        [[ -n "$envs" ]] && echo "envs: $envs"
+    else
+        echo "envs: dev staging prod"
+    fi
+}
+
+# Show context status
+deploy_ctx_status() {
+    local org="${DEPLOY_CTX_ORG:-}"
+    local target="${DEPLOY_CTX_TARGET:-}"
+    local pipeline="${DEPLOY_CTX_PIPELINE:-}"
+    local env="${DEPLOY_CTX_ENV:-}"
+
+    # Build display target (with pipeline if set)
+    local display_target="${target:-?}"
+    [[ -n "$pipeline" ]] && display_target="${target}:${pipeline}"
+
+    echo "DEPLOY[${org:-?}:${display_target}:${env:-?}]"
+
+    if [[ -n "$org" && -n "$target" && -n "$env" ]]; then
+        echo "ready - run: deploy"
+    else
+        local need=()
+        [[ -z "$org" ]] && need+=("org")
+        [[ -z "$target" ]] && need+=("target")
+        [[ -z "$env" ]] && need+=("env")
+        echo "need: ${need[*]}"
+    fi
+}
+
+deploy_ctx_help() {
+    cat <<'EOF'
+deploy ctx - Context management
+
+Usage:
+  deploy ctx                          Show current context
+  deploy ctx <org>                    Set org (shows targets)
+  deploy ctx <org> <target>           Set org + target (shows envs)
+  deploy ctx <org> <target> <env>     Set all three (ready to deploy)
+  deploy ctx clear                    Clear context
+
+Examples:
+  deploy ctx nodeholder               Set org to nodeholder
+  deploy ctx nodeholder docs          Set org + target
+  deploy ctx nodeholder docs prod     Set all, ready to deploy
+
+Context appears in prompt as: DEPLOY[org:target:env]
+EOF
+}
+
+# =============================================================================
 # EXPORTS
 # =============================================================================
 
+export -f deploy_ctx deploy_ctx_set deploy_ctx_status deploy_ctx_help
+export -f _deploy_ctx_list_targets _deploy_ctx_list_envs
 export -f _deploy_ctx_save _deploy_ctx_load _deploy_active_org
 export -f _deploy_items_from_toml deploy_items_reset deploy_items_show
 export -f _deploy_items_exclude _deploy_items_include _deploy_items_glob

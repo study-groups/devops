@@ -233,6 +233,91 @@ _deploy_exec() {
 }
 
 # =============================================================================
+# TSM BUILD INTEGRATION
+# =============================================================================
+
+# Check if .tsm file needs rebuild
+# Returns 0 if rebuild needed, 1 if up to date
+# Usage: _deploy_tsm_needs_rebuild <toml_dir> <env>
+_deploy_tsm_needs_rebuild() {
+    local toml_dir="$1"
+    local env="$2"
+
+    # Check for env.toml (convention: proj/tsm/env.toml)
+    local env_toml=""
+    if [[ -f "$toml_dir/tsm/env.toml" ]]; then
+        env_toml="$toml_dir/tsm/env.toml"
+    elif [[ -f "$toml_dir/env.toml" ]]; then
+        env_toml="$toml_dir/env.toml"
+    fi
+
+    # No env.toml = no tsm build needed
+    [[ -z "$env_toml" ]] && return 1
+
+    # Get service name from env.toml
+    local name
+    name=$(_tsm_toml_get "$env_toml" "service" "name" 2>/dev/null)
+    [[ -z "$name" ]] && return 1
+
+    # Expected .tsm file location (sibling to env.toml)
+    local tsm_file="$(dirname "$env_toml")/${name}-${env}.tsm"
+
+    # Missing?
+    [[ ! -f "$tsm_file" ]] && return 0
+
+    # Stale? (env.toml newer than .tsm)
+    [[ "$env_toml" -nt "$tsm_file" ]] && return 0
+
+    # Check secrets.env staleness
+    local org
+    org=$(_tsm_toml_get "$env_toml" "service" "org" 2>/dev/null)
+    [[ -z "$org" ]] && org="${TETRA_ORG:-tetra}"
+
+    local secrets="$TETRA_DIR/orgs/$org/secrets.env"
+    [[ -f "$secrets" && "$secrets" -nt "$tsm_file" ]] && return 0
+
+    return 1  # up to date
+}
+
+# Run tsm build if needed for the target
+# Usage: _deploy_tsm_build_if_needed <toml_dir> <env> <force>
+_deploy_tsm_build_if_needed() {
+    local toml_dir="$1"
+    local env="$2"
+    local force="${3:-0}"
+
+    # Check for env.toml
+    local env_toml=""
+    if [[ -f "$toml_dir/tsm/env.toml" ]]; then
+        env_toml="$toml_dir/tsm/env.toml"
+    elif [[ -f "$toml_dir/env.toml" ]]; then
+        env_toml="$toml_dir/env.toml"
+    fi
+
+    # No env.toml = skip
+    [[ -z "$env_toml" ]] && return 0
+
+    if [[ "$force" -eq 1 ]] || _deploy_tsm_needs_rebuild "$toml_dir" "$env"; then
+        echo "[tsm build]"
+        if [[ "$force" -eq 1 ]]; then
+            echo "  Forcing rebuild..."
+        else
+            echo "  Rebuilding (stale)..."
+        fi
+        (cd "$toml_dir" && tsm_build "$env") || {
+            echo "  tsm build failed" >&2
+            return 1
+        }
+        echo ""
+    else
+        echo "[tsm build] up to date"
+        echo ""
+    fi
+
+    return 0
+}
+
+# =============================================================================
 # TARGET RESOLUTION
 # =============================================================================
 
@@ -250,17 +335,20 @@ _deploy_is_env() {
 }
 
 # Find TOML file for named target
+# Prefers dir/tetra-deploy.toml over name.toml (full config over simple)
 _deploy_find_target() {
     local name="$1"
 
     # Use deploy context org, or fall back to global org
     local org=$(_deploy_active_org)
     if [[ -n "$org" && "$org" != "none" ]]; then
-        local target_file="$TETRA_DIR/orgs/$org/targets/${name}.toml"
-        [[ -f "$target_file" ]] && { echo "$target_file"; return 0; }
-
+        # Prefer directory with tetra-deploy.toml (full pipeline config)
         local target_dir="$TETRA_DIR/orgs/$org/targets/$name"
         [[ -f "$target_dir/tetra-deploy.toml" ]] && { echo "$target_dir/tetra-deploy.toml"; return 0; }
+
+        # Fall back to simple .toml file
+        local target_file="$TETRA_DIR/orgs/$org/targets/${name}.toml"
+        [[ -f "$target_file" ]] && { echo "$target_file"; return 0; }
     fi
 
     return 1
@@ -323,12 +411,14 @@ _deploy_resolve() {
 
 deploy_push() {
     local dry_run=0
+    local force_build=0
     local args=()
     local start_time=$SECONDS
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --dry-run|-n) dry_run=1; shift ;;
+            --force|-f) force_build=1; shift ;;
             *) args+=("$1"); shift ;;
         esac
     done
@@ -347,7 +437,13 @@ deploy_push() {
     echo "Remote: ${DEPLOY_SSH}:${DEPLOY_REMOTE//\{\{user\}\}/$DEPLOY_WORK_USER}"
     [[ -n "$DEPLOY_DOMAIN" ]] && echo "Domain: $DEPLOY_DOMAIN"
     [[ "$dry_run" -eq 1 ]] && echo "[DRY RUN]"
+    [[ "$force_build" -eq 1 ]] && echo "[FORCE BUILD]"
     echo ""
+
+    # TSM build (if env.toml exists and stale/missing, or -f)
+    if [[ "$dry_run" -eq 0 ]]; then
+        _deploy_tsm_build_if_needed "$DEPLOY_TOML_DIR" "$DEPLOY_ENV" "$force_build" || return 1
+    fi
 
     # Pre hooks
     if [[ ${#DEPLOY_PRE[@]} -gt 0 ]]; then
@@ -413,8 +509,20 @@ deploy_show() {
     echo "Post:       ${DEPLOY_POST[*]:-(none)}"
 }
 
-# Deploy with current context (confirm first)
+# Deploy with current context using de_run engine
+# Usage: deploy              (runs default pipeline)
+#        deploy quick        (runs quick pipeline)
+#        deploy restart      (runs restart pipeline)
 deploy_with_context() {
+    local pipeline="${1:-default}"
+    local dry_run=0
+
+    # Check for -n/--dry-run flag
+    if [[ "$pipeline" == "-n" || "$pipeline" == "--dry-run" ]]; then
+        dry_run=1
+        pipeline="${2:-default}"
+    fi
+
     if [[ -z "$DEPLOY_CTX_TARGET" ]]; then
         echo "need target" >&2
         return 1
@@ -431,14 +539,14 @@ deploy_with_context() {
         toml=$(_deploy_find_target "$DEPLOY_CTX_TARGET")
     fi
 
-    if [[ -n "$toml" ]]; then
-        _deploy_load "$toml" "$DEPLOY_CTX_ENV" 2>/dev/null
-        echo "Deploy: $DEPLOY_CTX_TARGET -> $DEPLOY_CTX_ENV"
-        echo "  ${DEPLOY_SSH}:${DEPLOY_REMOTE//\{\{user\}\}/$DEPLOY_WORK_USER}"
+    if [[ -z "$toml" || ! -f "$toml" ]]; then
+        echo "tetra-deploy.toml not found for target: $DEPLOY_CTX_TARGET" >&2
+        return 1
     fi
 
-    read -rp "Proceed? [y/N] " confirm
-    [[ "$confirm" =~ ^[Yy]$ ]] && deploy_push "$DEPLOY_CTX_TARGET" "$DEPLOY_CTX_ENV" || echo "Cancelled"
+    # Use the deploy engine
+    de_load "$toml" || return 1
+    de_run "$pipeline" "$DEPLOY_CTX_ENV" "$dry_run"
 }
 
 deploy_doctor() {
@@ -1111,7 +1219,7 @@ deploy() {
     # No args -> use context if set, else show info
     if [[ -z "$cmd" ]]; then
         if [[ -n "$DEPLOY_CTX_TARGET" && -n "$DEPLOY_CTX_ENV" ]]; then
-            deploy_with_context
+            deploy_with_context "default"
         elif [[ -n "$DEPLOY_CTX_TARGET" || -n "$DEPLOY_CTX_ENV" ]]; then
             deploy_info
         else
@@ -1120,8 +1228,27 @@ deploy() {
         return 0
     fi
 
+    # Check if cmd is a pipeline name (quick, restart, status, etc.) when context is set
+    if [[ -n "$DEPLOY_CTX_TARGET" && -n "$DEPLOY_CTX_ENV" ]]; then
+        case "$cmd" in
+            quick|q|restart|r|status|s|default)
+                deploy_with_context "$cmd"
+                return $?
+                ;;
+            -n|--dry-run)
+                shift
+                deploy_with_context "-n" "${1:-default}"
+                return $?
+                ;;
+        esac
+    fi
+
     case "$cmd" in
         # Context commands
+        ctx)
+            shift
+            deploy_ctx "$@"
+            ;;
         org|o)
             shift
             deploy_org_set "$@"
@@ -1331,3 +1458,4 @@ export -f _deploy_template _deploy_exec _deploy_resolve _deploy_clear
 export -f _deploy_is_env _deploy_find_target
 export -f _deploy_edit_items _deploy_parse_item_args _deploy_apply_oneshot_filters
 export -f deploy_run
+export -f _deploy_tsm_needs_rebuild _deploy_tsm_build_if_needed

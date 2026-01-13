@@ -13,7 +13,7 @@
 # =============================================================================
 
 # All deploy subcommands (no short aliases - use 'deploy help aliases')
-_DEPLOY_COMMANDS="org target env info clear set push show list history doctor help items run"
+_DEPLOY_COMMANDS="ctx org target env info clear set push show list history doctor help items run"
 
 # =============================================================================
 # HELPER FUNCTIONS
@@ -38,6 +38,25 @@ _deploy_complete_get_org() {
 _deploy_complete_orgs() {
     [[ -d "$TETRA_DIR/orgs" ]] || return
     ls "$TETRA_DIR/orgs" 2>/dev/null
+}
+
+# List targets for a specific org (for ctx cascading completion)
+_deploy_complete_targets_for_org() {
+    local org="$1"
+    [[ -z "$org" ]] && return
+
+    local targets_dir="$TETRA_DIR/orgs/$org/targets"
+    [[ -d "$targets_dir" ]] || return
+
+    # .toml files (without extension)
+    for f in "$targets_dir"/*.toml; do
+        [[ -f "$f" ]] && basename "$f" .toml
+    done
+
+    # Directories with tetra-deploy.toml
+    for d in "$targets_dir"/*/; do
+        [[ -d "$d" && -f "$d/tetra-deploy.toml" ]] && basename "$d"
+    done
 }
 
 # List target names for current deploy context org
@@ -301,6 +320,11 @@ _deploy_complete() {
         fi
 
         case "$cmd" in
+            ctx)
+                # deploy ctx <org>: complete with orgs, plus clear/status
+                COMPREPLY=($(compgen -W "clear status $(_deploy_complete_orgs 2>/dev/null)" -- "$cur"))
+                return
+                ;;
             set)
                 # After set: complete org names
                 COMPREPLY=($(compgen -W "$(_deploy_complete_orgs 2>/dev/null)" -- "$cur"))
@@ -401,8 +425,16 @@ _deploy_complete() {
 
     # Third argument
     if [[ $COMP_CWORD -eq 3 ]]; then
-        local target="${COMP_WORDS[2]}"
+        local arg2="${COMP_WORDS[2]}"
         case "$cmd" in
+            ctx)
+                # deploy ctx <org> <target>: complete with targets for that org
+                # Skip if arg2 is a subcommand like clear/status
+                if [[ "$arg2" != "clear" && "$arg2" != "status" && "$arg2" != "set" ]]; then
+                    COMPREPLY=($(compgen -W "$(_deploy_complete_targets_for_org "$arg2" 2>/dev/null)" -- "$cur"))
+                fi
+                return
+                ;;
             set)
                 # deploy set <org> <target>: complete with targets
                 COMPREPLY=($(compgen -W "$(_deploy_complete_targets 2>/dev/null)" -- "$cur"))
@@ -410,22 +442,22 @@ _deploy_complete() {
                 ;;
             doctor|doc)
                 # deploy doctor complete <target>
-                if [[ "$target" == "complete" || "$target" == "comp" ]]; then
+                if [[ "$arg2" == "complete" || "$arg2" == "comp" ]]; then
                     COMPREPLY=($(compgen -W "$(_deploy_complete_targets 2>/dev/null)" -- "$cur"))
                 fi
                 return
                 ;;
             target|t)
                 # If target already has :subtarget, complete with envs
-                if [[ "$target" == *:* ]]; then
-                    local base_target="${target%%:*}"
+                if [[ "$arg2" == *:* ]]; then
+                    local base_target="${arg2%%:*}"
                     local target_envs=$(_deploy_complete_target_envs "$base_target" 2>/dev/null)
                     [[ -z "$target_envs" ]] && target_envs=$(_deploy_complete_envs 2>/dev/null)
                     COMPREPLY=($(compgen -W "$target_envs" -- "$cur"))
                     return
                 fi
                 # After deploy target <name>: complete with pipelines
-                local pipelines=$(_deploy_complete_pipelines "$target" 2>/dev/null)
+                local pipelines=$(_deploy_complete_pipelines "$arg2" 2>/dev/null)
                 if [[ -n "$pipelines" ]]; then
                     COMPREPLY=($(compgen -W "$pipelines" -- "$cur"))
                 fi
@@ -433,7 +465,7 @@ _deploy_complete() {
                 ;;
             push|p|show|s)
                 # After target: complete with target's envs or fallback
-                local target_envs=$(_deploy_complete_target_envs "$target" 2>/dev/null)
+                local target_envs=$(_deploy_complete_target_envs "$arg2" 2>/dev/null)
                 if [[ -n "$target_envs" ]]; then
                     COMPREPLY=($(compgen -W "$target_envs" -- "$cur"))
                 else
@@ -452,6 +484,11 @@ _deploy_complete() {
     # Fourth argument
     if [[ $COMP_CWORD -eq 4 ]]; then
         case "$cmd" in
+            ctx)
+                # deploy ctx <org> <target> <env>: complete with envs
+                COMPREPLY=($(compgen -W "$(_deploy_complete_envs 2>/dev/null)" -- "$cur"))
+                return
+                ;;
             set)
                 # deploy set <org> <target> <env>: complete with envs
                 COMPREPLY=($(compgen -W "$(_deploy_complete_envs 2>/dev/null)" -- "$cur"))
@@ -478,7 +515,7 @@ complete -F _deploy_complete deploy
 # =============================================================================
 
 export -f _deploy_complete _deploy_complete_get_org _deploy_complete_colon_fix
-export -f _deploy_complete_orgs _deploy_complete_targets _deploy_complete_envs
+export -f _deploy_complete_orgs _deploy_complete_targets _deploy_complete_targets_for_org _deploy_complete_envs
 export -f _deploy_complete_pipelines _deploy_complete_target_pipeline
 export -f _deploy_complete_target_envs _deploy_complete_targets_or_envs
 export -f _deploy_complete_items _deploy_complete_prefixed_items _deploy_complete_operations
