@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# imgview module - Image viewer with reorder, rename, delete
+# imgview module - Media viewer (png, jpg, webp, webm) with reorder, rename, delete
 # Requires: python3
 
 MOD_SRC="${TETRA_SRC}/bash/imgview"
@@ -12,7 +12,7 @@ imgview() {
 
 imgview_help() {
     cat <<EOF
-imgview - PNG Image Viewer Server
+imgview - Media Viewer Server (PNG, JPG, WebP, WebM)
 
 Usage:
   imgview [PORT] [DIRECTORY]
@@ -24,7 +24,7 @@ Arguments:
              4000  = auto 4000+ (tetra range)
              8000  = auto 8000+ (python/http range)
              8080  = exact port 8080
-  DIRECTORY  Directory to serve images from (default: .)
+  DIRECTORY  Directory to serve media from (default: .)
 
 Port Ranges:
   3000-3099  Node services
@@ -38,11 +38,19 @@ Features:
   - Delete: moves to tmp/ directory
   - Reorder: drag and drop in sidebar
   - Empty Trash: permanently delete tmp/ files
+  - Zoom: scroll wheel or +/- keys (independent of browser zoom)
+  - Fullscreen: controls auto-hide, show on mouse movement
 
 Keyboard:
   Left/Right  Navigate images
-  f           Toggle fullscreen
+  f           Toggle fullscreen (controls auto-hide)
+  +/=         Zoom in
+  -           Zoom out
+  0           Reset zoom to 100%
   Delete      Move current image to trash
+
+Mouse:
+  Scroll      Zoom in/out on image
 
 Example:
   imgview              # Auto 5000+, current dir

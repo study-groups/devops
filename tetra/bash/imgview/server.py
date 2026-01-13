@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Image Viewer Server with reorder, rename, and delete functionality.
+Media Viewer Server with reorder, rename, and delete functionality.
+Supports: PNG, JPG, WebP (images), WebM (video)
 Deleted files are moved to a tmp/ directory.
 
 Usage: python3 server.py [PORT] [DIRECTORY]
   PORT      - Port or range start (default: auto 5000-5099)
               0=auto 5000+, 3000=node, 4000=tetra, 8000=http
-  DIRECTORY - Directory to serve images from (default: current directory)
+  DIRECTORY - Directory to serve media from (default: current directory)
 """
 
 import os
@@ -69,12 +70,14 @@ if PORT is None:
 BASE_DIR = Path(args.directory).resolve()
 TMP_DIR = BASE_DIR / "tmp"
 
-IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg'}
+IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp'}
+VIDEO_EXTENSIONS = {'.webm'}
+MEDIA_EXTENSIONS = IMAGE_EXTENSIONS | VIDEO_EXTENSIONS
 
 def get_images():
-    """Get all images sorted by creation time, excluding ._ and part files."""
+    """Get all media files sorted by creation time, excluding ._ and part files."""
     images = []
-    for ext in IMAGE_EXTENSIONS:
+    for ext in MEDIA_EXTENSIONS:
         for f in BASE_DIR.glob(f"**/*{ext}"):
             if f.name.startswith("._") or "part" in f.name.lower():
                 continue
@@ -86,7 +89,8 @@ def get_images():
                 "path": str(f.relative_to(BASE_DIR)),
                 "name": f.name,
                 "size": stat.st_size,
-                "ctime": ctime
+                "ctime": ctime,
+                "isVideo": f.suffix.lower() in VIDEO_EXTENSIONS
             })
     images.sort(key=lambda x: x["ctime"])
     return images
@@ -96,7 +100,7 @@ def get_trash():
     if not TMP_DIR.exists():
         return []
     trash = []
-    for ext in IMAGE_EXTENSIONS:
+    for ext in MEDIA_EXTENSIONS:
         for f in TMP_DIR.glob(f"*{ext}"):
             stat = f.stat()
             trash.append({
@@ -156,7 +160,7 @@ class ImageViewerHandler(SimpleHTTPRequestHandler):
         old_path = BASE_DIR / data["path"]
         new_name = data["newName"]
         old_ext = old_path.suffix.lower()
-        if not any(new_name.lower().endswith(ext) for ext in IMAGE_EXTENSIONS):
+        if not any(new_name.lower().endswith(ext) for ext in MEDIA_EXTENSIONS):
             new_name += old_ext
         new_path = old_path.parent / new_name
 
@@ -205,7 +209,7 @@ class ImageViewerHandler(SimpleHTTPRequestHandler):
 
     def handle_empty_trash(self):
         if TMP_DIR.exists():
-            for ext in IMAGE_EXTENSIONS:
+            for ext in MEDIA_EXTENSIONS:
                 for f in TMP_DIR.glob(f"*{ext}"):
                     f.unlink()
             self.send_json({"success": True, "deleted": True})
@@ -249,9 +253,12 @@ class ImageViewerHandler(SimpleHTTPRequestHandler):
       align-items: center;
       justify-content: center;
     }}
-    .slide img {{
+    .slide img, .slide video {{
       max-width: 95%;
       max-height: 95%;
+      transform: scale(var(--zoom, 1));
+      transform-origin: center center;
+      transition: transform 0.1s ease-out;
     }}
     .file-info {{
       position: absolute;
@@ -323,6 +330,34 @@ class ImageViewerHandler(SimpleHTTPRequestHandler):
       color: #888;
       font-size: 12px;
       margin-left: 4px;
+    }}
+    .controls, .file-info {{
+      transition: opacity 0.3s ease;
+    }}
+    .fullscreen-hide .controls,
+    .fullscreen-hide .file-info {{
+      opacity: 0;
+      pointer-events: none;
+    }}
+    .fullscreen-show .controls,
+    .fullscreen-show .file-info {{
+      opacity: 1;
+      pointer-events: auto;
+    }}
+    .zoom-indicator {{
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0,0,0,0.7);
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: none;
+    }}
+    .zoom-indicator.visible {{
+      opacity: 1;
     }}
     .modal {{
       display: none;
@@ -453,8 +488,12 @@ class ImageViewerHandler(SimpleHTTPRequestHandler):
                 date_str = datetime.fromtimestamp(img["ctime"]).strftime("%Y-%m-%d %H:%M")
                 dir_name = str(Path(img["path"]).parent)
                 dir_display = f'<span class="meta">{dir_name}/</span>' if dir_name != "." else ""
+                if img.get("isVideo"):
+                    media_tag = f'<video src="{img["path"]}" controls loop></video>'
+                else:
+                    media_tag = f'<img src="{img["path"]}">'
                 html += f'''  <div class="slide {active}" data-path="{img["path"]}" data-index="{i}">
-    <img src="{img["path"]}">
+    {media_tag}
     <div class="file-info">
       {dir_display}<span class="filename" onclick="renameFile({i})">{img["name"]}</span>
       <span class="meta">{date_str}</span>
@@ -496,6 +535,8 @@ class ImageViewerHandler(SimpleHTTPRequestHandler):
   </div>
 </div>
 
+<div class="zoom-indicator" id="zoomIndicator">100%</div>
+
 <script>
 let currentIndex = 0;
 let slides = document.querySelectorAll(".slide");
@@ -503,12 +544,17 @@ let autoPlay = false;
 let intervalId = null;
 let renamingIndex = -1;
 let trashCount = {trash_count};
+let zoomLevel = 1;
+let zoomIndicatorTimeout = null;
+let isFullscreen = false;
+let hideControlsTimeout = null;
 
 function showSlide(index) {{
   if (slides.length === 0) return;
   slides[currentIndex].classList.remove("active");
   currentIndex = (index + slides.length) % slides.length;
   slides[currentIndex].classList.add("active");
+  setZoom(1, false);
 }}
 
 function nextImage() {{ showSlide(currentIndex + 1); }}
@@ -521,6 +567,62 @@ function toggleFullscreen() {{
     document.exitFullscreen();
   }}
 }}
+
+function setZoom(level, showIndicator = true) {{
+  zoomLevel = Math.max(0.25, Math.min(5, level));
+  const media = slides[currentIndex]?.querySelector('img, video');
+  if (media) {{
+    media.style.setProperty('--zoom', zoomLevel);
+  }}
+  if (showIndicator) {{
+    const indicator = document.getElementById('zoomIndicator');
+    indicator.textContent = Math.round(zoomLevel * 100) + '%';
+    indicator.classList.add('visible');
+    clearTimeout(zoomIndicatorTimeout);
+    zoomIndicatorTimeout = setTimeout(() => {{
+      indicator.classList.remove('visible');
+    }}, 1000);
+  }}
+}}
+
+function adjustZoom(delta) {{
+  setZoom(zoomLevel + delta);
+}}
+
+function handleFullscreenChange() {{
+  isFullscreen = !!document.fullscreenElement;
+  const viewer = document.getElementById('viewer');
+  if (isFullscreen) {{
+    viewer.classList.add('fullscreen-hide');
+    viewer.classList.remove('fullscreen-show');
+    startHideTimer();
+  }} else {{
+    viewer.classList.remove('fullscreen-hide', 'fullscreen-show');
+    clearTimeout(hideControlsTimeout);
+  }}
+}}
+
+function showControls() {{
+  if (!isFullscreen) return;
+  const viewer = document.getElementById('viewer');
+  viewer.classList.remove('fullscreen-hide');
+  viewer.classList.add('fullscreen-show');
+  startHideTimer();
+}}
+
+function startHideTimer() {{
+  clearTimeout(hideControlsTimeout);
+  hideControlsTimeout = setTimeout(() => {{
+    if (isFullscreen) {{
+      const viewer = document.getElementById('viewer');
+      viewer.classList.add('fullscreen-hide');
+      viewer.classList.remove('fullscreen-show');
+    }}
+  }}, 2500);
+}}
+
+document.addEventListener('fullscreenchange', handleFullscreenChange);
+document.addEventListener('mousemove', showControls);
 
 function toggleAutoPlay() {{
   autoPlay = !autoPlay;
@@ -535,7 +637,7 @@ function renameFile(index) {{
   renamingIndex = index;
   const slide = slides[index];
   const currentName = slide.querySelector('.filename').textContent;
-  document.getElementById('newFileName').value = currentName.replace(/\.(png|jpg|jpeg)$/i, '');
+  document.getElementById('newFileName').value = currentName.replace(/\.(png|jpg|jpeg|webp|webm)$/i, '');
   document.getElementById('renameModal').classList.add('active');
   document.getElementById('newFileName').focus();
 }}
@@ -704,7 +806,17 @@ document.addEventListener('keydown', function(e) {{
   if (e.key === 'ArrowLeft') prevImage();
   if (e.key === 'f') toggleFullscreen();
   if (e.key === 'Delete' || e.key === 'Backspace') deleteFile(currentIndex);
+  if (e.key === '+' || e.key === '=') adjustZoom(0.25);
+  if (e.key === '-') adjustZoom(-0.25);
+  if (e.key === '0') setZoom(1);
 }});
+
+document.getElementById('viewer').addEventListener('wheel', function(e) {{
+  if (e.ctrlKey || e.metaKey) return;
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? -0.1 : 0.1;
+  adjustZoom(delta);
+}}, {{ passive: false }});
 </script>
 </body>
 </html>'''
