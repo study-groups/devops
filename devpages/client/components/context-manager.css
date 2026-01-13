@@ -654,3 +654,31 @@
     min-width: 150px;
     margin-left: 8px;
 } 
+/* Save Button States */
+#save-btn.save-btn {
+    transition: all 0.2s ease;
+}
+
+#save-btn.save-btn.modified {
+    background: var(--color-warning, #ffc107);
+    color: var(--color-text-dark, #212529);
+    border-color: var(--color-warning-dark, #d39e00);
+}
+
+#save-btn.save-btn.modified:hover:not(:disabled) {
+    background: var(--color-warning-dark, #e0a800);
+}
+
+#save-btn.save-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* New Button */
+#new-btn {
+    transition: all 0.2s ease;
+}
+
+#new-btn:hover {
+    background: var(--color-accent-light, #e7f1ff);
+}

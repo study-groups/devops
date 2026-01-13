@@ -37,6 +37,7 @@ import { commReducer } from './store/slices/commSlice.js';
 import editorReducer from './store/slices/editorSlice.js';
 import { imageReducer } from './store/slices/imageSlice.js';
 import astReducer from './store/slices/astSlice.js';
+import dataMountReducer from './store/slices/dataMountSlice.js';
 
 // Middleware
 import { reduxLogMiddleware } from './store/middleware/reduxLogMiddleware.js';
@@ -55,6 +56,7 @@ import { initializePreviewSystem } from './store/slices/previewSlice.js';
 import { pluginThunks } from './store/slices/pluginSlice.js';
 import { initializeComponent } from './store/slices/systemSlice.js';
 import { panelThunks } from './store/slices/panelSlice.js';
+import { dataMountThunks } from './store/slices/dataMountSlice.js';
 
 // --- Root Reducer Configuration ---
 const rootReducer = {
@@ -75,6 +77,7 @@ const rootReducer = {
     editor: editorReducer,
     image: imageReducer,
     ast: astReducer,
+    dataMount: dataMountReducer,
 };
 
 // --- Store Singleton ---
@@ -170,6 +173,7 @@ function initializeStore(preloadedState = {}) {
             plugins: pluginThunks,
             system: { initializeComponent },
             panels: panelThunks,
+            dataMount: dataMountThunks,
         };
 
         console.log('[AppState] ✅ Central Redux store initialized.');
@@ -207,6 +211,7 @@ function initializeStore(preloadedState = {}) {
             plugins: pluginThunks,
             system: { initializeComponent },
             panels: panelThunks,
+            dataMount: dataMountThunks,
         };
 
         return { appStore, dispatch };

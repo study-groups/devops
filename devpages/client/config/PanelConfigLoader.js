@@ -100,6 +100,16 @@ const panelConfig = {
             content_type: 'interactive',
             data_sources: ['plugin_config', 'preview_settings']
         },
+        'data-mounts': {
+            title: 'Data Mounts',
+            description: 'Manage local data mount points with optional pdata.json publishing configurations',
+            category: 'settings',
+            sidebar: true,
+            floating: true,
+            default_expanded: false,
+            content_type: 'interactive',
+            data_sources: ['mount_config', 'file_system']
+        },
         'publish-manager': {
             title: 'Publish Manager',
             description: 'Deploy and publish content',

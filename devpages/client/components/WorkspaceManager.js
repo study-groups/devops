@@ -507,7 +507,33 @@ class WorkspaceManager {
 
         const menu = document.createElement('div');
         menu.className = 'editor-options-menu';
+        const currentFontSize = this.editorFontSize || 13;
         menu.innerHTML = `
+            <style>
+                .editor-option {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 6px 12px;
+                    cursor: pointer;
+                    color: var(--text-primary, #ccc);
+                    font-size: 13px;
+                }
+                .editor-option:not(.disabled):hover {
+                    background: var(--bg-tertiary, #3a3d3e);
+                }
+                .editor-option .option-check,
+                .editor-option .option-icon {
+                    width: 20px;
+                    text-align: center;
+                    font-weight: bold;
+                }
+                .editor-option .font-size-label {
+                    margin-left: auto;
+                    font-size: 11px;
+                    color: var(--text-muted, #888);
+                }
+            </style>
             <div class="editor-option" data-action="wrap-toggle">
                 <span class="option-check">${this.editorWrap ? '✓' : ''}</span>
                 Word Wrap
@@ -515,14 +541,11 @@ class WorkspaceManager {
             <div class="editor-option" data-action="font-size-up">
                 <span class="option-icon">A+</span>
                 Increase Font
+                <span class="font-size-label">${currentFontSize}px</span>
             </div>
             <div class="editor-option" data-action="font-size-down">
                 <span class="option-icon">A-</span>
                 Decrease Font
-            </div>
-            <div class="editor-option" data-action="minimap-toggle">
-                <span class="option-check">${this.showMinimap ? '✓' : ''}</span>
-                Show Minimap
             </div>
         `;
 
@@ -561,10 +584,6 @@ class WorkspaceManager {
                     this.editorFontSize = Math.max(10, (this.editorFontSize || 13) - 1);
                     this.applyEditorOption('fontSize', this.editorFontSize);
                     break;
-                case 'minimap-toggle':
-                    this.showMinimap = !this.showMinimap;
-                    // Minimap would require CodeMirror extension
-                    break;
             }
             menu.remove();
         });
@@ -585,18 +604,36 @@ class WorkspaceManager {
         if (this.codeMirrorEditor?.view) {
             const cm = this.codeMirrorEditor.view;
             if (option === 'fontSize') {
-                cm.dom.style.fontSize = `${value}px`;
+                // CodeMirror 6: target .cm-content for font size
+                const cmContent = cm.dom.querySelector('.cm-content');
+                const cmGutters = cm.dom.querySelector('.cm-gutters');
+                if (cmContent) {
+                    cmContent.style.fontSize = `${value}px`;
+                }
+                if (cmGutters) {
+                    cmGutters.style.fontSize = `${value}px`;
+                }
+                console.log(`[Editor] Font size set to ${value}px`);
             } else if (option === 'wrap') {
-                // Would need reconfiguration for word wrap
+                // CodeMirror 6: word wrap requires EditorView.lineWrapping extension
+                // For now, apply CSS workaround
+                const cmContent = cm.dom.querySelector('.cm-content');
+                if (cmContent) {
+                    cmContent.style.whiteSpace = value ? 'pre-wrap' : 'pre';
+                    cmContent.style.wordBreak = value ? 'break-word' : 'normal';
+                }
+                console.log(`[Editor] Word wrap ${value ? 'enabled' : 'disabled'}`);
             }
         } else {
             const textarea = document.getElementById('md-editor');
             if (textarea) {
                 if (option === 'fontSize') {
                     textarea.style.fontSize = `${value}px`;
+                    console.log(`[Editor] Font size set to ${value}px`);
                 } else if (option === 'wrap') {
                     textarea.style.whiteSpace = value ? 'pre-wrap' : 'pre';
                     textarea.style.overflowWrap = value ? 'break-word' : 'normal';
+                    console.log(`[Editor] Word wrap ${value ? 'enabled' : 'disabled'}`);
                 }
             }
         }

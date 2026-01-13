@@ -17,6 +17,8 @@ import './DOMInspectorPanel.js';
 import './CSSInspectorPanel.js'; // Advanced CSS inspection with z-index visualization
 import './PreviewRenderingPanel.js'; // Preview & rendering settings
 import './ConsoleToolsPanel.js'; // Console tools discovery panel
+import './AppSettingsPanel.js'; // App settings with mount points
+import './DataMountsPanel.js'; // Data mount points for sidebar
 
 // Note: CSS is loaded via server bundles (/css/bundles/*.bundle.css)
 // Not imported directly in JavaScript modules

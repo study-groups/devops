@@ -294,9 +294,9 @@ export function createPathManagerComponent(targetElementId) {
                 </div>
                 <div class="context-breadcrumbs" style="display: inline-flex !important; align-items: center;">${breadcrumbsHTML}</div>
                 <div>${primarySelectorHTML}</div>
-                <button id="save-btn" data-action="saveFile" title="Save Current File" ${saveDisabled ? 'disabled' : ''} style="flex-shrink: 0;">${isSaving ? 'Saving...' : 'Save'}</button>
-                <button id="publish-btn" title="Publish File" ${selectedFilename === null ? 'disabled' : ''} style="flex-shrink: 0;">Publish</button>
-                <button id="note-btn" title="Add to Context for Cursor AI" ${selectedFilename === null ? 'disabled' : ''} class="note-button" style="flex-shrink: 0;">Note</button>
+                <button id="save-btn" data-action="saveFile" title="Save (Ctrl+S)" ${saveDisabled ? 'disabled' : ''} class="save-btn ${isFileModified ? 'modified' : ''}" style="flex-shrink: 0;">${isSaving ? 'Saving...' : (isFileModified ? 'Save*' : 'Save')}</button>
+                <button id="new-btn" data-tray-trigger="new-file" title="New File (Ctrl+N)" style="flex-shrink: 0;">New</button>
+                <button id="publish-btn" data-tray-trigger="publish" title="Publish (Ctrl+Shift+P)" ${selectedFilename === null ? 'disabled' : ''} style="flex-shrink: 0;">Publish</button>
                 <div style="flex: 1;"></div>
             </div>
             <select id="file-select" style="display: none;"><option value="">Hidden compatibility element</option></select>
@@ -327,11 +327,25 @@ export function createPathManagerComponent(targetElementId) {
             // filenameInputElement.addEventListener('click', handleFilenameClick);
         }
 
-        // Add Note button event listener
-        const noteButton = element.querySelector('#note-btn');
-        if (noteButton) {
-            noteButton.addEventListener('click', handleNoteButtonClick);
-        }
+        // Tray trigger buttons - use unified tray system
+        const trayTriggers = element.querySelectorAll('[data-tray-trigger]');
+        trayTriggers.forEach(trigger => {
+            trigger.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const trayId = trigger.dataset.trayTrigger;
+                log.info('TRAY', 'TRIGGER', `Opening tray: ${trayId}`);
+
+                try {
+                    // Lazy-load tray system
+                    const { topBarTray } = await import('/client/components/trays/index.js');
+                    topBarTray.toggle(trayId);
+                } catch (error) {
+                    log.error('TRAY', 'IMPORT_ERROR', `Failed to load tray system: ${error.message}`);
+                }
+            });
+        });
 
         // Sidebar toggle button event listener - keep the branded four boxes
         const fileBrowserToggleButton = element.querySelector('#file-browser-toggle-btn');
@@ -500,87 +514,6 @@ export function createPathManagerComponent(targetElementId) {
 
     // DEPRECATED: handleRootBreadcrumbClick and handleSettingsClick are no longer used.
     // The main handleBreadcrumbClick now manages all breadcrumb interactions.
-
-    const handleNoteButtonClick = async (event) => {
-        event.alreadyHandled = true;
-        event.preventDefault();
-        event.stopPropagation();
-        log.info('NOTE', 'BUTTON_CLICK', 'Note button clicked - adding to context');
-        
-        let originalText;
-        const noteBtn = event.target;
-
-        try {
-            const state = appStore.getState();
-            const pathState = state.path;
-            const contextName = state.context?.activeContext || 'default'; // Get active context
-
-            // v2: Use current.type and current.pathname
-            if (pathState.current?.type === 'directory' || !pathState.current?.pathname) {
-                log.warn('NOTE', 'NO_FILE_SELECTED', 'Cannot add note: No file selected or directory view.');
-                alert('Please select a file to add to context.');
-                return;
-            }
-
-            // Use a more robust selector to find the editor instance
-            const editor = document.querySelector('#md-editor textarea, #editor-container textarea, textarea');
-            if (!editor) {
-                log.error('NOTE', 'EDITOR_NOT_FOUND', 'Editor element not found.');
-                alert('Could not find the editor content.');
-                return;
-            }
-
-            const markdownContent = editor.value;
-            const pathname = pathState.current?.pathname;
-            
-            originalText = noteBtn.textContent;
-            noteBtn.textContent = 'Adding...';
-            noteBtn.disabled = true;
-
-            const response = await fetch('/api/publish/context', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'credentials': 'include'
-                },
-                body: JSON.stringify({
-                    pathname,
-                    contextName: contextName,
-                    markdownContent,
-                }),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ error: 'Unknown server error' }));
-                throw new Error(errorData.error || `Server responded with ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (result.success) {
-                noteBtn.classList.add('noted');
-                noteBtn.title = `Added to context: ${contextName}`;
-                log.info('NOTE', 'ADD_SUCCESS', `Successfully added '${pathname}' to context '${contextName}'.`);
-            } else {
-                throw new Error(result.error || 'The server reported an issue, but did not provide an error message.');
-            }
-
-        } catch (error) {
-            log.error('NOTE', 'HANDLER_ERROR', `Error in note button handler: ${error.message}`, error);
-            console.error('[PathManager] Note button error:', error);
-            alert(`Failed to add note to context: ${error.message}`);
-        } finally {
-            if (noteBtn) {
-                // Return to original state after a delay to show "noted" status
-                setTimeout(() => {
-                    noteBtn.textContent = originalText;
-                    noteBtn.disabled = false;
-                    noteBtn.classList.remove('noted');
-                    noteBtn.title = 'Add to Context for Cursor AI';
-                }, 2000);
-            }
-        }
-    };
 
     const handleSidebarToggleClick = (e) => {
         // Mark event as handled to prevent TopBarController from also handling it

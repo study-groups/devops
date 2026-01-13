@@ -146,18 +146,22 @@ class KeyboardShortcutManager {
             }
         });
 
+        // New file
+        this.register('ctrl+n', 'newFile', 'New File', () => {
+            import('../components/trays/index.js').then(({ topBarTray }) => {
+                topBarTray.toggle('new-file');
+            }).catch((error) => {
+                getLogger().warn('HANDLER_MISSING', `New file tray not available: ${error.message}`);
+            });
+        });
+
         // Publish
-        this.register('ctrl+shift+p', 'publish', 'Open Publish Modal', () => {
-            if (window.openPublishModal) {
-                window.openPublishModal();
-            } else {
-                // Try to import and call the modal directly
-                import('../components/publish/PublishModal.js').then(({ openPublishModal }) => {
-                    openPublishModal();
-                }).catch((error) => {
-                    getLogger().warn('HANDLER_MISSING', `Publish modal not available: ${error.message}`);
-                });
-            }
+        this.register('ctrl+shift+p', 'publish', 'Open Publish Tray', () => {
+            import('../components/trays/index.js').then(({ topBarTray }) => {
+                topBarTray.toggle('publish');
+            }).catch((error) => {
+                getLogger().warn('HANDLER_MISSING', `Publish tray not available: ${error.message}`);
+            });
         });
 
         // Refresh
@@ -201,11 +205,11 @@ class KeyboardShortcutManager {
     handleSettingsPanel() {
         // Try different settings panel methods
         if (window.APP?.workspace?.togglePanel) {
-            window.APP.workspace.togglePanel('settings-panel');
+            window.APP.workspace.togglePanel('app-settings');
+        } else if (window.APP?.workspace?.simplified?.manager?.togglePanel) {
+            window.APP.workspace.simplified.manager.togglePanel('app-settings');
         } else if (window.modernPanelIntegration?.togglePanel) {
-            window.modernPanelIntegration.togglePanel('modern-settings');
-        } else if (window.openSettingsModal) {
-            window.openSettingsModal();
+            window.modernPanelIntegration.togglePanel('app-settings');
         } else {
             getLogger().warn('PANEL_MISSING', 'Settings panel not found');
         }
