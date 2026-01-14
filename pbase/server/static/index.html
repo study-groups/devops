@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PBase - Game API Dashboard</title>
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+    <header>
+        <h1>PBase</h1>
+        <nav>
+            <button class="tab-btn active" data-tab="games">Games</button>
+            <button class="tab-btn" data-tab="s3">S3 Browser</button>
+            <button class="tab-btn" data-tab="config">Config</button>
+            <button class="tab-btn" data-tab="admin">Admin</button>
+        </nav>
+        <div class="auth-status">
+            <span id="user-display">anonymous</span>
+            <button id="auth-btn">Login</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Games Tab -->
+        <section id="games-tab" class="tab-content active">
+            <div class="toolbar">
+                <h2>Games Manifest</h2>
+                <button id="refresh-games">Refresh</button>
+            </div>
+            <div id="games-info" class="info-bar"></div>
+            <div id="games-list" class="card-grid"></div>
+        </section>
+
+        <!-- S3 Browser Tab -->
+        <section id="s3-tab" class="tab-content">
+            <div class="toolbar">
+                <h2>S3 Browser</h2>
+                <div class="breadcrumb" id="s3-breadcrumb">
+                    <button class="crumb" data-prefix="">root</button>
+                </div>
+            </div>
+            <div id="s3-list" class="file-list"></div>
+        </section>
+
+        <!-- Config Tab -->
+        <section id="config-tab" class="tab-content">
+            <div class="toolbar">
+                <h2>Server Configuration</h2>
+                <button id="refresh-config">Refresh</button>
+            </div>
+            <div id="config-content" class="config-grid">
+                <div class="config-section" id="config-service">
+                    <h3>Service</h3>
+                    <dl></dl>
+                </div>
+                <div class="config-section" id="config-paths">
+                    <h3>Paths</h3>
+                    <dl></dl>
+                </div>
+                <div class="config-section" id="config-s3">
+                    <h3>S3 Storage</h3>
+                    <dl></dl>
+                </div>
+                <div class="config-section" id="config-runtime">
+                    <h3>Runtime</h3>
+                    <dl></dl>
+                </div>
+            </div>
+        </section>
+
+        <!-- Admin Tab -->
+        <section id="admin-tab" class="tab-content">
+            <div class="toolbar">
+                <h2>User Management</h2>
+                <button id="add-user-btn">Add User</button>
+            </div>
+            <div id="admin-content">
+                <table id="users-table">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Role</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-list"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- Login Modal -->
+    <dialog id="login-modal">
+        <h3>Login</h3>
+        <form id="login-form">
+            <label>
+                Username or Email
+                <input type="text" name="identifier" required placeholder="admin or you@example.com" autocomplete="username">
+            </label>
+            <div id="password-field">
+                <label>
+                    Password
+                    <input type="password" name="password" placeholder="Required for username login" autocomplete="current-password">
+                </label>
+            </div>
+            <div class="login-help">
+                <strong>Two ways to login:</strong>
+                <ul>
+                    <li><span class="method">Username + Password</span> - Enter your username and password</li>
+                    <li><span class="method">Magic Email</span> - Enter email address, we'll send a login link</li>
+                </ul>
+            </div>
+            <div id="login-status" class="login-status"></div>
+            <div id="login-diagnostics" class="login-diagnostics"></div>
+            <div class="form-actions">
+                <button type="button" class="cancel">Cancel</button>
+                <button type="submit" id="login-submit-btn">Login</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Add User Modal -->
+    <dialog id="add-user-modal">
+        <h3>Add User</h3>
+        <form id="add-user-form" autocomplete="off">
+            <label>
+                Username
+                <input type="text" name="username" required pattern="[a-zA-Z0-9_-]{3,32}" autocomplete="off">
+            </label>
+            <label>
+                Password
+                <input type="password" name="password" required minlength="8" autocomplete="new-password">
+            </label>
+            <label>
+                Role
+                <select name="role">
+                    <option value="user">user</option>
+                    <option value="dev">dev</option>
+                    <option value="admin">admin</option>
+                    <option value="guest">guest</option>
+                </select>
+            </label>
+            <div class="form-actions">
+                <button type="button" class="cancel">Cancel</button>
+                <button type="submit">Create</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

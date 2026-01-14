@@ -1,0 +1,581 @@
+/* PBase Dashboard Styles */
+
+:root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --surface-hover: #1f2f4f;
+    --primary: #0f3460;
+    --accent: #e94560;
+    --text: #eee;
+    --text-muted: #888;
+    --border: #334;
+    --success: #4caf50;
+    --warning: #ff9800;
+    --error: #f44336;
+    --info: var(--info);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'SF Mono', 'Consolas', 'Liberation Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+}
+
+/* Header */
+header {
+    background: var(--surface);
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    border-bottom: 1px solid var(--border);
+}
+
+header h1 {
+    font-size: 1.5rem;
+    color: var(--accent);
+}
+
+nav {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.tab-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.tab-btn:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+}
+
+.tab-btn.active {
+    background: var(--primary);
+    border-color: var(--accent);
+    color: var(--text);
+}
+
+.auth-status {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+#user-display {
+    color: var(--text-muted);
+}
+
+#auth-btn {
+    background: var(--accent);
+    border: none;
+    color: white;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+#auth-btn:hover {
+    opacity: 0.9;
+}
+
+/* Main Content */
+main {
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.toolbar h2 {
+    font-size: 1.25rem;
+}
+
+.toolbar button {
+    background: var(--primary);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.toolbar button:hover {
+    background: var(--surface-hover);
+}
+
+.info-bar {
+    background: var(--surface);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+/* Games Grid */
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.game-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.game-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+}
+
+.game-card h3 {
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+}
+
+.game-card .slug {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.game-card .meta {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+}
+
+.game-card .tag {
+    background: var(--primary);
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+}
+
+/* S3 Browser */
+.breadcrumb {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+
+.crumb {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 0.875rem;
+}
+
+.crumb:hover {
+    background: var(--surface-hover);
+}
+
+.file-list {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+}
+
+.file-item:last-child {
+    border-bottom: none;
+}
+
+.file-item:hover {
+    background: var(--surface-hover);
+}
+
+.file-item .icon {
+    font-size: 1.25rem;
+}
+
+.file-item .name {
+    flex: 1;
+}
+
+.file-item .size {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.file-item.folder .icon::before {
+    content: '📁';
+}
+
+.file-item.file .icon::before {
+    content: '📄';
+}
+
+/* Admin Table */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+th, td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+th {
+    background: var(--primary);
+    font-weight: 600;
+}
+
+tr:hover {
+    background: var(--surface-hover);
+}
+
+.action-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    border-radius: 4px;
+    margin-right: 0.5rem;
+}
+
+.action-btn:hover {
+    background: var(--surface-hover);
+}
+
+.action-btn.delete {
+    border-color: var(--error);
+    color: var(--error);
+}
+
+/* Modals */
+dialog {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    max-width: 400px;
+    width: 90%;
+}
+
+dialog::backdrop {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+/* Config Page */
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    padding: 1rem 0;
+}
+
+.config-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.config-section h3 {
+    margin: 0 0 1rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 1rem;
+    color: var(--accent);
+}
+
+.config-section dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.5rem 1rem;
+    margin: 0;
+}
+
+.config-section dt {
+    font-weight: 500;
+    color: var(--text-muted, #888);
+}
+
+.config-section dd {
+    margin: 0;
+    font-family: monospace;
+    word-break: break-all;
+}
+
+dialog h3 {
+    margin-bottom: 1rem;
+}
+
+dialog form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+dialog label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+dialog input,
+dialog select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.5rem;
+    border-radius: 4px;
+}
+
+dialog input:focus,
+dialog select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.form-actions button {
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.form-actions .cancel {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+
+.form-actions button[type="submit"] {
+    background: var(--accent);
+    border: none;
+    color: white;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-muted);
+}
+
+/* Login Modal Enhancements */
+.login-help {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.75rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.login-help strong {
+    color: var(--text);
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.login-help ul {
+    margin: 0;
+    padding-left: 1.25rem;
+}
+
+.login-help li {
+    margin-bottom: 0.25rem;
+}
+
+.login-help .method {
+    color: var(--accent);
+    font-weight: 500;
+}
+
+.login-status {
+    font-size: 0.85rem;
+    padding: 0.5rem;
+    border-radius: 4px;
+    display: none;
+}
+
+.login-status.visible {
+    display: block;
+}
+
+.login-status.info {
+    background: rgba(79, 195, 247, 0.1);
+    border: 1px solid var(--info);
+    color: var(--info);
+}
+
+.login-status.success {
+    background: rgba(76, 175, 80, 0.1);
+    border: 1px solid var(--success);
+    color: var(--success);
+}
+
+.login-status.error {
+    background: rgba(244, 67, 54, 0.1);
+    border: 1px solid var(--error);
+    color: var(--error);
+}
+
+.login-status.warning {
+    background: rgba(255, 152, 0, 0.1);
+    border: 1px solid var(--warning);
+    color: var(--warning);
+}
+
+#password-field.dimmed {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+#password-field.dimmed input {
+    background: var(--surface);
+}
+
+dialog input::placeholder {
+    color: var(--text-muted);
+    opacity: 0.6;
+}
+
+#login-submit-btn {
+    min-width: 100px;
+}
+
+#login-submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.login-diagnostics {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    background: var(--bg);
+    padding: 0.5rem;
+    border-radius: 4px;
+    font-family: monospace;
+    margin-top: 0.5rem;
+}
+
+/* Toast Notifications */
+#toast-container {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.toast {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    min-width: 250px;
+    max-width: 400px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    animation: slideIn 0.3s ease;
+}
+
+.toast.success {
+    border-color: var(--success);
+    border-left: 4px solid var(--success);
+}
+
+.toast.error {
+    border-color: var(--error);
+    border-left: 4px solid var(--error);
+}
+
+.toast.warning {
+    border-color: var(--warning);
+    border-left: 4px solid var(--warning);
+}
+
+.toast.info {
+    border-color: var(--info);
+    border-left: 4px solid var(--info);
+}
+
+.toast.fade-out {
+    animation: slideOut 0.3s ease forwards;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
