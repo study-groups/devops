@@ -96,6 +96,12 @@ _caddy_ssh_target() {
         return 1
     fi
 
+    # Return just "localhost" for local execution (no SSH)
+    if [[ "$host" == "localhost" || "$host" == "127.0.0.1" ]]; then
+        echo "localhost"
+        return 0
+    fi
+
     echo "${user:-root}@${host}"
 }
 

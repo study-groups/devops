@@ -18,12 +18,13 @@ _caddy_ssh() {
     target=$(_caddy_ssh_target)
 
     if [[ -z "$target" ]]; then
-        echo "No host set. Use: caddy ctx set <host>" >&2
+        echo "No host set. Use: tcaddy ctx <org> <proj> <env>" >&2
         return 1
     fi
 
     if [[ "$target" == "localhost" ]]; then
-        "$@"
+        # Run locally via bash -c (commands are passed as strings)
+        bash -c "$*"
     else
         ssh "$target" "$@"
     fi
@@ -104,23 +105,22 @@ _caddy_fmt() {
 # LOGS COMMANDS
 # =============================================================================
 
-# Get log file path for current site
+# Get log file path for current context
 _caddy_logfile() {
-    local proj=$(_caddy_proj)
     local env=$(_caddy_env)
+    local domain=$(_caddy_domain)
+    local target=$(_caddy_ssh_target)
 
-    if [[ -n "$proj" ]]; then
-        # Project-specific logs
-        case "$proj" in
-            arcade|main)
-                echo "/var/log/caddy/${env}.pixeljamarcade.com.log"
-                ;;
-            *)
-                echo "/var/log/caddy/${proj}.log"
-                ;;
-        esac
+    # Local: use /tmp/caddy-access.log by default
+    if [[ "$target" == "localhost" ]]; then
+        echo "${CADDY_LOCAL_LOG:-/tmp/caddy-access.log}"
+        return 0
+    fi
+
+    # Remote: use domain-based log path
+    if [[ -n "$domain" && "$domain" != "localhost" ]]; then
+        echo "/var/log/caddy/${domain}.log"
     else
-        # All caddy logs combined
         echo "/var/log/caddy/*.log"
     fi
 }
@@ -764,6 +764,154 @@ _caddy_hosts() {
 }
 
 # =============================================================================
+# LOG POLICY COMMANDS
+# =============================================================================
+
+# Get Caddyfile path for current context
+_caddy_caddyfile_path() {
+    local target=$(_caddy_ssh_target)
+    local org=$(_caddy_org_full)
+
+    if [[ "$target" == "localhost" ]]; then
+        echo "${TETRA_DIR:-$HOME/tetra}/orgs/${org:-tetra}/caddy/Caddyfile"
+    else
+        echo "/etc/caddy/Caddyfile"
+    fi
+}
+
+# Show current log policy from Caddyfile
+_caddy_policy_show() {
+    local caddyfile=$(_caddy_caddyfile_path)
+
+    echo "=== Log Policy ==="
+    echo "Caddyfile: $caddyfile"
+    echo ""
+
+    _caddy_ssh "grep -A10 'log {' $caddyfile 2>/dev/null | head -15" || echo "(no log block found)"
+
+    echo ""
+    echo "Log file: $(_caddy_logfile)"
+
+    # Show current log file stats
+    local logfile=$(_caddy_logfile)
+    echo ""
+    echo "=== Log Stats ==="
+    _caddy_ssh "ls -lh $logfile 2>/dev/null | awk '{print \"Size:\", \$5}'" || echo "Log file not found"
+    _caddy_ssh "wc -l < $logfile 2>/dev/null | xargs printf 'Lines: %s\n'" || true
+}
+
+# Set log policy in Caddyfile
+_caddy_policy_set() {
+    local roll_size="${1:-10mb}"
+    local roll_keep="${2:-5}"
+    local roll_keep_for="${3:-168h}"
+
+    local caddyfile=$(_caddy_caddyfile_path)
+
+    echo "Setting log policy:"
+    echo "  roll_size: $roll_size"
+    echo "  roll_keep: $roll_keep"
+    echo "  roll_keep_for: $roll_keep_for"
+    echo ""
+
+    # For local, we can edit directly; for remote, show the command
+    local target=$(_caddy_ssh_target)
+    if [[ "$target" == "localhost" ]]; then
+        echo "Update $caddyfile with:"
+        echo ""
+        cat << EOF
+log {
+    output file /tmp/caddy-access.log {
+        roll_size $roll_size
+        roll_keep $roll_keep
+        roll_keep_for $roll_keep_for
+    }
+    format json
+}
+EOF
+        echo ""
+        echo "Then run: tcaddy reload"
+    else
+        echo "SSH to server and update /etc/caddy/Caddyfile"
+        echo "Then run: tcaddy svc reload"
+    fi
+}
+
+# Force log rotation (by restarting Caddy)
+_caddy_policy_rotate() {
+    echo "=== Force Log Rotation ==="
+
+    local target=$(_caddy_ssh_target)
+    if [[ "$target" == "localhost" ]]; then
+        echo "Reloading local Caddy to trigger rotation..."
+        local caddyfile=$(_caddy_caddyfile_path)
+        (cd "$(dirname "$caddyfile")" && caddy reload --config Caddyfile 2>&1)
+    else
+        echo "Reloading remote Caddy..."
+        _caddy_ssh "systemctl reload caddy 2>/dev/null || caddy reload"
+    fi
+}
+
+# Clean old log files
+_caddy_policy_clean() {
+    local days="${1:-7}"
+
+    echo "=== Clean Logs Older Than $days Days ==="
+
+    local target=$(_caddy_ssh_target)
+    if [[ "$target" == "localhost" ]]; then
+        local logdir=$(dirname "$(_caddy_logfile)")
+        echo "Checking $logdir..."
+        find "$logdir" -name "*.log*" -mtime +"$days" -ls 2>/dev/null || echo "(no old logs)"
+    else
+        _caddy_ssh "find /var/log/caddy -name '*.log*' -mtime +$days -ls 2>/dev/null" || echo "(no old logs)"
+    fi
+}
+
+# Log policy dispatcher
+_caddy_policy() {
+    local cmd="${1:-show}"
+    shift 2>/dev/null || true
+
+    case "$cmd" in
+        show|s)     _caddy_policy_show "$@" ;;
+        set)        _caddy_policy_set "$@" ;;
+        rotate|r)   _caddy_policy_rotate "$@" ;;
+        clean|c)    _caddy_policy_clean "$@" ;;
+        help|h)
+            echo "tcaddy policy - Log policy management"
+            echo ""
+            echo "  show              Show current log policy"
+            echo "  set <size> <keep> <days>  Set policy (e.g., 10mb 5 168h)"
+            echo "  rotate            Force log rotation"
+            echo "  clean [days]      Show logs older than N days"
+            ;;
+        *)
+            echo "Unknown policy command: $cmd" >&2
+            return 1
+            ;;
+    esac
+}
+
+# =============================================================================
+# RELOAD COMMAND (wrapper around caddy reload)
+# =============================================================================
+
+_caddy_reload() {
+    local target=$(_caddy_ssh_target)
+    local caddyfile=$(_caddy_caddyfile_path)
+
+    echo "=== Reloading Caddy ==="
+    echo "Caddyfile: $caddyfile"
+
+    if [[ "$target" == "localhost" ]]; then
+        (cd "$(dirname "$caddyfile")" && caddy reload --config Caddyfile 2>&1)
+    else
+        _caddy_ssh "systemctl reload caddy 2>/dev/null || caddy reload --config $caddyfile"
+    fi
+}
+
+# =============================================================================
 # LOCAL SERVE
 # =============================================================================
 
@@ -1002,12 +1150,17 @@ tcaddy() {
         svc)         _caddy_svc "$@" ;;
         route)       _caddy_route "$@" ;;
         f2b|ban)     _caddy_f2b "$@" ;;
+        policy|pol)  _caddy_policy "$@" ;;
 
-        # Single-letter shortcuts (still work, just not in completion)
+        # Top-level commands (caddy wrapper)
+        reload)      _caddy_reload "$@" ;;
+
+        # Single-letter shortcuts
         s)           _caddy_svc status "$@" ;;
         l)           _caddy_log show "$@" ;;
         c)           _caddy_cfg show "$@" ;;
         r)           _caddy_route list "$@" ;;
+        p)           _caddy_policy show "$@" ;;
 
         # Local development
         hosts)       _caddy_hosts "$@" ;;
@@ -1066,6 +1219,11 @@ export -f _caddy_hosts_update _caddy_hosts_edit _caddy_hosts
 
 # Local serve
 export -f _caddy_serve
+
+# Log policy
+export -f _caddy_caddyfile_path _caddy_policy _caddy_policy_show
+export -f _caddy_policy_set _caddy_policy_rotate _caddy_policy_clean
+export -f _caddy_reload
 
 # Main
 export -f tcaddy
