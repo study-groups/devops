@@ -19,3 +19,11 @@ tests-old
 # pdata symlink (points to canonical location)
 pdata/
 
+# Server
+server/node_modules/
+data/
+
+# TSM built files
+tsm/*.tsm
+tsm/*.env
+
