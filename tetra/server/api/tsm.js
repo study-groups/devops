@@ -78,32 +78,59 @@ function parseToml(content) {
 }
 
 /**
- * Get SSH config for org/env
+ * Get SSH config for org/env from tetra.toml
+ * Format: [env.prod] host = "1.2.3.4" auth_user = "root"
+ * Returns: "user@host" or null
  */
-function getSSHConfig(org, env) {
+function getSSHConfig(org, env, user = null) {
     if (env === 'local') return null;
 
-    const targetDirs = ['targets/tetra', 'targets/tsm', 'targets'];
-    for (const targetDir of targetDirs) {
-        const tomlPath = path.join(ORGS_DIR, org, targetDir, 'tetra-deploy.toml');
-        if (fs.existsSync(tomlPath)) {
+    // Primary: tetra.toml in org root
+    const tomlPath = path.join(ORGS_DIR, org, 'tetra.toml');
+
+    if (fs.existsSync(tomlPath)) {
+        try {
+            const content = fs.readFileSync(tomlPath, 'utf-8');
+            const config = parseToml(content);
+            const envConfig = config.env?.[env];
+
+            if (envConfig?.host) {
+                // Skip localhost
+                if (envConfig.host === 'localhost' || envConfig.host === '127.0.0.1') {
+                    return null;
+                }
+                // Use provided user, or config user fields, or default to root
+                const sshUser = user || envConfig.user || envConfig.auth_user || 'root';
+                return `${sshUser}@${envConfig.host}`;
+            }
+        } catch (e) {
+            console.warn(`[TSM] Failed to parse ${tomlPath}:`, e.message);
+        }
+    }
+
+    // Fallback: legacy tetra-deploy.toml paths
+    const legacyDirs = ['targets/tetra', 'targets/tsm', 'targets'];
+    for (const targetDir of legacyDirs) {
+        const legacyPath = path.join(ORGS_DIR, org, targetDir, 'tetra-deploy.toml');
+        if (fs.existsSync(legacyPath)) {
             try {
-                const content = fs.readFileSync(tomlPath, 'utf-8');
+                const content = fs.readFileSync(legacyPath, 'utf-8');
                 const config = parseToml(content);
                 return config.env?.[env]?.ssh || null;
             } catch (e) {
-                console.warn(`[TSM] Failed to parse ${tomlPath}:`, e.message);
+                // ignore
             }
         }
     }
+
     return null;
 }
 
 /**
  * Run TSM command (local or remote)
  */
-function runTsm(cmd, org = 'tetra', env = 'local') {
-    const ssh = getSSHConfig(org, env);
+function runTsm(cmd, org = 'tetra', env = 'local', user = null) {
+    const ssh = getSSHConfig(org, env, user);
 
     if (ssh) {
         // Remote execution via SSH
@@ -143,8 +170,8 @@ function runTsmAsync(cmd, org = 'tetra', env = 'local', callback) {
 
 // List services (JSON) - cached for 5 seconds
 router.get('/ls', (req, res) => {
-    const { org = 'tetra', env = 'local' } = req.query;
-    const cacheKey = `tsm:ls:${org}:${env}`;
+    const { org = 'tetra', env = 'local', user = '' } = req.query;
+    const cacheKey = `tsm:ls:${org}:${env}:${user}`;
 
     // Check cache first
     const cached = getCached(cacheKey);
@@ -153,22 +180,31 @@ router.get('/ls', (req, res) => {
     }
 
     try {
-        const output = runTsm('tsm ls --json', org, env);
+        const ssh = getSSHConfig(org, env, user || null);
+        const output = runTsm('tsm ls --json', org, env, user || null);
         const services = JSON.parse(output);
         const result = {
             services,
             org,
             env,
-            remote: env !== 'local'
+            user: user || null,
+            host: ssh ? ssh.split('@')[1] : 'localhost',
+            remote: env !== 'local' && ssh !== null
         };
         setCache(cacheKey, result);
         res.json(result);
     } catch (err) {
+        // Provide more context on SSH failures
+        const ssh = getSSHConfig(org, env, user || null);
         res.status(500).json({
             error: err.message,
             services: [],
             org,
-            env
+            env,
+            user: user || null,
+            host: ssh ? ssh.split('@')[1] : 'localhost',
+            remote: env !== 'local' && ssh !== null,
+            hint: ssh ? `SSH to ${ssh} failed` : `No SSH config for ${org}:${env}`
         });
     }
 });
