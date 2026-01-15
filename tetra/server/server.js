@@ -30,6 +30,19 @@ console.log(`🚀 Starting Tetra Server (${TETRA_ENV}) on port ${PORT}`);
 const app = express();
 const server = http.createServer(app);
 
+// Request timing middleware
+app.use((req, res, next) => {
+    const start = Date.now();
+    const path = req.path;
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        if (duration > 100) { // Only log slow requests
+            console.log(`[SLOW] ${req.method} ${path} - ${duration}ms`);
+        }
+    });
+    next();
+});
+
 // Middleware
 app.use(cors());
 app.use(express.json());

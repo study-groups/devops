@@ -75,7 +75,13 @@
     const resizeHandle = document.getElementById('resize-handle');
     const resizeHandleH = document.getElementById('resize-handle-h');
     const resizeHandleV = document.getElementById('resize-handle-v');
+    const journeySelect = document.getElementById('journey-select');
+    const newSessionBtn = document.getElementById('new-session-btn');
+    const importSessionBtn = document.getElementById('import-session-btn');
+    const sessionEditorModal = document.getElementById('session-editor-modal');
+    const importModal = document.getElementById('import-modal');
     const mainPanel = document.querySelector('.main-panel');
+    let journeys = [];
     const previewPanel = document.querySelector('.preview');
     const sidebar = document.querySelector('.sidebar');
     const sidebarLists = document.querySelector('.sidebar-lists');
@@ -97,7 +103,7 @@
 
     // Initialize
     async function init() {
-        await Promise.all([loadCaptures(), loadSessions()]);
+        await Promise.all([loadCaptures(), loadSessions(), loadJourneys()]);
         renderApiDocs();
         attachEventListeners();
     }
@@ -114,6 +120,62 @@
         });
         document.getElementById('save-journey-btn').addEventListener('click', saveJourney);
         document.getElementById('clear-journey-btn').addEventListener('click', clearJourney);
+
+        // Session editor modal
+        newSessionBtn.addEventListener('click', () => openSessionEditor());
+        importSessionBtn.addEventListener('click', () => openImportModal());
+        document.getElementById('close-session-editor').addEventListener('click', closeSessionEditor);
+        document.getElementById('cancel-session-btn').addEventListener('click', closeSessionEditor);
+        document.getElementById('save-session-btn').addEventListener('click', saveSessionFromEditor);
+        document.getElementById('add-variable-btn').addEventListener('click', addVariableRow);
+
+        // Auth type toggle
+        document.getElementById('session-auth-type').addEventListener('change', (e) => {
+            document.getElementById('jwt-fields').style.display = e.target.value === 'jwt' ? 'block' : 'none';
+        });
+
+        // Collapsible sections
+        document.querySelectorAll('.collapsible-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const target = document.getElementById(header.dataset.target);
+                const icon = header.querySelector('.toggle-icon');
+                if (target.style.display === 'none') {
+                    target.style.display = 'block';
+                    icon.textContent = '-';
+                } else {
+                    target.style.display = 'none';
+                    icon.textContent = '+';
+                }
+            });
+        });
+
+        // Import modal
+        document.getElementById('close-import-modal').addEventListener('click', closeImportModal);
+        document.getElementById('cancel-import-btn').addEventListener('click', closeImportModal);
+        document.getElementById('do-import-btn').addEventListener('click', doImportSession);
+        document.getElementById('copy-import-script').addEventListener('click', () => {
+            const script = document.getElementById('import-script').textContent;
+            navigator.clipboard.writeText(script);
+            setStatus('Script copied to clipboard', 'success');
+        });
+
+        // Session selector
+        sessionSelect.addEventListener('change', () => {
+            const name = sessionSelect.value;
+            if (name) {
+                onSessionSelected(name);
+            } else {
+                clearSessionInfo();
+            }
+        });
+
+        // Journey selector
+        journeySelect.addEventListener('change', async () => {
+            const name = journeySelect.value;
+            if (name) {
+                await loadJourneyIntoBuilder(name);
+            }
+        });
 
         // Options toggle (gear button)
         optionsToggle.addEventListener('click', () => {
@@ -937,21 +999,28 @@
                 return;
             }
 
-            sessionsList.innerHTML = sessions.map(s => `
+            sessionsList.innerHTML = sessions.map(s => {
+                const badges = [];
+                if (s.hasCredentials) badges.push('creds');
+                if (s.authType === 'jwt') badges.push('JWT');
+                else if (s.hasAuth) badges.push('auth');
+                if (s.variableCount) badges.push(`${s.variableCount} vars`);
+                if (s.hasState) badges.push('state');
+
+                return `
                 <div class="session-item" data-name="${s.name}">
-                    <div class="name">${s.name}</div>
+                    <div class="name">${escapeHtml(s.name)}</div>
                     <div class="meta">
-                        <span>${s.targetUrl || 'Unknown URL'}</span>
+                        <span>${escapeHtml(s.baseUrl || s.targetUrl || 'No URL')}</span>
                     </div>
-                    <div class="meta">
-                        <span>Created: ${formatTime(s.created)}</span>
-                    </div>
+                    ${badges.length ? `<div class="meta">${badges.map(b => `<span class="session-badge">${b}</span>`).join('')}</div>` : ''}
                     <div class="actions">
                         <button class="use-session" data-name="${s.name}">Use</button>
+                        <button class="edit-session" data-name="${s.name}">Edit</button>
                         <button class="delete delete-session" data-name="${s.name}">Del</button>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
 
             sessionsList.querySelectorAll('.session-item').forEach(item => {
                 item.addEventListener('click', (e) => {
@@ -964,8 +1033,14 @@
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     sessionSelect.value = btn.dataset.name;
-                    sessionSelect.dispatchEvent(new Event('change'));
-                    setStatus(`Using session: ${btn.dataset.name}`, 'success');
+                    onSessionSelected(btn.dataset.name);
+                });
+            });
+
+            sessionsList.querySelectorAll('.edit-session').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openSessionEditor(btn.dataset.name);
                 });
             });
 
@@ -1211,8 +1286,8 @@ POST /api/capture
                 }
             }
 
-            // Build URLs for resources
-            const screenshotUrl = currentCapture.screenshotFile ? `/api/capture/${org}/${id}/file/${currentCapture.screenshotFile}` : null;
+            // Build URLs for resources (cache-bust to ensure fresh images)
+            const screenshotUrl = currentCapture.screenshotFile ? `/api/capture/${org}/${id}/file/${currentCapture.screenshotFile}?t=${Date.now()}` : null;
             const domUrl = currentCapture.domFile ? `/api/capture/${org}/${id}/file/${currentCapture.domFile}` : null;
 
             updatePreviewPanes({
@@ -1301,6 +1376,317 @@ POST /api/capture
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
+    }
+
+    // ========================================================================
+    // Session Selection & Info Display
+    // ========================================================================
+
+    const sessionInfoEl = document.getElementById('session-info');
+    const sessionInfoUrl = document.getElementById('session-info-url');
+    const sessionInfoVars = document.getElementById('session-info-vars');
+    let activeSessionData = null;
+
+    async function onSessionSelected(name) {
+        try {
+            const res = await fetch(`/api/capture/sessions/${org}/${name}`);
+            activeSessionData = await res.json();
+
+            // Show session info bar
+            sessionInfoEl.style.display = 'flex';
+            sessionInfoUrl.textContent = activeSessionData.baseUrl || '(no base URL)';
+
+            // Build variables display
+            const vars = [];
+            if (activeSessionData.credentials?.username) {
+                vars.push({ key: 'username', val: activeSessionData.credentials.username });
+            }
+            if (activeSessionData.credentials?.password) {
+                vars.push({ key: 'password', val: '***' });
+            }
+            if (activeSessionData.variables) {
+                Object.entries(activeSessionData.variables).forEach(([key, val]) => {
+                    // Truncate long values
+                    const displayVal = val.length > 20 ? val.substring(0, 17) + '...' : val;
+                    vars.push({ key, val: displayVal });
+                });
+            }
+            if (activeSessionData.auth?.jwt) {
+                vars.push({ key: 'jwt', val: '...' + activeSessionData.auth.jwt.slice(-8) });
+            }
+
+            sessionInfoVars.innerHTML = vars.map(v =>
+                `<span class="session-var"><span class="session-var-key">${escapeHtml(v.key)}:</span> <span class="session-var-val">${escapeHtml(v.val)}</span></span>`
+            ).join('');
+
+            // Also set URL input to baseUrl if empty
+            if (activeSessionData.baseUrl && !urlInput.value) {
+                urlInput.value = activeSessionData.baseUrl;
+            }
+
+            setStatus(`Session: ${name}`, 'success');
+        } catch (e) {
+            setStatus('Error loading session: ' + e.message, 'error');
+        }
+    }
+
+    function clearSessionInfo() {
+        sessionInfoEl.style.display = 'none';
+        sessionInfoUrl.textContent = '';
+        sessionInfoVars.innerHTML = '';
+        activeSessionData = null;
+    }
+
+    // ========================================================================
+    // Session Editor
+    // ========================================================================
+
+    let editingSession = null;
+
+    function openSessionEditor(sessionName = null) {
+        editingSession = sessionName;
+        document.getElementById('session-editor-title').textContent = sessionName ? `Edit: ${sessionName}` : 'New Session';
+
+        // Reset form
+        document.getElementById('session-name').value = '';
+        document.getElementById('session-base-url').value = '';
+        document.getElementById('session-description').value = '';
+        document.getElementById('session-username').value = '';
+        document.getElementById('session-password').value = '';
+        document.getElementById('session-auth-type').value = '';
+        document.getElementById('session-jwt').value = '';
+        document.getElementById('session-jwt-header').value = 'Authorization';
+        document.getElementById('session-jwt-prefix').value = 'Bearer ';
+        document.getElementById('jwt-fields').style.display = 'none';
+
+        // Clear variables
+        const varsTable = document.getElementById('session-variables');
+        varsTable.innerHTML = `<div class="var-row var-header"><span>Key</span><span>Value</span><span></span></div>`;
+
+        // If editing, load session data
+        if (sessionName) {
+            loadSessionForEdit(sessionName);
+        }
+
+        sessionEditorModal.classList.add('active');
+    }
+
+    async function loadSessionForEdit(name) {
+        try {
+            const res = await fetch(`/api/capture/sessions/${org}/${name}`);
+            const session = await res.json();
+
+            document.getElementById('session-name').value = session.name || name;
+            document.getElementById('session-base-url').value = session.baseUrl || '';
+            document.getElementById('session-description').value = session.description || '';
+
+            if (session.credentials) {
+                document.getElementById('session-username').value = session.credentials.username || '';
+                document.getElementById('session-password').value = session.credentials.password || '';
+            }
+
+            if (session.auth) {
+                document.getElementById('session-auth-type').value = session.auth.type || '';
+                if (session.auth.type === 'jwt') {
+                    document.getElementById('jwt-fields').style.display = 'block';
+                    document.getElementById('session-jwt').value = session.auth.jwt || '';
+                    document.getElementById('session-jwt-header').value = session.auth.jwtHeader || 'Authorization';
+                    document.getElementById('session-jwt-prefix').value = session.auth.jwtPrefix || 'Bearer ';
+                }
+            }
+
+            // Load variables
+            if (session.variables) {
+                Object.entries(session.variables).forEach(([key, value]) => {
+                    addVariableRow(key, value);
+                });
+            }
+        } catch (e) {
+            setStatus('Error loading session: ' + e.message, 'error');
+        }
+    }
+
+    function closeSessionEditor() {
+        sessionEditorModal.classList.remove('active');
+        editingSession = null;
+    }
+
+    function addVariableRow(key = '', value = '') {
+        const varsTable = document.getElementById('session-variables');
+        const row = document.createElement('div');
+        row.className = 'var-row';
+        row.innerHTML = `
+            <input type="text" class="var-key" placeholder="key" value="${escapeAttr(key)}">
+            <input type="text" class="var-value" placeholder="value" value="${escapeAttr(value)}">
+            <button type="button" class="btn-remove" onclick="this.parentElement.remove()">&times;</button>
+        `;
+        varsTable.appendChild(row);
+    }
+
+    function getVariablesFromEditor() {
+        const vars = {};
+        document.querySelectorAll('#session-variables .var-row:not(.var-header)').forEach(row => {
+            const key = row.querySelector('.var-key').value.trim();
+            const value = row.querySelector('.var-value').value;
+            if (key) vars[key] = value;
+        });
+        return vars;
+    }
+
+    async function saveSessionFromEditor() {
+        const name = document.getElementById('session-name').value.trim();
+        if (!name) {
+            setStatus('Session name required', 'error');
+            return;
+        }
+
+        if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+            setStatus('Invalid name. Use letters, numbers, dashes, underscores only.', 'error');
+            return;
+        }
+
+        const baseUrl = document.getElementById('session-base-url').value.trim();
+        const description = document.getElementById('session-description').value.trim();
+        const username = document.getElementById('session-username').value.trim();
+        const password = document.getElementById('session-password').value;
+        const authType = document.getElementById('session-auth-type').value;
+        const variables = getVariablesFromEditor();
+
+        const sessionData = {
+            baseUrl,
+            description,
+            credentials: {},
+            variables,
+            auth: {}
+        };
+
+        if (username) sessionData.credentials.username = username;
+        if (password) sessionData.credentials.password = password;
+
+        if (authType === 'jwt') {
+            sessionData.auth = {
+                type: 'jwt',
+                jwt: document.getElementById('session-jwt').value.trim(),
+                jwtHeader: document.getElementById('session-jwt-header').value.trim() || 'Authorization',
+                jwtPrefix: document.getElementById('session-jwt-prefix').value || 'Bearer '
+            };
+        }
+
+        try {
+            const res = await fetch(`/api/capture/sessions/${org}/${name}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(sessionData)
+            });
+
+            const result = await res.json();
+            if (result.saved) {
+                setStatus(`Session "${name}" saved`, 'success');
+                closeSessionEditor();
+                loadSessions();
+            } else {
+                setStatus('Error: ' + (result.error || 'Unknown error'), 'error');
+            }
+        } catch (e) {
+            setStatus('Error saving session: ' + e.message, 'error');
+        }
+    }
+
+    // ========================================================================
+    // Import Session
+    // ========================================================================
+
+    function openImportModal() {
+        document.getElementById('import-data').value = '';
+        document.getElementById('import-session-name').value = '';
+        importModal.classList.add('active');
+    }
+
+    function closeImportModal() {
+        importModal.classList.remove('active');
+    }
+
+    async function doImportSession() {
+        const dataStr = document.getElementById('import-data').value.trim();
+        const name = document.getElementById('import-session-name').value.trim();
+
+        if (!dataStr) {
+            setStatus('Paste the browser extract data', 'error');
+            return;
+        }
+
+        if (!name) {
+            setStatus('Session name required', 'error');
+            return;
+        }
+
+        if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+            setStatus('Invalid name. Use letters, numbers, dashes, underscores only.', 'error');
+            return;
+        }
+
+        let extract;
+        try {
+            extract = JSON.parse(dataStr);
+        } catch (e) {
+            setStatus('Invalid JSON. Make sure you copied the entire output.', 'error');
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/capture/sessions/${org}/${name}/import`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ extract })
+            });
+
+            const result = await res.json();
+            if (result.imported) {
+                setStatus(`Imported "${name}": ${result.cookieCount} cookies, ${result.localStorageCount} localStorage items`, 'success');
+                closeImportModal();
+                loadSessions();
+            } else {
+                setStatus('Error: ' + (result.error || 'Unknown error'), 'error');
+            }
+        } catch (e) {
+            setStatus('Error importing: ' + e.message, 'error');
+        }
+    }
+
+    // ========================================================================
+    // Journey Loading
+    // ========================================================================
+
+    async function loadJourneys() {
+        try {
+            const res = await fetch(`/api/capture/journeys?org=${org}`);
+            journeys = await res.json();
+
+            journeySelect.innerHTML = '<option value="">(none)</option>';
+            journeys.forEach(j => {
+                const opt = document.createElement('option');
+                opt.value = j.name;
+                opt.textContent = `${j.name} (${j.stepCount || j.steps?.length || 0} steps)`;
+                journeySelect.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('Error loading journeys:', e);
+        }
+    }
+
+    async function loadJourneyIntoBuilder(name) {
+        try {
+            const res = await fetch(`/api/capture/journeys?org=${org}`);
+            const journeys = await res.json();
+            const journey = journeys.find(j => j.name === name);
+
+            if (journey && journey.steps) {
+                loadStepsIntoBuilder(journey.steps, name, journey.capture);
+                setStatus(`Loaded journey "${name}" (${journey.steps.length} steps)`, 'success');
+            }
+        } catch (e) {
+            setStatus('Error loading journey: ' + e.message, 'error');
+        }
     }
 
     init();

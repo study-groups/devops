@@ -22,11 +22,17 @@ const {
     getCaptureDir,
     getSessionDir,
     getSessionsDir,
+    getSessionPath,
+    getSessionStatePath,
     getJourneysDir,
     getJourneyPath,
     generateId,
     ensureDir,
-    runPlaywrightScript
+    runPlaywrightScript,
+    loadSession,
+    saveSession,
+    getSessionVariables,
+    interpolateSteps
 } = require('./helpers');
 
 const { buildCaptureScript } = require('./scripts');
@@ -52,11 +58,14 @@ router.post('/', async (req, res) => {
     try {
         const {
             url,
+            path: urlPath,  // Append to session baseUrl
             org = 'tetra',
-            steps = [],
+            steps: requestSteps = [],
             capture = ['screenshot'],
             preset,
-            session,
+            session: sessionName,
+            journey: journeyName,
+            variables: requestVars = {},
             viewport
         } = req.body;
 
@@ -86,18 +95,54 @@ router.post('/', async (req, res) => {
             });
         }
 
-        // Need either url or a goto step
-        const hasGoto = steps.some(s => s.action === 'goto');
-        if (!url && !hasGoto) {
-            return res.status(400).json({ error: 'url required (or first step must be goto)' });
+        // Load session if specified
+        let sessionData = null;
+        let sessionVars = {};
+        if (sessionName) {
+            sessionData = loadSession(org, sessionName);
+            if (!sessionData) {
+                return res.status(400).json({ error: `Session "${sessionName}" not found` });
+            }
+            sessionVars = getSessionVariables(sessionData);
         }
 
-        // Validate session exists if specified
-        if (session) {
-            const sessionPath = path.join(getSessionDir(org, session), 'state.json');
-            if (!fs.existsSync(sessionPath)) {
-                return res.status(400).json({ error: `Session "${session}" not found` });
+        // Merge variables: session vars + request vars (request overrides)
+        const vars = { ...sessionVars, ...requestVars };
+
+        // Load journey steps if specified
+        let steps = requestSteps;
+        if (journeyName && steps.length === 0) {
+            const journeyPath = getJourneyPath(org, journeyName);
+            if (!fs.existsSync(journeyPath)) {
+                return res.status(400).json({ error: `Journey "${journeyName}" not found` });
             }
+            const journey = JSON.parse(fs.readFileSync(journeyPath, 'utf-8'));
+            steps = journey.steps || [];
+            // Use journey's capture types if not specified
+            if (!preset && capture.length === 1 && capture[0] === 'screenshot' && journey.capture) {
+                captureList = journey.capture;
+            }
+        }
+
+        // Interpolate variables in steps
+        if (Object.keys(vars).length > 0 && steps.length > 0) {
+            steps = interpolateSteps(steps, vars);
+        }
+
+        // Determine final URL
+        let finalUrl = url;
+        if (!finalUrl && sessionData?.baseUrl) {
+            finalUrl = sessionData.baseUrl;
+            if (urlPath) {
+                // Append path to baseUrl
+                finalUrl = finalUrl.replace(/\/$/, '') + '/' + urlPath.replace(/^\//, '');
+            }
+        }
+
+        // Need either url or a goto step
+        const hasGoto = steps.some(s => s.action === 'goto');
+        if (!finalUrl && !hasGoto) {
+            return res.status(400).json({ error: 'url required (or session with baseUrl, or first step must be goto)' });
         }
 
         const id = generateId();
@@ -107,14 +152,15 @@ router.post('/', async (req, res) => {
 
         // Build and run script
         const script = buildCaptureScript({
-            url,
+            url: finalUrl,
             steps,
             captureList,
             outputDir,
             id,
-            session,
+            session: sessionName,
             sessionsDir: getSessionsDir(org),
-            viewport
+            viewport,
+            sessionData  // Pass full session data for JWT injection
         });
 
         // Timeout: base 30s + 20s per step + 10s per capture type
@@ -122,7 +168,8 @@ router.post('/', async (req, res) => {
 
         const result = await runPlaywrightScript(script, outputDir, timeout);
         result.outputDir = outputDir;
-        result.session = session || null;
+        result.session = sessionName || null;
+        result.journey = journeyName || null;
         res.json(result);
 
     } catch (error) {
@@ -141,7 +188,8 @@ router.post('/', async (req, res) => {
  */
 router.get('/list', (req, res) => {
     try {
-        const { org = 'tetra' } = req.query;
+        const { org = 'tetra', limit = 50 } = req.query;
+        const maxLimit = Math.min(parseInt(limit) || 50, 200);
         const captureDir = getCaptureDir(org);
 
         if (!fs.existsSync(captureDir)) {
@@ -149,7 +197,8 @@ router.get('/list', (req, res) => {
         }
 
         const captures = [];
-        const entries = fs.readdirSync(captureDir);
+        // Sort entries by name descending (newest first since IDs are timestamps)
+        const entries = fs.readdirSync(captureDir).sort().reverse().slice(0, maxLimit);
 
         for (const id of entries) {
             const idPath = path.join(captureDir, id);
@@ -201,17 +250,28 @@ router.get('/sessions', (req, res) => {
 
         const sessions = fs.readdirSync(sessionsDir)
             .filter(name => {
+                const sessionPath = path.join(sessionsDir, name, 'session.json');
                 const metaPath = path.join(sessionsDir, name, 'meta.json');
-                return fs.existsSync(metaPath);
+                return fs.existsSync(sessionPath) || fs.existsSync(metaPath);
             })
             .map(name => {
-                const metaPath = path.join(sessionsDir, name, 'meta.json');
-                try {
-                    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
-                    return { name, ...meta };
-                } catch {
-                    return { name, error: 'Failed to read metadata' };
-                }
+                const session = loadSession(org, name);
+                if (!session) return { name, error: 'Failed to read session' };
+
+                // Return summary (don't expose credentials in list)
+                return {
+                    name: session.name,
+                    description: session.description,
+                    baseUrl: session.baseUrl,
+                    hasCredentials: !!(session.credentials?.username),
+                    hasAuth: !!(session.auth?.jwt || session.auth?.type),
+                    authType: session.auth?.type || null,
+                    variableCount: Object.keys(session.variables || {}).length,
+                    hasState: session.hasState,
+                    source: session.source,
+                    created: session.created,
+                    lastUsed: session.lastUsed
+                };
             });
 
         sessions.sort((a, b) => {
@@ -224,6 +284,129 @@ router.get('/sessions', (req, res) => {
 
     } catch (error) {
         console.error('[API/capture] Sessions list error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/capture/sessions/:org/:name
+ * Get full session details
+ */
+router.get('/sessions/:org/:name', (req, res) => {
+    try {
+        const { org, name } = req.params;
+        const session = loadSession(org, name);
+
+        if (!session) {
+            return res.status(404).json({ error: 'Session not found' });
+        }
+
+        res.json(session);
+
+    } catch (error) {
+        console.error('[API/capture] Session get error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * POST /api/capture/sessions/:org/:name
+ * Create or update a session
+ */
+router.post('/sessions/:org/:name', (req, res) => {
+    try {
+        const { org, name } = req.params;
+        const { baseUrl, description, credentials, variables, auth, browserState } = req.body;
+
+        if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+            return res.status(400).json({ error: 'Invalid name. Use only letters, numbers, dashes, underscores.' });
+        }
+
+        const { session, isNew } = saveSession(org, name, {
+            description,
+            baseUrl,
+            credentials,
+            variables,
+            auth,
+            source: 'manual'
+        }, browserState);
+
+        res.json({ saved: true, name, isNew, session });
+
+    } catch (error) {
+        console.error('[API/capture] Session save error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * POST /api/capture/sessions/:org/:name/import
+ * Import session from browser extract (Chrome console output)
+ */
+router.post('/sessions/:org/:name/import', (req, res) => {
+    try {
+        const { org, name } = req.params;
+        const { extract, description } = req.body;
+
+        if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+            return res.status(400).json({ error: 'Invalid name. Use only letters, numbers, dashes, underscores.' });
+        }
+
+        // Parse the browser extract
+        if (!extract || !extract._tetraSession) {
+            return res.status(400).json({ error: 'Invalid extract. Must be output from TETRA extraction script.' });
+        }
+
+        // Build session from extract
+        const baseUrl = extract.origin || new URL(extract.url).origin;
+
+        // Convert cookies to Playwright format
+        const cookies = (extract.cookies || []).map(c => ({
+            name: c.name,
+            value: c.value,
+            domain: new URL(baseUrl).hostname,
+            path: '/'
+        }));
+
+        // Build browser state in Playwright format
+        const browserState = {
+            cookies,
+            origins: [{
+                origin: baseUrl,
+                localStorage: extract.localStorage || []
+            }]
+        };
+
+        // Extract JWT if found
+        const auth = {};
+        if (extract.jwt?.accessToken) {
+            auth.type = 'jwt';
+            auth.jwt = extract.jwt.accessToken;
+            auth.jwtHeader = 'Authorization';
+            auth.jwtPrefix = 'Bearer ';
+        }
+
+        const { session, isNew } = saveSession(org, name, {
+            description: description || `Imported from ${new URL(extract.url).hostname}`,
+            baseUrl,
+            credentials: {},
+            variables: {},
+            auth,
+            source: 'import'
+        }, browserState);
+
+        res.json({
+            imported: true,
+            name,
+            isNew,
+            baseUrl,
+            cookieCount: cookies.length,
+            localStorageCount: extract.localStorage?.length || 0,
+            hasJwt: !!auth.jwt
+        });
+
+    } catch (error) {
+        console.error('[API/capture] Session import error:', error);
         res.status(500).json({ error: error.message });
     }
 });

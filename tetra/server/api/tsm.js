@@ -17,6 +17,22 @@ const router = express.Router();
 const TETRA_DIR = process.env.TETRA_DIR || path.join(process.env.HOME, 'tetra');
 const ORGS_DIR = path.join(TETRA_DIR, 'orgs');
 
+// Simple TTL cache for expensive operations
+const cache = new Map();
+const CACHE_TTL = 5000; // 5 seconds
+
+function getCached(key) {
+    const entry = cache.get(key);
+    if (entry && Date.now() - entry.time < CACHE_TTL) {
+        return entry.data;
+    }
+    return null;
+}
+
+function setCache(key, data) {
+    cache.set(key, { data, time: Date.now() });
+}
+
 /**
  * Simple TOML parser for tetra-deploy.toml
  */
@@ -125,19 +141,28 @@ function runTsmAsync(cmd, org = 'tetra', env = 'local', callback) {
     }
 }
 
-// List services (JSON)
+// List services (JSON) - cached for 5 seconds
 router.get('/ls', (req, res) => {
     const { org = 'tetra', env = 'local' } = req.query;
+    const cacheKey = `tsm:ls:${org}:${env}`;
+
+    // Check cache first
+    const cached = getCached(cacheKey);
+    if (cached) {
+        return res.json({ ...cached, cached: true });
+    }
 
     try {
         const output = runTsm('tsm ls --json', org, env);
         const services = JSON.parse(output);
-        res.json({
+        const result = {
             services,
             org,
             env,
             remote: env !== 'local'
-        });
+        };
+        setCache(cacheKey, result);
+        res.json(result);
     } catch (err) {
         res.status(500).json({
             error: err.message,

@@ -211,9 +211,17 @@
             font-size: 14px;
             cursor: pointer;
             padding: 2px 6px;
-            margin-left: auto;
         }
         .panel-header .refresh-btn:hover { color: var(--ink); }
+
+        .panel-timing {
+            margin-left: auto;
+            font-size: 9px;
+            font-family: monospace;
+            padding: 2px 6px;
+            border-radius: 2px;
+            background: var(--paper-dark);
+        }
 
         .panel-content {
             flex: 1;
@@ -281,6 +289,7 @@
                             <option value="playwright">Playwright</option>
                             <option value="tests">Tests</option>
                             <option value="developer">Developer</option>
+                            <option value="admin">Admin</option>
                         </select>
                         <div class="env-btns">
                             <button class="env-btn active" data-env="local">local</button>
@@ -307,6 +316,7 @@
                             <option value="playwright">Playwright</option>
                             <option value="tests">Tests</option>
                             <option value="developer">Developer</option>
+                            <option value="admin">Admin</option>
                         </select>
                         <div class="env-btns">
                             <button class="env-btn active" data-env="local">local</button>
@@ -339,6 +349,7 @@
                             <option value="playwright">Playwright</option>
                             <option value="tests">Tests</option>
                             <option value="developer">Developer</option>
+                            <option value="admin">Admin</option>
                         </select>
                         <div class="env-btns">
                             <button class="env-btn active" data-env="local">local</button>
@@ -365,6 +376,7 @@
                             <option value="playwright">Playwright</option>
                             <option value="tests">Tests</option>
                             <option value="developer">Developer</option>
+                            <option value="admin">Admin</option>
                         </select>
                         <div class="env-btns">
                             <button class="env-btn active" data-env="local">local</button>
@@ -396,8 +408,14 @@
             capture: { src: 'capture.iframe.html' },
             playwright: { src: 'playwright.iframe.html' },
             tests: { src: 'tests.iframe.html' },
-            developer: { src: 'developer.iframe.html' }
+            developer: { src: 'developer.iframe.html' },
+            admin: { src: 'admin.iframe.html' }
         };
+
+        // ========================================================================
+        // Iframe Load Timing
+        // ========================================================================
+        const iframeTimings = new Map(); // panelId -> { start, end, view }
 
         const STORAGE_KEY = 'tetra-console-state';
 
@@ -497,6 +515,9 @@
                     user
                 });
             } else {
+                // Track load start time
+                const panelId = panel.dataset.panel;
+                iframeTimings.set(panelId, { start: Date.now(), view, end: null });
                 iframe.src = newSrc;
             }
 
@@ -507,8 +528,27 @@
         function refreshPanel(panel) {
             const iframe = panel.querySelector('iframe');
             if (iframe) {
+                // Track reload timing
+                const panelId = panel.dataset.panel;
+                const view = panel.querySelector('.view-select')?.value || 'unknown';
+                iframeTimings.set(panelId, { start: Date.now(), view, end: null });
                 iframe.src = iframe.src;
             }
+        }
+
+        function updatePanelTiming(panel, durationMs) {
+            let timingEl = panel.querySelector('.panel-timing');
+            if (!timingEl) {
+                timingEl = document.createElement('span');
+                timingEl.className = 'panel-timing';
+                const header = panel.querySelector('.panel-header');
+                const refreshBtn = header.querySelector('.refresh-btn');
+                header.insertBefore(timingEl, refreshBtn);
+            }
+            const color = durationMs > 2000 ? 'var(--one)' : durationMs > 500 ? 'var(--three)' : 'var(--two)';
+            timingEl.style.color = color;
+            timingEl.textContent = `${durationMs}ms`;
+            timingEl.title = `Load time: ${durationMs}ms`;
         }
 
         // ========================================================================
@@ -749,12 +789,45 @@
                 return;
             }
 
+            // Handle timing requests from admin panel
+            if (msg.type === 'request-timings') {
+                const timings = Array.from(iframeTimings.entries()).map(([panel, t]) => ({
+                    panel,
+                    view: t.view,
+                    duration: t.duration || (t.end ? t.end - t.start : null),
+                    start: t.start
+                })).filter(t => t.duration);
+
+                // Send back to requesting panel
+                panels.forEach(panel => {
+                    if (panel.dataset.view === 'admin') {
+                        sendToPanel(panel, { type: 'timing-update', timings });
+                    }
+                });
+                return;
+            }
+
             if (msg.source !== 'terrain') return;
 
             console.log('[Console] Message:', msg);
 
             if (msg.type === 'ready') {
-                console.log('[Console] Panel ready:', msg.from);
+                // Find which panel sent this and record timing
+                const sourceWindow = e.source;
+                panels.forEach(panel => {
+                    const iframe = panel.querySelector('iframe');
+                    if (iframe?.contentWindow === sourceWindow) {
+                        const panelId = panel.dataset.panel;
+                        const timing = iframeTimings.get(panelId);
+                        if (timing && !timing.end) {
+                            timing.end = Date.now();
+                            timing.duration = timing.end - timing.start;
+                            console.log(`[Timing] ${panelId} (${timing.view}): ${timing.duration}ms`);
+                            // Update panel header with timing
+                            updatePanelTiming(panel, timing.duration);
+                        }
+                    }
+                });
             }
         });
 

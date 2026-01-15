@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin</title>
+    <link rel="stylesheet" href="shared.css">
+    <style>
+        body {
+            padding: 16px;
+            overflow-y: auto;
+        }
+
+        h2 {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--ink-muted);
+            margin: 0 0 12px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .stat-card {
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 12px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--four);
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: var(--ink-muted);
+            text-transform: uppercase;
+        }
+
+        .stat-card.warning .stat-value { color: var(--three); }
+        .stat-card.danger .stat-value { color: var(--one); }
+
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            padding: 8px 16px;
+            font-size: 11px;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+
+        .btn:hover {
+            border-color: var(--four);
+        }
+
+        .btn.danger {
+            border-color: var(--one);
+            color: var(--one);
+        }
+
+        .btn.danger:hover {
+            background: var(--one);
+            color: var(--ink);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .log {
+            background: var(--paper-dark);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            padding: 12px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+        }
+
+        .log-entry.success { color: var(--two); }
+        .log-entry.error { color: var(--one); }
+        .log-entry.info { color: var(--ink-muted); }
+
+        .timing-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+
+        .timing-table th,
+        .timing-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .timing-table th {
+            color: var(--ink-muted);
+            font-weight: normal;
+            text-transform: uppercase;
+            font-size: 9px;
+        }
+
+        .timing-fast { color: var(--two); }
+        .timing-medium { color: var(--three); }
+        .timing-slow { color: var(--one); }
+
+        .input-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .input-row label {
+            font-size: 11px;
+            color: var(--ink-muted);
+        }
+
+        .input-row input {
+            background: var(--paper-dark);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            padding: 6px 10px;
+            font-size: 11px;
+            width: 80px;
+            border-radius: 2px;
+        }
+
+        .input-row input:focus {
+            outline: none;
+            border-color: var(--four);
+        }
+    </style>
+</head>
+<body>
+    <script src="/js/terrain-iframe.js"></script>
+
+    <div class="section">
+        <h2>Capture Storage</h2>
+        <div class="stats-grid" id="capture-stats">
+            <div class="stat-card">
+                <div class="stat-value" id="capture-count">-</div>
+                <div class="stat-label">Total Captures</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="capture-size">-</div>
+                <div class="stat-label">Disk Usage</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="session-count">-</div>
+                <div class="stat-label">Sessions</div>
+            </div>
+        </div>
+        <div class="input-row">
+            <label>Keep captures newer than:</label>
+            <input type="number" id="keep-days" value="7" min="1" max="365"> days
+        </div>
+        <div class="btn-row">
+            <button class="btn" id="refresh-stats">Refresh Stats</button>
+            <button class="btn" id="preview-groom">Preview Cleanup</button>
+            <button class="btn danger" id="run-groom" disabled>Delete Old Captures</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Iframe Load Times</h2>
+        <table class="timing-table" id="timing-table">
+            <thead>
+                <tr>
+                    <th>Panel</th>
+                    <th>View</th>
+                    <th>Load Time</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="timing-body">
+                <tr><td colspan="4" style="color: var(--ink-muted)">Waiting for timing data...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>Activity Log</h2>
+        <div class="log" id="activity-log">
+            <div class="log-entry info">Admin panel loaded</div>
+        </div>
+    </div>
+
+    <script>
+        const org = new URLSearchParams(location.search).get('org') || 'tetra';
+        const logEl = document.getElementById('activity-log');
+        const timingBody = document.getElementById('timing-body');
+        let pendingDeletes = [];
+
+        function log(msg, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        async function loadStats() {
+            try {
+                const [capturesRes, sessionsRes] = await Promise.all([
+                    fetch(`/api/capture/list?org=${org}&limit=1000`),
+                    fetch(`/api/capture/sessions?org=${org}`)
+                ]);
+
+                const captures = await capturesRes.json();
+                const sessions = await sessionsRes.json();
+
+                document.getElementById('capture-count').textContent = captures.length;
+                document.getElementById('session-count').textContent = sessions.length;
+
+                // Estimate size (rough: 500KB per capture average)
+                const estimatedMB = Math.round(captures.length * 0.5);
+                document.getElementById('capture-size').textContent = `~${estimatedMB}MB`;
+
+                // Update card warnings
+                const countCard = document.getElementById('capture-count').closest('.stat-card');
+                countCard.classList.toggle('warning', captures.length > 100);
+                countCard.classList.toggle('danger', captures.length > 200);
+
+                log(`Loaded ${captures.length} captures, ${sessions.length} sessions`);
+            } catch (e) {
+                log(`Error loading stats: ${e.message}`, 'error');
+            }
+        }
+
+        async function previewGroom() {
+            const keepDays = parseInt(document.getElementById('keep-days').value) || 7;
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - keepDays);
+
+            try {
+                const res = await fetch(`/api/capture/list?org=${org}&limit=1000`);
+                const captures = await res.json();
+
+                pendingDeletes = captures.filter(c => {
+                    const ts = new Date(c.timestamp);
+                    return ts < cutoff;
+                });
+
+                if (pendingDeletes.length === 0) {
+                    log(`No captures older than ${keepDays} days`, 'success');
+                    document.getElementById('run-groom').disabled = true;
+                } else {
+                    log(`Found ${pendingDeletes.length} captures to delete (older than ${keepDays} days)`);
+                    document.getElementById('run-groom').disabled = false;
+                    document.getElementById('run-groom').textContent = `Delete ${pendingDeletes.length} Captures`;
+                }
+            } catch (e) {
+                log(`Error: ${e.message}`, 'error');
+            }
+        }
+
+        async function runGroom() {
+            if (pendingDeletes.length === 0) return;
+
+            const btn = document.getElementById('run-groom');
+            btn.disabled = true;
+            btn.textContent = 'Deleting...';
+
+            let deleted = 0;
+            let errors = 0;
+
+            for (const capture of pendingDeletes) {
+                try {
+                    const res = await fetch(`/api/capture/${org}/${capture.id}`, { method: 'DELETE' });
+                    if (res.ok) {
+                        deleted++;
+                    } else {
+                        errors++;
+                    }
+                } catch {
+                    errors++;
+                }
+            }
+
+            log(`Deleted ${deleted} captures${errors > 0 ? `, ${errors} errors` : ''}`, errors > 0 ? 'error' : 'success');
+            pendingDeletes = [];
+            btn.textContent = 'Delete Old Captures';
+            loadStats();
+        }
+
+        // Listen for timing updates from parent
+        Terrain.Bus.subscribe('*', (msg) => {
+            if (msg.type === 'timing-update' && msg.timings) {
+                updateTimingTable(msg.timings);
+            }
+        });
+
+        function updateTimingTable(timings) {
+            if (!timings || timings.length === 0) {
+                timingBody.innerHTML = '<tr><td colspan="4" style="color: var(--ink-muted)">No timing data</td></tr>';
+                return;
+            }
+
+            timingBody.innerHTML = timings.map(t => {
+                const cls = t.duration > 2000 ? 'timing-slow' : t.duration > 500 ? 'timing-medium' : 'timing-fast';
+                const status = t.duration > 2000 ? 'SLOW' : t.duration > 500 ? 'OK' : 'FAST';
+                return `
+                    <tr>
+                        <td>${t.panel}</td>
+                        <td>${t.view}</td>
+                        <td class="${cls}">${t.duration}ms</td>
+                        <td class="${cls}">${status}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Request timing data from parent
+        function requestTimings() {
+            Terrain.Iframe.send({ type: 'request-timings', source: 'admin' });
+        }
+
+        // Event listeners
+        document.getElementById('refresh-stats').addEventListener('click', loadStats);
+        document.getElementById('preview-groom').addEventListener('click', previewGroom);
+        document.getElementById('run-groom').addEventListener('click', runGroom);
+
+        // Initialize
+        Terrain.Iframe.init({
+            name: 'admin',
+            onReady: () => {
+                loadStats();
+                requestTimings();
+            }
+        });
+    </script>
+</body>
+</html>
