@@ -5,8 +5,14 @@ const CONFIG = {
     reconnectDelay: 5000
 };
 
+// Read initial params from URL
+const params = new URLSearchParams(location.search);
+
 // Consolidated state
 const state = {
+    org: params.get('org') || 'tetra',
+    env: params.get('env') || 'local',
+    user: params.get('user') || '',
     eventSource: null,
     logs: [],
     tsmLogs: {},
@@ -22,18 +28,18 @@ let els = {};
 
 // Time filter presets
 function setTimeFilter(preset) {
-    const btns = document.querySelectorAll('.time-btn');
+    const pills = document.querySelectorAll('.time-filters .pill');
 
     if (state.activeTimeFilter === preset) {
         state.activeTimeFilter = null;
         state.sinceTimestamp = null;
-        btns.forEach(b => b.classList.remove('active'));
+        pills.forEach(b => b.classList.remove('active'));
         renderLogs();
         return;
     }
 
     state.activeTimeFilter = preset;
-    btns.forEach(b => b.classList.remove('active'));
+    pills.forEach(b => b.classList.remove('active'));
 
     const now = Date.now();
     switch (preset) {
@@ -48,7 +54,7 @@ function setTimeFilter(preset) {
             break;
     }
 
-    document.querySelector(`.time-btn[data-time="${preset}"]`)?.classList.add('active');
+    document.querySelector(`.time-filters .pill[data-time="${preset}"]`)?.classList.add('active');
     renderLogs();
 }
 
@@ -189,7 +195,13 @@ function connectSSE() {
 // TSM log integration
 async function fetchTsmLogs(serviceName) {
     try {
-        const res = await fetch(`/api/tsm/logs/${serviceName}?lines=30`);
+        const params = new URLSearchParams({
+            lines: 30,
+            org: state.org,
+            env: state.env
+        });
+        if (state.user) params.set('user', state.user);
+        const res = await fetch(`/api/tsm/logs/${serviceName}?${params}`);
         const data = await res.json();
 
         if (data.logs) {
@@ -244,8 +256,35 @@ async function pollTsmLogs() {
     }
 }
 
+function handleEnvChange(msg) {
+    const envChanged = msg.env && msg.env !== state.env;
+    const orgChanged = msg.org && msg.org !== state.org;
+
+    if (msg.env) state.env = msg.env;
+    if (msg.org) state.org = msg.org;
+    if (msg.user !== undefined) state.user = msg.user || '';
+
+    // Clear watched services when org/env changes (services are env-specific)
+    if (envChanged || orgChanged) {
+        state.watchedServices.clear();
+        state.tsmLogs = {};
+        localStorage.setItem('tsm-watched-logs', '[]');
+        renderTsmSources();
+        renderLogs();
+    } else {
+        // Re-fetch TSM logs with new context
+        pollTsmLogs();
+    }
+}
+
 function handleMessage(msg) {
     if (!msg || typeof msg !== 'object') return;
+
+    // Handle env changes
+    if (msg.type === 'env-change') {
+        handleEnvChange(msg);
+        return;
+    }
 
     // Log postMessage traffic
     const from = msg.source || msg.from || '?';
@@ -270,6 +309,11 @@ function handleMessage(msg) {
     });
 
     if (msg.type === 'log-watch-change' && msg.source === 'tsm') {
+        // Update context from TSM panel
+        if (msg.org) state.org = msg.org;
+        if (msg.env) state.env = msg.env;
+        if (msg.user !== undefined) state.user = msg.user || '';
+
         state.watchedServices = new Set(msg.services || []);
         localStorage.setItem('tsm-watched-logs', JSON.stringify([...state.watchedServices]));
 
@@ -301,7 +345,7 @@ function init() {
 
     // Register actions
     Terrain.Iframe.on('filter', (el, data) => {
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.filters .pill').forEach(b => b.classList.remove('active'));
         el.classList.add('active');
         state.currentFilter = data.filter;
         renderLogs();
@@ -329,10 +373,18 @@ function init() {
         onMessage: handleMessage
     });
 
+    // Listen for env-change messages from parent
+    Terrain.Bus.subscribe('env-change', handleEnvChange);
+
+    // Clear stale watched services on fresh load (context may have changed)
+    // Services will be re-added when user clicks [L] with correct context
+    state.watchedServices.clear();
+    state.tsmLogs = {};
+    localStorage.removeItem('tsm-watched-logs');
+
     // Start SSE connection
     connectSSE();
     renderTsmSources();
-    pollTsmLogs();
 
     // Poll TSM logs periodically
     setInterval(pollTsmLogs, CONFIG.tsmPollInterval);

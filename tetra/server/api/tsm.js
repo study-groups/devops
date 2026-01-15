@@ -308,18 +308,19 @@ router.post('/restart/:service', (req, res) => {
 // Get service logs (tail)
 router.get('/logs/:service', (req, res) => {
     const service = req.params.service;
-    const { org = 'tetra', env = 'local', lines = 50 } = req.query;
+    const { org = 'tetra', env = 'local', user = '', lines = 50 } = req.query;
 
     try {
-        const output = runTsm(`tsm logs ${service} --tail ${lines}`, org, env);
+        const output = runTsm(`tsm logs ${service} --tail ${lines}`, org, env, user || null);
         res.json({
             service,
             logs: output,
             org,
-            env
+            env,
+            user: user || null
         });
     } catch (err) {
-        res.status(500).json({ error: err.message, service, org, env });
+        res.status(500).json({ error: err.message, service, org, env, user: user || null });
     }
 });
 

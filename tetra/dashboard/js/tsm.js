@@ -32,7 +32,10 @@ function toggleLogs(serviceName) {
     Terrain.Iframe.send({
         source: 'tsm',
         type: 'log-watch-change',
-        services: [...state.watchedServices]
+        services: [...state.watchedServices],
+        org: state.org,
+        env: state.env,
+        user: state.user
     });
 
     loadServices();
