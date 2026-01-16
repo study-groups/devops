@@ -7,6 +7,11 @@ const router = express.Router();
 // Simple bundle definitions
 const CSS_BUNDLES = {
     core: [
+        // Theme files (must load first)
+        'client/styles/themes/base.css',
+        'client/styles/themes/dark.css',
+        'client/styles/themes/light.css',
+        // Core styles
         'client/styles/reset.css',
         'client/styles/design-system.css',
         'client/styles/typography.css',

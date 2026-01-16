@@ -271,9 +271,9 @@ class TopBarTrayManager {
                 overflow: hidden;
                 max-height: 0;
                 transition: max-height 0.25s ease-out;
-                background: var(--color-bg-secondary, #f8f9fa);
-                border-bottom: 1px solid var(--color-border, #dee2e6);
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+                background: var(--color-bg-alt);
+                border-bottom: 1px solid var(--color-border);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             }
 
             .topbar-tray-container.visible {
@@ -296,31 +296,31 @@ class TopBarTrayManager {
                 align-items: center;
                 margin-bottom: 12px;
                 padding-bottom: 8px;
-                border-bottom: 1px solid var(--color-border, #dee2e6);
+                border-bottom: 1px solid var(--color-border);
             }
 
             .topbar-tray-title {
                 font-size: 14px;
                 font-weight: 600;
-                color: var(--color-text-primary, #212529);
+                color: var(--color-text);
             }
 
             .topbar-tray-close {
                 background: none;
                 border: none;
                 font-size: 20px;
-                color: var(--color-text-secondary, #6c757d);
+                color: var(--color-text-secondary);
                 cursor: pointer;
                 padding: 0 4px;
                 line-height: 1;
             }
 
             .topbar-tray-close:hover {
-                color: var(--color-text-primary, #212529);
+                color: var(--color-text);
             }
 
             .topbar-tray-content {
-                color: var(--color-text-primary, #212529);
+                color: var(--color-text);
             }
 
             /* Adjust workspace when tray is open */
@@ -348,22 +348,22 @@ class TopBarTrayManager {
 
             .tray-input {
                 padding: 10px 14px;
-                border: 1px solid var(--color-border, #ced4da);
+                border: 1px solid var(--color-border);
                 border-radius: 6px;
                 font-size: 14px;
-                background: var(--color-bg-primary, #fff);
-                color: var(--color-text-primary, #212529);
+                background: var(--color-surface);
+                color: var(--color-text);
                 min-width: 200px;
             }
 
             .tray-input:focus {
                 outline: none;
-                border-color: var(--color-accent, #007bff);
-                box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.15);
+                border-color: var(--color-primary);
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
             }
 
             .tray-input::placeholder {
-                color: var(--color-text-tertiary, #adb5bd);
+                color: var(--color-text-muted);
             }
 
             .tray-btn {
@@ -382,59 +382,59 @@ class TopBarTrayManager {
             }
 
             .tray-btn.primary {
-                background: var(--color-accent, #007bff);
-                color: white;
+                background: var(--color-primary);
+                color: var(--color-text-inverse);
             }
 
             .tray-btn.primary:hover:not(:disabled) {
-                background: var(--color-accent-dark, #0056b3);
+                background: var(--color-primary-emphasis);
             }
 
             .tray-btn.secondary {
-                background: var(--color-bg-primary, #fff);
-                border: 1px solid var(--color-border, #ced4da);
-                color: var(--color-text-primary, #212529);
+                background: var(--color-surface);
+                border: 1px solid var(--color-border);
+                color: var(--color-text);
             }
 
             .tray-btn.secondary:hover:not(:disabled) {
-                background: var(--color-bg-secondary, #f8f9fa);
+                background: var(--color-bg-alt);
             }
 
             .tray-btn.danger {
-                background: var(--color-danger, #dc3545);
-                color: white;
+                background: var(--color-error);
+                color: var(--color-text-inverse);
             }
 
             .tray-btn.danger:hover:not(:disabled) {
-                background: #c82333;
+                background: var(--color-error-border);
             }
 
             .tray-btn.ghost {
                 background: none;
                 border: none;
-                color: var(--color-text-secondary, #6c757d);
+                color: var(--color-text-secondary);
                 padding: 8px 12px;
             }
 
             .tray-btn.ghost:hover:not(:disabled) {
-                color: var(--color-text-primary, #212529);
-                background: var(--color-bg-secondary, #f8f9fa);
+                color: var(--color-text);
+                background: var(--color-bg-alt);
             }
 
             .tray-label {
                 font-size: 13px;
-                color: var(--color-text-secondary, #6c757d);
+                color: var(--color-text-secondary);
                 min-width: 80px;
             }
 
             .tray-error {
-                color: var(--color-danger, #dc3545);
+                color: var(--color-error);
                 font-size: 13px;
                 margin-left: 12px;
             }
 
             .tray-success {
-                color: var(--color-success, #28a745);
+                color: var(--color-success);
                 font-size: 13px;
                 margin-left: 12px;
             }
@@ -442,7 +442,7 @@ class TopBarTrayManager {
             .tray-divider {
                 width: 1px;
                 height: 24px;
-                background: var(--color-border, #dee2e6);
+                background: var(--color-border);
                 margin: 0 8px;
             }
 
@@ -457,8 +457,8 @@ class TopBarTrayManager {
                 align-items: center;
                 gap: 8px;
                 padding: 8px 12px;
-                background: var(--color-bg-primary, #fff);
-                border: 1px solid var(--color-border, #ced4da);
+                background: var(--color-surface);
+                border: 1px solid var(--color-border);
                 border-radius: 6px;
                 font-size: 13px;
             }
@@ -467,15 +467,15 @@ class TopBarTrayManager {
                 width: 8px;
                 height: 8px;
                 border-radius: 50%;
-                background: var(--color-text-tertiary, #adb5bd);
+                background: var(--color-text-muted);
             }
 
             .tray-status-dot.published {
-                background: var(--color-success, #28a745);
+                background: var(--color-success);
             }
 
             .tray-status-dot.unpublished {
-                background: var(--color-warning, #ffc107);
+                background: var(--color-warning);
             }
 
             .tray-progress {
@@ -488,21 +488,21 @@ class TopBarTrayManager {
             .tray-progress-bar {
                 flex: 1;
                 height: 6px;
-                background: var(--color-bg-tertiary, #e9ecef);
+                background: var(--color-bg-elevated);
                 border-radius: 3px;
                 overflow: hidden;
             }
 
             .tray-progress-fill {
                 height: 100%;
-                background: var(--color-accent, #007bff);
+                background: var(--color-primary);
                 border-radius: 3px;
                 transition: width 0.3s ease;
             }
 
             .tray-progress-text {
                 font-size: 12px;
-                color: var(--color-text-secondary, #6c757d);
+                color: var(--color-text-secondary);
                 min-width: 100px;
             }
 
@@ -511,15 +511,15 @@ class TopBarTrayManager {
                 align-items: center;
                 gap: 8px;
                 padding: 8px 12px;
-                background: var(--color-bg-success-light, #d4edda);
-                border: 1px solid var(--color-success, #28a745);
+                background: var(--color-success-bg);
+                border: 1px solid var(--color-success);
                 border-radius: 6px;
             }
 
             .tray-url-text {
                 font-size: 13px;
                 font-family: monospace;
-                color: var(--color-success-dark, #155724);
+                color: var(--color-success);
                 max-width: 300px;
                 overflow: hidden;
                 text-overflow: ellipsis;

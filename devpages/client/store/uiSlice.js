@@ -6,6 +6,7 @@
  */
 
 import { createSlice } from '@reduxjs/toolkit';
+import { themeService } from '../services/ThemeService.js';
 
 // --- Default UI Settings ---
 export const uiInitialState = {
@@ -99,11 +100,16 @@ export const uiThunks = {
         value: height 
     }),
     
-    // Set theme
-    setTheme: (theme) => uiActions.updateSetting({ 
-        key: 'theme', 
-        value: theme 
-    }),
+    // Set theme - connected to themeService
+    setTheme: (theme) => async (dispatch) => {
+        dispatch(uiActions.updateSetting({
+            key: 'theme',
+            value: theme
+        }));
+        // Apply via themeService
+        const themeId = theme === 'light' ? 'devpages-light' : 'devpages-dark';
+        await themeService.loadTheme(themeId);
+    },
     
     // Toggle left sidebar visibility
     toggleLeftSidebar: () => (dispatch, getState) => {
@@ -114,14 +120,16 @@ export const uiThunks = {
     // Toggle log visibility - use direct action to avoid any side effects
     toggleLogVisibility: () => uiActions.toggleLogVisibility,
     
-    // Toggle theme
-    toggleTheme: () => (dispatch, getState) => {
+    // Toggle theme - connected to themeService
+    toggleTheme: () => async (dispatch, getState) => {
         const currentTheme = getState().ui?.theme || 'light';
         const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-        dispatch(uiActions.updateSetting({ 
-            key: 'theme', 
-            value: newTheme 
+        dispatch(uiActions.updateSetting({
+            key: 'theme',
+            value: newTheme
         }));
+        // Apply via themeService
+        await themeService.toggleMode();
     }
 };
 

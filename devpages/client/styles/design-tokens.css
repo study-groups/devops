@@ -1,4 +1,4 @@
 /* Design Tokens - Main Import Hub */
-@import 'design-tokens-colors.css';
+/* Colors are now in /styles/themes/dark.css and /styles/themes/light.css */
 @import 'design-tokens-typography.css';
 @import 'design-tokens-spacing.css';

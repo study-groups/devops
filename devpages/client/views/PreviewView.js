@@ -220,21 +220,28 @@ export class PreviewView extends ViewInterface {
         try {
             this.isUpdating = true;
 
-            log.info?.('VIEW', 'RENDER_REQUEST', `Requesting render: ${filePath}`);
-
-            // Dispatch Redux thunk to render markdown
-            const result = await appStore.dispatch(renderMarkdown({ content, filePath }));
-
-            if (result.type === renderMarkdown.fulfilled.type) {
-                // Render succeeded, update iframe
+            // If forced (theme change), just regenerate HTML without re-rendering markdown
+            // The markdown render result is cached and unchanged
+            if (force && content === this.lastProcessedContent) {
+                log.info?.('VIEW', 'THEME_UPDATE', 'Theme changed, regenerating preview HTML');
                 await this.updateIframeFromRedux(force);
-            } else if (result.type === renderMarkdown.rejected.type) {
-                // Render failed, show error
-                this.showError(result.payload?.message || result.error.message);
-            }
+            } else {
+                log.info?.('VIEW', 'RENDER_REQUEST', `Requesting render: ${filePath}`);
 
-            // Track last processed content
-            this.lastProcessedContent = content;
+                // Dispatch Redux thunk to render markdown
+                const result = await appStore.dispatch(renderMarkdown({ content, filePath }));
+
+                if (result.type === renderMarkdown.fulfilled.type) {
+                    // Render succeeded, update iframe
+                    await this.updateIframeFromRedux(force);
+                } else if (result.type === renderMarkdown.rejected.type) {
+                    // Render failed, show error
+                    this.showError(result.payload?.message || result.error.message);
+                }
+
+                // Track last processed content
+                this.lastProcessedContent = content;
+            }
 
         } catch (error) {
             log.error?.('VIEW', 'RENDER_ERROR', `Render error: ${error.message}`, error);

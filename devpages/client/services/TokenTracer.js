@@ -2,19 +2,18 @@
  * TokenTracer.js
  *
  * Traces CSS custom properties (design tokens) back to their source definitions.
- * Maps CSS variables like --color-primary-default to their token files.
+ * Maps CSS variables like --color-primary to their theme files.
  *
  * Features:
  * - Trace CSS variables to source files
  * - Resolve var() references and chains
- * - Map semantic tokens to palette values
  * - Integration with DevPagesDetector
  * - Self-registering to window.APP.services
  *
- * Token File Structure:
- *   client/styles/tokens/color-palettes.js   - Raw color values
- *   client/styles/tokens/color-themes.js     - Theme definitions
- *   client/styles/tokens/color-tokens.js     - Semantic mappings
+ * CSS-First Theme Architecture:
+ *   client/styles/themes/base.css   - Default (dark) fallback for :root
+ *   client/styles/themes/dark.css   - Dark theme [data-theme="dark"]
+ *   client/styles/themes/light.css  - Light theme [data-theme="light"]
  */
 
 export class TokenTracer {
@@ -23,11 +22,11 @@ export class TokenTracer {
     this.loaded = false;
     this.loading = false;
 
-    // Known token file locations
+    // Known theme file locations
     this.tokenFiles = {
-      'color-palettes': 'client/styles/tokens/color-palettes.js',
-      'color-themes': 'client/styles/tokens/color-themes.js',
-      'color-tokens': 'client/styles/tokens/color-tokens.js'
+      'themes-dark': 'client/styles/themes/dark.css',
+      'themes-light': 'client/styles/themes/light.css',
+      'themes-base': 'client/styles/themes/base.css'
     };
 
     console.log('[TokenTracer] Service created (not loaded)');
@@ -154,21 +153,25 @@ export class TokenTracer {
 
   /**
    * Infer source file from property name and selector
-   * @param {string} propName - Property name (e.g., --color-primary-default)
+   * @param {string} propName - Property name (e.g., --color-primary)
    * @param {string} selector - CSS selector
    * @returns {string} Inferred source file
    */
   inferSource(propName, selector) {
-    if (selector.includes('[data-theme=')) {
-      return this.tokenFiles['color-themes'];
+    if (selector.includes('[data-theme="dark"]')) {
+      return this.tokenFiles['themes-dark'];
     }
 
-    if (propName.startsWith('--color-')) {
-      return this.tokenFiles['color-palettes'];
+    if (selector.includes('[data-theme="light"]')) {
+      return this.tokenFiles['themes-light'];
     }
 
-    if (propName.includes('-palette-') || propName.includes('-scale-')) {
-      return this.tokenFiles['color-palettes'];
+    if (selector === ':root') {
+      return this.tokenFiles['themes-base'];
+    }
+
+    if (propName.startsWith('--color-') || propName.startsWith('--spacing-') || propName.startsWith('--radius-')) {
+      return this.tokenFiles['themes-dark']; // Default to dark theme
     }
 
     return 'client/styles/design-system.css'; // Generic fallback
@@ -222,17 +225,17 @@ export class TokenTracer {
   }
 
   /**
-   * Load token metadata from token files (if available)
-   * This would require importing the JS token files or fetching them
+   * Load token metadata
+   * Tokens are now defined directly in CSS theme files:
+   *   - client/styles/themes/base.css  (fallback defaults)
+   *   - client/styles/themes/dark.css  (dark theme)
+   *   - client/styles/themes/light.css (light theme)
+   * We scan computed styles rather than importing JS files.
    */
   async loadTokenMetadata() {
-    // In a full implementation, we'd import the token files:
-    // import { ColorPalettes } from '../styles/tokens/color-palettes.js';
-    // import { ColorThemes } from '../styles/tokens/color-themes.js';
-    // import { ColorTokens } from '../styles/tokens/color-tokens.js';
-
-    // For now, we rely on the CSS scan above
-    console.log('[TokenTracer] Token metadata loading skipped (using CSS scan)');
+    // CSS-first architecture: all tokens defined in CSS theme files
+    // scanCustomProperties() already extracts them from computed styles
+    console.log('[TokenTracer] Using CSS-first token architecture');
   }
 
   /**

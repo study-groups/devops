@@ -150,9 +150,11 @@ export class MermaidPlugin {
             }
 
             // Configure and initialize Mermaid
+            // Check data-theme attribute for current theme
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
             window.mermaid.initialize({
                 startOnLoad: false,
-                theme: document.body.classList.contains('dark-mode') ? 'dark' : 'default',
+                theme: isDark ? 'dark' : 'default',
                 securityLevel: 'strict',
                 logLevel: 5, // 1=debug, 5=fatal
                 flowchart: {

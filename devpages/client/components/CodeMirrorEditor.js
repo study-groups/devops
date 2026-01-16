@@ -16,49 +16,50 @@ import { css } from '@codemirror/lang-css';
 import { syntaxHighlighting, indentOnInput, bracketMatching, foldGutter, foldKeymap, HighlightStyle } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
 
-// Dark theme styling (VS Code-like)
-const darkTheme = EditorView.theme({
+// Editor theme - uses CSS variables from theme system
+const editorTheme = EditorView.theme({
     '&': {
-        backgroundColor: 'var(--bg-primary, #1e1e1e)',
-        color: 'var(--text-primary, #d4d4d4)',
+        backgroundColor: 'var(--color-bg)',
+        color: 'var(--color-text)',
         height: '100%'
     },
     '.cm-content': {
-        fontFamily: '"SF Mono", Monaco, "Cascadia Code", Consolas, monospace',
+        fontFamily: 'var(--font-mono)',
         fontSize: '13px',
         lineHeight: '1.5',
-        padding: '8px 0'
+        padding: '8px 0',
+        caretColor: 'var(--color-text)'
     },
     '.cm-gutters': {
-        backgroundColor: 'var(--bg-secondary, #252526)',
-        color: 'var(--text-muted, #858585)',
+        backgroundColor: 'var(--color-bg-alt)',
+        color: 'var(--color-text-muted)',
         border: 'none',
-        borderRight: '1px solid var(--border-color, #333)'
+        borderRight: '1px solid var(--color-border)'
     },
     '.cm-activeLineGutter': {
-        backgroundColor: 'var(--bg-tertiary, #2a2d2e)'
+        backgroundColor: 'var(--color-bg-elevated)'
     },
     '.cm-activeLine': {
-        backgroundColor: 'rgba(255, 255, 255, 0.03)'
+        backgroundColor: 'var(--color-bg-alt)'
     },
     '.cm-selectionBackground': {
-        backgroundColor: 'rgba(38, 79, 120, 0.5) !important'
+        backgroundColor: 'var(--color-selection) !important'
     },
     '&.cm-focused .cm-selectionBackground': {
-        backgroundColor: 'rgba(38, 79, 120, 0.7) !important'
+        backgroundColor: 'var(--color-selection) !important'
     },
     '.cm-cursor': {
-        borderLeftColor: 'var(--text-primary, #d4d4d4)',
+        borderLeftColor: 'var(--color-text)',
         borderLeftWidth: '2px'
     },
     '.cm-matchingBracket': {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        outline: '1px solid rgba(255, 255, 255, 0.3)'
+        backgroundColor: 'var(--color-bg-elevated)',
+        outline: '1px solid var(--color-border)'
     },
     '.cm-foldGutter': {
         width: '12px'
     }
-}, { dark: true });
+});
 
 // Syntax highlighting colors (VS Code dark theme)
 const darkHighlightStyle = HighlightStyle.define([
@@ -168,7 +169,7 @@ export class CodeMirrorEditor {
                     ...completionKeymap,
                     indentWithTab
                 ]),
-                darkTheme,
+                editorTheme,
                 syntaxHighlighting(darkHighlightStyle),
                 ...getLanguageExtension(filePath),
                 EditorView.updateListener.of((update) => {

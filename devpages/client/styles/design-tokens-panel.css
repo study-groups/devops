@@ -421,7 +421,7 @@
 .tds-explanation {
     padding: 12px;
     background: rgba(33, 150, 243, 0.05);
-    border-left: 3px solid var(--color-mode-0, #0088FF);
+    border-left: 3px solid var(--color-info, #3b82f6);
     margin: 8px;
     border-radius: 2px;
 }
@@ -434,7 +434,7 @@
 }
 
 .tds-concept strong {
-    color: var(--color-mode-0, #0088FF);
+    color: var(--color-info, #3b82f6);
 }
 
 /* Palette Legend */
@@ -482,7 +482,7 @@
     background: var(--devpages-panel-bg);
     padding: 2px 4px;
     border-radius: 2px;
-    color: var(--color-verbs-3, #FFAA00);
+    color: var(--color-warning, #fbbf24);
     font-weight: 600;
 }
 

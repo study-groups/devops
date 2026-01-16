@@ -5,6 +5,7 @@
  */
 
 import { createSettingsSlice } from '../reducers/enhancedReducerUtils.js';
+import { themeService } from '../../services/ThemeService.js';
 
 // --- Default Settings (without localStorage direct access) ---
 const defaultSettings = {
@@ -116,19 +117,26 @@ export const settingsThunks = {
         dispatch(settingsActions.updateNestedSetting({ path: 'preview.cssFiles', value: files }));
     },
 
-    // Theme management actions
-    setThemeMode: (mode) => (dispatch) => {
+    // Theme management actions - connected to themeService
+    setThemeMode: (mode) => async (dispatch) => {
         dispatch(settingsActions.updateNestedSetting({ path: 'theme.mode', value: mode }));
+        // Apply via themeService
+        const themeId = mode === 'light' ? 'devpages-light' : 'devpages-dark';
+        await themeService.loadTheme(themeId);
     },
 
-    setActiveTheme: (themeId) => (dispatch) => {
+    setActiveTheme: (themeId) => async (dispatch) => {
         dispatch(settingsActions.updateNestedSetting({ path: 'theme.activeTheme', value: themeId }));
+        // Apply via themeService
+        await themeService.loadTheme(themeId);
     },
 
-    toggleThemeMode: () => (dispatch, getState) => {
+    toggleThemeMode: () => async (dispatch, getState) => {
         const currentMode = getState().settings.theme.mode;
         const newMode = currentMode === 'light' ? 'dark' : 'light';
         dispatch(settingsActions.updateNestedSetting({ path: 'theme.mode', value: newMode }));
+        // Apply via themeService
+        await themeService.toggleMode();
     },
 
     setSyncWithOS: (enabled) => (dispatch) => {

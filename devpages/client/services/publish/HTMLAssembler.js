@@ -46,7 +46,7 @@ export class HTMLAssembler {
     });
 
     const html = `<!DOCTYPE html>
-<html lang="en" ${isPreview ? '' : `data-theme="${themeMode}"`}>
+<html lang="en" data-theme="${themeMode}">
 ${head}
 ${body}
 </html>`;

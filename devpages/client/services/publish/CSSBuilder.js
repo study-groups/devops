@@ -35,8 +35,9 @@ export class CSSBuilder {
     // Load base markdown CSS from external files
     const baseCSS = await this.loadMarkdownCSS();
 
-    // Generate theme CSS (preview only)
-    const themeCSS = isPreview ? this.generateThemeCSS(theme) : '';
+    // Load theme CSS from files (preview only)
+    const themeMode = theme?.mode || 'dark';
+    const themeCSS = isPreview ? await this.loadThemeCSS(themeMode) : '';
 
     // Load runtime CSS (publish only)
     const runtimeCSS = isPreview ? '' : await this.loadRuntimeCSS();
@@ -122,63 +123,51 @@ export class CSSBuilder {
 
   /**
    * Generate inline CSS for theme variables
-   * @param {Object} theme - Theme object with colors, typography, etc.
-   * @returns {string} CSS variable declarations
+   * Theme CSS is now loaded from external files (dark.css/light.css)
+   * This method returns empty string as CSS comes from loadThemeCSS
+   * @param {Object} theme - Theme object (only has metadata now)
+   * @returns {string} Empty string - CSS handled by loadThemeCSS
    */
   generateThemeCSS(theme) {
-    if (!theme) {
-      log.warn?.('CSS', 'NO_THEME', 'No theme provided to generateThemeCSS');
-      return `:root {
-  --color-bg: #ffffff;
-  --color-fg: #111827;
-  --color-primary: #3b82f6;
-  --color-border: #e5e7eb;
-  --color-text-default: #333333;
-  --color-text-emphasis: #000000;
-  --color-background-default: #ffffff;
-  --color-background-subtle: #f9fafb;
-}`;
+    // Theme CSS is now loaded from files, not generated from theme object
+    // Return empty - the actual CSS comes from loadThemeCSS()
+    return '';
+  }
+
+  /**
+   * Load theme CSS from external file
+   * @param {string} mode - 'light' or 'dark'
+   * @returns {Promise<string>} Theme CSS content
+   */
+  async loadThemeCSS(mode = 'dark') {
+    try {
+      // Load both base and mode-specific CSS
+      const [baseResponse, modeResponse] = await Promise.all([
+        fetch('/client/styles/themes/base.css'),
+        fetch(`/client/styles/themes/${mode}.css`)
+      ]);
+
+      let css = '';
+
+      if (baseResponse.ok) {
+        css += await baseResponse.text();
+        log.info?.('CSS', 'THEME_BASE_LOADED', `Loaded base theme CSS`);
+      } else {
+        log.warn?.('CSS', 'THEME_BASE_FAIL', 'Failed to load base theme CSS');
+      }
+
+      if (modeResponse.ok) {
+        css += '\n' + await modeResponse.text();
+        log.info?.('CSS', 'THEME_MODE_LOADED', `Loaded ${mode} theme CSS`);
+      } else {
+        log.warn?.('CSS', 'THEME_MODE_FAIL', `Failed to load ${mode} theme CSS`);
+      }
+
+      return css;
+    } catch (error) {
+      log.error?.('CSS', 'THEME_LOAD_ERROR', `Error loading theme CSS: ${error.message}`, error);
+      return '';
     }
-
-    log.info?.('CSS', 'THEME_GENERATE', `Generating CSS for theme: ${theme.id || 'unknown'} (${theme.mode})`);
-    const cssLines = [':root {'];
-
-    // Apply color tokens
-    if (theme.colors) {
-      Object.entries(theme.colors).forEach(([name, value]) => {
-        cssLines.push(`  --color-${name}: ${value};`);
-      });
-    }
-
-    // Apply typography tokens
-    if (theme.typography) {
-      Object.entries(theme.typography).forEach(([name, value]) => {
-        cssLines.push(`  --font-${name}: ${value};`);
-      });
-    }
-
-    // Apply spacing tokens
-    if (theme.spacing) {
-      Object.entries(theme.spacing).forEach(([name, value]) => {
-        cssLines.push(`  --spacing-${name}: ${value};`);
-      });
-    }
-
-    // Apply effect tokens
-    if (theme.effects) {
-      Object.entries(theme.effects).forEach(([name, value]) => {
-        const prefix = name.startsWith('shadow') ? 'shadow' :
-                       name.startsWith('radius') ? 'radius' :
-                       name.startsWith('transition') ? 'transition' :
-                       name.startsWith('animation') ? 'animation' : 'effect';
-        cssLines.push(`  --${prefix}-${name.replace(prefix + '-', '')}: ${value};`);
-      });
-    }
-
-    cssLines.push('}');
-    const result = cssLines.join('\n');
-    log.info?.('CSS', 'THEME_COMPLETE', `Generated ${result.length} chars of theme CSS`);
-    return result;
   }
 }
 

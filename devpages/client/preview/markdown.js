@@ -18,10 +18,12 @@ export async function initMarkdownPreview() {
     
     // Initialize via Redux store dispatch using dynamic import
     const { initializePreviewSystem } = await import('/client/store/slices/previewSlice.js');
+    // Get current theme mode from data-theme attribute or default to 'dark'
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
     const result = appStore.dispatch(initializePreviewSystem({
       container: '#md-preview',
       plugins: ['mermaid', 'katex', 'highlight', 'audioMD'],
-      theme: 'light'
+      theme: currentTheme
     }));
     
     previewInitialized = result;

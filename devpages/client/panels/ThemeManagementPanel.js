@@ -1,14 +1,17 @@
 /**
  * ThemeManagementPanel.js - Modern theme management interface
  *
- * Complete redesign integrating with ThemeService and Theme System v2.0
+ * CSS-First Theme Architecture:
+ * - Themes are metadata only (id, name, mode)
+ * - All CSS variables come from theme CSS files
+ * - Token editing updates CSS custom properties directly
+ * - Export generates CSS from computed styles
+ *
  * Features:
  * - Theme selection (built-in and custom themes)
- * - Live theme preview
- * - Token editing (colors, typography, spacing)
+ * - Live token preview from computed styles
  * - Export functionality (CSS, JSON)
  * - OS dark mode sync
- * - Proper storage management
  */
 
 import { BasePanel, panelRegistry } from './BasePanel.js';
@@ -31,6 +34,66 @@ export class ThemeManagementPanel extends BasePanel {
         this.unsubscribe = null; // ThemeService subscription
         this.showNewThemeForm = false; // Show new theme creation form
         this.showDeleteConfirm = false; // Show delete confirmation
+
+        // Token cache from CSS computed styles
+        this.tokens = { colors: [], typography: [], spacing: [], effects: [] };
+    }
+
+    /**
+     * Load tokens from CSS computed styles
+     */
+    loadTokensFromCSS() {
+        this.tokens = { colors: [], typography: [], spacing: [], effects: [] };
+        const styles = getComputedStyle(document.documentElement);
+
+        for (let i = 0; i < styles.length; i++) {
+            const prop = styles[i];
+            if (prop.startsWith('--')) {
+                const value = styles.getPropertyValue(prop).trim();
+                if (value) {
+                    const name = prop.slice(2);
+                    const category = this.categorizeToken(name, value);
+                    if (this.tokens[category]) {
+                        this.tokens[category].push({ name, value, variable: prop });
+                    }
+                }
+            }
+        }
+
+        // Sort tokens by name
+        Object.keys(this.tokens).forEach(cat => {
+            this.tokens[cat].sort((a, b) => a.name.localeCompare(b.name));
+        });
+    }
+
+    categorizeToken(name, value) {
+        const lower = name.toLowerCase();
+
+        // Colors
+        if (lower.includes('color') || lower.startsWith('devpages-type-') ||
+            lower.includes('-bg') || lower.includes('-fg') ||
+            /^#[0-9a-f]{3,8}$/i.test(value) || value.startsWith('rgb') || value.startsWith('hsl')) {
+            return 'colors';
+        }
+
+        // Typography
+        if (lower.includes('font') || lower.includes('text') || lower.includes('line-height') ||
+            lower.includes('heading')) {
+            return 'typography';
+        }
+
+        // Spacing
+        if (lower.includes('spacing') || lower.includes('space-') || lower.includes('gap') ||
+            lower.includes('padding') || lower.includes('margin')) {
+            return 'spacing';
+        }
+
+        // Effects
+        if (lower.includes('shadow') || lower.includes('radius') || lower.includes('transition')) {
+            return 'effects';
+        }
+
+        return 'effects'; // fallback
     }
 
     renderContent() {
@@ -197,34 +260,37 @@ export class ThemeManagementPanel extends BasePanel {
     }
 
     renderColorsTab(theme) {
-        const colors = theme.colors || {};
-        const colorGroups = this.groupColors(colors);
+        // Use tokens from CSS computed styles
+        const colors = this.tokens.colors || [];
+        const colorGroups = this.groupColorTokens(colors);
+
+        if (colors.length === 0) {
+            return `<div class="tm-empty">No color tokens found. Theme CSS may not be loaded.</div>`;
+        }
 
         return `
             <div class="tm-colors-tab">
-                ${Object.entries(colorGroups).map(([groupName, colorTokens]) => `
+                ${Object.entries(colorGroups).map(([groupName, groupTokens]) => `
                     <div class="tm-color-group">
                         <h4 class="tm-group-title">${this.formatGroupName(groupName)}</h4>
                         <div class="tm-color-grid">
-                            ${colorTokens.map(([tokenName, value]) => `
+                            ${groupTokens.map(token => `
                                 <div class="tm-color-item">
-                                    <div class="tm-color-swatch" style="background: ${value}">
+                                    <div class="tm-color-swatch" style="background: ${token.value}">
                                         <input
                                             type="color"
-                                            value="${this.normalizeColorForInput(value)}"
-                                            data-token="${tokenName}"
+                                            value="${this.normalizeColorForInput(token.value)}"
+                                            data-token="${token.variable}"
                                             class="tm-color-input"
-                                            ${theme.metadata?.editable ? '' : 'disabled'}
                                         />
                                     </div>
                                     <div class="tm-color-info">
-                                        <div class="tm-color-name">${tokenName}</div>
+                                        <div class="tm-color-name">${token.name}</div>
                                         <input
                                             type="text"
-                                            value="${value}"
-                                            data-token="${tokenName}"
+                                            value="${token.value}"
+                                            data-token="${token.variable}"
                                             class="tm-color-value"
-                                            ${theme.metadata?.editable ? '' : 'readonly'}
                                         />
                                     </div>
                                 </div>
@@ -236,111 +302,156 @@ export class ThemeManagementPanel extends BasePanel {
         `;
     }
 
+    groupColorTokens(colors) {
+        const groups = {
+            primary: [],
+            neutral: [],
+            status: [],
+            surface: [],
+            text: [],
+            other: []
+        };
+
+        colors.forEach(token => {
+            const name = token.name.toLowerCase();
+            if (name.includes('primary')) groups.primary.push(token);
+            else if (name.includes('neutral')) groups.neutral.push(token);
+            else if (name.includes('success') || name.includes('warning') || name.includes('error') || name.includes('info')) groups.status.push(token);
+            else if (name.includes('bg') || name.includes('surface') || name.includes('border') || name.includes('divider')) groups.surface.push(token);
+            else if (name.includes('text') || name.includes('fg')) groups.text.push(token);
+            else groups.other.push(token);
+        });
+
+        // Filter out empty groups
+        return Object.fromEntries(
+            Object.entries(groups).filter(([_, tokens]) => tokens.length > 0)
+        );
+    }
+
     renderTypographyTab(theme) {
-        const typography = theme.typography || {};
-        const fontFamilies = Object.entries(typography).filter(([k]) => k.includes('font'));
-        const fontSizes = Object.entries(typography).filter(([k]) => k.includes('size'));
-        const fontWeights = Object.entries(typography).filter(([k]) => k.includes('weight'));
-        const lineHeights = Object.entries(typography).filter(([k]) => k.includes('leading'));
+        // Use tokens from CSS computed styles
+        const typography = this.tokens.typography || [];
+
+        if (typography.length === 0) {
+            return `<div class="tm-empty">No typography tokens found.</div>`;
+        }
+
+        const fontFamilies = typography.filter(t => t.name.includes('font-family') || t.name.includes('font-sans') || t.name.includes('font-mono') || t.name.includes('font-serif'));
+        const fontSizes = typography.filter(t => t.name.includes('font-size'));
+        const fontWeights = typography.filter(t => t.name.includes('font-weight'));
+        const lineHeights = typography.filter(t => t.name.includes('line-height'));
 
         return `
             <div class="tm-typography-tab">
+                ${fontFamilies.length > 0 ? `
                 <div class="tm-typo-section">
                     <h4>Font Families</h4>
                     <div class="tm-typo-list">
-                        ${fontFamilies.map(([name, value]) => `
+                        ${fontFamilies.map(token => `
                             <div class="tm-typo-item">
-                                <label>${name}</label>
+                                <label>${token.name}</label>
                                 <input
                                     type="text"
-                                    value="${value}"
-                                    data-token="${name}"
+                                    value="${token.value}"
+                                    data-token="${token.variable}"
                                     class="tm-typo-input"
-                                    ${theme.metadata?.editable ? '' : 'readonly'}
+                                    readonly
                                 />
-                                <div class="tm-typo-preview" style="font-family: ${value}">Aa Bb Cc</div>
+                                <div class="tm-typo-preview" style="font-family: ${token.value}">Aa Bb Cc</div>
                             </div>
                         `).join('')}
                     </div>
                 </div>
+                ` : ''}
 
+                ${fontSizes.length > 0 ? `
                 <div class="tm-typo-section">
                     <h4>Font Sizes</h4>
                     <div class="tm-typo-grid">
-                        ${fontSizes.map(([name, value]) => `
+                        ${fontSizes.map(token => `
                             <div class="tm-typo-size-item">
-                                <label>${name}</label>
+                                <label>${token.name}</label>
                                 <input
                                     type="text"
-                                    value="${value}"
-                                    data-token="${name}"
+                                    value="${token.value}"
+                                    data-token="${token.variable}"
                                     class="tm-typo-input"
-                                    ${theme.metadata?.editable ? '' : 'readonly'}
+                                    readonly
                                 />
-                                <span class="tm-size-preview" style="font-size: ${value}">Aa</span>
+                                <span class="tm-size-preview" style="font-size: ${token.value}">Aa</span>
                             </div>
                         `).join('')}
                     </div>
                 </div>
+                ` : ''}
 
+                ${fontWeights.length > 0 ? `
                 <div class="tm-typo-section">
                     <h4>Font Weights</h4>
                     <div class="tm-typo-grid">
-                        ${fontWeights.map(([name, value]) => `
+                        ${fontWeights.map(token => `
                             <div class="tm-typo-item">
-                                <label>${name}</label>
+                                <label>${token.name}</label>
                                 <input
                                     type="text"
-                                    value="${value}"
-                                    data-token="${name}"
+                                    value="${token.value}"
+                                    data-token="${token.variable}"
                                     class="tm-typo-input"
-                                    ${theme.metadata?.editable ? '' : 'readonly'}
+                                    readonly
                                 />
-                                <span style="font-weight: ${value}">Sample</span>
+                                <span style="font-weight: ${token.value}">Sample</span>
                             </div>
                         `).join('')}
                     </div>
                 </div>
+                ` : ''}
 
+                ${lineHeights.length > 0 ? `
                 <div class="tm-typo-section">
                     <h4>Line Heights</h4>
                     <div class="tm-typo-grid">
-                        ${lineHeights.map(([name, value]) => `
+                        ${lineHeights.map(token => `
                             <div class="tm-typo-item">
-                                <label>${name}</label>
+                                <label>${token.name}</label>
                                 <input
                                     type="text"
-                                    value="${value}"
-                                    data-token="${name}"
+                                    value="${token.value}"
+                                    data-token="${token.variable}"
                                     class="tm-typo-input"
-                                    ${theme.metadata?.editable ? '' : 'readonly'}
+                                    readonly
                                 />
                             </div>
                         `).join('')}
                     </div>
                 </div>
+                ` : ''}
             </div>
         `;
     }
 
     renderSpacingTab(theme) {
-        const spacing = theme.spacing || {};
+        // Use tokens from CSS computed styles
+        const spacing = this.tokens.spacing || [];
+
+        if (spacing.length === 0) {
+            return `<div class="tm-empty">No spacing tokens found.</div>`;
+        }
 
         return `
             <div class="tm-spacing-tab">
                 <div class="tm-spacing-list">
-                    ${Object.entries(spacing).map(([name, value]) => `
+                    ${spacing.map(token => `
                         <div class="tm-spacing-item">
-                            <label>${name}</label>
+                            <label>${token.name}</label>
                             <input
                                 type="text"
-                                value="${value}"
-                                data-token="${name}"
+                                value="${token.value}"
+                                data-token="${token.variable}"
                                 class="tm-spacing-input"
-                                ${theme.metadata?.editable ? '' : 'readonly'}
+                                readonly
                             />
                             <div class="tm-spacing-visual">
-                                <div class="tm-spacing-bar" style="width: ${this.getSpacingWidth(value)}"></div>
+                                <div class="tm-spacing-bar" style="width: ${this.getSpacingWidth(token.value)}"></div>
                             </div>
                         </div>
                     `).join('')}
@@ -384,31 +495,6 @@ export class ThemeManagementPanel extends BasePanel {
     }
 
     // Helper methods
-    groupColors(colors) {
-        const groups = {
-            primary: [],
-            neutral: [],
-            semantic: [],
-            surface: [],
-            text: [],
-            other: []
-        };
-
-        Object.entries(colors).forEach(([name, value]) => {
-            if (name.includes('primary')) groups.primary.push([name, value]);
-            else if (name.includes('neutral')) groups.neutral.push([name, value]);
-            else if (['success', 'warning', 'error', 'info'].includes(name)) groups.semantic.push([name, value]);
-            else if (name.startsWith('bg') || name.startsWith('surface') || name.startsWith('border') || name.startsWith('divider')) groups.surface.push([name, value]);
-            else if (name.startsWith('text')) groups.text.push([name, value]);
-            else groups.other.push([name, value]);
-        });
-
-        // Remove empty groups
-        return Object.fromEntries(
-            Object.entries(groups).filter(([_, values]) => values.length > 0)
-        );
-    }
-
     formatGroupName(name) {
         return name.charAt(0).toUpperCase() + name.slice(1);
     }
@@ -435,8 +521,12 @@ export class ThemeManagementPanel extends BasePanel {
     onMount(container) {
         super.onMount(container);
 
+        // Load tokens from CSS
+        this.loadTokensFromCSS();
+
         this.unsubscribe = themeService.subscribe((theme) => {
             this.currentTheme = theme;
+            this.loadTokensFromCSS(); // Reload tokens when theme changes
             this.updateDisplay();
         });
 
@@ -453,16 +543,16 @@ export class ThemeManagementPanel extends BasePanel {
     }
 
     attachEventListeners() {
-        if (!this.container) return;
+        if (!this.getContainer()) return;
 
         // Theme selector
-        const themeSelect = this.container.querySelector('#theme-select');
+        const themeSelect = this.getContainer().querySelector('#theme-select');
         themeSelect?.addEventListener('change', (e) => {
             this.loadTheme(e.target.value);
         });
 
         // Tab switching
-        this.container.addEventListener('click', (e) => {
+        this.getContainer().addEventListener('click', (e) => {
             const tab = e.target.closest('[data-tab]');
             if (tab) {
                 this.activeTab = tab.dataset.tab;
@@ -471,7 +561,7 @@ export class ThemeManagementPanel extends BasePanel {
         });
 
         // OS Sync toggle
-        const osSyncBtn = this.container.querySelector('#sync-os-btn');
+        const osSyncBtn = this.getContainer().querySelector('#sync-os-btn');
         osSyncBtn?.addEventListener('click', () => {
             const isEnabled = localStorage.getItem('devpages:theme:syncOS') === 'true';
             themeService.setOSThemeSync(!isEnabled);
@@ -479,57 +569,56 @@ export class ThemeManagementPanel extends BasePanel {
         });
 
         // New theme button - toggle form
-        const newThemeBtn = this.container.querySelector('#new-theme-btn');
+        const newThemeBtn = this.getContainer().querySelector('#new-theme-btn');
         newThemeBtn?.addEventListener('click', () => this.toggleNewThemeForm());
 
         // Cancel new theme buttons
-        const cancelNewThemeBtn = this.container.querySelector('#cancel-new-theme-btn');
-        const cancelNewThemeBtn2 = this.container.querySelector('#cancel-new-theme-btn-2');
+        const cancelNewThemeBtn = this.getContainer().querySelector('#cancel-new-theme-btn');
+        const cancelNewThemeBtn2 = this.getContainer().querySelector('#cancel-new-theme-btn-2');
         cancelNewThemeBtn?.addEventListener('click', () => this.toggleNewThemeForm());
         cancelNewThemeBtn2?.addEventListener('click', () => this.toggleNewThemeForm());
 
         // Create theme button
-        const createThemeBtn = this.container.querySelector('#create-theme-btn');
+        const createThemeBtn = this.getContainer().querySelector('#create-theme-btn');
         createThemeBtn?.addEventListener('click', () => this.createNewTheme());
 
         // Theme name input for editable themes
-        const themeNameInput = this.container.querySelector('#theme-name-input');
+        const themeNameInput = this.getContainer().querySelector('#theme-name-input');
         themeNameInput?.addEventListener('change', (e) => this.updateThemeName(e.target.value));
 
         // Apply theme button
-        const applyBtn = this.container.querySelector('#apply-theme-btn');
+        const applyBtn = this.getContainer().querySelector('#apply-theme-btn');
         applyBtn?.addEventListener('click', () => this.applyTheme());
 
         // Save theme button
-        const saveBtn = this.container.querySelector('#save-theme-btn');
+        const saveBtn = this.getContainer().querySelector('#save-theme-btn');
         saveBtn?.addEventListener('click', () => this.saveTheme());
 
         // Delete theme button - show confirmation
-        const deleteBtn = this.container.querySelector('#delete-theme-btn');
+        const deleteBtn = this.getContainer().querySelector('#delete-theme-btn');
         deleteBtn?.addEventListener('click', () => this.toggleDeleteConfirm());
 
         // Confirm delete button
-        const confirmDeleteBtn = this.container.querySelector('#confirm-delete-btn');
+        const confirmDeleteBtn = this.getContainer().querySelector('#confirm-delete-btn');
         confirmDeleteBtn?.addEventListener('click', () => this.deleteTheme());
 
         // Cancel delete button
-        const cancelDeleteBtn = this.container.querySelector('#cancel-delete-btn');
+        const cancelDeleteBtn = this.getContainer().querySelector('#cancel-delete-btn');
         cancelDeleteBtn?.addEventListener('click', () => this.toggleDeleteConfirm());
 
-        // Color inputs (for editable themes)
-        this.container.addEventListener('input', (e) => {
+        // Token inputs - live preview updates CSS variables directly
+        this.getContainer().addEventListener('input', (e) => {
+            const tokenVar = e.target.dataset.token;
+            if (!tokenVar) return;
+
             if (e.target.classList.contains('tm-color-input') ||
                 e.target.classList.contains('tm-color-value')) {
-                this.updateToken('colors', e.target.dataset.token, e.target.value);
-            } else if (e.target.classList.contains('tm-typo-input')) {
-                this.updateToken('typography', e.target.dataset.token, e.target.value);
-            } else if (e.target.classList.contains('tm-spacing-input')) {
-                this.updateToken('spacing', e.target.dataset.token, e.target.value);
+                this.updateToken(tokenVar, e.target.value);
             }
         });
 
         // Export buttons
-        this.container.addEventListener('click', (e) => {
+        this.getContainer().addEventListener('click', (e) => {
             const exportBtn = e.target.closest('[data-format]');
             if (exportBtn) {
                 this.exportTheme(exportBtn.dataset.format);
@@ -544,6 +633,9 @@ export class ThemeManagementPanel extends BasePanel {
     updateDisplay() {
         const container = this.getContainer();
         if (!container) return;
+
+        // Refresh token data from CSS
+        this.loadTokensFromCSS();
 
         container.innerHTML = this.renderContent();
         this.attachEventListeners();
@@ -576,8 +668,8 @@ export class ThemeManagementPanel extends BasePanel {
     }
 
     createNewTheme() {
-        const nameInput = this.container.querySelector('#new-theme-name');
-        const baseSelect = this.container.querySelector('#new-theme-base');
+        const nameInput = this.getContainer().querySelector('#new-theme-name');
+        const baseSelect = this.getContainer().querySelector('#new-theme-base');
 
         const name = nameInput?.value.trim();
         if (!name) {
@@ -632,7 +724,7 @@ export class ThemeManagementPanel extends BasePanel {
         console.log('[ThemeManagementPanel] Saved theme:', theme.id);
 
         // Show success feedback
-        const saveBtn = this.container.querySelector('#save-theme-btn');
+        const saveBtn = this.getContainer().querySelector('#save-theme-btn');
         if (saveBtn) {
             const originalText = saveBtn.innerHTML;
             saveBtn.innerHTML = '<span>✓</span> Saved!';
@@ -660,29 +752,22 @@ export class ThemeManagementPanel extends BasePanel {
         console.log('[ThemeManagementPanel] Deleted theme:', theme.id);
     }
 
-    updateToken(category, tokenName, value) {
-        const theme = themeService.currentTheme;
-        if (!theme || !theme.metadata?.editable) return;
-
-        // Update the theme object
-        if (!theme[category]) theme[category] = {};
-        theme[category][tokenName] = value;
+    updateToken(variableName, value) {
+        // Live preview - update CSS custom property directly
+        document.documentElement.style.setProperty(variableName, value);
 
         // Sync color picker and text input
-        if (category === 'colors') {
-            const container = this.getContainer();
-            const inputs = container.querySelectorAll(`[data-token="${tokenName}"]`);
-            inputs.forEach(input => {
-                if (input.type === 'color') {
-                    input.value = this.normalizeColorForInput(value);
-                } else {
-                    input.value = value;
-                }
-            });
-        }
+        const container = this.getContainer();
+        const inputs = container.querySelectorAll(`[data-token="${variableName}"]`);
+        inputs.forEach(input => {
+            if (input.type === 'color') {
+                input.value = this.normalizeColorForInput(value);
+            } else {
+                input.value = value;
+            }
+        });
 
-        // Live preview - apply the token immediately
-        themeService.updateToken(category, tokenName, value);
+        console.log(`[ThemeManagementPanel] Updated ${variableName}: ${value}`);
     }
 
     exportTheme(format) {
@@ -696,10 +781,10 @@ export class ThemeManagementPanel extends BasePanel {
                 output = this.exportToCSS(theme);
                 break;
             case 'json':
-                output = JSON.stringify(theme, null, 2);
+                output = this.exportToJSON();
                 break;
             case 'js':
-                output = `export const theme = ${JSON.stringify(theme, null, 2)};`;
+                output = `export const theme = ${this.exportToJSON()};`;
                 break;
         }
 
@@ -712,25 +797,53 @@ export class ThemeManagementPanel extends BasePanel {
     }
 
     exportToCSS(theme) {
-        let css = `:root {\n`;
+        // Export all tokens from computed CSS styles
+        let css = `/* ${theme.name} - Exported CSS Variables */\n`;
+        css += `:root {\n`;
 
         // Colors
-        Object.entries(theme.colors || {}).forEach(([name, value]) => {
-            css += `  --color-${name}: ${value};\n`;
+        css += `  /* Colors */\n`;
+        this.tokens.colors.forEach(token => {
+            css += `  ${token.variable}: ${token.value};\n`;
         });
 
         // Typography
-        Object.entries(theme.typography || {}).forEach(([name, value]) => {
-            css += `  --font-${name}: ${value};\n`;
+        css += `\n  /* Typography */\n`;
+        this.tokens.typography.forEach(token => {
+            css += `  ${token.variable}: ${token.value};\n`;
         });
 
         // Spacing
-        Object.entries(theme.spacing || {}).forEach(([name, value]) => {
-            css += `  --spacing-${name}: ${value};\n`;
+        css += `\n  /* Spacing */\n`;
+        this.tokens.spacing.forEach(token => {
+            css += `  ${token.variable}: ${token.value};\n`;
+        });
+
+        // Effects
+        css += `\n  /* Effects */\n`;
+        this.tokens.effects.forEach(token => {
+            css += `  ${token.variable}: ${token.value};\n`;
         });
 
         css += `}\n`;
         return css;
+    }
+
+    exportToJSON() {
+        // Convert tokens to JSON format
+        const jsonExport = {
+            colors: {},
+            typography: {},
+            spacing: {},
+            effects: {}
+        };
+
+        this.tokens.colors.forEach(t => { jsonExport.colors[t.name] = t.value; });
+        this.tokens.typography.forEach(t => { jsonExport.typography[t.name] = t.value; });
+        this.tokens.spacing.forEach(t => { jsonExport.spacing[t.name] = t.value; });
+        this.tokens.effects.forEach(t => { jsonExport.effects[t.name] = t.value; });
+
+        return JSON.stringify(jsonExport, null, 2);
     }
 
     copyExport() {
