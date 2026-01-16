@@ -39,15 +39,19 @@ function statusClass(code) {
 }
 
 function showTab(name) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelector(`[data-tab="${name}"]`).classList.add('active');
+    document.querySelectorAll('.btn[data-tab]').forEach(t => t.classList.remove('active'));
+    const btn = document.querySelector(`[data-tab="${name}"]`);
+    if (btn) btn.classList.add('active');
 
     document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-    document.getElementById(`tab-${name}`).style.display = 'block';
+    const tab = document.getElementById(`tab-${name}`);
+    if (tab) tab.style.display = 'block';
 
     if (name === 'logs') loadLogs();
     if (name === 'errors') loadErrors();
-    if (name === 'info') loadInfo();
+    if (name === 'metadata') loadMetadata();
+    if (name === 'fail2ban') loadFail2Ban();
+    if (name === 'stats') loadStats();
 }
 
 async function loadStatus() {
@@ -211,6 +215,208 @@ async function loadErrors() {
     }
 }
 
+async function loadMetadata() {
+    try {
+        const res = await fetch(apiUrl('metadata'));
+        const data = await res.json();
+
+        // Analysis settings
+        const analysisToggle = document.getElementById('log-analysis-toggle');
+        if (analysisToggle) {
+            analysisToggle.checked = data.analysis?.enabled !== false;
+        }
+
+        els.metadataAnalysis.innerHTML = `
+            <div class="stat-box">
+                <div class="stat-value">${data.analysis?.filterLevel || 'standard'}</div>
+                <div class="stat-label">Filter Level</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value ${data.analysis?.jsonParsing ? 'good' : ''}">${data.analysis?.jsonParsing ? 'Yes' : 'No'}</div>
+                <div class="stat-label">JSON Parsing</div>
+            </div>
+        `;
+
+        // Resource usage
+        const cpuClass = data.resources?.cpuPercent > 50 ? 'warn' : data.resources?.cpuPercent > 80 ? 'bad' : 'good';
+        const memClass = data.resources?.memoryMB > 512 ? 'warn' : data.resources?.memoryMB > 1024 ? 'bad' : 'good';
+
+        els.metadataResources.innerHTML = `
+            <div class="stat-box">
+                <div class="stat-value ${cpuClass}">${data.resources?.cpuPercent?.toFixed(1) || 0}%</div>
+                <div class="stat-label">CPU</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value ${memClass}">${data.resources?.memoryMB || 0} MB</div>
+                <div class="stat-label">Memory</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">${data.resources?.diskUsageMB || 0} MB</div>
+                <div class="stat-label">Log Disk</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">${data.resources?.openFiles || 0}</div>
+                <div class="stat-label">Open Files</div>
+            </div>
+        `;
+
+        // Log files
+        if (data.files && data.files.length > 0) {
+            els.metadataFiles.innerHTML = data.files.map(f => `
+                <div class="file-entry">
+                    <span class="file-name">${f.name}</span>
+                    <span class="file-size">${f.size}</span>
+                    <span class="file-age">${f.age}</span>
+                </div>
+            `).join('');
+        } else {
+            els.metadataFiles.innerHTML = '<div class="empty">(no log files)</div>';
+        }
+    } catch (err) {
+        els.metadataAnalysis.innerHTML = '<div class="error">Failed to load metadata</div>';
+    }
+}
+
+async function loadFail2Ban() {
+    try {
+        const res = await fetch(apiUrl('fail2ban'));
+        const data = await res.json();
+
+        // Status
+        const statusClass = data.active ? 'online' : 'offline';
+        els.f2bStatus.innerHTML = `
+            <div class="status-item">
+                <div class="status-dot ${statusClass}"></div>
+                <span class="status-value ${statusClass}">${data.status}</span>
+            </div>
+            ${data.jails?.length ? `<div class="status-item"><span class="status-label">jails:</span><span class="status-value">${data.jails.join(', ')}</span></div>` : ''}
+            ${data.message ? `<div class="status-item"><span class="status-value">${data.message}</span></div>` : ''}
+        `;
+
+        // Banned count badge
+        const badge = document.getElementById('f2b-count');
+        if (badge) {
+            badge.textContent = data.totalBanned || 0;
+            badge.className = data.totalBanned > 0 ? 'badge' : 'badge zero';
+        }
+
+        // Banned IPs
+        if (data.banned && data.banned.length > 0) {
+            els.f2bBanned.innerHTML = data.banned.map(b => `
+                <div class="ban-entry">
+                    <span class="ban-ip">${b.ip}</span>
+                    <span class="ban-jail">${b.jail}</span>
+                </div>
+            `).join('');
+        } else {
+            els.f2bBanned.innerHTML = '<div class="empty">(no banned IPs)</div>';
+        }
+
+        // Recent activity
+        if (data.recent && data.recent.length > 0) {
+            els.f2bRecent.innerHTML = data.recent.map(r => {
+                if (r.raw) return `<div class="activity-entry"><span>${r.raw}</span></div>`;
+                return `
+                    <div class="activity-entry">
+                        <span class="log-time">${r.time}</span>
+                        <span class="activity-action ${r.action}">${r.action}</span>
+                        <span class="ban-ip">${r.ip}</span>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            els.f2bRecent.innerHTML = '<div class="empty">(no recent activity)</div>';
+        }
+    } catch (err) {
+        els.f2bStatus.innerHTML = '<div class="error">Failed to load fail2ban</div>';
+    }
+}
+
+async function loadStats() {
+    try {
+        const res = await fetch(apiUrl('stats'));
+        const data = await res.json();
+
+        if (data.message) {
+            els.statsSummary.innerHTML = `<div class="message">${data.message}</div>`;
+            return;
+        }
+
+        // Summary stats
+        const errorRate = data.summary.totalRequests > 0
+            ? ((data.summary.errorCount / data.summary.totalRequests) * 100).toFixed(1)
+            : 0;
+        const errorClass = errorRate > 5 ? 'bad' : errorRate > 1 ? 'warn' : 'good';
+
+        els.statsSummary.innerHTML = `
+            <div class="stat-box">
+                <div class="stat-value">${formatNumber(data.summary.totalRequests)}</div>
+                <div class="stat-label">Total Requests</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value ${errorClass}">${data.summary.errorCount}</div>
+                <div class="stat-label">Errors (${errorRate}%)</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">${data.summary.avgDuration}s</div>
+                <div class="stat-label">Avg Duration</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">${data.summary.uniqueIPs}</div>
+                <div class="stat-label">Unique IPs</div>
+            </div>
+        `;
+
+        // Top IPs
+        if (data.topIPs && data.topIPs.length > 0) {
+            els.statsIPs.innerHTML = data.topIPs.map(item => `
+                <div class="top-item">
+                    <span class="top-count">${item.count}</span>
+                    <span class="top-value">${item.ip}</span>
+                    <div class="top-bar"><div class="top-bar-fill" style="width: ${item.percent}%"></div></div>
+                </div>
+            `).join('');
+        } else {
+            els.statsIPs.innerHTML = '<div class="empty">(no data)</div>';
+        }
+
+        // Top paths
+        if (data.topPaths && data.topPaths.length > 0) {
+            els.statsPaths.innerHTML = data.topPaths.map(item => `
+                <div class="top-item">
+                    <span class="top-count">${item.count}</span>
+                    <span class="top-value" title="${item.path}">${item.path}</span>
+                    <div class="top-bar"><div class="top-bar-fill" style="width: ${item.percent}%"></div></div>
+                </div>
+            `).join('');
+        } else {
+            els.statsPaths.innerHTML = '<div class="empty">(no data)</div>';
+        }
+
+        // Status codes
+        if (data.statusCodes && data.statusCodes.length > 0) {
+            els.statsCodes.innerHTML = data.statusCodes.map(item => `
+                <div class="top-item">
+                    <span class="top-count">${item.count}</span>
+                    <span class="log-status ${statusClass(parseInt(item.code))}">${item.code}</span>
+                    <span class="top-value">${item.percent}%</span>
+                    <div class="top-bar"><div class="top-bar-fill" style="width: ${item.percent}%"></div></div>
+                </div>
+            `).join('');
+        } else {
+            els.statsCodes.innerHTML = '<div class="empty">(no data)</div>';
+        }
+    } catch (err) {
+        els.statsSummary.innerHTML = '<div class="error">Failed to load stats</div>';
+    }
+}
+
+function formatNumber(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+    return n.toString();
+}
+
 function loadAll() {
     loadStatus();
     loadRoutes();
@@ -230,7 +436,19 @@ function init() {
         routes: document.getElementById('routes'),
         logs: document.getElementById('logs'),
         errors: document.getElementById('errors'),
-        info: document.getElementById('info')
+        // Metadata tab
+        metadataAnalysis: document.getElementById('metadata-analysis'),
+        metadataResources: document.getElementById('metadata-resources'),
+        metadataFiles: document.getElementById('metadata-files'),
+        // Fail2ban tab
+        f2bStatus: document.getElementById('f2b-status'),
+        f2bBanned: document.getElementById('f2b-banned'),
+        f2bRecent: document.getElementById('f2b-recent'),
+        // Stats tab
+        statsSummary: document.getElementById('stats-summary'),
+        statsIPs: document.getElementById('stats-ips'),
+        statsPaths: document.getElementById('stats-paths'),
+        statsCodes: document.getElementById('stats-codes')
     };
 
     // Register actions

@@ -57,6 +57,20 @@ body {
 }
 
 /* Common utilities */
+.hidden {
+    display: none;
+}
+
+/* Icons - semantic classes for common UI icons */
+.icon::before {
+    font-style: normal;
+}
+.icon-gear::before    { content: "\2699"; }   /* ⚙ settings/options */
+.icon-refresh::before { content: "\21BB"; }   /* ↻ refresh/reload */
+.icon-close::before   { content: "\00D7"; }   /* × close/dismiss */
+.icon-plus::before    { content: "+"; }       /* + add/new */
+.icon-copy::before    { content: "\2398"; }   /* ⎘ copy */
+
 .empty {
     color: var(--ink-muted);
     padding: 20px;
@@ -146,7 +160,59 @@ body {
     padding: 4px 8px;
 }
 
-/* Tabs */
+/* Pill toggle buttons */
+.pill-group {
+    display: flex;
+}
+
+.pill {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--ink-muted);
+    padding: 4px 10px;
+    font-family: inherit;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.pill:first-child {
+    border-radius: 3px 0 0 3px;
+}
+
+.pill:last-child {
+    border-radius: 0 3px 3px 0;
+}
+
+.pill:not(:first-child) {
+    border-left: none;
+}
+
+.pill:hover {
+    color: var(--ink);
+    border-color: var(--four);
+}
+
+.pill:hover + .pill {
+    border-left-color: var(--four);
+}
+
+.pill.active {
+    background: var(--four);
+    border-color: var(--four);
+    color: var(--ink);
+}
+
+.pill.active + .pill {
+    border-left-color: var(--four);
+}
+
+/* Standalone pill */
+.pill:only-child {
+    border-radius: 3px;
+}
+
+/* Tabs - Base (underline style) */
 .tabs {
     display: flex;
     border-bottom: 1px solid var(--border);
@@ -164,6 +230,36 @@ body {
 .tab.active {
     color: var(--ink);
     border-bottom-color: var(--four);
+}
+
+/* Tabs - Equal width variant */
+.tabs--equal .tab {
+    flex: 1;
+    text-align: center;
+}
+
+/* Tabs - Pill/button variant */
+.tabs--pill {
+    gap: 4px;
+    border-bottom: none;
+}
+
+.tabs--pill .tab {
+    padding: 6px 12px;
+    background: var(--paper-mid);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    border-bottom: none;
+}
+
+.tabs--pill .tab:hover {
+    background: var(--paper-light);
+}
+
+.tabs--pill .tab.active {
+    background: var(--four);
+    color: var(--ink);
+    border-color: var(--four);
 }
 
 /* Sidebar pattern */

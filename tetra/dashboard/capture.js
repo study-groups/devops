@@ -91,18 +91,22 @@
     // Get selected capture types from pill buttons
     function getSelectedCaptures() {
         const pills = captureTypesEl.querySelectorAll('.pill.active');
-        return Array.from(pills).map(p => p.dataset.type);
+        return Array.from(pills).map(p => p.dataset.target);
     }
 
     // Set capture type pills
     function setSelectedCaptures(types) {
         captureTypesEl.querySelectorAll('.pill').forEach(pill => {
-            pill.classList.toggle('active', types.includes(pill.dataset.type));
+            pill.classList.toggle('active', types.includes(pill.dataset.target));
         });
     }
 
     // Initialize
     async function init() {
+        // Set URL input from data-default attribute
+        if (urlInput.dataset.default) {
+            urlInput.value = urlInput.dataset.default;
+        }
         await Promise.all([loadCaptures(), loadSessions(), loadJourneys()]);
         renderApiDocs();
         attachEventListeners();
@@ -131,7 +135,7 @@
 
         // Auth type toggle
         document.getElementById('session-auth-type').addEventListener('change', (e) => {
-            document.getElementById('jwt-fields').style.display = e.target.value === 'jwt' ? 'block' : 'none';
+            document.getElementById('jwt-fields').classList.toggle('hidden', e.target.value !== 'jwt');
         });
 
         // Collapsible sections
@@ -139,13 +143,8 @@
             header.addEventListener('click', () => {
                 const target = document.getElementById(header.dataset.target);
                 const icon = header.querySelector('.toggle-icon');
-                if (target.style.display === 'none') {
-                    target.style.display = 'block';
-                    icon.textContent = '-';
-                } else {
-                    target.style.display = 'none';
-                    icon.textContent = '+';
-                }
+                const isHidden = target.classList.toggle('hidden');
+                icon.textContent = isHidden ? '+' : '-';
             });
         });
 
@@ -220,7 +219,7 @@
 
         stepAction.addEventListener('change', () => {
             const action = stepAction.value;
-            stepParam2.style.display = action === 'fill' ? 'inline-block' : 'none';
+            stepParam2.classList.toggle('hidden', action !== 'fill');
             updateSelectorUI(action);
         });
 
@@ -235,12 +234,11 @@
         setupTabs('.sidebar-lists > .tabs', { panelSelector: '.list-panel' });
 
         // Details tabs
-        setupTabs('.details-panel > .tabs', { dataAttr: 'tab', onSwitch: showDetails });
+        setupTabs('.details-panel > .tabs', { onSwitch: showDetails });
 
         // Preview tabs
         setupTabs('.preview-header .tabs', {
             panelSelector: '.preview-pane',
-            dataAttr: 'preview',
             onSwitch: (value) => {
                 activePreviewTab = value;
                 if (value === 'dom') loadDomContent();
@@ -443,11 +441,11 @@
         const hasSelectors = extractedSelectors.clickable.length > 0 || extractedSelectors.fillable.length > 0;
 
         if (needsSelector && hasSelectors) {
-            selectorDropdown.style.display = 'inline-block';
+            selectorDropdown.classList.remove('hidden');
             stepParam1.style.flex = '1';
             populateSelectorDropdown(action);
         } else {
-            selectorDropdown.style.display = 'none';
+            selectorDropdown.classList.add('hidden');
         }
 
         stepParam1.placeholder = getPlaceholder(action);
@@ -498,7 +496,7 @@
 
                 renderSelectorsPanel();
                 updateSelectorUI(stepAction.value);
-                selectorsPanel.style.display = 'block';
+                selectorsPanel.classList.remove('hidden');
             } else {
                 selectorsStatus.textContent = 'no elements';
                 selectorsStatus.className = 'selectors-status';
@@ -541,7 +539,7 @@
                 stepAction.value = type;
                 stepParam1.value = selector;
                 updateSelectorUI(type);
-                if (type === 'fill') stepParam2.style.display = 'inline-block';
+                if (type === 'fill') stepParam2.classList.remove('hidden');
             });
         });
 
@@ -643,7 +641,7 @@
             currentNavigateUrl = null;
             extractedSelectors = { clickable: [], fillable: [] };
             updateSelectorUI(stepAction.value);
-            selectorsPanel.style.display = 'none';
+            selectorsPanel.classList.add('hidden');
             setStatus('Journey cleared', 'success');
             btn.classList.remove('confirm');
             btn.textContent = 'Clear';
@@ -1393,7 +1391,7 @@ POST /api/capture
             activeSessionData = await res.json();
 
             // Show session info bar
-            sessionInfoEl.style.display = 'flex';
+            sessionInfoEl.classList.remove('hidden');
             sessionInfoUrl.textContent = activeSessionData.baseUrl || '(no base URL)';
 
             // Build variables display
@@ -1431,7 +1429,7 @@ POST /api/capture
     }
 
     function clearSessionInfo() {
-        sessionInfoEl.style.display = 'none';
+        sessionInfoEl.classList.add('hidden');
         sessionInfoUrl.textContent = '';
         sessionInfoVars.innerHTML = '';
         activeSessionData = null;
@@ -1457,7 +1455,7 @@ POST /api/capture
         document.getElementById('session-jwt').value = '';
         document.getElementById('session-jwt-header').value = 'Authorization';
         document.getElementById('session-jwt-prefix').value = 'Bearer ';
-        document.getElementById('jwt-fields').style.display = 'none';
+        document.getElementById('jwt-fields').classList.add('hidden');
 
         // Clear variables
         const varsTable = document.getElementById('session-variables');
@@ -1488,7 +1486,7 @@ POST /api/capture
             if (session.auth) {
                 document.getElementById('session-auth-type').value = session.auth.type || '';
                 if (session.auth.type === 'jwt') {
-                    document.getElementById('jwt-fields').style.display = 'block';
+                    document.getElementById('jwt-fields').classList.remove('hidden');
                     document.getElementById('session-jwt').value = session.auth.jwt || '';
                     document.getElementById('session-jwt-header').value = session.auth.jwtHeader || 'Authorization';
                     document.getElementById('session-jwt-prefix').value = session.auth.jwtPrefix || 'Bearer ';

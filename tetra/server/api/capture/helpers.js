@@ -28,6 +28,154 @@ function getJourneyPath(org, name) {
     return path.join(getJourneysDir(org), `${name}.json`);
 }
 
+function getSessionPath(org, name) {
+    return path.join(getSessionDir(org, name), 'session.json');
+}
+
+function getSessionStatePath(org, name) {
+    return path.join(getSessionDir(org, name), 'state.json');
+}
+
+/**
+ * Load a session with all its data (session.json + state.json)
+ * Falls back to legacy meta.json if session.json doesn't exist
+ */
+function loadSession(org, name) {
+    const sessionDir = getSessionDir(org, name);
+    const sessionPath = path.join(sessionDir, 'session.json');
+    const legacyMetaPath = path.join(sessionDir, 'meta.json');
+    const statePath = path.join(sessionDir, 'state.json');
+
+    let session = null;
+
+    // Try new format first
+    if (fs.existsSync(sessionPath)) {
+        session = JSON.parse(fs.readFileSync(sessionPath, 'utf-8'));
+    } else if (fs.existsSync(legacyMetaPath)) {
+        // Fall back to legacy format, convert on read
+        const meta = JSON.parse(fs.readFileSync(legacyMetaPath, 'utf-8'));
+        session = {
+            name: meta.name || name,
+            description: '',
+            baseUrl: meta.targetUrl || '',
+            credentials: {},
+            variables: {},
+            auth: {},
+            source: 'legacy',
+            created: meta.created,
+            lastUsed: meta.lastUsed
+        };
+    }
+
+    if (!session) return null;
+
+    // Attach browser state if exists
+    if (fs.existsSync(statePath)) {
+        session.hasState = true;
+    }
+
+    return session;
+}
+
+/**
+ * Save a session (writes session.json, optionally state.json)
+ */
+function saveSession(org, name, sessionData, browserState = null) {
+    const sessionDir = getSessionDir(org, name);
+    ensureDir(sessionDir);
+
+    const now = new Date().toISOString();
+    const sessionPath = path.join(sessionDir, 'session.json');
+    const statePath = path.join(sessionDir, 'state.json');
+
+    // Check if updating existing
+    const isNew = !fs.existsSync(sessionPath);
+    let existingSession = null;
+    if (!isNew) {
+        try {
+            existingSession = JSON.parse(fs.readFileSync(sessionPath, 'utf-8'));
+        } catch {}
+    }
+
+    const session = {
+        name,
+        description: sessionData.description || '',
+        baseUrl: sessionData.baseUrl || '',
+        credentials: sessionData.credentials || {},
+        variables: sessionData.variables || {},
+        auth: sessionData.auth || {},
+        source: sessionData.source || 'manual',
+        created: existingSession?.created || now,
+        lastUsed: now
+    };
+
+    fs.writeFileSync(sessionPath, JSON.stringify(session, null, 2));
+
+    // Write browser state if provided
+    if (browserState) {
+        fs.writeFileSync(statePath, JSON.stringify(browserState, null, 2));
+    }
+
+    // Also write legacy meta.json for backward compatibility with existing code
+    const legacyMeta = {
+        name,
+        targetUrl: session.baseUrl,
+        created: session.created,
+        lastUsed: session.lastUsed
+    };
+    fs.writeFileSync(path.join(sessionDir, 'meta.json'), JSON.stringify(legacyMeta, null, 2));
+
+    return { session, isNew };
+}
+
+/**
+ * Get all variables for a session (credentials + variables + auth)
+ * Used for variable interpolation in journeys
+ */
+function getSessionVariables(session) {
+    const vars = { ...session.variables };
+
+    // Add credentials as variables
+    if (session.credentials) {
+        if (session.credentials.username) vars.username = session.credentials.username;
+        if (session.credentials.password) vars.password = session.credentials.password;
+    }
+
+    // Add baseUrl
+    if (session.baseUrl) vars.baseUrl = session.baseUrl;
+
+    // Add JWT if present
+    if (session.auth?.jwt) vars.jwt = session.auth.jwt;
+
+    return vars;
+}
+
+/**
+ * Interpolate {{variables}} in a string
+ */
+function interpolate(str, vars) {
+    if (typeof str !== 'string') return str;
+    return str.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+        return vars.hasOwnProperty(key) ? vars[key] : match;
+    });
+}
+
+/**
+ * Interpolate variables in steps array
+ */
+function interpolateSteps(steps, vars) {
+    return steps.map(step => {
+        const newStep = { ...step };
+        // Interpolate common string fields
+        if (newStep.url) newStep.url = interpolate(newStep.url, vars);
+        if (newStep.value) newStep.value = interpolate(newStep.value, vars);
+        if (newStep.selector) newStep.selector = interpolate(newStep.selector, vars);
+        if (newStep.script) newStep.script = interpolate(newStep.script, vars);
+        if (newStep.name) newStep.name = interpolate(newStep.name, vars);  // for saveSession
+        return newStep;
+    });
+}
+
 function generateId() {
     const now = new Date();
     const date = now.toISOString().replace(/[-:]/g, '').split('.')[0];
@@ -109,9 +257,16 @@ module.exports = {
     getCaptureDir,
     getSessionDir,
     getSessionsDir,
+    getSessionPath,
+    getSessionStatePath,
     getJourneysDir,
     getJourneyPath,
     generateId,
     ensureDir,
-    runPlaywrightScript
+    runPlaywrightScript,
+    loadSession,
+    saveSession,
+    getSessionVariables,
+    interpolate,
+    interpolateSteps
 };

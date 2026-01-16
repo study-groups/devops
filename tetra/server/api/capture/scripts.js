@@ -21,28 +21,51 @@ function buildCaptureScript(options) {
         id,
         session,
         sessionsDir,
-        viewport
+        viewport,
+        sessionData  // Full session object with auth info
     } = options;
 
     const manifestPath = path.join(outputDir, 'manifest.json');
-    const sessionStatePath = session
+
+    // Only use state.json if session has browser state
+    const sessionStatePath = (session && sessionData?.hasState)
         ? path.join(sessionsDir, session, 'state.json')
         : null;
 
-    // Build context options with optional viewport and session
-    const viewportCode = viewport
-        ? `{ width: ${viewport.width}, height: ${viewport.height} }`
-        : null;
+    // Build context options with optional viewport, session, and auth headers
+    const contextOptions = {};
 
+    if (sessionStatePath) {
+        contextOptions.storageState = `__STORAGE_STATE__`;
+    }
+
+    if (viewport) {
+        contextOptions.viewport = viewport;
+    }
+
+    // Add JWT auth header if configured
+    if (sessionData?.auth?.jwt) {
+        const header = sessionData.auth.jwtHeader || 'Authorization';
+        const prefix = sessionData.auth.jwtPrefix || 'Bearer ';
+        contextOptions.extraHTTPHeaders = {
+            [header]: prefix + sessionData.auth.jwt
+        };
+    }
+
+    // Build the context options code
     let contextOptionsCode;
-    if (sessionStatePath && viewportCode) {
-        contextOptionsCode = `{ storageState: JSON.parse(fs.readFileSync(${JSON.stringify(sessionStatePath)}, 'utf-8')), viewport: ${viewportCode} }`;
-    } else if (sessionStatePath) {
-        contextOptionsCode = `{ storageState: JSON.parse(fs.readFileSync(${JSON.stringify(sessionStatePath)}, 'utf-8')) }`;
-    } else if (viewportCode) {
-        contextOptionsCode = `{ viewport: ${viewportCode} }`;
+    if (Object.keys(contextOptions).length === 0) {
+        contextOptionsCode = '{}';
     } else {
-        contextOptionsCode = `{}`;
+        // Convert to string, but handle the storageState placeholder specially
+        let optionsStr = JSON.stringify(contextOptions, null, 2);
+        if (sessionStatePath) {
+            optionsStr = optionsStr.replace(
+                '"__STORAGE_STATE__"',
+                `JSON.parse(fs.readFileSync(${JSON.stringify(sessionStatePath)}, 'utf-8'))`
+            );
+        }
+        contextOptionsCode = optionsStr;
     }
 
     return `

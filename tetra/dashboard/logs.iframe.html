@@ -24,14 +24,6 @@
             flex: 1;
             justify-content: center;
         }
-        .filters {
-            display: flex;
-            gap: 4px;
-        }
-        .time-btn.active {
-            border-color: var(--three);
-            color: var(--three);
-        }
         .tsm-sources {
             display: flex;
             flex-wrap: wrap;
@@ -130,23 +122,26 @@
         </div>
         <div class="controls">
             <input type="text" class="search-box" id="search-input" placeholder="Search...">
-            <button class="btn time-btn" data-action="time-filter" data-time="now">⏱ Now</button>
-            <button class="btn time-btn" data-action="time-filter" data-time="5m">5m</button>
-            <button class="btn time-btn" data-action="time-filter" data-time="1h">1h</button>
-            <div class="filters">
-                <button class="btn active" data-action="filter" data-filter="all">All</button>
-                <button class="btn" data-action="filter" data-filter="deploy">Deploy</button>
-                <button class="btn" data-action="filter" data-filter="server">Server</button>
-                <button class="btn" data-action="filter" data-filter="msg">Msg</button>
+            <div class="pill-group time-filters">
+                <button class="pill" data-action="time-filter" data-time="now">Now</button>
+                <button class="pill" data-action="time-filter" data-time="5m">5m</button>
+                <button class="pill" data-action="time-filter" data-time="1h">1h</button>
+            </div>
+            <div class="pill-group filters">
+                <button class="pill active" data-action="filter" data-filter="all">All</button>
+                <button class="pill" data-action="filter" data-filter="deploy">Deploy</button>
+                <button class="pill" data-action="filter" data-filter="server">Server</button>
+                <button class="pill" data-action="filter" data-filter="msg">Msg</button>
             </div>
             <div class="tsm-sources" id="tsm-sources"></div>
         </div>
-        <span class="refresh" data-action="refresh">&#8635;</span>
+        <span class="refresh icon-refresh" data-action="refresh"></span>
     </div>
     <div id="logs">
         <div class="empty">Connecting...</div>
     </div>
 
+    <script src="ui-helpers.js"></script>
     <script src="/js/terrain-iframe.js"></script>
     <script src="/js/logs.js"></script>
 </body>

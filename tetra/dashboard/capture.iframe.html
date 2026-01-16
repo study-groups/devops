@@ -10,9 +10,9 @@
 <body>
     <div class="header">
         <div class="header-main">
-            <input type="text" id="url-input" placeholder="https://example.com" value="http://localhost:8080">
-            <button id="capture-btn">Capture</button>
-            <button id="options-toggle" class="btn-icon" title="Options">&#9881;</button>
+            <input type="text" id="url-input" placeholder="https://example.com" data-default="http://localhost:8080">
+            <button type="button" id="capture-btn">Capture</button>
+            <button type="button" id="options-toggle" class="btn-icon icon-gear" title="Options"></button>
         </div>
         <div class="header-options" id="header-options">
             <div class="option-group">
@@ -30,18 +30,31 @@
                     <input type="number" id="viewport-height" placeholder="H" min="200" max="2160" title="Viewport height (200-2160)">
                 </div>
                 <div class="pill-group" id="capture-types">
-                    <button type="button" class="pill active" data-type="screenshot">img</button>
-                    <button type="button" class="pill" data-type="dom">dom</button>
-                    <button type="button" class="pill active" data-type="text">txt</button>
-                    <button type="button" class="pill" data-type="structure">struct</button>
-                    <button type="button" class="pill" data-type="interactions">interact</button>
+                    <button type="button" class="pill active" data-target="screenshot">img</button>
+                    <button type="button" class="pill" data-target="dom">dom</button>
+                    <button type="button" class="pill active" data-target="text">txt</button>
+                    <button type="button" class="pill" data-target="structure">struct</button>
+                    <button type="button" class="pill" data-target="interactions">interact</button>
                 </div>
             </div>
             <div class="option-group">
+                <label class="inline-label">Session:</label>
                 <select id="session-select">
-                    <option value="">(no session)</option>
+                    <option value="">(none)</option>
+                </select>
+                <button type="button" class="btn-small" id="new-session-btn" title="New Session">+</button>
+                <button type="button" class="btn-small" id="import-session-btn" title="Import from Browser">Import</button>
+                <span class="option-sep">|</span>
+                <label class="inline-label">Journey:</label>
+                <select id="journey-select">
+                    <option value="">(none)</option>
                 </select>
                 <button type="button" class="pill" id="steps-mode">Steps</button>
+            </div>
+            <div class="session-info hidden" id="session-info">
+                <span class="session-info-label">Active:</span>
+                <span class="session-info-url" id="session-info-url"></span>
+                <span class="session-info-vars" id="session-info-vars"></span>
             </div>
         </div>
     </div>
@@ -51,14 +64,14 @@
             <div class="preview">
                 <div class="preview-header">
                     <div class="tabs tabs--pill">
-                        <div class="tab active" data-preview="screenshot">Screenshot</div>
-                        <div class="tab" data-preview="dom">DOM</div>
-                        <div class="tab" data-preview="text">Text</div>
-                        <div class="tab" data-preview="meta">Meta</div>
+                        <div class="tab active" data-target="screenshot">Screenshot</div>
+                        <div class="tab" data-target="dom">DOM</div>
+                        <div class="tab" data-target="text">Text</div>
+                        <div class="tab" data-target="meta">Meta</div>
                     </div>
                     <div class="preview-actions">
                         <span id="capture-id"></span>
-                        <button id="copy-preview" class="btn" title="Copy content">Copy</button>
+                        <button type="button" id="copy-preview" class="btn" title="Copy content">Copy</button>
                     </div>
                 </div>
                 <div class="preview-content">
@@ -87,8 +100,8 @@
                     <h3>Steps <span id="selectors-status" class="selectors-status"></span></h3>
                     <div class="journey-actions">
                         <input type="text" id="journey-name" class="journey-name-input" placeholder="draft name">
-                        <button id="save-journey-btn" class="btn-small">Save</button>
-                        <button id="clear-journey-btn" class="btn-small">Clear</button>
+                        <button type="button" id="save-journey-btn" class="btn-small">Save</button>
+                        <button type="button" id="clear-journey-btn" class="btn-small">Clear</button>
                     </div>
                 </div>
                 <div class="step-list" id="step-list"></div>
@@ -104,16 +117,16 @@
                         <option value="setViewport">Set Viewport</option>
                     </select>
                     <input type="text" id="step-param1" placeholder="URL / Selector / Session name">
-                    <select id="selector-dropdown" style="display: none;">
+                    <select id="selector-dropdown" class="hidden">
                         <option value="">-- Pick selector --</option>
                     </select>
-                    <input type="text" id="step-param2" placeholder="Value (for fill)" style="display: none;">
-                    <button id="add-step-btn">+ Add</button>
+                    <input type="text" id="step-param2" placeholder="Value (for fill)" class="hidden">
+                    <button type="button" id="add-step-btn">+ Add</button>
                 </div>
-                <div class="selectors-panel" id="selectors-panel" style="display: none;">
+                <div class="selectors-panel hidden" id="selectors-panel">
                     <div class="selectors-header">
                         <span>Discovered Elements</span>
-                        <button id="refresh-selectors" title="Re-extract">&#x21bb;</button>
+                        <button type="button" id="refresh-selectors" class="icon-refresh" title="Re-extract"></button>
                     </div>
                     <div class="selectors-grid">
                         <div class="selector-group">
@@ -134,15 +147,15 @@
         <div class="sidebar">
             <div class="sidebar-lists">
                 <div class="tabs tabs--equal">
-                    <div class="tab active" data-panel="captures">Captures</div>
-                    <div class="tab" data-panel="sessions">Sessions</div>
-                    <div class="tab" data-panel="api">API</div>
+                    <div class="tab active" data-target="captures">Captures</div>
+                    <div class="tab" data-target="sessions">Sessions</div>
+                    <div class="tab" data-target="api">API</div>
                 </div>
 
                 <div class="list-panel active" id="captures-panel">
                     <div class="sidebar-header">
                         <span>Recent Captures</span>
-                        <button id="refresh-list" title="Refresh">&#x21bb;</button>
+                        <button type="button" id="refresh-list" class="icon-refresh" title="Refresh"></button>
                     </div>
                     <div class="captures-list" id="captures-list"></div>
                 </div>
@@ -150,7 +163,7 @@
                 <div class="list-panel" id="sessions-panel">
                     <div class="sidebar-header">
                         <span>Saved Sessions</span>
-                        <button id="refresh-sessions" title="Refresh">&#x21bb;</button>
+                        <button type="button" id="refresh-sessions" class="icon-refresh" title="Refresh"></button>
                     </div>
                     <div class="sessions-list" id="sessions-list"></div>
                 </div>
@@ -158,7 +171,7 @@
                 <div class="list-panel" id="api-panel">
                     <div class="sidebar-header">
                         <span>Capture API</span>
-                        <button id="copy-api-docs" title="Copy all">Copy</button>
+                        <button type="button" id="copy-api-docs" title="Copy all">Copy</button>
                     </div>
                     <div class="api-docs" id="api-docs"></div>
                 </div>
@@ -168,13 +181,13 @@
 
             <div class="details-panel">
                 <div class="tabs">
-                    <div class="tab active" data-tab="text">Text</div>
-                    <div class="tab" data-tab="structure">Structure</div>
-                    <div class="tab" data-tab="meta">Meta</div>
+                    <div class="tab active" data-target="text">Text</div>
+                    <div class="tab" data-target="structure">Structure</div>
+                    <div class="tab" data-target="meta">Meta</div>
                 </div>
                 <div class="details-header">
                     <span id="details-title">Content</span>
-                    <button id="copy-content" title="Copy">Copy</button>
+                    <button type="button" id="copy-content" title="Copy">Copy</button>
                 </div>
                 <div class="details-content" id="details-content">
                     Select a capture to view details
@@ -184,6 +197,130 @@
     </div>
 
     <div class="status" id="status">Ready</div>
+
+    <!-- Session Editor Modal -->
+    <div class="modal" id="session-editor-modal">
+        <div class="modal-content session-editor">
+            <div class="modal-header">
+                <h3 id="session-editor-title">New Session</h3>
+                <button type="button" class="btn-close icon-close" id="close-session-editor"></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="session-name" placeholder="my-session">
+                </div>
+                <div class="form-group">
+                    <label>Base URL</label>
+                    <input type="text" id="session-base-url" placeholder="https://app.example.com">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="session-description" placeholder="Optional description">
+                </div>
+
+                <div class="form-section">
+                    <h4>Credentials</h4>
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label>Username</label>
+                            <input type="text" id="session-username" placeholder="user@example.com">
+                        </div>
+                        <div class="form-group half">
+                            <label>Password</label>
+                            <input type="password" id="session-password" placeholder="password">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4>Variables</h4>
+                    <div class="variables-table" id="session-variables">
+                        <div class="var-row var-header">
+                            <span>Key</span>
+                            <span>Value</span>
+                            <span></span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-small" id="add-variable-btn">+ Add Variable</button>
+                </div>
+
+                <div class="form-section collapsible">
+                    <h4 class="collapsible-header" data-target="auth-section">Authentication <span class="toggle-icon">+</span></h4>
+                    <div class="collapsible-content hidden" id="auth-section">
+                        <div class="form-group">
+                            <label>Type</label>
+                            <select id="session-auth-type">
+                                <option value="">(none)</option>
+                                <option value="jwt">JWT</option>
+                                <option value="basic">Basic Auth</option>
+                                <option value="custom">Custom Header</option>
+                            </select>
+                        </div>
+                        <div class="form-group hidden" id="jwt-fields">
+                            <label>JWT Token</label>
+                            <textarea id="session-jwt" rows="2" placeholder="eyJhbGciOiJIUzI1NiIs..."></textarea>
+                            <div class="form-row">
+                                <div class="form-group half">
+                                    <label>Header</label>
+                                    <input type="text" id="session-jwt-header" value="Authorization">
+                                </div>
+                                <div class="form-group half">
+                                    <label>Prefix</label>
+                                    <input type="text" id="session-jwt-prefix" value="Bearer ">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn" id="save-session-btn">Save Session</button>
+                <button type="button" class="btn btn-secondary" id="cancel-session-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Session Modal -->
+    <div class="modal" id="import-modal">
+        <div class="modal-content import-editor">
+            <div class="modal-header">
+                <h3>Import Session from Browser</h3>
+                <button type="button" class="btn-close icon-close" id="close-import-modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="import-instructions">
+                    <p>1. Open Chrome DevTools Console on the logged-in site</p>
+                    <p>2. Paste this script and press Enter:</p>
+                    <pre class="import-script" id="import-script">copy(JSON.stringify({
+  _tetraSession: true,
+  url: location.href,
+  origin: location.origin,
+  cookies: document.cookie.split(';').map(c => {
+    const [n,...v] = c.trim().split('=');
+    return {name: n, value: v.join('=')};
+  }).filter(c => c.name),
+  localStorage: Object.keys(localStorage).map(k => ({name: k, value: localStorage[k]})),
+  jwt: localStorage.getItem('token') || localStorage.getItem('accessToken') ||
+       localStorage.getItem('jwt') || null
+}, null, 2));</pre>
+                    <button type="button" class="btn-small" id="copy-import-script">Copy Script</button>
+                </div>
+                <div class="form-group">
+                    <label>3. Paste the result here:</label>
+                    <textarea id="import-data" rows="6" placeholder='{"_tetraSession": true, ...}'></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Session Name</label>
+                    <input type="text" id="import-session-name" placeholder="imported-session">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn" id="do-import-btn">Import</button>
+                <button type="button" class="btn btn-secondary" id="cancel-import-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
 
     <script src="ui-helpers.js"></script>
     <script src="capture.js"></script>
