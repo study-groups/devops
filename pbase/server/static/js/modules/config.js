@@ -33,7 +33,9 @@ function renderConfig() {
     renderSection('config-paths', {
         'PD_DIR': configData.paths.PD_DIR,
         'PD_DATA': configData.paths.PD_DATA,
-        'GAMES_DIR': configData.paths.GAMES_DIR,
+        'TETRA_DIR': configData.workspace?.TETRA_DIR || '(not set)',
+        'TETRA_ORG': configData.workspace?.TETRA_ORG || '(not set)',
+        'GAMES_DIR': configData.workspace?.GAMES_DIR || '(not set)',
     });
 
     // S3 section

@@ -1,16 +1,17 @@
 /**
  * Games Routes - Games manifest and metadata endpoints
+ * Now accepts workspace object to support dynamic org switching
  */
 
 import { Router } from 'express';
 import { optionalAuth } from '../middleware/auth.js';
 
-export function createGamesRoutes(gameManifest, csvAuth) {
+export function createGamesRoutes(workspace, csvAuth) {
     const router = Router();
 
-    // Check if game manifest is available
+    // Check if game manifest is available - access dynamically
     const checkManifest = (req, res, next) => {
-        if (!gameManifest) {
+        if (!workspace.gameManifest) {
             return res.status(503).json({
                 error: 'Service Unavailable',
                 message: 'Game manifest not configured (S3 not available)',
@@ -26,7 +27,7 @@ export function createGamesRoutes(gameManifest, csvAuth) {
     router.get('/', optionalAuth(csvAuth), checkManifest, async (req, res) => {
         try {
             const force = req.query.refresh === 'true';
-            const manifest = await gameManifest.generate(force);
+            const manifest = await workspace.gameManifest.generate(force);
 
             // Filter games based on user permissions
             const userRole = req.user?.role || 'guest';
@@ -60,7 +61,7 @@ export function createGamesRoutes(gameManifest, csvAuth) {
     router.get('/:slug', optionalAuth(csvAuth), checkManifest, async (req, res) => {
         try {
             const { slug } = req.params;
-            const game = await gameManifest.getGame(slug);
+            const game = await workspace.gameManifest.getGame(slug);
 
             if (!game) {
                 return res.status(404).json({
@@ -101,8 +102,8 @@ export function createGamesRoutes(gameManifest, csvAuth) {
     router.post('/:slug/refresh', optionalAuth(csvAuth), checkManifest, async (req, res) => {
         try {
             // Invalidate cache and regenerate
-            gameManifest.invalidate();
-            const manifest = await gameManifest.generate(true);
+            workspace.gameManifest.invalidate();
+            const manifest = await workspace.gameManifest.generate(true);
 
             const game = manifest.games.find(g => g.slug === req.params.slug);
 
@@ -134,7 +135,7 @@ export function createGamesRoutes(gameManifest, csvAuth) {
     router.get('/:slug/files', optionalAuth(csvAuth), checkManifest, async (req, res) => {
         try {
             const { slug } = req.params;
-            const files = await gameManifest.listGameFiles(slug);
+            const files = await workspace.gameManifest.listGameFiles(slug);
 
             res.json({
                 slug,

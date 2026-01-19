@@ -22,13 +22,17 @@
     </header>
 
     <main>
-        <!-- Games Tab -->
+        <!-- Games/Workspace Tab -->
         <section id="games-tab" class="tab-content active">
             <div class="toolbar">
-                <h2>Games Manifest</h2>
+                <h2>Workspace</h2>
+                <div class="org-selector">
+                    <label for="org-select">Org:</label>
+                    <select id="org-select"></select>
+                </div>
                 <button id="refresh-games">Refresh</button>
             </div>
-            <div id="games-info" class="info-bar"></div>
+            <div id="workspace-info" class="info-bar"></div>
             <div id="games-list" class="card-grid"></div>
         </section>
 

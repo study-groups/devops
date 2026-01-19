@@ -13,7 +13,9 @@ const PBASE_ENV = process.env.PBASE_ENV || 'local';
 const PORT = process.env.PBASE_PORT || 2600;
 const PD_DIR = process.env.PD_DIR || path.join(__dirname, '..', 'pd');
 const PD_DATA = process.env.PD_DATA || path.join(PD_DIR, 'data');
-const GAMES_DIR = process.env.GAMES_DIR;
+const TETRA_DIR = process.env.TETRA_DIR || path.join(process.env.HOME, 'tetra');
+let TETRA_ORG = process.env.TETRA_ORG || 'tetra';
+let GAMES_DIR = process.env.GAMES_DIR;
 
 // S3 configuration
 const S3_BUCKET = process.env.S3_BUCKET || 'pja-games';
@@ -24,6 +26,8 @@ const S3_SECRET_KEY = process.env.S3_SECRET_KEY || process.env.DO_SPACES_SECRET;
 console.log(`Starting PBase Server (${PBASE_ENV}) on port ${PORT}`);
 console.log(`PD_DIR: ${PD_DIR}`);
 console.log(`PD_DATA: ${PD_DATA}`);
+console.log(`TETRA_DIR: ${TETRA_DIR}`);
+console.log(`TETRA_ORG: ${TETRA_ORG}`);
 if (GAMES_DIR) console.log(`GAMES_DIR: ${GAMES_DIR}`);
 console.log(`S3 bucket: ${S3_BUCKET}`);
 
@@ -58,13 +62,23 @@ const magicLink = new MagicLink({
 });
 
 let s3Provider = null;
-let gameManifest = null;
+
+// Helper to get games dir for an org
+function getGamesDir(org) {
+    return path.join(TETRA_DIR, 'orgs', org, 'games');
+}
+
+// Workspace state - use an object so references stay valid
+const workspace = {
+    localProvider: null,
+    gameManifest: null,
+};
 
 // Initialize game provider based on environment
 if (GAMES_DIR) {
     // Local mode: use filesystem
-    const localProvider = new LocalGameProvider(GAMES_DIR);
-    gameManifest = new GameManifest(localProvider);
+    workspace.localProvider = new LocalGameProvider(GAMES_DIR);
+    workspace.gameManifest = new GameManifest(workspace.localProvider);
     console.log(`Local game provider initialized: ${GAMES_DIR}`);
 }
 
@@ -78,8 +92,8 @@ if (S3_ACCESS_KEY && S3_SECRET_KEY) {
         },
     });
     // Only use S3 for games if no local GAMES_DIR
-    if (!gameManifest) {
-        gameManifest = new GameManifest(s3Provider);
+    if (!workspace.gameManifest) {
+        workspace.gameManifest = new GameManifest(s3Provider);
     }
     console.log('S3 provider initialized');
 } else if (!GAMES_DIR) {
@@ -89,8 +103,89 @@ if (S3_ACCESS_KEY && S3_SECRET_KEY) {
 // Mount routes
 app.use('/api/auth', createAuthRoutes(pdata, magicLink));
 app.use('/api/s3', createS3Routes(s3Provider, pdata));
-app.use('/api/games', createGamesRoutes(gameManifest, pdata));
+app.use('/api/games', createGamesRoutes(workspace, pdata));
 app.use('/api/admin', createAdminRoutes(pdata));
+
+// Workspace/Org endpoints - for managing local workspace
+import { readdir } from 'fs/promises';
+
+// List available orgs
+app.get('/api/workspace/orgs', async (req, res) => {
+    try {
+        const orgsDir = path.join(TETRA_DIR, 'orgs');
+        const entries = await readdir(orgsDir, { withFileTypes: true });
+        const orgs = entries
+            .filter(e => e.isDirectory() && !e.name.startsWith('.'))
+            .map(e => e.name);
+
+        res.json({
+            tetra_dir: TETRA_DIR,
+            current_org: TETRA_ORG,
+            orgs,
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get current workspace state
+app.get('/api/workspace', async (req, res) => {
+    try {
+        const gamesDir = getGamesDir(TETRA_ORG);
+        let gameCount = 0;
+        try {
+            const entries = await readdir(gamesDir, { withFileTypes: true });
+            gameCount = entries.filter(e => e.isDirectory() && !e.name.startsWith('.')).length;
+        } catch { /* games dir may not exist */ }
+
+        res.json({
+            tetra_dir: TETRA_DIR,
+            org: TETRA_ORG,
+            games_dir: gamesDir,
+            game_count: gameCount,
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Switch org
+app.post('/api/workspace/org', async (req, res) => {
+    try {
+        const { org } = req.body;
+        if (!org) {
+            return res.status(400).json({ error: 'org parameter required' });
+        }
+
+        const newGamesDir = getGamesDir(org);
+
+        // Verify org exists
+        try {
+            await readdir(path.join(TETRA_DIR, 'orgs', org));
+        } catch {
+            return res.status(404).json({ error: `Org not found: ${org}` });
+        }
+
+        // Update state
+        TETRA_ORG = org;
+        GAMES_DIR = newGamesDir;
+
+        // Reinitialize local provider - update workspace object in place
+        if (workspace.localProvider) {
+            workspace.localProvider = new LocalGameProvider(newGamesDir);
+            workspace.gameManifest = new GameManifest(workspace.localProvider);
+            console.log(`[Workspace] Switched to org: ${org}, games: ${newGamesDir}`);
+        }
+
+        res.json({
+            success: true,
+            org: TETRA_ORG,
+            games_dir: GAMES_DIR,
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // Health check (TSM requirement)
 app.get('/health', (req, res) => {
@@ -133,10 +228,14 @@ app.get('/api/config', (req, res) => {
             cwd: process.env.TSM_CWD || process.cwd(),
         },
         environment: PBASE_ENV,
+        workspace: {
+            TETRA_DIR,
+            TETRA_ORG,
+            GAMES_DIR: GAMES_DIR || '(not set)',
+        },
         paths: {
             PD_DIR,
             PD_DATA,
-            GAMES_DIR: GAMES_DIR || '(not set)',
         },
         s3: {
             bucket: S3_BUCKET,
