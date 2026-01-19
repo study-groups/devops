@@ -1,26 +1,25 @@
 /**
- * PublishPanel.js - Unified publishing panel for sidebar
+ * PublishPanel.js - DO Spaces Browser Panel
  *
- * THE single source of truth for all publishing operations.
- * Based on the PublishModal (Ctrl+Shift+P) design but optimized for sidebar display.
+ * Redesigned as a file browser showing:
+ * - Connection info (endpoint, bucket, prefix)
+ * - Current file status with actions
+ * - Published files list from bucket
  *
- * Features:
- * - Multiple S3 Spaces configuration support
- * - File status tracking (published/unpublished)
- * - Real-time progress indication
- * - Configuration management
- * - Test and debug tools
+ * Uses PublishManager for all operations.
  */
 
 import { BasePanel, panelRegistry } from '../BasePanel.js';
 import { appStore } from '../../appState.js';
 import { publishConfigActions, selectAllConfigurations, selectActiveConfigurationDecrypted } from '../../store/slices/publishConfigSlice.js';
-import { PublishAPI } from '../../components/publish/PublishAPI.js';
-import { publishService } from '../../services/PublishService.js';
-import { findEditor } from '../../components/publish/PublishUtils.js';
+import { publishManager } from '../../services/PublishManager.js';
 import { configManager } from './ConfigManager.js';
 
-const log = window.APP.services.log.createLogger('UI', 'PublishPanel');
+const log = window.APP?.services?.log?.createLogger('UI', 'PublishPanel') || {
+    info: () => {},
+    error: () => {},
+    debug: () => {}
+};
 
 export class PublishPanel extends BasePanel {
     constructor(config = {}) {
@@ -31,644 +30,328 @@ export class PublishPanel extends BasePanel {
             ...config
         });
 
-        this.currentFile = null;
-        this.publishStatus = { isPublished: false, url: null };
-        this.isProcessing = false;
-        this.progressPercent = 0;
-        this.statusMessage = '';
+        this.filesExpanded = true;
+        this.lastActiveConfigId = null;  // Track config changes
 
         // Bind methods
         this.handlePublish = this.handlePublish.bind(this);
         this.handleUnpublish = this.handleUnpublish.bind(this);
+        this.handleRefresh = this.handleRefresh.bind(this);
         this.handleConfigChange = this.handleConfigChange.bind(this);
         this.handleOpenConfigManager = this.handleOpenConfigManager.bind(this);
-        this.handleTestSetup = this.handleTestSetup.bind(this);
         this.handleCopyUrl = this.handleCopyUrl.bind(this);
         this.handleOpenUrl = this.handleOpenUrl.bind(this);
+        this.handleToggleFiles = this.handleToggleFiles.bind(this);
+        this.handleManagerUpdate = this.handleManagerUpdate.bind(this);
+        this.handleCssStrategyChange = this.handleCssStrategyChange.bind(this);
     }
 
-    /**
-     * Render the panel content
-     */
     renderContent() {
         const state = appStore.getState();
         const configurations = selectAllConfigurations(state);
         const activeConfig = selectActiveConfigurationDecrypted(state);
-        const currentFile = state.file?.currentFile?.pathname || null;
+        const managerState = publishManager.getState();
+        const { currentFile, publishStatus, isProcessing, progressPercent, statusMessage, error, publishedFiles, isLoadingFiles } = managerState;
+
+        const filename = currentFile ? currentFile.split('/').pop() : 'No file selected';
 
         return `
-            <div class="publish-panel-content">
-                <!-- Configuration Selector -->
-                <div class="publish-section">
-                    <div class="config-selector">
-                        <label class="config-label">Configuration:</label>
-                        <div class="config-select-row">
-                            <select class="config-select" id="config-select">
-                                ${configurations.length === 0 ? '<option value="">No configurations</option>' : ''}
-                                ${configurations.map(config => `
-                                    <option value="${config.id}" ${activeConfig && activeConfig.id === config.id ? 'selected' : ''}>
-                                        ${config.name}${config.isDefault ? ' (Default)' : ''}
-                                    </option>
-                                `).join('')}
-                            </select>
-                            <button class="btn btn-sm btn-secondary config-manage-btn" id="config-manage-btn" title="Manage Configurations">
-                                ⚙️
-                            </button>
-                        </div>
-                    </div>
-                    ${configurations.length === 0 ? `
-                        <div class="config-empty-state">
-                            <p>No configurations found.</p>
-                            <button class="btn btn-primary btn-sm" id="create-first-config-btn">
-                                + Create Configuration
-                            </button>
-                        </div>
-                    ` : ''}
+            <div class="publish-panel-browser">
+                <!-- Header with Config Selector -->
+                <div class="panel-header-row">
+                    <select class="config-select" id="config-select">
+                        ${configurations.length === 0 ? '<option value="">No configurations</option>' : ''}
+                        ${configurations.map(config => `
+                            <option value="${config.id}" ${activeConfig && activeConfig.id === config.id ? 'selected' : ''}>
+                                ${config.name}${config.isDefault ? ' (Default)' : ''}
+                            </option>
+                        `).join('')}
+                    </select>
+                    <button class="btn-icon-sm" id="config-manage-btn" title="Manage Configurations">
+                        <span>&#9881;</span>
+                    </button>
+                    <button class="btn-icon-sm" id="refresh-btn" title="Refresh">
+                        <span>&#8635;</span>
+                    </button>
                 </div>
 
-                <!-- File Status -->
-                <div class="publish-section">
-                    <div class="file-status-card">
-                        <div class="file-info">
-                            <span class="file-icon">📄</span>
-                            <span class="file-name" id="current-file-name">
-                                ${currentFile || 'No file selected'}
-                            </span>
-                        </div>
-                        <div class="publish-status">
-                            <span class="status-indicator ${this.publishStatus.isPublished ? 'published' : 'unpublished'}" id="status-indicator">●</span>
-                            <span class="status-text" id="status-text">
-                                ${this.publishStatus.isPublished ? 'Published' : 'Not published'}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Configuration Status (if active config exists) -->
+                <!-- Connection Info -->
                 ${activeConfig ? `
-                    <div class="publish-section">
-                        <div class="config-status">
-                            <div class="config-status-header">
-                                <h4 class="config-status-title">Active Configuration</h4>
-                                <button class="btn btn-sm btn-ghost test-setup-btn" id="test-setup-btn" title="Test Connection">
-                                    🔧
+                    <div class="connection-info">
+                        <div class="connection-row">
+                            <span class="conn-label">Endpoint:</span>
+                            <span class="conn-value">${this.formatEndpoint(activeConfig.endpoint)}</span>
+                        </div>
+                        <div class="connection-row">
+                            <span class="conn-label">Bucket:</span>
+                            <span class="conn-value">${activeConfig.bucket || 'Not set'}</span>
+                            <span class="conn-sep">|</span>
+                            <span class="conn-label">Prefix:</span>
+                            <span class="conn-value">${activeConfig.prefix || '/'}</span>
+                        </div>
+                    </div>
+                ` : `
+                    <div class="connection-empty">
+                        <p>No configuration selected</p>
+                        <button class="btn-sm btn-primary" id="create-config-btn">Create Configuration</button>
+                    </div>
+                `}
+
+                <!-- Current File Section -->
+                <div class="current-file-section">
+                    <div class="section-header-small">CURRENT FILE</div>
+                    <div class="current-file-card">
+                        <div class="file-row">
+                            <span class="status-dot ${publishStatus.isPublished ? 'published' : 'unpublished'}"></span>
+                            <span class="file-name" title="${currentFile || ''}">${filename}</span>
+                        </div>
+                        ${publishStatus.isPublished && publishStatus.url ? `
+                            <div class="url-row">
+                                <input type="text" class="url-input" id="url-input" readonly value="${publishStatus.url}">
+                                <button class="btn-icon-xs" id="copy-url-btn" title="Copy URL">
+                                    <span>&#128203;</span>
+                                </button>
+                                <button class="btn-icon-xs" id="open-url-btn" title="Open URL">
+                                    <span>&#128279;</span>
                                 </button>
                             </div>
-                            <div class="config-details">
-                                <div class="config-detail-row">
-                                    <span class="detail-label">Bucket:</span>
-                                    <span class="detail-value">${activeConfig.bucket || 'Not set'}</span>
-                                </div>
-                                <div class="config-detail-row">
-                                    <span class="detail-label">Region:</span>
-                                    <span class="detail-value">${activeConfig.region || 'Not set'}</span>
-                                </div>
-                                <div class="config-detail-row">
-                                    <span class="detail-label">Prefix:</span>
-                                    <span class="detail-value">${activeConfig.prefix || '/'}</span>
-                                </div>
+                        ` : ''}
+                        ${error ? `
+                            <div class="error-row">
+                                <span class="error-text">${error}</span>
                             </div>
+                        ` : ''}
+                        ${isProcessing ? `
+                            <div class="progress-row">
+                                <div class="progress-bar-mini">
+                                    <div class="progress-fill" style="width: ${progressPercent}%"></div>
+                                </div>
+                                <span class="progress-text">${statusMessage}</span>
+                            </div>
+                        ` : ''}
+                        <div class="action-row">
+                            ${publishStatus.isPublished ? `
+                                <button class="btn-sm btn-primary" id="republish-btn" ${!currentFile || !activeConfig || isProcessing ? 'disabled' : ''}>
+                                    ${isProcessing ? 'Publishing...' : 'Republish'}
+                                </button>
+                                <button class="btn-sm btn-danger" id="unpublish-btn" ${isProcessing ? 'disabled' : ''}>
+                                    Unpublish
+                                </button>
+                            ` : `
+                                <button class="btn-sm btn-primary btn-full" id="publish-btn" ${!currentFile || !activeConfig || isProcessing ? 'disabled' : ''}>
+                                    ${isProcessing ? 'Publishing...' : 'Publish'}
+                                </button>
+                            `}
+                        </div>
+                        <div class="strategy-row">
+                            <label class="strategy-label">CSS:</label>
+                            <select class="strategy-select" id="css-strategy-select">
+                                <option value="embedded" ${managerState.cssStrategy === 'embedded' ? 'selected' : ''}>Embedded (archival)</option>
+                                <option value="hybrid" ${managerState.cssStrategy === 'hybrid' ? 'selected' : ''}>Hybrid (recommended)</option>
+                                <option value="linked" ${managerState.cssStrategy === 'linked' ? 'selected' : ''}>Linked (themeable)</option>
+                            </select>
                         </div>
                     </div>
-                ` : ''}
+                </div>
 
-                <!-- Publishing Options -->
-                <div class="publish-section">
-                    <h4 class="section-title">Options</h4>
-                    <label class="publish-option-checkbox">
-                        <input type="checkbox" id="bundle-css-checkbox" ${activeConfig && activeConfig.inlineCSS ? 'checked' : ''}>
-                        <span>Bundle CSS inline</span>
-                    </label>
-
-                    <!-- Theme Picker -->
-                    <div class="theme-picker-section">
-                        <label class="config-label">Theme:</label>
-                        <select class="config-select theme-select" id="theme-select">
-                            <option value="">No theme</option>
-                            ${this.renderThemeOptions(activeConfig)}
-                        </select>
-                        <div class="theme-picker-info">
-                            <small style="color: #6b7280;">
-                                Themes from Theme Editor or custom CSS files
-                            </small>
+                <!-- Published Files Section -->
+                <div class="published-files-section">
+                    <div class="section-header-collapsible" id="files-header">
+                        <span class="section-title">PUBLISHED FILES (${publishedFiles.length})</span>
+                        <span class="toggle-icon">${this.filesExpanded ? '&#9662;' : '&#9656;'}</span>
+                    </div>
+                    ${this.filesExpanded ? `
+                        <div class="files-list">
+                            ${isLoadingFiles ? `
+                                <div class="loading-row">Loading files...</div>
+                            ` : publishedFiles.length === 0 ? `
+                                <div class="empty-row">No published files yet</div>
+                            ` : publishedFiles.slice(0, 10).map(file => `
+                                <div class="file-item">
+                                    <span class="file-item-name" title="${file.key}">${this.formatFilename(file.key)}</span>
+                                    <span class="file-item-time">${publishManager.formatRelativeTime(file.lastModified)}</span>
+                                    <button class="btn-icon-xs file-open-btn" data-url="${file.url || ''}" title="Open">
+                                        <span>&#128279;</span>
+                                    </button>
+                                </div>
+                            `).join('')}
+                            ${publishedFiles.length > 10 ? `
+                                <div class="more-files-row">+ ${publishedFiles.length - 10} more files</div>
+                            ` : ''}
                         </div>
-                    </div>
-                </div>
-
-                <!-- Progress Indicator -->
-                <div class="publish-section progress-section" id="progress-section" style="display: none;">
-                    <div class="progress-bar-container">
-                        <div class="progress-bar" id="progress-bar" style="width: 0%;"></div>
-                    </div>
-                    <div class="progress-message" id="progress-message">Ready to publish</div>
-                </div>
-
-                <!-- Success Display -->
-                <div class="publish-section success-section" id="success-section" style="display: ${this.publishStatus.isPublished ? 'block' : 'none'};">
-                    <div class="success-header">
-                        <span class="success-icon">✅</span>
-                        <span class="success-title">Published Successfully!</span>
-                    </div>
-                    <div class="success-url-container">
-                        <input type="text" class="success-url-input" id="success-url-input" readonly value="${this.publishStatus.url || ''}">
-                        <button class="btn btn-sm btn-ghost copy-url-btn" id="copy-url-btn" title="Copy URL">📋</button>
-                        <button class="btn btn-sm btn-ghost open-url-btn" id="open-url-btn" title="Open in new tab">🔗</button>
-                    </div>
-                </div>
-
-                <!-- Error Display -->
-                <div class="publish-section error-section" id="error-section" style="display: none;">
-                    <div class="error-header">
-                        <span class="error-icon">⚠️</span>
-                        <span class="error-title" id="error-title">Error</span>
-                    </div>
-                    <div class="error-message" id="error-message"></div>
-                </div>
-
-                <!-- Action Buttons -->
-                <div class="publish-section action-buttons">
-                    ${this.publishStatus.isPublished ? `
-                        <button class="btn btn-secondary btn-block unpublish-btn" id="unpublish-btn">
-                            <span class="btn-text">Unpublish</span>
-                            <span class="btn-spinner" style="display: none;">⟳</span>
-                        </button>
-                    ` : `
-                        <button class="btn btn-primary btn-block publish-btn" id="publish-btn" ${!currentFile || !activeConfig ? 'disabled' : ''}>
-                            <span class="btn-text">🚀 Publish</span>
-                            <span class="btn-spinner" style="display: none;">⟳</span>
-                        </button>
-                    `}
+                    ` : ''}
                 </div>
             </div>
         `;
     }
 
-    /**
-     * Initialize panel after mounting
-     */
     async onMount(container) {
         super.onMount(container);
 
-        // Subscribe to Redux store updates
-        this.unsubscribe = appStore.subscribe(() => this.handleStoreChange());
+        // Initialize config tracking to prevent spurious refreshes
+        const state = appStore.getState();
+        this.lastActiveConfigId = state.publishConfig?.activeConfigurationId;
+
+        // Subscribe to PublishManager updates (handles file changes, publish status)
+        this.managerUnsubscribe = publishManager.subscribe(this.handleManagerUpdate);
+
+        // Subscribe to Redux store updates (handles config list changes)
+        this.storeUnsubscribe = appStore.subscribe(() => this.handleStoreChange());
 
         // Load initial data
-        await this.loadPublishStatus();
+        await publishManager.loadConnectionInfo();
+        await publishManager.loadPublishedFiles();
 
-        // Attach event listeners
         this.attachEventListeners();
     }
 
-    /**
-     * Cleanup when panel is unmounted
-     */
     onUnmount() {
         super.onUnmount();
-        if (this.unsubscribe) {
-            this.unsubscribe();
+        if (this.managerUnsubscribe) {
+            this.managerUnsubscribe();
+        }
+        if (this.storeUnsubscribe) {
+            this.storeUnsubscribe();
         }
     }
 
-    /**
-     * Attach all event listeners
-     */
     attachEventListeners() {
         const container = this.getContainer();
         if (!container) return;
 
-        const publishBtn = container.querySelector('#publish-btn');
-        const unpublishBtn = container.querySelector('#unpublish-btn');
-        const configSelect = container.querySelector('#config-select');
-        const configManageBtn = container.querySelector('#config-manage-btn');
-        const createFirstConfigBtn = container.querySelector('#create-first-config-btn');
-        const testSetupBtn = container.querySelector('#test-setup-btn');
-        const copyUrlBtn = container.querySelector('#copy-url-btn');
-        const openUrlBtn = container.querySelector('#open-url-btn');
+        // Publish buttons
+        container.querySelector('#publish-btn')?.addEventListener('click', this.handlePublish);
+        container.querySelector('#republish-btn')?.addEventListener('click', this.handlePublish);
+        container.querySelector('#unpublish-btn')?.addEventListener('click', this.handleUnpublish);
 
-        if (publishBtn) {
-            publishBtn.addEventListener('click', this.handlePublish);
-        }
+        // Config selector
+        container.querySelector('#config-select')?.addEventListener('change', this.handleConfigChange);
 
-        if (unpublishBtn) {
-            unpublishBtn.addEventListener('click', this.handleUnpublish);
-        }
+        // Config manager button
+        container.querySelector('#config-manage-btn')?.addEventListener('click', this.handleOpenConfigManager);
+        container.querySelector('#create-config-btn')?.addEventListener('click', this.handleOpenConfigManager);
 
-        if (configSelect) {
-            configSelect.addEventListener('change', this.handleConfigChange);
-        }
+        // Refresh button
+        container.querySelector('#refresh-btn')?.addEventListener('click', this.handleRefresh);
 
-        if (configManageBtn || createFirstConfigBtn) {
-            const btn = configManageBtn || createFirstConfigBtn;
-            btn.addEventListener('click', this.handleOpenConfigManager);
-        }
+        // URL actions
+        container.querySelector('#copy-url-btn')?.addEventListener('click', this.handleCopyUrl);
+        container.querySelector('#open-url-btn')?.addEventListener('click', this.handleOpenUrl);
 
-        if (testSetupBtn) {
-            testSetupBtn.addEventListener('click', this.handleTestSetup);
-        }
+        // Files section toggle
+        container.querySelector('#files-header')?.addEventListener('click', this.handleToggleFiles);
 
-        if (copyUrlBtn) {
-            copyUrlBtn.addEventListener('click', this.handleCopyUrl);
-        }
+        // CSS strategy selector
+        container.querySelector('#css-strategy-select')?.addEventListener('change', this.handleCssStrategyChange);
 
-        if (openUrlBtn) {
-            openUrlBtn.addEventListener('click', this.handleOpenUrl);
-        }
-
-        // Theme select
-        const themeSelect = container.querySelector('#theme-select');
-        if (themeSelect) {
-            themeSelect.addEventListener('change', this.handleThemeChange.bind(this));
-        }
-    }
-
-    /**
-     * Handle Redux store changes
-     */
-    handleStoreChange() {
-        const state = appStore.getState();
-        const currentFile = state.file?.currentFile?.pathname;
-
-        // If current file changed, update status
-        if (currentFile !== this.currentFile) {
-            this.currentFile = currentFile;
-            this.loadPublishStatus();
-            this.refresh();
-        }
-    }
-
-    /**
-     * Load publish status for current file
-     */
-    async loadPublishStatus() {
-        const state = appStore.getState();
-        const currentFile = state.file?.currentFile?.pathname;
-
-        if (!currentFile) {
-            this.publishStatus = { isPublished: false, url: null };
-            return;
-        }
-
-        try {
-            this.publishStatus = await PublishAPI.checkStatus(currentFile);
-        } catch (error) {
-            log.error('LOAD_STATUS_ERROR', `Failed to load publish status: ${error.message}`);
-            this.publishStatus = { isPublished: false, url: null };
-        }
-    }
-
-    /**
-     * Handle publish button click
-     */
-    async handlePublish() {
-        if (this.isProcessing) return;
-
-        const state = appStore.getState();
-        const currentFile = state.file?.currentFile?.pathname;
-        const activeConfig = selectActiveConfigurationDecrypted(state);
-
-        if (!currentFile || !activeConfig) {
-            this.showError('Cannot publish', 'No file or configuration selected');
-            return;
-        }
-
-        this.setProcessing(true);
-        this.showProgress(true);
-        this.hideError();
-
-        try {
-            // Update progress: Reading content
-            this.updateProgress(20, '📝 Reading editor content...');
-
-            const editor = findEditor();
-            if (!editor) {
-                throw new Error('Markdown editor not found');
-            }
-
-            const content = editor.value || '';
-            if (!content.trim()) {
-                throw new Error('Editor content is empty');
-            }
-
-            // Update progress: Generating HTML
-            this.updateProgress(40, '🔄 Generating self-contained HTML...');
-
-            const htmlContent = await publishService.generatePublishHtml(content, currentFile);
-            if (!htmlContent) {
-                throw new Error('HTML generation failed');
-            }
-
-            // Update progress: Publishing
-            this.updateProgress(60, `🚀 Publishing to ${activeConfig.name}...`);
-
-            const result = await PublishAPI.publish(currentFile, htmlContent, true, activeConfig);
-
-            // Update progress: Complete
-            this.updateProgress(100, '✅ Upload complete!');
-
-            this.publishStatus = { isPublished: true, url: result.url };
-            this.refresh();
-
-            log.info('PUBLISH_SUCCESS', `Successfully published: ${currentFile} to ${result.url}`);
-
-        } catch (error) {
-            log.error('PUBLISH_ERROR', `Publish error: ${error.message}`, { stack: error.stack });
-            this.showError('Failed to publish', error.message);
-            this.updateProgress(0, '❌ Failed');
-        } finally {
-            this.setProcessing(false);
-            setTimeout(() => this.showProgress(false), 2000);
-        }
-    }
-
-    /**
-     * Handle unpublish button click
-     */
-    async handleUnpublish() {
-        if (this.isProcessing) return;
-
-        const state = appStore.getState();
-        const currentFile = state.file?.currentFile?.pathname;
-        const activeConfig = selectActiveConfigurationDecrypted(state);
-
-        if (!currentFile) {
-            this.showError('Cannot unpublish', 'No file selected');
-            return;
-        }
-
-        if (!activeConfig) {
-            this.showError('Cannot unpublish', 'No configuration selected');
-            return;
-        }
-
-        this.setProcessing(true);
-        this.hideError();
-
-        try {
-            await PublishAPI.unpublish(currentFile, activeConfig);
-
-            this.publishStatus = { isPublished: false, url: null };
-            this.refresh();
-
-            log.info('UNPUBLISH_SUCCESS', `Successfully unpublished: ${currentFile}`);
-
-        } catch (error) {
-            log.error('UNPUBLISH_ERROR', `Unpublish error: ${error.message}`, { stack: error.stack });
-            this.showError('Failed to unpublish', error.message);
-        } finally {
-            this.setProcessing(false);
-        }
-    }
-
-    /**
-     * Handle configuration selection change
-     */
-    handleConfigChange(event) {
-        const configId = event.target.value;
-        appStore.dispatch(publishConfigActions.setActiveConfiguration(configId));
-        this.refresh();
-    }
-
-    /**
-     * Handle open configuration manager
-     */
-    handleOpenConfigManager() {
-        appStore.dispatch(publishConfigActions.openConfigManager());
-        configManager.open();
-        log.info('CONFIG_MANAGER', 'Configuration manager opened');
-    }
-
-    /**
-     * Handle test setup
-     */
-    async handleTestSetup() {
-        const state = appStore.getState();
-        const activeConfig = selectActiveConfigurationDecrypted(state);
-
-        if (!activeConfig) {
-            this.showError('Cannot test', 'No configuration selected');
-            return;
-        }
-
-        try {
-            const result = await PublishAPI.testSetup();
-            log.info('TEST_SETUP_SUCCESS', 'Setup test passed', result);
-            // TODO: Show success message
-        } catch (error) {
-            log.error('TEST_SETUP_ERROR', `Setup test failed: ${error.message}`);
-            this.showError('Test failed', error.message);
-        }
-    }
-
-    /**
-     * Handle copy URL
-     */
-    async handleCopyUrl() {
-        if (!this.publishStatus.url) return;
-
-        try {
-            await navigator.clipboard.writeText(this.publishStatus.url);
-            log.info('COPY_URL_SUCCESS', 'URL copied to clipboard');
-
-            const container = this.getContainer();
-            const btn = container?.querySelector('#copy-url-btn');
-            if (btn) {
-                const originalText = btn.textContent;
-                btn.textContent = '✓';
-                setTimeout(() => { btn.textContent = originalText; }, 1500);
-            }
-        } catch (error) {
-            log.error('COPY_URL_ERROR', `Failed to copy URL: ${error.message}`);
-        }
-    }
-
-    /**
-     * Handle open URL
-     */
-    handleOpenUrl() {
-        if (this.publishStatus.url) {
-            window.open(this.publishStatus.url, '_blank');
-        }
-    }
-
-    /**
-     * Update progress indicator
-     */
-    updateProgress(percent, message) {
-        this.progressPercent = percent;
-        this.statusMessage = message;
-
-        const container = this.getContainer();
-        const progressBar = container?.querySelector('#progress-bar');
-        const progressMessage = container?.querySelector('#progress-message');
-
-        if (progressBar) {
-            progressBar.style.width = `${percent}%`;
-        }
-
-        if (progressMessage) {
-            progressMessage.textContent = message;
-        }
-    }
-
-    /**
-     * Show/hide progress section
-     */
-    showProgress(show) {
-        const container = this.getContainer();
-        const progressSection = container?.querySelector('#progress-section');
-        if (progressSection) {
-            progressSection.style.display = show ? 'block' : 'none';
-        }
-    }
-
-    /**
-     * Show error message
-     */
-    showError(title, message) {
-        const container = this.getContainer();
-        const errorSection = container?.querySelector('#error-section');
-        const errorTitle = container?.querySelector('#error-title');
-        const errorMessage = container?.querySelector('#error-message');
-
-        if (errorTitle) errorTitle.textContent = title;
-        if (errorMessage) errorMessage.textContent = message;
-        if (errorSection) errorSection.style.display = 'block';
-    }
-
-    /**
-     * Hide error message
-     */
-    hideError() {
-        const container = this.getContainer();
-        const errorSection = container?.querySelector('#error-section');
-        if (errorSection) {
-            errorSection.style.display = 'none';
-        }
-    }
-
-    /**
-     * Set processing state
-     */
-    setProcessing(processing) {
-        this.isProcessing = processing;
-
-        const container = this.getContainer();
-        const publishBtn = container?.querySelector('#publish-btn');
-        const unpublishBtn = container?.querySelector('#unpublish-btn');
-
-        [publishBtn, unpublishBtn].forEach(btn => {
-            if (!btn) return;
-            btn.disabled = processing;
-
-            const btnText = btn.querySelector('.btn-text');
-            const btnSpinner = btn.querySelector('.btn-spinner');
-
-            if (btnText) btnText.style.display = processing ? 'none' : 'inline';
-            if (btnSpinner) btnSpinner.style.display = processing ? 'inline' : 'none';
+        // File open buttons
+        container.querySelectorAll('.file-open-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const url = e.currentTarget.dataset.url;
+                if (url) window.open(url, '_blank');
+            });
         });
     }
 
-    /**
-     * Render theme options for dropdown
-     */
-    renderThemeOptions(activeConfig) {
-        // Load themes from registry (saved by ThemeManagementPanel)
-        const registry = JSON.parse(localStorage.getItem('theme-registry') || '[]');
-
-        // Current theme URL from config
-        const currentThemeUrl = activeConfig?.themeUrl || '';
-
-        let options = '';
-
-        // Add themes from registry
-        if (registry.length > 0) {
-            options += registry.map(theme => {
-                const themeUrl = `/api/files/content?pathname=${theme.cssPath}`;
-                const selected = currentThemeUrl.includes(theme.filename) ? 'selected' : '';
-                return `
-                    <option value="${theme.cssPath}" ${selected} data-theme-name="${theme.name}">
-                        ${theme.name} (${theme.mode})
-                    </option>
-                `;
-            }).join('');
-        }
-
-        // Add custom theme URL option if set but not in registry
-        if (currentThemeUrl && !registry.some(t => currentThemeUrl.includes(t.filename))) {
-            options += `
-                <option value="${currentThemeUrl}" selected>
-                    Custom: ${currentThemeUrl}
-                </option>
-            `;
-        }
-
-        return options;
+    handleManagerUpdate() {
+        this.refresh();
     }
 
-    /**
-     * Handle theme selection change
-     */
-    async handleThemeChange(event) {
-        const selectedThemePath = event.target.value;
+    handleStoreChange() {
         const state = appStore.getState();
-        const activeConfig = selectActiveConfigurationDecrypted(state);
+        const activeConfigId = state.publishConfig?.activeConfigurationId;
 
-        if (!activeConfig) {
-            log.warn('No active configuration to update theme');
-            return;
-        }
-
-        try {
-            // Update configuration with selected theme
-            const themeUrl = selectedThemePath ? `themes/${selectedThemePath}` : null;
-
-            appStore.dispatch(publishConfigActions.updateConfiguration({
-                id: activeConfig.id,
-                updates: {
-                    themeUrl: themeUrl
-                }
-            }));
-
-            log.info('Theme updated in publish configuration', { themeUrl });
-
-            // Optionally validate theme file exists
-            if (themeUrl) {
-                await this.validateTheme(themeUrl);
-            }
-        } catch (error) {
-            log.error('Error updating theme:', error);
-            this.showError('Theme Update Error', error.message);
+        // Only refresh if active config actually changed
+        // File changes are handled by PublishManager subscription
+        if (activeConfigId !== this.lastActiveConfigId) {
+            this.lastActiveConfigId = activeConfigId;
+            this.refresh();
         }
     }
 
-    /**
-     * Validate that theme file exists and is valid CSS
-     */
-    async validateTheme(themeUrl) {
-        try {
-            const response = await fetch(`/api/files/content?pathname=${themeUrl}`);
-            if (!response.ok) {
-                throw new Error(`Theme file not found: ${themeUrl}`);
-            }
-            const cssContent = await response.text();
-
-            // Basic CSS validation (check if it's not empty and has CSS-like content)
-            if (!cssContent || cssContent.trim().length === 0) {
-                throw new Error('Theme file is empty');
-            }
-
-            log.info('Theme validated successfully', { themeUrl });
-            return true;
-        } catch (error) {
-            log.error('Theme validation failed:', error);
-            this.showError('Theme Validation Error', `Could not validate theme: ${error.message}`);
-            return false;
+    async handlePublish() {
+        const result = await publishManager.publish();
+        if (!result.success) {
+            log.error('PUBLISH_FAILED', result.error);
         }
     }
 
-    /**
-     * Refresh panel content
-     */
+    async handleUnpublish() {
+        const result = await publishManager.unpublish();
+        if (!result.success) {
+            log.error('UNPUBLISH_FAILED', result.error);
+        }
+    }
+
+    handleRefresh() {
+        publishManager.loadPublishStatus();
+        publishManager.loadPublishedFiles();
+    }
+
+    handleConfigChange(event) {
+        const configId = event.target.value;
+        appStore.dispatch(publishConfigActions.setActiveConfiguration(configId));
+        // Reload files for new config
+        publishManager.loadPublishedFiles();
+    }
+
+    handleOpenConfigManager() {
+        appStore.dispatch(publishConfigActions.openConfigManager());
+        configManager.open();
+    }
+
+    async handleCopyUrl() {
+        const managerState = publishManager.getState();
+        if (!managerState.publishStatus.url) return;
+
+        try {
+            await navigator.clipboard.writeText(managerState.publishStatus.url);
+            const container = this.getContainer();
+            const btn = container?.querySelector('#copy-url-btn span');
+            if (btn) {
+                const orig = btn.innerHTML;
+                btn.innerHTML = '&#10003;';
+                setTimeout(() => { btn.innerHTML = orig; }, 1500);
+            }
+        } catch (error) {
+            log.error('COPY_URL_ERROR', error.message);
+        }
+    }
+
+    handleOpenUrl() {
+        const managerState = publishManager.getState();
+        if (managerState.publishStatus.url) {
+            window.open(managerState.publishStatus.url, '_blank');
+        }
+    }
+
+    handleToggleFiles() {
+        this.filesExpanded = !this.filesExpanded;
+        this.refresh();
+    }
+
+    handleCssStrategyChange(event) {
+        const strategy = event.target.value;
+        publishManager.setCssStrategy(strategy);
+    }
+
+    formatEndpoint(endpoint) {
+        if (!endpoint) return 'Not set';
+        try {
+            const url = new URL(endpoint);
+            return url.hostname;
+        } catch {
+            return endpoint;
+        }
+    }
+
+    formatFilename(key) {
+        if (!key) return '';
+        // Remove prefix if present
+        const parts = key.split('/');
+        return parts[parts.length - 1] || key;
+    }
+
     refresh() {
         const container = this.getContainer();
         if (container) {

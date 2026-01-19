@@ -1,19 +1,19 @@
 /**
- * PublishTray.js - Publishing tray for the top bar
+ * PublishTray.js - Minimal publishing tray
  *
- * Provides a horizontal interface for publishing files.
+ * Simplified UI showing:
+ * - Current file status
+ * - Published URL (if published)
+ * - Publish/Unpublish action
+ *
+ * Uses PublishManager for all operations.
+ * Config selection is handled in the Panel.
  */
 
 import { topBarTray } from '../TopBarTray.js';
 import { appStore } from '/client/appState.js';
-import {
-    publishConfigActions,
-    selectAllConfigurations,
-    selectActiveConfigurationDecrypted
-} from '/client/store/slices/publishConfigSlice.js';
-import { PublishAPI } from '../publish/PublishAPI.js';
-import { publishService } from '/client/services/PublishService.js';
-import { findEditor } from '../publish/PublishUtils.js';
+import { selectActiveConfigurationDecrypted } from '/client/store/slices/publishConfigSlice.js';
+import { publishManager } from '/client/services/PublishManager.js';
 
 const log = window.APP?.services?.log?.createLogger('UI', 'PublishTray') || {
     info: () => {},
@@ -21,15 +21,7 @@ const log = window.APP?.services?.log?.createLogger('UI', 'PublishTray') || {
     debug: () => {}
 };
 
-let currentState = {
-    isProcessing: false,
-    progressPercent: 0,
-    statusMessage: '',
-    publishStatus: { isPublished: false, url: null },
-    error: null
-};
-
-let storeUnsubscribe = null;
+let managerUnsubscribe = null;
 
 /**
  * Register the publish tray
@@ -38,34 +30,22 @@ export function registerPublishTray() {
     topBarTray.register('publish', {
         title: 'Publish',
         closeOnClickOutside: false,
-        render: () => renderPublishForm(),
+        render: () => renderTray(),
         onOpen: async (container) => {
             if (!container) return;
 
-            // Load current publish status
-            await loadPublishStatus();
-            updateTrayContent();
-
-            // Subscribe to store changes
-            storeUnsubscribe = appStore.subscribe(() => {
+            // Subscribe to PublishManager updates
+            managerUnsubscribe = publishManager.subscribe(() => {
                 updateTrayContent();
             });
 
-            attachFormListeners(container);
+            attachListeners(container);
         },
         onClose: () => {
-            if (storeUnsubscribe) {
-                storeUnsubscribe();
-                storeUnsubscribe = null;
+            if (managerUnsubscribe) {
+                managerUnsubscribe();
+                managerUnsubscribe = null;
             }
-            // Reset state
-            currentState = {
-                isProcessing: false,
-                progressPercent: 0,
-                statusMessage: '',
-                publishStatus: currentState.publishStatus,
-                error: null
-            };
         }
     });
 }
@@ -78,82 +58,70 @@ export function openPublishTray() {
 }
 
 /**
- * Render the publish form
+ * Render the tray content
  */
-function renderPublishForm() {
+function renderTray() {
     const state = appStore.getState();
-    const configurations = selectAllConfigurations(state);
     const activeConfig = selectActiveConfigurationDecrypted(state);
-    const currentFile = state.file?.currentFile?.pathname || null;
-    const filename = currentFile ? currentFile.split('/').pop() : 'No file selected';
+    const managerState = publishManager.getState();
+    const { currentFile, publishStatus, isProcessing, error, cssStrategy } = managerState;
 
-    const { isProcessing, progressPercent, statusMessage, publishStatus, error } = currentState;
+    const filename = currentFile ? currentFile.split('/').pop() : 'No file';
 
+    // CSS strategy short labels for compact display
+    const strategyLabels = {
+        embedded: 'Embed',
+        hybrid: 'Hybrid',
+        linked: 'Link'
+    };
+
+    // Simple one-line layout
     return `
-        <div class="tray-form">
-            <div class="tray-form-row centered">
-                <!-- Config selector -->
-                <div class="tray-section">
-                    <span class="tray-label">Config:</span>
-                    <select id="publish-config" class="tray-input" style="min-width: 150px;">
-                        ${configurations.length === 0 ? '<option value="">None configured</option>' : ''}
-                        ${configurations.map(config => `
-                            <option value="${config.id}" ${activeConfig?.id === config.id ? 'selected' : ''}>
-                                ${config.name}
-                            </option>
-                        `).join('')}
+        <div class="publish-tray">
+            <div class="publish-tray-content">
+                <!-- Status indicator and filename -->
+                <div class="tray-file-info">
+                    <span class="tray-status-dot ${publishStatus.isPublished ? 'published' : 'unpublished'}"></span>
+                    <span class="tray-filename" title="${currentFile || ''}">${filename}</span>
+                </div>
+
+                <!-- Bucket info (minimal) -->
+                ${activeConfig ? `
+                    <span class="tray-bucket">${activeConfig.bucket || ''}</span>
+                ` : ''}
+
+                <!-- CSS Strategy selector (compact) -->
+                <div class="tray-strategy">
+                    <select class="tray-strategy-select" id="tray-css-strategy" title="CSS Strategy">
+                        <option value="embedded" ${cssStrategy === 'embedded' ? 'selected' : ''}>Embed</option>
+                        <option value="hybrid" ${cssStrategy === 'hybrid' ? 'selected' : ''}>Hybrid</option>
+                        <option value="linked" ${cssStrategy === 'linked' ? 'selected' : ''}>Link</option>
                     </select>
                 </div>
 
-                <div class="tray-divider"></div>
-
-                <!-- File status -->
-                <div class="tray-section">
-                    <div class="tray-status">
-                        <span class="tray-status-dot ${publishStatus.isPublished ? 'published' : 'unpublished'}"></span>
-                        <span style="font-family: monospace; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
-                              title="${currentFile || ''}">
-                            ${filename}
-                        </span>
-                    </div>
-                </div>
-
-                ${isProcessing ? `
-                    <div class="tray-divider"></div>
-                    <div class="tray-progress">
-                        <div class="tray-progress-bar">
-                            <div class="tray-progress-fill" style="width: ${progressPercent}%"></div>
-                        </div>
-                        <span class="tray-progress-text">${statusMessage}</span>
-                    </div>
-                ` : ''}
-
-                ${error ? `
-                    <span class="tray-error">${error}</span>
-                ` : ''}
-
-                ${publishStatus.isPublished && publishStatus.url && !isProcessing ? `
-                    <div class="tray-divider"></div>
-                    <div class="tray-url">
-                        <span class="tray-url-text" title="${publishStatus.url}">${publishStatus.url}</span>
-                        <button id="publish-copy" class="tray-btn ghost" title="Copy URL">📋</button>
-                        <button id="publish-open" class="tray-btn ghost" title="Open URL">🔗</button>
-                    </div>
-                ` : ''}
-
-                <div class="tray-divider"></div>
-
-                <!-- Actions -->
-                <div class="tray-section">
-                    ${publishStatus.isPublished ? `
-                        <button id="publish-republish" class="tray-btn primary" ${isProcessing || !currentFile || !activeConfig ? 'disabled' : ''}>
-                            ${isProcessing ? 'Publishing...' : 'Republish'}
+                <!-- Published URL with copy -->
+                ${publishStatus.isPublished && publishStatus.url ? `
+                    <div class="tray-url-section">
+                        <span class="tray-url" title="${publishStatus.url}">${truncateUrl(publishStatus.url)}</span>
+                        <button class="tray-btn-icon" id="tray-copy-url" title="Copy URL">
+                            <span>&#128203;</span>
                         </button>
-                        <button id="publish-unpublish" class="tray-btn danger" ${isProcessing ? 'disabled' : ''}>
+                    </div>
+                ` : ''}
+
+                <!-- Error display -->
+                ${error && !isProcessing ? `
+                    <span class="tray-error" title="${error}">Error</span>
+                ` : ''}
+
+                <!-- Action button -->
+                <div class="tray-actions">
+                    ${publishStatus.isPublished ? `
+                        <button class="tray-btn tray-btn-secondary" id="tray-unpublish" ${isProcessing ? 'disabled' : ''}>
                             Unpublish
                         </button>
                     ` : `
-                        <button id="publish-submit" class="tray-btn primary" ${isProcessing || !currentFile || !activeConfig ? 'disabled' : ''}>
+                        <button class="tray-btn tray-btn-primary" id="tray-publish" ${!currentFile || !activeConfig || isProcessing ? 'disabled' : ''}>
                             ${isProcessing ? 'Publishing...' : 'Publish'}
                         </button>
                     `}
@@ -164,194 +132,68 @@ function renderPublishForm() {
 }
 
 /**
- * Update tray content without full re-render
+ * Update tray content
  */
 function updateTrayContent() {
     const content = topBarTray.getTrayContent();
     if (content && topBarTray.isOpen('publish')) {
-        content.innerHTML = renderPublishForm();
-        attachFormListeners(content);
+        content.innerHTML = renderTray();
+        attachListeners(content);
     }
 }
 
 /**
- * Load publish status for current file
+ * Attach event listeners
  */
-async function loadPublishStatus() {
-    const state = appStore.getState();
-    const currentFile = state.file?.currentFile?.pathname;
-
-    if (!currentFile) {
-        currentState.publishStatus = { isPublished: false, url: null };
-        return;
-    }
-
-    try {
-        currentState.publishStatus = await PublishAPI.checkStatus(currentFile);
-    } catch (error) {
-        currentState.publishStatus = { isPublished: false, url: null };
-    }
-}
-
-/**
- * Attach form event listeners
- */
-function attachFormListeners(container) {
-    // Config change
-    const configSelect = container.querySelector('#publish-config');
-    if (configSelect) {
-        configSelect.addEventListener('change', (e) => {
-            appStore.dispatch(publishConfigActions.setActiveConfiguration(e.target.value));
-        });
-    }
-
+function attachListeners(container) {
     // Publish button
-    const publishBtn = container.querySelector('#publish-submit');
-    if (publishBtn) {
-        publishBtn.addEventListener('click', handlePublish);
-    }
-
-    // Republish button
-    const republishBtn = container.querySelector('#publish-republish');
-    if (republishBtn) {
-        republishBtn.addEventListener('click', handlePublish);
-    }
+    container.querySelector('#tray-publish')?.addEventListener('click', async () => {
+        const result = await publishManager.publish();
+        if (!result.success) {
+            log.error('PUBLISH_FAILED', result.error);
+        }
+    });
 
     // Unpublish button
-    const unpublishBtn = container.querySelector('#publish-unpublish');
-    if (unpublishBtn) {
-        unpublishBtn.addEventListener('click', handleUnpublish);
-    }
-
-    // Copy URL
-    const copyBtn = container.querySelector('#publish-copy');
-    if (copyBtn) {
-        copyBtn.addEventListener('click', handleCopyUrl);
-    }
-
-    // Open URL
-    const openBtn = container.querySelector('#publish-open');
-    if (openBtn) {
-        openBtn.addEventListener('click', handleOpenUrl);
-    }
-}
-
-/**
- * Handle publish
- */
-async function handlePublish() {
-    if (currentState.isProcessing) return;
-
-    const state = appStore.getState();
-    const currentFile = state.file?.currentFile?.pathname;
-    const activeConfig = selectActiveConfigurationDecrypted(state);
-
-    if (!currentFile || !activeConfig) {
-        currentState.error = 'No file or configuration selected';
-        updateTrayContent();
-        return;
-    }
-
-    currentState.isProcessing = true;
-    currentState.error = null;
-    currentState.progressPercent = 0;
-    currentState.statusMessage = 'Starting...';
-    updateTrayContent();
-
-    try {
-        currentState.progressPercent = 20;
-        currentState.statusMessage = 'Reading content...';
-        updateTrayContent();
-
-        const editor = findEditor();
-        if (!editor) throw new Error('Editor not found');
-
-        const content = editor.value || '';
-        if (!content.trim()) throw new Error('Content is empty');
-
-        currentState.progressPercent = 40;
-        currentState.statusMessage = 'Generating HTML...';
-        updateTrayContent();
-
-        const htmlContent = await publishService.generatePublishHtml(content, currentFile);
-        if (!htmlContent) throw new Error('HTML generation failed');
-
-        currentState.progressPercent = 70;
-        currentState.statusMessage = 'Uploading...';
-        updateTrayContent();
-
-        const result = await PublishAPI.publish(currentFile, htmlContent, true, activeConfig);
-
-        currentState.progressPercent = 100;
-        currentState.statusMessage = 'Complete!';
-        currentState.publishStatus = { isPublished: true, url: result.url };
-
-        log.info('PUBLISH_SUCCESS', `Published: ${currentFile}`);
-
-    } catch (error) {
-        log.error('PUBLISH_ERROR', error.message);
-        currentState.error = error.message;
-        currentState.publishStatus = { isPublished: false, url: null };
-    } finally {
-        currentState.isProcessing = false;
-        updateTrayContent();
-    }
-}
-
-/**
- * Handle unpublish
- */
-async function handleUnpublish() {
-    if (currentState.isProcessing) return;
-
-    const state = appStore.getState();
-    const currentFile = state.file?.currentFile?.pathname;
-    const activeConfig = selectActiveConfigurationDecrypted(state);
-
-    if (!currentFile || !activeConfig) return;
-
-    currentState.isProcessing = true;
-    currentState.statusMessage = 'Unpublishing...';
-    updateTrayContent();
-
-    try {
-        await PublishAPI.unpublish(currentFile, activeConfig);
-        currentState.publishStatus = { isPublished: false, url: null };
-        log.info('UNPUBLISH_SUCCESS', `Unpublished: ${currentFile}`);
-    } catch (error) {
-        log.error('UNPUBLISH_ERROR', error.message);
-        currentState.error = error.message;
-    } finally {
-        currentState.isProcessing = false;
-        updateTrayContent();
-    }
-}
-
-/**
- * Handle copy URL
- */
-async function handleCopyUrl() {
-    if (currentState.publishStatus.url) {
-        try {
-            await navigator.clipboard.writeText(currentState.publishStatus.url);
-            const btn = topBarTray.getTrayContent()?.querySelector('#publish-copy');
-            if (btn) {
-                btn.textContent = '✓';
-                setTimeout(() => { btn.textContent = '📋'; }, 1500);
-            }
-        } catch (error) {
-            log.error('COPY_ERROR', error.message);
+    container.querySelector('#tray-unpublish')?.addEventListener('click', async () => {
+        const result = await publishManager.unpublish();
+        if (!result.success) {
+            log.error('UNPUBLISH_FAILED', result.error);
         }
-    }
+    });
+
+    // Copy URL button
+    container.querySelector('#tray-copy-url')?.addEventListener('click', async () => {
+        const managerState = publishManager.getState();
+        if (managerState.publishStatus.url) {
+            try {
+                await navigator.clipboard.writeText(managerState.publishStatus.url);
+                const btn = container.querySelector('#tray-copy-url span');
+                if (btn) {
+                    const orig = btn.innerHTML;
+                    btn.innerHTML = '&#10003;';
+                    setTimeout(() => { btn.innerHTML = orig; }, 1500);
+                }
+            } catch (e) {
+                log.error('COPY_ERROR', e.message);
+            }
+        }
+    });
+
+    // CSS Strategy selector
+    container.querySelector('#tray-css-strategy')?.addEventListener('change', (e) => {
+        publishManager.setCssStrategy(e.target.value);
+    });
 }
 
 /**
- * Handle open URL
+ * Truncate URL for display
  */
-function handleOpenUrl() {
-    if (currentState.publishStatus.url) {
-        window.open(currentState.publishStatus.url, '_blank');
-    }
+function truncateUrl(url) {
+    if (!url) return '';
+    if (url.length <= 40) return url;
+    // Show last 35 chars with ellipsis
+    return '...' + url.slice(-35);
 }
 
 // Auto-register on import

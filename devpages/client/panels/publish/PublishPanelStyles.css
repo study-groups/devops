@@ -1,105 +1,148 @@
 /**
- * PublishPanel Styles - Sidebar-optimized publish panel
- * Based on PublishModal but adapted for sidebar display
+ * PublishPanelStyles.css - DO Spaces Browser Panel
+ * Browser-style UI for publish operations
  */
 
-.publish-panel-content {
+/* ===== PANEL CONTAINER ===== */
+.publish-panel-browser {
     padding: 12px;
-    font-size: 14px;
-}
-
-.publish-section {
-    margin-bottom: 16px;
-}
-
-.publish-section:last-child {
-    margin-bottom: 0;
-}
-
-.section-title {
     font-size: 13px;
-    font-weight: 600;
-    color: var(--color-fg);
-    margin: 0 0 8px 0;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-size: 11px;
-    color: var(--color-fg-muted);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
-/* Configuration Selector */
-.config-selector {
-    margin-bottom: 12px;
-}
-
-.config-label {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--color-fg-muted);
-    margin-bottom: 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.config-select-row {
+/* ===== HEADER ROW ===== */
+.panel-header-row {
     display: flex;
     gap: 6px;
+    align-items: center;
 }
 
-.config-select {
+.panel-header-row .config-select {
     flex: 1;
     padding: 6px 8px;
     border: 1px solid var(--color-border);
     border-radius: 4px;
     background: var(--color-bg-alt);
     color: var(--color-fg);
-    font-size: 13px;
-    min-width: 0; /* Allow flex shrinking */
+    font-size: 12px;
+    min-width: 0;
 }
 
-.config-select:focus {
+.panel-header-row .config-select:focus {
     outline: none;
     border-color: var(--color-primary);
 }
 
-.config-manage-btn {
-    padding: 6px 10px;
-    flex-shrink: 0;
+.btn-icon-sm {
+    padding: 6px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-bg-alt);
+    color: var(--color-fg);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    transition: all 0.15s ease;
 }
 
-.config-empty-state {
-    padding: 16px;
+.btn-icon-sm:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-primary);
+}
+
+/* ===== CONNECTION INFO ===== */
+.connection-info {
+    padding: 10px;
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    font-size: 11px;
+}
+
+.connection-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.connection-row:not(:last-child) {
+    margin-bottom: 4px;
+}
+
+.conn-label {
+    color: var(--color-fg-muted);
+    font-weight: 500;
+}
+
+.conn-value {
+    color: var(--color-fg);
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 11px;
+}
+
+.conn-sep {
+    color: var(--color-border);
+    margin: 0 4px;
+}
+
+.connection-empty {
+    padding: 20px;
     text-align: center;
     background: var(--color-bg-alt);
-    border-radius: 6px;
     border: 1px dashed var(--color-border);
-}
-
-.config-empty-state p {
-    margin: 0 0 12px 0;
-    color: var(--color-fg-muted);
-    font-size: 13px;
-}
-
-/* File Status Card */
-.file-status-card {
-    padding: 12px;
-    background: var(--color-bg-alt);
     border-radius: 6px;
-    border: 1px solid var(--color-border);
 }
 
-.file-info {
+.connection-empty p {
+    margin: 0 0 10px 0;
+    color: var(--color-fg-muted);
+    font-size: 12px;
+}
+
+/* ===== CURRENT FILE SECTION ===== */
+.current-file-section {
+    /* No extra styling needed, container handles gap */
+}
+
+.section-header-small {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-fg-muted);
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+
+.current-file-card {
+    padding: 10px;
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+}
+
+.file-row {
     display: flex;
     align-items: center;
     gap: 8px;
     margin-bottom: 8px;
 }
 
-.file-icon {
-    font-size: 16px;
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
     flex-shrink: 0;
+}
+
+.status-dot.published {
+    background: var(--color-success);
+    box-shadow: 0 0 4px var(--color-success);
+}
+
+.status-dot.unpublished {
+    background: var(--color-fg-muted);
 }
 
 .file-name {
@@ -107,262 +150,293 @@
     font-size: 12px;
     color: var(--color-fg);
     font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ===== URL ROW ===== */
+.url-row {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.url-input {
+    flex: 1;
+    padding: 4px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-bg);
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 10px;
+    color: var(--color-fg);
+    min-width: 0;
+}
+
+.btn-icon-xs {
+    padding: 4px 6px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    transition: all 0.15s ease;
+}
+
+.btn-icon-xs:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-primary);
+}
+
+/* ===== ERROR ROW ===== */
+.error-row {
+    padding: 6px 8px;
+    background: var(--color-error-background);
+    border: 1px solid var(--color-error);
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.error-text {
+    color: var(--color-error);
+    font-size: 11px;
     word-break: break-word;
 }
 
-.publish-status {
+/* ===== PROGRESS ROW ===== */
+.progress-row {
+    margin-bottom: 8px;
+}
+
+.progress-bar-mini {
+    width: 100%;
+    height: 4px;
+    background: var(--color-border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--color-primary);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-size: 10px;
+    color: var(--color-fg-muted);
+}
+
+/* ===== ACTION ROW ===== */
+.action-row {
+    display: flex;
+    gap: 6px;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-sm:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-sm.btn-primary {
+    background: var(--color-primary);
+    color: var(--color-primary-foreground);
+}
+
+.btn-sm.btn-primary:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+}
+
+.btn-sm.btn-danger {
+    background: var(--color-error);
+    color: white;
+}
+
+.btn-sm.btn-danger:hover:not(:disabled) {
+    filter: brightness(1.1);
+}
+
+.btn-sm.btn-full {
+    flex: 1;
+}
+
+/* ===== STRATEGY ROW ===== */
+.strategy-row {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    margin-top: 8px;
     padding-top: 8px;
     border-top: 1px solid var(--color-border);
 }
 
-.status-indicator {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.status-indicator.published {
-    background-color: var(--color-success);
-    box-shadow: 0 0 4px var(--color-success);
-}
-
-.status-indicator.unpublished {
-    background-color: var(--color-fg-muted);
-}
-
-.status-text {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--color-fg-muted);
-}
-
-/* Configuration Status */
-.config-status {
-    padding: 12px;
-    background: var(--color-bg-alt);
-    border-radius: 6px;
-    border: 1px solid var(--color-border);
-}
-
-.config-status-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-}
-
-.config-status-title {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--color-fg);
-    margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.test-setup-btn {
-    padding: 4px 8px;
-    font-size: 14px;
-}
-
-.config-details {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.config-detail-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 12px;
-}
-
-.detail-label {
-    color: var(--color-fg-muted);
-    font-weight: 500;
-}
-
-.detail-value {
-    color: var(--color-fg);
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+.strategy-label {
     font-size: 11px;
-    background: var(--color-bg);
-    padding: 2px 6px;
-    border-radius: 3px;
+    color: var(--color-fg-muted);
+    font-weight: 500;
 }
 
-/* Publishing Options */
-.publish-option-checkbox {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px;
-    background: var(--color-bg-alt);
+.strategy-select {
+    flex: 1;
+    padding: 4px 8px;
+    border: 1px solid var(--color-border);
     border-radius: 4px;
-    cursor: pointer;
-    font-size: 13px;
-    margin-bottom: 6px;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-size: 11px;
 }
 
-.publish-option-checkbox:hover {
+.strategy-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+/* ===== PUBLISHED FILES SECTION ===== */
+.published-files-section {
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.section-header-collapsible {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    background: var(--color-bg-alt);
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s ease;
+}
+
+.section-header-collapsible:hover {
     background: var(--color-bg-hover);
 }
 
-.publish-option-checkbox input[type="checkbox"] {
-    margin: 0;
-    cursor: pointer;
-}
-
-/* Progress Indicator */
-.progress-section {
-    padding: 12px;
-    background: var(--color-bg-alt);
-    border-radius: 6px;
-    border: 1px solid var(--color-border);
-}
-
-.progress-bar-container {
-    width: 100%;
-    height: 6px;
-    background: var(--color-border);
-    border-radius: 3px;
-    overflow: hidden;
-    margin-bottom: 8px;
-}
-
-.progress-bar {
-    height: 100%;
-    background: var(--color-primary);
-    border-radius: 3px;
-    transition: width 0.3s ease;
-}
-
-.progress-message {
-    font-size: 12px;
+.section-header-collapsible .section-title {
+    font-size: 10px;
+    font-weight: 600;
     color: var(--color-fg-muted);
-    text-align: center;
+    letter-spacing: 0.5px;
 }
 
-/* Success Display */
-.success-section {
+.toggle-icon {
+    color: var(--color-fg-muted);
+    font-size: 10px;
+}
+
+.files-list {
+    background: var(--color-bg);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.loading-row,
+.empty-row {
     padding: 12px;
-    background: var(--color-success-background);
-    border: 1px solid var(--color-success);
-    border-radius: 6px;
+    text-align: center;
+    color: var(--color-fg-muted);
+    font-size: 11px;
 }
 
-.success-header {
+.file-item {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-bottom: 10px;
+    gap: 8px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--color-border);
 }
 
-.success-icon {
-    font-size: 16px;
+.file-item:last-child {
+    border-bottom: none;
 }
 
-.success-title {
-    font-weight: 600;
-    color: var(--color-success-foreground);
-    font-size: 13px;
+.file-item:hover {
+    background: var(--color-bg-alt);
 }
 
-.success-url-container {
-    display: flex;
-    gap: 4px;
-    align-items: stretch;
-}
-
-.success-url-input {
+.file-item-name {
     flex: 1;
-    padding: 6px 8px;
-    border: 1px solid var(--color-success);
-    border-radius: 4px;
-    background: white;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: 11px;
     color: var(--color-fg);
-    min-width: 0; /* Allow flex shrinking */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.copy-url-btn,
-.open-url-btn {
-    padding: 6px 8px;
-    font-size: 14px;
-    flex-shrink: 0;
+.file-item-time {
+    font-size: 10px;
+    color: var(--color-fg-muted);
+    white-space: nowrap;
 }
 
-/* Error Display */
-.error-section {
-    padding: 12px;
-    background: var(--color-error-background);
-    border: 1px solid var(--color-error);
-    border-radius: 6px;
+.file-open-btn {
+    opacity: 0;
+    transition: opacity 0.15s ease;
 }
 
-.error-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 8px;
+.file-item:hover .file-open-btn {
+    opacity: 1;
 }
 
-.error-icon {
-    font-size: 16px;
+.more-files-row {
+    padding: 8px;
+    text-align: center;
+    color: var(--color-fg-muted);
+    font-size: 10px;
+    background: var(--color-bg-alt);
 }
 
-.error-title {
-    font-weight: 600;
-    color: var(--color-error);
-    font-size: 13px;
+/* ===== SCROLLBAR ===== */
+.files-list::-webkit-scrollbar {
+    width: 6px;
 }
 
-.error-message {
-    color: var(--color-error);
-    font-size: 12px;
-    word-break: break-word;
+.files-list::-webkit-scrollbar-track {
+    background: var(--color-bg);
 }
 
-/* Action Buttons */
-.action-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+.files-list::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
 }
 
-.btn-block {
-    width: 100%;
+.files-list::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border-hover);
 }
 
-.btn-spinner {
-    animation: spin 1s linear infinite;
-    display: inline-block;
-}
-
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-
-/* Responsive adjustments for narrow sidebars */
+/* ===== RESPONSIVE ===== */
 @media (max-width: 300px) {
-    .config-select-row {
-        flex-direction: column;
-    }
-
-    .success-url-container {
-        flex-direction: column;
-    }
-
-    .config-detail-row {
+    .connection-row {
         flex-direction: column;
         align-items: flex-start;
-        gap: 2px;
+    }
+
+    .conn-sep {
+        display: none;
+    }
+
+    .url-row {
+        flex-direction: column;
+    }
+
+    .url-input {
+        width: 100%;
     }
 }

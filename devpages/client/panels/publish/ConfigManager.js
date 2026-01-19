@@ -1,13 +1,12 @@
 /**
  * ConfigManager.js - Modal for managing publish configurations
  *
- * Allows users to:
- * - View all configurations
- * - Create new configurations
- * - Edit existing configurations
- * - Delete configurations
- * - Test connections
- * - Set default configuration
+ * Improved UX with:
+ * - Section grouping (Connection, Credentials, Output Options)
+ * - Env var hints showing actual variable names
+ * - "Use Server Defaults" button
+ * - Inline validation errors
+ * - Better test result panel
  */
 
 import { appStore } from '/client/appState.js';
@@ -25,12 +24,11 @@ export class ConfigManager {
         this.unsubscribe = null;
         this.editingId = null;
         this.formData = this.getEmptyFormData();
-        this.isSaving = false; // Prevent form updates during save
+        this.isSaving = false;
+        this.validationErrors = {};
+        this.collapsedSections = {};
     }
 
-    /**
-     * Get empty form data structure
-     */
     getEmptyFormData() {
         return {
             name: '',
@@ -42,15 +40,11 @@ export class ConfigManager {
             prefix: 'published/',
             baseUrl: '',
             themeUrl: '',
-            themeName: '',
             inlineCSS: true,
             isDefault: false
         };
     }
 
-    /**
-     * Open the configuration manager modal
-     */
     open() {
         if (this.modalElement) {
             this.modalElement.style.display = 'flex';
@@ -62,9 +56,6 @@ export class ConfigManager {
         this.attachEventListeners();
     }
 
-    /**
-     * Close the configuration manager modal
-     */
     close() {
         if (this.modalElement) {
             this.modalElement.style.display = 'none';
@@ -72,11 +63,9 @@ export class ConfigManager {
         appStore.dispatch(publishConfigActions.closeConfigManager());
         this.editingId = null;
         this.formData = this.getEmptyFormData();
+        this.validationErrors = {};
     }
 
-    /**
-     * Destroy the modal and clean up
-     */
     destroy() {
         if (this.unsubscribe) {
             this.unsubscribe();
@@ -87,15 +76,9 @@ export class ConfigManager {
         this.modalElement = null;
     }
 
-    /**
-     * Subscribe to Redux store updates
-     */
     subscribeToStore() {
         this.unsubscribe = appStore.subscribe(() => {
-            // Don't update form while saving to prevent clearing user input
-            if (this.isSaving) {
-                return;
-            }
+            if (this.isSaving) return;
 
             const state = appStore.getState();
             const managerState = selectConfigManagerState(state);
@@ -114,12 +97,10 @@ export class ConfigManager {
         });
     }
 
-    /**
-     * Load configuration being edited into form
-     */
     loadEditingConfig() {
         if (!this.editingId) {
             this.formData = this.getEmptyFormData();
+            this.validationErrors = {};
             this.updateForm();
             return;
         }
@@ -129,13 +110,11 @@ export class ConfigManager {
 
         if (config) {
             this.formData = { ...config };
+            this.validationErrors = {};
             this.updateForm();
         }
     }
 
-    /**
-     * Render the modal
-     */
     render() {
         this.modalElement = document.createElement('div');
         this.modalElement.className = 'config-manager-modal';
@@ -144,7 +123,7 @@ export class ConfigManager {
             <div class="config-manager-container">
                 <div class="config-manager-header">
                     <h2>Manage Publish Configurations</h2>
-                    <button class="config-manager-close" data-action="close">×</button>
+                    <button class="config-manager-close" data-action="close">&times;</button>
                 </div>
 
                 <div class="config-manager-body">
@@ -154,99 +133,152 @@ export class ConfigManager {
                             <h3>Configurations</h3>
                             <button class="btn-new-config" data-action="new">+ New</button>
                         </div>
-                        <div class="config-list-items" data-region="config-list">
-                            <!-- Populated by updateConfigList() -->
-                        </div>
+                        <div class="config-list-items" data-region="config-list"></div>
                     </div>
 
                     <!-- Right Panel: Configuration Form -->
                     <div class="config-manager-form">
-                        <h3 data-region="form-title">New Configuration</h3>
+                        <div class="form-header-row">
+                            <h3 data-region="form-title">New Configuration</h3>
+                            <button class="btn-server-defaults" data-action="load-defaults" title="Load settings from server environment">
+                                Use Server Defaults
+                            </button>
+                        </div>
 
                         <form data-region="config-form">
+                            <!-- Name Field -->
                             <div class="form-group">
-                                <label for="config-name">Name *</label>
+                                <label for="config-name">Configuration Name *</label>
                                 <input type="text" id="config-name" name="name" required placeholder="My CDN Config">
+                                <div class="field-error" data-error="name"></div>
                             </div>
 
-                            <div class="form-group">
-                                <label for="config-endpoint">Endpoint *</label>
-                                <input type="url" id="config-endpoint" name="endpoint" required
-                                       placeholder="https://devpages.sfo3.digitaloceanspaces.com">
-                                <small>Full URL to your S3-compatible endpoint</small>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="config-region">Region *</label>
-                                    <input type="text" id="config-region" name="region" required placeholder="sfo3">
+                            <!-- CONNECTION Section -->
+                            <div class="form-section" data-section="connection">
+                                <div class="section-header" data-action="toggle-section" data-target="connection">
+                                    <span class="section-icon">&#x1F517;</span>
+                                    <span class="section-title">CONNECTION</span>
+                                    <span class="section-toggle">&#9662;</span>
                                 </div>
+                                <div class="section-content">
+                                    <div class="form-group">
+                                        <label for="config-endpoint">
+                                            Endpoint *
+                                            <span class="env-hint">DO_SPACES_ENDPOINT</span>
+                                        </label>
+                                        <input type="url" id="config-endpoint" name="endpoint" required
+                                               placeholder="https://sfo3.digitaloceanspaces.com">
+                                        <small>Full URL to your S3-compatible endpoint</small>
+                                        <div class="field-error" data-error="endpoint"></div>
+                                    </div>
 
-                                <div class="form-group">
-                                    <label for="config-bucket">Bucket *</label>
-                                    <input type="text" id="config-bucket" name="bucket" required placeholder="devpages">
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="config-region">
+                                                Region *
+                                                <span class="env-hint">DO_SPACES_REGION</span>
+                                            </label>
+                                            <input type="text" id="config-region" name="region" required placeholder="sfo3">
+                                            <div class="field-error" data-error="region"></div>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="config-bucket">
+                                                Bucket *
+                                                <span class="env-hint">DO_SPACES_BUCKET</span>
+                                            </label>
+                                            <input type="text" id="config-bucket" name="bucket" required placeholder="devpages">
+                                            <div class="field-error" data-error="bucket"></div>
+                                        </div>
+                                    </div>
+
+                                    <button type="button" class="btn-test-inline" data-action="test">
+                                        Test Connection
+                                    </button>
                                 </div>
                             </div>
 
-                            <div class="form-group">
-                                <label for="config-access-key">Access Key</label>
-                                <input type="text" id="config-access-key" name="accessKey" placeholder="DO00XXXXXXXXXXXXX">
-                                <small>Optional if using server-side credentials</small>
+                            <!-- CREDENTIALS Section -->
+                            <div class="form-section" data-section="credentials">
+                                <div class="section-header" data-action="toggle-section" data-target="credentials">
+                                    <span class="section-icon">&#x1F511;</span>
+                                    <span class="section-title">CREDENTIALS</span>
+                                    <span class="section-toggle">&#9662;</span>
+                                </div>
+                                <div class="section-content">
+                                    <div class="form-group">
+                                        <label for="config-access-key">
+                                            Access Key
+                                            <span class="env-hint">DO_SPACES_KEY</span>
+                                        </label>
+                                        <input type="text" id="config-access-key" name="accessKey" placeholder="DO00XXXXXXXXXXXXX">
+                                        <small>Optional if server has credentials configured</small>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="config-secret-key">
+                                            Secret Key
+                                            <span class="env-hint">DO_SPACES_SECRET</span>
+                                        </label>
+                                        <input type="password" id="config-secret-key" name="secretKey" placeholder="Leave blank to use server credentials">
+                                        <small>Optional if server has credentials configured</small>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div class="form-group">
-                                <label for="config-secret-key">Secret Key</label>
-                                <input type="password" id="config-secret-key" name="secretKey" placeholder="••••••••••••">
-                                <small>Optional if using server-side credentials</small>
+                            <!-- OUTPUT OPTIONS Section -->
+                            <div class="form-section" data-section="output">
+                                <div class="section-header" data-action="toggle-section" data-target="output">
+                                    <span class="section-icon">&#x1F4C4;</span>
+                                    <span class="section-title">OUTPUT OPTIONS</span>
+                                    <span class="section-toggle">&#9662;</span>
+                                </div>
+                                <div class="section-content">
+                                    <div class="form-group">
+                                        <label for="config-prefix">Path Prefix</label>
+                                        <input type="text" id="config-prefix" name="prefix" placeholder="published/">
+                                        <small>Folder path within bucket (e.g., "published/")</small>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="config-base-url">
+                                            CDN Base URL
+                                            <span class="env-hint">PUBLISH_BASE_URL</span>
+                                        </label>
+                                        <input type="url" id="config-base-url" name="baseUrl"
+                                               placeholder="https://devpages.sfo3.cdn.digitaloceanspaces.com">
+                                        <small>Public CDN URL for published files</small>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="config-theme-url">Theme URL</label>
+                                        <input type="url" id="config-theme-url" name="themeUrl" placeholder="">
+                                        <small>Optional: URL to custom theme CSS</small>
+                                    </div>
+
+                                    <div class="form-group form-checkbox">
+                                        <label>
+                                            <input type="checkbox" id="config-inline-css" name="inlineCSS" checked>
+                                            Inline CSS (recommended for better portability)
+                                        </label>
+                                    </div>
+
+                                    <div class="form-group form-checkbox">
+                                        <label>
+                                            <input type="checkbox" id="config-is-default" name="isDefault">
+                                            Set as default configuration
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div class="form-group">
-                                <label for="config-prefix">Path Prefix</label>
-                                <input type="text" id="config-prefix" name="prefix" placeholder="published/">
-                                <small>Folder path within bucket (e.g., "published/")</small>
-                            </div>
+                            <!-- Test Result -->
+                            <div class="test-result" data-region="test-result" style="display: none;"></div>
 
-                            <div class="form-group">
-                                <label for="config-base-url">Base URL</label>
-                                <input type="url" id="config-base-url" name="baseUrl"
-                                       placeholder="https://devpages.sfo3.cdn.digitaloceanspaces.com">
-                                <small>Public CDN URL for published files</small>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="config-theme-url">Theme URL</label>
-                                <input type="url" id="config-theme-url" name="themeUrl" placeholder="">
-                                <small>Optional: URL to custom theme CSS</small>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="config-theme-name">Theme Name</label>
-                                <input type="text" id="config-theme-name" name="themeName" placeholder="default">
-                                <small>Optional: Name of theme to apply</small>
-                            </div>
-
-                            <div class="form-group form-checkbox">
-                                <label>
-                                    <input type="checkbox" id="config-inline-css" name="inlineCSS" checked>
-                                    Inline CSS (recommended for better portability)
-                                </label>
-                            </div>
-
-                            <div class="form-group form-checkbox">
-                                <label>
-                                    <input type="checkbox" id="config-is-default" name="isDefault">
-                                    Set as default configuration
-                                </label>
-                            </div>
-
+                            <!-- Form Actions -->
                             <div class="form-actions">
                                 <button type="button" class="btn-secondary" data-action="cancel">Cancel</button>
-                                <button type="button" class="btn-test" data-action="test">Test Connection</button>
                                 <button type="submit" class="btn-primary" data-action="save">Save Configuration</button>
-                            </div>
-
-                            <div class="test-result" data-region="test-result" style="display: none;">
-                                <!-- Test result will be shown here -->
                             </div>
                         </form>
                     </div>
@@ -258,9 +290,6 @@ export class ConfigManager {
         this.updateConfigList();
     }
 
-    /**
-     * Update the configuration list
-     */
     updateConfigList() {
         if (!this.modalElement) return;
 
@@ -282,32 +311,27 @@ export class ConfigManager {
                     ${config.isDefault ? '<span class="config-item-badge">Default</span>' : ''}
                 </div>
                 <div class="config-item-details">
-                    <small>${this.escapeHtml(config.endpoint)}</small>
+                    <small>${this.escapeHtml(config.endpoint || 'No endpoint set')}</small>
                 </div>
                 <div class="config-item-actions">
-                    <button class="btn-icon" data-action="edit" data-config-id="${config.id}" title="Edit">✏️</button>
-                    <button class="btn-icon" data-action="delete" data-config-id="${config.id}" title="Delete">🗑️</button>
+                    <button class="btn-icon" data-action="edit" data-config-id="${config.id}" title="Edit">&#x270F;&#xFE0F;</button>
+                    <button class="btn-icon" data-action="delete" data-config-id="${config.id}" title="Delete">&#x1F5D1;&#xFE0F;</button>
                 </div>
             </div>
         `).join('');
     }
 
-    /**
-     * Update the form with current formData
-     */
     updateForm() {
         if (!this.modalElement) return;
 
         const form = this.modalElement.querySelector('[data-region="config-form"]');
         if (!form) return;
 
-        // Update form title
         const titleElement = this.modalElement.querySelector('[data-region="form-title"]');
         if (titleElement) {
             titleElement.textContent = this.editingId ? 'Edit Configuration' : 'New Configuration';
         }
 
-        // Update form fields
         Object.keys(this.formData).forEach(key => {
             const input = form.querySelector(`[name="${key}"]`);
             if (input) {
@@ -318,11 +342,11 @@ export class ConfigManager {
                 }
             }
         });
+
+        // Clear validation errors
+        this.clearValidationErrors();
     }
 
-    /**
-     * Update test result display
-     */
     updateTestResult() {
         if (!this.modalElement) return;
 
@@ -333,7 +357,12 @@ export class ConfigManager {
         const managerState = selectConfigManagerState(state);
 
         if (managerState.isTestingConnection) {
-            resultContainer.innerHTML = '<div class="test-result-loading">Testing connection...</div>';
+            resultContainer.innerHTML = `
+                <div class="test-result-loading">
+                    <span class="loading-spinner"></span>
+                    Testing connection...
+                </div>
+            `;
             resultContainer.style.display = 'block';
             return;
         }
@@ -345,17 +374,27 @@ export class ConfigManager {
 
         const result = managerState.testResult;
         const className = result.success ? 'test-result-success' : 'test-result-error';
+        const icon = result.success ? '&#x2705;' : '&#x274C;';
 
         let content = `<div class="${className}">
-            <strong>${result.success ? '✅' : '❌'} ${result.message}</strong>
+            <div class="test-result-header">
+                <span class="test-icon">${icon}</span>
+                <strong>${result.message}</strong>
+            </div>
         `;
 
         if (result.errors && result.errors.length > 0) {
-            content += '<ul>' + result.errors.map(err => `<li>${this.escapeHtml(err)}</li>`).join('') + '</ul>';
+            content += '<ul class="test-errors">' + result.errors.map(err => `<li>${this.escapeHtml(err)}</li>`).join('') + '</ul>';
         }
 
-        if (result.details) {
-            content += '<pre>' + JSON.stringify(result.details, null, 2) + '</pre>';
+        if (result.details && result.success) {
+            content += `
+                <div class="test-details">
+                    <div class="test-detail-row"><span>Endpoint:</span> ${this.escapeHtml(result.details.endpoint || 'N/A')}</div>
+                    <div class="test-detail-row"><span>Bucket:</span> ${this.escapeHtml(result.details.bucket || 'N/A')}</div>
+                    <div class="test-detail-row"><span>Region:</span> ${this.escapeHtml(result.details.region || 'N/A')}</div>
+                </div>
+            `;
         }
 
         content += '</div>';
@@ -363,36 +402,26 @@ export class ConfigManager {
         resultContainer.style.display = 'block';
     }
 
-    /**
-     * Attach event listeners
-     */
     attachEventListeners() {
         if (!this.modalElement) return;
 
         // Close button
-        this.modalElement.querySelector('[data-action="close"]')?.addEventListener('click', () => {
-            this.close();
-        });
+        this.modalElement.querySelector('[data-action="close"]')?.addEventListener('click', () => this.close());
 
         // Backdrop click
-        this.modalElement.querySelector('.config-manager-backdrop')?.addEventListener('click', () => {
-            this.close();
-        });
+        this.modalElement.querySelector('.config-manager-backdrop')?.addEventListener('click', () => this.close());
 
         // New config button
-        this.modalElement.querySelector('[data-action="new"]')?.addEventListener('click', () => {
-            this.handleNew();
-        });
+        this.modalElement.querySelector('[data-action="new"]')?.addEventListener('click', () => this.handleNew());
 
         // Cancel button
-        this.modalElement.querySelector('[data-action="cancel"]')?.addEventListener('click', () => {
-            this.handleCancel();
-        });
+        this.modalElement.querySelector('[data-action="cancel"]')?.addEventListener('click', () => this.handleCancel());
 
-        // Test button
-        this.modalElement.querySelector('[data-action="test"]')?.addEventListener('click', () => {
-            this.handleTest();
-        });
+        // Test button (inline)
+        this.modalElement.querySelector('[data-action="test"]')?.addEventListener('click', () => this.handleTest());
+
+        // Load server defaults button
+        this.modalElement.querySelector('[data-action="load-defaults"]')?.addEventListener('click', () => this.handleLoadDefaults());
 
         // Form submission
         this.modalElement.querySelector('[data-region="config-form"]')?.addEventListener('submit', (e) => {
@@ -400,7 +429,15 @@ export class ConfigManager {
             this.handleSave();
         });
 
-        // List item actions (event delegation)
+        // Section toggle
+        this.modalElement.querySelectorAll('[data-action="toggle-section"]').forEach(header => {
+            header.addEventListener('click', (e) => {
+                const sectionName = e.currentTarget.dataset.target;
+                this.toggleSection(sectionName);
+            });
+        });
+
+        // List item actions
         this.modalElement.querySelector('[data-region="config-list"]')?.addEventListener('click', (e) => {
             const button = e.target.closest('[data-action]');
             if (!button) return;
@@ -426,32 +463,79 @@ export class ConfigManager {
                 } else {
                     this.formData[name] = input.value;
                 }
+                // Clear validation error for this field
+                this.clearFieldError(name);
             }
         });
     }
 
-    /**
-     * Handle new configuration
-     */
+    toggleSection(sectionName) {
+        const section = this.modalElement.querySelector(`[data-section="${sectionName}"]`);
+        if (section) {
+            section.classList.toggle('collapsed');
+            this.collapsedSections[sectionName] = section.classList.contains('collapsed');
+        }
+    }
+
+    async handleLoadDefaults() {
+        try {
+            const response = await fetch('/api/spaces/config');
+            const result = await response.json();
+
+            if (result.success && result.config) {
+                const config = result.config;
+
+                // Only update fields that have values from server
+                if (config.endpointValue && config.endpointValue !== 'Not Set') {
+                    this.formData.endpoint = config.endpointValue;
+                }
+                if (config.regionValue && config.regionValue !== 'Not Set') {
+                    this.formData.region = config.regionValue;
+                }
+                if (config.bucketValue && config.bucketValue !== 'Not Set') {
+                    this.formData.bucket = config.bucketValue;
+                }
+                if (config.publishBaseUrlValue && config.publishBaseUrlValue !== 'Not Set') {
+                    this.formData.baseUrl = config.publishBaseUrlValue;
+                }
+
+                this.updateForm();
+
+                // Show success message
+                appStore.dispatch(publishConfigActions.setTestResult({
+                    success: true,
+                    message: 'Server defaults loaded successfully'
+                }));
+            } else {
+                appStore.dispatch(publishConfigActions.setTestResult({
+                    success: false,
+                    message: 'No server defaults available',
+                    errors: ['Server environment variables may not be configured']
+                }));
+            }
+        } catch (error) {
+            appStore.dispatch(publishConfigActions.setTestResult({
+                success: false,
+                message: 'Failed to load server defaults',
+                errors: [error.message]
+            }));
+        }
+    }
+
     handleNew() {
         appStore.dispatch(publishConfigActions.stopEditingConfig());
         appStore.dispatch(publishConfigActions.clearTestResult());
         this.editingId = null;
         this.formData = this.getEmptyFormData();
+        this.validationErrors = {};
         this.updateForm();
         this.updateConfigList();
     }
 
-    /**
-     * Handle edit configuration
-     */
     handleEdit(configId) {
         appStore.dispatch(publishConfigActions.startEditingConfig(configId));
     }
 
-    /**
-     * Handle delete configuration
-     */
     handleDelete(configId) {
         const state = appStore.getState();
         const configurations = selectAllConfigurations(state);
@@ -469,37 +553,30 @@ export class ConfigManager {
         }
     }
 
-    /**
-     * Handle cancel editing
-     */
     handleCancel() {
         appStore.dispatch(publishConfigActions.stopEditingConfig());
         appStore.dispatch(publishConfigActions.clearTestResult());
         this.editingId = null;
         this.formData = this.getEmptyFormData();
+        this.validationErrors = {};
         this.updateForm();
         this.updateConfigList();
     }
 
-    /**
-     * Handle test connection
-     */
     async handleTest() {
-        // Validate required fields
         const errors = this.validateFormData();
         if (errors.length > 0) {
+            this.showValidationErrors(errors);
             appStore.dispatch(publishConfigActions.setTestResult({
                 success: false,
-                message: 'Please fill in all required fields',
+                message: 'Please fill in required fields',
                 errors
             }));
             return;
         }
 
-        // Create a temporary config ID for testing
         const testId = this.editingId || 'temp-test';
 
-        // If not editing, create a temporary config for testing
         if (!this.editingId) {
             appStore.dispatch(publishConfigActions.addConfiguration({
                 id: testId,
@@ -507,62 +584,42 @@ export class ConfigManager {
             }));
         }
 
-        // Test the configuration
         await appStore.dispatch(publishConfigThunks.testConfiguration(testId));
 
-        // Remove temporary config if it was created
         if (!this.editingId) {
             appStore.dispatch(publishConfigActions.deleteConfiguration(testId));
         }
     }
 
-    /**
-     * Handle save configuration
-     */
     handleSave() {
-        // Validate form data
         const errors = this.validateFormData();
         if (errors.length > 0) {
-            alert('Please fill in all required fields:\n' + errors.join('\n'));
+            this.showValidationErrors(errors);
             return;
         }
 
-        // Set flag to prevent subscription from clearing form during save
         this.isSaving = true;
 
         let savedConfigId;
 
         if (this.editingId) {
-            // Update existing configuration
             appStore.dispatch(publishConfigActions.updateConfiguration({
                 id: this.editingId,
                 updates: this.formData
             }));
             savedConfigId = this.editingId;
         } else {
-            // Create new configuration - need to get the ID from the action
             appStore.dispatch(publishConfigActions.addConfiguration(this.formData));
-            // Get the newly created config ID
             const newState = appStore.getState();
             const configs = selectAllConfigurations(newState);
             savedConfigId = configs[configs.length - 1]?.id;
         }
 
-        // Clear test result
         appStore.dispatch(publishConfigActions.clearTestResult());
-
-        // Update local state to keep the saved config in editing mode
-        // Do this BEFORE resetting isSaving to prevent subscription interference
         this.editingId = savedConfigId;
-
-        // Re-enable subscription updates
         this.isSaving = false;
-
-        // Now update the UI - subscription is now active and will handle form population
         this.updateConfigList();
 
-        // Only dispatch startEditingConfig if we're not already editing this config
-        // This prevents the infinite loop
         const state = appStore.getState();
         const managerState = selectConfigManagerState(state);
         if (managerState.editingConfigId !== savedConfigId) {
@@ -570,40 +627,81 @@ export class ConfigManager {
         }
     }
 
-    /**
-     * Validate form data
-     */
     validateFormData() {
         const errors = [];
 
         if (!this.formData.name || this.formData.name.trim() === '') {
-            errors.push('Name is required');
+            errors.push({ field: 'name', message: 'Name is required' });
         }
 
         if (!this.formData.endpoint || this.formData.endpoint.trim() === '') {
-            errors.push('Endpoint is required');
+            errors.push({ field: 'endpoint', message: 'Endpoint is required' });
         }
 
         if (!this.formData.region || this.formData.region.trim() === '') {
-            errors.push('Region is required');
+            errors.push({ field: 'region', message: 'Region is required' });
         }
 
         if (!this.formData.bucket || this.formData.bucket.trim() === '') {
-            errors.push('Bucket is required');
+            errors.push({ field: 'bucket', message: 'Bucket is required' });
         }
 
         return errors;
     }
 
-    /**
-     * Escape HTML to prevent XSS
-     */
+    showValidationErrors(errors) {
+        this.clearValidationErrors();
+
+        errors.forEach(({ field, message }) => {
+            this.validationErrors[field] = message;
+
+            const input = this.modalElement.querySelector(`[name="${field}"]`);
+            if (input) {
+                input.classList.add('input-error');
+            }
+
+            const errorElement = this.modalElement.querySelector(`[data-error="${field}"]`);
+            if (errorElement) {
+                errorElement.textContent = message;
+                errorElement.style.display = 'block';
+            }
+        });
+    }
+
+    clearValidationErrors() {
+        this.validationErrors = {};
+
+        this.modalElement.querySelectorAll('.input-error').forEach(el => {
+            el.classList.remove('input-error');
+        });
+
+        this.modalElement.querySelectorAll('.field-error').forEach(el => {
+            el.textContent = '';
+            el.style.display = 'none';
+        });
+    }
+
+    clearFieldError(fieldName) {
+        delete this.validationErrors[fieldName];
+
+        const input = this.modalElement.querySelector(`[name="${fieldName}"]`);
+        if (input) {
+            input.classList.remove('input-error');
+        }
+
+        const errorElement = this.modalElement.querySelector(`[data-error="${fieldName}"]`);
+        if (errorElement) {
+            errorElement.textContent = '';
+            errorElement.style.display = 'none';
+        }
+    }
+
     escapeHtml(text) {
+        if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
 }
 
-// Create singleton instance
 export const configManager = new ConfigManager();
