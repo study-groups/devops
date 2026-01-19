@@ -646,6 +646,7 @@
 
         function toggleTakeover(panel) {
             const btn = panel.querySelector('.takeover-btn');
+            const iframe = panel.querySelector('iframe');
 
             if (takeoverPanel === panel) {
                 // Exit takeover mode
@@ -654,13 +655,28 @@
                 btn.classList.remove('active');
                 btn.title = 'Expand panel';
                 rebuildPaneLayout();
+                // Notify iframe of mode change
+                if (iframe?.contentWindow) {
+                    iframe.contentWindow.postMessage({ type: 'mode-change', mode: 'panel' }, '*');
+                }
                 takeoverPanel = null;
+                // Notify all panels they're back in panel mode
+                panels.forEach(p => {
+                    const pIframe = p.querySelector('iframe');
+                    if (pIframe?.contentWindow) {
+                        pIframe.contentWindow.postMessage({ type: 'mode-change', mode: 'panel' }, '*');
+                    }
+                });
             } else {
                 // Enter takeover mode (or switch panels)
                 if (takeoverPanel) {
-                    // Clear previous takeover
+                    // Clear previous takeover and notify old panel
                     takeoverPanel.classList.remove('takeover-active');
                     takeoverPanel.querySelector('.takeover-btn')?.classList.remove('active');
+                    const oldIframe = takeoverPanel.querySelector('iframe');
+                    if (oldIframe?.contentWindow) {
+                        oldIframe.contentWindow.postMessage({ type: 'mode-change', mode: 'panel' }, '*');
+                    }
                 }
                 panes.classList.add('takeover');
                 panel.classList.add('takeover-active');
@@ -668,6 +684,10 @@
                 btn.title = 'Restore panels';
                 panes.appendChild(panel);
                 takeoverPanel = panel;
+                // Notify iframe of full-panel mode
+                if (iframe?.contentWindow) {
+                    iframe.contentWindow.postMessage({ type: 'mode-change', mode: 'full-panel' }, '*');
+                }
             }
         }
 

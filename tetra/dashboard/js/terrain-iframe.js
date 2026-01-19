@@ -178,6 +178,76 @@ Terrain.State = {
 };
 
 // ============================================================================
+// Terrain.Mode - Display mode detection and styling
+// ============================================================================
+
+Terrain.Mode = {
+    // Modes: 'panel' (in grid), 'full-panel' (takeover), 'single-page' (standalone)
+    current: 'panel',
+    _callbacks: [],
+
+    /**
+     * Detect display mode based on context
+     */
+    detect: function() {
+        const isIframe = window.parent !== window;
+        if (!isIframe) {
+            this.current = 'single-page';
+        } else {
+            // Default to panel, parent will notify if takeover
+            this.current = 'panel';
+        }
+        this._apply();
+        return this.current;
+    },
+
+    /**
+     * Set mode (called by parent via message)
+     */
+    set: function(mode) {
+        if (this.current === mode) return;
+        const prev = this.current;
+        this.current = mode;
+        this._apply();
+        this._callbacks.forEach(cb => cb(mode, prev));
+    },
+
+    /**
+     * Register callback for mode changes
+     */
+    onChange: function(callback) {
+        this._callbacks.push(callback);
+        return this;
+    },
+
+    /**
+     * Apply mode to document
+     */
+    _apply: function() {
+        document.body.dataset.terrainMode = this.current;
+
+        // Set CSS variables for mode-specific styling
+        const root = document.documentElement;
+        switch (this.current) {
+            case 'single-page':
+                root.style.setProperty('--terrain-padding', '2rem');
+                root.style.setProperty('--terrain-max-width', '900px');
+                root.style.setProperty('--terrain-font-scale', '1.1');
+                break;
+            case 'full-panel':
+                root.style.setProperty('--terrain-padding', '1.5rem');
+                root.style.setProperty('--terrain-max-width', 'none');
+                root.style.setProperty('--terrain-font-scale', '1.05');
+                break;
+            default: // panel
+                root.style.setProperty('--terrain-padding', '8px');
+                root.style.setProperty('--terrain-max-width', 'none');
+                root.style.setProperty('--terrain-font-scale', '1');
+        }
+    }
+};
+
+// ============================================================================
 // Terrain.Iframe - Iframe-specific helpers
 // ============================================================================
 
@@ -241,6 +311,9 @@ Terrain.Iframe = {
             Terrain.State.initFromUrl();
         }
 
+        // Detect display mode
+        Terrain.Mode.detect();
+
         // Listen for messages and publish to Bus
         window.addEventListener('message', (e) => {
             if (e.data && typeof e.data === 'object') {
@@ -249,6 +322,11 @@ Terrain.Iframe = {
                     Object.entries(e.data.tokens).forEach(([k, v]) => {
                         document.documentElement.style.setProperty('--' + k, v);
                     });
+                }
+
+                // Handle mode changes from parent
+                if (e.data.type === 'mode-change' && e.data.mode) {
+                    Terrain.Mode.set(e.data.mode);
                 }
 
                 // Auto-handle env-change via Terrain.State

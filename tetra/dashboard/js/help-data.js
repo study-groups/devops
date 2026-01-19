@@ -118,6 +118,17 @@ window.HELP_DATA = {
                 keywords: ['terrain', 'framework', 'library']
             },
             {
+                title: 'Terrain.Mode',
+                content: 'Display mode detection for responsive styling. The mode is set on <code>body[data-terrain-mode]</code> and CSS variables.',
+                concepts: [
+                    { title: 'panel', desc: 'In 4-panel grid. Compact padding (8px), normal font scale.' },
+                    { title: 'full-panel', desc: 'Takeover mode. More padding (1.5rem), slightly larger fonts (1.05x).' },
+                    { title: 'single-page', desc: 'Standalone page. Max padding (2rem), max-width 900px, larger fonts (1.1x).' }
+                ],
+                code: '/* CSS usage */\nbody[data-terrain-mode="panel"] { ... }\nbody[data-terrain-mode="full-panel"] { ... }\nbody[data-terrain-mode="single-page"] { ... }\n\n/* CSS variables set automatically */\npadding: var(--terrain-padding);\nmax-width: var(--terrain-max-width);\nfont-size: calc(11px * var(--terrain-font-scale));\n\n/* JavaScript */\nTerrain.Mode.current; // "panel", "full-panel", or "single-page"\nTerrain.Mode.onChange((mode, prev) => { ... });',
+                keywords: ['mode', 'display', 'responsive', 'panel', 'full-panel', 'single-page', 'takeover']
+            },
+            {
                 title: 'Terrain.Bus',
                 content: 'Pub/sub message bus connecting all panels.',
                 code: '// Subscribe to all messages\nTerrain.Bus.subscribe(\'*\', (msg) => {\n  console.log(msg.type, msg);\n});\n\n// Publish a message\nTerrain.Bus.publish({ type: \'my-event\', data: 123 });',

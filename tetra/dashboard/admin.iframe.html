@@ -9,12 +9,15 @@
         body { padding: 8px; overflow-y: auto; font-size: 11px; }
 
         /* Tabs */
-        .tabs { display: flex; gap: 2px; margin-bottom: 8px; border-bottom: 1px solid var(--border); }
+        .tabs { display: flex; gap: 2px; margin-bottom: 8px; border-bottom: 1px solid var(--border); align-items: center; }
         .tab { padding: 6px 12px; cursor: pointer; color: var(--ink-muted); border-bottom: 2px solid transparent; }
         .tab:hover { color: var(--ink); }
         .tab.active { color: var(--four); border-bottom-color: var(--four); }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        .tab-search { margin-left: auto; background: var(--paper-dark); border: 1px solid var(--border); color: var(--ink); padding: 3px 8px; font-size: 10px; width: 100px; margin-bottom: 2px; }
+        .tab-search:focus { outline: none; border-color: var(--four); width: 140px; }
+        .tab-search::placeholder { color: var(--ink-muted); }
 
         /* Sections */
         h2 { font-size: 10px; text-transform: uppercase; color: var(--ink-muted); margin: 0 0 6px 0; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
@@ -80,15 +83,12 @@
         .concept-title { font-weight: bold; color: var(--ink); font-size: 10px; }
         .concept-desc { color: var(--ink-muted); font-size: 10px; margin-top: 2px; }
 
-        /* Help UI - search and sub-tabs */
-        .help-header { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
-        .help-search { flex: 1; min-width: 120px; max-width: 200px; background: var(--paper-dark); border: 1px solid var(--border); color: var(--ink); padding: 4px 8px; font-size: 10px; border-radius: 2px; }
-        .help-search:focus { outline: none; border-color: var(--four); }
-        .help-search::placeholder { color: var(--ink-muted); }
-        .help-subtabs { display: flex; gap: 4px; flex-wrap: wrap; }
-        .help-subtab { background: var(--paper-mid); border: 1px solid var(--border); color: var(--ink-muted); padding: 3px 8px; font-size: 9px; cursor: pointer; border-radius: 10px; }
+        /* Help UI - sub-tabs */
+        .help-subtabs { display: flex; gap: 2px; flex-wrap: wrap; margin-bottom: 10px; }
+        .help-subtab { background: var(--paper-mid); border: 1px solid var(--border); color: var(--ink-muted); padding: 4px 10px; font-size: 9px; cursor: pointer; }
         .help-subtab:hover { border-color: var(--ink-muted); color: var(--ink); }
         .help-subtab.active { background: var(--four); border-color: var(--four); color: var(--paper); }
+        .help-subtab.all { font-weight: bold; }
         .help-panel { display: none; }
         .help-panel.active { display: block; }
         .help-panel.search-active .help-section { display: none; }
@@ -97,6 +97,12 @@
         .help-no-results { color: var(--ink-muted); font-style: italic; padding: 20px; text-align: center; display: none; }
         .help-no-results.show { display: block; }
         .help-code { background: var(--paper-dark); border: 1px solid var(--border); border-radius: 2px; padding: 8px; font-family: var(--font-mono); font-size: 9px; overflow-x: auto; white-space: pre; margin: 6px 0; color: var(--ink-muted); }
+
+        /* Help ALL article view */
+        .help-article { padding: 0 4px; }
+        .help-article .help-category { margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+        .help-article .help-category:last-child { border-bottom: none; }
+        .help-article .category-title { font-size: 12px; font-weight: bold; color: var(--four); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
     </style>
 </head>
 <body>
@@ -107,6 +113,7 @@
         <div class="tab active" data-tab="admin">Admin</div>
         <div class="tab" data-tab="api">API</div>
         <div class="tab" data-tab="help">Help</div>
+        <input type="text" class="tab-search" id="help-search" placeholder="Search...">
     </div>
 
     <!-- ADMIN TAB -->
@@ -293,10 +300,7 @@
 
     <!-- HELP TAB -->
     <div id="tab-help" class="tab-content">
-        <div class="help-header">
-            <input type="text" class="help-search" id="help-search" placeholder="Search help...">
-            <div class="help-subtabs" id="help-subtabs"></div>
-        </div>
+        <div class="help-subtabs" id="help-subtabs"></div>
         <div id="help-content"></div>
     </div>
 
@@ -494,8 +498,20 @@
         // Help System
         // ========================================================================
 
-        let activeHelpPanel = 'overview';
+        let activeHelpPanel = 'all';
         let helpSearchTimeout = null;
+
+        function renderAllArticle() {
+            let html = '<div class="help-article">';
+            for (const [id, cat] of Object.entries(HELP_DATA)) {
+                html += `<div class="help-category" data-category="${id}">`;
+                html += `<div class="category-title">${cat.title}</div>`;
+                html += cat.sections.map(s => renderHelpSection(s)).join('');
+                html += '</div>';
+            }
+            html += '</div>';
+            return html;
+        }
 
         function initHelp() {
             if (!window.HELP_DATA) return;
@@ -504,15 +520,18 @@
             const contentEl = document.getElementById('help-content');
             const searchEl = document.getElementById('help-search');
 
-            // Render sub-tabs
-            subtabsEl.innerHTML = Object.entries(HELP_DATA).map(([id, cat], i) =>
-                `<div class="help-subtab${i === 0 ? ' active' : ''}" data-panel="${id}">${cat.title}</div>`
-            ).join('');
+            // Render sub-tabs with ALL first
+            subtabsEl.innerHTML = '<div class="help-subtab all active" data-panel="all">ALL</div>' +
+                Object.entries(HELP_DATA).map(([id, cat]) =>
+                    `<div class="help-subtab" data-panel="${id}">${cat.title}</div>`
+                ).join('');
 
-            // Render all panels
-            contentEl.innerHTML = Object.entries(HELP_DATA).map(([id, cat], i) =>
-                renderHelpCategory(id, cat).replace('class="help-panel"', `class="help-panel${i === 0 ? ' active' : ''}"`)
-            ).join('');
+            // Render ALL panel + individual category panels
+            contentEl.innerHTML =
+                `<div class="help-panel active" data-panel="all">${renderAllArticle()}</div>` +
+                Object.entries(HELP_DATA).map(([id, cat]) =>
+                    renderHelpCategory(id, cat)
+                ).join('');
 
             // Sub-tab click handlers
             subtabsEl.querySelectorAll('.help-subtab').forEach(tab => {
@@ -528,10 +547,19 @@
                 });
             });
 
-            // Search functionality
+            // Search functionality - also switches to Help tab
             searchEl.addEventListener('input', (e) => {
                 clearTimeout(helpSearchTimeout);
-                helpSearchTimeout = setTimeout(() => performSearch(e.target.value), 150);
+                helpSearchTimeout = setTimeout(() => {
+                    if (e.target.value.trim()) {
+                        // Switch to Help tab if not already there
+                        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                        document.querySelector('[data-tab="help"]').classList.add('active');
+                        document.getElementById('tab-help').classList.add('active');
+                    }
+                    performSearch(e.target.value);
+                }, 150);
             });
         }
 
@@ -545,30 +573,34 @@
                 return;
             }
 
-            // Search across all panels
+            // Switch to ALL panel for search results
+            subtabsEl.querySelectorAll('.help-subtab').forEach(t => t.classList.remove('active'));
+            subtabsEl.querySelector('[data-panel="all"]').classList.add('active');
+            contentEl.querySelectorAll('.help-panel').forEach(p => p.classList.remove('active'));
+            const allPanel = contentEl.querySelector('[data-panel="all"]');
+            allPanel.classList.add('active', 'search-active');
+
+            // Search and highlight matching sections
             let hasResults = false;
-            contentEl.querySelectorAll('.help-panel').forEach(panel => {
-                let panelHasMatch = false;
-                panel.querySelectorAll('.help-section').forEach(section => {
-                    const text = section.textContent.toLowerCase();
-                    const keywords = section.dataset.keywords || '';
-                    const matches = text.includes(q) || keywords.includes(q);
-                    section.classList.toggle('match', matches);
-                    if (matches) {
-                        panelHasMatch = true;
-                        hasResults = true;
-                    }
-                });
-                panel.classList.add('search-active');
-                panel.classList.toggle('active', panelHasMatch);
-                panel.querySelector('.help-no-results')?.classList.toggle('show', !panelHasMatch);
+            allPanel.querySelectorAll('.help-section').forEach(section => {
+                const text = section.textContent.toLowerCase();
+                const keywords = section.dataset.keywords || '';
+                const matches = text.includes(q) || keywords.includes(q);
+                section.classList.toggle('match', matches);
+                if (matches) hasResults = true;
+            });
+
+            // Hide categories with no matches
+            allPanel.querySelectorAll('.help-category').forEach(cat => {
+                const hasMatch = cat.querySelector('.help-section.match');
+                cat.style.display = hasMatch ? '' : 'none';
             });
 
             // Update subtab highlights
-            subtabsEl.querySelectorAll('.help-subtab').forEach(tab => {
-                const panel = contentEl.querySelector(`[data-panel="${tab.dataset.panel}"]`);
-                const hasMatch = panel?.querySelector('.help-section.match');
-                tab.style.opacity = hasMatch ? '1' : '0.4';
+            subtabsEl.querySelectorAll('.help-subtab:not(.all)').forEach(tab => {
+                const catId = tab.dataset.panel;
+                const cat = allPanel.querySelector(`[data-category="${catId}"]`);
+                tab.style.opacity = cat?.querySelector('.help-section.match') ? '1' : '0.4';
             });
         }
 
@@ -579,8 +611,12 @@
             contentEl.querySelectorAll('.help-panel').forEach(panel => {
                 panel.classList.remove('search-active');
                 panel.classList.toggle('active', panel.dataset.panel === activeHelpPanel);
-                panel.querySelector('.help-no-results')?.classList.remove('show');
                 panel.querySelectorAll('.help-section').forEach(s => s.classList.remove('match'));
+            });
+
+            // Show all categories
+            contentEl.querySelectorAll('.help-category').forEach(cat => {
+                cat.style.display = '';
             });
 
             subtabsEl.querySelectorAll('.help-subtab').forEach(tab => {
