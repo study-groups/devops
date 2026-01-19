@@ -10,11 +10,16 @@
     <header>
         <h1>PBase</h1>
         <nav>
-            <button class="tab-btn active" data-tab="games">Games</button>
+            <button class="tab-btn active" data-tab="games">Workspace</button>
             <button class="tab-btn" data-tab="s3">S3 Browser</button>
             <button class="tab-btn" data-tab="config">Config</button>
             <button class="tab-btn" data-tab="admin">Admin</button>
         </nav>
+        <div class="workspace-controls">
+            <label for="org-select">Org:</label>
+            <select id="org-select"></select>
+            <button id="refresh-games" class="icon-btn" title="Refresh">↻</button>
+        </div>
         <div class="auth-status">
             <span id="user-display">anonymous</span>
             <button id="auth-btn">Login</button>
@@ -24,14 +29,6 @@
     <main>
         <!-- Games/Workspace Tab -->
         <section id="games-tab" class="tab-content active">
-            <div class="toolbar">
-                <h2>Workspace</h2>
-                <div class="org-selector">
-                    <label for="org-select">Org:</label>
-                    <select id="org-select"></select>
-                </div>
-                <button id="refresh-games">Refresh</button>
-            </div>
             <div id="workspace-info" class="info-bar"></div>
             <div id="games-list" class="card-grid"></div>
         </section>
@@ -151,6 +148,50 @@
                 <button type="submit">Create</button>
             </div>
         </form>
+    </dialog>
+
+    <!-- Game Detail Modal -->
+    <dialog id="game-detail-modal">
+        <div class="modal-header">
+            <h3 id="game-detail-title">Game Details</h3>
+            <button class="close-btn" onclick="this.closest('dialog').close()">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="game-detail-grid">
+                <section class="detail-section" id="game-meta">
+                    <h4>Metadata</h4>
+                    <dl></dl>
+                </section>
+                <section class="detail-section" id="game-access">
+                    <h4>Access Control</h4>
+                    <dl></dl>
+                </section>
+                <section class="detail-section" id="game-paths">
+                    <h4>Paths</h4>
+                    <dl></dl>
+                </section>
+                <section class="detail-section" id="game-files">
+                    <h4>Files</h4>
+                    <div class="file-table-container">
+                        <table class="file-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Size</th>
+                                    <th>Modified</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="action-btn" id="game-launch-btn">Launch</button>
+            <button class="action-btn" id="game-refresh-btn">Refresh</button>
+            <button class="cancel" onclick="this.closest('dialog').close()">Close</button>
+        </div>
     </dialog>
 
     <script type="module" src="js/main.js"></script>
