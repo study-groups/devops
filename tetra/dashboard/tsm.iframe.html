@@ -44,15 +44,257 @@
         .env-indicator.dev { color: var(--three); }
         .env-indicator.staging { color: var(--three); }
         .env-indicator.prod { color: var(--one); }
+
+        /* Expandable service rows */
+        .service-row {
+            cursor: pointer;
+        }
+        .service-row:hover {
+            background: var(--paper-mid);
+        }
+        .service-row.expanded {
+            background: var(--paper-mid);
+            border-bottom: none;
+        }
+        .service-row .expand-icon {
+            color: var(--ink-muted);
+            font-size: 8px;
+            margin-right: 4px;
+            transition: transform 0.15s ease;
+        }
+        .service-row.expanded .expand-icon {
+            transform: rotate(90deg);
+        }
+
+        /* Service details panel */
+        .service-details {
+            display: none;
+            background: var(--paper-dark);
+            border-bottom: 1px solid var(--border);
+            padding: 8px 12px 12px 24px;
+            font-size: 10px;
+        }
+        .service-details.visible {
+            display: block;
+        }
+        .service-details .loading {
+            color: var(--ink);
+        }
+        .service-details .info-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 4px 12px;
+        }
+        .service-details .info-label {
+            color: var(--two);
+        }
+        .service-details .info-value {
+            color: var(--ink);
+            word-break: break-all;
+        }
+        .service-details .info-value.path {
+            font-size: 9px;
+            color: var(--ink);
+        }
+        .service-details .info-section {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border);
+        }
+        .service-details .info-section-title {
+            color: var(--three);
+            text-transform: uppercase;
+            font-size: 9px;
+            margin-bottom: 6px;
+        }
+        .service-details .quick-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 4px;
+        }
+        .service-details .recent-logs {
+            margin: 0;
+            padding: 8px;
+            background: var(--paper-mid);
+            border-radius: 2px;
+            font-size: 9px;
+            line-height: 1.4;
+            color: var(--ink);
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        /* Tab navigation */
+        .tsm-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 8px;
+        }
+        .tsm-tab {
+            padding: 6px 12px;
+            font-size: 10px;
+            color: var(--ink-muted);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s ease;
+        }
+        .tsm-tab:hover {
+            color: var(--ink);
+        }
+        .tsm-tab.active {
+            color: var(--ink);
+            border-bottom-color: var(--four);
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Info tab styles */
+        .info-panel {
+            padding: 8px 0;
+            font-size: 10px;
+            line-height: 1.5;
+        }
+        .info-panel h3 {
+            color: var(--three);
+            font-size: 11px;
+            margin: 16px 0 8px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .info-panel h3:first-child {
+            margin-top: 0;
+        }
+        .info-panel p {
+            color: var(--ink);
+            margin: 6px 0;
+        }
+        .info-panel code {
+            background: var(--paper-mid);
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-size: 9px;
+            color: var(--two);
+        }
+        .info-panel .cmd {
+            display: block;
+            background: var(--paper-mid);
+            padding: 6px 8px;
+            margin: 6px 0;
+            border-radius: 2px;
+            font-size: 9px;
+            color: var(--ink);
+            border-left: 2px solid var(--four);
+        }
+        .info-panel ul {
+            margin: 6px 0;
+            padding-left: 16px;
+        }
+        .info-panel li {
+            color: var(--ink);
+            margin: 4px 0;
+        }
+        .info-panel .key {
+            color: var(--two);
+        }
+        .info-panel .diagram {
+            background: var(--paper-mid);
+            padding: 8px;
+            margin: 8px 0;
+            border-radius: 2px;
+            font-size: 9px;
+            line-height: 1.3;
+            color: var(--ink-muted);
+            white-space: pre;
+            overflow-x: auto;
+        }
     </style>
 </head>
 <body>
     <div class="iframe-header" style="padding: 0 0 8px 0; border: none;">
-        <span>Services</span>
+        <div class="tsm-tabs">
+            <span class="tsm-tab active" data-action="switch-tab" data-tab="services">Services</span>
+            <span class="tsm-tab" data-action="switch-tab" data-tab="info">Info</span>
+        </div>
         <span class="refresh icon-refresh" data-action="refresh"></span>
     </div>
-    <div id="services">
-        <div class="empty">Loading...</div>
+
+    <div id="tab-services" class="tab-content active">
+        <div id="services">
+            <div class="empty">Loading...</div>
+        </div>
+    </div>
+
+    <div id="tab-info" class="tab-content">
+        <div class="info-panel">
+            <h3>TSM - Tetra Service Manager</h3>
+            <p>TSM manages long-running processes defined in <code>.tsm</code> files. Each service runs in its own process with automatic restart on failure.</p>
+
+            <div class="cmd">tsm start devwatch    # Start a service
+tsm stop devwatch     # Stop a service
+tsm restart devwatch  # Restart a service
+tsm ls                # List all services</div>
+
+            <h3>Service Files</h3>
+            <p>Services are defined in <code>.tsm</code> files at <code>$TETRA_DIR/services/</code>:</p>
+            <div class="cmd"># devwatch.tsm
+port=3010
+script=server/index.js
+cwd=$TETRA_SRC/devwatch</div>
+
+            <h3>Logging</h3>
+            <p>Each service logs to <code>$TETRA_DIR/run/&lt;service&gt;/current.log</code></p>
+            <ul>
+                <li><span class="key">[L] button</span> - Watch service logs in Logs panel</li>
+                <li><span class="key">Expand row</span> - See recent logs inline</li>
+                <li><span class="key">logs button</span> - Jump to full Logs panel</li>
+            </ul>
+            <div class="cmd">tsm logs devwatch        # Tail logs
+tsm logs devwatch -n 100 # Last 100 lines
+tsm logs devwatch -f     # Follow mode</div>
+
+            <h3>Remote Execution</h3>
+            <p>TSM commands run on remote servers via SSH when environment is not <code>local</code>.</p>
+            <p>Configure in <code>tetra.toml</code>:</p>
+            <div class="cmd">[env.dev]
+host = "dev.example.com"
+user = "deploy"
+
+[env.prod]
+host = "prod.example.com"
+user = "root"</div>
+
+            <h3>Environment Model</h3>
+            <div class="diagram">org (tetra, nh, pj)
+ └── env (local, dev, staging, prod)
+      └── services (devwatch, pbase, ...)</div>
+            <p>Select org in header, env per-panel. Remote envs use SSH to execute TSM commands on configured hosts.</p>
+
+            <h3>Log Aggregation</h3>
+            <p>The <span class="key">[L]</span> button broadcasts a <code>log-watch-change</code> message via <code>Terrain.Bus</code>. The Logs panel subscribes and filters its view to show only watched services.</p>
+            <div class="diagram">TSM Panel          Terrain.Bus         Logs Panel
+    │                    │                    │
+    │ click [L]          │                    │
+    ├───────────────────►│                    │
+    │  log-watch-change  │                    │
+    │                    ├───────────────────►│
+    │                    │                    │
+    │                    │             filter by service</div>
+
+            <h3>Patrol Mode</h3>
+            <p>TSM can automatically restart crashed services:</p>
+            <div class="cmd">tsm patrol         # Run continuously
+tsm patrol --once  # Single check pass</div>
+
+            <h3>Health & Diagnostics</h3>
+            <div class="cmd">tsm doctor   # System health check
+tsm info svc # Detailed service info</div>
+        </div>
     </div>
 
     <script src="/js/terrain-iframe.js"></script>

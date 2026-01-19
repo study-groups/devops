@@ -306,19 +306,60 @@ router.post('/restart/:service', (req, res) => {
 });
 
 // Get service logs (tail)
+// Query params:
+//   lines - Number of lines (default: 50)
+//   format - Output format: "text" (default) or "json"
+//   since - Filter by time (e.g., "5m", "1h")
 router.get('/logs/:service', (req, res) => {
     const service = req.params.service;
-    const { org = 'tetra', env = 'local', user = '', lines = 50 } = req.query;
+    const { org = 'tetra', env = 'local', user = '', lines = 50, format = 'text', since = '' } = req.query;
 
     try {
-        const output = runTsm(`tsm logs ${service} --tail ${lines}`, org, env, user || null);
-        res.json({
-            service,
-            logs: output,
-            org,
-            env,
-            user: user || null
-        });
+        let cmd = `tsm logs ${service} -n ${lines}`;
+
+        // Add since filter if provided
+        if (since) {
+            cmd += ` --since ${since}`;
+        }
+
+        // JSON format returns structured data with timestamps and delta
+        if (format === 'json') {
+            cmd += ' --json';
+            const output = runTsm(cmd, org, env, user || null);
+
+            try {
+                const parsed = JSON.parse(output);
+                res.json({
+                    service,
+                    entries: parsed.entries || [],
+                    org,
+                    env,
+                    user: user || null,
+                    format: 'json'
+                });
+            } catch (parseErr) {
+                // Fallback if JSON parsing fails
+                res.json({
+                    service,
+                    entries: [],
+                    error: 'Failed to parse JSON output',
+                    org,
+                    env,
+                    user: user || null
+                });
+            }
+        } else {
+            // Text format returns raw log output
+            const output = runTsm(cmd, org, env, user || null);
+            res.json({
+                service,
+                logs: output,
+                org,
+                env,
+                user: user || null,
+                format: 'text'
+            });
+        }
     } catch (err) {
         res.status(500).json({ error: err.message, service, org, env, user: user || null });
     }
@@ -355,6 +396,48 @@ router.post('/patrol', (req, res) => {
             }
         }
     });
+});
+
+// Service info - detailed metadata
+router.get('/info/:service', (req, res) => {
+    const service = req.params.service;
+    const { org = 'tetra', env = 'local', user = '' } = req.query;
+    const cacheKey = `tsm:info:${org}:${env}:${service}`;
+
+    // Check cache first
+    const cached = getCached(cacheKey);
+    if (cached) {
+        return res.json({ ...cached, cached: true });
+    }
+
+    try {
+        // Get tsm info output
+        const output = runTsm(`tsm info ${service} --json 2>/dev/null || echo "{}"`, org, env, user || null);
+        let info = {};
+        try {
+            info = JSON.parse(output.trim());
+        } catch (e) {
+            // Fallback: parse text output
+            info = { raw: output.trim() };
+        }
+
+        const result = {
+            service,
+            info,
+            org,
+            env,
+            timestamp: Date.now()
+        };
+        setCache(cacheKey, result);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({
+            error: err.message,
+            service,
+            org,
+            env
+        });
+    }
 });
 
 // Health check - quick status
