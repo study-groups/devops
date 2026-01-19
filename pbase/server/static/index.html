@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PBase - Game API Dashboard</title>
     <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/console.css">
 </head>
 <body>
     <header>
@@ -18,6 +19,9 @@
             <label for="org-select">Org:</label>
             <select id="org-select"></select>
             <button id="refresh-games" class="icon-btn" title="Refresh">↻</button>
+            <button id="console-toggle" class="console-toggle-btn" title="Toggle Console">
+                <span>Console</span>
+            </button>
         </div>
         <div class="auth-status">
             <span id="user-display">anonymous</span>
@@ -28,6 +32,9 @@
     <main>
         <!-- Games/Workspace Tab -->
         <section id="games-tab" class="tab-content active">
+            <!-- Console View -->
+            <div id="console-view"></div>
+
             <!-- Cards View -->
             <div id="games-cards-view">
                 <div id="workspace-info" class="info-bar"></div>
@@ -41,6 +48,7 @@
                     <h2 id="game-detail-title">Game Details</h2>
                     <div class="detail-actions">
                         <button class="action-btn" id="game-launch-btn">Launch</button>
+                        <button class="action-btn" id="game-console-btn">Console</button>
                         <button class="action-btn" id="game-refresh-btn">Refresh</button>
                         <button class="action-btn" id="game-compare-btn">Compare All</button>
                     </div>

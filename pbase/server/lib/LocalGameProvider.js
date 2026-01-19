@@ -57,6 +57,16 @@ export class LocalGameProvider {
     }
 
     /**
+     * Read file contents as Buffer (for binary files)
+     * @param {string} key - e.g., 'games/cheap-golf/assets/sprite.png'
+     * @returns {Promise<Buffer>}
+     */
+    async getObjectBuffer(key) {
+        const filePath = this._keyToPath(key);
+        return readFile(filePath);
+    }
+
+    /**
      * Write file contents
      * @param {string} key - e.g., 'games/cheap-golf/game.toml'
      * @param {string} content - file content to write
@@ -68,32 +78,51 @@ export class LocalGameProvider {
     }
 
     /**
-     * List all files under a prefix
+     * List all files under a prefix (recursively)
      * @param {string} prefix - e.g., 'games/cheap-golf/'
      * @returns {Promise<{objects: Array}>}
      */
     async listObjects(prefix) {
         const dirPath = this._keyToPath(prefix);
+        const objects = [];
+
         try {
-            const entries = await readdir(dirPath, { withFileTypes: true });
-            const objects = [];
-
-            for (const entry of entries) {
-                if (entry.isFile()) {
-                    const filePath = join(dirPath, entry.name);
-                    const stats = await stat(filePath);
-                    objects.push({
-                        key: `${prefix}${entry.name}`,
-                        size: stats.size,
-                        lastModified: stats.mtime,
-                    });
-                }
-            }
-
+            await this._listFilesRecursive(dirPath, prefix, objects);
             return { objects };
         } catch (err) {
             console.error(`[LocalGameProvider] Error listing objects:`, err.message);
             return { objects: [] };
+        }
+    }
+
+    /**
+     * Recursively list files in a directory
+     * @param {string} dirPath - Filesystem path to scan
+     * @param {string} keyPrefix - S3-style key prefix for results
+     * @param {Array} objects - Array to collect results into
+     */
+    async _listFilesRecursive(dirPath, keyPrefix, objects) {
+        const entries = await readdir(dirPath, { withFileTypes: true });
+
+        for (const entry of entries) {
+            // Skip hidden files/directories
+            if (entry.name.startsWith('.')) continue;
+
+            const filePath = join(dirPath, entry.name);
+            const key = `${keyPrefix}${entry.name}`;
+
+            if (entry.isFile()) {
+                const stats = await stat(filePath);
+                objects.push({
+                    key,
+                    name: entry.name,
+                    size: stats.size,
+                    lastModified: stats.mtime,
+                });
+            } else if (entry.isDirectory()) {
+                // Recurse into subdirectory
+                await this._listFilesRecursive(filePath, `${key}/`, objects);
+            }
         }
     }
 

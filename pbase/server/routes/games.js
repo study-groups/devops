@@ -172,6 +172,73 @@ export function createGamesRoutes(workspace, csvAuth) {
     });
 
     /**
+     * GET /api/games/:slug/play/:filepath(*)
+     * Serve game files with proper MIME types for iframe loading
+     */
+    router.get('/:slug/play/:filepath(*)', optionalAuth(csvAuth), checkManifest, async (req, res) => {
+        try {
+            const { slug, filepath } = req.params;
+            const file = filepath || 'index.html';
+            const key = `games/${slug}/${file}`;
+
+            // Determine MIME type
+            const ext = file.split('.').pop()?.toLowerCase();
+            const mimeTypes = {
+                // Text types
+                html: { type: 'text/html', binary: false },
+                htm: { type: 'text/html', binary: false },
+                js: { type: 'application/javascript', binary: false },
+                mjs: { type: 'application/javascript', binary: false },
+                css: { type: 'text/css', binary: false },
+                json: { type: 'application/json', binary: false },
+                xml: { type: 'application/xml', binary: false },
+                svg: { type: 'image/svg+xml', binary: false },
+                txt: { type: 'text/plain', binary: false },
+                toml: { type: 'text/plain', binary: false },
+                // Binary types
+                png: { type: 'image/png', binary: true },
+                jpg: { type: 'image/jpeg', binary: true },
+                jpeg: { type: 'image/jpeg', binary: true },
+                gif: { type: 'image/gif', binary: true },
+                webp: { type: 'image/webp', binary: true },
+                ico: { type: 'image/x-icon', binary: true },
+                woff: { type: 'font/woff', binary: true },
+                woff2: { type: 'font/woff2', binary: true },
+                ttf: { type: 'font/ttf', binary: true },
+                otf: { type: 'font/otf', binary: true },
+                eot: { type: 'application/vnd.ms-fontobject', binary: true },
+                mp3: { type: 'audio/mpeg', binary: true },
+                wav: { type: 'audio/wav', binary: true },
+                ogg: { type: 'audio/ogg', binary: true },
+                mp4: { type: 'video/mp4', binary: true },
+                webm: { type: 'video/webm', binary: true },
+                wasm: { type: 'application/wasm', binary: true },
+                swf: { type: 'application/x-shockwave-flash', binary: true },
+                zip: { type: 'application/zip', binary: true },
+            };
+
+            const mime = mimeTypes[ext] || { type: 'application/octet-stream', binary: true };
+            const provider = workspace.gameManifest.s3;
+
+            // Use appropriate read method based on file type
+            let content;
+            if (mime.binary && provider.getObjectBuffer) {
+                content = await provider.getObjectBuffer(key);
+            } else {
+                content = await provider.getObjectString(key);
+            }
+
+            res.type(mime.type).send(content);
+        } catch (err) {
+            console.error('[Games] Play file error:', err.message);
+            res.status(err.code === 'ENOENT' ? 404 : 500).json({
+                error: err.code === 'ENOENT' ? 'Not Found' : 'Internal Server Error',
+                message: err.message,
+            });
+        }
+    });
+
+    /**
      * PUT /api/games/:slug/file/:filename
      * Save file content to local workspace
      */

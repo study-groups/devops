@@ -7,6 +7,7 @@ import * as tabs from './modules/tabs.js';
 import * as games from './modules/games.js';
 import * as config from './modules/config.js';
 import * as admin from './modules/admin.js';
+import * as consoleModule from './modules/console-module.js';
 
 // Handle magic link tokens first
 auth.handleMagicLinkToken();
@@ -17,3 +18,4 @@ auth.init(() => tabs.loadTabData('games'));
 admin.init();
 games.init();
 config.init();
+consoleModule.init();

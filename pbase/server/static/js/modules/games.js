@@ -81,6 +81,13 @@ export async function loadGames(refresh = false) {
             return;
         }
 
+        // Store games globally for console module
+        window.pbaseGames = manifest.games.map(g => ({
+            slug: g.slug,
+            name: g.name,
+            url: `/api/games/${g.slug}/play/${g.entry || 'index.html'}`
+        }));
+
         manifest.games.forEach(game => {
             const card = document.createElement('div');
             card.className = 'game-card';
@@ -433,6 +440,16 @@ export function init() {
         if (!currentGame || !currentWorkspace) return;
         const gameDir = `${currentWorkspace.games_dir}/${currentGame.slug}`;
         window.open(`file://${gameDir}/${currentGame.entry || 'index.html'}`, '_blank');
+    });
+
+    // Console button - launch in PBase Console
+    document.getElementById('game-console-btn').addEventListener('click', () => {
+        if (!currentGame) return;
+        // Import dynamically to avoid circular dependencies
+        import('./console-module.js').then(consoleModule => {
+            const url = `/api/games/${currentGame.slug}/play/${currentGame.entry || 'index.html'}`;
+            consoleModule.loadGame(currentGame.slug, url);
+        });
     });
 
     // Refresh button (in detail view)
