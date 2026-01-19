@@ -58,14 +58,30 @@ function setTimeFilter(preset) {
     renderLogs();
 }
 
-function formatTimestamp(ts) {
+function formatTimestamp(ts, showDelta = false, delta = null) {
     if (!ts) return '';
     try {
         const d = new Date(ts);
-        return d.toTimeString().slice(0, 8);
+        const time = d.toTimeString().slice(0, 8);
+
+        // If delta is available and we want to show it, append it
+        if (showDelta && delta) {
+            return `${time} ${delta}`;
+        }
+        return time;
     } catch {
         return ts.slice(11, 19) || '';
     }
+}
+
+// Format compact ISO for display (strip date, keep time with ms)
+function formatCompactTime(ts) {
+    if (!ts) return '';
+    // 20260113T143245.123Z -> 14:32:45.123
+    if (ts.length === 22 && ts[8] === 'T') {
+        return `${ts.slice(9,11)}:${ts.slice(11,13)}:${ts.slice(13,19)}`;
+    }
+    return formatTimestamp(ts);
 }
 
 function getAllLogs() {
@@ -193,10 +209,12 @@ function connectSSE() {
 }
 
 // TSM log integration
+// Uses JSON format for structured timestamps and delta timing
 async function fetchTsmLogs(serviceName) {
     try {
         const params = new URLSearchParams({
             lines: 30,
+            format: 'json',
             org: state.org,
             env: state.env
         });
@@ -204,12 +222,22 @@ async function fetchTsmLogs(serviceName) {
         const res = await fetch(`/api/tsm/logs/${serviceName}?${params}`);
         const data = await res.json();
 
-        if (data.logs) {
+        if (data.entries && data.entries.length > 0) {
+            // Use structured entries with real timestamps
+            state.tsmLogs[serviceName] = data.entries.map(entry => ({
+                timestamp: parseCompactISO(entry.ts) || new Date().toISOString(),
+                delta: entry.delta || '+0.000',
+                level: inferLogLevel(entry.line),
+                source: serviceName,
+                stream: entry.stream, // 'out' or 'err'
+                message: entry.line
+            })).slice(-30);
+        } else if (data.logs) {
+            // Fallback to text format parsing
             const lines = data.logs.split('\n').filter(Boolean);
             state.tsmLogs[serviceName] = lines.map(line => ({
                 timestamp: new Date().toISOString(),
-                level: line.includes('error') || line.includes('Error') ? 'error' :
-                       line.includes('warn') || line.includes('Warn') ? 'warn' : 'info',
+                level: inferLogLevel(line),
                 source: serviceName,
                 message: line
             })).slice(-30);
@@ -217,6 +245,34 @@ async function fetchTsmLogs(serviceName) {
     } catch (e) {
         console.warn(`Failed to fetch logs for ${serviceName}:`, e);
     }
+}
+
+// Parse compact ISO timestamp (20260113T143245.123Z) to standard ISO
+function parseCompactISO(ts) {
+    if (!ts || ts.length !== 22) return null;
+    try {
+        // 20260113T143245.123Z -> 2026-01-13T14:32:45.123Z
+        const year = ts.slice(0, 4);
+        const month = ts.slice(4, 6);
+        const day = ts.slice(6, 8);
+        const hour = ts.slice(9, 11);
+        const min = ts.slice(11, 13);
+        const sec = ts.slice(13, 15);
+        const ms = ts.slice(16, 19);
+        return `${year}-${month}-${day}T${hour}:${min}:${sec}.${ms}Z`;
+    } catch {
+        return null;
+    }
+}
+
+// Infer log level from message content
+function inferLogLevel(line) {
+    if (!line) return 'info';
+    const lower = line.toLowerCase();
+    if (lower.includes('error') || lower.includes('err]') || lower.includes('fatal')) return 'error';
+    if (lower.includes('warn') || lower.includes('wrn]')) return 'warn';
+    if (lower.includes('debug') || lower.includes('dbg]')) return 'debug';
+    return 'info';
 }
 
 function renderTsmSources() {

@@ -8,6 +8,16 @@
 (function() {
     'use strict';
 
+    // Compact ISO 8601 timestamp with millisecond precision
+    // Format: YYYYMMDDTHHMMSS.mmmZ (e.g., 20260113T143245.123Z)
+    function compactISO() {
+        const d = new Date();
+        const pad = (n, w = 2) => String(n).padStart(w, '0');
+        return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}` +
+               `T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}` +
+               `.${pad(d.getUTCMilliseconds(), 3)}Z`;
+    }
+
     // Ensure Terrain namespace exists
     window.Terrain = window.Terrain || {};
 
@@ -106,7 +116,8 @@
                 type: event,
                 payload: data,
                 source: 'terrain',
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                ts: compactISO()
             };
             targetWindow.postMessage(message, this._origin);
         },
@@ -121,7 +132,8 @@
                 type: event,
                 payload: data,
                 source: 'terrain',
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                ts: compactISO()
             };
 
             // Send to parent (if we're in an iframe)
@@ -420,6 +432,9 @@
 
     // Attach Bridge to TERRAIN
     TERRAIN.Bridge = TerrainBridge;
+
+    // Expose timestamp utility
+    TERRAIN.compactISO = compactISO;
 
     // Backwards compat: IframeManager now uses Bridge
     TERRAIN.IframeManager = {

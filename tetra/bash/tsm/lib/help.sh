@@ -171,20 +171,61 @@ EXAMPLES
 RELATED
   tsm start ./myapp.tsm --dryrun       # Runtime preview (actual port alloc)'
 
-TSM_HELP[logs]='View process logs.
+TSM_HELP[logs]='View process logs with optional timestamps and formatting.
 
 USAGE
-  tsm logs <name|id> [-f|--follow]
+  tsm logs <name|id> [options]
+  tsm logs <subcommand> [args]
 
 ARGUMENTS
   name|id    Process name or numeric ID
 
 OPTIONS
-  -f, --follow   Stream logs in real-time (tail -f)
+  -f, --follow       Stream logs in real-time
+  -n, --lines N      Show last N lines (default: 50)
+  --since TIME       Filter by time: duration (5m, 1h) or timestamp
+  -t, --timestamps   Prepend compact ISO timestamps (20260113T143245.123Z)
+  --delta            Show delta time between lines (+SS.mmm)
+  -e, --stderr-only  Show only stderr output
+  -o, --stdout-only  Show only stdout output
+  --json             Output as JSON for dashboard integration
+
+SUBCOMMANDS (Log Management)
+  rotate <name|all> [-f]   Rotate logs to timestamped archive
+  archive <name|all>       Compress uncompressed archives (gzip)
+  clean <name|all>         Remove archives older than retention (7d default)
+  export <name|all> [-d]   Upload archives to S3/Spaces
+  list [name]              List archived logs
+
+EXAMPLES
+  tsm logs myapp                    # Last 50 lines, both streams
+  tsm logs myapp -n 100             # Last 100 lines
+  tsm logs myapp -f                 # Follow mode (tail -f)
+  tsm logs myapp -t                 # With timestamps
+  tsm logs myapp --delta            # With delta timing (+0.000, +0.023, ...)
+  tsm logs myapp --json             # JSON output for aggregation
+
+  tsm logs rotate myapp             # Rotate if over threshold (10MB)
+  tsm logs rotate all -f            # Force rotate all services
+  tsm logs clean all                # Remove old archives
+  tsm logs export myapp -d spaces   # Upload to DO Spaces
+
+TIMESTAMP FORMAT
+  Absolute: 20260113T143245.123Z (compact ISO 8601, UTC, milliseconds)
+  Delta:    +SS.mmm (seconds since previous line, first line is +0.000)
+
+CONFIGURATION (environment variables)
+  TSM_LOG_ROTATION_SIZE_MB=10   Rotate when log exceeds this size
+  TSM_LOG_RETENTION_DAYS=7      Keep archives for this many days
+  TSM_LOG_COMPRESS=true         Compress archives with gzip
+  TSM_LOG_S3_BUCKET             S3/Spaces bucket for export
+  TSM_LOG_S3_ENDPOINT           Custom endpoint (for DO Spaces)
 
 Logs are stored per-process:
   stdout: $TSM_DIR/runtime/processes/<name>/current.out
-  stderr: $TSM_DIR/runtime/processes/<name>/current.err'
+  stderr: $TSM_DIR/runtime/processes/<name>/current.err
+
+Archives stored at: $TSM_DIR/runtime/logs/<name>/'
 
 TSM_HELP[save]='Save a service definition for later use.
 

@@ -9,6 +9,7 @@ TSM_SRC="${TSM_SRC:-$TETRA_SRC/bash/tsm}"
 # Phase 1: Foundation
 source "$TSM_SRC/lib/platform.sh"
 source "$TSM_SRC/lib/utils.sh"
+source "$TSM_SRC/lib/time.sh"
 source "$TSM_SRC/lib/colors.sh"
 source "$TSM_SRC/lib/hooks.sh"
 source "$TSM_SRC/core/init.sh"
@@ -27,6 +28,7 @@ source "$TSM_SRC/core/build.sh"
 source "$TSM_SRC/services/registry.sh"
 source "$TSM_SRC/services/startup.sh"
 source "$TSM_SRC/services/stack.sh"
+source "$TSM_SRC/services/logging.sh"
 
 # Phase 4: Optional enhancements
 [[ -f "$TSM_SRC/core/remote.sh" ]] && source "$TSM_SRC/core/remote.sh"
