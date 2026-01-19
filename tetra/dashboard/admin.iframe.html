@@ -46,6 +46,7 @@
         .log-entry { margin-bottom: 2px; }
         .log-entry.ok { color: var(--two); }
         .log-entry.err { color: var(--one); }
+        .log-entry.warn { color: var(--three); }
         .log-entry.info { color: var(--ink-muted); }
 
         /* Tables */
@@ -78,10 +79,29 @@
         .concept { background: var(--paper-mid); border-left: 2px solid var(--four); padding: 6px 8px; margin: 6px 0; }
         .concept-title { font-weight: bold; color: var(--ink); font-size: 10px; }
         .concept-desc { color: var(--ink-muted); font-size: 10px; margin-top: 2px; }
+
+        /* Help UI - search and sub-tabs */
+        .help-header { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+        .help-search { flex: 1; min-width: 120px; max-width: 200px; background: var(--paper-dark); border: 1px solid var(--border); color: var(--ink); padding: 4px 8px; font-size: 10px; border-radius: 2px; }
+        .help-search:focus { outline: none; border-color: var(--four); }
+        .help-search::placeholder { color: var(--ink-muted); }
+        .help-subtabs { display: flex; gap: 4px; flex-wrap: wrap; }
+        .help-subtab { background: var(--paper-mid); border: 1px solid var(--border); color: var(--ink-muted); padding: 3px 8px; font-size: 9px; cursor: pointer; border-radius: 10px; }
+        .help-subtab:hover { border-color: var(--ink-muted); color: var(--ink); }
+        .help-subtab.active { background: var(--four); border-color: var(--four); color: var(--paper); }
+        .help-panel { display: none; }
+        .help-panel.active { display: block; }
+        .help-panel.search-active .help-section { display: none; }
+        .help-panel.search-active .help-section.match { display: block; }
+        .search-highlight { background: var(--three); color: var(--paper); padding: 0 2px; border-radius: 2px; }
+        .help-no-results { color: var(--ink-muted); font-style: italic; padding: 20px; text-align: center; display: none; }
+        .help-no-results.show { display: block; }
+        .help-code { background: var(--paper-dark); border: 1px solid var(--border); border-radius: 2px; padding: 8px; font-family: var(--font-mono); font-size: 9px; overflow-x: auto; white-space: pre; margin: 6px 0; color: var(--ink-muted); }
     </style>
 </head>
 <body>
     <script src="/js/terrain-iframe.js"></script>
+    <script src="/js/help-data.js"></script>
 
     <div class="tabs">
         <div class="tab active" data-tab="admin">Admin</div>
@@ -273,69 +293,25 @@
 
     <!-- HELP TAB -->
     <div id="tab-help" class="tab-content">
-        <div class="help-section">
-            <h3>Tetra Console Overview</h3>
-            <p>The Tetra Console is a multi-panel dashboard for managing tetra instances. It uses iframes to isolate each panel, with a shared message bus for communication.</p>
+        <div class="help-header">
+            <input type="text" class="help-search" id="help-search" placeholder="Search help...">
+            <div class="help-subtabs" id="help-subtabs"></div>
         </div>
-
-        <div class="help-section">
-            <h3>Key Concepts</h3>
-
-            <div class="concept">
-                <div class="concept-title">Terrain.Bus</div>
-                <div class="concept-desc">Pub/sub message bus connecting all panels. Use <code>Terrain.Bus.subscribe('*', fn)</code> to listen, <code>Terrain.Bus.publish({type, ...})</code> to send.</div>
-            </div>
-
-            <div class="concept">
-                <div class="concept-title">Terrain.State</div>
-                <div class="concept-desc">Shared state for org/env/user context. Auto-syncs across panels via <code>env-change</code> messages.</div>
-            </div>
-
-            <div class="concept">
-                <div class="concept-title">Terrain.Iframe</div>
-                <div class="concept-desc">Iframe helpers: <code>init()</code> to setup, <code>send()</code> to message parent, <code>on(action, fn)</code> for DOM delegation.</div>
-            </div>
-        </div>
-
-        <div class="help-section">
-            <h3>Admin Panel Purpose</h3>
-            <p>This admin panel is for administering <strong>both local and remote</strong> tetra instances:</p>
-            <ul>
-                <li><strong>Local:</strong> Manage captures, view timings, check API health on your dev machine</li>
-                <li><strong>Remote:</strong> When env is set to prod/staging, commands are executed via SSH to the remote host defined in <code>tetra.toml</code></li>
-            </ul>
-        </div>
-
-        <div class="help-section">
-            <h3>Context (org/env/user)</h3>
-            <ul>
-                <li><strong>org:</strong> Organization/project namespace (e.g., <code>tetra</code>, <code>myproject</code>)</li>
-                <li><strong>env:</strong> Environment target (<code>local</code>, <code>prod</code>, <code>staging</code>)</li>
-                <li><strong>user:</strong> SSH user override for remote connections</li>
-            </ul>
-            <p>The context selector in the header broadcasts changes to all panels.</p>
-        </div>
-
-        <div class="help-section">
-            <h3>API Caching</h3>
-            <p>TSM API uses a 5-second TTL cache for expensive operations like <code>/api/tsm/ls</code>. The "Cached" indicator shows if last response was from cache. Use "Refresh All" to force fresh data.</p>
-        </div>
-
-        <div class="help-section">
-            <h3>Capture Grooming</h3>
-            <p>Captures are screenshots/DOM snapshots stored in <code>$TETRA_DIR/orgs/{org}/captures/</code>. Use the grooming controls to clean up old captures by age.</p>
-        </div>
+        <div id="help-content"></div>
     </div>
 
     <script>
         const logEl = document.getElementById('log');
         let pendingDeletes = [];
 
-        // Logging
+        // Logging with status indicators
+        const LOG_ICONS = { ok: '✓', err: '✗', warn: '⚠', info: '·' };
         function log(msg, type = 'info') {
             const entry = document.createElement('div');
             entry.className = `log-entry ${type}`;
-            entry.textContent = `[${new Date().toLocaleTimeString('en-US', {hour12:false})}] ${msg}`;
+            const time = new Date().toLocaleTimeString('en-US', {hour12:false});
+            const icon = LOG_ICONS[type] || '·';
+            entry.textContent = `${icon} ${time} ${msg}`;
             logEl.appendChild(entry);
             logEl.scrollTop = logEl.scrollHeight;
             if (logEl.children.length > 50) logEl.firstChild.remove();
@@ -366,22 +342,48 @@
                 const data = await res.json();
                 const latency = Date.now() - start;
 
-                document.getElementById('api-health').textContent = res.ok ? 'OK' : 'ERR';
-                document.getElementById('api-health').closest('.stat').className = 'stat ' + (res.ok ? 'good' : 'bad');
+                // Determine health status: API error, TSM error, or OK
+                const hasError = !res.ok || data.error;
+                const serviceCount = data.services?.length || 0;
+
+                // Health indicator
+                const healthEl = document.getElementById('api-health');
+                const healthCard = healthEl.closest('.stat');
+                if (hasError) {
+                    healthEl.textContent = 'ERR';
+                    healthCard.className = 'stat bad';
+                } else if (serviceCount === 0) {
+                    healthEl.textContent = 'WARN';
+                    healthCard.className = 'stat warn';
+                } else {
+                    healthEl.textContent = 'OK';
+                    healthCard.className = 'stat good';
+                }
+
+                // Cache and latency
                 document.getElementById('api-cached').textContent = data.cached ? 'Yes' : 'No';
                 document.getElementById('api-latency').textContent = latency + 'ms';
-                document.getElementById('api-latency').closest('.stat').className = 'stat ' + (latency > 500 ? 'bad' : latency > 200 ? 'warn' : 'good');
+                document.getElementById('api-latency').closest('.stat').className =
+                    'stat ' + (latency > 2000 ? 'bad' : latency > 500 ? 'warn' : 'good');
 
                 // Context from TSM response
                 document.getElementById('ctx-host').textContent = data.host || 'localhost';
                 document.getElementById('ctx-remote').textContent = data.remote ? 'Yes' : 'No';
-                document.getElementById('ctx-services').textContent = data.services?.length || 0;
+                document.getElementById('ctx-services').textContent = serviceCount;
 
-                log(`Health OK, ${data.services?.length || 0} services, ${latency}ms${data.cached ? ' (cached)' : ''}`, 'ok');
+                // Log with appropriate status
+                if (data.error) {
+                    log(`TSM error: ${data.error}`, 'err');
+                    if (data.hint) log(`  → ${data.hint}`, 'info');
+                } else if (serviceCount === 0) {
+                    log(`TSM reachable, 0 services running, ${latency}ms`, 'info');
+                } else {
+                    log(`TSM OK: ${serviceCount} services, ${latency}ms${data.cached ? ' (cached)' : ''}`, 'ok');
+                }
             } catch (e) {
                 document.getElementById('api-health').textContent = 'ERR';
                 document.getElementById('api-health').closest('.stat').className = 'stat bad';
-                log(`Health check failed: ${e.message}`, 'err');
+                log(`API unreachable: ${e.message}`, 'err');
             }
         }
 
@@ -487,6 +489,107 @@
             loadCaptures();
             log(`Context changed: ${Terrain.State.org}/${Terrain.State.env}`);
         });
+
+        // ========================================================================
+        // Help System
+        // ========================================================================
+
+        let activeHelpPanel = 'overview';
+        let helpSearchTimeout = null;
+
+        function initHelp() {
+            if (!window.HELP_DATA) return;
+
+            const subtabsEl = document.getElementById('help-subtabs');
+            const contentEl = document.getElementById('help-content');
+            const searchEl = document.getElementById('help-search');
+
+            // Render sub-tabs
+            subtabsEl.innerHTML = Object.entries(HELP_DATA).map(([id, cat], i) =>
+                `<div class="help-subtab${i === 0 ? ' active' : ''}" data-panel="${id}">${cat.title}</div>`
+            ).join('');
+
+            // Render all panels
+            contentEl.innerHTML = Object.entries(HELP_DATA).map(([id, cat], i) =>
+                renderHelpCategory(id, cat).replace('class="help-panel"', `class="help-panel${i === 0 ? ' active' : ''}"`)
+            ).join('');
+
+            // Sub-tab click handlers
+            subtabsEl.querySelectorAll('.help-subtab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    subtabsEl.querySelectorAll('.help-subtab').forEach(t => t.classList.remove('active'));
+                    contentEl.querySelectorAll('.help-panel').forEach(p => p.classList.remove('active'));
+                    tab.classList.add('active');
+                    const panel = contentEl.querySelector(`[data-panel="${tab.dataset.panel}"]`);
+                    if (panel) panel.classList.add('active');
+                    activeHelpPanel = tab.dataset.panel;
+                    searchEl.value = '';
+                    clearSearch();
+                });
+            });
+
+            // Search functionality
+            searchEl.addEventListener('input', (e) => {
+                clearTimeout(helpSearchTimeout);
+                helpSearchTimeout = setTimeout(() => performSearch(e.target.value), 150);
+            });
+        }
+
+        function performSearch(query) {
+            const contentEl = document.getElementById('help-content');
+            const subtabsEl = document.getElementById('help-subtabs');
+            const q = query.toLowerCase().trim();
+
+            if (!q) {
+                clearSearch();
+                return;
+            }
+
+            // Search across all panels
+            let hasResults = false;
+            contentEl.querySelectorAll('.help-panel').forEach(panel => {
+                let panelHasMatch = false;
+                panel.querySelectorAll('.help-section').forEach(section => {
+                    const text = section.textContent.toLowerCase();
+                    const keywords = section.dataset.keywords || '';
+                    const matches = text.includes(q) || keywords.includes(q);
+                    section.classList.toggle('match', matches);
+                    if (matches) {
+                        panelHasMatch = true;
+                        hasResults = true;
+                    }
+                });
+                panel.classList.add('search-active');
+                panel.classList.toggle('active', panelHasMatch);
+                panel.querySelector('.help-no-results')?.classList.toggle('show', !panelHasMatch);
+            });
+
+            // Update subtab highlights
+            subtabsEl.querySelectorAll('.help-subtab').forEach(tab => {
+                const panel = contentEl.querySelector(`[data-panel="${tab.dataset.panel}"]`);
+                const hasMatch = panel?.querySelector('.help-section.match');
+                tab.style.opacity = hasMatch ? '1' : '0.4';
+            });
+        }
+
+        function clearSearch() {
+            const contentEl = document.getElementById('help-content');
+            const subtabsEl = document.getElementById('help-subtabs');
+
+            contentEl.querySelectorAll('.help-panel').forEach(panel => {
+                panel.classList.remove('search-active');
+                panel.classList.toggle('active', panel.dataset.panel === activeHelpPanel);
+                panel.querySelector('.help-no-results')?.classList.remove('show');
+                panel.querySelectorAll('.help-section').forEach(s => s.classList.remove('match'));
+            });
+
+            subtabsEl.querySelectorAll('.help-subtab').forEach(tab => {
+                tab.style.opacity = '1';
+            });
+        }
+
+        // Initialize help on load
+        initHelp();
 
         // Initialize
         Terrain.Iframe.init({
