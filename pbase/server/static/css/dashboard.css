@@ -29,6 +29,31 @@ body {
     line-height: 1.5;
 }
 
+/* Dark scrollbars */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+/* Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) var(--bg);
+}
+
 /* Header */
 header {
     background: var(--surface);
@@ -347,6 +372,84 @@ main {
     content: '📄';
 }
 
+.file-item.selected {
+    background: var(--primary);
+    color: white;
+}
+
+/* S3 Browser Container */
+.s3-browser-container {
+    display: flex;
+    gap: 1rem;
+    height: calc(100vh - 200px);
+    min-height: 400px;
+}
+
+.s3-browser-container .file-list {
+    flex: 0 0 300px;
+    overflow-y: auto;
+}
+
+.s3-content-pane {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.s3-content-pane.visible {
+    display: flex;
+}
+
+.s3-content-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    background: var(--surface-hover);
+    border-bottom: 1px solid var(--border);
+}
+
+.s3-content-header .filename {
+    font-family: monospace;
+    font-weight: 600;
+}
+
+.s3-content-header .close-btn {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 0 0.5rem;
+}
+
+.s3-content-header .close-btn:hover {
+    color: var(--text);
+}
+
+.s3-content-body {
+    flex: 1;
+    overflow: auto;
+    padding: 1rem;
+}
+
+.s3-content-body pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.s3-content-body code {
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--text);
+}
+
 /* Admin Table */
 table {
     width: 100%;
@@ -405,45 +508,92 @@ dialog::backdrop {
     background: rgba(0, 0, 0, 0.7);
 }
 
-/* Config Page */
-.config-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+/* Settings Page */
+.settings-layout {
+    display: flex;
     gap: 1.5rem;
-    padding: 1rem 0;
+    height: calc(100vh - 120px);
 }
 
-.config-section {
+.settings-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 1rem;
+    overflow: hidden;
 }
 
-.config-section h3 {
-    margin: 0 0 1rem 0;
-    padding-bottom: 0.5rem;
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: var(--primary);
     border-bottom: 1px solid var(--border);
-    font-size: 1rem;
+}
+
+.panel-header h3 {
+    margin: 0;
+    font-size: 0.9rem;
     color: var(--accent);
+}
+
+.config-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.config-section {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.75rem;
+}
+
+.config-section h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.75rem;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .config-section dl {
     display: grid;
     grid-template-columns: auto 1fr;
-    gap: 0.5rem 1rem;
+    gap: 0.25rem 0.75rem;
     margin: 0;
+    font-size: 0.8rem;
 }
 
 .config-section dt {
-    font-weight: 500;
-    color: var(--text-muted, #888);
+    color: var(--text-muted);
 }
 
 .config-section dd {
     margin: 0;
-    font-family: monospace;
+    font-family: 'SF Mono', monospace;
     word-break: break-all;
+}
+
+#admin-content {
+    flex: 1;
+    overflow-y: auto;
+}
+
+#users-table {
+    font-size: 0.85rem;
+}
+
+#users-table th,
+#users-table td {
+    padding: 0.5rem 0.75rem;
 }
 
 dialog h3 {
@@ -675,63 +825,85 @@ dialog input::placeholder {
     }
 }
 
-/* Game Detail Modal */
-#game-detail-modal {
-    max-width: 800px;
-    width: 95%;
-    max-height: 85vh;
-    padding: 0;
-    border-radius: 8px;
-    overflow: hidden;
+/* Game Detail View */
+.hidden {
+    display: none !important;
 }
 
-.modal-header {
+#game-detail-view {
+    height: calc(100vh - 120px);
+    display: flex;
+    flex-direction: column;
+}
+
+.detail-toolbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 1rem 1.25rem;
-    background: var(--primary);
+    gap: 1rem;
+    padding: 0.75rem 0;
     border-bottom: 1px solid var(--border);
+    margin-bottom: 1rem;
 }
 
-.modal-header h3 {
+.back-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 0.375rem 0.75rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.875rem;
+}
+
+.back-btn:hover {
+    color: var(--text);
+    border-color: var(--text-muted);
+}
+
+.detail-toolbar h2 {
+    flex: 1;
     margin: 0;
+    font-size: 1.25rem;
     color: var(--accent);
 }
 
-.close-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    font-size: 1.5rem;
-    cursor: pointer;
-    padding: 0;
-    line-height: 1;
-}
-
-.close-btn:hover {
-    color: var(--text);
-}
-
-.modal-body {
-    padding: 1.25rem;
-    overflow-y: auto;
-    max-height: calc(85vh - 130px);
-}
-
-.modal-footer {
+.detail-actions {
     display: flex;
     gap: 0.5rem;
-    justify-content: flex-end;
-    padding: 1rem 1.25rem;
-    background: var(--surface);
-    border-top: 1px solid var(--border);
 }
 
-.game-detail-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+.detail-actions .action-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+}
+
+.detail-actions .action-btn:hover {
+    color: var(--text);
+    border-color: var(--text-muted);
+}
+
+.detail-content {
+    flex: 1;
+    display: flex;
     gap: 1rem;
+    overflow: hidden;
+}
+
+.detail-sidebar {
+    flex: 0 0 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    overflow-y: auto;
+}
+
+.detail-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow: hidden;
 }
 
 .detail-section {
@@ -781,11 +953,18 @@ dialog input::placeholder {
 }
 
 #game-files {
-    grid-column: 1 / -1;
+    flex: 0 0 auto;
+    max-height: 40%;
+    display: flex;
+    flex-direction: column;
+}
+
+#game-files .file-table-container {
+    flex: 1;
+    overflow-y: auto;
 }
 
 .file-table-container {
-    max-height: 200px;
     overflow-y: auto;
 }
 
@@ -826,6 +1005,260 @@ dialog input::placeholder {
 .file-table .date {
     color: var(--text-muted);
     font-size: 0.75rem;
+}
+
+/* Clickable file rows */
+.file-row.clickable {
+    cursor: pointer;
+}
+
+.file-row.selected td {
+    background: var(--primary);
+}
+
+.file-row .name {
+    font-weight: 500;
+}
+
+/* Sync status badges */
+.sync-status {
+    text-align: center;
+    width: 1.5rem;
+}
+
+.sync-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 2px;
+    font-size: 0.6rem;
+    font-weight: 600;
+    opacity: 0.7;
+}
+
+.sync-badge.synced {
+    background: var(--success, #22c55e);
+    color: white;
+}
+
+.sync-badge.modified {
+    background: var(--warning, #f59e0b);
+    color: white;
+}
+
+.sync-badge.local-only {
+    background: var(--info, #3b82f6);
+    color: white;
+}
+
+.sync-badge.s3-only {
+    background: var(--text-muted);
+    color: white;
+}
+
+.file-source-label {
+    font-weight: normal;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+/* File viewer pane */
+.file-viewer-pane {
+    display: none;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    flex: 1;
+    min-height: 200px;
+    overflow: hidden;
+}
+
+.file-viewer-pane.visible {
+    display: flex;
+}
+
+.file-viewer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+}
+
+.file-viewer-title {
+    font-family: 'SF Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.file-viewer-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.file-viewer-actions button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+}
+
+.file-viewer-actions button:hover {
+    color: var(--text);
+    border-color: var(--text-muted);
+}
+
+.close-viewer-btn {
+    font-size: 1rem !important;
+    padding: 0 0.375rem !important;
+    border: none !important;
+}
+
+.close-viewer-btn:hover {
+    color: var(--accent) !important;
+}
+
+.save-btn,
+.cancel-btn {
+    display: none;
+}
+
+.save-btn {
+    color: var(--success) !important;
+    border-color: var(--success) !important;
+}
+
+.save-btn:hover {
+    background: var(--success) !important;
+    color: white !important;
+}
+
+.cancel-btn:hover {
+    color: var(--accent) !important;
+}
+
+.file-editor {
+    display: none;
+    width: 100%;
+    height: 100%;
+    min-height: 200px;
+    background: var(--bg);
+    color: var(--text);
+    border: none;
+    resize: none;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    padding: 0;
+    outline: none;
+}
+
+.file-viewer-pane.edit-mode .file-viewer-body pre {
+    display: none !important;
+}
+
+.file-viewer-pane.edit-mode .file-editor {
+    display: block !important;
+}
+
+.file-viewer-pane.edit-mode .edit-btn,
+.file-viewer-pane.edit-mode .compare-btn {
+    display: none !important;
+}
+
+.file-viewer-pane.edit-mode .save-btn,
+.file-viewer-pane.edit-mode .cancel-btn {
+    display: inline-flex !important;
+}
+
+.file-viewer-body {
+    flex: 1;
+    overflow: auto;
+    padding: 0.75rem;
+}
+
+.file-viewer-body pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.file-viewer-body code {
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--text);
+}
+
+/* Compare view */
+.compare-container {
+    display: flex;
+    gap: 0.5rem;
+    height: 100%;
+}
+
+.compare-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.compare-pane.has-diff {
+    border-color: var(--warning, #f59e0b);
+}
+
+.compare-label {
+    padding: 0.25rem 0.5rem;
+    background: var(--surface);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+}
+
+.compare-pane pre {
+    flex: 1;
+    margin: 0;
+    padding: 0.5rem;
+    overflow: auto;
+    background: var(--bg);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.compare-pane code {
+    font-family: 'SF Mono', 'Monaco', monospace;
+    font-size: 0.75rem;
+    line-height: 1.4;
+}
+
+.file-viewer-pane.compare-mode .file-viewer-body {
+    padding: 0.5rem;
+}
+
+.file-viewer-pane.compare-mode .file-viewer-body > pre,
+.file-viewer-pane.compare-mode .file-editor {
+    display: none !important;
+}
+
+.file-viewer-pane.compare-mode .compare-container {
+    display: flex !important;
+    height: 100%;
+}
+
+.file-viewer-pane.compare-mode .edit-btn {
+    display: none !important;
 }
 
 /* Clickable game cards */

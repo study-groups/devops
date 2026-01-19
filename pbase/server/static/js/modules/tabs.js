@@ -15,10 +15,8 @@ function loadTabData(tab) {
         case 's3':
             loadS3('');
             break;
-        case 'config':
+        case 'settings':
             loadConfig();
-            break;
-        case 'admin':
             loadUsers();
             break;
     }

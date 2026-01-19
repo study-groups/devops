@@ -3,7 +3,7 @@
  * Implements same interface as S3Provider methods used by GameManifest
  */
 
-import { readdir, readFile, stat } from 'fs/promises';
+import { readdir, readFile, writeFile, stat } from 'fs/promises';
 import { join } from 'path';
 
 export class LocalGameProvider {
@@ -54,6 +54,17 @@ export class LocalGameProvider {
     async getObjectString(key) {
         const filePath = this._keyToPath(key);
         return readFile(filePath, 'utf-8');
+    }
+
+    /**
+     * Write file contents
+     * @param {string} key - e.g., 'games/cheap-golf/game.toml'
+     * @param {string} content - file content to write
+     * @returns {Promise<void>}
+     */
+    async putObjectString(key, content) {
+        const filePath = this._keyToPath(key);
+        await writeFile(filePath, content, 'utf-8');
     }
 
     /**

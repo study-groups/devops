@@ -12,8 +12,7 @@
         <nav>
             <button class="tab-btn active" data-tab="games">Workspace</button>
             <button class="tab-btn" data-tab="s3">S3 Browser</button>
-            <button class="tab-btn" data-tab="config">Config</button>
-            <button class="tab-btn" data-tab="admin">Admin</button>
+            <button class="tab-btn" data-tab="settings">Settings</button>
         </nav>
         <div class="workspace-controls">
             <label for="org-select">Org:</label>
@@ -29,8 +28,74 @@
     <main>
         <!-- Games/Workspace Tab -->
         <section id="games-tab" class="tab-content active">
-            <div id="workspace-info" class="info-bar"></div>
-            <div id="games-list" class="card-grid"></div>
+            <!-- Cards View -->
+            <div id="games-cards-view">
+                <div id="workspace-info" class="info-bar"></div>
+                <div id="games-list" class="card-grid"></div>
+            </div>
+
+            <!-- Detail View -->
+            <div id="game-detail-view" class="hidden">
+                <div class="detail-toolbar">
+                    <button class="back-btn" id="game-back-btn">← Back</button>
+                    <h2 id="game-detail-title">Game Details</h2>
+                    <div class="detail-actions">
+                        <button class="action-btn" id="game-launch-btn">Launch</button>
+                        <button class="action-btn" id="game-refresh-btn">Refresh</button>
+                        <button class="action-btn" id="game-compare-btn">Compare All</button>
+                    </div>
+                </div>
+                <div class="detail-content">
+                    <div class="detail-sidebar">
+                        <section class="detail-section" id="game-meta">
+                            <h4>Metadata</h4>
+                            <dl></dl>
+                        </section>
+                        <section class="detail-section" id="game-access">
+                            <h4>Access Control</h4>
+                            <dl></dl>
+                        </section>
+                        <section class="detail-section" id="game-paths">
+                            <h4>Paths</h4>
+                            <dl></dl>
+                        </section>
+                    </div>
+                    <div class="detail-main">
+                        <section class="detail-section" id="game-files">
+                            <h4>Files <span class="file-source-label">(Local + S3)</span></h4>
+                            <div class="file-table-container">
+                                <table class="file-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Size</th>
+                                            <th>Modified</th>
+                                            <th>Sync</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </section>
+                        <div id="game-file-viewer" class="file-viewer-pane">
+                            <div class="file-viewer-header">
+                                <span class="file-viewer-title"></span>
+                                <div class="file-viewer-actions">
+                                    <button class="edit-btn" title="Edit file">Edit</button>
+                                    <button class="save-btn" title="Save changes">Save</button>
+                                    <button class="cancel-btn" title="Cancel editing">Cancel</button>
+                                    <button class="compare-btn" title="Compare with S3">Compare</button>
+                                    <button class="close-viewer-btn" title="Close">×</button>
+                                </div>
+                            </div>
+                            <div class="file-viewer-body">
+                                <pre><code></code></pre>
+                                <textarea class="file-editor"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- S3 Browser Tab -->
@@ -41,53 +106,64 @@
                     <button class="crumb" data-prefix="">root</button>
                 </div>
             </div>
-            <div id="s3-list" class="file-list"></div>
-        </section>
-
-        <!-- Config Tab -->
-        <section id="config-tab" class="tab-content">
-            <div class="toolbar">
-                <h2>Server Configuration</h2>
-                <button id="refresh-config">Refresh</button>
-            </div>
-            <div id="config-content" class="config-grid">
-                <div class="config-section" id="config-service">
-                    <h3>Service</h3>
-                    <dl></dl>
-                </div>
-                <div class="config-section" id="config-paths">
-                    <h3>Paths</h3>
-                    <dl></dl>
-                </div>
-                <div class="config-section" id="config-s3">
-                    <h3>S3 Storage</h3>
-                    <dl></dl>
-                </div>
-                <div class="config-section" id="config-runtime">
-                    <h3>Runtime</h3>
-                    <dl></dl>
+            <div class="s3-browser-container">
+                <div id="s3-list" class="file-list"></div>
+                <div id="s3-content" class="s3-content-pane">
+                    <div id="s3-content-header" class="s3-content-header"></div>
+                    <div id="s3-content-body" class="s3-content-body"></div>
                 </div>
             </div>
         </section>
 
-        <!-- Admin Tab -->
-        <section id="admin-tab" class="tab-content">
-            <div class="toolbar">
-                <h2>User Management</h2>
-                <button id="add-user-btn">Add User</button>
-            </div>
-            <div id="admin-content">
-                <table id="users-table">
-                    <thead>
-                        <tr>
-                            <th>Username</th>
-                            <th>Role</th>
-                            <th>Created</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="users-list"></tbody>
-                </table>
+        <!-- Settings Tab -->
+        <section id="settings-tab" class="tab-content">
+            <div class="settings-layout">
+                <!-- Config Panel -->
+                <div class="settings-panel" id="config-panel">
+                    <div class="panel-header">
+                        <h3>Server Config</h3>
+                        <button id="refresh-config" class="icon-btn" title="Refresh">↻</button>
+                    </div>
+                    <div id="config-content" class="config-list">
+                        <div class="config-section" id="config-service">
+                            <h4>Service</h4>
+                            <dl></dl>
+                        </div>
+                        <div class="config-section" id="config-paths">
+                            <h4>Paths</h4>
+                            <dl></dl>
+                        </div>
+                        <div class="config-section" id="config-s3">
+                            <h4>S3 Storage</h4>
+                            <dl></dl>
+                        </div>
+                        <div class="config-section" id="config-runtime">
+                            <h4>Runtime</h4>
+                            <dl></dl>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Users Panel -->
+                <div class="settings-panel" id="users-panel">
+                    <div class="panel-header">
+                        <h3>Users</h3>
+                        <button id="add-user-btn" class="icon-btn" title="Add User">+</button>
+                    </div>
+                    <div id="admin-content">
+                        <table id="users-table">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Role</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-list"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </section>
     </main>
@@ -148,50 +224,6 @@
                 <button type="submit">Create</button>
             </div>
         </form>
-    </dialog>
-
-    <!-- Game Detail Modal -->
-    <dialog id="game-detail-modal">
-        <div class="modal-header">
-            <h3 id="game-detail-title">Game Details</h3>
-            <button class="close-btn" onclick="this.closest('dialog').close()">×</button>
-        </div>
-        <div class="modal-body">
-            <div class="game-detail-grid">
-                <section class="detail-section" id="game-meta">
-                    <h4>Metadata</h4>
-                    <dl></dl>
-                </section>
-                <section class="detail-section" id="game-access">
-                    <h4>Access Control</h4>
-                    <dl></dl>
-                </section>
-                <section class="detail-section" id="game-paths">
-                    <h4>Paths</h4>
-                    <dl></dl>
-                </section>
-                <section class="detail-section" id="game-files">
-                    <h4>Files</h4>
-                    <div class="file-table-container">
-                        <table class="file-table">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Size</th>
-                                    <th>Modified</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </section>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="action-btn" id="game-launch-btn">Launch</button>
-            <button class="action-btn" id="game-refresh-btn">Refresh</button>
-            <button class="cancel" onclick="this.closest('dialog').close()">Close</button>
-        </div>
     </dialog>
 
     <script type="module" src="js/main.js"></script>

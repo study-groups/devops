@@ -5,10 +5,63 @@
 import { store } from './store.js';
 import { api, formatBytes } from './api.js';
 
+let currentSelectedFile = null;
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function showFileContent(key, name) {
+    const contentPane = document.getElementById('s3-content');
+    const contentHeader = document.getElementById('s3-content-header');
+    const contentBody = document.getElementById('s3-content-body');
+
+    // Update selection state
+    document.querySelectorAll('#s3-list .file-item.selected').forEach(el => {
+        el.classList.remove('selected');
+    });
+    if (currentSelectedFile) {
+        currentSelectedFile.classList.add('selected');
+    }
+
+    contentPane.classList.add('visible');
+    contentHeader.innerHTML = `
+        <span class="filename">${escapeHtml(name)}</span>
+        <button class="close-btn" title="Close">×</button>
+    `;
+    contentBody.innerHTML = '<pre><code>Loading...</code></pre>';
+
+    // Add close handler
+    contentHeader.querySelector('.close-btn').addEventListener('click', () => {
+        contentPane.classList.remove('visible');
+        document.querySelectorAll('#s3-list .file-item.selected').forEach(el => {
+            el.classList.remove('selected');
+        });
+        currentSelectedFile = null;
+    });
+
+    try {
+        const response = await fetch(`/api/s3/get?key=${encodeURIComponent(key)}`);
+        const text = await response.text();
+        contentBody.innerHTML = `<pre><code>${escapeHtml(text)}</code></pre>`;
+    } catch (err) {
+        contentBody.innerHTML = `<pre><code>Error loading file: ${err.message}</code></pre>`;
+    }
+}
+
 export async function loadS3(prefix) {
     store.set('currentS3Prefix', prefix);
     const s3List = document.getElementById('s3-list');
     const breadcrumb = document.getElementById('s3-breadcrumb');
+    const contentPane = document.getElementById('s3-content');
+
+    // Hide content pane when navigating
+    if (contentPane) {
+        contentPane.classList.remove('visible');
+    }
+    currentSelectedFile = null;
 
     // Update breadcrumb
     const parts = prefix.split('/').filter(Boolean);
@@ -58,7 +111,8 @@ export async function loadS3(prefix) {
                 <span class="size">${formatBytes(obj.size)}</span>
             `;
             item.addEventListener('click', () => {
-                window.open(`/api/s3/get?key=${encodeURIComponent(obj.key)}`, '_blank');
+                currentSelectedFile = item;
+                showFileContent(obj.key, name);
             });
             s3List.appendChild(item);
         });

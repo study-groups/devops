@@ -151,5 +151,67 @@ export function createGamesRoutes(workspace, csvAuth) {
         }
     });
 
+    /**
+     * GET /api/games/:slug/file/:filename
+     * Get file content from local workspace
+     */
+    router.get('/:slug/file/:filename', optionalAuth(csvAuth), checkManifest, async (req, res) => {
+        try {
+            const { slug, filename } = req.params;
+            const key = `games/${slug}/${filename}`;
+            const content = await workspace.gameManifest.s3.getObjectString(key);
+
+            res.type('text/plain').send(content);
+        } catch (err) {
+            console.error('[Games] Get file error:', err);
+            res.status(err.code === 'ENOENT' ? 404 : 500).json({
+                error: err.code === 'ENOENT' ? 'Not Found' : 'Internal Server Error',
+                message: err.message,
+            });
+        }
+    });
+
+    /**
+     * PUT /api/games/:slug/file/:filename
+     * Save file content to local workspace
+     */
+    router.put('/:slug/file/:filename', optionalAuth(csvAuth), checkManifest, async (req, res) => {
+        try {
+            const { slug, filename } = req.params;
+            const key = `games/${slug}/${filename}`;
+
+            // Check if provider supports writing
+            if (!workspace.gameManifest.s3.putObjectString) {
+                return res.status(501).json({
+                    error: 'Not Implemented',
+                    message: 'File editing not supported for this storage provider',
+                });
+            }
+
+            // Get content from request body
+            const content = req.body.content;
+            if (typeof content !== 'string') {
+                return res.status(400).json({
+                    error: 'Bad Request',
+                    message: 'Request body must include content string',
+                });
+            }
+
+            await workspace.gameManifest.s3.putObjectString(key, content);
+
+            res.json({
+                success: true,
+                message: `File ${filename} saved`,
+                key,
+            });
+        } catch (err) {
+            console.error('[Games] Save file error:', err);
+            res.status(500).json({
+                error: 'Internal Server Error',
+                message: err.message,
+            });
+        }
+    });
+
     return router;
 }
