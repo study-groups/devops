@@ -109,8 +109,13 @@ class PublishManager {
 
     /**
      * Subscribe to state changes
+     * Lazily initializes the manager on first subscription
      */
     subscribe(callback) {
+        // Lazy init on first subscription
+        if (!this.storeUnsubscribe) {
+            this.init();
+        }
         this.subscribers.add(callback);
         return () => this.subscribers.delete(callback);
     }
@@ -138,8 +143,12 @@ class PublishManager {
 
     /**
      * Get current state
+     * Lazily initializes if needed
      */
     getState() {
+        if (!this.storeUnsubscribe) {
+            this.init();
+        }
         return { ...this.state };
     }
 
@@ -432,5 +441,5 @@ class PublishManager {
 // Create singleton instance
 export const publishManager = new PublishManager();
 
-// Initialize on import
-publishManager.init();
+// Note: init() is called lazily when first subscriber registers
+// This avoids issues with import order and store initialization
