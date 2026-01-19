@@ -1,0 +1,311 @@
+/* dashboard.css - TETRA Console styles */
+
+:root {
+    --grip: #444;
+    --header-height: 40px;
+    --panel-header-height: 32px;
+    --divider-size: 6px;
+    --top-height: 50%;
+    --left-top-width: 50%;
+    --left-bot-width: 50%;
+}
+
+body {
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+}
+
+.dashboard {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+/* ==========================================================================
+   Main Header
+   ========================================================================== */
+
+.header {
+    height: var(--header-height);
+    background: var(--paper-mid);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 16px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.logo {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--one);
+}
+.logo span { color: var(--two); }
+
+.global-org {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 24px;
+}
+
+.org-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--ink-muted);
+    padding: 4px 10px;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+}
+
+.org-btn:hover {
+    border-color: var(--ink-muted);
+    color: var(--ink);
+}
+
+.org-btn.active {
+    background: var(--four);
+    border-color: var(--four);
+    color: var(--ink);
+}
+
+.status {
+    margin-left: auto;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    font-size: 11px;
+    color: var(--ink-muted);
+}
+
+/* ==========================================================================
+   Pane Layout
+   ========================================================================== */
+
+.panes {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.pane-row {
+    display: flex;
+    overflow: hidden;
+}
+.pane-row.top { height: var(--top-height); }
+.pane-row.bottom { flex: 1; }
+
+/* ==========================================================================
+   Panels
+   ========================================================================== */
+
+.panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--paper-dark);
+}
+
+/* Panel positions */
+.panel[data-panel="top-left"] { width: var(--left-top-width); }
+.panel[data-panel="top-right"] { flex: 1; }
+.panel[data-panel="bottom-left"] { width: var(--left-bot-width); }
+.panel[data-panel="bottom-right"] { flex: 1; }
+
+.panel-header {
+    height: var(--panel-header-height);
+    background: var(--paper-mid);
+    padding: 0 8px;
+    font-size: 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.panel-header select {
+    background: transparent;
+    border: none;
+    color: var(--ink-muted);
+    font-family: inherit;
+    font-size: 10px;
+    padding: 2px 6px;
+    cursor: pointer;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.panel-header select:hover { color: var(--ink); }
+.panel-header select:focus {
+    outline: none;
+    color: var(--ink);
+}
+
+.panel-header .view-select { font-weight: 600; }
+
+/* ==========================================================================
+   Environment Buttons
+   ========================================================================== */
+
+.env-btns {
+    display: flex;
+    gap: 2px;
+}
+
+.env-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--ink-muted);
+    padding: 1px 6px;
+    font-family: inherit;
+    font-size: 9px;
+    cursor: pointer;
+    border-radius: 2px;
+    display: inline-flex;
+    gap: 0;
+}
+
+.env-btn .user-prefix {
+    opacity: 0.5;
+    cursor: pointer;
+    padding-right: 1px;
+}
+
+.env-btn .user-prefix:hover { opacity: 1; }
+
+/* Hide user prefix when not in console view */
+.panel:not([data-view="console"]) .env-btn .user-prefix {
+    display: none;
+}
+
+.env-btn:hover {
+    border-color: var(--ink-muted);
+    color: var(--ink);
+}
+
+.env-btn.active {
+    border-color: var(--two);
+    color: var(--two);
+}
+
+.env-btn.active[data-env="dev"],
+.env-btn.active[data-env="staging"] {
+    border-color: var(--three);
+    color: var(--three);
+}
+
+.env-btn.active[data-env="prod"] {
+    border-color: var(--one);
+    color: var(--one);
+}
+
+/* ==========================================================================
+   Panel Actions (expand/reload buttons)
+   ========================================================================== */
+
+.panel-actions {
+    display: flex;
+    gap: 2px;
+    margin-left: 4px;
+}
+
+.panel-header .refresh-btn,
+.panel-header .takeover-btn,
+.panel-header .font-btn {
+    background: none;
+    border: none;
+    color: var(--ink-muted);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 2px 4px;
+    line-height: 1;
+}
+
+.panel-header .font-btn {
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 3px;
+}
+
+.panel-header .refresh-btn:hover,
+.panel-header .takeover-btn:hover,
+.panel-header .font-btn:hover { color: var(--ink); }
+.panel-header .takeover-btn.active { color: var(--four); }
+
+.panel-timing {
+    margin-left: auto;
+    font-size: 9px;
+    font-family: monospace;
+    padding: 2px 6px;
+    border-radius: 2px;
+    background: var(--paper-dark);
+}
+
+/* ==========================================================================
+   Panel Content
+   ========================================================================== */
+
+.panel-content {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+.panel-content iframe {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+/* ==========================================================================
+   Dividers
+   ========================================================================== */
+
+.divider {
+    background: var(--border);
+    flex-shrink: 0;
+    position: relative;
+}
+
+.divider-h {
+    height: var(--divider-size);
+    cursor: row-resize;
+}
+
+.divider-v {
+    width: var(--divider-size);
+    cursor: col-resize;
+}
+
+.divider:hover, .divider.active {
+    background: var(--four);
+}
+
+/* ==========================================================================
+   Takeover Mode
+   ========================================================================== */
+
+.panes.takeover { position: relative; }
+.panes.takeover .pane-row,
+.panes.takeover .divider { display: none; }
+.panes.takeover .panel { display: none; }
+
+.panes.takeover .panel.takeover-active {
+    display: flex;
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100% !important;
+    height: 100% !important;
+}

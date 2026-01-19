@@ -4,26 +4,20 @@
     <meta charset="UTF-8">
     <title>Logs</title>
     <link rel="stylesheet" href="shared.css">
+    <link rel="stylesheet" href="iframe-base.css">
     <style>
         body {
-            font-size: 10px;
-            height: 100vh;
-            overflow-y: auto;
             display: flex;
             flex-direction: column;
         }
+        body.no-scroll { overflow: hidden; }
+
         .header-left {
             display: flex;
             align-items: center;
             gap: 12px;
         }
-        .controls {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            flex: 1;
-            justify-content: center;
-        }
+
         .tsm-sources {
             display: flex;
             flex-wrap: wrap;
@@ -47,74 +41,20 @@
             cursor: pointer;
             opacity: 0.6;
         }
-        .tsm-tag .close:hover {
-            opacity: 1;
-        }
-        .search-box {
-            background: var(--paper-mid);
-            border: 1px solid var(--border);
-            color: var(--ink);
-            font-family: inherit;
-            font-size: 9px;
-            padding: 2px 8px;
-            border-radius: 2px;
-            width: 120px;
-        }
-        .search-box:focus {
-            outline: none;
-            border-color: var(--four);
-        }
-        .search-box::placeholder {
-            color: var(--ink-muted);
-        }
+        .tsm-tag .close:hover { opacity: 1; }
+
         .highlight {
             background: rgba(255, 230, 109, 0.3);
             color: var(--three);
         }
+
         #logs {
             flex: 1;
             overflow-y: auto;
         }
-        .log-line {
-            padding: 3px 12px;
-            border-bottom: 1px solid var(--border);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            display: flex;
-            gap: 8px;
-        }
-        .log-line.new {
-            background: rgba(78, 205, 196, 0.1);
-            animation: fade-bg 2s ease-out forwards;
-        }
-        @keyframes fade-bg {
-            to { background: transparent; }
-        }
-        .timestamp {
-            color: var(--ink-muted);
-            min-width: 55px;
-        }
-        .level {
-            min-width: 50px;
-            font-weight: 600;
-        }
-        .level-info { color: var(--two); }
-        .level-warn { color: var(--three); }
-        .level-error { color: var(--one); }
-        .level-debug { color: var(--four); }
-        .source {
-            color: var(--ink-muted);
-            min-width: 60px;
-        }
-        .message {
-            flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
     </style>
 </head>
-<body>
+<body class="no-scroll">
     <div class="iframe-header">
         <div class="header-left">
             <span class="status-dot" id="status-dot"></span>
@@ -143,6 +83,7 @@
 
     <script src="ui-helpers.js"></script>
     <script src="/js/terrain-iframe.js"></script>
+    <script src="/js/iframe-init.js"></script>
     <script src="/js/logs.js"></script>
 </body>
 </html>

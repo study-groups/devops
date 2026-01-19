@@ -1,0 +1,423 @@
+/* iframe-base.css - Common styles for dashboard iframes */
+
+/* ==========================================================================
+   Base Layout
+   ========================================================================== */
+
+body {
+    font-size: 11px;
+    height: 100vh;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0;
+}
+
+body.no-scroll {
+    overflow: hidden;
+}
+
+body.padded {
+    padding: 12px;
+}
+
+/* ==========================================================================
+   Iframe Header
+   ========================================================================== */
+
+.iframe-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--paper-mid);
+    flex-shrink: 0;
+}
+
+.iframe-header.flat {
+    padding: 0 0 8px 0;
+    border: none;
+    background: transparent;
+}
+
+.iframe-header .title {
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.iframe-header .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.iframe-header .header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.iframe-header .controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex: 1;
+    justify-content: center;
+}
+
+/* ==========================================================================
+   Refresh / Icon Buttons
+   ========================================================================== */
+
+.icon-refresh,
+.refresh {
+    cursor: pointer;
+    color: var(--ink-muted);
+    font-size: 14px;
+    padding: 2px 4px;
+    transition: color 0.15s;
+}
+
+.icon-refresh:hover,
+.refresh:hover {
+    color: var(--ink);
+}
+
+/* ==========================================================================
+   Status Indicators
+   ========================================================================== */
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--ink-muted);
+}
+
+.status-dot.connected { background: var(--two); }
+.status-dot.disconnected { background: var(--one); }
+.status-dot.loading { background: var(--three); }
+
+/* ==========================================================================
+   Empty / Placeholder States
+   ========================================================================== */
+
+.empty,
+.placeholder {
+    color: var(--ink-muted);
+    text-align: center;
+    padding: 24px 12px;
+    font-size: 11px;
+}
+
+.placeholder {
+    padding: 40px;
+}
+
+/* ==========================================================================
+   Sections
+   ========================================================================== */
+
+.section {
+    margin-bottom: 16px;
+}
+
+.section-title {
+    color: var(--ink-muted);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 4px;
+}
+
+/* ==========================================================================
+   Pills / Tags
+   ========================================================================== */
+
+.pill-group {
+    display: flex;
+    gap: 2px;
+}
+
+.pill {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--ink-muted);
+    padding: 2px 8px;
+    font-family: inherit;
+    font-size: 9px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+}
+
+.pill:hover {
+    border-color: var(--ink-muted);
+    color: var(--ink);
+}
+
+.pill.active {
+    background: var(--four);
+    border-color: var(--four);
+    color: var(--ink);
+}
+
+.tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 6px;
+    font-size: 8px;
+    border-radius: 2px;
+    background: var(--paper-mid);
+    color: var(--ink-muted);
+}
+
+.tag.success { background: var(--two); color: var(--paper-dark); }
+.tag.warning { background: var(--three); color: var(--paper-dark); }
+.tag.error { background: var(--one); color: var(--paper-dark); }
+.tag.info { background: var(--four); color: var(--paper-dark); }
+
+/* ==========================================================================
+   Form Controls
+   ========================================================================== */
+
+.search-box {
+    background: var(--paper-mid);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 9px;
+    padding: 4px 8px;
+    border-radius: 2px;
+    width: 120px;
+}
+
+.search-box:focus {
+    outline: none;
+    border-color: var(--four);
+}
+
+.search-box::placeholder {
+    color: var(--ink-muted);
+}
+
+.select {
+    background: var(--paper-mid);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 2px;
+    cursor: pointer;
+}
+
+.select:focus {
+    outline: none;
+    border-color: var(--four);
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+
+.btn {
+    background: var(--paper-mid);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.btn:hover {
+    border-color: var(--ink-muted);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn.primary {
+    background: var(--four);
+    border-color: var(--four);
+    color: var(--paper-dark);
+    font-weight: 600;
+}
+
+.btn.primary:hover {
+    filter: brightness(1.1);
+}
+
+.btn.danger {
+    background: var(--one);
+    border-color: var(--one);
+}
+
+/* ==========================================================================
+   Log Lines
+   ========================================================================== */
+
+.log-line {
+    padding: 3px 12px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    gap: 8px;
+    font-size: 10px;
+}
+
+.log-line .timestamp {
+    color: var(--ink-muted);
+    min-width: 55px;
+}
+
+.log-line .level {
+    min-width: 50px;
+    font-weight: 600;
+}
+
+.log-line .level-info { color: var(--two); }
+.log-line .level-warn { color: var(--three); }
+.log-line .level-error { color: var(--one); }
+.log-line .level-debug { color: var(--four); }
+
+.log-line .source {
+    color: var(--ink-muted);
+    min-width: 60px;
+}
+
+.log-line .message {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* New log line animation */
+.log-line.new {
+    background: rgba(78, 205, 196, 0.1);
+    animation: fade-bg 2s ease-out forwards;
+}
+
+@keyframes fade-bg {
+    to { background: transparent; }
+}
+
+/* ==========================================================================
+   Output / Code Blocks
+   ========================================================================== */
+
+.output {
+    background: var(--paper-mid);
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 200px;
+    overflow-y: auto;
+    line-height: 1.4;
+}
+
+.code {
+    background: var(--paper-mid);
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-size: 9px;
+    font-family: monospace;
+    color: var(--two);
+}
+
+/* ==========================================================================
+   Info Grid
+   ========================================================================== */
+
+.info-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 12px;
+    font-size: 10px;
+}
+
+.info-grid .label {
+    color: var(--two);
+}
+
+.info-grid .value {
+    color: var(--ink);
+    word-break: break-all;
+}
+
+/* ==========================================================================
+   Tabs
+   ========================================================================== */
+
+.tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.tab {
+    padding: 8px 12px;
+    font-size: 10px;
+    color: var(--ink-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.15s ease;
+}
+
+.tab:hover {
+    color: var(--ink);
+}
+
+.tab.active {
+    color: var(--ink);
+    border-bottom-color: var(--four);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* ==========================================================================
+   Utility Classes
+   ========================================================================== */
+
+.flex { display: flex; }
+.flex-1 { flex: 1; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-4 { gap: 4px; }
+.gap-8 { gap: 8px; }
+.gap-12 { gap: 12px; }
+.mt-8 { margin-top: 8px; }
+.mb-8 { margin-bottom: 8px; }
+.p-8 { padding: 8px; }
+.p-12 { padding: 12px; }
+.text-muted { color: var(--ink-muted); }
+.text-success { color: var(--two); }
+.text-warning { color: var(--three); }
+.text-error { color: var(--one); }
+.text-info { color: var(--four); }
+.font-mono { font-family: monospace; }
+.truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

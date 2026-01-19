@@ -2,15 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Console</title>
     <link rel="stylesheet" href="shared.css">
+    <link rel="stylesheet" href="iframe-base.css">
     <link rel="stylesheet" href="/js/vendor/xterm.css">
     <style>
-        body {
-            height: 100vh;
-            overflow: hidden;
-        }
         #terminal {
             width: 100%;
             height: 100%;
@@ -19,13 +15,14 @@
         .xterm { height: 100%; }
     </style>
 </head>
-<body>
+<body class="no-scroll">
     <div id="terminal"></div>
 
     <script src="/js/vendor/xterm.min.js"></script>
     <script src="/js/vendor/xterm-addon-fit.min.js"></script>
     <script src="/js/vendor/socket.io.min.js"></script>
     <script src="/js/terrain-iframe.js"></script>
+    <script src="/js/iframe-init.js"></script>
     <script src="/js/console.js"></script>
 </body>
 </html>

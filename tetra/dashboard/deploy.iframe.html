@@ -4,23 +4,10 @@
     <meta charset="UTF-8">
     <title>Deploy</title>
     <link rel="stylesheet" href="shared.css">
+    <link rel="stylesheet" href="iframe-base.css">
     <style>
-        body {
-            font-size: 11px;
-            padding: 12px;
-            height: 100vh;
-            overflow-y: auto;
-        }
-        .section { margin-bottom: 16px; }
-        .section-title {
-            color: var(--ink-muted);
-            font-size: 9px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 4px;
-        }
+        body { padding: 12px; }
+
         .target {
             background: var(--paper-mid);
             padding: 8px 12px;
@@ -52,6 +39,7 @@
             padding: 2px 6px;
             font-size: 8px;
         }
+
         .history-item {
             padding: 4px 8px;
             border-bottom: 1px solid var(--border);
@@ -59,42 +47,18 @@
             gap: 8px;
             font-size: 10px;
         }
-        .history-item .timestamp {
-            color: var(--ink-muted);
-            min-width: 60px;
-        }
-        .history-item .target {
-            background: none;
-            padding: 0;
-            margin: 0;
-            color: var(--four);
-            min-width: 80px;
-        }
-        .history-item .env {
-            color: var(--three);
-            min-width: 50px;
-        }
-        .history-item .status {
-            min-width: 60px;
-        }
+        .history-item .timestamp { color: var(--ink-muted); min-width: 60px; }
+        .history-item .target { background: none; padding: 0; margin: 0; color: var(--four); min-width: 80px; }
+        .history-item .env { color: var(--three); min-width: 50px; }
+        .history-item .status { min-width: 60px; }
         .history-item .status.success { color: var(--two); }
         .history-item .status.failed { color: var(--one); }
-        .output {
-            background: var(--paper-mid);
-            padding: 8px;
-            margin-top: 8px;
-            border-radius: 4px;
-            font-size: 10px;
-            white-space: pre-wrap;
-            max-height: 200px;
-            overflow-y: auto;
-        }
     </style>
 </head>
 <body>
-    <div class="iframe-header" style="padding: 0 0 8px 0; border: none;">
+    <div class="iframe-header flat">
         <span>Deploy</span>
-        <span class="refresh" onclick="loadAll()">&#8635;</span>
+        <span class="refresh" data-action="refresh">&#8635;</span>
     </div>
 
     <div class="section">
@@ -117,6 +81,7 @@
     </div>
 
     <script src="/js/terrain-iframe.js"></script>
+    <script src="/js/iframe-init.js"></script>
     <script src="/js/deploy.js"></script>
 </body>
 </html>

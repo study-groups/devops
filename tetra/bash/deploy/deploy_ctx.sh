@@ -2,17 +2,40 @@
 # deploy_ctx.sh - Deploy context management
 # Ephemeral state with cross-session persistence
 # Priority: explicit command > env var > saved file
-# TPS prompt only active when context is set
-# Shows as DEPLOY[org:target:env] in prompt
+# TPS prompt shows as DEPLOY[org:target:env] when context is set
 
 DEPLOY_CTX_FILE="${TETRA_DIR}/deploy/context"
-DEPLOY_TPS_REGISTERED=0
 
 # =============================================================================
-# TPS INTEGRATION (lazy - only when context active)
+# TPS INTEGRATION (via tps_ctx API)
 # =============================================================================
 
-# Provider functions (called by TPS)
+# Register with TPS if available (red color=1, priority=10 for critical ops)
+if type tps_ctx &>/dev/null; then
+    tps_ctx register deploy DEPLOY 10 1
+fi
+
+# Sync deploy context to TPS for prompt display
+_deploy_sync_to_tps() {
+    type tps_ctx &>/dev/null || return 0
+
+    local org="${DEPLOY_CTX_ORG:-}"
+    local target="${DEPLOY_CTX_TARGET:-}"
+    local pipeline="${DEPLOY_CTX_PIPELINE:-}"
+    local env="${DEPLOY_CTX_ENV:-}"
+
+    # Build target display (include pipeline if set)
+    local target_display="$target"
+    [[ -n "$pipeline" ]] && target_display="${target}:${pipeline}"
+
+    if [[ -n "$org" || -n "$target" || -n "$env" ]]; then
+        tps_ctx set deploy "$org" "$target_display" "$env"
+    else
+        tps_ctx clear deploy
+    fi
+}
+
+# Provider functions (for compatibility and internal use)
 _deploy_prompt_org() { echo "${DEPLOY_CTX_ORG:-}"; }
 _deploy_prompt_target() {
     local t="${DEPLOY_CTX_TARGET:-}" p="${DEPLOY_CTX_PIPELINE:-}"
@@ -20,40 +43,6 @@ _deploy_prompt_target() {
     [[ -n "$p" ]] && echo "$t:$p" || echo "$t"
 }
 _deploy_prompt_env() { echo "${DEPLOY_CTX_ENV:-}"; }
-
-_deploy_register_prompt() {
-    [[ $DEPLOY_TPS_REGISTERED -eq 1 ]] && return
-    if type tps_register_context_line &>/dev/null; then
-        # New multi-context API: register DEPLOY[org:project:subject] line
-        # Color 1 = red (critical operations)
-        tps_register_context_line deploy DEPLOY 10 1
-        tps_register_context org _deploy_prompt_org deploy
-        # Use 'target' which maps to 'project' slot (backward compat alias)
-        tps_register_context target _deploy_prompt_target deploy
-        # Use 'env' which maps to 'subject' slot (backward compat alias)
-        tps_register_context env _deploy_prompt_env deploy
-        DEPLOY_TPS_REGISTERED=1
-    elif type tps_register_context &>/dev/null; then
-        # Legacy single-context API fallback
-        tps_register_context org _deploy_prompt_org
-        tps_register_context target _deploy_prompt_target
-        tps_register_context env _deploy_prompt_env
-        DEPLOY_TPS_REGISTERED=1
-    fi
-}
-
-_deploy_unregister_prompt() {
-    [[ $DEPLOY_TPS_REGISTERED -eq 0 ]] && return
-    if type tps_unregister_context_line &>/dev/null; then
-        tps_unregister_context_line deploy
-        DEPLOY_TPS_REGISTERED=0
-    elif type tps_unregister_context &>/dev/null; then
-        tps_unregister_context org
-        tps_unregister_context target
-        tps_unregister_context env
-        DEPLOY_TPS_REGISTERED=0
-    fi
-}
 
 # =============================================================================
 # PERSISTENCE
@@ -67,12 +56,8 @@ DEPLOY_CTX_TARGET=${DEPLOY_CTX_TARGET}
 DEPLOY_CTX_PIPELINE=${DEPLOY_CTX_PIPELINE}
 DEPLOY_CTX_ENV=${DEPLOY_CTX_ENV}
 EOF
-    # Register TPS when we have context
-    if [[ -n "$DEPLOY_CTX_ORG" || -n "$DEPLOY_CTX_TARGET" || -n "$DEPLOY_CTX_ENV" ]]; then
-        _deploy_register_prompt
-    else
-        _deploy_unregister_prompt
-    fi
+    # Sync to TPS for prompt display
+    _deploy_sync_to_tps
 }
 
 _deploy_ctx_load() {
@@ -93,10 +78,8 @@ _deploy_ctx_load() {
     [[ -z "$DEPLOY_CTX_PIPELINE" ]] && export DEPLOY_CTX_PIPELINE="$saved_pipeline"
     [[ -z "$DEPLOY_CTX_ENV" ]] && export DEPLOY_CTX_ENV="$saved_env"
 
-    # Register TPS if we loaded context
-    if [[ -n "$DEPLOY_CTX_ORG" || -n "$DEPLOY_CTX_TARGET" || -n "$DEPLOY_CTX_ENV" ]]; then
-        _deploy_register_prompt
-    fi
+    # Sync to TPS if we have context
+    _deploy_sync_to_tps
 }
 
 # =============================================================================
@@ -122,7 +105,7 @@ if [[ -z "$DEPLOY_CTX_ORG" ]]; then
         [[ -n "$_deploy_seed_org" && "$_deploy_seed_org" != "none" ]] && export DEPLOY_CTX_ORG="$_deploy_seed_org"
         unset _deploy_seed_org
     fi
-    [[ -n "$DEPLOY_CTX_ORG" ]] && _deploy_register_prompt
+    [[ -n "$DEPLOY_CTX_ORG" ]] && _deploy_sync_to_tps
 fi
 
 _deploy_active_org() {
@@ -703,6 +686,6 @@ export -f _deploy_items_from_toml deploy_items_reset deploy_items_show
 export -f _deploy_items_exclude _deploy_items_include _deploy_items_glob
 export -f deploy_items _deploy_items_get_value
 export -f _deploy_prompt_org _deploy_prompt_target _deploy_prompt_env
-export -f _deploy_register_prompt _deploy_unregister_prompt
+export -f _deploy_sync_to_tps
 export -f deploy_set deploy_org_set deploy_target_set deploy_env_set deploy_clear_context
 export -f deploy_info deploy_list _tetra_deploy_info
