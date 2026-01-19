@@ -7,213 +7,646 @@
     <style>
         body {
             font-size: 11px;
-            padding: 12px;
+            padding: 0;
             height: 100vh;
-            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
-        .section {
-            margin-bottom: 16px;
+
+        /* Header */
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: var(--paper-mid);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
         }
-        .section-header {
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--ink-muted);
+        }
+        .status-dot.online { background: var(--two); }
+        .status-dot.offline { background: var(--one); }
+        .status-dot.loading { background: var(--three); animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        .header-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 10px;
+        }
+        .env-badge {
+            background: var(--four);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+        .env-badge.local { background: var(--two); }
+        .env-badge.prod { background: var(--one); }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: var(--paper-dark);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .tab {
+            padding: 8px 14px;
+            font-size: 10px;
             color: var(--ink-muted);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        .tab:hover { color: var(--ink); background: var(--paper-mid); }
+        .tab.active { color: var(--ink); border-bottom-color: var(--four); }
+        .tab .count {
+            margin-left: 4px;
+            background: var(--one);
+            color: white;
+            padding: 1px 5px;
+            border-radius: 8px;
             font-size: 9px;
+        }
+        .tab .count.zero { background: var(--paper-light); color: var(--ink-muted); }
+
+        /* Content */
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+        .content.hidden { display: none; }
+
+        /* Section */
+        .section { margin-bottom: 16px; }
+        .section-title {
+            font-size: 9px;
+            color: var(--ink-muted);
             text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 6px;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .status-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px;
+
+        /* Status Grid */
+        .grid { display: grid; gap: 8px; }
+        .grid-4 { grid-template-columns: repeat(4, 1fr); }
+        .grid-3 { grid-template-columns: repeat(3, 1fr); }
+        .grid-2 { grid-template-columns: repeat(2, 1fr); }
+        .card {
             background: var(--paper-mid);
-            border-radius: 2px;
-            flex-wrap: wrap;
+            padding: 10px;
+            border-radius: 3px;
         }
-        .status-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .status-label {
-            color: var(--ink-muted);
-        }
-        .status-value {
-            color: var(--ink);
-        }
-        .status-value.online { color: var(--two); }
-        .status-value.offline { color: var(--one); }
+        .card .label { font-size: 9px; color: var(--ink-muted); margin-bottom: 2px; }
+        .card .value { font-size: 12px; font-weight: 600; font-family: var(--font-mono); }
+        .card .value.good { color: var(--two); }
+        .card .value.warn { color: var(--three); }
+        .card .value.bad { color: var(--one); }
+
+        /* Routes */
+        .route-list { background: var(--paper-mid); border-radius: 3px; }
         .route {
-            display: flex;
-            align-items: center;
-            padding: 6px 8px;
-            border-bottom: 1px solid var(--border);
-            gap: 8px;
-        }
-        .route:last-child {
-            border-bottom: none;
-        }
-        .route-path {
-            min-width: 100px;
-            color: var(--four);
-        }
-        .route-arrow {
-            color: var(--ink-muted);
-        }
-        .route-upstream {
-            color: var(--two);
+            display: grid;
+            grid-template-columns: minmax(80px, 1fr) 20px minmax(100px, 1fr);
+            padding: 6px 10px;
+            border-bottom: 1px solid var(--paper-dark);
+            font-size: 10px;
             font-family: var(--font-mono);
         }
-        .route-type {
-            color: var(--ink-muted);
-            font-size: 9px;
-            margin-left: auto;
-        }
-        .info-row {
+        .route:last-child { border-bottom: none; }
+        .route-path { color: var(--four); }
+        .route-arrow { color: var(--ink-muted); text-align: center; }
+        .route-upstream { color: var(--two); }
+
+        /* Logs */
+        .log-toolbar {
             display: flex;
-            padding: 4px 8px;
-            font-size: 10px;
             gap: 8px;
+            margin-bottom: 8px;
+            align-items: center;
         }
-        .info-label {
-            color: var(--ink-muted);
-            min-width: 80px;
-        }
-        .info-value {
-            color: var(--ink);
-            word-break: break-all;
-        }
-        .info-value.exists { color: var(--two); }
-        .info-value.missing { color: var(--one); }
-        .module-list {
-            display: flex;
-            gap: 4px;
-            flex-wrap: wrap;
-        }
-        .module-tag {
-            background: var(--paper-light);
-            padding: 2px 6px;
-            border-radius: 2px;
-            font-size: 9px;
-        }
-        .log-entry {
-            display: flex;
-            padding: 4px 8px;
-            font-size: 10px;
-            border-bottom: 1px solid var(--paper-dark);
-            gap: 8px;
-        }
-        .log-entry:hover {
+        .log-toolbar input {
+            flex: 1;
+            padding: 5px 8px;
             background: var(--paper-mid);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            font-size: 10px;
+            border-radius: 2px;
         }
-        .log-time {
+        .log-toolbar .btn {
+            padding: 4px 8px;
+            font-size: 9px;
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            cursor: pointer;
+            border-radius: 2px;
+        }
+        .log-toolbar .btn:hover { background: var(--paper-light); }
+        .log-toolbar .btn.active { background: var(--four); color: white; border-color: var(--four); }
+        .log-container {
+            background: var(--paper-mid);
+            border-radius: 3px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+        }
+        .log-header {
+            display: grid;
+            grid-template-columns: 70px 36px 45px 1fr 50px;
+            gap: 6px;
+            padding: 5px 8px;
+            background: var(--paper-dark);
             color: var(--ink-muted);
-            min-width: 70px;
+            font-size: 9px;
+            text-transform: uppercase;
         }
-        .log-status {
-            min-width: 30px;
-            text-align: right;
+        .log-row {
+            display: grid;
+            grid-template-columns: 70px 36px 45px 1fr 50px;
+            gap: 6px;
+            padding: 4px 8px;
+            border-bottom: 1px solid var(--paper-dark);
         }
+        .log-row:hover { background: var(--paper-light); }
+        .log-row:last-child { border-bottom: none; }
+        .log-row.log-error { background: rgba(255,100,100,0.1); }
+        .log-row.log-info { background: rgba(100,100,255,0.05); }
+        .log-time { color: var(--ink-muted); font-size: 9px; }
+        .log-status { text-align: center; font-weight: 600; }
         .log-status.s2xx { color: var(--two); }
         .log-status.s3xx { color: var(--ink-muted); }
         .log-status.s4xx { color: var(--three); }
         .log-status.s5xx { color: var(--one); }
-        .log-method {
-            color: var(--four);
-            min-width: 40px;
-        }
-        .log-uri {
-            flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .log-duration {
-            color: var(--ink-muted);
-            min-width: 50px;
-            text-align: right;
-        }
+        .log-method { color: var(--four); font-weight: 500; }
+        .log-uri { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .log-dur { color: var(--ink-muted); text-align: right; }
         .log-raw {
+            padding: 4px 8px;
             color: var(--ink-muted);
-            font-size: 10px;
-            padding: 2px 8px;
+            font-size: 9px;
             border-bottom: 1px solid var(--paper-dark);
-            white-space: pre-wrap;
             word-break: break-all;
         }
-        .caddy-tabs {
-            display: flex;
-            gap: 4px;
-            margin-bottom: 8px;
-        }
-        .error-entry {
-            padding: 6px 8px;
-            background: rgba(255, 107, 107, 0.1);
-            border-left: 2px solid var(--one);
-            margin-bottom: 4px;
-            font-size: 10px;
-        }
-        .error-msg {
-            color: var(--one);
-        }
-        .message {
+        .log-msg {
+            grid-column: 3 / -1;
             color: var(--ink-muted);
             font-style: italic;
+        }
+
+        /* Top List */
+        .top-list { background: var(--paper-mid); border-radius: 3px; }
+        .top-row {
+            display: grid;
+            grid-template-columns: 45px 1fr 50px;
+            gap: 8px;
+            padding: 5px 10px;
+            border-bottom: 1px solid var(--paper-dark);
+            align-items: center;
+            font-size: 10px;
+        }
+        .top-row:last-child { border-bottom: none; }
+        .top-count { text-align: right; font-weight: 600; color: var(--four); font-family: var(--font-mono); }
+        .top-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
+        .top-bar { height: 4px; background: var(--paper-dark); border-radius: 2px; }
+        .top-bar-fill { height: 100%; background: var(--four); border-radius: 2px; }
+
+        /* Ban */
+        .ban-list { background: var(--paper-mid); border-radius: 3px; }
+        .ban-row {
+            display: flex;
+            padding: 6px 10px;
+            border-bottom: 1px solid var(--paper-dark);
+            gap: 10px;
+            align-items: center;
+        }
+        .ban-row:last-child { border-bottom: none; }
+        .ban-ip { font-family: var(--font-mono); color: var(--one); font-weight: 600; }
+        .ban-jail { font-size: 9px; color: var(--four); background: var(--paper-dark); padding: 2px 6px; border-radius: 2px; }
+        .ban-time { margin-left: auto; color: var(--ink-muted); font-size: 9px; }
+
+        /* States */
+        .empty { color: var(--ink-muted); text-align: center; padding: 16px; font-style: italic; }
+        .error { color: var(--one); padding: 16px; text-align: center; }
+
+        /* Debug */
+        .debug-box {
+            background: var(--paper-dark);
+            border: 1px solid var(--border);
+            border-radius: 3px;
             padding: 8px;
+            margin-top: 12px;
+            font-family: var(--font-mono);
+            font-size: 9px;
+            color: var(--ink-muted);
+            max-height: 150px;
+            overflow: auto;
+            display: none;
+        }
+        .debug-box.show { display: block; }
+        .debug-box pre { margin: 0; white-space: pre-wrap; word-break: break-all; }
+
+        /* Help */
+        .help-section { margin-bottom: 20px; }
+        .help-section h3 {
+            font-size: 11px;
+            color: var(--ink);
+            margin: 0 0 8px 0;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--border);
+        }
+        .help-section p, .help-section li {
+            font-size: 10px;
+            color: var(--ink-muted);
+            line-height: 1.5;
+            margin: 4px 0;
+        }
+        .help-section ul { margin: 4px 0; padding-left: 16px; }
+        .help-section code {
+            background: var(--paper-dark);
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-family: var(--font-mono);
+            font-size: 9px;
+        }
+        .help-diagram {
+            background: var(--paper-dark);
+            border-radius: 3px;
+            padding: 10px;
+            font-family: var(--font-mono);
+            font-size: 9px;
+            white-space: pre;
+            overflow-x: auto;
+            color: var(--ink-muted);
+            margin: 8px 0;
+        }
+        .help-path {
+            display: flex;
+            gap: 8px;
+            padding: 4px 8px;
+            background: var(--paper-mid);
+            border-radius: 2px;
+            margin: 4px 0;
+            font-family: var(--font-mono);
+            font-size: 9px;
+        }
+        .help-path-label { color: var(--four); min-width: 80px; }
+        .help-path-value { color: var(--ink); }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--paper-dark);
+            color: var(--ink);
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 10px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        .toast.show { opacity: 1; }
+
+        /* Insights Bar */
+        .insights-bar {
+            display: flex;
+            gap: 12px;
+            padding: 6px 8px;
+            background: var(--paper-dark);
+            border-radius: 3px;
+            margin-bottom: 8px;
+            font-size: 9px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .insights-bar.hidden { display: none; }
+        .insight-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--ink-muted);
+        }
+        .insight-label { color: var(--ink-muted); }
+        .insight-value {
+            font-family: var(--font-mono);
+            font-weight: 600;
+            color: var(--ink);
+        }
+        .insight-value.good { color: var(--two); }
+        .insight-value.warn { color: var(--three); }
+        .insight-value.bad { color: var(--one); }
+        .insight-scanner {
+            color: var(--ink-muted);
+            font-style: italic;
+        }
+        .insight-alert {
+            background: rgba(255, 100, 100, 0.15);
+            color: var(--one);
+            padding: 2px 6px;
+            border-radius: 2px;
+            font-weight: 500;
+        }
+        .btn-badge {
+            background: var(--four);
+            color: white;
+            padding: 1px 5px;
+            border-radius: 8px;
+            font-size: 9px;
+            margin-left: 4px;
+        }
+        .btn-badge.zero { background: var(--paper-light); color: var(--ink-muted); }
+
+        /* Log file info card */
+        .log-file-info {
+            background: var(--paper-mid);
+            border-radius: 3px;
+            padding: 10px;
+            margin-top: 8px;
+        }
+        .log-file-info .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            font-size: 10px;
+        }
+        .log-file-info .info-label { color: var(--ink-muted); }
+        .log-file-info .info-value {
+            font-family: var(--font-mono);
+            color: var(--ink);
         }
     </style>
 </head>
 <body>
-    <div class="iframe-header" style="padding: 0 0 8px 0; border: none;">
-        <span>Caddy Reverse Proxy</span>
-        <span class="refresh" data-action="refresh">&#x21bb;</span>
+    <div class="panel-header">
+        <div class="panel-title">
+            <span class="status-dot loading" id="status-dot"></span>
+            <span>Caddy</span>
+        </div>
+        <div class="header-info">
+            <span id="env-badge" class="env-badge local">local</span>
+            <span class="icon-refresh" data-action="refresh" style="cursor:pointer"></span>
+        </div>
     </div>
 
-    <div class="caddy-tabs">
-        <button class="btn active" data-action="tab" data-tab="overview">Overview</button>
-        <button class="btn" data-action="tab" data-tab="logs">Logs</button>
-        <button class="btn" data-action="tab" data-tab="errors">Errors</button>
-        <button class="btn" data-action="tab" data-tab="info">Info</button>
+    <div class="tabs">
+        <div class="tab active" data-tab="overview">Overview</div>
+        <div class="tab" data-tab="logs">Logs</div>
+        <div class="tab" data-tab="stats">Stats</div>
+        <div class="tab" data-tab="ban">Ban <span id="ban-count" class="count zero">0</span></div>
+        <div class="tab" data-tab="help">Help</div>
     </div>
 
-    <div id="tab-overview" class="tab-content">
+    <!-- Overview -->
+    <div id="tab-overview" class="content">
         <div class="section">
-            <div class="section-header">Status</div>
-            <div id="status" class="status-row">
-                <div class="status-dot"></div>
-                <span class="status-value">Loading...</span>
+            <div class="section-title">Service</div>
+            <div class="grid grid-4" id="status-grid">
+                <div class="card"><div class="label">Status</div><div class="value" id="svc-status">--</div></div>
+                <div class="card"><div class="label">Listen</div><div class="value" id="svc-listen">--</div></div>
+                <div class="card"><div class="label">Version</div><div class="value" id="svc-version">--</div></div>
+                <div class="card"><div class="label">API</div><div class="value" id="svc-api">--</div></div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-title">Routes</div>
+            <div id="routes" class="route-list"><div class="empty">Loading...</div></div>
+        </div>
+        <div class="section">
+            <div class="section-title">Paths</div>
+            <div class="grid grid-2">
+                <div class="card"><div class="label">Caddyfile</div><div class="value" id="cfg-file" style="font-size:9px">--</div></div>
+                <div class="card"><div class="label">Log</div><div class="value" id="cfg-log" style="font-size:9px">--</div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logs -->
+    <div id="tab-logs" class="content hidden">
+        <div class="log-toolbar">
+            <input type="text" id="log-filter" placeholder="Filter by path, method, status...">
+            <button class="btn" id="btn-copy" title="Copy logs to clipboard">Copy<span id="copy-badge" class="btn-badge zero">0</span></button>
+            <button class="btn" id="btn-raw">Raw</button>
+            <button class="btn" id="btn-debug">Debug</button>
+        </div>
+        <div id="insights-bar" class="insights-bar hidden">
+            <div class="insight-item">
+                <span class="insight-label">Traffic:</span>
+                <span id="insight-traffic" class="insight-value">-</span>
+            </div>
+            <div class="insight-item">
+                <span class="insight-label">Errors:</span>
+                <span id="insight-errors" class="insight-value">-</span>
+            </div>
+            <div class="insight-item">
+                <span class="insight-label">Hot:</span>
+                <span id="insight-hot" class="insight-value">-</span>
+            </div>
+            <div id="insight-alert-container" class="insight-item" style="display:none">
+                <span id="insight-alert" class="insight-alert"></span>
+            </div>
+        </div>
+        <div class="log-container">
+            <div class="log-header">
+                <span>Time</span><span>Code</span><span>Method</span><span>Path</span><span>Duration</span>
+            </div>
+            <div id="logs"><div class="empty">Loading...</div></div>
+        </div>
+        <div id="debug-box" class="debug-box"><pre id="debug-data"></pre></div>
+    </div>
+
+    <!-- Stats -->
+    <div id="tab-stats" class="content hidden">
+        <div class="section">
+            <div class="section-title">Summary</div>
+            <div class="grid grid-4">
+                <div class="card"><div class="label">Requests</div><div class="value" id="stat-total">--</div></div>
+                <div class="card"><div class="label">Errors</div><div class="value" id="stat-errors">--</div></div>
+                <div class="card"><div class="label">Latency</div><div class="value" id="stat-latency">--</div></div>
+                <div class="card"><div class="label">IPs</div><div class="value" id="stat-ips">--</div></div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-title">Top Paths</div>
+            <div id="top-paths" class="top-list"><div class="empty">Loading...</div></div>
+        </div>
+        <div class="section">
+            <div class="section-title">Status Codes</div>
+            <div id="top-codes" class="top-list"><div class="empty">Loading...</div></div>
+        </div>
+        <div class="section">
+            <div class="section-title">Top IPs</div>
+            <div id="top-ips" class="top-list"><div class="empty">Loading...</div></div>
+        </div>
+    </div>
+
+    <!-- Ban -->
+    <div id="tab-ban" class="content hidden">
+        <div class="section">
+            <div class="section-title">Service</div>
+            <div class="grid grid-3">
+                <div class="card"><div class="label">Status</div><div class="value" id="f2b-status">--</div></div>
+                <div class="card"><div class="label">Jails</div><div class="value" id="f2b-jails">--</div></div>
+                <div class="card"><div class="label">Banned</div><div class="value bad" id="f2b-total">0</div></div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-title">Banned IPs</div>
+            <div id="ban-list" class="ban-list"><div class="empty">None</div></div>
+        </div>
+        <div class="section">
+            <div class="section-title">Recent</div>
+            <div id="ban-recent" class="top-list"><div class="empty">No activity</div></div>
+        </div>
+    </div>
+
+    <!-- Help -->
+    <div id="tab-help" class="content hidden">
+        <div class="help-section">
+            <h3>Architecture Overview</h3>
+            <div class="help-diagram">
+Browser Request
+      |
+      v
++-------------+     +------------------+     +-----------------+
+|   Caddy     | --> | fail2ban watches | --> | iptables blocks |
+| (port 443)  |     | Caddy access log |     | banned IPs      |
++-------------+     +------------------+     +-----------------+
+      |
+      | reverse_proxy
+      v
++-----------------+
+| Backend Service |
+| (localhost:XXX) |
++-----------------+</div>
+            <p>Caddy is the single entry point for all HTTP/HTTPS traffic. It handles TLS termination,
+            routing, and reverse proxying to backend services.</p>
+        </div>
+
+        <div class="help-section">
+            <h3>Components</h3>
+            <ul>
+                <li><strong>Caddy</strong> - Web server with automatic HTTPS. Runs as systemd service on remote, or via <code>tsm start caddy</code> locally.</li>
+                <li><strong>tcaddy</strong> - Bash CLI for managing Caddy. Commands: <code>tcaddy status</code>, <code>tcaddy logs</code>, <code>tcaddy reload</code></li>
+                <li><strong>Dashboard API</strong> - Node.js API at <code>/api/caddy/*</code> that queries Caddy's admin API (localhost:2019) or runs SSH commands for remote.</li>
+                <li><strong>Admin API</strong> - Caddy's built-in REST API on port 2019. Used for config reload, status, and route inspection.</li>
+            </ul>
+        </div>
+
+        <div class="help-section">
+            <h3>fail2ban: How Banning Works</h3>
+            <p>fail2ban monitors log files for suspicious patterns and temporarily blocks offending IPs:</p>
+            <ol>
+                <li><strong>Watch</strong> - fail2ban reads Caddy's access log looking for patterns (e.g., repeated 401s, 403s, or 404s)</li>
+                <li><strong>Match</strong> - When a "jail" filter matches (e.g., 5 failed logins in 10 minutes), it triggers</li>
+                <li><strong>Ban</strong> - fail2ban adds an iptables rule: <code>iptables -I INPUT -s [IP] -j REJECT</code></li>
+                <li><strong>Log</strong> - Ban event is logged to <code>/var/log/fail2ban.log</code></li>
+                <li><strong>Expire</strong> - After bantime (default 10m-24h), the iptables rule is removed</li>
+            </ol>
+            <p><strong>Jails</strong> are configured in <code>/etc/fail2ban/jail.local</code>. Common jails:</p>
+            <ul>
+                <li><code>caddy-auth</code> - Failed authentication attempts (401 responses)</li>
+                <li><code>caddy-badbots</code> - Known malicious user agents</li>
+                <li><code>caddy-noscript</code> - Attempts to access common exploit paths</li>
+            </ul>
+            <p><strong>Manual commands:</strong></p>
+            <ul>
+                <li><code>fail2ban-client status</code> - List all jails</li>
+                <li><code>fail2ban-client status caddy-auth</code> - Show banned IPs for a jail</li>
+                <li><code>fail2ban-client set caddy-auth unbanip 1.2.3.4</code> - Manually unban an IP</li>
+            </ul>
+        </div>
+
+        <div class="help-section">
+            <h3>Log Files &amp; Rotation</h3>
+            <p><strong>Local Development:</strong></p>
+            <div class="help-path">
+                <span class="help-path-label">Access Log</span>
+                <span class="help-path-value">$TETRA_DIR/run/logs/caddy.log</span>
+            </div>
+            <div class="help-path">
+                <span class="help-path-label">Caddyfile</span>
+                <span class="help-path-value">$TETRA_DIR/orgs/$ORG/caddy/Caddyfile</span>
+            </div>
+            <p>Local logs are rotated by Caddy itself (configured in Caddyfile with <code>roll_size</code> and <code>roll_keep</code>).</p>
+
+            <p><strong>Remote/Production:</strong></p>
+            <div class="help-path">
+                <span class="help-path-label">Access Log</span>
+                <span class="help-path-value">/var/log/caddy/access.log</span>
+            </div>
+            <div class="help-path">
+                <span class="help-path-label">Error Log</span>
+                <span class="help-path-value">/var/log/caddy/error.log</span>
+            </div>
+            <div class="help-path">
+                <span class="help-path-label">Caddyfile</span>
+                <span class="help-path-value">/etc/caddy/Caddyfile</span>
+            </div>
+            <div class="help-path">
+                <span class="help-path-label">fail2ban</span>
+                <span class="help-path-value">/var/log/fail2ban.log</span>
+            </div>
+
+            <p><strong>Log Rotation Ownership:</strong></p>
+            <ul>
+                <li><strong>Caddy logs</strong> - Caddy handles its own rotation via config: <code>roll_size 10mb</code>, <code>roll_keep 5</code></li>
+                <li><strong>fail2ban logs</strong> - Rotated by logrotate (<code>/etc/logrotate.d/fail2ban</code>)</li>
+                <li><strong>System journal</strong> - journald handles Caddy's systemd output, use <code>journalctl -u caddy</code></li>
+            </ul>
+            <p><strong>Current Log File:</strong></p>
+            <div id="log-file-info" class="log-file-info">
+                <div class="info-row"><span class="info-label">Size</span><span id="log-info-size" class="info-value">--</span></div>
+                <div class="info-row"><span class="info-label">Entries</span><span id="log-info-entries" class="info-value">--</span></div>
+                <div class="info-row"><span class="info-label">Policy</span><span id="log-info-policy" class="info-value">roll_size 10mb, roll_keep 5</span></div>
+                <div class="info-row"><span class="info-label">Modified</span><span id="log-info-modified" class="info-value">--</span></div>
             </div>
         </div>
 
-        <div class="section">
-            <div class="section-header">Routes</div>
-            <div id="routes">
-                <div class="empty">Loading...</div>
-            </div>
+        <div class="help-section">
+            <h3>Log Entry Types</h3>
+            <p>Caddy outputs JSON logs. Entry types you'll see:</p>
+            <ul>
+                <li><strong>HTTP Request</strong> - Has <code>request.method</code>, <code>request.uri</code>, <code>status</code>, <code>duration</code></li>
+                <li><strong>Error</strong> - Has <code>level: "error"</code>, <code>msg</code> describing the issue</li>
+                <li><strong>Info</strong> - Startup messages, config reloads, TLS certificate events</li>
+            </ul>
+            <p>Logs showing "-" for Method/Path are non-request entries (errors, info messages).</p>
+        </div>
+
+        <div class="help-section">
+            <h3>Troubleshooting</h3>
+            <ul>
+                <li><strong>502 Bad Gateway</strong> - Backend service not running or wrong port</li>
+                <li><strong>Logs show "-" for method/path</strong> - These are non-HTTP entries (startup, errors). Click "Raw" to see full JSON.</li>
+                <li><strong>Admin API not responding</strong> - Caddy not running or admin disabled in config</li>
+                <li><strong>Remote SSH fails</strong> - Check tetra.toml has correct host/user, verify SSH key access</li>
+            </ul>
+            <p>Use the <strong>Debug</strong> button to see raw API response data.</p>
         </div>
     </div>
 
-    <div id="tab-logs" class="tab-content" style="display: none;">
-        <div id="logs">
-            <div class="empty">Loading...</div>
-        </div>
-    </div>
+    <div id="toast" class="toast"></div>
 
-    <div id="tab-errors" class="tab-content" style="display: none;">
-        <div id="errors">
-            <div class="empty">Loading...</div>
-        </div>
-    </div>
-
-    <div id="tab-info" class="tab-content" style="display: none;">
-        <div id="info">
-            <div class="empty">Loading...</div>
-        </div>
-    </div>
-
+    <script src="ui-helpers.js"></script>
     <script src="/js/terrain-iframe.js"></script>
     <script src="/js/caddy.js"></script>
 </body>

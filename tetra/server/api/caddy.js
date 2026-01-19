@@ -453,6 +453,7 @@ router.get('/status', async (req, res) => {
             servers,
             host: ssh || 'localhost',
             caddyfile: paths.caddyfile,
+            logFile: paths.logFile || paths.logDir,
             org,
             env,
             remote: env !== 'local'
@@ -954,6 +955,17 @@ router.get('/validate', (req, res) => {
     }
 });
 
+/**
+ * Format file size for display
+ */
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
 // Metadata - log analysis settings and resource usage
 router.get('/metadata', (req, res) => {
     const { org = 'tetra', env = 'local' } = req.query;
@@ -972,6 +984,7 @@ router.get('/metadata', (req, res) => {
                 diskUsageMB: 0,
                 openFiles: 0
             },
+            logFile: null,
             files: [],
             org,
             env
@@ -990,10 +1003,48 @@ router.get('/metadata', (req, res) => {
                 }
             } catch (e) { /* ignore */ }
 
+            // Get log file stats
+            const logFile = paths.logFile;
+            if (fs.existsSync(logFile)) {
+                try {
+                    const stats = fs.statSync(logFile);
+                    const sizeBytes = stats.size;
+
+                    // Count lines (exact for files < 10MB, estimated for larger)
+                    let lineCount;
+                    if (sizeBytes < 10 * 1024 * 1024) {
+                        // Small file - count exactly
+                        const content = fs.readFileSync(logFile, 'utf-8');
+                        lineCount = content.split('\n').filter(l => l.trim()).length;
+                    } else {
+                        // Large file - estimate based on sample
+                        const fd = fs.openSync(logFile, 'r');
+                        const sampleSize = 64 * 1024; // 64KB sample
+                        const buffer = Buffer.alloc(sampleSize);
+                        fs.readSync(fd, buffer, 0, sampleSize, 0);
+                        fs.closeSync(fd);
+
+                        const sampleLines = buffer.toString('utf-8').split('\n').length - 1;
+                        const avgLineSize = sampleSize / sampleLines;
+                        lineCount = Math.round(sizeBytes / avgLineSize);
+                    }
+
+                    result.logFile = {
+                        path: logFile,
+                        size: formatFileSize(sizeBytes),
+                        sizeBytes,
+                        lines: lineCount,
+                        modified: stats.mtime.toISOString().replace('T', ' ').slice(0, 19)
+                    };
+                } catch (e) {
+                    console.warn('[Caddy] Error reading log file stats:', e.message);
+                }
+            }
+
             result.files = [{
-                name: 'stdout',
-                size: 'N/A',
-                age: 'streaming'
+                name: 'caddy.log',
+                size: result.logFile?.size || 'N/A',
+                age: result.logFile?.modified || 'unknown'
             }];
         } else {
             // Remote: get comprehensive stats
@@ -1152,7 +1203,83 @@ router.get('/stats', (req, res) => {
         };
 
         if (paths.isLocal) {
-            result.message = 'Stats available on remote servers';
+            // Parse local caddy.log for stats
+            const logFile = paths.logFile;
+            if (fs.existsSync(logFile)) {
+                try {
+                    const content = fs.readFileSync(logFile, 'utf-8');
+                    const lines = content.split('\n').filter(l => l);
+
+                    const logs = [];
+                    const ipCounts = {};
+                    const pathCounts = {};
+                    const statusCounts = {};
+                    let totalDuration = 0;
+                    let durationCount = 0;
+                    let errorCount = 0;
+
+                    for (const line of lines) {
+                        try {
+                            const parsed = JSON.parse(line);
+                            if (parsed.request) {
+                                logs.push(parsed);
+
+                                // Count IPs
+                                const ip = parsed.request?.remote_ip || parsed.request?.client_ip || 'unknown';
+                                ipCounts[ip] = (ipCounts[ip] || 0) + 1;
+
+                                // Count paths
+                                const uri = parsed.request?.uri || '/';
+                                pathCounts[uri] = (pathCounts[uri] || 0) + 1;
+
+                                // Count status codes
+                                const status = parsed.status || 0;
+                                statusCounts[status] = (statusCounts[status] || 0) + 1;
+                                if (status >= 500) errorCount++;
+
+                                // Sum durations
+                                if (parsed.duration) {
+                                    totalDuration += parsed.duration;
+                                    durationCount++;
+                                }
+                            }
+                        } catch (e) { /* skip non-JSON lines */ }
+                    }
+
+                    result.summary = {
+                        totalRequests: logs.length,
+                        errorCount,
+                        avgDuration: durationCount > 0 ? (totalDuration / durationCount).toFixed(3) : 0,
+                        uniqueIPs: Object.keys(ipCounts).length
+                    };
+
+                    // Top IPs
+                    const sortedIPs = Object.entries(ipCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+                    const maxIPCount = sortedIPs[0]?.[1] || 1;
+                    result.topIPs = sortedIPs.map(([ip, count]) => ({
+                        ip, count, percent: Math.round((count / maxIPCount) * 100)
+                    }));
+
+                    // Top paths
+                    const sortedPaths = Object.entries(pathCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+                    const maxPathCount = sortedPaths[0]?.[1] || 1;
+                    result.topPaths = sortedPaths.map(([path, count]) => ({
+                        path, count, percent: Math.round((count / maxPathCount) * 100)
+                    }));
+
+                    // Status codes
+                    const total = logs.length || 1;
+                    const sortedStatus = Object.entries(statusCounts).sort((a, b) => b[1] - a[1]);
+                    result.statusCodes = sortedStatus.map(([code, count]) => ({
+                        code, count, percent: Math.round((count / total) * 100)
+                    }));
+
+                } catch (e) {
+                    result.message = `Error parsing logs: ${e.message}`;
+                }
+            } else {
+                result.message = `No log file found at ${logFile}`;
+            }
         } else {
             try {
                 // Get summary stats
