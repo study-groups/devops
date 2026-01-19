@@ -31,7 +31,7 @@ import fileReducer from './store/slices/fileSlice.js';
 import { previewReducer } from './store/slices/previewSlice.js';
 import pluginReducer from './store/slices/pluginSlice.js';
 import publishReducer from './store/slices/publishSlice.js';
-import publishConfigReducer from './store/slices/publishConfigSlice.js';
+import publishConfigReducer, { publishConfigInitialState } from './store/slices/publishConfigSlice.js';
 import systemReducer from './store/slices/systemSlice.js';
 import { commReducer } from './store/slices/commSlice.js';
 import editorReducer from './store/slices/editorSlice.js';
@@ -88,6 +88,24 @@ let dispatch;
 export { appStore, dispatch, initializeStore };
 
 /**
+ * Check if an object has circular references
+ * @param {object} obj - Object to check
+ * @returns {boolean} True if circular references detected
+ */
+function hasCircularReference(obj, seen = new WeakSet()) {
+    if (obj && typeof obj === 'object') {
+        if (seen.has(obj)) return true;
+        seen.add(obj);
+        for (const key in obj) {
+            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                if (hasCircularReference(obj[key], seen)) return true;
+            }
+        }
+    }
+    return false;
+}
+
+/**
  * Safely load persisted state from storage
  * @param {string} key - Storage key to retrieve
  * @param {object} defaultState - Default state if retrieval fails
@@ -96,6 +114,14 @@ export { appStore, dispatch, initializeStore };
 function safeLoadPersistedState(key, defaultState = {}) {
     try {
         const persistedState = storageService.getItem(key);
+
+        // Validate: reject corrupted state with circular references
+        if (persistedState && hasCircularReference(persistedState)) {
+            console.error(`[AppState] Circular reference detected in '${key}', using defaults`);
+            storageService.removeItem(key); // Clear corrupted data
+            return defaultState;
+        }
+
         // Deep merge preserves nested defaults when persisted state is missing properties
         const result = persistedState ? deepMerge(defaultState, persistedState) : defaultState;
 
@@ -139,7 +165,7 @@ function initializeStore(preloadedState = {}) {
         settings: safeLoadPersistedState('settings', preloadedState.settings || {}),
         panels: safeLoadPersistedState('panels', preloadedState.panels || {}),
         ui: loadedUI,
-        publishConfig: safeLoadPersistedState('publishConfig', preloadedState.publishConfig || {}),
+        publishConfig: safeLoadPersistedState('publishConfig', preloadedState.publishConfig || publishConfigInitialState),
     };
 
     try {
