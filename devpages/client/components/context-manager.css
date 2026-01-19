@@ -654,31 +654,37 @@
     min-width: 150px;
     margin-left: 8px;
 } 
-/* Save Button States */
-#save-btn.save-btn {
-    transition: all 0.2s ease;
+/* Path Action Buttons - Text-only style for New, Save, Publish */
+.path-action-btn {
+    background: transparent;
+    border: none;
+    color: var(--color-fg);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 4px 10px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.15s ease;
 }
 
-#save-btn.save-btn.modified {
-    background: var(--color-warning, #ffc107);
-    color: var(--color-text-dark, #212529);
-    border-color: var(--color-warning-dark, #d39e00);
+.path-action-btn:hover:not(:disabled) {
+    background: var(--color-bg-hover);
+    color: var(--color-primary);
 }
 
-#save-btn.save-btn.modified:hover:not(:disabled) {
-    background: var(--color-warning-dark, #e0a800);
-}
-
-#save-btn.save-btn:disabled {
-    opacity: 0.5;
+.path-action-btn:disabled {
+    color: var(--color-fg-muted);
     cursor: not-allowed;
+    opacity: 0.5;
 }
 
-/* New Button */
-#new-btn {
-    transition: all 0.2s ease;
+/* Save button gets primary color when file is modified */
+#save-btn.path-action-btn.is-dirty {
+    color: var(--color-primary);
+    font-weight: 600;
 }
 
-#new-btn:hover {
-    background: var(--color-accent-light, #e7f1ff);
+#save-btn.path-action-btn.is-dirty:hover {
+    background: var(--color-primary);
+    color: var(--color-primary-foreground);
 }

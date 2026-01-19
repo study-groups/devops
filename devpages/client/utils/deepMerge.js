@@ -9,12 +9,18 @@
  * @returns {object} Merged state with all defaults preserved
  */
 export function deepMerge(target, source) {
-    // Handle null/undefined
+    // Handle null/undefined - always return a NEW object to prevent aliasing
     if (source === null || source === undefined) {
-        return target;
+        // Clone target to avoid returning same reference (causes Immer issues)
+        return typeof target === 'object' && target !== null
+            ? (Array.isArray(target) ? [...target] : { ...target })
+            : target;
     }
     if (target === null || target === undefined) {
-        return source;
+        // Clone source to avoid returning same reference
+        return typeof source === 'object' && source !== null
+            ? (Array.isArray(source) ? [...source] : { ...source })
+            : source;
     }
 
     // If either is not an object, source wins

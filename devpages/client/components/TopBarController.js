@@ -7,6 +7,10 @@ import { appStore, dispatch } from '/client/appState.js';
 import { uiActions } from '/client/store/uiSlice.js';
 import { fileThunks } from '/client/store/slices/fileSlice.js';
 import { renderMarkdown } from '/client/store/slices/previewSlice.js';
+import { topBarTray } from './TopBarTray.js';
+// Import trays to ensure they're registered
+import './trays/NewFileTray.js';
+import './trays/PublishTray.js';
 // Use unified logging system
 let log;
 function getLogger() {
@@ -81,6 +85,17 @@ export class TopBarController {
             
             getLogger().info('SAVE_FILE', `Dispatching saveFile for: ${currentPathname}`);
             dispatch(fileThunks.saveFile());
+        });
+
+        // Tray Actions
+        this.actionHandlers.set('openNewFile', () => {
+            getLogger().info('OPEN_NEW_FILE', 'Opening new file tray');
+            topBarTray.open('new-file');
+        });
+
+        this.actionHandlers.set('openPublish', () => {
+            getLogger().info('OPEN_PUBLISH', 'Opening publish tray');
+            topBarTray.open('publish');
         });
 
         // Refresh Actions
@@ -332,36 +347,8 @@ export class TopBarController {
             }
         });
 
-        // Handle save button separately as it has different logic
-        const saveButton = document.querySelector('#save-btn');
-        if (saveButton) {
-            const path = state.path || {};
-            // v2 pathSlice: current.pathname and current.type
-            const currentPathname = path.current?.pathname;
-            const isDirectorySelected = path.current?.type === 'directory';
-            
-            const editor = state.editor || {};
-            const isEditorModified = editor.isModified || false;
-            
-            const isAuthenticated = auth.authChecked && auth.isAuthenticated;
-            const isOverallLoading = ui.isLoading;
-            const isSaving = file.status === 'loading';
-            const hasFile = currentPathname && !isDirectorySelected;
-            const isFileModified = isEditorModified;
-            
-            const saveDisabled = !isAuthenticated || isOverallLoading || isSaving || !hasFile || !isFileModified;
-            const saveText = isSaving ? 'Saving...' : 'Save';
-            
-            if (saveButton.disabled !== saveDisabled) {
-                saveButton.disabled = saveDisabled;
-            }
-            if (saveButton.textContent !== saveText) {
-                saveButton.textContent = saveText;
-            }
-
-            // Toggle dirty class for styling
-            saveButton.classList.toggle('is-dirty', isFileModified && !saveDisabled);
-        }
+        // Note: Save and Publish button states are managed by PathManagerComponent
+        // which re-renders with correct disabled/enabled states on state changes
     }
 
     // New debug method to capture detailed button information

@@ -108,6 +108,7 @@ export function createPathManagerComponent(targetElementId) {
         // ✅ MODERNIZED: Use enhanced selectors for better performance
         const pathState = appStore.getState().path || {};
         const fileState = getFileState(appStore.getState());
+        const editorState = appStore.getState().editor || {};
         const settingsStateFromStore = appStore.getState().settings || {};
         
         const selectedOrg = settingsStateFromStore?.selectedOrg || 'pixeljam-arcade';
@@ -281,10 +282,11 @@ export function createPathManagerComponent(targetElementId) {
             primarySelectorHTML = `<select class="context-selector" title="Select Item" disabled><option>Unexpected state</option></select>`;
         }
 
-        const isFileModified = fileState.currentFile?.isModified || false;
+        const isFileModified = editorState.isModified || false;
         const saveDisabled = !isAuthenticated || isOverallLoading || isSaving || selectedFilename === null || !isFileModified;
 
         // Simplified layout: Breadcrumbs, then the selection row with buttons immediately adjacent
+        // Save button is mode-sensitive: only visible when there's a diff to save
         element.innerHTML = `
             <div class="context-path-and-file-wrapper" style="display: flex !important; align-items: center !important; gap: 8px; flex-wrap: nowrap !important; width: 100%; box-sizing: border-box;">
                 <div id="file-browser-toggle-btn" class="sidebar-toggle" title="Toggle File Browser" style="flex-shrink: 0 !important; display: inline-flex !important; align-items: center; justify-content: center;">
@@ -294,9 +296,9 @@ export function createPathManagerComponent(targetElementId) {
                 </div>
                 <div class="context-breadcrumbs" style="display: inline-flex !important; align-items: center;">${breadcrumbsHTML}</div>
                 <div>${primarySelectorHTML}</div>
-                <button id="save-btn" data-action="saveFile" title="Save (Ctrl+S)" ${saveDisabled ? 'disabled' : ''} class="save-btn ${isFileModified ? 'modified' : ''}" style="flex-shrink: 0;">${isSaving ? 'Saving...' : (isFileModified ? 'Save*' : 'Save')}</button>
-                <button id="new-btn" data-tray-trigger="new-file" title="New File (Ctrl+N)" style="flex-shrink: 0;">New</button>
-                <button id="publish-btn" data-tray-trigger="publish" title="Publish (Ctrl+Shift+P)" ${selectedFilename === null ? 'disabled' : ''} style="flex-shrink: 0;">Publish</button>
+                <button id="save-btn" class="path-action-btn${isFileModified && !saveDisabled ? ' is-dirty' : ''}" data-action="saveFile" title="Save (Ctrl+S)" ${saveDisabled ? 'disabled' : ''}>${isSaving ? 'Saving...' : 'Save'}</button>
+                <button id="new-btn" class="path-action-btn" data-action="openNewFile" title="New File (Ctrl+N)">New</button>
+                <button id="publish-btn" class="path-action-btn" data-action="openPublish" title="Publish" ${selectedFilename === null ? 'disabled' : ''}>Publish</button>
                 <div style="flex: 1;"></div>
             </div>
             <select id="file-select" style="display: none;"><option value="">Hidden compatibility element</option></select>
@@ -327,25 +329,7 @@ export function createPathManagerComponent(targetElementId) {
             // filenameInputElement.addEventListener('click', handleFilenameClick);
         }
 
-        // Tray trigger buttons - use unified tray system
-        const trayTriggers = element.querySelectorAll('[data-tray-trigger]');
-        trayTriggers.forEach(trigger => {
-            trigger.addEventListener('click', async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-
-                const trayId = trigger.dataset.trayTrigger;
-                log.info('TRAY', 'TRIGGER', `Opening tray: ${trayId}`);
-
-                try {
-                    // Lazy-load tray system
-                    const { topBarTray } = await import('/client/components/trays/index.js');
-                    topBarTray.toggle(trayId);
-                } catch (error) {
-                    log.error('TRAY', 'IMPORT_ERROR', `Failed to load tray system: ${error.message}`);
-                }
-            });
-        });
+        // Action buttons (New, Save, Publish) are handled by TopBarController via data-action attributes
 
         // Sidebar toggle button event listener - keep the branded four boxes
         const fileBrowserToggleButton = element.querySelector('#file-browser-toggle-btn');
@@ -600,9 +584,7 @@ export function createPathManagerComponent(targetElementId) {
         if (element) {
             const primarySelect = element.querySelector('#context-primary-select');
             if (primarySelect) primarySelect.removeEventListener('change', handlePrimarySelectChange);
-            // Save button cleanup handled by TopBarController
-            const publishBtn = element.querySelector('#publish-btn');
-            if (publishBtn) publishBtn.removeEventListener('click', handlePublishButtonClick);
+            // Action buttons (New, Save, Publish) cleanup handled by TopBarController
             const breadcrumbContainer = element.querySelector('.context-breadcrumbs');
             if (breadcrumbContainer) breadcrumbContainer.removeEventListener('click', handleBreadcrumbClick);
 
