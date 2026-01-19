@@ -119,14 +119,14 @@ window.HELP_DATA = {
             },
             {
                 title: 'Terrain.Mode',
-                content: 'Display mode detection for responsive styling. The mode is set on <code>body[data-terrain-mode]</code> and CSS variables.',
+                content: 'Extensible display mode system. Define custom modes with CSS variables, auto-detect context, react to changes.',
                 concepts: [
-                    { title: 'panel', desc: 'In 4-panel grid. Compact padding (8px), normal font scale.' },
-                    { title: 'full-panel', desc: 'Takeover mode. More padding (1.5rem), slightly larger fonts (1.05x).' },
-                    { title: 'single-page', desc: 'Standalone page. Max padding (2rem), max-width 900px, larger fonts (1.1x).' }
+                    { title: 'define(name, vars)', desc: 'Register a mode with CSS variables. Keys become --terrain-{key}.' },
+                    { title: 'set(mode)', desc: 'Switch to a mode. Applies CSS vars and triggers onChange callbacks.' },
+                    { title: 'autoDetect(opts)', desc: 'Configure which modes to use for iframe vs standalone contexts.' }
                 ],
-                code: '/* CSS usage */\nbody[data-terrain-mode="panel"] { ... }\nbody[data-terrain-mode="full-panel"] { ... }\nbody[data-terrain-mode="single-page"] { ... }\n\n/* CSS variables set automatically */\npadding: var(--terrain-padding);\nmax-width: var(--terrain-max-width);\nfont-size: calc(11px * var(--terrain-font-scale));\n\n/* JavaScript */\nTerrain.Mode.current; // "panel", "full-panel", or "single-page"\nTerrain.Mode.onChange((mode, prev) => { ... });',
-                keywords: ['mode', 'display', 'responsive', 'panel', 'full-panel', 'single-page', 'takeover']
+                code: '// Define custom modes (before Terrain.Iframe.init)\nTerrain.Mode\n  .define(\'compact\', {\n    padding: \'4px\',\n    fontSize: \'10px\',\n    gap: \'2px\'\n  })\n  .define(\'presentation\', {\n    padding: \'3rem\',\n    fontSize: \'18px\',\n    maxWidth: \'1200px\',\n    headerHeight: \'60px\'\n  });\n\n// Configure auto-detection\nTerrain.Mode.autoDetect({\n  iframe: \'compact\',\n  standalone: \'presentation\'\n});\n\n// Manual mode switching\nTerrain.Mode.set(\'presentation\');\n\n// React to changes\nTerrain.Mode.onChange((mode, prev) => {\n  console.log(`${prev} -> ${mode}`);\n});\n\n// CSS usage\nbody[data-terrain-mode="compact"] { ... }\n.header { height: var(--terrain-header-height); }\n.content { padding: var(--terrain-padding); }',
+                keywords: ['mode', 'display', 'responsive', 'panel', 'full-panel', 'single-page', 'takeover', 'define', 'custom']
             },
             {
                 title: 'Terrain.Bus',

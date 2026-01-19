@@ -178,38 +178,72 @@ Terrain.State = {
 };
 
 // ============================================================================
-// Terrain.Mode - Display mode detection and styling
+// Terrain.Mode - Extensible display mode system
 // ============================================================================
 
 Terrain.Mode = {
-    // Modes: 'panel' (in grid), 'full-panel' (takeover), 'single-page' (standalone)
     current: 'panel',
     _callbacks: [],
+    _modes: {},
+    _autoDetect: {
+        iframe: 'panel',      // Default when in iframe
+        standalone: 'single-page'  // Default when standalone
+    },
+
+    /**
+     * Define a display mode with CSS variables
+     * @param {string} name - Mode name (e.g., 'panel', 'presentation')
+     * @param {Object} vars - CSS variable values (without -- prefix)
+     *
+     * Example:
+     *   Terrain.Mode.define('panel', { padding: '8px', maxWidth: 'none' });
+     *   Terrain.Mode.define('presentation', { padding: '3rem', fontSize: '18px' });
+     */
+    define: function(name, vars) {
+        this._modes[name] = vars;
+        return this;
+    },
+
+    /**
+     * Configure auto-detection defaults
+     * @param {Object} opts - { iframe: 'mode', standalone: 'mode' }
+     */
+    autoDetect: function(opts) {
+        if (opts.iframe) this._autoDetect.iframe = opts.iframe;
+        if (opts.standalone) this._autoDetect.standalone = opts.standalone;
+        return this;
+    },
 
     /**
      * Detect display mode based on context
      */
     detect: function() {
         const isIframe = window.parent !== window;
-        if (!isIframe) {
-            this.current = 'single-page';
-        } else {
-            // Default to panel, parent will notify if takeover
-            this.current = 'panel';
-        }
+        this.current = isIframe ? this._autoDetect.iframe : this._autoDetect.standalone;
         this._apply();
         return this.current;
     },
 
     /**
-     * Set mode (called by parent via message)
+     * Set mode (called by parent via message or manually)
      */
     set: function(mode) {
         if (this.current === mode) return;
+        if (!this._modes[mode]) {
+            console.warn(`[Terrain.Mode] Unknown mode: ${mode}`);
+            return;
+        }
         const prev = this.current;
         this.current = mode;
         this._apply();
         this._callbacks.forEach(cb => cb(mode, prev));
+    },
+
+    /**
+     * Get current mode's CSS variables
+     */
+    vars: function() {
+        return this._modes[this.current] || {};
     },
 
     /**
@@ -221,31 +255,47 @@ Terrain.Mode = {
     },
 
     /**
-     * Apply mode to document
+     * Apply current mode to document
      */
     _apply: function() {
+        const mode = this._modes[this.current];
+        if (!mode) return;
+
         document.body.dataset.terrainMode = this.current;
 
-        // Set CSS variables for mode-specific styling
+        // Apply all CSS variables from mode definition
         const root = document.documentElement;
-        switch (this.current) {
-            case 'single-page':
-                root.style.setProperty('--terrain-padding', '2rem');
-                root.style.setProperty('--terrain-max-width', '900px');
-                root.style.setProperty('--terrain-font-scale', '1.1');
-                break;
-            case 'full-panel':
-                root.style.setProperty('--terrain-padding', '1.5rem');
-                root.style.setProperty('--terrain-max-width', 'none');
-                root.style.setProperty('--terrain-font-scale', '1.05');
-                break;
-            default: // panel
-                root.style.setProperty('--terrain-padding', '8px');
-                root.style.setProperty('--terrain-max-width', 'none');
-                root.style.setProperty('--terrain-font-scale', '1');
+        for (const [key, value] of Object.entries(mode)) {
+            // Convert camelCase to kebab-case: fontSize -> font-size
+            const cssVar = key.replace(/([A-Z])/g, '-$1').toLowerCase();
+            root.style.setProperty(`--terrain-${cssVar}`, value);
         }
     }
 };
+
+// ============================================================================
+// Default mode definitions - can be overridden before Terrain.Iframe.init()
+// ============================================================================
+
+Terrain.Mode
+    .define('panel', {
+        padding: '8px',
+        maxWidth: 'none',
+        fontScale: '1',
+        headerHeight: '32px'
+    })
+    .define('full-panel', {
+        padding: '1.5rem',
+        maxWidth: 'none',
+        fontScale: '1.05',
+        headerHeight: '40px'
+    })
+    .define('single-page', {
+        padding: '2rem',
+        maxWidth: '900px',
+        fontScale: '1.1',
+        headerHeight: '48px'
+    });
 
 // ============================================================================
 // Terrain.Iframe - Iframe-specific helpers
