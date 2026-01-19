@@ -6,355 +6,496 @@
     <title>Admin</title>
     <link rel="stylesheet" href="shared.css">
     <style>
-        body {
-            padding: 16px;
-            overflow-y: auto;
-        }
+        body { padding: 8px; overflow-y: auto; font-size: 11px; }
 
-        h2 {
-            font-size: 12px;
-            text-transform: uppercase;
-            color: var(--ink-muted);
-            margin: 0 0 12px 0;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--border);
-        }
+        /* Tabs */
+        .tabs { display: flex; gap: 2px; margin-bottom: 8px; border-bottom: 1px solid var(--border); }
+        .tab { padding: 6px 12px; cursor: pointer; color: var(--ink-muted); border-bottom: 2px solid transparent; }
+        .tab:hover { color: var(--ink); }
+        .tab.active { color: var(--four); border-bottom-color: var(--four); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
 
-        .section {
-            margin-bottom: 24px;
-        }
+        /* Sections */
+        h2 { font-size: 10px; text-transform: uppercase; color: var(--ink-muted); margin: 0 0 6px 0; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+        .section { margin-bottom: 12px; }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 12px;
-            margin-bottom: 16px;
-        }
+        /* Grid layouts */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 
-        .stat-card {
-            background: var(--paper-mid);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 12px;
-        }
+        /* Stat cards - compact */
+        .stat { background: var(--paper-mid); border: 1px solid var(--border); border-radius: 2px; padding: 6px 8px; }
+        .stat-val { font-size: 16px; font-weight: bold; color: var(--four); }
+        .stat-lbl { font-size: 9px; color: var(--ink-muted); text-transform: uppercase; }
+        .stat.warn .stat-val { color: var(--three); }
+        .stat.bad .stat-val { color: var(--one); }
+        .stat.good .stat-val { color: var(--two); }
 
-        .stat-value {
-            font-size: 24px;
-            font-weight: bold;
-            color: var(--four);
-        }
+        /* Buttons */
+        .btn-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+        .btn { background: var(--paper-mid); border: 1px solid var(--border); color: var(--ink); padding: 4px 8px; font-size: 10px; cursor: pointer; border-radius: 2px; }
+        .btn:hover { border-color: var(--four); }
+        .btn.danger { border-color: var(--one); color: var(--one); }
+        .btn.danger:hover { background: var(--one); color: var(--paper); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-        .stat-label {
-            font-size: 10px;
-            color: var(--ink-muted);
-            text-transform: uppercase;
-        }
-
-        .stat-card.warning .stat-value { color: var(--three); }
-        .stat-card.danger .stat-value { color: var(--one); }
-
-        .btn-row {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            background: var(--paper-mid);
-            border: 1px solid var(--border);
-            color: var(--ink);
-            padding: 8px 16px;
-            font-size: 11px;
-            cursor: pointer;
-            border-radius: 2px;
-        }
-
-        .btn:hover {
-            border-color: var(--four);
-        }
-
-        .btn.danger {
-            border-color: var(--one);
-            color: var(--one);
-        }
-
-        .btn.danger:hover {
-            background: var(--one);
-            color: var(--ink);
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .log {
-            background: var(--paper-dark);
-            border: 1px solid var(--border);
-            border-radius: 2px;
-            padding: 12px;
-            font-family: var(--font-mono);
-            font-size: 10px;
-            max-height: 200px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-        }
-
-        .log-entry {
-            margin-bottom: 4px;
-        }
-
-        .log-entry.success { color: var(--two); }
-        .log-entry.error { color: var(--one); }
+        /* Log */
+        .log { background: var(--paper-dark); border: 1px solid var(--border); border-radius: 2px; padding: 6px; font-family: var(--font-mono); font-size: 9px; max-height: 120px; overflow-y: auto; white-space: pre-wrap; }
+        .log-entry { margin-bottom: 2px; }
+        .log-entry.ok { color: var(--two); }
+        .log-entry.err { color: var(--one); }
         .log-entry.info { color: var(--ink-muted); }
 
-        .timing-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 11px;
-        }
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; font-size: 10px; }
+        th, td { padding: 4px 6px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { color: var(--ink-muted); font-weight: normal; text-transform: uppercase; font-size: 9px; }
+        .fast { color: var(--two); }
+        .med { color: var(--three); }
+        .slow { color: var(--one); }
 
-        .timing-table th,
-        .timing-table td {
-            padding: 8px;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
+        /* Inputs */
+        .input-row { display: flex; gap: 6px; align-items: center; }
+        .input-row label { font-size: 10px; color: var(--ink-muted); }
+        input[type="number"] { background: var(--paper-dark); border: 1px solid var(--border); color: var(--ink); padding: 3px 6px; font-size: 10px; width: 50px; border-radius: 2px; }
+        input:focus { outline: none; border-color: var(--four); }
 
-        .timing-table th {
-            color: var(--ink-muted);
-            font-weight: normal;
-            text-transform: uppercase;
-            font-size: 9px;
-        }
+        /* Key-value list */
+        .kv { display: flex; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--border); }
+        .kv:last-child { border-bottom: none; }
+        .kv-k { color: var(--ink-muted); min-width: 80px; font-size: 10px; }
+        .kv-v { color: var(--ink); font-family: var(--font-mono); font-size: 10px; word-break: break-all; }
 
-        .timing-fast { color: var(--two); }
-        .timing-medium { color: var(--three); }
-        .timing-slow { color: var(--one); }
-
-        .input-row {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .input-row label {
-            font-size: 11px;
-            color: var(--ink-muted);
-        }
-
-        .input-row input {
-            background: var(--paper-dark);
-            border: 1px solid var(--border);
-            color: var(--ink);
-            padding: 6px 10px;
-            font-size: 11px;
-            width: 80px;
-            border-radius: 2px;
-        }
-
-        .input-row input:focus {
-            outline: none;
-            border-color: var(--four);
-        }
+        /* Help content */
+        .help-section { margin-bottom: 16px; }
+        .help-section h3 { font-size: 11px; color: var(--four); margin: 0 0 6px 0; }
+        .help-section p { margin: 0 0 6px 0; color: var(--ink-muted); line-height: 1.4; }
+        .help-section code { background: var(--paper-dark); padding: 1px 4px; border-radius: 2px; font-size: 10px; }
+        .help-section ul { margin: 0; padding-left: 16px; }
+        .help-section li { margin-bottom: 4px; color: var(--ink-muted); }
+        .concept { background: var(--paper-mid); border-left: 2px solid var(--four); padding: 6px 8px; margin: 6px 0; }
+        .concept-title { font-weight: bold; color: var(--ink); font-size: 10px; }
+        .concept-desc { color: var(--ink-muted); font-size: 10px; margin-top: 2px; }
     </style>
 </head>
 <body>
     <script src="/js/terrain-iframe.js"></script>
 
-    <div class="section">
-        <h2>Capture Storage</h2>
-        <div class="stats-grid" id="capture-stats">
-            <div class="stat-card">
-                <div class="stat-value" id="capture-count">-</div>
-                <div class="stat-label">Total Captures</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="capture-size">-</div>
-                <div class="stat-label">Disk Usage</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="session-count">-</div>
-                <div class="stat-label">Sessions</div>
+    <div class="tabs">
+        <div class="tab active" data-tab="admin">Admin</div>
+        <div class="tab" data-tab="api">API</div>
+        <div class="tab" data-tab="help">Help</div>
+    </div>
+
+    <!-- ADMIN TAB -->
+    <div id="tab-admin" class="tab-content active">
+
+        <!-- Environment Context -->
+        <div class="section">
+            <h2>Context</h2>
+            <div class="grid-2">
+                <div>
+                    <div class="kv"><span class="kv-k">Org</span><span class="kv-v" id="ctx-org">-</span></div>
+                    <div class="kv"><span class="kv-k">Env</span><span class="kv-v" id="ctx-env">-</span></div>
+                    <div class="kv"><span class="kv-k">User</span><span class="kv-v" id="ctx-user">-</span></div>
+                </div>
+                <div>
+                    <div class="kv"><span class="kv-k">Host</span><span class="kv-v" id="ctx-host">-</span></div>
+                    <div class="kv"><span class="kv-k">Remote</span><span class="kv-v" id="ctx-remote">-</span></div>
+                    <div class="kv"><span class="kv-k">Services</span><span class="kv-v" id="ctx-services">-</span></div>
+                </div>
             </div>
         </div>
-        <div class="input-row">
-            <label>Keep captures newer than:</label>
-            <input type="number" id="keep-days" value="7" min="1" max="365"> days
+
+        <!-- API Health / Cache -->
+        <div class="section">
+            <h2>API / Cache</h2>
+            <div class="grid-4" id="api-stats">
+                <div class="stat"><div class="stat-val" id="api-health">-</div><div class="stat-lbl">Health</div></div>
+                <div class="stat"><div class="stat-val" id="api-cached">-</div><div class="stat-lbl">Cached</div></div>
+                <div class="stat"><div class="stat-val" id="api-ttl">5s</div><div class="stat-lbl">Cache TTL</div></div>
+                <div class="stat"><div class="stat-val" id="api-latency">-</div><div class="stat-lbl">Latency</div></div>
+            </div>
+            <div class="btn-row">
+                <button class="btn" data-action="check-health">Check Health</button>
+                <button class="btn" data-action="refresh-all">Refresh All</button>
+            </div>
         </div>
-        <div class="btn-row">
-            <button type="button" class="btn" id="refresh-stats">Refresh Stats</button>
-            <button type="button" class="btn" id="preview-groom">Preview Cleanup</button>
-            <button type="button" class="btn danger" id="run-groom" disabled>Delete Old Captures</button>
+
+        <!-- Capture Storage -->
+        <div class="section">
+            <h2>Captures</h2>
+            <div class="grid-3">
+                <div class="stat"><div class="stat-val" id="cap-count">-</div><div class="stat-lbl">Total</div></div>
+                <div class="stat"><div class="stat-val" id="cap-size">-</div><div class="stat-lbl">Size</div></div>
+                <div class="stat"><div class="stat-val" id="cap-sessions">-</div><div class="stat-lbl">Sessions</div></div>
+            </div>
+            <div class="btn-row">
+                <div class="input-row">
+                    <label>Keep:</label>
+                    <input type="number" id="keep-days" value="7" min="1" max="365">
+                    <span>days</span>
+                </div>
+                <button class="btn" data-action="preview-groom">Preview</button>
+                <button class="btn danger" id="btn-groom" data-action="run-groom" disabled>Delete</button>
+            </div>
+        </div>
+
+        <!-- Iframe Timings -->
+        <div class="section">
+            <h2>Panel Timings</h2>
+            <table>
+                <thead><tr><th>Panel</th><th>View</th><th>Load</th><th>Status</th></tr></thead>
+                <tbody id="timing-body"><tr><td colspan="4" style="color:var(--ink-muted)">Waiting...</td></tr></tbody>
+            </table>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="section">
+            <h2>Log</h2>
+            <div class="log" id="log"><div class="log-entry info">Ready</div></div>
         </div>
     </div>
 
-    <div class="section">
-        <h2>Iframe Load Times</h2>
-        <table class="timing-table" id="timing-table">
-            <thead>
-                <tr>
-                    <th>Panel</th>
-                    <th>View</th>
-                    <th>Load Time</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody id="timing-body">
-                <tr><td colspan="4" style="color: var(--ink-muted)">Waiting for timing data...</td></tr>
-            </tbody>
-        </table>
+    <!-- API TAB -->
+    <div id="tab-api" class="tab-content">
+        <div class="help-section">
+            <h3>TSM (Service Manager)</h3>
+            <table>
+                <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td>GET</td><td><code>/api/tsm/ls</code></td><td>List services (JSON, cached 5s)</td></tr>
+                    <tr><td>GET</td><td><code>/api/tsm/status</code></td><td>Service status summary</td></tr>
+                    <tr><td>GET</td><td><code>/api/tsm/health</code></td><td>Health check (tsm doctor)</td></tr>
+                    <tr><td>GET</td><td><code>/api/tsm/info/:svc</code></td><td>Service metadata</td></tr>
+                    <tr><td>GET</td><td><code>/api/tsm/logs/:svc</code></td><td>Service logs (lines, since, format)</td></tr>
+                    <tr><td>POST</td><td><code>/api/tsm/start/:svc</code></td><td>Start service</td></tr>
+                    <tr><td>POST</td><td><code>/api/tsm/stop/:svc</code></td><td>Stop service</td></tr>
+                    <tr><td>POST</td><td><code>/api/tsm/restart/:svc</code></td><td>Restart service</td></tr>
+                    <tr><td>POST</td><td><code>/api/tsm/patrol</code></td><td>Run patrol check</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="help-section">
+            <h3>Caddy (Reverse Proxy)</h3>
+            <table>
+                <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td>GET</td><td><code>/api/caddy/info</code></td><td>Caddy version and info</td></tr>
+                    <tr><td>GET</td><td><code>/api/caddy/status</code></td><td>Status with upstreams</td></tr>
+                    <tr><td>GET</td><td><code>/api/caddy/routes</code></td><td>Parsed route list</td></tr>
+                    <tr><td>GET</td><td><code>/api/caddy/config</code></td><td>Caddyfile source</td></tr>
+                    <tr><td>GET</td><td><code>/api/caddy/config/running</code></td><td>Live config from admin API</td></tr>
+                    <tr><td>GET</td><td><code>/api/caddy/logs</code></td><td>Access logs (lines, host, status)</td></tr>
+                    <tr><td>GET</td><td><code>/api/caddy/errors</code></td><td>Error logs</td></tr>
+                    <tr><td>GET</td><td><code>/api/caddy/stats</code></td><td>Request stats summary</td></tr>
+                    <tr><td>GET</td><td><code>/api/caddy/fail2ban</code></td><td>Fail2ban jail status</td></tr>
+                    <tr><td>POST</td><td><code>/api/caddy/reload</code></td><td>Reload Caddy config</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="help-section">
+            <h3>Capture (Screenshots/DOM)</h3>
+            <table>
+                <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td>POST</td><td><code>/api/capture</code></td><td>Create new capture</td></tr>
+                    <tr><td>GET</td><td><code>/api/capture/list</code></td><td>List captures (limit, session)</td></tr>
+                    <tr><td>GET</td><td><code>/api/capture/sessions</code></td><td>List capture sessions</td></tr>
+                    <tr><td>GET</td><td><code>/api/capture/:org/:id</code></td><td>Get capture metadata</td></tr>
+                    <tr><td>GET</td><td><code>/api/capture/:org/:id/file/:f</code></td><td>Get capture file</td></tr>
+                    <tr><td>DELETE</td><td><code>/api/capture/:org/:id</code></td><td>Delete capture</td></tr>
+                    <tr><td>GET</td><td><code>/api/capture/journeys</code></td><td>List journeys</td></tr>
+                    <tr><td>POST</td><td><code>/api/capture/journeys/:org/:n</code></td><td>Create journey</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="help-section">
+            <h3>Deploy</h3>
+            <table>
+                <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td>GET</td><td><code>/api/deploy/status</code></td><td>Deployment status</td></tr>
+                    <tr><td>GET</td><td><code>/api/deploy/targets</code></td><td>List deploy targets</td></tr>
+                    <tr><td>GET</td><td><code>/api/deploy/history</code></td><td>Deployment history</td></tr>
+                    <tr><td>POST</td><td><code>/api/deploy/deploy</code></td><td>Trigger deployment</td></tr>
+                    <tr><td>GET</td><td><code>/api/deploy/show/:t/:e</code></td><td>Show target/env config</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="help-section">
+            <h3>Logs</h3>
+            <table>
+                <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td>GET</td><td><code>/api/logs</code></td><td>Service logs (service, lines, since)</td></tr>
+                    <tr><td>GET</td><td><code>/api/logs/stream</code></td><td>SSE log stream</td></tr>
+                    <tr><td>GET</td><td><code>/api/logs/activity</code></td><td>Activity log</td></tr>
+                    <tr><td>POST</td><td><code>/api/logs/activity</code></td><td>Add activity entry</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="help-section">
+            <h3>Core / Orgs / Envs</h3>
+            <table>
+                <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td>GET</td><td><code>/api/tetra/ping</code></td><td>Simple health ping</td></tr>
+                    <tr><td>GET</td><td><code>/api/tetra/health/deep</code></td><td>Deep health check</td></tr>
+                    <tr><td>GET</td><td><code>/api/tetra/health/modules</code></td><td>Module health status</td></tr>
+                    <tr><td>GET</td><td><code>/api/orgs</code></td><td>List organizations</td></tr>
+                    <tr><td>GET</td><td><code>/api/orgs/:org</code></td><td>Org details</td></tr>
+                    <tr><td>GET</td><td><code>/api/environments</code></td><td>List environments</td></tr>
+                    <tr><td>GET</td><td><code>/api/environments/test</code></td><td>Test env connectivity</td></tr>
+                    <tr><td>POST</td><td><code>/api/environments/exec</code></td><td>Execute remote command</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="help-section">
+            <h3>Query Parameters</h3>
+            <p>Most endpoints accept these common params:</p>
+            <ul>
+                <li><code>org</code> - Organization (default: tetra)</li>
+                <li><code>env</code> - Environment (default: local)</li>
+                <li><code>user</code> - SSH user override for remote</li>
+            </ul>
+            <p>Use <code>Terrain.State.apiUrl('/api/foo')</code> to auto-append context params.</p>
+        </div>
     </div>
 
-    <div class="section">
-        <h2>Activity Log</h2>
-        <div class="log" id="activity-log">
-            <div class="log-entry info">Admin panel loaded</div>
+    <!-- HELP TAB -->
+    <div id="tab-help" class="tab-content">
+        <div class="help-section">
+            <h3>Tetra Console Overview</h3>
+            <p>The Tetra Console is a multi-panel dashboard for managing tetra instances. It uses iframes to isolate each panel, with a shared message bus for communication.</p>
+        </div>
+
+        <div class="help-section">
+            <h3>Key Concepts</h3>
+
+            <div class="concept">
+                <div class="concept-title">Terrain.Bus</div>
+                <div class="concept-desc">Pub/sub message bus connecting all panels. Use <code>Terrain.Bus.subscribe('*', fn)</code> to listen, <code>Terrain.Bus.publish({type, ...})</code> to send.</div>
+            </div>
+
+            <div class="concept">
+                <div class="concept-title">Terrain.State</div>
+                <div class="concept-desc">Shared state for org/env/user context. Auto-syncs across panels via <code>env-change</code> messages.</div>
+            </div>
+
+            <div class="concept">
+                <div class="concept-title">Terrain.Iframe</div>
+                <div class="concept-desc">Iframe helpers: <code>init()</code> to setup, <code>send()</code> to message parent, <code>on(action, fn)</code> for DOM delegation.</div>
+            </div>
+        </div>
+
+        <div class="help-section">
+            <h3>Admin Panel Purpose</h3>
+            <p>This admin panel is for administering <strong>both local and remote</strong> tetra instances:</p>
+            <ul>
+                <li><strong>Local:</strong> Manage captures, view timings, check API health on your dev machine</li>
+                <li><strong>Remote:</strong> When env is set to prod/staging, commands are executed via SSH to the remote host defined in <code>tetra.toml</code></li>
+            </ul>
+        </div>
+
+        <div class="help-section">
+            <h3>Context (org/env/user)</h3>
+            <ul>
+                <li><strong>org:</strong> Organization/project namespace (e.g., <code>tetra</code>, <code>myproject</code>)</li>
+                <li><strong>env:</strong> Environment target (<code>local</code>, <code>prod</code>, <code>staging</code>)</li>
+                <li><strong>user:</strong> SSH user override for remote connections</li>
+            </ul>
+            <p>The context selector in the header broadcasts changes to all panels.</p>
+        </div>
+
+        <div class="help-section">
+            <h3>API Caching</h3>
+            <p>TSM API uses a 5-second TTL cache for expensive operations like <code>/api/tsm/ls</code>. The "Cached" indicator shows if last response was from cache. Use "Refresh All" to force fresh data.</p>
+        </div>
+
+        <div class="help-section">
+            <h3>Capture Grooming</h3>
+            <p>Captures are screenshots/DOM snapshots stored in <code>$TETRA_DIR/orgs/{org}/captures/</code>. Use the grooming controls to clean up old captures by age.</p>
         </div>
     </div>
 
     <script>
-        const org = new URLSearchParams(location.search).get('org') || 'tetra';
-        const logEl = document.getElementById('activity-log');
-        const timingBody = document.getElementById('timing-body');
+        const logEl = document.getElementById('log');
         let pendingDeletes = [];
 
+        // Logging
         function log(msg, type = 'info') {
             const entry = document.createElement('div');
             entry.className = `log-entry ${type}`;
-            entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            entry.textContent = `[${new Date().toLocaleTimeString('en-US', {hour12:false})}] ${msg}`;
             logEl.appendChild(entry);
             logEl.scrollTop = logEl.scrollHeight;
+            if (logEl.children.length > 50) logEl.firstChild.remove();
         }
 
-        async function loadStats() {
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Update context display
+        function updateContext() {
+            document.getElementById('ctx-org').textContent = Terrain.State.org;
+            document.getElementById('ctx-env').textContent = Terrain.State.env;
+            document.getElementById('ctx-user').textContent = Terrain.State.user || '(default)';
+        }
+
+        // Check TSM health and populate context
+        async function checkHealth() {
+            const start = Date.now();
             try {
-                const [capturesRes, sessionsRes] = await Promise.all([
-                    fetch(`/api/capture/list?org=${org}&limit=1000`),
-                    fetch(`/api/capture/sessions?org=${org}`)
-                ]);
+                const res = await fetch(Terrain.State.apiUrl('/api/tsm/ls'));
+                const data = await res.json();
+                const latency = Date.now() - start;
 
-                const captures = await capturesRes.json();
-                const sessions = await sessionsRes.json();
+                document.getElementById('api-health').textContent = res.ok ? 'OK' : 'ERR';
+                document.getElementById('api-health').closest('.stat').className = 'stat ' + (res.ok ? 'good' : 'bad');
+                document.getElementById('api-cached').textContent = data.cached ? 'Yes' : 'No';
+                document.getElementById('api-latency').textContent = latency + 'ms';
+                document.getElementById('api-latency').closest('.stat').className = 'stat ' + (latency > 500 ? 'bad' : latency > 200 ? 'warn' : 'good');
 
-                document.getElementById('capture-count').textContent = captures.length;
-                document.getElementById('session-count').textContent = sessions.length;
+                // Context from TSM response
+                document.getElementById('ctx-host').textContent = data.host || 'localhost';
+                document.getElementById('ctx-remote').textContent = data.remote ? 'Yes' : 'No';
+                document.getElementById('ctx-services').textContent = data.services?.length || 0;
 
-                // Estimate size (rough: 500KB per capture average)
-                const estimatedMB = Math.round(captures.length * 0.5);
-                document.getElementById('capture-size').textContent = `~${estimatedMB}MB`;
-
-                // Update card warnings
-                const countCard = document.getElementById('capture-count').closest('.stat-card');
-                countCard.classList.toggle('warning', captures.length > 100);
-                countCard.classList.toggle('danger', captures.length > 200);
-
-                log(`Loaded ${captures.length} captures, ${sessions.length} sessions`);
+                log(`Health OK, ${data.services?.length || 0} services, ${latency}ms${data.cached ? ' (cached)' : ''}`, 'ok');
             } catch (e) {
-                log(`Error loading stats: ${e.message}`, 'error');
+                document.getElementById('api-health').textContent = 'ERR';
+                document.getElementById('api-health').closest('.stat').className = 'stat bad';
+                log(`Health check failed: ${e.message}`, 'err');
             }
         }
 
+        // Load capture stats
+        async function loadCaptures() {
+            try {
+                const [capRes, sessRes] = await Promise.all([
+                    fetch(Terrain.State.apiUrl('/api/capture/list') + '&limit=1000'),
+                    fetch(Terrain.State.apiUrl('/api/capture/sessions'))
+                ]);
+                const captures = await capRes.json();
+                const sessions = await sessRes.json();
+
+                document.getElementById('cap-count').textContent = captures.length;
+                document.getElementById('cap-sessions').textContent = sessions.length;
+                document.getElementById('cap-size').textContent = `~${Math.round(captures.length * 0.5)}MB`;
+
+                const countEl = document.getElementById('cap-count').closest('.stat');
+                countEl.className = 'stat ' + (captures.length > 200 ? 'bad' : captures.length > 100 ? 'warn' : '');
+
+                log(`${captures.length} captures, ${sessions.length} sessions`);
+            } catch (e) {
+                log(`Failed to load captures: ${e.message}`, 'err');
+            }
+        }
+
+        // Preview groom
         async function previewGroom() {
             const keepDays = parseInt(document.getElementById('keep-days').value) || 7;
             const cutoff = new Date();
             cutoff.setDate(cutoff.getDate() - keepDays);
 
             try {
-                const res = await fetch(`/api/capture/list?org=${org}&limit=1000`);
+                const res = await fetch(Terrain.State.apiUrl('/api/capture/list') + '&limit=1000');
                 const captures = await res.json();
+                pendingDeletes = captures.filter(c => new Date(c.timestamp) < cutoff);
 
-                pendingDeletes = captures.filter(c => {
-                    const ts = new Date(c.timestamp);
-                    return ts < cutoff;
-                });
-
+                const btn = document.getElementById('btn-groom');
                 if (pendingDeletes.length === 0) {
-                    log(`No captures older than ${keepDays} days`, 'success');
-                    document.getElementById('run-groom').disabled = true;
+                    log(`No captures older than ${keepDays} days`, 'ok');
+                    btn.disabled = true;
+                    btn.textContent = 'Delete';
                 } else {
-                    log(`Found ${pendingDeletes.length} captures to delete (older than ${keepDays} days)`);
-                    document.getElementById('run-groom').disabled = false;
-                    document.getElementById('run-groom').textContent = `Delete ${pendingDeletes.length} Captures`;
+                    log(`Found ${pendingDeletes.length} to delete (>${keepDays}d old)`);
+                    btn.disabled = false;
+                    btn.textContent = `Delete ${pendingDeletes.length}`;
                 }
             } catch (e) {
-                log(`Error: ${e.message}`, 'error');
+                log(`Preview failed: ${e.message}`, 'err');
             }
         }
 
+        // Run groom
         async function runGroom() {
-            if (pendingDeletes.length === 0) return;
-
-            const btn = document.getElementById('run-groom');
+            if (!pendingDeletes.length) return;
+            const btn = document.getElementById('btn-groom');
             btn.disabled = true;
             btn.textContent = 'Deleting...';
 
-            let deleted = 0;
-            let errors = 0;
-
-            for (const capture of pendingDeletes) {
+            let ok = 0, fail = 0;
+            for (const c of pendingDeletes) {
                 try {
-                    const res = await fetch(`/api/capture/${org}/${capture.id}`, { method: 'DELETE' });
-                    if (res.ok) {
-                        deleted++;
-                    } else {
-                        errors++;
-                    }
-                } catch {
-                    errors++;
-                }
+                    const res = await fetch(`/api/capture/${Terrain.State.org}/${c.id}`, { method: 'DELETE' });
+                    res.ok ? ok++ : fail++;
+                } catch { fail++; }
             }
 
-            log(`Deleted ${deleted} captures${errors > 0 ? `, ${errors} errors` : ''}`, errors > 0 ? 'error' : 'success');
+            log(`Deleted ${ok}${fail ? `, ${fail} failed` : ''}`, fail ? 'err' : 'ok');
             pendingDeletes = [];
-            btn.textContent = 'Delete Old Captures';
-            loadStats();
+            btn.textContent = 'Delete';
+            loadCaptures();
         }
 
-        // Listen for timing updates from parent
-        Terrain.Bus.subscribe('*', (msg) => {
-            if (msg.type === 'timing-update' && msg.timings) {
-                updateTimingTable(msg.timings);
-            }
-        });
-
-        function updateTimingTable(timings) {
-            if (!timings || timings.length === 0) {
-                timingBody.innerHTML = '<tr><td colspan="4" style="color: var(--ink-muted)">No timing data</td></tr>';
+        // Update timing table
+        function updateTimings(timings) {
+            const tbody = document.getElementById('timing-body');
+            if (!timings?.length) {
+                tbody.innerHTML = '<tr><td colspan="4" style="color:var(--ink-muted)">No data</td></tr>';
                 return;
             }
-
-            timingBody.innerHTML = timings.map(t => {
-                const cls = t.duration > 2000 ? 'timing-slow' : t.duration > 500 ? 'timing-medium' : 'timing-fast';
-                const status = t.duration > 2000 ? 'SLOW' : t.duration > 500 ? 'OK' : 'FAST';
-                return `
-                    <tr>
-                        <td>${t.panel}</td>
-                        <td>${t.view}</td>
-                        <td class="${cls}">${t.duration}ms</td>
-                        <td class="${cls}">${status}</td>
-                    </tr>
-                `;
+            tbody.innerHTML = timings.map(t => {
+                const cls = t.duration > 2000 ? 'slow' : t.duration > 500 ? 'med' : 'fast';
+                return `<tr><td>${t.panel}</td><td>${t.view}</td><td class="${cls}">${t.duration}ms</td><td class="${cls}">${t.duration > 2000 ? 'SLOW' : t.duration > 500 ? 'OK' : 'FAST'}</td></tr>`;
             }).join('');
         }
 
-        // Request timing data from parent
-        function requestTimings() {
-            Terrain.Iframe.send({ type: 'request-timings', source: 'admin' });
-        }
+        // Action handlers
+        Terrain.Iframe
+            .on('check-health', checkHealth)
+            .on('refresh-all', () => { checkHealth(); loadCaptures(); })
+            .on('preview-groom', previewGroom)
+            .on('run-groom', runGroom);
 
-        // Event listeners
-        document.getElementById('refresh-stats').addEventListener('click', loadStats);
-        document.getElementById('preview-groom').addEventListener('click', previewGroom);
-        document.getElementById('run-groom').addEventListener('click', runGroom);
+        // Listen for timing updates
+        Terrain.Bus.subscribe('*', msg => {
+            if (msg.type === 'timing-update' && msg.timings) updateTimings(msg.timings);
+        });
+
+        // Listen for env changes
+        Terrain.State.onEnvChange(() => {
+            updateContext();
+            checkHealth();
+            loadCaptures();
+            log(`Context changed: ${Terrain.State.org}/${Terrain.State.env}`);
+        });
 
         // Initialize
         Terrain.Iframe.init({
             name: 'admin',
             onReady: () => {
-                loadStats();
-                requestTimings();
+                updateContext();
+                checkHealth();
+                loadCaptures();
+                Terrain.Iframe.send({ type: 'request-timings', source: 'admin' });
             }
         });
     </script>

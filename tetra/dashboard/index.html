@@ -204,15 +204,25 @@
             color: var(--one);
         }
 
-        .panel-header .refresh-btn {
+        .panel-actions {
+            display: flex;
+            gap: 2px;
+            margin-left: 4px;
+        }
+
+        .panel-header .refresh-btn,
+        .panel-header .takeover-btn {
             background: none;
             border: none;
             color: var(--ink-muted);
-            font-size: 14px;
+            font-size: 12px;
             cursor: pointer;
-            padding: 2px 6px;
+            padding: 2px 4px;
+            line-height: 1;
         }
-        .panel-header .refresh-btn:hover { color: var(--ink); }
+        .panel-header .refresh-btn:hover,
+        .panel-header .takeover-btn:hover { color: var(--ink); }
+        .panel-header .takeover-btn.active { color: var(--four); }
 
         .panel-timing {
             margin-left: auto;
@@ -257,6 +267,19 @@
         .divider:hover, .divider.active {
             background: var(--four);
         }
+
+        /* Takeover mode - single panel fills entire panes area */
+        .panes.takeover .pane-row,
+        .panes.takeover .divider { display: none; }
+        .panes.takeover .panel { display: none; }
+        .panes.takeover .panel.takeover-active {
+            display: flex;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100% !important;
+            height: 100% !important;
+        }
+        .panes.takeover { position: relative; }
     </style>
 </head>
 <body>
@@ -296,7 +319,10 @@
                             <button class="env-btn" data-env="staging" data-user="root"><span class="user-prefix">r:</span>stg</button>
                             <button class="env-btn" data-env="prod" data-user="root"><span class="user-prefix">r:</span>prod</button>
                         </div>
-                        <button class="refresh-btn" title="Refresh">&#x21bb;</button>
+                        <span class="panel-actions">
+                            <button class="refresh-btn" title="Reload">↻</button>
+                            <button class="takeover-btn" title="Expand panel">⛶</button>
+                        </span>
                     </div>
                     <div class="panel-content">
                         <iframe src="console.iframe.html?env=local&org=tetra"></iframe>
@@ -322,7 +348,10 @@
                             <button class="env-btn" data-env="staging" data-user="root"><span class="user-prefix">r:</span>stg</button>
                             <button class="env-btn" data-env="prod" data-user="root"><span class="user-prefix">r:</span>prod</button>
                         </div>
-                        <button class="refresh-btn" title="Refresh">&#x21bb;</button>
+                        <span class="panel-actions">
+                            <button class="refresh-btn" title="Reload">↻</button>
+                            <button class="takeover-btn" title="Expand panel">⛶</button>
+                        </span>
                     </div>
                     <div class="panel-content">
                         <iframe src="tsm.iframe.html?env=local&org=tetra"></iframe>
@@ -354,7 +383,10 @@
                             <button class="env-btn" data-env="staging" data-user="root"><span class="user-prefix">r:</span>stg</button>
                             <button class="env-btn" data-env="prod" data-user="root"><span class="user-prefix">r:</span>prod</button>
                         </div>
-                        <button class="refresh-btn" title="Refresh">&#x21bb;</button>
+                        <span class="panel-actions">
+                            <button class="refresh-btn" title="Reload">↻</button>
+                            <button class="takeover-btn" title="Expand panel">⛶</button>
+                        </span>
                     </div>
                     <div class="panel-content">
                         <iframe src="deploy.iframe.html?env=local&org=tetra"></iframe>
@@ -380,7 +412,10 @@
                             <button class="env-btn" data-env="staging" data-user="root"><span class="user-prefix">r:</span>stg</button>
                             <button class="env-btn" data-env="prod" data-user="root"><span class="user-prefix">r:</span>prod</button>
                         </div>
-                        <button class="refresh-btn" title="Refresh">&#x21bb;</button>
+                        <span class="panel-actions">
+                            <button class="refresh-btn" title="Reload">↻</button>
+                            <button class="takeover-btn" title="Expand panel">⛶</button>
+                        </span>
                     </div>
                     <div class="panel-content">
                         <iframe src="logs.iframe.html?env=local&org=tetra"></iframe>
@@ -537,8 +572,7 @@
                 timingEl = document.createElement('span');
                 timingEl.className = 'panel-timing';
                 const header = panel.querySelector('.panel-header');
-                const refreshBtn = header.querySelector('.refresh-btn');
-                header.insertBefore(timingEl, refreshBtn);
+                header.appendChild(timingEl);
             }
             const color = durationMs > 2000 ? 'var(--one)' : durationMs > 500 ? 'var(--three)' : 'var(--two)';
             timingEl.style.color = color;
@@ -597,7 +631,42 @@
             if (refreshBtn) {
                 refreshBtn.addEventListener('click', () => refreshPanel(panel));
             }
+
+            const takeoverBtn = panel.querySelector('.takeover-btn');
+            if (takeoverBtn) {
+                takeoverBtn.addEventListener('click', () => toggleTakeover(panel));
+            }
         });
+
+        // Takeover state
+        let takeoverPanel = null;
+
+        function toggleTakeover(panel) {
+            const btn = panel.querySelector('.takeover-btn');
+
+            if (takeoverPanel === panel) {
+                // Exit takeover mode
+                panes.classList.remove('takeover');
+                panel.classList.remove('takeover-active');
+                btn.classList.remove('active');
+                btn.title = 'Expand panel';
+                rebuildPaneLayout();
+                takeoverPanel = null;
+            } else {
+                // Enter takeover mode (or switch panels)
+                if (takeoverPanel) {
+                    // Clear previous takeover
+                    takeoverPanel.classList.remove('takeover-active');
+                    takeoverPanel.querySelector('.takeover-btn')?.classList.remove('active');
+                }
+                panes.classList.add('takeover');
+                panel.classList.add('takeover-active');
+                btn.classList.add('active');
+                btn.title = 'Restore panels';
+                panes.appendChild(panel);
+                takeoverPanel = panel;
+            }
+        }
 
         // Global org buttons
         const orgBtns = document.querySelectorAll('.org-btn');
@@ -633,9 +702,11 @@
 
             panels.forEach(panel => {
                 const id = panel.dataset.panel;
+                const activeEnvBtn = panel.querySelector('.env-btn.active');
                 state.panels[id] = {
                     view: panel.querySelector('.view-select')?.value,
-                    env: panel.querySelector('.env-select')?.value
+                    env: activeEnvBtn?.dataset.env || 'local',
+                    user: activeEnvBtn?.dataset.user || ''
                 };
             });
 
@@ -671,12 +742,22 @@
                         if (!panelState) return;
 
                         const viewSelect = panel.querySelector('.view-select');
-                        const envSelect = panel.querySelector('.env-select');
+                        const envBtns = panel.querySelectorAll('.env-btn');
 
                         if (viewSelect && panelState.view) viewSelect.value = panelState.view;
-                        if (envSelect && panelState.env) {
-                            envSelect.value = panelState.env;
-                            updateEnvClass(envSelect);
+
+                        // Restore env button state
+                        if (panelState.env) {
+                            envBtns.forEach(btn => {
+                                const isMatch = btn.dataset.env === panelState.env;
+                                btn.classList.toggle('active', isMatch);
+                                // Restore user if saved
+                                if (isMatch && panelState.user && btn.dataset.user !== undefined) {
+                                    btn.dataset.user = panelState.user;
+                                    const prefix = btn.querySelector('.user-prefix');
+                                    if (prefix) prefix.textContent = panelState.user[0] + ':';
+                                }
+                            });
                         }
 
                         updatePanelIframe(panel);
@@ -833,6 +914,34 @@
                 timestamp: Date.now()
             };
             Terrain.Bus.route(panel, fullMsg);
+        }
+
+        // Rebuild pane layout after takeover mode exits
+        function rebuildPaneLayout() {
+            const topRow = document.querySelector('.pane-row.top');
+            const botRow = document.querySelector('.pane-row.bottom');
+            const topLeft = document.querySelector('[data-panel="top-left"]');
+            const topRight = document.querySelector('[data-panel="top-right"]');
+            const botLeft = document.querySelector('[data-panel="bottom-left"]');
+            const botRight = document.querySelector('[data-panel="bottom-right"]');
+            const divTopV = document.getElementById('divider-top-v');
+            const divBotV = document.getElementById('divider-bot-v');
+
+            // Restore top row
+            if (topRow && topLeft && topRight) {
+                topRow.innerHTML = '';
+                topRow.appendChild(topLeft);
+                topRow.appendChild(divTopV);
+                topRow.appendChild(topRight);
+            }
+
+            // Restore bottom row
+            if (botRow && botLeft && botRight) {
+                botRow.innerHTML = '';
+                botRow.appendChild(botLeft);
+                botRow.appendChild(divBotV);
+                botRow.appendChild(botRight);
+            }
         }
 
         // ========================================================================

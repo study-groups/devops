@@ -111,6 +111,73 @@ Terrain.Bus = {
 };
 
 // ============================================================================
+// Terrain.State - Shared state management for panels
+// ============================================================================
+
+Terrain.State = {
+    org: 'tetra',
+    env: 'local',
+    user: '',
+    _onEnvChange: null,
+
+    /**
+     * Initialize state from URL params
+     */
+    initFromUrl: function() {
+        const params = new URLSearchParams(window.location.search);
+        this.org = params.get('org') || 'tetra';
+        this.env = params.get('env') || 'local';
+        this.user = params.get('user') || '';
+        return this;
+    },
+
+    /**
+     * Update state from env-change message
+     * Returns { envChanged, orgChanged, userChanged }
+     */
+    update: function(msg) {
+        const changes = {
+            envChanged: msg.env && msg.env !== this.env,
+            orgChanged: msg.org && msg.org !== this.org,
+            userChanged: msg.user !== undefined && msg.user !== this.user
+        };
+
+        if (msg.env) this.env = msg.env;
+        if (msg.org) this.org = msg.org;
+        if (msg.user !== undefined) this.user = msg.user || '';
+
+        return changes;
+    },
+
+    /**
+     * Build API URL with org/env/user params
+     */
+    apiUrl: function(endpoint) {
+        const params = new URLSearchParams({ org: this.org, env: this.env });
+        if (this.user) params.set('user', this.user);
+        return `${endpoint}?${params}`;
+    },
+
+    /**
+     * Register callback for env changes
+     */
+    onEnvChange: function(callback) {
+        this._onEnvChange = callback;
+        return this;
+    },
+
+    /**
+     * Handle env-change message (called internally by Terrain.Iframe)
+     */
+    _handleEnvChange: function(msg) {
+        const changes = this.update(msg);
+        if (this._onEnvChange && (changes.envChanged || changes.orgChanged || changes.userChanged)) {
+            this._onEnvChange(changes, msg);
+        }
+    }
+};
+
+// ============================================================================
 // Terrain.Iframe - Iframe-specific helpers
 // ============================================================================
 
@@ -160,7 +227,7 @@ Terrain.Iframe = {
 
     /**
      * Initialize with options
-     * @param {Object} opts - { name, onMessage, onReady }
+     * @param {Object} opts - { name, onMessage, onReady, useSharedState }
      */
     init: function(opts) {
         this.initialized = true;
@@ -168,6 +235,11 @@ Terrain.Iframe = {
         this.name = opts.name || this._detectName();
         this.onMessage = opts.onMessage || function(){};
         this.onReady = opts.onReady || function(){};
+
+        // Auto-initialize shared state from URL if enabled (default: true)
+        if (opts.useSharedState !== false) {
+            Terrain.State.initFromUrl();
+        }
 
         // Listen for messages and publish to Bus
         window.addEventListener('message', (e) => {
@@ -178,6 +250,12 @@ Terrain.Iframe = {
                         document.documentElement.style.setProperty('--' + k, v);
                     });
                 }
+
+                // Auto-handle env-change via Terrain.State
+                if (e.data.type === 'env-change' && opts.useSharedState !== false) {
+                    Terrain.State._handleEnvChange(e.data);
+                }
+
                 // Publish to Bus (notifies all subscribers)
                 Terrain.Bus._notify(e.data);
 
