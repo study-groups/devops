@@ -57,9 +57,9 @@ function createConfiguration(overrides = {}) {
 }
 
 /**
- * Initial state
+ * Initial state - exported for use in appState.js persistence
  */
-const initialState = {
+export const publishConfigInitialState = {
     // Array of configurations
     configurations: [],
 
@@ -77,6 +77,9 @@ const initialState = {
     // Initialization flag
     _initialized: false
 };
+
+// Alias for internal use
+const initialState = publishConfigInitialState;
 
 const publishConfigSlice = createSlice({
     name: 'publishConfig',

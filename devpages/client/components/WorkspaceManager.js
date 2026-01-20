@@ -10,7 +10,7 @@ import { DiagnosticPanel } from '../panels/DiagnosticPanel.js';
 import { ThemeManagementPanel } from '../panels/ThemeManagementPanel.js';
 import { DesignTokensPanel } from '../panels/DesignTokensPanel.js';
 import { PublishPanel } from '../panels/publish/PublishPanel.js';
-import { FileBrowserPanel } from '../panels/dev/FileBrowserPanel.js';
+import { FileManagerPanel } from '../panels/publish/FileManagerPanel.js';
 import { UIInspectorPanel } from '../panels/UIInspectorPanel.js';
 import { PreviewRenderingPanel } from '../panels/PreviewRenderingPanel.js';
 import { sidebarVisibilityController } from '../layout/SidebarVisibilityController.js';
@@ -127,7 +127,7 @@ class WorkspaceManager {
             panelRegistry.registerType('design-tokens', DesignTokensPanel);
             panelRegistry.registerType('theme-management', ThemeManagementPanel);
             panelRegistry.registerType('publish-manager', PublishPanel);
-            panelRegistry.registerType('file-browser', FileBrowserPanel);
+            panelRegistry.registerType('file-manager', FileManagerPanel);
             panelRegistry.registerType('ui-inspector', UIInspectorPanel);
             panelRegistry.registerType('preview-rendering', PreviewRenderingPanel);
             

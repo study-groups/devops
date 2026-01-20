@@ -30,15 +30,15 @@ const panelConfig = {
             content_type: 'dynamic',
             data_sources: ['redux_state', 'component_tree']
         },
-        'file-browser': {
+        'file-manager': {
             title: 'Files',
-            description: 'Compact file navigator',
-            category: 'dev',
+            description: 'File manager with selection and collections',
+            category: 'publish',
             sidebar: true,
             floating: true,
             default_expanded: false,
-            content_type: 'tree',
-            data_sources: ['file_system']
+            content_type: 'interactive',
+            data_sources: ['file_system', 'file_collections']
         },
         'dom-inspector': {
             title: 'DOM Inspector',

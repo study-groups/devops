@@ -7,7 +7,7 @@
  */
 
 // Active panels
-import './dev/FileBrowserPanel.js';
+import './publish/FileManagerPanel.js'; // File manager with selection and collections
 import './publish/PublishPanel.js'; // Unified publish panel
 import './DesignTokensPanel.js';
 import './DiagnosticPanel.js'; // Updated: Auto-refresh removed

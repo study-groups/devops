@@ -1,69 +1,183 @@
 /**
  * CSSBuilder - Handles CSS collection, bundling, and generation for publishing
+ *
+ * Supports three CSS strategies:
+ * - 'embedded': All CSS inlined in <style> tags (default, archival)
+ * - 'linked': CSS referenced via <link> tags (themeable)
+ * - 'hybrid': Markdown CSS embedded, color scheme CSS linked (recommended)
+ *
+ * Semantic naming:
+ * - renderTarget: 'preview' | 'publish' (what we're generating for)
+ * - cssStrategy: 'embedded' | 'linked' | 'hybrid' (how CSS is delivered)
+ * - colorScheme: 'dark' | 'light' (visual theme)
  */
 
 import { CSSManager } from '/client/preview/CSSManager.js';
 
 const log = window.APP?.services?.log?.createLogger('CSSBuilder') || console;
 
+// Default paths for linked CSS (relative to published doc location)
+const DEFAULT_CSS_PATHS = {
+  markdown: '../shared/markdown.css',
+  colorSchemeBase: '../shared/themes/base.css',
+  colorSchemeDark: '../shared/themes/dark.css',
+  colorSchemeLight: '../shared/themes/light.css',
+  runtime: '../shared/runtime.css'
+};
+
 export class CSSBuilder {
   /**
    * Bundle all CSS for document generation
    * @param {Object} renderResult - Result from markdown rendering
    * @param {Object} options - Bundling options
-   * @param {string} options.mode - 'preview' or 'publish'
-   * @param {Object} options.theme - Theme object
-   * @param {Object} options.activeConfig - Publish configuration
+   * @param {string} options.renderTarget - 'preview' or 'publish'
+   * @param {string} options.cssStrategy - 'embedded' | 'linked' | 'hybrid' (publish only)
+   * @param {Object} options.theme - Theme object (contains colorScheme as .mode)
+   * @param {Object} options.publishTarget - Publish configuration
    * @param {string} options.filePath - Source file path
-   * @returns {Promise<Object>} CSS bundle with different sections
+   * @returns {Promise<Object>} CSS bundle with content and/or URLs
    */
   async bundleCSS(renderResult, options) {
-    const { mode, theme, activeConfig, filePath } = options;
-    const isPreview = mode === 'preview';
+    const { renderTarget, theme, publishTarget, filePath } = options;
+    const isPreview = renderTarget === 'preview';
     const frontMatter = renderResult.frontMatter || {};
 
-    log.info?.('CSS', 'BUNDLE_START', `Bundling CSS for ${mode} mode`);
+    // CSS strategy only applies to publish; preview always embeds
+    const cssStrategy = isPreview
+      ? 'embedded'
+      : (options.cssStrategy || publishTarget?.cssStrategy || 'embedded');
+
+    const cssPaths = { ...DEFAULT_CSS_PATHS, ...(publishTarget?.cssPaths || {}) };
+    const colorScheme = theme?.mode || 'dark';
+
+    log.info?.('CSS', 'BUNDLE_START', `Bundling CSS for ${renderTarget} (strategy: ${cssStrategy}, scheme: ${colorScheme})`);
+
+    // Route to appropriate bundle builder
+    if (cssStrategy === 'linked') {
+      return this.buildLinkedBundle(colorScheme, cssPaths, frontMatter, publishTarget);
+    }
+
+    if (cssStrategy === 'hybrid') {
+      return this.buildHybridBundle(colorScheme, cssPaths, frontMatter, publishTarget, filePath);
+    }
+
+    // Default: embedded strategy
+    return this.buildEmbeddedBundle(renderResult, options);
+  }
+
+  /**
+   * Build fully embedded CSS bundle (all CSS inlined)
+   * @private
+   */
+  async buildEmbeddedBundle(renderResult, options) {
+    const { renderTarget, theme, publishTarget, filePath } = options;
+    const isPreview = renderTarget === 'preview';
+    const frontMatter = renderResult.frontMatter || {};
+    const colorScheme = theme?.mode || 'dark';
 
     // Collect CSS sources in order of precedence
-    const cssSources = this.collectCSSSources(frontMatter, activeConfig);
+    const cssSources = this.collectCSSSources(frontMatter, publishTarget);
 
     // Bundle external CSS using CSSManager
-    const cssManager = new CSSManager(mode);
-    const bundledCSS = await cssManager.fetchAndBundleCSS(cssSources, filePath);
-    log.info?.('CSS', 'EXTERNAL_BUNDLED', `Bundled ${bundledCSS?.length || 0} chars of external CSS`);
+    const cssManager = new CSSManager(renderTarget);
+    const customCSS = await cssManager.fetchAndBundleCSS(cssSources, filePath);
+    log.info?.('CSS', 'EXTERNAL_BUNDLED', `Bundled ${customCSS?.length || 0} chars of external CSS`);
 
-    // Load base markdown CSS from external files
-    const baseCSS = await this.loadMarkdownCSS();
+    // Load markdown structural CSS
+    const markdownCSS = await this.loadMarkdownCSS();
 
-    // Load theme CSS from files (preview only)
-    const themeMode = theme?.mode || 'dark';
-    const themeCSS = isPreview ? await this.loadThemeCSS(themeMode) : '';
+    // Load color scheme CSS (for both preview AND publish in embedded mode)
+    const colorSchemeCSS = await this.loadColorSchemeCSS(colorScheme);
 
     // Load runtime CSS (publish only)
     const runtimeCSS = isPreview ? '' : await this.loadRuntimeCSS();
 
-    log.info?.('CSS', 'BUNDLE_COMPLETE', `Total CSS: base=${baseCSS.length}, theme=${themeCSS.length}, bundled=${bundledCSS?.length || 0}, runtime=${runtimeCSS.length}`);
+    log.info?.('CSS', 'BUNDLE_COMPLETE', `Total CSS: markdown=${markdownCSS.length}, colorScheme=${colorSchemeCSS.length}, custom=${customCSS?.length || 0}, runtime=${runtimeCSS.length}`);
 
     return {
-      base: baseCSS,
-      theme: themeCSS,
-      bundled: bundledCSS || '',
-      runtime: runtimeCSS
+      strategy: 'embedded',
+      markdown: markdownCSS,
+      colorScheme: colorSchemeCSS,
+      custom: customCSS || '',
+      runtime: runtimeCSS,
+      urls: null
+    };
+  }
+
+  /**
+   * Build fully linked CSS bundle - all CSS via <link> tags
+   * @private
+   */
+  buildLinkedBundle(colorScheme, cssPaths, frontMatter, publishTarget) {
+    const urls = {
+      markdown: cssPaths.markdown,
+      colorSchemeBase: cssPaths.colorSchemeBase,
+      colorScheme: colorScheme === 'dark' ? cssPaths.colorSchemeDark : cssPaths.colorSchemeLight,
+      runtime: cssPaths.runtime,
+      custom: frontMatter.css_includes || []
+    };
+
+    // Add config theme URL if specified
+    if (publishTarget?.themeUrl) {
+      urls.custom.unshift(publishTarget.themeUrl);
+    }
+
+    log.info?.('CSS', 'LINKED_BUNDLE', `Built linked bundle with colorScheme: ${urls.colorScheme}`);
+
+    return {
+      strategy: 'linked',
+      markdown: '',
+      colorScheme: '',
+      custom: '',
+      runtime: '',
+      urls
+    };
+  }
+
+  /**
+   * Build hybrid CSS bundle - markdown embedded, color scheme linked
+   * Best for durability + flexibility
+   * @private
+   */
+  async buildHybridBundle(colorScheme, cssPaths, frontMatter, publishTarget, filePath) {
+    // Embed structural CSS for durability
+    const markdownCSS = await this.loadMarkdownCSS();
+
+    // Bundle any custom CSS includes (embed these too)
+    const cssSources = this.collectCSSSources(frontMatter, publishTarget);
+    const cssManager = new CSSManager('publish');
+    const customCSS = await cssManager.fetchAndBundleCSS(cssSources, filePath);
+
+    // Link color scheme CSS for flexibility
+    const urls = {
+      colorSchemeBase: cssPaths.colorSchemeBase,
+      colorScheme: colorScheme === 'dark' ? cssPaths.colorSchemeDark : cssPaths.colorSchemeLight
+    };
+
+    log.info?.('CSS', 'HYBRID_BUNDLE', `Built hybrid bundle: ${markdownCSS.length} chars embedded, colorScheme linked`);
+
+    return {
+      strategy: 'hybrid',
+      markdown: markdownCSS,
+      colorScheme: '',
+      custom: customCSS || '',
+      runtime: '',
+      urls
     };
   }
 
   /**
    * Collect CSS sources from frontmatter and config
    * @param {Object} frontMatter - Parsed frontmatter
-   * @param {Object} activeConfig - Publish configuration
+   * @param {Object} publishTarget - Publish configuration
    * @returns {Array<string>} Array of CSS URLs
    */
-  collectCSSSources(frontMatter, activeConfig) {
+  collectCSSSources(frontMatter, publishTarget) {
     const cssSources = [];
 
     // 1. Config theme URL (site-wide theme)
-    if (activeConfig?.themeUrl) {
-      cssSources.push(activeConfig.themeUrl);
+    if (publishTarget?.themeUrl) {
+      cssSources.push(publishTarget.themeUrl);
     }
 
     // 2. Frontmatter CSS includes (page-specific)
@@ -122,50 +236,37 @@ export class CSSBuilder {
   }
 
   /**
-   * Generate inline CSS for theme variables
-   * Theme CSS is now loaded from external files (dark.css/light.css)
-   * This method returns empty string as CSS comes from loadThemeCSS
-   * @param {Object} theme - Theme object (only has metadata now)
-   * @returns {string} Empty string - CSS handled by loadThemeCSS
+   * Load color scheme CSS from external files
+   * @param {string} scheme - 'light' or 'dark'
+   * @returns {Promise<string>} Color scheme CSS content
    */
-  generateThemeCSS(theme) {
-    // Theme CSS is now loaded from files, not generated from theme object
-    // Return empty - the actual CSS comes from loadThemeCSS()
-    return '';
-  }
-
-  /**
-   * Load theme CSS from external file
-   * @param {string} mode - 'light' or 'dark'
-   * @returns {Promise<string>} Theme CSS content
-   */
-  async loadThemeCSS(mode = 'dark') {
+  async loadColorSchemeCSS(scheme = 'dark') {
     try {
-      // Load both base and mode-specific CSS
-      const [baseResponse, modeResponse] = await Promise.all([
+      // Load both base and scheme-specific CSS
+      const [baseResponse, schemeResponse] = await Promise.all([
         fetch('/client/styles/themes/base.css'),
-        fetch(`/client/styles/themes/${mode}.css`)
+        fetch(`/client/styles/themes/${scheme}.css`)
       ]);
 
       let css = '';
 
       if (baseResponse.ok) {
         css += await baseResponse.text();
-        log.info?.('CSS', 'THEME_BASE_LOADED', `Loaded base theme CSS`);
+        log.info?.('CSS', 'COLORSCHEME_BASE_LOADED', 'Loaded base color scheme CSS');
       } else {
-        log.warn?.('CSS', 'THEME_BASE_FAIL', 'Failed to load base theme CSS');
+        log.warn?.('CSS', 'COLORSCHEME_BASE_FAIL', 'Failed to load base color scheme CSS');
       }
 
-      if (modeResponse.ok) {
-        css += '\n' + await modeResponse.text();
-        log.info?.('CSS', 'THEME_MODE_LOADED', `Loaded ${mode} theme CSS`);
+      if (schemeResponse.ok) {
+        css += '\n' + await schemeResponse.text();
+        log.info?.('CSS', 'COLORSCHEME_LOADED', `Loaded ${scheme} color scheme CSS`);
       } else {
-        log.warn?.('CSS', 'THEME_MODE_FAIL', `Failed to load ${mode} theme CSS`);
+        log.warn?.('CSS', 'COLORSCHEME_FAIL', `Failed to load ${scheme} color scheme CSS`);
       }
 
       return css;
     } catch (error) {
-      log.error?.('CSS', 'THEME_LOAD_ERROR', `Error loading theme CSS: ${error.message}`, error);
+      log.error?.('CSS', 'COLORSCHEME_ERROR', `Error loading color scheme CSS: ${error.message}`, error);
       return '';
     }
   }

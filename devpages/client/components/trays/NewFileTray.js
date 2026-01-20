@@ -1,7 +1,9 @@
 /**
  * NewFileTray.js - New file creation tray
  *
- * Provides a centered form for creating new files.
+ * Provides a compact form for creating new files.
+ * Supports creating directories inline (e.g., "newdir/file.md").
+ * Blocks parent directory traversal (../) for security.
  */
 
 import { topBarTray } from '../TopBarTray.js';
@@ -30,11 +32,34 @@ function pathJoin(...parts) {
 }
 
 /**
+ * Validate path input - blocks dangerous patterns
+ */
+function validatePath(input) {
+    // Block parent directory traversal
+    if (input.includes('../') || input.includes('..\\') || input === '..') {
+        return { valid: false, error: 'Parent directory traversal (../) not allowed' };
+    }
+    // Block absolute paths
+    if (input.startsWith('/')) {
+        return { valid: false, error: 'Absolute paths not allowed - use relative paths' };
+    }
+    // Block empty or whitespace-only
+    if (!input.trim()) {
+        return { valid: false, error: 'Enter a filename' };
+    }
+    // Block dangerous characters
+    if (/[<>:"|?*\x00-\x1f]/.test(input)) {
+        return { valid: false, error: 'Invalid characters in path' };
+    }
+    return { valid: true };
+}
+
+/**
  * Register the new file tray
  */
 export function registerNewFileTray() {
     topBarTray.register('new-file', {
-        title: 'Create New File',
+        title: 'New',
         closeOnClickOutside: true,
         render: () => renderNewFileForm(),
         onOpen: (container) => {
@@ -59,7 +84,7 @@ export function openNewFileTray() {
 }
 
 /**
- * Render the new file form
+ * Render the new file form - compact single-row layout
  */
 function renderNewFileForm() {
     const state = appStore.getState();
@@ -69,24 +94,22 @@ function renderNewFileForm() {
         : getParentPath(pathState.current?.pathname || '');
 
     return `
-        <div class="tray-form">
-            <div class="tray-form-row centered">
-                <span class="tray-label">Location:</span>
-                <span style="font-family: monospace; font-size: 13px; color: var(--color-text-secondary);">
-                    ${currentDir || '/'}
-                </span>
-            </div>
-            <div class="tray-form-row centered">
-                <span class="tray-label">Filename:</span>
+        <div class="tray-form" style="gap: 8px;">
+            <div class="tray-form-row" style="justify-content: flex-start; gap: 8px;">
+                <span style="font-family: monospace; font-size: 13px; color: var(--color-text-secondary); white-space: nowrap;">
+                    ${currentDir || '/'}/</span>
                 <input type="text"
                        id="new-file-name"
                        class="tray-input"
-                       placeholder="filename.md"
+                       placeholder="path/to/file.md"
                        value="untitled.md"
-                       style="width: 280px;" />
+                       style="flex: 1; min-width: 200px; max-width: 300px;" />
                 <button id="new-file-create" class="tray-btn primary">Create</button>
                 <button id="new-file-cancel" class="tray-btn secondary">Cancel</button>
                 <span id="new-file-error" class="tray-error"></span>
+            </div>
+            <div style="font-size: 11px; color: var(--color-text-muted); margin-left: 4px;">
+                Tip: Use slashes to create directories (e.g., <code>newdir/file.md</code>)
             </div>
         </div>
     `;
@@ -110,7 +133,14 @@ function attachFormListeners(container) {
     };
 
     if (input) {
-        input.addEventListener('input', clearError);
+        // Validate on input change
+        input.addEventListener('input', () => {
+            clearError();
+            const validation = validatePath(input.value);
+            if (!validation.valid) {
+                showError(validation.error);
+            }
+        });
 
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
@@ -128,10 +158,12 @@ function attachFormListeners(container) {
 
     if (createBtn) {
         createBtn.addEventListener('click', async () => {
-            const filename = input?.value.trim();
+            const inputValue = input?.value.trim();
 
-            if (!filename) {
-                showError('Enter a filename');
+            // Validate the path
+            const validation = validatePath(inputValue);
+            if (!validation.valid) {
+                showError(validation.error);
                 input?.focus();
                 return;
             }
@@ -142,18 +174,23 @@ function attachFormListeners(container) {
                 ? pathState.current?.pathname
                 : getParentPath(pathState.current?.pathname || '');
 
-            const newPath = pathJoin(currentDir || '', filename);
+            const newPath = pathJoin(currentDir || '', inputValue);
 
             createBtn.disabled = true;
             createBtn.textContent = 'Creating...';
             clearError();
 
             try {
-                const response = await fetch('/api/save', {
+                // Use the same save endpoint as the editor (/api/files/save)
+                // The PData system handles creating parent directories automatically
+                const response = await fetch('/api/files/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ pathname: newPath, content: '' })
+                    body: JSON.stringify({
+                        pathname: newPath,
+                        content: ''
+                    })
                 });
 
                 if (response.ok) {

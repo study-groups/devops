@@ -31,6 +31,9 @@ async function readJson(filePath) {
 /**
  * GET /api/mount/info
  * Returns information about the default data mount point
+ *
+ * Mount path = PD_DIR (the project directory)
+ * Default subdir = 'data' (PD_DATA = $PD_DIR/data)
  */
 router.get('/info', async (req, res) => {
     try {
@@ -43,12 +46,16 @@ router.get('/info', async (req, res) => {
             });
         }
 
-        const defaultDataPath = path.join(pdDir, 'data');
+        // Mount is PD_DIR, default subdir is 'data'
+        const defaultSubdir = 'data';
+        const defaultDataPath = path.join(pdDir, defaultSubdir);
 
-        // Check if default data path exists
-        const exists = await pathExists(defaultDataPath);
+        // Check if PD_DIR exists
+        const mountExists = await pathExists(pdDir);
+        // Check if default data subdir exists
+        const defaultSubdirExists = await pathExists(defaultDataPath);
 
-        // Try to read pdata.json if it exists
+        // Try to read pdata.json from the data directory if it exists
         let metadata = null;
         let publishConfigs = [];
 
@@ -66,8 +73,14 @@ router.get('/info', async (req, res) => {
         res.json({
             success: true,
             pdDir,
+            // Mount path is PD_DIR itself
+            defaultMountPath: pdDir,
+            // Default subdirectory within the mount
+            defaultSubdir,
+            // Full path to default data directory (for backwards compat)
             defaultDataPath,
-            exists,
+            mountExists,
+            defaultSubdirExists,
             metadata,
             publishConfigs
         });

@@ -38,6 +38,7 @@ import editorReducer from './store/slices/editorSlice.js';
 import { imageReducer } from './store/slices/imageSlice.js';
 import astReducer from './store/slices/astSlice.js';
 import dataMountReducer from './store/slices/dataMountSlice.js';
+import fileCollectionReducer, { fileCollectionInitialState } from './store/slices/fileCollectionSlice.js';
 
 // Middleware
 import { reduxLogMiddleware } from './store/middleware/reduxLogMiddleware.js';
@@ -57,6 +58,7 @@ import { pluginThunks } from './store/slices/pluginSlice.js';
 import { initializeComponent } from './store/slices/systemSlice.js';
 import { panelThunks } from './store/slices/panelSlice.js';
 import { dataMountThunks } from './store/slices/dataMountSlice.js';
+import { fileCollectionThunks } from './store/slices/fileCollectionSlice.js';
 
 // --- Root Reducer Configuration ---
 const rootReducer = {
@@ -78,6 +80,7 @@ const rootReducer = {
     image: imageReducer,
     ast: astReducer,
     dataMount: dataMountReducer,
+    fileCollection: fileCollectionReducer,
 };
 
 // --- Store Singleton ---
@@ -166,6 +169,7 @@ function initializeStore(preloadedState = {}) {
         panels: safeLoadPersistedState('panels', preloadedState.panels || {}),
         ui: loadedUI,
         publishConfig: safeLoadPersistedState('publishConfig', preloadedState.publishConfig || publishConfigInitialState),
+        fileCollection: safeLoadPersistedState('fileCollection', preloadedState.fileCollection || fileCollectionInitialState),
     };
 
     try {
@@ -200,6 +204,7 @@ function initializeStore(preloadedState = {}) {
             system: { initializeComponent },
             panels: panelThunks,
             dataMount: dataMountThunks,
+            fileCollection: fileCollectionThunks,
         };
 
         console.log('[AppState] ✅ Central Redux store initialized.');
@@ -238,6 +243,7 @@ function initializeStore(preloadedState = {}) {
             system: { initializeComponent },
             panels: panelThunks,
             dataMount: dataMountThunks,
+            fileCollection: fileCollectionThunks,
         };
 
         return { appStore, dispatch };

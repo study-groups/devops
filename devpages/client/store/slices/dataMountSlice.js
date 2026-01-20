@@ -18,7 +18,8 @@ function createMountPoint(overrides = {}) {
     return {
         id: `mount-${Date.now()}`,
         name: 'New Mount Point',
-        path: '',                    // Absolute path to the directory
+        path: '',                    // Absolute path to the mount directory (e.g., PD_DIR)
+        defaultSubdir: null,         // Default subdirectory to show (e.g., 'data')
         isDefault: false,
         isActive: false,
         metadata: null,              // Loaded from pdata.json if present
@@ -59,7 +60,8 @@ const dataMountSlice = createSlice({
     initialState,
     reducers: {
         /**
-         * Initialize with default PD_DATA mount point
+         * Initialize with default PD_DIR mount point
+         * Mount path = PD_DIR, defaultSubdir = 'data'
          */
         initializeMounts: (state, action) => {
             if (state._initialized) {
@@ -67,21 +69,23 @@ const dataMountSlice = createSlice({
                 return;
             }
 
-            const { defaultPath, pdDir } = action.payload || {};
+            const { defaultMountPath, defaultSubdir, pdDir } = action.payload || {};
 
-            // Create default mount point from PD_DATA
-            if (defaultPath) {
+            // Create default mount point from PD_DIR
+            if (defaultMountPath || pdDir) {
+                const mountPath = defaultMountPath || pdDir;
                 const defaultMount = createMountPoint({
                     id: 'default',
                     name: 'Default Data',
-                    path: defaultPath,
+                    path: mountPath,
+                    defaultSubdir: defaultSubdir || 'data',
                     isDefault: true,
                     isActive: true
                 });
 
                 state.mountPoints = [defaultMount];
                 state.activeMountId = 'default';
-                state.defaultDataPath = defaultPath;
+                state.defaultDataPath = mountPath;
             }
 
             state._initialized = true;
@@ -247,6 +251,25 @@ export const selectActiveMountPath = (state) => {
     return active?.path || state.dataMount.defaultDataPath || null;
 };
 
+/**
+ * Get the default subdirectory for the active mount (e.g., 'data')
+ */
+export const selectActiveMountDefaultSubdir = (state) => {
+    const active = selectActiveMountPoint(state);
+    return active?.defaultSubdir || 'data';
+};
+
+/**
+ * Get the full path to the default subdirectory (mount path + defaultSubdir)
+ * This is where the file tree should initially load from
+ */
+export const selectActiveDefaultSubdirPath = (state) => {
+    const mountPath = selectActiveMountPath(state);
+    const subdir = selectActiveMountDefaultSubdir(state);
+    if (!mountPath) return null;
+    return subdir ? `${mountPath}/${subdir}` : mountPath;
+};
+
 export const selectDefaultMountPoint = (state) => {
     return state.dataMount.mountPoints.find(m => m.isDefault) || null;
 };
@@ -289,7 +312,10 @@ export const dataMountThunks = {
 
             if (result.success) {
                 dispatch(dataMountActions.initializeMounts({
-                    defaultPath: result.defaultDataPath,
+                    // Mount path is PD_DIR
+                    defaultMountPath: result.defaultMountPath || result.pdDir,
+                    // Default subdirectory within mount (e.g., 'data')
+                    defaultSubdir: result.defaultSubdir || 'data',
                     pdDir: result.pdDir
                 }));
             }

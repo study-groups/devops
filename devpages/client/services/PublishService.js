@@ -1,6 +1,12 @@
 /**
- * Centralized publish service - single source of truth for HTML generation and publishing
- * Refactored to use focused service classes for CSS, scripts, HTML assembly, and images
+ * PublishService - Centralized HTML generation and publishing
+ *
+ * Refactored to use focused service classes for CSS, scripts, HTML assembly, and images.
+ *
+ * Semantic naming:
+ * - renderTarget: 'preview' | 'publish' (what we're generating for)
+ * - cssStrategy: 'embedded' | 'linked' | 'hybrid' (how CSS is delivered)
+ * - publishTarget: the S3/Spaces configuration for publishing
  */
 
 import { appStore } from '/client/appState.js';
@@ -20,23 +26,24 @@ class PublishService {
    * @param {string} markdownContent - Markdown source
    * @param {string} filePath - Source file path
    * @param {Object} options - Generation options
-   * @param {string} options.mode - 'preview' | 'publish'
+   * @param {string} options.renderTarget - 'preview' | 'publish'
+   * @param {string} options.cssStrategy - 'embedded' | 'linked' | 'hybrid' (publish only)
    * @param {Object} options.theme - Theme object (required for preview)
-   * @param {Object} options.config - Publish config (optional)
+   * @param {Object} options.publishTarget - Publish config (optional)
    * @returns {Promise<string>} Complete HTML document
    */
   async generateDocumentHtml(markdownContent, filePath, options = {}) {
-    const mode = options.mode || 'publish';
-    const isPreview = mode === 'preview';
+    const renderTarget = options.renderTarget || 'publish';
+    const isPreview = renderTarget === 'preview';
     const title = filePath?.replace(/\.md$/, '') || 'Document';
 
-    log.info?.('GENERATE', 'START', `Generating ${mode} HTML for ${filePath}`);
+    log.info?.('GENERATE', 'START', `Generating ${renderTarget} HTML for ${filePath}`);
 
     // Get state
     const state = appStore.getState();
     const pluginsState = state.plugins?.plugins || {};
     const theme = options.theme || themeService.currentTheme;
-    const activeConfig = options.config || selectActiveConfigurationDecrypted(state);
+    const publishTarget = options.publishTarget || selectActiveConfigurationDecrypted(state);
 
     // Get enabled plugins for rendering
     const enabledPlugins = Object.entries(pluginsState)
@@ -45,16 +52,17 @@ class PublishService {
 
     // Render markdown
     const renderResult = await markdownRenderingService.render(markdownContent, filePath, {
-      mode,
+      mode: renderTarget, // MarkdownRenderingService still uses 'mode'
       enabledPlugins
     });
     log.info?.('RENDER', 'SUCCESS', `Rendered ${renderResult.html?.length || 0} chars of HTML`);
 
     // Build CSS bundle
     const css = await cssBuilder.bundleCSS(renderResult, {
-      mode,
+      renderTarget,
+      cssStrategy: options.cssStrategy,
       theme,
-      activeConfig,
+      publishTarget,
       filePath
     });
 
@@ -64,7 +72,7 @@ class PublishService {
       ? htmlContent
       : await imageEmbedder.embedImagesAsBase64(htmlContent);
 
-    // Build plugin scripts (preview only)
+    // Build plugin scripts
     const scripts = scriptInjector.buildPluginScripts({
       pluginsState,
       isPreview,
@@ -72,13 +80,13 @@ class PublishService {
     });
 
     // Generate runtime metadata and JS (publish only)
-    const metadata = isPreview ? '' : this.generateRuntimeMetadata(filePath, activeConfig, renderResult.frontMatter || {});
+    const metadata = isPreview ? '' : this.generateRuntimeMetadata(filePath, publishTarget, renderResult.frontMatter || {});
     const runtimeJS = isPreview ? '' : await this.loadRuntimeJS();
 
     // Assemble final document
     const finalHtml = htmlAssembler.assembleDocument(
       { content: finalContent, css, scripts, metadata, runtimeJS },
-      { mode, title, theme, pluginsState }
+      { renderTarget, title, theme, pluginsState }
     );
 
     log.info?.('GENERATE', 'COMPLETE', `Generated ${finalHtml.length} chars of HTML`);
@@ -87,11 +95,16 @@ class PublishService {
 
   /**
    * Generate clean HTML for publishing (wrapper for generateDocumentHtml)
+   * @param {string} markdownContent - Markdown source
+   * @param {string} filePath - Source file path
+   * @param {Object} options - Generation options
+   * @param {string} options.cssStrategy - 'embedded' | 'linked' | 'hybrid' (default: from config or 'embedded')
+   * @returns {Promise<string>} Complete HTML document
    */
   async generatePublishHtml(markdownContent, filePath, options = {}) {
     return this.generateDocumentHtml(markdownContent, filePath, {
       ...options,
-      mode: 'publish'
+      renderTarget: 'publish'
     });
   }
 
@@ -104,7 +117,7 @@ class PublishService {
    */
   async generatePreviewHtml(markdownContent, filePath, theme = null) {
     return this.generateDocumentHtml(markdownContent, filePath, {
-      mode: 'preview',
+      renderTarget: 'preview',
       theme: theme || themeService.currentTheme
     });
   }
@@ -112,17 +125,17 @@ class PublishService {
   /**
    * Generate runtime metadata for smart published pages
    */
-  generateRuntimeMetadata(filePath, config, frontMatter) {
+  generateRuntimeMetadata(filePath, publishTarget, frontMatter) {
     const metadata = {
       publishedAt: new Date().toISOString(),
       version: '1.0.0',
       sourceFile: filePath,
       sourceUrl: `devpages://edit?file=${encodeURIComponent(filePath)}`,
       collection: null,
-      config: config ? {
-        bucket: config.bucket,
-        prefix: config.prefix,
-        endpoint: config.endpoint
+      publishTarget: publishTarget ? {
+        bucket: publishTarget.bucket,
+        prefix: publishTarget.prefix,
+        endpoint: publishTarget.endpoint
       } : null,
       frontMatter: {
         title: frontMatter.title || null,
@@ -157,19 +170,19 @@ class PublishService {
     const html = await this.generatePublishHtml(markdownContent, filePath, options);
 
     const state = appStore.getState();
-    const activeConfig = selectActiveConfigurationDecrypted(state);
+    const publishTarget = selectActiveConfigurationDecrypted(state);
 
-    if (!activeConfig) {
+    if (!publishTarget) {
       throw new Error('No publish configuration selected. Please configure publishing in the Publish panel.');
     }
 
-    return this.publishToSpaces(html, filePath, activeConfig);
+    return this.publishToSpaces(html, filePath, publishTarget);
   }
 
   /**
    * Publish to Digital Ocean Spaces
    */
-  async publishToSpaces(htmlContent, filePath, config) {
+  async publishToSpaces(htmlContent, filePath, publishTarget) {
     const response = await window.APP.services.globalFetch('/api/publish', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -177,13 +190,13 @@ class PublishService {
         pathname: filePath,
         htmlContent: htmlContent,
         config: {
-          endpoint: config.endpoint,
-          region: config.region,
-          bucket: config.bucket,
-          accessKey: config.accessKey,
-          secretKey: config.secretKey,
-          prefix: config.prefix,
-          baseUrl: config.baseUrl
+          endpoint: publishTarget.endpoint,
+          region: publishTarget.region,
+          bucket: publishTarget.bucket,
+          accessKey: publishTarget.accessKey,
+          secretKey: publishTarget.secretKey,
+          prefix: publishTarget.prefix,
+          baseUrl: publishTarget.baseUrl
         }
       })
     });

@@ -8,7 +8,7 @@
 import { storageService } from '/client/services/storageService.js';
 import { debounce } from '/client/utils/debounce.js';
 
-const PERSISTED_SLICES = ['panels', 'ui', 'settings', 'publishConfig', 'log', 'dataMount'];
+const PERSISTED_SLICES = ['panels', 'ui', 'settings', 'publishConfig', 'log', 'dataMount', 'fileCollection'];
 
 const debouncedSave = debounce((state) => {
     try {
