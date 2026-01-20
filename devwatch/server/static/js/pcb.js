@@ -7,8 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let takeScreenshotsCheckbox, captureTracesCheckbox, captureHarCheckbox;
     let measurePerformanceCheckbox, logMetricsCheckbox, outputDirInput;
     
-        // Environment Variables Elements
-    let targetUrlInput, targetEnvInput, additionalPathsInput;
+        // Capture form elements
+    let targetUrlInput, additionalPathsInput;
     let logDirInput, screenshotDirInput, maxDiskUsageInput;
     let showEnvInCliCheckbox;
     
@@ -96,13 +96,281 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // Fetch and populate contexts dropdown
+    async function populateContexts() {
+        const contextSelect = document.getElementById('context-select');
+        if (!contextSelect) return;
+
+        try {
+            const resp = await fetch('/api/contexts');
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const contexts = await resp.json();
+
+            contextSelect.innerHTML = '';
+            contexts.forEach(ctx => {
+                const option = document.createElement('option');
+                option.value = ctx.id;
+                option.textContent = ctx.name;
+                if (ctx.hasCookies || ctx.hasOrigins) {
+                    option.textContent += ' (has auth)';
+                }
+                contextSelect.appendChild(option);
+            });
+
+            // Select default context
+            contextSelect.value = 'default';
+        } catch (error) {
+            console.error('Failed to fetch contexts:', error);
+            // Keep default option if API fails
+        }
+    }
+
+    // Context Editor Modal
+    async function openContextEditor(contextId) {
+        // Fetch full context data
+        let context;
+        try {
+            const resp = await fetch(`/api/contexts/${contextId}`);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            context = await resp.json();
+        } catch (error) {
+            console.error('Failed to fetch context:', error);
+            alert(`Failed to load context: ${error.message}`);
+            return;
+        }
+
+        // Create modal overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'context-editor-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        `;
+
+        const modal = document.createElement('div');
+        modal.className = 'context-editor-modal';
+        modal.style.cssText = `
+            background: var(--devwatch-bg-primary, #0d0d1a);
+            border: 1px solid var(--devwatch-border-primary, #333);
+            border-radius: 8px;
+            padding: 24px;
+            min-width: 500px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        `;
+
+        const cookieCount = context.storageState?.cookies?.length || 0;
+        const originCount = context.storageState?.origins?.length || 0;
+        const isDefault = context.id === 'default';
+
+        modal.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0; color: var(--devwatch-text-primary, #e0e0e0);">Edit Context</h2>
+                <button class="context-editor-close ghost-btn" style="font-size: 20px;">&times;</button>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div>
+                    <label style="display: block; margin-bottom: 4px; color: var(--devwatch-text-secondary, #aaa); font-size: 12px;">Context ID</label>
+                    <input type="text" value="${context.id}" readonly style="width: 100%; padding: 8px; background: var(--devwatch-bg-tertiary, #1a1a2e); border: 1px solid var(--devwatch-border-primary, #333); color: var(--devwatch-text-muted, #666); border-radius: 4px;">
+                </div>
+
+                <div>
+                    <label style="display: block; margin-bottom: 4px; color: var(--devwatch-text-secondary, #aaa); font-size: 12px;">Name</label>
+                    <input type="text" id="context-name-input" value="${context.name}" style="width: 100%; padding: 8px; background: var(--devwatch-bg-secondary, #1a1a2e); border: 1px solid var(--devwatch-border-primary, #333); color: var(--devwatch-text-primary, #e0e0e0); border-radius: 4px;">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; color: var(--devwatch-text-secondary, #aaa); font-size: 12px;">Viewport Width</label>
+                        <input type="number" id="context-viewport-width" value="${context.viewport?.width || 1280}" style="width: 100%; padding: 8px; background: var(--devwatch-bg-secondary, #1a1a2e); border: 1px solid var(--devwatch-border-primary, #333); color: var(--devwatch-text-primary, #e0e0e0); border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; color: var(--devwatch-text-secondary, #aaa); font-size: 12px;">Viewport Height</label>
+                        <input type="number" id="context-viewport-height" value="${context.viewport?.height || 720}" style="width: 100%; padding: 8px; background: var(--devwatch-bg-secondary, #1a1a2e); border: 1px solid var(--devwatch-border-primary, #333); color: var(--devwatch-text-primary, #e0e0e0); border-radius: 4px;">
+                    </div>
+                </div>
+
+                <div style="padding: 12px; background: var(--devwatch-bg-tertiary, #111); border-radius: 4px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="color: var(--devwatch-text-secondary, #aaa); font-size: 12px;">Storage State</span>
+                        <span style="color: var(--devwatch-text-muted, #666); font-size: 11px;">${cookieCount} cookies, ${originCount} origins</span>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button id="context-import-btn" class="capture-btn capture-btn-secondary" style="flex: 1; padding: 6px;">Import</button>
+                        <button id="context-export-btn" class="capture-btn capture-btn-secondary" style="flex: 1; padding: 6px;">Export</button>
+                        <button id="context-clear-btn" class="capture-btn capture-btn-secondary" style="flex: 1; padding: 6px; color: var(--devwatch-accent-danger, #ff4444);">Clear</button>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 12px; margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--devwatch-border-secondary, #222);">
+                    ${!isDefault ? `<button id="context-delete-btn" class="capture-btn capture-btn-secondary" style="color: var(--devwatch-accent-danger, #ff4444);">Delete Context</button>` : ''}
+                    <div style="flex: 1;"></div>
+                    <button id="context-cancel-btn" class="capture-btn capture-btn-secondary">Cancel</button>
+                    <button id="context-save-btn" class="capture-btn capture-btn-primary">Save Changes</button>
+                </div>
+            </div>
+        `;
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Hidden file input for import
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.json';
+        fileInput.style.display = 'none';
+        document.body.appendChild(fileInput);
+
+        // Event handlers
+        const closeModal = () => {
+            overlay.remove();
+            fileInput.remove();
+        };
+
+        overlay.querySelector('.context-editor-close').addEventListener('click', closeModal);
+        modal.querySelector('#context-cancel-btn').addEventListener('click', closeModal);
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeModal();
+        });
+
+        // Save changes
+        modal.querySelector('#context-save-btn').addEventListener('click', async () => {
+            const name = modal.querySelector('#context-name-input').value.trim();
+            const width = parseInt(modal.querySelector('#context-viewport-width').value) || 1280;
+            const height = parseInt(modal.querySelector('#context-viewport-height').value) || 720;
+
+            try {
+                const resp = await fetch(`/api/contexts/${contextId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name,
+                        viewport: { width, height }
+                    })
+                });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+                await populateContexts();
+                if (window.DevWatch) window.DevWatch.addLogEntry('Context updated', 'success', { id: contextId, name });
+                closeModal();
+            } catch (error) {
+                console.error('Failed to save context:', error);
+                alert(`Failed to save: ${error.message}`);
+            }
+        });
+
+        // Delete context
+        const deleteBtn = modal.querySelector('#context-delete-btn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', async () => {
+                if (!confirm(`Are you sure you want to delete "${context.name}"?`)) return;
+
+                try {
+                    const resp = await fetch(`/api/contexts/${contextId}`, { method: 'DELETE' });
+                    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+                    await populateContexts();
+                    if (window.DevWatch) window.DevWatch.addLogEntry('Context deleted', 'info', { id: contextId });
+                    closeModal();
+                } catch (error) {
+                    console.error('Failed to delete context:', error);
+                    alert(`Failed to delete: ${error.message}`);
+                }
+            });
+        }
+
+        // Import storageState
+        modal.querySelector('#context-import-btn').addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const text = await file.text();
+                const storageState = JSON.parse(text);
+
+                const resp = await fetch(`/api/contexts/${contextId}/storageState`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(storageState)
+                });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+                await populateContexts();
+                if (window.DevWatch) window.DevWatch.addLogEntry('Storage state imported', 'success', { id: contextId });
+                closeModal();
+            } catch (error) {
+                console.error('Failed to import storageState:', error);
+                alert(`Failed to import: ${error.message}`);
+            }
+        });
+
+        // Export storageState
+        modal.querySelector('#context-export-btn').addEventListener('click', async () => {
+            try {
+                const resp = await fetch(`/api/contexts/${contextId}/storageState`);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const storageState = await resp.json();
+
+                const blob = new Blob([JSON.stringify(storageState, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${contextId}-storageState.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+
+                if (window.DevWatch) window.DevWatch.addLogEntry('Storage state exported', 'info', { id: contextId });
+            } catch (error) {
+                console.error('Failed to export storageState:', error);
+                alert(`Failed to export: ${error.message}`);
+            }
+        });
+
+        // Clear storageState
+        modal.querySelector('#context-clear-btn').addEventListener('click', async () => {
+            if (!confirm('Clear all cookies and storage? This cannot be undone.')) return;
+
+            try {
+                const resp = await fetch(`/api/contexts/${contextId}/storageState`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cookies: [], origins: [] })
+                });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+                await populateContexts();
+                if (window.DevWatch) window.DevWatch.addLogEntry('Storage state cleared', 'info', { id: contextId });
+                closeModal();
+            } catch (error) {
+                console.error('Failed to clear storageState:', error);
+                alert(`Failed to clear: ${error.message}`);
+            }
+        });
+    }
+
     function populateCommandBuilder() {
         if (!projectSelect) {
             console.warn('projectSelect element not found, deferring populateCommandBuilder');
             setTimeout(populateCommandBuilder, 200);
             return;
         }
-        projectSelect.innerHTML = '';
+
+        // Populate project dropdown
+        projectSelect.innerHTML = '<option value="">All Projects</option>';
         if (config.projects) {
             config.projects.forEach(proj => {
                 const option = document.createElement('option');
@@ -111,14 +379,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 projectSelect.appendChild(option);
             });
         }
-        
+
+        // Populate contexts dropdown
+        populateContexts();
+
         outputDirInput.placeholder = config.paths.outputDir || 'Override default...';
 
         const allBuilderElements = [
             projectSelect, reporterSelect, headlessCheckbox, updateSnapshotsCheckbox,
             takeScreenshotsCheckbox, captureTracesCheckbox, captureHarCheckbox,
             measurePerformanceCheckbox, logMetricsCheckbox, outputDirInput,
-            targetUrlInput, targetEnvInput, additionalPathsInput, logDirInput,
+            targetUrlInput, additionalPathsInput, logDirInput,
             screenshotDirInput, maxDiskUsageInput, showEnvInCliCheckbox
         ];
         allBuilderElements.filter(Boolean).forEach(el => el.addEventListener('input', () => { updateStateFromUI(); renderFromState(); }));
@@ -232,15 +503,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const name = (nameInput?.value || '').trim();
         const files = selectedTest && !selectedTest.isConfig ? [selectedTest.path] : [];
-        
-        // Handle multiple project selection
-        const selectedProjects = Array.from(projectSelect.selectedOptions).map(option => option.value).filter(v => v);
-        
+
+        // Single project selection (no longer multi-select)
+        const selectedProject = projectSelect?.value || '';
+
         const pjo = {
             name,
             files,
-            project: selectedProjects.length > 0 ? selectedProjects : [''],
-            reporter: reporterSelect.value || '',
+            project: selectedProject ? [selectedProject] : [''],
+            reporter: reporterSelect?.value || '',
             options: {
                 headless: !!headlessCheckbox?.checked,
                 updateSnapshots: !!updateSnapshotsCheckbox?.checked,
@@ -252,7 +523,6 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             environment: {
                 ...(targetUrlInput?.value?.trim() && { PLAYWRIGHT_TARGET_URL: targetUrlInput.value.trim() }),
-                ...(targetEnvInput?.value?.trim() && { PLAYWRIGHT_TARGET_ENV: targetEnvInput.value.trim() }),
                 ...(additionalPathsInput?.value?.trim() && { PLAYWRIGHT_ADDITIONAL_PATHS: additionalPathsInput.value.trim() }),
                 ...(logDirInput?.value?.trim() && { PLAYWRIGHT_LOG_DIR: logDirInput.value.trim() }),
                 ...(screenshotDirInput?.value?.trim() && { PLAYWRIGHT_SCREENSHOT_DIR: screenshotDirInput.value.trim() }),
@@ -549,10 +819,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function executePlaywrightCommand(command, label) {
         try {
-            // Get the current environment setting
-            const targetEnvInput = document.getElementById('target-env-input');
-            const env = targetEnvInput?.value || 'dev'; // Default to 'dev'
-            
+            // Default environment (env dropdown removed from UI)
+            const env = 'dev';
+
             // Use enhanced logging for command execution
             const { response: resp, result, success } = await APP.log.executeCommandWithLogging(command, {
                 component: 'pcb',
@@ -793,7 +1062,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             // Load environment variables
                             const env = pcbObject.environment || {};
                             if (targetUrlInput) targetUrlInput.value = env.PLAYWRIGHT_TARGET_URL || '';
-                            if (targetEnvInput) targetEnvInput.value = env.PLAYWRIGHT_TARGET_ENV || '';
                             if (additionalPathsInput) additionalPathsInput.value = env.PLAYWRIGHT_ADDITIONAL_PATHS || '';
                             if (logDirInput) logDirInput.value = env.PLAYWRIGHT_LOG_DIR || '';
                             if (screenshotDirInput) screenshotDirInput.value = env.PLAYWRIGHT_SCREENSHOT_DIR || '';
@@ -1039,19 +1307,75 @@ document.addEventListener('DOMContentLoaded', () => {
             isOpen: true
         });
 
+        // New Capture section - prominent URL + context + project + capture options
+        sections.capture = new DevWatchUiSection({
+            id: 'capture-section',
+            title: 'Capture',
+            content: `
+                <div class="capture-form">
+                    <!-- Prominent URL input -->
+                    <div class="capture-url-bar">
+                        <input type="text" id="target-url-input" class="capture-url-input"
+                               placeholder="https://example.com" autocomplete="url">
+                    </div>
+
+                    <!-- Context and Project selectors -->
+                    <div class="capture-selectors">
+                        <div class="capture-selector-group">
+                            <label for="context-select">Context:</label>
+                            <select id="context-select" class="capture-select">
+                                <option value="default">Default Context</option>
+                            </select>
+                            <div class="capture-context-actions">
+                                <button type="button" id="new-context-btn" class="capture-btn-icon" title="New Context">+</button>
+                                <button type="button" id="edit-context-btn" class="capture-btn-icon" title="Edit Context">Edit</button>
+                            </div>
+                        </div>
+                        <div class="capture-selector-group">
+                            <label for="project-select">Project:</label>
+                            <select id="project-select" class="capture-select">
+                                <option value="">All Projects</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Capture options (grouped checkboxes) -->
+                    <div class="capture-options">
+                        <div class="capture-option">
+                            <input type="checkbox" id="take-screenshots-checkbox" checked>
+                            <label for="take-screenshots-checkbox">Screenshot</label>
+                        </div>
+                        <div class="capture-option">
+                            <input type="checkbox" id="capture-har-checkbox">
+                            <label for="capture-har-checkbox">HAR</label>
+                        </div>
+                        <div class="capture-option">
+                            <input type="checkbox" id="capture-traces-checkbox">
+                            <label for="capture-traces-checkbox">Trace</label>
+                        </div>
+                        <div class="capture-option">
+                            <input type="checkbox" id="headless-checkbox" checked>
+                            <label for="headless-checkbox">Headless</label>
+                        </div>
+                    </div>
+
+                    <!-- Action buttons -->
+                    <div class="capture-actions">
+                        <button type="button" id="record-actions-btn" class="capture-btn capture-btn-secondary">Record Actions</button>
+                        <button type="button" id="run-capture-btn" class="capture-btn capture-btn-primary">Run Capture</button>
+                    </div>
+                </div>
+            `,
+            position: 'right',
+            isOpen: true
+        });
+
         sections.testOptions = new DevWatchUiSection({
             id: 'test-options-section',
             title: 'Test Options',
             content: `
                 <div class="devwatch-card" style="padding:10px;">
                     <div class="command-options">
-                        <div class="option-group">
-                            <label for="project-select">Project:</label>
-                            <select id="project-select" multiple size="5">
-                                <option value="">All Projects</option>
-                            </select>
-                            <small style="color: #888; font-size: 11px;">Hold Ctrl/Cmd to select multiple</small>
-                        </div>
                         <div class="option-group">
                             <label for="reporter-select">Reporter:</label>
                             <select id="reporter-select">
@@ -1063,24 +1387,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             </select>
                         </div>
                         <div class="option-group">
-                            <input type="checkbox" id="headless-checkbox" checked>
-                            <label for="headless-checkbox">Headless</label>
-                        </div>
-                        <div class="option-group">
                             <input type="checkbox" id="update-snapshots-checkbox">
                             <label for="update-snapshots-checkbox">Update Snapshots</label>
-                        </div>
-                        <div class="option-group">
-                            <input type="checkbox" id="take-screenshots-checkbox">
-                            <label for="take-screenshots-checkbox">Take Screenshots</label>
-                        </div>
-                        <div class="option-group">
-                            <input type="checkbox" id="capture-traces-checkbox">
-                            <label for="capture-traces-checkbox">Capture Traces</label>
-                        </div>
-                        <div class="option-group">
-                            <input type="checkbox" id="capture-har-checkbox">
-                            <label for="capture-har-checkbox">Capture HAR</label>
                         </div>
                         <div class="option-group">
                             <input type="checkbox" id="measure-performance-checkbox">
@@ -1098,7 +1406,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `,
             position: 'right',
-            isOpen: true
+            isOpen: false
         });
 
         sections.authAndHar = new DevWatchUiSection({
@@ -1144,31 +1452,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         sections.environment = new DevWatchUiSection({
             id: 'environment-section',
-            title: 'Environment Variables',
+            title: 'Advanced Options',
             content: `
                 <div class="devwatch-card" style="padding:10px;">
                     <div class="env-variables-grid" style="display:grid; grid-template-columns:1fr 2fr; gap:8px; align-items:center;">
-                        <label for="target-url-input">PLAYWRIGHT_TARGET_URL:</label>
-                        <input type="text" id="target-url-input" placeholder="https://dev.pixeljamarcade.com">
-                        
-                        <label for="target-env-input">PLAYWRIGHT_TARGET_ENV:</label>
-                        <select id="target-env-input">
-                            <option value="">Auto-detect</option>
-                            <option value="dev">dev</option>
-                            <option value="staging">staging</option>
-                            <option value="prod">prod</option>
-                        </select>
-                        
-                        <label for="additional-paths-input">PLAYWRIGHT_ADDITIONAL_PATHS:</label>
+                        <label for="additional-paths-input">Additional Paths:</label>
                         <input type="text" id="additional-paths-input" placeholder="path1,path2,path3">
-                        
-                        <label for="log-dir-input">PLAYWRIGHT_LOG_DIR:</label>
+
+                        <label for="log-dir-input">Log Directory:</label>
                         <input type="text" id="log-dir-input" placeholder="Override log directory">
-                        
-                        <label for="screenshot-dir-input">PLAYWRIGHT_SCREENSHOT_DIR:</label>
+
+                        <label for="screenshot-dir-input">Screenshot Directory:</label>
                         <input type="text" id="screenshot-dir-input" placeholder="Override screenshot directory">
-                        
-                        <label for="max-disk-usage-input">PLAYWRIGHT_MAX_DISK_USAGE:</label>
+
+                        <label for="max-disk-usage-input">Max Disk Usage:</label>
                         <input type="text" id="max-disk-usage-input" placeholder="e.g., 10GB">
                     </div>
                     <details style="margin-top:12px;">
@@ -1246,6 +1543,8 @@ document.addEventListener('DOMContentLoaded', () => {
         columnContainer.addSection(sections.testFiles, 'left');
         columnContainer.addSection(sections.savedCommands, 'left');
 
+        // Capture section first (prominent position)
+        columnContainer.addSection(sections.capture, 'right');
         columnContainer.addSection(sections.codeViewer, 'right');
         columnContainer.addSection(sections.testOptions, 'right');
         columnContainer.addSection(sections.authAndHar, 'right');
@@ -1261,9 +1560,16 @@ document.addEventListener('DOMContentLoaded', () => {
             testContent = document.getElementById('test-content');
             cliCommandDisplay = document.getElementById('cli-command');
             copyCommandBtn = document.getElementById('copy-command-btn');
-            // activeFilePathDisplay removed - filename now shows in section header
-            
-            // Re-assign other element references
+
+            // Capture form elements
+            targetUrlInput = document.getElementById('target-url-input');
+            const contextSelect = document.getElementById('context-select');
+            const newContextBtn = document.getElementById('new-context-btn');
+            const editContextBtn = document.getElementById('edit-context-btn');
+            const recordActionsBtn = document.getElementById('record-actions-btn');
+            const runCaptureBtn = document.getElementById('run-capture-btn');
+
+            // Test options elements
             projectSelect = document.getElementById('project-select');
             reporterSelect = document.getElementById('reporter-select');
             headlessCheckbox = document.getElementById('headless-checkbox');
@@ -1274,21 +1580,180 @@ document.addEventListener('DOMContentLoaded', () => {
             measurePerformanceCheckbox = document.getElementById('measure-performance-checkbox');
             logMetricsCheckbox = document.getElementById('log-metrics-checkbox');
             outputDirInput = document.getElementById('output-dir-input');
-            
-            targetUrlInput = document.getElementById('target-url-input');
-            targetEnvInput = document.getElementById('target-env-input');
+
+            // Advanced options elements
             additionalPathsInput = document.getElementById('additional-paths-input');
             logDirInput = document.getElementById('log-dir-input');
             screenshotDirInput = document.getElementById('screenshot-dir-input');
             maxDiskUsageInput = document.getElementById('max-disk-usage-input');
             showEnvInCliCheckbox = document.getElementById('show-env-in-cli');
-            
+
             namedTestJsonEl = document.getElementById('named-test-json');
             copyJsonBtn = document.getElementById('copy-json-btn');
-            
+
             outputPathsDiv = document.getElementById('output-paths');
             viewReportBtn = document.getElementById('view-report-btn');
-            
+
+            // Setup capture action buttons
+            if (recordActionsBtn) {
+                recordActionsBtn.addEventListener('click', async () => {
+                    const url = targetUrlInput?.value?.trim() || '';
+                    if (!url) {
+                        alert('Please enter a URL first');
+                        return;
+                    }
+
+                    try {
+                        const resp = await fetch('/api/capture/codegen', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                url,
+                                contextId: contextSelect?.value || 'default'
+                            })
+                        });
+                        const data = await resp.json();
+
+                        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+
+                        // Show the codegen command to the user
+                        const msg = `Run this command in your terminal:\n\n${data.command}\n\n${data.note}`;
+                        alert(msg);
+
+                        // Also copy to clipboard
+                        navigator.clipboard.writeText(data.command).catch(() => {});
+
+                        if (window.DevWatch) window.DevWatch.addLogEntry('Playwright codegen command ready', 'info', {
+                            url,
+                            command: data.command
+                        });
+                    } catch (error) {
+                        console.error('Failed to get codegen command:', error);
+                        alert(`Error: ${error.message}`);
+                    }
+                });
+            }
+
+            if (runCaptureBtn) {
+                runCaptureBtn.addEventListener('click', async () => {
+                    const url = targetUrlInput?.value?.trim() || '';
+                    if (!url) {
+                        alert('Please enter a URL first');
+                        return;
+                    }
+
+                    runCaptureBtn.classList.add('loading');
+                    runCaptureBtn.disabled = true;
+
+                    try {
+                        const captureOptions = {
+                            url,
+                            contextId: contextSelect?.value || 'default',
+                            project: projectSelect?.value || 'chromium',
+                            options: {
+                                screenshot: takeScreenshotsCheckbox?.checked ?? true,
+                                har: captureHarCheckbox?.checked ?? false,
+                                trace: captureTracesCheckbox?.checked ?? false,
+                                headless: headlessCheckbox?.checked ?? true
+                            }
+                        };
+
+                        const resp = await fetch('/api/capture', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(captureOptions)
+                        });
+                        const data = await resp.json();
+
+                        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+
+                        if (window.DevWatch) window.DevWatch.addLogEntry('Capture started', 'success', {
+                            captureId: data.captureId,
+                            url,
+                            status: data.status
+                        });
+
+                        // Poll for completion
+                        const pollCapture = async (captureId, attempts = 0) => {
+                            if (attempts > 30) {
+                                if (window.DevWatch) window.DevWatch.addLogEntry('Capture timeout', 'warning', { captureId });
+                                return;
+                            }
+
+                            try {
+                                const statusResp = await fetch(`/api/capture/${captureId}`);
+                                const status = await statusResp.json();
+
+                                if (status.status === 'completed') {
+                                    if (window.DevWatch) window.DevWatch.addLogEntry('Capture completed', 'success', {
+                                        captureId,
+                                        artifacts: status.artifacts
+                                    });
+                                } else if (status.status === 'failed') {
+                                    if (window.DevWatch) window.DevWatch.addLogEntry('Capture failed', 'error', {
+                                        captureId,
+                                        error: status.error
+                                    });
+                                } else {
+                                    // Still running, poll again
+                                    setTimeout(() => pollCapture(captureId, attempts + 1), 1000);
+                                }
+                            } catch (pollError) {
+                                console.error('Poll error:', pollError);
+                            }
+                        };
+
+                        pollCapture(data.captureId);
+
+                    } catch (error) {
+                        console.error('Capture error:', error);
+                        if (window.DevWatch) window.DevWatch.addLogEntry('Capture failed', 'error', {
+                            url,
+                            error: error.message
+                        });
+                        alert(`Capture failed: ${error.message}`);
+                    } finally {
+                        runCaptureBtn.classList.remove('loading');
+                        runCaptureBtn.disabled = false;
+                    }
+                });
+            }
+
+            if (newContextBtn) {
+                newContextBtn.addEventListener('click', async () => {
+                    const name = prompt('Enter context name:');
+                    if (name) {
+                        try {
+                            const resp = await fetch('/api/contexts', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ name })
+                            });
+                            if (!resp.ok) {
+                                const err = await resp.json();
+                                throw new Error(err.error || `HTTP ${resp.status}`);
+                            }
+                            const newContext = await resp.json();
+                            // Refresh context dropdown
+                            await populateContexts();
+                            // Select the new context
+                            contextSelect.value = newContext.id;
+                            if (window.DevWatch) window.DevWatch.addLogEntry('Created new context', 'success', { id: newContext.id, name: newContext.name });
+                        } catch (error) {
+                            console.error('Failed to create context:', error);
+                            alert(`Failed to create context: ${error.message}`);
+                        }
+                    }
+                });
+            }
+
+            if (editContextBtn) {
+                editContextBtn.addEventListener('click', async () => {
+                    const currentContextId = contextSelect?.value || 'default';
+                    await openContextEditor(currentContextId);
+                });
+            }
+
             // Setup event listeners after elements are created
             setupSaveButton();
         }, 50);

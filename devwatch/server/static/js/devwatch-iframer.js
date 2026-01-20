@@ -424,6 +424,7 @@ class DevWatchIframer {
         
         const appSources = {
             'system': '/static/system.iframe.html',
+            'docs': '/static/docs.iframe.html',
             'api-helper': '/static/api-helper.iframe.html',
             'pcb': '/static/pcb.iframe.html',
             'command-runner': '/static/command-runner.iframe.html',
@@ -1808,6 +1809,7 @@ window.DevWatchIframerLongPress = {
             console.warn('[DevWatchIframer] ⚠️ Using hardcoded fallback apps');
             allApps = [
                 { id: 'system', title: 'System', icon: '📁', src: '/static/system.iframe.html', category: 'dev' },
+                { id: 'docs', title: 'Docs', icon: '📄', src: '/static/docs.iframe.html', category: 'dev' },
                 { id: 'api-helper', title: 'API Helper', icon: '🔌', src: '/static/api-helper.iframe.html', category: 'dev' },
                 { id: 'pcb', title: 'Playwright Command Builder', icon: '⚡', src: '/static/pcb.iframe.html', category: 'dev' },
                 { id: 'command-runner', title: 'Command Runner', icon: '🎮', src: '/static/command-runner.iframe.html', category: 'dev' },

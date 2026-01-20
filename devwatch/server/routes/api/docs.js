@@ -39,6 +39,255 @@ function getCurrentUser(req) {
 
 const DOCS_DIR = path.resolve(__dirname, '..', '..', '..', 'docs');
 const META_FILE_PATH = path.join(DOCS_DIR, 'docs-meta.json');
+const ROOTS_FILE_PATH = path.join(DOCS_DIR, 'roots-config.json');
+
+// Default roots (used if no config file exists)
+const DEFAULT_ROOTS = {
+    pd: {
+        name: 'PD_DIR',
+        path: process.env.PD_DIR || ''
+    }
+};
+
+// In-memory roots cache
+let rootsCache = null;
+
+async function loadRoots() {
+    if (rootsCache) return rootsCache;
+
+    try {
+        await fs.access(ROOTS_FILE_PATH);
+        const content = await fs.readFile(ROOTS_FILE_PATH, 'utf8');
+        rootsCache = JSON.parse(content);
+        return rootsCache;
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            // Create default config
+            rootsCache = { ...DEFAULT_ROOTS };
+            await saveRoots(rootsCache);
+            return rootsCache;
+        }
+        console.error('Error loading roots config:', error);
+        return DEFAULT_ROOTS;
+    }
+}
+
+async function saveRoots(roots) {
+    try {
+        await fs.writeFile(ROOTS_FILE_PATH, JSON.stringify(roots, null, 2));
+        rootsCache = roots;
+    } catch (error) {
+        console.error('Error saving roots config:', error);
+        throw error;
+    }
+}
+
+async function getRoot(rootKey) {
+    const roots = await loadRoots();
+    const root = roots[rootKey];
+    if (!root) return null;
+
+    let resolvedPath = root.path;
+    // Expand ~ to $HOME
+    if (resolvedPath.startsWith('~')) {
+        resolvedPath = path.join(process.env.HOME || '', resolvedPath.slice(1));
+    }
+    return resolvedPath;
+}
+
+// GET /api/docs/roots - List all configured roots
+router.get('/roots', async (req, res) => {
+    try {
+        const roots = await loadRoots();
+        const result = [];
+
+        for (const [id, config] of Object.entries(roots)) {
+            let exists = false;
+            let resolvedPath = config.path;
+
+            // Expand ~ to home directory
+            if (resolvedPath.startsWith('~')) {
+                resolvedPath = path.join(process.env.HOME || '', resolvedPath.slice(1));
+            }
+
+            try {
+                await fs.access(resolvedPath);
+                exists = true;
+            } catch {
+                exists = false;
+            }
+
+            result.push({
+                id,
+                name: config.name,
+                path: resolvedPath,
+                exists
+            });
+        }
+
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// POST /api/docs/roots - Add a new root
+router.post('/roots', async (req, res) => {
+    const { id, name, path: rootPath } = req.body;
+
+    if (!id || !rootPath) {
+        return res.status(400).json({ error: 'id and path are required' });
+    }
+
+    // Validate path exists
+    let resolvedPath = rootPath;
+    if (resolvedPath.startsWith('~')) {
+        resolvedPath = path.join(process.env.HOME || '', resolvedPath.slice(1));
+    }
+
+    try {
+        await fs.access(resolvedPath);
+    } catch {
+        return res.status(400).json({ error: `Path does not exist: ${resolvedPath}` });
+    }
+
+    try {
+        const roots = await loadRoots();
+        roots[id] = {
+            name: name || path.basename(rootPath),
+            path: rootPath
+        };
+        await saveRoots(roots);
+
+        res.status(201).json({
+            message: 'Root added',
+            root: { id, name: roots[id].name, path: resolvedPath, exists: true }
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// DELETE /api/docs/roots/:id - Remove a root
+router.delete('/roots/:id', async (req, res) => {
+    const { id } = req.params;
+
+    if (id === 'pd') {
+        return res.status(400).json({ error: 'Cannot delete the default pd root' });
+    }
+
+    try {
+        const roots = await loadRoots();
+        if (!roots[id]) {
+            return res.status(404).json({ error: 'Root not found' });
+        }
+
+        delete roots[id];
+        await saveRoots(roots);
+
+        res.json({ message: 'Root deleted' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Simple file browser endpoints
+router.get('/browse', async (req, res) => {
+    const rootKey = req.query.root || 'pd';
+    const rootDir = await getRoot(rootKey);
+
+    if (!rootDir) {
+        return res.json({
+            error: rootKey === 'pd' ? 'PD_DIR not set' : 'Root not found',
+            basePath: '',
+            files: []
+        });
+    }
+
+    const relativePath = req.query.path || '';
+    const fullPath = path.join(rootDir, relativePath);
+
+    // Security: ensure we're not escaping root dir
+    const resolved = path.resolve(fullPath);
+    if (!resolved.startsWith(path.resolve(rootDir))) {
+        return res.status(403).json({ error: 'Access denied' });
+    }
+
+    try {
+        const stats = await fs.stat(resolved);
+        if (!stats.isDirectory()) {
+            return res.status(400).json({ error: 'Not a directory' });
+        }
+
+        const entries = await fs.readdir(resolved, { withFileTypes: true });
+        const files = entries
+            .filter(e => !e.name.startsWith('.')) // Hide dotfiles
+            .map(e => ({
+                name: e.name,
+                path: relativePath ? `${relativePath}/${e.name}` : e.name,
+                isDir: e.isDirectory()
+            }));
+
+        res.json({
+            basePath: rootDir,
+            currentPath: relativePath,
+            files
+        });
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            return res.status(404).json({ error: 'Directory not found' });
+        }
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/file', async (req, res) => {
+    const rootKey = req.query.root || 'pd';
+    const rootDir = await getRoot(rootKey);
+
+    if (!rootDir) {
+        return res.json({
+            error: rootKey === 'pd' ? 'PD_DIR not set' : 'Root not found'
+        });
+    }
+
+    const relativePath = req.query.path || '';
+    if (!relativePath) {
+        return res.status(400).json({ error: 'No path specified' });
+    }
+
+    const fullPath = path.join(rootDir, relativePath);
+
+    // Security: ensure we're not escaping root dir
+    const resolved = path.resolve(fullPath);
+    if (!resolved.startsWith(path.resolve(rootDir))) {
+        return res.status(403).json({ error: 'Access denied' });
+    }
+
+    try {
+        const stats = await fs.stat(resolved);
+        if (stats.isDirectory()) {
+            return res.status(400).json({ error: 'Path is a directory, not a file' });
+        }
+
+        // Limit file size to 1MB
+        if (stats.size > 1024 * 1024) {
+            return res.status(400).json({ error: 'File too large (max 1MB)' });
+        }
+
+        const content = await fs.readFile(resolved, 'utf8');
+        res.json({
+            path: relativePath,
+            name: path.basename(relativePath),
+            content
+        });
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            return res.status(404).json({ error: 'File not found' });
+        }
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // Route to get current user info
 router.get('/whoami', (req, res) => {

@@ -5,6 +5,7 @@ export TSM_NAME="devwatch"
 export TSM_CWD="$HOME/src/devops/devwatch"
 export TSM_PORT="4400"
 export PORT="4400"
+export PD_DIR="$HOME/tetra/orgs/tetra/pd"
 export PW_DIR=$HOME/tetra/orgs/tetra/devwatch
 export TSM_COMMAND="node server/index.js"
 

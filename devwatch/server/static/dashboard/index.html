@@ -29,9 +29,17 @@
         <div id="dashboard-settings-panel" class="settings-panel">
             <div class="settings-panel-content">
                 <h3>Dashboard Settings</h3>
-                <p class="popup-description">Manage your application list and dashboard layout. Changes are temporary until you click "Save".</p>
+                <p class="popup-description">Manage your dashboard layout. Changes are temporary until you click "Save".</p>
+
+                <!-- App Picker -->
+                <div class="app-picker">
+                    <h4 class="app-picker-title">Add App</h4>
+                    <div id="app-picker-list" class="app-picker-list">
+                        <!-- Apps will be populated by JS -->
+                    </div>
+                </div>
+
                 <div class="popup-actions">
-                    <button id="add-new-section-btn" class="devwatch-button devwatch-button--ghost">Add New Section</button>
                     <button id="reset-dashboard-btn" class="devwatch-button devwatch-button--ghost">Reset Layout</button>
                 </div>
                 <div class="popup-actions">

@@ -25,7 +25,8 @@
 }
 .settings-panel.is-open {
     padding: var(--devwatch-space-md);
-    max-height: 500px; /* Adjust as needed */
+    max-height: 800px; /* Increased for app picker */
+    overflow-y: auto;
     transition: max-height 0.4s ease-in, padding 0.4s ease-in;
 }
 .settings-panel-content {
@@ -489,4 +490,69 @@ body.resizing .logs-drawer * {
 
 .auth-toggle:hover {
     border-color: var(--devwatch-border-accent);
+}
+
+/* App Picker Styles */
+.app-picker {
+    border: 1px solid var(--devwatch-border-primary);
+    border-radius: var(--devwatch-border-radius);
+    padding: var(--devwatch-space-sm);
+    background: var(--devwatch-bg-primary);
+}
+
+.app-picker-title {
+    margin: 0 0 var(--devwatch-space-sm) 0;
+    font-size: var(--devwatch-font-size-sm);
+    color: var(--devwatch-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.app-picker-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--devwatch-space-sm);
+}
+
+.app-picker-category {
+    display: flex;
+    flex-direction: column;
+    gap: var(--devwatch-space-xs);
+}
+
+.app-picker-category-label {
+    font-size: var(--devwatch-font-size-xs);
+    color: var(--devwatch-accent-primary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding-bottom: var(--devwatch-space-xs);
+    border-bottom: 1px solid var(--devwatch-border-primary);
+}
+
+.app-picker-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--devwatch-space-xs);
+}
+
+.app-picker-item {
+    background: var(--devwatch-bg-tertiary);
+    border: 1px solid var(--devwatch-border-primary);
+    border-radius: var(--devwatch-border-radius);
+    padding: var(--devwatch-space-xs) var(--devwatch-space-sm);
+    color: var(--devwatch-text-primary);
+    cursor: pointer;
+    font-size: var(--devwatch-font-size-sm);
+    transition: all 0.15s ease;
+}
+
+.app-picker-item:hover {
+    background: var(--devwatch-accent-primary);
+    color: var(--devwatch-bg-primary);
+    border-color: var(--devwatch-accent-primary);
+}
+
+.app-picker-item-title {
+    white-space: nowrap;
 }

@@ -6,9 +6,10 @@
     <title>System Control Panel</title>
     <link rel="stylesheet" href="/static/css/devwatch.css">
     <link rel="stylesheet" href="/static/css/components/devwatch-column-panel.css">
-    <link rel="stylesheet" href="/static/css/components/pja-runtime-context.css">
+    <link rel="stylesheet" href="/static/css/components/devwatch-runtime-context.css">
     <link rel="stylesheet" href="/static/css/components/devwatch-columns.css">
-    <link rel="stylesheet" href="/static/css/components/pja-docs-manager.css">
+    <link rel="stylesheet" href="/static/css/components/devwatch-stat-card.css">
+    <link rel="stylesheet" href="/static/css/components/devwatch-directory-stats.css">
 </head>
 <body class="devwatch-iframe-body pcb-theme" data-theme="technical">
     <div class="system-control-panel">
@@ -29,7 +30,6 @@
                         <div class="devwatch-tab-list">
                             <button class="devwatch-tab is-active" data-tab="system" data-target-panel="system-monitor-panel">System</button>
                             <button class="devwatch-tab" data-tab="messages" data-target-panel="message-log-panel">Messages</button>
-                            <button class="devwatch-tab" data-tab="docs" data-target-panel="docs-panel">Docs</button>
                         </div>
                     </div>
                     
@@ -131,10 +131,6 @@
                                 </div>
                             </div>
                         </div>
-                        
-                        <div id="docs" class="devwatch-tab-panel">
-                            <!-- Docs content will be loaded here -->
-                        </div>
                     </div>
                 </div>
 
@@ -203,16 +199,6 @@
                             </div>
                         </div>
                     </div>
-                    <div id="docs-panel" class="devwatch-column-panel">
-                        <div class="devwatch-section is-open">
-                            <div class="devwatch-section-header">
-                                <h4 class="devwatch-section-title">Documentation Viewer</h4>
-                            </div>
-                            <div class="devwatch-section-content">
-                                <p>Docs-specific content will go here.</p>
-                            </div>
-                        </div>
-                    </div>
                     <div id="icon-editor-panel" class="devwatch-column-panel" style="display: none;">
                         <div class="devwatch-section is-open">
                             <div class="devwatch-section-header">
@@ -247,7 +233,6 @@
     <script src="/static/js/devwatch-ranked-list.js"></script>
     <script src="/static/js/devwatch-confirm-button.js"></script>
     <script src="/static/js/system-control-panel.js"></script>
-    <script src="/static/js/docs-manager.js"></script>
     <script src="/static/js/icon-manager.js"></script>
     <script src="/static/js/devwatch-icon-editor.js"></script>
 </body>

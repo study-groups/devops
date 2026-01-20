@@ -1,0 +1,10 @@
+{
+  "pd": {
+    "name": "PD_DIR",
+    "path": "/Users/mricos/tetra/orgs/tetra/pd"
+  },
+  "custom_1768039672001": {
+    "name": "mr-pd",
+    "path": "/Users/mricos/nh/mr/pd"
+  }
+}

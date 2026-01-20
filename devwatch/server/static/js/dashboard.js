@@ -46,6 +46,7 @@ window.DevWatchDashboard = {
         init() {
             const defaultApps = [
                 { id: 'system', title: 'System', src: '/static/system.iframe.html', category: 'dev' },
+                { id: 'docs', title: 'Docs', src: '/static/docs.iframe.html', category: 'dev' },
                 { id: 'api-helper', title: 'API Helper', src: '/static/api-helper.iframe.html', category: 'dev' },
                 { id: 'pcb', title: 'Playwright Command Builder', src: '/static/pcb.iframe.html', category: 'dev' },
                 { id: 'command-runner', title: 'Command Runner', src: '/static/command-runner.iframe.html', category: 'dev' },
@@ -119,11 +120,11 @@ window.DevWatchDashboard = {
         draftLayout: [],
         _defaultLayout: [
             { id: 'system', title: 'System', src: '/static/system.iframe.html', category: 'dev' },
+            { id: 'docs', title: 'Docs', src: '/static/docs.iframe.html', category: 'dev' },
             { id: 'api-helper', title: 'API Helper', src: '/static/api-helper.iframe.html', category: 'dev' },
             { id: 'pcb', title: 'Playwright Command Builder', src: '/static/pcb.iframe.html', category: 'dev' },
             { id: 'command-runner', title: 'Command Runner', src: '/static/command-runner.iframe.html', category: 'dev' },
-            { id: 'cron', title: 'Cron', src: '/static/cron.iframe.html', category: 'dev' },
-            { id: 'quadrapong', title: 'Quadrapong', src: '/static/games/quadrapong/index.html', category: 'games' }
+            { id: 'cron', title: 'Cron', src: '/static/cron.iframe.html', category: 'dev' }
         ],
 
         init() {
@@ -238,17 +239,15 @@ window.DevWatchDashboard = {
             // Toggle panel on header click
             header.addEventListener('click', () => {
                 panel.classList.toggle('is-open');
+                if (panel.classList.contains('is-open')) {
+                    this.renderAppPicker();
+                }
             });
 
             // Close panel function
             const closePanel = () => panel.classList.remove('is-open');
 
             // Wire up buttons
-            document.getElementById('add-new-section-btn').addEventListener('click', () => {
-                const quadrapongApp = DevWatchDashboard.Apps.draftApps.find(app => app.id === 'quadrapong') || { id: 'quadrapong', title: 'Quadrapong', src: '/games/quadrapong/index.html', category: 'games' };
-                DevWatchDashboard.Manager.addIframe(quadrapongApp);
-                closePanel();
-            });
             document.getElementById('reset-dashboard-btn').addEventListener('click', () => {
                 if (confirm('Are you sure you want to reset your layout to the default developer tools?')) {
                     DevWatchDashboard.Manager.resetLayout();
@@ -268,6 +267,63 @@ window.DevWatchDashboard = {
                     DevWatchDashboard.Manager.renderDashboard();
                     closePanel();
                 }
+            });
+
+            // Initial render of app picker
+            this.renderAppPicker();
+        },
+
+        renderAppPicker() {
+            const container = document.getElementById('app-picker-list');
+            if (!container) return;
+
+            const apps = DevWatchDashboard.Apps.draftApps;
+
+            // Group apps by category
+            const categories = {};
+            apps.forEach(app => {
+                const cat = app.category || 'other';
+                if (!categories[cat]) categories[cat] = [];
+                categories[cat].push(app);
+            });
+
+            // Category display order and labels
+            const categoryOrder = ['dev', 'games', 'other'];
+            const categoryLabels = {
+                dev: 'Developer Tools',
+                games: 'Games',
+                other: 'Other'
+            };
+
+            let html = '';
+            categoryOrder.forEach(cat => {
+                if (!categories[cat] || categories[cat].length === 0) return;
+
+                html += `<div class="app-picker-category">
+                    <div class="app-picker-category-label">${categoryLabels[cat] || cat}</div>
+                    <div class="app-picker-items">`;
+
+                categories[cat].forEach(app => {
+                    html += `<button class="app-picker-item" data-app-id="${app.id}" title="${app.title}">
+                        <span class="app-picker-item-title">${app.title}</span>
+                    </button>`;
+                });
+
+                html += `</div></div>`;
+            });
+
+            container.innerHTML = html;
+
+            // Attach click handlers
+            container.querySelectorAll('.app-picker-item').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const appId = btn.dataset.appId;
+                    const app = apps.find(a => a.id === appId);
+                    if (app) {
+                        DevWatchDashboard.Manager.addIframe(app);
+                        DevWatchDashboard.Log.action('app_added_from_picker', { appId });
+                    }
+                });
             });
         }
     }
