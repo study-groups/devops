@@ -1,0 +1,8 @@
+# Resources - application-specific assets
+
+# [resources.games]
+# manifest_path = "/var/www/arcade/games.json"
+# assets_path = "/var/www/arcade/games/"
+
+# [resources.documents]
+# path = "/var/www/docs/"

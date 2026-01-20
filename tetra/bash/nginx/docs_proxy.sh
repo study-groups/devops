@@ -69,10 +69,10 @@ EOF
     endpoint=$(echo "$section" | grep '^endpoint' | cut -d'=' -f2 | tr -d ' "')
     region=$(echo "$section" | grep '^region' | cut -d'=' -f2 | tr -d ' "')
 
-    # Fallback to storage.spaces for endpoint/region
+    # Fallback to storage.s3 for endpoint/region
     if [[ -z "$endpoint" ]] || [[ -z "$region" ]]; then
         local storage_section
-        storage_section=$(awk '/^\[storage\.spaces\]/ {found=1; next} found && /^\[/ {exit} found {print}' "$toml_file")
+        storage_section=$(awk '/^\[storage\.s3\]/ {found=1; next} found && /^\[/ {exit} found {print}' "$toml_file")
         [[ -z "$endpoint" ]] && endpoint=$(echo "$storage_section" | grep '^endpoint' | cut -d'=' -f2 | tr -d ' "')
         [[ -z "$region" ]] && region=$(echo "$storage_section" | grep '^region' | cut -d'=' -f2 | tr -d ' "')
     fi

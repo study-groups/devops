@@ -1,0 +1,23 @@
+# Asset Management
+# Local workflow for content destined for Google Sites
+
+[assets]
+workspace = "${TETRA_DIR}/orgs/{{ORG_NAME}}/workspace"
+
+[assets.content]
+# Content files for the site
+path = "content/"
+formats = ["md", "html", "txt"]
+
+[assets.images]
+path = "images/"
+formats = ["png", "jpg", "svg", "webp"]
+
+[assets.documents]
+path = "documents/"
+formats = ["pdf", "docx"]
+
+# Publishing workflow
+# [publish]
+# method = "manual"  # or "api" if using Google Sites API
+# review_before_publish = true

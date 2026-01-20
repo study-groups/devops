@@ -47,15 +47,27 @@ _de_format_size() {
     fi
 }
 
-# Print command with smart wrapping
+# Print command with smart wrapping based on terminal width
 # Usage: _de_print_cmd <prefix> <command>
 _de_print_cmd() {
     local prefix="$1"
     local cmd="$2"
     local width=${COLUMNS:-80}
-    local indent="                    "  # 20 spaces for continuation
-    local max_first=$((width - ${#prefix} - 4))
-    local max_cont=$((width - ${#indent} - 2))
+
+    # Ensure minimum usable width
+    (( width < 40 )) && width=40
+
+    # Small fixed indent for continuations (6 spaces)
+    local indent="      "
+    local first_indent="   "  # 3 spaces for first line
+
+    # Calculate max line lengths (reserve space for backslash + space)
+    local max_first=$((width - ${#first_indent} - ${#prefix} - 3))
+    local max_cont=$((width - ${#indent} - 3))
+
+    # Ensure we have reasonable space for content
+    (( max_first < 20 )) && max_first=20
+    (( max_cont < 20 )) && max_cont=20
 
     # If it fits, just print it
     if [[ ${#cmd} -le $max_first ]]; then
@@ -63,16 +75,24 @@ _de_print_cmd() {
         return
     fi
 
-    # Split on spaces, wrap intelligently
+    # Collect all words, then build wrapped lines
+    local -a words=()
+    read -ra words <<< "$cmd"
+
     local line=""
     local first=1
-    for word in $cmd; do
-        local test_line="$line $word"
+    local i=0
+    local total=${#words[@]}
+
+    while (( i < total )); do
+        local word="${words[i]}"
+        local test_line="${line:+$line }$word"
         local max=$max_first
-        [[ $first -eq 0 ]] && max=$max_cont
+        (( first == 0 )) && max=$max_cont
 
         if [[ ${#test_line} -gt $max && -n "$line" ]]; then
-            if [[ $first -eq 1 ]]; then
+            # Print current line with continuation backslash
+            if (( first == 1 )); then
                 echo -e "  ${DE_CLR_STEP}${prefix}${DE_CLR_NC} ${DE_CLR_CMD}${line}${DE_CLR_NC} ${DE_CLR_DIM}\\\\${DE_CLR_NC}"
                 first=0
             else
@@ -80,13 +100,14 @@ _de_print_cmd() {
             fi
             line="$word"
         else
-            line="${line:+$line }$word"
+            line="$test_line"
         fi
+        (( i++ ))
     done
 
-    # Print remaining
+    # Print final line (no backslash)
     if [[ -n "$line" ]]; then
-        if [[ $first -eq 1 ]]; then
+        if (( first == 1 )); then
             echo -e "  ${DE_CLR_STEP}${prefix}${DE_CLR_NC} ${DE_CLR_CMD}${line}${DE_CLR_NC}"
         else
             echo -e "${DE_CLR_CMD}${indent}${line}${DE_CLR_NC}"

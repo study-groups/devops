@@ -1,0 +1,12 @@
+# Organization identity
+# Type: cicd (Full infrastructure control)
+
+[org]
+name = "{{ORG_NAME}}"
+type = "cicd"
+created = "{{CREATED}}"
+
+[org.capabilities]
+hosting = "self-managed"
+infrastructure = "digitalocean"
+deploy = "ssh"

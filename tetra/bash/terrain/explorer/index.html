@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terrain Explorer</title>
+    <link rel="stylesheet" href="../css/tokens.css">
+    <link id="terrain-theme" rel="stylesheet" href="../dist/themes/dark.theme.css">
+    <link rel="stylesheet" href="explorer.css">
+</head>
+<body>
+    <header class="explorer-header">
+        <div class="explorer-header-left">
+            <h1 class="explorer-title">Terrain Explorer</h1>
+        </div>
+        <div class="explorer-header-right">
+            <label class="selector-label">Mode:</label>
+            <select id="modeSwitcher" class="mode-select">
+                <option value="freerange">Freerange</option>
+                <option value="control">Control</option>
+                <option value="deploy">Deploy</option>
+                <option value="dashboard">Dashboard</option>
+                <option value="site">Site</option>
+                <option value="thesis">Thesis</option>
+                <option value="guide">Guide</option>
+                <option value="reference">Reference</option>
+            </select>
+            <label class="selector-label">Theme:</label>
+            <select id="themeSwitcher" class="theme-select">
+                <option value="dark">Dark</option>
+                <option value="midnight">Midnight</option>
+                <option value="cyber">Cyber</option>
+                <option value="forest">Forest</option>
+                <option value="amber">Amber</option>
+                <option value="lava">Lava</option>
+                <option value="lcd">LCD</option>
+                <option value="tv">TV</option>
+                <option value="controldeck">Control Deck</option>
+            </select>
+        </div>
+    </header>
+
+    <main class="explorer-main">
+        <!-- Architecture Overview -->
+        <section class="arch-section">
+            <div class="arch-flow">
+                <div class="arch-box arch-palette">
+                    <strong>Palettes</strong>
+                    <span>--p1..p8, --s1..s8, --t1..t8</span>
+                </div>
+                <div class="arch-arrow">→</div>
+                <div class="arch-box arch-semantic">
+                    <strong>Semantic</strong>
+                    <span>--bg-*, --text-*, --border-*</span>
+                </div>
+                <div class="arch-arrow">→</div>
+                <div class="arch-box arch-usage">
+                    <strong>Usage</strong>
+                    <span>color: var(--text-primary)</span>
+                </div>
+            </div>
+            <p class="arch-note">Themes override palettes. Semantic aliases stay constant.</p>
+        </section>
+
+        <!-- Mode Transitions -->
+        <section class="token-section">
+            <h2>Switch To</h2>
+            <p class="section-desc">Available mode transitions from current mode</p>
+            <div id="transitionsContainer" class="transitions-grid"></div>
+        </section>
+
+        <!-- Palettes -->
+        <section class="token-section">
+            <h2>Palettes</h2>
+            <div id="palettesContainer"></div>
+        </section>
+
+        <!-- Semantic Mappings -->
+        <section class="token-section">
+            <h2>Semantic Tokens</h2>
+            <p class="section-desc">Purpose-named aliases pointing to palette values</p>
+            <div id="semanticsContainer"></div>
+        </section>
+
+        <!-- Utilities -->
+        <section class="token-section">
+            <h2>Utilities</h2>
+            <div id="utilitiesContainer"></div>
+        </section>
+
+        <!-- Export -->
+        <section class="token-section export-section">
+            <h2>Export</h2>
+            <div class="export-buttons">
+                <button id="copyCSS" class="export-btn">Copy CSS</button>
+                <button id="copyJSON" class="export-btn">Copy JSON</button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="confirm-modal hidden">
+        <div class="confirm-dialog">
+            <div class="confirm-header">
+                <span id="confirmTitle">Switch to mode?</span>
+            </div>
+            <div class="confirm-body">
+                <div id="confirmKeeps" class="confirm-section"></div>
+                <div id="confirmChanges" class="confirm-section"></div>
+                <div id="confirmLost" class="confirm-section"></div>
+            </div>
+            <div class="confirm-actions">
+                <button id="confirmCancel" class="confirm-btn confirm-cancel">Cancel</button>
+                <button id="confirmProceed" class="confirm-btn confirm-proceed">Switch Anyway</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="explorer.js"></script>
+</body>
+</html>

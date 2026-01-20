@@ -70,7 +70,7 @@ spaces_ctx_set() {
     if [[ -n "$bucket" ]]; then
         if ! _spaces_resolve "$bucket" &>/dev/null; then
             echo "Error: Cannot resolve bucket: $bucket" >&2
-            echo "  Ensure [storage.spaces] is configured in tetra.toml" >&2
+            echo "  Ensure [storage.s3] is configured in tetra.toml" >&2
             return 1
         fi
     fi

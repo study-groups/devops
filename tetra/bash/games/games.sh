@@ -87,6 +87,10 @@ if [[ -f "$GAMES_SRC/core/games_preflight.sh" ]]; then
     source "$GAMES_SRC/core/games_preflight.sh"
 fi
 
+if [[ -f "$GAMES_SRC/core/games_config.sh" ]]; then
+    source "$GAMES_SRC/core/games_config.sh"
+fi
+
 # =============================================================================
 # ORG COMMANDS
 # =============================================================================
@@ -1131,6 +1135,16 @@ games() {
             fi
             ;;
 
+        # Config - PJA_CONFIG management
+        config|cfg)
+            if declare -f games_config >/dev/null 2>&1; then
+                games_config "$@"
+            else
+                echo "Error: games_config module not loaded" >&2
+                return 1
+            fi
+            ;;
+
         # Diagnostics
         doctor)
             games_doctor "$@"
@@ -1173,6 +1187,12 @@ PREFLIGHT (deploy-readiness)
   games preflight <game>         Validate SDK + lifecycle handlers
   games preflight --all          Validate all games in org
   games preflight <game> --json  Machine-readable output
+
+CONFIG (PJA_CONFIG management)
+  games config <game>            Show PJA_CONFIG settings
+  games config <game> <key>      Get specific value
+  games config <game> <key> <v>  Set value
+  games config --list            List games with PJA_CONFIG
 
 UPLOAD & DEPLOY (like admin UI)
   games upload <file.zip>        Upload and extract game ZIP

@@ -1,0 +1,15 @@
+# Environments for managed site
+# Simplified: local (work) + prod (live site)
+
+[env.local]
+symbol = "@local"
+type = "local"
+description = "Local workspace for content and assets"
+workspace = "${TETRA_DIR}/orgs/{{ORG_NAME}}/workspace"
+
+[env.prod]
+symbol = "@prod"
+type = "managed"
+description = "Live Google Site"
+# site_id populated after Google Sites setup
+# site_id = "sites/your-site-id"

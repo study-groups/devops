@@ -1,0 +1,14 @@
+# Organization identity
+# Type: managed-google (Google Sites + Analytics + Stripe)
+
+[org]
+name = "{{ORG_NAME}}"
+type = "managed"
+platform = "google-sites"
+created = "{{CREATED}}"
+
+[org.capabilities]
+hosting = "google-sites"
+analytics = "google-analytics"
+payments = "stripe"
+dns = true

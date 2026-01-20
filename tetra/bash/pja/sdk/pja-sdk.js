@@ -976,6 +976,14 @@
         Theme,   // CSS Variable / TUT theme communication
         Input,   // Standard input mappings (gamepad, MIDI, keyboard)
 
+        // Callback-style API (Cabinet SDK compatibility)
+        // These wire into PJA.Game event emitter via init()
+        onStart: null,
+        onStop: null,
+        onPause: null,
+        onResume: null,
+        onVolumeChange: null,
+
         /**
          * Quick setup for common use case
          */
@@ -990,6 +998,17 @@
 
             // Always init RT (iframe comms)
             RT._init();
+
+            // Wire callback properties to Game events (Cabinet SDK compatibility)
+            Game.on('start', () => this.onStart?.());
+            Game.on('stop', () => this.onStop?.());
+            Game.on('pause', () => this.onPause?.());
+            Game.on('resume', () => this.onResume?.());
+
+            // Wire volume callback to RT events
+            RT.on('audio:volume', (data) => {
+                this.onVolumeChange?.(data.volume, data.muted ?? false);
+            });
 
             // Theme/CSS variable communication
             if (theme) {

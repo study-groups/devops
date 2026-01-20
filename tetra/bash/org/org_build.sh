@@ -299,7 +299,7 @@ EOF
         cat > "$sections_dir/20-storage.toml" << EOF
 # Storage configuration (S3/Spaces)
 
-# [storage.spaces]
+# [storage.s3]
 # endpoint = "sfo3.digitaloceanspaces.com"
 # bucket = "$name"
 # region = "sfo3"

@@ -1,0 +1,7 @@
+# Services and ports
+# TSM service definitions
+
+# [services]
+# app = 3000
+# api = 8000
+# admin = 9000

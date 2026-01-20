@@ -106,8 +106,37 @@ tsm_meta_file() {
     echo "$TSM_PROCESSES_DIR/$1/meta.json"
 }
 
+# Infer stack name from service name by checking for matching .stack files
+# Usage: _tsm_infer_stack "http-8001" -> "http" (if http.stack exists)
+_tsm_infer_stack() {
+    local name="$1"
+
+    # Extract base name before port suffix (e.g., "http-8001" -> "http")
+    local base_name="${name%-[0-9]*}"
+
+    # Also try stripping more specific suffixes (e.g., "gamma-api-1980" -> "gamma-api" -> "gamma")
+    local candidates=("$base_name")
+    if [[ "$base_name" == *-* ]]; then
+        candidates+=("${base_name%-*}")
+    fi
+
+    # Check each candidate against existing stack files
+    for candidate in "${candidates[@]}"; do
+        # Search in all org stack directories
+        for stack_file in "$TETRA_DIR"/orgs/*/tsm/stacks/"${candidate}.stack"; do
+            if [[ -f "$stack_file" ]]; then
+                echo "$candidate"
+                return 0
+            fi
+        done
+    done
+
+    # No matching stack found
+    echo ""
+}
+
 # Create process metadata with simplified schema
-# Args: name pid command port cwd env_file [tsm_file]
+# Args: name pid command port cwd env_file [tsm_file] [stack] [reuse_id]
 tsm_create_meta() {
     local name="$1"
     local pid="$2"
@@ -116,8 +145,21 @@ tsm_create_meta() {
     local cwd="${5:-$PWD}"
     local env_file="${6:-}"
     local tsm_file="${7:-}"
+    local stack="${8:-${TSM_STACK:-}}"
+    local reuse_id="${9:-}"
 
-    local id=$(tsm_get_next_id)
+    # Stack inference disabled - not commonly used
+    # if [[ -z "$stack" ]]; then
+    #     stack=$(_tsm_infer_stack "$name")
+    # fi
+
+    # Reuse existing ID on restart, otherwise allocate new
+    local id
+    if [[ -n "$reuse_id" ]]; then
+        id="$reuse_id"
+    else
+        id=$(tsm_get_next_id)
+    fi
     local started=$(date +%s)
     local dir=$(tsm_process_dir "$name")
     local meta=$(tsm_meta_file "$name")
@@ -149,6 +191,7 @@ tsm_create_meta() {
         --arg cwd "$cwd" \
         --arg env_file "$env_file" \
         --arg tsm_file "$tsm_file" \
+        --arg stack "$stack" \
         --argjson started "$started" \
         '{
             id: $id,
@@ -160,6 +203,7 @@ tsm_create_meta() {
             cwd: $cwd,
             env_file: (if $env_file == "" then null else $env_file end),
             tsm_file: (if $tsm_file == "" then null else $tsm_file end),
+            stack: (if $stack == "" then null else $stack end),
             status: "online",
             started: $started
         }' > "$meta"
@@ -273,7 +317,7 @@ tsm_uptime() {
     tsm_format_uptime "$secs"
 }
 
-export -f tsm_get_next_id tsm_process_dir tsm_meta_file
+export -f tsm_get_next_id tsm_process_dir tsm_meta_file _tsm_infer_stack
 export -f tsm_create_meta tsm_read_meta tsm_read_meta_json tsm_update_meta
 export -f tsm_set_status tsm_process_alive tsm_list_tracked tsm_remove_meta
 export -f tsm_add_port tsm_remove_port tsm_uptime

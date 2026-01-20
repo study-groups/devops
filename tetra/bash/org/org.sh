@@ -50,6 +50,11 @@ _org_help() {
     echo -e "  ${C}env${N}                List connectors"
     echo -e "  ${G}ssh root@\$dev${N}      Connect using exported variables"
     echo ""
+    echo -e "${Y}DOMAINS${N}"
+    echo -e "  ${C}domain add${N} <domain>     Add domain to org"
+    echo -e "  ${C}domain list${N}             List all domains"
+    echo -e "  ${C}domain check${N} <domain>   DNS health check"
+    echo ""
     echo -e "${Y}PDATA (Project Data)${N}"
     echo -e "  ${C}pdata status${N}       Show PData projects/subjects"
     echo -e "  ${C}pdata init${N}         Initialize PData for org"
@@ -61,7 +66,7 @@ _org_help() {
     echo ""
     echo -e "${Y}ALL COMMANDS${N}"
     echo -e "  ${D}Orgs${N}    status list switch create init alias unalias"
-    echo -e "  ${D}Build${N}   sections build import pdata secrets"
+    echo -e "  ${D}Build${N}   sections build import domain pdata secrets"
     echo -e "  ${D}Toml${N}    view section get set edit validate path"
     echo -e "  ${D}Env${N}     env"
 }
@@ -121,6 +126,7 @@ source "$ORG_SRC/org_toml.sh"
 source "$ORG_SRC/org_env.sh"
 source "$ORG_SRC/org_build.sh"
 source "$ORG_SRC/org_secrets.sh"
+source "$ORG_SRC/org_domain.sh"
 source "$ORG_SRC/org_complete.sh"
 
 # =============================================================================
@@ -276,40 +282,207 @@ org_unalias() {
     fi
 }
 
-# Create new organization
+# Create new organization (interactive)
 org_create() {
     local name="$1"
+    local org_type="${2:-}"
+    local dns_provider="${3:-}"
 
-    [[ -z "$name" ]] && { echo "Usage: org create <name>" >&2; return 1; }
+    [[ -z "$name" ]] && { echo "Usage: org create <name> [type] [dns-provider]" >&2; return 1; }
     [[ ! "$name" =~ ^[a-zA-Z0-9_-]+$ ]] && { echo "Invalid name (use a-z, 0-9, _, -)" >&2; return 1; }
 
     local org_dir="$TETRA_DIR/orgs/$name"
     [[ -d "$org_dir" ]] && { echo "Already exists: $name" >&2; return 1; }
 
-    mkdir -p "$org_dir"
+    # Interactive org type selection if not provided
+    if [[ -z "$org_type" ]]; then
+        echo "Org type for $name:"
+        echo ""
+        echo "  1) cicd          - Full CI/CD infrastructure (servers, SSH, deploy)"
+        echo "                     For: pixeljam-arcade, nodeholder style orgs"
+        echo ""
+        echo "  2) managed-google - Managed site (Google Sites + Analytics + Stripe)"
+        echo "                     For: transreal style admin/analytics orgs"
+        echo ""
+        echo -n "Select [1-2]: "
+        read -r choice
+        case "$choice" in
+            1|cicd)          org_type="cicd" ;;
+            2|managed*|google) org_type="managed-google" ;;
+            *)
+                echo "Invalid selection" >&2
+                return 1
+                ;;
+        esac
+    fi
 
-    cat > "$org_dir/tetra.toml" << EOF
+    # DNS provider selection for managed orgs
+    if [[ "$org_type" == "managed-google" && -z "$dns_provider" ]]; then
+        echo ""
+        echo "DNS provider (routes traffic to Google Sites):"
+        echo ""
+        echo "  1) rc  - Reseller Club"
+        echo "  2) do  - DigitalOcean DNS"
+        echo "  3) cf  - CloudFlare"
+        echo "  4) none - Configure later"
+        echo ""
+        echo -n "Select [1-4]: "
+        read -r choice
+        case "$choice" in
+            1|rc)   dns_provider="rc" ;;
+            2|do)   dns_provider="do" ;;
+            3|cf)   dns_provider="cf" ;;
+            4|none) dns_provider="" ;;
+            *)      dns_provider="" ;;
+        esac
+    fi
+
+    # Google credentials for managed-google orgs
+    local google_email="" google_site_url="" custom_domain="" ga4_id=""
+
+    if [[ "$org_type" == "managed-google" ]]; then
+        echo ""
+        echo "Google Site Configuration"
+        echo "─────────────────────────"
+        echo ""
+
+        echo -n "Google account email: "
+        read -r google_email
+
+        echo ""
+        echo "Google Site URL (from your browser, e.g.):"
+        echo "  https://sites.google.com/view/mysite"
+        echo "  https://sites.google.com/d/SITE_ID/edit"
+        echo -n "Site URL: "
+        read -r google_site_url
+
+        echo ""
+        echo -n "Custom domain for the site (e.g., www.${name}.com): "
+        read -r custom_domain
+        [[ -z "$custom_domain" ]] && custom_domain="www.${name}.com"
+
+        echo ""
+        echo "Google Analytics GA4 Measurement ID"
+        echo "  (Found in GA4 > Admin > Data Streams, looks like G-XXXXXXXXXX)"
+        echo -n "Measurement ID (or press Enter to skip): "
+        read -r ga4_id
+        [[ -z "$ga4_id" ]] && ga4_id="G-XXXXXXXXXX"
+    fi
+
+    echo ""
+    echo "Creating: $name ($org_type)"
+
+    # Create org directory structure
+    mkdir -p "$org_dir/sections"
+    mkdir -p "$org_dir/backups"
+    mkdir -p "$org_dir/workspace"
+
+    # Copy templates based on org type
+    local template_dir="$ORG_SRC/templates/$org_type"
+
+    if [[ -d "$template_dir" ]]; then
+        local created_date
+        created_date=$(date -Iseconds)
+
+        for tmpl in "$template_dir"/*.toml; do
+            [[ -f "$tmpl" ]] || continue
+            local filename=$(basename "$tmpl")
+            local dest="$org_dir/sections/$filename"
+
+            # Template substitution
+            # Escape slashes in URLs for sed
+            local site_url_escaped="${google_site_url//\//\\/}"
+            local custom_domain_clean="${custom_domain:-www.${name}.com}"
+
+            sed -e "s/{{ORG_NAME}}/$name/g" \
+                -e "s/{{CREATED}}/$created_date/g" \
+                -e "s/{{DOMAIN}}/${name}.com/g" \
+                -e "s/{{GOOGLE_EMAIL}}/${google_email:-}/g" \
+                -e "s|{{GOOGLE_SITE_URL}}|${google_site_url:-}|g" \
+                -e "s/{{CUSTOM_DOMAIN}}/${custom_domain_clean}/g" \
+                -e "s/{{GA4_MEASUREMENT_ID}}/${ga4_id:-G-XXXXXXXXXX}/g" \
+                "$tmpl" > "$dest"
+
+            echo "  Created: sections/$filename"
+        done
+
+        # Add DNS provider section if selected
+        if [[ -n "$dns_provider" ]]; then
+            local dns_tmpl="$ORG_SRC/templates/dns/dns-${dns_provider}.toml"
+            local base_domain="${name}.com"
+            # Extract base domain from custom_domain (e.g., www.foo.com -> foo.com)
+            if [[ -n "$custom_domain" ]]; then
+                base_domain="${custom_domain#www.}"
+            fi
+            if [[ -f "$dns_tmpl" ]]; then
+                sed -e "s/{{ORG_NAME}}/$name/g" \
+                    -e "s/{{DOMAIN}}/${base_domain}/g" \
+                    "$dns_tmpl" >> "$org_dir/sections/40-dns.toml"
+                echo "  Added: DNS provider ($dns_provider)"
+            fi
+        fi
+
+        # Create pd/ structure for managed orgs
+        if [[ "$org_type" == "managed-google" ]]; then
+            mkdir -p "$org_dir/pd/data/projects"
+            mkdir -p "$org_dir/pd/config"
+            mkdir -p "$org_dir/pd/cache"
+            mkdir -p "$org_dir/workspace/content"
+            mkdir -p "$org_dir/workspace/images"
+            mkdir -p "$org_dir/workspace/documents"
+        fi
+    else
+        # Fallback to simple creation
+        cat > "$org_dir/tetra.toml" << EOF
 # $name organization
 # Created: $(date -Iseconds)
+# Type: $org_type
 
 [org]
 name = "$name"
+type = "$org_type"
 
 [env.local]
 description = "Local development"
 
-[env.dev]
-description = "Development server"
-
-[env.staging]
-description = "Staging server"
-
 [env.prod]
-description = "Production server"
+description = "Production"
 EOF
+        echo "  Created: tetra.toml (minimal)"
+    fi
 
-    echo "Created: $org_dir/tetra.toml"
-    echo "Switch with: org switch $name"
+    echo ""
+    echo "Next steps:"
+    echo "  org build $name    - Assemble tetra.toml from sections"
+    echo "  org switch $name   - Activate this org"
+
+    if [[ "$org_type" == "managed-google" ]]; then
+        local base_domain="${name}.com"
+        [[ -n "$custom_domain" ]] && base_domain="${custom_domain#www.}"
+
+        echo ""
+        echo "DNS setup (point ${custom_domain:-www.${name}.com} to Google Sites):"
+        if [[ -n "$dns_provider" ]]; then
+            echo "  1. Add credentials to secrets.env:"
+            case "$dns_provider" in
+                rc) echo "       RC_AUTH_USERID=your-id" && echo "       RC_API_KEY=your-key" ;;
+                do) echo "       DO_API_TOKEN=your-token" ;;
+                cf) echo "       CF_API_TOKEN=your-token" && echo "       CF_ZONE_ID=your-zone" ;;
+            esac
+            echo "  2. Create CNAME record:"
+            echo "       dns $dns_provider add $base_domain CNAME www ghs.googlehosted.com"
+            echo "  3. In Google Sites > Settings > Custom domains:"
+            echo "       Add: ${custom_domain:-www.${name}.com}"
+        else
+            echo "  1. Create CNAME: www -> ghs.googlehosted.com"
+            echo "  2. In Google Sites, add custom domain"
+        fi
+
+        if [[ -n "$ga4_id" && "$ga4_id" != "G-XXXXXXXXXX" ]]; then
+            echo ""
+            echo "Analytics: GA4 ${ga4_id} configured"
+        fi
+    fi
 }
 
 # =============================================================================
@@ -661,6 +834,11 @@ EOF
                     echo "  init     Initialize PData for org"
                     ;;
             esac
+            ;;
+
+        # Domain management
+        domain|dom|d)
+            org_domain "$@"
             ;;
 
         # Secrets management

@@ -8,7 +8,7 @@
 #
 # Resolution Chain:
 #   Symbol (@spaces:pja-games:games/)
-#   → Connector (tetra.toml [storage.spaces])
+#   → Connector (tetra.toml [storage.s3])
 #   → s3cmd execution with DO Spaces endpoint
 
 # Only set strict mode when running as script, not when sourced
@@ -110,20 +110,20 @@ _spaces_resolve() {
         fi
     fi
 
-    # Extract [storage.spaces] section
-    if ! grep -q '^\[storage\.spaces\]' "$toml_file"; then
-        echo "Error: No [storage.spaces] section in $toml_file" >&2
+    # Extract [storage.s3] section
+    if ! grep -q '^\[storage\.s3\]' "$toml_file"; then
+        echo "Error: No [storage.s3] section in $toml_file" >&2
         echo "Add storage config to resources.toml and recompile" >&2
         return 1
     fi
 
-    # Parse storage config - extract only from [storage.spaces] section
+    # Parse storage config - extract only from [storage.s3] section
     local endpoint region access_key secret_key default_bucket
 
-    # Use awk to extract values only from the [storage.spaces] section
-    # Range pattern: from [storage.spaces] to next section header (but not the starting one)
+    # Use awk to extract values only from the [storage.s3] section
+    # Range pattern: from [storage.s3] to next section header (but not the starting one)
     local storage_section
-    storage_section=$(awk '/^\[storage\.spaces\]/ {found=1; next} found && /^\[/ {exit} found {print}' "$toml_file")
+    storage_section=$(awk '/^\[storage\.s3\]/ {found=1; next} found && /^\[/ {exit} found {print}' "$toml_file")
 
     endpoint=$(echo "$storage_section" | grep '^endpoint' | head -1 | cut -d'=' -f2 | tr -d ' "')
     region=$(echo "$storage_section" | grep '^region' | head -1 | cut -d'=' -f2 | tr -d ' "')
@@ -284,6 +284,161 @@ spaces_delete() {
     return $rc
 }
 
+# Generate HTML index for a path and upload as index.html
+# Usage: spaces_index [bucket:path] [--title "Title"]
+spaces_index() {
+    local symbol="${1:-}"
+    local title=""
+
+    # Parse options
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --title) title="$2"; shift 2 ;;
+            --title=*) title="${1#*=}"; shift ;;
+            *) symbol="${symbol:-$1}"; shift ;;
+        esac
+    done
+
+    _spaces_resolve "$symbol" || return 1
+
+    local base_url="https://$SPACES_BUCKET.$SPACES_HOST"
+    local path_prefix="${SPACES_PATH%/}"
+    [[ -n "$path_prefix" ]] && path_prefix="$path_prefix/"
+
+    # Default title from path
+    if [[ -z "$title" ]]; then
+        title="${path_prefix:-$SPACES_BUCKET}"
+        title="${title%/}"
+    fi
+
+    echo "Generating index for: $SPACES_URI" >&2
+
+    # Get file listing
+    local cfg=$(_spaces_s3cfg)
+    local listing
+    listing=$(s3cmd ls -r "$SPACES_URI" --config="$cfg" 2>/dev/null)
+
+    if [[ -z "$listing" ]]; then
+        echo "No files found in $SPACES_URI" >&2
+        rm -f "$cfg"
+        return 1
+    fi
+
+    # Generate HTML
+    local html_file="${TMPDIR:-/tmp}/spaces-index-$$.html"
+    local now=$(date -u +"%Y-%m-%d %H:%M UTC")
+
+    cat > "$html_file" <<EOF
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>$title</title>
+    <style>
+        :root { --bg: #1a1a2e; --fg: #eee; --accent: #0f9; --dim: #888; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--fg);
+               max-width: 900px; margin: 0 auto; padding: 2rem; }
+        h1 { color: var(--accent); border-bottom: 1px solid var(--dim); padding-bottom: 0.5rem; }
+        .path { color: var(--dim); font-size: 0.9rem; margin-bottom: 1rem; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #333; }
+        th { color: var(--dim); font-weight: normal; }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .size { color: var(--dim); font-family: monospace; }
+        .date { color: var(--dim); }
+        .dir { color: #ff9; }
+        footer { margin-top: 2rem; color: var(--dim); font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+    <h1>$title</h1>
+    <div class="path">$base_url/${path_prefix}</div>
+    <table>
+        <thead><tr><th>Name</th><th>Size</th><th>Modified</th></tr></thead>
+        <tbody>
+EOF
+
+    # Track directories we've seen
+    local -A dirs_seen=()
+
+    # Parse listing and generate rows
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+
+        # Parse s3cmd output: "2024-01-15 10:30  12345  s3://bucket/path/file"
+        local date_str size s3_path
+        date_str=$(echo "$line" | awk '{print $1 " " $2}')
+        size=$(echo "$line" | awk '{print $3}')
+        s3_path=$(echo "$line" | awk '{print $NF}')
+
+        # Get relative path from bucket root
+        local rel_path="${s3_path#s3://$SPACES_BUCKET/}"
+
+        # Skip if not under our prefix
+        if [[ -n "$path_prefix" && "$rel_path" != "$path_prefix"* ]]; then
+            continue
+        fi
+
+        # Get path relative to current directory
+        local display_path="${rel_path#$path_prefix}"
+        [[ -z "$display_path" ]] && continue
+
+        # Check if this is in a subdirectory
+        if [[ "$display_path" == */* ]]; then
+            # Extract first directory component
+            local dir_name="${display_path%%/*}/"
+            if [[ ! -v dirs_seen["$dir_name"] ]]; then
+                dirs_seen["$dir_name"]=1
+                local dir_url="$base_url/${path_prefix}${dir_name}"
+                echo "            <tr><td><a href=\"$dir_url\" class=\"dir\">$dir_name</a></td><td class=\"size\">-</td><td class=\"date\">-</td></tr>" >> "$html_file"
+            fi
+        else
+            # Direct file
+            local file_url="$base_url/${path_prefix}${display_path}"
+            local size_fmt
+            if [[ "$size" -ge 1048576 ]]; then
+                size_fmt="$(( size / 1048576 ))M"
+            elif [[ "$size" -ge 1024 ]]; then
+                size_fmt="$(( size / 1024 ))K"
+            else
+                size_fmt="${size}B"
+            fi
+            echo "            <tr><td><a href=\"$file_url\">$display_path</a></td><td class=\"size\">$size_fmt</td><td class=\"date\">$date_str</td></tr>" >> "$html_file"
+        fi
+    done <<< "$listing"
+
+    cat >> "$html_file" <<EOF
+        </tbody>
+    </table>
+    <footer>Generated $now by spaces index</footer>
+</body>
+</html>
+EOF
+
+    # Upload index.html
+    local dest_path="${path_prefix}index.html"
+    echo "Uploading: index.html → s3://$SPACES_BUCKET/$dest_path" >&2
+
+    s3cmd put "$html_file" "s3://$SPACES_BUCKET/$dest_path" \
+        --config="$cfg" \
+        --acl-public \
+        --add-header="Content-Type: text/html" \
+        --add-header="Cache-Control: public, max-age=300" 2>/dev/null
+
+    local rc=$?
+    rm -f "$cfg" "$html_file"
+
+    if [[ $rc -eq 0 ]]; then
+        local url="$base_url/${dest_path}"
+        echo "" >&2
+        echo "Index: $url"
+    fi
+
+    return $rc
+}
+
 # Generate s3cmd config for current credentials
 # Returns path to temp config file (caller must rm)
 _spaces_s3cfg() {
@@ -307,6 +462,7 @@ export -f spaces_put
 export -f spaces_sync
 export -f spaces_url
 export -f spaces_delete
+export -f spaces_index
 
 # CLI interface
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
@@ -417,14 +573,14 @@ SETUP:
 
 TES RESOLUTION:
     Symbol: pja-games:games/
-      → Resolve @spaces from tetra.toml [storage.spaces]
+      → Resolve @spaces from tetra.toml [storage.s3]
       → Extract endpoint, credentials, bucket
       → Execute: s3cmd ls s3://pja-games/games/
 
 REQUIREMENTS:
     - s3cmd (brew install s3cmd)
     - TETRA_ORG environment variable
-    - Compiled tetra.toml with [storage.spaces] section
+    - Compiled tetra.toml with [storage.s3] section
 EOF
             ;;
         *)

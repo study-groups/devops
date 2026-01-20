@@ -1,0 +1,22 @@
+# DNS Provider: Reseller Club
+# API docs: https://manage.resellerclub.com/kb/answer/744
+
+[dns.rc]
+provider = "resellerclub"
+api_endpoint = "https://httpapi.com/api"
+
+# Credentials in secrets.env:
+# RC_AUTH_USERID=your-reseller-id
+# RC_API_KEY=your-api-key
+
+# Domain managed by this provider
+domain = "{{DOMAIN}}"
+
+# Customer ID (your reseller customer record)
+# customer_id = "your-customer-id"
+
+# DNS record defaults
+default_ttl = 3600
+
+# Common record types managed
+# A, AAAA, CNAME, MX, TXT, NS

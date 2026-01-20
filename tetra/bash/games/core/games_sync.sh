@@ -56,9 +56,9 @@ _games_s3_config() {
         GAMES_S3_BUCKET=$(echo "$games_section" | grep '^s3_bucket' | cut -d'=' -f2 | tr -d ' "')
         GAMES_S3_PREFIX=$(echo "$games_section" | grep '^s3_prefix' | cut -d'=' -f2 | tr -d ' "')
     else
-        # Fall back to storage.spaces default bucket
+        # Fall back to storage.s3 default bucket
         local storage_section
-        storage_section=$(awk '/^\[storage\.spaces\]/ {found=1; next} found && /^\[/ {exit} found {print}' "$toml_file")
+        storage_section=$(awk '/^\[storage\.s3\]/ {found=1; next} found && /^\[/ {exit} found {print}' "$toml_file")
         GAMES_S3_BUCKET=$(echo "$storage_section" | grep '^default_bucket' | cut -d'=' -f2 | tr -d ' "')
         GAMES_S3_PREFIX="games/"
     fi

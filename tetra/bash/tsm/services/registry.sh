@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # TSM Services - save/enable/disable/list service definitions
 #
-# Services are stored in the org-based structure:
-#   available: $TETRA_DIR/orgs/tetra/tsm/services-available/
-#   enabled:   $TETRA_DIR/orgs/tetra/tsm/services-enabled/
+# Services are stored per-user in:
+#   available: $TETRA_DIR/tsm/services-available/
+#   enabled:   $TETRA_DIR/tsm/services-enabled/
 
-TSM_SERVICES_AVAILABLE="${TETRA_DIR}/orgs/tetra/tsm/services-available"
-TSM_SERVICES_ENABLED="${TETRA_DIR}/orgs/tetra/tsm/services-enabled"
+TSM_SERVICES_AVAILABLE="${TETRA_DIR}/tsm/services-available"
+TSM_SERVICES_ENABLED="${TETRA_DIR}/tsm/services-enabled"
 
 # List available services
 tsm_services() {

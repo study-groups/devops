@@ -1,0 +1,19 @@
+# Infrastructure - environments and connectors
+# Updated by: org import nh {{ORG_NAME}}
+
+[env.local]
+symbol = "@local"
+type = "local"
+description = "Local development"
+app_port = 3000
+
+# Remote environments added by nh import:
+# [env.dev]
+# symbol = "@dev"
+# type = "remote"
+# ssh_host = "x.x.x.x"
+# ssh_auth_user = "root"
+# ssh_work_user = "dev"
+
+# [env.staging]
+# [env.prod]

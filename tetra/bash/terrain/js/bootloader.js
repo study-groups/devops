@@ -244,17 +244,18 @@
                     this.log('Fonts module loaded');
                 }
 
-                if (Terrain.Config.features.designMode) {
+                // Only load design mode when ?design=true is in URL
+                if (Terrain.Utils.getUrlParamBool('design')) {
                     await Promise.all([
                         this.loadCSS('css/components/fab.css'),
                         this.loadScript('js/ui/inspector.js')
                     ]);
                     this.log('Design mode assets loaded');
 
-                    // Initialize Terrain.Css.fab (replaces TUT)
-                    if (Terrain.Css && typeof Terrain.Css.fab.init === 'function') {
-                        Terrain.Css.fab.init();
-                        this.log('Terrain.Css.fab initialized');
+                    // Initialize Inspector (design token viewer + element inspector)
+                    if (Terrain.Inspector && typeof Terrain.Inspector.init === 'function') {
+                        Terrain.Inspector.init();
+                        this.log('Terrain.Inspector initialized');
                     }
                 }
 

@@ -36,7 +36,7 @@ bash/org/compiler.sh compile pixeljam-arcade
 
 This generates in `tetra.toml`:
 ```toml
-[storage.spaces]
+[storage.s3]
 symbol = "@spaces"
 backend = "digitalocean-spaces"
 endpoint = "https://sfo3.digitaloceanspaces.com"
@@ -97,7 +97,7 @@ bash/spaces/spaces.sh list pja-games:games/
 
 1. **Parse**: `pja-games:games/` → bucket=`pja-games`, path=`games/`
 
-2. **TES Resolve**: Look up `[storage.spaces]` in:
+2. **TES Resolve**: Look up `[storage.s3]` in:
    ```
    $TETRA_DIR/org/$TETRA_ORG/tetra.toml
    ```
@@ -168,7 +168,7 @@ export TETRA_ORG=pixeljam-arcade
 bash/org/compiler.sh compile pixeljam-arcade
 ```
 
-**Error: No [storage.spaces] section**
+**Error: No [storage.s3] section**
 ```bash
 # Add storage config to resources.toml
 # Then recompile

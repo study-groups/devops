@@ -7,7 +7,7 @@
 - TES symbol resolution: `@spaces:bucket:path`
 - REPL mode with context (`spaces_repl.sh`)
 - Operations: list, upload, download, sync
-- Config via `tetra.toml [storage.spaces]`
+- Config via `tetra.toml [storage.s3]`
 
 ### Games Module (`bash/games/`)
 - Multi-org game management (games live at `$TETRA_DIR/orgs/<org>/games/`)

@@ -128,15 +128,15 @@ export class OrgConfig {
   }
 
   /**
-   * Get storage config (storage.spaces or games.s3)
+   * Get storage config (storage.s3 or games.s3)
    */
   get storage() {
-    return this.config.storage?.spaces || this.config.games?.s3 || {};
+    return this.config.storage?.s3 || this.config.games?.s3 || {};
   }
 
   /**
    * Get S3 bucket name
-   * Looks in: games.bucket, games.categories.*.s3_bucket, storage.spaces.default_bucket
+   * Looks in: games.bucket, games.categories.*.s3_bucket, storage.s3.default_bucket
    */
   get bucket() {
     // Direct games.bucket
@@ -148,13 +148,13 @@ export class OrgConfig {
       if (cat.s3_bucket) return cat.s3_bucket;
     }
 
-    // From storage.spaces
+    // From storage.s3
     return this.storage.default_bucket;
   }
 
   /**
    * Get S3 endpoint
-   * Looks in: games.endpoint, games.s3.endpoint, storage.spaces.endpoint
+   * Looks in: games.endpoint, games.s3.endpoint, storage.s3.endpoint
    */
   get endpoint() {
     return this.games.endpoint || this.games.s3?.endpoint || this.storage.endpoint;
@@ -162,7 +162,7 @@ export class OrgConfig {
 
   /**
    * Get S3 credentials
-   * Looks in: games.s3, storage.spaces, secrets
+   * Looks in: games.s3, storage.s3, secrets
    */
   get credentials() {
     const s3 = this.games.s3 || {};

@@ -142,6 +142,22 @@ spaces() {
             echo "Endpoint: $SPACES_ENDPOINT"
             ;;
 
+        # Index (generate browsable HTML listing)
+        index)
+            local symbol="${1:-}"
+            shift 2>/dev/null || true
+            if [[ -z "$symbol" ]] && declare -f _spaces_ctx_symbol &>/dev/null; then
+                symbol=$(_spaces_ctx_symbol 2>/dev/null)
+            fi
+            if [[ -z "$symbol" ]]; then
+                echo "Usage: spaces index [bucket:path] [--title \"Title\"]" >&2
+                return 1
+            fi
+            spaces_index "$symbol" "$@"
+            # Invalidate cache after mutation
+            _spaces_cache_invalidate 2>/dev/null
+            ;;
+
         # Help
         help|--help|-h)
             cat <<'EOF'
@@ -159,6 +175,7 @@ COMMANDS:
     sync <src> <dest>   Sync directories
     del  <path>         Delete file
     info [path]         Show URL and metadata
+    index [path]        Generate browsable HTML index
 
 CONTEXT:
     spaces ctx set <org> <bucket> [path]
@@ -171,15 +188,17 @@ EXAMPLES:
     spaces                    # ls games/
     spaces get manifest.json  # download games/manifest.json
     spaces put ./new.json     # upload to games/new.json
+    spaces index              # generate index.html for games/
 
     # Direct (no context)
     spaces ls pja-games:games/
     spaces get pja-games:games/manifest.json
+    spaces index pja-games:games/ --title "My Games"
 EOF
             ;;
 
         *)
-            echo "Unknown: $cmd (try: ctx ls get put sync del info help)"
+            echo "Unknown: $cmd (try: ctx ls get put sync del info index help)"
             return 1
             ;;
     esac

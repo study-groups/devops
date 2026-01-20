@@ -266,6 +266,7 @@ tsm_start() {
     local pre_command=""
     local dryrun=false
     local tsm_file=""
+    local reuse_id=""
 
     # Pre-scan for --dryrun flag
     for arg in "$@"; do
@@ -294,6 +295,7 @@ tsm_start() {
                 --port|-p) port="$2"; shift 2 ;;
                 --env|-e)  env_file="$2"; shift 2 ;;
                 --name|-N) name="$2"; shift 2 ;;
+                --reuse-id) reuse_id="$2"; shift 2 ;;
                 --dryrun|--dry-run|-n) shift ;;  # already handled
                 *) shift ;;
             esac
@@ -335,6 +337,7 @@ tsm_start() {
                     --port|-p) port="$2"; shift 2 ;;
                     --env|-e)  env_file="$2"; shift 2 ;;
                     --name|-N) name="$2"; shift 2 ;;
+                    --reuse-id) reuse_id="$2"; shift 2 ;;
                     --dryrun|--dry-run|-n) shift ;;  # already handled
                     *) shift ;;  # ignore extra args for service mode
                 esac
@@ -363,6 +366,7 @@ tsm_start() {
                 --port|-p) port="$2"; shift 2 ;;
                 --env|-e)  env_file="$2"; shift 2 ;;
                 --name|-N) name="$2"; shift 2 ;;
+                --reuse-id) reuse_id="$2"; shift 2 ;;
                 --dryrun|--dry-run|-n) shift ;;  # already handled
                 *)
                     if [[ -z "$command" ]]; then
@@ -510,9 +514,12 @@ tsm_start() {
     done
 
     # Create metadata (include tsm_file if started from .tsm)
-    local id=$(tsm_create_meta "$proc_name" "$pid" "$command" "$resolved_port" "$PWD" "$env_file" "$tsm_file")
+    local id=$(tsm_create_meta "$proc_name" "$pid" "$command" "$resolved_port" "$PWD" "$env_file" "$tsm_file" "" "$reuse_id")
 
     echo "Started: $proc_name (id:$id pid:$pid port:${resolved_port:-none})"
+
+    # Run post-start hooks
+    tsm_hooks_run "post_start" "$proc_name" "$resolved_port"
 }
 
 export -f tsm_find_service tsm_load_service tsm_is_tsm_file tsm_load_tsm_file

@@ -564,6 +564,17 @@ deploy_env_generate() {
 #   cwd = "/home/dev/src/..."
 #
 deploy_env_create() {
+    # DEPRECATION NOTICE
+    echo "WARNING: 'deploy env create' is deprecated." >&2
+    echo "Use 'tsm build <env>' instead:" >&2
+    echo "  tsm build dev           # Build dev env" >&2
+    echo "  tsm build dev prod      # Build multiple envs" >&2
+    echo "" >&2
+    echo "tsm build provides:" >&2
+    echo "  - Implicit inheritance: local → dev → staging → prod" >&2
+    echo "  - Smart staleness detection via deploy push" >&2
+    echo "" >&2
+
     local env=""
     local source_dir="."
     local dry_run=false

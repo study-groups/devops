@@ -79,9 +79,10 @@
         .help-section code { background: var(--paper-dark); padding: 1px 4px; border-radius: 2px; font-size: 10px; }
         .help-section ul { margin: 0; padding-left: 16px; }
         .help-section li { margin-bottom: 4px; color: var(--ink-muted); }
-        .concept { background: var(--paper-mid); border-left: 2px solid var(--four); padding: 6px 8px; margin: 6px 0; }
-        .concept-title { font-weight: bold; color: var(--ink); font-size: 10px; }
-        .concept-desc { color: var(--ink-muted); font-size: 10px; margin-top: 2px; }
+        .concepts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; }
+        .concept { background: var(--paper-mid); border-left: 2px solid var(--four); padding: 5px 8px; }
+        .concept-title { font-weight: bold; color: var(--four); font-size: 10px; font-family: var(--font-mono); }
+        .concept-desc { color: var(--ink-muted); font-size: 9px; line-height: 1.3; margin-top: 2px; }
 
         /* Help UI - sub-tabs */
         .help-subtabs { display: flex; gap: 2px; flex-wrap: wrap; margin-bottom: 10px; }
@@ -321,15 +322,35 @@
             if (logEl.children.length > 50) logEl.firstChild.remove();
         }
 
-        // Tab switching
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        // Tab switching with persistence
+        const ADMIN_TAB_KEY = 'admin-active-tab';
+
+        function setActiveTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            const tab = document.querySelector(`.tab[data-tab="${tabId}"]`);
+            const content = document.getElementById('tab-' + tabId);
+            if (tab && content) {
                 tab.classList.add('active');
-                document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
-            });
+                content.classList.add('active');
+                localStorage.setItem(ADMIN_TAB_KEY, tabId);
+            }
+        }
+
+        // Initialize tab from URL param or localStorage
+        function initTab() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlTab = urlParams.get('tab');
+            const savedTab = localStorage.getItem(ADMIN_TAB_KEY);
+            const tabId = urlTab || savedTab || 'admin';
+            setActiveTab(tabId);
+        }
+
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => setActiveTab(tab.dataset.tab));
         });
+
+        initTab();
 
         // Update context display
         function updateContext() {

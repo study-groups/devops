@@ -1,6 +1,10 @@
 /**
  * PJA-SDK: PixelJam Arcade SDK for Cabinet
  *
+ * @deprecated Use pja/sdk/pja-sdk.js instead.
+ * This Cabinet-specific SDK is maintained for backward compatibility.
+ * The unified PJA SDK supports both callback and event emitter styles.
+ *
  * This SDK is automatically injected into game iframes by Cabinet.
  * Game developers use the `window.PJA` global to interact with Cabinet.
  *

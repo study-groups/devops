@@ -123,6 +123,9 @@ tsm_stack_start() {
     local failed=0
     local skipped=0
 
+    # Export stack context for metadata tagging
+    export TSM_STACK="$name"
+
     for svc in "${services[@]}"; do
         # Check if already running
         if tsm_process_alive "$svc" 2>/dev/null; then
@@ -143,6 +146,9 @@ tsm_stack_start() {
             ((failed++))
         fi
     done
+
+    # Clear stack context
+    unset TSM_STACK
 
     echo ""
     echo "Stack '$name': started=$started skipped=$skipped failed=$failed"

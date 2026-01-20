@@ -1,9 +1,7 @@
-// Capture Panel - Configuration
-const CONFIG = {
-    org: new URLSearchParams(window.location.search).get('org') || 'tetra'
-};
+// Capture Panel
+// Uses Terrain.State for org/env/user - initialized by Terrain.Iframe.init()
 
-// Consolidated state
+// Local state (panel-specific, not org/env)
 const state = {
     currentCapture: null,
     currentTab: 'text'
@@ -11,6 +9,10 @@ const state = {
 
 // DOM elements
 let els = {};
+
+function getOrg() {
+    return Terrain.State.org;
+}
 
 async function captureUrl(url, mode) {
     setStatus('capturing', `Capturing (${mode})...`);
@@ -20,7 +22,12 @@ async function captureUrl(url, mode) {
         const res = await fetch('/api/capture', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url, org: CONFIG.org, mode })
+            body: JSON.stringify({
+                url,
+                org: getOrg(),
+                env: Terrain.State.env,
+                mode
+            })
         });
 
         const data = await res.json();
@@ -41,7 +48,7 @@ async function captureUrl(url, mode) {
 
 async function loadCaptures() {
     try {
-        const res = await fetch(`/api/capture/list?org=${CONFIG.org}`);
+        const res = await fetch(`/api/capture/list?org=${getOrg()}`);
         if (!res.ok) throw new Error('Failed to load');
 
         const captures = await res.json();
@@ -52,12 +59,13 @@ async function loadCaptures() {
 }
 
 async function loadCapture(id, mode) {
+    const org = getOrg();
     els.captureId.textContent = `${mode}/${id}`;
 
-    els.preview.innerHTML = `<img src="/api/capture/${CONFIG.org}/${mode}/${id}/screenshot" alt="Screenshot" onerror="this.parentNode.innerHTML='<div class=placeholder>No screenshot</div>'">`;
+    els.preview.innerHTML = `<img src="/api/capture/${org}/${mode}/${id}/screenshot" alt="Screenshot" onerror="this.parentNode.innerHTML='<div class=placeholder>No screenshot</div>'">`;
 
     try {
-        const res = await fetch(`/api/capture/${CONFIG.org}/${mode}/${id}`);
+        const res = await fetch(`/api/capture/${org}/${mode}/${id}`);
         if (res.ok) {
             state.currentCapture = await res.json();
             state.currentCapture._mode = mode;
@@ -167,6 +175,18 @@ function init() {
         status: document.getElementById('status')
     };
 
+    // Initialize Terrain.Iframe with shared state
+    Terrain.Iframe.init({
+        name: 'capture'
+    });
+
+    // Handle env/org changes - reload captures for new org
+    Terrain.State.onEnvChange((changes) => {
+        if (changes.orgChanged) {
+            loadCaptures();
+        }
+    });
+
     const tabs = document.querySelectorAll('.tab');
 
     // Tab switching
@@ -202,13 +222,6 @@ function init() {
             .then(() => setStatus('success', 'Copied to clipboard'))
             .catch(() => setStatus('error', 'Failed to copy'));
     });
-
-    // Terrain integration
-    window.parent.postMessage({
-        type: 'ready',
-        from: 'capture',
-        source: 'terrain'
-    }, '*');
 
     loadCaptures();
 }

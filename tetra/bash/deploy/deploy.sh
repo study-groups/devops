@@ -1309,6 +1309,22 @@ deploy() {
             shift
             deploy_doctor "$@"
             ;;
+        games|g)
+            # Route to deploy_games.sh functions
+            shift
+            local subcmd="${1:-help}"
+            shift 2>/dev/null || true
+            case "$subcmd" in
+                list|ls) deploy_games_list "$@" ;;
+                sync|push) deploy_games_sync "$@" ;;
+                status|st) deploy_games_status ;;
+                help|h|--help) deploy_games_help ;;
+                *)
+                    # If subcmd looks like a game name, sync it
+                    deploy_games_sync "$subcmd" "$@"
+                    ;;
+            esac
+            ;;
         history|hist)
             shift
             deploy_history "$@"

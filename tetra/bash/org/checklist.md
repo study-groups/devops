@@ -341,7 +341,7 @@ ssh_work_user = "prod"
 "@prod" = { auth_user = "root", work_user = "prod", host = "1.2.3.6" }
 
 # 20-storage.toml
-[storage.spaces]
+[storage.s3]
 endpoint = "sfo3.digitaloceanspaces.com"
 bucket = "myorg"
 region = "sfo3"

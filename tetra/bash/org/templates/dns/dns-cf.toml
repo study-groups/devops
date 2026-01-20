@@ -1,0 +1,18 @@
+# DNS Provider: CloudFlare
+# API docs: https://developers.cloudflare.com/api/
+
+[dns.cf]
+provider = "cloudflare"
+api_endpoint = "https://api.cloudflare.com/client/v4"
+
+# Credentials in secrets.env:
+# CF_API_TOKEN=your-token
+# CF_ZONE_ID=your-zone-id
+
+# Domain managed by this provider
+domain = "{{DOMAIN}}"
+
+default_ttl = 3600
+
+# CloudFlare-specific
+proxy = false  # true to use CF proxy/CDN

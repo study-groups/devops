@@ -196,7 +196,7 @@ tdocs_show_category_pattern() {
     local category="$1"
     local width=$(_ce_width)
 
-    if [[ ! -v "TDOCS_PALETTE_ASSIGNMENTS[$category]" ]]; then
+    if [[ -z "${TDOCS_PALETTE_ASSIGNMENTS[$category]+isset}" ]]; then
         tds_text_color "status.error"
         echo "Error: Unknown category '$category'"
         reset_color
@@ -280,7 +280,7 @@ tdocs_swap_palette() {
     local category="$1"
     local new_palette="$2"
 
-    if [[ ! -v "TDOCS_PALETTE_ASSIGNMENTS[$category]" ]]; then
+    if [[ -z "${TDOCS_PALETTE_ASSIGNMENTS[$category]+isset}" ]]; then
         tds_text_color "status.error"
         echo "Error: Unknown category '$category'"
         reset_color
@@ -895,18 +895,5 @@ colors() {
     tdocs_color_explorer "$@"
 }
 
-# Export functions
-export -f tdocs_hex_to_256
-export -f tdocs_256_to_hex
-export -f tdocs_show_color_conversion
-export -f tdocs_show_palette_assignments
-export -f tdocs_show_category_pattern
-export -f tdocs_swap_palette
-export -f tdocs_show_256_palette
-export -f tdocs_compare_colors
-export -f tdocs_show_design_tokens
-export -f tdocs_color_pick
-export -f tdocs_theme_compare
-export -f tdocs_export_tokens
-export -f tdocs_color_explorer
-export -f colors
+# Functions are available in current shell - no export needed
+# (export -f causes errors when child processes use /bin/sh)

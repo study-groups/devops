@@ -39,6 +39,7 @@ tetra_register_module "anthropic" "$TETRA_BASH/anthropic"
 tetra_register_module "reporting" "$TETRA_BASH/reporting"
 tetra_register_module "claude" "$TETRA_BASH/claude"
 tetra_register_module "spaces" "$TETRA_BASH/spaces"
+tetra_register_module "gamepak" "$TETRA_BASH/gamepak"
 tetra_register_module "vox" "$TETRA_BASH/vox"
 
 # Register internal modules for RAG and Melvin (qa registered in boot_core.sh)
@@ -203,6 +204,9 @@ tetra_create_lazy_function "org" "org"
 tetra_create_lazy_function "vox" "vox"
 tetra_create_lazy_function "v" "vox"
 tetra_create_lazy_function "vr" "vox"
+
+# Gamepak module functions (game package manager)
+tetra_create_lazy_function "gamepak" "gamepak"
 
 # MIDI module functions
 tetra_create_lazy_function "midi" "midi"

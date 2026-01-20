@@ -6,9 +6,23 @@ const CONFIG = {
 // DOM elements
 let els = {};
 
+// Use shared state (Terrain.State) for org/env/user - initialized by Terrain.Iframe.init()
+
+function updateHeader() {
+    const header = document.querySelector('.iframe-header span:first-child');
+    if (!header) return;
+
+    const { org, env } = Terrain.State;
+    if (env === 'local') {
+        header.textContent = 'Deploy';
+    } else {
+        header.innerHTML = `Deploy <span class="env-indicator ${env}">${org}:${env}</span>`;
+    }
+}
+
 async function loadTargets() {
     try {
-        const res = await fetch('/api/deploy/targets');
+        const res = await fetch(Terrain.State.apiUrl('/api/deploy/targets'));
         const data = await res.json();
 
         if (!data.targets || data.targets.length === 0) {
@@ -37,7 +51,7 @@ async function loadTargets() {
 
 async function loadHistory() {
     try {
-        const res = await fetch('/api/deploy/history');
+        const res = await fetch(Terrain.State.apiUrl('/api/deploy/history'));
         const data = await res.json();
 
         if (!data.history || data.history.length === 0) {
@@ -65,13 +79,15 @@ async function loadHistory() {
 async function dryRun(target) {
     const envSelect = document.querySelector(`select[data-target="${target}"]`);
     const env = envSelect ? envSelect.value : 'dev';
+    const { org, user } = Terrain.State;
+
     showOutput(`Previewing ${target} -> ${env}...`);
 
     try {
         const res = await fetch('/api/deploy/deploy', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ target, env, dryRun: true })
+            body: JSON.stringify({ target, env, org, user, dryRun: true })
         });
         const data = await res.json();
         showOutput(data.output || data.message || JSON.stringify(data, null, 2));
@@ -83,6 +99,7 @@ async function dryRun(target) {
 async function deploy(target) {
     const envSelect = document.querySelector(`select[data-target="${target}"]`);
     const env = envSelect ? envSelect.value : 'dev';
+    const { org, user } = Terrain.State;
 
     if (env === 'prod' && !confirm(`Deploy ${target} to PRODUCTION?`)) {
         return;
@@ -94,7 +111,7 @@ async function deploy(target) {
         const res = await fetch('/api/deploy/deploy', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ target, env, dryRun: false })
+            body: JSON.stringify({ target, env, org, user, dryRun: false })
         });
         const data = await res.json();
         showOutput(data.output || data.message || JSON.stringify(data, null, 2));
@@ -110,6 +127,7 @@ function showOutput(text) {
 }
 
 function loadAll() {
+    updateHeader();
     loadTargets();
     loadHistory();
 }
@@ -121,6 +139,16 @@ function init() {
         output: document.getElementById('output'),
         outputContainer: document.getElementById('output-container')
     };
+
+    // Initialize Terrain.Iframe with shared state
+    Terrain.Iframe.init({
+        name: 'deploy'
+    });
+
+    // Handle env changes via Terrain.State
+    Terrain.State.onEnvChange((changes) => {
+        loadAll();
+    });
 
     // Register actions
     Terrain.Iframe.on('dry-run', (el, data) => dryRun(data.target));

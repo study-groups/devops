@@ -1,0 +1,99 @@
+{
+  "version": "1.0.0",
+  "stateCategories": {
+    "portable": ["theme", "cardData", "userPrefs"],
+    "modeSpecific": ["canvasPosition", "panelLayout", "nodePositions"],
+    "derived": ["gridSnap", "featureFlags"]
+  },
+  "coreModes": ["freerange", "control", "deploy", "dashboard"],
+  "transitions": {
+    "freerange": {
+      "control": {
+        "compatibility": "degraded",
+        "survives": ["theme", "cardData"],
+        "lost": ["canvasPosition", "freePositioning"],
+        "transforms": { "layout": "snaps to grid" },
+        "message": "Cards will snap to grid layout"
+      },
+      "deploy": {
+        "compatibility": "full",
+        "survives": ["theme", "cardData", "canvasPosition"],
+        "lost": [],
+        "message": null
+      },
+      "dashboard": {
+        "compatibility": "degraded",
+        "survives": ["theme", "cardData"],
+        "lost": ["canvasPosition", "nodePositions"],
+        "transforms": { "layout": "cards become iframe panels" },
+        "message": "Layout will change to fixed grid areas"
+      }
+    },
+    "control": {
+      "freerange": {
+        "compatibility": "full",
+        "survives": ["theme", "cardData", "nodePositions"],
+        "lost": [],
+        "message": null
+      },
+      "deploy": {
+        "compatibility": "full",
+        "survives": ["theme", "cardData"],
+        "lost": ["gridSnap"],
+        "message": null
+      },
+      "dashboard": {
+        "compatibility": "degraded",
+        "survives": ["theme", "cardData"],
+        "lost": ["nodePositions"],
+        "transforms": { "layout": "grid to area grid" },
+        "message": "Cards become fixed iframe panels"
+      }
+    },
+    "deploy": {
+      "freerange": {
+        "compatibility": "full",
+        "survives": ["theme", "cardData", "canvasPosition"],
+        "lost": [],
+        "message": null
+      },
+      "control": {
+        "compatibility": "degraded",
+        "survives": ["theme", "cardData"],
+        "lost": ["canvasPosition"],
+        "transforms": { "layout": "snaps to grid" },
+        "message": "Cards will snap to grid layout"
+      },
+      "dashboard": {
+        "compatibility": "degraded",
+        "survives": ["theme", "cardData"],
+        "lost": ["canvasPosition"],
+        "transforms": { "layout": "cards become iframe panels" },
+        "message": "Layout will change to fixed grid areas"
+      }
+    },
+    "dashboard": {
+      "freerange": {
+        "compatibility": "degraded",
+        "survives": ["theme"],
+        "lost": ["panelLayout"],
+        "transforms": { "panels": "become free cards" },
+        "message": "Panels become free-floating cards"
+      },
+      "control": {
+        "compatibility": "degraded",
+        "survives": ["theme"],
+        "lost": ["panelLayout"],
+        "transforms": { "panels": "become grid cards" },
+        "message": "Panels become grid cards"
+      },
+      "deploy": {
+        "compatibility": "degraded",
+        "survives": ["theme"],
+        "lost": ["panelLayout"],
+        "transforms": { "panels": "become deploy targets" },
+        "message": "Panels become deploy target cards"
+      }
+    }
+  }
+}

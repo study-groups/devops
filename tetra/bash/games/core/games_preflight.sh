@@ -81,6 +81,10 @@ _preflight_check_sdk() {
 
 # Check if lifecycle handlers are implemented
 # Searches all JS files in game directory
+# Recognizes three integration styles:
+#   1. Callback style: PJA.onStart = fn
+#   2. Game API style: PJA.Game.on('start', fn)
+#   3. RT-level style: PJA.RT.on('game:control', fn) - covers all lifecycle
 _preflight_check_handlers() {
     local game_dir="$1"
     local -n handlers_ref="$2"
@@ -98,13 +102,38 @@ _preflight_check_handlers() {
         js_content+=$(<"${game_dir}/index.html")
     fi
 
+    # Check for RT-level integration (covers all lifecycle handlers)
+    # Games using PJA.RT.on('game:control') handle control messages at a low level
+    # This is valid SDK integration even without individual handlers (e.g., Flash/Ruffle)
+    # Only applies to lifecycle handlers, not volume handlers
+    local is_lifecycle=false
+    [[ " ${handlers_ref[*]} " == *" onStart "* ]] && is_lifecycle=true
+
+    if $is_lifecycle && echo "$js_content" | grep -qE "PJA\.RT\.on\(['\"]game:control['\"]"; then
+        echo "ok:rt-level"
+        return 0
+    fi
+
+    # For volume handlers, also check audio:volume RT event
+    local is_volume=false
+    [[ " ${handlers_ref[*]} " == *" onVolumeChange "* ]] && is_volume=true
+
+    if $is_volume && echo "$js_content" | grep -qE "PJA\.RT\.on\(['\"]audio:volume['\"]"; then
+        echo "ok:rt-level"
+        return 0
+    fi
+
+    # Otherwise: check for individual handlers (callback or event style)
     for handler in "${handlers_ref[@]}"; do
-        # Match patterns like:
-        #   PJA.onStart =
-        #   onStart:
-        #   "onStart":
-        #   'onStart':
-        local pattern="(PJA\\.${handler}\\s*=|['\"]?${handler}['\"]?\\s*:)"
+        # Convert handler name to event name: onStart -> start
+        local event_name="${handler#on}"
+        event_name="${event_name,,}"  # lowercase (bash 5.2+)
+
+        # Match patterns:
+        #   Callback:  PJA.onStart =, PJA.onStart=
+        #   Game API:  PJA.Game.on('start', Game.on('start'
+        #   Object:    onStart:, "onStart":, 'onStart':
+        local pattern="(PJA\.${handler}\s*=|PJA\.Game\.on\(['\"]${event_name}['\"]|Game\.on\(['\"]${event_name}['\"]|['\"]?${handler}['\"]?\s*:)"
 
         if echo "$js_content" | grep -qE "$pattern"; then
             found+=("$handler")
@@ -280,7 +309,8 @@ _preflight_single() {
     # 3. Check lifecycle handlers (skip if sdk.required = false)
     if $sdk_required; then
         results[lifecycle]=$(_preflight_check_handlers "$game_dir" PREFLIGHT_LIFECYCLE_HANDLERS)
-        [[ "${results[lifecycle]}" != "ok" ]] && ((errors++))
+        # Accept both "ok" and "ok:rt-level" as success
+        [[ "${results[lifecycle]}" != ok* ]] && ((errors++))
     else
         results[lifecycle]="skipped:legacy"
     fi
@@ -288,7 +318,8 @@ _preflight_single() {
     # 4. Check volume handlers (skip if sdk.required = false)
     if $sdk_required; then
         results[volume]=$(_preflight_check_handlers "$game_dir" PREFLIGHT_VOLUME_HANDLERS)
-        [[ "${results[volume]}" != "ok" ]] && ((warnings++))
+        # Accept both "ok" and "ok:rt-level" as success
+        [[ "${results[volume]}" != ok* ]] && ((warnings++))
     else
         results[volume]="skipped:legacy"
     fi
@@ -349,6 +380,9 @@ _preflight_text_output() {
         ok)
             echo "ok (START, STOP, PAUSE)"
             ;;
+        ok:rt-level)
+            echo "ok (RT-level game:control)"
+            ;;
         skipped:legacy)
             echo "SKIP (sdk.required=false)"
             ;;
@@ -363,6 +397,9 @@ _preflight_text_output() {
     case "${res[volume]}" in
         ok)
             echo "ok"
+            ;;
+        ok:rt-level)
+            echo "ok (RT-level audio:volume)"
             ;;
         skipped:legacy)
             echo "SKIP (sdk.required=false)"

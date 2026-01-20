@@ -384,6 +384,9 @@ tetra_source_if_exists "$DEPLOY_SRC/deploy_systemd.sh"
 # File-centric deploy engine
 source "$DEPLOY_SRC/deploy_engine.sh"
 
+# Games deployment (S3/Spaces)
+tetra_source_if_exists "$DEPLOY_SRC/deploy_games.sh"
+
 # Main dispatcher (must come after implementations)
 source "$DEPLOY_SRC/deploy.sh"
 

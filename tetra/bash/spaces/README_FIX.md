@@ -27,11 +27,11 @@ The original code used `grep -A20` which would match fields from multiple TOML s
 endpoint=$(grep -A20 '^\[storage\.spaces\]' "$toml_file" | grep '^endpoint' ...)
 ```
 
-This resulted in duplicate values when the file had multiple sections with the same field names (`[storage.spaces]`, `[publishing.tau]`, `[publishing.games]` all have `endpoint`).
+This resulted in duplicate values when the file had multiple sections with the same field names (`[storage.s3]`, `[publishing.tau]`, `[publishing.games]` all have `endpoint`).
 
 **Fix**: Used awk to extract only the target section:
 ```bash
-# NEW - extracts only [storage.spaces] section
+# NEW - extracts only [storage.s3] section
 storage_section=$(awk '/^\[storage\.spaces\]/ {found=1; next} found && /^\[/ {exit} found {print}' "$toml_file")
 endpoint=$(echo "$storage_section" | grep '^endpoint' | head -1 | cut -d'=' -f2 | tr -d ' "')
 ```

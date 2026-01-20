@@ -1,0 +1,15 @@
+# Google Services Configuration
+
+[google]
+owner_email = "{{GOOGLE_EMAIL}}"
+
+[google.sites]
+site_url = "{{GOOGLE_SITE_URL}}"
+custom_domain = "{{CUSTOM_DOMAIN}}"
+# site_id extracted from URL if needed
+
+[google.analytics]
+measurement_id = "{{GA4_MEASUREMENT_ID}}"
+
+[google.search_console]
+property = "https://{{CUSTOM_DOMAIN}}"

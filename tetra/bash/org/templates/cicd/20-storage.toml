@@ -1,0 +1,9 @@
+# Storage configuration (S3/Spaces)
+
+# [storage.s3]
+# symbol = "@spaces"
+# endpoint = "https://sfo3.digitaloceanspaces.com"
+# region = "sfo3"
+# default_bucket = "{{ORG_NAME}}"
+# access_key = "${DO_SPACES_KEY}"
+# secret_key = "${DO_SPACES_SECRET}"

@@ -109,10 +109,9 @@ _doctor_health() {
 
     # Active ports - comprehensive view
     echo "Active Ports:"
-    local tsm_pids=()
-    local tsm_ports=()
+    local tsm_pgids=()
 
-    # Collect all TSM-managed PIDs and ports
+    # Collect all TSM-managed process groups
     for dir in "$TSM_PROCESSES_DIR"/*/; do
         [[ -d "$dir" ]] || continue
         local name=$(basename "$dir")
@@ -120,9 +119,10 @@ _doctor_health() {
         local meta="${dir}meta.json"
         [[ -f "$meta" ]] || continue
         local pid=$(jq -r '.pid // empty' "$meta" 2>/dev/null)
-        local port=$(jq -r '.port // empty' "$meta" 2>/dev/null)
-        [[ -n "$pid" ]] && tsm_pids+=("$pid")
-        [[ -n "$port" ]] && tsm_ports+=("$port")
+        if [[ -n "$pid" ]] && tsm_is_pid_alive "$pid"; then
+            local pgid=$(ps -p "$pid" -o pgid= 2>/dev/null | tr -d ' ')
+            [[ -n "$pgid" ]] && tsm_pgids+=("$pgid")
+        fi
     done
 
     # Get all listening ports
@@ -139,10 +139,11 @@ _doctor_health() {
         local cmd=$(ps -p "$pid" -o args= 2>/dev/null | head -c 40)
         [[ -z "$cmd" ]] && continue
 
-        # Check if TSM-managed
+        # Check if TSM-managed by matching process group
         local is_tsm=false
-        for tpid in "${tsm_pids[@]}"; do
-            [[ "$pid" == "$tpid" ]] && { is_tsm=true; break; }
+        local proc_pgid=$(ps -p "$pid" -o pgid= 2>/dev/null | tr -d ' ')
+        for tpgid in "${tsm_pgids[@]}"; do
+            [[ "$proc_pgid" == "$tpgid" ]] && { is_tsm=true; break; }
         done
 
         ((port_count++))

@@ -1,0 +1,16 @@
+# Payment Integration
+
+[payments.stripe]
+# Stripe configuration
+# Live keys in secrets.env, not here
+mode = "test"  # "test" or "live"
+# dashboard = "https://dashboard.stripe.com"
+
+# Product/price IDs for your offerings
+# [payments.stripe.products]
+# basic = "prod_xxx"
+# premium = "prod_yyy"
+
+[payments.stripe.webhooks]
+# Webhook endpoint (if using a receiver)
+# endpoint = "https://your-webhook-handler.com/stripe"

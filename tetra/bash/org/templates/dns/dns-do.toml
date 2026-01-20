@@ -1,0 +1,14 @@
+# DNS Provider: DigitalOcean
+# API docs: https://docs.digitalocean.com/reference/api/api-reference/#tag/Domain-Records
+
+[dns.do]
+provider = "digitalocean"
+api_endpoint = "https://api.digitalocean.com/v2"
+
+# Credentials in secrets.env:
+# DO_API_TOKEN=your-token
+
+# Domain managed by this provider
+domain = "{{DOMAIN}}"
+
+default_ttl = 3600

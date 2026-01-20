@@ -1,0 +1,18 @@
+# DNS Configuration
+# Routes public traffic to managed services
+
+[dns]
+# Primary domain
+domain = "{{ORG_NAME}}.com"
+# provider set during org creation (rc, digitalocean, cloudflare)
+
+[dns.records]
+# Managed by tetra dns commands
+# @ -> Google Sites (CNAME or A record)
+# www -> Google Sites
+# Stripe/payment subdomains if needed
+
+# Provider-specific section added based on selection:
+# [dns.rc] for Reseller Club
+# [dns.do] for DigitalOcean
+# [dns.cf] for CloudFlare

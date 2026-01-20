@@ -349,6 +349,115 @@
                     theme: themeName
                 });
             }
+        },
+
+        // =====================================================================
+        // Mode Compatibility API
+        // =====================================================================
+
+        /**
+         * Mode compatibility data (lazy loaded)
+         */
+        _compatibility: null,
+        _coreModes: ['freerange', 'control', 'deploy', 'dashboard'],
+
+        /**
+         * Load mode compatibility data
+         */
+        loadCompatibility: async function() {
+            if (this._compatibility) return this._compatibility;
+
+            try {
+                const response = await fetch('data/mode-compatibility.json');
+                if (response.ok) {
+                    this._compatibility = await response.json();
+                    console.log('[Terrain.Mode] Compatibility data loaded');
+                }
+            } catch (e) {
+                console.warn('[Terrain.Mode] Could not load compatibility data:', e.message);
+            }
+
+            if (!this._compatibility) {
+                this._compatibility = { transitions: {} };
+            }
+
+            return this._compatibility;
+        },
+
+        /**
+         * Get compatibility info for a mode transition
+         * @param {string} fromMode - Source mode
+         * @param {string} toMode - Target mode
+         * @returns {Object|null} Transition info or null if not defined
+         */
+        getCompatibility: async function(fromMode, toMode) {
+            await this.loadCompatibility();
+
+            if (!this._compatibility?.transitions?.[fromMode]?.[toMode]) {
+                // Check if non-core mode
+                if (!this._coreModes.includes(fromMode) || !this._coreModes.includes(toMode)) {
+                    return { compatibility: 'unmapped', message: 'Transition not yet defined' };
+                }
+                return null;
+            }
+
+            return this._compatibility.transitions[fromMode][toMode];
+        },
+
+        /**
+         * Alias for getCompatibility
+         */
+        getTransitionInfo: async function(fromMode, toMode) {
+            return this.getCompatibility(fromMode, toMode);
+        },
+
+        /**
+         * Get all available modes
+         */
+        getAvailableModes: function() {
+            return ['freerange', 'control', 'deploy', 'dashboard', 'site', 'thesis', 'guide', 'reference'];
+        },
+
+        /**
+         * Get core modes (those with defined transitions)
+         */
+        getCoreModes: function() {
+            return this._coreModes;
+        },
+
+        /**
+         * Switch mode at runtime with transition handling
+         * @param {string} targetMode - Mode to switch to
+         * @param {Object} options - { force: boolean, preserveTheme: boolean }
+         */
+        switchMode: async function(targetMode, options = {}) {
+            const fromMode = this.modeName?.toLowerCase() || 'freerange';
+
+            // Emit transition start event
+            if (window.Terrain.Events) {
+                window.Terrain.Events.emit('MODE_TRANSITION_START', {
+                    from: fromMode,
+                    to: targetMode
+                });
+            }
+
+            // Load new mode config
+            const modePath = `dist/modes/${targetMode}.mode.json`;
+            const success = await this.init(modePath, options.preserveTheme ? this.themeName : null);
+
+            // Apply to Config
+            this.apply();
+
+            // Emit transition complete event
+            if (window.Terrain.Events) {
+                window.Terrain.Events.emit('MODE_TRANSITION_COMPLETE', {
+                    from: fromMode,
+                    to: targetMode,
+                    success: success
+                });
+            }
+
+            return success;
         }
     };
 

@@ -90,7 +90,7 @@ dev = "dev.pixeljamarcade.com"
 base_domain = "pixeljamarcade.com"
 staging = "qa.pixeljamarcade.com"
 
-[storage.spaces]
+[storage.s3]
 symbol = "@spaces"
 endpoint = "https://sfo3.digitaloceanspaces.com"
 region = "sfo3"

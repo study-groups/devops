@@ -15,17 +15,20 @@
 # CONFIGURATION
 # =============================================================================
 
-# Load config from tetra.toml [games] section
+# Load config from org context
 _deploy_games_config() {
-    GAMES_LOCAL=$(org_toml_get "games.local_path" 2>/dev/null)
-    GAMES_BUCKET=$(org_toml_get "games.s3_bucket" 2>/dev/null)
+    # Get current org
+    local org
+    org=$(org_active 2>/dev/null)
+    org="${org:-tetra}"
 
-    # Defaults
-    GAMES_LOCAL="${GAMES_LOCAL:-~/pj/pja-games}"
+    # Games path is always: $TETRA_DIR/orgs/<org>/games
+    GAMES_LOCAL="${TETRA_DIR}/orgs/${org}/games"
+
+    # Bucket from tetra.toml or default
+    GAMES_BUCKET=$(grep -A1 '^\[games\]' "${TETRA_DIR}/orgs/${org}/tetra.toml" 2>/dev/null | \
+        grep 's3_bucket' | sed 's/.*=\s*"\([^"]*\)".*/\1/')
     GAMES_BUCKET="${GAMES_BUCKET:-pja-games}"
-
-    # Expand ~
-    GAMES_LOCAL=$(eval echo "$GAMES_LOCAL")
 }
 
 # =============================================================================

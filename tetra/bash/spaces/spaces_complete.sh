@@ -10,7 +10,7 @@
 # COMMANDS
 # =============================================================================
 
-_SPACES_COMMANDS="ctx ls get put sync del info help"
+_SPACES_COMMANDS="ctx ls get put sync del info index help"
 _SPACES_CTX_COMMANDS="set org bucket path cache clear status"
 
 # =============================================================================
@@ -106,9 +106,9 @@ _spaces_complete_orgs() {
     for dir in "$orgs_dir"/*/; do
         [[ -d "$dir" ]] || continue
         local name=$(basename "$dir")
-        # Only show orgs with storage.spaces config
+        # Only show orgs with storage.s3 config
         local toml="$dir/tetra.toml"
-        if [[ -f "$toml" ]] && grep -q '^\[storage\.spaces\]' "$toml" 2>/dev/null; then
+        if [[ -f "$toml" ]] && grep -q '^\[storage\.s3\]' "$toml" 2>/dev/null; then
             echo "$name"
         fi
     done
@@ -163,6 +163,45 @@ _spaces_complete_paths() {
     echo "data/"
 }
 
+# Hierarchical path completion - shows only next level
+# Usage: _spaces_complete_paths_hierarchical "cur" -> sets COMPREPLY
+_spaces_complete_paths_hierarchical() {
+    local cur="$1"
+    local all_paths=$(_spaces_complete_paths)
+
+    local -A seen=()
+    local completions=()
+
+    while IFS= read -r path; do
+        [[ -z "$path" ]] && continue
+
+        # Skip paths that don't match the prefix
+        [[ "$path" != "$cur"* ]] && continue
+
+        # Get the remainder after the prefix
+        local remainder="${path#$cur}"
+
+        # Extract just the next segment
+        local next_segment
+        if [[ "$remainder" == */* ]]; then
+            # Has more levels - get first segment with trailing /
+            next_segment="${remainder%%/*}/"
+        else
+            # Final segment (file)
+            next_segment="$remainder"
+        fi
+
+        # Skip empty or already seen
+        [[ -z "$next_segment" ]] && continue
+        [[ -v seen["$next_segment"] ]] && continue
+        seen["$next_segment"]=1
+
+        completions+=("${cur}${next_segment}")
+    done <<< "$all_paths"
+
+    COMPREPLY=("${completions[@]}")
+}
+
 # Get context values for display
 _spaces_ctx_org()    { tps_ctx get spaces org 2>/dev/null; }
 _spaces_ctx_bucket() { tps_ctx get spaces project 2>/dev/null; }
@@ -208,6 +247,14 @@ _spaces_complete() {
         info)
             _spaces_complete_symbol "$cur"
             ;;
+        index)
+            # Complete symbol, then --title option
+            if [[ "$cur" == --* ]]; then
+                COMPREPLY=($(compgen -W "--title" -- "$cur"))
+            elif [[ $COMP_CWORD -eq 2 ]]; then
+                _spaces_complete_symbol "$cur"
+            fi
+            ;;
         help)
             COMPREPLY=($(compgen -W "$_SPACES_COMMANDS" -- "$cur"))
             ;;
@@ -239,8 +286,8 @@ _spaces_complete_ctx() {
                     local org="${COMP_WORDS[3]}"
                     COMPREPLY=($(compgen -W "$(_spaces_complete_buckets "$org")" -- "$cur"))
                     ;;
-                5)  # path
-                    COMPREPLY=($(compgen -W "$(_spaces_complete_paths)" -- "$cur"))
+                5)  # path - hierarchical
+                    _spaces_complete_paths_hierarchical "$cur"
                     ;;
             esac
             ;;
@@ -256,7 +303,7 @@ _spaces_complete_ctx() {
             ;;
         path)
             if [[ $COMP_CWORD -eq 3 ]]; then
-                COMPREPLY=($(compgen -W "$(_spaces_complete_paths)" -- "$cur"))
+                _spaces_complete_paths_hierarchical "$cur"
             fi
             ;;
         cache)
@@ -271,8 +318,8 @@ _spaces_complete_ctx() {
                     3)  # bucket
                         COMPREPLY=($(compgen -W "$(_spaces_complete_buckets "$subcmd")" -- "$cur"))
                         ;;
-                    4)  # path
-                        COMPREPLY=($(compgen -W "$(_spaces_complete_paths)" -- "$cur"))
+                    4)  # path - hierarchical
+                        _spaces_complete_paths_hierarchical "$cur"
                         ;;
                 esac
             fi
@@ -280,19 +327,49 @@ _spaces_complete_ctx() {
     esac
 }
 
-# Complete bucket:path symbols
+# Complete bucket:path symbols with hierarchical completion
+# Shows only next level: games/<tab> shows games/foo/ games/bar/
 _spaces_complete_symbol() {
     local cur="$1"
 
-    # If cur contains colon, complete path portion
+    # If cur contains colon, complete path portion hierarchically
     if [[ "$cur" == *:* ]]; then
         local bucket="${cur%%:*}"
         local path_prefix="${cur#*:}"
-        local paths=$(_spaces_complete_paths)
-        for p in $paths; do
-            COMPREPLY+=("${bucket}:${p}")
-        done
-        COMPREPLY=($(compgen -W "${COMPREPLY[*]}" -- "$cur"))
+        local all_paths=$(_spaces_complete_paths)
+
+        # Extract unique next-level completions
+        local -A seen=()
+        local completions=()
+
+        while IFS= read -r path; do
+            [[ -z "$path" ]] && continue
+
+            # Skip paths that don't match the prefix
+            [[ "$path" != "$path_prefix"* ]] && continue
+
+            # Get the remainder after the prefix
+            local remainder="${path#$path_prefix}"
+
+            # Extract just the next segment
+            local next_segment
+            if [[ "$remainder" == */* ]]; then
+                # Has more levels - get first segment with trailing /
+                next_segment="${remainder%%/*}/"
+            else
+                # Final segment (file)
+                next_segment="$remainder"
+            fi
+
+            # Skip empty or already seen
+            [[ -z "$next_segment" ]] && continue
+            [[ -v seen["$next_segment"] ]] && continue
+            seen["$next_segment"]=1
+
+            completions+=("${bucket}:${path_prefix}${next_segment}")
+        done <<< "$all_paths"
+
+        COMPREPLY=("${completions[@]}")
     else
         # Complete bucket names
         local buckets=$(_spaces_complete_buckets)
@@ -370,4 +447,5 @@ complete -F _spaces_complete spaces
 export -f _spaces_cache_init _spaces_cache_file _spaces_cache_valid
 export -f _spaces_cache_refresh _spaces_cache_get _spaces_cache_invalidate
 export -f _spaces_complete_orgs _spaces_complete_buckets _spaces_complete_paths
+export -f _spaces_complete_paths_hierarchical
 export -f _spaces_complete

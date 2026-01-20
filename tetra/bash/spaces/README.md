@@ -34,7 +34,7 @@ Use TES symbols for progressive resolution:
 
 # Resolution chain:
 # 1. Parse @spaces symbol
-# 2. Lookup connector in tetra.toml [storage.spaces]
+# 2. Lookup connector in tetra.toml [storage.s3]
 # 3. Execute s3cmd with DO Spaces endpoint
 ```
 
@@ -107,7 +107,7 @@ help ls           # List command examples
 Spaces credentials are stored in `tetra.toml`:
 
 ```toml
-[storage.spaces]
+[storage.s3]
 access_key = "your-access-key"
 secret_key = "your-secret-key"
 region = "nyc3"

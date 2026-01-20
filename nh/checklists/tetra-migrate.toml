@@ -1,0 +1,334 @@
+# tetra-migrate.toml - Generic tetra infrastructure migration checklist
+#
+# Use this checklist to track migration from one server to another.
+# Customize the [[projects]] and [[apps]] sections for your specific setup.
+#
+# Usage:
+#   nh clone migrate           # View checklist status
+#   nh cl browse               # Interactive browser
+
+[meta]
+version = "1.0"
+description = "Tetra infrastructure migration checklist"
+created = "2025-01-07"
+
+# Source server (fill in before migration)
+[source]
+type = "droplet"
+name = "do4_n2"
+host = ""  # Fill with IP: 165.227.6.221
+user = "root"
+os = "Ubuntu 20.04"
+
+# Target server
+[target]
+name = "do4n3"
+host = ""  # Fill after droplet creation
+users = ["dev", "staging", "prod"]
+os = "Ubuntu 24.04"
+
+# =============================================================================
+# PROJECTS - Code/modules to sync
+# =============================================================================
+
+[[projects]]
+id = "tetra-core"
+name = "Tetra Core"
+description = "Bash modules and bootloader"
+priority = 1
+sync = ["bash"]
+source_path = "$TETRA_SRC/bash/"
+dest_path = "~/tetra/bash/"
+excludes = [".git", "node_modules", "*.log"]
+post_sync = ""
+status = "pending"
+
+[[projects]]
+id = "tetra-server"
+name = "Tetra Server"
+description = "Node.js API server (port 4444)"
+priority = 2
+sync = ["server"]
+source_path = "$TETRA_SRC/../server/"
+dest_path = "~/tetra/server/"
+excludes = [".git", "node_modules", ".env"]
+post_sync = "npm install --production"
+status = "pending"
+
+[[projects]]
+id = "tetra-dashboard"
+name = "Tetra Dashboard"
+description = "Frontend dashboard UI"
+priority = 3
+sync = ["dashboard"]
+source_path = "$TETRA_SRC/../dashboard/"
+dest_path = "~/tetra/dashboard/"
+excludes = [".git", "node_modules"]
+post_sync = ""
+status = "pending"
+
+[[projects]]
+id = "devpages"
+name = "DevPages UI"
+description = "Development pages client"
+priority = 4
+sync = ["devpages"]
+source_path = "../devpages/"
+dest_path = "~/devpages/"
+excludes = [".git", "node_modules", "dist", ".cache"]
+post_sync = "npm install --production"
+status = "pending"
+
+[[projects]]
+id = "nvm"
+name = "Node Version Manager"
+description = "NVM with installed Node versions"
+priority = 5
+sync = ["nvm"]
+source_path = "~/tetra/nvm/"
+dest_path = "~/tetra/nvm/"
+excludes = [".cache", "*.log"]
+post_sync = ""
+status = "pending"
+
+# =============================================================================
+# APPS - Services that need to be running
+# =============================================================================
+
+[[apps]]
+id = "tetra-4444"
+name = "Tetra Server"
+description = "Main API server"
+port = 4444
+user = "prod"
+start_command = "tsm start tetra-4444"
+health_check = "curl -s http://localhost:4444/health"
+status = "pending"
+
+# Add your apps here, for example:
+# [[apps]]
+# id = "gamma-5001"
+# name = "Gamma Service"
+# description = "Game management service"
+# port = 5001
+# user = "prod"
+# start_command = "tsm start gamma"
+# status = "pending"
+
+# =============================================================================
+# ORG DATA - Organization-specific configurations
+# =============================================================================
+
+[[orgs]]
+id = "tetra"
+name = "Tetra Org"
+description = "Core tetra organization data"
+source_path = "$TETRA_DIR/orgs/tetra/"
+dest_path = "~/tetra/orgs/tetra/"
+excludes = ["secrets.env", "*.env.local", "tkm/keys"]
+has_secrets = true
+status = "pending"
+
+[[orgs]]
+id = "nodeholder"
+name = "NodeHolder Org"
+description = "Infrastructure management org"
+source_path = "$TETRA_DIR/orgs/nodeholder/"
+dest_path = "~/tetra/orgs/nodeholder/"
+excludes = ["secrets.env", "*.env.local"]
+has_secrets = true
+status = "pending"
+
+# =============================================================================
+# PHASES - Migration workflow phases
+# =============================================================================
+
+[[phases]]
+id = "pre"
+name = "Pre-Migration"
+description = "Verify source and prepare target"
+
+[[phases.steps]]
+id = "pre-01"
+title = "Document running services on source"
+command = "ssh root@{{source.host}} 'tsm list -A'"
+required = true
+status = "pending"
+
+[[phases.steps]]
+id = "pre-02"
+title = "Export port allocations"
+command = "ssh root@{{source.host}} 'tsm ports'"
+required = true
+status = "pending"
+
+[[phases.steps]]
+id = "pre-03"
+title = "Backup critical data"
+command = "ssh root@{{source.host}} 'tar -czf /tmp/tetra-backup.tar.gz ~/tetra/orgs/'"
+required = false
+status = "pending"
+
+# ---
+
+[[phases]]
+id = "create"
+name = "Create Target"
+description = "Provision and bootstrap new droplet"
+
+[[phases.steps]]
+id = "create-01"
+title = "Create droplet"
+command = "nh clone create {{target.name}}"
+required = true
+status = "pending"
+
+[[phases.steps]]
+id = "create-02"
+title = "Bootstrap droplet"
+command = "nh clone bootstrap {{target.name}}"
+required = true
+status = "pending"
+
+[[phases.steps]]
+id = "create-03"
+title = "Verify user SSH access"
+command = "for u in dev staging prod; do ssh -o ConnectTimeout=5 $u@{{target.host}} 'echo OK'; done"
+required = true
+status = "pending"
+
+# ---
+
+[[phases]]
+id = "sync"
+name = "Data Sync"
+description = "Rsync projects and data"
+
+[[phases.steps]]
+id = "sync-01"
+title = "Sync tetra/bash modules"
+command = "nh clone sync {{target.name}} dev bash"
+required = true
+status = "pending"
+
+[[phases.steps]]
+id = "sync-02"
+title = "Sync tetra/server"
+command = "nh clone sync {{target.name}} dev server"
+required = true
+status = "pending"
+
+[[phases.steps]]
+id = "sync-03"
+title = "Sync tetra/dashboard"
+command = "nh clone sync {{target.name}} dev dashboard"
+required = false
+status = "pending"
+
+[[phases.steps]]
+id = "sync-04"
+title = "Sync devpages"
+command = "nh clone sync {{target.name}} dev devpages"
+required = false
+status = "pending"
+
+[[phases.steps]]
+id = "sync-05"
+title = "Sync org configs (NOT secrets)"
+command = "nh clone sync {{target.name}} dev org"
+required = true
+status = "pending"
+
+[[phases.steps]]
+id = "sync-06"
+title = "Transfer secrets manually"
+description = "Copy secrets.env files via secure method (not rsync)"
+manual = true
+required = true
+status = "pending"
+
+# ---
+
+[[phases]]
+id = "activate"
+name = "Activation"
+description = "Start services and verify"
+
+[[phases.steps]]
+id = "activate-01"
+title = "Activate TSM on dev"
+command = "nh clone activate {{target.name}} dev"
+required = true
+status = "pending"
+
+[[phases.steps]]
+id = "activate-02"
+title = "Start services"
+command = "ssh dev@{{target.host}} 'source ~/tetra/tetra.sh && tsm startup'"
+required = true
+status = "pending"
+
+[[phases.steps]]
+id = "activate-03"
+title = "Run health checks"
+command = "ssh dev@{{target.host}} 'source ~/tetra/tetra.sh && tsm doctor'"
+required = true
+status = "pending"
+
+# ---
+
+[[phases]]
+id = "validate"
+name = "Validation"
+description = "Final checks before cutover"
+
+[[phases.steps]]
+id = "validate-01"
+title = "Compare service lists"
+command = "diff <(ssh root@{{source.host}} 'tsm list') <(ssh dev@{{target.host}} 'tsm list')"
+required = false
+status = "pending"
+
+[[phases.steps]]
+id = "validate-02"
+title = "Test API endpoints"
+command = "curl -s http://{{target.host}}:4444/health"
+required = true
+status = "pending"
+
+[[phases.steps]]
+id = "validate-03"
+title = "DNS cutover (if applicable)"
+description = "Update DNS records to point to new server"
+manual = true
+required = false
+status = "pending"
+
+# =============================================================================
+# NOTES
+# =============================================================================
+
+# Add migration notes here
+[notes]
+pre_migration = """
+Before starting:
+1. Ensure source server is accessible
+2. Note any running services not in TSM
+3. Backup any data not in standard locations
+"""
+
+secrets_transfer = """
+Secrets must be transferred manually:
+1. SSH to source: ssh root@{{source.host}}
+2. Cat secrets: cat ~/tetra/orgs/*/secrets.env
+3. SSH to target: ssh prod@{{target.host}}
+4. Create secrets file with restricted permissions
+"""
+
+post_migration = """
+After migration complete:
+1. Monitor new server for 24-48 hours
+2. Keep old server running as fallback
+3. Update floating IP or DNS when ready
+4. Decommission old server after verification period
+"""

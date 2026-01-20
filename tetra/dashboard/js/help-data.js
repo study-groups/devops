@@ -114,8 +114,72 @@ window.HELP_DATA = {
         sections: [
             {
                 title: 'Terrain Framework',
-                content: 'Panels communicate via the Terrain library loaded from <code>terrain-iframe.js</code>.',
-                keywords: ['terrain', 'framework', 'library']
+                content: 'Panels communicate via the Terrain library loaded from <code>terrain-iframe.js</code>. It provides a message bus, state management, display modes, and design tools.',
+                list: [
+                    '<strong>Terrain.Bus</strong> - Pub/sub message bus (parent ↔ iframes)',
+                    '<strong>Terrain.State</strong> - Shared org/env/user context',
+                    '<strong>Terrain.Mode</strong> - Display mode system (panel, full-panel, custom)',
+                    '<strong>Terrain.Iframe</strong> - Iframe initialization helpers',
+                    '<strong>Terrain.Design</strong> - Design token viewer (?design=true)'
+                ],
+                keywords: ['terrain', 'framework', 'library', 'overview']
+            },
+            {
+                title: 'Message Protocol',
+                content: 'Messages are plain objects with routing metadata and timestamps.',
+                list: [
+                    '<code>type</code> — Message type string (e.g., "ready", "env-change")',
+                    '<code>source</code> — Sender ID; parent uses "terrain"',
+                    '<code>from</code> — Alternative sender field; iframes use panel name',
+                    '<code>_to</code> — Target panel; matches data-view attribute',
+                    '<code>_from</code> — Routing annotation added by parent during forwarding',
+                    '<code>timestamp</code> — Message timestamp in milliseconds (Date.now())',
+                    '<code>ts</code> — API timestamp in seconds (Date.now()/1000)'
+                ],
+                code: '{\n  type: \'env-change\',\n  source: \'terrain\',\n  _to: \'deploy\',\n  _from: \'parent\',\n  timestamp: 1705600000000\n}',
+                keywords: ['message', 'protocol', 'format', 'timestamp', '_to', '_from', 'source']
+            },
+            {
+                title: 'Dual Timestamps',
+                content: 'The protocol uses two timestamp conventions for different contexts.',
+                concepts: [
+                    { title: 'timestamp (ms)', desc: 'Date.now() in milliseconds. Used for message routing, iframe load timing, and event ordering.' },
+                    { title: 'ts (seconds)', desc: 'Date.now()/1000 as Unix epoch. Used in API responses, Caddy access logs, and TSM service data.' }
+                ],
+                code: '// Message routing uses milliseconds\nsendToPanel(panel, {\n  timestamp: Date.now()  // 1705600000000\n});\n\n// API responses use seconds\n{\n  ts: 1705600000.0,\n  method: \'GET\',\n  status: 200\n}',
+                keywords: ['timestamp', 'milliseconds', 'seconds', 'unix', 'epoch', 'time']
+            },
+            {
+                title: 'Targeting',
+                content: 'The parent window acts as a message router. All iframe-to-iframe communication goes through parent.',
+                concepts: [
+                    { title: 'route(panel, msg)', desc: 'Send to one iframe. Sets _to field from panel.dataset.view.' },
+                    { title: 'publish(msg)', desc: 'Broadcast to all iframes. Each receives the message.' },
+                    { title: 'broadcast(msg, src)', desc: 'Send to all except source. Used for cross-panel sync.' },
+                    { title: 'Iframe.send(msg)', desc: 'Iframe sends to parent. Only direction available from iframe.' }
+                ],
+                code: '// Panel identified by data-view\n<div data-view="deploy">...</div>\n\n// Parent routes to specific panel\nTerrain.Bus.route(\n  document.querySelector(\'[data-view="deploy"]\'),\n  { type: \'refresh\' }\n);\n\n// Iframe sends up to parent\nTerrain.Iframe.send({ type: \'ready\' });',
+                keywords: ['target', 'client', 'server', 'route', 'broadcast', 'parent', 'iframe']
+            },
+            {
+                title: 'Message Types',
+                content: 'Standard message types handled automatically by Terrain.',
+                concepts: [
+                    { title: 'ready', desc: 'Iframe initialization complete. Parent records load timing.' },
+                    { title: 'env-change', desc: 'Context switch with org/env/user. Auto-updates Terrain.State.' },
+                    { title: 'mode-change', desc: 'Display mode toggle (panel↔full-panel). Auto-calls Terrain.Mode.set().' },
+                    { title: 'log-watch-change', desc: 'TSM panel broadcasts selected services to sync with Logs panel.' },
+                    { title: 'injectTokens', desc: 'Parent injects CSS variables into iframe document.' },
+                    { title: 'request-timings', desc: 'Admin panel requests load timing data from parent.' },
+                    { title: 'timing-update', desc: 'Parent responds with array of panel timing measurements.' }
+                ],
+                keywords: ['ready', 'env-change', 'mode-change', 'log-watch', 'inject', 'timing', 'message']
+            },
+            {
+                title: 'Routing Flow',
+                content: 'How messages flow between parent and iframes.',
+                code: '// FLOW 1: Iframe → Parent\n// tsm.iframe.html clicks env button\nTerrain.Iframe.send({ type: \'log-watch-change\', services: [...] });\n  ↓\nwindow.parent.postMessage(msg, \'*\');\n  ↓\n// index.html message handler\nwindow.addEventListener(\'message\', (e) => {\n  Terrain.Bus._notify({ ...msg, _from: \'tsm\', _to: \'parent\' });\n  Terrain.Bus.broadcast(msg, e.source);  // to other panels\n});\n\n// FLOW 2: Parent → Iframe\n// User clicks env button in header\nupdatePanelIframe(panel, true);\n  ↓\nsendToPanel(panel, { type: \'env-change\', env, org, user });\n  ↓\nTerrain.Bus.route(panel, { ...msg, _to: panel.dataset.view });\n  ↓\niframe.contentWindow.postMessage(msg, \'*\');\n  ↓\n// deploy.iframe.html receives\nTerrain.State._handleEnvChange(msg);  // auto-update context',
+                keywords: ['flow', 'routing', 'postmessage', 'send', 'receive', 'handler']
             },
             {
                 title: 'Terrain.Mode',
@@ -145,6 +209,149 @@ window.HELP_DATA = {
                 content: 'Iframe initialization and communication helpers.',
                 code: '// Initialize panel\nTerrain.Iframe.init({\n  name: \'my-panel\',\n  onReady: () => loadData()\n});\n\n// Send message to parent\nTerrain.Iframe.send({ type: \'request-data\' });\n\n// DOM event delegation\nTerrain.Iframe.on(\'refresh\', (el) => {\n  // handles <button data-action="refresh">\n});',
                 keywords: ['iframe', 'init', 'send', 'action', 'delegation']
+            },
+            {
+                title: 'Terrain.Design',
+                content: 'Design token viewer activated by <code>?design=true</code>. Shows all CSS variables and allows copying them.',
+                concepts: [
+                    { title: 'Activation', desc: 'Add ?design=true to any URL that loads terrain-iframe.js' },
+                    { title: 'FAB Button', desc: 'Gear icon appears in bottom-right corner to toggle the panel' },
+                    { title: 'Click to Copy', desc: 'Click any token row to copy var(--name) to clipboard' }
+                ],
+                code: '// Check if design mode is active\nif (Terrain.Design.isEnabled()) {\n  console.log(\'Design mode active\');\n}\n\n// Programmatic control\nTerrain.Design.show();    // Open panel\nTerrain.Design.hide();    // Close panel\nTerrain.Design.toggle();  // Toggle panel\n\n// URLs that activate design mode:\n// http://localhost:4444/?design=true\n// http://localhost:4444/tsm.iframe.html?design=true',
+                keywords: ['design', 'token', 'css', 'variable', 'inspector', 'fab', 'copy']
+            },
+            {
+                title: 'Design Token Categories',
+                content: 'The design panel automatically categorizes CSS variables found in :root.',
+                list: [
+                    '<strong>Colors:</strong> --one, --two, --three, --four, --ink, --accent-*',
+                    '<strong>Paper/Background:</strong> --paper-*, --bg-*, --shade, --border',
+                    '<strong>Layout:</strong> --gap-*, --height, --width, --size, --padding, --margin',
+                    '<strong>Typography:</strong> --font-*, --text-*',
+                    '<strong>Terrain Mode:</strong> --terrain-* (set by Terrain.Mode)',
+                    '<strong>Other:</strong> Any CSS variables not matching above patterns'
+                ],
+                keywords: ['design', 'category', 'colors', 'paper', 'layout', 'typography', 'variable']
+            },
+            {
+                title: 'Logging & Debugging',
+                content: 'Built-in logging for debugging message flow and performance.',
+                concepts: [
+                    { title: '[Console]', desc: 'Parent window logs all received messages to browser console' },
+                    { title: '[Terrain.X]', desc: 'Module-specific logging with prefix convention' },
+                    { title: 'iframeTimings', desc: 'Map tracking panel load start/end times' },
+                    { title: 'Developer Panel', desc: 'Subscribes to "*" wildcard to visualize all traffic' }
+                ],
+                code: '// Parent logs all messages (index.html)\nwindow.addEventListener(\'message\', (e) => {\n  console.log(\'[Console] Message:\', e.data);\n});\n\n// Module logging convention\nconsole.log(\'[Terrain.Mode] Applied:\', modeName);\nconsole.log(\'[Terrain.Design] Initialized\');\nconsole.log(\'[Inspector] Initialized\');\n\n// Timing tracking in parent\niframeTimings.set(panelId, {\n  start: Date.now(),\n  view: \'deploy\',\n  end: null,\n  duration: null\n});\n// On \'ready\' message:\ntiming.end = Date.now();\ntiming.duration = timing.end - timing.start;',
+                keywords: ['log', 'debug', 'console', 'timing', 'trace', 'developer']
+            },
+            {
+                title: 'Performance Monitoring',
+                content: 'Track iframe load times and API latency.',
+                list: [
+                    '<strong>Panel Timings:</strong> Admin tab shows load time per panel',
+                    '<strong>Color Coding:</strong> Green (<500ms), Yellow (500-2000ms), Red (>2000ms)',
+                    '<strong>request-timings:</strong> Admin panel requests current timing data',
+                    '<strong>timing-update:</strong> Parent responds with collected timings'
+                ],
+                code: '// Request timing data (admin.iframe.html)\nTerrain.Iframe.send({ type: \'request-timings\', source: \'admin\' });\n\n// Parent responds with:\n{\n  type: \'timing-update\',\n  timings: [\n    { panel: \'top-left\', view: \'console\', duration: 342 },\n    { panel: \'top-right\', view: \'tsm\', duration: 567 },\n    ...\n  ]\n}',
+                keywords: ['performance', 'timing', 'latency', 'slow', 'fast', 'monitor']
+            },
+            {
+                title: 'Parent/Iframe Detection',
+                content: 'Terrain auto-detects whether it\'s running in parent or iframe context.',
+                code: '// Auto-detection (terrain-iframe.js)\nTerrain.Bus._isParent = window.parent === window;\n\n// In parent window (index.html): true\n// In iframe (tsm.iframe.html): false\n\n// Behavior differs:\nif (Terrain.Bus._isParent) {\n  // publish() broadcasts to all iframes\n  // route() sends to specific iframe\n} else {\n  // publish() sends to parent via postMessage\n  // Terrain.Iframe.send() available\n}',
+                keywords: ['parent', 'iframe', 'detect', 'context', 'window']
+            }
+        ]
+    },
+
+    capture: {
+        title: 'Capture',
+        sections: [
+            {
+                title: 'Capture API',
+                content: 'Screenshot and DOM capture service. Base URL: <code>http://localhost:4444</code>',
+                code: 'POST /api/capture\nContent-Type: application/json\n\n{\n  "url": "https://example.com",\n  "org": "tetra",\n  "capture": ["screenshot", "dom", "text"],\n  "waitForSelector": "#main-content"\n}',
+                keywords: ['capture', 'screenshot', 'api', 'post']
+            },
+            {
+                title: 'Capture Types',
+                content: 'Types of content to capture from the page.',
+                list: [
+                    '<code>screenshot</code> — PNG image of the viewport',
+                    '<code>dom</code> — Full HTML source',
+                    '<code>text</code> — Visible text content only',
+                    '<code>struct</code> — Page structure/outline',
+                    '<code>interact</code> — Clickable/fillable elements'
+                ],
+                keywords: ['capture', 'screenshot', 'dom', 'text', 'struct', 'type']
+            },
+            {
+                title: 'Wait Strategies',
+                content: 'Control when capture occurs. Pick one strategy.',
+                concepts: [
+                    { title: 'waitForSelector', desc: '"#element-id" — Wait for element to appear (best for SPAs)' },
+                    { title: 'waitForTimeout', desc: '2000 — Fixed delay in milliseconds' },
+                    { title: 'waitUntil: networkidle0', desc: 'No network requests for 500ms (most reliable)' },
+                    { title: 'waitUntil: domcontentloaded', desc: 'DOM ready event (faster, less reliable)' }
+                ],
+                keywords: ['wait', 'selector', 'timeout', 'networkidle', 'spa']
+            },
+            {
+                title: 'Viewport Configuration',
+                content: 'Set browser window dimensions for the capture.',
+                code: '{\n  "url": "https://example.com",\n  "org": "tetra",\n  "viewport": {"width": 1280, "height": 720},\n  "capture": ["screenshot"]\n}',
+                list: [
+                    '<strong>Desktop:</strong> 1920×1080, 1440×900, 1280×720',
+                    '<strong>Tablet:</strong> 768×1024, 1024×768',
+                    '<strong>Mobile:</strong> 375×667, 414×896'
+                ],
+                keywords: ['viewport', 'width', 'height', 'responsive', 'mobile', 'desktop']
+            },
+            {
+                title: 'Multi-Step Capture',
+                content: 'Execute a sequence of actions before capturing (login flows, navigation, form filling).',
+                code: 'POST /api/capture\n{\n  "org": "tetra",\n  "capture": ["screenshot"],\n  "steps": [\n    {"action": "navigate", "url": "https://example.com/login"},\n    {"action": "waitForSelector", "selector": "#login-form"},\n    {"action": "fill", "selector": "#email", "value": "user@example.com"},\n    {"action": "fill", "selector": "#password", "value": "secret"},\n    {"action": "click", "selector": "button[type=submit]"},\n    {"action": "waitForSelector", "selector": ".dashboard"},\n    {"action": "saveSession", "name": "logged-in"}\n  ]\n}',
+                keywords: ['steps', 'multi', 'journey', 'login', 'flow', 'sequence']
+            },
+            {
+                title: 'Step Actions',
+                content: 'Available actions for multi-step captures.',
+                concepts: [
+                    { title: 'navigate', desc: '{"action": "navigate", "url": "..."}' },
+                    { title: 'click', desc: '{"action": "click", "selector": "..."}' },
+                    { title: 'fill', desc: '{"action": "fill", "selector": "...", "value": "..."}' },
+                    { title: 'wait', desc: '{"action": "wait", "ms": 1000}' },
+                    { title: 'waitForSelector', desc: '{"action": "waitForSelector", "selector": "..."}' },
+                    { title: 'evaluate', desc: '{"action": "evaluate", "script": "return document.title"}' },
+                    { title: 'saveSession', desc: '{"action": "saveSession", "name": "..."}' },
+                    { title: 'setViewport', desc: '{"action": "setViewport", "width": 375, "height": 667}' }
+                ],
+                keywords: ['action', 'click', 'fill', 'wait', 'navigate', 'evaluate', 'session']
+            },
+            {
+                title: 'Sessions',
+                content: 'Save and reuse browser sessions (cookies, localStorage) across captures.',
+                code: '// Save session during steps\n{"action": "saveSession", "name": "logged-in"}\n\n// Reuse session in later capture\nPOST /api/capture\n{\n  "url": "https://example.com/dashboard",\n  "org": "tetra",\n  "session": "logged-in",\n  "capture": ["screenshot"]\n}',
+                list: [
+                    '<code>GET /api/capture/sessions?org=tetra</code> — List sessions',
+                    '<code>DELETE /api/capture/sessions/tetra/{name}</code> — Delete session'
+                ],
+                keywords: ['session', 'cookie', 'login', 'auth', 'reuse']
+            },
+            {
+                title: 'Capture Endpoints',
+                content: 'REST endpoints for managing captures.',
+                list: [
+                    '<code>POST /api/capture</code> — Create new capture',
+                    '<code>GET /api/capture/list?org=tetra</code> — List captures',
+                    '<code>GET /api/capture/tetra/{id}</code> — Get capture metadata',
+                    '<code>GET /api/capture/tetra/{id}/file/{filename}</code> — Get capture file',
+                    '<code>DELETE /api/capture/tetra/{id}</code> — Delete capture'
+                ],
+                keywords: ['endpoint', 'list', 'get', 'delete', 'rest']
             }
         ]
     },
@@ -216,9 +423,9 @@ window.renderHelpSection = function(section) {
     }
 
     if (section.concepts) {
-        html += section.concepts.map(c =>
+        html += '<div class="concepts-grid">' + section.concepts.map(c =>
             `<div class="concept"><div class="concept-title">${c.title}</div><div class="concept-desc">${c.desc}</div></div>`
-        ).join('');
+        ).join('') + '</div>';
     }
 
     html += '</div>';

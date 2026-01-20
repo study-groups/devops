@@ -17,13 +17,13 @@ _spaces_ensure_tree() {
 spaces_completion_buckets() {
     local buckets=()
 
-    # Get default bucket from storage.spaces
+    # Get default bucket from storage.s3
     if [[ -n "${TETRA_ORG:-}" ]]; then
         local toml_file="$TETRA_DIR/orgs/$TETRA_ORG/tetra.toml"
         if [[ -f "$toml_file" ]]; then
             # Get default bucket
             local default_bucket
-            default_bucket=$(awk '/^\[storage\.spaces\]/ {found=1; next} found && /^\[/ {exit} found && /^default_bucket/ {print}' "$toml_file" | cut -d'=' -f2 | tr -d ' "')
+            default_bucket=$(awk '/^\[storage\.s3\]/ {found=1; next} found && /^\[/ {exit} found && /^default_bucket/ {print}' "$toml_file" | cut -d'=' -f2 | tr -d ' "')
             [[ -n "$default_bucket" ]] && buckets+=("$default_bucket")
 
             # Get buckets from publishing sections

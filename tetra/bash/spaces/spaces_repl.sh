@@ -98,9 +98,9 @@ repl_init() {
     local toml_file="$TETRA_DIR/orgs/$TETRA_ORG/tetra.toml"
     local bucket_source=""
     if [[ -f "$toml_file" ]]; then
-        REPL_CURRENT_BUCKET=$(awk '/^\[storage\.spaces\]/ {found=1; next} found && /^\[/ {exit} found && /^default_bucket/ {print}' "$toml_file" | cut -d'=' -f2 | tr -d ' "')
+        REPL_CURRENT_BUCKET=$(awk '/^\[storage\.s3\]/ {found=1; next} found && /^\[/ {exit} found && /^default_bucket/ {print}' "$toml_file" | cut -d'=' -f2 | tr -d ' "')
         if [[ -n "$REPL_CURRENT_BUCKET" ]]; then
-            bucket_source="tetra.toml [storage.spaces].default_bucket"
+            bucket_source="tetra.toml [storage.s3].default_bucket"
         fi
     fi
 

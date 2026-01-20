@@ -29,6 +29,7 @@ source "$NH_SRC/nh_do_dns.sh"
 source "$NH_SRC/nh_checklist.sh"
 source "$NH_SRC/nh_doctor.sh"
 source "$NH_SRC/nh_complete.sh"
+source "$NH_SRC/nh_clone.sh"
 
 # =============================================================================
 # CONTEXT MANAGEMENT
@@ -272,6 +273,7 @@ COMMANDS
     link <s> <ctx>  Create shortname symlink
     unlink <s>      Remove shortname symlink
     doctor          Health check
+    clone           Droplet cloning and tetra deployment (nh clone help)
 
     fetch           Fetch infrastructure from DigitalOcean
     servers         List servers with IPs
@@ -584,6 +586,7 @@ nh() {
         link)               nh_link "$@" ;;
         unlink)             nh_unlink "$@" ;;
         doctor)             nh_doctor ;;
+        clone)              nh_clone "$@" ;;
 
         # Infrastructure
         fetch|refresh)      nh_doctl_fetch "$@" ;;
@@ -681,3 +684,4 @@ export -f nh nh_status nh_context nh_context_list nh_switch nh_create nh_link nh
 export -f nh_servers nh_show nh_json_age
 export -f nh_help nh_help_env nh_help_alias nh_help_ssh nh_help_doctl nh_help_md nh_help_cl
 export -f nh_md_cmd nh_checklist _nh_cl_ensure_parsed
+# nh_clone exports are in nh_clone.sh
