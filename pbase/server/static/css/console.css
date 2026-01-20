@@ -402,6 +402,174 @@
     display: block;
 }
 
+/* Sticky Controls Area - fixed at top of console panel */
+.console-controls-sticky {
+    flex-shrink: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.console-controls-sticky:empty {
+    display: none;
+    padding: 0;
+    border-bottom: none;
+}
+
+/* Control Item */
+.control-item {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.35rem 0.5rem;
+    min-width: 140px;
+    max-width: 200px;
+}
+
+.control-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
+}
+
+.control-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.control-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+}
+
+.control-close:hover {
+    opacity: 1;
+    color: var(--error);
+}
+
+.control-body {
+    display: flex;
+    align-items: center;
+}
+
+/* Slider Control */
+.control-slider {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.control-slider input[type="range"] {
+    flex: 1;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--border);
+    border-radius: 2px;
+    cursor: pointer;
+}
+
+.control-slider input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: grab;
+}
+
+.control-slider input[type="range"]::-webkit-slider-thumb:active {
+    cursor: grabbing;
+}
+
+.control-slider input[type="range"]::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    background: var(--accent);
+    border-radius: 50%;
+    border: none;
+    cursor: grab;
+}
+
+.control-value {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    min-width: 2.5em;
+    text-align: right;
+    font-family: monospace;
+}
+
+/* Select Control */
+.control-select {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.select-option {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 0.2rem 0.4rem;
+    font-size: 0.7rem;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+}
+
+.select-option:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+}
+
+.select-option.active {
+    background: var(--primary);
+    border-color: var(--accent);
+    color: var(--text);
+}
+
+/* Toggle Control */
+.control-toggle {
+    display: flex;
+}
+
+.toggle-btn {
+    background: var(--border);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+}
+
+.toggle-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .pbase-console.layout-horizontal {
@@ -422,5 +590,13 @@
         order: -1;
         width: 100%;
         justify-content: center;
+    }
+
+    .console-controls-sticky {
+        max-height: 100px;
+    }
+
+    .control-item {
+        min-width: 120px;
     }
 }

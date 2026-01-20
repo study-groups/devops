@@ -1,0 +1,484 @@
+/* Games - Cards, detail view, file viewer */
+
+/* Game Cards Grid */
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.game-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.game-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+}
+
+.game-card:active {
+    transform: translateY(0);
+}
+
+.game-card h3 {
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+}
+
+.game-card .slug {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.game-card .meta {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+}
+
+.game-card .tag {
+    background: var(--primary);
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+}
+
+/* Game Detail View */
+#game-detail-view {
+    height: calc(100vh - 120px);
+    display: flex;
+    flex-direction: column;
+}
+
+.detail-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1rem;
+}
+
+.back-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 0.375rem 0.75rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.875rem;
+}
+
+.back-btn:hover {
+    color: var(--text);
+    border-color: var(--text-muted);
+}
+
+.detail-toolbar h2 {
+    flex: 1;
+    margin: 0;
+    font-size: 1.25rem;
+    color: var(--accent);
+}
+
+.detail-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.detail-actions .action-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+}
+
+.detail-actions .action-btn:hover {
+    color: var(--text);
+    border-color: var(--text-muted);
+}
+
+.detail-content {
+    flex: 1;
+    display: flex;
+    gap: 1rem;
+    overflow: hidden;
+}
+
+.detail-sidebar {
+    flex: 0 0 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    overflow-y: auto;
+}
+
+.detail-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow: hidden;
+}
+
+.detail-section {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.75rem;
+}
+
+.detail-section h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.8rem;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.detail-section dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.25rem 0.75rem;
+    margin: 0;
+    font-size: 0.85rem;
+}
+
+.detail-section dt {
+    color: var(--text-muted);
+}
+
+.detail-section dd {
+    margin: 0;
+    font-family: 'SF Mono', monospace;
+    word-break: break-all;
+}
+
+.detail-section dd.tag-list {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+
+.detail-section dd .tag {
+    background: var(--primary);
+    padding: 0.125rem 0.375rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+}
+
+/* Game Files Table */
+#game-files {
+    flex: 0 0 auto;
+    max-height: 40%;
+    display: flex;
+    flex-direction: column;
+}
+
+#game-files .file-table-container {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.file-table-container {
+    overflow-y: auto;
+}
+
+.file-table {
+    width: 100%;
+    font-size: 0.8rem;
+    border-collapse: collapse;
+}
+
+.file-table th,
+.file-table td {
+    padding: 0.375rem 0.5rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.file-table th {
+    background: var(--surface);
+    font-weight: 500;
+    color: var(--text-muted);
+    position: sticky;
+    top: 0;
+}
+
+.file-table td {
+    font-family: 'SF Mono', monospace;
+}
+
+.file-table tr:hover td {
+    background: var(--surface-hover);
+}
+
+.file-table .size {
+    text-align: right;
+    color: var(--text-muted);
+}
+
+.file-table .date {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+/* Clickable file rows */
+.file-row.clickable {
+    cursor: pointer;
+}
+
+.file-row.selected td {
+    background: var(--primary);
+}
+
+.file-row .name {
+    font-weight: 500;
+}
+
+/* Sync status badges */
+.sync-status {
+    text-align: center;
+    width: 1.5rem;
+}
+
+.sync-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 2px;
+    font-size: 0.6rem;
+    font-weight: 600;
+    opacity: 0.7;
+}
+
+.sync-badge.synced {
+    background: var(--success);
+    color: white;
+}
+
+.sync-badge.modified {
+    background: var(--warning);
+    color: white;
+}
+
+.sync-badge.local-only {
+    background: var(--info);
+    color: white;
+}
+
+.sync-badge.s3-only {
+    background: var(--text-muted);
+    color: white;
+}
+
+.file-source-label {
+    font-weight: normal;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+/* File Viewer Pane */
+.file-viewer-pane {
+    display: none;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    flex: 1;
+    min-height: 200px;
+    overflow: hidden;
+}
+
+.file-viewer-pane.visible {
+    display: flex;
+}
+
+.file-viewer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+}
+
+.file-viewer-title {
+    font-family: 'SF Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.file-viewer-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.file-viewer-actions button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+}
+
+.file-viewer-actions button:hover {
+    color: var(--text);
+    border-color: var(--text-muted);
+}
+
+.close-viewer-btn {
+    font-size: 1rem !important;
+    padding: 0 0.375rem !important;
+    border: none !important;
+}
+
+.close-viewer-btn:hover {
+    color: var(--accent) !important;
+}
+
+.save-btn,
+.cancel-btn {
+    display: none;
+}
+
+.save-btn {
+    color: var(--success) !important;
+    border-color: var(--success) !important;
+}
+
+.save-btn:hover {
+    background: var(--success) !important;
+    color: white !important;
+}
+
+.cancel-btn:hover {
+    color: var(--accent) !important;
+}
+
+.file-editor {
+    display: none;
+    width: 100%;
+    height: 100%;
+    min-height: 200px;
+    background: var(--bg);
+    color: var(--text);
+    border: none;
+    resize: none;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    padding: 0;
+    outline: none;
+}
+
+.file-viewer-pane.edit-mode .file-viewer-body pre {
+    display: none !important;
+}
+
+.file-viewer-pane.edit-mode .file-editor {
+    display: block !important;
+}
+
+.file-viewer-pane.edit-mode .edit-btn,
+.file-viewer-pane.edit-mode .compare-btn {
+    display: none !important;
+}
+
+.file-viewer-pane.edit-mode .save-btn,
+.file-viewer-pane.edit-mode .cancel-btn {
+    display: inline-flex !important;
+}
+
+.file-viewer-body {
+    flex: 1;
+    overflow: auto;
+    padding: 0.75rem;
+}
+
+.file-viewer-body pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.file-viewer-body code {
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--text);
+}
+
+/* Compare View */
+.compare-container {
+    display: flex;
+    gap: 0.5rem;
+    height: 100%;
+}
+
+.compare-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.compare-pane.has-diff {
+    border-color: var(--warning);
+}
+
+.compare-label {
+    padding: 0.25rem 0.5rem;
+    background: var(--surface);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+}
+
+.compare-pane pre {
+    flex: 1;
+    margin: 0;
+    padding: 0.5rem;
+    overflow: auto;
+    background: var(--bg);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.compare-pane code {
+    font-family: 'SF Mono', 'Monaco', monospace;
+    font-size: 0.75rem;
+    line-height: 1.4;
+}
+
+.file-viewer-pane.compare-mode .file-viewer-body {
+    padding: 0.5rem;
+}
+
+.file-viewer-pane.compare-mode .file-viewer-body > pre,
+.file-viewer-pane.compare-mode .file-editor {
+    display: none !important;
+}
+
+.file-viewer-pane.compare-mode .compare-container {
+    display: flex !important;
+    height: 100%;
+}
+
+.file-viewer-pane.compare-mode .edit-btn {
+    display: none !important;
+}

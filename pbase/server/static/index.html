@@ -108,17 +108,98 @@
 
         <!-- S3 Browser Tab -->
         <section id="s3-tab" class="tab-content">
-            <div class="toolbar">
-                <h2>S3 Browser</h2>
-                <div class="breadcrumb" id="s3-breadcrumb">
-                    <button class="crumb" data-prefix="">root</button>
+            <div class="s3-tab-layout">
+                <!-- Left: Manifest Manager -->
+                <div class="manifest-manager">
+                    <!-- Summary Section -->
+                    <div class="manifest-section">
+                        <div class="section-header">
+                            <h3>Manifest Summary</h3>
+                            <button id="refresh-manifest-btn" class="icon-btn" title="Refresh">↻</button>
+                        </div>
+                        <div id="manifest-summary" class="manifest-summary">
+                            <div class="summary-loading">Loading...</div>
+                        </div>
+                    </div>
+
+                    <!-- Game Editor Section -->
+                    <div class="manifest-section game-editor-section">
+                        <div class="section-header">
+                            <h3>Game Editor</h3>
+                        </div>
+                        <div class="game-selector">
+                            <select id="game-toml-select">
+                                <option value="">Select a game...</option>
+                            </select>
+                        </div>
+                        <form id="game-toml-form" class="game-toml-form">
+                            <div class="form-row">
+                                <label>Name <input type="text" name="name" placeholder="Game Name"></label>
+                                <label>ID <input type="text" name="id" placeholder="slug"></label>
+                            </div>
+                            <div class="form-row">
+                                <label>Summary <input type="text" name="summary" placeholder="Short description"></label>
+                            </div>
+                            <div class="form-row">
+                                <label>Author <input type="text" name="author" placeholder="Author name"></label>
+                                <label>Version <input type="text" name="version" placeholder="1.0.0"></label>
+                            </div>
+                            <div class="form-row">
+                                <label>Entry <input type="text" name="entry" placeholder="index.html"></label>
+                                <label>Thumbnail <input type="text" name="thumbnail" placeholder="thumb.png"></label>
+                            </div>
+                            <div class="form-row">
+                                <label>Tags <input type="text" name="tags" placeholder="arcade, puzzle"></label>
+                            </div>
+                            <div class="form-row">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" name="requires_auth">
+                                    Requires Auth
+                                </label>
+                                <label>Min Role
+                                    <select name="min_role">
+                                        <option value="guest">guest</option>
+                                        <option value="user">user</option>
+                                        <option value="dev">dev</option>
+                                        <option value="admin">admin</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" id="save-game-toml-btn" class="primary-btn" disabled>Save game.toml</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Aggregate Section -->
+                    <div class="manifest-section aggregate-section">
+                        <div class="section-header">
+                            <h3>Build Manifest</h3>
+                        </div>
+                        <p class="section-desc">Generate games.json from all game.toml files</p>
+                        <div class="aggregate-actions">
+                            <button id="preview-manifest-btn" class="action-btn">Preview games.json</button>
+                            <button id="commit-manifest-btn" class="action-btn primary" disabled>Commit to S3</button>
+                        </div>
+                        <div id="manifest-preview" class="manifest-preview"></div>
+                    </div>
                 </div>
-            </div>
-            <div class="s3-browser-container">
-                <div id="s3-list" class="file-list"></div>
-                <div id="s3-content" class="s3-content-pane">
-                    <div id="s3-content-header" class="s3-content-header"></div>
-                    <div id="s3-content-body" class="s3-content-body"></div>
+
+                <!-- Right: File Browser -->
+                <div class="s3-file-browser">
+                    <div class="browser-header">
+                        <h3>S3 Files</h3>
+                        <div class="breadcrumb" id="s3-breadcrumb">
+                            <button class="crumb" data-prefix="">root</button>
+                        </div>
+                    </div>
+                    <div class="s3-browser-container">
+                        <div id="s3-list" class="file-list"></div>
+                        <div id="s3-content" class="s3-content-pane">
+                            <div id="s3-content-header" class="s3-content-header"></div>
+                            <div id="s3-content-body" class="s3-content-body"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>

@@ -5,6 +5,7 @@
 
 import { ConsoleInput } from './ConsoleInput.js';
 import { ConsoleOutput } from './ConsoleOutput.js';
+import { ConsoleControls, getParameter, isContinuous, isCategorical } from './ConsoleControls.js';
 import { GameFrame } from './GameFrame.js';
 import { ALL_COMMANDS, getHelp, CATEGORIES } from './ConsoleCommands.js';
 
@@ -22,6 +23,7 @@ export class PBaseConsole {
         this.element = null;
         this.input = null;
         this.output = null;
+        this.controls = null;
         this.frame = null;
 
         // Game list for completion
@@ -37,6 +39,9 @@ export class PBaseConsole {
 
         // Create components
         this.output = new ConsoleOutput();
+        this.controls = new ConsoleControls({
+            onChange: (param, value, context) => this._handleControlChange(param, value, context)
+        });
         this.frame = new GameFrame({
             onMessage: (type, data) => this._handleGameMessage(type, data),
             onLoad: (url) => this._handleGameLoad(url),
@@ -44,12 +49,14 @@ export class PBaseConsole {
         });
         this.input = new ConsoleInput({
             onExecute: (cmd) => this._executeCommand(cmd),
-            onTab: (partial, items) => this._handleTab(partial, items)
+            onTab: (partial, items) => this._handleTab(partial, items),
+            onControlRequest: (param, context) => this._addControl(param, context)
         });
 
         // Layout
         const consolePanel = document.createElement('div');
         consolePanel.className = 'console-panel';
+        consolePanel.appendChild(this.controls.render());
         consolePanel.appendChild(this.output.render());
         consolePanel.appendChild(this.input.render());
 
@@ -439,10 +446,51 @@ export class PBaseConsole {
     }
 
     /**
-     * Handle tab completion
+     * Handle tab completion - check for control parameters
      */
     _handleTab(partial, items) {
-        // Could show additional UI feedback here
+        const parts = partial.trim().split(/\s+/);
+        const cmd = parts[0]?.toLowerCase();
+
+        // Check if command has a control parameter
+        if (isContinuous(cmd) || isCategorical(cmd)) {
+            // Parse context from partial (e.g., "paddle 0" -> player: 0)
+            const context = {};
+            if (parts[1] !== undefined && cmd === 'paddle') {
+                context.player = parts[1];
+            }
+
+            // Add control if not already present
+            if (!this.controls.hasControl(cmd, context)) {
+                this._addControl(cmd, context);
+            }
+        }
+    }
+
+    /**
+     * Add an inline control
+     */
+    _addControl(param, context = {}) {
+        if (!this.controls.hasControl(param, context)) {
+            this.controls.addControl(param, context);
+        }
+    }
+
+    /**
+     * Handle control value change - silent, no console output
+     */
+    _handleControlChange(param, value, context) {
+        switch (param) {
+            case 'volume':
+                this.frame.setVolume(value);
+                break;
+            case 'mute':
+                this.frame.setMute(value);
+                break;
+            case 'paddle':
+                this.frame.setPaddle(parseInt(context.player) || 0, value);
+                break;
+        }
     }
 
     /**

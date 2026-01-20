@@ -66,12 +66,20 @@ export class S3Provider {
      * Get object as string
      */
     async getObjectString(key) {
+        const buffer = await this.getObjectBuffer(key);
+        return buffer.toString('utf-8');
+    }
+
+    /**
+     * Get object as Buffer (for binary files)
+     */
+    async getObjectBuffer(key) {
         const { body } = await this.getObject(key);
         const chunks = [];
         for await (const chunk of body) {
             chunks.push(chunk);
         }
-        return Buffer.concat(chunks).toString('utf-8');
+        return Buffer.concat(chunks);
     }
 
     /**

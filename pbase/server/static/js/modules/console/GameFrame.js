@@ -202,8 +202,9 @@ export class GameFrame {
 
     /**
      * Send postMessage to iframe
+     * PJA-SDK expects: { type, ...data, source: 'pja-host' }
      * @param {string} type - Message type
-     * @param {object} data - Message data
+     * @param {object} data - Message data (spread at top level)
      */
     postMessage(type, data = {}) {
         if (!this.isLoaded) {
@@ -211,7 +212,12 @@ export class GameFrame {
         }
 
         try {
-            this.iframe.contentWindow.postMessage({ type, data, source: 'pbase-console' }, '*');
+            // PJA-SDK requires source: 'pja-host' and data at top level
+            this.iframe.contentWindow.postMessage({
+                type,
+                ...data,
+                source: 'pja-host'
+            }, '*');
             return true;
         } catch (e) {
             this.onError(`postMessage failed: ${e.message}`);

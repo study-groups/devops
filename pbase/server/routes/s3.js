@@ -5,7 +5,7 @@
 import { Router } from 'express';
 import { requirePermission, optionalAuth } from '../middleware/auth.js';
 
-export function createS3Routes(s3Provider, csvAuth) {
+export function createS3Routes(s3Provider, csvAuth, manifestTools = null) {
     const router = Router();
 
     // Check if S3 is configured
@@ -190,6 +190,80 @@ export function createS3Routes(s3Provider, csvAuth) {
             });
         } catch (err) {
             console.error('[S3] Delete error:', err);
+            res.status(500).json({
+                error: 'Internal Server Error',
+                message: err.message,
+            });
+        }
+    });
+
+    // ============================================
+    // Manifest Tools Endpoints
+    // ============================================
+
+    // Check if ManifestTools is available
+    const checkManifestTools = (req, res, next) => {
+        if (!manifestTools) {
+            return res.status(503).json({
+                error: 'Service Unavailable',
+                message: 'ManifestTools not configured',
+            });
+        }
+        next();
+    };
+
+    /**
+     * POST /api/s3/manifest/dissect
+     * Split games.json into individual game.toml files
+     */
+    router.post('/manifest/dissect', requirePermission(csvAuth, 'can_upload'), checkS3, checkManifestTools, async (req, res) => {
+        try {
+            const dryRun = req.query.dryRun === 'true' || req.body.dryRun === true;
+            const backup = req.query.backup !== 'false' && req.body.backup !== false;
+
+            const result = await manifestTools.dissect({ backup, dryRun });
+
+            res.json(result);
+        } catch (err) {
+            console.error('[S3] Manifest dissect error:', err);
+            res.status(500).json({
+                error: 'Internal Server Error',
+                message: err.message,
+            });
+        }
+    });
+
+    /**
+     * POST /api/s3/manifest/build
+     * Generate games.json from game.toml files
+     */
+    router.post('/manifest/build', requirePermission(csvAuth, 'can_upload'), checkS3, checkManifestTools, async (req, res) => {
+        try {
+            const dryRun = req.query.dryRun === 'true' || req.body.dryRun === true;
+
+            const result = await manifestTools.build({ dryRun });
+
+            res.json(result);
+        } catch (err) {
+            console.error('[S3] Manifest build error:', err);
+            res.status(500).json({
+                error: 'Internal Server Error',
+                message: err.message,
+            });
+        }
+    });
+
+    /**
+     * GET /api/s3/manifest/diff
+     * Show diff between current games.json and what would be generated
+     */
+    router.get('/manifest/diff', optionalAuth(csvAuth), checkS3, checkManifestTools, async (req, res) => {
+        try {
+            const result = await manifestTools.diff();
+
+            res.json(result);
+        } catch (err) {
+            console.error('[S3] Manifest diff error:', err);
             res.status(500).json({
                 error: 'Internal Server Error',
                 message: err.message,

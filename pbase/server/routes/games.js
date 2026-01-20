@@ -1,12 +1,14 @@
 /**
  * Games Routes - Games manifest and metadata endpoints
  * Now accepts workspace object to support dynamic org switching
+ * Supports cascading file resolution: local first, then S3 fallback
  */
 
 import { Router } from 'express';
-import { optionalAuth } from '../middleware/auth.js';
+import { optionalAuth, requirePermission } from '../middleware/auth.js';
+import TOML from '@iarna/toml';
 
-export function createGamesRoutes(workspace, csvAuth) {
+export function createGamesRoutes(workspace, csvAuth, s3Provider = null) {
     const router = Router();
 
     // Check if game manifest is available - access dynamically
@@ -174,12 +176,16 @@ export function createGamesRoutes(workspace, csvAuth) {
     /**
      * GET /api/games/:slug/play/:filepath(*)
      * Serve game files with proper MIME types for iframe loading
+     * Cascading resolution: local first, then S3 fallback
      */
     router.get('/:slug/play/:filepath(*)', optionalAuth(csvAuth), checkManifest, async (req, res) => {
         try {
             const { slug, filepath } = req.params;
             const file = filepath || 'index.html';
-            const key = `games/${slug}/${file}`;
+
+            // Keys differ: local has games/ prefix, S3 does not
+            const localKey = `games/${slug}/${file}`;
+            const s3Key = `${slug}/${file}`;
 
             // Determine MIME type
             const ext = file.split('.').pop()?.toLowerCase();
@@ -218,16 +224,43 @@ export function createGamesRoutes(workspace, csvAuth) {
             };
 
             const mime = mimeTypes[ext] || { type: 'application/octet-stream', binary: true };
-            const provider = workspace.gameManifest.s3;
 
-            // Use appropriate read method based on file type
+            // Helper to read from a provider
+            const readFromProvider = async (provider, key) => {
+                if (mime.binary && provider.getObjectBuffer) {
+                    return provider.getObjectBuffer(key);
+                }
+                return provider.getObjectString(key);
+            };
+
             let content;
-            if (mime.binary && provider.getObjectBuffer) {
-                content = await provider.getObjectBuffer(key);
-            } else {
-                content = await provider.getObjectString(key);
+            let source = 'local';
+            const localProvider = workspace.localProvider;
+
+            // Cascade: try local first, then S3
+            try {
+                if (localProvider) {
+                    content = await readFromProvider(localProvider, localKey);
+                } else {
+                    throw { code: 'ENOENT' }; // Skip to S3
+                }
+            } catch (localErr) {
+                // Local not found - try S3 fallback
+                if (localErr.code === 'ENOENT' && s3Provider) {
+                    try {
+                        content = await readFromProvider(s3Provider, s3Key);
+                        source = 's3';
+                    } catch (s3Err) {
+                        // Neither local nor S3 has the file
+                        throw s3Err;
+                    }
+                } else {
+                    throw localErr;
+                }
             }
 
+            // Add header to indicate source (useful for debugging)
+            res.set('X-File-Source', source);
             res.type(mime.type).send(content);
         } catch (err) {
             console.error('[Games] Play file error:', err.message);
@@ -273,6 +306,141 @@ export function createGamesRoutes(workspace, csvAuth) {
             });
         } catch (err) {
             console.error('[Games] Save file error:', err);
+            res.status(500).json({
+                error: 'Internal Server Error',
+                message: err.message,
+            });
+        }
+    });
+
+    /**
+     * POST /api/games/:slug/sync
+     * Sync game to S3 with optional version bump
+     */
+    router.post('/:slug/sync', requirePermission(csvAuth, 'can_upload'), checkManifest, async (req, res) => {
+        try {
+            const { slug } = req.params;
+            const increment = req.body.increment || 'patch'; // 'patch', 'minor', 'major', or false
+
+            // Local provider for reading/writing local files
+            const localProvider = workspace.localProvider;
+            if (!localProvider) {
+                return res.status(501).json({
+                    error: 'Not Implemented',
+                    message: 'Local workspace not available',
+                });
+            }
+
+            // Check if S3 is available for syncing
+            if (!s3Provider) {
+                return res.status(503).json({
+                    error: 'Service Unavailable',
+                    message: 'S3 not configured for sync',
+                });
+            }
+
+            const localTomlKey = `games/${slug}/game.toml`;
+            const s3TomlKey = `games/${slug}/game.toml`;
+
+            // Read current game.toml from local
+            let config;
+            try {
+                const tomlContent = await localProvider.getObjectString(localTomlKey);
+                config = TOML.parse(tomlContent);
+            } catch (err) {
+                return res.status(404).json({
+                    error: 'Not Found',
+                    message: `game.toml not found for '${slug}'`,
+                });
+            }
+
+            // Bump version if requested
+            let previousVersion = null;
+            let newVersion = null;
+            if (increment && increment !== 'false' && increment !== false) {
+                previousVersion = config.version?.current || config.game?.version || '1.0.0';
+                const [major, minor, patch] = previousVersion.split('.').map(Number);
+
+                switch (increment) {
+                    case 'major':
+                        newVersion = `${major + 1}.0.0`;
+                        break;
+                    case 'minor':
+                        newVersion = `${major}.${minor + 1}.0`;
+                        break;
+                    case 'patch':
+                    default:
+                        newVersion = `${major}.${minor}.${patch + 1}`;
+                        break;
+                }
+
+                // Update version in config
+                if (!config.version) {
+                    config.version = {};
+                }
+                config.version.current = newVersion;
+            }
+
+            // Update metadata.updated timestamp
+            if (!config.metadata) {
+                config.metadata = {};
+            }
+            config.metadata.updated = new Date().toISOString().split('T')[0];
+
+            // Write updated game.toml locally
+            const newTomlContent = TOML.stringify(config);
+            await localProvider.putObjectString(localTomlKey, newTomlContent);
+
+            // Sync files to S3
+            const syncResults = {
+                uploaded: [],
+                errors: [],
+            };
+
+            // Get list of local files for this game
+            const localFiles = await workspace.gameManifest.listGameFiles(slug);
+
+            for (const file of localFiles) {
+                try {
+                    const localKey = file.key;
+                    const s3Key = localKey; // Keep same key structure
+
+                    // Determine if binary or text
+                    const ext = file.name.split('.').pop()?.toLowerCase();
+                    const textExts = ['html', 'htm', 'js', 'mjs', 'css', 'json', 'xml', 'svg', 'txt', 'toml', 'md'];
+                    const isBinary = !textExts.includes(ext);
+
+                    let content;
+                    if (isBinary && localProvider.getObjectBuffer) {
+                        content = await localProvider.getObjectBuffer(localKey);
+                    } else {
+                        content = await localProvider.getObjectString(localKey);
+                    }
+
+                    await s3Provider.putObject(s3Key, content);
+                    syncResults.uploaded.push(file.name);
+                } catch (err) {
+                    syncResults.errors.push({ file: file.name, error: err.message });
+                }
+            }
+
+            // Invalidate manifest cache
+            workspace.gameManifest.invalidate();
+
+            res.json({
+                success: syncResults.errors.length === 0,
+                slug,
+                previousVersion,
+                newVersion,
+                updated: config.metadata.updated,
+                sync: {
+                    uploaded: syncResults.uploaded.length,
+                    files: syncResults.uploaded,
+                    errors: syncResults.errors,
+                },
+            });
+        } catch (err) {
+            console.error('[Games] Sync error:', err);
             res.status(500).json({
                 error: 'Internal Server Error',
                 message: err.message,

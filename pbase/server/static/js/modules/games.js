@@ -95,7 +95,7 @@ export async function loadGames(refresh = false) {
             card.innerHTML = `
                 <h3>${game.name}</h3>
                 <div class="slug">${game.slug} v${game.version}</div>
-                <p>${game.description || 'No description'}</p>
+                <p>${game.summary || 'No summary'}</p>
                 <div class="meta">
                     ${(game.tags || []).map(t => `<span class="tag">${t}</span>`).join('')}
                     ${game.requires_auth ? `<span class="tag auth">🔒 ${game.min_role}</span>` : ''}
@@ -148,7 +148,7 @@ async function openGameDetail(game) {
         <dt>Slug</dt><dd>${game.slug}</dd>
         <dt>Version</dt><dd>${game.version}</dd>
         <dt>Author</dt><dd>${game.author || 'Unknown'}</dd>
-        <dt>Description</dt><dd>${game.description || 'None'}</dd>
+        <dt>Summary</dt><dd>${game.summary || 'None'}</dd>
         <dt>Tags</dt><dd class="tag-list">${(game.tags || []).map(t => `<span class="tag">${t}</span>`).join('') || 'None'}</dd>
         <dt>Created</dt><dd>${game.created ? new Date(game.created).toLocaleString() : 'Unknown'}</dd>
         <dt>Updated</dt><dd>${game.updated ? new Date(game.updated).toLocaleString() : 'Unknown'}</dd>

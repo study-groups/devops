@@ -52,6 +52,7 @@ import { PData } from '@nodeholder/pdata';
 import { S3Provider } from './lib/S3Provider.js';
 import { LocalGameProvider } from './lib/LocalGameProvider.js';
 import { GameManifest } from './lib/GameManifest.js';
+import { ManifestTools } from './lib/ManifestTools.js';
 import { MagicLink } from './lib/MagicLink.js';
 import { getHealth as getPermissionsHealth } from './lib/permissions.js';
 
@@ -62,6 +63,7 @@ const magicLink = new MagicLink({
 });
 
 let s3Provider = null;
+let manifestTools = null;
 
 // Helper to get games dir for an org
 function getGamesDir(org) {
@@ -95,6 +97,8 @@ if (S3_ACCESS_KEY && S3_SECRET_KEY) {
     if (!workspace.gameManifest) {
         workspace.gameManifest = new GameManifest(s3Provider);
     }
+    // Initialize ManifestTools for S3 manifest management
+    manifestTools = new ManifestTools(s3Provider, workspace.gameManifest);
     console.log('S3 provider initialized');
 } else if (!GAMES_DIR) {
     console.warn('No GAMES_DIR or S3 credentials - game endpoints will be disabled');
@@ -102,8 +106,8 @@ if (S3_ACCESS_KEY && S3_SECRET_KEY) {
 
 // Mount routes
 app.use('/api/auth', createAuthRoutes(pdata, magicLink));
-app.use('/api/s3', createS3Routes(s3Provider, pdata));
-app.use('/api/games', createGamesRoutes(workspace, pdata));
+app.use('/api/s3', createS3Routes(s3Provider, pdata, manifestTools));
+app.use('/api/games', createGamesRoutes(workspace, pdata, s3Provider));
 app.use('/api/admin', createAdminRoutes(pdata));
 
 // Workspace/Org endpoints - for managing local workspace

@@ -1,0 +1,327 @@
+/* S3 Browser - File browser, manifest tools */
+
+/* Breadcrumb Navigation */
+.breadcrumb {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+
+.crumb {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 0.875rem;
+}
+
+.crumb:hover {
+    background: var(--surface-hover);
+}
+
+/* File List */
+.file-list {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+}
+
+.file-item:last-child {
+    border-bottom: none;
+}
+
+.file-item:hover {
+    background: var(--surface-hover);
+}
+
+.file-item .icon {
+    font-size: 1.25rem;
+}
+
+.file-item .name {
+    flex: 1;
+}
+
+.file-item .size {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.file-item.folder .icon::before {
+    content: '\1F4C1';
+}
+
+.file-item.file .icon::before {
+    content: '\1F4C4';
+}
+
+.file-item.selected {
+    background: var(--primary);
+    color: white;
+}
+
+/* S3 Browser Layout */
+.s3-browser-layout {
+    display: flex;
+    gap: 1rem;
+    height: calc(100vh - 180px);
+}
+
+.s3-browser-container {
+    display: flex;
+    gap: 1rem;
+    height: calc(100vh - 200px);
+    min-height: 400px;
+}
+
+.s3-browser-layout .s3-browser-container {
+    flex: 1;
+    height: auto;
+}
+
+.s3-browser-container .file-list {
+    flex: 0 0 300px;
+    overflow-y: auto;
+}
+
+/* S3 Content Pane */
+.s3-content-pane {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.s3-content-pane.visible {
+    display: flex;
+}
+
+.s3-content-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    background: var(--surface-hover);
+    border-bottom: 1px solid var(--border);
+}
+
+.s3-content-header .filename {
+    font-family: monospace;
+    font-weight: 600;
+}
+
+.s3-content-header .close-btn {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 0 0.5rem;
+}
+
+.s3-content-header .close-btn:hover {
+    color: var(--text);
+}
+
+.s3-content-body {
+    flex: 1;
+    overflow: auto;
+    padding: 1rem;
+}
+
+.s3-content-body pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.s3-content-body code {
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--text);
+}
+
+/* Manifest Tools Panel */
+.manifest-tools-panel {
+    flex: 0 0 280px;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.manifest-tools-panel h3 {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    color: var(--accent);
+    background: var(--primary);
+    border-bottom: 1px solid var(--border);
+}
+
+.manifest-actions {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.manifest-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.5rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.manifest-btn:hover {
+    background: var(--surface-hover);
+    border-color: var(--accent);
+    color: var(--text);
+}
+
+.manifest-btn .btn-icon {
+    font-size: 1.25rem;
+}
+
+.manifest-btn .btn-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.manifest-status {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    min-height: 2rem;
+}
+
+.manifest-status.error {
+    color: var(--error);
+    background: rgba(244, 67, 54, 0.1);
+}
+
+.manifest-output {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem;
+    font-size: 0.8rem;
+}
+
+.manifest-output ul {
+    margin: 0.25rem 0 0.5rem 0;
+    padding-left: 1.25rem;
+}
+
+.manifest-output li {
+    margin-bottom: 0.25rem;
+}
+
+/* Diff Results */
+.diff-results {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.diff-section {
+    padding: 0.5rem;
+    border-radius: 4px;
+    border-left: 3px solid var(--border);
+}
+
+.diff-section.synced {
+    border-left-color: var(--success);
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.diff-section.added {
+    border-left-color: var(--success);
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.diff-section.removed {
+    border-left-color: var(--error);
+    background: rgba(244, 67, 54, 0.1);
+}
+
+.diff-section.modified {
+    border-left-color: var(--warning);
+    background: rgba(255, 152, 0, 0.1);
+}
+
+.diff-section.unchanged {
+    border-left-color: var(--text-muted);
+    background: rgba(136, 136, 136, 0.1);
+}
+
+/* Build/Dissect Results */
+.build-results,
+.dissect-results {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.build-summary,
+.dissect-summary {
+    padding: 0.5rem;
+    background: var(--bg);
+    border-radius: 4px;
+}
+
+.build-actions,
+.dissect-actions {
+    padding: 0.5rem 0;
+}
+
+.confirm-btn {
+    width: 100%;
+    padding: 0.5rem 1rem;
+    background: var(--accent);
+    border: none;
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.confirm-btn:hover {
+    opacity: 0.9;
+}
+
+.build-games,
+.dissect-games {
+    font-size: 0.75rem;
+}
+
+.dissect-backups {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}

@@ -1,0 +1,66 @@
+/* Base styles - Variables, resets, scrollbars */
+
+:root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --surface-hover: #1f2f4f;
+    --primary: #0f3460;
+    --accent: #e94560;
+    --text: #eee;
+    --text-muted: #888;
+    --border: #334;
+    --success: #4caf50;
+    --warning: #ff9800;
+    --error: #f44336;
+    --info: #4fc3f7;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'SF Mono', 'Consolas', 'Liberation Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+}
+
+/* Dark scrollbars - Webkit */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+/* Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) var(--bg);
+}
+
+/* Utility classes */
+.hidden {
+    display: none !important;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-muted);
+}

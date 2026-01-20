@@ -1,0 +1,88 @@
+/* Settings - Settings page layout */
+
+.settings-layout {
+    display: flex;
+    gap: 1.5rem;
+    height: calc(100vh - 120px);
+}
+
+.settings-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: var(--primary);
+    border-bottom: 1px solid var(--border);
+}
+
+.panel-header h3 {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--accent);
+}
+
+.config-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.config-section {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.75rem;
+}
+
+.config-section h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.75rem;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.config-section dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.25rem 0.75rem;
+    margin: 0;
+    font-size: 0.8rem;
+}
+
+.config-section dt {
+    color: var(--text-muted);
+}
+
+.config-section dd {
+    margin: 0;
+    font-family: 'SF Mono', monospace;
+    word-break: break-all;
+}
+
+#admin-content {
+    flex: 1;
+    overflow-y: auto;
+}
+
+#users-table {
+    font-size: 0.85rem;
+}
+
+#users-table th,
+#users-table td {
+    padding: 0.5rem 0.75rem;
+}

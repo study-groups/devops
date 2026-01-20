@@ -9,6 +9,7 @@ export class ConsoleInput {
     constructor(options = {}) {
         this.onExecute = options.onExecute || (() => {});
         this.onTab = options.onTab || (() => {});
+        this.onControlRequest = options.onControlRequest || (() => {});
 
         this.history = [];
         this.historyIndex = -1;
