@@ -125,22 +125,36 @@ export class ImageLayer {
    */
   _render() {
     const { scale, backgroundColor, invert, hue, fillColor } = this.config;
+    const morphState = this.morpher.getState();
 
-    // Dark background
+    // Dark background - covers everything
     this.ctx.fillStyle = backgroundColor;
     this.ctx.fillRect(0, 0, this.width, this.height);
 
     // Calculate logo bounds (needed for both letters and particles)
     const logoBounds = this._calculateLogoBounds(scale);
 
-    // Check if we should render pixel blocks (pixelating/paused phases)
-    if (this.morpher.shouldShowPixelBlocks()) {
+    // Determine what to render based on morph state
+    const isAnimating = this.morpher.isAnimating();
+    const stateChanged = this._lastState !== morphState;
+
+    // DEBUG: log state changes
+    if (stateChanged) {
+      console.log('[ImageLayer] state:', morphState, 'animating:', isAnimating);
+      this._lastState = morphState;
+    }
+
+    // Render based on state:
+    // - idle: show letters
+    // - pixelating/paused: show pixel blocks
+    // - falling/swarming/forming: show nothing (just particles)
+    // - complete: show letters (reform finished)
+    if (morphState === 'idle' || morphState === 'complete') {
+      this._renderLettersWithBounds(logoBounds, fillColor, invert, hue);
+    } else if (morphState === 'pixelating' || morphState === 'paused') {
       this._renderPixelBlocks(logoBounds, invert, hue);
     }
-    // Check if we should hide letters (during morph)
-    else if (!this.morpher.shouldHideLetters()) {
-      this._renderLettersWithBounds(logoBounds, fillColor, invert, hue);
-    }
+    // else: falling/swarming/forming - just particles, no letters
 
     // Render particles within logo bounds
     this._renderParticles(logoBounds);

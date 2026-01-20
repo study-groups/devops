@@ -7,10 +7,11 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-2) var(--space-4);
+  font-family: var(--font-display);
   font-size: var(--text-sm);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
   border-radius: var(--radius-sm);
   background: var(--paper-dark);
   color: var(--color-text);

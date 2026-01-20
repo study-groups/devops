@@ -7,6 +7,7 @@
   /* Typography */
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-display: 'PJ43', var(--font-sans);
+  --font-body: 'AG', var(--font-sans);
   --font-mono: 'Space Mono', ui-monospace, monospace;
 
   /* Font sizes */
@@ -30,7 +31,48 @@
 
   /* Layout */
   --page-width: 1200px;
-  --header-height: 4rem;
+  --page-margin: 8rem;
+  --header-height: 5rem;
+
+  /* Header & Navigation */
+  --nav-font-size: 2rem;
+  --nav-line-height: 1;
+  --nav-letter-spacing: 0.05em;
+  --nav-item-spacing: 0.5rem;
+  --nav-top: 1.5rem;
+  --nav-active-bg: var(--color-background);
+
+  /* Logo Container */
+  --logo-padding-top: 0.75rem;
+  --logo-padding-bottom: 0.75rem;
+  --logo-padding-left: 1rem;
+  --logo-padding-right: 1rem;
+  --logo-width: 17rem;
+  --logo-height: auto;
+
+  /* Secondary Nav */
+  --secondary-nav-width: 15rem;
+  --secondary-nav-height: 6.75em;
+  --secondary-nav-padding: 1rem;
+
+  /* Games Page */
+  --games-card-width: 384px;
+  --games-card-gap: 64px;
+  --games-columns: 1;
+
+  /* Game Container (Play Page) */
+  --game-top-gap: 120px;
+  --game-bottom-gap: 140px;
+  --game-max-width: 900px;
+  --game-max-height: 65vh;
+  --game-border-radius: 8px;
+  --game-aspect-ratio: auto;
+  --game-box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+
+  /* Ads / Layout Zones */
+  --sidebar-width: 160px;
+  --ads-header-height: 90px;
+  --ads-footer-height: 90px;
 
   /* Border radius */
   --radius-sm: 0.25rem;
@@ -56,6 +98,30 @@
   --z-toast: 400;
   --z-loading: 9999;
 
+  /* NoiseCard Layer Z-Index Ranges (100 slots each) */
+  --z-layer-1-base: 100;    /* Noise layer: 100-199 */
+  --z-layer-2-base: 200;    /* Image layer: 200-299 */
+  --z-layer-3-base: 300;    /* CA layer: 300-399 */
+
+  /* Per-letter z-index within Layer 2 (ARI:CADE) */
+  --z-letter-A: 210;
+  --z-letter-R: 215;
+  --z-letter-I: 220;
+  --z-letter-COLON_TOP: 225;
+  --z-letter-COLON_BOT: 226;
+  --z-letter-C: 230;
+  --z-letter-A2: 240;
+  --z-letter-D: 250;
+  --z-letter-E: 260;
+
+  /* Page-level z-index */
+  --z-page-content: 0;
+  --z-cabinet-card: 500;
+  --z-noise-card: 1000;
+  --z-design-fab: 9000;
+  --z-design-panel: 9001;
+  --z-overlay: 9500;
+
   /* Default theme colors (overridden by [data-theme]) */
   --color-background: #1c1f25;
   --color-surface: #323232;
@@ -74,6 +140,7 @@
   --two: var(--color-secondary);
   --three: var(--color-accent);
   --four: var(--color-success);
+  --shade: var(--color-shade);
   --paper-light: var(--color-surface-light);
   --paper-mid: var(--color-background);
   --paper-dark: var(--color-surface);

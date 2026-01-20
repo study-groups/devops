@@ -1,12 +1,13 @@
 /**
  * Layout Styles
  * Page structure, header, footer, grid
+ * Matches arcade (SvelteKit) layout with logo overhang effects
  */
 
 /* Base document */
 html, body {
   height: 100%;
-  background: var(--color-background);
+  background: var(--paper-dark);
   color: var(--color-text);
   font-family: var(--font-sans);
 }
@@ -16,6 +17,7 @@ html, body {
   min-height: 100%;
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
 }
 
 /* Page structure */
@@ -23,6 +25,7 @@ html, body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .main {
@@ -30,91 +33,391 @@ html, body {
   width: 100%;
   max-width: var(--page-width);
   margin: 0 auto;
+  margin-top: 7rem; /* Space for fixed header + logo overhang */
   padding: var(--space-4);
+  padding-bottom: 10rem; /* Space for footer overhang */
+  position: relative;
+  z-index: 0;
 }
 
-/* Header */
+/* ============================================================================
+   SHADOW UTILITIES (Chunky arcade-style shadows)
+   ============================================================================ */
+
+.chunky-shadow {
+  box-shadow: -1rem 1rem 0 0 var(--shade);
+}
+
+.chunky-shadow-title {
+  box-shadow: -1rem 1rem 0 0 var(--shade),
+              -1rem -1rem 0 0 var(--shade);
+}
+
+.chunky-shadow-paper-dark {
+  box-shadow: -1rem 1rem 0 0 var(--paper-dark);
+}
+
+.medium-shadow {
+  box-shadow: -0.5rem 0.5rem 0 0 var(--shade);
+}
+
+/* ============================================================================
+   HEADER - Fixed bar with logo overhang
+   ============================================================================ */
+
 .header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-height);
+  background: var(--paper-dark);
+  z-index: 10;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4);
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--paper-light);
+  justify-content: center;
 }
+
+/* Noise band overlay on header */
+.header::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--shade) 0px,
+    var(--shade) 2px,
+    transparent 2px,
+    transparent 4px
+  );
+  opacity: 0.3;
+}
+
+/* Logo container - creates the overhang effect */
+.logo-container {
+  position: fixed;
+  top: 0;
+  left: var(--page-margin);
+  height: 6.75em;
+  padding: 1rem;
+  background: var(--paper-light);
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  z-index: 40;
+}
+
+.logo-container.chunky-shadow-title {
+  box-shadow: -1rem 1rem 0 0 var(--shade);
+}
+
+/* Logo link */
+.logo {
+  display: block;
+  position: relative;
+  color: var(--one);
+  text-decoration: none;
+}
+
+/* Logo wrapper for dual-layer effect */
+.logo-wrapper {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+
+/* Base SVG styles */
+.logo-wrapper svg {
+  width: 15.75em;
+  height: auto;
+  display: block;
+}
+
+/* Front layer (primary color) */
+.logo-front {
+  position: relative;
+  z-index: 1;
+  fill: var(--one);
+}
+
+/* Shadow layer (offset behind, down-left) */
+.logo-shadow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(-0.25em, 0.25em);
+  z-index: 0;
+  fill: var(--shade);
+}
+
+/* Main Navigation - left aligned after logo */
+.nav {
+  position: fixed;
+  top: var(--nav-top);
+  left: 0;
+  right: 0;
+  height: calc(var(--header-height) - var(--nav-top));
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--nav-item-spacing);
+  z-index: 20;
+  /* Reserve space for logo on left, allow overlap with secondary nav on right */
+  padding-left: calc(var(--page-margin) + 20rem);
+  padding-right: var(--page-margin);
+}
+
+.nav-link {
+  font-family: var(--font-display);
+  font-size: var(--nav-font-size);
+  line-height: var(--nav-line-height);
+  text-transform: uppercase;
+  letter-spacing: var(--nav-letter-spacing);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  padding: 0.75rem 1.25rem;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.nav-link:hover {
+  color: var(--one);
+}
+
+.nav-link.active {
+  color: var(--one);
+  background: var(--nav-active-bg);
+}
+
+/* Secondary Navigation - right side with overhang */
+.secondary-nav {
+  position: fixed;
+  top: 0;
+  right: calc(var(--page-margin) - 1rem);
+  width: var(--secondary-nav-width);
+  height: var(--secondary-nav-height);
+  padding: var(--secondary-nav-padding);
+  background: var(--paper-mid);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  z-index: 40;
+}
+
+.secondary-nav.chunky-shadow-title {
+  box-shadow: -1rem 1rem 0 0 var(--shade),
+              -1rem -1rem 0 0 var(--shade);
+}
+
+/* Theme selector button with color bars */
+.theme-selector {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  background: var(--shade);
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-display);
+}
+
+.theme-selector:hover {
+  opacity: 0.9;
+}
+
+.theme-name {
+  display: block;
+  padding: 0.25em 0.5em;
+  font-size: 1rem;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: var(--shade);
+}
+
+.theme-colors {
+  display: flex;
+  height: 1.5em;
+}
+
+.theme-colors .color-bar {
+  width: 0.25em;
+  height: 100%;
+  transition: background-color var(--transition-fast);
+}
+
+/* ============================================================================
+   FOOTER - With right-justified logo overhang
+   ============================================================================ */
+
+.footer {
+  position: relative;
+  background: var(--paper-mid);
+  min-height: 9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4) var(--page-margin);
+  z-index: 5;
+}
+
+.footer-content {
+  width: 100%;
+  max-width: var(--page-width);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  position: relative;
+  padding-left: 18rem;
+}
+
+.footer-nav {
+  display: flex;
+  justify-content: flex-start;
+  gap: var(--space-6);
+}
+
+.footer-link {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--four);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.footer-link:hover {
+  color: var(--one);
+}
+
+/* Footer logo card - right justified with overhang */
+.footer-logo-card {
+  position: absolute;
+  right: 0;
+  top: 0;
+  margin-top: -0.5rem; /* Overhang above footer */
+  padding: 1rem 1.5rem 4rem 1.5rem;
+  background: var(--four);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  z-index: 10;
+}
+
+.footer-logo-card svg {
+  height: auto;
+  width: 17rem;
+  fill: var(--paper-dark);
+}
+
+/* ============================================================================
+   CABINET (centered card for home page)
+   ============================================================================ */
+
+.cabinet-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh;
+  padding: var(--space-8);
+}
+
+.cabinet-card {
+  background: var(--shade);
+  border: 4px solid var(--one);
+  border-radius: var(--radius-lg);
+  padding: var(--space-24) var(--space-32);
+  min-width: 40rem;
+  min-height: 20rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cabinet-card svg {
+  width: 16rem;
+  height: auto;
+  fill: var(--paper-light);
+}
+
+/* ============================================================================
+   HEADER MINIMAL (for play pages)
+   ============================================================================ */
 
 .header-minimal {
   background: transparent;
   border-bottom: none;
 }
 
-.logo {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: bold;
-  color: var(--color-primary);
-  letter-spacing: 0.1em;
+.header-minimal::before {
+  display: none;
 }
 
-/* Navigation */
-.nav {
-  display: flex;
-  gap: var(--space-4);
+/* ============================================================================
+   RESPONSIVE - Mobile adjustments
+   ============================================================================ */
+
+@media (max-width: 768px) {
+  .logo-container {
+    height: 4.5rem;
+    padding: 0.75rem;
+  }
+
+  .logo svg,
+  .logo-shadow svg {
+    width: 8.475rem;
+  }
+
+  .header {
+    height: 4.5rem;
+  }
+
+  .nav {
+    height: 4.5rem;
+    gap: var(--space-4);
+  }
+
+  .nav-link {
+    font-size: var(--text-base);
+    padding: 0.25rem 0.5rem;
+  }
+
+  .secondary-nav {
+    height: 5rem;
+    min-width: 8rem;
+    padding: 0.75rem 1.5rem 0.75rem 1rem;
+  }
+
+  .footer-logo-card {
+    position: relative;
+    margin-top: 0;
+    height: auto;
+    padding: var(--space-2) var(--space-4);
+  }
+
+  .footer-logo-card svg {
+    width: 10rem;
+  }
+
+  .main {
+    padding-bottom: var(--space-8);
+  }
 }
 
-.nav-link {
-  color: var(--color-text-muted);
-  transition: color var(--transition-fast);
-}
-
-.nav-link:hover,
-.nav-link.active {
-  color: var(--color-primary);
-}
+/* ============================================================================
+   BACK LINK (for sub-pages)
+   ============================================================================ */
 
 .back-link {
   color: var(--color-text-muted);
+  text-decoration: none;
   transition: color var(--transition-fast);
 }
 
 .back-link:hover {
-  color: var(--color-text);
-}
-
-/* Footer */
-.footer {
-  padding: var(--space-4);
-  text-align: center;
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-  background: var(--color-surface);
-  border-top: 1px solid var(--paper-light);
-}
-
-.footer p {
-  margin: var(--space-1) 0;
-}
-
-/* Theme toggle button */
-.theme-toggle {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: var(--radius-full);
-  background: var(--paper-dark);
-  border: 2px solid var(--paper-light);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition-fast);
-}
-
-.theme-toggle:hover {
-  border-color: var(--color-primary);
-  transform: scale(1.1);
-}
-
-.theme-icon::before {
-  content: "◐";
-  font-size: 1.25rem;
   color: var(--color-text);
 }

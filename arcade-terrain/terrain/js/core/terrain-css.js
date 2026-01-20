@@ -22,32 +22,71 @@
         sidebarPosition: 'terrain-sidebar-position'
     };
 
-    // Token defaults - canonical values
+    // Token defaults - canonical values (semantic tokens only, palette comes from tokens.css)
     const DEFAULT_TOKENS = {
+        // Semantic - Backgrounds
         '--bg-primary': '#0a0a0a',
         '--bg-secondary': '#1a1a1a',
         '--bg-tertiary': '#2a2a2a',
         '--bg-hover': '#3a3a3a',
+        // Semantic - Borders
         '--border': '#222222',
         '--border-visible': '#444444',
         '--border-active': '#4a9eff',
+        // Semantic - Text
         '--text-primary': '#ffffff',
         '--text-secondary': '#aaaaaa',
         '--text-muted': '#666666',
         '--text-code': '#00ffaa',
+        // Semantic - Accents & Status
         '--accent-primary': '#4a9eff',
         '--accent-secondary': '#ff6b35',
         '--success': '#00ff00',
         '--error': '#ff4444',
-        '--warning': '#ffd700'
+        '--warning': '#ffd700',
+        // Spacing
+        '--gap-xs': '4px',
+        '--gap-sm': '8px',
+        '--gap-md': '16px',
+        '--gap-lg': '24px',
+        '--gap-xl': '32px',
+        // Curves
+        '--curve-sm': '4px',
+        '--curve-md': '8px',
+        '--curve-lg': '12px',
+        '--curve-full': '9999px',
+        // Depth (shadows)
+        '--depth-sm': '0 2px 8px rgba(0, 0, 0, 0.3)',
+        '--depth-md': '0 4px 16px rgba(0, 0, 0, 0.4)',
+        '--depth-lg': '0 8px 32px rgba(0, 0, 0, 0.5)',
+        // Tempo (animations)
+        '--tempo-fast': '0.15s ease',
+        '--tempo-normal': '0.3s ease',
+        '--tempo-slow': '0.5s ease',
+        // Typography
+        '--font-primary': "'SF Mono', 'Monaco', 'Courier New', monospace",
+        '--font-secondary': "'SF Mono', 'Monaco', 'Courier New', monospace",
+        '--font-code': "'Courier New', monospace"
     };
 
-    // Token groups for panel UI
+    // Palette tokens (raw colors from tokens.css)
+    const PALETTE_TOKENS = {
+        primary: ['--p1', '--p2', '--p3', '--p4', '--p5', '--p6', '--p7', '--p8'],
+        secondary: ['--s1', '--s2', '--s3', '--s4', '--s5', '--s6', '--s7', '--s8'],
+        tertiary: ['--t1', '--t2', '--t3', '--t4', '--t5', '--t6', '--t7', '--t8']
+    };
+
+    // Token groups for panel UI - organized by edit type
     const TOKEN_GROUPS = {
         backgrounds: ['--bg-primary', '--bg-secondary', '--bg-tertiary', '--bg-hover'],
         borders: ['--border', '--border-visible', '--border-active'],
         text: ['--text-primary', '--text-secondary', '--text-muted', '--text-code'],
-        accents: ['--accent-primary', '--accent-secondary', '--success', '--error', '--warning']
+        accents: ['--accent-primary', '--accent-secondary', '--success', '--error', '--warning'],
+        spacing: ['--gap-xs', '--gap-sm', '--gap-md', '--gap-lg', '--gap-xl'],
+        curves: ['--curve-sm', '--curve-md', '--curve-lg', '--curve-full'],
+        depth: ['--depth-sm', '--depth-md', '--depth-lg'],
+        tempo: ['--tempo-fast', '--tempo-normal', '--tempo-slow'],
+        typography: ['--font-primary', '--font-secondary', '--font-code']
     };
 
     // Token categories (for listing/filtering)
@@ -440,6 +479,8 @@
                     <div class="design-panel-content">
                         ${this._buildThemeSection()}
                         ${this._buildColorsSection()}
+                        ${this._buildSpacingSection()}
+                        ${this._buildAdvancedSection()}
                         ${this._buildExportSection()}
                     </div>
                 `;
@@ -482,8 +523,11 @@
                         <div class="token-section-content">
                 `;
 
+                const colorGroups = ['backgrounds', 'borders', 'text', 'accents'];
                 const groupTitles = { backgrounds: 'Background', borders: 'Border', text: 'Text', accents: 'Accent & Status' };
-                Object.entries(TOKEN_GROUPS).forEach(([group, tokens]) => {
+
+                colorGroups.forEach(group => {
+                    const tokens = TOKEN_GROUPS[group];
                     html += `<div class="token-group"><div class="token-group-title">${groupTitles[group] || group}</div>`;
                     tokens.forEach(cssVar => {
                         const name = cssVar.replace('--', '');
@@ -506,21 +550,153 @@
                 return html;
             },
 
-            _buildExportSection: function() {
-                return `
-                    <div class="token-section collapsed" data-section="export">
-                        <div class="token-section-header" data-action="toggle-section" data-target="export">
-                            <span>Export / Import</span>
+            _buildSpacingSection: function() {
+                let html = `
+                    <div class="token-section collapsed" data-section="spacing">
+                        <div class="token-section-header" data-action="toggle-section" data-target="spacing">
+                            <span>Spacing & Curves</span>
                             <span class="section-toggle">▶</span>
                         </div>
                         <div class="token-section-content">
-                            <div class="design-panel-buttons">
-                                <button class="design-panel-btn design-panel-btn--primary" data-action="export-json">JSON</button>
-                                <button class="design-panel-btn design-panel-btn--secondary" data-action="copy-css">CSS</button>
+                `;
+
+                // Spacing (gaps)
+                html += `<div class="token-group"><div class="token-group-title">Gaps</div>`;
+                TOKEN_GROUPS.spacing.forEach(cssVar => {
+                    const name = cssVar.replace('--', '');
+                    const value = DEFAULT_TOKENS[cssVar] || '8px';
+                    html += `
+                        <div class="token-item token-item--text">
+                            <div class="token-info">
+                                <div class="token-name">${cssVar}</div>
+                            </div>
+                            <input type="text" class="token-text-input" data-action="update-token-text" data-token="${cssVar}" value="${value}">
+                        </div>
+                    `;
+                });
+                html += '</div>';
+
+                // Curves (border-radius)
+                html += `<div class="token-group"><div class="token-group-title">Curves</div>`;
+                TOKEN_GROUPS.curves.forEach(cssVar => {
+                    const name = cssVar.replace('--', '');
+                    const value = DEFAULT_TOKENS[cssVar] || '8px';
+                    html += `
+                        <div class="token-item token-item--text">
+                            <div class="token-info">
+                                <div class="token-name">${cssVar}</div>
+                            </div>
+                            <input type="text" class="token-text-input" data-action="update-token-text" data-token="${cssVar}" value="${value}">
+                        </div>
+                    `;
+                });
+                html += '</div>';
+
+                html += '</div></div>';
+                return html;
+            },
+
+            _buildAdvancedSection: function() {
+                let html = `
+                    <div class="token-section collapsed" data-section="advanced">
+                        <div class="token-section-header" data-action="toggle-section" data-target="advanced">
+                            <span>Shadows & Animation</span>
+                            <span class="section-toggle">▶</span>
+                        </div>
+                        <div class="token-section-content">
+                `;
+
+                // Depth (shadows)
+                html += `<div class="token-group"><div class="token-group-title">Shadows</div>`;
+                TOKEN_GROUPS.depth.forEach(cssVar => {
+                    const name = cssVar.replace('--', '');
+                    const value = DEFAULT_TOKENS[cssVar] || '0 2px 8px rgba(0,0,0,0.3)';
+                    html += `
+                        <div class="token-item token-item--text">
+                            <div class="token-info">
+                                <div class="token-name">${cssVar}</div>
+                            </div>
+                            <input type="text" class="token-text-input token-text-input--wide" data-action="update-token-text" data-token="${cssVar}" value="${value}">
+                        </div>
+                    `;
+                });
+                html += '</div>';
+
+                // Tempo (animation timing)
+                html += `<div class="token-group"><div class="token-group-title">Animation</div>`;
+                TOKEN_GROUPS.tempo.forEach(cssVar => {
+                    const name = cssVar.replace('--', '');
+                    const value = DEFAULT_TOKENS[cssVar] || '0.3s ease';
+                    html += `
+                        <div class="token-item token-item--text">
+                            <div class="token-info">
+                                <div class="token-name">${cssVar}</div>
+                            </div>
+                            <input type="text" class="token-text-input" data-action="update-token-text" data-token="${cssVar}" value="${value}">
+                        </div>
+                    `;
+                });
+                html += '</div>';
+
+                // Typography
+                html += `<div class="token-group"><div class="token-group-title">Typography</div>`;
+                TOKEN_GROUPS.typography.forEach(cssVar => {
+                    const name = cssVar.replace('--', '');
+                    const value = DEFAULT_TOKENS[cssVar] || 'monospace';
+                    html += `
+                        <div class="token-item token-item--text">
+                            <div class="token-info">
+                                <div class="token-name">${cssVar}</div>
+                            </div>
+                            <input type="text" class="token-text-input token-text-input--wide" data-action="update-token-text" data-token="${cssVar}" value="${value}">
+                        </div>
+                    `;
+                });
+                html += '</div>';
+
+                html += '</div></div>';
+                return html;
+            },
+
+            _buildExportSection: function() {
+                return `
+                    <div class="token-section" data-section="export">
+                        <div class="token-section-header" data-action="toggle-section" data-target="export">
+                            <span>Export / Import</span>
+                            <span class="section-toggle">▼</span>
+                        </div>
+                        <div class="token-section-content">
+                            <div class="export-primary">
+                                <button class="design-panel-btn design-panel-btn--primary" style="width:100%;padding:12px;font-size:14px;" data-action="copy-tokens-css">
+                                    Copy tokens.css
+                                </button>
+                                <p class="export-hint">Ready to paste into terrain/css/tokens.css</p>
+                            </div>
+                            <div class="design-panel-buttons" style="margin-top:12px;">
+                                <button class="design-panel-btn design-panel-btn--secondary" data-action="export-json">JSON</button>
+                                <button class="design-panel-btn design-panel-btn--secondary" data-action="copy-css">CSS (flat)</button>
                                 <button class="design-panel-btn design-panel-btn--danger" data-action="reset-tokens">Reset</button>
                             </div>
                             <input type="file" id="themeFileInput" accept=".json" style="display:none" data-action="import-file">
                             <button class="design-panel-btn design-panel-btn--secondary" style="width:100%;margin-top:8px" data-action="import-json">Import JSON</button>
+
+                            <details class="sop-details">
+                                <summary>Designer Workflow</summary>
+                                <div class="sop-content">
+                                    <p><strong>Designer:</strong></p>
+                                    <ol>
+                                        <li>Open app with ?design=true</li>
+                                        <li>Click palette FAB → tweak tokens</li>
+                                        <li>Click "Copy tokens.css"</li>
+                                        <li>Send CSS to developer</li>
+                                    </ol>
+                                    <p><strong>Developer:</strong></p>
+                                    <ol>
+                                        <li>Paste into terrain/css/tokens.css</li>
+                                        <li>Commit and deploy</li>
+                                    </ol>
+                                </div>
+                            </details>
                         </div>
                     </div>
                 `;
@@ -537,11 +713,13 @@
                         case 'close-panel': self.hide(); break;
                         case 'toggle-section': self._toggleSection(e.target.closest('[data-action]').dataset.target); break;
                         case 'update-token': self._handleTokenChange(e.target); break;
+                        case 'update-token-text': self._handleTokenChangeText(e.target); break;
                         case 'switch-theme': self._handleThemeSwitch(e.target.value); break;
                         case 'save-theme': self._handleSaveTheme(); break;
                         case 'delete-theme': self._handleDeleteTheme(); break;
                         case 'export-json': self._handleExportJSON(); break;
                         case 'copy-css': self._handleCopyCSS(); break;
+                        case 'copy-tokens-css': self._handleCopyTokensCSS(); break;
                         case 'reset-tokens': TerrainCss.tokens.reset(); break;
                         case 'import-json': document.getElementById('themeFileInput')?.click(); break;
                     }
@@ -551,7 +729,20 @@
                     if (e.target.id === 'themeFileInput') {
                         self._handleImportFile(e.target.files[0]);
                     }
+                    // Handle text/number input changes
+                    if (e.target.dataset.action === 'update-token-text') {
+                        self._handleTokenChangeText(e.target);
+                    }
                 };
+
+                this._handlers.input = function(e) {
+                    // Handle color picker input (real-time updates)
+                    if (e.target.dataset.action === 'update-token') {
+                        self._handleTokenChange(e.target);
+                    }
+                };
+
+                document.addEventListener('input', this._handlers.input);
 
                 document.addEventListener('click', this._handlers.click);
                 document.addEventListener('change', this._handlers.change);
@@ -560,6 +751,7 @@
             _unbindGlobalEvents: function() {
                 if (this._handlers.click) document.removeEventListener('click', this._handlers.click);
                 if (this._handlers.change) document.removeEventListener('change', this._handlers.change);
+                if (this._handlers.input) document.removeEventListener('input', this._handlers.input);
                 this._handlers = {};
             },
 
@@ -586,6 +778,11 @@
             _handleTokenChange: function(picker) {
                 const token = picker.dataset.token;
                 if (token) TerrainCss.tokens.set(token, picker.value);
+            },
+
+            _handleTokenChangeText: function(input) {
+                const token = input.dataset.token;
+                if (token) TerrainCss.tokens.set(token, input.value);
             },
 
             _handleThemeSwitch: function(themeName) {
@@ -650,6 +847,148 @@
                 css += '}\n';
                 navigator.clipboard.writeText(css).then(() => {
                     console.log('[Terrain.Css] CSS copied to clipboard');
+                });
+            },
+
+            _handleCopyTokensCSS: function() {
+                const getToken = (name) => {
+                    const prop = name.startsWith('--') ? name : `--${name}`;
+                    return getComputedStyle(document.documentElement).getPropertyValue(prop).trim();
+                };
+                const date = new Date().toISOString().split('T')[0];
+
+                let css = `/**
+ * Terrain Design Tokens
+ * TUT-compatible CSS Custom Properties
+ * Exported: ${date}
+ */
+
+:root {
+    /* ═══════════════════════════════════════════════════════════════
+       PRIMARY PALETTE - Core UI
+       ═══════════════════════════════════════════════════════════════ */
+    --p1: ${getToken('p1')};  /* Deep black */
+    --p2: ${getToken('p2')};  /* Dark grey */
+    --p3: ${getToken('p3')};  /* Medium grey */
+    --p4: ${getToken('p4')};  /* Light grey */
+    --p5: ${getToken('p5')};  /* White */
+    --p6: ${getToken('p6')};  /* Alert red */
+    --p7: ${getToken('p7')};  /* Success green */
+    --p8: ${getToken('p8')};  /* Primary blue */
+
+    /* ═══════════════════════════════════════════════════════════════
+       SECONDARY PALETTE - Accents
+       ═══════════════════════════════════════════════════════════════ */
+    --s1: ${getToken('s1')};  /* Tomato */
+    --s2: ${getToken('s2')};  /* Bright blue */
+    --s3: ${getToken('s3')};  /* Gold */
+    --s4: ${getToken('s4')};  /* Cyan */
+    --s5: ${getToken('s5')};  /* Magenta */
+    --s6: ${getToken('s6')};  /* Light green */
+    --s7: ${getToken('s7')};  /* Orange */
+    --s8: ${getToken('s8')};  /* Purple */
+
+    /* ═══════════════════════════════════════════════════════════════
+       TERTIARY PALETTE - Utility
+       ═══════════════════════════════════════════════════════════════ */
+    --t1: ${getToken('t1')};  /* Grid dark */
+    --t2: ${getToken('t2')};  /* Border */
+    --t3: ${getToken('t3')};  /* Border light */
+    --t4: ${getToken('t4')};  /* Text muted */
+    --t5: ${getToken('t5')};  /* Text secondary */
+    --t6: ${getToken('t6')};  /* Text light */
+    --t7: ${getToken('t7')};  /* Text bright */
+    --t8: ${getToken('t8')};  /* Text brightest */
+
+    /* ═══════════════════════════════════════════════════════════════
+       SEMANTIC TOKENS - Backgrounds (TUT-compatible)
+       ═══════════════════════════════════════════════════════════════ */
+    --bg-primary: ${getToken('bg-primary')};
+    --bg-secondary: ${getToken('bg-secondary')};
+    --bg-tertiary: ${getToken('bg-tertiary')};
+    --bg-hover: ${getToken('bg-hover')};
+
+    /* ═══════════════════════════════════════════════════════════════
+       SEMANTIC TOKENS - Borders (TUT-compatible)
+       ═══════════════════════════════════════════════════════════════ */
+    --border: ${getToken('border')};
+    --border-visible: ${getToken('border-visible')};
+    --border-active: ${getToken('border-active')};
+
+    /* ═══════════════════════════════════════════════════════════════
+       SEMANTIC TOKENS - Text (TUT-compatible)
+       ═══════════════════════════════════════════════════════════════ */
+    --text-primary: ${getToken('text-primary')};
+    --text-secondary: ${getToken('text-secondary')};
+    --text-muted: ${getToken('text-muted')};
+    --text-code: ${getToken('text-code')};
+
+    /* ═══════════════════════════════════════════════════════════════
+       SEMANTIC TOKENS - Accents & Status (TUT-compatible)
+       ═══════════════════════════════════════════════════════════════ */
+    --accent-primary: ${getToken('accent-primary')};
+    --accent-secondary: ${getToken('accent-secondary')};
+    --success: ${getToken('success')};
+    --error: ${getToken('error')};
+    --warning: ${getToken('warning')};
+
+    /* ═══════════════════════════════════════════════════════════════
+       DEPTH - Shadows
+       ═══════════════════════════════════════════════════════════════ */
+    --depth-sm: ${getToken('depth-sm')};
+    --depth-md: ${getToken('depth-md')};
+    --depth-lg: ${getToken('depth-lg')};
+
+    /* ═══════════════════════════════════════════════════════════════
+       CURVES - Border Radius
+       ═══════════════════════════════════════════════════════════════ */
+    --curve-sm: ${getToken('curve-sm')};
+    --curve-md: ${getToken('curve-md')};
+    --curve-lg: ${getToken('curve-lg')};
+    --curve-full: ${getToken('curve-full')};
+
+    /* ═══════════════════════════════════════════════════════════════
+       GAPS - Spacing
+       ═══════════════════════════════════════════════════════════════ */
+    --gap-xs: ${getToken('gap-xs')};
+    --gap-sm: ${getToken('gap-sm')};
+    --gap-md: ${getToken('gap-md')};
+    --gap-lg: ${getToken('gap-lg')};
+    --gap-xl: ${getToken('gap-xl')};
+
+    /* ═══════════════════════════════════════════════════════════════
+       TEMPO - Animation Timing
+       ═══════════════════════════════════════════════════════════════ */
+    --tempo-fast: ${getToken('tempo-fast')};
+    --tempo-normal: ${getToken('tempo-normal')};
+    --tempo-slow: ${getToken('tempo-slow')};
+
+    /* ═══════════════════════════════════════════════════════════════
+       Z-INDEX - Stacking Layers
+       ═══════════════════════════════════════════════════════════════ */
+    --z-base: ${getToken('z-base')};
+    --z-dropdown: ${getToken('z-dropdown')};
+    --z-sticky: ${getToken('z-sticky')};
+    --z-sidebar: ${getToken('z-sidebar')};
+    --z-header: ${getToken('z-header')};
+    --z-panel: ${getToken('z-panel')};
+    --z-fab: ${getToken('z-fab')};
+    --z-toast: ${getToken('z-toast')};
+    --z-modal: ${getToken('z-modal')};
+    --z-tooltip: ${getToken('z-tooltip')};
+    --z-max: ${getToken('z-max')};
+
+    /* ═══════════════════════════════════════════════════════════════
+       TYPOGRAPHY
+       ═══════════════════════════════════════════════════════════════ */
+    --font-primary: ${getToken('font-primary')};
+    --font-secondary: ${getToken('font-secondary')};
+    --font-code: ${getToken('font-code')};
+}
+`;
+                navigator.clipboard.writeText(css).then(() => {
+                    console.log('[Terrain.Css] tokens.css copied to clipboard');
+                    showFeedback(document.querySelector('[data-action="copy-tokens-css"]'), 'Copied!', 'success');
                 });
             },
 

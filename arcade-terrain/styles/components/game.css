@@ -2,6 +2,96 @@
  * Game Page Styles
  */
 
+/* ============================================================================
+   GAMES LISTING - Large card layout
+   ============================================================================ */
+
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--games-columns), var(--games-card-width));
+  gap: var(--games-card-gap);
+  justify-content: center;
+  padding: var(--game-top-gap) var(--space-8) var(--game-bottom-gap);
+  max-width: var(--game-max-width);
+  margin: 0 auto;
+}
+
+.game-card-large {
+  width: 100%;
+  background: var(--paper-mid);
+  border-radius: var(--game-border-radius);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: var(--game-box-shadow);
+}
+
+.game-card-large:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.game-card-image {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+}
+
+.game-thumb {
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  transition: transform 1s ease;
+}
+
+.game-card-large:hover .game-thumb {
+  transform: scale(1.1);
+}
+
+.game-thumb-placeholder {
+  width: 100%;
+  height: 100%;
+  background: var(--paper-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.game-thumb-placeholder span {
+  font-family: var(--font-display);
+  font-size: 4rem;
+  color: var(--paper-light);
+}
+
+.game-card-info {
+  padding: var(--space-4);
+  background: var(--paper-mid);
+}
+
+.game-card-large .game-card-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  color: var(--ink);
+  margin-bottom: var(--space-3);
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.game-card-large .game-card-desc {
+  color: var(--ink);
+  opacity: 0.6;
+  font-size: var(--text-base);
+  max-height: 4.5rem;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+/* ============================================================================
+   GAME PLAY PAGE
+   ============================================================================ */
+
 .main-game {
   padding: 0;
   max-width: none;

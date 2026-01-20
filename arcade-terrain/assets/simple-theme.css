@@ -1,0 +1,215 @@
+/**
+ * simple-theme.css
+ * Simplified theme system for arcade-terrain
+ *
+ * This replaces the sophisticated PJA overlay/filter system
+ * with a basic CSS variable approach.
+ *
+ * Usage:
+ *   <html data-theme="lava">
+ *
+ * Themes: lava (default), tv, lcd, cyber
+ */
+
+/* =============================================================================
+   Base Variables (theme-agnostic)
+   ============================================================================= */
+
+:root {
+  /* Typography */
+  --font-display: 'PJ43', system-ui, sans-serif;
+  --font-body: 'AG', system-ui, sans-serif;
+  --font-mono: 'Space Mono', ui-monospace, monospace;
+
+  /* Spacing scale */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 4rem;
+
+  /* Layout */
+  --page-max-width: 1200px;
+  --header-height: 4rem;
+  --border-radius: 0.5rem;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+}
+
+/* =============================================================================
+   Theme: Lava (Default)
+   Warm arcade vibes - orange/red on dark
+   ============================================================================= */
+
+:root,
+[data-theme="lava"] {
+  /* Backgrounds */
+  --bg-primary: #130902;
+  --bg-secondary: #1c1f25;
+  --bg-surface: #323232;
+  --bg-hover: #3d3d3d;
+
+  /* Text */
+  --text-primary: #f0e0d1;
+  --text-secondary: #bbbbbb;
+  --text-muted: rgba(187, 187, 187, 0.6);
+
+  /* Accents */
+  --accent-1: #ff9900;  /* Primary - Orange */
+  --accent-2: #f04f4a;  /* Secondary - Red */
+  --accent-3: #00e1cf;  /* Tertiary - Cyan */
+  --accent-4: #65ac07;  /* Success - Green */
+
+  /* Semantic aliases (PJA compatible) */
+  --ink: var(--text-primary);
+  --one: var(--accent-1);
+  --two: var(--accent-2);
+  --three: var(--accent-3);
+  --four: var(--accent-4);
+  --paper-light: var(--bg-surface);
+  --paper-mid: var(--bg-secondary);
+  --paper-dark: var(--bg-primary);
+  --shade: #0a0502;
+
+  /* Borders */
+  --border-color: rgba(255, 153, 0, 0.2);
+  --border-visible: rgba(255, 153, 0, 0.4);
+}
+
+/* =============================================================================
+   Theme: TV
+   CRT monitor aesthetic - green phosphor
+   ============================================================================= */
+
+[data-theme="tv"] {
+  --bg-primary: #0a0f0a;
+  --bg-secondary: #161616;
+  --bg-surface: #1e281e;
+  --bg-hover: #2a3a2a;
+
+  --text-primary: #b0ffb0;
+  --text-secondary: #80c080;
+  --text-muted: rgba(128, 192, 128, 0.6);
+
+  --accent-1: #1fff6a;  /* Phosphor green */
+  --accent-2: #ecb200;  /* Amber */
+  --accent-3: #ff685d;  /* Salmon */
+  --accent-4: #00d4aa;  /* Teal */
+
+  --ink: var(--text-primary);
+  --one: var(--accent-1);
+  --two: var(--accent-2);
+  --three: var(--accent-3);
+  --four: var(--accent-4);
+  --paper-light: var(--bg-surface);
+  --paper-mid: var(--bg-secondary);
+  --paper-dark: var(--bg-primary);
+  --shade: #050a05;
+
+  --border-color: rgba(31, 255, 106, 0.2);
+  --border-visible: rgba(31, 255, 106, 0.4);
+}
+
+/* =============================================================================
+   Theme: LCD
+   Game Boy aesthetic - monochrome green
+   ============================================================================= */
+
+[data-theme="lcd"] {
+  --bg-primary: #6b9c7b;
+  --bg-secondary: #7aab8a;
+  --bg-surface: #8bbc9b;
+  --bg-hover: #9ccdac;
+
+  --text-primary: #1a3020;
+  --text-secondary: #2a4030;
+  --text-muted: rgba(26, 48, 32, 0.6);
+
+  --accent-1: #b6efcc;  /* Light green */
+  --accent-2: #2d5a3d;  /* Dark green */
+  --accent-3: #1a3020;  /* Darkest */
+  --accent-4: #3d6b4d;  /* Mid green */
+
+  --ink: var(--text-primary);
+  --one: var(--accent-1);
+  --two: var(--accent-2);
+  --three: var(--accent-3);
+  --four: var(--accent-4);
+  --paper-light: var(--bg-surface);
+  --paper-mid: var(--bg-secondary);
+  --paper-dark: var(--bg-primary);
+  --shade: #5a8b6a;
+
+  --border-color: rgba(26, 48, 32, 0.3);
+  --border-visible: rgba(26, 48, 32, 0.5);
+}
+
+/* =============================================================================
+   Theme: Cyber
+   Neon cyberpunk - magenta/purple
+   ============================================================================= */
+
+[data-theme="cyber"] {
+  --bg-primary: #1e062a;
+  --bg-secondary: #2a0a3d;
+  --bg-surface: #3d1055;
+  --bg-hover: #4d1a6a;
+
+  --text-primary: #f0d0ff;
+  --text-secondary: #c0a0d0;
+  --text-muted: rgba(192, 160, 208, 0.6);
+
+  --accent-1: #ed1dff;  /* Magenta */
+  --accent-2: #c5d941;  /* Lime */
+  --accent-3: #ff9b0b;  /* Orange */
+  --accent-4: #00e5ff;  /* Cyan */
+
+  --ink: var(--text-primary);
+  --one: var(--accent-1);
+  --two: var(--accent-2);
+  --three: var(--accent-3);
+  --four: var(--accent-4);
+  --paper-light: var(--bg-surface);
+  --paper-mid: var(--bg-secondary);
+  --paper-dark: var(--bg-primary);
+  --shade: #10031a;
+
+  --border-color: rgba(237, 29, 255, 0.2);
+  --border-visible: rgba(237, 29, 255, 0.4);
+}
+
+/* =============================================================================
+   Utility Classes
+   ============================================================================= */
+
+/* Text colors */
+.text-ink { color: var(--ink); }
+.text-one { color: var(--one); }
+.text-two { color: var(--two); }
+.text-three { color: var(--three); }
+.text-four { color: var(--four); }
+.text-muted { color: var(--text-muted); }
+
+/* Background colors */
+.bg-paper-light { background-color: var(--paper-light); }
+.bg-paper-mid { background-color: var(--paper-mid); }
+.bg-paper-dark { background-color: var(--paper-dark); }
+.bg-shade { background-color: var(--shade); }
+
+/* Accent backgrounds */
+.bg-one { background-color: var(--one); }
+.bg-two { background-color: var(--two); }
+.bg-three { background-color: var(--three); }
+.bg-four { background-color: var(--four); }
+
+/* Borders */
+.border-theme { border-color: var(--border-color); }
+.border-visible { border-color: var(--border-visible); }
+
+/* Fonts */
+.font-display { font-family: var(--font-display); }
+.font-body { font-family: var(--font-body); }
+.font-mono { font-family: var(--font-mono); }

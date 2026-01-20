@@ -2,61 +2,68 @@
  * Home Page
  */
 
+import { Header } from '../components/Header.js';
+import { Footer } from '../components/Footer.js';
+import { NoiseService } from '../services/noise/index.js';
+import { NoiseCard } from '../components/NoiseCard/index.js';
+
 export const HomePage = {
+  _noiseCard: null,
+
   render() {
     return `
       <div class="page page-home">
-        <header class="header">
-          <div class="logo">PIXELJAM</div>
-          <nav class="nav">
-            <a href="#/" class="nav-link active">Home</a>
-            <a href="#/games" class="nav-link">Games</a>
-          </nav>
-          <button class="theme-toggle" data-action="theme:next" title="Change theme">
-            <span class="theme-icon"></span>
-          </button>
-        </header>
+        ${Header.render('/')}
 
         <main class="main">
-          <section class="hero">
-            <h1 class="hero-title">Pixeljam Arcade</h1>
-            <p class="hero-subtitle">Retro gaming, reimagined</p>
-            <a href="#/games" class="btn btn-primary" data-action="navigate" data-to="/games">
-              Browse Games
-            </a>
-          </section>
-
-          <section class="featured">
-            <h2>Featured Games</h2>
-            <div class="game-grid" id="featuredGames">
-              <!-- Games loaded dynamically -->
-              <div class="game-card placeholder">
-                <div class="game-card-thumb"></div>
-                <div class="game-card-title">Loading...</div>
-              </div>
+          <div class="cabinet-wrapper">
+            <div class="cabinet-card">
+              <svg viewBox="0 0 252 52" aria-label="Pixeljam Arcade">
+                <use href="#svg_arcade_logo"/>
+              </svg>
             </div>
-          </section>
+          </div>
         </main>
 
-        <footer class="footer">
-          <p>&copy; Pixeljam</p>
-          <p class="theme-indicator">
-            Theme: <span id="currentTheme">${window.PJA?.services?.theme?.get() || 'lava'}</span>
-          </p>
-        </footer>
+        ${Footer.render()}
       </div>
     `;
   },
 
   mount(container) {
-    // Subscribe to theme changes to update indicator
-    const themeSpan = container.querySelector('#currentTheme');
-    if (themeSpan && window.PJA?.services?.theme) {
-      window.PJA.services.theme.subscribe((theme) => {
-        themeSpan.textContent = theme;
+    Header.mount(container);
+
+    // Apply noise background to cabinet card
+    const cabinet = container.querySelector('.cabinet-card');
+    if (cabinet) {
+      NoiseService.apply(cabinet, { preset: 'cabinet' });
+
+      // Double-click to open NoiseCard CLI
+      cabinet.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+
+        // Remove existing card if any
+        if (this._noiseCard) {
+          this._noiseCard.destroy();
+        }
+
+        // Create new card attached to cabinet
+        this._noiseCard = NoiseCard.attachTo(cabinet, {
+          title: 'Cabinet Noise CLI',
+          preset: 'cabinet'
+        });
       });
+
+      console.log('[HomePage] Cabinet noise applied, double-click to open CLI');
     }
 
     console.log('[HomePage] Mounted');
+  },
+
+  unmount() {
+    if (this._noiseCard) {
+      this._noiseCard.destroy();
+      this._noiseCard = null;
+    }
   }
 };

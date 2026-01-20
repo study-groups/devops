@@ -142,6 +142,19 @@ async function bootFinalize() {
   PJA.bootloader.phase = 'finalize';
   updateLoadingProgress(95, 'Finalizing...');
 
+  // Initialize Design FAB if ?design=true
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('design') === 'true') {
+    console.log('[PJA] Design mode enabled - initializing FAB');
+    try {
+      const { DesignFab } = await import('@services/DesignFab.js');
+      DesignFab.init();
+      PJA.services.designFab = DesignFab;
+    } catch (e) {
+      console.warn('[PJA] Could not load DesignFab:', e);
+    }
+  }
+
   // Calculate boot time
   const bootTime = performance.now() - PJA.bootloader.startTime;
   PJA.initialized = new Date().toISOString();

@@ -39,7 +39,7 @@ export class Morpher {
       pixelateBlockSize: 2,    // SVG units per block
       pixelateDuration: 300,   // ms to show pixelation
       pauseDuration: 200,      // ms pause before falling
-      fallGravity: 0.0008,     // Gravity during fall phase
+      fallGravity: 0.008,      // Gravity during fall phase (increased 10x)
       reformAttraction: 0.003  // Attraction strength during reform
     };
 
@@ -273,6 +273,7 @@ export class Morpher {
   }
 
   _notifyStateChange() {
+    console.log('[Morpher] State changed to:', this.state);
     if (this.onStateChange) {
       this.onStateChange(this.state);
     }
@@ -289,7 +290,8 @@ export class Morpher {
    * Check if letters should be hidden (during dissolve/swarm)
    */
   shouldHideLetters() {
-    return this.state !== 'idle' && this.state !== 'complete';
+    // Hide letters during ALL dissolve phases
+    return ['pixelating', 'paused', 'falling', 'swarming', 'forming'].includes(this.state);
   }
 
   /**
