@@ -9,15 +9,18 @@
 # =============================================================================
 
 # Top-level groups (no shortcuts in completion - cleaner interface)
-_CADDY_GROUPS="ctx log cfg svc route f2b hosts serve help"
+_CADDY_GROUPS="ctx log cfg svc route ban info hosts serve help"
 
 # Subcommands per group
-_CADDY_LOG_CMDS="show follow errors list stats raw json size top export archive rotate help"
+_CADDY_LOG_CMDS="policy roll show follow errors list stats raw json size top export archive help"
+
+# Policy subcommands
+_CADDY_LOG_POLICY="roll filter alert all"
 _CADDY_CFG_CMDS="show validate fmt reload deploy help"
-_CADDY_SVC_CMDS="status start stop restart ping version help"
+_CADDY_SVC_CMDS="status start stop restart ping version resources help"
 _CADDY_ROUTE_CMDS="list upstreams certs certs-list help"
 _CADDY_HOSTS_CMDS="status list add update remove edit ip domain"
-_CADDY_F2B_CMDS="status jails banned match recent help"
+_CADDY_BAN_CMDS="status jails banned match recent help"
 
 # Log top subcommands
 _CADDY_LOG_TOP="ips paths codes ua errors"
@@ -30,7 +33,7 @@ _CADDY_PROJS="arcade api docs cabinet pbase dashboard"
 _CADDY_ENVS_LIST="dev local"
 
 # Help topics
-_CADDY_HELP_TOPICS="ctx log cfg svc route f2b hosts"
+_CADDY_HELP_TOPICS="ctx log cfg svc route ban hosts"
 
 # =============================================================================
 # MAIN COMPLETION
@@ -71,8 +74,11 @@ _caddy_complete() {
                     export)
                         COMPREPLY=($(compgen -W "$_CADDY_LOG_EXPORT" -- "$cur"))
                         ;;
-                    archive|rotate)
+                    archive)
                         COMPREPLY=($(compgen -W "1 3 7 14 30" -- "$cur"))
+                        ;;
+                    policy)
+                        COMPREPLY=($(compgen -W "$_CADDY_LOG_POLICY" -- "$cur"))
                         ;;
                 esac
             elif [[ $COMP_CWORD -eq 4 ]]; then
@@ -141,9 +147,9 @@ _caddy_complete() {
             ;;
 
         # fail2ban group
-        f2b|ban)
+        ban|f2b)
             if [[ $COMP_CWORD -eq 2 ]]; then
-                COMPREPLY=($(compgen -W "$_CADDY_F2B_CMDS" -- "$cur"))
+                COMPREPLY=($(compgen -W "$_CADDY_BAN_CMDS" -- "$cur"))
             elif [[ $COMP_CWORD -eq 3 ]]; then
                 case "$subcmd" in
                     banned|match)

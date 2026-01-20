@@ -89,7 +89,10 @@ _caddy_ssh_target() {
     fi
 
     local host=$(_caddy_toml_get "$toml" "env.$env" "host")
+    # Try multiple user field names for compatibility
     local user=$(_caddy_toml_get "$toml" "env.$env" "user")
+    [[ -z "$user" ]] && user=$(_caddy_toml_get "$toml" "env.$env" "work_user")
+    [[ -z "$user" ]] && user=$(_caddy_toml_get "$toml" "env.$env" "auth_user")
 
     if [[ -z "$host" ]]; then
         echo "localhost"

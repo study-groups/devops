@@ -132,5 +132,53 @@ EOF
     esac
 }
 
+# === AUTO-RELOAD HOOK ===
+
+# Auto-reload hook - called after any process starts or stops
+# Regenerates Caddyfile and reloads Caddy when TSM_CADDY_AUTORELOAD=true
+_tsm_caddy_autoreload_hook() {
+    local proc_name="$1"
+    local port="$2"
+
+    # Skip if autoreload disabled
+    [[ "${TSM_CADDY_AUTORELOAD:-false}" == "true" ]] || return 0
+
+    # Skip if this IS the caddy process (avoid infinite loop)
+    [[ "$proc_name" == caddy* ]] && return 0
+
+    # Skip if caddy not installed
+    if ! command -v caddy >/dev/null 2>&1; then
+        if [[ -z "${_TSM_CADDY_WARN_SHOWN:-}" ]]; then
+            echo "tsm: caddy not installed, auto-reload disabled" >&2
+            export _TSM_CADDY_WARN_SHOWN=1
+        fi
+        return 0
+    fi
+
+    # Skip if caddy not running (check via admin API or pgrep)
+    if ! pgrep -x caddy >/dev/null 2>&1; then
+        return 0
+    fi
+
+    # Regenerate Caddyfile
+    tsm_caddy_generate "${TSM_CADDY_DOMAIN:-localhost}" >/dev/null 2>&1
+
+    # Reload via admin API (graceful, no restart needed)
+    if curl -s -X POST "http://localhost:2019/load" \
+        -H "Content-Type: text/caddyfile" \
+        --data-binary "@$TSM_CADDYFILE" >/dev/null 2>&1; then
+        : # Success, silent
+    else
+        # Fallback: signal reload
+        caddy reload --config "$TSM_CADDYFILE" >/dev/null 2>&1 || true
+    fi
+}
+
+# Register hooks if hooks system is available
+if declare -F tsm_hook_register &>/dev/null; then
+    tsm_hook_register "post_start" "_tsm_caddy_autoreload_hook"
+    tsm_hook_register "post_stop" "_tsm_caddy_autoreload_hook"
+fi
+
 export -f tsm_caddy tsm_caddy_generate tsm_caddy_show tsm_caddy_reload
-export -f tsm_caddy_start tsm_caddy_stop tsm_caddy_status
+export -f tsm_caddy_start tsm_caddy_stop tsm_caddy_status _tsm_caddy_autoreload_hook

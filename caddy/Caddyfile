@@ -1,0 +1,280 @@
+# Caddyfile for dev.pixeljamarcade.com
+# Caddy automatically handles HTTPS certificates via Let's Encrypt
+
+# Global options
+{
+    email admin@pixeljamarcade.com
+    # Uncomment for testing to avoid rate limits:
+    # acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+# Common reverse proxy headers snippet
+(proxy_headers) {
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+}
+
+# WebSocket support snippet
+(websocket) {
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+}
+
+# ============================================
+# API subdomain
+# ============================================
+api.dev.pixeljamarcade.com {
+    reverse_proxy / localhost:5000 {
+        import proxy_headers
+    }
+
+    reverse_proxy /api/host/* localhost:5001 {
+        import proxy_headers
+    }
+
+    reverse_proxy /api/client/* localhost:5002 {
+        import proxy_headers
+    }
+
+    reverse_proxy /api/server/* localhost:5003 {
+        import proxy_headers
+    }
+
+    reverse_proxy /pbase localhost:6900 {
+        import proxy_headers
+    }
+
+    log {
+        output file /var/log/caddy/api.dev.pixeljamarcade.com.log
+    }
+}
+
+# ============================================
+# Cabinet subdomain (Vite dev server)
+# ============================================
+cabinet.dev.pixeljamarcade.com {
+    reverse_proxy localhost:5173 {
+        import proxy_headers
+        # Larger timeouts for uploads
+        transport http {
+            read_timeout 120s
+            write_timeout 120s
+        }
+    }
+
+    # Request body size limit (100MB)
+    request_body {
+        max_size 100MB
+    }
+
+    log {
+        output file /var/log/caddy/cabinet.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+        format json
+    }
+}
+
+# ============================================
+# Dashboard subdomain (with basic auth)
+# ============================================
+dashboard.dev.pixeljamarcade.com {
+    # To change password: echo -n 'PASSWORD' | htpasswd -niBC 10 user | cut -d: -f2
+    # Or: caddy hash-password --plaintext 'PASSWORD'
+    basicauth /* {
+        gridranger $2y$10$Ip6thCdJcw51xQH76fddo.GL1xx58vo6/TAROzUF2ZeAUezprQ05.
+        pp $2y$10$Ip6thCdJcw51xQH76fddo.GL1xx58vo6/TAROzUF2ZeAUezprQ05.
+        mike $2y$10$Ip6thCdJcw51xQH76fddo.GL1xx58vo6/TAROzUF2ZeAUezprQ05.
+    }
+
+    reverse_proxy localhost:9324 {
+        import proxy_headers
+        header_up Remote-User {http.auth.user.id}
+        flush_interval -1
+        transport http {
+            read_timeout 300s
+        }
+    }
+}
+
+# ============================================
+# Main site: dev.pixeljamarcade.com
+# ============================================
+dev.pixeljamarcade.com {
+    # Request body limits
+    request_body {
+        max_size 100MB
+    }
+
+    # Vite HMR WebSocket
+    @vite_ws path /vite-dev-ws*
+    reverse_proxy @vite_ws localhost:8480 {
+        import websocket
+        flush_interval -1
+        transport http {
+            read_timeout 86400s
+            write_timeout 86400s
+        }
+    }
+
+    # Vite special paths
+    @vite_paths path /@fs/* /.svelte-kit/* /@vite/*
+    reverse_proxy @vite_paths localhost:8480 {
+        import proxy_headers
+        flush_interval -1
+    }
+
+    # Admin logs WebSocket
+    @admin_ws path /ws
+    reverse_proxy @admin_ws localhost:8481 {
+        import websocket
+        flush_interval -1
+        transport http {
+            read_timeout 86400s
+            write_timeout 86400s
+        }
+    }
+
+    # Tetra admin paths
+    reverse_proxy /admin/tetra/* localhost:4443 {
+        import proxy_headers
+        flush_interval -1
+    }
+
+    # Tetra Socket.IO
+    @tetra_socketio path /admin/tetra/socket.io/*
+    reverse_proxy @tetra_socketio localhost:4443 {
+        import websocket
+        flush_interval -1
+        transport http {
+            read_timeout 86400s
+            write_timeout 86400s
+        }
+    }
+
+    # Tetra SSH Bridge WebSocket
+    @tetra_ssh path /admin/tetra/ssh-bridge*
+    reverse_proxy @tetra_ssh localhost:4443 {
+        import websocket
+        flush_interval -1
+        transport http {
+            read_timeout 86400s
+            write_timeout 86400s
+        }
+    }
+
+    # Tetra API
+    reverse_proxy /admin/tetra/api/* localhost:4443 {
+        import proxy_headers
+        flush_interval -1
+    }
+
+    # Port 5173 proxy
+    reverse_proxy /5173* localhost:5173 {
+        import proxy_headers
+    }
+
+    # Videos with basic auth
+    handle_path /videos/* {
+        basicauth {
+            gridranger $2y$10$Ip6thCdJcw51xQH76fddo.GL1xx58vo6/TAROzUF2ZeAUezprQ05.
+            pp $2y$10$Ip6thCdJcw51xQH76fddo.GL1xx58vo6/TAROzUF2ZeAUezprQ05.
+            mike $2y$10$Ip6thCdJcw51xQH76fddo.GL1xx58vo6/TAROzUF2ZeAUezprQ05.
+        }
+
+        root * /var/www/html/videos
+
+        # Serve .sh files as plain text
+        @shell_files path *.sh
+        header @shell_files Content-Type text/plain
+
+        file_server browse
+    }
+
+    # Redirect /videos to /videos/
+    redir /videos /videos/ permanent
+
+    # Default: SvelteKit app
+    reverse_proxy localhost:8480 {
+        import proxy_headers
+        flush_interval -1
+        transport http {
+            read_timeout 300s
+        }
+    }
+
+    log {
+        output file /var/log/caddy/dev.pixeljamarcade.com.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+        format json
+    }
+}
+
+# ============================================
+# Docs subdomain (static files)
+# ============================================
+docs.dev.pixeljamarcade.com {
+    root * /home/dev/docs
+    file_server
+
+    # Cache static assets
+    @static path *.css *.js *.png *.jpg *.jpeg *.gif *.ico *.svg *.woff *.woff2
+    header @static Cache-Control "public, max-age=604800, immutable"
+}
+
+# ============================================
+# Grid Ranger subdomain (only remaining game subdomain)
+# Other game subdomains removed 2024-12-18 (served via arcade app)
+# ============================================
+grid-ranger.dev.pixeljamarcade.com {
+    handle /demo/* {
+        root * /mnt/pja-games/grid-ranger/demo
+        uri strip_prefix /demo
+        file_server
+        header Access-Control-Allow-Origin "https://dev.pixeljamarcade.com"
+        header Access-Control-Allow-Methods "GET, POST"
+        header Access-Control-Allow-Headers "Content-Type"
+    }
+    handle /full/* {
+        root * /mnt/pja-games/grid-ranger/full
+        uri strip_prefix /full
+        file_server
+        header Access-Control-Allow-Origin "https://dev.pixeljamarcade.com"
+        header Access-Control-Allow-Methods "GET, POST"
+        header Access-Control-Allow-Headers "Content-Type"
+    }
+    redir / /demo permanent
+}
+
+# ============================================
+# PBase subdomain
+# ============================================
+pbase.dev.pixeljamarcade.com {
+    reverse_proxy localhost:2600 {
+        import proxy_headers
+    }
+
+    log {
+        output file /var/log/caddy/pbase.log
+    }
+}
+
+# ============================================
+# V99 dev subdomain
+# ============================================
+v99dev.dev.pixeljamarcade.com, v99.dev.pixeljamarcade.com {
+    reverse_proxy /admin* localhost:4174 {
+        import proxy_headers
+    }
+
+    reverse_proxy localhost:4173 {
+        import proxy_headers
+    }
+}
