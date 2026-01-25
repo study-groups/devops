@@ -15,6 +15,7 @@ const Dashboard = (() => {
         caddy:     { src: 'caddy.iframe.html',     label: 'Caddy' },
         capture:   { src: 'capture.iframe.html',   label: 'Capture' },
         tests:     { src: 'tests.iframe.html',     label: 'Tests' },
+        infra:     { src: 'infra.iframe.html',     label: 'Infra' },
         developer: { src: 'developer.iframe.html', label: 'Developer' },
         admin:     { src: 'admin.iframe.html',     label: 'Admin' }
     };
