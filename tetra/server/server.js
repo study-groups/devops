@@ -324,6 +324,7 @@ app.use('/api/environments', require('./api/environments'));
 app.use('/api/playwright', require('./api/playwright'));
 app.use('/api/capture', require('./api/capture'));
 app.use('/api/caddy', require('./api/caddy'));
+app.use('/api/infra', require('./api/infra'));
 
 // Environment data for frontend
 app.get('/api/env', (req, res) => {

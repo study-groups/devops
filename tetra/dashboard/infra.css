@@ -47,6 +47,34 @@ body {
     color: var(--ink-muted);
 }
 
+/* Tetra loader - 4 dots with gentle wave */
+.server-grid .loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.server-grid .loading::before {
+    content: '';
+    display: block;
+    width: 44px;
+    height: 8px;
+    background:
+        radial-gradient(circle at 4px 4px, var(--one) 3px, transparent 3px),
+        radial-gradient(circle at 16px 4px, var(--two) 3px, transparent 3px),
+        radial-gradient(circle at 28px 4px, var(--three) 3px, transparent 3px),
+        radial-gradient(circle at 40px 4px, var(--four) 3px, transparent 3px);
+    background-size: 44px 8px;
+    background-repeat: no-repeat;
+    animation: tetra-breathe 3s ease-in-out infinite;
+}
+
+@keyframes tetra-breathe {
+    0%, 100% { opacity: 0.25; transform: scale(0.95); }
+    50% { opacity: 1; transform: scale(1); }
+}
+
 .server-grid .error {
     color: var(--one);
     background: rgba(255, 107, 107, 0.1);
