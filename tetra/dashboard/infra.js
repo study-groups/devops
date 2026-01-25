@@ -108,7 +108,8 @@ const Infra = (function() {
         },
 
         loading: () => '<div class="loading">Loading infrastructure data...</div>',
-        error: (msg) => `<div class="error">${esc(msg)}</div>`
+        error: (msg) => `<div class="error">${esc(msg)}</div>`,
+        noData: (org) => `<div class="loading">No infrastructure data for ${esc(org)}</div>`
     };
 
     // Escape HTML to prevent XSS
@@ -136,35 +137,55 @@ const Infra = (function() {
         return content;
     }
 
-    // Get fallback data from embedded JSON
-    function getFallbackData() {
+    // Get fallback data from embedded JSON for specific org
+    function getFallbackData(org) {
         const el = document.getElementById('fallback-data');
         if (el) {
             try {
-                return JSON.parse(el.textContent);
+                const data = JSON.parse(el.textContent);
+                // Only return if org matches
+                if (data.org === org) {
+                    return data;
+                }
             } catch (e) {
                 console.error('Failed to parse fallback data:', e);
             }
         }
-        return { org: 'unknown', servers: {}, inventory: {} };
+        return null;
+    }
+
+    // Get current org from Terrain.State
+    function getOrg() {
+        return (window.Terrain && Terrain.State) ? Terrain.State.org : 'tetra';
     }
 
     // Load data from API or fallback
     async function loadData() {
         const grid = dom.grid();
+        const org = getOrg();
         grid.innerHTML = html.loading();
 
         try {
-            const resp = await fetch('/api/infra/data');
+            const resp = await fetch(`/api/infra/data?org=${encodeURIComponent(org)}`);
             if (resp.ok) {
                 orgData = await resp.json();
             } else {
-                console.warn('API returned', resp.status, '- using fallback data');
-                orgData = getFallbackData();
+                console.warn('API returned', resp.status, '- checking fallback');
+                const fallback = getFallbackData(org);
+                if (fallback) {
+                    orgData = fallback;
+                } else {
+                    orgData = { org, servers: {}, inventory: {} };
+                }
             }
         } catch (e) {
-            console.warn('Failed to fetch infra data:', e.message, '- using fallback');
-            orgData = getFallbackData();
+            console.warn('Failed to fetch infra data:', e.message, '- checking fallback');
+            const fallback = getFallbackData(org);
+            if (fallback) {
+                orgData = fallback;
+            } else {
+                orgData = { org, servers: {}, inventory: {} };
+            }
         }
 
         renderServers();
@@ -179,7 +200,7 @@ const Infra = (function() {
             .sort((a, b) => (a[1].priority || 99) - (b[1].priority || 99));
 
         if (servers.length === 0) {
-            grid.innerHTML = html.error('No servers configured');
+            grid.innerHTML = html.noData(getOrg());
             return;
         }
 
@@ -260,10 +281,24 @@ const Infra = (function() {
         }
     }
 
+    // Initialize Terrain integration for org changes
+    function initTerrain() {
+        if (window.Terrain && Terrain.State) {
+            // Register for org/env changes - reload data when org changes
+            Terrain.State.onEnvChange((changes) => {
+                if (changes.orgChanged) {
+                    closeDetail();
+                    loadData();
+                }
+            });
+        }
+    }
+
     // Initialize module
     function init() {
         initTabs();
         initEvents();
+        initTerrain();
         loadData();
     }
 
