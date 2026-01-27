@@ -48,15 +48,125 @@ function isScannerRequest(uri) {
     return SCANNER_PATTERNS.some(pattern => pattern.test(uri));
 }
 
+/**
+ * Group scanner bursts - collapses rapid requests from same IP within time window
+ * Returns array of logs with scanner bursts replaced by group objects
+ */
+function groupScannerBursts(logs, windowSecs = 60, minBurst = 5) {
+    if (!logs || logs.length === 0) return [];
+
+    const result = [];
+    const ipBuckets = new Map(); // ip -> array of consecutive scanner logs
+
+    function flushBucket(ip) {
+        const bucket = ipBuckets.get(ip);
+        if (!bucket || bucket.length === 0) return;
+
+        if (bucket.length >= minBurst) {
+            // Collapse into group
+            const paths = [...new Set(bucket.map(l => {
+                const uri = l.uri || l.request?.uri || '';
+                return uri.split('?')[0];
+            }))].slice(0, 3);
+
+            result.push({
+                type: 'scanner-group',
+                ip: ip,
+                count: bucket.length,
+                paths: paths,
+                tsStart: bucket[0].ts,
+                tsEnd: bucket[bucket.length - 1].ts,
+                statuses: [...new Set(bucket.map(l => l.status))].sort()
+            });
+        } else {
+            // Not enough to group, add individually
+            result.push(...bucket);
+        }
+        ipBuckets.set(ip, []);
+    }
+
+    for (const log of logs) {
+        const entry = parseLogEntry(log);
+        const ip = log.remote_ip || log.request?.remote_ip || log.request?.client_ip || '';
+        const isScanner = entry.type === 'request' && isScannerRequest(entry.uri);
+
+        if (isScanner && ip) {
+            const bucket = ipBuckets.get(ip) || [];
+
+            // Check if this continues the current burst (within time window)
+            if (bucket.length > 0) {
+                const lastTs = bucket[bucket.length - 1].ts || 0;
+                const currentTs = log.ts || 0;
+                if (currentTs - lastTs > windowSecs) {
+                    // Time gap too large, flush and start new bucket
+                    flushBucket(ip);
+                }
+            }
+
+            const newBucket = ipBuckets.get(ip) || [];
+            newBucket.push(log);
+            ipBuckets.set(ip, newBucket);
+        } else {
+            // Non-scanner request - flush any pending bucket for this IP and add the log
+            if (ip && ipBuckets.has(ip)) {
+                flushBucket(ip);
+            }
+            result.push(log);
+        }
+    }
+
+    // Flush remaining buckets
+    for (const ip of ipBuckets.keys()) {
+        flushBucket(ip);
+    }
+
+    return result;
+}
+
+// Parse all URL params generically (for standalone usage)
+const urlParams = new URLSearchParams(window.location.search);
+
 const state = {
-    org: new URLSearchParams(window.location.search).get('org') || 'tetra',
-    env: new URLSearchParams(window.location.search).get('env') || 'local',
-    activeTab: localStorage.getItem(CONFIG.storageKey) || 'overview',
-    showRaw: false,
-    showDebug: false,
-    logFilter: '',
-    lastLogData: null
+    org: urlParams.get('org') || 'tetra',
+    env: urlParams.get('env') || 'local',
+    activeTab: urlParams.get('tab') || localStorage.getItem(CONFIG.storageKey) || 'overview',
+    showRaw: urlParams.get('raw') === 'true' || false,
+    showDebug: urlParams.get('debug') === 'true' || false,
+    logFilter: urlParams.get('filter') || '',
+    timeFilter: urlParams.get('time') || 'all', // 'all', '1h', '24h', 'today'
+    lastLogData: null,
+    autoRefresh: urlParams.get('refresh') !== 'false',
+    refreshIntervalId: null,
+    followMode: urlParams.get('follow') === 'true' || false,
+    followIntervalId: null,
+    logDetailsMap: new Map(), // Maps row index to full log object
+    selectedLogDetail: null,
+    groupPaths: urlParams.get('group') === 'true' || false,
+    lastStatsData: null,
+    hideInternal: true // Hide INFO/NOP entries by default
 };
+
+// Attack detection patterns (path traversal, LFI, etc.)
+const ATTACK_PATTERNS = [
+    /\.\.\//,                    // Path traversal
+    /\.\.%2f/i,                  // URL-encoded path traversal
+    /\.\.%5c/i,                  // URL-encoded backslash traversal
+    /%2e%2e/i,                   // Double-encoded dots
+    /%c0%ae/i,                   // Overlong UTF-8 encoding
+    /%252e/i,                    // Double URL encoding
+    /etc\/passwd/i,              // passwd file access
+    /etc\/shadow/i,              // shadow file access
+    /\.ssh\/id_rsa/i,            // SSH key access
+    /\.bash_history/i,           // bash history
+    /win\.ini/i,                 // Windows ini
+    /system32\/config/i,         // Windows SAM
+    /proc\/self/i,               // Linux proc
+];
+
+function isAttackRequest(uri) {
+    if (!uri) return false;
+    return ATTACK_PATTERNS.some(pattern => pattern.test(uri));
+}
 
 // DOM elements cache
 let els = {};
@@ -249,6 +359,11 @@ async function loadLogs() {
         const res = await fetch(apiUrl('logs') + '&lines=100');
         const data = await res.json();
 
+        // Normalize: API may return {error: "..."} instead of {message: "..."}
+        if (data.error && !data.message) {
+            data.message = data.error;
+        }
+
         state.lastLogData = data;
         renderLogs();
 
@@ -385,6 +500,74 @@ function calculateInsights(logs) {
 }
 
 /**
+ * Render time histogram showing request distribution
+ */
+function renderHistogram(logs) {
+    const histogram = document.getElementById('time-histogram');
+    const barsContainer = document.getElementById('histogram-bars');
+    const startLabel = document.getElementById('histogram-start');
+    const endLabel = document.getElementById('histogram-end');
+
+    if (!histogram || !barsContainer) return;
+
+    if (!logs || logs.length === 0) {
+        histogram.classList.add('hidden');
+        return;
+    }
+
+    // Get timestamps from logs
+    const timestamps = logs
+        .map(log => log.ts)
+        .filter(ts => ts && ts > 0)
+        .sort((a, b) => a - b);
+
+    if (timestamps.length < 2) {
+        histogram.classList.add('hidden');
+        return;
+    }
+
+    histogram.classList.remove('hidden');
+
+    const minTs = timestamps[0];
+    const maxTs = timestamps[timestamps.length - 1];
+    const range = maxTs - minTs;
+
+    // Create 20 buckets
+    const numBuckets = 20;
+    const buckets = new Array(numBuckets).fill(0);
+    const errorBuckets = new Array(numBuckets).fill(0);
+    const bucketSize = range / numBuckets;
+
+    for (const log of logs) {
+        if (!log.ts) continue;
+        const bucketIndex = Math.min(Math.floor((log.ts - minTs) / bucketSize), numBuckets - 1);
+        buckets[bucketIndex]++;
+
+        // Track errors
+        const status = log.status || 0;
+        if (status >= 500) {
+            errorBuckets[bucketIndex]++;
+        }
+    }
+
+    const maxCount = Math.max(...buckets, 1);
+
+    // Render bars
+    barsContainer.innerHTML = buckets.map((count, i) => {
+        const height = Math.max(2, (count / maxCount) * 100);
+        const hasError = errorBuckets[i] > 0;
+        const errorClass = hasError ? ' has-error' : '';
+        const bucketStart = new Date((minTs + i * bucketSize) * 1000);
+        const title = `${count} requests${hasError ? ` (${errorBuckets[i]} errors)` : ''} at ${bucketStart.toLocaleTimeString()}`;
+        return `<div class="histogram-bar${errorClass}" style="height: ${height}%" title="${title}"></div>`;
+    }).join('');
+
+    // Update labels
+    if (startLabel) startLabel.textContent = formatTime(minTs);
+    if (endLabel) endLabel.textContent = formatTime(maxTs);
+}
+
+/**
  * Render insights bar
  */
 function renderInsights(logs) {
@@ -452,18 +635,77 @@ function renderInsights(logs) {
 }
 
 /**
- * Get filtered logs based on current filter
+ * Get time cutoff timestamp based on filter setting
+ */
+function getTimeCutoff(filter) {
+    const now = Date.now() / 1000; // Unix timestamp in seconds
+    switch (filter) {
+        case '1h':
+            return now - 3600;
+        case '24h':
+            return now - 86400;
+        case 'today': {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return today.getTime() / 1000;
+        }
+        default:
+            return 0;
+    }
+}
+
+/**
+ * Get filtered logs based on current filters (text + time + internal)
  */
 function getFilteredLogs() {
     const data = state.lastLogData;
     if (!data || !data.logs) return [];
 
     let logs = data.logs;
+
+    // Filter out internal NOP entries if enabled
+    if (state.hideInternal) {
+        logs = logs.filter(log => {
+            // Keep anything with request data (top-level or nested)
+            if (log.method || log.status || log.uri) return true;
+            if (log.request?.method || log.request?.uri) return true;
+            // Filter out NOP/internal messages that have no request context
+            if (log.msg === 'NOP' || log.msg === 'handled request') return false;
+            // Keep errors
+            if (log.level === 'error') return true;
+            // Filter other info messages
+            return false;
+        });
+    }
+
+    // Apply time filter
+    if (state.timeFilter && state.timeFilter !== 'all') {
+        const cutoff = getTimeCutoff(state.timeFilter);
+        logs = logs.filter(log => {
+            const ts = log.ts || 0;
+            return ts >= cutoff;
+        });
+    }
+
+    // Apply text filter
     if (state.logFilter) {
         const filter = state.logFilter.toLowerCase();
+        // Check if it's a regex pattern (for LFI filter)
+        let isRegex = false;
+        let regex = null;
+        try {
+            if (filter.includes('\\') || filter.includes('|') || filter.includes('.')) {
+                regex = new RegExp(filter, 'i');
+                isRegex = true;
+            }
+        } catch (e) { /* not a valid regex */ }
+
         logs = logs.filter(log => {
             const text = (log.uri || '') + (log.method || '') + (log.status || '') +
                         (log.msg || '') + (log.raw || '');
+            if (isRegex && regex) {
+                return regex.test(text);
+            }
             return text.toLowerCase().includes(filter);
         });
     }
@@ -512,9 +754,13 @@ function renderLogs() {
     // Get filtered logs
     const logs = getFilteredLogs();
 
-    // Update insights bar and copy badge
+    // Update insights bar, histogram, and copy badge
     renderInsights(logs);
+    renderHistogram(logs);
     updateCopyBadge(logs.length);
+
+    // Clear log details map
+    state.logDetailsMap.clear();
 
     if (state.showRaw) {
         // Raw mode - show JSON
@@ -522,17 +768,51 @@ function renderLogs() {
             `<div class="log-raw">${log.raw || JSON.stringify(log)}</div>`
         ).join('');
     } else {
-        // Structured mode
-        els.logs.innerHTML = logs.map(log => {
+        // Structured mode with scanner grouping
+        const groupedLogs = groupScannerBursts(logs);
+        let rowIndex = 0;
+
+        els.logs.innerHTML = groupedLogs.map(log => {
+            // Scanner group row (not clickable for details)
+            if (log.type === 'scanner-group') {
+                const pathsDisplay = log.paths.join(', ') + (log.paths.length < log.count ? '...' : '');
+                const statusDisplay = log.statuses.map(s => `<span class="log-status ${statusClass(s)}">${s}</span>`).join(' ');
+                return `
+                    <div class="log-row scanner-group" title="Scanner burst from ${log.ip}">
+                        <span class="log-time">${formatTime(log.tsStart)}</span>
+                        <span class="scanner-count">${log.count}×</span>
+                        <span class="scanner-info">
+                            <span class="scanner-ip">${log.ip}</span>
+                            <span class="scanner-paths">${pathsDisplay}</span>
+                            ${statusDisplay}
+                        </span>
+                    </div>
+                `;
+            }
+
+            // Store log for detail view
+            const currentIndex = rowIndex++;
+            state.logDetailsMap.set(currentIndex, log);
+
             const entry = parseLogEntry(log);
+            const ip = log.remote_ip || log.request?.remote_ip || log.request?.client_ip || '';
 
             if (entry.type === 'request') {
-                const rowClass = entry.isError ? 'log-row log-error' : 'log-row';
+                // Determine row classes based on error/attack status
+                const isAttack = isAttackRequest(entry.uri);
+                let rowClass = 'log-row';
+                if (isAttack) {
+                    rowClass += ' attack';
+                } else if (entry.isError) {
+                    rowClass += ' log-error';
+                }
+
                 return `
-                    <div class="${rowClass}">
+                    <div class="${rowClass}" data-log-index="${currentIndex}">
                         <span class="log-time">${formatTime(entry.ts)}</span>
                         <span class="log-status ${statusClass(entry.status)}">${entry.status || '-'}</span>
                         <span class="log-method">${entry.method || '-'}</span>
+                        <span class="log-ip" title="${ip}">${ip || '-'}</span>
                         <span class="log-uri" title="${entry.uri || ''}">${entry.uri || '-'}</span>
                         <span class="log-dur">${formatDuration(entry.duration)}</span>
                     </div>
@@ -541,7 +821,7 @@ function renderLogs() {
 
             if (entry.type === 'error') {
                 return `
-                    <div class="log-row log-error">
+                    <div class="log-row log-error" data-log-index="${currentIndex}">
                         <span class="log-time">${formatTime(entry.ts)}</span>
                         <span class="log-status s5xx">ERR</span>
                         <span class="log-msg" title="${entry.msg}">${entry.msg}</span>
@@ -551,7 +831,7 @@ function renderLogs() {
 
             if (entry.type === 'info') {
                 return `
-                    <div class="log-row log-info">
+                    <div class="log-row log-info" data-log-index="${currentIndex}">
                         <span class="log-time">${formatTime(entry.ts)}</span>
                         <span class="log-status">${entry.level?.toUpperCase()?.slice(0,3) || 'INF'}</span>
                         <span class="log-msg" title="${entry.msg}">${entry.msg}</span>
@@ -562,6 +842,14 @@ function renderLogs() {
             // Raw fallback
             return `<div class="log-raw">${entry.raw}</div>`;
         }).join('');
+
+        // Add click handlers for log rows
+        els.logs.querySelectorAll('[data-log-index]').forEach(row => {
+            row.addEventListener('click', () => {
+                const index = parseInt(row.dataset.logIndex, 10);
+                showLogDetail(index);
+            });
+        });
     }
 }
 
@@ -581,6 +869,8 @@ function toggleDebug() {
 
 function handleLogFilter(e) {
     state.logFilter = e.target.value;
+    // Clear preset active state when typing
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
     renderLogs();
 }
 
@@ -596,30 +886,65 @@ function copyLogs() {
         return;
     }
 
+    // Count attacks for summary
+    let attackCount = 0;
+
     // Format logs for clipboard
     const lines = logs.map(log => {
         const entry = parseLogEntry(log);
+        const ip = log.remote_ip || log.request?.remote_ip || log.request?.client_ip || '-';
 
         if (entry.type === 'request') {
-            return `${formatFullTime(entry.ts)}\t${entry.status || '-'}\t${entry.method || '-'}\t${entry.uri || '-'}\t${formatDuration(entry.duration)}`;
+            const isAttack = isAttackRequest(entry.uri);
+            if (isAttack) attackCount++;
+            const marker = isAttack ? '[ATTACK] ' : '';
+            return `${marker}${formatFullTime(entry.ts)}\t${entry.status || '-'}\t${entry.method || '-'}\t${ip}\t${entry.uri || '-'}\t${formatDuration(entry.duration)}`;
         }
 
         if (entry.type === 'error' || entry.type === 'info') {
-            return `${formatFullTime(entry.ts)}\t${entry.level?.toUpperCase() || 'INFO'}\t${entry.msg}`;
+            return `${formatFullTime(entry.ts)}\t${entry.level?.toUpperCase() || 'INFO'}\t-\t${entry.msg}`;
         }
 
         return entry.raw || JSON.stringify(log);
     });
 
-    // Add header
-    const header = 'Timestamp\tStatus\tMethod\tPath\tDuration';
-    const text = header + '\n' + lines.join('\n');
+    // Add header with summary
+    let text = `Caddy Logs - ${state.org}/${state.env}\n`;
+    text += `Exported: ${new Date().toISOString()}\n`;
+    text += `Entries: ${logs.length}`;
+    if (attackCount > 0) {
+        text += ` (${attackCount} attacks detected)`;
+    }
+    text += '\n\n';
+    text += 'Timestamp\tStatus\tMethod\tIP\tPath\tDuration\n';
+    text += lines.join('\n');
 
     navigator.clipboard.writeText(text).then(() => {
         const filterNote = state.logFilter ? ' (filtered)' : '';
         showToast(`Copied ${logs.length} log entries${filterNote}`);
     }).catch(err => {
         showToast('Failed to copy: ' + err.message);
+    });
+}
+
+/**
+ * Export logs as JSON to clipboard
+ */
+function exportJSON() {
+    const logs = getFilteredLogs();
+
+    if (logs.length === 0) {
+        showToast('No logs to export');
+        return;
+    }
+
+    const json = JSON.stringify(logs, null, 2);
+
+    navigator.clipboard.writeText(json).then(() => {
+        const filterNote = state.logFilter || state.timeFilter !== 'all' ? ' (filtered)' : '';
+        showToast(`Exported ${logs.length} entries as JSON${filterNote}`);
+    }).catch(err => {
+        showToast('Failed to export: ' + err.message);
     });
 }
 
@@ -632,39 +957,194 @@ async function loadStats() {
         const res = await fetch(apiUrl('stats'));
         const data = await res.json();
 
+        state.lastStatsData = data;
+
         if (data.message) {
             if (els.statTotal) els.statTotal.textContent = '--';
             return;
         }
 
-        const s = data.summary || {};
-
-        // Summary cards
-        if (els.statTotal) els.statTotal.textContent = formatNumber(s.totalRequests || 0);
-
-        if (els.statErrors) {
-            els.statErrors.textContent = s.errorCount || 0;
-            const errorRate = s.totalRequests > 0 ? (s.errorCount / s.totalRequests) * 100 : 0;
-            els.statErrors.className = 'value ' + (errorRate > 5 ? 'bad' : errorRate > 1 ? 'warn' : 'good');
-        }
-
-        if (els.statLatency) els.statLatency.textContent = s.avgDuration ? s.avgDuration + 's' : '--';
-        if (els.statIps) els.statIps.textContent = s.uniqueIPs || 0;
-
-        // Top paths
-        renderTopList(els.topPaths, data.topPaths, 'path');
-
-        // Status codes
-        renderTopList(els.topCodes, data.statusCodes, 'code', (item) =>
-            `<span class="log-status ${statusClass(parseInt(item.code))}">${item.code}</span>`
-        );
-
-        // Top IPs
-        renderTopList(els.topIps, data.topIPs, 'ip');
+        renderStats(data);
 
     } catch (err) {
         if (els.statTotal) els.statTotal.textContent = 'err';
     }
+}
+
+function renderStats(data) {
+    if (!data) data = state.lastStatsData;
+    if (!data) return;
+
+    const s = data.summary || {};
+
+    // Summary cards
+    if (els.statTotal) els.statTotal.textContent = formatNumber(s.totalRequests || 0);
+
+    if (els.statErrors) {
+        els.statErrors.textContent = s.errorCount || 0;
+        const errorRate = s.totalRequests > 0 ? (s.errorCount / s.totalRequests) * 100 : 0;
+        els.statErrors.className = 'value ' + (errorRate > 5 ? 'bad' : errorRate > 1 ? 'warn' : 'good');
+    }
+
+    if (els.statLatency) els.statLatency.textContent = s.avgDuration ? s.avgDuration + 's' : '--';
+    if (els.statIps) els.statIps.textContent = s.uniqueIPs || 0;
+
+    // Top paths - optionally grouped
+    let pathsToRender = data.topPaths;
+    if (state.groupPaths && pathsToRender) {
+        pathsToRender = groupPathsByPattern(pathsToRender);
+    }
+
+    renderTopList(els.topPaths, pathsToRender, 'path', state.groupPaths ? (item) => {
+        const groupedClass = item.isGrouped ? ' grouped' : '';
+        const title = item.examples ? item.examples.slice(0, 5).join('\n') : item.path;
+        return `<span class="top-value clickable${groupedClass}" data-filter="${item.examples?.[0] || item.path}" title="${title}">${item.path}</span>`;
+    } : null);
+
+    // Update group button state
+    const groupBtn = document.getElementById('btn-group-paths');
+    if (groupBtn) {
+        groupBtn.classList.toggle('active', state.groupPaths);
+    }
+
+    // Status codes
+    renderTopList(els.topCodes, data.statusCodes, 'code', (item) =>
+        `<span class="top-value clickable log-status ${statusClass(parseInt(item.code))}" data-filter="${item.code}">${item.code}</span>`
+    );
+
+    // Top IPs
+    renderTopList(els.topIps, data.topIPs, 'ip');
+}
+
+/**
+ * Copy stats to clipboard in readable format
+ */
+function copyStats() {
+    const data = state.lastStatsData;
+    if (!data) {
+        showToast('No stats data to copy');
+        return;
+    }
+
+    const s = data.summary || {};
+    let text = `Caddy Stats (${state.org}/${state.env})\n`;
+    text += `${'='.repeat(40)}\n\n`;
+
+    text += `SUMMARY\n`;
+    text += `  Requests: ${s.totalRequests || 0}\n`;
+    text += `  Errors: ${s.errorCount || 0}\n`;
+    text += `  Avg Latency: ${s.avgDuration || '--'}s\n`;
+    text += `  Unique IPs: ${s.uniqueIPs || 0}\n\n`;
+
+    if (data.topPaths?.length) {
+        text += `TOP PATHS\n`;
+        for (const p of data.topPaths.slice(0, 10)) {
+            text += `  ${p.count.toString().padStart(6)} ${p.path}\n`;
+        }
+        text += '\n';
+    }
+
+    if (data.statusCodes?.length) {
+        text += `STATUS CODES\n`;
+        for (const c of data.statusCodes) {
+            text += `  ${c.count.toString().padStart(6)} ${c.code} (${c.percent}%)\n`;
+        }
+        text += '\n';
+    }
+
+    if (data.topIPs?.length) {
+        text += `TOP IPS\n`;
+        for (const ip of data.topIPs.slice(0, 10)) {
+            text += `  ${ip.count.toString().padStart(6)} ${ip.ip}\n`;
+        }
+    }
+
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('Stats copied to clipboard');
+    }).catch(err => {
+        showToast('Failed to copy: ' + err.message);
+    });
+}
+
+/**
+ * Normalize path for grouping similar paths together
+ * Example: api/game-files/gamma-bros/index.html becomes api/game-files/STAR/index.html
+ */
+function normalizePath(path) {
+    if (!path) return '/';
+
+    // Remove query string
+    path = path.split('?')[0];
+
+    // Common patterns to normalize
+    const patterns = [
+        // API paths with IDs: /api/game-files/{game}/file.ext -> /api/game-files/*/file.ext
+        { regex: /^(\/api\/[^/]+\/)[^/]+(\/[^/]+\.[^/]+)$/, replace: '$1*$2' },
+
+        // Generic resource IDs: /resource/abc123 -> /resource/*
+        { regex: /^(\/[^/]+\/)([a-f0-9]{8,}|[0-9]+)(\/|$)/, replace: '$1*$3' },
+
+        // _app/immutable paths: /_app/immutable/chunks/*.js -> /_app/immutable/chunks/*.js
+        { regex: /^\/_app\/immutable\/([^/]+)\/[^/]+\.(js|css)$/, replace: '/_app/immutable/$1/*.$2' },
+
+        // Static asset hashes: /file.abc123.js -> /file.*.js
+        { regex: /^(.+)\.[a-f0-9]{6,}\.(js|css|woff2?)$/, replace: '$1.*.$2' },
+
+        // UUIDs anywhere: {uuid} -> *
+        { regex: /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, replace: '*' },
+    ];
+
+    let normalized = path;
+    for (const { regex, replace } of patterns) {
+        normalized = normalized.replace(regex, replace);
+    }
+
+    return normalized;
+}
+
+/**
+ * Group paths by normalized pattern
+ */
+function groupPathsByPattern(topPaths) {
+    const groups = new Map();
+
+    for (const item of topPaths) {
+        const normalized = normalizePath(item.path);
+        const existing = groups.get(normalized);
+
+        if (existing) {
+            existing.count += item.count;
+            existing.examples.push(item.path);
+        } else {
+            groups.set(normalized, {
+                path: normalized,
+                count: item.count,
+                examples: [item.path]
+            });
+        }
+    }
+
+    // Sort by count and calculate percentages
+    const sorted = Array.from(groups.values()).sort((a, b) => b.count - a.count);
+    const maxCount = sorted[0]?.count || 1;
+
+    return sorted.map(item => ({
+        ...item,
+        percent: Math.round((item.count / maxCount) * 100),
+        isGrouped: item.examples.length > 1
+    }));
+}
+
+/**
+ * Filter logs and switch to logs tab
+ */
+function filterAndShowLogs(filterValue) {
+    state.logFilter = filterValue;
+    const filterInput = document.getElementById('log-filter');
+    if (filterInput) {
+        filterInput.value = filterValue;
+    }
+    showTab('logs');
 }
 
 function renderTopList(container, items, valueKey, customRender) {
@@ -675,13 +1155,24 @@ function renderTopList(container, items, valueKey, customRender) {
         return;
     }
 
-    container.innerHTML = items.map(item => `
-        <div class="top-row">
-            <span class="top-count">${item.count}</span>
-            ${customRender ? customRender(item) : `<span class="top-value">${item[valueKey]}</span>`}
-            <div class="top-bar"><div class="top-bar-fill" style="width: ${item.percent || 0}%"></div></div>
-        </div>
-    `).join('');
+    container.innerHTML = items.map(item => {
+        const value = item[valueKey];
+        const displayValue = customRender ? customRender(item) : `<span class="top-value clickable" data-filter="${value}">${value}</span>`;
+        return `
+            <div class="top-row">
+                <span class="top-count">${item.count}</span>
+                ${displayValue}
+                <div class="top-bar"><div class="top-bar-fill" style="width: ${item.percent || 0}%"></div></div>
+            </div>
+        `;
+    }).join('');
+
+    // Add click handlers for filtering
+    container.querySelectorAll('.top-value.clickable').forEach(el => {
+        el.addEventListener('click', () => {
+            filterAndShowLogs(el.dataset.filter);
+        });
+    });
 }
 
 // =============================================================================
@@ -844,9 +1335,65 @@ function init() {
 
     // Log toolbar
     document.getElementById('btn-copy')?.addEventListener('click', copyLogs);
+    document.getElementById('btn-json')?.addEventListener('click', exportJSON);
+    document.getElementById('btn-follow')?.addEventListener('click', toggleFollowMode);
     document.getElementById('btn-raw')?.addEventListener('click', toggleRaw);
     document.getElementById('btn-debug')?.addEventListener('click', toggleDebug);
     document.getElementById('log-filter')?.addEventListener('input', handleLogFilter);
+
+    // Time filter buttons
+    document.querySelectorAll('.time-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            state.timeFilter = btn.dataset.time;
+            document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderLogs();
+        });
+    });
+
+    // Filter preset buttons
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const preset = btn.dataset.preset;
+            state.logFilter = preset;
+            const filterInput = document.getElementById('log-filter');
+            if (filterInput) filterInput.value = preset;
+
+            // Update active state
+            document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            renderLogs();
+        });
+    });
+
+    // Hide internal/NOP toggle
+    document.getElementById('chk-hide-internal')?.addEventListener('change', (e) => {
+        state.hideInternal = e.target.checked;
+        renderLogs();
+    });
+
+    // Log detail popover
+    document.getElementById('log-detail-close')?.addEventListener('click', hideLogDetail);
+    document.getElementById('log-detail-copy')?.addEventListener('click', copyLogDetail);
+    document.getElementById('log-detail')?.addEventListener('click', (e) => {
+        // Close on overlay click (not popover content)
+        if (e.target.id === 'log-detail') {
+            hideLogDetail();
+        }
+    });
+
+    // Refresh toggle
+    document.getElementById('refresh-toggle')?.addEventListener('click', toggleAutoRefresh);
+
+    // Stats path grouping toggle
+    document.getElementById('btn-group-paths')?.addEventListener('click', () => {
+        state.groupPaths = !state.groupPaths;
+        renderStats();
+    });
+
+    // Copy stats button
+    document.getElementById('btn-copy-stats')?.addEventListener('click', copyStats);
 
     // Set initial env badge
     setEnvBadge();
@@ -863,8 +1410,170 @@ function init() {
     loadAll();
     showTab(state.activeTab);
 
-    // Auto-refresh
-    setInterval(loadAll, CONFIG.refreshInterval);
+    // Start auto-refresh
+    startAutoRefresh();
+}
+
+/**
+ * Toggle auto-refresh on/off
+ */
+function toggleAutoRefresh() {
+    state.autoRefresh = !state.autoRefresh;
+    const toggle = document.getElementById('refresh-toggle');
+    const status = document.getElementById('refresh-status');
+
+    if (state.autoRefresh) {
+        toggle?.classList.remove('paused');
+        if (status) status.textContent = `${CONFIG.refreshInterval / 1000}s`;
+        startAutoRefresh();
+        showToast('Auto-refresh enabled');
+    } else {
+        toggle?.classList.add('paused');
+        if (status) status.textContent = 'paused';
+        stopAutoRefresh();
+        showToast('Auto-refresh paused');
+    }
+}
+
+function startAutoRefresh() {
+    stopAutoRefresh(); // Clear any existing interval
+    if (state.autoRefresh) {
+        state.refreshIntervalId = setInterval(loadAll, CONFIG.refreshInterval);
+    }
+}
+
+function stopAutoRefresh() {
+    if (state.refreshIntervalId) {
+        clearInterval(state.refreshIntervalId);
+        state.refreshIntervalId = null;
+    }
+}
+
+/**
+ * Toggle follow mode - faster refresh for logs tab
+ */
+function toggleFollowMode() {
+    state.followMode = !state.followMode;
+    const btn = document.getElementById('btn-follow');
+
+    if (state.followMode) {
+        btn?.classList.add('following');
+
+        // Start fast polling for logs
+        stopFollowMode();
+        state.followIntervalId = setInterval(() => {
+            if (state.activeTab === 'logs') {
+                loadLogs();
+                scrollLogsToBottom();
+            }
+        }, 2000); // 2 second refresh when following
+
+        showToast('Following new entries...');
+
+        // Switch to logs tab if not already there
+        if (state.activeTab !== 'logs') {
+            showTab('logs');
+        }
+
+        // Scroll to bottom
+        scrollLogsToBottom();
+    } else {
+        btn?.classList.remove('following');
+        stopFollowMode();
+        showToast('Follow mode disabled');
+    }
+}
+
+function stopFollowMode() {
+    if (state.followIntervalId) {
+        clearInterval(state.followIntervalId);
+        state.followIntervalId = null;
+    }
+}
+
+function scrollLogsToBottom() {
+    const logsContainer = document.getElementById('logs');
+    if (logsContainer) {
+        logsContainer.scrollTop = logsContainer.scrollHeight;
+    }
+}
+
+/**
+ * Show log detail popover
+ */
+function showLogDetail(logIndex) {
+    const log = state.logDetailsMap.get(logIndex);
+    if (!log) return;
+
+    state.selectedLogDetail = log;
+
+    const overlay = document.getElementById('log-detail');
+    const summary = document.getElementById('log-detail-summary');
+    const json = document.getElementById('log-detail-json');
+
+    if (!overlay || !summary || !json) return;
+
+    // Build summary
+    const entry = parseLogEntry(log);
+    let summaryHtml = '';
+
+    if (entry.type === 'request') {
+        summaryHtml = `
+            <span class="label">Time</span><span class="value">${formatFullTime(entry.ts)}</span>
+            <span class="label">Status</span><span class="value">${entry.status || '-'}</span>
+            <span class="label">Method</span><span class="value">${entry.method || '-'}</span>
+            <span class="label">URI</span><span class="value">${entry.uri || '-'}</span>
+            <span class="label">Duration</span><span class="value">${formatDuration(entry.duration)}</span>
+        `;
+
+        // Add IP if available
+        const ip = log.remote_ip || log.request?.remote_ip || log.request?.client_ip;
+        if (ip) {
+            summaryHtml += `<span class="label">IP</span><span class="value">${ip}</span>`;
+        }
+
+        // Add host if available
+        const host = log.request?.host || log.host;
+        if (host) {
+            summaryHtml += `<span class="label">Host</span><span class="value">${host}</span>`;
+        }
+
+        // Add user agent if available
+        const ua = log.request?.headers?.['User-Agent']?.[0] || log.request?.headers?.['user-agent']?.[0];
+        if (ua) {
+            summaryHtml += `<span class="label">User-Agent</span><span class="value">${ua}</span>`;
+        }
+    } else {
+        summaryHtml = `
+            <span class="label">Time</span><span class="value">${formatFullTime(entry.ts)}</span>
+            <span class="label">Level</span><span class="value">${entry.level || '-'}</span>
+            <span class="label">Message</span><span class="value">${entry.msg || '-'}</span>
+        `;
+    }
+
+    summary.innerHTML = summaryHtml;
+    json.textContent = JSON.stringify(log, null, 2);
+
+    overlay.classList.remove('hidden');
+}
+
+function hideLogDetail() {
+    const overlay = document.getElementById('log-detail');
+    if (overlay) {
+        overlay.classList.add('hidden');
+    }
+    state.selectedLogDetail = null;
+}
+
+function copyLogDetail() {
+    if (!state.selectedLogDetail) return;
+
+    const json = JSON.stringify(state.selectedLogDetail, null, 2);
+    navigator.clipboard.writeText(json).then(() => {
+        showToast('Copied to clipboard');
+    }).catch(err => {
+        showToast('Failed to copy: ' + err.message);
+    });
 }
 
 // Start when DOM ready

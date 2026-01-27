@@ -207,8 +207,8 @@ function getSSHConfig(org, env) {
                 if (envConfig.host === 'localhost' || envConfig.host === '127.0.0.1') {
                     return null;
                 }
-                // Try multiple user field names
-                const user = envConfig.user || envConfig.work_user || envConfig.auth_user || 'root';
+                // auth_user = SSH login user (root), work_user = app user (dev)
+                const user = envConfig.auth_user || envConfig.user || 'root';
                 return `${user}@${envConfig.host}`;
             }
         } catch (e) {
