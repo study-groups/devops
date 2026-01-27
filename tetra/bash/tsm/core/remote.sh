@@ -155,7 +155,7 @@ tsm_maybe_remote() {
         local ssh_target=$(tsm_resolve_target "$target")
         [[ -z "$ssh_target" ]] && return 1
 
-        tsm_info "Remote: $ssh_target"
+        echo "Remote: $ssh_target" >&2
         tsm_remote "$ssh_target" "$@"
         return $?
     fi
@@ -170,7 +170,7 @@ tsm_maybe_remote() {
         local ssh_target=$(tsm_resolve_target "$target")
         [[ -z "$ssh_target" ]] && return 1
 
-        tsm_info "Remote: $ssh_target"
+        echo "Remote: $ssh_target" >&2
         tsm_remote "$ssh_target" "$@"
         return $?
     fi
@@ -191,7 +191,7 @@ tsm_maybe_remote() {
         local ssh_target=$(tsm_resolve_target "$target")
         [[ -z "$ssh_target" ]] && return 1
 
-        tsm_info "Remote: $ssh_target"
+        echo "Remote: $ssh_target" >&2
         tsm_remote "$ssh_target" "$@"
         return $?
     fi
@@ -207,7 +207,7 @@ tsm_maybe_remote() {
             return 1
         fi
 
-        tsm_info "Remote: $ssh_target"
+        echo "Remote: $ssh_target" >&2
         tsm_remote "$ssh_target" "$@"
         return $?
     fi
