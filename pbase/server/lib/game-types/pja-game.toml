@@ -1,0 +1,34 @@
+# PJA Game Type - Games integrated with PJA SDK
+# These games communicate with the platform via SDK lifecycle handlers
+
+[type]
+name = "pja-game"
+description = "PJA SDK integrated game"
+
+[requirements]
+sdk = true
+sdk_url = "pja-sdk"
+
+[files]
+required = ["index.html"]
+recommended = ["game.toml", "thumb.png"]
+
+[validators]
+required = ["schema", "html", "sdk", "assets"]
+
+[sdk]
+# Patterns to detect SDK in HTML/JS files
+patterns = [
+    "pja-sdk.js",
+    "pja-sdk.min.js",
+    "/lib/pja-sdk",
+    "pja/sdk/pja-sdk",
+    "pja/dist/pja-sdk",
+    "ansicab/lib/pja-sdk"
+]
+
+[handlers]
+# Required lifecycle handlers
+lifecycle = ["onStart", "onStop", "onPause"]
+# Optional but recommended handlers
+optional = ["onVolumeChange"]

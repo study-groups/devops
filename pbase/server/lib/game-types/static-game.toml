@@ -1,0 +1,16 @@
+# Static Game Type - Simple HTML games without SDK integration
+# These games run standalone without platform communication
+
+[type]
+name = "static-game"
+description = "Basic HTML game without SDK"
+
+[requirements]
+sdk = false
+
+[files]
+required = ["index.html"]
+recommended = ["game.toml"]
+
+[validators]
+required = ["html", "assets"]

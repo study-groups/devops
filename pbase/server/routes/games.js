@@ -6,6 +6,7 @@
 
 import { Router } from 'express';
 import { optionalAuth, requirePermission } from '../middleware/auth.js';
+import { validateHook } from '../middleware/validation.js';
 import TOML from '@iarna/toml';
 
 export function createGamesRoutes(workspace, csvAuth, s3Provider = null) {
@@ -316,8 +317,9 @@ export function createGamesRoutes(workspace, csvAuth, s3Provider = null) {
     /**
      * POST /api/games/:slug/sync
      * Sync game to S3 with optional version bump
+     * Validates game before sync (blocks on errors)
      */
-    router.post('/:slug/sync', requirePermission(csvAuth, 'can_upload'), checkManifest, async (req, res) => {
+    router.post('/:slug/sync', requirePermission(csvAuth, 'can_upload'), checkManifest, validateHook('onSync', { failOnErrors: true }), async (req, res) => {
         try {
             const { slug } = req.params;
             const increment = req.body.increment || 'patch'; // 'patch', 'minor', 'major', or false
@@ -438,6 +440,7 @@ export function createGamesRoutes(workspace, csvAuth, s3Provider = null) {
                     files: syncResults.uploaded,
                     errors: syncResults.errors,
                 },
+                validation: req.validation ? req.validation.toJSON() : null,
             });
         } catch (err) {
             console.error('[Games] Sync error:', err);

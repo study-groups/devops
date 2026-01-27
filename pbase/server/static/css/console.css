@@ -9,8 +9,31 @@
     border: 1px solid var(--border);
     border-radius: 4px;
     overflow: hidden;
+    position: relative;
 }
 
+/* Layout positions: console-left, console-right, console-top, console-bottom */
+.pbase-console.console-left,
+.pbase-console.console-right {
+    flex-direction: row;
+}
+
+.pbase-console.console-top,
+.pbase-console.console-bottom {
+    flex-direction: column;
+}
+
+/* Reverse order for right/bottom positions (game first) */
+.pbase-console.console-right,
+.pbase-console.console-bottom {
+    flex-direction: row-reverse;
+}
+
+.pbase-console.console-bottom {
+    flex-direction: column-reverse;
+}
+
+/* Legacy support */
 .pbase-console.layout-horizontal {
     flex-direction: row;
 }
@@ -21,17 +44,30 @@
 
 /* Console panel (output + input) */
 .console-panel {
-    flex: 1;
     display: flex;
     flex-direction: column;
-    min-width: 300px;
-    border-right: 1px solid var(--border);
+    background: var(--bg);
+    overflow: hidden;
 }
 
-.layout-vertical .console-panel {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    min-height: 200px;
+/* Horizontal layouts (left/right) */
+.pbase-console.console-left .console-panel,
+.pbase-console.console-right .console-panel,
+.pbase-console.layout-horizontal .console-panel {
+    width: var(--console-size, 400px);
+    min-width: 200px;
+    max-width: 80%;
+    height: 100%;
+}
+
+/* Vertical layouts (top/bottom) */
+.pbase-console.console-top .console-panel,
+.pbase-console.console-bottom .console-panel,
+.pbase-console.layout-vertical .console-panel {
+    height: var(--console-size, 300px);
+    min-height: 150px;
+    max-height: 80%;
+    width: 100%;
 }
 
 /* Frame panel (toolbar + iframe) */
@@ -39,8 +75,89 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    min-width: 300px;
+    min-width: 200px;
+    min-height: 200px;
     background: var(--surface);
+    overflow: hidden;
+}
+
+/* ============================================
+   Resizable Divider
+   ============================================ */
+
+.console-divider {
+    flex-shrink: 0;
+    background: var(--border);
+    position: relative;
+    z-index: 10;
+    transition: background-color 0.15s;
+}
+
+.console-divider:hover,
+.console-divider.dragging {
+    background: var(--accent);
+}
+
+/* Horizontal divider (for left/right layouts) */
+.pbase-console.console-left .console-divider,
+.pbase-console.console-right .console-divider,
+.pbase-console.layout-horizontal .console-divider {
+    width: 4px;
+    cursor: col-resize;
+}
+
+/* Vertical divider (for top/bottom layouts) */
+.pbase-console.console-top .console-divider,
+.pbase-console.console-bottom .console-divider,
+.pbase-console.layout-vertical .console-divider {
+    height: 4px;
+    cursor: row-resize;
+}
+
+/* Divider drag handle visual indicator */
+.console-divider::after {
+    content: '';
+    position: absolute;
+    background: var(--text-muted);
+    opacity: 0.3;
+    border-radius: 2px;
+    transition: opacity 0.15s;
+}
+
+.console-divider:hover::after,
+.console-divider.dragging::after {
+    opacity: 0.6;
+}
+
+/* Horizontal handle dots */
+.pbase-console.console-left .console-divider::after,
+.pbase-console.console-right .console-divider::after,
+.pbase-console.layout-horizontal .console-divider::after {
+    width: 2px;
+    height: 24px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* Vertical handle dots */
+.pbase-console.console-top .console-divider::after,
+.pbase-console.console-bottom .console-divider::after,
+.pbase-console.layout-vertical .console-divider::after {
+    width: 24px;
+    height: 2px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* Prevent text selection while dragging */
+.pbase-console.resizing {
+    user-select: none;
+}
+
+.pbase-console.resizing iframe {
+    pointer-events: none;
 }
 
 /* Console output */
@@ -570,16 +687,137 @@
     color: white;
 }
 
+/* ============================================
+   Console Status Bar (above console/frame)
+   ============================================ */
+
+.console-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.4rem 0.75rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+.console-status-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--text-muted);
+}
+
+.status-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.7;
+}
+
+.status-value {
+    color: var(--text);
+    font-weight: 500;
+}
+
+.status-value.no-game {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.game-type-badge {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+    background: var(--primary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Position Selector in status bar */
+.console-position-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.position-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+.position-buttons {
+    display: flex;
+    gap: 2px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px;
+}
+
+.position-btn {
+    width: 22px;
+    height: 22px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 11px;
+    transition: all 0.15s;
+    position: relative;
+}
+
+.position-btn:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+}
+
+.position-btn.active {
+    background: var(--primary);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
+    /* Force vertical layout on mobile */
+    .pbase-console.console-left,
+    .pbase-console.console-right,
     .pbase-console.layout-horizontal {
-        flex-direction: column;
+        flex-direction: column !important;
     }
 
-    .console-panel {
-        border-right: none;
-        border-bottom: 1px solid var(--border);
-        min-height: 200px;
+    .pbase-console.console-left .console-panel,
+    .pbase-console.console-right .console-panel,
+    .pbase-console.layout-horizontal .console-panel {
+        width: 100% !important;
+        height: var(--console-size, 250px);
+        max-width: none;
+    }
+
+    .pbase-console.console-left .console-divider,
+    .pbase-console.console-right .console-divider,
+    .pbase-console.layout-horizontal .console-divider {
+        width: 100%;
+        height: 4px;
+        cursor: row-resize;
     }
 
     .frame-toolbar {
@@ -598,5 +836,21 @@
 
     .control-item {
         min-width: 120px;
+    }
+
+    .console-status-bar {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .console-status-info {
+        width: 100%;
+        order: 1;
+    }
+
+    .console-position-selector {
+        width: 100%;
+        justify-content: center;
+        order: 2;
     }
 }

@@ -16,26 +16,60 @@ export class PBaseConsole {
             : container;
 
         this.options = {
-            layout: 'horizontal', // horizontal | vertical
+            position: options.position || 'left', // left | right | top | bottom
+            consoleSize: options.consoleSize || 400, // initial size in pixels
+            minSize: options.minSize || 200,
+            showPositionSelector: options.showPositionSelector !== false,
             ...options
         };
+
+        // Legacy layout support
+        if (options.layout === 'vertical') {
+            this.options.position = 'top';
+        }
 
         this.element = null;
         this.input = null;
         this.output = null;
         this.controls = null;
         this.frame = null;
+        this.divider = null;
+        this.consolePanel = null;
 
         // Game list for completion
         this.games = [];
+
+        // Current loaded game
+        this._currentGame = null;
+
+        // Resize state
+        this._resizing = false;
+        this._startPos = 0;
+        this._startSize = 0;
     }
 
     /**
      * Initialize and render the console
      */
     init() {
+        // Outer wrapper
+        this.wrapper = document.createElement('div');
+        this.wrapper.className = 'pbase-console-wrapper';
+        this.wrapper.style.cssText = 'display:flex;flex-direction:column;height:100%;';
+
+        // Status bar (above console/frame)
+        if (this.options.showPositionSelector) {
+            this.wrapper.appendChild(this._renderStatusBar());
+        }
+
+        // Main content area (console + divider + frame)
         this.element = document.createElement('div');
-        this.element.className = `pbase-console layout-${this.options.layout}`;
+        this._updateLayoutClass();
+        this.element.style.flex = '1';
+        this.element.style.minHeight = '0'; // Allow shrinking
+
+        // Set initial console size
+        this.element.style.setProperty('--console-size', `${this.options.consoleSize}px`);
 
         // Create components
         this.output = new ConsoleOutput();
@@ -53,27 +87,283 @@ export class PBaseConsole {
             onControlRequest: (param, context) => this._addControl(param, context)
         });
 
-        // Layout
-        const consolePanel = document.createElement('div');
-        consolePanel.className = 'console-panel';
-        consolePanel.appendChild(this.controls.render());
-        consolePanel.appendChild(this.output.render());
-        consolePanel.appendChild(this.input.render());
+        // Console panel
+        this.consolePanel = document.createElement('div');
+        this.consolePanel.className = 'console-panel';
+        this.consolePanel.appendChild(this.controls.render());
+        this.consolePanel.appendChild(this.output.render());
+        this.consolePanel.appendChild(this.input.render());
 
-        const framePanel = document.createElement('div');
-        framePanel.className = 'frame-panel';
-        framePanel.appendChild(this._renderFrameToolbar());
-        framePanel.appendChild(this.frame.render());
+        // Resizable divider
+        this.divider = document.createElement('div');
+        this.divider.className = 'console-divider';
+        this._initDividerEvents();
 
-        this.element.appendChild(consolePanel);
-        this.element.appendChild(framePanel);
+        // Frame panel
+        this.framePanel = document.createElement('div');
+        this.framePanel.className = 'frame-panel';
+        this.framePanel.appendChild(this._renderFrameToolbar());
+        this.framePanel.appendChild(this.frame.render());
 
-        this.container.appendChild(this.element);
+        // Add elements in correct order based on position
+        this._appendPanels();
+
+        this.wrapper.appendChild(this.element);
+        this.container.appendChild(this.wrapper);
 
         // Focus input
         this.input.focus();
 
         return this;
+    }
+
+    /**
+     * Update layout class based on position
+     */
+    _updateLayoutClass() {
+        this.element.className = `pbase-console console-${this.options.position}`;
+    }
+
+    /**
+     * Append panels in correct order based on position
+     */
+    _appendPanels() {
+        // Clear existing
+        while (this.element.firstChild) {
+            this.element.removeChild(this.element.firstChild);
+        }
+
+        // Order: console, divider, frame (CSS flex-direction handles visual order)
+        this.element.appendChild(this.consolePanel);
+        this.element.appendChild(this.divider);
+        this.element.appendChild(this.framePanel);
+    }
+
+    /**
+     * Initialize divider drag events
+     */
+    _initDividerEvents() {
+        const onMouseDown = (e) => {
+            e.preventDefault();
+            this._resizing = true;
+            this.element.classList.add('resizing');
+            this.divider.classList.add('dragging');
+
+            const isHorizontal = this.options.position === 'left' || this.options.position === 'right';
+            this._startPos = isHorizontal ? e.clientX : e.clientY;
+            this._startSize = isHorizontal
+                ? this.consolePanel.offsetWidth
+                : this.consolePanel.offsetHeight;
+
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        };
+
+        const onMouseMove = (e) => {
+            if (!this._resizing) return;
+
+            const isHorizontal = this.options.position === 'left' || this.options.position === 'right';
+            const currentPos = isHorizontal ? e.clientX : e.clientY;
+            let delta = currentPos - this._startPos;
+
+            // Invert delta for right/bottom positions
+            if (this.options.position === 'right' || this.options.position === 'bottom') {
+                delta = -delta;
+            }
+
+            const newSize = Math.max(this.options.minSize, this._startSize + delta);
+            this.element.style.setProperty('--console-size', `${newSize}px`);
+        };
+
+        const onMouseUp = () => {
+            this._resizing = false;
+            this.element.classList.remove('resizing');
+            this.divider.classList.remove('dragging');
+
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+
+        this.divider.addEventListener('mousedown', onMouseDown);
+
+        // Touch support
+        this.divider.addEventListener('touchstart', (e) => {
+            const touch = e.touches[0];
+            onMouseDown({ preventDefault: () => {}, clientX: touch.clientX, clientY: touch.clientY });
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (!this._resizing) return;
+            const touch = e.touches[0];
+            onMouseMove({ clientX: touch.clientX, clientY: touch.clientY });
+        });
+
+        document.addEventListener('touchend', onMouseUp);
+    }
+
+    /**
+     * Render status bar with game info and position selector
+     */
+    _renderStatusBar() {
+        const statusBar = document.createElement('div');
+        statusBar.className = 'console-status-bar';
+
+        // Game info section
+        const statusInfo = document.createElement('div');
+        statusInfo.className = 'console-status-info';
+
+        // Game name
+        const gameItem = document.createElement('div');
+        gameItem.className = 'status-item';
+        gameItem.innerHTML = `
+            <span class="status-label">Game</span>
+            <span class="status-value no-game" data-status="game">No game loaded</span>
+        `;
+        statusInfo.appendChild(gameItem);
+
+        // Game type
+        const typeItem = document.createElement('div');
+        typeItem.className = 'status-item';
+        typeItem.innerHTML = `
+            <span class="status-label">Type</span>
+            <span class="game-type-badge" data-status="type" style="display:none">—</span>
+        `;
+        statusInfo.appendChild(typeItem);
+
+        statusBar.appendChild(statusInfo);
+
+        // Position selector
+        const positionSelector = this._renderPositionSelector();
+        statusBar.appendChild(positionSelector);
+
+        this._statusBar = statusBar;
+        return statusBar;
+    }
+
+    /**
+     * Render position selector buttons
+     */
+    _renderPositionSelector() {
+        const selector = document.createElement('div');
+        selector.className = 'console-position-selector';
+
+        const label = document.createElement('span');
+        label.className = 'position-label';
+        label.textContent = 'Layout';
+        selector.appendChild(label);
+
+        const buttons = document.createElement('div');
+        buttons.className = 'position-buttons';
+
+        const positions = [
+            { pos: 'left', label: '◧', title: 'Console left' },
+            { pos: 'top', label: '⬒', title: 'Console top' },
+            { pos: 'bottom', label: '⬓', title: 'Console bottom' },
+            { pos: 'right', label: '◨', title: 'Console right' },
+        ];
+
+        for (const { pos, label: lbl, title } of positions) {
+            const btn = document.createElement('button');
+            btn.className = `position-btn${this.options.position === pos ? ' active' : ''}`;
+            btn.dataset.position = pos;
+            btn.textContent = lbl;
+            btn.title = title;
+            btn.addEventListener('click', () => this.setPosition(pos));
+            buttons.appendChild(btn);
+        }
+
+        selector.appendChild(buttons);
+        this._positionSelector = selector;
+        return selector;
+    }
+
+    /**
+     * Update status bar with game info
+     */
+    _updateStatusBar(game) {
+        if (!this._statusBar) return;
+
+        const gameEl = this._statusBar.querySelector('[data-status="game"]');
+        const typeEl = this._statusBar.querySelector('[data-status="type"]');
+
+        if (game) {
+            gameEl.textContent = game.name || game.slug || 'Unknown';
+            gameEl.classList.remove('no-game');
+
+            if (game.type) {
+                typeEl.textContent = game.type;
+                typeEl.style.display = '';
+            } else {
+                typeEl.textContent = 'static';
+                typeEl.style.display = '';
+            }
+        } else {
+            gameEl.textContent = 'No game loaded';
+            gameEl.classList.add('no-game');
+            typeEl.style.display = 'none';
+        }
+    }
+
+    /**
+     * Fetch game info from API
+     */
+    async _fetchGameInfo(slug) {
+        try {
+            const res = await fetch(`/api/games/${slug}`);
+            if (res.ok) {
+                const game = await res.json();
+                this._currentGame = game;
+                this._updateStatusBar(game);
+            }
+        } catch (err) {
+            // Ignore fetch errors
+        }
+    }
+
+    /**
+     * Set console position
+     * @param {'left'|'right'|'top'|'bottom'} position
+     */
+    setPosition(position) {
+        if (!['left', 'right', 'top', 'bottom'].includes(position)) {
+            console.warn(`Invalid position: ${position}`);
+            return;
+        }
+
+        this.options.position = position;
+        this._updateLayoutClass();
+
+        // Update position selector active state
+        if (this._positionSelector) {
+            this._positionSelector.querySelectorAll('.position-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.position === position);
+            });
+        }
+
+        // Adjust size for orientation change
+        const isHorizontal = position === 'left' || position === 'right';
+        const wasHorizontal = this.element.style.getPropertyValue('--console-size').includes('px');
+
+        // Reset to sensible default if switching orientation
+        if (isHorizontal) {
+            const currentSize = parseInt(this.element.style.getPropertyValue('--console-size')) || 400;
+            if (currentSize < 250) {
+                this.element.style.setProperty('--console-size', '400px');
+            }
+        } else {
+            const currentSize = parseInt(this.element.style.getPropertyValue('--console-size')) || 300;
+            if (currentSize > 500) {
+                this.element.style.setProperty('--console-size', '300px');
+            }
+        }
+    }
+
+    /**
+     * Get current position
+     * @returns {'left'|'right'|'top'|'bottom'}
+     */
+    getPosition() {
+        return this.options.position;
     }
 
     /**
@@ -332,9 +622,16 @@ export class PBaseConsole {
                 if (game) {
                     url = game.url || `/api/games/${url}/play/index.html`;
                     this.output.info(`Loading game: ${game.name || url}`);
+                    this._currentGame = game;
+                    this._updateStatusBar(game);
                 } else {
                     url = `/api/games/${url}/play/index.html`;
+                    // Fetch game info for status bar
+                    this._fetchGameInfo(args[0]);
                 }
+            } else {
+                this._currentGame = null;
+                this._updateStatusBar(null);
             }
             this._updateStatus('loading');
             this._urlInput.value = url;
@@ -346,6 +643,8 @@ export class PBaseConsole {
             this.frame.unload();
             this._urlInput.value = '';
             this._updateStatus('idle');
+            this._currentGame = null;
+            this._updateStatusBar(null);
             this.output.result('Game unloaded', 'frame');
         } else if (cmd === 'inspect') {
             this.output.info('Inspector mode not implemented');
@@ -435,6 +734,11 @@ export class PBaseConsole {
     _handleGameLoad(url) {
         this.output.info(`Loaded: ${url}`);
         this._updateStatus('loaded');
+
+        // Update status bar with current game info
+        if (this._currentGame) {
+            this._updateStatusBar(this._currentGame);
+        }
     }
 
     /**
@@ -512,7 +816,7 @@ export class PBaseConsole {
      */
     destroy() {
         this.frame?.destroy();
-        this.element?.remove();
+        this.wrapper?.remove();
     }
 }
 

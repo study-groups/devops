@@ -55,6 +55,7 @@ import { GameManifest } from './lib/GameManifest.js';
 import { ManifestTools } from './lib/ManifestTools.js';
 import { MagicLink } from './lib/MagicLink.js';
 import { getHealth as getPermissionsHealth } from './lib/permissions.js';
+import { initializeValidation, getValidationHealth, validateGame } from './middleware/validation.js';
 
 // Initialize services
 const pdata = new PData();
@@ -103,6 +104,18 @@ if (S3_ACCESS_KEY && S3_SECRET_KEY) {
 } else if (!GAMES_DIR) {
     console.warn('No GAMES_DIR or S3 credentials - game endpoints will be disabled');
 }
+
+// Expose providers to middleware via app.locals
+app.locals.s3Provider = s3Provider;
+app.locals.gameProvider = workspace.localProvider || s3Provider;
+app.locals.gameManifest = workspace.gameManifest;
+
+// Initialize validation system
+initializeValidation().then(() => {
+    console.log('[Validation] System initialized');
+}).catch(err => {
+    console.warn('[Validation] Failed to initialize:', err.message);
+});
 
 // Mount routes
 app.use('/api/auth', createAuthRoutes(pdata, magicLink));
@@ -194,7 +207,8 @@ app.post('/api/workspace/org', async (req, res) => {
 // Health check (TSM requirement)
 app.get('/health', (req, res) => {
     const permHealth = getPermissionsHealth();
-    const allHealthy = permHealth.ok;
+    const validationHealth = getValidationHealth();
+    const allHealthy = permHealth.ok && validationHealth.ok;
 
     res.json({
         service: 'pbase',
@@ -203,8 +217,51 @@ app.get('/health', (req, res) => {
         environment: PBASE_ENV,
         s3_configured: !!s3Provider,
         permissions: permHealth,
+        validation: validationHealth,
         timestamp: new Date().toISOString(),
     });
+});
+
+// Validation endpoint - validate a game on demand
+app.post('/api/validate/:slug', async (req, res) => {
+    try {
+        const { slug } = req.params;
+        const hook = req.body.hook || req.query.hook || 'onPublish';
+
+        const provider = workspace.localProvider || s3Provider;
+        if (!provider) {
+            return res.status(503).json({
+                error: 'Service Unavailable',
+                message: 'No storage provider configured',
+            });
+        }
+
+        let game = null;
+        if (workspace.gameManifest) {
+            try {
+                game = await workspace.gameManifest.getGame(slug);
+            } catch { /* ignore */ }
+        }
+
+        const result = await validateGame({
+            slug,
+            game,
+            hook,
+            provider,
+        });
+
+        if (result.success) {
+            res.json(result.toSuccessResponse());
+        } else {
+            res.status(400).json(result.toErrorResponse());
+        }
+    } catch (err) {
+        console.error('[Validate] Error:', err);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: err.message,
+        });
+    }
 });
 
 // Status endpoint
