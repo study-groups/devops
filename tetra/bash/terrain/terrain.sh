@@ -309,6 +309,41 @@ _terrain_local() {
 }
 
 # =============================================================================
+# SUBCOMMAND: DOC
+# =============================================================================
+
+_terrain_doc() {
+    local subcmd="${1:-}"
+
+    if [[ "$subcmd" == "help" || "$subcmd" == "-h" ]]; then
+        terrain_doc_help
+        return 0
+    fi
+
+    local src_file=""
+    local output=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -o|--output)
+                output="$2"
+                shift 2
+                ;;
+            -*)
+                echo "Unknown option: $1" >&2
+                return 1
+                ;;
+            *)
+                src_file="$1"
+                shift
+                ;;
+        esac
+    done
+
+    terrain_doc_build "$src_file" "$output"
+}
+
+# =============================================================================
 # MAIN DISPATCHER
 # =============================================================================
 
@@ -342,8 +377,13 @@ terrain() {
             _terrain_themes "$@"
             ;;
 
+        # Doc (standalone JSON → HTML)
+        doc)
+            _terrain_doc "$@"
+            ;;
+
         # Doctor
-        doctor|d)
+        doctor|dr)
             _terrain_doctor "$@"
             ;;
 
@@ -372,5 +412,5 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 fi
 
 export -f terrain _terrain_help _terrain_config _terrain_modes _terrain_themes
-export -f _terrain_doctor _terrain_build _terrain_local
+export -f _terrain_doctor _terrain_build _terrain_local _terrain_doc
 export TERRAIN_VERSION
