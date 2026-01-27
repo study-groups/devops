@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tutorials</title>
+    <link rel="stylesheet" href="shared.css">
+    <script src="js/terrain-iframe.js"></script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .tut-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            background: var(--paper-mid);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .tut-toolbar label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--ink-muted);
+        }
+
+        .env-pills { display: flex; }
+        .env-pill {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--ink-muted);
+            padding: 3px 10px;
+            font-family: inherit;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .env-pill:first-child { border-radius: 3px 0 0 3px; }
+        .env-pill:last-child { border-radius: 0 3px 3px 0; }
+        .env-pill:not(:first-child) { border-left: none; }
+        .env-pill:hover { color: var(--ink); }
+
+        .env-pill.active[data-env="local"] {
+            background: var(--two); border-color: var(--two); color: #000;
+        }
+        .env-pill.active[data-env="dev"] {
+            background: var(--three); border-color: var(--three); color: #000;
+        }
+        .env-pill.active[data-env="stg"] {
+            background: var(--three); border-color: var(--three); color: #000;
+        }
+        .env-pill.active[data-env="prod"] {
+            background: var(--one); border-color: var(--one); color: #000;
+        }
+
+        .tut-sep {
+            width: 1px;
+            height: 18px;
+            background: var(--border);
+        }
+
+        .ssh-badge {
+            font-size: 9px;
+            color: var(--ink-muted);
+            display: none;
+            align-items: center;
+            gap: 4px;
+        }
+        .ssh-badge.visible { display: flex; }
+        .ssh-badge .dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--three);
+        }
+
+        .host-input {
+            background: var(--paper-dark);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            font-family: inherit;
+            font-size: 10px;
+            padding: 3px 6px;
+            border-radius: 2px;
+            width: 180px;
+        }
+        .host-input:focus { outline: none; border-color: var(--four); }
+
+        .tut-viewer {
+            flex: 1;
+            overflow: hidden;
+        }
+        .tut-viewer iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: var(--paper-dark);
+        }
+    </style>
+</head>
+<body>
+    <div class="tut-toolbar">
+        <label>Env</label>
+        <div class="env-pills">
+            <button class="env-pill active" data-env="local" data-action="set-env">local</button>
+            <button class="env-pill" data-env="dev" data-action="set-env">dev</button>
+            <button class="env-pill" data-env="stg" data-action="set-env">stg</button>
+            <button class="env-pill" data-env="prod" data-action="set-env">prod</button>
+        </div>
+
+        <div class="ssh-badge" id="ssh-badge">
+            <span class="dot"></span>
+            <span>SSH</span>
+        </div>
+
+        <input type="text" class="host-input hidden" id="remote-host"
+               placeholder="host:port (e.g. do4-n2:8012)">
+
+        <div class="tut-sep"></div>
+
+        <label id="base-url-label" style="font-size:10px; color:var(--ink-muted)">localhost:?</label>
+
+        <span class="refresh icon-refresh" data-action="refresh"
+              style="margin-left:auto; cursor:pointer;"></span>
+    </div>
+
+    <div class="tut-viewer" id="tut-viewer">
+        <iframe id="tut-frame" src="about:blank"></iframe>
+    </div>
+
+    <script src="js/tut.js"></script>
+</body>
+</html>
