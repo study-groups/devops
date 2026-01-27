@@ -16,6 +16,9 @@ declare -g FLAX_FRAME=0
 # Config: set to 0 to handle all keys in update_fn
 declare -gi FLAX_BUILTIN_KEYS=1
 
+# Protocol mode: "key" for single chars (terminal), "line" for commands (hosted)
+declare -g FLAX_PROTOCOL_MODE="${FLAX_PROTOCOL_MODE:-key}"
+
 # Debug/metrics
 declare -gi FLAX_DEBUG=0
 declare -g FLAX_FRAME_START=0
@@ -43,14 +46,24 @@ flax_get_frame() {
 # INPUT
 # =============================================================================
 
-# Read single key with timeout (returns immediately if key pressed)
-# Sets FLAX_KEY, returns 0 if key read, 1 if timeout
+# Read input with timeout
+# In "key" mode: reads single character (for terminal use)
+# In "line" mode: reads full line (for hosted/WebSocket use)
+# Sets FLAX_KEY, returns 0 if input read, 1 if timeout
 flax_read_key() {
     local timeout="${1:-$FLAX_TICK}"
     FLAX_KEY=""
 
-    if read -rsn1 -t "$timeout" FLAX_KEY 2>/dev/null; then
-        [[ -n "$FLAX_KEY" ]] && return 0
+    if [[ "$FLAX_PROTOCOL_MODE" == "line" ]]; then
+        # Line mode: read full line (for commands like I:0:w)
+        if read -r -t "$timeout" FLAX_KEY 2>/dev/null; then
+            [[ -n "$FLAX_KEY" ]] && return 0
+        fi
+    else
+        # Key mode: read single character (for direct terminal)
+        if read -rsn1 -t "$timeout" FLAX_KEY 2>/dev/null; then
+            [[ -n "$FLAX_KEY" ]] && return 0
+        fi
     fi
 
     return 1

@@ -1,0 +1,1 @@
+/Users/mricos/src/devops/tetra/bash/quasar/browser/quasar.js

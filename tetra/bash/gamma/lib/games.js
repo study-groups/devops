@@ -104,6 +104,7 @@ class GameRegistry extends EventEmitter {
                         org,
                         dir: gameDir,
                         entry: g.entry || g.repl,
+                        host: g.host,
                         port: g.port,
                         engine: g.engine || 'gamepak',
                         players: config.settings?.players || g.players || 2,
@@ -151,14 +152,16 @@ class GameRegistry extends EventEmitter {
             throw new Error(`Unknown game: ${gameId}`);
         }
 
-        if (!game.entry) {
-            throw new Error(`Game ${gameId} has no entry point`);
+        // Use 'host' for WebSocket-enabled games, fall back to 'entry'
+        const entryFile = game.host || game.entry;
+        if (!entryFile) {
+            throw new Error(`Game ${gameId} has no entry point or host`);
         }
 
         // Allocate port (use game default or find available)
         const port = options.port || game.port || this.findAvailablePort(8100, 8199);
 
-        const entryPath = path.join(game.dir, game.entry);
+        const entryPath = path.join(game.dir, entryFile);
 
         if (!fs.existsSync(entryPath)) {
             throw new Error(`Entry not found: ${entryPath}`);

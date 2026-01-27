@@ -455,6 +455,37 @@ function handleMatchProxy(req, res, ctx) {
         return json(res, 400, { error: 'Missing match code' });
     }
 
+    // Serve cabinet HTML for /match/CODE/ (entry point)
+    const subPath = pathParts.slice(3).join('/');
+    if (!subPath || subPath === '') {
+        // Serve cabinet HTML - code will be read from URL by cabinet.js
+        const cabinetPath = path.join(ANSICAB_DIR, 'gamma-cabinet.html');
+        fs.readFile(cabinetPath, (err, content) => {
+            if (err) {
+                return json(res, 500, { error: 'Cabinet not found' });
+            }
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end(content);
+        });
+        return;
+    }
+
+    // Serve cabinet static files for /match/CODE/lib/*
+    if (subPath.startsWith('lib/')) {
+        const filePath = path.join(ANSICAB_DIR, subPath);
+        const ext = path.extname(filePath);
+        const contentType = MIME_TYPES[ext] || 'text/plain';
+        fs.readFile(filePath, (err, content) => {
+            if (err) {
+                return json(res, 404, { error: 'Not found' });
+            }
+            res.writeHead(200, { 'Content-Type': contentType });
+            res.end(content);
+        });
+        return;
+    }
+
+    // For other paths, verify match exists and proxy to game server
     const match = ctx.matches.get(code);
     if (!match) {
         return json(res, 404, { error: 'Match not found', code });
@@ -464,7 +495,7 @@ function handleMatchProxy(req, res, ctx) {
         return json(res, 503, { error: 'Match has no allocated port', code });
     }
 
-    const proxyPath = '/' + pathParts.slice(3).join('/') + url.search;
+    const proxyPath = '/' + subPath + url.search;
 
     const proxyReq = http.request({
         hostname: 'localhost',

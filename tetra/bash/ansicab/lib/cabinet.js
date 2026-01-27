@@ -3,6 +3,31 @@
 // ========================================
 
 // ========================================
+// QUASAR AUDIO INIT (requires user gesture)
+// ========================================
+let quasarReady = false;
+function initQuasar() {
+  if (quasarReady) return;
+  if (typeof QUASAR === 'undefined' || !QUASAR.init) {
+    console.warn('[cabinet] QUASAR not loaded');
+    return;
+  }
+  quasarReady = true; // prevent re-entry
+  QUASAR.init().then((ok) => {
+    if (ok) {
+      QUASAR.resume();
+      console.log('[cabinet] QUASAR audio ready');
+    } else {
+      console.warn('[cabinet] QUASAR init failed');
+      quasarReady = false;
+    }
+  });
+}
+// Init on first user interaction (Web Audio API requirement)
+document.addEventListener('click', () => initQuasar(), { once: true });
+document.addEventListener('keydown', () => initQuasar(), { once: true });
+
+// ========================================
 // ANSI TO HTML CONVERTER
 // ========================================
 const ANSI_COLORS = {
@@ -470,6 +495,18 @@ function handleMessage(msg) {
       if (msg.display) {
         gameDisplayEl.innerHTML = ansiToHtml(msg.display);
       }
+      // Process sound via QUASAR
+      if (msg.snd) {
+        if (typeof QUASAR !== 'undefined' && QUASAR.processFrame) {
+          QUASAR.processFrame(msg);
+        }
+        // Debug: log first snd frame and then every 100th
+        if (!window._sndCount) window._sndCount = 0;
+        if (window._sndCount === 0 || window._sndCount % 100 === 0) {
+          console.log('[cabinet] snd frame #' + window._sndCount, JSON.stringify(msg.snd));
+        }
+        window._sndCount++;
+      }
       // Update dial from game state
       if (msg.state && msg.state.paddles && mySlot) {
         const paddle = msg.state.paddles[mySlot];
@@ -617,6 +654,7 @@ playBtn.addEventListener('click', () => {
     sendPlay();
     isPlaying = true;
     playBtn.textContent = '[PAUSE]';
+    initQuasar();
     return;
   }
 
@@ -769,7 +807,5 @@ function renderGameBootScreen() {
   gameDisplayEl.innerHTML = html;
 }
 
-// Show boot screen on load if no auto-join
-if (!pathMatch) {
-  renderBootScreen();
-}
+// Always show boot screen on load (user presses START to proceed)
+renderBootScreen();
