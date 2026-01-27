@@ -16,6 +16,7 @@ const Dashboard = (() => {
         capture:   { src: 'capture.iframe.html',   label: 'Capture' },
         tests:     { src: 'tests.iframe.html',     label: 'Tests' },
         infra:     { src: 'infra.iframe.html',     label: 'Infra' },
+        orgs:      { src: 'orgs.iframe.html',      label: 'Orgs' },
         developer: { src: 'developer.iframe.html', label: 'Developer' },
         admin:     { src: 'admin.iframe.html',     label: 'Admin' }
     };
@@ -34,11 +35,15 @@ const Dashboard = (() => {
         { id: 'bottom-right', view: 'logs',    row: 'bottom' }
     ];
 
-    const ORGS = [
-        { id: 'nodeholder',      label: 'NH' },
-        { id: 'pixeljam-arcade', label: 'PJ' },
-        { id: 'tetra',           label: 'TETRA', default: true }
-    ];
+    // Orgs managed by Terrain.Orgs (shared module)
+    function getOrgsForRender() {
+        return Terrain.Orgs.buttonData().map(o => ({
+            ...o,
+            default: o.id === 'tetra'
+        }));
+    }
+
+    let ORGS = getOrgsForRender();
 
     const STORAGE_KEY = 'tetra-console-state';
 
@@ -558,7 +563,34 @@ const Dashboard = (() => {
                     }
                 });
             }
+
+            // Handle orgs-changed from iframe panels
+            if (msg.type === 'orgs-changed') {
+                refreshOrgButtons();
+            }
         });
+    }
+
+    // Refresh org buttons from Terrain.Orgs state
+    function refreshOrgButtons() {
+        ORGS = getOrgsForRender();
+
+        const currentOrg = getActiveOrg();
+        const container = document.querySelector('.global-org');
+        if (container) {
+            container.innerHTML = renderOrgButtons();
+            bindOrgEvents();
+
+            const orgExists = ORGS.some(o => o.id === currentOrg);
+            const activeOrg = orgExists ? currentOrg : 'tetra';
+            document.querySelectorAll('.org-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.org === activeOrg);
+            });
+
+            if (!orgExists && currentOrg !== 'tetra') {
+                panels.forEach(panel => updatePanelIframe(panel));
+            }
+        }
     }
 
     // ========================================================================
@@ -568,6 +600,18 @@ const Dashboard = (() => {
     async function init() {
         root = document.documentElement;
         panes = document.querySelector('.panes');
+
+        // Initialize shared org state
+        Terrain.Orgs.init();
+        ORGS = getOrgsForRender();
+
+        // Org changes from iframes handled via postMessage in initEvents()
+
+        // Render org buttons in header
+        const orgContainer = document.getElementById('global-org');
+        if (orgContainer) {
+            orgContainer.innerHTML = renderOrgButtons();
+        }
 
         // Render panes
         panes.innerHTML = renderPanes(getActiveOrg());
@@ -595,10 +639,11 @@ const Dashboard = (() => {
     return {
         init,
         renderOrgButtons,
+        refreshOrgButtons,
         VIEWS,
         ENVS,
         PANELS,
-        ORGS
+        get ORGS() { return ORGS; }
     };
 })();
 

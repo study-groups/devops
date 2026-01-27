@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Organizations</title>
+    <link rel="stylesheet" href="shared.css">
+    <link rel="stylesheet" href="orgs.css">
+    <script src="js/terrain-iframe.js"></script>
+    <script src="js/terrain-orgs.js"></script>
+</head>
+<body>
+    <div class="iframe-header" style="padding: 0 0 8px 0; border: none;">
+        <div class="infra-tabs">
+            <span class="infra-tab active" data-tab="list">Orgs</span>
+            <span class="infra-tab" data-tab="workspace">Workspace</span>
+        </div>
+        <span class="refresh icon-refresh" data-action="refresh"></span>
+    </div>
+
+    <div id="tab-list" class="tab-content active">
+        <div class="orgs-header">
+            <span class="orgs-title">Available Organizations</span>
+            <span class="orgs-hint">Toggle visibility in top bar</span>
+        </div>
+        <div class="org-list" id="org-list"></div>
+    </div>
+
+    <div id="tab-workspace" class="tab-content">
+        <div class="org-workspace" id="org-workspace">
+            <div class="workspace-empty">Select an org to view workspace</div>
+        </div>
+    </div>
+
+    <script src="js/orgs.js"></script>
+</body>
+</html>

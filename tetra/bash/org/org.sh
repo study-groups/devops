@@ -127,6 +127,7 @@ source "$ORG_SRC/org_env.sh"
 source "$ORG_SRC/org_build.sh"
 source "$ORG_SRC/org_secrets.sh"
 source "$ORG_SRC/org_domain.sh"
+source "$ORG_SRC/org_guide.sh"
 source "$ORG_SRC/org_complete.sh"
 
 # =============================================================================
@@ -145,11 +146,20 @@ org_active() {
 }
 
 # List all organizations (canonical names, then aliases)
+# Usage: org_list [--json]
 org_list() {
+    local json_output=false
+    [[ "$1" == "--json" ]] && json_output=true
+
     local orgs_dir="$TETRA_DIR/orgs"
     local active=$(org_active)
 
     [[ ! -d "$orgs_dir" ]] && { echo "No orgs directory" >&2; return 1; }
+
+    if [[ "$json_output" == true ]]; then
+        _org_list_json "$orgs_dir" "$active"
+        return
+    fi
 
     # First list canonical orgs (real directories)
     for dir in "$orgs_dir"/*/; do
@@ -175,6 +185,54 @@ org_list() {
             printf "  %s -> %s\n" "$alias_name" "$canonical"
         fi
     done
+}
+
+# Output org list as JSON for dashboard
+_org_list_json() {
+    local orgs_dir="$1"
+    local active="$2"
+    local first=true
+
+    echo '{"orgs":['
+
+    for dir in "$orgs_dir"/*/; do
+        [[ -d "$dir" && ! -L "${dir%/}" ]] || continue
+        local name=$(basename "$dir")
+        local org_dir="$orgs_dir/$name"
+
+        # Determine org type from 00-org.toml or tetra.toml
+        local org_type="unknown"
+        if [[ -f "$org_dir/sections/00-org.toml" ]]; then
+            org_type=$(grep '^type[[:space:]]*=' "$org_dir/sections/00-org.toml" 2>/dev/null | head -1 | sed 's/.*=[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}/\1/')
+        elif [[ -f "$org_dir/tetra.toml" ]]; then
+            org_type=$(grep '^type[[:space:]]*=' "$org_dir/tetra.toml" 2>/dev/null | head -1 | sed 's/.*=[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}/\1/')
+        fi
+        [[ -z "$org_type" ]] && org_type="unknown"
+
+        # Read label from 00-org.toml, fallback to first 2 chars uppercase
+        local label=""
+        if [[ -f "$org_dir/sections/00-org.toml" ]]; then
+            label=$(grep '^label[[:space:]]*=' "$org_dir/sections/00-org.toml" 2>/dev/null | head -1 | sed 's/.*=[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}/\1/')
+        fi
+        [[ -z "$label" ]] && label=$(echo "${name:0:2}" | tr '[:lower:]' '[:upper:]')
+
+        # Check for workspace
+        local has_workspace=false
+        [[ -d "$org_dir/workspace" ]] && has_workspace=true
+
+        # Check if active
+        local is_active=false
+        [[ "$name" == "$active" ]] && is_active=true
+
+        # Output JSON object
+        [[ "$first" != true ]] && echo ','
+        first=false
+
+        printf '{"id":"%s","label":"%s","type":"%s","hasWorkspace":%s,"active":%s}' \
+            "$name" "$label" "$org_type" "$has_workspace" "$is_active"
+    done
+
+    echo ']}'
 }
 
 # List org names only (for completion)
@@ -543,7 +601,7 @@ org() {
 
         # List orgs
         list|ls|l)
-            org_list
+            org_list "$@"
             ;;
 
         # Switch org
@@ -564,6 +622,11 @@ org() {
         # Build tetra.toml from sections
         build)
             org_build "$@"
+            ;;
+
+        # Generate setup guide HTML
+        guide)
+            org_guide "$@"
             ;;
 
         # List sections
@@ -873,4 +936,4 @@ complete -F _org_complete org
 
 export ORG_NO_ACTIVE
 export -f org org_active org_list org_names org_switch org_create org_alias org_unalias
-export -f _org_extract_sections _org_validate_toml_syntax _org_export_env_vars
+export -f _org_extract_sections _org_validate_toml_syntax _org_export_env_vars _org_list_json

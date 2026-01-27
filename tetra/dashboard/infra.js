@@ -249,6 +249,7 @@ const Infra = (function() {
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 tab.classList.add('active');
                 document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+
             });
         });
     }
@@ -279,6 +280,7 @@ const Infra = (function() {
         if (refreshBtn) {
             refreshBtn.addEventListener('click', loadData);
         }
+
     }
 
     // Initialize Terrain integration for org changes

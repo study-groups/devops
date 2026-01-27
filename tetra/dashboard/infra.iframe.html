@@ -48,13 +48,35 @@
             <h3>Infrastructure Browser</h3>
             <p>Survey, backup, and manage server infrastructure for the active org.</p>
 
+            <h3>Org Repos</h3>
+            <div class="cmd">Config repos (per-org):
+  tetra-config, nodeholder-config, pja-config
+  transreal-config, phm-config
+
+Games repos (per-org):
+  tetra-games
+
+Registry: $TETRA_DIR/orgs/repos.toml
+  → symlink to tetra/repos.toml</div>
+
+            <h3>Clone Workflow</h3>
+            <div class="cmd"># Bootstrap on new machine
+cd $TETRA_DIR/orgs
+git clone git@github.com:mricos/tetra-config.git tetra
+ln -s tetra/repos.toml repos.toml
+git clone git@github.com:mricos/tetra-games.git tetra/games
+
+# For orgs with infrastructure
+org import nh nodeholder  # NH → sections/10-infrastructure.toml
+org build nodeholder       # sections/*.toml → tetra.toml</div>
+
             <h3>Architecture</h3>
             <div class="cmd">~/tetra/orgs/{org}/
-├── backup.toml      # Backup rules & excludes
-├── servers.json     # Server inventory
-└── inventory/       # Cached file listings
-    ├── do4-n2.json
-    └── ...
+├── sections/        # TOML source files
+├── tetra.toml       # Built config (org build)
+├── tsm/             # Service definitions
+├── games/           # Cloned games repo
+└── repos.toml       # Symlink (tetra only)
 
 ~/tetra/browser/
 ├── server.py        # Standalone browser server

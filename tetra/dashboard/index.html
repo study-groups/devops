@@ -9,13 +9,12 @@
 </head>
 <body>
     <script src="/js/terrain-iframe.js"></script>
+    <script src="/js/terrain-orgs.js"></script>
     <div class="dashboard">
         <header class="header">
             <div class="logo">TETRA<span>.</span>CONSOLE</div>
-            <div class="global-org">
-                <button class="org-btn" data-org="nodeholder">NH</button>
-                <button class="org-btn" data-org="pixeljam-arcade">PJ</button>
-                <button class="org-btn active" data-org="tetra">TETRA</button>
+            <div class="global-org" id="global-org">
+                <!-- Org buttons rendered dynamically by dashboard.js -->
             </div>
             <div class="status">
                 <span id="status-text">local</span>
