@@ -56,15 +56,20 @@ _tsm_is_enabled() {
 # Returns 0 if status=="online" and PID alive, 1 otherwise
 _tsm_service_running() {
     local name="$1"
-    local meta="$TSM_PROCESSES_DIR/$name/meta.json"
 
-    [[ -f "$meta" ]] || return 1
+    # Process dirs use runtime names: exact match or name-PORT suffix
+    for dir in "$TSM_PROCESSES_DIR/$name" "$TSM_PROCESSES_DIR/${name}"-*/; do
+        [[ -d "$dir" ]] || continue
+        local meta="${dir}/meta.json"
+        [[ -f "$meta" ]] || continue
 
-    local status pid
-    status=$(jq -r '.status // empty' "$meta" 2>/dev/null)
-    pid=$(jq -r '.pid // empty' "$meta" 2>/dev/null)
+        local status pid
+        status=$(jq -r '.status // empty' "$meta" 2>/dev/null)
+        pid=$(jq -r '.pid // empty' "$meta" 2>/dev/null)
 
-    [[ "$status" == "online" ]] && tsm_is_pid_alive "$pid"
+        [[ "$status" == "online" ]] && tsm_is_pid_alive "$pid" && return 0
+    done
+    return 1
 }
 
 # Consolidated list for available/enabled services
