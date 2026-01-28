@@ -127,6 +127,7 @@ _user_create() {
 _user_create_macos() {
     local username="$1"
     local admin="$2"
+    local home_dir="/Users/$username"
 
     local admin_flag=""
     [[ "$admin" == "true" ]] && admin_flag="-admin"
@@ -137,8 +138,15 @@ _user_create_macos() {
     sudo sysadminctl -addUser "$username" \
         -fullName "$username" \
         -password "$temp_pass" \
-        -home "/Users/$username" \
+        -home "$home_dir" \
         $admin_flag
+
+    # sysadminctl assigns but doesn't create home directory - create it
+    if [[ ! -d "$home_dir" ]]; then
+        sudo mkdir -p "$home_dir"
+        sudo chown "$username:staff" "$home_dir"
+        sudo chmod 755 "$home_dir"
+    fi
 
     # Set shell to bash (sysadminctl defaults may vary)
     sudo dscl . -create "/Users/$username" UserShell /bin/bash
@@ -402,12 +410,19 @@ _user_setup_tetra() {
     # Create source directory
     sudo -u "$username" mkdir -p "$home_dir/src/devops"
 
-    # Clone tetra repo
+    # Clone tetra repo (public, no auth needed)
     echo "  Cloning tetra repository..."
-    sudo -u "$username" git clone https://github.com/mricos/tetra.git "$tetra_src" 2>/dev/null || {
-        echo "  (repo may already exist, pulling latest)"
-        sudo -u "$username" git -C "$tetra_src" pull 2>/dev/null || true
-    }
+    if [[ ! -d "$tetra_src/.git" ]]; then
+        sudo -u "$username" env GIT_TERMINAL_PROMPT=0 \
+            git clone https://github.com/study-groups/devops.git "$tetra_src" || {
+            echo "  ERROR: Failed to clone tetra repo" >&2
+            return 1
+        }
+    else
+        echo "  (repo exists, pulling latest)"
+        sudo -u "$username" env GIT_TERMINAL_PROMPT=0 \
+            git -C "$tetra_src" pull || true
+    fi
 
     # Run setup.sh
     echo "  Running setup.sh..."
