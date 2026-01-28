@@ -30,9 +30,10 @@ tut() {
         build|b)          _tut_build "$@" ;;
         init|new)         _tut_init "$@" ;;
         adopt)            _tut_adopt "$@" ;;
+        unadopt|rm)       _tut_unadopt "$@" ;;
         edit|e)           _tut_edit "$@" ;;
         doctor|d)         _tut_doctor ;;
-        version|-v)       echo "tut 3.1.0 (terrain wrapper)" ;;
+        version|ver|v)    _tut_version "$@" ;;
         help|--help|-h)   _tut_help ;;
         *)
             echo "Unknown: $cmd" >&2
@@ -97,12 +98,15 @@ _tut_build() {
     local theme="dark"
     local target=""
     local out_dir=""
+    local bump=""
 
     # Parse args
     for arg in "$@"; do
         case "$arg" in
             --theme=*) theme="${arg#--theme=}" ;;
             --out=*)   out_dir="${arg#--out=}" ;;
+            --bump)    bump="patch" ;;
+            --bump=*)  bump="${arg#--bump=}" ;;
             --all)     target="all" ;;
             *)         target="$arg" ;;
         esac
@@ -152,17 +156,26 @@ _tut_build() {
 
     mkdir -p "$compiled_dir"
 
+    # Bump versions if requested
+    if [[ -n "$bump" ]]; then
+        for src_file in "${files[@]}"; do
+            _tut_version_bump "$bump" "$src_file"
+        done
+    fi
+
     echo "Building ${#files[@]} file(s) with theme: $theme"
 
     for src_file in "${files[@]}"; do
         local name=$(basename "$src_file" .json)
         local out_file="$compiled_dir/${name}.html"
+        local version
+        version=$(jq -r '.metadata.version // ""' "$src_file")
 
-        echo "  $name.json -> $name.html"
+        echo "  $name.json${version:+ v$version} -> $name.html"
 
         # Terrain does the work
         if command -v terrain &>/dev/null; then
-            terrain build "$src_file" -o "$out_file"
+            terrain doc "$src_file" -o "$out_file"
         else
             echo "    (terrain not found - skipping)" >&2
         fi
@@ -356,6 +369,63 @@ _tut_adopt() {
 }
 
 # =============================================================================
+# UNADOPT - Remove a file from tut src
+# =============================================================================
+
+_tut_unadopt() {
+    local target="${1:-}"
+    local org=$(_tut_org)
+
+    if [[ -z "$org" ]]; then
+        echo "No org set. Use: tut ctx set <org>" >&2
+        return 1
+    fi
+
+    # Default to current context
+    if [[ -z "$target" ]]; then
+        local subject=$(_tut_subject)
+        local type=$(_tut_type)
+        if [[ -n "$subject" && -n "$type" ]]; then
+            target="${subject}-${type}"
+        else
+            echo "Usage: tut unadopt <subject-type>" >&2
+            echo "Or set context first with: tut ctx set <org> <subject> <type>" >&2
+            return 1
+        fi
+    fi
+
+    local src_dir
+    src_dir=$(_tut_src_dir) || return 1
+    local src_file="$src_dir/${target}.json"
+
+    if [[ ! -f "$src_file" ]]; then
+        echo "Not found: $src_file" >&2
+        return 1
+    fi
+
+    # Also remove compiled HTML if present
+    local compiled_dir
+    compiled_dir=$(_tut_compiled_dir)
+    local compiled_file="$compiled_dir/${target}.html"
+
+    rm "$src_file"
+    echo "Removed: $src_file"
+
+    if [[ -f "$compiled_file" ]]; then
+        rm "$compiled_file"
+        echo "Removed: $compiled_file"
+    fi
+
+    # Clear context if it matched what we just removed
+    local cur_subject=$(_tut_subject)
+    local cur_type=$(_tut_type)
+    if [[ "${cur_subject}-${cur_type}" == "$target" ]]; then
+        tps_ctx clear tut
+        echo "Context cleared"
+    fi
+}
+
+# =============================================================================
 # EDIT
 # =============================================================================
 
@@ -384,6 +454,153 @@ _tut_edit() {
     fi
 
     ${EDITOR:-vim} "$src_file"
+}
+
+# =============================================================================
+# VERSION
+# =============================================================================
+
+_tut_version() {
+    local subcmd="${1:-show}"
+    shift 2>/dev/null || true
+
+    case "$subcmd" in
+        show|"")
+            _tut_version_show "$@"
+            ;;
+        bump)
+            _tut_version_bump "$@"
+            ;;
+        set)
+            _tut_version_set "$@"
+            ;;
+        --tut)
+            echo "tut 3.1.0 (terrain wrapper)"
+            ;;
+        *)
+            echo "Usage: tut version [show|bump|set] [target]" >&2
+            echo "  show [target]         Show version (default: current context)" >&2
+            echo "  bump [patch|minor|major] [target]  Bump version" >&2
+            echo "  set <version> [target]  Set specific version" >&2
+            echo "  --tut                 Show tut module version" >&2
+            return 1
+            ;;
+    esac
+}
+
+_tut_version_show() {
+    local target="${1:-}"
+    local src_file
+
+    src_file=$(_tut_resolve_file "$target") || return 1
+
+    local version
+    version=$(jq -r '.metadata.version // "not set"' "$src_file")
+    local name=$(basename "$src_file" .json)
+
+    echo "$name: $version"
+}
+
+_tut_version_bump() {
+    local level="${1:-patch}"
+    local target="${2:-}"
+
+    if [[ "$level" != "patch" && "$level" != "minor" && "$level" != "major" ]]; then
+        echo "Usage: tut version bump [patch|minor|major] [target]" >&2
+        return 1
+    fi
+
+    local src_file
+    src_file=$(_tut_resolve_file "$target") || return 1
+
+    local current
+    current=$(jq -r '.metadata.version // "0.0.0"' "$src_file")
+
+    # Parse semver
+    local major minor patch
+    IFS='.' read -r major minor patch <<< "$current"
+    major="${major:-0}"
+    minor="${minor:-0}"
+    patch="${patch:-0}"
+
+    # Bump
+    case "$level" in
+        major) ((major++)); minor=0; patch=0 ;;
+        minor) ((minor++)); patch=0 ;;
+        patch) ((patch++)) ;;
+    esac
+
+    local new_version="${major}.${minor}.${patch}"
+
+    # Update JSON
+    local tmp=$(mktemp)
+    jq --arg v "$new_version" '.metadata.version = $v' "$src_file" > "$tmp" && mv "$tmp" "$src_file"
+
+    local name=$(basename "$src_file" .json)
+    echo "$name: $current -> $new_version"
+}
+
+_tut_version_set() {
+    local version="${1:-}"
+    local target="${2:-}"
+
+    if [[ -z "$version" ]]; then
+        echo "Usage: tut version set <version> [target]" >&2
+        return 1
+    fi
+
+    local src_file
+    src_file=$(_tut_resolve_file "$target") || return 1
+
+    local current
+    current=$(jq -r '.metadata.version // "not set"' "$src_file")
+
+    # Update JSON
+    local tmp=$(mktemp)
+    jq --arg v "$version" '.metadata.version = $v' "$src_file" > "$tmp" && mv "$tmp" "$src_file"
+
+    local name=$(basename "$src_file" .json)
+    echo "$name: $current -> $version"
+}
+
+# Resolve target to source file path
+_tut_resolve_file() {
+    local target="${1:-}"
+
+    if [[ -n "$target" && -f "$target" ]]; then
+        # Absolute path given
+        echo "$target"
+        return 0
+    fi
+
+    if [[ -n "$target" ]]; then
+        local src_dir
+        src_dir=$(_tut_src_dir) || return 1
+        local src_file="$src_dir/${target}.json"
+        if [[ -f "$src_file" ]]; then
+            echo "$src_file"
+            return 0
+        fi
+        echo "Not found: $src_file" >&2
+        return 1
+    fi
+
+    # Use context
+    local subject=$(_tut_subject)
+    local type=$(_tut_type)
+    if [[ -n "$subject" && -n "$type" ]]; then
+        local src_file
+        src_file=$(_tut_src_file)
+        if [[ -f "$src_file" ]]; then
+            echo "$src_file"
+            return 0
+        fi
+        echo "Not found: $src_file" >&2
+        return 1
+    fi
+
+    echo "No target specified and no context set" >&2
+    return 1
 }
 
 # =============================================================================
@@ -449,14 +666,24 @@ COMMANDS
   tut list                   List JSON source files
   tut init <subject> <type>  Create new source file
   tut adopt <path.json>      Import existing JSON into tut/src/
+  tut unadopt [subject-type] Remove from tut/src/ (+ compiled)
   tut edit [subject-type]    Edit source file
   tut build [target]         Compile via terrain
-  tut build /path/to/f.json  Build arbitrary JSON file
   tut doctor                 Check setup
+
+VERSION
+  tut version                Show current doc version
+  tut version show [target]  Show version of specific doc
+  tut version bump [level]   Bump version (patch|minor|major)
+  tut version set <ver>      Set specific version
+  tut version --tut          Show tut module version
 
 BUILD OPTIONS
   tut build                  Build current context (or all)
   tut build --all            Build all in org
+  tut build --bump           Bump patch version before build
+  tut build --bump=minor     Bump minor version before build
+  tut build --bump=major     Bump major version before build
   tut build games-guide      Build specific file by name
   tut build /abs/path.json   Build file from any location
   --out=DIR                  Override output directory
@@ -472,13 +699,14 @@ TYPES
   thesis   Thesis/research document
 
 WORKFLOW
-  tut ctx tetra games guide       Set context -> TUT[tetra:games:guide]
-  tut init games guide            Create games-guide.json scaffold
+  tut ctx tetra install guide     Set context -> TUT[tetra:install:guide]
+  tut init install guide          Create install-guide.json scaffold
   tut edit                        Edit current context file
-  tut build                       Compile current context
+  tut build --bump                Bump version and compile
+  tut version                     Check version
 
   # Or adopt an existing file:
-  tut adopt $TETRA_SRC/bash/games/games-guide.json
+  tut adopt $TETRA_SRC/bash/tut/install-guide.json
   tut build                       Compile it
 EOF
 }
@@ -488,4 +716,5 @@ EOF
 # =============================================================================
 
 export -f tut
-export -f _tut_list _tut_build _tut_init _tut_adopt _tut_edit _tut_doctor _tut_help
+export -f _tut_list _tut_build _tut_init _tut_adopt _tut_unadopt _tut_edit _tut_doctor _tut_help
+export -f _tut_version _tut_version_show _tut_version_bump _tut_version_set _tut_resolve_file

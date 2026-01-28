@@ -205,10 +205,13 @@
             const meta = doc.metadata || {};
             const groups = doc.groups || [];
 
-            // Set header
-            document.getElementById('doc-title').textContent = meta.title || 'Reference';
-            document.getElementById('doc-tagline').textContent = meta.tagline || meta.description || '';
-            document.getElementById('sidebar-title').textContent = meta.title || 'Reference';
+            // Set header with version
+            const title = meta.title || 'Reference';
+            const version = meta.version;
+            document.getElementById('doc-title').textContent = title;
+            document.getElementById('doc-tagline').textContent =
+                (meta.tagline || meta.description || '') + (version ? ' — v' + version : '');
+            document.getElementById('sidebar-title').textContent = version ? title + ' v' + version : title;
 
             function renderContentBlock(block) {
                 switch (block.type) {

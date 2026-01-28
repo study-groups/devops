@@ -10,7 +10,7 @@ tetra_create_tetra(){
 
     echo "Proceeding with operations..."
     rm -r "$TETRA_DIR" 2>/dev/null
-    cp -r "$TETRA_SRC/init/tetra-dir" "$TETRA_DIR"
+    cp -r "$TETRA_SRC/bash/tetra/init/tetra-dir" "$TETRA_DIR"
     echo "Operations completed."
     source $TETRA_DIR/tetra.sh
 }

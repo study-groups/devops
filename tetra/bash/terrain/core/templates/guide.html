@@ -293,8 +293,10 @@
                     if (e.key === 'ArrowLeft' && currentStep > 0) renderStep(--currentStep);
                 };
 
-                // Set header
-                document.getElementById('narrative-header').textContent = doc.metadata?.title || 'Guide';
+                // Set header with version
+                const title = doc.metadata?.title || 'Guide';
+                const version = doc.metadata?.version;
+                document.getElementById('narrative-header').textContent = version ? title + ' v' + version : title;
 
                 // Initial render
                 if (steps.length > 0) renderStep(0);

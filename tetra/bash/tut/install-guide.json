@@ -1,0 +1,160 @@
+{
+  "metadata": {
+    "title": "Install Guide",
+    "subtitle": "Clone, configure, and verify a working tetra environment",
+    "version": "1.0.0",
+    "created": "2026-01-27T00:00:00Z",
+    "difficulty": "beginner",
+    "estimatedTime": 15
+  },
+  "steps": [
+    {
+      "id": "prerequisites",
+      "title": "Prerequisites",
+      "content": [
+        { "type": "paragraph", "text": "Tetra requires bash 5.2+, git, python3, and node.js. Bun is an optional future runtime. macOS ships bash 3.x so you must install a modern version." },
+        { "type": "callout", "style": "warning", "text": "Do NOT proceed with the system bash on macOS. Verify your version first." }
+      ],
+      "terminal": [
+        { "type": "command", "content": "bash --version" },
+        { "type": "expect", "content": "version 5.2" },
+        { "type": "comment", "content": "# macOS: brew install bash" },
+        { "type": "command", "content": "git --version" },
+        { "type": "command", "content": "python3 --version" },
+        { "type": "command", "content": "node --version" },
+        { "type": "comment", "content": "# Optional future runtime:" },
+        { "type": "command", "content": "bun --version 2>/dev/null || echo 'bun not installed (optional)'" }
+      ]
+    },
+    {
+      "id": "clone",
+      "title": "Clone the Repository",
+      "content": [
+        { "type": "paragraph", "text": "Clone the tetra repo. The default location is ~/src/devops/tetra but you can clone anywhere. The setup script detects the path automatically from its own location." }
+      ],
+      "terminal": [
+        { "type": "command", "content": "mkdir -p ~/src/devops" },
+        { "type": "command", "content": "cd ~/src/devops" },
+        { "type": "command", "content": "git clone https://github.com/mricos/tetra.git" },
+        { "type": "command", "content": "ls tetra/bash/bootloader.sh" },
+        { "type": "expect", "content": "tetra/bash/bootloader.sh" }
+      ]
+    },
+    {
+      "id": "run-setup",
+      "title": "Run Setup",
+      "content": [
+        { "type": "paragraph", "text": "The setup script creates ~/tetra/ (the runtime directory), writes tetra.sh with your correct TETRA_SRC path, checks prerequisites, creates the default 'tetra' org, and wires your shell rc file." },
+        { "type": "callout", "style": "info", "text": "setup.sh lives at bash/tetra/init/setup.sh — tetra managing its own installation. If you cloned to a non-default location, it auto-detects the path." }
+      ],
+      "terminal": [
+        { "type": "command", "content": "bash ~/src/devops/tetra/bash/tetra/init/setup.sh" },
+        { "type": "expect", "content": "Tetra installed." },
+        { "type": "comment", "content": "# Verify the runtime directory:" },
+        { "type": "command", "content": "ls ~/tetra/tetra.sh" },
+        { "type": "command", "content": "ls ~/tetra/orgs/tetra/" }
+      ]
+    },
+    {
+      "id": "source-tetra",
+      "title": "Activate Tetra",
+      "content": [
+        { "type": "paragraph", "text": "Source tetra.sh to activate the environment in your current shell. On future logins this happens automatically via your .bashrc." }
+      ],
+      "terminal": [
+        { "type": "command", "content": "source ~/tetra/tetra.sh" },
+        { "type": "command", "content": "echo \"TETRA_SRC=$TETRA_SRC\"" },
+        { "type": "command", "content": "echo \"TETRA_DIR=$TETRA_DIR\"" },
+        { "type": "command", "content": "echo \"Boot: ${TETRA_BOOT_TIME_MS}ms\"" }
+      ]
+    },
+    {
+      "id": "doctor",
+      "title": "Run Doctor",
+      "content": [
+        { "type": "paragraph", "text": "tetra doctor checks all dependencies and reports pass/fail for each. Every line should show a green check." }
+      ],
+      "terminal": [
+        { "type": "command", "content": "tetra doctor" },
+        { "type": "expect", "content": "Bash 5.2+" }
+      ]
+    },
+    {
+      "id": "run-tests",
+      "title": "Run Tests",
+      "content": [
+        { "type": "paragraph", "text": "Run the core test suite to confirm the module system and org system work correctly on your machine." }
+      ],
+      "terminal": [
+        { "type": "command", "content": "bash $TETRA_SRC/tests/core/test_module_system.sh" },
+        { "type": "command", "content": "bash $TETRA_SRC/tests/core/test_organization_system.sh" },
+        { "type": "comment", "content": "# All tests should pass with no errors." }
+      ]
+    },
+    {
+      "id": "understand-orgs",
+      "title": "Understand Organizations",
+      "content": [
+        { "type": "paragraph", "text": "Tetra ships with one default org: ~/tetra/orgs/tetra/. An org contains config sections, project data (pd), tutorials (tut), and workspace files." },
+        { "type": "paragraph", "text": "The active org's tetra.toml is symlinked at ~/tetra/config/tetra.toml. Switch orgs with: org switch <name>" }
+      ],
+      "terminal": [
+        { "type": "command", "content": "org list" },
+        { "type": "command", "content": "org status" },
+        { "type": "command", "content": "ls ~/tetra/orgs/tetra/" }
+      ]
+    },
+    {
+      "id": "runtimes",
+      "title": "Verify Runtimes",
+      "content": [
+        { "type": "paragraph", "text": "Tetra uses three runtimes. Python and Node are required today. Bun support is planned." },
+        { "type": "list", "items": [
+          "python3 — Boot timing (macOS), scripts, and tooling",
+          "node — Server, dashboard, and service management via tsm",
+          "bun (optional) — Future alternative JS runtime, not yet integrated"
+        ] }
+      ],
+      "terminal": [
+        { "type": "command", "content": "python3 -c 'import sys; print(f\"Python {sys.version}\")'" },
+        { "type": "command", "content": "node -e 'console.log(`Node ${process.version}`)'" },
+        { "type": "command", "content": "bun --version 2>/dev/null && echo 'Bun ready' || echo 'Bun not installed (optional)'" }
+      ]
+    },
+    {
+      "id": "adding-orgs",
+      "title": "Adding Organizations",
+      "content": [
+        { "type": "paragraph", "text": "Beyond the default 'tetra' org, you can add private orgs for teams or clients. The convention is a private GitHub repo named <orgname>-config-org that contains the org's config sections, secrets references, and infrastructure definitions." },
+        { "type": "paragraph", "text": "Team members clone the same config repo to share infrastructure settings, DNS records, deploy targets, and project data structure — without putting secrets in the repo." },
+        { "type": "callout", "style": "info", "text": "Convention: github.com/<owner>/<orgname>-config-org.git cloned and imported into ~/tetra/orgs/<orgname>/" }
+      ],
+      "terminal": [
+        { "type": "comment", "content": "# Create a new org:" },
+        { "type": "command", "content": "org init acme" },
+        { "type": "command", "content": "org list" },
+        { "type": "comment", "content": "# For team sharing via private config repo:" },
+        { "type": "comment", "content": "# git clone git@github.com:yourteam/acme-config-org.git" },
+        { "type": "comment", "content": "# Import sections into ~/tetra/orgs/acme/sections/" }
+      ]
+    },
+    {
+      "id": "next-steps",
+      "title": "Next Steps",
+      "content": [
+        { "type": "paragraph", "text": "You have a working tetra environment. Explore:" },
+        { "type": "list", "items": [
+          "tetra status — Loaded modules and paths",
+          "tetra module list — Available modules",
+          "tsm list — Managed services",
+          "tut list — Tutorials for your org",
+          "org help — Full org management"
+        ] }
+      ],
+      "terminal": [
+        { "type": "command", "content": "tetra status" },
+        { "type": "command", "content": "tetra module list" }
+      ]
+    }
+  ]
+}
