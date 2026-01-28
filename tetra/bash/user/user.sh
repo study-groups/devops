@@ -221,13 +221,18 @@ _user_delete() {
         return 1
     fi
 
-    # Safety check - don't delete current user or root
+    # Safety check - protected users (never delete these)
+    local protected="root mricos"
+    for p in $protected; do
+        if [[ "$username" == "$p" ]]; then
+            echo "Cannot delete protected user '$username'" >&2
+            return 1
+        fi
+    done
+
+    # Don't delete the user running the command
     if [[ "$username" == "$(whoami)" ]]; then
         echo "Cannot delete current user" >&2
-        return 1
-    fi
-    if [[ "$username" == "root" ]]; then
-        echo "Cannot delete root user" >&2
         return 1
     fi
 
