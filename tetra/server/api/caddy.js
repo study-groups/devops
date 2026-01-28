@@ -1180,6 +1180,69 @@ router.get('/fail2ban', (req, res) => {
     }
 });
 
+// Ban IP
+router.post('/ban', (req, res) => {
+    const { org = 'tetra', env = 'local' } = req.query;
+    const { ip, jail = 'caddy-noscript', duration } = req.body;
+
+    if (!ip || !/^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
+        return res.status(400).json({ error: 'Invalid IP address' });
+    }
+
+    const paths = getCaddyPaths(org, env);
+
+    if (paths.isLocal) {
+        return res.json({ error: 'Ban only available on remote servers', org, env });
+    }
+
+    try {
+        // Build fail2ban-client command
+        let cmd = `fail2ban-client set ${jail} banip ${ip}`;
+
+        // If duration specified, we need to use bantime (fail2ban 0.10+)
+        // Duration format: 10m, 1h, 24h, 7d, or -1 for permanent
+        if (duration) {
+            const durationMap = {
+                '10m': 600,
+                '1h': 3600,
+                '24h': 86400,
+                '7d': 604800,
+                'permanent': -1
+            };
+            const seconds = durationMap[duration] || parseInt(duration) || 600;
+            cmd = `fail2ban-client set ${jail} bantime ${seconds} && fail2ban-client set ${jail} banip ${ip}`;
+        }
+
+        const result = runCmd(cmd, org, env);
+        res.json({ success: true, ip, jail, duration, result: result.trim(), org, env });
+    } catch (err) {
+        res.status(500).json({ error: err.message, ip, jail, org, env });
+    }
+});
+
+// Unban IP
+router.post('/unban', (req, res) => {
+    const { org = 'tetra', env = 'local' } = req.query;
+    const { ip, jail = 'caddy-noscript' } = req.body;
+
+    if (!ip || !/^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
+        return res.status(400).json({ error: 'Invalid IP address' });
+    }
+
+    const paths = getCaddyPaths(org, env);
+
+    if (paths.isLocal) {
+        return res.json({ error: 'Unban only available on remote servers', org, env });
+    }
+
+    try {
+        const result = runCmd(`fail2ban-client set ${jail} unbanip ${ip}`, org, env);
+        res.json({ success: true, ip, jail, result: result.trim(), org, env });
+    } catch (err) {
+        res.status(500).json({ error: err.message, ip, jail, org, env });
+    }
+});
+
 // Stats - longterm log statistics
 router.get('/stats', (req, res) => {
     const { org = 'tetra', env = 'local', period = '24h' } = req.query;

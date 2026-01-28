@@ -780,7 +780,10 @@
     <!-- Ban -->
     <div id="tab-ban" class="content hidden">
         <div class="section">
-            <div class="section-title">Service</div>
+            <div class="section-title">
+                <span>Service</span>
+                <button class="btn btn-sm" id="btn-ban-ip">+ Ban IP</button>
+            </div>
             <div class="grid grid-3">
                 <div class="card"><div class="label">Status</div><div class="value" id="f2b-status">--</div></div>
                 <div class="card"><div class="label">Jails</div><div class="value" id="f2b-jails">--</div></div>
@@ -792,7 +795,11 @@
             <div id="ban-list" class="ban-list"><div class="empty">None</div></div>
         </div>
         <div class="section">
-            <div class="section-title">Recent</div>
+            <div class="section-title">Top Offenders (from logs)</div>
+            <div id="top-offenders" class="ban-list"><div class="empty">Load logs first</div></div>
+        </div>
+        <div class="section">
+            <div class="section-title">Recent Activity</div>
             <div id="ban-recent" class="top-list"><div class="empty">No activity</div></div>
         </div>
     </div>
@@ -942,8 +949,52 @@ Browser Request
         </div>
     </div>
 
+    <!-- Ban dialog -->
+    <div id="ban-dialog" class="log-detail-overlay hidden">
+        <div class="log-detail-popover" style="max-width: 360px">
+            <div class="log-detail-header">
+                <span class="log-detail-title">Ban IP</span>
+                <button class="log-detail-close" id="ban-dialog-close">&times;</button>
+            </div>
+            <div class="log-detail-body">
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label style="font-size: 10px; color: var(--ink-muted);">IP Address</label>
+                    <input type="text" id="ban-ip-input" placeholder="e.g. 185.177.72.13" style="padding: 6px 8px; background: var(--paper-mid); border: 1px solid var(--border); color: var(--ink); font-size: 11px; font-family: var(--font-mono); border-radius: 2px;">
+                    <label style="font-size: 10px; color: var(--ink-muted);">Jail</label>
+                    <select id="ban-jail-select" style="padding: 6px 8px; background: var(--paper-mid); border: 1px solid var(--border); color: var(--ink); font-size: 10px; border-radius: 2px;">
+                        <option value="caddy-noscript">caddy-noscript</option>
+                        <option value="caddy-auth">caddy-auth</option>
+                        <option value="caddy-badbots">caddy-badbots</option>
+                    </select>
+                    <label style="font-size: 10px; color: var(--ink-muted);">Duration</label>
+                    <select id="ban-duration-select" style="padding: 6px 8px; background: var(--paper-mid); border: 1px solid var(--border); color: var(--ink); font-size: 10px; border-radius: 2px;">
+                        <option value="">Default (jail setting)</option>
+                        <option value="10m">10 minutes</option>
+                        <option value="1h">1 hour</option>
+                        <option value="24h">24 hours</option>
+                        <option value="7d">7 days</option>
+                        <option value="permanent">Permanent</option>
+                    </select>
+                </div>
+            </div>
+            <div class="log-detail-footer">
+                <button class="btn" id="ban-dialog-submit" style="background: var(--one); color: white; border-color: var(--one);">Ban</button>
+            </div>
+        </div>
+    </div>
+
     <script src="ui-helpers.js"></script>
     <script src="/js/terrain-iframe.js"></script>
-    <script src="/js/caddy.js"></script>
+    <!-- Caddy modules (order matters: helpers first, index last) -->
+    <script src="/js/caddy/helpers.js"></script>
+    <script src="/js/caddy/scanner.js"></script>
+    <script src="/js/caddy/insights.js"></script>
+    <script src="/js/caddy/detail.js"></script>
+    <script src="/js/caddy/refresh.js"></script>
+    <script src="/js/caddy/logs.js"></script>
+    <script src="/js/caddy/stats.js"></script>
+    <script src="/js/caddy/ban.js"></script>
+    <script src="/js/caddy/api.js"></script>
+    <script src="/js/caddy/index.js"></script>
 </body>
 </html>

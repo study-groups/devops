@@ -376,8 +376,8 @@ async function loadLogs() {
  * Determine log entry type and extract display info
  */
 function parseLogEntry(log) {
-    // HTTP request entry
-    if (log.method || log.uri || (log.status && log.request)) {
+    // HTTP request entry (fields may be top-level or nested in .request)
+    if (log.method || log.uri || log.request?.method || log.request?.uri || (log.status && log.request)) {
         return {
             type: 'request',
             ts: log.ts,
