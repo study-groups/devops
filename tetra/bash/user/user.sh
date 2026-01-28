@@ -1,57 +1,534 @@
-tetra_user_create() {
-    local username="$1"
-    
-    if [ -z "$username" ]; then
-        echo "Usage: tetra_create_user <username>"
+#!/usr/bin/env bash
+# user.sh - Cross-platform user management (macOS + Linux)
+#
+# For testing tetra installations with fresh users.
+# Supports creating users, setting up SSH keys, and bootstrapping tetra.
+#
+# Usage: user <command> [args]
+
+USER_SRC="${TETRA_SRC}/bash/user"
+
+# =============================================================================
+# PLATFORM DETECTION
+# =============================================================================
+
+_user_platform() {
+    case "$OSTYPE" in
+        darwin*) echo "macos" ;;
+        linux*)  echo "linux" ;;
+        *)       echo "unknown" ;;
+    esac
+}
+
+_user_home_base() {
+    case "$(_user_platform)" in
+        macos) echo "/Users" ;;
+        linux) echo "/home" ;;
+    esac
+}
+
+# =============================================================================
+# HELP
+# =============================================================================
+
+_user_help() {
+    cat <<'EOF'
+user - Cross-platform user management
+
+COMMANDS
+  user create <name> [--admin]   Create user with SSH keys
+  user delete <name> [--backup]  Delete user (--backup saves home dir)
+  user list                      List non-system users
+  user status <name>             Show user info, disk, SSH keys
+  user exists <name>             Check if user exists (exit 0/1)
+
+TETRA BOOTSTRAP
+  user setup-tetra <name>        Clone tetra repo and run setup as user
+  user test-install <name>       Create user + setup tetra + verify
+
+OPTIONS
+  --admin                        Make user an administrator (create)
+  --backup                       Backup home directory before delete
+  --no-ssh                       Skip SSH key generation (create)
+
+PLATFORMS
+  macOS: uses sysadminctl/dscl
+  Linux: uses useradd/userdel
+
+EXAMPLES
+  user create devtest            Create standard user 'devtest'
+  user create devtest --admin    Create admin user
+  user status devtest            Show user details
+  user setup-tetra devtest       Bootstrap tetra for user
+  user delete devtest --backup   Delete with backup
+EOF
+}
+
+# =============================================================================
+# CREATE
+# =============================================================================
+
+_user_create() {
+    local username=""
+    local admin=false
+    local no_ssh=false
+
+    # Parse args
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --admin)  admin=true; shift ;;
+            --no-ssh) no_ssh=true; shift ;;
+            -*)       echo "Unknown option: $1" >&2; return 1 ;;
+            *)        username="$1"; shift ;;
+        esac
+    done
+
+    if [[ -z "$username" ]]; then
+        echo "Usage: user create <username> [--admin] [--no-ssh]" >&2
         return 1
     fi
 
-    # Create the user without a password
+    # Check if user already exists
+    if id "$username" &>/dev/null; then
+        echo "User '$username' already exists" >&2
+        return 1
+    fi
+
+    local platform=$(_user_platform)
+    local home_dir="$(_user_home_base)/$username"
+
+    echo "Creating user '$username' on $platform..."
+
+    case "$platform" in
+        macos)
+            _user_create_macos "$username" "$admin"
+            ;;
+        linux)
+            _user_create_linux "$username" "$admin"
+            ;;
+        *)
+            echo "Unsupported platform: $platform" >&2
+            return 1
+            ;;
+    esac
+
+    local rc=$?
+    [[ $rc -ne 0 ]] && return $rc
+
+    # Setup SSH keys
+    if [[ "$no_ssh" != "true" ]]; then
+        _user_setup_ssh "$username"
+    fi
+
+    echo "User '$username' created successfully"
+    _user_status "$username"
+}
+
+_user_create_macos() {
+    local username="$1"
+    local admin="$2"
+
+    local admin_flag=""
+    [[ "$admin" == "true" ]] && admin_flag="-admin"
+
+    # Generate a random password (user will use SSH keys)
+    local temp_pass=$(openssl rand -base64 12)
+
+    sudo sysadminctl -addUser "$username" \
+        -fullName "$username" \
+        -password "$temp_pass" \
+        -home "/Users/$username" \
+        $admin_flag
+
+    # Set shell to bash (sysadminctl defaults may vary)
+    sudo dscl . -create "/Users/$username" UserShell /bin/bash
+}
+
+_user_create_linux() {
+    local username="$1"
+    local admin="$2"
+
+    # Create user with home directory and bash shell
     sudo useradd -m -s /bin/bash "$username"
 
-    # Disable password login for the user
-    sudo passwd -d "$username"
+    # Disable password login (SSH key only)
+    sudo passwd -d "$username" 2>/dev/null || true
+
+    # Add to sudo/wheel group if admin
+    if [[ "$admin" == "true" ]]; then
+        if getent group sudo &>/dev/null; then
+            sudo usermod -aG sudo "$username"
+        elif getent group wheel &>/dev/null; then
+            sudo usermod -aG wheel "$username"
+        fi
+    fi
+}
+
+_user_setup_ssh() {
+    local username="$1"
+    local home_dir="$(_user_home_base)/$username"
+    local ssh_dir="$home_dir/.ssh"
+
+    echo "  Setting up SSH keys..."
+
+    # Create .ssh directory
+    sudo mkdir -p "$ssh_dir"
+    sudo chmod 700 "$ssh_dir"
+    sudo chown "$username" "$ssh_dir"
 
     # Generate SSH key pair
-    sudo -u "$username" \
-    ssh-keygen -t rsa -b 4096 -f "/home/$username/.ssh/id_rsa" -N ""
+    sudo -u "$username" ssh-keygen -t ed25519 \
+        -f "$ssh_dir/id_ed25519" \
+        -N "" \
+        -C "${username}@$(hostname)" 2>/dev/null
 
-    # Ensure the .ssh directory has the correct permissions
-    sudo mkdir -p "/home/$username/.ssh"
-    sudo chmod 700 "/home/$username/.ssh"
-    sudo touch "/home/$username/.ssh/authorized_keys"
-    sudo chmod 600 "/home/$username/.ssh/authorized_keys"
+    # Setup authorized_keys
+    sudo touch "$ssh_dir/authorized_keys"
+    sudo chmod 600 "$ssh_dir/authorized_keys"
+    sudo chown "$username" "$ssh_dir/authorized_keys"
 
-    # Add the public key to authorized_keys
-    sudo cat "/home/$username/.ssh/id_rsa.pub" \
-    | sudo tee -a "/home/$username/.ssh/authorized_keys" > /dev/null
+    # Add public key to authorized_keys (for local testing)
+    sudo cat "$ssh_dir/id_ed25519.pub" | sudo tee -a "$ssh_dir/authorized_keys" > /dev/null
 
-    # Add user to the sudo group
-    sudo usermod -aG sudo "$username"
-
-    # Provide feedback
-    echo "User '$username' created and configured successfully."
+    # Fix ownership of all files
+    sudo chown -R "$username" "$ssh_dir"
 }
 
-tetra_user_delete() {
-    local username="$1"
-    if [ -z "$username" ]; then
-        echo "Usage: tetra_delete_user <username>"
+# =============================================================================
+# DELETE
+# =============================================================================
+
+_user_delete() {
+    local username=""
+    local backup=false
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --backup) backup=true; shift ;;
+            -*)       echo "Unknown option: $1" >&2; return 1 ;;
+            *)        username="$1"; shift ;;
+        esac
+    done
+
+    if [[ -z "$username" ]]; then
+        echo "Usage: user delete <username> [--backup]" >&2
         return 1
     fi
 
-    # Check if the user exists
-    if id "$username" &>/dev/null; then
-        # Backup user home directory, if needed
-        sudo cp -r "/home/$username" "/home/${username}_backup_$(date +%F_%T)"
-        
-        # Remove the user and their home directory
-        sudo userdel -r "$username"
-        
-        # Provide feedback
-        echo "User '$username' deleted successfully."
+    # Check if user exists
+    if ! id "$username" &>/dev/null; then
+        echo "User '$username' does not exist" >&2
+        return 1
+    fi
+
+    # Safety check - don't delete current user or root
+    if [[ "$username" == "$(whoami)" ]]; then
+        echo "Cannot delete current user" >&2
+        return 1
+    fi
+    if [[ "$username" == "root" ]]; then
+        echo "Cannot delete root user" >&2
+        return 1
+    fi
+
+    local platform=$(_user_platform)
+    local home_dir="$(_user_home_base)/$username"
+
+    # Backup if requested
+    if [[ "$backup" == "true" && -d "$home_dir" ]]; then
+        local backup_path="${home_dir}_backup_$(date +%Y%m%d_%H%M%S)"
+        echo "Backing up to $backup_path..."
+        sudo cp -r "$home_dir" "$backup_path"
+    fi
+
+    echo "Deleting user '$username'..."
+
+    case "$platform" in
+        macos)
+            sudo sysadminctl -deleteUser "$username"
+            ;;
+        linux)
+            sudo userdel -r "$username"
+            ;;
+        *)
+            echo "Unsupported platform: $platform" >&2
+            return 1
+            ;;
+    esac
+
+    echo "User '$username' deleted"
+}
+
+# =============================================================================
+# LIST
+# =============================================================================
+
+_user_list() {
+    local platform=$(_user_platform)
+
+    echo "Users ($platform):"
+    echo "---"
+
+    case "$platform" in
+        macos)
+            # Filter out system users (UID < 500 or starting with _)
+            dscl . list /Users UniqueID | while read -r name uid; do
+                [[ "$name" == _* ]] && continue
+                [[ "$uid" -lt 500 ]] && continue
+                [[ "$name" == "nobody" ]] && continue
+                printf "  %-20s (uid: %s)\n" "$name" "$uid"
+            done
+            ;;
+        linux)
+            # Filter normal users (UID >= 1000, or 500 on older systems)
+            getent passwd | while IFS=: read -r name _ uid _ _ home shell; do
+                [[ "$uid" -lt 1000 ]] && continue
+                [[ "$uid" -eq 65534 ]] && continue  # nobody
+                printf "  %-20s (uid: %s) %s\n" "$name" "$uid" "$home"
+            done
+            ;;
+    esac
+}
+
+# =============================================================================
+# STATUS
+# =============================================================================
+
+_user_status() {
+    local username="${1:-}"
+
+    if [[ -z "$username" ]]; then
+        echo "Usage: user status <username>" >&2
+        return 1
+    fi
+
+    if ! id "$username" &>/dev/null; then
+        echo "User '$username' does not exist" >&2
+        return 1
+    fi
+
+    local platform=$(_user_platform)
+    local home_dir="$(_user_home_base)/$username"
+
+    echo "User: $username"
+    echo "Platform: $platform"
+    echo "Home: $home_dir"
+    echo "UID: $(id -u "$username")"
+    echo "Groups: $(id -Gn "$username" | tr ' ' ', ')"
+    echo ""
+
+    # Disk usage
+    if [[ -d "$home_dir" ]]; then
+        echo "Disk usage:"
+        du -sh "$home_dir" 2>/dev/null | sed 's/^/  /'
+    fi
+    echo ""
+
+    # SSH keys
+    local ssh_dir="$home_dir/.ssh"
+    echo "SSH keys:"
+    if [[ -d "$ssh_dir" ]]; then
+        ls -la "$ssh_dir"/*.pub 2>/dev/null | while read -r line; do
+            echo "  $line"
+        done
+        if [[ -f "$ssh_dir/authorized_keys" ]]; then
+            local key_count=$(wc -l < "$ssh_dir/authorized_keys" | tr -d ' ')
+            echo "  authorized_keys: $key_count key(s)"
+        fi
     else
-        echo "User '$username' does not exist."
+        echo "  (no .ssh directory)"
+    fi
+    echo ""
+
+    # Login status
+    echo "Login status:"
+    if who | grep -q "^$username "; then
+        echo "  Currently logged in"
+    else
+        echo "  Not logged in"
+    fi
+
+    # Last login
+    case "$platform" in
+        macos)
+            last -1 "$username" 2>/dev/null | head -1 | sed 's/^/  Last: /'
+            ;;
+        linux)
+            lastlog -u "$username" 2>/dev/null | tail -1 | sed 's/^/  /'
+            ;;
+    esac
+}
+
+# =============================================================================
+# EXISTS
+# =============================================================================
+
+_user_exists() {
+    local username="${1:-}"
+    if [[ -z "$username" ]]; then
+        echo "Usage: user exists <username>" >&2
+        return 1
+    fi
+    id "$username" &>/dev/null
+}
+
+# =============================================================================
+# TETRA BOOTSTRAP
+# =============================================================================
+
+_user_setup_tetra() {
+    local username="${1:-}"
+
+    if [[ -z "$username" ]]; then
+        echo "Usage: user setup-tetra <username>" >&2
+        return 1
+    fi
+
+    if ! id "$username" &>/dev/null; then
+        echo "User '$username' does not exist. Create first with: user create $username" >&2
+        return 1
+    fi
+
+    local home_dir="$(_user_home_base)/$username"
+    local tetra_src="$home_dir/src/devops/tetra"
+
+    echo "Setting up tetra for user '$username'..."
+
+    # Create source directory
+    sudo -u "$username" mkdir -p "$home_dir/src/devops"
+
+    # Clone tetra repo
+    echo "  Cloning tetra repository..."
+    sudo -u "$username" git clone https://github.com/mricos/tetra.git "$tetra_src" 2>/dev/null || {
+        echo "  (repo may already exist, pulling latest)"
+        sudo -u "$username" git -C "$tetra_src" pull 2>/dev/null || true
+    }
+
+    # Run setup.sh
+    echo "  Running setup.sh..."
+    sudo -u "$username" bash "$tetra_src/bash/tetra/init/setup.sh"
+
+    echo ""
+    echo "Tetra setup complete for '$username'"
+    echo "To test: sudo -u $username -i"
+}
+
+_user_test_install() {
+    local username="${1:-tetratest}"
+
+    echo "=== Tetra Install Test ==="
+    echo "User: $username"
+    echo ""
+
+    # Create user if needed
+    if ! id "$username" &>/dev/null; then
+        echo "Step 1: Creating user..."
+        _user_create "$username" || return 1
+    else
+        echo "Step 1: User exists"
+    fi
+
+    # Setup tetra
+    echo ""
+    echo "Step 2: Setting up tetra..."
+    _user_setup_tetra "$username" || return 1
+
+    # Verify installation
+    echo ""
+    echo "Step 3: Verifying installation..."
+    local home_dir="$(_user_home_base)/$username"
+
+    local checks=0
+    local passed=0
+
+    ((checks++))
+    if [[ -f "$home_dir/tetra/tetra.sh" ]]; then
+        echo "  [OK] ~/tetra/tetra.sh exists"
+        ((passed++))
+    else
+        echo "  [FAIL] ~/tetra/tetra.sh missing"
+    fi
+
+    ((checks++))
+    if [[ -d "$home_dir/tetra/orgs/tetra" ]]; then
+        echo "  [OK] ~/tetra/orgs/tetra exists"
+        ((passed++))
+    else
+        echo "  [FAIL] ~/tetra/orgs/tetra missing"
+    fi
+
+    ((checks++))
+    if sudo -u "$username" bash -c 'source ~/tetra/tetra.sh && [[ -n "$TETRA_SRC" ]]' 2>/dev/null; then
+        echo "  [OK] TETRA_SRC set after sourcing"
+        ((passed++))
+    else
+        echo "  [FAIL] TETRA_SRC not set"
+    fi
+
+    ((checks++))
+    if sudo -u "$username" bash -c 'source ~/tetra/tetra.sh && type tetra &>/dev/null' 2>/dev/null; then
+        echo "  [OK] tetra command available"
+        ((passed++))
+    else
+        echo "  [FAIL] tetra command not available"
+    fi
+
+    echo ""
+    echo "Results: $passed/$checks passed"
+
+    if [[ $passed -eq $checks ]]; then
+        echo ""
+        echo "To use: sudo -u $username -i"
+        echo "Then:   tetra doctor"
+        return 0
+    else
         return 1
     fi
 }
+
+# =============================================================================
+# MAIN DISPATCHER
+# =============================================================================
+
+user() {
+    local cmd="${1:-help}"
+    shift 2>/dev/null || true
+
+    case "$cmd" in
+        create|add|new)
+            _user_create "$@"
+            ;;
+        delete|remove|rm)
+            _user_delete "$@"
+            ;;
+        list|ls)
+            _user_list "$@"
+            ;;
+        status|info|show)
+            _user_status "$@"
+            ;;
+        exists|check)
+            _user_exists "$@"
+            ;;
+        setup-tetra|bootstrap)
+            _user_setup_tetra "$@"
+            ;;
+        test-install|test)
+            _user_test_install "$@"
+            ;;
+        help|--help|-h)
+            _user_help
+            ;;
+        *)
+            echo "Unknown command: $cmd" >&2
+            _user_help
+            return 1
+            ;;
+    esac
+}
+
+export -f user
+export -f _user_platform _user_home_base _user_help
+export -f _user_create _user_create_macos _user_create_linux _user_setup_ssh
+export -f _user_delete _user_list _user_status _user_exists
+export -f _user_setup_tetra _user_test_install
