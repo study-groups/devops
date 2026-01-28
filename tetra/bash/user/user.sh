@@ -532,3 +532,7 @@ export -f _user_platform _user_home_base _user_help
 export -f _user_create _user_create_macos _user_create_linux _user_setup_ssh
 export -f _user_delete _user_list _user_status _user_exists
 export -f _user_setup_tetra _user_test_install
+
+# Load tab completion
+[[ -f "${USER_SRC:-$TETRA_SRC/bash/user}/user_complete.sh" ]] && \
+    source "${USER_SRC:-$TETRA_SRC/bash/user}/user_complete.sh"
