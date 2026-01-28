@@ -51,23 +51,6 @@ terrain_build() {
         theme_path=$(terrain_config_resolve_theme "$theme")
     fi
 
-    # Get layout config
-    local layout_columns layout_gap header_show header_title header_icon
-    layout_columns=$(terrain_config_get "$config" '.layout.columns // "1fr"')
-    layout_gap=$(terrain_config_get "$config" '.layout.gap // "16px"')
-    header_show=$(terrain_config_get "$config" '.header.show // false')
-    header_title=$(terrain_config_get "$config" '.header.title // ""')
-    header_icon=$(terrain_config_get "$config" '.header.icon // ""')
-
-    # Get panels
-    local panels_json
-    panels_json=$(terrain_config_get "$config" '.panels // []')
-
-    # Get custom scripts and styles
-    local scripts_json styles_json
-    scripts_json=$(terrain_config_get "$config" '.scripts // []')
-    styles_json=$(terrain_config_get "$config" '.styles // []')
-
     # Determine output path
     if [[ -z "$output" ]]; then
         output="$app_dir/dist/index.html"
@@ -95,9 +78,6 @@ _terrain_generate_html() {
     local theme_path="$6"
     local output="$7"
 
-    local app_dir
-    app_dir=$(dirname "$config")
-
     # Template location
     local template="$TERRAIN_SRC/core/templates/app.html"
     if [[ ! -f "$template" ]]; then
@@ -107,7 +87,18 @@ _terrain_generate_html() {
         return $?
     fi
 
-    # Read header controls if present
+    # Read all config values in a single jq call
+    local config_vals
+    config_vals=$(jq -r '[
+        (.header.title // ""),
+        (.header.icon // ""),
+        (.layout.columns // "1fr")
+    ] | .[]' "$config" 2>/dev/null)
+
+    local header_title header_icon layout_columns
+    { read -r header_title; read -r header_icon; read -r layout_columns; } <<< "$config_vals"
+
+    # Header controls
     local header_controls_html=""
     local controls_json
     controls_json=$(terrain_config_get "$config" '.header.controls')
@@ -115,7 +106,7 @@ _terrain_generate_html() {
         header_controls_html=$(_terrain_render_header_controls "$controls_json")
     fi
 
-    # Read panels for main and sidebar regions
+    # Panels
     local main_panels_html="" sidebar_panels_html=""
     local panels_json
     panels_json=$(jq -c '.panels // []' "$config" 2>/dev/null)
@@ -124,47 +115,38 @@ _terrain_generate_html() {
         sidebar_panels_html=$(_terrain_render_panels "$panels_json" "sidebar")
     fi
 
-    # Build script tags for custom scripts
-    local scripts_html=""
-    local scripts
-    scripts=$(jq -r '.scripts[]? // empty' "$config" 2>/dev/null)
-    while IFS= read -r script; do
-        [[ -n "$script" ]] && scripts_html+="    <script src=\"$script\"></script>
+    # Script and style tags in a single jq call
+    local scripts_html="" styles_html=""
+    local tags
+    tags=$(jq -r '
+        ((.scripts // [])[] | "    <script src=\"\(.)\">\u003c/script>"),
+        "---SEPARATOR---",
+        ((.styles // [])[] | "    <link rel=\"stylesheet\" href=\"\(.)\">")'  "$config" 2>/dev/null)
+
+    local in_styles=false
+    while IFS= read -r line; do
+        if [[ "$line" == "---SEPARATOR---" ]]; then
+            in_styles=true
+            continue
+        fi
+        if $in_styles; then
+            [[ -n "$line" ]] && styles_html+="${line}
 "
-    done <<< "$scripts"
-
-    # Build link tags for custom styles
-    local styles_html=""
-    local styles
-    styles=$(jq -r '.styles[]? // empty' "$config" 2>/dev/null)
-    while IFS= read -r style; do
-        [[ -n "$style" ]] && styles_html+="    <link rel=\"stylesheet\" href=\"$style\">
+        else
+            [[ -n "$line" ]] && scripts_html+="${line}
 "
-    done <<< "$styles"
+        fi
+    done <<< "$tags"
 
-    # Get header config
-    local header_title header_icon
-    header_title=$(terrain_config_get "$config" '.header.title')
-    header_icon=$(terrain_config_get "$config" '.header.icon')
-
-    # Get layout
-    local layout_columns
-    layout_columns=$(terrain_config_get "$config" '.layout.columns')
-    [[ -z "$layout_columns" ]] && layout_columns="1fr"
-
-    # Get merged config as JSON string
+    # Merged config
     local merged_config
     merged_config=$(terrain_config_merge "$config")
 
-    # Render template with substitutions
-    # Using sed for simple {{PLACEHOLDER}} replacements
+    # Load template and do all replacements in memory
     local html
-    html=$(cat "$template")
+    html=$(<"$template")
 
-    # Escape special characters in values for sed
-    _escape_sed() { printf '%s\n' "$1" | sed 's/[&/\]/\\&/g' | tr '\n' '\001'; }
-
-    # Simple replacements (single-line values)
+    # Single-line replacements
     html="${html//\{\{APP_NAME\}\}/$app_name}"
     html="${html//\{\{MODE\}\}/$mode}"
     html="${html//\{\{THEME\}\}/$theme}"
@@ -172,31 +154,36 @@ _terrain_generate_html() {
     html="${html//\{\{HEADER_ICON\}\}/$header_icon}"
     html="${html//\{\{LAYOUT_COLUMNS\}\}/$layout_columns}"
 
-    # Multi-line replacements (use temporary file approach for safety)
-    local tmpfile
-    tmpfile=$(mktemp)
-    echo "$html" > "$tmpfile"
+    # Multi-line replacements via split-and-reassemble (all in memory)
+    local placeholder content before after
+    local -a placeholders=(
+        "{{STYLES_HTML}}"
+        "{{SCRIPTS_HTML}}"
+        "{{HEADER_CONTROLS_HTML}}"
+        "{{MAIN_PANELS_HTML}}"
+        "{{SIDEBAR_PANELS_HTML}}"
+        "{{MERGED_CONFIG}}"
+    )
+    local -a contents=(
+        "$styles_html"
+        "$scripts_html"
+        "$header_controls_html"
+        "$main_panels_html"
+        "$sidebar_panels_html"
+        "$merged_config"
+    )
 
-    # Replace multi-line placeholders using awk
-    _replace_block() {
-        local placeholder="$1"
-        local content="$2"
-        local file="$3"
-        awk -v placeholder="$placeholder" -v content="$content" '
-            { gsub(placeholder, content); print }
-        ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
-    }
+    local i
+    for i in "${!placeholders[@]}"; do
+        placeholder="${placeholders[$i]}"
+        content="${contents[$i]}"
+        before="${html%%"$placeholder"*}"
+        after="${html#*"$placeholder"}"
+        html="${before}${content}${after}"
+    done
 
-    _replace_block "{{STYLES_HTML}}" "$styles_html" "$tmpfile"
-    _replace_block "{{SCRIPTS_HTML}}" "$scripts_html" "$tmpfile"
-    _replace_block "{{HEADER_CONTROLS_HTML}}" "$header_controls_html" "$tmpfile"
-    _replace_block "{{MAIN_PANELS_HTML}}" "$main_panels_html" "$tmpfile"
-    _replace_block "{{SIDEBAR_PANELS_HTML}}" "$sidebar_panels_html" "$tmpfile"
-    _replace_block "{{MERGED_CONFIG}}" "$merged_config" "$tmpfile"
-
-    # Write output
-    cat "$tmpfile" > "$output"
-    rm -f "$tmpfile"
+    # Write output (single write, no tmpfile)
+    printf '%s' "$html" > "$output"
 }
 
 # Render header controls from JSON array
