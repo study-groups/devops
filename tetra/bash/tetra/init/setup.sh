@@ -8,6 +8,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TETRA_SRC_DETECTED="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
+# --- Install config ---
+source "$SCRIPT_DIR/install.conf"
+
 # --- Terminal setup ---
 COLS=$(tput cols 2>/dev/null || echo 60)
 RST=$'\e[0m'
@@ -151,17 +154,17 @@ fi
 # --- Install nvm + node ---
 NVM_DIR="$TETRA_RUNTIME/nvm"
 
-_step "Node runtime"
+_step "Node runtime  ${DIM}${NODE_VERSION}${RST}"
 if [[ ! -s "$NVM_DIR/nvm.sh" ]]; then
-    _info "Installing nvm..."
+    _info "Installing nvm ${NVM_VERSION}..."
     mkdir -p "$NVM_DIR"
     export NVM_DIR
-    curl -so- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash >/dev/null 2>&1
+    curl -so- "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh" | bash >/dev/null 2>&1
     if [[ -s "$NVM_DIR/nvm.sh" ]]; then
-        _ok "nvm  ${DIM}$NVM_DIR${RST}"
+        _ok "nvm  ${DIM}${NVM_VERSION}${RST}"
         source "$NVM_DIR/nvm.sh"
-        _info "Installing node LTS..."
-        nvm install 'lts/*' >/dev/null 2>&1
+        _info "Installing node ${NODE_VERSION}..."
+        nvm install "$NODE_VERSION" >/dev/null 2>&1
         _ok "node $(node --version)"
     else
         _warn "nvm install failed (install later: tetra_nvm_install)"
@@ -175,8 +178,10 @@ fi
 # --- Python venv ---
 VENV_DIR="$TETRA_RUNTIME/venv"
 
-_step "Python runtime"
-if [[ ! -d "$VENV_DIR/bin" ]]; then
+_step "Python runtime  ${DIM}venv=${PYTHON_VENV}${RST}"
+if [[ "$PYTHON_VENV" != "true" ]]; then
+    _info "venv disabled in install.conf"
+elif [[ ! -d "$VENV_DIR/bin" ]]; then
     py_bin=$(command -v python3 || command -v python)
     if [[ -n "$py_bin" ]]; then
         _info "Creating venv..."
@@ -203,6 +208,8 @@ echo ""
 printf "  ${DIM}%-12s${RST} %s\n" "TETRA_SRC" "$TETRA_SRC_DETECTED"
 printf "  ${DIM}%-12s${RST} %s\n" "TETRA_DIR" "$TETRA_RUNTIME"
 printf "  ${DIM}%-12s${RST} %s\n" "Org" "tetra"
+printf "  ${DIM}%-12s${RST} %s\n" "Node" "$NODE_VERSION"
+printf "  ${DIM}%-12s${RST} %s\n" "Python" "venv=$(python3 --version 2>&1 | awk '{print $2}')"
 echo ""
 printf "  ${BOLD}Next:${RST} source ~/start-tetra.sh\n"
 printf "  ${BOLD}Then:${RST} tetra doctor\n"
