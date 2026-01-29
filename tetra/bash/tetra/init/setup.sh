@@ -175,30 +175,59 @@ else
     _ok "node $(node --version 2>/dev/null || echo 'not installed')"
 fi
 
-# --- Python venv ---
+# --- Python runtime ---
 VENV_DIR="$TETRA_RUNTIME/venv"
 
-_step "Python runtime  ${DIM}venv=${PYTHON_VENV}${RST}"
-if [[ "$PYTHON_VENV" != "true" ]]; then
-    _info "venv disabled in install.conf"
-elif [[ ! -d "$VENV_DIR/bin" ]]; then
-    py_bin=$(command -v python3 || command -v python)
-    if [[ -n "$py_bin" ]]; then
-        _info "Creating venv..."
-        "$py_bin" -m venv "$VENV_DIR" 2>/dev/null
-        if [[ -f "$VENV_DIR/bin/activate" ]]; then
-            py_ver=$("$VENV_DIR/bin/python" --version 2>&1 | awk '{print $2}')
-            _ok "venv  ${DIM}python $py_ver → ~/tetra/venv/${RST}"
+_step "Python runtime  ${DIM}mode=${PYTHON_MODE} version=${PYTHON_VERSION}${RST}"
+case "$PYTHON_MODE" in
+    venv)
+        if [[ ! -d "$VENV_DIR/bin" ]]; then
+            py_bin=$(command -v python3 || command -v python)
+            if [[ -n "$py_bin" ]]; then
+                _info "Creating venv..."
+                "$py_bin" -m venv "$VENV_DIR" 2>/dev/null
+                if [[ -f "$VENV_DIR/bin/activate" ]]; then
+                    py_ver=$("$VENV_DIR/bin/python" --version 2>&1 | awk '{print $2}')
+                    _ok "venv  ${DIM}python $py_ver → ~/tetra/venv/${RST}"
+                else
+                    _warn "venv creation failed"
+                fi
+            else
+                _warn "python3 not found (venv skipped)"
+            fi
         else
-            _warn "venv creation failed"
+            py_ver=$("$VENV_DIR/bin/python" --version 2>&1 | awk '{print $2}')
+            _ok "venv  ${DIM}python $py_ver (exists)${RST}"
         fi
-    else
-        _warn "python3 not found (venv skipped)"
-    fi
-else
-    py_ver=$("$VENV_DIR/bin/python" --version 2>&1 | awk '{print $2}')
-    _ok "venv  ${DIM}python $py_ver (exists)${RST}"
-fi
+        ;;
+    pyenv)
+        PYENV_ROOT="$HOME/.pyenv"
+        if [[ ! -d "$PYENV_ROOT" ]]; then
+            _info "Installing pyenv..."
+            curl -fsSL https://pyenv.run 2>/dev/null | bash >/dev/null 2>&1
+        fi
+        if [[ -d "$PYENV_ROOT" ]]; then
+            export PYENV_ROOT
+            export PATH="$PYENV_ROOT/bin:$PATH"
+            eval "$(pyenv init -)" 2>/dev/null
+            if ! pyenv versions --bare 2>/dev/null | grep -qF "$PYTHON_VERSION"; then
+                _info "Installing python ${PYTHON_VERSION} via pyenv..."
+                pyenv install "$PYTHON_VERSION" >/dev/null 2>&1
+            fi
+            if pyenv versions --bare 2>/dev/null | grep -qF "$PYTHON_VERSION"; then
+                pyenv global "$PYTHON_VERSION" 2>/dev/null
+                _ok "pyenv  ${DIM}python $PYTHON_VERSION${RST}"
+            else
+                _warn "pyenv install of $PYTHON_VERSION failed"
+            fi
+        else
+            _warn "pyenv installation failed"
+        fi
+        ;;
+    *)
+        _info "Python disabled (PYTHON_MODE=$PYTHON_MODE)"
+        ;;
+esac
 
 # --- Summary ---
 echo ""
@@ -209,7 +238,7 @@ printf "  ${DIM}%-12s${RST} %s\n" "TETRA_SRC" "$TETRA_SRC_DETECTED"
 printf "  ${DIM}%-12s${RST} %s\n" "TETRA_DIR" "$TETRA_RUNTIME"
 printf "  ${DIM}%-12s${RST} %s\n" "Org" "tetra"
 printf "  ${DIM}%-12s${RST} %s\n" "Node" "$NODE_VERSION"
-printf "  ${DIM}%-12s${RST} %s\n" "Python" "venv=$(python3 --version 2>&1 | awk '{print $2}')"
+printf "  ${DIM}%-12s${RST} %s\n" "Python" "${PYTHON_MODE} ($(python3 --version 2>&1 | awk '{print $2}'))"
 echo ""
 printf "  ${BOLD}Next:${RST} source ~/start-tetra.sh\n"
 printf "  ${BOLD}Then:${RST} tetra doctor\n"

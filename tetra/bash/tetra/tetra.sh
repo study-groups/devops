@@ -222,6 +222,16 @@ _tetra_module() {
 _tetra_doctor() {
     local ok="${TETRA_GREEN}✓${TETRA_NC}"
     local fail="${TETRA_YELLOW}✗${TETRA_NC}"
+    local warn="${TETRA_YELLOW}⚠${TETRA_NC}"
+
+    # Load install.conf for expected values
+    local conf="$TETRA_SRC/bash/tetra/init/install.conf"
+    local CONF_NODE_VERSION="" CONF_PYTHON_MODE="" CONF_PYTHON_VERSION=""
+    if [[ -f "$conf" ]]; then
+        CONF_NODE_VERSION=$(. "$conf" && echo "$NODE_VERSION")
+        CONF_PYTHON_MODE=$(. "$conf" && echo "$PYTHON_MODE")
+        CONF_PYTHON_VERSION=$(. "$conf" && echo "$PYTHON_VERSION")
+    fi
 
     echo "Tetra Doctor"
     echo ""
@@ -272,7 +282,7 @@ _tetra_doctor() {
         echo -e "$fail (not set)"
     fi
 
-    # Node available
+    # Node available + version check against install.conf
     printf "  Node:      "
     local node_path
     node_path="$(which node 2>/dev/null)"
@@ -281,13 +291,16 @@ _tetra_doctor() {
     elif [[ "$node_path" == *"tetra"* ]]; then
         local node_ver
         node_ver="$(node --version 2>/dev/null)"
-        echo -e "$ok ($node_ver from tetra)"
+        if [[ -n "$CONF_NODE_VERSION" && "$node_ver" != "$CONF_NODE_VERSION" ]]; then
+            echo -e "$warn ($node_ver, expected $CONF_NODE_VERSION)"
+        else
+            echo -e "$ok ($node_ver from tetra)"
+        fi
     else
         local node_ver
         node_ver="$(node --version 2>/dev/null)"
         echo -e "$fail ($node_ver from $node_path)"
         echo "         Expected: \$TETRA_DIR/nvm/versions/node/*/bin/node"
-        echo "         Fix: Check ~/.bashrc order - tetra.sh must load AFTER homebrew PATH"
     fi
 
     # nvm function
@@ -297,6 +310,45 @@ _tetra_doctor() {
     else
         echo -e "$fail (not loaded)"
         echo "         Fix: source \$NVM_DIR/nvm.sh"
+    fi
+
+    # Python runtime check against install.conf
+    printf "  Python:    "
+    if [[ "$CONF_PYTHON_MODE" == "venv" ]]; then
+        if [[ -n "$VIRTUAL_ENV" && "$VIRTUAL_ENV" == *"tetra"* ]]; then
+            local py_ver
+            py_ver="$(python --version 2>&1 | awk '{print $2}')"
+            echo -e "$ok (venv, python $py_ver)"
+        elif [[ -d "$TETRA_DIR/venv/bin" ]]; then
+            echo -e "$warn (venv exists but not activated)"
+            echo "         Fix: source \$TETRA_DIR/venv/bin/activate"
+        else
+            echo -e "$fail (venv not found, expected mode=venv)"
+        fi
+    elif [[ "$CONF_PYTHON_MODE" == "pyenv" ]]; then
+        local py_path
+        py_path="$(which python 2>/dev/null)"
+        if [[ "$py_path" == *"pyenv"* ]]; then
+            local py_ver
+            py_ver="$(python --version 2>&1 | awk '{print $2}')"
+            if [[ -n "$CONF_PYTHON_VERSION" && "$py_ver" != "$CONF_PYTHON_VERSION" ]]; then
+                echo -e "$warn (pyenv, python $py_ver, expected $CONF_PYTHON_VERSION)"
+            else
+                echo -e "$ok (pyenv, python $py_ver)"
+            fi
+        else
+            echo -e "$fail (expected pyenv, got ${py_path:-none})"
+            echo "         Fix: pyenv install $CONF_PYTHON_VERSION && pyenv global $CONF_PYTHON_VERSION"
+        fi
+    else
+        echo -e "$ok (python disabled)"
+    fi
+
+    # install.conf reference
+    if [[ -f "$conf" ]]; then
+        echo ""
+        echo "  Config:    $conf"
+        echo "             mode=$CONF_PYTHON_MODE version=$CONF_PYTHON_VERSION node=$CONF_NODE_VERSION"
     fi
 
     echo ""
