@@ -90,7 +90,16 @@ cat > "$START_SCRIPT" <<'STARTER'
 #!/usr/bin/env bash
 # start-tetra.sh - Source this to load tetra into your shell
 # Usage: source ~/start-tetra.sh
+
+# Boot tetra (sets TETRA_SRC, TETRA_DIR, loads bootloader)
 source "$HOME/tetra/tetra.sh"
+
+# Load core modules
+tmod load tetra tsm
+
+# Activate managed runtimes
+tetra_nvm_activate 2>/dev/null || true
+tetra_python_activate 2>/dev/null || true
 STARTER
 chmod +x "$START_SCRIPT"
 echo "  Wrote $START_SCRIPT"
