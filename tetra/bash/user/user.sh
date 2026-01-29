@@ -100,10 +100,10 @@ _user_create() {
 
     case "$platform" in
         macos)
-            _user_create_macos "$username" "$admin" 2>&1 | grep -v "^$\|sysadminctl\|^---" >&2
+            _user_create_macos "$username" "$admin" >/dev/null 2>&1
             ;;
         linux)
-            _user_create_linux "$username" "$admin"
+            _user_create_linux "$username" "$admin" >/dev/null 2>&1
             ;;
         *)
             echo "Unsupported platform: $platform" >&2
@@ -111,8 +111,10 @@ _user_create() {
             ;;
     esac
 
-    local rc=$?
-    [[ $rc -ne 0 ]] && return $rc
+    if ! id "$username" &>/dev/null; then
+        printf "  ${RED}✗${RST} failed to create user\n" >&2
+        return 1
+    fi
 
     # Setup SSH keys (quiet)
     if [[ "$no_ssh" != "true" ]]; then
@@ -273,14 +275,14 @@ _user_delete() {
         sudo cp -r "$home_dir" "$backup_path"
     fi
 
-    echo "Deleting user '$username'..."
+    local RST=$'\e[0m' DIM=$'\e[2m' GREEN=$'\e[32m' RED=$'\e[31m'
 
     case "$platform" in
         macos)
-            sudo sysadminctl -deleteUser "$username"
+            sudo sysadminctl -deleteUser "$username" >/dev/null 2>&1
             ;;
         linux)
-            sudo userdel -r "$username"
+            sudo userdel -r "$username" >/dev/null 2>&1
             ;;
         *)
             echo "Unsupported platform: $platform" >&2
@@ -288,7 +290,12 @@ _user_delete() {
             ;;
     esac
 
-    echo "User '$username' deleted"
+    if id "$username" &>/dev/null; then
+        printf "  ${RED}✗${RST} failed to delete %s\n" "$username"
+        return 1
+    else
+        printf "  ${GREEN}✓${RST} deleted  ${DIM}%s${RST}\n" "$username"
+    fi
 }
 
 # =============================================================================
