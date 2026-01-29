@@ -81,32 +81,19 @@ ENTRY
 echo "  Wrote $TETRA_RUNTIME/tetra.sh"
 echo "  TETRA_SRC=$TETRA_SRC_DETECTED"
 
-# --- Wire shell rc ---
-SOURCE_LINE="source \$HOME/tetra/tetra.sh"
-
-_wire_rc() {
-    local rc="$1"
-    if [[ ! -f "$rc" ]]; then
-        return 1
-    fi
-    if grep -qF "tetra/tetra.sh" "$rc" 2>/dev/null; then
-        echo "  $rc: already wired"
-    else
-        echo "" >> "$rc"
-        echo "# Tetra shell environment" >> "$rc"
-        echo "$SOURCE_LINE" >> "$rc"
-        echo "  $rc: added source line"
-    fi
-}
+# --- Create ~/start-tetra.sh ---
+START_SCRIPT="$HOME/start-tetra.sh"
 
 echo ""
 echo "Shell integration:"
-_wire_rc "$HOME/.bashrc" || true
-_wire_rc "$HOME/.bash_profile" || true
-# zsh users sourcing bash — still works via bash invocation
-if [[ -f "$HOME/.zshrc" ]]; then
-    echo "  ~/.zshrc: exists (add manually if using zsh: $SOURCE_LINE)"
-fi
+cat > "$START_SCRIPT" <<'STARTER'
+#!/usr/bin/env bash
+# start-tetra.sh - Source this to load tetra into your shell
+# Usage: source ~/start-tetra.sh
+source "$HOME/tetra/tetra.sh"
+STARTER
+chmod +x "$START_SCRIPT"
+echo "  Wrote $START_SCRIPT"
 
 # --- Default org ---
 ORGS_DIR="$TETRA_RUNTIME/orgs"

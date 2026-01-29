@@ -44,6 +44,7 @@ COMMANDS
 
 TETRA BOOTSTRAP
   user setup-tetra <name>        Clone tetra repo and run setup as user
+  user remove-tetra <name>       Remove tetra from user (interactive)
   user test-install <name>       Create user + setup tetra + verify
 
 OPTIONS
@@ -403,34 +404,69 @@ _user_setup_tetra() {
     fi
 
     local home_dir="$(_user_home_base)/$username"
-    local tetra_src="$home_dir/src/devops/tetra"
+    local devops_dir="$home_dir/src/devops"
+    local tetra_src="$devops_dir/tetra"
 
     echo "Setting up tetra for user '$username'..."
 
     # Create source directory
-    sudo -u "$username" mkdir -p "$home_dir/src/devops"
+    sudo -u "$username" mkdir -p "$devops_dir"
 
-    # Clone tetra repo (public, no auth needed)
-    echo "  Cloning tetra repository..."
-    if [[ ! -d "$tetra_src/.git" ]]; then
+    # Clone devops repo (public monorepo containing tetra)
+    echo "  Cloning devops repository..."
+    if [[ ! -d "$devops_dir/.git" ]]; then
         sudo -u "$username" env GIT_TERMINAL_PROMPT=0 \
-            git clone https://github.com/study-groups/devops.git "$tetra_src" || {
-            echo "  ERROR: Failed to clone tetra repo" >&2
+            git clone https://github.com/study-groups/devops.git "$devops_dir" || {
+            echo "  ERROR: Failed to clone devops repo" >&2
             return 1
         }
     else
         echo "  (repo exists, pulling latest)"
         sudo -u "$username" env GIT_TERMINAL_PROMPT=0 \
-            git -C "$tetra_src" pull || true
+            git -C "$devops_dir" pull || true
     fi
 
-    # Run setup.sh
+    # Run setup.sh (must use -H to set HOME for the target user)
+    # Use homebrew bash on macOS since tetra requires bash 5.2+
+    local bash_bin="bash"
+    [[ "$(_user_platform)" == "macos" ]] && bash_bin="/opt/homebrew/bin/bash"
+
     echo "  Running setup.sh..."
-    sudo -u "$username" bash "$tetra_src/bash/tetra/init/setup.sh"
+    sudo -Hu "$username" "$bash_bin" "$tetra_src/bash/tetra/init/setup.sh"
 
     echo ""
     echo "Tetra setup complete for '$username'"
     echo "To test: sudo -u $username -i"
+}
+
+_user_remove_tetra() {
+    local username="${1:-}"
+
+    if [[ -z "$username" ]]; then
+        echo "Usage: user remove-tetra <username>" >&2
+        return 1
+    fi
+
+    if ! id "$username" &>/dev/null; then
+        echo "User '$username' does not exist" >&2
+        return 1
+    fi
+
+    local home_dir="$(_user_home_base)/$username"
+    local tetra_src="$home_dir/src/devops/tetra"
+    local remove_sh="$tetra_src/bash/tetra/init/remove.sh"
+
+    if [[ ! -f "$remove_sh" ]]; then
+        echo "Remove script not found at $remove_sh" >&2
+        echo "Is tetra installed for this user?" >&2
+        return 1
+    fi
+
+    local bash_bin="bash"
+    [[ "$(_user_platform)" == "macos" ]] && bash_bin="/opt/homebrew/bin/bash"
+
+    echo "Running tetra remove for user '$username'..."
+    sudo -Hu "$username" "$bash_bin" "$remove_sh"
 }
 
 _user_test_install() {
@@ -457,16 +493,18 @@ _user_test_install() {
     echo ""
     echo "Step 3: Verifying installation..."
     local home_dir="$(_user_home_base)/$username"
+    local bash_bin="bash"
+    [[ "$(_user_platform)" == "macos" ]] && bash_bin="/opt/homebrew/bin/bash"
 
     local checks=0
     local passed=0
 
     ((checks++))
-    if [[ -f "$home_dir/tetra/tetra.sh" ]]; then
-        echo "  [OK] ~/tetra/tetra.sh exists"
+    if [[ -f "$home_dir/start-tetra.sh" ]]; then
+        echo "  [OK] ~/start-tetra.sh exists"
         ((passed++))
     else
-        echo "  [FAIL] ~/tetra/tetra.sh missing"
+        echo "  [FAIL] ~/start-tetra.sh missing"
     fi
 
     ((checks++))
@@ -478,7 +516,7 @@ _user_test_install() {
     fi
 
     ((checks++))
-    if sudo -u "$username" bash -c 'source ~/tetra/tetra.sh && [[ -n "$TETRA_SRC" ]]' 2>/dev/null; then
+    if sudo -Hu "$username" "$bash_bin" -c 'source ~/start-tetra.sh && [[ -n "$TETRA_SRC" ]]' 2>/dev/null; then
         echo "  [OK] TETRA_SRC set after sourcing"
         ((passed++))
     else
@@ -486,7 +524,7 @@ _user_test_install() {
     fi
 
     ((checks++))
-    if sudo -u "$username" bash -c 'source ~/tetra/tetra.sh && type tetra &>/dev/null' 2>/dev/null; then
+    if sudo -Hu "$username" "$bash_bin" -c 'source ~/start-tetra.sh && type tetra &>/dev/null' 2>/dev/null; then
         echo "  [OK] tetra command available"
         ((passed++))
     else
@@ -533,6 +571,9 @@ user() {
         setup-tetra|bootstrap)
             _user_setup_tetra "$@"
             ;;
+        remove-tetra|uninstall)
+            _user_remove_tetra "$@"
+            ;;
         test-install|test)
             _user_test_install "$@"
             ;;
@@ -551,7 +592,7 @@ export -f user
 export -f _user_platform _user_home_base _user_help
 export -f _user_create _user_create_macos _user_create_linux _user_setup_ssh
 export -f _user_delete _user_list _user_status _user_exists
-export -f _user_setup_tetra _user_test_install
+export -f _user_setup_tetra _user_remove_tetra _user_test_install
 
 # Load tab completion
 [[ -f "${USER_SRC:-$TETRA_SRC/bash/user}/user_complete.sh" ]] && \
