@@ -404,26 +404,30 @@ _user_setup_tetra() {
     fi
 
     local home_dir="$(_user_home_base)/$username"
-    local tetra_src="$home_dir/src/devops/tetra"
+    local devops_dir="$home_dir/src/devops"
+    local tetra_src="$devops_dir/tetra"
 
     echo "Setting up tetra for user '$username'..."
 
     # Create source directory
-    sudo -u "$username" mkdir -p "$home_dir/src/devops"
+    sudo -u "$username" mkdir -p "$home_dir/src"
 
-    # Clone devops repo into ~/src/devops/tetra (TETRA_SRC = repo root)
+    # Clone devops repo (public monorepo, tetra is a subdirectory)
     echo "  Cloning devops repository..."
-    if [[ ! -d "$tetra_src/.git" ]]; then
+    if [[ ! -d "$devops_dir/.git" ]]; then
         sudo -u "$username" env GIT_TERMINAL_PROMPT=0 \
-            git clone https://github.com/study-groups/devops.git "$tetra_src" || {
+            git clone https://github.com/study-groups/devops.git "$devops_dir" || {
             echo "  ERROR: Failed to clone devops repo" >&2
             return 1
         }
     else
         echo "  (repo exists, pulling latest)"
         sudo -u "$username" env GIT_TERMINAL_PROMPT=0 \
-            git -C "$tetra_src" pull || true
+            git -C "$devops_dir" pull || true
     fi
+
+    # Fix permissions on bash/ (git preserves 700 from source)
+    chmod -R a+rX "$tetra_src/bash" 2>/dev/null || true
 
     # Run setup.sh (must use -H to set HOME for the target user)
     # Use homebrew bash on macOS since tetra requires bash 5.2+
