@@ -111,11 +111,12 @@ cat > "$START_SCRIPT" <<'STARTER'
 source "$HOME/tetra/tetra.sh"
 
 # Load core modules
-tmod load tetra tsm
+tmod load tetra tsm >/dev/null 2>&1
 
 # Activate managed runtimes (only if installed for this user)
 [[ -s "$TETRA_DIR/nvm/nvm.sh" ]] && tetra_nvm_activate 2>/dev/null
 [[ -d "${PYENV_ROOT:-$HOME/.pyenv}" ]] && tetra_python_activate 2>/dev/null
+true
 STARTER
 chmod +x "$START_SCRIPT"
 _ok "start-tetra.sh"
