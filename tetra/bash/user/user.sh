@@ -149,8 +149,17 @@ _user_create_macos() {
         sudo chmod 755 "$home_dir"
     fi
 
-    # Set shell to bash (sysadminctl defaults may vary)
-    sudo dscl . -create "/Users/$username" UserShell /bin/bash
+    # Set login shell to homebrew bash 5.2+ (tetra requirement)
+    if [[ -x /opt/homebrew/bin/bash ]]; then
+        # Ensure homebrew bash is in /etc/shells
+        if ! grep -qF /opt/homebrew/bin/bash /etc/shells; then
+            echo /opt/homebrew/bin/bash | sudo tee -a /etc/shells >/dev/null
+        fi
+        sudo dscl . -create "/Users/$username" UserShell /opt/homebrew/bin/bash
+    else
+        echo "WARNING: /opt/homebrew/bin/bash not found, using /bin/bash (tetra requires 5.2+)" >&2
+        sudo dscl . -create "/Users/$username" UserShell /bin/bash
+    fi
 }
 
 _user_create_linux() {

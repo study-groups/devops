@@ -87,7 +87,7 @@ START_SCRIPT="$HOME/start-tetra.sh"
 echo ""
 echo "Shell integration:"
 cat > "$START_SCRIPT" <<'STARTER'
-#!/usr/bin/env bash
+#!/opt/homebrew/bin/bash
 # start-tetra.sh - Source this to load tetra into your shell
 # Usage: source ~/start-tetra.sh
 
