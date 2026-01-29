@@ -182,15 +182,17 @@ _step "Python runtime  ${DIM}mode=${PYTHON_MODE} version=${PYTHON_VERSION}${RST}
 case "$PYTHON_MODE" in
     venv)
         if [[ ! -d "$VENV_DIR/bin" ]]; then
-            py_bin=$(command -v python3 || command -v python)
+            py_bin=$(command -v python3 || command -v python || true)
             if [[ -n "$py_bin" ]]; then
-                _info "Creating venv..."
-                "$py_bin" -m venv "$VENV_DIR" 2>/dev/null
+                local sys_ver
+                sys_ver=$("$py_bin" --version 2>&1 | awk '{print $2}')
+                _info "Creating venv with python $sys_ver..."
+                "$py_bin" -m venv "$VENV_DIR" 2>&1 || true
                 if [[ -f "$VENV_DIR/bin/activate" ]]; then
                     py_ver=$("$VENV_DIR/bin/python" --version 2>&1 | awk '{print $2}')
                     _ok "venv  ${DIM}python $py_ver → ~/tetra/venv/${RST}"
                 else
-                    _warn "venv creation failed"
+                    _warn "venv creation failed (python $sys_ver may not support -m venv)"
                 fi
             else
                 _warn "python3 not found (venv skipped)"
