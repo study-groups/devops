@@ -8,68 +8,86 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TETRA_SRC_DETECTED="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
+# --- Terminal setup ---
+COLS=$(tput cols 2>/dev/null || echo 60)
+RST=$'\e[0m'
+BOLD=$'\e[1m'
+DIM=$'\e[2m'
+GREEN=$'\e[32m'
+RED=$'\e[31m'
+YELLOW=$'\e[33m'
+CYAN=$'\e[36m'
+BLUE=$'\e[34m'
+
+_ok()   { printf "  ${GREEN}✓${RST} %-$(( COLS - 6 ))s\n" "$1"; }
+_fail() { printf "  ${RED}✗${RST} %-$(( COLS - 6 ))s\n" "$1"; }
+_warn() { printf "  ${YELLOW}⚠${RST} %-$(( COLS - 6 ))s\n" "$1"; }
+_info() { printf "  ${DIM}%-$(( COLS - 4 ))s${RST}\n" "$1"; }
+_step() { printf "\n${BOLD}${CYAN}▸ %s${RST}\n" "$1"; }
+_hr()   { printf "${DIM}%*s${RST}\n" "$COLS" "" | tr ' ' '─'; }
+
+_banner() {
+    _hr
+    printf "${BOLD}  %s${RST}\n" "$1"
+    [[ -n "${2:-}" ]] && printf "  ${DIM}%s${RST}\n" "$2"
+    _hr
+}
+
 # --- Bash version gate ---
 if [[ "${BASH_VERSINFO[0]}" -lt 5 ]] || [[ "${BASH_VERSINFO[0]}" -eq 5 && "${BASH_VERSINFO[1]}" -lt 2 ]]; then
-    echo "ERROR: tetra requires bash 5.2+" >&2
-    echo "Found: ${BASH_VERSION}" >&2
-    echo "" >&2
+    _banner "Tetra Setup" "bash 5.2+ required"
+    _fail "bash ${BASH_VERSION} is too old"
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        echo "macOS ships bash 3.x. Install modern bash:" >&2
-        echo "  brew install bash" >&2
-        echo "Then re-run with: /opt/homebrew/bin/bash $0" >&2
+        _info "macOS ships bash 3.x. Fix: brew install bash"
+        _info "Then: /opt/homebrew/bin/bash $0"
     else
-        echo "Install bash 5.2+ from your package manager." >&2
+        _info "Install bash 5.2+ from your package manager."
     fi
     exit 1
 fi
 
-# --- Prerequisite checks ---
+# --- Prerequisites ---
+_banner "Tetra Setup" "$USER @ $(hostname)"
+
+_step "Prerequisites"
+prereqs_ok=true
+
 _check() {
     local label="$1" cmd="$2"
-    printf "  %-12s" "$label"
     if command -v "$cmd" &>/dev/null; then
-        echo "ok ($("$cmd" --version 2>&1 | head -1))"
+        local ver
+        ver=$("$cmd" --version 2>&1 | head -1)
+        _ok "$label  ${DIM}$ver${RST}"
         return 0
     else
-        echo "MISSING"
+        _fail "$label"
         return 1
     fi
 }
 
-echo "Checking prerequisites..."
-prereqs_ok=true
-_check "git" git       || prereqs_ok=false
-_check "python3" python3 || prereqs_ok=false
-_check "node" node     || { echo "    node is required. Install via nvm: https://github.com/nvm-sh/nvm"; prereqs_ok=false; }
-_check "jq" jq         || { echo "    jq is optional but recommended"; }  # warn, don't fail
-
-# Optional: bun (future runtime)
-printf "  %-12s" "bun"
-if command -v bun &>/dev/null; then
-    echo "ok ($(bun --version 2>&1))"
-else
-    echo "not installed (optional)"
-fi
+_check "git" git           || prereqs_ok=false
+_check "python3" python3   || prereqs_ok=false
+_check "node" node         || { _info "Install via nvm: https://github.com/nvm-sh/nvm"; prereqs_ok=false; }
+_check "jq" jq             || _warn "jq missing (optional)"
+command -v bun &>/dev/null  && _ok "bun  ${DIM}$(bun --version 2>&1)${RST}" || _info "bun not installed (optional)"
 
 if [[ "$prereqs_ok" != "true" ]]; then
     echo ""
-    echo "Install missing prerequisites and re-run." >&2
+    _fail "Install missing prerequisites and re-run."
     exit 1
 fi
-
-echo ""
 
 # --- Create or update ~/tetra ---
 TETRA_RUNTIME="$HOME/tetra"
 
+_step "Runtime directory"
 if [[ -d "$TETRA_RUNTIME" ]]; then
-    echo "Updating $TETRA_RUNTIME/tetra.sh ..."
+    _info "Updating $TETRA_RUNTIME/tetra.sh"
 else
-    echo "Creating $TETRA_RUNTIME/ ..."
+    _info "Creating $TETRA_RUNTIME/"
     cp -r "$SCRIPT_DIR/tetra-dir" "$TETRA_RUNTIME"
 fi
 
-# Write tetra.sh with detected TETRA_SRC (not hardcoded default)
 cat > "$TETRA_RUNTIME/tetra.sh" <<ENTRY
 #!/usr/bin/env bash
 TETRA_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
@@ -78,14 +96,12 @@ export TETRA_DIR TETRA_SRC
 source "\$TETRA_SRC/bash/bootloader.sh"
 ENTRY
 
-echo "  Wrote $TETRA_RUNTIME/tetra.sh"
-echo "  TETRA_SRC=$TETRA_SRC_DETECTED"
+_ok "tetra.sh  ${DIM}TETRA_SRC=$TETRA_SRC_DETECTED${RST}"
 
 # --- Create ~/start-tetra.sh ---
 START_SCRIPT="$HOME/start-tetra.sh"
 
-echo ""
-echo "Shell integration:"
+_step "Shell integration"
 cat > "$START_SCRIPT" <<'STARTER'
 #!/opt/homebrew/bin/bash
 # start-tetra.sh - Source this to load tetra into your shell
@@ -102,13 +118,13 @@ tmod load tetra tsm
 [[ -d "${PYENV_ROOT:-$HOME/.pyenv}" ]] && tetra_python_activate 2>/dev/null
 STARTER
 chmod +x "$START_SCRIPT"
-echo "  Wrote $START_SCRIPT"
+_ok "start-tetra.sh"
 
 # --- Default org ---
 ORGS_DIR="$TETRA_RUNTIME/orgs"
+
+_step "Default org"
 if [[ ! -d "$ORGS_DIR/tetra" ]]; then
-    echo ""
-    echo "Creating default org 'tetra'..."
     mkdir -p "$ORGS_DIR/tetra/sections"
     mkdir -p "$ORGS_DIR/tetra/pd/data/projects"
     mkdir -p "$ORGS_DIR/tetra/pd/config"
@@ -117,51 +133,52 @@ if [[ ! -d "$ORGS_DIR/tetra" ]]; then
     mkdir -p "$ORGS_DIR/tetra/tut/compiled"
     mkdir -p "$ORGS_DIR/tetra/workspace"
     mkdir -p "$ORGS_DIR/tetra/backups"
-    echo "  Created $ORGS_DIR/tetra/"
+    _ok "Created orgs/tetra/"
+else
+    _info "orgs/tetra/ exists"
 fi
 
 # --- Symlink active config ---
 mkdir -p "$TETRA_RUNTIME/config"
 if [[ ! -L "$TETRA_RUNTIME/config/tetra.toml" && -d "$ORGS_DIR/tetra" ]]; then
-    # Create empty tetra.toml for default org if missing
     [[ ! -f "$ORGS_DIR/tetra/tetra.toml" ]] && echo "# tetra org config" > "$ORGS_DIR/tetra/tetra.toml"
     ln -sf "$ORGS_DIR/tetra/tetra.toml" "$TETRA_RUNTIME/config/tetra.toml"
-    echo "  Linked config/tetra.toml -> orgs/tetra/tetra.toml"
+    _ok "config/tetra.toml → orgs/tetra/tetra.toml"
 fi
 
 # --- Install nvm + node ---
 NVM_DIR="$TETRA_RUNTIME/nvm"
+
+_step "Node runtime"
 if [[ ! -s "$NVM_DIR/nvm.sh" ]]; then
-    echo ""
-    echo "Installing nvm..."
+    _info "Installing nvm..."
     mkdir -p "$NVM_DIR"
     export NVM_DIR
     curl -so- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash >/dev/null 2>&1
     if [[ -s "$NVM_DIR/nvm.sh" ]]; then
-        echo "  Installed nvm in $NVM_DIR"
+        _ok "nvm  ${DIM}$NVM_DIR${RST}"
         source "$NVM_DIR/nvm.sh"
-        echo "  Installing node LTS..."
+        _info "Installing node LTS..."
         nvm install 'lts/*' >/dev/null 2>&1
-        echo "  Node $(node --version) installed"
+        _ok "node $(node --version)"
     else
-        echo "  WARNING: nvm install failed (node can be installed later)" >&2
+        _warn "nvm install failed (install later: tetra_nvm_install)"
     fi
 else
-    echo ""
-    echo "nvm already installed in $NVM_DIR"
+    source "$NVM_DIR/nvm.sh"
+    _ok "nvm  ${DIM}already installed${RST}"
+    _ok "node $(node --version 2>/dev/null || echo 'not installed')"
 fi
 
 # --- Summary ---
 echo ""
-echo "============================================"
-echo "Tetra installed."
+_hr
+printf "  ${BOLD}${GREEN}Tetra installed${RST}\n"
 echo ""
-echo "  TETRA_SRC: $TETRA_SRC_DETECTED"
-echo "  TETRA_DIR: $TETRA_RUNTIME"
-echo "  Default org: tetra"
+printf "  ${DIM}%-12s${RST} %s\n" "TETRA_SRC" "$TETRA_SRC_DETECTED"
+printf "  ${DIM}%-12s${RST} %s\n" "TETRA_DIR" "$TETRA_RUNTIME"
+printf "  ${DIM}%-12s${RST} %s\n" "Org" "tetra"
 echo ""
-echo "Next steps:"
-echo "  1. Open a new terminal (or: source ~/tetra/tetra.sh)"
-echo "  2. Run: tetra doctor"
-echo "  3. Run: tetra status"
-echo "============================================"
+printf "  ${BOLD}Next:${RST} source ~/start-tetra.sh\n"
+printf "  ${BOLD}Then:${RST} tetra doctor\n"
+_hr

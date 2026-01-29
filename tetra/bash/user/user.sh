@@ -484,26 +484,36 @@ _user_remove_tetra() {
 _user_test_install() {
     local username="${1:-tetratest}"
 
-    echo "=== Tetra Install Test ==="
-    echo "User: $username"
-    echo ""
+    # Terminal formatting
+    local COLS RST BOLD DIM GREEN RED CYAN
+    COLS=$(tput cols 2>/dev/null || echo 60)
+    RST=$'\e[0m' BOLD=$'\e[1m' DIM=$'\e[2m'
+    GREEN=$'\e[32m' RED=$'\e[31m' CYAN=$'\e[36m'
+
+    _ok()   { printf "  ${GREEN}✓${RST} %s\n" "$1"; }
+    _fail() { printf "  ${RED}✗${RST} %s\n" "$1"; }
+    _step() { printf "\n${BOLD}${CYAN}▸ %s${RST}\n" "$1"; }
+    _hr()   { printf "${DIM}%*s${RST}\n" "$COLS" "" | tr ' ' '─'; }
+
+    _hr
+    printf "${BOLD}  Tetra Install Test${RST}  ${DIM}user: %s${RST}\n" "$username"
+    _hr
 
     # Create user if needed
     if ! id "$username" &>/dev/null; then
-        echo "Step 1: Creating user..."
+        _step "Create user"
         _user_create "$username" || return 1
     else
-        echo "Step 1: User exists"
+        _step "Create user"
+        _ok "exists"
     fi
 
     # Setup tetra
-    echo ""
-    echo "Step 2: Setting up tetra..."
+    _step "Setup tetra"
     _user_setup_tetra "$username" || return 1
 
     # Verify installation
-    echo ""
-    echo "Step 3: Verifying installation..."
+    _step "Verify"
     local home_dir="$(_user_home_base)/$username"
     local bash_bin="bash"
     [[ "$(_user_platform)" == "macos" ]] && bash_bin="/opt/homebrew/bin/bash"
@@ -513,47 +523,54 @@ _user_test_install() {
 
     ((checks++))
     if [[ -f "$home_dir/start-tetra.sh" ]]; then
-        echo "  [OK] ~/start-tetra.sh exists"
-        ((passed++))
+        _ok "~/start-tetra.sh"; ((passed++))
     else
-        echo "  [FAIL] ~/start-tetra.sh missing"
+        _fail "~/start-tetra.sh missing"
     fi
 
     ((checks++))
     if [[ -d "$home_dir/tetra/orgs/tetra" ]]; then
-        echo "  [OK] ~/tetra/orgs/tetra exists"
-        ((passed++))
+        _ok "~/tetra/orgs/tetra"; ((passed++))
     else
-        echo "  [FAIL] ~/tetra/orgs/tetra missing"
+        _fail "~/tetra/orgs/tetra missing"
     fi
 
     ((checks++))
     if sudo -Hu "$username" "$bash_bin" -c 'source ~/start-tetra.sh && [[ -n "$TETRA_SRC" ]]' 2>/dev/null; then
-        echo "  [OK] TETRA_SRC set after sourcing"
-        ((passed++))
+        _ok "TETRA_SRC"; ((passed++))
     else
-        echo "  [FAIL] TETRA_SRC not set"
+        _fail "TETRA_SRC not set"
     fi
 
     ((checks++))
     if sudo -Hu "$username" "$bash_bin" -c 'source ~/start-tetra.sh && type tetra &>/dev/null' 2>/dev/null; then
-        echo "  [OK] tetra command available"
-        ((passed++))
+        _ok "tetra command"; ((passed++))
     else
-        echo "  [FAIL] tetra command not available"
+        _fail "tetra command not available"
+    fi
+
+    ((checks++))
+    local node_path
+    node_path=$(sudo -Hu "$username" "$bash_bin" -c 'source ~/start-tetra.sh && command -v node' 2>/dev/null)
+    if [[ "$node_path" == *"$username"* ]]; then
+        _ok "node  ${DIM}${node_path}${RST}"; ((passed++))
+    elif [[ -n "$node_path" ]]; then
+        _fail "node from wrong user  ${DIM}${node_path}${RST}"
+    else
+        _fail "node not found"
     fi
 
     echo ""
-    echo "Results: $passed/$checks passed"
-
+    _hr
     if [[ $passed -eq $checks ]]; then
-        echo ""
-        echo "To use: sudo -u $username -i"
-        echo "Then:   tetra doctor"
-        return 0
+        printf "  ${BOLD}${GREEN}${passed}/${checks} passed${RST}\n"
+        printf "  ${DIM}Login:${RST} sudo -Hu $username $bash_bin -l\n"
     else
-        return 1
+        printf "  ${BOLD}${RED}${passed}/${checks} passed${RST}\n"
     fi
+    _hr
+
+    [[ $passed -eq $checks ]]
 }
 
 # =============================================================================
