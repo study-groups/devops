@@ -40,10 +40,12 @@ _tps_python_info() {
     [[ "$TPS_STYLE" == "tiny" ]] && return
 
     if [[ "$TPS_PYTHON" == "1" ]] || command -v python >/dev/null 2>&1; then
-        if [[ "$(which python)" == *"tetra"* ]]; then
-            echo "p"
-        else
-            echo "~p"
+        if [[ -n "$VIRTUAL_ENV" && "$VIRTUAL_ENV" == *"tetra"* ]]; then
+            echo "vp"    # tetra venv
+        elif [[ "$(command -v python)" == *"pyenv"* ]]; then
+            echo "p"     # pyenv
+        elif command -v python >/dev/null 2>&1; then
+            echo "sp"    # system python
         fi
     fi
 }

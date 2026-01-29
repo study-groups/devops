@@ -103,9 +103,9 @@ START_SCRIPT="$HOME/start-tetra.sh"
 
 _step "Shell integration"
 cat > "$START_SCRIPT" <<'STARTER'
-#!/opt/homebrew/bin/bash
 # start-tetra.sh - Source this to load tetra into your shell
 # Usage: source ~/start-tetra.sh
+# NOTE: This file is sourced, not executed. Do not chmod +x.
 
 # Boot tetra (sets TETRA_SRC, TETRA_DIR, loads bootloader)
 source "$HOME/tetra/tetra.sh"
@@ -115,11 +115,12 @@ tmod load tetra tsm >/dev/null 2>&1
 
 # Activate managed runtimes (only if installed for this user)
 [[ -s "$TETRA_DIR/nvm/nvm.sh" ]] && tetra_nvm_activate 2>/dev/null
+[[ -d "$TETRA_DIR/venv/bin/activate" ]] && source "$TETRA_DIR/venv/bin/activate"
 [[ -d "${PYENV_ROOT:-$HOME/.pyenv}" ]] && tetra_python_activate 2>/dev/null
 true
 STARTER
-chmod +x "$START_SCRIPT"
-_ok "start-tetra.sh"
+chmod 644 "$START_SCRIPT"
+_ok "start-tetra.sh  ${DIM}(source only, 644)${RST}"
 
 # --- Default org ---
 ORGS_DIR="$TETRA_RUNTIME/orgs"
@@ -169,6 +170,29 @@ else
     source "$NVM_DIR/nvm.sh"
     _ok "nvm  ${DIM}already installed${RST}"
     _ok "node $(node --version 2>/dev/null || echo 'not installed')"
+fi
+
+# --- Python venv ---
+VENV_DIR="$TETRA_RUNTIME/venv"
+
+_step "Python runtime"
+if [[ ! -d "$VENV_DIR/bin" ]]; then
+    py_bin=$(command -v python3 || command -v python)
+    if [[ -n "$py_bin" ]]; then
+        _info "Creating venv..."
+        "$py_bin" -m venv "$VENV_DIR" 2>/dev/null
+        if [[ -f "$VENV_DIR/bin/activate" ]]; then
+            py_ver=$("$VENV_DIR/bin/python" --version 2>&1 | awk '{print $2}')
+            _ok "venv  ${DIM}python $py_ver → ~/tetra/venv/${RST}"
+        else
+            _warn "venv creation failed"
+        fi
+    else
+        _warn "python3 not found (venv skipped)"
+    fi
+else
+    py_ver=$("$VENV_DIR/bin/python" --version 2>&1 | awk '{print $2}')
+    _ok "venv  ${DIM}python $py_ver (exists)${RST}"
 fi
 
 # --- Summary ---
