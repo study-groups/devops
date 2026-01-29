@@ -134,6 +134,7 @@ _user_create() {
     printf "    ${DIM}home${RST}   %s\n" "$home_dir"
     [[ -n "$fingerprint" ]] && \
         printf "    ${DIM}ssh${RST}    %s\n" "$fingerprint"
+    return 0
 }
 
 _user_create_macos() {
