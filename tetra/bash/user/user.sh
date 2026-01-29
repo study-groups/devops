@@ -98,11 +98,9 @@ _user_create() {
     local platform=$(_user_platform)
     local home_dir="$(_user_home_base)/$username"
 
-    echo "Creating user '$username' on $platform..."
-
     case "$platform" in
         macos)
-            _user_create_macos "$username" "$admin"
+            _user_create_macos "$username" "$admin" 2>&1 | grep -v "^$\|sysadminctl\|^---" >&2
             ;;
         linux)
             _user_create_linux "$username" "$admin"
@@ -116,13 +114,24 @@ _user_create() {
     local rc=$?
     [[ $rc -ne 0 ]] && return $rc
 
-    # Setup SSH keys
+    # Setup SSH keys (quiet)
     if [[ "$no_ssh" != "true" ]]; then
-        _user_setup_ssh "$username"
+        _user_setup_ssh "$username" >/dev/null 2>&1
     fi
 
-    echo "User '$username' created successfully"
-    _user_status "$username"
+    # Clean summary
+    local RST=$'\e[0m' DIM=$'\e[2m' GREEN=$'\e[32m'
+    local uid; uid=$(id -u "$username")
+    local shell; shell=$(dscl . -read "/Users/$username" UserShell 2>/dev/null | awk '{print $2}')
+    local fingerprint=""
+    [[ -f "$home_dir/.ssh/id_ed25519.pub" ]] && \
+        fingerprint=$(ssh-keygen -lf "$home_dir/.ssh/id_ed25519.pub" 2>/dev/null | awk '{print $2}')
+
+    printf "  ${GREEN}✓${RST} %s  ${DIM}uid:%s  %s  %s${RST}\n" \
+        "$username" "$uid" "${shell:-bash}" "$platform"
+    printf "    ${DIM}home${RST}   %s\n" "$home_dir"
+    [[ -n "$fingerprint" ]] && \
+        printf "    ${DIM}ssh${RST}    %s\n" "$fingerprint"
 }
 
 _user_create_macos() {
@@ -416,39 +425,35 @@ _user_setup_tetra() {
     local devops_dir="$home_dir/src/devops"
     local tetra_src="$devops_dir/tetra"
 
-    echo "Setting up tetra for user '$username'..."
+    local RST=$'\e[0m' DIM=$'\e[2m' GREEN=$'\e[32m' RED=$'\e[31m' CYAN=$'\e[36m' BOLD=$'\e[1m'
 
     # Create source directory
     sudo -u "$username" mkdir -p "$home_dir/src"
 
     # Clone devops repo (public monorepo, tetra is a subdirectory)
-    echo "  Cloning devops repository..."
     if [[ ! -d "$devops_dir/.git" ]]; then
-        sudo -u "$username" env GIT_TERMINAL_PROMPT=0 \
-            git clone https://github.com/study-groups/devops.git "$devops_dir" || {
-            echo "  ERROR: Failed to clone devops repo" >&2
+        printf "  ${DIM}cloning${RST} study-groups/devops..."
+        if sudo -u "$username" env GIT_TERMINAL_PROMPT=0 \
+            git clone -q https://github.com/study-groups/devops.git "$devops_dir" 2>/dev/null; then
+            printf "\r  ${GREEN}✓${RST} cloned  ${DIM}study-groups/devops → src/devops/${RST}\n"
+        else
+            printf "\r  ${RED}✗${RST} clone failed\n"
             return 1
-        }
+        fi
     else
-        echo "  (repo exists, pulling latest)"
         sudo -u "$username" env GIT_TERMINAL_PROMPT=0 \
-            git -C "$devops_dir" pull || true
+            git -C "$devops_dir" pull -q 2>/dev/null || true
+        printf "  ${GREEN}✓${RST} repo    ${DIM}up to date${RST}\n"
     fi
 
     # Fix permissions on bash/ (git preserves 700 from source)
     chmod -R a+rX "$tetra_src/bash" 2>/dev/null || true
 
     # Run setup.sh (must use -H to set HOME for the target user)
-    # Use homebrew bash on macOS since tetra requires bash 5.2+
     local bash_bin="bash"
     [[ "$(_user_platform)" == "macos" ]] && bash_bin="/opt/homebrew/bin/bash"
 
-    echo "  Running setup.sh..."
     sudo -Hu "$username" "$bash_bin" "$tetra_src/bash/tetra/init/setup.sh"
-
-    echo ""
-    echo "Tetra setup complete for '$username'"
-    echo "To test: sudo -u $username -i"
 }
 
 _user_remove_tetra() {
