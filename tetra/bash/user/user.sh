@@ -404,26 +404,25 @@ _user_setup_tetra() {
     fi
 
     local home_dir="$(_user_home_base)/$username"
-    local devops_dir="$home_dir/src/devops"
-    local tetra_src="$devops_dir/tetra"
+    local tetra_src="$home_dir/src/devops/tetra"
 
     echo "Setting up tetra for user '$username'..."
 
     # Create source directory
-    sudo -u "$username" mkdir -p "$devops_dir"
+    sudo -u "$username" mkdir -p "$home_dir/src/devops"
 
-    # Clone devops repo (public monorepo containing tetra)
+    # Clone devops repo into ~/src/devops/tetra (TETRA_SRC = repo root)
     echo "  Cloning devops repository..."
-    if [[ ! -d "$devops_dir/.git" ]]; then
+    if [[ ! -d "$tetra_src/.git" ]]; then
         sudo -u "$username" env GIT_TERMINAL_PROMPT=0 \
-            git clone https://github.com/study-groups/devops.git "$devops_dir" || {
+            git clone https://github.com/study-groups/devops.git "$tetra_src" || {
             echo "  ERROR: Failed to clone devops repo" >&2
             return 1
         }
     else
         echo "  (repo exists, pulling latest)"
         sudo -u "$username" env GIT_TERMINAL_PROMPT=0 \
-            git -C "$devops_dir" pull || true
+            git -C "$tetra_src" pull || true
     fi
 
     # Run setup.sh (must use -H to set HOME for the target user)

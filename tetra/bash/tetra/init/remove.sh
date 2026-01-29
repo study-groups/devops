@@ -6,7 +6,7 @@
 set -euo pipefail
 
 TETRA_RUNTIME="$HOME/tetra"
-TETRA_SRC_DIR="$HOME/src/devops"
+TETRA_SRC_DIR="$HOME/src/devops/tetra"
 START_SCRIPT="$HOME/start-tetra.sh"
 
 _ask() {
