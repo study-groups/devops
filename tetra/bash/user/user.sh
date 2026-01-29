@@ -577,7 +577,12 @@ _user_test_install() {
     _hr
     if [[ $passed -eq $checks ]]; then
         printf "  ${BOLD}${GREEN}${passed}/${checks} passed${RST}\n"
-        printf "  ${DIM}Login:${RST} sudo -Hu $username $bash_bin -l\n"
+        echo ""
+        printf "  ${BOLD}Next steps:${RST}\n"
+        printf "    ${DIM}1.${RST} sudo -Hu $username $bash_bin -l\n"
+        printf "    ${DIM}2.${RST} source ~/start-tetra.sh\n"
+        printf "    ${DIM}3.${RST} tetra doctor\n"
+        printf "    ${DIM}4.${RST} tsm start tetra\n"
     else
         printf "  ${BOLD}${RED}${passed}/${checks} passed${RST}\n"
     fi
