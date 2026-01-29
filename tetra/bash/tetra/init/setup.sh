@@ -97,9 +97,9 @@ source "$HOME/tetra/tetra.sh"
 # Load core modules
 tmod load tetra tsm
 
-# Activate managed runtimes
-tetra_nvm_activate 2>/dev/null || true
-tetra_python_activate 2>/dev/null || true
+# Activate managed runtimes (only if installed for this user)
+[[ -s "$TETRA_DIR/nvm/nvm.sh" ]] && tetra_nvm_activate 2>/dev/null
+[[ -d "${PYENV_ROOT:-$HOME/.pyenv}" ]] && tetra_python_activate 2>/dev/null
 STARTER
 chmod +x "$START_SCRIPT"
 echo "  Wrote $START_SCRIPT"
@@ -127,6 +127,28 @@ if [[ ! -L "$TETRA_RUNTIME/config/tetra.toml" && -d "$ORGS_DIR/tetra" ]]; then
     [[ ! -f "$ORGS_DIR/tetra/tetra.toml" ]] && echo "# tetra org config" > "$ORGS_DIR/tetra/tetra.toml"
     ln -sf "$ORGS_DIR/tetra/tetra.toml" "$TETRA_RUNTIME/config/tetra.toml"
     echo "  Linked config/tetra.toml -> orgs/tetra/tetra.toml"
+fi
+
+# --- Install nvm + node ---
+NVM_DIR="$TETRA_RUNTIME/nvm"
+if [[ ! -s "$NVM_DIR/nvm.sh" ]]; then
+    echo ""
+    echo "Installing nvm..."
+    mkdir -p "$NVM_DIR"
+    export NVM_DIR
+    curl -so- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash >/dev/null 2>&1
+    if [[ -s "$NVM_DIR/nvm.sh" ]]; then
+        echo "  Installed nvm in $NVM_DIR"
+        source "$NVM_DIR/nvm.sh"
+        echo "  Installing node LTS..."
+        nvm install 'lts/*' >/dev/null 2>&1
+        echo "  Node $(node --version) installed"
+    else
+        echo "  WARNING: nvm install failed (node can be installed later)" >&2
+    fi
+else
+    echo ""
+    echo "nvm already installed in $NVM_DIR"
 fi
 
 # --- Summary ---
