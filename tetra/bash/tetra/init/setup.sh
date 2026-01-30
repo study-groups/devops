@@ -209,7 +209,6 @@ case "$PYTHON_MODE" in
         if [[ ! -d "$VENV_DIR/bin" ]]; then
             py_bin=$(command -v python3 || command -v python || true)
             if [[ -n "$py_bin" ]]; then
-                local sys_ver
                 sys_ver=$("$py_bin" --version 2>&1 | awk '{print $2}')
                 _info "Creating venv with python $sys_ver..."
                 "$py_bin" -m venv "$VENV_DIR" 2>&1 || true
