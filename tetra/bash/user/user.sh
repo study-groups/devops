@@ -457,6 +457,10 @@ _user_setup_tetra() {
     # Fix permissions on bash/ (git preserves 700 from source)
     chmod -R a+rX "$tetra_src/bash" 2>/dev/null || true
 
+    # Fix homebrew python bundled pip permissions (installed with user umask 077)
+    local pip_bundled="/opt/homebrew/Cellar/python@"*/*/Frameworks/Python.framework/Versions/*/lib/python*/ensurepip/_bundled
+    chmod a+r $pip_bundled/*.whl 2>/dev/null || true
+
     # Run setup.sh (must use -H to set HOME for the target user)
     local bash_bin="bash"
     [[ "$(_user_platform)" == "macos" ]] && bash_bin="/opt/homebrew/bin/bash"
