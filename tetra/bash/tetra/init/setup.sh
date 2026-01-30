@@ -119,8 +119,8 @@ tmod load tetra tsm >/dev/null 2>&1
 # Activate managed runtimes (only if installed for this user)
 [[ -s "$TETRA_DIR/nvm/nvm.sh" ]] && tetra_nvm_activate 2>/dev/null
 [[ -x "$TETRA_DIR/bun/bin/bun" ]] && { export BUN_INSTALL="$TETRA_DIR/bun"; export PATH="$BUN_INSTALL/bin:$PATH"; }
-[[ -d "$TETRA_DIR/venv/bin/activate" ]] && source "$TETRA_DIR/venv/bin/activate"
-[[ -d "${PYENV_ROOT:-$HOME/.pyenv}" ]] && tetra_python_activate 2>/dev/null
+[[ -f "$TETRA_DIR/venv/bin/activate" ]] && source "$TETRA_DIR/venv/bin/activate"
+[[ -x "${PYENV_ROOT:-$HOME/.pyenv}/bin/pyenv" ]] && tetra_python_activate 2>/dev/null
 true
 STARTER
 chmod 644 "$START_SCRIPT"
