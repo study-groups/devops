@@ -226,9 +226,10 @@ _tetra_doctor() {
 
     # Load install.conf for expected values
     local conf="$TETRA_SRC/bash/tetra/init/install.conf"
-    local CONF_NODE_VERSION="" CONF_PYTHON_MODE="" CONF_PYTHON_VERSION=""
+    local CONF_NODE_VERSION="" CONF_BUN_INSTALL="" CONF_PYTHON_MODE="" CONF_PYTHON_VERSION=""
     if [[ -f "$conf" ]]; then
         CONF_NODE_VERSION=$(. "$conf" && echo "$NODE_VERSION")
+        CONF_BUN_INSTALL=$(. "$conf" && echo "$BUN_INSTALL")
         CONF_PYTHON_MODE=$(. "$conf" && echo "$PYTHON_MODE")
         CONF_PYTHON_VERSION=$(. "$conf" && echo "$PYTHON_VERSION")
     fi
@@ -312,6 +313,22 @@ _tetra_doctor() {
         echo "         Fix: source \$NVM_DIR/nvm.sh"
     fi
 
+    # Bun
+    printf "  Bun:       "
+    if [[ "$CONF_BUN_INSTALL" == "true" ]]; then
+        local bun_path
+        bun_path="$(which bun 2>/dev/null)"
+        if [[ -n "$bun_path" && "$bun_path" == *"tetra"* ]]; then
+            echo -e "$ok ($(bun --version 2>/dev/null) from tetra)"
+        elif [[ -n "$bun_path" ]]; then
+            echo -e "$warn ($(bun --version 2>/dev/null) from $bun_path, not tetra)"
+        else
+            echo -e "$fail (not found, expected BUN_INSTALL=true)"
+        fi
+    else
+        echo -e "$ok (disabled)"
+    fi
+
     # Python runtime check against install.conf
     printf "  Python:    "
     if [[ "$CONF_PYTHON_MODE" == "venv" ]]; then
@@ -348,7 +365,7 @@ _tetra_doctor() {
     if [[ -f "$conf" ]]; then
         echo ""
         echo "  Config:    $conf"
-        echo "             mode=$CONF_PYTHON_MODE version=$CONF_PYTHON_VERSION node=$CONF_NODE_VERSION"
+        echo "             node=$CONF_NODE_VERSION bun=$CONF_BUN_INSTALL python=$CONF_PYTHON_MODE/$CONF_PYTHON_VERSION"
     fi
 
     echo ""

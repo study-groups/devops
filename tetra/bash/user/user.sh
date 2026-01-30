@@ -573,6 +573,19 @@ _user_test_install() {
         _fail "node not found"
     fi
 
+    ((checks++))
+    local bun_path
+    bun_path=$(sudo -Hu "$username" "$bash_bin" -c 'source ~/start-tetra.sh && command -v bun' 2>/dev/null)
+    if [[ "$bun_path" == *"$username"* ]]; then
+        local bun_ver
+        bun_ver=$(sudo -Hu "$username" "$bash_bin" -c 'source ~/start-tetra.sh && bun --version' 2>/dev/null)
+        _ok "bun   ${DIM}${bun_ver} ${bun_path}${RST}"; ((passed++))
+    elif [[ -n "$bun_path" ]]; then
+        _fail "bun from wrong user  ${DIM}${bun_path}${RST}"
+    else
+        _fail "bun not found"
+    fi
+
     echo ""
     _hr
     if [[ $passed -eq $checks ]]; then

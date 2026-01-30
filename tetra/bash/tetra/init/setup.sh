@@ -118,6 +118,7 @@ tmod load tetra tsm >/dev/null 2>&1
 
 # Activate managed runtimes (only if installed for this user)
 [[ -s "$TETRA_DIR/nvm/nvm.sh" ]] && tetra_nvm_activate 2>/dev/null
+[[ -x "$TETRA_DIR/bun/bin/bun" ]] && { export BUN_INSTALL="$TETRA_DIR/bun"; export PATH="$BUN_INSTALL/bin:$PATH"; }
 [[ -d "$TETRA_DIR/venv/bin/activate" ]] && source "$TETRA_DIR/venv/bin/activate"
 [[ -d "${PYENV_ROOT:-$HOME/.pyenv}" ]] && tetra_python_activate 2>/dev/null
 true
@@ -173,6 +174,30 @@ else
     source "$NVM_DIR/nvm.sh"
     _ok "nvm  ${DIM}already installed${RST}"
     _ok "node $(node --version 2>/dev/null || echo 'not installed')"
+fi
+
+# --- Bun runtime ---
+BUN_DIR="$TETRA_RUNTIME/bun"
+
+_step "Bun runtime"
+if [[ "$BUN_INSTALL" != "true" ]]; then
+    _info "bun disabled in install.conf"
+else
+    if [[ -x "$BUN_DIR/bin/bun" ]]; then
+        export BUN_INSTALL="$BUN_DIR"
+        export PATH="$BUN_DIR/bin:$PATH"
+        _ok "bun  ${DIM}$(bun --version 2>/dev/null) (exists)${RST}"
+    else
+        _info "Installing bun..."
+        export BUN_INSTALL="$BUN_DIR"
+        curl -fsSL https://bun.sh/install | bash >/dev/null 2>&1 || true
+        if [[ -x "$BUN_DIR/bin/bun" ]]; then
+            export PATH="$BUN_DIR/bin:$PATH"
+            _ok "bun  ${DIM}$(bun --version 2>/dev/null)${RST}"
+        else
+            _warn "bun install failed"
+        fi
+    fi
 fi
 
 # --- Python runtime ---
@@ -240,6 +265,7 @@ printf "  ${DIM}%-12s${RST} %s\n" "TETRA_SRC" "$TETRA_SRC_DETECTED"
 printf "  ${DIM}%-12s${RST} %s\n" "TETRA_DIR" "$TETRA_RUNTIME"
 printf "  ${DIM}%-12s${RST} %s\n" "Org" "tetra"
 printf "  ${DIM}%-12s${RST} %s\n" "Node" "$NODE_VERSION"
+printf "  ${DIM}%-12s${RST} %s\n" "Bun" "$(bun --version 2>/dev/null || echo 'not installed')"
 printf "  ${DIM}%-12s${RST} %s\n" "Python" "${PYTHON_MODE} ($(python3 --version 2>&1 | awk '{print $2}'))"
 echo ""
 printf "  ${BOLD}Next:${RST} source ~/start-tetra.sh\n"
