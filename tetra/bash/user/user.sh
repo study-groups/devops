@@ -590,6 +590,26 @@ _user_test_install() {
         _fail "bun not found"
     fi
 
+    ((checks++))
+    local py_info
+    py_info=$(sudo -Hu "$username" "$bash_bin" -c '
+        source ~/start-tetra.sh 2>/dev/null
+        if [[ -n "$VIRTUAL_ENV" && "$VIRTUAL_ENV" == *"tetra"* ]]; then
+            echo "venv $(python --version 2>&1 | awk "{print \$2}") $VIRTUAL_ENV"
+        elif [[ "$(command -v python)" == *"pyenv"* ]]; then
+            echo "pyenv $(python --version 2>&1 | awk "{print \$2}") $(command -v python)"
+        elif command -v python3 &>/dev/null; then
+            echo "system $(python3 --version 2>&1 | awk "{print \$2}") $(command -v python3)"
+        fi
+    ' 2>/dev/null)
+    if [[ -n "$py_info" ]]; then
+        local py_mode="${py_info%% *}"
+        local py_rest="${py_info#* }"
+        _ok "python  ${DIM}${py_mode} ${py_rest}${RST}"; ((passed++))
+    else
+        _fail "python not found"
+    fi
+
     echo ""
     _hr
     if [[ $passed -eq $checks ]]; then
