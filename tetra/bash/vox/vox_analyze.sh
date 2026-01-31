@@ -245,5 +245,199 @@ vox_analyze_summary() {
     '
 }
 
+# RMS envelope via tscale - downsample to ~50 fps
+# Output: JSON with windowMs, hopMs, values[]
+vox_rms() {
+    local audio_file="$1"
+    local hop_ms="${2:-20}"
+
+    if [[ ! -f "$audio_file" ]]; then
+        echo "Error: Audio file not found: $audio_file" >&2
+        return 1
+    fi
+
+    local tscale_bin="$TAU_SRC/tau_lib/algorithms/tscale/tscale"
+    if [[ ! -x "$tscale_bin" ]]; then
+        echo "Error: tscale not built" >&2
+        return 1
+    fi
+
+    local tmp_dir=$(mktemp -d)
+    local env_tsv="$tmp_dir/env.tsv"
+    local tau_sec
+    tau_sec=$(echo "scale=6; $hop_ms / 1000" | bc)
+
+    # Run tscale with moderate tau for envelope extraction
+    # -th 100 effectively disables onset detection, giving us raw envelope
+    "$tscale_bin" -i "$audio_file" -o "$env_tsv" \
+        -ta "$tau_sec" -tr "$(echo "scale=6; $tau_sec * 2" | bc)" \
+        -th 100 -sym 2>/dev/null
+
+    if [[ ! -f "$env_tsv" ]]; then
+        echo "Error: tscale failed" >&2
+        rm -rf "$tmp_dir"
+        return 1
+    fi
+
+    # Downsample envelope to hop_ms intervals, output JSON
+    awk -F'\t' -v hop="$hop_ms" '
+        BEGIN { printf "{\"windowMs\":%s,\"hopMs\":%s,\"values\":[", hop, hop; first=1 }
+        NR > 1 {
+            t = $1; env = $3
+            target = count * (hop / 1000.0)
+            if (t >= target) {
+                if (!first) printf ","
+                printf "%.6f", env
+                first = 0
+                count++
+            }
+        }
+        END { print "]}" }
+    ' "$env_tsv"
+
+    rm -rf "$tmp_dir"
+}
+
+# VAD from RMS envelope - threshold + hangover
+# Output: JSON with threshold, hangoverMs, segments[]
+vox_vad() {
+    local audio_file="$1"
+    local threshold_db="${2:--40}"
+    local hangover_ms="${3:-300}"
+
+    local rms_json
+    rms_json=$(vox_rms "$audio_file" 20)
+    if [[ $? -ne 0 ]]; then return 1; fi
+
+    echo "$rms_json" | awk -v thr_db="$threshold_db" -v hang_ms="$hangover_ms" '
+    BEGIN { hop_sec = 0.020 }
+    {
+        # Parse values array from the JSON
+        gsub(/.*"values":\[/, "")
+        gsub(/\].*/, "")
+        n = split($0, vals, ",")
+
+        # Find peak
+        peak = 0
+        for (i = 1; i <= n; i++) {
+            v = vals[i] + 0
+            if (v > peak) peak = v
+        }
+
+        # Threshold: thr_db relative to peak
+        # dB to linear: 10^(dB/20)
+        thr_lin = peak * exp(thr_db / 20 * log(10))
+        if (thr_lin < 1e-8) thr_lin = 1e-8
+
+        hangover_frames = int(hang_ms / 1000.0 / hop_sec)
+
+        # Detect speech frames with hangover
+        seg_start = -1
+        hang_count = 0
+        seg_json = ""
+        seg_n = 0
+
+        for (i = 1; i <= n; i++) {
+            v = vals[i] + 0
+            t = (i - 1) * hop_sec
+            if (v >= thr_lin) {
+                if (seg_start < 0) seg_start = t
+                hang_count = hangover_frames
+            } else {
+                if (hang_count > 0) {
+                    hang_count--
+                } else if (seg_start >= 0) {
+                    if (seg_n > 0) seg_json = seg_json ","
+                    seg_json = seg_json sprintf("{\"start\":%.3f,\"end\":%.3f}", seg_start, t)
+                    seg_n++
+                    seg_start = -1
+                }
+            }
+        }
+        # Close last segment
+        if (seg_start >= 0) {
+            if (seg_n > 0) seg_json = seg_json ","
+            seg_json = seg_json sprintf("{\"start\":%.3f,\"end\":%.3f}", seg_start, (n - 1) * hop_sec)
+            seg_n++
+        }
+
+        printf "{\"threshold\":%.8f,\"hangoverMs\":%d,\"segments\":[%s]}\n", thr_lin, hang_ms, seg_json
+    }'
+}
+
+# Full analysis: onsets + rms + vad in one pass
+# Writes {id}.vox.onsets.json, {id}.vox.rms.json, {id}.vox.vad.json
+vox_analyze_full() {
+    local audio_file="$1"
+    local output_dir="${2:-$(dirname "$audio_file")}"
+
+    if [[ ! -f "$audio_file" ]]; then
+        echo "Error: Audio file not found: $audio_file" >&2
+        return 1
+    fi
+
+    # Derive id from filename: {id}.vox.audio.*
+    local base
+    base=$(basename "$audio_file")
+    local id="${base%%.*}"
+
+    local onsets_file="$output_dir/${id}.vox.onsets.json"
+    local rms_file="$output_dir/${id}.vox.rms.json"
+    local vad_file="$output_dir/${id}.vox.vad.json"
+
+    echo "Running full analysis for $id..." >&2
+
+    # 1. Onsets (existing analysis, extract just onset times)
+    local full_result
+    full_result=$(vox_analyze "$audio_file")
+    if [[ $? -eq 0 ]]; then
+        echo "$full_result" | jq '.analysis.onsets.times' > "$onsets_file" 2>/dev/null || echo "[]" > "$onsets_file"
+        echo "  onsets -> $onsets_file" >&2
+    else
+        echo "[]" > "$onsets_file"
+        echo "  onsets failed, wrote empty" >&2
+    fi
+
+    # 2. RMS envelope
+    local rms_result
+    rms_result=$(vox_rms "$audio_file")
+    if [[ $? -eq 0 ]]; then
+        echo "$rms_result" > "$rms_file"
+        echo "  rms -> $rms_file" >&2
+    else
+        echo '{"windowMs":20,"hopMs":20,"values":[]}' > "$rms_file"
+        echo "  rms failed, wrote empty" >&2
+    fi
+
+    # 3. VAD
+    local vad_result
+    vad_result=$(vox_vad "$audio_file")
+    if [[ $? -eq 0 ]]; then
+        echo "$vad_result" > "$vad_file"
+        echo "  vad -> $vad_file" >&2
+    else
+        echo '{"threshold":0,"hangoverMs":300,"segments":[]}' > "$vad_file"
+        echo "  vad failed, wrote empty" >&2
+    fi
+
+    # Summary JSON to stdout
+    local rms_mean rms_peak vad_count
+    rms_mean=$(jq '[.values[]] | add / length // 0' "$rms_file" 2>/dev/null || echo 0)
+    rms_peak=$(jq '[.values[]] | max // 0' "$rms_file" 2>/dev/null || echo 0)
+    vad_count=$(jq '.segments | length' "$vad_file" 2>/dev/null || echo 0)
+    local onset_count
+    onset_count=$(jq 'length' "$onsets_file" 2>/dev/null || echo 0)
+
+    cat <<EOF
+{
+  "ok": true,
+  "id": "$id",
+  "onsets": $onset_count,
+  "rms": {"mean": $rms_mean, "peak": $rms_peak},
+  "vad": {"segments": $vad_count}
+}
+EOF
+}
+
 # Export functions
-export -f vox_analyze vox_compare vox_analyze_batch vox_analyze_summary
+export -f vox_analyze vox_compare vox_analyze_batch vox_analyze_summary vox_rms vox_vad vox_analyze_full

@@ -122,6 +122,10 @@ function getVoxFiles(id) {
                     files.formants = path.join(VOX_DB, f);
                 } else if (rest === 'bites.json') {
                     files.bites = path.join(VOX_DB, f);
+                } else if (rest === 'rms.json') {
+                    files.rms = path.join(VOX_DB, f);
+                } else if (rest === 'vad.json') {
+                    files.vad = path.join(VOX_DB, f);
                 }
             }
         }
@@ -134,6 +138,7 @@ function getAudioMime(filePath) {
     if (ext === '.wav') return 'audio/wav';
     if (ext === '.mp3') return 'audio/mpeg';
     if (ext === '.ogg') return 'audio/ogg';
+    if (ext === '.opus') return 'audio/opus';
     if (ext === '.flac') return 'audio/flac';
     return 'application/octet-stream';
 }
@@ -403,18 +408,71 @@ router.get('/db/:id', (req, res) => {
             source = fs.readFileSync(files.source, 'utf-8');
         }
 
-        // Build annotation manifest
+        // Build layers with file info and data
         const layers = {};
-        for (const [key, val] of Object.entries(files)) {
-            if (key !== 'meta') layers[key] = true;
+        for (const [key, filePath] of Object.entries(files)) {
+            if (key === 'meta') continue;
+            try {
+                const stat = fs.statSync(filePath);
+                const entry = {
+                    file: path.basename(filePath),
+                    size: stat.size,
+                    modified: stat.mtime.toISOString()
+                };
+                // Read JSON layer data inline
+                if (key !== 'audio' && key !== 'source' && filePath.endsWith('.json')) {
+                    try { entry.data = JSON.parse(fs.readFileSync(filePath, 'utf-8')); } catch (_) {}
+                }
+                layers[key] = entry;
+            } catch (_) {
+                layers[key] = { file: path.basename(filePath) };
+            }
         }
 
-        let onsets = null;
-        if (files.onsets) {
-            try { onsets = JSON.parse(fs.readFileSync(files.onsets, 'utf-8')); } catch (_) {}
+        // Source stats
+        const stats = source ? {
+            characters: source.length,
+            words: source.trim().split(/\s+/).filter(Boolean).length,
+            lines: source.split('\n').length
+        } : null;
+
+        // ffprobe audio metadata
+        let audio = null;
+        if (files.audio) {
+            try {
+                const probe = execSync(
+                    `/opt/homebrew/bin/ffprobe -v quiet -print_format json -show_format -show_streams "${files.audio}"`,
+                    { encoding: 'utf-8', timeout: 10000 }
+                );
+                const info = JSON.parse(probe);
+                const stream = (info.streams || []).find(s => s.codec_type === 'audio') || {};
+                const fmt = info.format || {};
+                audio = {
+                    codec: stream.codec_name || null,
+                    sample_rate: parseInt(stream.sample_rate) || null,
+                    channels: stream.channels || null,
+                    bit_rate: parseInt(fmt.bit_rate || stream.bit_rate) || null,
+                    duration: parseFloat(fmt.duration) || meta.duration || null,
+                    format: fmt.format_name || null,
+                    file: path.basename(files.audio),
+                    size: layers.audio ? layers.audio.size : null
+                };
+            } catch (_) {
+                // fallback: just file info
+                if (layers.audio) {
+                    audio = { file: layers.audio.file, size: layers.audio.size, duration: meta.duration || null };
+                }
+            }
         }
 
-        res.json({ ...meta, source, layers, onsets });
+        // Source hash
+        let source_hash = null;
+        if (source) {
+            const crypto = require('crypto');
+            source_hash = crypto.createHash('sha256').update(source).digest('hex');
+        }
+
+        res.json({ ...meta, source, audio, layers, stats, source_hash });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -425,12 +483,43 @@ router.get('/db/:id', (req, res) => {
 // ---------------------------------------------------------------------------
 router.get('/db/:id/audio', (req, res) => {
     const { id } = req.params;
+    const codec = req.query.codec;
     const files = getVoxFiles(id);
     if (!files.audio) return res.status(404).json({ error: 'Audio not found' });
 
-    const resolved = path.resolve(files.audio);
-    res.setHeader('Content-Type', getAudioMime(files.audio));
-    res.sendFile(resolved);
+    // If no codec requested, serve original
+    if (!codec) {
+        const resolved = path.resolve(files.audio);
+        res.setHeader('Content-Type', getAudioMime(files.audio));
+        return res.sendFile(resolved);
+    }
+
+    // Codec-on-demand: encode and cache
+    const ext = codec === 'c2' ? 'c2' : codec;
+    const voicePart = path.basename(files.audio).replace(/^\d+\.vox\.audio\./, '').replace(/\.[^.]+$/, '');
+    const cachedName = `${id}.vox.audio.${voicePart}.${ext}`;
+    const cachedPath = path.join(VOX_DB, cachedName);
+
+    // Serve from cache if exists
+    if (fs.existsSync(cachedPath)) {
+        res.setHeader('Content-Type', getAudioMime(cachedPath));
+        return res.sendFile(path.resolve(cachedPath));
+    }
+
+    // Encode on demand via vocoder CLI
+    try {
+        const out = shellExec(
+            `source ~/tetra/tetra.sh && vocoder encode ${codec} "${files.audio}" "${cachedPath}"`,
+            30000
+        );
+        if (fs.existsSync(cachedPath)) {
+            res.setHeader('Content-Type', getAudioMime(cachedPath));
+            return res.sendFile(path.resolve(cachedPath));
+        }
+        res.status(500).json({ error: 'Encoding produced no output' });
+    } catch (e) {
+        res.status(500).json({ error: 'Encoding failed: ' + e.message });
+    }
 });
 
 // ---------------------------------------------------------------------------
@@ -450,26 +539,35 @@ router.get('/db/:id/source', (req, res) => {
 // ---------------------------------------------------------------------------
 router.post('/db/:id/analyze', (req, res) => {
     const { id } = req.params;
+    if (!id || id === 'undefined') return res.status(400).json({ error: 'Missing vox id' });
     const files = getVoxFiles(id);
     if (!files.audio) return res.status(404).json({ error: 'Audio not found' });
 
     try {
-        const onsetsPath = path.join(VOX_DB, `${id}.vox.onsets.json`);
         const out = shellExec(
-            `source ~/tetra/tetra.sh && vox analyze "${files.audio}" 2>/dev/null || echo "[]"`,
-            30000
+            `source ~/tetra/tetra.sh && vox_analyze_full "${files.audio}" "${VOX_DB}" 2>/dev/null`,
+            60000
         );
 
-        let onsets;
+        let result;
         try {
-            onsets = JSON.parse(out.trim());
+            result = JSON.parse(out.trim());
         } catch (_) {
-            // Try to parse as space/newline-separated floats
-            onsets = out.trim().split(/[\s,]+/).map(Number).filter(n => !isNaN(n));
+            // Fallback: run old-style onset analysis
+            const onsetsPath = path.join(VOX_DB, `${id}.vox.onsets.json`);
+            const onsetOut = shellExec(
+                `source ~/tetra/tetra.sh && vox analyze "${files.audio}" 2>/dev/null || echo "[]"`,
+                30000
+            );
+            let onsets;
+            try { onsets = JSON.parse(onsetOut.trim()); } catch (__) {
+                onsets = onsetOut.trim().split(/[\s,]+/).map(Number).filter(n => !isNaN(n));
+            }
+            fs.writeFileSync(onsetsPath, JSON.stringify(onsets, null, 2), 'utf-8');
+            return res.json({ ok: true, id, onsets });
         }
 
-        fs.writeFileSync(onsetsPath, JSON.stringify(onsets, null, 2), 'utf-8');
-        res.json({ ok: true, id, onsets });
+        res.json(result);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -573,6 +671,26 @@ router.put('/defaults', (req, res) => {
     const data = { provider: provider || 'coqui', model: model || 'vits', voice: voice || '' };
     fs.writeFileSync(DEFAULTS_FILE, JSON.stringify(data, null, 2), 'utf-8');
     res.json({ ok: true, ...data });
+});
+
+// ---------------------------------------------------------------------------
+// Vocoder static assets — serve player JS/CSS from bash/vocoder/
+// ---------------------------------------------------------------------------
+const TETRA_SRC = process.env.TETRA_SRC || path.join(process.env.HOME, 'src', 'devops', 'tetra');
+const VOCODER_SRC = path.join(TETRA_SRC, 'bash', 'vocoder');
+
+router.get('/vocoder/player.js', (req, res) => {
+    const file = path.join(VOCODER_SRC, 'js', 'vocoder-player.js');
+    if (!fs.existsSync(file)) return res.status(404).send('vocoder-player.js not found');
+    res.setHeader('Content-Type', 'application/javascript');
+    res.sendFile(path.resolve(file));
+});
+
+router.get('/vocoder/player.css', (req, res) => {
+    const file = path.join(VOCODER_SRC, 'css', 'vocoder-player.css');
+    if (!fs.existsSync(file)) return res.status(404).send('vocoder-player.css not found');
+    res.setHeader('Content-Type', 'text/css');
+    res.sendFile(path.resolve(file));
 });
 
 // Exports for use by director.js

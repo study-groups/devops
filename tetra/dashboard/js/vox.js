@@ -2,7 +2,7 @@
  * vox.js - Vox panel logic
  *
  * Vox-based TTS: generate voxes, browse vox log,
- * detail panel with audio player + analyze, set defaults.
+ * inline expand with audio player + investigate, set defaults.
  * Cascading dropdowns: provider -> model -> voice from VOX_DATA.
  */
 (function() {
@@ -27,30 +27,15 @@
     var storageLine = document.getElementById('storage-line');
     var sharedAudio = document.getElementById('shared-audio');
 
-    // Detail panel refs
-    var detailPanel = document.getElementById('detail-panel');
-    var detailId = document.getElementById('detail-id');
-    var detailSource = document.getElementById('detail-source');
-    var detailAudio = document.getElementById('detail-audio');
-    var detailProvider = document.getElementById('detail-provider');
-    var detailVoice = document.getElementById('detail-voice');
-    var detailDuration = document.getElementById('detail-duration');
-    var detailEncode = document.getElementById('detail-encode');
-    var detailRtf = document.getElementById('detail-rtf');
-    var detailCost = document.getElementById('detail-cost');
-    var analyzeBtn = document.getElementById('analyze-btn');
-    var deleteVoxBtn = document.getElementById('delete-vox-btn');
-    var onsetsRow = document.getElementById('onsets-row');
-    var detailOnsets = document.getElementById('detail-onsets');
-
     var state = {
         voxData: null,
         lastId: null,
         filter: null,
         refreshInterval: null,
-        selectedId: null,
+        expandedId: null,
         dbPath: '~/tetra/vox/db/',
-        count: 0
+        count: 0,
+        cache: {}
     };
 
     // ----------------------------------------------------------------
@@ -232,6 +217,306 @@
     });
 
     // ----------------------------------------------------------------
+    // Helpers
+    // ----------------------------------------------------------------
+
+    function formatBytes(bytes) {
+        if (bytes == null) return '-';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    function formatDate(iso) {
+        if (!iso) return '-';
+        return iso.substring(0, 10);
+    }
+
+    // ----------------------------------------------------------------
+    // Expand row content builder
+    // ----------------------------------------------------------------
+
+    function buildExpandContent(data) {
+        var html = '<div class="expand-content">';
+
+        // Source section
+        html += '<div class="expand-section">';
+        html += '<div class="expand-section-title">Source</div>';
+        html += '<div class="expand-source">' + escapeHtml(data.source || '-') + '</div>';
+        if (data.stats) {
+            html += '<div class="expand-source-stats">' +
+                data.stats.characters + ' chars &middot; ' +
+                data.stats.words + ' words &middot; ' +
+                data.stats.lines + ' line' + (data.stats.lines !== 1 ? 's' : '');
+            if (data.source_hash) {
+                html += ' &middot; sha256:' + data.source_hash.substring(0, 8) + '...';
+            }
+            html += '</div>';
+        }
+        html += '</div>';
+
+        // Audio section — waveform player
+        if (data.audio || data.duration) {
+            html += '<div class="expand-section">';
+            html += '<div class="expand-section-title">Audio</div>';
+            html += '<div class="vox-waveform-container" data-vox-wf-id="' + (data.id || '') + '"></div>';
+            if (data.audio) {
+                var a = data.audio;
+                var parts = [];
+                if (a.format) parts.push(a.format);
+                if (a.codec) parts.push(a.codec);
+                if (a.sample_rate) parts.push(a.sample_rate + 'Hz');
+                if (a.channels) parts.push(a.channels === 1 ? 'mono' : a.channels === 2 ? 'stereo' : a.channels + 'ch');
+                if (a.bit_rate) parts.push(Math.round(a.bit_rate / 1000) + 'kbps');
+                html += '<div class="expand-audio-meta">' + parts.join(' &middot; ');
+                if (a.size) html += '<br>' + formatBytes(a.size);
+                // RMS/VAD summary if available
+                if (data.layers && data.layers.rms && data.layers.rms.data) {
+                    var rv = data.layers.rms.data.values || [];
+                    if (rv.length > 0) {
+                        var rmsMean = 0; var rmsPeak = 0;
+                        for (var ri = 0; ri < rv.length; ri++) { rmsMean += rv[ri]; if (rv[ri] > rmsPeak) rmsPeak = rv[ri]; }
+                        rmsMean /= rv.length;
+                        html += '<br>RMS: mean=' + rmsMean.toFixed(4) + ' peak=' + rmsPeak.toFixed(4);
+                    }
+                }
+                if (data.layers && data.layers.vad && data.layers.vad.data) {
+                    var segs = data.layers.vad.data.segments || [];
+                    html += ' &middot; VAD: ' + segs.length + ' segment' + (segs.length !== 1 ? 's' : '');
+                }
+                html += '</div>';
+            }
+            html += '</div>';
+        }
+
+        // Files section
+        if (data.layers) {
+            var layerKeys = Object.keys(data.layers);
+            if (layerKeys.length > 0) {
+                html += '<div class="expand-section">';
+                html += '<div class="expand-section-title">Files</div>';
+                html += '<table class="expand-files-table">';
+                layerKeys.forEach(function(key) {
+                    var l = data.layers[key];
+                    if (!l) return;
+                    html += '<tr>' +
+                        '<td>' + escapeHtml(l.file || key) + '</td>' +
+                        '<td>' + formatBytes(l.size) + '</td>' +
+                        '<td>' + formatDate(l.modified) + '</td>' +
+                        '</tr>';
+                });
+                html += '</table>';
+                html += '</div>';
+            }
+        }
+
+        // Annotations section
+        var annoKeys = [];
+        if (data.layers) {
+            ['tokens', 'phonemes', 'prosody', 'onsets', 'formants', 'bites', 'spans', 'rms', 'vad'].forEach(function(k) {
+                if (data.layers[k] && data.layers[k].data) annoKeys.push(k);
+            });
+        }
+        if (annoKeys.length > 0) {
+            html += '<div class="expand-section">';
+            html += '<div class="expand-section-title">Annotations</div>';
+            html += '<div class="expand-annotations">';
+            annoKeys.forEach(function(k) {
+                var d = data.layers[k].data;
+                var count = Array.isArray(d) ? ' (' + d.length + ')' : '';
+                html += '<button class="expand-anno-toggle" data-anno="' + k + '">\u25b6 ' + k + count + '</button>';
+            });
+            html += '</div>';
+            annoKeys.forEach(function(k) {
+                var d = data.layers[k].data;
+                html += '<div class="expand-anno-content" data-anno-content="' + k + '">' +
+                    escapeHtml(JSON.stringify(d, null, 2)) + '</div>';
+            });
+            html += '</div>';
+        }
+
+        // Actions
+        html += '<div class="expand-actions">';
+        html += '<button class="toolbar-btn expand-analyze-btn">Analyze</button>';
+        html += '<button class="toolbar-btn expand-link-tut-btn">Link to Tut</button>';
+        html += '<button class="toolbar-btn expand-delete-btn">Delete</button>';
+        html += '</div>';
+
+        html += '</div>';
+        return html;
+    }
+
+    function escapeHtml(s) {
+        var div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+    }
+
+    // ----------------------------------------------------------------
+    // Inline expand
+    // ----------------------------------------------------------------
+
+    function toggleExpand(id, dataRow, expandRow) {
+        // Collapse previous
+        if (state.expandedId && state.expandedId !== id) {
+            var prevPlayer = state.cache['_wf_' + state.expandedId];
+            if (prevPlayer && prevPlayer.destroy) prevPlayer.destroy();
+            delete state.cache['_wf_' + state.expandedId];
+            var prev = logBody.querySelector('tr.expand-row.open');
+            if (prev) prev.classList.remove('open');
+            var prevData = logBody.querySelector('tr.expanded');
+            if (prevData) prevData.classList.remove('expanded');
+        }
+
+        // Toggle this one
+        if (state.expandedId === id && expandRow.classList.contains('open')) {
+            expandRow.classList.remove('open');
+            dataRow.classList.remove('expanded');
+            state.expandedId = null;
+            return;
+        }
+
+        state.expandedId = id;
+        dataRow.classList.add('expanded');
+        expandRow.classList.add('open');
+
+        // Already loaded?
+        if (state.cache[id]) {
+            populateExpandRow(expandRow, state.cache[id]);
+            return;
+        }
+
+        // Loading state
+        expandRow.querySelector('td').innerHTML = '<div class="expand-content" style="color:var(--ink-muted);font-size:9px;">Loading...</div>';
+
+        fetch(API + '/db/' + id).then(function(r) { return r.json(); }).then(function(data) {
+            state.cache[id] = data;
+            populateExpandRow(expandRow, data);
+        }).catch(function() {
+            expandRow.querySelector('td').innerHTML = '<div class="expand-content" style="color:var(--one);">Error loading vox</div>';
+        });
+    }
+
+    function populateExpandRow(expandRow, data) {
+        // Ensure data.id is set — fall back to expand row attribute
+        if (!data.id) {
+            data.id = expandRow.getAttribute('data-expand-id');
+        }
+        var td = expandRow.querySelector('td');
+        td.innerHTML = buildExpandContent(data);
+
+        // Initialize waveform player
+        var wfContainer = td.querySelector('.vox-waveform-container');
+        if (wfContainer && window.VoxWaveform && data.id) {
+            var wfOpts = {
+                audioUrl: API + '/db/' + data.id + '/audio',
+                duration: (data.audio && data.audio.duration) || data.duration || 1
+            };
+            if (data.layers) {
+                if (data.layers.rms && data.layers.rms.data) wfOpts.rms = data.layers.rms.data;
+                if (data.layers.vad && data.layers.vad.data) wfOpts.vad = data.layers.vad.data;
+                if (data.layers.onsets && data.layers.onsets.data) {
+                    wfOpts.onsets = Array.isArray(data.layers.onsets.data) ? data.layers.onsets.data : [];
+                }
+            }
+            var player = window.VoxWaveform.create(wfContainer, wfOpts);
+            state.cache['_wf_' + data.id] = player;
+        }
+
+        // Bind annotation toggles
+        var toggles = td.querySelectorAll('.expand-anno-toggle');
+        for (var i = 0; i < toggles.length; i++) {
+            (function(btn) {
+                btn.addEventListener('click', function() {
+                    var key = btn.getAttribute('data-anno');
+                    var content = td.querySelector('[data-anno-content="' + key + '"]');
+                    if (content) {
+                        var open = content.classList.toggle('open');
+                        btn.textContent = (open ? '\u25bc ' : '\u25b6 ') + btn.textContent.substring(2);
+                    }
+                });
+            })(toggles[i]);
+        }
+
+        // Bind analyze
+        var analyzeBtn = td.querySelector('.expand-analyze-btn');
+        if (analyzeBtn) {
+            analyzeBtn.addEventListener('click', function() {
+                var voxId = data.id || expandRow.getAttribute('data-expand-id');
+                if (!voxId) { analyzeBtn.textContent = 'no id'; return; }
+                analyzeBtn.textContent = 'analyzing...';
+                analyzeBtn.disabled = true;
+                fetch(API + '/db/' + voxId + '/analyze', { method: 'POST' })
+                    .then(function(r) { return r.json(); })
+                    .then(function(result) {
+                        analyzeBtn.textContent = 'Analyze';
+                        analyzeBtn.disabled = false;
+                        if (result.ok) {
+                            // Invalidate cache and re-expand
+                            var vid = data.id || expandRow.getAttribute('data-expand-id');
+                            delete state.cache[vid];
+                            var prevWf = state.cache['_wf_' + vid];
+                            if (prevWf && prevWf.destroy) prevWf.destroy();
+                            delete state.cache['_wf_' + vid];
+                            state.expandedId = null;
+                            var dataRow = logBody.querySelector('tr[data-vox-id="' + vid + '"]');
+                            if (dataRow) {
+                                toggleExpand(vid, dataRow, expandRow);
+                            }
+                        }
+                    })
+                    .catch(function() {
+                        analyzeBtn.textContent = 'Analyze';
+                        analyzeBtn.disabled = false;
+                    });
+            });
+        }
+
+        // Bind Link to Tut
+        var linkTutBtn = td.querySelector('.expand-link-tut-btn');
+        if (linkTutBtn) {
+            linkTutBtn.addEventListener('click', function() {
+                var label = (data.source || '').substring(0, 60);
+                if ((data.source || '').length > 60) label += '...';
+                var voice = data.voice || (data.voices && data.voices[0]) || '';
+                var provider = data.provider || '';
+                var block = {
+                    type: 'audio-player',
+                    voxId: String(data.id),
+                    label: label,
+                    voice: (provider && voice) ? provider + ':' + voice : voice || provider,
+                    codec: 'opus',
+                    sourceHash: (data.source_hash || '').substring(0, 10)
+                };
+                navigator.clipboard.writeText(JSON.stringify(block, null, 2)).then(function() {
+                    linkTutBtn.textContent = 'Copied!';
+                    setTimeout(function() { linkTutBtn.textContent = 'Link to Tut'; }, 1500);
+                }).catch(function() {
+                    linkTutBtn.textContent = 'Copy failed';
+                    setTimeout(function() { linkTutBtn.textContent = 'Link to Tut'; }, 1500);
+                });
+            });
+        }
+
+        // Bind delete
+        var deleteBtn = td.querySelector('.expand-delete-btn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', function() {
+                fetch(API + '/db/' + data.id, { method: 'DELETE' })
+                    .then(function(r) { return r.json(); })
+                    .then(function(result) {
+                        if (result.ok) {
+                            delete state.cache[data.id];
+                            state.expandedId = null;
+                            loadDb();
+                        }
+                    })
+                    .catch(function() {});
+            });
+        }
+    }
+
+    // ----------------------------------------------------------------
     // Vox log
     // ----------------------------------------------------------------
 
@@ -260,21 +545,38 @@
 
         for (var i = 0; i < filtered.length; i++) {
             var vox = filtered[i];
-            var id = vox.id || vox.fragmentId;
+            var id = vox.id || vox.doc_id || vox.fragmentId;
+            var hasAudio = !!(id && vox.voices && vox.voices.length > 0) || !!(id && vox.storagePath) || !!(id && vox.duration);
+
+            // Data row
             var tr = document.createElement('tr');
-            tr.setAttribute('data-vox-id', id);
-            if (id === state.selectedId) tr.classList.add('selected');
+            if (id) tr.setAttribute('data-vox-id', id);
+            if (id === state.expandedId) tr.classList.add('expanded');
 
             var time = vox.created ? new Date(vox.created).toLocaleTimeString('en-US', { hour12: false }) : '-';
             var dur = vox.duration ? vox.duration.toFixed(1) : '-';
             var rtf = vox.rtf ? vox.rtf.toFixed(1) : '-';
             var cost = vox.cost ? '$' + vox.cost.toFixed(4) : '$0';
-            var voice = vox.voice || '-';
+            var voice = vox.voice || (vox.voices && vox.voices[0]) || '-';
             if (voice.length > 12) voice = voice.substring(0, 11) + '..';
             var shortId = id ? id.slice(-6) : '-';
 
+            var chevron = id ? (id === state.expandedId ? '\u25bc' : '\u25b6') : '';
+            var firstCell;
+            if (id && hasAudio) {
+                firstCell = '<td class="dual-btn-cell">' +
+                    '<button class="play-btn row-play" data-play-id="' + id + '" title="Play audio">&#9654;</button>' +
+                    '<button class="chevron-btn" data-fid="' + id + '">' + chevron + '</button></td>';
+            } else if (id) {
+                firstCell = '<td class="dual-btn-cell">' +
+                    '<button class="play-btn ghost" title="No audio">&#9654;</button>' +
+                    '<button class="chevron-btn" data-fid="' + id + '">' + chevron + '</button></td>';
+            } else {
+                firstCell = '<td class="dual-btn-cell"><button class="play-btn ghost" title="No audio">&#9654;</button></td>';
+            }
+
             tr.innerHTML =
-                '<td><button class="play-btn" data-fid="' + id + '" title="Play">&#9654;</button></td>' +
+                firstCell +
                 '<td>' + time + '</td>' +
                 '<td>' + shortId + '</td>' +
                 '<td>' + (vox.provider || '-') + '</td>' +
@@ -283,28 +585,39 @@
                 '<td>' + rtf + '</td>' +
                 '<td>' + cost + '</td>';
 
-            // Click row -> show detail
-            (function(vid) {
-                tr.addEventListener('click', function(e) {
-                    if (e.target.classList.contains('play-btn')) return;
-                    showDetail(vid);
-                });
-            })(id);
-
             logBody.appendChild(tr);
-        }
 
-        // Bind play buttons
-        var playBtns = logBody.querySelectorAll('.play-btn');
-        for (var j = 0; j < playBtns.length; j++) {
-            (function(btn) {
-                btn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    var fid = btn.getAttribute('data-fid');
-                    sharedAudio.src = API + '/db/' + fid + '/audio';
-                    sharedAudio.play();
-                });
-            })(playBtns[j]);
+            // Expand row (hidden by default)
+            if (id) {
+                var expandTr = document.createElement('tr');
+                expandTr.className = 'expand-row';
+                if (id === state.expandedId) expandTr.classList.add('open');
+                expandTr.setAttribute('data-expand-id', id);
+                expandTr.innerHTML = '<td colspan="8"></td>';
+                logBody.appendChild(expandTr);
+
+                // Bind click
+                (function(vid, dataRow, expRow) {
+                    dataRow.addEventListener('click', function(e) {
+                        if (e.target.classList.contains('play-btn') || e.target.classList.contains('row-play')) return;
+                        toggleExpand(vid, dataRow, expRow);
+                    });
+                    // Bind row play button
+                    var rowPlayBtn = dataRow.querySelector('.row-play');
+                    if (rowPlayBtn) {
+                        rowPlayBtn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            sharedAudio.src = API + '/db/' + vid + '/audio';
+                            sharedAudio.play();
+                        });
+                    }
+                })(id, tr, expandTr);
+
+                // If this was the expanded one, re-populate from cache
+                if (id === state.expandedId && state.cache[id]) {
+                    populateExpandRow(expandTr, state.cache[id]);
+                }
+            }
         }
     }
 
@@ -358,80 +671,6 @@
             clearInterval(state.refreshInterval);
             state.refreshInterval = null;
         }
-    });
-
-    // ----------------------------------------------------------------
-    // Detail panel
-    // ----------------------------------------------------------------
-
-    function showDetail(id) {
-        state.selectedId = id;
-        detailPanel.classList.remove('hidden');
-        detailId.textContent = id;
-        onsetsRow.style.display = 'none';
-
-        // Highlight selected row
-        var rows = logBody.querySelectorAll('tr');
-        for (var i = 0; i < rows.length; i++) {
-            rows[i].classList.toggle('selected', rows[i].getAttribute('data-vox-id') === id);
-        }
-
-        fetch(API + '/db/' + id).then(function(r) { return r.json(); }).then(function(data) {
-            detailSource.textContent = data.source || '-';
-            detailAudio.src = API + '/db/' + id + '/audio';
-            detailProvider.textContent = data.provider || '-';
-            detailVoice.textContent = data.voice || '-';
-            detailDuration.textContent = data.duration ? data.duration.toFixed(1) + 's' : '-';
-            detailEncode.textContent = data.encodeTime ? data.encodeTime.toFixed(1) + 's' : '-';
-            detailRtf.textContent = data.rtf ? data.rtf.toFixed(1) : '-';
-            detailCost.textContent = data.cost !== undefined ? '$' + data.cost.toFixed(4) : '$0';
-
-            if (data.onsets && data.onsets.length > 0) {
-                onsetsRow.style.display = '';
-                detailOnsets.textContent = data.onsets.map(function(v) { return v.toFixed(2); }).join(' ');
-            }
-        }).catch(function() {
-            detailSource.textContent = 'Error loading vox';
-        });
-    }
-
-    // Analyze button
-    analyzeBtn.addEventListener('click', function() {
-        if (!state.selectedId) return;
-        analyzeBtn.textContent = 'analyzing...';
-        analyzeBtn.disabled = true;
-
-        fetch(API + '/db/' + state.selectedId + '/analyze', { method: 'POST' })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                analyzeBtn.textContent = 'Analyze';
-                analyzeBtn.disabled = false;
-                if (data.ok && data.onsets) {
-                    onsetsRow.style.display = '';
-                    detailOnsets.textContent = data.onsets.map(function(v) {
-                        return (typeof v === 'number') ? v.toFixed(2) : v;
-                    }).join(' ');
-                }
-            })
-            .catch(function() {
-                analyzeBtn.textContent = 'Analyze';
-                analyzeBtn.disabled = false;
-            });
-    });
-
-    // Delete button
-    deleteVoxBtn.addEventListener('click', function() {
-        if (!state.selectedId) return;
-        fetch(API + '/db/' + state.selectedId, { method: 'DELETE' })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.ok) {
-                    state.selectedId = null;
-                    detailPanel.classList.add('hidden');
-                    loadDb();
-                }
-            })
-            .catch(function() {});
     });
 
     // ----------------------------------------------------------------

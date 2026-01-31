@@ -186,6 +186,11 @@
         .log-table tr:hover td { background: var(--paper-mid); }
         .log-table tr.selected td { background: var(--paper-dark); }
         .log-table .error { color: var(--one); }
+        .log-table .dual-btn-cell {
+            white-space: nowrap;
+            padding-left: 4px !important;
+            padding-right: 2px !important;
+        }
         .log-table .play-btn {
             background: none;
             border: none;
@@ -195,78 +200,157 @@
             padding: 0 2px;
         }
         .log-table .play-btn:hover { color: var(--four); }
+        .log-table .play-btn.ghost {
+            color: var(--border);
+            cursor: default;
+            opacity: 0.4;
+        }
+        .log-table .play-btn.ghost:hover { color: var(--border); }
 
-        /* Detail panel (right) */
-        .detail-panel {
-            width: 240px;
-            border-left: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            flex-shrink: 0;
+        /* Expand row (inline detail) */
+        .expand-row { display: none; }
+        .expand-row.open { display: table-row; }
+        .expand-row td {
+            padding: 8px 12px !important;
+            padding-left: 16px !important;
+            background: var(--paper-dark);
+            border-bottom: 2px solid var(--border);
+            border-left: 3px solid var(--four);
         }
-        .detail-panel.hidden { display: none; }
-        .detail-header {
-            padding: 4px 10px;
-            border-bottom: 1px solid var(--border);
-            background: var(--paper-mid);
-            font-size: 9px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--ink-muted);
+        .expand-content {
+            max-width: 600px;
         }
-        .detail-body {
-            flex: 1;
-            overflow: auto;
-            padding: 8px 10px;
+        .expand-section {
+            margin-bottom: 10px;
         }
-        .detail-row {
-            margin-bottom: 8px;
-        }
-        .detail-label {
+        .expand-section-title {
             font-size: 8px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             color: var(--ink-muted);
-            margin-bottom: 2px;
+            margin-bottom: 4px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 2px;
         }
-        .detail-value {
+        .expand-source {
             font-size: 10px;
             color: var(--ink);
-            word-break: break-word;
-        }
-        .detail-source {
-            font-size: 10px;
-            color: var(--ink);
-            max-height: 60px;
-            overflow: auto;
-            background: var(--paper-dark);
+            background: var(--paper-mid);
             padding: 4px 6px;
             border-radius: 3px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 80px;
+            overflow: auto;
         }
-        .detail-audio {
-            width: 100%;
-            height: 28px;
-        }
-        .detail-meta-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4px;
-        }
-        .detail-actions {
-            display: flex;
-            gap: 4px;
-            margin-top: 8px;
-        }
-        .detail-onsets {
+        .expand-source-stats {
             font-size: 9px;
             color: var(--ink-muted);
-            max-height: 40px;
-            overflow: auto;
+            margin-top: 2px;
+        }
+        .expand-audio-player {
+            width: 100%;
+            height: 28px;
+            margin-bottom: 4px;
+        }
+        .vox-waveform-container {
+            width: 100%;
+            min-height: 80px;
+            margin-bottom: 4px;
+        }
+        .vox-waveform-widget {
+            width: 100%;
+        }
+        .vox-waveform-canvas {
+            width: 100%;
+            height: 80px;
+            cursor: crosshair;
+            display: block;
+        }
+        .vox-waveform-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 2px;
+        }
+        .vox-wf-play {
+            font-size: 11px;
+            padding: 1px 8px;
+        }
+        .vox-wf-time {
+            font-size: 9px;
+            color: var(--ink-muted);
             font-family: monospace;
         }
+        .expand-audio-meta {
+            font-size: 9px;
+            color: var(--ink-muted);
+            font-family: monospace;
+        }
+        .expand-files-table {
+            width: 100%;
+            font-size: 9px;
+            border-collapse: collapse;
+        }
+        .expand-files-table td {
+            padding: 1px 8px 1px 0 !important;
+            border: none !important;
+            background: none !important;
+            color: var(--ink-muted);
+            white-space: nowrap;
+        }
+        .expand-files-table td:first-child { color: var(--ink); }
+        .expand-files-table td:nth-child(2) { text-align: right; }
+        .expand-annotations {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .expand-anno-toggle {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--ink-muted);
+            padding: 1px 6px;
+            font-family: inherit;
+            font-size: 9px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .expand-anno-toggle:hover { color: var(--ink); border-color: var(--four); }
+        .expand-anno-content {
+            display: none;
+            font-size: 9px;
+            color: var(--ink-muted);
+            font-family: monospace;
+            max-height: 80px;
+            overflow: auto;
+            background: var(--paper-mid);
+            padding: 4px 6px;
+            border-radius: 3px;
+            margin-top: 4px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .expand-anno-content.open { display: block; }
+        .expand-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 6px;
+        }
+        .log-table tr.expanded > td { background: var(--paper-mid); border-left: 3px solid var(--four); }
+        .expand-link-tut-btn { color: var(--three) !important; border-color: var(--three) !important; }
+        .expand-link-tut-btn:hover { color: var(--four) !important; border-color: var(--four) !important; }
+        .log-table .chevron-btn {
+            background: none;
+            border: none;
+            color: var(--ink-muted);
+            cursor: pointer;
+            font-size: 9px;
+            padding: 0 2px;
+            width: 16px;
+        }
+        .log-table .chevron-btn:hover { color: var(--ink); }
 
         /* Stats bar */
         .stats-bar {
@@ -314,9 +398,8 @@
         <div class="test-metrics" id="test-metrics"></div>
     </div>
 
-    <!-- Log + Detail split -->
+    <!-- Log section -->
     <div class="log-detail-split">
-        <!-- Fragment Log (left) -->
         <div class="log-section">
             <div class="log-header">
                 <span class="section-title">Vox Log</span>
@@ -346,39 +429,6 @@
                 </table>
             </div>
         </div>
-
-        <!-- Detail panel (right) -->
-        <div class="detail-panel hidden" id="detail-panel">
-            <div class="detail-header">Detail: <span id="detail-id">-</span></div>
-            <div class="detail-body">
-                <div class="detail-row">
-                    <div class="detail-label">Source</div>
-                    <div class="detail-source" id="detail-source">-</div>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-label">Audio</div>
-                    <audio id="detail-audio" class="detail-audio" controls></audio>
-                </div>
-                <div class="detail-row">
-                    <div class="detail-meta-grid">
-                        <div><div class="detail-label">Provider</div><div class="detail-value" id="detail-provider">-</div></div>
-                        <div><div class="detail-label">Voice</div><div class="detail-value" id="detail-voice">-</div></div>
-                        <div><div class="detail-label">Duration</div><div class="detail-value" id="detail-duration">-</div></div>
-                        <div><div class="detail-label">Encode</div><div class="detail-value" id="detail-encode">-</div></div>
-                        <div><div class="detail-label">RTF</div><div class="detail-value" id="detail-rtf">-</div></div>
-                        <div><div class="detail-label">Cost</div><div class="detail-value" id="detail-cost">-</div></div>
-                    </div>
-                </div>
-                <div class="detail-actions">
-                    <button class="toolbar-btn" id="analyze-btn">Analyze</button>
-                    <button class="toolbar-btn" id="delete-vox-btn">Delete</button>
-                </div>
-                <div class="detail-row" id="onsets-row" style="display:none; margin-top:8px;">
-                    <div class="detail-label">Onsets</div>
-                    <div class="detail-onsets" id="detail-onsets"></div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Stats bar -->
@@ -387,6 +437,7 @@
     <!-- Shared audio element for play buttons -->
     <audio id="shared-audio"></audio>
 
+    <script src="js/vox-waveform.js"></script>
     <script src="js/vox.js"></script>
 </body>
 </html>
