@@ -25,6 +25,39 @@ router.get('/suites', (req, res) => {
     }
 });
 
+// POST /api/qa/test/run — run a single test by function name
+router.post('/test/run', (req, res) => {
+    const { suite, function: funcName } = req.body || {};
+    if (!suite || !funcName) {
+        return res.status(400).json({ error: 'Missing suite or function parameter' });
+    }
+    if (!/^[a-z0-9_]+$/.test(funcName)) {
+        return res.status(400).json({ error: 'Invalid function name' });
+    }
+    const file = `test-${suite}.sh`;
+    const scriptPath = path.join(TESTS_DIR, file);
+    const resolved = path.resolve(scriptPath);
+    if (!resolved.startsWith(path.resolve(TESTS_DIR)) || !fs.existsSync(resolved)) {
+        return res.status(404).json({ error: `Suite not found: ${suite}` });
+    }
+    try {
+        const result = execSync(
+            `source ~/tetra/tetra.sh 2>/dev/null; TETRA_TEST_JSON=1 TETRA_TEST_SINGLE=${funcName} bash "${resolved}"`,
+            {
+                shell: '/opt/homebrew/bin/bash',
+                timeout: 60000,
+                env: { ...process.env, TETRA_TEST_JSON: '1', TETRA_TEST_SINGLE: funcName }
+            }
+        );
+        res.json(JSON.parse(result.toString().trim()));
+    } catch (e) {
+        if (e.stdout) {
+            try { res.json(JSON.parse(e.stdout.toString().trim())); return; } catch (_) {}
+        }
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // GET /api/qa/suites/:name/tests — list tests in a suite without running
 router.get('/suites/:name/tests', (req, res) => {
     const { name } = req.params;

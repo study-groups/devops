@@ -90,6 +90,21 @@
         .test-item:hover { background: var(--paper-light); }
         .test-item.active { background: var(--four); }
 
+        .btn-run-single {
+            flex-shrink: 0;
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 9px;
+            padding: 2px 5px;
+            color: var(--ink-muted);
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+        .test-item:hover .btn-run-single { opacity: 1; }
+        .btn-run-single:hover { color: var(--two); border-color: var(--two); }
+
         .test-item .status-icon {
             width: 10px;
             height: 10px;
@@ -174,6 +189,94 @@
             text-align: center;
             padding: 40px;
         }
+
+        .info-btn {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--paper-mid);
+            font-size: 11px;
+            font-weight: 700;
+            font-style: italic;
+            font-family: Georgia, serif;
+            cursor: pointer;
+            color: var(--ink-muted);
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .info-btn:hover { color: var(--four); border-color: var(--four); }
+
+        .info-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .info-panel {
+            background: var(--paper);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            width: 90%;
+            max-width: 640px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .info-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+
+        .info-body {
+            padding: 16px;
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.7;
+        }
+
+        .info-body h2 {
+            font-size: 13px;
+            margin: 18px 0 8px 0;
+            color: var(--four);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .info-body h2:first-child { margin-top: 0; }
+
+        .info-body pre {
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            padding: 10px 12px;
+            overflow-x: auto;
+            font-size: 11px;
+            line-height: 1.5;
+        }
+
+        .info-body code {
+            background: var(--paper-mid);
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-size: 11px;
+        }
+
+        .info-body ul { padding-left: 20px; margin: 6px 0; }
+        .info-body li { margin: 4px 0; }
     </style>
 </head>
 <body>
@@ -185,6 +288,17 @@
         <button class="btn stop" id="stop-btn" data-action="stop" disabled>Stop</button>
         <span class="spacer"></span>
         <span class="status-badge idle" id="status-badge">Idle</span>
+        <button class="btn info-btn" id="info-btn" data-action="info" title="Test framework info">i</button>
+    </div>
+
+    <div class="info-overlay" id="info-overlay" style="display:none">
+        <div class="info-panel">
+            <div class="info-header">
+                <span>Tetra Test Framework</span>
+                <button class="btn" id="info-close" data-action="info-close">&times;</button>
+            </div>
+            <div class="info-body" id="info-body"></div>
+        </div>
     </div>
 
     <div class="content">

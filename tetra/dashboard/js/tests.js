@@ -43,6 +43,7 @@ function renderTests() {
             <div class="status-icon ${t.status}"></div>
             <div class="name">${t.name}</div>
             <div class="duration">${t.duration ? t.duration + 'ms' : ''}</div>
+            <button class="btn-run-single" data-action="run-single" data-id="${t.id}" title="Run this test">\u25b6</button>
         </div>
     `).join('');
 }
@@ -83,6 +84,52 @@ async function selectTest(id) {
             log('Could not load source: ' + e.message, 'error');
         }
     }
+}
+
+async function runSingleTest(id) {
+    const test = state.tests.find(t => t.id === id);
+    if (!test || !test.func || !test.suite) return;
+
+    state.currentTest = id;
+    test.status = 'running';
+    renderTests();
+    clearOutput();
+    log(`Running: ${test.name}...`, 'info');
+
+    try {
+        const resp = await fetch('/api/qa/test/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ suite: test.suite, function: test.func })
+        });
+        const data = await resp.json();
+
+        if (data.error) {
+            test.status = 'failed';
+            log('Error: ' + data.error, 'error');
+        } else if (data.tests && data.tests.length > 0) {
+            const result = data.tests[0];
+            test.status = result.status === 'pass' ? 'passed' : 'failed';
+            test.duration = result.duration_ms;
+            const icon = test.status === 'passed' ? '\u2713' : '\u2717';
+            const type = test.status === 'passed' ? 'success' : 'error';
+            log('');
+            log(`  ${icon} ${test.name} (${test.duration}ms)`, type);
+        } else {
+            test.status = 'failed';
+            log('No result returned', 'error');
+        }
+    } catch (e) {
+        test.status = 'failed';
+        log('Request failed: ' + e.message, 'error');
+    }
+
+    // Recalculate stats from current test states
+    state.stats.passed = state.tests.filter(t => t.status === 'passed').length;
+    state.stats.failed = state.tests.filter(t => t.status === 'failed').length;
+    state.stats.pending = state.tests.filter(t => t.status === 'pending').length;
+    updateStats();
+    renderTests();
 }
 
 function populateFromResponse(data) {
@@ -268,6 +315,137 @@ function stopTests() {
     log('Tests stopped by user', 'muted');
 }
 
+function showInfo() {
+    const overlay = document.getElementById('info-overlay');
+    const body = document.getElementById('info-body');
+    body.innerHTML = `
+<h2>Architecture</h2>
+<p>The CLI is the source of truth. This web panel is a window into it.</p>
+<pre>
+test-framework.sh (TETRA_TEST_JSON=1)
+       | JSON stdout
+server/api/qa.js (execSync -> parse)
+       | REST response
+tests.iframe.html (render live results)
+</pre>
+<p>When you select a suite, the dashboard reads test names directly from
+the <code>run_test</code> calls in the shell script. When you click
+<strong>Run All</strong> or the per-test <strong>\u25b6</strong> button,
+the server executes the bash script with <code>TETRA_TEST_JSON=1</code>
+and returns structured JSON. No separate test runner &mdash; same code
+the CLI runs.</p>
+
+<h2>Adding a New Test Suite</h2>
+<p>Create a file in <code>tests/startup/</code> named
+<code>test-&lt;name&gt;.sh</code>:</p>
+<pre>
+#!/usr/bin/env bash
+set +e
+source "$(dirname "$0")/test-framework.sh"
+
+startup_test_setup "My Module Tests"
+
+# Source the module under test
+source "$TETRA_SRC/bash/mymod/mymod.sh"
+
+# Define test functions
+test_my_feature_works() {
+    local result
+    result=$(my_function "input")
+    [[ "$result" == "expected" ]]
+}
+
+test_my_edge_case() {
+    ! my_function ""  # expect failure on empty
+}
+
+# Register tests
+run_test "my_feature produces expected output" test_my_feature_works
+run_test "empty input fails gracefully" test_my_edge_case
+
+startup_test_results "My Module Results"
+exit $TESTS_FAILED
+</pre>
+<p>That's it. The suite appears automatically in the dropdown and in
+<code>run-all.sh</code> aggregation.</p>
+
+<h2>To include in run-all.sh</h2>
+<p>Add your suite to the <code>SUITES</code> array in
+<code>tests/startup/run-all.sh</code>:</p>
+<pre>
+SUITES=(
+    ...existing entries...
+    "My Module:test-mymod.sh"
+)
+</pre>
+
+<h2>Framework Harnesses</h2>
+<p>The test framework (<code>test-framework.sh</code>) provides:</p>
+<ul>
+    <li><code>startup_test_setup "Suite Name"</code> &mdash; creates an
+    isolated <code>TETRA_DIR</code> in <code>/tmp</code>, sources
+    <code>org.sh</code>, sets cleanup trap</li>
+    <li><code>run_test "description" function_name</code> &mdash; runs
+    the function, captures pass/fail and <code>$EPOCHREALTIME</code>
+    timing</li>
+    <li><code>startup_test_results "Label"</code> &mdash; prints summary
+    (ANSI) or emits JSON blob when <code>TETRA_TEST_JSON=1</code></li>
+    <li><code>_create_test_org "name"</code> &mdash; scaffolds a minimal
+    org with section files for integration tests</li>
+    <li><code>log_info</code>, <code>log_pass</code>,
+    <code>log_fail</code>, <code>log_warn</code>,
+    <code>log_section</code> &mdash; color output, auto-suppressed in
+    JSON mode</li>
+</ul>
+
+<h2>Environment Variables</h2>
+<ul>
+    <li><code>TETRA_TEST_JSON=1</code> &mdash; JSON output mode (no ANSI)</li>
+    <li><code>TETRA_TEST_SINGLE=func_name</code> &mdash; run only the
+    named test function, skip all others</li>
+    <li><code>STARTUP_TEST_CLEANUP=false</code> &mdash; preserve
+    <code>/tmp/tetra-test-*</code> dirs for debugging</li>
+</ul>
+
+<h2>API Endpoints</h2>
+<ul>
+    <li><code>GET /api/qa/suites</code> &mdash; list available suites</li>
+    <li><code>GET /api/qa/suites/:name/tests</code> &mdash; list tests
+    without running (parses <code>run_test</code> calls)</li>
+    <li><code>POST /api/qa/suites/run</code> &mdash; execute suite(s),
+    body: <code>{"suite":"name"}</code> or <code>{"suite":"all"}</code></li>
+    <li><code>POST /api/qa/test/run</code> &mdash; run single test,
+    body: <code>{"suite":"name","function":"func"}</code></li>
+    <li><code>GET /api/qa/test/source</code> &mdash; extract function
+    source from test file</li>
+    <li><code>GET /api/qa/guide/:topic</code> &mdash; render a tetra
+    guide topic</li>
+    <li><code>GET /api/qa/status</code> &mdash; QA index status</li>
+</ul>
+
+<h2>CLI Equivalents</h2>
+<pre>
+# Run one suite
+TETRA_TEST_JSON=1 bash tests/startup/test-org-build.sh
+
+# Run all suites
+TETRA_TEST_JSON=1 bash tests/startup/run-all.sh
+
+# Run single test
+TETRA_TEST_JSON=1 TETRA_TEST_SINGLE=test_org_build_header \\
+  bash tests/startup/test-org-build.sh
+
+# Normal ANSI output (no env vars)
+bash tests/startup/run-all.sh
+</pre>
+`;
+    overlay.style.display = 'flex';
+}
+
+function hideInfo() {
+    document.getElementById('info-overlay').style.display = 'none';
+}
+
 function init() {
     els = {
         suiteSelect: document.getElementById('suite-select'),
@@ -284,9 +462,16 @@ function init() {
     };
 
     Terrain.Iframe.on('select-test', (el, data) => selectTest(data.id));
+    Terrain.Iframe.on('run-single', (el, data) => runSingleTest(data.id));
     Terrain.Iframe.on('run', () => runTests());
     Terrain.Iframe.on('stop', () => stopTests());
     Terrain.Iframe.on('clear', () => clearOutput());
+    Terrain.Iframe.on('info', () => showInfo());
+    Terrain.Iframe.on('info-close', () => hideInfo());
+
+    document.getElementById('info-overlay').addEventListener('click', (e) => {
+        if (e.target.id === 'info-overlay') hideInfo();
+    });
 
     els.suiteSelect.addEventListener('change', async () => {
         const suite = els.suiteSelect.value;

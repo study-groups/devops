@@ -42,6 +42,11 @@ run_test() {
     local test_name="$1"
     local test_function="$2"
 
+    # Single-test filter: skip non-matching tests
+    if [[ -n "${TETRA_TEST_SINGLE:-}" && "$test_function" != "$TETRA_TEST_SINGLE" ]]; then
+        return 0
+    fi
+
     ((TESTS_RUN++))
 
     local t_start=$EPOCHREALTIME
