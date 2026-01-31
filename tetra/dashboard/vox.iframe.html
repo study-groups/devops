@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Vox</title>
+    <link rel="stylesheet" href="shared.css">
+    <script src="js/terrain-iframe.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-size: 11px;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            min-height: 28px;
+        }
+        .toolbar select {
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            font-family: inherit;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .toolbar-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--ink-muted);
+            padding: 2px 8px;
+            font-family: inherit;
+            font-size: 9px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .toolbar-btn:hover { color: var(--ink); border-color: var(--four); }
+        .toolbar-btn:disabled { opacity: 0.4; cursor: default; }
+        .toolbar-btn.primary { border-color: var(--two); color: var(--two); }
+        .toolbar-spacer { flex: 1; }
+        .toolbar-label { font-size: 9px; color: var(--ink-muted); }
+        .toolbar-sep { width: 1px; height: 16px; background: var(--border); margin: 0 4px; }
+
+        /* Storage info line */
+        .storage-line {
+            padding: 2px 10px;
+            font-size: 9px;
+            color: var(--ink-muted);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        /* Generate section */
+        .test-section {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .test-section .section-title {
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--ink-muted);
+            margin-bottom: 6px;
+        }
+        .test-row {
+            display: flex;
+            gap: 6px;
+            align-items: flex-start;
+        }
+        .test-row textarea {
+            flex: 1;
+            background: var(--paper-dark);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            font-family: inherit;
+            font-size: 10px;
+            padding: 4px 6px;
+            border-radius: 3px;
+            resize: vertical;
+            min-height: 36px;
+            max-height: 80px;
+        }
+        .test-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .test-metrics {
+            font-size: 9px;
+            color: var(--ink-muted);
+            margin-top: 4px;
+            min-height: 14px;
+        }
+
+        /* Log + Detail split */
+        .log-detail-split {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Log section (left) */
+        .log-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-width: 0;
+        }
+        .log-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-bottom: 1px solid var(--border);
+            background: var(--paper-mid);
+            flex-shrink: 0;
+        }
+        .log-header .section-title {
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--ink-muted);
+        }
+        .filter-btn {
+            background: none;
+            border: 1px solid transparent;
+            color: var(--ink-muted);
+            padding: 1px 6px;
+            font-family: inherit;
+            font-size: 9px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .filter-btn:hover { color: var(--ink); }
+        .filter-btn.active { border-color: var(--four); color: var(--four); }
+        .auto-refresh {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 9px;
+            color: var(--ink-muted);
+        }
+        .auto-refresh input { width: 12px; height: 12px; }
+
+        .log-scroll {
+            flex: 1;
+            overflow: auto;
+        }
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+        }
+        .log-table th {
+            position: sticky;
+            top: 0;
+            background: var(--paper-mid);
+            text-align: left;
+            padding: 3px 6px;
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--ink-muted);
+            border-bottom: 1px solid var(--border);
+        }
+        .log-table td {
+            padding: 2px 6px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        .log-table tr:hover td { background: var(--paper-mid); }
+        .log-table tr.selected td { background: var(--paper-dark); }
+        .log-table .error { color: var(--one); }
+        .log-table .play-btn {
+            background: none;
+            border: none;
+            color: var(--two);
+            cursor: pointer;
+            font-size: 11px;
+            padding: 0 2px;
+        }
+        .log-table .play-btn:hover { color: var(--four); }
+
+        /* Detail panel (right) */
+        .detail-panel {
+            width: 240px;
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .detail-panel.hidden { display: none; }
+        .detail-header {
+            padding: 4px 10px;
+            border-bottom: 1px solid var(--border);
+            background: var(--paper-mid);
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--ink-muted);
+        }
+        .detail-body {
+            flex: 1;
+            overflow: auto;
+            padding: 8px 10px;
+        }
+        .detail-row {
+            margin-bottom: 8px;
+        }
+        .detail-label {
+            font-size: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--ink-muted);
+            margin-bottom: 2px;
+        }
+        .detail-value {
+            font-size: 10px;
+            color: var(--ink);
+            word-break: break-word;
+        }
+        .detail-source {
+            font-size: 10px;
+            color: var(--ink);
+            max-height: 60px;
+            overflow: auto;
+            background: var(--paper-dark);
+            padding: 4px 6px;
+            border-radius: 3px;
+        }
+        .detail-audio {
+            width: 100%;
+            height: 28px;
+        }
+        .detail-meta-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+        }
+        .detail-actions {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+        }
+        .detail-onsets {
+            font-size: 9px;
+            color: var(--ink-muted);
+            max-height: 40px;
+            overflow: auto;
+            font-family: monospace;
+        }
+
+        /* Stats bar */
+        .stats-bar {
+            flex-shrink: 0;
+            padding: 4px 10px;
+            border-top: 1px solid var(--border);
+            font-size: 9px;
+            color: var(--ink-muted);
+            background: var(--paper-dark);
+        }
+    </style>
+</head>
+<body>
+    <!-- Toolbar: provider/model/voice selection -->
+    <div class="toolbar">
+        <span class="toolbar-label">Vox</span>
+        <div class="toolbar-sep"></div>
+        <select id="vox-provider">
+            <option value="openai">openai</option>
+            <option value="coqui" selected>coqui</option>
+        </select>
+        <select id="vox-model">
+            <option value="vits">vits</option>
+        </select>
+        <select id="vox-voice">
+            <option value="">n/a</option>
+        </select>
+        <div class="toolbar-spacer"></div>
+        <button class="toolbar-btn" id="save-default-btn">Save Default</button>
+    </div>
+
+    <!-- Storage info -->
+    <div class="storage-line" id="storage-line">Storage: ~/tetra/vox/db/ (0 voxes)</div>
+
+    <!-- Generate -->
+    <div class="test-section">
+        <div class="section-title">Generate</div>
+        <div class="test-row">
+            <textarea id="test-text" placeholder="Type text to generate vox...">The quick brown fox jumps over the lazy dog.</textarea>
+            <div class="test-actions">
+                <button class="toolbar-btn primary" id="test-btn">Generate</button>
+                <button class="toolbar-btn" id="play-btn" disabled>Play</button>
+            </div>
+        </div>
+        <div class="test-metrics" id="test-metrics"></div>
+    </div>
+
+    <!-- Log + Detail split -->
+    <div class="log-detail-split">
+        <!-- Fragment Log (left) -->
+        <div class="log-section">
+            <div class="log-header">
+                <span class="section-title">Vox Log</span>
+                <button class="filter-btn active" data-filter="">All</button>
+                <button class="filter-btn" data-filter="vox_generate">Gen</button>
+                <button class="filter-btn" data-filter="error">Err</button>
+                <div class="toolbar-spacer"></div>
+                <label class="auto-refresh">
+                    <input type="checkbox" id="auto-refresh"> auto
+                </label>
+            </div>
+            <div class="log-scroll">
+                <table class="log-table">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Time</th>
+                            <th>ID</th>
+                            <th>Provider</th>
+                            <th>Voice</th>
+                            <th>Dur</th>
+                            <th>RTF</th>
+                            <th>Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody id="log-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Detail panel (right) -->
+        <div class="detail-panel hidden" id="detail-panel">
+            <div class="detail-header">Detail: <span id="detail-id">-</span></div>
+            <div class="detail-body">
+                <div class="detail-row">
+                    <div class="detail-label">Source</div>
+                    <div class="detail-source" id="detail-source">-</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Audio</div>
+                    <audio id="detail-audio" class="detail-audio" controls></audio>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-meta-grid">
+                        <div><div class="detail-label">Provider</div><div class="detail-value" id="detail-provider">-</div></div>
+                        <div><div class="detail-label">Voice</div><div class="detail-value" id="detail-voice">-</div></div>
+                        <div><div class="detail-label">Duration</div><div class="detail-value" id="detail-duration">-</div></div>
+                        <div><div class="detail-label">Encode</div><div class="detail-value" id="detail-encode">-</div></div>
+                        <div><div class="detail-label">RTF</div><div class="detail-value" id="detail-rtf">-</div></div>
+                        <div><div class="detail-label">Cost</div><div class="detail-value" id="detail-cost">-</div></div>
+                    </div>
+                </div>
+                <div class="detail-actions">
+                    <button class="toolbar-btn" id="analyze-btn">Analyze</button>
+                    <button class="toolbar-btn" id="delete-vox-btn">Delete</button>
+                </div>
+                <div class="detail-row" id="onsets-row" style="display:none; margin-top:8px;">
+                    <div class="detail-label">Onsets</div>
+                    <div class="detail-onsets" id="detail-onsets"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="stats-bar" id="stats-bar">Total: 0  Audio: 0m 00s  Avg RTF: 0  Cost: $0.0000</div>
+
+    <!-- Shared audio element for play buttons -->
+    <audio id="shared-audio"></audio>
+
+    <script src="js/vox.js"></script>
+</body>
+</html>
