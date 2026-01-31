@@ -1,4 +1,7 @@
 // Caddy Panel - Helpers & Utilities
+// Exports: CONFIG, state, els, apiUrl, formatTime, formatFullTime, formatDuration,
+//          statusClass, formatNumber, setStatus, setEnvBadge, showToast, parseLogEntry,
+//          tabs, registerTab
 
 const CONFIG = {
     refreshInterval: 10000,
@@ -135,4 +138,10 @@ function parseLogEntry(log) {
     }
 
     return { type: 'raw', raw: log.raw || JSON.stringify(log) };
+}
+
+// Tab registry - modules register themselves via registerTab()
+const tabs = {};
+function registerTab(name, { onActivate, onInit }) {
+    tabs[name] = { onActivate, onInit };
 }

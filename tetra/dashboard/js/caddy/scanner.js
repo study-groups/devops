@@ -1,4 +1,5 @@
 // Caddy Panel - Scanner & Attack Detection
+// Exports: SCANNER_PATTERNS, ATTACK_PATTERNS, isScannerRequest, isAttackRequest, groupScannerBursts
 
 const SCANNER_PATTERNS = [
     /^\/wp-/i, /\/xmlrpc\.php/i, /\/wp-login/i, /\/wp-admin/i,

@@ -1,4 +1,5 @@
 // Caddy Panel - Insights & Histogram
+// Exports: calculateInsights, renderHistogram, renderInsights
 
 function calculateInsights(logs) {
     const insights = {

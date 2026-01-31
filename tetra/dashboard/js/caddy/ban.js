@@ -1,4 +1,5 @@
 // Caddy Panel - Ban Actions
+// Exports: banIP, unbanIP, showBanDialog, hideBanDialog, submitBan, getTopOffenders, renderOffenders
 
 async function banIP(ip, jail, duration) {
     if (!ip) return;
@@ -141,3 +142,17 @@ function renderOffenders() {
         });
     });
 }
+
+function initBan() {
+    document.getElementById('btn-ban-ip')?.addEventListener('click', () => showBanDialog(''));
+    document.getElementById('ban-dialog-close')?.addEventListener('click', hideBanDialog);
+    document.getElementById('ban-dialog-submit')?.addEventListener('click', submitBan);
+    document.getElementById('ban-dialog')?.addEventListener('click', (e) => {
+        if (e.target.id === 'ban-dialog') hideBanDialog();
+    });
+}
+
+registerTab('ban', {
+    onActivate: () => { loadBan(); renderOffenders(); },
+    onInit: initBan
+});

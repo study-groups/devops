@@ -1,4 +1,5 @@
 // Caddy Panel - Stats Tab
+// Exports: renderStats, copyStats, renderTopList, groupPathsByPattern, normalizePath
 
 function renderStats(data) {
     if (!data) data = state.lastStatsData;
@@ -159,3 +160,13 @@ function renderTopList(container, items, valueKey, customRender) {
         });
     });
 }
+
+function initStats() {
+    document.getElementById('btn-group-paths')?.addEventListener('click', () => {
+        state.groupPaths = !state.groupPaths;
+        renderStats();
+    });
+    document.getElementById('btn-copy-stats')?.addEventListener('click', copyStats);
+}
+
+registerTab('stats', { onActivate: loadStats, onInit: initStats });

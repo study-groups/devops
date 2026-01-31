@@ -1,4 +1,6 @@
 // Caddy Panel - Logs Tab
+// Exports: loadLogs (via api.js), renderLogs, toggleRaw, toggleDebug, handleLogFilter,
+//          copyLogs, exportJSON, filterAndShowLogs, getFilteredLogs
 
 function getTimeCutoff(filter) {
     const now = Date.now() / 1000;
@@ -269,3 +271,48 @@ function filterAndShowLogs(filterValue) {
     if (filterInput) filterInput.value = filterValue;
     showTab('logs');
 }
+
+function initLogs() {
+    document.getElementById('btn-copy')?.addEventListener('click', copyLogs);
+    document.getElementById('btn-json')?.addEventListener('click', exportJSON);
+    document.getElementById('btn-follow')?.addEventListener('click', toggleFollowMode);
+    document.getElementById('btn-raw')?.addEventListener('click', toggleRaw);
+    document.getElementById('btn-debug')?.addEventListener('click', toggleDebug);
+    document.getElementById('log-filter')?.addEventListener('input', handleLogFilter);
+
+    document.querySelectorAll('.time-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            state.timeFilter = btn.dataset.time;
+            document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderLogs();
+        });
+    });
+
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const preset = btn.dataset.preset;
+            state.logFilter = preset;
+            const filterInput = document.getElementById('log-filter');
+            if (filterInput) filterInput.value = preset;
+
+            document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderLogs();
+        });
+    });
+
+    document.getElementById('chk-hide-internal')?.addEventListener('change', (e) => {
+        state.hideInternal = e.target.checked;
+        renderLogs();
+    });
+
+    // Log detail popover
+    document.getElementById('log-detail-close')?.addEventListener('click', hideLogDetail);
+    document.getElementById('log-detail-copy')?.addEventListener('click', copyLogDetail);
+    document.getElementById('log-detail')?.addEventListener('click', (e) => {
+        if (e.target.id === 'log-detail') hideLogDetail();
+    });
+}
+
+registerTab('logs', { onActivate: loadLogs, onInit: initLogs });

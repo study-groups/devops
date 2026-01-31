@@ -1,4 +1,5 @@
 // Caddy Panel - Config Tab
+// Exports: loadConfig, loadConfigTree, renderEnvLifecycle, highlightCaddyfile, deployConfig, copyConfig
 
 async function loadConfig() {
     const pre = document.getElementById('resolved-config');
@@ -166,3 +167,13 @@ function copyConfig() {
         showToast('Copy failed');
     });
 }
+
+function initConfig() {
+    document.getElementById('btn-deploy')?.addEventListener('click', deployConfig);
+    document.getElementById('btn-copy-config')?.addEventListener('click', copyConfig);
+}
+
+registerTab('config', {
+    onActivate: () => { loadConfig(); loadConfigTree(); renderEnvLifecycle(); },
+    onInit: initConfig
+});

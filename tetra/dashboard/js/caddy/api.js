@@ -1,4 +1,5 @@
 // Caddy Panel - API calls & data loading
+// Exports: loadStatus, loadRoutes, loadLogs, loadStats, loadBan, loadLogFileInfo, loadAll
 
 async function loadStatus() {
     setStatus('loading');
@@ -181,3 +182,5 @@ function loadAll() {
     loadStatus();
     loadRoutes();
 }
+
+registerTab('help', { onActivate: loadLogFileInfo });

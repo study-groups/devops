@@ -1,4 +1,5 @@
 // Caddy Panel - Init & Tab Management
+// Exports: showTab, handleMessage, init
 
 function showTab(name) {
     document.querySelectorAll('.tab').forEach(t => {
@@ -12,11 +13,7 @@ function showTab(name) {
     state.activeTab = name;
     localStorage.setItem(CONFIG.storageKey, name);
 
-    if (name === 'logs') loadLogs();
-    if (name === 'stats') loadStats();
-    if (name === 'ban') { loadBan(); renderOffenders(); }
-    if (name === 'config') { loadConfig(); loadConfigTree(); renderEnvLifecycle(); }
-    if (name === 'help') loadLogFileInfo();
+    tabs[name]?.onActivate?.();
 }
 
 function handleMessage(msg) {
@@ -71,72 +68,13 @@ function init() {
         showTab(state.activeTab);
     });
 
-    // Log toolbar
-    document.getElementById('btn-copy')?.addEventListener('click', copyLogs);
-    document.getElementById('btn-json')?.addEventListener('click', exportJSON);
-    document.getElementById('btn-follow')?.addEventListener('click', toggleFollowMode);
-    document.getElementById('btn-raw')?.addEventListener('click', toggleRaw);
-    document.getElementById('btn-debug')?.addEventListener('click', toggleDebug);
-    document.getElementById('log-filter')?.addEventListener('input', handleLogFilter);
-
-    // Time filter buttons
-    document.querySelectorAll('.time-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            state.timeFilter = btn.dataset.time;
-            document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            renderLogs();
-        });
-    });
-
-    // Filter preset buttons
-    document.querySelectorAll('.preset-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const preset = btn.dataset.preset;
-            state.logFilter = preset;
-            const filterInput = document.getElementById('log-filter');
-            if (filterInput) filterInput.value = preset;
-
-            document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            renderLogs();
-        });
-    });
-
-    // Hide internal/NOP toggle
-    document.getElementById('chk-hide-internal')?.addEventListener('change', (e) => {
-        state.hideInternal = e.target.checked;
-        renderLogs();
-    });
-
-    // Log detail popover
-    document.getElementById('log-detail-close')?.addEventListener('click', hideLogDetail);
-    document.getElementById('log-detail-copy')?.addEventListener('click', copyLogDetail);
-    document.getElementById('log-detail')?.addEventListener('click', (e) => {
-        if (e.target.id === 'log-detail') hideLogDetail();
-    });
-
     // Refresh toggle
     document.getElementById('refresh-toggle')?.addEventListener('click', toggleAutoRefresh);
 
-    // Stats
-    document.getElementById('btn-group-paths')?.addEventListener('click', () => {
-        state.groupPaths = !state.groupPaths;
-        renderStats();
-    });
-    document.getElementById('btn-copy-stats')?.addEventListener('click', copyStats);
-
-    // Config tab
-    document.getElementById('btn-deploy')?.addEventListener('click', deployConfig);
-    document.getElementById('btn-copy-config')?.addEventListener('click', copyConfig);
-
-    // Ban actions
-    document.getElementById('btn-ban-ip')?.addEventListener('click', () => showBanDialog(''));
-    document.getElementById('ban-dialog-close')?.addEventListener('click', hideBanDialog);
-    document.getElementById('ban-dialog-submit')?.addEventListener('click', submitBan);
-    document.getElementById('ban-dialog')?.addEventListener('click', (e) => {
-        if (e.target.id === 'ban-dialog') hideBanDialog();
-    });
+    // Let each module bind its own events
+    for (const tab of Object.values(tabs)) {
+        tab.onInit?.();
+    }
 
     setEnvBadge();
 

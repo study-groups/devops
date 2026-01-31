@@ -1,4 +1,5 @@
 // Caddy Panel - Auto-refresh & Follow Mode
+// Exports: toggleAutoRefresh, startAutoRefresh, stopAutoRefresh, toggleFollowMode, stopFollowMode, scrollLogsToBottom
 
 function toggleAutoRefresh() {
     state.autoRefresh = !state.autoRefresh;

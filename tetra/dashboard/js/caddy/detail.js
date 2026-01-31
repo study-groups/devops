@@ -1,4 +1,5 @@
 // Caddy Panel - Log Detail Popover
+// Exports: showLogDetail, hideLogDetail, copyLogDetail
 
 function showLogDetail(logIndex) {
     const log = state.logDetailsMap.get(logIndex);
