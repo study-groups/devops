@@ -327,10 +327,35 @@ router.get('/info', (req, res) => {
 
     let exists = false;
     let modules = [];
+    let snippets = false;
+    let envModules = [];
+    let envCaddyfiles = [];
 
     try {
         if (paths.isLocal) {
             exists = fs.existsSync(paths.caddyfile);
+            const caddyDir = path.join(ORGS_DIR, org, 'caddy');
+
+            // Check for snippets.caddy
+            snippets = fs.existsSync(path.join(caddyDir, 'snippets.caddy'));
+
+            // List env-specific Caddyfiles (dev.Caddyfile, staging.Caddyfile, prod.Caddyfile)
+            try {
+                envCaddyfiles = fs.readdirSync(caddyDir)
+                    .filter(f => f.endsWith('.Caddyfile'))
+                    .map(f => f.replace('.Caddyfile', ''));
+            } catch (e) { /* ignore */ }
+
+            // List modules for the relevant env
+            const targetEnv = env === 'local' ? 'dev' : env;
+            const envModDir = path.join(caddyDir, 'modules', targetEnv);
+            if (fs.existsSync(envModDir)) {
+                try {
+                    envModules = fs.readdirSync(envModDir).filter(f => f.endsWith('.caddy'));
+                } catch (e) { /* ignore */ }
+            }
+
+            // Legacy flat modules dir
             if (fs.existsSync(paths.modulesDir)) {
                 try {
                     modules = fs.readdirSync(paths.modulesDir).filter(f => f.endsWith('.caddy'));
@@ -361,6 +386,9 @@ router.get('/info', (req, res) => {
         logDir: paths.logDir,
         exists,
         modules,
+        snippets,
+        envModules,
+        envCaddyfiles,
         org,
         env,
         isLocal: paths.isLocal
@@ -927,6 +955,47 @@ router.post('/reload', async (req, res) => {
         });
     } catch (err) {
         res.status(500).json({ error: err.message, org, env });
+    }
+});
+
+// Deploy - push full config tree to remote via _caddy_deploy
+router.post('/deploy', (req, res) => {
+    const { org = 'tetra', env = 'local' } = req.query;
+    const dryRun = req.query.dry_run === 'true' || req.body?.dryRun === true;
+
+    if (env === 'local') {
+        return res.status(400).json({ error: 'Cannot deploy to local', org, env });
+    }
+
+    try {
+        const flag = dryRun ? '--dry-run' : '';
+        const cmd = `source "${process.env.TETRA_SRC}/bash/tcaddy/caddy.sh" && ` +
+            `caddy_ctx set ${org} '' ${env} 2>/dev/null && ` +
+            `_caddy_deploy ${flag} 2>&1`;
+
+        const output = execSync(cmd, {
+            shell: BASH,
+            encoding: 'utf8',
+            timeout: 60000,
+            env: { ...process.env }
+        });
+
+        const success = output.includes('Deployed successfully') || output.includes('Dry run complete');
+
+        res.json({
+            success,
+            dryRun,
+            output: output.trim(),
+            org,
+            env
+        });
+    } catch (err) {
+        res.status(500).json({
+            error: err.message,
+            output: err.stdout || err.stderr || '',
+            org,
+            env
+        });
     }
 });
 

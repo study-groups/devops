@@ -637,6 +637,72 @@
             margin-top: 2px;
             font-family: var(--font-mono);
         }
+        /* Config tab */
+        .env-lifecycle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            background: var(--paper-mid);
+            border-radius: 3px;
+        }
+        .env-stage {
+            padding: 8px 12px;
+            background: var(--paper-dark);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            text-align: center;
+            min-width: 70px;
+        }
+        .env-stage.active {
+            border-color: var(--four);
+            background: rgba(var(--four-rgb, 100, 100, 255), 0.1);
+        }
+        .env-label { font-weight: 600; font-size: 11px; }
+        .env-detail { font-size: 9px; color: var(--ink-muted); margin-top: 2px; }
+        .env-stage.active .env-label { color: var(--four); }
+        .env-arrow { color: var(--ink-muted); font-size: 14px; }
+        .config-pre {
+            background: var(--paper-mid);
+            border-radius: 3px;
+            padding: 10px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            overflow: auto;
+            max-height: calc(100vh - 380px);
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.5;
+        }
+        .config-pre .cfg-comment { color: var(--ink-muted); }
+        .config-pre .cfg-site { color: var(--four); }
+        .config-pre .cfg-directive { color: var(--two); }
+        .config-pre .cfg-port { color: var(--one); }
+        .config-pre .cfg-snippet { color: var(--three); }
+        .config-pre .cfg-section { color: var(--three); font-weight: 600; }
+        .tree-file {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 10px;
+            font-size: 10px;
+            font-family: var(--font-mono);
+            border-bottom: 1px solid var(--paper-dark);
+        }
+        .tree-file:last-child { border-bottom: none; }
+        .tree-icon { color: var(--ink-muted); font-size: 9px; }
+        .tree-name { color: var(--ink); }
+        .tree-name.active { color: var(--four); font-weight: 600; }
+        .tree-badge {
+            font-size: 8px;
+            padding: 1px 5px;
+            border-radius: 8px;
+            background: var(--paper-dark);
+            color: var(--ink-muted);
+            margin-left: auto;
+        }
+
     </style>
 </head>
 <body>
@@ -660,6 +726,7 @@
         <div class="tab" data-tab="logs">Logs</div>
         <div class="tab" data-tab="stats">Stats</div>
         <div class="tab" data-tab="ban">Ban <span id="ban-count" class="count zero">0</span></div>
+        <div class="tab" data-tab="config">Config</div>
         <div class="tab" data-tab="help">Help</div>
     </div>
 
@@ -801,6 +868,53 @@
         <div class="section">
             <div class="section-title">Recent Activity</div>
             <div id="ban-recent" class="top-list"><div class="empty">No activity</div></div>
+        </div>
+    </div>
+
+    <!-- Config -->
+    <div id="tab-config" class="content hidden">
+        <div class="section">
+            <div class="section-title">Env Lifecycle</div>
+            <div id="env-lifecycle" class="env-lifecycle">
+                <div class="env-stage" data-env="local">
+                    <div class="env-label">local</div>
+                    <div class="env-detail">caddy run</div>
+                </div>
+                <span class="env-arrow">→</span>
+                <div class="env-stage" data-env="dev">
+                    <div class="env-label">dev</div>
+                    <div class="env-detail">rsync deploy</div>
+                </div>
+                <span class="env-arrow">→</span>
+                <div class="env-stage" data-env="staging">
+                    <div class="env-label">staging</div>
+                    <div class="env-detail">rsync deploy</div>
+                </div>
+                <span class="env-arrow">→</span>
+                <div class="env-stage" data-env="prod">
+                    <div class="env-label">prod</div>
+                    <div class="env-detail">rsync deploy</div>
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-title">
+                <span>Config Tree</span>
+                <div style="display:flex;gap:4px;align-items:center">
+                    <label class="toggle-label"><input type="checkbox" id="chk-dry-run" checked> -n</label>
+                    <button class="btn btn-sm" id="btn-deploy">Deploy ▸</button>
+                </div>
+            </div>
+            <div id="config-tree" class="top-list"><div class="empty">Loading...</div></div>
+        </div>
+        <div class="section">
+            <div class="section-title">
+                <span>Resolved Caddyfile</span>
+                <div style="display:flex;gap:4px">
+                    <button class="btn btn-sm" id="btn-copy-config">Copy</button>
+                </div>
+            </div>
+            <pre id="resolved-config" class="config-pre"><span class="empty">Loading...</span></pre>
         </div>
     </div>
 
@@ -994,6 +1108,7 @@ Browser Request
     <script src="/js/caddy/logs.js"></script>
     <script src="/js/caddy/stats.js"></script>
     <script src="/js/caddy/ban.js"></script>
+    <script src="/js/caddy/config.js"></script>
     <script src="/js/caddy/api.js"></script>
     <script src="/js/caddy/index.js"></script>
 </body>

@@ -15,6 +15,7 @@ function showTab(name) {
     if (name === 'logs') loadLogs();
     if (name === 'stats') loadStats();
     if (name === 'ban') { loadBan(); renderOffenders(); }
+    if (name === 'config') { loadConfig(); loadConfigTree(); renderEnvLifecycle(); }
     if (name === 'help') loadLogFileInfo();
 }
 
@@ -124,6 +125,10 @@ function init() {
         renderStats();
     });
     document.getElementById('btn-copy-stats')?.addEventListener('click', copyStats);
+
+    // Config tab
+    document.getElementById('btn-deploy')?.addEventListener('click', deployConfig);
+    document.getElementById('btn-copy-config')?.addEventListener('click', copyConfig);
 
     // Ban actions
     document.getElementById('btn-ban-ip')?.addEventListener('click', () => showBanDialog(''));
