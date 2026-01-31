@@ -84,6 +84,11 @@ vox_generate_tts() {
         return 1
     fi
 
+    # Log to agent ledger (TTS: input=0, output=char_count)
+    if declare -f _agent_log &>/dev/null; then
+        _agent_log "vox" 0 "$effective_char_count" "" 2>/dev/null || true
+    fi
+
     # Generate metadata file (if not a temp file)
     if [[ "$is_temp" == "false" ]] && [[ -f "$output_file" ]]; then
         # Source vox_metadata.sh if not already loaded

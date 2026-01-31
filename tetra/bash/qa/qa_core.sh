@@ -290,6 +290,13 @@ q_gpt_query ()
 
     echo "$answer" > "$db/$id.answer"
 
+    # Log to agent ledger
+    if declare -f _agent_log &>/dev/null; then
+        local _usage_in=$(echo "$response" | jq -r '.usage.prompt_tokens // 0')
+        local _usage_out=$(echo "$response" | jq -r '.usage.completion_tokens // 0')
+        _agent_log "qa" "$_usage_in" "$_usage_out" "$id" 2>/dev/null || true
+    fi
+
     # Output answer to stdout, timestamp to stderr for capture
     echo "QA_ID=$id" >&2
     echo "$answer" # Always output the final answer to stdout

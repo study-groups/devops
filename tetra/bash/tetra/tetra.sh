@@ -54,8 +54,15 @@ _tetra_help() {
     echo -e "${G}tetra${N} v$TETRA_VERSION - Module Orchestrator"
     echo ""
     echo -e "${Y}STATUS${N}"
+    echo -e "  ${C}config${N}              Show toggles + how to change  ${D}(cfg)${N}"
     echo -e "  ${C}status${N}              Loaded modules + paths"
     echo -e "  ${C}doctor${N}              Health check"
+    echo ""
+    echo -e "${Y}LIFECYCLE${N}"
+    echo -e "  ${C}init${N}                Create ~/tetra/ skeleton + start-tetra.sh"
+    echo -e "  ${C}install${N} <runtime>   Install nvm|bun|python|all"
+    echo -e "  ${C}remove${N}              Tear down ~/tetra/"
+    echo -e "  ${C}python${N}              Python state, venv, pyenv  ${D}(py)${N}"
     echo ""
     echo -e "${Y}MODULES${N}"
     echo -e "  ${C}module list${N}         List loaded modules"
@@ -71,6 +78,9 @@ _tetra_help() {
     echo ""
     echo -e "${Y}MODULE CONTEXTS${N}"
     echo -e "  ${D}tsm ctx, tdocs ctx, deploy ctx - each module sets its own${N}"
+    echo ""
+    echo -e "${Y}REFERENCE${N}"
+    echo -e "  ${C}guide${N} [topic]         Pipeline, sections, envs, quickstart, commands"
     echo ""
     echo -e "${Y}INTERFACES${N}"
     echo -e "  ${C}repl${N}                Basic readline REPL + ctx"
@@ -219,6 +229,24 @@ _tetra_module() {
     esac
 }
 
+_tetra_config() {
+    local D="$TETRA_GRAY" N="$TETRA_NC" C="$TETRA_CYAN" Y="$TETRA_YELLOW" G="$TETRA_GREEN"
+
+    echo -e "${G}Tetra Configuration${N}"
+    echo -e "  ${D}Edit:${N}  ~/start-tetra.sh"
+    echo ""
+    printf "  ${C}%-16s${N} %s\n" "TETRA_SRC"    "$TETRA_SRC"
+    printf "  ${C}%-16s${N} %s\n" "TETRA_DIR"    "$TETRA_DIR"
+    printf "  ${C}%-16s${N} %-8s ${D}%s${N}\n" "TETRA_NVM"    "${TETRA_NVM:-true}"    "nvm/node runtime"
+    printf "  ${C}%-16s${N} %-8s ${D}%s${N}\n" "TETRA_BUN"    "${TETRA_BUN:-false}"   "bun runtime"
+    printf "  ${C}%-16s${N} %-8s ${D}%s${N}\n" "TETRA_PYTHON" "${TETRA_PYTHON:-off}"  "system|pyenv|off"
+    printf "  ${C}%-16s${N} %-8s ${D}%s${N}\n" "TETRA_LOCAL"  "${TETRA_LOCAL:-false}" "load ~/tetra/local.sh"
+    echo ""
+    echo -e "  ${D}Override: export TETRA_BUN=true before sourcing start-tetra.sh${N}"
+    echo -e "  ${D}Details: tetra python help, tetra doctor${N}"
+    echo ""
+}
+
 _tetra_doctor() {
     local ok="${TETRA_GREEN}✓${TETRA_NC}"
     local fail="${TETRA_YELLOW}✗${TETRA_NC}"
@@ -226,11 +254,11 @@ _tetra_doctor() {
 
     # Load install.conf for expected values
     local conf="$TETRA_SRC/bash/tetra/init/install.conf"
-    local CONF_NODE_VERSION="" CONF_BUN_INSTALL="" CONF_PYTHON_MODE="" CONF_PYTHON_VERSION=""
+    local CONF_NODE_VERSION="" CONF_BUN_INSTALL="" CONF_PYTHON_RUNTIME="" CONF_PYTHON_VERSION=""
     if [[ -f "$conf" ]]; then
         CONF_NODE_VERSION=$(. "$conf" && echo "$NODE_VERSION")
         CONF_BUN_INSTALL=$(. "$conf" && echo "$BUN_INSTALL")
-        CONF_PYTHON_MODE=$(. "$conf" && echo "$PYTHON_MODE")
+        CONF_PYTHON_RUNTIME=$(. "$conf" && echo "$PYTHON_RUNTIME")
         CONF_PYTHON_VERSION=$(. "$conf" && echo "$PYTHON_VERSION")
     fi
 
@@ -329,43 +357,57 @@ _tetra_doctor() {
         echo -e "$ok (disabled)"
     fi
 
-    # Python runtime check against install.conf
+    # Python: runtime + venv (orthogonal)
     printf "  Python:    "
-    if [[ "$CONF_PYTHON_MODE" == "venv" ]]; then
-        if [[ -n "$VIRTUAL_ENV" && "$VIRTUAL_ENV" == *"tetra"* ]]; then
+    local py_runtime_ok=false
+    if [[ "$CONF_PYTHON_RUNTIME" == "system" ]]; then
+        if command -v python3 &>/dev/null; then
             local py_ver
-            py_ver="$(python --version 2>&1 | awk '{print $2}')"
-            echo -e "$ok (venv, python $py_ver)"
-        elif [[ -d "$TETRA_DIR/venv/bin" ]]; then
-            echo -e "$warn (venv exists but not activated)"
-            echo "         Fix: source \$TETRA_DIR/venv/bin/activate"
+            py_ver="$(python3 --version 2>&1 | awk '{print $2}')"
+            echo -e "$ok (runtime=system, python $py_ver)"
+            py_runtime_ok=true
         else
-            echo -e "$fail (venv not found, expected mode=venv)"
+            echo -e "$fail (runtime=system but python3 not found)"
         fi
-    elif [[ "$CONF_PYTHON_MODE" == "pyenv" ]]; then
+    elif [[ "$CONF_PYTHON_RUNTIME" == "pyenv" ]]; then
         local py_path
         py_path="$(which python 2>/dev/null)"
         if [[ "$py_path" == *"pyenv"* ]]; then
             local py_ver
             py_ver="$(python --version 2>&1 | awk '{print $2}')"
             if [[ -n "$CONF_PYTHON_VERSION" && "$py_ver" != "$CONF_PYTHON_VERSION" ]]; then
-                echo -e "$warn (pyenv, python $py_ver, expected $CONF_PYTHON_VERSION)"
+                echo -e "$warn (runtime=pyenv, python $py_ver, expected $CONF_PYTHON_VERSION)"
             else
-                echo -e "$ok (pyenv, python $py_ver)"
+                echo -e "$ok (runtime=pyenv, python $py_ver)"
             fi
+            py_runtime_ok=true
         else
-            echo -e "$fail (expected pyenv, got ${py_path:-none})"
-            echo "         Fix: pyenv install $CONF_PYTHON_VERSION && pyenv global $CONF_PYTHON_VERSION"
+            echo -e "$fail (runtime=pyenv but pyenv not active)"
         fi
     else
         echo -e "$ok (python disabled)"
+    fi
+
+    # venv check: only relevant for system runtime
+    if [[ "$CONF_PYTHON_RUNTIME" == "system" ]]; then
+        printf "  venv:      "
+        if [[ -n "$VIRTUAL_ENV" && "$VIRTUAL_ENV" == *"tetra"* ]]; then
+            local venv_ver
+            venv_ver="$(python --version 2>&1 | awk '{print $2}')"
+            echo -e "$ok (active, python $venv_ver)"
+        elif [[ -d "$TETRA_DIR/venv/bin" ]]; then
+            echo -e "$warn (exists but not activated)"
+            echo "         Fix: source \$TETRA_DIR/venv/bin/activate"
+        else
+            echo -e "$fail (~/tetra/venv/ missing)"
+        fi
     fi
 
     # install.conf reference
     if [[ -f "$conf" ]]; then
         echo ""
         echo "  Config:    $conf"
-        echo "             node=$CONF_NODE_VERSION bun=$CONF_BUN_INSTALL python=$CONF_PYTHON_MODE/$CONF_PYTHON_VERSION"
+        echo "             node=$CONF_NODE_VERSION bun=$CONF_BUN_INSTALL python=$CONF_PYTHON_RUNTIME/$CONF_PYTHON_VERSION"
     fi
 
     echo ""
@@ -393,6 +435,11 @@ tetra() {
 
         module|mod|m)
             _tetra_module "$@"
+            ;;
+
+        qa)
+            source "$TETRA_SRC/bash/tetra/tetra_qa.sh"
+            _tetra_qa "$@"
             ;;
 
         ctx)
@@ -432,8 +479,50 @@ tetra() {
             fi
             ;;
 
+        config|conf|cfg)
+            _tetra_config "$@"
+            ;;
+
+        python|py)
+            local pycmd="${1:-doctor}"
+            shift 2>/dev/null || true
+            case "$pycmd" in
+                doctor|doc)   tetra_python_doctor ;;
+                install)      tetra_python_install "$@" ;;
+                activate)     tetra_python_activate ;;
+                list|ls)      tetra_python_list ;;
+                state)        local s; s=$(_tetra_python_state); echo "$s  ($(_tetra_python_state_label "$s"))" ;;
+                help|h)       tetra_python_help ;;
+                *)            echo "Unknown: tetra python $pycmd"; tetra_python_help; return 1 ;;
+            esac
+            ;;
+
+        init)
+            source "$TETRA_SRC/bash/tetra/init/init.sh"
+            tetra_init "$@"
+            ;;
+
+        install)
+            source "$TETRA_SRC/bash/tetra/init/install_runtime.sh"
+            tetra_install "$@"
+            ;;
+
+        remove)
+            source "$TETRA_SRC/bash/tetra/init/remove.sh"
+            ;;
+
         doctor|doc)
             _tetra_doctor "$@"
+            ;;
+
+        guide)
+            source "$TETRA_SRC/bash/tetra/guide.sh"
+            _tetra_guide "$@"
+            ;;
+
+        agent)
+            source "$TETRA_SRC/bash/utils/agents.sh"
+            _tetra_agent "$@"
             ;;
 
         help|h|--help|-h)
