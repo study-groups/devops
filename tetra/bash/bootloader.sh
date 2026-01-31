@@ -80,6 +80,7 @@ if [[ -f "$TETRA_SRC/bash/utils/unified_log.sh" ]]; then
     source "$TETRA_SRC/bash/utils/unified_log.sh" 2>/dev/null || true
 fi
 
+source "$BOOT_DIR/boot_context.sh" 2>/dev/null || true
 source "$BOOT_DIR/boot_modules.sh" 2>/dev/null || true
 source "$BOOT_DIR/boot_aliases.sh" 2>/dev/null || true
 source "$BOOT_DIR/boot_prompt.sh" 2>/dev/null || true
@@ -130,9 +131,9 @@ tetra_reload() {
         # Interactive shell: use exec to replace current shell with fresh one
         # This is the ONLY way to truly simulate a new shell
         # Use TETRA_RESTORE_DIR to return to current directory after reload
-        # IMPORTANT: Use $SHELL (user's configured shell) not bare 'bash'
+        # IMPORTANT: Use $TETRA_SHELL (validated bash 5.2+) not bare $SHELL
         # to avoid /bin/sh parsing exported bash 5.2+ functions
-        TETRA_RESTORE_DIR="$current_dir" exec "$SHELL" --login
+        TETRA_RESTORE_DIR="$current_dir" exec "${TETRA_SHELL:-$SHELL}" --login
     else
         # Non-interactive: do best-effort cleanup and re-source
         echo "Warning: Non-interactive shell detected, doing in-place reload"

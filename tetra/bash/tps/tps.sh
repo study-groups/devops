@@ -38,16 +38,8 @@ _tps_git_info() {
 _tps_python_info() {
     [[ "$TPS_PYTHON" == "0" ]] && return
     [[ "$TPS_STYLE" == "tiny" ]] && return
-
-    if [[ "$TPS_PYTHON" == "1" ]] || command -v python >/dev/null 2>&1; then
-        if [[ -n "$VIRTUAL_ENV" && "$VIRTUAL_ENV" == *"tetra"* ]]; then
-            echo "vp"    # tetra venv
-        elif [[ "$(command -v python)" == *"pyenv"* ]]; then
-            echo "p"     # pyenv
-        elif command -v python >/dev/null 2>&1; then
-            echo "sp"    # system python
-        fi
-    fi
+    [[ "$TPS_PYTHON" == "1" ]] || command -v python >/dev/null 2>&1 || return
+    _tetra_python_state
 }
 
 _tps_node_info() {
@@ -248,6 +240,11 @@ _tps_status() {
     echo "  Node:    ${TPS_NODE:-auto}"
     echo "  Logtime: ${TPS_LOGTIME:-auto}"
     echo ""
+    echo "Shell:"
+    echo "  TETRA_SHELL: ${TETRA_SHELL:-unset}"
+    echo "  Invoke mode: ${TETRA_INVOKE_MODE:-unset}"
+    echo "  Invoke flags: ${TETRA_INVOKE_FLAGS:-none}"
+    echo ""
     echo "Metrics:"
     echo "  Last exit:  $TPS_LAST_EXIT_CODE"
     echo "  Duration:   ${TPS_LAST_DURATION}s"
@@ -341,6 +338,20 @@ tps() {
 
 
 # =============================================================================
+# INVOKE MODE SEGMENT
+# =============================================================================
+
+_tps_invoke_segment() {
+    case "${TETRA_INVOKE_MODE:-interactive}" in
+        interactive) return ;;  # Clean prompt for interactive
+        ssh)    echo "${_TPS_C_USER}[SSH]${_TPS_C_RESET}" ;;
+        agent)  echo "${_TPS_C_PURPLE}[AGT]${_TPS_C_RESET}" ;;
+        cron)   echo "${_TPS_C_ERROR}[CRON]${_TPS_C_RESET}" ;;
+        script) echo "${_TPS_C_PATH_DIM}[SCR]${_TPS_C_RESET}" ;;
+    esac
+}
+
+# =============================================================================
 # EXPORTS
 # =============================================================================
 
@@ -348,7 +359,7 @@ export -f tps tps_prompt
 export -f _tps_style _tps_toggle _tps_multiline _tps_status _tps_help _tps_hook
 export -f _tps_render_tiny _tps_render_compact _tps_render_default _tps_render_verbose
 export -f _tps_git_info _tps_python_info _tps_node_info _tps_logtime_info
-export -f _tps_init
+export -f _tps_init _tps_invoke_segment
 
 # =============================================================================
 # INITIALIZE
