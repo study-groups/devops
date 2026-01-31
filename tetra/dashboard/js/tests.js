@@ -1,25 +1,9 @@
-// Tests Panel - Configuration
+// Tests Panel - Live bash test runner via /api/qa
 const CONFIG = {
     org: new URLSearchParams(window.location.search).get('org') || 'tetra',
-    env: new URLSearchParams(window.location.search).get('env') || 'local',
-    mockSuites: {
-        unit: [
-            { name: 'utils.test.js', tests: ['formatTime', 'parseConfig', 'validateInput'] },
-            { name: 'state.test.js', tests: ['setState', 'getState', 'resetState'] },
-            { name: 'events.test.js', tests: ['emit', 'on', 'off'] }
-        ],
-        integration: [
-            { name: 'api.test.js', tests: ['GET /status', 'POST /deploy', 'GET /logs'] },
-            { name: 'ssh.test.js', tests: ['connect', 'execute', 'disconnect'] }
-        ],
-        e2e: [
-            { name: 'dashboard.spec.js', tests: ['loads panels', 'resizes panes', 'switches views'] },
-            { name: 'deploy.spec.js', tests: ['selects target', 'runs deploy', 'shows output'] }
-        ]
-    }
+    env: new URLSearchParams(window.location.search).get('env') || 'local'
 };
 
-// Consolidated state
 const state = {
     running: false,
     tests: [],
@@ -27,7 +11,6 @@ const state = {
     stats: { passed: 0, failed: 0, pending: 0, duration: 0 }
 };
 
-// DOM elements
 let els = {};
 
 function setStatus(status) {
@@ -54,31 +37,6 @@ function updateStats() {
     els.duration.textContent = (state.stats.duration / 1000).toFixed(2) + 's';
 }
 
-function renderTestList(suite) {
-    const suiteData = CONFIG.mockSuites[suite];
-    if (!suiteData) {
-        els.testList.innerHTML = '<div class="placeholder">No tests found</div>';
-        return;
-    }
-
-    state.tests = [];
-    suiteData.forEach(file => {
-        file.tests.forEach(test => {
-            state.tests.push({
-                id: `${file.name}:${test}`,
-                file: file.name,
-                name: test,
-                status: 'pending',
-                duration: 0
-            });
-        });
-    });
-
-    renderTests();
-    state.stats = { passed: 0, failed: 0, pending: state.tests.length, duration: 0 };
-    updateStats();
-}
-
 function renderTests() {
     els.testList.innerHTML = state.tests.map(t => `
         <div class="test-item ${t.id === state.currentTest ? 'active' : ''}" data-action="select-test" data-id="${t.id}">
@@ -89,78 +47,219 @@ function renderTests() {
     `).join('');
 }
 
-function selectTest(id) {
+async function selectTest(id) {
     state.currentTest = id;
     renderTests();
     const test = state.tests.find(t => t.id === id);
-    if (test) {
-        log(`Selected: ${test.file} > ${test.name}`, 'info');
+    if (!test) return;
+
+    clearOutput();
+    const icon = test.status === 'passed' ? '\u2713' : '\u2717';
+    const statusType = test.status === 'passed' ? 'success' : 'error';
+    log(`${icon} ${test.name}`, statusType);
+    log('');
+    log(`Suite:    ${test.suite}`, 'muted');
+    log(`Status:   ${test.status}`, 'muted');
+    log(`Duration: ${test.duration}ms`, 'muted');
+    log(`Function: ${test.func}`, 'muted');
+    log(`File:     ${test.file}`, 'muted');
+
+    if (test.func && test.file) {
+        log('');
+        log('Loading source...', 'muted');
+        try {
+            const resp = await fetch(`/api/qa/test/source?file=${encodeURIComponent(test.file)}&function=${encodeURIComponent(test.func)}`);
+            const data = await resp.json();
+            if (data.source) {
+                log(`Lines ${data.startLine}-${data.endLine}:`, 'info');
+                log('');
+                for (const line of data.source.split('\n')) {
+                    log(line);
+                }
+            } else if (data.error) {
+                log(data.error, 'error');
+            }
+        } catch (e) {
+            log('Could not load source: ' + e.message, 'error');
+        }
+    }
+}
+
+function populateFromResponse(data) {
+    // Handle both single suite and aggregated (run-all) responses
+    const tests = [];
+    if (data.suites) {
+        for (const suite of data.suites) {
+            for (const t of suite.tests) {
+                tests.push({
+                    id: `${suite.suite}:${t.name}`,
+                    suite: suite.suite,
+                    name: t.name,
+                    func: t.function || '',
+                    file: t.file || '',
+                    status: t.status === 'pass' ? 'passed' : 'failed',
+                    duration: t.duration_ms
+                });
+            }
+        }
+        state.stats = {
+            passed: data.total_passed,
+            failed: data.total_failed,
+            pending: 0,
+            duration: tests.reduce((s, t) => s + t.duration, 0)
+        };
+    } else if (data.tests) {
+        for (const t of data.tests) {
+            tests.push({
+                id: `${data.suite}:${t.name}`,
+                suite: data.suite,
+                name: t.name,
+                func: t.function || '',
+                file: t.file || '',
+                status: t.status === 'pass' ? 'passed' : 'failed',
+                duration: t.duration_ms
+            });
+        }
+        state.stats = {
+            passed: data.passed,
+            failed: data.failed,
+            pending: 0,
+            duration: data.duration_ms
+        };
+    }
+    state.tests = tests;
+}
+
+async function loadSuites() {
+    try {
+        const resp = await fetch('/api/qa/suites');
+        const data = await resp.json();
+        // Clear existing options except the default
+        els.suiteSelect.innerHTML = '<option value="">Select test suite...</option>';
+        els.suiteSelect.innerHTML += '<option value="all">All Suites</option>';
+        for (const s of data.suites) {
+            const opt = document.createElement('option');
+            opt.value = s.name;
+            opt.textContent = s.name;
+            els.suiteSelect.appendChild(opt);
+        }
+    } catch (e) {
+        log('Failed to load suites: ' + e.message, 'error');
+    }
+}
+
+async function loadTests(suite) {
+    if (suite === 'all') {
+        // For "all", fetch each suite's tests
+        try {
+            const resp = await fetch('/api/qa/suites');
+            const data = await resp.json();
+            state.tests = [];
+            for (const s of data.suites) {
+                const r = await fetch(`/api/qa/suites/${encodeURIComponent(s.name)}/tests`);
+                const d = await r.json();
+                for (const t of d.tests) {
+                    state.tests.push({
+                        id: `${d.suite}:${t.name}`,
+                        suite: d.suite,
+                        name: t.name,
+                        func: t.function,
+                        file: t.file,
+                        status: 'pending',
+                        duration: 0
+                    });
+                }
+            }
+        } catch (e) {
+            log('Failed to load tests: ' + e.message, 'error');
+            return;
+        }
+    } else {
+        try {
+            const resp = await fetch(`/api/qa/suites/${encodeURIComponent(suite)}/tests`);
+            const data = await resp.json();
+            state.tests = data.tests.map(t => ({
+                id: `${data.suite}:${t.name}`,
+                suite: data.suite,
+                name: t.name,
+                func: t.function,
+                file: t.file,
+                status: 'pending',
+                duration: 0
+            }));
+        } catch (e) {
+            log('Failed to load tests: ' + e.message, 'error');
+            return;
+        }
+    }
+    state.stats = { passed: 0, failed: 0, pending: state.tests.length, duration: 0 };
+    renderTests();
+    updateStats();
+    setStatus('idle');
+    log(`Loaded ${state.tests.length} tests from: ${suite}`, 'info');
+    log('Click "Run All" to execute', 'muted');
+}
+
+async function runSuite(suite) {
+    state.running = true;
+    els.runBtn.disabled = true;
+    els.stopBtn.disabled = false;
+
+    try {
+        const resp = await fetch('/api/qa/suites/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ suite })
+        });
+        const data = await resp.json();
+
+        if (data.error) {
+            setStatus('failed');
+            log('Error: ' + data.error, 'error');
+            return;
+        }
+
+        populateFromResponse(data);
+        renderTests();
+        updateStats();
+
+        log('');
+        for (const t of state.tests) {
+            const icon = t.status === 'passed' ? '\u2713' : '\u2717';
+            const type = t.status === 'passed' ? 'success' : 'error';
+            log(`  ${icon} ${t.name} (${t.duration}ms)`, type);
+        }
+        log('');
+
+        if (state.stats.failed > 0) {
+            setStatus('failed');
+            log(`${state.stats.failed} of ${state.stats.passed + state.stats.failed} tests failed`, 'error');
+        } else {
+            setStatus('passed');
+            log(`All ${state.stats.passed} tests passed!`, 'success');
+        }
+    } catch (e) {
+        setStatus('failed');
+        log('Request failed: ' + e.message, 'error');
+    } finally {
+        state.running = false;
+        state.currentTest = null;
+        els.runBtn.disabled = false;
+        els.stopBtn.disabled = true;
     }
 }
 
 async function runTests() {
     if (state.running) return;
-    state.running = true;
-
-    els.runBtn.disabled = true;
-    els.stopBtn.disabled = false;
-    setStatus('running');
+    const suite = els.suiteSelect.value;
+    if (!suite) {
+        log('Select a test suite first', 'muted');
+        return;
+    }
     clearOutput();
-
-    const startTime = Date.now();
-    state.stats = { passed: 0, failed: 0, pending: state.tests.length, duration: 0 };
-
-    log(`Running ${state.tests.length} tests...`, 'info');
-    log('');
-
-    for (const test of state.tests) {
-        if (!state.running) break;
-
-        state.currentTest = test.id;
-        test.status = 'running';
-        renderTests();
-        log(`  ${test.file} > ${test.name}...`, 'muted');
-
-        const duration = Math.floor(Math.random() * 200) + 50;
-        await new Promise(r => setTimeout(r, duration));
-
-        if (!state.running) break;
-
-        const passed = Math.random() > 0.2;
-        test.status = passed ? 'passed' : 'failed';
-        test.duration = duration;
-
-        if (passed) {
-            state.stats.passed++;
-            log(`    ✓ passed (${duration}ms)`, 'success');
-        } else {
-            state.stats.failed++;
-            log(`    ✗ failed (${duration}ms)`, 'error');
-            log(`      AssertionError: expected value to match`, 'error');
-        }
-
-        state.stats.pending--;
-        state.stats.duration = Date.now() - startTime;
-        updateStats();
-        renderTests();
-    }
-
-    state.running = false;
-    state.currentTest = null;
-    els.runBtn.disabled = false;
-    els.stopBtn.disabled = true;
-
-    if (state.stats.failed > 0) {
-        setStatus('failed');
-        log('');
-        log(`Tests failed: ${state.stats.failed} of ${state.tests.length}`, 'error');
-    } else {
-        setStatus('passed');
-        log('');
-        log(`All ${state.stats.passed} tests passed!`, 'success');
-    }
-
-    renderTests();
+    setStatus('running');
+    log(`Running suite: ${suite}...`, 'info');
+    await runSuite(suite);
 }
 
 function stopTests() {
@@ -184,26 +283,20 @@ function init() {
         duration: document.getElementById('duration')
     };
 
-    // Register actions
     Terrain.Iframe.on('select-test', (el, data) => selectTest(data.id));
     Terrain.Iframe.on('run', () => runTests());
     Terrain.Iframe.on('stop', () => stopTests());
     Terrain.Iframe.on('clear', () => clearOutput());
 
-    // Suite select change handler
-    els.suiteSelect.addEventListener('change', () => {
+    els.suiteSelect.addEventListener('change', async () => {
         const suite = els.suiteSelect.value;
-        if (suite) {
-            renderTestList(suite);
-            clearOutput();
-            log(`Loaded suite: ${suite}`, 'info');
-            log(`${state.tests.length} tests found`, 'muted');
-        }
+        if (!suite) return;
+        clearOutput();
+        await loadTests(suite);
     });
 
-    // Notify parent we're ready
+    loadSuites();
     Terrain.Iframe.send({ type: 'ready', from: 'tests' });
 }
 
-// Start
 init();
