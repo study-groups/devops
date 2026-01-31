@@ -169,4 +169,4 @@ function initStats() {
     document.getElementById('btn-copy-stats')?.addEventListener('click', copyStats);
 }
 
-registerTab('stats', { onActivate: loadStats, onInit: initStats });
+// Registration deferred to api.js where loadStats is defined

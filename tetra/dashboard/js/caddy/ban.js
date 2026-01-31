@@ -152,7 +152,4 @@ function initBan() {
     });
 }
 
-registerTab('ban', {
-    onActivate: () => { loadBan(); renderOffenders(); },
-    onInit: initBan
-});
+// Registration deferred to api.js where loadBan is defined

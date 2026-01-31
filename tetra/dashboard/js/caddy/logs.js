@@ -315,4 +315,4 @@ function initLogs() {
     });
 }
 
-registerTab('logs', { onActivate: loadLogs, onInit: initLogs });
+// Registration deferred to api.js where loadLogs is defined

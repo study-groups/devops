@@ -183,4 +183,8 @@ function loadAll() {
     loadRoutes();
 }
 
+// Register tabs that depend on api.js functions (loadLogs, loadStats, loadBan)
+registerTab('logs', { onActivate: loadLogs, onInit: initLogs });
+registerTab('stats', { onActivate: loadStats, onInit: initStats });
+registerTab('ban', { onActivate: () => { loadBan(); renderOffenders(); }, onInit: initBan });
 registerTab('help', { onActivate: loadLogFileInfo });
