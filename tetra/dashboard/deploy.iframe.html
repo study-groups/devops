@@ -8,26 +8,155 @@
     <style>
         body { padding: 12px; }
 
+        /* Target cards - base */
         .target {
             background: var(--paper-mid);
-            padding: 8px 12px;
             margin-bottom: 4px;
             border-radius: 4px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: border-color 0.15s;
+        }
+        .target:hover { border-color: var(--four); }
+
+        /* Collapsed (icon) state */
+        .target.icon {
+            padding: 8px 12px;
+        }
+        .target.icon .target-row {
             display: flex;
             align-items: center;
             gap: 12px;
+        }
+        .target.icon .target-details { display: none; }
+        .target.icon .target-actions { display: flex; align-items: center; gap: 8px; }
+
+        /* Expanded state */
+        .target.expanded {
+            padding: 10px 12px;
+        }
+        .target.expanded .target-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+        .target.expanded .target-details {
+            padding: 4px 0 8px 20px;
+            font-size: 9px;
+            color: var(--ink-muted);
+            line-height: 1.6;
+        }
+        .target.expanded .target-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-left: 20px;
+        }
+
+        .target-toggle {
+            font-size: 8px;
+            color: var(--ink-muted);
+            width: 10px;
+            flex-shrink: 0;
         }
         .target-name {
             color: var(--four);
             font-weight: 700;
             min-width: 80px;
+            font-size: 11px;
         }
-        .target-org {
+        .target-desc {
             color: var(--ink-muted);
             font-size: 9px;
             flex: 1;
         }
-        .env-select {
+        .target-org {
+            color: var(--ink-muted);
+            font-size: 9px;
+        }
+        .target-format {
+            font-size: 8px;
+            padding: 1px 4px;
+            border-radius: 2px;
+            background: var(--paper-dark);
+            color: var(--ink-muted);
+        }
+        .target-format.engine { color: var(--two); }
+
+        .detail-label {
+            color: var(--ink-muted);
+            display: inline-block;
+            min-width: 65px;
+        }
+        .detail-value { color: var(--ink); }
+        .detail-row { margin-bottom: 3px; display: flex; align-items: flex-start; gap: 4px; }
+        .toml-path { opacity: 0.5; margin-top: 6px; }
+        .toml-path .detail-value { font-family: monospace; font-size: 8px; }
+
+        /* Strategy banner */
+        .strategy-row { margin-bottom: 6px; }
+        .strategy-badge {
+            font-size: 8px;
+            padding: 1px 6px;
+            border-radius: 2px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+        .strategy-remote-exec { background: var(--paper-dark); color: var(--three); border: 1px solid var(--three); }
+        .strategy-local-push { background: var(--paper-dark); color: var(--two); border: 1px solid var(--two); }
+        .strategy-hybrid { background: var(--paper-dark); color: var(--four); border: 1px solid var(--four); }
+
+        /* Pipeline flow (step-by-step visualization) */
+        .pipeline-flow {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            flex-wrap: wrap;
+        }
+        .step {
+            font-size: 8px;
+            padding: 1px 5px;
+            border-radius: 2px;
+            background: var(--paper-dark);
+            color: var(--ink-muted);
+            font-family: monospace;
+        }
+        .step-remote { color: var(--three); }
+        .step-build { color: var(--two); }
+        .step-push { color: var(--four); font-weight: 600; }
+        .step-arrow { color: var(--ink-muted); font-size: 8px; margin: 0 1px; }
+        .step-count {
+            font-size: 7px;
+            margin-left: 3px;
+            opacity: 0.6;
+        }
+
+        .env-table { margin: 4px 0; }
+        .env-table-row {
+            display: flex;
+            gap: 12px;
+            font-size: 9px;
+        }
+        .env-table-row .env-name { color: var(--three); min-width: 50px; font-weight: 600; }
+        .env-table-row .env-domain { color: var(--ink); min-width: 180px; }
+        .env-table-row .env-branch { color: var(--four); font-style: italic; font-size: 8px; }
+
+        .pipeline-tags, .remote-tags {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+        .pipeline-tag, .remote-tag {
+            font-size: 8px;
+            padding: 1px 5px;
+            border-radius: 2px;
+            background: var(--paper-dark);
+            color: var(--ink-muted);
+        }
+        .pipeline-tag { color: var(--four); cursor: default; }
+
+        .env-select, .pipeline-select {
             background: var(--paper-dark);
             border: 1px solid var(--border);
             color: var(--ink);
@@ -40,19 +169,160 @@
             font-size: 8px;
         }
 
+        /* History filter indicator */
+        .history-filter {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            font-size: 9px;
+            color: var(--four);
+            padding: 2px 8px;
+            margin-bottom: 4px;
+        }
+        .filter-clear {
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--ink-muted);
+            padding: 0 4px;
+        }
+        .filter-clear:hover { color: var(--one); }
+
+        /* History items */
         .history-item {
             padding: 4px 8px;
             border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+        .history-item:hover { background: var(--paper-mid); }
+
+        .history-row {
             display: flex;
             gap: 8px;
             font-size: 10px;
         }
-        .history-item .timestamp { color: var(--ink-muted); min-width: 60px; }
-        .history-item .target { background: none; padding: 0; margin: 0; color: var(--four); min-width: 80px; }
-        .history-item .env { color: var(--three); min-width: 50px; }
-        .history-item .status { min-width: 60px; }
-        .history-item .status.success { color: var(--two); }
-        .history-item .status.failed { color: var(--one); }
+        .history-item .timestamp { color: var(--ink-muted); min-width: 40px; }
+        .history-item .h-target { color: var(--four); min-width: 100px; }
+        .history-item .h-env { color: var(--three); min-width: 50px; }
+        .history-item .h-status { min-width: 60px; }
+        .history-item .h-status.success { color: var(--two); }
+        .history-item .h-status.failed { color: var(--one); }
+        .history-item .h-duration { color: var(--ink-muted); }
+
+        .history-details {
+            display: none;
+            padding: 4px 8px 4px 48px;
+            font-size: 9px;
+            color: var(--ink-muted);
+            line-height: 1.5;
+        }
+        .history-item.expanded .history-details { display: block; }
+
+        /* Output container */
+        .output-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 8px;
+            background: var(--paper-dark);
+            border-bottom: 1px solid var(--border);
+            border-radius: 3px 3px 0 0;
+        }
+        .output-label {
+            font-size: 9px;
+            font-weight: 700;
+            color: var(--four);
+        }
+        .output-close {
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--ink-muted);
+            padding: 0 4px;
+            line-height: 1;
+        }
+        .output-close:hover { color: var(--one); }
+        .output-pre {
+            margin: 0;
+            padding: 8px;
+            font-size: 9px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: var(--ink);
+            background: var(--paper-dark);
+            border-radius: 0 0 3px 3px;
+            max-height: 300px;
+            overflow-y: auto;
+            line-height: 1.5;
+        }
+
+        /* Inline per-target output */
+        .target-output {
+            display: none;
+            margin-top: 8px;
+            padding-left: 20px;
+        }
+        .target-output:has(pre) { display: block; }
+        .target.icon .target-output { display: none; }
+
+        /* Deploy output formatting */
+        .out-header { color: var(--four); font-weight: 700; }
+        .out-dryrun { color: var(--three); font-weight: 700; }
+        .out-step { color: var(--two); font-weight: 600; }
+        .out-rule { color: var(--ink-muted); opacity: 0.4; }
+        .out-done { color: var(--two); }
+        .out-cmd { color: var(--ink); opacity: 0.8; }
+
+        /* TOML Editor */
+        .target-editor { padding: 8px 0 0 20px; display: none; }
+        .target-editor.active { display: block; }
+        .target.icon .target-editor { display: none; }
+        .editor-hints { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 4px; font-size: 8px; }
+        .editor-hint { padding: 1px 5px; border-radius: 2px; background: var(--paper-dark); cursor: pointer; }
+        .editor-hint:hover { opacity: 0.8; }
+        .editor-hint.section { color: var(--four); }
+        .editor-hint.var { color: var(--three); }
+        .editor-textarea {
+            width: 100%; min-height: 200px; max-height: 400px; resize: vertical;
+            font-family: monospace; font-size: 9px; line-height: 1.5;
+            background: var(--paper-dark); color: var(--ink); border: 1px solid var(--border);
+            border-radius: 3px; padding: 8px; tab-size: 4;
+        }
+        .editor-actions { display: flex; gap: 8px; margin-top: 4px; align-items: center; }
+        .editor-msg { font-size: 9px; margin-left: 8px; }
+
+        /* CLI Help section */
+        .help-toggle {
+            cursor: pointer;
+            user-select: none;
+        }
+        .help-toggle:hover { color: var(--four); }
+        .help-body { display: none; }
+        .help-section.open .help-body { display: block; }
+        .help-section.open .help-arrow { transform: rotate(90deg); }
+        .help-arrow {
+            display: inline-block;
+            font-size: 8px;
+            margin-right: 4px;
+            transition: transform 0.15s;
+        }
+        .help-body {
+            padding: 8px 0 4px 4px;
+            font-size: 9px;
+            font-family: monospace;
+            line-height: 1.8;
+            color: var(--ink-muted);
+        }
+        .help-body .h-section { color: var(--four); font-weight: 700; margin-top: 8px; display: block; }
+        .help-body .h-cmd { color: var(--three); }
+        .help-body .h-arg { color: var(--two); }
+        .help-body .h-desc { color: var(--ink-muted); }
+        .help-body .h-example { color: var(--ink); opacity: 0.8; }
+        .help-body .h-comment { color: var(--ink-muted); opacity: 0.5; }
+        .help-body .h-org { color: var(--four); font-weight: 700; }
+        .help-body .h-target { color: var(--three); }
+        .help-body .h-pipeline { color: var(--two); }
+        .help-body .h-env { color: var(--two); font-style: italic; }
     </style>
 </head>
 <body>
@@ -70,6 +340,7 @@
 
     <div class="section">
         <div class="section-title">Recent Deployments</div>
+        <div id="history-filter" class="history-filter"></div>
         <div id="history">
             <div class="empty">Loading...</div>
         </div>
@@ -78,6 +349,44 @@
     <div id="output-container" style="display: none;">
         <div class="section-title">Output</div>
         <div id="output" class="output"></div>
+    </div>
+
+    <div class="section help-section" id="help-section">
+        <div class="section-title help-toggle" onclick="document.getElementById('help-section').classList.toggle('open')">
+            <span class="help-arrow">&#9654;</span> CLI Reference
+        </div>
+        <div class="help-body">
+            <span class="h-section">Address Format</span>
+            <span class="h-org">org</span>:<span class="h-target">target</span>:<span class="h-pipeline">pipeline</span> <span class="h-env">env</span> <span class="h-desc">[-n]</span>
+
+            <span class="h-section">Direct Mode</span>
+            <span class="h-cmd">deploy</span> <span class="h-target">pbase</span>:<span class="h-pipeline">default</span> <span class="h-env">dev</span>        <span class="h-comment"># deploy target:pipeline to env</span>
+            <span class="h-cmd">deploy</span> <span class="h-target">pbase</span>:<span class="h-pipeline">quick</span> <span class="h-env">dev</span>          <span class="h-comment"># quick pipeline</span>
+            <span class="h-cmd">deploy</span> <span class="h-target">pbase</span>:<span class="h-pipeline">status</span> <span class="h-env">dev</span>         <span class="h-comment"># check status</span>
+            <span class="h-cmd">deploy</span> <span class="h-target">pbase</span>:<span class="h-pipeline">default</span> <span class="h-env">dev</span> <span class="h-desc">-n</span>     <span class="h-comment"># dry run</span>
+
+            <span class="h-section">Context Mode</span>
+            <span class="h-cmd">deploy set</span> <span class="h-org">pixeljam-arcade</span> <span class="h-target">pbase</span> <span class="h-env">dev</span>  <span class="h-comment"># set context</span>
+            <span class="h-cmd">deploy info</span>                              <span class="h-comment"># show context</span>
+            <span class="h-cmd">deploy</span>                                   <span class="h-comment"># deploy with context</span>
+            <span class="h-cmd">deploy</span> <span class="h-desc">-n</span>                                <span class="h-comment"># dry run with context</span>
+            <span class="h-cmd">deploy clear</span>                             <span class="h-comment"># clear context</span>
+
+            <span class="h-section">Config</span>
+            <span class="h-cmd">deploy show</span> <span class="h-target">pbase</span> <span class="h-env">dev</span>               <span class="h-comment"># show resolved config</span>
+            <span class="h-cmd">deploy list</span>                              <span class="h-comment"># list all targets</span>
+            <span class="h-cmd">deploy history</span>                           <span class="h-comment"># recent deployments</span>
+            <span class="h-cmd">$EDITOR $DEPLOY_RESOLVED_TOML</span>            <span class="h-comment"># edit target TOML</span>
+
+            <span class="h-section">Aliases</span>
+            <span class="h-cmd">deploy</span> <span class="h-target">pbase</span>:<span class="h-pipeline">q</span> <span class="h-env">dev</span>   <span class="h-comment"># quick</span>    <span class="h-cmd">deploy</span> <span class="h-target">pbase</span>:<span class="h-pipeline">r</span> <span class="h-env">dev</span>   <span class="h-comment"># restart</span>    <span class="h-cmd">deploy</span> <span class="h-target">pbase</span>:<span class="h-pipeline">s</span> <span class="h-env">dev</span>   <span class="h-comment"># status</span>
+
+            <span class="h-section">Pipeline Steps</span>
+            <span class="h-arg">remote:X</span>  <span class="h-desc">Run command X on server via SSH</span>
+            <span class="h-arg">build:X</span>   <span class="h-desc">Run build command X locally</span>
+            <span class="h-arg">push</span>      <span class="h-desc">Transfer files to remote server</span>
+            <span class="h-arg">post:X</span>    <span class="h-desc">Post-deploy command on server</span>
+        </div>
     </div>
 
     <script src="/js/terrain-iframe.js"></script>
