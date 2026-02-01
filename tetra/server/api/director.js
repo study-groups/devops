@@ -116,6 +116,15 @@ function importGuide(org, guideName) {
                 }
             }
 
+            // Carry timeline cues from guide JSON if present
+            let timeline = null;
+            for (const block of content) {
+                if ((block.type === 'paragraph' || block.type === 'text') && block.timeline) {
+                    timeline = block.timeline;
+                    break;
+                }
+            }
+
             const id = 's' + String(shotIndex).padStart(2, '0');
             shots.push({
                 id,
@@ -123,6 +132,7 @@ function importGuide(org, guideName) {
                 topic: stepTitle,
                 stepIndex: shotIndex - 1,
                 narration,
+                timeline,
                 captureUrl: `/api/tut/${org}/${htmlName}`,
                 audioDuration: null,
                 audioFile: null,
@@ -306,7 +316,8 @@ router.post('/:org/:project/audio/:shotId', (req, res) => {
         const modelFlag = provider === 'openai' && model && model !== 'tts-1' ? ` --model ${model}` : '';
         const t0 = Date.now();
         shellExec(
-            `source ~/tetra/tetra.sh && echo '${escaped}' | vox generate ${voxVoice}${modelFlag} --output "${audioPath}"`
+            `source ~/tetra/tetra.sh && echo '${escaped}' | vox generate ${voxVoice}${modelFlag} --output "${audioPath}"`,
+            180000
         );
         const encodeTime = (Date.now() - t0) / 1000;
 
@@ -418,7 +429,8 @@ router.post('/:org/:project/audio', (req, res) => {
             const modelFlag = provider === 'openai' && model && model !== 'tts-1' ? ` --model ${model}` : '';
             const t0 = Date.now();
             shellExec(
-                `source ~/tetra/tetra.sh && echo '${escaped}' | vox generate ${voxVoice}${modelFlag} --output "${audioPath}"`
+                `source ~/tetra/tetra.sh && echo '${escaped}' | vox generate ${voxVoice}${modelFlag} --output "${audioPath}"`,
+                180000
             );
             const encodeTime = (Date.now() - t0) / 1000;
 
@@ -556,6 +568,136 @@ router.post('/:org/:project/capture', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// Production: Animated video capture (Playwright recordVideo)
+// ---------------------------------------------------------------------------
+
+router.post('/:org/:project/capture-animated/:shotId', async (req, res) => {
+    const { org, project, shotId } = req.params;
+    const data = readProject(org, project);
+    if (!data) return res.status(404).json({ error: 'Project not found' });
+
+    const shot = data.shots.find(s => s.id === shotId);
+    if (!shot) return res.status(404).json({ error: 'Shot not found' });
+
+    const resolution = req.body?.viewport || data.resolution || { width: 1920, height: 1080 };
+    const base = projectDir(org, project);
+    const outDir = path.join(base, 'output');
+    const tmpDir = path.join(base, 'tmp-video');
+    fs.mkdirSync(outDir, { recursive: true });
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    try {
+        const { chromium } = require('playwright');
+        const browser = await chromium.launch();
+        const context = await browser.newContext({
+            recordVideo: { dir: tmpDir, size: { width: resolution.width, height: resolution.height } },
+            viewport: { width: resolution.width, height: resolution.height }
+        });
+        const page = await context.newPage();
+
+        // Navigate to guide at correct step
+        const guideName = data.guide.replace(/\.json$/, '.html');
+        let url = `http://localhost:4444/api/tut/${org}/${guideName}`;
+        if (shot.topic && data.guide) {
+            // For guide type, use postMessage after load
+        }
+        await page.goto(url, { waitUntil: 'networkidle' });
+
+        // Navigate to correct step
+        if (shot.stepIndex !== undefined) {
+            await page.evaluate(function(step) {
+                window.postMessage({ type: 'goToStep', step: step }, '*');
+            }, shot.stepIndex);
+            await page.waitForTimeout(500);
+        }
+
+        // Send timeline cues if available
+        if (shot.timeline && shot.timeline.length > 0) {
+            var audioUrl = shot.audioFile
+                ? `http://localhost:4444/api/director/${org}/${project}/audio/${shot.audioFile}`
+                : '';
+            await page.evaluate(function(cues, narration, audioSrc) {
+                window.postMessage({
+                    type: 'anim-init',
+                    cues: cues,
+                    narration: narration,
+                    audioSrc: audioSrc
+                }, '*');
+            }, shot.timeline, shot.narration || '', audioUrl);
+            await page.waitForTimeout(300);
+        }
+
+        // Trigger animation playback
+        var playAudioSrc = shot.audioFile
+            ? `http://localhost:4444/api/director/${org}/${project}/audio/${shot.audioFile}`
+            : '';
+        await page.evaluate(function(audioSrc) {
+            window.postMessage({ type: 'anim-play', audioSrc: audioSrc }, '*');
+        }, playAudioSrc);
+
+        // Wait for audio duration + buffer
+        const waitMs = ((shot.audioDuration || 3) + 0.5) * 1000;
+        await page.waitForTimeout(waitMs);
+
+        // Close context to trigger video save
+        const videoPath = await page.video().path();
+        await context.close();
+        await browser.close();
+
+        // Convert webm to mp4
+        const webmFile = videoPath;
+        const mp4File = path.join(outDir, `${shotId}.mp4`);
+        execSync([
+            'ffmpeg -y',
+            `-i "${webmFile}"`,
+            '-c:v libx264 -pix_fmt yuv420p',
+            '-c:a aac',
+            `"${mp4File}"`
+        ].join(' '), { timeout: 120000 });
+
+        // Cleanup tmp
+        try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
+
+        shot.videoFile = `${shotId}.mp4`;
+        shot.status = 'complete';
+        writeProject(org, project, data);
+
+        res.json({ ok: true, shotId, videoFile: shot.videoFile });
+    } catch (e) {
+        try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /:org/:project/capture-animated — batch animated capture
+router.post('/:org/:project/capture-animated', async (req, res) => {
+    const { org, project } = req.params;
+    const data = readProject(org, project);
+    if (!data) return res.status(404).json({ error: 'Project not found' });
+
+    const results = [];
+    for (const shot of data.shots) {
+        if (!shot.audioDuration) {
+            results.push({ id: shot.id, skipped: true });
+            continue;
+        }
+        try {
+            // Delegate to single-shot route logic
+            const response = await fetch(`http://localhost:4444/api/director/${org}/${project}/capture-animated/${shot.id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ viewport: data.resolution })
+            });
+            const result = await response.json();
+            results.push({ id: shot.id, ...result });
+        } catch (e) {
+            results.push({ id: shot.id, error: e.message });
+        }
+    }
+    res.json({ ok: true, results });
+});
+
+// ---------------------------------------------------------------------------
 // Production: Build video
 // ---------------------------------------------------------------------------
 
@@ -570,26 +712,50 @@ router.post('/:org/:project/build', (req, res) => {
     fs.mkdirSync(segDir, { recursive: true });
     fs.mkdirSync(outDir, { recursive: true });
 
-    const readyShots = data.shots.filter(s => s.audioFile && s.screenshotFile);
+    const readyShots = data.shots.filter(s => s.videoFile || (s.audioFile && s.screenshotFile));
     if (readyShots.length === 0) {
-        return res.status(400).json({ error: 'No shots with both audio and screenshot' });
+        return res.status(400).json({ error: 'No shots with video or both audio and screenshot' });
     }
 
     try {
         const segFiles = [];
         for (const shot of readyShots) {
-            const imgPath = path.join(base, 'shots', shot.screenshotFile);
-            const audioPath = path.join(base, 'audio', shot.audioFile);
             const segPath = path.join(segDir, `${shot.id}.mp4`);
 
-            execSync([
-                'ffmpeg -y -loop 1',
-                `-i "${imgPath}"`,
-                `-i "${audioPath}"`,
-                '-c:v libx264 -tune stillimage -c:a aac',
-                '-shortest -pix_fmt yuv420p',
-                `"${segPath}"`
-            ].join(' '), { timeout: 120000 });
+            if (shot.videoFile) {
+                // Animated video already captured — use directly
+                const videoPath = path.join(base, 'output', shot.videoFile);
+                if (fs.existsSync(videoPath)) {
+                    // Add audio track if missing
+                    if (shot.audioFile) {
+                        const audioPath = path.join(base, 'audio', shot.audioFile);
+                        execSync([
+                            'ffmpeg -y',
+                            `-i "${videoPath}"`,
+                            `-i "${audioPath}"`,
+                            '-c:v copy -c:a aac -shortest',
+                            `"${segPath}"`
+                        ].join(' '), { timeout: 120000 });
+                    } else {
+                        fs.copyFileSync(videoPath, segPath);
+                    }
+                } else {
+                    continue;
+                }
+            } else {
+                // Static: still image + audio
+                const imgPath = path.join(base, 'shots', shot.screenshotFile);
+                const audioPath = path.join(base, 'audio', shot.audioFile);
+
+                execSync([
+                    'ffmpeg -y -loop 1',
+                    `-i "${imgPath}"`,
+                    `-i "${audioPath}"`,
+                    '-c:v libx264 -tune stillimage -c:a aac',
+                    '-shortest -pix_fmt yuv420p',
+                    `"${segPath}"`
+                ].join(' '), { timeout: 120000 });
+            }
 
             segFiles.push(segPath);
         }

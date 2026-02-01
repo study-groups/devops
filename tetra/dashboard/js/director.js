@@ -449,13 +449,22 @@
             if (shot.status === 'complete') el.classList.add('complete');
             else if (shot.status === 'partial') el.classList.add('partial');
 
-            var thumbHtml = shot.screenshotFile
-                ? '<img src="' + API + '/' + state.org + '/' + state.currentProject + '/shots/' + shot.screenshotFile + '">'
-                : '<span class="no-img">' + shot.id + '</span>';
+            var thumbHtml;
+            if (shot.videoFile) {
+                thumbHtml = '<video src="' + API + '/' + state.org + '/' + state.currentProject + '/output/' + shot.videoFile + '" muted style="width:100%;height:100%;object-fit:cover"></video>';
+            } else if (shot.screenshotFile) {
+                thumbHtml = '<img src="' + API + '/' + state.org + '/' + state.currentProject + '/shots/' + shot.screenshotFile + '">';
+            } else {
+                thumbHtml = '<span class="no-img">' + shot.id + '</span>';
+            }
+
+            var badgeClass = shot.videoFile ? 'timeline-shot-badge animated' : 'timeline-shot-badge';
+            var badgeText = shot.videoFile ? 'animated' : 'static';
 
             el.innerHTML =
                 '<div class="timeline-shot-thumb">' + thumbHtml + '</div>' +
-                '<div class="timeline-shot-label">' + (shot.topic || shot.id) + '</div>';
+                '<div class="timeline-shot-label">' + (shot.topic || shot.id) + '</div>' +
+                '<div class="' + badgeClass + '">' + badgeText + '</div>';
 
             el.addEventListener('click', function() { selectShot(idx); });
             timelineTrack.appendChild(el);
@@ -488,7 +497,9 @@
         if (!shot) return;
 
         // Visual
-        if (shot.screenshotFile) {
+        if (shot.videoFile) {
+            visualThumb.innerHTML = '<video src="' + API + '/' + state.org + '/' + state.currentProject + '/output/' + shot.videoFile + '" controls muted style="max-width:100%;max-height:100%"></video>';
+        } else if (shot.screenshotFile) {
             visualThumb.innerHTML = '<img src="' + API + '/' + state.org + '/' + state.currentProject + '/shots/' + shot.screenshotFile + '">';
         } else {
             visualThumb.innerHTML = '<span class="placeholder">no screenshot</span>';
@@ -528,6 +539,8 @@
                 previewIframe.contentWindow.location.hash = '#' + shot.topic;
             } catch (e) {}
         }
+
+        updateAnimPlayer();
     }
 
     // Save channel changes to shot
@@ -648,6 +661,41 @@
             .catch(function() {
                 btn.textContent = 'gen all audio';
                 btn.disabled = false;
+            });
+    });
+
+    document.getElementById('capture-animated-btn').addEventListener('click', function() {
+        if (!state.currentProject) return;
+        var shot = getCurrentShot();
+        if (!shot) return;
+
+        captureStatus.textContent = 'capturing animated...';
+        var btn = document.getElementById('capture-animated-btn');
+        btn.disabled = true;
+
+        fetch(API + '/' + state.org + '/' + state.currentProject + '/capture-animated/' + shot.id, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                viewport: viewportSelect.value.split('x').reduce(function(o, v, i) {
+                    o[i === 0 ? 'width' : 'height'] = parseInt(v);
+                    return o;
+                }, {})
+            })
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                btn.disabled = false;
+                if (data.ok) {
+                    captureStatus.textContent = 'animated capture done';
+                    loadProject(state.currentProject);
+                } else {
+                    captureStatus.textContent = 'error: ' + (data.error || 'failed');
+                }
+            })
+            .catch(function(e) {
+                btn.disabled = false;
+                captureStatus.textContent = 'error: ' + e.message;
             });
     });
 
@@ -793,6 +841,168 @@
         }
     });
 
+    // ----------------------------------------------------------------
+    // Collapsible channels
+    // ----------------------------------------------------------------
+
+    document.getElementById('channel-editor').addEventListener('click', function(e) {
+        var header = e.target.closest('.channel-header');
+        if (!header) return;
+        // Don't collapse if clicking a button inside the header
+        if (e.target.closest('button')) return;
+        header.closest('.channel').classList.toggle('collapsed');
+    });
+
+    // ----------------------------------------------------------------
+    // Animation Player
+    // ----------------------------------------------------------------
+
+    var animBg = document.getElementById('anim-bg');
+    var animTitleOverlay = document.getElementById('anim-title-overlay');
+    var animTransitionOverlay = document.getElementById('anim-transition-overlay');
+    var animPlayBtn = document.getElementById('anim-play');
+    var animPauseBtn = document.getElementById('anim-pause');
+    var animStopBtn = document.getElementById('anim-stop');
+    var animScrub = document.getElementById('anim-scrub');
+    var animTime = document.getElementById('anim-time');
+    var animRafId = null;
+    var animScrubbing = false;
+
+    function formatTime(t) {
+        var m = Math.floor(t / 60);
+        var s = Math.floor(t % 60);
+        return m + ':' + (s < 10 ? '0' : '') + s;
+    }
+
+    function updateAnimPlayer() {
+        var shot = getCurrentShot();
+        if (!shot) return;
+
+        // Background
+        if (shot.videoFile) {
+            animBg.innerHTML = '<video src="' + API + '/' + state.org + '/' + state.currentProject + '/output/' + shot.videoFile + '" muted style="width:100%;height:100%;object-fit:cover"></video>';
+        } else if (shot.screenshotFile) {
+            animBg.innerHTML = '<img src="' + API + '/' + state.org + '/' + state.currentProject + '/shots/' + shot.screenshotFile + '">';
+        } else {
+            animBg.innerHTML = '';
+        }
+
+        // Title overlay setup
+        var pos = titlePosition.value || 'none';
+        animTitleOverlay.className = 'anim-title-overlay';
+        if (pos !== 'none') {
+            animTitleOverlay.classList.add('pos-' + pos);
+        }
+        var style = titleStyle.value || 'default';
+        if (style !== 'default') {
+            animTitleOverlay.classList.add('style-' + style);
+        }
+        animTitleOverlay.textContent = titleText.value || '';
+
+        // Transition overlay setup
+        animTransitionOverlay.className = 'anim-transition-overlay';
+        var tt = transitionType.value || 'cut';
+        if (tt !== 'cut') {
+            animTransitionOverlay.classList.add(tt);
+        }
+        animTransitionOverlay.style.opacity = '0';
+
+        // Reset scrub
+        var dur = shotAudio.duration || 0;
+        animScrub.max = dur || 100;
+        animScrub.value = 0;
+        animTime.textContent = '0:00 / ' + formatTime(dur);
+    }
+
+    function animTick() {
+        if (!shotAudio.src || shotAudio.paused) {
+            animRafId = null;
+            return;
+        }
+        var t = shotAudio.currentTime;
+        var dur = shotAudio.duration || 1;
+
+        // Update scrub + time
+        if (!animScrubbing) {
+            animScrub.value = t;
+            animTime.textContent = formatTime(t) + ' / ' + formatTime(dur);
+        }
+
+        // Title fade logic
+        var fadeIn = parseFloat(titleFadeIn.value) || 0.5;
+        var fadeOut = parseFloat(titleFadeOut.value) || 0.5;
+        var pos = titlePosition.value || 'none';
+        if (pos !== 'none' && titleText.value) {
+            if (t < fadeIn) {
+                animTitleOverlay.classList.add('visible');
+            } else if (t > dur - fadeOut) {
+                animTitleOverlay.classList.remove('visible');
+            } else {
+                animTitleOverlay.classList.add('visible');
+            }
+        } else {
+            animTitleOverlay.classList.remove('visible');
+        }
+
+        // Transition preview at end
+        var transDur = parseFloat(transitionDuration.value) || 0.5;
+        var tt = transitionType.value || 'cut';
+        if (tt !== 'cut' && dur - t <= transDur && dur - t >= 0) {
+            var progress = 1 - ((dur - t) / transDur);
+            if (tt === 'fade-black' || tt === 'crossfade') {
+                animTransitionOverlay.style.opacity = progress;
+            } else if (tt === 'slide-left') {
+                animTransitionOverlay.style.opacity = '1';
+                animTransitionOverlay.style.transform = 'translateX(' + (-100 + progress * 100) + '%)';
+            }
+        } else {
+            animTransitionOverlay.style.opacity = '0';
+            animTransitionOverlay.style.transform = '';
+        }
+
+        animRafId = requestAnimationFrame(animTick);
+    }
+
+    animPlayBtn.addEventListener('click', function() {
+        if (!shotAudio.src) return;
+        shotAudio.play();
+        if (!animRafId) animRafId = requestAnimationFrame(animTick);
+    });
+
+    animPauseBtn.addEventListener('click', function() {
+        shotAudio.pause();
+    });
+
+    animStopBtn.addEventListener('click', function() {
+        shotAudio.pause();
+        shotAudio.currentTime = 0;
+        animTitleOverlay.classList.remove('visible');
+        animTransitionOverlay.style.opacity = '0';
+        animTransitionOverlay.style.transform = '';
+        animScrub.value = 0;
+        animTime.textContent = '0:00 / ' + formatTime(shotAudio.duration || 0);
+    });
+
+    animScrub.addEventListener('input', function() {
+        animScrubbing = true;
+        shotAudio.currentTime = parseFloat(animScrub.value);
+        animTime.textContent = formatTime(shotAudio.currentTime) + ' / ' + formatTime(shotAudio.duration || 0);
+    });
+    animScrub.addEventListener('change', function() {
+        animScrubbing = false;
+    });
+
+    shotAudio.addEventListener('ended', function() {
+        animTitleOverlay.classList.remove('visible');
+        animTransitionOverlay.style.opacity = '0';
+        animTransitionOverlay.style.transform = '';
+    });
+
+    shotAudio.addEventListener('loadedmetadata', function() {
+        animScrub.max = shotAudio.duration;
+        animTime.textContent = '0:00 / ' + formatTime(shotAudio.duration);
+    });
+
     window.addEventListener('message', function(e) {
         var msg = e.data;
         if (!msg || typeof msg !== 'object') return;
@@ -803,5 +1013,107 @@
             loadGuides();
         }
     });
+
+    // ----------------------------------------------------------------
+    // Timeline Cue Editor
+    // ----------------------------------------------------------------
+
+    var tlEditor = document.getElementById('timeline-cue-editor');
+    var tlAutoGen = document.getElementById('tl-auto-gen');
+    var tlSendPreview = document.getElementById('tl-send-preview');
+
+    function generateEvenCues(text, duration) {
+        if (!text || !duration) return [];
+        var words = text.split(/\s+/).filter(function(w) { return w.length > 0; });
+        var perWord = duration / words.length;
+        var cues = [];
+        for (var i = 0; i < words.length; i++) {
+            cues.push({
+                text: words[i],
+                start: Math.round(i * perWord * 100) / 100,
+                end: Math.round((i + 1) * perWord * 100) / 100
+            });
+        }
+        return cues;
+    }
+
+    function renderCueEditor() {
+        var shot = getCurrentShot();
+        if (!shot) { tlEditor.innerHTML = ''; return; }
+        var cues = shot.timeline || [];
+        if (cues.length === 0) {
+            tlEditor.innerHTML = '<div style="padding:6px;font-size:9px;color:var(--ink-muted)">No cues. Click auto-gen.</div>';
+            return;
+        }
+        var html = '';
+        for (var i = 0; i < cues.length; i++) {
+            html += '<div class="tl-cue-row" data-idx="' + i + '">' +
+                '<span class="tl-word">' + cues[i].text + '</span>' +
+                '<span class="tl-label">s:</span>' +
+                '<input type="number" class="tl-start" value="' + cues[i].start + '" step="0.05" min="0">' +
+                '<span class="tl-label">e:</span>' +
+                '<input type="number" class="tl-end" value="' + cues[i].end + '" step="0.05" min="0">' +
+                '</div>';
+        }
+        tlEditor.innerHTML = html;
+    }
+
+    // Auto-generate evenly spaced cues from narration + audio duration
+    tlAutoGen.addEventListener('click', function() {
+        var shot = getCurrentShot();
+        if (!shot || !shot.narration) return;
+        var dur = shot.audioDuration || (shotAudio.duration || 0);
+        if (!dur) { alert('No audio duration. Generate audio first.'); return; }
+        shot.timeline = generateEvenCues(shot.narration, dur);
+        renderCueEditor();
+        debouncedSave();
+    });
+
+    // Save cue edits back to shot
+    tlEditor.addEventListener('change', function(e) {
+        var input = e.target;
+        if (!input.classList.contains('tl-start') && !input.classList.contains('tl-end')) return;
+        var row = input.closest('.tl-cue-row');
+        var idx = parseInt(row.dataset.idx);
+        var shot = getCurrentShot();
+        if (!shot || !shot.timeline || !shot.timeline[idx]) return;
+        if (input.classList.contains('tl-start')) {
+            shot.timeline[idx].start = parseFloat(input.value) || 0;
+        } else {
+            shot.timeline[idx].end = parseFloat(input.value) || 0;
+        }
+        debouncedSave();
+    });
+
+    // Send cues to iframe for live preview
+    tlSendPreview.addEventListener('click', function() {
+        var shot = getCurrentShot();
+        if (!shot || !shot.timeline || shot.timeline.length === 0) return;
+        var audioSrc = shot.audioFile
+            ? API + '/' + state.org + '/' + state.currentProject + '/audio/' + shot.audioFile
+            : '';
+        try {
+            previewIframe.contentWindow.postMessage({
+                type: 'anim-init',
+                cues: shot.timeline,
+                narration: shot.narration || '',
+                audioSrc: audioSrc
+            }, '*');
+            // Start playback after short delay for init
+            setTimeout(function() {
+                previewIframe.contentWindow.postMessage({
+                    type: 'anim-play',
+                    audioSrc: audioSrc
+                }, '*');
+            }, 200);
+        } catch (e) {}
+    });
+
+    // Hook into selectShot to render cue editor
+    var _origSelectShot = selectShot;
+    selectShot = function(idx) {
+        _origSelectShot(idx);
+        renderCueEditor();
+    };
 
 })();

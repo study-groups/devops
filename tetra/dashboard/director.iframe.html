@@ -163,6 +163,17 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
             color: var(--ink-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+        .channel-header::after {
+            content: '\25BC';
+            font-size: 7px;
+            margin-left: 6px;
+            transition: transform 0.2s;
+        }
+        .channel.collapsed .channel-header::after {
+            transform: rotate(-90deg);
         }
         .channel-header .ch-icon {
             width: 12px;
@@ -176,6 +187,13 @@
         .channel-header .ch-icon.transition { background: var(--one); }
         .channel-body {
             padding: 8px;
+            max-height: 500px;
+            overflow: hidden;
+            transition: max-height 0.25s ease, padding 0.25s ease;
+        }
+        .channel.collapsed .channel-body {
+            max-height: 0;
+            padding: 0 8px;
         }
         .channel-row {
             display: flex;
@@ -252,6 +270,124 @@
             font-size: 9px;
             color: var(--ink-muted);
             margin-bottom: 6px;
+        }
+
+        /* Timeline cue editor */
+        .timeline-cue-editor {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            background: var(--paper-dark);
+            margin-top: 4px;
+        }
+        .tl-cue-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 6px;
+            font-size: 9px;
+            border-bottom: 1px solid var(--border);
+        }
+        .tl-cue-row:last-child { border-bottom: none; }
+        .tl-cue-row .tl-word {
+            flex: 1;
+            color: var(--ink);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 60px;
+        }
+        .tl-cue-row input {
+            width: 48px;
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            font-size: 9px;
+            padding: 1px 3px;
+            border-radius: 2px;
+            text-align: right;
+        }
+        .tl-cue-row .tl-label {
+            color: var(--ink-muted);
+            font-size: 8px;
+        }
+
+        /* Animation Player */
+        .anim-player {
+            flex-shrink: 0;
+            border-bottom: 1px solid var(--border);
+            background: var(--paper-dark);
+            padding: 6px 8px;
+        }
+        .anim-viewport {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #000;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 6px;
+        }
+        .anim-viewport img, .anim-viewport video {
+            width: 100%; height: 100%; object-fit: cover;
+        }
+        .anim-title-overlay {
+            position: absolute;
+            left: 0; right: 0;
+            padding: 8px 12px;
+            color: #fff;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .anim-title-overlay.pos-top { top: 8px; }
+        .anim-title-overlay.pos-center { top: 50%; transform: translateY(-50%); }
+        .anim-title-overlay.pos-bottom { bottom: 8px; }
+        .anim-title-overlay.pos-lower-third { bottom: 15%; font-size: 12px; }
+        .anim-title-overlay.style-bold { font-size: 18px; }
+        .anim-title-overlay.style-subtle { font-weight: 400; font-size: 11px; opacity: 0.8; }
+        .anim-title-overlay.style-cinematic { font-size: 20px; letter-spacing: 2px; text-transform: uppercase; }
+        .anim-title-overlay.visible { opacity: 1; }
+        .anim-transition-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .anim-transition-overlay.fade-black { background: #000; }
+        .anim-transition-overlay.crossfade { background: #000; }
+        .anim-transition-overlay.slide-left { background: #000; }
+        .anim-transport {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .anim-transport button {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--ink-muted);
+            width: 22px; height: 20px;
+            font-size: 10px;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+        .anim-transport button:hover { color: var(--ink); border-color: var(--four); }
+        .anim-scrub {
+            flex: 1;
+            height: 4px;
+            accent-color: var(--four);
+        }
+        .anim-time {
+            font-size: 9px;
+            color: var(--ink-muted);
+            min-width: 60px;
+            text-align: right;
         }
 
         /* Timeline */
@@ -441,6 +577,20 @@
 
         <!-- Right: Channel editor -->
         <div class="editor-pane">
+            <div class="anim-player" id="anim-player">
+                <div class="anim-viewport" id="anim-viewport">
+                    <div id="anim-bg"></div>
+                    <div class="anim-title-overlay" id="anim-title-overlay"></div>
+                    <div class="anim-transition-overlay" id="anim-transition-overlay"></div>
+                </div>
+                <div class="anim-transport">
+                    <button id="anim-play" title="Play">&#9654;</button>
+                    <button id="anim-pause" title="Pause">&#9646;&#9646;</button>
+                    <button id="anim-stop" title="Stop">&#9632;</button>
+                    <input type="range" class="anim-scrub" id="anim-scrub" min="0" max="100" step="0.1" value="0">
+                    <span class="anim-time" id="anim-time">0:00 / 0:00</span>
+                </div>
+            </div>
             <div class="channel-editor" id="channel-editor">
                 <!-- Visual channel -->
                 <div class="channel">
@@ -479,6 +629,14 @@
                             <button class="mini-btn" data-action="play-audio">play</button>
                         </div>
                         <audio id="shot-audio"></audio>
+                        <div class="channel-row" style="margin-top:6px">
+                            <label>timeline:</label>
+                            <button class="mini-btn" id="tl-auto-gen">auto-gen</button>
+                            <button class="mini-btn" id="tl-send-preview">preview</button>
+                        </div>
+                        <div class="timeline-cue-editor" id="timeline-cue-editor">
+                            <!-- Word cue rows inserted by JS -->
+                        </div>
                     </div>
                 </div>
 

@@ -39,7 +39,29 @@
       "content": [
         {
           "type": "paragraph",
-          "text": "TSM (Tetra Service Manager) is tetra's built-in process orchestrator. It manages long-running services, allocates named ports, handles logging, and monitors process health."
+          "text": "TSM (Tetra Service Manager) is tetra's built-in process orchestrator. It manages long-running services, allocates named ports, handles logging, and monitors process health.",
+          "timeline": [
+            { "text": "TSM", "start": 0.0, "end": 0.4 },
+            { "text": "(Tetra Service Manager)", "start": 0.4, "end": 1.6 },
+            { "text": "is", "start": 1.6, "end": 1.9 },
+            { "text": "tetra's", "start": 1.9, "end": 2.4 },
+            { "text": "built-in", "start": 2.4, "end": 2.9 },
+            { "text": "process", "start": 2.9, "end": 3.4 },
+            { "text": "orchestrator.", "start": 3.4, "end": 4.2 },
+            { "text": "It", "start": 4.4, "end": 4.6 },
+            { "text": "manages", "start": 4.6, "end": 5.1 },
+            { "text": "long-running", "start": 5.1, "end": 5.8 },
+            { "text": "services,", "start": 5.8, "end": 6.4 },
+            { "text": "allocates", "start": 6.4, "end": 7.0 },
+            { "text": "named", "start": 7.0, "end": 7.4 },
+            { "text": "ports,", "start": 7.4, "end": 7.9 },
+            { "text": "handles", "start": 8.0, "end": 8.5 },
+            { "text": "logging,", "start": 8.5, "end": 9.1 },
+            { "text": "and", "start": 9.2, "end": 9.4 },
+            { "text": "monitors", "start": 9.4, "end": 10.0 },
+            { "text": "process", "start": 10.0, "end": 10.5 },
+            { "text": "health.", "start": 10.5, "end": 11.2 }
+          ]
         },
         {
           "type": "paragraph",
