@@ -41,6 +41,8 @@ tetra_register_module "claude" "$TETRA_BASH/claude"
 tetra_register_module "spaces" "$TETRA_BASH/spaces"
 tetra_register_module "gamepak" "$TETRA_BASH/gamepak"
 tetra_register_module "vox" "$TETRA_BASH/vox"
+tetra_register_module "vocoder" "$TETRA_BASH/vocoder"
+tetra_register_module "voxlab" "$TETRA_BASH/voxlab"
 
 # Register internal modules for RAG and Melvin (qa registered in boot_core.sh)
 tetra_register_module "rag" "$TETRA_BASH/rag"
@@ -204,6 +206,12 @@ tetra_create_lazy_function "org" "org"
 tetra_create_lazy_function "vox" "vox"
 tetra_create_lazy_function "v" "vox"
 tetra_create_lazy_function "vr" "vox"
+
+# Vocoder module functions (audio codec)
+tetra_create_lazy_function "vocoder" "vocoder"
+
+# Voxlab module functions (ML experiment tracking)
+tetra_create_lazy_function "voxlab" "voxlab"
 
 # Gamepak module functions (game package manager)
 tetra_create_lazy_function "gamepak" "gamepak"

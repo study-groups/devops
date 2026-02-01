@@ -361,9 +361,235 @@
             color: var(--ink-muted);
             background: var(--paper-dark);
         }
+
+        /* Tab bar */
+        .vox-tabs {
+            display: flex;
+            background: var(--paper-dark);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .vox-tab {
+            padding: 6px 14px;
+            font-size: 10px;
+            color: var(--ink-muted);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        .vox-tab:hover { color: var(--ink); background: var(--paper-mid); }
+        .vox-tab.active { color: var(--ink); border-bottom-color: var(--four); }
+        .vox-tab-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .vox-tab-content.hidden { display: none; }
+
+        /* Lab styles */
+        .lab-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            min-height: 28px;
+        }
+        .lab-split {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        .lab-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-width: 0;
+        }
+        .lab-sidebar {
+            width: 220px;
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .lab-sidebar-section {
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--border);
+        }
+        .lab-sidebar-title {
+            font-size: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--ink-muted);
+            margin-bottom: 4px;
+        }
+        .lab-sidebar-list {
+            font-size: 9px;
+            max-height: 120px;
+            overflow: auto;
+        }
+        .lab-sidebar-item {
+            padding: 2px 4px;
+            cursor: pointer;
+            border-radius: 2px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .lab-sidebar-item:hover { background: var(--paper-mid); }
+        .lab-sidebar-item .loss { font-family: monospace; color: var(--two); }
+        .lab-sidebar-item .status {
+            font-size: 8px;
+            padding: 0 4px;
+            border-radius: 3px;
+        }
+        .lab-sidebar-item .status.complete { color: var(--two); }
+        .lab-sidebar-item .status.created { color: var(--three); }
+        .lab-sidebar-item .status.summarized { color: var(--ink-muted); }
+
+        .lab-exp-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+        }
+        .lab-exp-table th {
+            position: sticky;
+            top: 0;
+            background: var(--paper-mid);
+            text-align: left;
+            padding: 3px 6px;
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--ink-muted);
+            border-bottom: 1px solid var(--border);
+        }
+        .lab-exp-table td {
+            padding: 2px 6px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        .lab-exp-table tr:hover td { background: var(--paper-mid); }
+        .lab-exp-table tr.selected td { background: var(--paper-dark); }
+
+        .lab-detail {
+            flex-shrink: 0;
+            border-top: 1px solid var(--border);
+            max-height: 40%;
+            overflow: auto;
+            padding: 8px 10px;
+        }
+        .lab-detail.hidden { display: none; }
+        .lab-detail-title {
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--ink-muted);
+            margin-bottom: 6px;
+        }
+        .lab-config-block {
+            font-size: 9px;
+            font-family: monospace;
+            color: var(--ink-muted);
+            background: var(--paper-dark);
+            padding: 4px 6px;
+            border-radius: 3px;
+            white-space: pre-wrap;
+            max-height: 100px;
+            overflow: auto;
+            margin-bottom: 6px;
+        }
+        .lab-loss-chart {
+            width: 100%;
+            height: 80px;
+            background: var(--paper-dark);
+            border-radius: 3px;
+            margin-bottom: 6px;
+        }
+        .lab-status-bar {
+            flex-shrink: 0;
+            padding: 4px 10px;
+            border-top: 1px solid var(--border);
+            font-size: 9px;
+            color: var(--ink-muted);
+            background: var(--paper-dark);
+        }
+
+        /* Voice samples */
+        .lab-samples {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .lab-sample-card {
+            flex: 1;
+            background: var(--paper-dark);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 6px 8px;
+            text-align: center;
+        }
+        .lab-sample-card.has-audio { border-color: var(--four); }
+        .lab-sample-label {
+            font-size: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--ink-muted);
+            margin-bottom: 4px;
+        }
+        .lab-sample-card.has-audio .lab-sample-label { color: var(--four); }
+        .lab-sample-sub {
+            font-size: 8px;
+            color: var(--ink-muted);
+            margin-bottom: 4px;
+        }
+        .lab-sample-play {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--ink-muted);
+            padding: 3px 12px;
+            font-family: inherit;
+            font-size: 9px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .lab-sample-card.has-audio .lab-sample-play {
+            border-color: var(--two);
+            color: var(--two);
+            cursor: pointer;
+        }
+        .lab-sample-play:hover { opacity: 0.8; }
+        .lab-sample-play:disabled { opacity: 0.3; cursor: default; }
+        .lab-sample-play.playing {
+            border-color: var(--one);
+            color: var(--one);
+        }
+        .lab-sample-canvas {
+            width: 100%;
+            height: 32px;
+            margin-top: 4px;
+            border-radius: 2px;
+        }
+        .lab-empty {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--ink-muted);
+            font-size: 10px;
+        }
     </style>
 </head>
 <body>
+    <!-- Tab bar -->
+    <div class="vox-tabs">
+        <div class="vox-tab active" data-vox-tab="vox">Vox</div>
+        <div class="vox-tab" data-vox-tab="lab">Lab</div>
+    </div>
+
+    <!-- === VOX TAB === -->
+    <div id="tab-vox" class="vox-tab-content">
+
     <!-- Toolbar: provider/model/voice selection -->
     <div class="toolbar">
         <span class="toolbar-label">Vox</span>
@@ -437,7 +663,128 @@
     <!-- Shared audio element for play buttons -->
     <audio id="shared-audio"></audio>
 
+    </div><!-- /tab-vox -->
+
+    <!-- === LAB TAB === -->
+    <div id="tab-lab" class="vox-tab-content hidden">
+
+        <!-- Lab toolbar -->
+        <div class="lab-toolbar">
+            <span class="toolbar-label">Voxlab</span>
+            <div class="toolbar-sep"></div>
+            <button class="toolbar-btn" id="lab-refresh-btn">Refresh</button>
+            <div class="toolbar-spacer"></div>
+            <span class="toolbar-label" id="lab-exp-count">0 experiments</span>
+        </div>
+
+        <!-- Split: experiments table + sidebar -->
+        <div class="lab-split">
+            <div class="lab-main">
+                <div style="flex:1; overflow:auto;">
+                    <table class="lab-exp-table">
+                        <thead>
+                            <tr>
+                                <th>Experiment</th>
+                                <th>Pipeline</th>
+                                <th>Status</th>
+                                <th>Loss</th>
+                                <th>Steps</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lab-exp-body"></tbody>
+                    </table>
+                    <div class="lab-empty" id="lab-empty">No experiments. Use <code>voxlab run</code> to start one.</div>
+                </div>
+
+                <!-- Detail pane (shown when experiment selected) -->
+                <div class="lab-detail hidden" id="lab-detail">
+                    <div class="lab-detail-title" id="lab-detail-title">Experiment</div>
+
+                    <!-- Voice Samples: before / during / after -->
+                    <div class="lab-samples" id="lab-samples">
+                        <div class="lab-sample-card" id="lab-sample-before">
+                            <div class="lab-sample-label">Before</div>
+                            <div class="lab-sample-sub">untrained</div>
+                            <canvas class="lab-sample-canvas" id="lab-wf-before"></canvas>
+                            <button class="lab-sample-play" id="lab-play-before" disabled>&#9654; Play</button>
+                        </div>
+                        <div class="lab-sample-card" id="lab-sample-during">
+                            <div class="lab-sample-label">During</div>
+                            <div class="lab-sample-sub">mid-training</div>
+                            <canvas class="lab-sample-canvas" id="lab-wf-during"></canvas>
+                            <button class="lab-sample-play" id="lab-play-during" disabled>&#9654; Play</button>
+                        </div>
+                        <div class="lab-sample-card" id="lab-sample-after">
+                            <div class="lab-sample-label">After</div>
+                            <div class="lab-sample-sub">trained</div>
+                            <canvas class="lab-sample-canvas" id="lab-wf-after"></canvas>
+                            <button class="lab-sample-play" id="lab-play-after" disabled>&#9654; Play</button>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:12px;">
+                        <div style="flex:1;">
+                            <div class="lab-detail-title" style="margin-top:0;">Config</div>
+                            <div class="lab-config-block" id="lab-detail-config"></div>
+                        </div>
+                        <div style="flex:1;">
+                            <div class="lab-detail-title" style="margin-top:0;">Loss Curve</div>
+                            <canvas class="lab-loss-chart" id="lab-loss-canvas"></canvas>
+                        </div>
+                    </div>
+                    <div class="lab-detail-title">Recent Logs</div>
+                    <div class="lab-config-block" id="lab-detail-logs" style="max-height:80px;"></div>
+                </div>
+            </div>
+
+            <!-- Sidebar: pipelines + golden refs + triggers -->
+            <div class="lab-sidebar">
+                <div class="lab-sidebar-section">
+                    <div class="lab-sidebar-title">Pipelines</div>
+                    <div class="lab-sidebar-list" id="lab-pipelines">-</div>
+                </div>
+                <div class="lab-sidebar-section">
+                    <div class="lab-sidebar-title">Golden Refs</div>
+                    <div class="lab-sidebar-list" id="lab-golden">-</div>
+                </div>
+                <div class="lab-sidebar-section">
+                    <div class="lab-sidebar-title">Triggers</div>
+                    <div class="lab-sidebar-list" id="lab-triggers">-</div>
+                </div>
+                <div class="lab-sidebar-section">
+                    <div class="lab-sidebar-title">Events</div>
+                    <div class="lab-sidebar-list" id="lab-events" style="max-height:160px;">-</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="lab-status-bar" id="lab-status-bar">Voxlab ready</div>
+
+    </div><!-- /tab-lab -->
+
     <script src="js/vox-waveform.js"></script>
     <script src="js/vox.js"></script>
+    <script src="js/voxlab.js"></script>
+
+    <!-- Tab switching -->
+    <script>
+    (function() {
+        var tabs = document.querySelectorAll('.vox-tab');
+        var contents = { vox: document.getElementById('tab-vox'), lab: document.getElementById('tab-lab') };
+        tabs.forEach(function(tab) {
+            tab.addEventListener('click', function() {
+                var name = tab.dataset.voxTab;
+                tabs.forEach(function(t) { t.classList.toggle('active', t.dataset.voxTab === name); });
+                Object.keys(contents).forEach(function(k) {
+                    contents[k].classList.toggle('hidden', k !== name);
+                });
+                if (name === 'lab' && window.VoxlabPanel) {
+                    VoxlabPanel.refresh();
+                }
+            });
+        });
+    })();
+    </script>
 </body>
 </html>

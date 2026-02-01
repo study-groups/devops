@@ -327,6 +327,7 @@ app.use('/api/caddy', require('./api/caddy'));
 app.use('/api/infra', require('./api/infra'));
 app.use('/api/tut', require('./api/tut'));
 app.use('/api/vox', require('./api/vox'));
+app.use('/api/voxlab', require('./api/voxlab'));
 app.use('/api/director', require('./api/director'));
 app.use('/api/qa', require('./api/qa'));
 app.use('/api/agents', require('./api/agents'));
