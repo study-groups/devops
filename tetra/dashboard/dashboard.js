@@ -18,7 +18,11 @@ const Dashboard = (() => {
         infra:     { src: 'infra.iframe.html',     label: 'Infra' },
         orgs:      { src: 'orgs.iframe.html',      label: 'Orgs' },
         developer: { src: 'developer.iframe.html', label: 'Developer' },
-        admin:     { src: 'admin.iframe.html',     label: 'Admin' }
+        admin:     { src: 'admin.iframe.html',     label: 'Admin' },
+        tut:       { src: 'tut.iframe.html',       label: 'Tut' },
+        director:  { src: 'director.iframe.html',  label: 'Director' },
+        vox:       { src: 'vox.iframe.html',      label: 'Vox' },
+        agents:    { src: 'agents.iframe.html',   label: 'Agents' }
     };
 
     const ENVS = [
@@ -46,6 +50,14 @@ const Dashboard = (() => {
     let ORGS = getOrgsForRender();
 
     const STORAGE_KEY = 'tetra-console-state';
+
+    const PANEL_ABBREV = {
+        'top-left': 'tl', 'top-right': 'tr',
+        'bottom-left': 'bl', 'bottom-right': 'br'
+    };
+    const ABBREV_PANEL = Object.fromEntries(
+        Object.entries(PANEL_ABBREV).map(([k, v]) => [v, k])
+    );
 
     // ========================================================================
     // State
@@ -245,8 +257,8 @@ const Dashboard = (() => {
             panel.classList.remove('takeover-active');
             btn.classList.remove('active');
             btn.title = 'Expand panel';
-            rebuildPaneLayout();
             takeoverPanel = null;
+            serializeToHash();
         } else {
             if (takeoverPanel) {
                 takeoverPanel.classList.remove('takeover-active');
@@ -256,33 +268,8 @@ const Dashboard = (() => {
             panel.classList.add('takeover-active');
             btn.classList.add('active');
             btn.title = 'Restore panels';
-            panes.appendChild(panel);
             takeoverPanel = panel;
-        }
-    }
-
-    function rebuildPaneLayout() {
-        const topRow = document.querySelector('.pane-row.top');
-        const botRow = document.querySelector('.pane-row.bottom');
-        const topLeft = document.querySelector('[data-panel="top-left"]');
-        const topRight = document.querySelector('[data-panel="top-right"]');
-        const botLeft = document.querySelector('[data-panel="bottom-left"]');
-        const botRight = document.querySelector('[data-panel="bottom-right"]');
-        const divTopV = document.getElementById('divider-top-v');
-        const divBotV = document.getElementById('divider-bot-v');
-
-        if (topRow && topLeft && topRight) {
-            topRow.innerHTML = '';
-            topRow.appendChild(topLeft);
-            topRow.appendChild(divTopV);
-            topRow.appendChild(topRight);
-        }
-
-        if (botRow && botLeft && botRight) {
-            botRow.innerHTML = '';
-            botRow.appendChild(botLeft);
-            botRow.appendChild(divBotV);
-            botRow.appendChild(botRight);
+            serializeToHash();
         }
     }
 
@@ -313,6 +300,86 @@ const Dashboard = (() => {
         });
 
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        serializeToHash();
+    }
+
+    function serializeToHash() {
+        const params = new URLSearchParams();
+        params.set('org', getActiveOrg());
+
+        if (takeoverPanel) {
+            params.set('takeover', takeoverPanel.dataset.panel);
+        }
+
+        panels.forEach(panel => {
+            const id = panel.dataset.panel;
+            const abbrev = PANEL_ABBREV[id];
+            if (!abbrev) return;
+
+            const view = panel.querySelector('.view-select')?.value;
+            const activeEnvBtn = panel.querySelector('.env-btn.active');
+            const env = activeEnvBtn?.dataset.env || 'local';
+            const user = activeEnvBtn?.dataset.user || '';
+
+            if (view) params.set(`${abbrev}.view`, view);
+            if (env) params.set(`${abbrev}.env`, env);
+            if (user) params.set(`${abbrev}.user`, user);
+        });
+
+        history.replaceState(null, '', '#' + params.toString());
+    }
+
+    function restoreFromHash() {
+        const hash = window.location.hash.slice(1);
+        if (!hash) return false;
+
+        const params = new URLSearchParams(hash);
+        if (!params.has('org')) return false;
+
+        // Restore org
+        const org = params.get('org');
+        document.querySelectorAll('.org-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.org === org);
+        });
+
+        // Restore each panel
+        panels.forEach(panel => {
+            const id = panel.dataset.panel;
+            const abbrev = PANEL_ABBREV[id];
+            if (!abbrev) return;
+
+            const view = params.get(`${abbrev}.view`);
+            const env = params.get(`${abbrev}.env`);
+            const user = params.get(`${abbrev}.user`);
+
+            if (view) {
+                const viewSelect = panel.querySelector('.view-select');
+                if (viewSelect) viewSelect.value = view;
+            }
+
+            if (env) {
+                panel.querySelectorAll('.env-btn').forEach(btn => {
+                    const isMatch = btn.dataset.env === env;
+                    btn.classList.toggle('active', isMatch);
+                    if (isMatch && user && btn.dataset.user !== undefined) {
+                        btn.dataset.user = user;
+                        const prefix = btn.querySelector('.user-prefix');
+                        if (prefix) prefix.textContent = user[0] + ':';
+                    }
+                });
+            }
+
+            updatePanelIframe(panel);
+        });
+
+        // Restore takeover
+        const takeoverId = params.get('takeover');
+        if (takeoverId) {
+            const panel = document.querySelector(`[data-panel="${takeoverId}"]`);
+            if (panel) toggleTakeover(panel);
+        }
+
+        return true;
     }
 
     function loadPanelState() {
@@ -628,8 +695,10 @@ const Dashboard = (() => {
         // Prefetch environments
         await Promise.all(ORGS.map(org => fetchEnvironments(org.id)));
 
-        // Load saved state
-        loadPanelState();
+        // Load from URL hash if present, otherwise from localStorage
+        if (!restoreFromHash()) {
+            loadPanelState();
+        }
     }
 
     // ========================================================================
