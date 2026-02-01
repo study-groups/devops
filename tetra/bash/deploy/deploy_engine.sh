@@ -47,54 +47,42 @@ _de_format_size() {
     fi
 }
 
-# Print command with smart wrapping based on terminal width
-# Usage: _de_print_cmd <prefix> <command>
-_de_print_cmd() {
-    local prefix="$1"
-    local cmd="$2"
-    local width=${COLUMNS:-80}
+# Print a single logical line with word-wrapping
+# Usage: _de_print_line <line> <max_first> <max_cont> <indent> <is_first_line>
+#   is_first_line: 1 = print prefix, 0 = continuation indent only
+_de_print_line() {
+    local text="$1" max_first="$2" max_cont="$3" indent="$4" is_first="$5"
+    local prefix="$6"
 
-    # Ensure minimum usable width
-    (( width < 40 )) && width=40
+    # Simple case: fits on one output line
+    local max=$max_cont
+    (( is_first )) && max=$max_first
 
-    # Small fixed indent for continuations (6 spaces)
-    local indent="      "
-    local first_indent="   "  # 3 spaces for first line
-
-    # Calculate max line lengths (reserve space for backslash + space)
-    local max_first=$((width - ${#first_indent} - ${#prefix} - 3))
-    local max_cont=$((width - ${#indent} - 3))
-
-    # Ensure we have reasonable space for content
-    (( max_first < 20 )) && max_first=20
-    (( max_cont < 20 )) && max_cont=20
-
-    # If it fits, just print it
-    if [[ ${#cmd} -le $max_first ]]; then
-        echo -e "  ${DE_CLR_STEP}${prefix}${DE_CLR_NC} ${DE_CLR_CMD}${cmd}${DE_CLR_NC}"
+    if [[ ${#text} -le $max ]]; then
+        if (( is_first )); then
+            echo -e "  ${DE_CLR_STEP}${prefix}${DE_CLR_NC} ${DE_CLR_CMD}${text}${DE_CLR_NC}"
+        else
+            echo -e "${DE_CLR_CMD}${indent}${text}${DE_CLR_NC}"
+        fi
         return
     fi
 
-    # Collect all words, then build wrapped lines
+    # Word-wrap long lines
     local -a words=()
-    read -ra words <<< "$cmd"
-
-    local line=""
-    local first=1
-    local i=0
-    local total=${#words[@]}
+    read -ra words <<< "$text"
+    local line="" first_word=1
+    local i=0 total=${#words[@]}
 
     while (( i < total )); do
         local word="${words[i]}"
         local test_line="${line:+$line }$word"
-        local max=$max_first
-        (( first == 0 )) && max=$max_cont
+        local cur_max=$max_cont
+        (( is_first && first_word )) && cur_max=$max_first
 
-        if [[ ${#test_line} -gt $max && -n "$line" ]]; then
-            # Print current line with continuation backslash
-            if (( first == 1 )); then
+        if [[ ${#test_line} -gt $cur_max && -n "$line" ]]; then
+            if (( is_first && first_word )); then
                 echo -e "  ${DE_CLR_STEP}${prefix}${DE_CLR_NC} ${DE_CLR_CMD}${line}${DE_CLR_NC} ${DE_CLR_DIM}\\\\${DE_CLR_NC}"
-                first=0
+                first_word=0
             else
                 echo -e "${DE_CLR_CMD}${indent}${line}${DE_CLR_NC} ${DE_CLR_DIM}\\\\${DE_CLR_NC}"
             fi
@@ -105,14 +93,44 @@ _de_print_cmd() {
         (( i++ ))
     done
 
-    # Print final line (no backslash)
     if [[ -n "$line" ]]; then
-        if (( first == 1 )); then
+        if (( is_first && first_word )); then
             echo -e "  ${DE_CLR_STEP}${prefix}${DE_CLR_NC} ${DE_CLR_CMD}${line}${DE_CLR_NC}"
         else
             echo -e "${DE_CLR_CMD}${indent}${line}${DE_CLR_NC}"
         fi
     fi
+}
+
+# Print command with smart wrapping based on terminal width
+# Handles multi-line commands by printing each logical line separately
+# Usage: _de_print_cmd <prefix> <command>
+_de_print_cmd() {
+    local prefix="$1"
+    local cmd="$2"
+    local width=${COLUMNS:-80}
+
+    (( width < 40 )) && width=40
+
+    local indent="      "
+    local max_first=$((width - 3 - ${#prefix} - 3))
+    local max_cont=$((width - ${#indent} - 3))
+    (( max_first < 20 )) && max_first=20
+    (( max_cont < 20 )) && max_cont=20
+
+    # Single-line command (no embedded newlines)
+    if [[ "$cmd" != *$'\n'* ]]; then
+        _de_print_line "$cmd" "$max_first" "$max_cont" "$indent" 1 "$prefix"
+        return
+    fi
+
+    # Multi-line: print each logical line, first gets the prefix
+    local first=1
+    while IFS= read -r logical_line; do
+        [[ -z "$logical_line" ]] && continue
+        _de_print_line "$logical_line" "$max_first" "$max_cont" "$indent" "$first" "$prefix"
+        first=0
+    done <<< "$cmd"
 }
 
 # Print file with size
@@ -208,8 +226,49 @@ de_load() {
 
     local section=""
     local subsection=""
+    local in_multiline=0
+    local ml_key=""
+    local ml_val=""
 
     while IFS= read -r line || [[ -n "$line" ]]; do
+        # Accumulate multi-line """...""" strings
+        if [[ $in_multiline -eq 1 ]]; then
+            if [[ "$line" =~ ^[[:space:]]*\"\"\"[[:space:]]*$ ]]; then
+                # Closing """ — store accumulated value
+                in_multiline=0
+                local val="$ml_val"
+                local key="$ml_key"
+                case "$section" in
+                    target)   DE_TARGET["$key"]="$val" ;;
+                    env)      DE_ENV["$subsection.$key"]="$val" ;;
+                    files)
+                        if [[ -n "$subsection" ]]; then
+                            DE_FILES["$subsection.$key"]="$val"
+                        else
+                            DE_FILES["$key"]="$val"
+                        fi
+                        ;;
+                    build)
+                        if [[ -n "$subsection" ]]; then
+                            DE_BUILD["$subsection.$key"]="$val"
+                        else
+                            DE_BUILD["$key"]="$val"
+                        fi
+                        ;;
+                    push)     DE_PUSH["$key"]="$val" ;;
+                    pipeline) DE_PIPELINE["$key"]="$val" ;;
+                    alias)    DE_ALIAS["$key"]="$val" ;;
+                    history)  DE_HISTORY["$key"]="$val" ;;
+                    remote)   DE_REMOTE["$key"]="$val" ;;
+                    post)     DE_POST["$key"]="$val" ;;
+                esac
+            else
+                [[ -n "$ml_val" ]] && ml_val+=$'\n'
+                ml_val+="$line"
+            fi
+            continue
+        fi
+
         [[ "$line" =~ ^[[:space:]]*# ]] && continue
         [[ -z "${line// }" ]] && continue
 
@@ -228,6 +287,16 @@ de_load() {
         if [[ "$line" =~ ^([a-zA-Z_][a-zA-Z0-9_-]*)[[:space:]]*= ]]; then
             local key="${BASH_REMATCH[1]}"
             local val
+
+            # Check for multi-line string opening """
+            local rhs="${line#*=}"
+            rhs="${rhs#"${rhs%%[![:space:]]*}"}"
+            if [[ "$rhs" =~ ^\"\"\" ]]; then
+                in_multiline=1
+                ml_key="$key"
+                ml_val=""
+                continue
+            fi
 
             if [[ "$line" == *"["* ]]; then
                 val=$(_de_parse_array "$line")
@@ -301,6 +370,25 @@ _de_template() {
         [remote_build]="${DE_TARGET[remote_build]}"
         [branch]="${DE_ENV["$env.branch"]:-${DE_ENV["${inherit:-}.branch"]:-main}}"
     )
+
+    # Add all env-specific custom vars (e.g. pd_dir, workspace_path)
+    local prefix="$env."
+    local inh_prefix="${inherit:+$inherit.}"
+    for full_key in "${!DE_ENV[@]}"; do
+        if [[ "$full_key" == "$prefix"* ]]; then
+            local short="${full_key#"$prefix"}"
+            [[ -z "${_tmpl_vars[$short]+x}" ]] && _tmpl_vars["$short"]="${DE_ENV[$full_key]}"
+        fi
+    done
+    # Inherit missing custom vars from parent env
+    if [[ -n "$inh_prefix" ]]; then
+        for full_key in "${!DE_ENV[@]}"; do
+            if [[ "$full_key" == "$inh_prefix"* ]]; then
+                local short="${full_key#"$inh_prefix"}"
+                [[ -z "${_tmpl_vars[$short]+x}" ]] && _tmpl_vars["$short"]="${DE_ENV[$full_key]}"
+            fi
+        done
+    fi
 
     _deploy_template_core "$str" _tmpl_vars
 }
@@ -649,4 +737,4 @@ export -f de_load de_run de_show de_pipelines de_files de_envs
 export -f _de_clear _de_parse_value _de_parse_array
 export -f _de_template _de_resolve_files
 export -f _de_exec_build _de_exec_push _de_exec_remote _de_exec_post
-export -f _de_init_colors _de_format_size _de_print_cmd _de_print_file
+export -f _de_init_colors _de_format_size _de_print_line _de_print_cmd _de_print_file

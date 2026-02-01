@@ -74,6 +74,11 @@ _deploy_template_core() {
     # Dynamic values
     [[ "$str" == *"{{timestamp}}"* ]] && str="${str//\{\{timestamp\}\}/$(date -Iseconds)}"
 
+    # Generic pass: expand any remaining {{key}} from the vars array
+    for _k in "${!_vars[@]}"; do
+        [[ "$str" == *"{{${_k}}}"* ]] && str="${str//\{\{${_k}\}\}/${_vars[$_k]}}"
+    done
+
     echo "$str"
 }
 
@@ -383,6 +388,15 @@ tetra_source_if_exists "$DEPLOY_SRC/deploy_systemd.sh"
 
 # File-centric deploy engine
 source "$DEPLOY_SRC/deploy_engine.sh"
+
+# Split modules (extracted from deploy.sh)
+source "$DEPLOY_SRC/deploy_resolve.sh"
+source "$DEPLOY_SRC/deploy_load.sh"
+source "$DEPLOY_SRC/deploy_push.sh"
+source "$DEPLOY_SRC/deploy_show.sh"
+source "$DEPLOY_SRC/deploy_items.sh"
+source "$DEPLOY_SRC/deploy_diagnostics.sh"
+source "$DEPLOY_SRC/deploy_help.sh"
 
 # Games deployment (S3/Spaces)
 tetra_source_if_exists "$DEPLOY_SRC/deploy_games.sh"

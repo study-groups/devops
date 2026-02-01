@@ -72,6 +72,20 @@ _tsm_service_running() {
     return 1
 }
 
+# Print a colored or plain column
+# Usage: _tsm_svc_col <token> <width> <value> <use_color>
+_tsm_svc_col() {
+    local token="$1" width="$2" value="$3" use_color="$4"
+    if [[ "$use_color" == true ]]; then
+        tds_text_color "$token"; printf "%-${width}s" "$value"; reset_color; printf "  "
+    else
+        printf "%-${width}s  " "$value"
+    fi
+}
+
+# Print a separator dash string of given width
+_tsm_svc_sep() { local w="$1"; printf '%*s' "$w" '' | tr ' ' '-'; }
+
 # Consolidated list for available/enabled services
 # Usage: _tsm_list_services <mode> <json_output>
 #   mode: "available" or "enabled"
@@ -95,70 +109,66 @@ _tsm_list_services() {
         return
     fi
 
-    # Column widths
-    local w_user=10 w_org=12 w_name=20 w_port=6 w_en=3 w_run=3 w_cmd=40
+    # Terminal width
+    local term_w="${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}"
 
-    # Build header/separator strings dynamically
-    local hdr_parts=() sep_parts=()
-    if [[ "$show_user" == true ]]; then
-        hdr_parts+=("%-${w_user}s"); sep_parts+=("----------")
-    fi
-    hdr_parts+=("%-${w_org}s" "%-${w_name}s" "%-${w_port}s")
-    sep_parts+=("------------" "--------------------" "------")
-    if [[ "$show_en" == true ]]; then
-        hdr_parts+=("%-${w_en}s"); sep_parts+=("---")
-    fi
-    hdr_parts+=("%-${w_run}s" "%s")
-    sep_parts+=("---" "----------------------------------------")
+    # Fixed column widths
+    local w_user=10 w_org=12 w_name=20 w_port=5 w_en=2 w_run=3
+    local gap=2  # spaces between columns
 
-    local hdr_fmt=$(IFS='  '; echo "${hdr_parts[*]}")
+    # Calculate COMMAND column width from remaining space
+    local fixed=0
+    (( fixed += w_org + gap + w_name + gap + w_port + gap + w_run + gap ))
+    [[ "$show_user" == true ]] && (( fixed += w_user + gap ))
+    [[ "$show_en" == true ]] && (( fixed += w_en + gap ))
+    local w_cmd=$(( term_w - fixed ))
+    (( w_cmd < 10 )) && w_cmd=10
 
-    # Header labels
-    local hdr_labels=()
-    if [[ "$show_user" == true ]]; then hdr_labels+=("USER"); fi
-    hdr_labels+=("ORG" "NAME" "PORT")
-    if [[ "$show_en" == true ]]; then hdr_labels+=("EN"); fi
-    hdr_labels+=("RUN" "COMMAND")
+    # --- Header ---
+    _tsm_svc_header() {
+        local label="$1" sep="$2"
+        [[ "$use_color" == true ]] && tds_text_color "structural.primary"
+        [[ "$show_user" == true ]] && printf "%-${w_user}s  " "$( [[ $label == hdr ]] && echo USER || _tsm_svc_sep $w_user)"
+        printf "%-${w_org}s  " "$( [[ $label == hdr ]] && echo ORG || _tsm_svc_sep $w_org)"
+        printf "%-${w_name}s  " "$( [[ $label == hdr ]] && echo NAME || _tsm_svc_sep $w_name)"
+        printf "%-${w_port}s  " "$( [[ $label == hdr ]] && echo PORT || _tsm_svc_sep $w_port)"
+        [[ "$show_en" == true ]] && printf "%-${w_en}s  " "$( [[ $label == hdr ]] && echo EN || _tsm_svc_sep $w_en)"
+        printf "%-${w_run}s  " "$( [[ $label == hdr ]] && echo RUN || _tsm_svc_sep $w_run)"
+        printf "%s" "$( [[ $label == hdr ]] && echo COMMAND || _tsm_svc_sep $w_cmd)"
+        [[ "$use_color" == true ]] && reset_color
+        echo
+    }
 
     if [[ "$use_color" == true ]]; then
-        tds_text_color "structural.primary"
-        printf "$hdr_fmt" "${hdr_labels[@]}"
-        reset_color; echo
-        tds_text_color "text.dim"
-        printf "$hdr_fmt" "${sep_parts[@]}"
-        reset_color; echo
+        tds_text_color "structural.primary"; _tsm_svc_header hdr; reset_color
+        tds_text_color "text.dim"; _tsm_svc_header sep; reset_color
     else
-        printf "${hdr_fmt}\n" "${hdr_labels[@]}"
-        printf "${hdr_fmt}\n" "${sep_parts[@]}"
+        _tsm_svc_header hdr
+        _tsm_svc_header sep
     fi
 
-    # Iterate services
+    # --- Rows ---
     while IFS= read -r services_dir; do
         [[ -d "$services_dir" ]] || continue
 
         local org=$(_tsm_extract_org "$services_dir")
-
-        # Apply org filter
         [[ -n "$_TSM_LIST_FILTER_ORG" && "$org" != "$_TSM_LIST_FILTER_ORG" ]] && continue
 
         local owner=""
         [[ "$show_user" == true ]] && owner=$(tsm_extract_username "$services_dir")
 
-        # Get user home for enabled check
         local user_home=""
         if [[ "$services_dir" =~ ^(/home/[^/]+|/Users/[^/]+|/root) ]]; then
             user_home="${BASH_REMATCH[1]}"
         fi
 
         for f in "$services_dir"/*.tsm; do
-            # In enabled mode, only show symlinks
             if [[ "$mode" == "enabled" ]]; then
                 [[ -L "$f" ]] || continue
             fi
             [[ -f "$f" ]] || continue
             local name=$(basename "$f" .tsm)
 
-            # Read service definition
             local TSM_NAME="" TSM_COMMAND="" TSM_PORT=""
             source "$f" 2>/dev/null
 
@@ -166,49 +176,39 @@ _tsm_list_services() {
             local cmd="${TSM_COMMAND:-}"
             [[ ${#cmd} -gt $w_cmd ]] && cmd="${cmd:0:$((w_cmd-3))}..."
 
-            # Check if enabled (available mode only)
             local enabled=" "
-            if [[ "$show_en" == true ]] && _tsm_is_enabled "$name" "$org" "$user_home"; then
-                enabled="*"
-            fi
+            [[ "$show_en" == true ]] && _tsm_is_enabled "$name" "$org" "$user_home" && enabled="*"
 
-            # Check if running
             local running=" "
-            if _tsm_service_running "$name"; then
-                running="*"
+            _tsm_service_running "$name" && running="*"
+
+            # Print row
+            [[ "$show_user" == true ]] && _tsm_svc_col "accent.info" "$w_user" "$owner" "$use_color"
+            _tsm_svc_col "text.muted" "$w_org" "$org" "$use_color"
+            _tsm_svc_col "text.primary" "$w_name" "$name" "$use_color"
+            _tsm_svc_col "text.tertiary" "$w_port" "$port" "$use_color"
+
+            if [[ "$show_en" == true ]]; then
+                if [[ "$enabled" == "*" && "$use_color" == true ]]; then
+                    _tsm_svc_col "feedback.success" "$w_en" "$enabled" true
+                else
+                    _tsm_svc_col "text.muted" "$w_en" "$enabled" "$use_color"
+                fi
             fi
 
-            if [[ "$use_color" == true ]]; then
-                if [[ "$show_user" == true ]]; then
-                    tds_text_color "accent.info"; printf "%-${w_user}s" "$owner"; reset_color; printf "  "
-                fi
-                tds_text_color "text.muted"; printf "%-${w_org}s" "$org"; reset_color; printf "  "
-                tds_text_color "text.primary"; printf "%-${w_name}s" "$name"; reset_color; printf "  "
-                tds_text_color "text.tertiary"; printf "%-${w_port}s" "$port"; reset_color; printf "  "
-                if [[ "$show_en" == true ]]; then
-                    if [[ "$enabled" == "*" ]]; then
-                        tds_text_color "feedback.success"; printf "%-${w_en}s" "$enabled"; reset_color
-                    else
-                        printf "%-${w_en}s" "$enabled"
-                    fi
-                    printf "  "
-                fi
-                if [[ "$running" == "*" ]]; then
-                    tds_text_color "feedback.success"; printf "%-${w_run}s" "$running"; reset_color
-                else
-                    printf "%-${w_run}s" "$running"
-                fi
-                printf "  "
-                tds_text_color "text.muted"; printf "%s" "$cmd"; reset_color
-                echo
+            if [[ "$running" == "*" && "$use_color" == true ]]; then
+                _tsm_svc_col "status.success" "$w_run" "$running" true
             else
-                local row_parts=()
-                if [[ "$show_user" == true ]]; then row_parts+=("$owner"); fi
-                row_parts+=("$org" "$name" "$port")
-                if [[ "$show_en" == true ]]; then row_parts+=("$enabled"); fi
-                row_parts+=("$running" "$cmd")
-                printf "${hdr_fmt}\n" "${row_parts[@]}"
+                _tsm_svc_col "text.muted" "$w_run" "$running" "$use_color"
             fi
+
+            # Command column (last, no trailing pad)
+            if [[ "$use_color" == true ]]; then
+                tds_text_color "text.muted"; printf "%s" "$cmd"; reset_color
+            else
+                printf "%s" "$cmd"
+            fi
+            echo
 
             ((count++))
         done
@@ -217,4 +217,4 @@ _tsm_list_services() {
     [[ $count -eq 0 ]] && echo "(no services ${mode})"
 }
 
-export -f _tsm_get_services_dirs _tsm_extract_org _tsm_is_enabled _tsm_service_running _tsm_list_services
+export -f _tsm_svc_col _tsm_svc_sep _tsm_get_services_dirs _tsm_extract_org _tsm_is_enabled _tsm_service_running _tsm_list_services
