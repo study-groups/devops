@@ -1,0 +1,162 @@
+[
+  {
+    "Droplets": [
+      {
+        "id": 100001,
+        "name": "testorg-dev01",
+        "status": "active",
+        "memory": 2048,
+        "vcpus": 1,
+        "disk": 50,
+        "region": {
+          "slug": "sfo3",
+          "name": "San Francisco 3"
+        },
+        "image": {
+          "id": 90001,
+          "name": "Ubuntu 22.04",
+          "distribution": "Ubuntu"
+        },
+        "networks": {
+          "v4": [
+            {
+              "ip_address": "192.0.2.10",
+              "netmask": "255.255.240.0",
+              "gateway": "192.0.2.1",
+              "type": "public"
+            },
+            {
+              "ip_address": "10.0.0.10",
+              "netmask": "255.255.0.0",
+              "gateway": "10.0.0.1",
+              "type": "private"
+            }
+          ],
+          "v6": []
+        },
+        "tags": ["dev"],
+        "volume_ids": ["vol-001"]
+      },
+      {
+        "id": 100002,
+        "name": "testorg-qa01",
+        "status": "active",
+        "memory": 4096,
+        "vcpus": 2,
+        "disk": 80,
+        "region": {
+          "slug": "sfo3",
+          "name": "San Francisco 3"
+        },
+        "image": {
+          "id": 90001,
+          "name": "Ubuntu 22.04",
+          "distribution": "Ubuntu"
+        },
+        "networks": {
+          "v4": [
+            {
+              "ip_address": "192.0.2.20",
+              "netmask": "255.255.240.0",
+              "gateway": "192.0.2.1",
+              "type": "public"
+            },
+            {
+              "ip_address": "10.0.0.20",
+              "netmask": "255.255.0.0",
+              "gateway": "10.0.0.1",
+              "type": "private"
+            }
+          ],
+          "v6": []
+        },
+        "tags": ["qa"],
+        "volume_ids": []
+      },
+      {
+        "id": 100003,
+        "name": "testorg-prod01",
+        "status": "active",
+        "memory": 8192,
+        "vcpus": 4,
+        "disk": 160,
+        "region": {
+          "slug": "sfo3",
+          "name": "San Francisco 3"
+        },
+        "image": {
+          "id": 90001,
+          "name": "Ubuntu 22.04",
+          "distribution": "Ubuntu"
+        },
+        "networks": {
+          "v4": [
+            {
+              "ip_address": "192.0.2.30",
+              "netmask": "255.255.240.0",
+              "gateway": "192.0.2.1",
+              "type": "public"
+            },
+            {
+              "ip_address": "10.0.0.30",
+              "netmask": "255.255.0.0",
+              "gateway": "10.0.0.1",
+              "type": "private"
+            }
+          ],
+          "v6": []
+        },
+        "tags": ["production"],
+        "volume_ids": ["vol-002", "vol-003"]
+      }
+    ]
+  },
+  {
+    "Domains": [
+      {
+        "name": "testorg.example.com",
+        "ttl": 1800
+      }
+    ]
+  },
+  {
+    "Volumes": [
+      {
+        "id": "vol-001",
+        "name": "testorg-dev-data",
+        "size_gigabytes": 100,
+        "region": {
+          "slug": "sfo3"
+        },
+        "droplet_ids": [100001]
+      },
+      {
+        "id": "vol-002",
+        "name": "testorg-prod-data",
+        "size_gigabytes": 500,
+        "region": {
+          "slug": "sfo3"
+        },
+        "droplet_ids": [100003]
+      },
+      {
+        "id": "vol-003",
+        "name": "testorg-prod-backups",
+        "size_gigabytes": 200,
+        "region": {
+          "slug": "sfo3"
+        },
+        "droplet_ids": [100003]
+      }
+    ]
+  },
+  {
+    "FloatingIPs": []
+  },
+  {
+    "LoadBalancers": []
+  },
+  {
+    "KubernetesClusters": []
+  }
+]
