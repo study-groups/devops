@@ -7,8 +7,8 @@
 _tsm_check_version() {
     local major="${BASH_VERSINFO[0]}"
     local minor="${BASH_VERSINFO[1]}"
-    if [[ $major -lt 5 ]] || [[ $major -eq 5 && $minor -lt 2 ]]; then
-        echo "tsm: requires bash 5.2+ (current: $BASH_VERSION)" >&2
+    if [[ $major -lt 5 ]] || [[ $major -eq 5 && $minor -lt 1 ]]; then
+        echo "tsm: requires bash 5.1+ (current: $BASH_VERSION)" >&2
         return 1
     fi
     return 0
