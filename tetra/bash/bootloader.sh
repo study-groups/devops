@@ -4,11 +4,11 @@
 # Design: Simple, fast, predictable
 # Principle: TETRA_SRC is a strong global that MUST be set
 
-# Bash version check - require 5.2+
-if [[ "${BASH_VERSINFO[0]}" -lt 5 ]] || [[ "${BASH_VERSINFO[0]}" -eq 5 && "${BASH_VERSINFO[1]}" -lt 2 ]]; then
-    echo "Error: tetra requires bash 5.2 or higher" >&2
+# Bash version check - require 5.1+
+if [[ "${BASH_VERSINFO[0]}" -lt 5 ]] || [[ "${BASH_VERSINFO[0]}" -eq 5 && "${BASH_VERSINFO[1]}" -lt 1 ]]; then
+    echo "Error: tetra requires bash 5.1 or higher" >&2
     echo "Current version: ${BASH_VERSION}" >&2
-    echo "Please upgrade bash or ensure you're running in a bash 5.2+ environment" >&2
+    echo "Please upgrade bash or ensure you're running in a bash 5.1+ environment" >&2
     return 1 2>/dev/null || exit 1
 fi
 
