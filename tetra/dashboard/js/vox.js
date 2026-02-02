@@ -337,6 +337,7 @@
 
         // Actions
         html += '<div class="expand-actions">';
+        html += '<button class="toolbar-btn expand-save-onsets-btn">Save Onsets</button>';
         html += '<button class="toolbar-btn expand-analyze-btn">Analyze</button>';
         html += '<button class="toolbar-btn expand-link-tut-btn">Link to Tut</button>';
         html += '<button class="toolbar-btn expand-delete-btn">Delete</button>';
@@ -494,6 +495,48 @@
                 }).catch(function() {
                     linkTutBtn.textContent = 'Copy failed';
                     setTimeout(function() { linkTutBtn.textContent = 'Link to Tut'; }, 1500);
+                });
+            });
+        }
+
+        // Bind Save Onsets
+        var saveOnsetsBtn = td.querySelector('.expand-save-onsets-btn');
+        if (saveOnsetsBtn) {
+            saveOnsetsBtn.addEventListener('click', function() {
+                var voxId = data.id || expandRow.getAttribute('data-expand-id');
+                var player = state.cache['_wf_' + voxId];
+                if (!player || !player.getOnsets) {
+                    saveOnsetsBtn.textContent = 'no player';
+                    setTimeout(function() { saveOnsetsBtn.textContent = 'Save Onsets'; }, 1500);
+                    return;
+                }
+                var onsets = player.getOnsets();
+                saveOnsetsBtn.textContent = 'saving...';
+                saveOnsetsBtn.disabled = true;
+                fetch(API + '/db/' + voxId + '/layers/onsets', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ onsets: onsets })
+                }).then(function(r) { return r.json(); }).then(function(result) {
+                    saveOnsetsBtn.disabled = false;
+                    if (result.ok) {
+                        player.markSaved();
+                        // Update cache
+                        if (state.cache[voxId] && state.cache[voxId].layers) {
+                            state.cache[voxId].layers.onsets = {
+                                file: voxId + '.vox.onsets.json',
+                                data: onsets
+                            };
+                        }
+                        saveOnsetsBtn.textContent = 'saved';
+                        setTimeout(function() { saveOnsetsBtn.textContent = 'Save Onsets'; }, 1500);
+                    } else {
+                        saveOnsetsBtn.textContent = 'error';
+                        setTimeout(function() { saveOnsetsBtn.textContent = 'Save Onsets'; }, 1500);
+                    }
+                }).catch(function() {
+                    saveOnsetsBtn.disabled = false;
+                    saveOnsetsBtn.textContent = 'Save Onsets';
                 });
             });
         }

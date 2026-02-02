@@ -68,6 +68,15 @@
         var rmsValues = null;
         var destroyed = false;
 
+        // Editable onset state
+        var editableOnsets = null;  // null = not yet initialized
+        var savedOnsets = null;     // last-saved snapshot
+        var selectedIdx = -1;
+        var isDragging = false;
+        var dirty = false;
+        var didInteract = false;    // track if mouse interaction happened (suppress seek)
+        var MARKER_SNAP_PX = 5;
+
         // Resolve CSS variable colors
         function resolveColor(c) {
             if (c.indexOf('var(') === 0) {
@@ -83,16 +92,40 @@
             return c;
         }
 
-        // Get or compute RMS values
-        function ensureRms(cb) {
-            if (rmsValues) { cb(rmsValues); return; }
-            if (rmsData && rmsData.values && rmsData.values.length > 0) {
+        // Always decode audio and run Tscale for VAD/onsets
+        function ensureAnalysis(cb) {
+            // Use server RMS if available as initial values
+            if (!rmsValues && rmsData && rmsData.values && rmsData.values.length > 0) {
                 rmsValues = rmsData.values;
-                cb(rmsValues);
+            }
+            if (!audioUrl) { rmsValues = rmsValues || []; cb(rmsValues); return; }
+            if (typeof Tscale === 'undefined') {
+                // No Tscale — use server data or basic fallback
+                if (rmsValues) { cb(rmsValues); return; }
+                var xhr2 = new XMLHttpRequest();
+                xhr2.open('GET', audioUrl, true);
+                xhr2.responseType = 'arraybuffer';
+                xhr2.onload = function() {
+                    var ac2 = new (window.AudioContext || window.webkitAudioContext)();
+                    ac2.decodeAudioData(xhr2.response, function(buf) {
+                        var raw = buf.getChannelData(0);
+                        var hopSamples = Math.floor(buf.sampleRate * 0.020);
+                        var vals = [];
+                        for (var i = 0; i < raw.length; i += hopSamples) {
+                            var sum = 0, end = Math.min(i + hopSamples, raw.length);
+                            for (var j = i; j < end; j++) sum += raw[j] * raw[j];
+                            vals.push(Math.sqrt(sum / (end - i)));
+                        }
+                        rmsValues = vals;
+                        ac2.close();
+                        cb(rmsValues);
+                    }, function() { rmsValues = []; cb(rmsValues); });
+                };
+                xhr2.onerror = function() { rmsValues = []; cb(rmsValues); };
+                xhr2.send();
                 return;
             }
-            // Fallback: decode audio client-side
-            if (!audioUrl) { rmsValues = []; cb(rmsValues); return; }
+            // Tscale available — always decode and compute
             var xhr = new XMLHttpRequest();
             xhr.open('GET', audioUrl, true);
             xhr.responseType = 'arraybuffer';
@@ -101,23 +134,18 @@
                 audioCtx.decodeAudioData(xhr.response, function(buffer) {
                     var raw = buffer.getChannelData(0);
                     var sr = buffer.sampleRate;
-                    var hopSamples = Math.floor(sr * 0.020); // 20ms hop
-                    var vals = [];
-                    for (var i = 0; i < raw.length; i += hopSamples) {
-                        var sum = 0;
-                        var end = Math.min(i + hopSamples, raw.length);
-                        for (var j = i; j < end; j++) sum += raw[j] * raw[j];
-                        vals.push(Math.sqrt(sum / (end - i)));
-                    }
-                    rmsValues = vals;
+                    var rmsResult = Tscale.rms(raw, sr, 20);
+                    rmsValues = rmsResult.values;
+                    vadData = { segments: Tscale.vad(raw, sr) };
+                    onsetsData = Tscale.detectOnsets(raw, sr);
                     audioCtx.close();
                     cb(rmsValues);
                 }, function() {
-                    rmsValues = [];
+                    rmsValues = rmsValues || [];
                     cb(rmsValues);
                 });
             };
-            xhr.onerror = function() { rmsValues = []; cb(rmsValues); };
+            xhr.onerror = function() { rmsValues = rmsValues || []; cb(rmsValues); };
             xhr.send();
         }
 
@@ -180,13 +208,22 @@
             }
             ctx.stroke();
 
-            // 3. Onset markers
-            if (onsetsData && onsetsData.length) {
-                ctx.setLineDash([3, 3]);
-                ctx.strokeStyle = opts.onsetColor || DEFAULTS.onsetColor;
-                ctx.lineWidth = 1;
-                for (var oi = 0; oi < onsetsData.length; oi++) {
-                    var ox = (onsetsData[oi] / duration) * w;
+            // 3. Onset markers (from editableOnsets if available, else onsetsData)
+            var drawOnsets = editableOnsets || onsetsData;
+            if (drawOnsets && drawOnsets.length) {
+                var onsetClr = opts.onsetColor || DEFAULTS.onsetColor;
+                var selectedClr = 'rgba(255, 200, 0, 0.9)';
+                for (var oi = 0; oi < drawOnsets.length; oi++) {
+                    var ox = (drawOnsets[oi] / duration) * w;
+                    if (oi === selectedIdx) {
+                        ctx.setLineDash([]);
+                        ctx.strokeStyle = selectedClr;
+                        ctx.lineWidth = 2;
+                    } else {
+                        ctx.setLineDash([3, 3]);
+                        ctx.strokeStyle = onsetClr;
+                        ctx.lineWidth = 1;
+                    }
                     ctx.beginPath();
                     ctx.moveTo(ox, 0);
                     ctx.lineTo(ox, h);
@@ -243,19 +280,109 @@
             if (animId) cancelAnimationFrame(animId);
         });
 
-        // Click-to-seek
-        canvas.addEventListener('click', function(e) {
+        // Helper: initialize editable onsets from current data
+        function initEditable() {
+            if (editableOnsets) return;
+            var src = onsetsData || [];
+            editableOnsets = src.slice().sort(function(a, b) { return a - b; });
+            savedOnsets = editableOnsets.slice();
+        }
+
+        // Helper: pixel x → time
+        function xToTime(clientX) {
             var rect = canvas.getBoundingClientRect();
-            var ratio = (e.clientX - rect.left) / rect.width;
+            var ratio = (clientX - rect.left) / rect.width;
             if (ratio < 0) ratio = 0;
             if (ratio > 1) ratio = 1;
+            return ratio * duration;
+        }
+
+        // Helper: find nearest onset index within snap distance, or -1
+        function findNearOnset(clientX) {
+            if (!editableOnsets || !editableOnsets.length) return -1;
+            var rect = canvas.getBoundingClientRect();
+            var w = rect.width;
+            var px = clientX - rect.left;
+            var best = -1, bestDist = Infinity;
+            for (var i = 0; i < editableOnsets.length; i++) {
+                var ox = (editableOnsets[i] / duration) * w;
+                var d = Math.abs(ox - px);
+                if (d < bestDist) { bestDist = d; best = i; }
+            }
+            return bestDist <= MARKER_SNAP_PX ? best : -1;
+        }
+
+        // Mousedown: select/drag existing marker or insert new one
+        canvas.addEventListener('mousedown', function(e) {
+            if (e.button !== 0) return;
+            initEditable();
+            didInteract = false;
+            var idx = findNearOnset(e.clientX);
+            if (idx >= 0) {
+                selectedIdx = idx;
+                isDragging = true;
+                didInteract = true;
+                canvas.style.cursor = 'ew-resize';
+                draw(audio.currentTime || 0);
+            } else {
+                // Insert new marker
+                var t = xToTime(e.clientX);
+                editableOnsets.push(t);
+                editableOnsets.sort(function(a, b) { return a - b; });
+                selectedIdx = editableOnsets.indexOf(t);
+                dirty = true;
+                didInteract = true;
+                draw(audio.currentTime || 0);
+            }
+        });
+
+        canvas.addEventListener('mousemove', function(e) {
+            if (!isDragging || selectedIdx < 0) return;
+            var t = xToTime(e.clientX);
+            editableOnsets[selectedIdx] = t;
+            dirty = true;
+            draw(audio.currentTime || 0);
+        });
+
+        canvas.addEventListener('mouseup', function(e) {
+            if (isDragging) {
+                isDragging = false;
+                canvas.style.cursor = 'crosshair';
+                // Re-sort after drag
+                if (selectedIdx >= 0 && editableOnsets) {
+                    var val = editableOnsets[selectedIdx];
+                    editableOnsets.sort(function(a, b) { return a - b; });
+                    selectedIdx = editableOnsets.indexOf(val);
+                }
+                draw(audio.currentTime || 0);
+            }
+        });
+
+        // Right-click to delete selected marker
+        canvas.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            initEditable();
+            var idx = findNearOnset(e.clientX);
+            if (idx >= 0) {
+                editableOnsets.splice(idx, 1);
+                selectedIdx = -1;
+                dirty = true;
+                didInteract = true;
+                draw(audio.currentTime || 0);
+            }
+        });
+
+        // Click-to-seek (only if no marker interaction happened)
+        canvas.addEventListener('click', function(e) {
+            if (didInteract) { didInteract = false; return; }
+            var ratio = xToTime(e.clientX) / duration;
             audio.currentTime = ratio * duration;
             draw(audio.currentTime);
             timeSpan.textContent = audio.currentTime.toFixed(1) + ' / ' + duration.toFixed(1) + 's';
         });
 
         // Init: get RMS then render
-        ensureRms(function() {
+        ensureAnalysis(function() {
             resize();
         });
 
@@ -276,8 +403,32 @@
             setLayers: function(layers) {
                 if (layers.rms) { rmsData = layers.rms; rmsValues = layers.rms.values || null; }
                 if (layers.vad) vadData = layers.vad;
-                if (layers.onsets) onsetsData = layers.onsets;
+                if (layers.onsets) {
+                    onsetsData = layers.onsets;
+                    editableOnsets = layers.onsets.slice().sort(function(a, b) { return a - b; });
+                    savedOnsets = editableOnsets.slice();
+                    dirty = false;
+                }
                 draw(audio.currentTime || 0);
+            },
+            getOnsets: function() {
+                var src = editableOnsets || onsetsData || [];
+                return src.slice().sort(function(a, b) { return a - b; });
+            },
+            hasEdits: function() { return dirty; },
+            clearEdits: function() {
+                if (savedOnsets) {
+                    editableOnsets = savedOnsets.slice();
+                } else {
+                    editableOnsets = null;
+                }
+                dirty = false;
+                selectedIdx = -1;
+                draw(audio.currentTime || 0);
+            },
+            markSaved: function() {
+                savedOnsets = editableOnsets ? editableOnsets.slice() : null;
+                dirty = false;
             },
             audio: audio
         };

@@ -574,6 +574,23 @@ router.post('/db/:id/analyze', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// PUT /db/:id/layers/onsets — save edited onset markers
+// ---------------------------------------------------------------------------
+router.put('/db/:id/layers/onsets', (req, res) => {
+    const { id } = req.params;
+    const { onsets } = req.body;
+    if (!Array.isArray(onsets) || !onsets.every(n => typeof n === 'number' && n >= 0)) {
+        return res.status(400).json({ error: 'onsets must be array of non-negative numbers' });
+    }
+    const files = getVoxFiles(id);
+    if (!files.meta) return res.status(404).json({ error: 'Vox not found' });
+
+    const onsetsPath = path.join(VOX_DB, `${id}.vox.onsets.json`);
+    fs.writeFileSync(onsetsPath, JSON.stringify(onsets, null, 2), 'utf-8');
+    res.json({ ok: true, count: onsets.length });
+});
+
+// ---------------------------------------------------------------------------
 // DELETE /db/:id — remove all files for epoch
 // ---------------------------------------------------------------------------
 router.delete('/db/:id', (req, res) => {
