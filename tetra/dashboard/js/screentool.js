@@ -33,16 +33,18 @@ async function loadRecordings() {
         }
 
         let html = '<table class="rec-table"><thead><tr>';
-        html += '<th></th><th>ID</th><th>Date</th><th>Duration</th><th>Size</th><th></th>';
+        html += '<th></th><th>File</th><th>Date</th><th>Duration</th><th>Size</th><th></th>';
         html += '</tr></thead><tbody>';
 
         for (const rec of data.recordings) {
             const expanded = rec.id === state.expandedRecording;
             const audioTag = rec.hasAudio ? '<span class="badge-audio">A</span>' : '';
+            const basename = rec.file ? rec.file.split('/').pop() : '';
+            const fileLabel = `${rec.id}/${basename}`;
             html += `
                 <tr class="rec-row${expanded ? ' expanded' : ''}" data-action="expand-recording" data-id="${rec.id}">
                     <td><span class="expand-icon">\u25B6</span></td>
-                    <td>${rec.id}</td>
+                    <td>${fileLabel}</td>
                     <td>${rec.date || ''}</td>
                     <td>${rec.duration || '-'}</td>
                     <td>${rec.size || '-'}</td>

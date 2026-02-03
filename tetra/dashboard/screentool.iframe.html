@@ -187,16 +187,22 @@
         /* Details layout */
         .rec-details-inner {
             display: flex;
-            flex-direction: column;
-            gap: 8px;
+            gap: 12px;
+            align-items: flex-start;
+        }
+        .rec-details .info-grid {
+            flex: 0 1 25%;
+            min-width: 180px;
+            max-width: 280px;
         }
 
         /* Mini player in details */
         .mini-player {
+            flex: 1;
             background: #000;
             border-radius: 2px;
             overflow: hidden;
-            width: 100%;
+            min-width: 0;
         }
         .mini-player video {
             width: 100%;
