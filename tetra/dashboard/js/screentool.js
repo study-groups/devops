@@ -136,25 +136,44 @@ function renderRecordingInfo(id, data) {
         const audioStream = streams.find(s => s.codec_type === 'audio');
         const videoCodec = videoStream?.codec_name || 'unknown';
         const audioCodec = audioStream?.codec_name || 'none';
+        const channels = audioStream?.channels || 0;
         const isH264 = videoCodec === 'h264';
         const isH265 = videoCodec === 'hevc' || videoCodec === 'h265';
         const isVP9 = videoCodec === 'vp9';
 
-        let strategy, desc;
-        if (isH264) {
-            strategy = 'remux';
-            desc = 'Stream copy (fast)';
-        } else {
-            strategy = 'transcode';
-            desc = isH265 ? 'HEVC→H.264' : isVP9 ? 'VP9→H.264' : `${videoCodec}→H.264`;
-        }
+        let strategy = isH264 ? 'remux' : 'transcode';
 
         transcodeHtml = `<div class="transcode-col">
             <div class="transcode-params">
-                <div class="transcode-param"><span>Source:</span> ${videoCodec}/${audioCodec}</div>
+                <div class="transcode-param"><span>Source:</span> ${videoCodec}/${audioCodec} ${channels}ch</div>
                 <div class="transcode-param"><span>Strategy:</span> ${strategy}</div>
-                <div class="transcode-param"><span>Output:</span> H.264/AAC MP4</div>
-                <div class="transcode-param"><span>Flags:</span> -movflags +faststart</div>
+                <div class="transcode-param">
+                    <span>Audio:</span>
+                    <select class="tc-select" data-param="channels">
+                        <option value="stereo"${channels >= 2 ? ' selected' : ''}>Stereo</option>
+                        <option value="mono">Mono (mix)</option>
+                        <option value="left">Mono (L only)</option>
+                        <option value="right">Mono (R only)</option>
+                    </select>
+                </div>
+                <div class="transcode-param">
+                    <span>Codec:</span>
+                    <select class="tc-select" data-param="codec">
+                        <option value="aac">AAC</option>
+                        <option value="mp3">MP3</option>
+                        <option value="copy">Copy</option>
+                    </select>
+                </div>
+                <div class="transcode-param">
+                    <span>Bitrate:</span>
+                    <select class="tc-select" data-param="bitrate">
+                        <option value="64">64 kbps</option>
+                        <option value="96">96 kbps</option>
+                        <option value="128" selected>128 kbps</option>
+                        <option value="192">192 kbps</option>
+                        <option value="256">256 kbps</option>
+                    </select>
+                </div>
             </div>
             <button class="rec-btn" data-action="transcode" data-id="${id}" data-file="${basename}" style="margin-top:6px">Convert → MP4</button>
             <div class="transcode-result" data-id="${id}"></div>
@@ -362,20 +381,27 @@ function init() {
         const resultEl = document.querySelector(`.transcode-result[data-id="${data.id}"]`);
         if (!resultEl) return;
 
+        // Read audio options from sibling selects
+        const col = el.closest('.transcode-col');
+        const channels = col?.querySelector('[data-param="channels"]')?.value || 'stereo';
+        const codec = col?.querySelector('[data-param="codec"]')?.value || 'aac';
+        const bitrate = col?.querySelector('[data-param="bitrate"]')?.value || '128';
+
         el.disabled = true;
         el.textContent = 'Converting...';
         resultEl.innerHTML = '<div class="transcode-progress">Analyzing source file...</div>';
 
         try {
-            const res = await fetch(getApiUrl(`/api/screentool/transcode/${data.id}/${data.file}`), { method: 'POST' });
+            const audioParams = `&audio_channels=${channels}&audio_codec=${codec}&audio_bitrate=${bitrate}`;
+            const res = await fetch(getApiUrl(`/api/screentool/transcode/${data.id}/${data.file}`) + audioParams, { method: 'POST' });
             const result = await res.json();
 
             if (result.ok) {
                 resultEl.innerHTML = `
                     <div class="transcode-success">
                         <div class="transcode-header">Conversion Complete</div>
-                        <div class="transcode-detail"><span>Strategy:</span> ${result.strategy}</div>
-                        <div class="transcode-detail"><span>Description:</span> ${result.description}</div>
+                        <div class="transcode-detail"><span>Video:</span> ${result.strategy}</div>
+                        <div class="transcode-detail"><span>Audio:</span> ${result.audioOptions?.description || 'n/a'}</div>
                         <div class="transcode-detail"><span>Output:</span> ${result.output}</div>
                         <div class="transcode-detail"><span>Time:</span> ${result.result.elapsed}</div>
                         <div class="transcode-detail"><span>Size:</span> ${formatBytes(result.result.inputSize)} → ${formatBytes(result.result.outputSize)} (${result.result.compression})</div>

@@ -344,7 +344,13 @@ router.get('/video/:id/:filename', (req, res) => {
  */
 router.post('/transcode/:id/:filename', async (req, res) => {
     const { id, filename } = req.params;
-    const { org = 'tetra', env = 'local' } = req.query;
+    const {
+        org = 'tetra',
+        env = 'local',
+        audio_channels = 'stereo',  // stereo, mono, left, right
+        audio_codec = 'aac',        // aac, mp3, copy
+        audio_bitrate = '128'       // kbps
+    } = req.query;
 
     if (id.includes('..') || filename.includes('..')) {
         return res.status(400).json({ error: 'invalid path' });
@@ -429,18 +435,61 @@ router.post('/transcode/:id/:filename', async (req, res) => {
             description = `Full transcode: ${videoCodecName}→H.264 CRF 23${codecNote}, audio→AAC. May take a while.`;
         }
 
-        // Step 4: Build ffmpeg command
+        // Step 4: Build ffmpeg command with audio options
         // -map 0:v:0: Explicitly select first video stream
         // -map 0:a?: Include audio if present (? = optional)
-        // -movflags +faststart: Relocates moov atom to file start for progressive download
-        // -y: Overwrite output
-        const audioArgs = audioCodec ? `-c:a ${audioCodec}` : '-an';
+        // -movflags +faststart: Relocates moov atom to file start for streaming
+        // Audio channel handling:
+        //   stereo: keep as-is
+        //   mono: -ac 1 (mixes L+R)
+        //   left: -af "pan=mono|c0=FL" (left channel only)
+        //   right: -af "pan=mono|c0=FR" (right channel only)
+
+        let audioArgs = '-an';
+        let audioDescription = 'no audio';
+
+        if (audioStream) {
+            if (audio_codec === 'copy') {
+                audioArgs = '-c:a copy';
+                audioDescription = `copy (${audioStream.codec_name})`;
+            } else {
+                const codecArg = audio_codec === 'mp3' ? 'libmp3lame' : 'aac';
+                let channelArg = '';
+                let filterArg = '';
+
+                switch (audio_channels) {
+                    case 'mono':
+                        channelArg = '-ac 1';
+                        audioDescription = `${audio_codec} ${audio_bitrate}k mono (L+R mix)`;
+                        break;
+                    case 'left':
+                        filterArg = '-af "pan=mono|c0=FL"';
+                        audioDescription = `${audio_codec} ${audio_bitrate}k mono (L only)`;
+                        break;
+                    case 'right':
+                        filterArg = '-af "pan=mono|c0=FR"';
+                        audioDescription = `${audio_codec} ${audio_bitrate}k mono (R only)`;
+                        break;
+                    default: // stereo
+                        audioDescription = `${audio_codec} ${audio_bitrate}k stereo`;
+                }
+
+                audioArgs = `-c:a ${codecArg} -b:a ${audio_bitrate}k ${channelArg} ${filterArg}`.trim();
+            }
+        }
+
         const ffmpegCmd = `ffmpeg -i "${inputPath}" -map 0:v:0 -map 0:a? -c:v ${videoCodec} ${audioArgs} -movflags +faststart -y "${outputPath}" 2>&1`;
 
         const conversionInfo = {
             source: sourceInfo,
             strategy,
             description,
+            audioOptions: {
+                channels: audio_channels,
+                codec: audio_codec,
+                bitrate: audio_bitrate + 'k',
+                description: audioDescription
+            },
             command: ffmpegCmd,
             output: `${id}/${baseName}_converted.mp4`
         };
