@@ -181,7 +181,7 @@ _caddy_help() {
             echo -e "  ${CMD}stats${R}          ${DIM}Error counts per file${R}"
             echo ""
             echo -e "  ${CMD}size${R}           ${DIM}Log file sizes and disk usage${R}"
-            echo -e "  ${CMD}top${R} ${ARG}<what> [n]${R} ${DIM}Top IPs/paths/codes/ua/errors${R}"
+            echo -e "  ${CMD}top${R} ${ARG}<what> [n]${R} ${DIM}Top IPs/paths/codes/ua/errors/all${R}"
             echo -e "  ${CMD}export${R} ${ARG}<fmt> [n]${R} ${DIM}Export to json/csv${R}"
             echo -e "  ${CMD}archive${R} ${ARG}[days]${R} ${DIM}Compress logs older than N days${R}"
             ;;

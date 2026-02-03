@@ -92,9 +92,9 @@ _caddy_errors() {
     local lines="${1:-50}"
 
     echo "=== Caddy errors (last $lines) ==="
-    _caddy_ssh "cat /var/log/caddy/*.log 2>/dev/null | jq -r 'select(.level == \"error\" or (.status // 0) >= 500) |
+    _caddy_ssh "jq -r 'select(.level == \"error\" or (.status // 0) >= 500) |
         \"\\u001b[31m\\(.ts | todate | split(\"T\")[1] | split(\".\")[0]) \\(.status // \"?\") \\(.request.method // \"?\") \\(.request.host // \"?\") \\(.request.uri // \"?\")\\u001b[0m\\n  -> \\(.msg // \"-\")\"
-    ' 2>/dev/null | tail -n $((lines * 2))"
+    ' /var/log/caddy/*.log 2>/dev/null | tail -n $((lines * 2))"
 }
 
 # =============================================================================

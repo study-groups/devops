@@ -179,7 +179,7 @@ router.post('/reload', async (req, res) => {
 });
 
 // Deploy - push full config tree to remote via _caddy_deploy
-router.post('/deploy', (req, res) => {
+router.post('/deploy', async (req, res) => {
     const { org = 'tetra', env = 'local' } = req.query;
     const dryRun = req.query.dry_run === 'true' || req.body?.dryRun === true;
 
@@ -193,8 +193,7 @@ router.post('/deploy', (req, res) => {
             `caddy_ctx set ${org} ${env} 2>/dev/null && ` +
             `_caddy_deploy ${flag} 2>&1`;
 
-        const output = execSync(cmd, {
-            shell: BASH,
+        const { stdout: output } = await execFileAsync(BASH, ['-c', cmd], {
             encoding: 'utf8',
             timeout: 60000,
             env: { ...process.env }
