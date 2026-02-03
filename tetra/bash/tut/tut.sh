@@ -32,6 +32,8 @@ tut() {
         adopt)            _tut_adopt "$@" ;;
         unadopt|rm)       _tut_unadopt "$@" ;;
         edit|e)           _tut_edit "$@" ;;
+        serve|s)          _tut_serve "$@" ;;
+        validate)         _tut_validate "$@" ;;
         doctor|d)         _tut_doctor ;;
         version|ver|v)    _tut_version "$@" ;;
         help|--help|-h)   _tut_help ;;
@@ -99,6 +101,7 @@ _tut_build() {
     local target=""
     local out_dir=""
     local bump=""
+    local strict=""
 
     # Parse args
     for arg in "$@"; do
@@ -107,6 +110,7 @@ _tut_build() {
             --out=*)   out_dir="${arg#--out=}" ;;
             --bump)    bump="patch" ;;
             --bump=*)  bump="${arg#--bump=}" ;;
+            --strict)  strict=1 ;;
             --all)     target="all" ;;
             *)         target="$arg" ;;
         esac
@@ -172,6 +176,14 @@ _tut_build() {
         version=$(jq -r '.metadata.version // ""' "$src_file")
 
         echo "  $name.json${version:+ v$version} -> $name.html"
+
+        # Validate if --strict
+        if [[ -n "$strict" ]]; then
+            if ! _tut_validate_file "$src_file"; then
+                echo "    (validation failed - skipping)" >&2
+                continue
+            fi
+        fi
 
         # Terrain does the work
         if command -v terrain &>/dev/null; then
@@ -604,6 +616,140 @@ _tut_resolve_file() {
 }
 
 # =============================================================================
+# SERVE
+# =============================================================================
+
+_tut_serve() {
+    local action="${1:-start}"
+
+    case "$action" in
+        start)
+            if command -v tsm &>/dev/null; then
+                tsm start tut-server
+            else
+                echo "tsm not found. Start manually:" >&2
+                echo "  python3 $TUT_SRC/server.py" >&2
+                return 1
+            fi
+            ;;
+        stop)
+            if command -v tsm &>/dev/null; then
+                tsm stop tut-server
+            else
+                echo "tsm not found" >&2
+                return 1
+            fi
+            ;;
+        *)
+            echo "Usage: tut serve [start|stop]" >&2
+            return 1
+            ;;
+    esac
+}
+
+# =============================================================================
+# VALIDATE
+# =============================================================================
+
+_tut_validate() {
+    local target="${1:-}"
+    local src_file
+
+    src_file=$(_tut_resolve_file "$target") || return 1
+    _tut_validate_file "$src_file"
+}
+
+# Validate a single JSON file against its schema
+_tut_validate_file() {
+    local src_file="$1"
+    local name=$(basename "$src_file" .json)
+    local errors=0
+
+    # Check valid JSON
+    if ! jq empty "$src_file" 2>/dev/null; then
+        echo "  FAIL: $name — invalid JSON" >&2
+        return 1
+    fi
+
+    # Check required metadata
+    local title
+    title=$(jq -r '.metadata.title // empty' "$src_file")
+    if [[ -z "$title" ]]; then
+        echo "  WARN: $name — missing .metadata.title" >&2
+        ((errors++))
+    fi
+
+    local version
+    version=$(jq -r '.metadata.version // empty' "$src_file")
+    if [[ -z "$version" ]]; then
+        echo "  WARN: $name — missing .metadata.version" >&2
+        ((errors++))
+    fi
+
+    # Detect type and validate structure
+    local type
+    type=$(jq -r '.metadata.type // empty' "$src_file")
+    if [[ -z "$type" ]]; then
+        # Duck-type detection
+        if jq -e '.steps' "$src_file" &>/dev/null; then
+            type="guide"
+        elif jq -e '.groups' "$src_file" &>/dev/null; then
+            type="reference"
+        elif jq -e '.sections' "$src_file" &>/dev/null; then
+            type="thesis"
+        fi
+    fi
+
+    if [[ -z "$type" ]]; then
+        echo "  FAIL: $name — cannot detect type (need steps, groups, or sections)" >&2
+        return 1
+    fi
+
+    # Type-specific checks
+    case "$type" in
+        guide)
+            local step_count
+            step_count=$(jq '.steps | length' "$src_file")
+            if [[ "$step_count" -eq 0 ]]; then
+                echo "  WARN: $name — guide has 0 steps" >&2
+                ((errors++))
+            fi
+            # Check each step has id and title
+            local bad_steps
+            bad_steps=$(jq '[.steps[] | select(.id == null or .title == null)] | length' "$src_file")
+            if [[ "$bad_steps" -gt 0 ]]; then
+                echo "  WARN: $name — $bad_steps step(s) missing id or title" >&2
+                ((errors++))
+            fi
+            ;;
+        reference)
+            local group_count
+            group_count=$(jq '.groups | length' "$src_file")
+            if [[ "$group_count" -eq 0 ]]; then
+                echo "  WARN: $name — reference has 0 groups" >&2
+                ((errors++))
+            fi
+            ;;
+        thesis)
+            local section_count
+            section_count=$(jq '.sections | length' "$src_file")
+            if [[ "$section_count" -eq 0 ]]; then
+                echo "  WARN: $name — thesis has 0 sections" >&2
+                ((errors++))
+            fi
+            ;;
+    esac
+
+    if [[ $errors -eq 0 ]]; then
+        echo "  OK: $name ($type)"
+        return 0
+    else
+        echo "  $name: $errors warning(s)" >&2
+        return 1
+    fi
+}
+
+# =============================================================================
 # DOCTOR
 # =============================================================================
 
@@ -669,6 +815,8 @@ COMMANDS
   tut unadopt [subject-type] Remove from tut/src/ (+ compiled)
   tut edit [subject-type]    Edit source file
   tut build [target]         Compile via terrain
+  tut validate [target]      Validate JSON structure
+  tut serve [start|stop]     Start/stop doc server via tsm
   tut doctor                 Check setup
 
 VERSION
@@ -684,6 +832,7 @@ BUILD OPTIONS
   tut build --bump           Bump patch version before build
   tut build --bump=minor     Bump minor version before build
   tut build --bump=major     Bump major version before build
+  tut build --strict         Validate JSON before building
   tut build games-guide      Build specific file by name
   tut build /abs/path.json   Build file from any location
   --out=DIR                  Override output directory
@@ -718,3 +867,4 @@ EOF
 export -f tut
 export -f _tut_list _tut_build _tut_init _tut_adopt _tut_unadopt _tut_edit _tut_doctor _tut_help
 export -f _tut_version _tut_version_show _tut_version_bump _tut_version_set _tut_resolve_file
+export -f _tut_serve _tut_validate _tut_validate_file

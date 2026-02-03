@@ -30,15 +30,20 @@ declare -g TUT_VALID_TYPES="ref guide thesis"
 
 # =============================================================================
 # SLOT ACCESSORS (convenience wrappers)
+#
+# TPS slot mapping (tps has generic org:project:subject slots):
+#   tps org     → tut org       (the organization, e.g. "tetra")
+#   tps project → tut subject   (the doc topic, e.g. "install")
+#   tps subject → tut type      (the doc type: ref, guide, thesis)
 # =============================================================================
 
 # Get current org
 _tut_org() { tps_ctx get tut org; }
 
-# Get current subject (stored in project slot)
+# Get current subject — stored in tps "project" slot
 _tut_subject() { tps_ctx get tut project; }
 
-# Get current type (stored in subject slot)
+# Get current type — stored in tps "subject" slot
 _tut_type() { tps_ctx get tut subject; }
 
 # =============================================================================

@@ -6,7 +6,7 @@
 # =============================================================================
 
 # Top-level commands
-_TUT_COMMANDS="ctx list init adopt edit build doctor help version"
+_TUT_COMMANDS="ctx list init adopt unadopt edit build validate serve doctor help version"
 
 # Context verbs
 _TUT_CTX_VERBS="set subject type clear status"
@@ -115,6 +115,10 @@ _tut_complete() {
         adopt)
             # Complete JSON files from filesystem
             COMPREPLY=($(compgen -f -X '!*.json' -- "$cur"))
+            ;;
+        unadopt|rm)
+            # Complete from existing tut src files
+            COMPREPLY=($(compgen -W "$(_tut_complete_sources)" -- "$cur"))
             ;;
         edit|e)
             COMPREPLY=($(compgen -W "$(_tut_complete_sources)" -- "$cur"))

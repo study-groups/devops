@@ -253,6 +253,19 @@
                     "caption": { "type": "string" },
                     "width": { "type": "string" }
                   }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "voxId"],
+                  "properties": {
+                    "type": { "const": "audio-player" },
+                    "voxId": { "type": "string", "description": "Vox epoch ID" },
+                    "label": { "type": "string", "description": "Display label (defaults to source text)" },
+                    "voice": { "type": "string" },
+                    "codec": { "type": "string", "enum": ["opus", "c2", "wav", "auto"], "default": "opus", "description": "Audio codec for playback" },
+                    "provider": { "type": "string" },
+                    "sourceHash": { "type": "string", "description": "Content hash for cache validation" }
+                  }
                 }
               ]
             }
