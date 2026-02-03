@@ -8,6 +8,63 @@ const path = require('path');
 
 const TETRA_DIR = process.env.TETRA_DIR || path.join(process.env.HOME, 'tetra');
 const ORGS_DIR = path.join(TETRA_DIR, 'orgs');
+const REPOS_TOML = path.join(ORGS_DIR, 'repos.toml');
+
+/**
+ * Parse repos.toml registry file
+ * Returns object mapping org names to their config
+ */
+function parseReposToml() {
+    if (!fs.existsSync(REPOS_TOML)) {
+        return {};
+    }
+
+    const content = fs.readFileSync(REPOS_TOML, 'utf-8');
+    const result = {};
+    let currentOrg = null;
+
+    for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+
+        // Section header: [org-name]
+        const sectionMatch = trimmed.match(/^\[([^\]]+)\]$/);
+        if (sectionMatch) {
+            currentOrg = sectionMatch[1];
+            result[currentOrg] = {};
+            continue;
+        }
+
+        // Key-value pair
+        const kvMatch = trimmed.match(/^(\w+)\s*=\s*"([^"]*)"/);
+        if (kvMatch && currentOrg) {
+            result[currentOrg][kvMatch[1]] = kvMatch[2];
+        }
+    }
+
+    return result;
+}
+
+/**
+ * Write repos.toml registry file
+ */
+function writeReposToml(registry) {
+    const lines = [
+        '# Tetra Org Repository Registry',
+        '# Maps local org directories to their git repos',
+        ''
+    ];
+
+    for (const [orgName, config] of Object.entries(registry)) {
+        lines.push(`[${orgName}]`);
+        for (const [key, value] of Object.entries(config)) {
+            lines.push(`${key} = "${value}"`);
+        }
+        lines.push('');
+    }
+
+    fs.writeFileSync(REPOS_TOML, lines.join('\n'), 'utf-8');
+}
 
 // Simple TOML value extraction (handles quoted strings)
 function getTomlValue(file, key) {
@@ -88,12 +145,202 @@ router.get('/', (req, res) => {
 });
 
 /**
+ * GET /api/orgs/registry
+ * Get all registered orgs from repos.toml with clone status
+ */
+router.get('/registry', (req, res) => {
+    try {
+        const registry = parseReposToml();
+
+        // Check which orgs are actually cloned (directory exists)
+        const orgs = Object.entries(registry).map(([name, config]) => {
+            const orgDir = path.join(ORGS_DIR, name);
+            const isCloned = fs.existsSync(orgDir);
+
+            return {
+                id: name,
+                repo: config.repo || null,
+                games: config.games || null,
+                alias: config.alias || null,
+                description: config.description || null,
+                nh_source: config.nh_source || null,
+                cloned: isCloned
+            };
+        });
+
+        res.json({ orgs, path: REPOS_TOML });
+    } catch (error) {
+        console.error('[API/orgs] Error reading registry:', error);
+        res.status(500).json({ error: 'Failed to read registry' });
+    }
+});
+
+/**
+ * POST /api/orgs/registry
+ * Add a new org to repos.toml
+ */
+router.post('/registry', express.json(), (req, res) => {
+    try {
+        const { id, repo, games, alias, description, nh_source } = req.body;
+
+        if (!id || !repo) {
+            return res.status(400).json({ error: 'id and repo are required' });
+        }
+
+        // Validate org name (alphanumeric, hyphens, underscores)
+        if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+            return res.status(400).json({ error: 'Invalid org name' });
+        }
+
+        const registry = parseReposToml();
+
+        if (registry[id]) {
+            return res.status(409).json({ error: 'Org already exists in registry' });
+        }
+
+        registry[id] = { repo };
+        if (games) registry[id].games = games;
+        if (alias) registry[id].alias = alias;
+        if (description) registry[id].description = description;
+        if (nh_source) registry[id].nh_source = nh_source;
+
+        writeReposToml(registry);
+
+        res.json({ success: true, id, message: 'Org added to registry' });
+    } catch (error) {
+        console.error('[API/orgs] Error adding to registry:', error);
+        res.status(500).json({ error: 'Failed to add to registry' });
+    }
+});
+
+/**
+ * PUT /api/orgs/registry/:org
+ * Update an org in repos.toml
+ */
+router.put('/registry/:org', express.json(), (req, res) => {
+    try {
+        const { org } = req.params;
+        const { repo, games, alias, description, nh_source } = req.body;
+
+        const registry = parseReposToml();
+
+        if (!registry[org]) {
+            return res.status(404).json({ error: 'Org not found in registry' });
+        }
+
+        if (repo) registry[org].repo = repo;
+        if (games !== undefined) {
+            if (games) registry[org].games = games;
+            else delete registry[org].games;
+        }
+        if (alias !== undefined) {
+            if (alias) registry[org].alias = alias;
+            else delete registry[org].alias;
+        }
+        if (description !== undefined) {
+            if (description) registry[org].description = description;
+            else delete registry[org].description;
+        }
+        if (nh_source !== undefined) {
+            if (nh_source) registry[org].nh_source = nh_source;
+            else delete registry[org].nh_source;
+        }
+
+        writeReposToml(registry);
+
+        res.json({ success: true, org, message: 'Registry updated' });
+    } catch (error) {
+        console.error('[API/orgs] Error updating registry:', error);
+        res.status(500).json({ error: 'Failed to update registry' });
+    }
+});
+
+/**
+ * DELETE /api/orgs/registry/:org
+ * Remove an org from repos.toml (does not delete cloned directory)
+ */
+router.delete('/registry/:org', (req, res) => {
+    try {
+        const { org } = req.params;
+
+        const registry = parseReposToml();
+
+        if (!registry[org]) {
+            return res.status(404).json({ error: 'Org not found in registry' });
+        }
+
+        delete registry[org];
+        writeReposToml(registry);
+
+        res.json({ success: true, org, message: 'Org removed from registry' });
+    } catch (error) {
+        console.error('[API/orgs] Error removing from registry:', error);
+        res.status(500).json({ error: 'Failed to remove from registry' });
+    }
+});
+
+/**
+ * POST /api/orgs/:org/clone
+ * Clone an org's config repo
+ */
+router.post('/:org/clone', express.json(), (req, res) => {
+    try {
+        const { org } = req.params;
+        const registry = parseReposToml();
+
+        if (!registry[org]) {
+            return res.status(404).json({ error: 'Org not found in registry' });
+        }
+
+        const repo = registry[org].repo;
+        if (!repo) {
+            return res.status(400).json({ error: 'No repo URL configured' });
+        }
+
+        const orgDir = path.join(ORGS_DIR, org);
+        if (fs.existsSync(orgDir)) {
+            return res.status(409).json({ error: 'Org directory already exists', path: orgDir });
+        }
+
+        // Execute git clone
+        const { execSync } = require('child_process');
+        try {
+            execSync(`git clone "${repo}" "${orgDir}"`, {
+                encoding: 'utf8',
+                timeout: 60000,
+                stdio: ['pipe', 'pipe', 'pipe']
+            });
+        } catch (gitErr) {
+            return res.status(500).json({
+                error: 'Git clone failed',
+                details: gitErr.stderr || gitErr.message
+            });
+        }
+
+        res.json({
+            success: true,
+            org,
+            path: orgDir,
+            message: `Cloned ${repo} to ${orgDir}`
+        });
+    } catch (error) {
+        console.error('[API/orgs] Error cloning org:', error);
+        res.status(500).json({ error: 'Failed to clone org' });
+    }
+});
+
+/**
  * GET /api/orgs/list
  * List orgs with rich metadata for dashboard
+ * Merges cloned orgs with registry to show uncloned orgs too
  */
 router.get('/list', (req, res) => {
     try {
         if (!fs.existsSync(ORGS_DIR)) return res.json({ orgs: [] });
+
+        // Load registry to get all registered orgs
+        const registry = parseReposToml();
+        const registeredOrgs = new Set(Object.keys(registry));
 
         // Check active org via symlink
         let activeOrg = null;
@@ -105,17 +352,27 @@ router.get('/list', (req, res) => {
             }
         } catch (e) { /* no active org */ }
 
+        const clonedOrgs = new Set();
         const entries = fs.readdirSync(ORGS_DIR, { withFileTypes: true });
         const orgs = entries
             .filter(e => (e.isDirectory() || e.isSymbolicLink()) && !e.name.startsWith('.'))
             .map(e => {
+                clonedOrgs.add(e.name);
                 const orgDir = path.join(ORGS_DIR, e.name);
                 // Resolve symlinks
                 let realDir = orgDir;
                 try { realDir = fs.realpathSync(orgDir); } catch (err) { /* ignore */ }
 
                 const meta = getOrgMeta(realDir, e.name);
+                meta.cloned = true;
                 if (e.name === activeOrg) meta.active = true;
+
+                // Merge registry data
+                if (registry[e.name]) {
+                    meta.repo = registry[e.name].repo;
+                    if (registry[e.name].nh_source) meta.nhSource = registry[e.name].nh_source;
+                    if (registry[e.name].games) meta.gamesRepo = registry[e.name].games;
+                }
 
                 // Check if it's a symlink (alias)
                 try {
@@ -125,8 +382,27 @@ router.get('/list', (req, res) => {
                 } catch (err) { /* ignore */ }
 
                 return meta;
-            })
-            .sort((a, b) => a.id.localeCompare(b.id));
+            });
+
+        // Add uncloned orgs from registry
+        for (const [orgName, config] of Object.entries(registry)) {
+            if (!clonedOrgs.has(orgName)) {
+                orgs.push({
+                    id: orgName,
+                    label: config.alias || orgName.substring(0, 2).toUpperCase(),
+                    type: 'uncloned',
+                    description: config.description || null,
+                    repo: config.repo,
+                    gamesRepo: config.games || null,
+                    nhSource: config.nh_source || null,
+                    cloned: false,
+                    active: false,
+                    hasWorkspace: false
+                });
+            }
+        }
+
+        orgs.sort((a, b) => a.id.localeCompare(b.id));
 
         res.json({ orgs });
     } catch (error) {
