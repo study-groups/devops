@@ -23,7 +23,8 @@ const Dashboard = (() => {
         director:  { src: 'director.iframe.html',  label: 'Director' },
         vox:       { src: 'vox.iframe.html',      label: 'Vox' },
         agents:    { src: 'agents.iframe.html',   label: 'Agents' },
-        screentool: { src: 'screentool.iframe.html', label: 'Screentool' }
+        screentool: { src: 'screentool.iframe.html', label: 'Screentool', localOnly: true },
+        inspector:  { src: 'inspector.iframe.html',  label: 'Inspector', localOnly: true }
     };
 
     const ENVS = [
@@ -77,9 +78,11 @@ const Dashboard = (() => {
     // ========================================================================
 
     function renderViewOptions(selectedView) {
-        return Object.entries(VIEWS).map(([id, cfg]) =>
-            `<option value="${id}"${id === selectedView ? ' selected' : ''}>${cfg.label}</option>`
-        ).join('');
+        return Object.entries(VIEWS)
+            .sort((a, b) => a[1].label.localeCompare(b[1].label))
+            .map(([id, cfg]) =>
+                `<option value="${id}"${id === selectedView ? ' selected' : ''}>${cfg.label}</option>`
+            ).join('');
     }
 
     function renderEnvButtons(activeEnv = 'local') {
@@ -183,6 +186,9 @@ const Dashboard = (() => {
         const viewConfig = VIEWS[view];
         if (!viewConfig) return;
 
+        // Set local-only attribute for views that don't use env switching
+        panel.dataset.localOnly = viewConfig.localOnly ? 'true' : 'false';
+
         const params = new URLSearchParams({ env, org });
         if (user) params.set('user', user);
         const newSrc = `${viewConfig.src}?${params}`;
@@ -260,7 +266,7 @@ const Dashboard = (() => {
             btn.classList.remove('active');
             btn.title = 'Expand panel';
             takeoverPanel = null;
-            serializeToHash();
+            serializeToUrl();
         } else {
             if (takeoverPanel) {
                 takeoverPanel.classList.remove('takeover-active');
@@ -271,7 +277,7 @@ const Dashboard = (() => {
             btn.classList.add('active');
             btn.title = 'Restore panels';
             takeoverPanel = panel;
-            serializeToHash();
+            serializeToUrl();
         }
     }
 
@@ -302,10 +308,10 @@ const Dashboard = (() => {
         });
 
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        if (!restoring) serializeToHash();
+        if (!restoring) serializeToUrl();
     }
 
-    function serializeToHash() {
+    function serializeToUrl() {
         const params = new URLSearchParams();
         params.set('org', getActiveOrg());
 
@@ -328,15 +334,26 @@ const Dashboard = (() => {
             if (user) params.set(`${abbrev}.user`, user);
         });
 
-        history.replaceState(null, '', '#' + params.toString());
+        const url = new URL(window.location.href);
+        url.search = params.toString();
+        url.hash = '';
+        history.replaceState(null, '', url.toString());
     }
 
-    function restoreFromHash() {
+    function restoreFromUrl() {
+        // Try query params first, fall back to hash for backwards compatibility
+        let params;
+        const search = window.location.search.slice(1);
         const hash = window.location.hash.slice(1);
-        if (!hash) return false;
 
-        const params = new URLSearchParams(hash);
-        if (!params.has('org')) return false;
+        if (search && new URLSearchParams(search).has('org')) {
+            params = new URLSearchParams(search);
+        } else if (hash && new URLSearchParams(hash).has('org')) {
+            // Legacy hash-based URL - migrate to query params
+            params = new URLSearchParams(hash);
+        } else {
+            return false;
+        }
 
         // Restore org
         const org = params.get('org');
@@ -699,10 +716,58 @@ const Dashboard = (() => {
 
         // Load from URL hash if present, otherwise from localStorage
         restoring = true;
-        if (!restoreFromHash()) {
+        if (!restoreFromUrl()) {
             loadPanelState();
         }
         restoring = false;
+    }
+
+    // ========================================================================
+    // Test URL Generator
+    // ========================================================================
+
+    /**
+     * Generate a test URL with specific panel configurations.
+     * @param {Object} config - Configuration object
+     * @param {string} config.org - Organization (default: 'tetra')
+     * @param {Object} config.panels - Panel configs keyed by abbreviation (tl, tr, bl, br)
+     * @param {string} config.panels[abbrev].view - View name (console, tsm, deploy, etc.)
+     * @param {string} config.panels[abbrev].env - Environment (local, dev, staging, prod)
+     * @param {string} config.panels[abbrev].user - Remote user (optional)
+     * @param {string} config.takeover - Panel ID to expand (optional)
+     * @returns {string} Full URL with query params
+     *
+     * Example:
+     *   Dashboard.generateTestUrl({
+     *     org: 'pixeljam-arcade',
+     *     panels: {
+     *       tl: { view: 'console', env: 'local' },
+     *       tr: { view: 'tsm', env: 'prod', user: 'root' },
+     *       bl: { view: 'deploy', env: 'dev' },
+     *       br: { view: 'logs', env: 'local' }
+     *     },
+     *     takeover: 'top-left'
+     *   })
+     */
+    function generateTestUrl(config = {}) {
+        const params = new URLSearchParams();
+        params.set('org', config.org || 'tetra');
+
+        if (config.takeover) {
+            params.set('takeover', config.takeover);
+        }
+
+        const panelConfigs = config.panels || {};
+        for (const [abbrev, cfg] of Object.entries(panelConfigs)) {
+            if (!['tl', 'tr', 'bl', 'br'].includes(abbrev)) continue;
+            if (cfg.view) params.set(`${abbrev}.view`, cfg.view);
+            if (cfg.env) params.set(`${abbrev}.env`, cfg.env);
+            if (cfg.user) params.set(`${abbrev}.user`, cfg.user);
+        }
+
+        const url = new URL(window.location.origin + window.location.pathname);
+        url.search = params.toString();
+        return url.toString();
     }
 
     // ========================================================================
@@ -713,9 +778,11 @@ const Dashboard = (() => {
         init,
         renderOrgButtons,
         refreshOrgButtons,
+        generateTestUrl,
         VIEWS,
         ENVS,
         PANELS,
+        PANEL_ABBREV,
         get ORGS() { return ORGS; }
     };
 })();
