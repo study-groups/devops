@@ -16,6 +16,7 @@ source "$TETRA_SRC/bash/tok/includes.sh"
 # Core modules
 source "$TERRAIN_SRC/core/config.sh"
 source "$TERRAIN_SRC/core/build.sh"
+source "$TERRAIN_SRC/core/doc.sh"
 source "$TERRAIN_SRC/core/local.sh"
 
 # Main CLI

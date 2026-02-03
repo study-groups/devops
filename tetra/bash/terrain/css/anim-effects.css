@@ -1,0 +1,105 @@
+/**
+ * anim-effects.css - CSS keyframes for 7 text animation effects
+ * Used by AnimEngine to animate timeline cues in guide.html
+ */
+
+.anim-chunk {
+    display: inline;
+    position: relative;
+}
+
+.anim-chunk.anim-active {
+    /* base active state - individual fx classes add animation */
+}
+
+/* 1. Highlight - background-color sweep left to right */
+@keyframes anim-highlight {
+    0%   { background-size: 0% 100%; }
+    100% { background-size: 100% 100%; }
+}
+.anim-fx-highlight.anim-active {
+    background-image: linear-gradient(to right, rgba(255, 230, 109, 0.35), rgba(255, 230, 109, 0.35));
+    background-repeat: no-repeat;
+    background-position: left center;
+    animation: anim-highlight var(--anim-dur, 0.6s) ease forwards;
+}
+
+/* 2. Jiggle - translateX oscillation */
+@keyframes anim-jiggle {
+    0%, 100% { transform: translateX(0); }
+    15%      { transform: translateX(-2px); }
+    30%      { transform: translateX(2px); }
+    45%      { transform: translateX(-1.5px); }
+    60%      { transform: translateX(1.5px); }
+    75%      { transform: translateX(-1px); }
+    90%      { transform: translateX(1px); }
+}
+.anim-fx-jiggle.anim-active {
+    display: inline-block;
+    animation: anim-jiggle var(--anim-dur, 0.6s) ease;
+}
+
+/* 3. Color-pop - color change + scale pulse */
+@keyframes anim-color-pop {
+    0%   { color: inherit; transform: scale(1); }
+    40%  { color: #58a6ff; transform: scale(1.05); }
+    100% { color: #58a6ff; transform: scale(1); }
+}
+.anim-fx-color-pop.anim-active {
+    display: inline-block;
+    animation: anim-color-pop var(--anim-dur, 0.6s) ease forwards;
+}
+
+/* 4. Underline-draw - ::after pseudo width 0 to 100% */
+@keyframes anim-underline-draw {
+    0%   { width: 0; }
+    100% { width: 100%; }
+}
+.anim-fx-underline-draw.anim-active {
+    position: relative;
+}
+.anim-fx-underline-draw.anim-active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    height: 2px;
+    background: #58a6ff;
+    animation: anim-underline-draw var(--anim-dur, 0.6s) ease forwards;
+}
+
+/* 5. Fade-in - opacity 0 to 1 */
+@keyframes anim-fade-in {
+    0%   { opacity: 0; }
+    100% { opacity: 1; }
+}
+.anim-fx-fade-in {
+    opacity: 0;
+}
+.anim-fx-fade-in.anim-active {
+    animation: anim-fade-in var(--anim-dur, 0.6s) ease forwards;
+}
+
+/* 6. Glow - text-shadow pulse */
+@keyframes anim-glow {
+    0%, 100% { text-shadow: 0 0 0 transparent; }
+    50%      { text-shadow: 0 0 8px rgba(88, 166, 255, 0.6), 0 0 16px rgba(88, 166, 255, 0.3); }
+}
+.anim-fx-glow.anim-active {
+    animation: anim-glow var(--anim-dur, 0.6s) ease;
+}
+
+/* 7. Typewriter - max-width reveal with steps */
+@keyframes anim-typewriter {
+    0%   { max-width: 0; }
+    100% { max-width: 100em; }
+}
+.anim-fx-typewriter {
+    overflow: hidden;
+    white-space: nowrap;
+    max-width: 0;
+}
+.anim-fx-typewriter.anim-active {
+    display: inline-block;
+    animation: anim-typewriter var(--anim-dur, 0.6s) steps(20, end) forwards;
+}

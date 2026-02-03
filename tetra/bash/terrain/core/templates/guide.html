@@ -8,6 +8,28 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+        /* Firefox */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) var(--bg-primary);
+        }
+
         :root {
             --bg-primary: #0d1117;
             --bg-secondary: #161b22;
@@ -46,7 +68,11 @@
             overflow: hidden;
         }
 
-        .narrative-panel { margin-right: 0.5rem; }
+        .narrative-panel {
+            margin-right: 0.5rem;
+            max-height: calc(100vh - 2rem);
+            overflow-y: auto;
+        }
 
         .terminal-panel {
             position: sticky;
@@ -189,7 +215,12 @@
         .nav-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .step-indicator { color: var(--text-secondary); }
+
     </style>
+    <script src="/api/vox/vocoder/player.js"></script>
+    <link rel="stylesheet" href="/api/vox/vocoder/player.css">
+    <script src="/api/terrain/js/anim-engine.js"></script>
+    <link rel="stylesheet" href="/api/terrain/css/anim-effects.css">
 </head>
 <body>
     <div class="container">
@@ -220,12 +251,8 @@
     </script>
 
     <!-- Guide Renderer -->
-    <script src="terrain/js/renderers/guide.js"></script>
-
-    <!-- Fallback inline renderer if external not found -->
     <script>
-        if (typeof GuideRenderer === 'undefined') {
-            (function() {
+        (function() {
                 const doc = window.TerrainDocument;
                 const steps = doc.steps || [];
                 let currentStep = 0;
@@ -233,7 +260,14 @@
                 function renderContentBlock(block) {
                     switch (block.type) {
                         case 'paragraph':
-                            return '<p>' + block.text + '</p>';
+                            var pAttrs = '';
+                            if (block.timeline) {
+                                pAttrs = ' data-timeline=\'' + JSON.stringify(block.timeline).replace(/'/g, '&#39;') + '\'';
+                            }
+                            if (block.vox && block.vox.docId) {
+                                pAttrs += ' data-vox-id="' + block.vox.docId + '"';
+                            }
+                            return '<p' + pAttrs + '>' + block.text + '</p>';
                         case 'list':
                             const items = (block.items || []).map(i => '<li>' + i + '</li>').join('');
                             return block.ordered ? '<ol>' + items + '</ol>' : '<ul>' + items + '</ul>';
@@ -248,6 +282,13 @@
                             return '<div class="command-block">' + cmds + '</div>';
                         case 'code-block':
                             return '<div class="command-block"><code>' + (block.code || '') + '</code></div>';
+                        case 'audio-player':
+                            return '<div class="vocoder-player-slot" ' +
+                                'data-vox-id="' + (block.voxId || '') + '" ' +
+                                'data-text="' + (block.label || '').replace(/"/g, '&quot;') + '" ' +
+                                'data-voice="' + (block.voice || '') + '" ' +
+                                'data-codec="' + (block.codec || 'opus') + '">' +
+                                '</div>';
                         default:
                             return '';
                     }
@@ -284,6 +325,35 @@
                     document.getElementById('step-indicator').textContent = 'Step ' + (index + 1) + ' of ' + steps.length;
                     document.getElementById('prev-btn').disabled = index === 0;
                     document.getElementById('next-btn').disabled = index === steps.length - 1;
+                    // Init animation engine on elements with timeline data
+                    document.querySelectorAll('[data-timeline]').forEach(function(el) {
+                        if (!window.AnimEngine) return;
+                        try {
+                            var cues = JSON.parse(el.dataset.timeline);
+                            // Find nearest audio element (vocoder player or vox audio)
+                            var audioEl = null;
+                            var voxId = el.dataset.voxId;
+                            if (voxId) {
+                                var playerSlot = document.querySelector('.vocoder-player-slot[data-vox-id="' + voxId + '"]');
+                                if (playerSlot) audioEl = playerSlot.querySelector('audio');
+                            }
+                            AnimEngine.init(el, cues, audioEl);
+                        } catch (e) { /* skip bad timeline data */ }
+                    });
+
+                    // Init vocoder-player slots
+                    document.querySelectorAll('.vocoder-player-slot').forEach(function(el) {
+                        if (window.VocoderPlayer) {
+                            el.innerHTML = '';
+                            VocoderPlayer.create(el, {
+                                src: el.dataset.voxId ? '/api/vox/db/' + el.dataset.voxId + '/audio' : '',
+                                text: el.dataset.text || '',
+                                codec: el.dataset.codec || 'opus',
+                                voice: el.dataset.voice || '',
+                                voxId: el.dataset.voxId || ''
+                            });
+                        }
+                    });
                 }
 
                 document.getElementById('prev-btn').onclick = () => { if (currentStep > 0) renderStep(--currentStep); };
@@ -301,7 +371,6 @@
                 // Initial render
                 if (steps.length > 0) renderStep(0);
             })();
-        }
     </script>
 </body>
 </html>

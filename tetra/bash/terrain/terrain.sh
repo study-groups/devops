@@ -28,6 +28,9 @@ COMMANDS:
     build [app-dir]            Build HTML from terrain.config.json
     build [app-dir] -o <path>  Build to specific output path
 
+    doc <file.json>            Build HTML from JSON using templates
+    doc <file.json> -o <path>  Build doc to specific output
+
     local [app-dir]            Setup dist/ (build + symlinks)
     local clean [app-dir]      Remove dist/
 
@@ -38,6 +41,9 @@ COMMANDS:
     modes show <name>          Show mode configuration
 
     themes list                List available themes
+
+    templates list             List available doc templates
+    templates show <name>      Show template source
 
     doctor [app-dir]           Check app configuration and dependencies
 
@@ -169,6 +175,48 @@ _terrain_themes() {
         *)
             echo "Unknown themes subcommand: $subcmd"
             echo "Usage: terrain themes [list|show] [name]"
+            return 1
+            ;;
+    esac
+}
+
+# =============================================================================
+# SUBCOMMAND: TEMPLATES
+# =============================================================================
+
+_terrain_templates() {
+    local subcmd="${1:-list}"
+    shift 2>/dev/null || true
+
+    case "$subcmd" in
+        list|ls)
+            echo "Available templates:"
+            local templates_dir="$TERRAIN_SRC/core/templates"
+            for f in "$templates_dir"/*.html; do
+                [[ -f "$f" ]] || continue
+                local name=$(basename "$f" .html)
+                local size=$(wc -c < "$f" | tr -d ' ')
+                printf "  %-14s (%s bytes)\n" "$name" "$size"
+            done
+            ;;
+        show|s)
+            local name="$1"
+            if [[ -z "$name" ]]; then
+                echo "Usage: terrain templates show <name>" >&2
+                return 1
+            fi
+            local tpl="$TERRAIN_SRC/core/templates/${name}.html"
+            if [[ -f "$tpl" ]]; then
+                cat "$tpl"
+            else
+                echo "Template not found: $name" >&2
+                echo "Use 'terrain templates list' to see available templates" >&2
+                return 1
+            fi
+            ;;
+        *)
+            echo "Unknown templates subcommand: $subcmd"
+            echo "Usage: terrain templates [list|show] [name]"
             return 1
             ;;
     esac
@@ -377,6 +425,11 @@ terrain() {
             _terrain_themes "$@"
             ;;
 
+        # Templates
+        templates|template|tp)
+            _terrain_templates "$@"
+            ;;
+
         # Doc (standalone JSON → HTML)
         doc)
             _terrain_doc "$@"
@@ -411,6 +464,6 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     terrain "$@"
 fi
 
-export -f terrain _terrain_help _terrain_config _terrain_modes _terrain_themes
+export -f terrain _terrain_help _terrain_config _terrain_modes _terrain_themes _terrain_templates
 export -f _terrain_doctor _terrain_build _terrain_local _terrain_doc
 export TERRAIN_VERSION

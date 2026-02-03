@@ -22,17 +22,27 @@ terrain_doc_build() {
     local title
     title=$(jq -r '.metadata.title // "Untitled"' "$src_json")
 
-    # Detect type by top-level keys
+    # Warn if embedded JSON is large (>500KB)
+    local file_size
+    file_size=$(wc -c < "$src_json" | tr -d ' ')
+    if [[ $file_size -gt 512000 ]]; then
+        echo "Warning: large document ($(( file_size / 1024 ))KB) — may affect browser performance" >&2
+    fi
+
+    # Detect type: explicit metadata.type first, then duck-typing
     local type
-    if jq -e '.steps' "$src_json" &>/dev/null; then
-        type="guide"
-    elif jq -e '.groups' "$src_json" &>/dev/null; then
-        type="reference"
-    elif jq -e '.sections' "$src_json" &>/dev/null; then
-        type="reference"
-    else
-        echo "Cannot detect doc type (need steps, groups, or sections)" >&2
-        return 1
+    type=$(jq -r '.metadata.type // empty' "$src_json")
+    if [[ -z "$type" ]]; then
+        if jq -e '.steps' "$src_json" &>/dev/null; then
+            type="guide"
+        elif jq -e '.groups' "$src_json" &>/dev/null; then
+            type="reference"
+        elif jq -e '.sections' "$src_json" &>/dev/null; then
+            type="thesis"
+        else
+            echo "Cannot detect doc type (need steps, groups, or sections)" >&2
+            return 1
+        fi
     fi
 
     # Find template
@@ -42,26 +52,24 @@ terrain_doc_build() {
         return 1
     fi
 
-    # Read JSON content
-    local json_content
-    json_content=$(<"$src_json")
-
-    # Read template and perform substitutions
+    # Read template, replace TITLE and CONFIG via bash
     local html
     html=$(<"$template")
     html="${html//\{\{TITLE\}\}/$title}"
     html="${html//\{\{CONFIG\}\}/\{\}}"
 
-    # Use awk for DOCUMENT replacement (JSON may contain special chars)
-    local result
-    result=$(awk -v doc="$json_content" '{gsub(/\{\{DOCUMENT\}\}/, doc); print}' <<< "$html")
+    # Split at {{DOCUMENT}} and reassemble with JSON file content
+    local before="${html%%\{\{DOCUMENT\}\}*}"
+    local after="${html#*\{\{DOCUMENT\}\}}"
 
     if [[ -n "$output" ]]; then
         mkdir -p "$(dirname "$output")"
-        printf '%s\n' "$result" > "$output"
+        { printf '%s' "$before"; cat "$src_json"; printf '%s\n' "$after"; } > "$output"
         echo "Built: $output ($type)"
     else
-        printf '%s\n' "$result"
+        printf '%s' "$before"
+        cat "$src_json"
+        printf '%s\n' "$after"
     fi
 }
 
@@ -74,13 +82,15 @@ USAGE:
     terrain doc <file.json> -o out.html  Build to specific output
     terrain doc help                     Show this help
 
-DETECTION:
+DETECTION (in priority order):
+    .metadata.type     → explicit type (guide, reference, thesis)
     has "steps" array  → guide template
     has "groups" array → reference template
-    has "sections"     → reference template (thesis fallback)
+    has "sections"     → thesis template
 
 TEMPLATES:
     Templates are in $TERRAIN_SRC/core/templates/
+    Available: guide.html, reference.html, thesis.html
     Placeholders: {{TITLE}}, {{DOCUMENT}}, {{CONFIG}}
 EOF
 }
