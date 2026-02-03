@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Inspector</title>
+    <link rel="stylesheet" href="shared.css">
+    <script src="js/terrain-iframe.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+        .inspector-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 8px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #888;
+        }
+
+        .status-dot.connected { background: #4a4; }
+        .status-dot.disconnected { background: #a44; }
+
+        .inspector-tabs {
+            display: flex;
+            gap: 4px;
+            flex: 1;
+        }
+
+        .inspector-tab {
+            padding: 4px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+        }
+
+        .inspector-tab.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        .inspector-tab:hover:not(.active) {
+            background: var(--bg-hover);
+        }
+
+        .tab-content {
+            display: none;
+            height: calc(100vh - 100px);
+            overflow: auto;
+        }
+
+        .tab-content.active { display: block; }
+
+        /* Screenshot tab */
+        .screenshot-container {
+            text-align: center;
+            padding: 12px;
+        }
+
+        .screenshot-container img {
+            max-width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+        }
+
+        .screenshot-actions {
+            margin-bottom: 12px;
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .screenshot-actions button {
+            padding: 6px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg-secondary);
+        }
+
+        .screenshot-actions button:hover {
+            background: var(--bg-hover);
+        }
+
+        /* Network tab */
+        .network-list {
+            font-size: 11px;
+            font-family: monospace;
+        }
+
+        .network-item {
+            padding: 4px 8px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .network-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .network-method {
+            font-weight: bold;
+            width: 40px;
+            color: var(--accent);
+        }
+
+        .network-status {
+            width: 30px;
+            text-align: right;
+        }
+
+        .network-status.ok { color: #4a4; }
+        .network-status.error { color: #a44; }
+
+        .network-url {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .network-filter {
+            padding: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .network-filter input {
+            width: 100%;
+            padding: 6px 8px;
+            font-size: 12px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg-secondary);
+            color: var(--text);
+        }
+
+        /* Console tab */
+        .console-list {
+            font-size: 11px;
+            font-family: monospace;
+            padding: 8px;
+        }
+
+        .console-item {
+            padding: 4px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .console-item.log { color: var(--text); }
+        .console-item.warn { color: #a80; }
+        .console-item.error { color: #a44; }
+
+        /* Eval tab */
+        .eval-container {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .eval-input {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .eval-input textarea {
+            flex: 1;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg-secondary);
+            color: var(--text);
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .eval-input button {
+            padding: 8px 16px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--accent);
+            color: white;
+            align-self: flex-end;
+        }
+
+        .eval-output {
+            flex: 1;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg-secondary);
+            overflow: auto;
+            white-space: pre-wrap;
+        }
+
+        .empty {
+            color: var(--text-secondary);
+            font-style: italic;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .nav-input {
+            display: flex;
+            gap: 8px;
+            padding: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-input input {
+            flex: 1;
+            padding: 6px 8px;
+            font-size: 12px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg-secondary);
+            color: var(--text);
+        }
+
+        .nav-input button {
+            padding: 6px 12px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="inspector-header">
+        <div class="status-indicator">
+            <div class="status-dot" id="status-dot"></div>
+            <span id="status-text">Checking...</span>
+        </div>
+        <div class="inspector-tabs">
+            <span class="inspector-tab active" data-tab="screenshot">Screenshot</span>
+            <span class="inspector-tab" data-tab="network">Network</span>
+            <span class="inspector-tab" data-tab="console">Console</span>
+            <span class="inspector-tab" data-tab="eval">Eval</span>
+        </div>
+        <span class="refresh icon-refresh" data-action="refresh" title="Refresh"></span>
+    </div>
+
+    <!-- Screenshot Tab -->
+    <div id="tab-screenshot" class="tab-content active">
+        <div class="nav-input">
+            <input type="text" id="nav-url" placeholder="URL to navigate..." value="http://localhost:4444">
+            <button id="nav-btn">Go</button>
+        </div>
+        <div class="screenshot-container">
+            <div class="screenshot-actions">
+                <button id="screenshot-btn">Capture</button>
+            </div>
+            <div id="screenshot-preview">
+                <div class="empty">No screenshot yet</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Network Tab -->
+    <div id="tab-network" class="tab-content">
+        <div class="network-filter">
+            <input type="text" id="network-filter" placeholder="Filter by URL...">
+        </div>
+        <div class="network-list" id="network-list">
+            <div class="empty">No requests</div>
+        </div>
+    </div>
+
+    <!-- Console Tab -->
+    <div id="tab-console" class="tab-content">
+        <div class="console-list" id="console-list">
+            <div class="empty">No messages</div>
+        </div>
+    </div>
+
+    <!-- Eval Tab -->
+    <div id="tab-eval" class="tab-content">
+        <div class="eval-container">
+            <div class="eval-input">
+                <textarea id="eval-code" placeholder="document.title">document.title</textarea>
+                <button id="eval-btn">Run</button>
+            </div>
+            <div class="eval-output" id="eval-output">// Output will appear here</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/cdp';
+
+        // Tab switching
+        document.querySelectorAll('.inspector-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.inspector-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Status check
+        async function checkStatus() {
+            try {
+                const res = await fetch(API_BASE + '/status');
+                const data = await res.json();
+                const dot = document.getElementById('status-dot');
+                const text = document.getElementById('status-text');
+
+                if (data.cdp?.connected) {
+                    dot.className = 'status-dot connected';
+                    text.textContent = 'Connected to ' + (data.chrome?.version || 'Chrome');
+                } else if (data.chrome?.running) {
+                    dot.className = 'status-dot disconnected';
+                    text.textContent = 'Chrome running, not connected';
+                    // Try to connect
+                    await fetch(API_BASE + '/connect', { method: 'POST' });
+                    setTimeout(checkStatus, 1000);
+                } else {
+                    dot.className = 'status-dot disconnected';
+                    text.textContent = 'Chrome not running';
+                }
+            } catch (e) {
+                document.getElementById('status-dot').className = 'status-dot disconnected';
+                document.getElementById('status-text').textContent = 'API error';
+            }
+        }
+
+        // Screenshot
+        document.getElementById('screenshot-btn').addEventListener('click', async () => {
+            const preview = document.getElementById('screenshot-preview');
+            preview.innerHTML = '<div class="empty">...</div>';
+
+            try {
+                const res = await fetch(API_BASE + '/screenshot');
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    preview.innerHTML = `<img src="${url}" alt="Screenshot">`;
+                } else {
+                    const err = await res.json();
+                    preview.innerHTML = `<div class="empty">Error: ${err.error}</div>`;
+                }
+            } catch (e) {
+                preview.innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+            }
+        });
+
+        // Navigate
+        document.getElementById('nav-btn').addEventListener('click', async () => {
+            const url = document.getElementById('nav-url').value;
+            if (!url) return;
+
+            try {
+                const res = await fetch(API_BASE + '/navigate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    setTimeout(() => document.getElementById('screenshot-btn').click(), 1000);
+                }
+            } catch (e) {
+                console.error('Navigate error:', e);
+            }
+        });
+
+        // Network requests
+        async function loadNetwork() {
+            try {
+                const filter = document.getElementById('network-filter').value;
+                const url = filter ? `${API_BASE}/network?url=${encodeURIComponent(filter)}` : `${API_BASE}/network`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                const list = document.getElementById('network-list');
+                if (!data.length) {
+                    list.innerHTML = '<div class="empty">No requests</div>';
+                    return;
+                }
+
+                list.innerHTML = data.slice(-50).reverse().map(r => {
+                    const statusClass = r.status >= 400 ? 'error' : 'ok';
+                    return `<div class="network-item">
+                        <span class="network-method">${r.method || r.type}</span>
+                        <span class="network-status ${r.status ? statusClass : ''}">${r.status || ''}</span>
+                        <span class="network-url" title="${r.url}">${r.url}</span>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                document.getElementById('network-list').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+            }
+        }
+
+        document.getElementById('network-filter').addEventListener('input', loadNetwork);
+
+        // Console messages
+        async function loadConsole() {
+            try {
+                const res = await fetch(API_BASE + '/console');
+                const data = await res.json();
+
+                const list = document.getElementById('console-list');
+                if (!data.length) {
+                    list.innerHTML = '<div class="empty">No messages</div>';
+                    return;
+                }
+
+                list.innerHTML = data.slice(-50).reverse().map(m => {
+                    const args = m.args ? m.args.join(' ') : m.exception || '';
+                    return `<div class="console-item ${m.type}">[${m.type}] ${args}</div>`;
+                }).join('');
+            } catch (e) {
+                document.getElementById('console-list').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+            }
+        }
+
+        // Eval
+        document.getElementById('eval-btn').addEventListener('click', async () => {
+            const code = document.getElementById('eval-code').value;
+            const output = document.getElementById('eval-output');
+
+            if (!code) return;
+
+            try {
+                const res = await fetch(API_BASE + '/eval', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ expr: code })
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    output.textContent = 'Error: ' + data.error;
+                } else {
+                    output.textContent = JSON.stringify(data.value, null, 2) || data.description || '(undefined)';
+                }
+            } catch (e) {
+                output.textContent = 'Error: ' + e.message;
+            }
+        });
+
+        // Keyboard shortcut for eval
+        document.getElementById('eval-code').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                document.getElementById('eval-btn').click();
+            }
+        });
+
+        // Refresh action
+        document.querySelector('[data-action="refresh"]').addEventListener('click', () => {
+            checkStatus();
+            loadNetwork();
+            loadConsole();
+        });
+
+        // Initial load
+        checkStatus();
+        setInterval(() => {
+            if (document.getElementById('tab-network').classList.contains('active')) loadNetwork();
+            if (document.getElementById('tab-console').classList.contains('active')) loadConsole();
+        }, 2000);
+    </script>
+</body>
+</html>
