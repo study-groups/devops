@@ -188,8 +188,88 @@
                   "properties": {
                     "type": { "const": "paragraph" },
                     "text": { "type": "string" },
-                    "markdown": { "type": "boolean", "default": false }
-                  }
+                    "markdown": { "type": "boolean", "default": false },
+                    "spans": {
+                      "type": "object",
+                      "description": "SpanDoc span groups (timing, voice, emphasis, entity)",
+                      "properties": {
+                        "timing": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "start": { "type": "integer", "description": "Start token index" },
+                              "end": { "type": "integer", "description": "End token index (exclusive)" },
+                              "label": { "type": "string" },
+                              "attrs": {
+                                "type": "object",
+                                "properties": {
+                                  "t0": { "type": "number", "description": "Start time in seconds" },
+                                  "t1": { "type": "number", "description": "End time in seconds" }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "voice": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "start": { "type": "integer" },
+                              "end": { "type": "integer" },
+                              "label": { "type": "string", "description": "Speaker label (narrator, aside)" },
+                              "attrs": {
+                                "type": "object",
+                                "properties": {
+                                  "voice": { "type": "string" },
+                                  "audioSrc": { "type": "string" },
+                                  "provider": { "type": "string" }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "emphasis": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "start": { "type": "integer" },
+                              "end": { "type": "integer" },
+                              "label": { "type": "string" },
+                              "attrs": {
+                                "type": "object",
+                                "properties": {
+                                  "fx": { "type": "string", "description": "anim-effects CSS class" }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "entity": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "start": { "type": "integer" },
+                              "end": { "type": "integer" },
+                              "label": { "type": "string", "description": "Entity label (term, command, concept)" },
+                              "attrs": {
+                                "type": "object",
+                                "properties": {
+                                  "type": { "type": "string" }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "array",
+                        "description": "Custom span groups"
+                      }
+                    }
                 },
                 {
                   "type": "object",

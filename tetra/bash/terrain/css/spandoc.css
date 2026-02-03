@@ -1,0 +1,103 @@
+/*
+ * spandoc.css - Span annotation styles for SpanDoc engine
+ *
+ * Groups: timing, voice, emphasis, entity
+ * Active state: .sd-active (toggled by timing playback)
+ */
+
+/* Base span styles */
+.sd-timing,
+.sd-voice,
+.sd-emphasis,
+.sd-entity {
+    display: inline;
+    position: relative;
+}
+
+/* Timing — highlight on active, inherits anim-effects pattern */
+.sd-timing.sd-active {
+    background-image: linear-gradient(to right, rgba(255, 230, 109, 0.35), rgba(255, 230, 109, 0.35));
+    background-repeat: no-repeat;
+    background-position: left center;
+    animation: anim-highlight var(--anim-dur, 0.6s) ease forwards;
+}
+
+/* Voice — narrator: subtle, aside: distinct */
+.sd-voice[data-sd-label="narrator"] {
+    /* Narrator is the default — no visual treatment */
+}
+
+.sd-voice[data-sd-label="aside"] {
+    font-style: italic;
+    background: rgba(88, 166, 255, 0.06);
+    border-left: 2px solid rgba(88, 166, 255, 0.3);
+    padding-left: 0.3em;
+}
+
+/* Emphasis — uses --fx custom property to select effect */
+.sd-emphasis {
+    /* Base: no visual until fx class applied */
+}
+
+/* Map emphasis fx to anim-effects keyframes */
+.sd-fx-highlight.sd-active,
+.sd-timing.sd-active .sd-fx-highlight {
+    background-image: linear-gradient(to right, rgba(255, 230, 109, 0.35), rgba(255, 230, 109, 0.35));
+    background-repeat: no-repeat;
+    animation: anim-highlight var(--anim-dur, 0.6s) ease forwards;
+}
+
+.sd-fx-jiggle {
+    display: inline-block;
+}
+.sd-fx-jiggle.sd-active {
+    animation: anim-jiggle var(--anim-dur, 0.6s) ease;
+}
+
+.sd-fx-color-pop {
+    display: inline-block;
+}
+.sd-fx-color-pop.sd-active {
+    animation: anim-color-pop var(--anim-dur, 0.6s) ease forwards;
+}
+
+.sd-fx-underline-draw.sd-active {
+    position: relative;
+}
+.sd-fx-underline-draw.sd-active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    height: 2px;
+    background: #58a6ff;
+    animation: anim-underline-draw var(--anim-dur, 0.6s) ease forwards;
+}
+
+.sd-fx-glow.sd-active {
+    animation: anim-glow var(--anim-dur, 0.6s) ease;
+}
+
+/* Entity — dotted underline with hover label */
+.sd-entity {
+    text-decoration: underline dotted rgba(88, 166, 255, 0.5);
+    text-underline-offset: 3px;
+    cursor: default;
+}
+
+.sd-entity:hover::after {
+    content: attr(data-sd-label);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #21262d;
+    color: #c9d1d9;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    border: 1px solid #30363d;
+    z-index: 10;
+    pointer-events: none;
+}

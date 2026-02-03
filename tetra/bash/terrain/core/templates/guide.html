@@ -221,6 +221,8 @@
     <link rel="stylesheet" href="/api/vox/vocoder/player.css">
     <script src="/api/terrain/js/anim-engine.js"></script>
     <link rel="stylesheet" href="/api/terrain/css/anim-effects.css">
+    <script src="/api/terrain/js/spandoc.js"></script>
+    <link rel="stylesheet" href="/api/terrain/css/spandoc.css">
 </head>
 <body>
     <div class="container">
@@ -263,6 +265,9 @@
                             var pAttrs = '';
                             if (block.timeline) {
                                 pAttrs = ' data-timeline=\'' + JSON.stringify(block.timeline).replace(/'/g, '&#39;') + '\'';
+                            }
+                            if (block.spans) {
+                                pAttrs += ' data-spans=\'' + JSON.stringify(block.spans).replace(/'/g, '&#39;') + '\'';
                             }
                             if (block.vox && block.vox.docId) {
                                 pAttrs += ' data-vox-id="' + block.vox.docId + '"';
@@ -325,20 +330,43 @@
                     document.getElementById('step-indicator').textContent = 'Step ' + (index + 1) + ' of ' + steps.length;
                     document.getElementById('prev-btn').disabled = index === 0;
                     document.getElementById('next-btn').disabled = index === steps.length - 1;
-                    // Init animation engine on elements with timeline data
-                    document.querySelectorAll('[data-timeline]').forEach(function(el) {
-                        if (!window.AnimEngine) return;
+                    // Init SpanDoc on elements with spans or timeline data
+                    if (window.SpanDoc) SpanDoc.destroyAll();
+                    document.querySelectorAll('[data-timeline], [data-spans]').forEach(function(el) {
                         try {
-                            var cues = JSON.parse(el.dataset.timeline);
-                            // Find nearest audio element (vocoder player or vox audio)
                             var audioEl = null;
                             var voxId = el.dataset.voxId;
                             if (voxId) {
                                 var playerSlot = document.querySelector('.vocoder-player-slot[data-vox-id="' + voxId + '"]');
                                 if (playerSlot) audioEl = playerSlot.querySelector('audio');
                             }
-                            AnimEngine.init(el, cues, audioEl);
-                        } catch (e) { /* skip bad timeline data */ }
+
+                            if (window.SpanDoc) {
+                                var doc = SpanDoc.from(el);
+
+                                // Native spans format (from JSON)
+                                if (el.dataset.spans) {
+                                    var spanData = JSON.parse(el.dataset.spans);
+                                    var groups = Object.keys(spanData);
+                                    for (var g = 0; g < groups.length; g++) {
+                                        doc.addSpans(groups[g], spanData[groups[g]]);
+                                    }
+                                }
+
+                                // Legacy timeline cues → timing spans
+                                if (el.dataset.timeline) {
+                                    var cues = JSON.parse(el.dataset.timeline);
+                                    SpanDoc.fromCues(doc, cues);
+                                }
+
+                                doc.render();
+                                if (audioEl) doc.bindAudio(audioEl);
+                            } else if (window.AnimEngine && el.dataset.timeline) {
+                                // Fallback to AnimEngine if SpanDoc not loaded
+                                var cues2 = JSON.parse(el.dataset.timeline);
+                                AnimEngine.init(el, cues2, audioEl);
+                            }
+                        } catch (e) { /* skip bad data */ }
                     });
 
                     // Init vocoder-player slots
