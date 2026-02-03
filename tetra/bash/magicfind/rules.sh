@@ -14,7 +14,8 @@ _mf_rules_init() {
 exclude node_modules directories
 exclude .git directories
 use macOS-compatible syntax (no GNU extensions like -printf)
-sort results by modification time (most recent first)
+prefer simple commands over complex pipelines
+when searching file contents use rg -il for file listing or rg -in for matches with line numbers
 RULES
     fi
 }
