@@ -43,7 +43,6 @@ _qa_preview_answer() {
     cat
   fi
 }
-export -f _qa_preview_answer
 
 qa_search() {
   local db="${QA_DIR}/db"

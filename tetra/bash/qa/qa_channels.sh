@@ -536,14 +536,4 @@ EOF
 # EXPORTS
 # =============================================================================
 
-export -f _qa_get_channel_dir _qa_get_channel_db _qa_ensure_channel
-export -f _qq_channel _a_channel _q_channel
-export -f _qa_last_id _qa_last_id_in_dir
-export -f _qa_manifest_add _qa_manifest_list
-export -f qa_promote qa_move qa_channels qa_clear
-export -f qa_channel_create qa_channel_delete qa_channel_rename
-export -f _qq_numbered _a_numbered _q_numbered
-export -f qq1 qq2 qq3 qq4 qqq
-export -f a1 a2 a3 a4
-export -f q1 q2 q3 q4
-export -f qa_channels_help
+# Functions available via source - no export -f needed

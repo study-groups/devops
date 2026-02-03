@@ -554,11 +554,4 @@ fa() {
 
 export QA_ENTRY_EXTENSIONS QA_VIEW_EXTENSIONS
 
-export -f _truncate_middle _qa_get
-export -f _get_openai_api _get_qa_engine _get_qa_context
-export -f _qa_entry_files _qa_entry_copy _qa_entry_move
-export -f _qa_count_entries _qa_validate_channel _qa_get_channel_dir _qa_date_ago
-export -f _qa_get_entry_ids _qa_sanitize_index _qa_sanitize_input
-export -f _qa_read_input qa_query q_gpt_query
-export -f qa_help qa_status qa_set_apikey qa_set_engine qa_set_context
-export -f q a qa_delete qa_responses qa_test qa_list fa
+# Functions available via source - no export -f needed

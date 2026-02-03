@@ -416,11 +416,4 @@ complete -F _qq_complete qq
 complete -F _qq_numbered_complete qq1 qq2 qq3 qq4 qqq
 complete -F _qa_view_complete a a1 a2 a3 a4 q q1 q2 q3 q4
 
-# =============================================================================
-# EXPORTS
-# =============================================================================
-
-export -f _qa_complete _qq_complete _qq_numbered_complete _qa_view_complete
-export -f _qa_complete_ids _qa_complete_all_ids
-export -f _qa_complete_named_channels _qa_complete_all_channels
-export -f _qa_complete_views _qa_complete_channel_ids
+# Functions available via source - no export -f needed

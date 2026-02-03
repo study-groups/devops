@@ -251,10 +251,4 @@ _qa_filter_since() {
     done
 }
 
-# =============================================================================
-# EXPORTS
-# =============================================================================
-
-export -f qa_export _qa_export_all _qa_format_entries
-export -f qa_promote_channel qa_merge_channel
-export -f qa_summary _qa_filter_since
+# Functions available via source - no export -f needed

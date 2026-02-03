@@ -339,8 +339,4 @@ qa_gc() {
     fi
 }
 
-# =============================================================================
-# EXPORTS
-# =============================================================================
-
-export -f qa_doctor qa_summary qa_gc
+# Functions available via source - no export -f needed

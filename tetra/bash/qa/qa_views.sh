@@ -481,10 +481,4 @@ qa_view() {
     esac
 }
 
-# =============================================================================
-# EXPORTS
-# =============================================================================
-
-export -f _qa_views_dir _qa_view_dir _qa_ensure_views_dir
-export -f qa_view_create qa_view_add qa_view_remove qa_view_delete
-export -f qa_views qa_view_show qa_view_config qa_view_export qa_view
+# Functions available via source - no export -f needed

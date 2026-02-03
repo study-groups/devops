@@ -92,6 +92,14 @@ ASK QUESTIONS (qq writes)
   qq :git "question"    Ask, write to channel "git"
   qq :2 "question"      Ask, write to channel 2
   qq1, qq2, qqq         Shortcuts for numbered channels
+  qq                    Read from stdin (shows model, Ctrl-D to submit)
+
+TEMPLATES ({{cmd}} runs cmd, inserts output)
+  {{a 3}}               Insert 3rd most recent answer
+  {{q 0}}               Insert most recent question
+  {{cat file.txt}}      Insert file contents
+  {{ls src/}}           Insert directory listing
+  {{date}}              Insert current date
 
 VIEW (q and a read)
   q                     Last question from db
@@ -282,12 +290,32 @@ EOF
     esac
 }
 
+# Expand {{cmd}} templates in text - runs cmd and inserts output
+# Examples: {{a 3}}, {{ls -la}}, {{cat file.txt}}, {{date}}
+_qq_expand_templates() {
+    local text="$1"
+    local result="$text"
+
+    # Find and expand all {{...}} patterns
+    while [[ "$result" =~ \{\{([^}]+)\}\} ]]; do
+        local cmd="${BASH_REMATCH[1]}"
+        local pattern="${BASH_REMATCH[0]}"
+        local output
+        output=$(eval "$cmd" 2>&1) || output="[error: $cmd]"
+        result="${result//$pattern/$output}"
+    done
+
+    echo "$result"
+}
+
 # Ask a question - writes to db or specified channel
 # Usage:
 #   qq my question          - Query to db (on the record)
 #   qq :git my question     - Query to channel "git"
 #   qq :2 my question       - Query to channel 2
 #   qq @foo my question     - Query to channel "foo" (@ prefix)
+#
+# Templates: Use {{a N}} to insert answer N, {{q N}} for question N
 #
 # To VIEW entries, use q (questions) or a (answers):
 #   q / q 5 / q git / q git 5
@@ -299,29 +327,45 @@ qq() {
         export QA_MODULES_LOADED=true
     fi
 
+    local channel="db"
+    local input=""
+
     # Check for :channel syntax (write to named channel)
     if [[ "$1" =~ ^: ]]; then
-        local channel="${1#:}"
+        channel="${1#:}"
         shift
-        if [[ -z "$*" ]]; then
-            echo "Usage: qq :channel your question here" >&2
-            return 1
-        fi
-        _qq_channel "$channel" "$@"
     # Check for @channel syntax (alternate prefix)
     elif [[ "$1" =~ ^@ ]]; then
-        local channel="${1#@}"
+        channel="${1#@}"
         shift
-        _qq_channel "$channel" "$@"
     # Check for numeric channel
     elif [[ "$1" =~ ^[0-9]+$ ]] && [[ -n "$2" ]]; then
-        local channel="$1"
+        channel="$1"
         shift
-        _qq_channel "$channel" "$@"
-    else
-        # Default: write to db (on the record)
-        _qq_channel db "$@"
     fi
+
+    # Get input: from args or stdin with prompt
+    if [[ -n "$*" ]]; then
+        input="$*"
+    else
+        # Show model and hint before reading
+        local model
+        model=$(_get_qa_engine 2>/dev/null)
+        [[ -z "$model" ]] && model="(no model set)"
+        echo "Model: $model" >&2
+        echo "Enter query (Ctrl-D to submit):" >&2
+        input=$(cat)
+    fi
+
+    if [[ -z "$input" ]]; then
+        echo "Usage: qq [channel] your question here" >&2
+        return 1
+    fi
+
+    # Expand templates like {{a 3}}
+    input=$(_qq_expand_templates "$input")
+
+    _qq_channel "$channel" "$input"
 }
 
 # One-off query shortcut - now uses channel 2
@@ -376,7 +420,6 @@ _q_with_channel() {
 # Export essential module variables and functions
 export QA_SRC QA_DIR
 
-export -f qa qa_init qa_source_modules
-export -f qq qqq _a_with_channel _q_with_channel
+# Functions available via source - no export -f needed
 
 # Note: QA sub-modules are now lazy-loaded on first use of 'qa' or 'qq' commands
