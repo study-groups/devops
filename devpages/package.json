@@ -31,8 +31,8 @@
     "reselect": "^5.1.0"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.433.0",
-    "@aws-sdk/s3-request-presigner": "^3.433.0",
+    "@aws-sdk/client-s3": "^3.982.0",
+    "@aws-sdk/s3-request-presigner": "^3.982.0",
     "@codemirror/autocomplete": "^6.20.0",
     "@codemirror/commands": "^6.10.1",
     "@codemirror/lang-css": "^6.3.1",
