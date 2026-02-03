@@ -95,7 +95,9 @@ function renderRecordingInfo(id, data) {
 
     if (data.format) {
         const fmt = data.format;
+        const relPath = fmt.filename ? `${id}/${fmt.filename.split('/').pop()}` : null;
         const fields = [
+            ['File', relPath],
             ['Format', fmt.format_long_name || fmt.format_name],
             ['Duration', fmt.duration ? parseFloat(fmt.duration).toFixed(1) + 's' : null],
             ['Size', fmt.size ? formatBytes(parseInt(fmt.size)) : null],
