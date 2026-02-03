@@ -52,17 +52,15 @@ function flowSteps(steps) {
     }).join('<span class="step-arrow">\u2192</span>');
 }
 
-function envTable(envs) {
-    if (!envs || !envs.length || typeof envs[0] !== 'object') return '';
-    var rows = envs.map(function(e) {
+function envRows(envs) {
+    if (!envs || !envs.length || typeof envs[0] !== 'object') return [];
+    return envs.map(function(e) {
         var port = e.port ? ':' + e.port : '';
-        var branch = e.branch ? el('span', 'env-branch', e.branch) : '';
-        return el('div', 'env-table-row',
-            el('span', 'env-name', e.name) +
-            el('span', 'env-domain', (e.domain || '-') + port) +
-            branch);
-    }).join('');
-    return el('div', 'env-table', rows);
+        var branch = e.branch ? ' ' + el('span', 'env-branch', e.branch) : '';
+        return el('div', 'detail-row',
+            el('span', 'detail-label env-name', e.name) +
+            el('span', 'detail-value', (e.domain || '-') + port + branch));
+    });
 }
 
 function tagList(items, cls) {
@@ -102,13 +100,7 @@ function restoreSelections() {
 // --- Toggle ---
 
 function toggleTarget(name) {
-    // If collapsing while output is showing, just clear output instead
-    if (expandedTargets[name] && targetOutputs[name]) {
-        delete targetOutputs[name];
-        renderTargets();
-        return;
-    }
-
+    // Output persists across expand/collapse - indicator shows when collapsed
     expandedTargets[name] = !expandedTargets[name];
     saveExpanded();
 
@@ -200,12 +192,10 @@ function renderTargets() {
             pipelineOptions = pipelineNames.map(function(p) {
                 var steps = t.pipelines[p] || [];
                 return '<option value="' + p + '" title="' + steps.join(' \u2192 ') + '"' +
-                    (p === 'default' ? ' selected' : '') + '>' + p + '</option>';
+                    (p === 'full' ? ' selected' : '') + '>' + p + '</option>';
             }).join('');
         }
 
-        // Format badge
-        var formatBadge = t.format ? el('span', 'target-format ' + t.format, t.format) : '';
 
         // Description
         var desc = t.description ? el('span', 'target-desc', t.description) : '';
@@ -214,24 +204,12 @@ function renderTargets() {
         var details = '';
         var lines = [];
 
-        // Strategy banner
-        if (t.strategy) {
-            var stratIcon = {
-                'remote-exec': '\u2192 server',
-                'local-push': '\u2191 push',
-                'hybrid': '\u21C4 both'
-            }[t.strategy] || '';
-            lines.push(el('div', 'detail-row strategy-row',
-                el('span', 'strategy-badge strategy-' + t.strategy, stratIcon) + ' ' +
-                el('span', 'detail-value', t.strategyDesc || t.strategy)));
-        }
-
-        // Default pipeline flow
-        var defaultSteps = t.pipelines && t.pipelines['default'];
-        if (defaultSteps && defaultSteps.length > 0) {
+        // Full pipeline flow
+        var fullSteps = t.pipelines && t.pipelines['full'];
+        if (fullSteps && fullSteps.length > 0) {
             lines.push(el('div', 'detail-row',
-                el('span', 'detail-label', 'default:') + ' ' +
-                el('span', 'pipeline-flow', flowSteps(defaultSteps))));
+                el('span', 'detail-label', 'full:') + ' ' +
+                el('span', 'pipeline-flow', flowSteps(fullSteps))));
         }
 
         // Repo
@@ -242,12 +220,12 @@ function renderTargets() {
                 el('span', 'detail-value', shortRepo)));
         }
 
-        // Env table
-        lines.push(envTable(t.envs));
+        // Env rows (each env as a detail row)
+        lines = lines.concat(envRows(t.envs));
 
-        // Other pipelines
+        // Other pipelines (exclude full which is shown above)
         var allPipelineNames = t.pipelines ? Object.keys(t.pipelines) : [];
-        var otherPipelines = allPipelineNames.filter(function(p) { return p !== 'default'; });
+        var otherPipelines = allPipelineNames.filter(function(p) { return p !== 'full'; });
         if (otherPipelines.length > 0) {
             var pTags = otherPipelines.map(function(p) {
                 var steps = t.pipelines[p] || [];
@@ -298,18 +276,28 @@ function renderTargets() {
         // Inline output area (per-target, shown after actions)
         var inlineOutput = '<div class="target-output" id="output-' + t.name + '"></div>';
 
-        // Single-pass card markup
-        return '<div class="' + cardClass + '" data-target-name="' + t.name + '">' +
-            '<div class="target-row">' +
-                el('span', 'target-toggle', toggle) +
-                el('span', 'target-name', t.name) +
-                desc +
-                el('span', 'target-org', t.org || '') +
-                formatBadge +
-                (isExpanded ? '' : '<span style="flex:1"></span>') +
+        // Show indicator if target has active output
+        var hasOutput = !!targetOutputs[t.name];
+        var activeIndicator = hasOutput ? el('span', 'target-active', '\u25CF') : '';
+
+        // Toggle icon: + when collapsed, − when expanded
+        var toggleIcon = isExpanded ? '\u2212' : '+';
+
+        // Single-pass card markup - new layout:
+        // Row 1: name [env] [pipeline] [Edit] [Dry Run] [Deploy]  [+]
+        // Row 2: description
+        var cardClasses = cardClass + (hasOutput ? ' has-output' : '');
+        return '<div class="' + cardClasses + '" data-target-name="' + t.name + '">' +
+            '<div class="target-header">' +
+                '<div class="target-row">' +
+                    el('span', 'target-name', t.name) +
+                    activeIndicator +
+                    '</div>' +
+                actions +
+                el('span', 'target-toggle', toggleIcon) +
             '</div>' +
+            (desc ? '<div class="target-subtitle">' + t.description + '</div>' : '') +
             details +
-            actions +
             editorArea +
             inlineOutput +
         '</div>';
@@ -318,12 +306,12 @@ function renderTargets() {
     restoreSelections();
     restoreOutputs();
 
-    // Event delegation for expand/collapse
-    els.targets.querySelectorAll('.target').forEach(function(card) {
-        card.addEventListener('click', function(e) {
-            if (e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON' || e.target.tagName === 'OPTION' || e.target.tagName === 'TEXTAREA') return;
-            if (e.target.closest('.target-editor')) return;
-            var name = card.getAttribute('data-target-name');
+    // Only toggle via the arrow
+    els.targets.querySelectorAll('.target-toggle').forEach(function(toggle) {
+        toggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var card = toggle.closest('.target');
+            var name = card ? card.getAttribute('data-target-name') : null;
             if (name) toggleTarget(name);
         });
     });
@@ -419,22 +407,49 @@ async function loadHistory() {
             // Full timestamp on hover
             var fullTs = h.timestamp || '';
 
-            return '<div class="history-item expanded">' +
+            // Start collapsed (no 'expanded' class), ghost [del] button left of duration
+            return '<div class="history-item" data-timestamp="' + encodeURIComponent(fullTs) + '">' +
                 '<div class="history-row">' +
                     '<span class="timestamp" title="' + fullTs + '">' + ts + '</span>' +
                     '<span class="h-target">' + targetName + '</span>' +
                     '<span class="h-pipeline">' + pipeline + '</span>' +
                     '<span class="h-env">' + (h.env || '') + '</span>' +
                     '<span class="h-status ' + (h.status || '') + '">' + (h.status || '') + '</span>' +
+                    '<span class="h-delete">del</span>' +
                     (dur ? '<span class="h-duration">' + dur + '</span>' : '') +
                 '</div>' +
                 (detailLines.length ? '<div class="history-details">' + detailLines.join('') + '</div>' : '') +
             '</div>';
         }).join('');
 
+        // Wire up click handlers
         els.history.querySelectorAll('.history-item').forEach(function(item) {
-            item.addEventListener('click', function() {
-                item.classList.toggle('expanded');
+            // Expand/collapse on row click (but not on delete button)
+            item.querySelector('.history-row').addEventListener('click', function(e) {
+                if (!e.target.classList.contains('h-delete')) {
+                    item.classList.toggle('expanded');
+                }
+            });
+
+            // Delete button: del → sure? → delete
+            var deleteBtn = item.querySelector('.h-delete');
+            var confirmTimeout = null;
+            deleteBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (deleteBtn.classList.contains('confirming')) {
+                    // Second click - delete
+                    clearTimeout(confirmTimeout);
+                    deleteHistoryEntry(item);
+                } else {
+                    // First click - show confirmation
+                    deleteBtn.textContent = 'sure?';
+                    deleteBtn.classList.add('confirming');
+                    // Auto-reset after 3 seconds
+                    confirmTimeout = setTimeout(function() {
+                        deleteBtn.textContent = 'del';
+                        deleteBtn.classList.remove('confirming');
+                    }, 3000);
+                }
             });
         });
     } catch (err) {
@@ -442,9 +457,129 @@ async function loadHistory() {
     }
 }
 
+async function deleteHistoryEntry(item) {
+    var timestamp = item.dataset.timestamp;
+    if (!timestamp) return;
+
+    item.classList.add('deleting');
+
+    try {
+        var res = await fetch(Terrain.State.apiUrl('/api/deploy/history/' + timestamp), {
+            method: 'DELETE'
+        });
+        if (res.ok) {
+            item.style.height = item.offsetHeight + 'px';
+            item.classList.add('deleted');
+            setTimeout(function() {
+                item.remove();
+            }, 200);
+        } else {
+            item.classList.remove('deleting', 'confirming');
+        }
+    } catch (err) {
+        item.classList.remove('deleting', 'confirming');
+    }
+}
+
 function getPipeline(target) {
     var pipelineSelect = document.querySelector('select.pipeline-select[data-target="' + target + '"]');
-    return pipelineSelect ? pipelineSelect.value : 'default';
+    return pipelineSelect ? pipelineSelect.value : 'full';
+}
+
+// Stream deploy output via SSE for real-time updates
+function streamDeploy(target, env, pipeline, dryRun) {
+    var label = target + ':' + pipeline;
+    var lines = [];
+
+    // Build SSE URL (use base URL, not apiUrl which adds org/env params)
+    var url = '/api/deploy/stream?' +
+        'org=' + encodeURIComponent(Terrain.State.org) +
+        '&target=' + encodeURIComponent(target) +
+        '&env=' + encodeURIComponent(env) +
+        '&pipeline=' + encodeURIComponent(pipeline) +
+        '&dryRun=' + (dryRun ? 'true' : 'false');
+
+    var eventSource = new EventSource(url);
+
+    // Show initial status
+    showStreamingOutput('Connecting...', label, target, true);
+
+    eventSource.addEventListener('start', function(e) {
+        var data = JSON.parse(e.data);
+        lines = [];
+        showStreamingOutput('Started ' + (data.dryRun ? '[DRY RUN]' : '[DEPLOY]') + '...', label, target, true);
+    });
+
+    eventSource.addEventListener('output', function(e) {
+        var data = JSON.parse(e.data);
+        lines.push(data.line);
+        showStreamingOutput(lines.join('\n'), label, target, true);
+    });
+
+    eventSource.addEventListener('done', function(e) {
+        var data = JSON.parse(e.data);
+        eventSource.close();
+        // Mark as complete (not streaming)
+        showStreamingOutput(lines.join('\n'), label, target, false);
+        if (!dryRun) loadHistory();
+    });
+
+    eventSource.addEventListener('error', function(e) {
+        var data = {};
+        try { data = JSON.parse(e.data); } catch (_) {}
+        eventSource.close();
+        lines.push('Error: ' + (data.error || 'Connection lost'));
+        showStreamingOutput(lines.join('\n'), label, target, false);
+    });
+
+    eventSource.onerror = function() {
+        eventSource.close();
+        lines.push('Error: Connection closed');
+        showStreamingOutput(lines.join('\n'), label, target, false);
+    };
+
+    return eventSource;
+}
+
+function showStreamingOutput(text, label, targetName, isStreaming) {
+    // Persist in JS state
+    if (targetName) {
+        targetOutputs[targetName] = { text: text, label: label, streaming: isStreaming };
+    }
+
+    var container = targetName ? document.getElementById('output-' + targetName) : null;
+    if (container) {
+        renderStreamingOutputInContainer(container, text, label, targetName, isStreaming);
+    }
+}
+
+function renderStreamingOutputInContainer(container, text, label, targetName, isStreaming) {
+    var closeId = 'close-output-' + targetName;
+    var streamingClass = isStreaming ? ' streaming' : '';
+    var streamingIndicator = isStreaming ? '<span class="streaming-indicator"></span>' : '';
+
+    container.innerHTML = el('div', 'output-header' + streamingClass,
+        streamingIndicator +
+        el('span', 'output-label', label || '') +
+        '<span class="output-close" id="' + closeId + '">\u00D7</span>') +
+        '<pre class="output-pre' + streamingClass + '">' + formatOutput(text) + '</pre>';
+    container.style.display = 'block';
+
+    // Auto-scroll to bottom while streaming
+    if (isStreaming) {
+        var pre = container.querySelector('.output-pre');
+        if (pre) pre.scrollTop = pre.scrollHeight;
+    }
+
+    var closeBtn = document.getElementById(closeId);
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            container.style.display = 'none';
+            container.innerHTML = '';
+            delete targetOutputs[targetName];
+        });
+    }
 }
 
 async function dryRun(target) {
@@ -452,19 +587,8 @@ async function dryRun(target) {
     var env = envSelect ? envSelect.value : 'dev';
     var pipeline = getPipeline(target);
 
-    showOutput('Running dry-run...', target + ':' + pipeline, target);
-
-    try {
-        var res = await fetch(Terrain.State.apiUrl('/api/deploy/deploy'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ target: target, env: env, pipeline: pipeline, dryRun: true })
-        });
-        var data = await res.json();
-        showOutput(data.output || data.message || JSON.stringify(data, null, 2), target + ':' + pipeline, target);
-    } catch (err) {
-        showOutput('Error: ' + err.message, target + ':' + pipeline, target);
-    }
+    // Use SSE streaming
+    streamDeploy(target, env, pipeline, true);
 }
 
 async function deploy(target) {
@@ -476,20 +600,8 @@ async function deploy(target) {
         return;
     }
 
-    showOutput('Deploying...', target + ':' + pipeline, target);
-
-    try {
-        var res = await fetch(Terrain.State.apiUrl('/api/deploy/deploy'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ target: target, env: env, pipeline: pipeline, dryRun: false })
-        });
-        var data = await res.json();
-        showOutput(data.output || data.message || JSON.stringify(data, null, 2), target + ':' + pipeline, target);
-        loadHistory();
-    } catch (err) {
-        showOutput('Error: ' + err.message, target + ':' + pipeline, target);
-    }
+    // Use SSE streaming
+    streamDeploy(target, env, pipeline, false);
 }
 
 function showOutput(text, label, targetName) {

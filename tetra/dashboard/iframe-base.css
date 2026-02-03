@@ -98,6 +98,17 @@ body.padded {
 .status-dot.disconnected { background: var(--one); }
 .status-dot.loading { background: var(--three); }
 
+/* Environment indicator in header */
+.env-indicator {
+    font-size: 9px;
+    font-weight: 600;
+    margin-left: 6px;
+}
+.env-indicator.local { color: var(--two); }      /* green */
+.env-indicator.dev { color: var(--four); }       /* blue/purple */
+.env-indicator.staging { color: var(--three); }  /* yellow */
+.env-indicator.prod { color: var(--one); }       /* red */
+
 /* ==========================================================================
    Empty / Placeholder States
    ========================================================================== */

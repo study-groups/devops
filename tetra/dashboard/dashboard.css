@@ -198,15 +198,24 @@ body {
     color: var(--two);
 }
 
-.env-btn.active[data-env="dev"],
+.env-btn.active[data-env="dev"] {
+    border-color: #4a9eff;
+    color: #4a9eff;
+}
+
 .env-btn.active[data-env="staging"] {
-    border-color: var(--three);
-    color: var(--three);
+    border-color: #f0a030;
+    color: #f0a030;
 }
 
 .env-btn.active[data-env="prod"] {
-    border-color: var(--one);
-    color: var(--one);
+    border-color: #e85840;
+    color: #e85840;
+}
+
+/* Hide env buttons for local-only views */
+.panel[data-local-only="true"] .env-btns {
+    display: none;
 }
 
 /* ==========================================================================

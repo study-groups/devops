@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin</title>
     <link rel="stylesheet" href="shared.css">
+    <script src="js/iframe-base.js"></script>
+    <script src="js/api-cache.js"></script>
     <style>
         body { padding: 8px; overflow-y: auto; font-size: 11px; }
 
@@ -19,38 +21,13 @@
         .tab-search:focus { outline: none; border-color: var(--four); width: 140px; }
         .tab-search::placeholder { color: var(--ink-muted); }
 
-        /* Sections */
-        h2 { font-size: 10px; text-transform: uppercase; color: var(--ink-muted); margin: 0 0 6px 0; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
-        .section { margin-bottom: 12px; }
-
-        /* Grid layouts */
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-
-        /* Stat cards - compact */
-        .stat { background: var(--paper-mid); border: 1px solid var(--border); border-radius: 2px; padding: 6px 8px; }
-        .stat-val { font-size: 16px; font-weight: bold; color: var(--four); }
-        .stat-lbl { font-size: 9px; color: var(--ink-muted); text-transform: uppercase; }
-        .stat.warn .stat-val { color: var(--three); }
-        .stat.bad .stat-val { color: var(--one); }
-        .stat.good .stat-val { color: var(--two); }
-
-        /* Buttons */
+        /* Buttons (grid, stat, section, h2, log-entry now in shared.css) */
         .btn-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
         .btn { background: var(--paper-mid); border: 1px solid var(--border); color: var(--ink); padding: 4px 8px; font-size: 10px; cursor: pointer; border-radius: 2px; }
         .btn:hover { border-color: var(--four); }
         .btn.danger { border-color: var(--one); color: var(--one); }
         .btn.danger:hover { background: var(--one); color: var(--paper); }
         .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-        /* Log */
-        .log { background: var(--paper-dark); border: 1px solid var(--border); border-radius: 2px; padding: 6px; font-family: var(--font-mono); font-size: 9px; max-height: 120px; overflow-y: auto; white-space: pre-wrap; }
-        .log-entry { margin-bottom: 2px; }
-        .log-entry.ok { color: var(--two); }
-        .log-entry.err { color: var(--one); }
-        .log-entry.warn { color: var(--three); }
-        .log-entry.info { color: var(--ink-muted); }
 
         /* Tables */
         table { width: 100%; border-collapse: collapse; font-size: 10px; }
@@ -59,6 +36,19 @@
         .fast { color: var(--two); }
         .med { color: var(--three); }
         .slow { color: var(--one); }
+
+        /* Smoke test grid */
+        .smoke-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+        .smoke-item { background: var(--paper-mid); border: 1px solid var(--border); border-radius: 2px; padding: 4px 6px; font-size: 9px; display: flex; justify-content: space-between; align-items: center; }
+        .smoke-item .name { color: var(--four); font-weight: 600; }
+        .smoke-item .time { color: var(--ink-muted); font-family: var(--font-mono); }
+        .smoke-item.pending { opacity: 0.5; }
+        .smoke-item.running { border-color: var(--three); }
+        .smoke-item.running .time { color: var(--three); }
+        .smoke-item.pass { border-color: var(--two); }
+        .smoke-item.pass .time { color: var(--two); }
+        .smoke-item.fail { border-color: var(--one); }
+        .smoke-item.fail .time { color: var(--one); }
 
         /* Inputs */
         .input-row { display: flex; gap: 6px; align-items: center; }
@@ -120,6 +110,16 @@
     <!-- ADMIN TAB -->
     <div id="tab-admin" class="tab-content active">
 
+        <!-- Iframe Smoke Tests -->
+        <div class="section">
+            <h2>Iframes <span style="font-weight:normal;text-transform:none;margin-left:8px" id="smoke-status"></span></h2>
+            <div class="smoke-grid" id="smoke-grid"></div>
+            <div class="btn-row">
+                <button class="btn" data-action="run-smoke">Run All</button>
+                <button class="btn" data-action="copy-url">Copy State URL</button>
+            </div>
+        </div>
+
         <!-- Environment Context -->
         <div class="section">
             <h2>Context</h2>
@@ -149,6 +149,7 @@
             <div class="btn-row">
                 <button class="btn" data-action="check-health">Check Health</button>
                 <button class="btn" data-action="refresh-all">Refresh All</button>
+                <button class="btn" data-action="clear-cache">Clear Cache</button>
             </div>
         </div>
 
@@ -306,6 +307,12 @@
     </div>
 
     <script>
+        // Initialize iframe base (provides: loading states, error handling, parent comms)
+        IframeBase.init({
+            onStateChange: (state) => log(`State: org=${state.org} env=${state.env}`, 'info'),
+            onRefresh: () => { loadStats(); log('Refresh requested', 'info'); }
+        });
+
         const logEl = document.getElementById('log');
         let pendingDeletes = [];
 
@@ -359,16 +366,21 @@
             document.getElementById('ctx-user').textContent = Terrain.State.user || '(default)';
         }
 
-        // Check TSM health and populate context
+        // Check TSM health and populate context (using ApiCache)
         async function checkHealth() {
             const start = Date.now();
+            const url = Terrain.State.apiUrl('/api/tsm/ls');
             try {
-                const res = await fetch(Terrain.State.apiUrl('/api/tsm/ls'));
-                const data = await res.json();
+                // Use ApiCache with 5s TTL
+                const data = await ApiCache.fetch(url, { ttl: 5000 });
                 const latency = Date.now() - start;
 
+                // Update cache stats display
+                const cacheStats = ApiCache.stats();
+                document.getElementById('api-cached').textContent = cacheStats.count;
+
                 // Determine health status: API error, TSM error, or OK
-                const hasError = !res.ok || data.error;
+                const hasError = data.error;
                 const serviceCount = data.services?.length || 0;
 
                 // Health indicator
@@ -385,8 +397,7 @@
                     healthCard.className = 'stat good';
                 }
 
-                // Cache and latency
-                document.getElementById('api-cached').textContent = data.cached ? 'Yes' : 'No';
+                // Latency
                 document.getElementById('api-latency').textContent = latency + 'ms';
                 document.getElementById('api-latency').closest('.stat').className =
                     'stat ' + (latency > 2000 ? 'bad' : latency > 500 ? 'warn' : 'good');
@@ -397,13 +408,14 @@
                 document.getElementById('ctx-services').textContent = serviceCount;
 
                 // Log with appropriate status
+                const fromCache = latency < 10 && cacheStats.count > 0;
                 if (data.error) {
                     log(`TSM error: ${data.error}`, 'err');
                     if (data.hint) log(`  → ${data.hint}`, 'info');
                 } else if (serviceCount === 0) {
                     log(`TSM reachable, 0 services running, ${latency}ms`, 'info');
                 } else {
-                    log(`TSM OK: ${serviceCount} services, ${latency}ms${data.cached ? ' (cached)' : ''}`, 'ok');
+                    log(`TSM OK: ${serviceCount} services, ${latency}ms${fromCache ? ' (cached)' : ''}`, 'ok');
                 }
             } catch (e) {
                 document.getElementById('api-health').textContent = 'ERR';
@@ -495,12 +507,97 @@
             }).join('');
         }
 
+        // ========================================================================
+        // Iframe Smoke Tests
+        // ========================================================================
+
+        const IFRAMES = [
+            'admin', 'agents', 'caddy', 'capture', 'console', 'deploy',
+            'developer', 'director', 'infra', 'logs', 'orgs', 'playwright',
+            'screentool', 'tests', 'tsm', 'tut', 'vox'
+        ].sort();
+
+        const smokeResults = {};
+
+        function initSmokeGrid() {
+            const grid = document.getElementById('smoke-grid');
+            grid.innerHTML = IFRAMES.map(name =>
+                `<div class="smoke-item pending" data-iframe="${name}">
+                    <span class="name">${name}</span>
+                    <span class="time">--</span>
+                </div>`
+            ).join('');
+        }
+
+        async function runSmokeTest(name) {
+            const item = document.querySelector(`.smoke-item[data-iframe="${name}"]`);
+            if (!item) return;
+
+            item.className = 'smoke-item running';
+            item.querySelector('.time').textContent = '...';
+
+            const url = `${name}.iframe.html?org=${Terrain.State.org}&env=${Terrain.State.env}`;
+            const start = Date.now();
+
+            try {
+                const res = await fetch(url, { method: 'HEAD' });
+                const duration = Date.now() - start;
+                smokeResults[name] = { ok: res.ok, duration };
+
+                item.className = `smoke-item ${res.ok ? 'pass' : 'fail'}`;
+                item.querySelector('.time').textContent = res.ok ? `${duration}ms` : 'ERR';
+            } catch (e) {
+                smokeResults[name] = { ok: false, error: e.message };
+                item.className = 'smoke-item fail';
+                item.querySelector('.time').textContent = 'ERR';
+            }
+        }
+
+        async function runAllSmokeTests() {
+            const statusEl = document.getElementById('smoke-status');
+            statusEl.textContent = 'Running...';
+            log('Starting smoke tests for all iframes');
+
+            for (const name of IFRAMES) {
+                await runSmokeTest(name);
+            }
+
+            const passed = Object.values(smokeResults).filter(r => r.ok).length;
+            const total = IFRAMES.length;
+            const avgTime = Math.round(
+                Object.values(smokeResults)
+                    .filter(r => r.ok && r.duration)
+                    .reduce((sum, r) => sum + r.duration, 0) / passed
+            ) || 0;
+
+            statusEl.textContent = `${passed}/${total} OK, avg ${avgTime}ms`;
+            log(`Smoke tests: ${passed}/${total} passed, avg ${avgTime}ms`, passed === total ? 'ok' : 'warn');
+        }
+
+        function copyStateUrl() {
+            const url = window.location.href;
+            navigator.clipboard.writeText(url).then(() => {
+                log('State URL copied to clipboard', 'ok');
+            }).catch(() => {
+                log('Failed to copy URL', 'err');
+            });
+        }
+
+        initSmokeGrid();
+
         // Action handlers
         Terrain.Iframe
             .on('check-health', checkHealth)
             .on('refresh-all', () => { checkHealth(); loadCaptures(); })
+            .on('clear-cache', () => {
+                ApiCache.clear();
+                document.getElementById('api-cached').textContent = '0';
+                log('Cache cleared', 'info');
+            })
             .on('preview-groom', previewGroom)
-            .on('run-groom', runGroom);
+            .on('run-groom', runGroom)
+            .on('run-smoke', runAllSmokeTests)
+            .on('copy-url', copyStateUrl);
 
         // Listen for timing updates
         Terrain.Bus.subscribe('*', msg => {

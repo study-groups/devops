@@ -3,6 +3,11 @@ const CONFIG = {
     refreshInterval: 5000
 };
 
+// Initialize iframe base for error handling & loading states
+IframeBase.init({
+    onRefresh: () => loadServices()
+});
+
 // Read initial params from URL
 const params = new URLSearchParams(location.search);
 
@@ -18,7 +23,8 @@ const state = {
     logFilter: {
         search: '',
         level: 'all',
-        timeRange: 'all'  // all, 1m, 5m, 1h
+        timeRange: 'all',  // all, 1m, 5m, 1h
+        timestamps: true   // show timestamps by default
     },
     s3Configured: false
 };
@@ -183,6 +189,11 @@ async function fetchServiceInfo(serviceName, forceRefresh = false) {
             logsUrl += `&search=${encodeURIComponent(state.logFilter.search)}`;
         }
 
+        // Add timestamps
+        if (state.logFilter.timestamps) {
+            logsUrl += '&timestamps=true';
+        }
+
         // Fetch info and recent logs in parallel
         const [infoRes, logsRes] = await Promise.all([
             fetch(getApiUrl(`/api/tsm/info/${serviceName}`)),
@@ -196,6 +207,17 @@ async function fetchServiceInfo(serviceName, forceRefresh = false) {
     } catch (err) {
         detailsEl.innerHTML = `<span class="error">Failed to load info: ${err.message}</span>`;
     }
+}
+
+// Format TSM timestamp for display: 20260203T090236.910Z -> 2026-02-03 09:02:36.910Z
+function formatLogLine(line) {
+    const match = line.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})\.(\d{3})Z\s*\|\s*/);
+    if (match) {
+        const ts = `${match[1]}-${match[2]}-${match[3]} ${match[4]}:${match[5]}:${match[6]}.${match[7]}Z`;
+        const rest = line.slice(match[0].length);
+        return `<span class="log-ts">${ts}</span> ${rest}`;
+    }
+    return line;
 }
 
 // Filter logs by level (client-side)
@@ -345,15 +367,23 @@ function renderServiceInfo(serviceName, data) {
         let filteredLogs = data.recentLogs || '';
         filteredLogs = filterLogsByLevel(filteredLogs, state.logFilter.level);
 
-        // Escape HTML
-        let escapedLogs = filteredLogs
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
+        // Escape HTML and format timestamps
+        let formattedLogs = filteredLogs
+            .split('\n')
+            .map(line => {
+                // Escape HTML first
+                let escaped = line
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                // Then format timestamp (adds HTML, so must be after escape)
+                return formatLogLine(escaped);
+            })
+            .join('\n');
 
         // Apply search highlighting (after escaping)
         if (state.logFilter.search) {
-            escapedLogs = highlightSearchMatches(escapedLogs, state.logFilter.search);
+            formattedLogs = highlightSearchMatches(formattedLogs, state.logFilter.search);
         }
 
         const exportBtnClass = state.s3Configured ? 'export-btn' : 'export-btn hidden';
@@ -381,10 +411,12 @@ function renderServiceInfo(serviceName, data) {
                         <button class="pill${state.logFilter.timeRange === 'all' ? ' active' : ''}"
                                 data-action="log-time" data-time="all" data-service="${serviceName}">All</button>
                     </div>
+                    <button class="pill${state.logFilter.timestamps ? ' active' : ''}"
+                            data-action="log-timestamps" data-service="${serviceName}" title="Toggle timestamps">T</button>
                     <button class="${exportBtnClass}"
                             data-action="export-logs" data-service="${serviceName}">Export</button>
                 </div>
-                <pre class="recent-logs">${escapedLogs || '(no logs)'}</pre>
+                <pre class="recent-logs">${formattedLogs || '(no logs)'}</pre>
             </div>
         `;
     }
@@ -492,6 +524,12 @@ function init() {
     // Log toolbar actions
     Terrain.Iframe.on('log-time', (el, data) => {
         state.logFilter.timeRange = data.time;
+        state.serviceInfoCache.delete(data.service);
+        fetchServiceInfo(data.service, true);
+    });
+
+    Terrain.Iframe.on('log-timestamps', (el, data) => {
+        state.logFilter.timestamps = !state.logFilter.timestamps;
         state.serviceInfoCache.delete(data.service);
         fetchServiceInfo(data.service, true);
     });

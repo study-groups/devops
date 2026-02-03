@@ -11,101 +11,99 @@
         /* Target cards - base */
         .target {
             background: var(--paper-mid);
-            margin-bottom: 4px;
+            margin-bottom: 6px;
             border-radius: 4px;
             border: 1px solid var(--border);
-            cursor: pointer;
+            padding: 10px 14px;
             transition: border-color 0.15s;
         }
         .target:hover { border-color: var(--four); }
+        .target.has-output { border-color: var(--two); }
 
-        /* Collapsed (icon) state */
-        .target.icon {
-            padding: 8px 12px;
-        }
-        .target.icon .target-row {
+        /* Header row: name + actions + toggle */
+        .target-header {
             display: flex;
             align-items: center;
             gap: 12px;
         }
-        .target.icon .target-details { display: none; }
-        .target.icon .target-actions { display: flex; align-items: center; gap: 8px; }
-
-        /* Expanded state */
-        .target.expanded {
-            padding: 10px 12px;
-        }
-        .target.expanded .target-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 8px;
-        }
-        .target.expanded .target-details {
-            padding: 4px 0 8px 20px;
-            font-size: 9px;
-            color: var(--ink-muted);
-            line-height: 1.6;
-        }
-        .target.expanded .target-actions {
+        .target-row {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding-left: 20px;
+        }
+        .target-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+        .target-toggle {
+            font-size: 14px;
+            font-weight: 300;
+            color: var(--ink-muted);
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            cursor: pointer;
+            border-radius: 3px;
+            margin-left: 8px;
+        }
+        .target-toggle:hover { background: var(--paper-dark); color: var(--four); }
+
+        /* Subtitle (description) */
+        .target-subtitle {
+            color: var(--ink-muted);
+            font-size: 9px;
+            margin-top: 6px;
+            padding-left: 2px;
         }
 
-        .target-toggle {
-            font-size: 8px;
+        /* Collapsed state */
+        .target.icon .target-details { display: none; }
+        .target.icon .target-subtitle { display: none; }
+
+        /* Expanded state */
+        .target.expanded .target-details {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 4px 12px;
+            padding: 12px 0 0 0;
+            margin-top: 10px;
+            border-top: 1px solid var(--border);
+            font-size: 9px;
             color: var(--ink-muted);
-            width: 10px;
-            flex-shrink: 0;
+            line-height: 1.5;
         }
+
         .target-name {
             color: var(--four);
             font-weight: 700;
-            min-width: 80px;
-            font-size: 11px;
+            font-size: 12px;
         }
-        .target-desc {
-            color: var(--ink-muted);
-            font-size: 9px;
-            flex: 1;
-        }
-        .target-org {
-            color: var(--ink-muted);
-            font-size: 9px;
-        }
-        .target-format {
+        .target-active {
+            color: var(--two);
             font-size: 8px;
-            padding: 1px 4px;
-            border-radius: 2px;
-            background: var(--paper-dark);
-            color: var(--ink-muted);
+            animation: pulse 1.5s ease-in-out infinite;
         }
-        .target-format.engine { color: var(--two); }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
 
         .detail-label {
             color: var(--ink-muted);
-            display: inline-block;
-            min-width: 65px;
+            text-align: right;
+            white-space: nowrap;
         }
+        .detail-label.env-name { color: var(--three); font-weight: 600; }
         .detail-value { color: var(--ink); }
-        .detail-row { margin-bottom: 3px; display: flex; align-items: flex-start; gap: 4px; }
-        .toml-path { opacity: 0.5; margin-top: 6px; }
+        .detail-row { display: contents; }
+        .env-branch { color: var(--four); font-style: italic; font-size: 8px; margin-left: 8px; }
+        .toml-path { opacity: 0.5; }
         .toml-path .detail-value { font-family: monospace; font-size: 8px; }
-
-        /* Strategy banner */
-        .strategy-row { margin-bottom: 6px; }
-        .strategy-badge {
-            font-size: 8px;
-            padding: 1px 6px;
-            border-radius: 2px;
-            font-weight: 700;
-            letter-spacing: 0.3px;
-        }
-        .strategy-remote-exec { background: var(--paper-dark); color: var(--three); border: 1px solid var(--three); }
-        .strategy-local-push { background: var(--paper-dark); color: var(--two); border: 1px solid var(--two); }
-        .strategy-hybrid { background: var(--paper-dark); color: var(--four); border: 1px solid var(--four); }
 
         /* Pipeline flow (step-by-step visualization) */
         .pipeline-flow {
@@ -132,16 +130,6 @@
             opacity: 0.6;
         }
 
-        .env-table { margin: 4px 0; }
-        .env-table-row {
-            display: flex;
-            gap: 12px;
-            font-size: 9px;
-        }
-        .env-table-row .env-name { color: var(--three); min-width: 50px; font-weight: 600; }
-        .env-table-row .env-domain { color: var(--ink); min-width: 180px; }
-        .env-table-row .env-branch { color: var(--four); font-style: italic; font-size: 8px; }
-
         .pipeline-tags, .remote-tags {
             display: flex;
             gap: 4px;
@@ -165,8 +153,18 @@
             border-radius: 2px;
         }
         .deploy-btn {
-            padding: 2px 6px;
-            font-size: 8px;
+            padding: 3px 8px;
+            font-size: 9px;
+        }
+        .deploy-btn.danger {
+            background: #f59e0b;
+            border-color: #f59e0b;
+            color: #000;
+            font-weight: 600;
+        }
+        .deploy-btn.danger:hover {
+            background: #d97706;
+            border-color: #d97706;
         }
 
         /* History filter indicator */
@@ -210,7 +208,7 @@
         .history-item .h-status { min-width: 52px; flex-shrink: 0; }
         .history-item .h-status.success { color: var(--two); }
         .history-item .h-status.failed { color: var(--one); }
-        .history-item .h-duration { color: var(--ink-muted); text-align: right; margin-left: auto; }
+        .history-item .h-duration { color: var(--ink-muted); text-align: right; min-width: 36px; }
 
         .history-details {
             display: none;
@@ -225,6 +223,36 @@
         .hd-label { color: var(--ink-muted); opacity: 0.6; display: inline-block; min-width: 52px; }
         .hd-value { color: var(--ink); }
         .hd-steps { color: var(--two); font-size: 8px; }
+
+        /* Ghost delete button */
+        .h-delete {
+            color: var(--ink-muted);
+            opacity: 0;
+            cursor: pointer;
+            padding: 1px 4px;
+            font-size: 8px;
+            border: 1px solid transparent;
+            border-radius: 2px;
+            transition: opacity 0.1s, color 0.1s, border-color 0.1s;
+            margin-left: auto;
+        }
+        .history-item:hover .h-delete { opacity: 0.5; }
+        .h-delete:hover { opacity: 1 !important; color: var(--ink); border-color: var(--border); }
+        .h-delete.confirming {
+            opacity: 1 !important;
+            color: var(--one);
+            border-color: var(--one);
+        }
+
+        /* Delete animation */
+        .history-item.deleting { pointer-events: none; }
+        .history-item.deleted {
+            opacity: 0;
+            height: 0 !important;
+            padding: 0 !important;
+            overflow: hidden;
+            transition: opacity 0.15s, height 0.15s;
+        }
 
         /* Output container */
         .output-header {
@@ -278,6 +306,28 @@
         .out-rule { color: var(--ink-muted); opacity: 0.4; }
         .out-done { color: var(--two); }
         .out-cmd { color: var(--ink); opacity: 0.8; }
+
+        /* Streaming indicator */
+        .streaming-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: var(--two);
+            border-radius: 50%;
+            margin-right: 6px;
+            animation: pulse 1s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .output-header.streaming {
+            border-left: 2px solid var(--two);
+            padding-left: 6px;
+        }
+        .output-pre.streaming {
+            border-left: 2px solid var(--two);
+        }
 
         /* TOML Editor */
         .target-editor { padding: 8px 0 0 20px; display: none; }
@@ -366,10 +416,10 @@
             <span class="h-org">org</span>:<span class="h-target">target</span>:<span class="h-pipeline">pipeline</span> <span class="h-env">env</span> <span class="h-desc">[-n]</span>
 
             <span class="h-section">Direct Mode</span>
-            <span class="h-cmd">deploy</span> <span class="h-target">pbase</span>:<span class="h-pipeline">default</span> <span class="h-env">dev</span>        <span class="h-comment"># deploy target:pipeline to env</span>
+            <span class="h-cmd">deploy</span> <span class="h-target">pbase</span>:<span class="h-pipeline">full</span> <span class="h-env">dev</span>        <span class="h-comment"># deploy target:pipeline to env</span>
             <span class="h-cmd">deploy</span> <span class="h-target">pbase</span>:<span class="h-pipeline">quick</span> <span class="h-env">dev</span>          <span class="h-comment"># quick pipeline</span>
             <span class="h-cmd">deploy</span> <span class="h-target">pbase</span>:<span class="h-pipeline">status</span> <span class="h-env">dev</span>         <span class="h-comment"># check status</span>
-            <span class="h-cmd">deploy</span> <span class="h-target">pbase</span>:<span class="h-pipeline">default</span> <span class="h-env">dev</span> <span class="h-desc">-n</span>     <span class="h-comment"># dry run</span>
+            <span class="h-cmd">deploy</span> <span class="h-target">pbase</span>:<span class="h-pipeline">full</span> <span class="h-env">dev</span> <span class="h-desc">-n</span>     <span class="h-comment"># dry run</span>
 
             <span class="h-section">Context Mode</span>
             <span class="h-cmd">deploy set</span> <span class="h-org">pixeljam-arcade</span> <span class="h-target">pbase</span> <span class="h-env">dev</span>  <span class="h-comment"># set context</span>
