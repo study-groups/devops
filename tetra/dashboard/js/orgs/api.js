@@ -30,7 +30,7 @@ function renderOrgs() {
     const orgs = Terrain.Orgs.all();
     container.innerHTML = orgs.map(org => {
         const isEnabled = Terrain.Orgs.isEnabled(org.id);
-        const isSelected = state.selectedOrg === org.id;
+        const isSelected = getSelectedOrg() === org.id;
         return html.orgItem(org, isEnabled, isSelected);
     }).join('');
 }
@@ -103,7 +103,7 @@ async function loadOrgConfig(orgId) {
                 // Ignore
             }
 
-            state.orgDetailsCache.set(orgId, details);
+            orgDetailsCache.set(orgId, details);
             container.innerHTML = html.config(orgId, details);
             renderOrgs();
         } else {
@@ -119,7 +119,7 @@ async function loadInfra(orgId) {
     const container = dom.infra();
     if (!container) return;
 
-    const details = state.orgDetailsCache.get(orgId);
+    const details = orgDetailsCache.get(orgId);
     container.innerHTML = html.infra(orgId, details);
 }
 
@@ -159,4 +159,46 @@ function copyCmd(cmd) {
     }).catch(err => {
         console.error('Failed to copy:', err);
     });
+}
+
+async function importNhInfra(orgId) {
+    const status = document.getElementById('nh-import-status');
+    const btn = document.querySelector('[data-action="nh-import"]');
+
+    if (status) {
+        status.textContent = 'Importing...';
+        status.style.color = 'var(--three)';
+    }
+    if (btn) btn.disabled = true;
+
+    try {
+        const resp = await fetch(`/api/nh/${encodeURIComponent(orgId)}/import`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ confirm: true })
+        });
+
+        const data = await resp.json();
+
+        if (data.success) {
+            if (status) {
+                status.textContent = `Imported ${data.environments?.length || 0} environments`;
+                status.style.color = 'var(--three)';
+            }
+            // Refresh the config view
+            setTimeout(() => loadOrgConfig(orgId), 1500);
+        } else {
+            if (status) {
+                status.textContent = data.error || 'Import failed';
+                status.style.color = 'var(--one)';
+            }
+        }
+    } catch (e) {
+        if (status) {
+            status.textContent = 'Error: ' + e.message;
+            status.style.color = 'var(--one)';
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+    }
 }

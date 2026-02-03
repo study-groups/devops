@@ -2,7 +2,7 @@
 // Main entry point, tab switching, event delegation
 
 function selectOrg(orgId) {
-    state.selectedOrg = orgId;
+    state.dispatch('selectOrg', orgId);
     renderOrgs();
 
     const activeTab = document.querySelector('.infra-tab.active');
@@ -31,13 +31,13 @@ function initTabs() {
             tab.classList.add('active');
             document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
 
-            if (state.selectedOrg) {
+            if (getSelectedOrg()) {
                 if (tab.dataset.tab === 'config') {
-                    loadOrgConfig(state.selectedOrg);
+                    loadOrgConfig(getSelectedOrg());
                 } else if (tab.dataset.tab === 'infra') {
-                    loadOrgConfig(state.selectedOrg).then(() => loadInfra(state.selectedOrg));
+                    loadOrgConfig(getSelectedOrg()).then(() => loadInfra(getSelectedOrg()));
                 } else if (tab.dataset.tab === 'workspace') {
-                    loadWorkspace(state.selectedOrg);
+                    loadWorkspace(getSelectedOrg());
                 }
             }
         });
@@ -69,8 +69,8 @@ function initEvents() {
             const action = e.target.closest('[data-action="open"]');
             if (action) {
                 const fileEl = e.target.closest('.workspace-file');
-                if (fileEl && state.selectedOrg) {
-                    openWorkspaceFile(state.selectedOrg, fileEl.dataset.file);
+                if (fileEl && getSelectedOrg()) {
+                    openWorkspaceFile(getSelectedOrg(), fileEl.dataset.file);
                 }
             }
         });
@@ -93,20 +93,38 @@ function initEvents() {
         }
 
         const sectionFile = e.target.closest('.config-section-file');
-        if (sectionFile && state.selectedOrg) {
-            loadSection(state.selectedOrg, sectionFile.dataset.section);
+        if (sectionFile && getSelectedOrg()) {
+            loadSection(getSelectedOrg(), sectionFile.dataset.section);
             return;
         }
 
         const saveBtn = e.target.closest('[data-action="save-section"]');
-        if (saveBtn && state.selectedOrg) {
-            saveSection(state.selectedOrg);
+        if (saveBtn && getSelectedOrg()) {
+            saveSection(getSelectedOrg());
             return;
         }
 
         const closeBtn = e.target.closest('[data-action="close-editor"]');
         if (closeBtn) {
             closeEditor();
+            return;
+        }
+
+        const nhImportBtn = e.target.closest('[data-action="nh-import"]');
+        if (nhImportBtn) {
+            const org = nhImportBtn.dataset.org;
+            if (org) importNhInfra(org);
+            return;
+        }
+
+        const cmdRow = e.target.closest('.cmd-row');
+        if (cmdRow && cmdRow.dataset.cmd) {
+            navigator.clipboard.writeText(cmdRow.dataset.cmd);
+            const copied = cmdRow.querySelector('.cmd-copied');
+            if (copied) {
+                copied.textContent = 'Copied!';
+                setTimeout(() => { copied.textContent = ''; }, 1500);
+            }
             return;
         }
     });
@@ -117,10 +135,25 @@ function initEvents() {
     }
 }
 
+function handleMessage(msg) {
+    if (msg.type === 'env-change' || msg.type === 'org-change') {
+        // Reload orgs to update active indicator
+        loadOrgs();
+    }
+}
+
 function init() {
     initTabs();
     initEvents();
     loadOrgs();
+
+    // Listen for org changes from parent
+    if (window.Terrain?.Iframe) {
+        Terrain.Iframe.init({
+            name: 'orgs',
+            onMessage: handleMessage
+        });
+    }
 }
 
 // Public API

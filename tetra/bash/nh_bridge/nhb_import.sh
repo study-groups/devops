@@ -87,8 +87,8 @@ _nhb_get_envs() {
     local name="$1"
     local tags="$2"
 
-    # Check map first
-    if [[ -n "${_NHB_ENV_MAP[$name]}" ]]; then
+    # Check map first (bash 5.2+ -v checks if key exists)
+    if [[ -v _NHB_ENV_MAP[$name] ]]; then
         echo "${_NHB_ENV_MAP[$name]}"
         return 0
     fi
@@ -210,9 +210,9 @@ nhb_import() {
     # Initialize org if needed
     if [[ ! -d "$org_dir" ]]; then
         echo "Initializing org directory..."
-        # Source org_build if not already loaded
+        # Source org module if not already loaded
         if ! type org_build_init &>/dev/null; then
-            source "$TETRA_SRC/bash/org/org_build.sh"
+            source "$TETRA_SRC/bash/org/org.sh"
         fi
         org_build_init "$org_name"
         echo ""
@@ -301,9 +301,9 @@ nhb_import() {
     # Auto-build unless told not to
     if [[ "$no_build" != "no-build" ]]; then
         echo ""
-        # Source org_build if not already loaded
+        # Source org module if not already loaded (includes shared helpers)
         if ! type org_build &>/dev/null; then
-            source "$TETRA_SRC/bash/org/org_build.sh"
+            source "$TETRA_SRC/bash/org/org.sh"
         fi
         org_build "$org_name"
     else
@@ -405,7 +405,3 @@ EOF
     esac
 fi
 
-export -f nhb_import nhb_list
-export -f _nhb_get_droplets _nhb_get_base_domain _nhb_droplet_ip _nhb_droplet_private_ip
-export -f _nhb_droplet_name _nhb_droplet_tags _nhb_detect_env _nhb_generate_infrastructure_partial
-export -f _nhb_load_env_map _nhb_get_envs

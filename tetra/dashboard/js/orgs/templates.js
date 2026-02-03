@@ -3,11 +3,11 @@
 
 const html = {
     orgItem: (org, isEnabled, isSelected) => {
-        const typeClass = org.type === 'system' ? ' system' : (org.type === 'admin' ? ' admin' : '');
+        const labelClass = org.active ? ' active' : '';
         const label = Terrain.Orgs.label(org.id);
         const aliasInfo = org.alias ? `<span class="org-alias">${esc(org.alias)}</span>` : '';
 
-        const details = state.orgDetailsCache.get(org.id);
+        const details = orgDetailsCache.get(org.id);
         let statsHtml = '';
         if (details) {
             const envCount = details.envCount || 0;
@@ -21,9 +21,9 @@ const html = {
         }
 
         const badges = [];
-        if (org.hasInfra) badges.push('<span class="org-badge infra">infra</span>');
-        if (org.hasSections) badges.push('<span class="org-badge sections">sections</span>');
-        if (org.nhSource) badges.push('<span class="org-badge nh">nh</span>');
+        if (org.hasInfra) badges.push('<span class="org-badge infra" title="Has infrastructure configuration">infra</span>');
+        if (org.hasSections) badges.push('<span class="org-badge sections" title="Has sections/ directory with TOML partials">sections</span>');
+        if (org.nhSource) badges.push('<span class="org-badge nh" title="NodeHolder: digocean.json imported from DigitalOcean">nh</span>');
 
         return `
             <div class="org-item${isSelected ? ' selected' : ''}" data-org="${esc(org.id)}">
@@ -37,7 +37,7 @@ const html = {
                     ${statsHtml}
                     <div class="org-badges">${badges.join('')}</div>
                 </div>
-                <span class="org-label${typeClass}">${esc(label)}</span>
+                <span class="org-label${labelClass}" title="${org.active ? 'Active org' : 'Click to view'}">${esc(label)}</span>
             </div>`;
     },
 
@@ -49,26 +49,7 @@ const html = {
             </div>`;
         }
 
-        const hasSections = details.hasSections;
-        const hasTetraToml = details.hasTetraToml;
         const nhSource = details.nhSource;
-
-        let statusHtml = `
-            <div class="config-status-cards">
-                <div class="status-card ${hasTetraToml ? 'ok' : 'missing'}">
-                    <div class="status-card-icon">${hasTetraToml ? '&#10003;' : '&#10007;'}</div>
-                    <div class="status-card-label">tetra.toml</div>
-                </div>
-                <div class="status-card ${hasSections ? 'ok' : 'missing'}">
-                    <div class="status-card-icon">${hasSections ? '&#10003;' : '&#10007;'}</div>
-                    <div class="status-card-label">sections/</div>
-                </div>
-                <div class="status-card ${nhSource ? 'ok' : 'na'}">
-                    <div class="status-card-icon">${nhSource ? '&#10003;' : '-'}</div>
-                    <div class="status-card-label">NodeHolder</div>
-                </div>
-            </div>
-        `;
 
         let sectionsHtml = '';
         if (details.sections && details.sections.length > 0) {
@@ -99,80 +80,41 @@ const html = {
             </div>
         `;
 
-        let nhHtml = `
+        let commandsHtml = `
             <div class="config-section">
-                <div class="config-section-title">DigitalOcean Integration</div>
-                <p class="config-desc">
-                    Infrastructure is fetched via <code>doctl</code> and stored in <code>digocean.json</code>.
-                    The <code>nh_bridge</code> module imports this into tetra sections.
-                </p>
-                <div class="config-workflow">
-                    <div class="workflow-step">
-                        <div class="workflow-num">1</div>
-                        <div class="workflow-content">
-                            <div class="workflow-title">Fetch from DigitalOcean</div>
-                            <div class="workflow-cmd" data-copy="doctl auth switch --context ${esc(org)} && nh fetch ${esc(org)}">doctl auth switch --context ${esc(org)}</div>
-                            <div class="workflow-hint">Switch doctl context, then fetch infrastructure</div>
-                        </div>
+                <div class="config-section-title">Commands (click to copy)</div>
+                <div class="cmd-list">
+                    <div class="cmd-row" data-cmd="org switch ${esc(org)}">
+                        <code class="cmd-text">org switch ${esc(org)}</code>
+                        <span class="cmd-copied"></span>
                     </div>
-                    <div class="workflow-step">
-                        <div class="workflow-num">2</div>
-                        <div class="workflow-content">
-                            <div class="workflow-title">Import to Tetra</div>
-                            <div class="workflow-cmd" data-copy="nhb_import ~/nh/${esc(org)}/digocean.json ${esc(org)}">nhb_import ~/nh/${esc(org)}/digocean.json ${esc(org)}</div>
-                            <div class="workflow-hint">Creates/updates sections/10-infrastructure.toml</div>
-                        </div>
+                    <div class="cmd-row" data-cmd="org status">
+                        <code class="cmd-text">org status</code>
+                        <span class="cmd-copied"></span>
                     </div>
-                    <div class="workflow-step">
-                        <div class="workflow-num">3</div>
-                        <div class="workflow-content">
-                            <div class="workflow-title">Build Config</div>
-                            <div class="workflow-cmd" data-copy="org build ${esc(org)}">org build ${esc(org)}</div>
-                            <div class="workflow-hint">Assembles sections/*.toml into tetra.toml</div>
-                        </div>
+                    <div class="cmd-row" data-cmd="org build ${esc(org)}">
+                        <code class="cmd-text">org build ${esc(org)}</code>
+                        <span class="cmd-copied"></span>
+                    </div>
+                    <div class="cmd-row" data-cmd="doctl auth switch --context ${esc(org)}">
+                        <code class="cmd-text">doctl auth switch --context ${esc(org)}</code>
+                        <span class="cmd-copied"></span>
+                    </div>
+                    <div class="cmd-row" data-cmd="tmod load nh_bridge && nhb_import ~/nh/${esc(org)}/digocean.json ${esc(org)}">
+                        <code class="cmd-text">tmod load nh_bridge && nhb_import ~/nh/${esc(org)}/digocean.json ${esc(org)}</code>
+                        <span class="cmd-copied"></span>
+                    </div>
+                    <div class="cmd-row" data-cmd="doctl auth init --context ${esc(org)}">
+                        <code class="cmd-text">doctl auth init --context ${esc(org)}</code>
+                        <span class="cmd-copied"></span>
                     </div>
                 </div>
-                ${nhSource ? `<div class="config-nh-status ok">Last imported from: ${esc(nhSource)}</div>` : ''}
-            </div>
-        `;
-
-        let doctlHtml = `
-            <div class="config-section">
-                <div class="config-section-title">doctl Configuration</div>
-                <div class="config-paths">
-                    <div class="config-path-row">
-                        <span class="config-path-label">Config:</span>
-                        <span class="config-path-value">~/Library/Application Support/doctl/config.yaml</span>
-                    </div>
-                    <div class="config-path-row">
-                        <span class="config-path-label">Context:</span>
-                        <span class="config-path-value">${esc(org)}</span>
-                    </div>
-                    <div class="config-path-row">
-                        <span class="config-path-label">Token Key:</span>
-                        <span class="config-path-value">auth-contexts.${esc(org)}</span>
-                    </div>
-                </div>
-                <div class="config-hint" style="margin-top: 8px;">
-                    Token stored in <code>auth-contexts</code> section of config.yaml.
-                    Use <code>doctl auth init --context ${esc(org)}</code> to add/update.
-                </div>
-            </div>
-        `;
-
-        let actionsHtml = `
-            <div class="config-section">
-                <div class="config-section-title">Quick Actions</div>
-                <div class="config-actions">
-                    <button class="config-btn primary" data-action="copy-cmd" data-cmd="org switch ${esc(org)}">
-                        Switch to ${esc(org)}
+                ${nhSource ? `<div class="config-nh-status ok" style="margin-top: 8px;">Last imported from: ${esc(nhSource)}</div>` : ''}
+                <div class="config-actions" style="margin-top: 12px;">
+                    <button class="config-btn primary" data-action="nh-import" data-org="${esc(org)}">
+                        Import Infrastructure
                     </button>
-                    <button class="config-btn" data-action="copy-cmd" data-cmd="org status">
-                        Show Status
-                    </button>
-                    <button class="config-btn secondary" data-action="copy-cmd" data-cmd="org build ${esc(org)}">
-                        Rebuild tetra.toml
-                    </button>
+                    <span class="nh-import-status" id="nh-import-status"></span>
                 </div>
             </div>
         `;
@@ -202,12 +144,9 @@ const html = {
                 <span class="config-title">${esc(org)}</span>
                 <span class="config-type">${esc(details.type || 'org')}</span>
             </div>
-            ${statusHtml}
             ${sectionsHtml}
             ${editorHtml}
-            ${nhHtml}
-            ${doctlHtml}
-            ${actionsHtml}
+            ${commandsHtml}
             ${pathsHtml}
         `;
     },

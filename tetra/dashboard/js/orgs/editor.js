@@ -9,7 +9,7 @@ async function loadSection(orgId, sectionName) {
 
     if (!editor || !textarea) return;
 
-    state.editingSection = sectionName;
+    state.dispatch('editSection', sectionName);
     title.textContent = `Editing: ${sectionName}`;
     textarea.value = 'Loading...';
     status.textContent = '';
@@ -39,13 +39,14 @@ async function saveSection(orgId) {
     const textarea = document.getElementById('section-content');
     const status = document.getElementById('editor-status');
 
-    if (!textarea || !state.editingSection) return;
+    const editingSection = getEditingSection();
+    if (!textarea || !editingSection) return;
 
     status.textContent = 'Saving...';
     status.style.color = 'var(--three)';
 
     try {
-        const resp = await fetch(`/api/orgs/${encodeURIComponent(orgId)}/file/sections/${encodeURIComponent(state.editingSection)}`, {
+        const resp = await fetch(`/api/orgs/${encodeURIComponent(orgId)}/file/sections/${encodeURIComponent(editingSection)}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'text/plain' },
             body: textarea.value
@@ -69,6 +70,6 @@ function closeEditor() {
     const editor = document.getElementById('section-editor');
     if (editor) {
         editor.style.display = 'none';
-        state.editingSection = null;
+        state.dispatch('closeEditor');
     }
 }
