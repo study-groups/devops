@@ -579,8 +579,17 @@ router.post('/db/:id/analyze', (req, res) => {
 router.put('/db/:id/layers/onsets', (req, res) => {
     const { id } = req.params;
     const { onsets } = req.body;
-    if (!Array.isArray(onsets) || !onsets.every(n => typeof n === 'number' && n >= 0)) {
-        return res.status(400).json({ error: 'onsets must be array of non-negative numbers' });
+    if (!Array.isArray(onsets)) {
+        return res.status(400).json({ error: 'onsets must be an array' });
+    }
+    // Accept [{start, length}, ...] or [number, ...]
+    const valid = onsets.every(o => {
+        if (typeof o === 'number') return o >= 0;
+        if (typeof o === 'object' && o !== null) return typeof o.start === 'number' && o.start >= 0 && typeof o.length === 'number' && o.length >= 0;
+        return false;
+    });
+    if (!valid) {
+        return res.status(400).json({ error: 'onsets must be array of {start, length} or non-negative numbers' });
     }
     const files = getVoxFiles(id);
     if (!files.meta) return res.status(404).json({ error: 'Vox not found' });
