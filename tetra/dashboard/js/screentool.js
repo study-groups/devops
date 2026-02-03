@@ -11,7 +11,9 @@ const state = {
     user: params.get('user') || '',
     expandedRecording: null,
     infoCache: new Map(),
-    recording: false
+    recording: false,
+    editFile: null,      // { id, filename, duration }
+    waveform: null       // VoxWaveform instance
 };
 
 let els = {};
@@ -181,9 +183,13 @@ function renderRecordingInfo(id, data) {
     }
 
     let playerHtml = '';
+    const duration = data.format?.duration ? parseFloat(data.format.duration) : 0;
     if (filename) {
         const videoUrl = getApiUrl(`/api/screentool/video/${id}/${basename}`);
-        playerHtml = `<div class="mini-player"><video controls preload="metadata"><source src="${videoUrl}"></video></div>`;
+        playerHtml = `<div class="mini-player">
+            <video controls preload="metadata"><source src="${videoUrl}"></video>
+            <button class="rec-btn" data-action="edit-recording" data-id="${id}" data-file="${basename}" data-duration="${duration}" style="margin-top:4px;width:100%;">Edit</button>
+        </div>`;
     }
     detailsEl.innerHTML = `<div class="rec-details-inner">${infoHtml}${transcodeHtml}${playerHtml}</div>`;
 }
@@ -422,12 +428,94 @@ function init() {
         }
     });
 
+    // Edit recording handlers
+    Terrain.Iframe.on('edit-recording', (el, data) => {
+        openEditor(data.id, data.file, parseFloat(data.duration) || 0);
+    });
+
+    Terrain.Iframe.on('edit-back', () => {
+        closeEditor();
+        switchTab('recordings');
+    });
+
+    Terrain.Iframe.on('edit-transcode', async () => {
+        if (!state.editFile) return;
+        const statusEl = document.getElementById('edit-status');
+        statusEl.textContent = 'Transcoding...';
+
+        const channels = document.getElementById('edit-channels').value;
+        const codec = document.getElementById('edit-codec').value;
+        const bitrate = document.getElementById('edit-bitrate').value;
+        const trimStart = document.getElementById('edit-trim-start').value || '0';
+        const trimEnd = document.getElementById('edit-trim-end').value || '';
+
+        try {
+            const audioParams = `&audio_channels=${channels}&audio_codec=${codec}&audio_bitrate=${bitrate}`;
+            const trimParams = trimStart !== '0' || trimEnd ? `&trim_start=${trimStart}&trim_end=${trimEnd}` : '';
+            const res = await fetch(getApiUrl(`/api/screentool/transcode/${state.editFile.id}/${state.editFile.filename}`) + audioParams + trimParams, { method: 'POST' });
+            const result = await res.json();
+
+            if (result.ok) {
+                statusEl.textContent = `Done: ${result.output} (${result.result.elapsed})`;
+                state.infoCache.delete(state.editFile.id);
+            } else {
+                statusEl.textContent = `Error: ${result.error}`;
+            }
+        } catch (err) {
+            statusEl.textContent = `Failed: ${err.message}`;
+        }
+    });
+
     Terrain.Bus.subscribe('env-change', handleEnvChange);
 
     loadRecordings();
     checkStatus();
     loadConfig();
     setInterval(() => { loadRecordings(); checkStatus(); }, CONFIG.refreshInterval);
+}
+
+function openEditor(id, filename, duration) {
+    state.editFile = { id, filename, duration };
+
+    // Switch to edit tab
+    switchTab('edit');
+
+    // Show content, hide empty
+    document.getElementById('edit-empty').style.display = 'none';
+    document.getElementById('edit-content').style.display = 'block';
+    document.getElementById('edit-file-label').textContent = `${id}/${filename}`;
+    document.getElementById('edit-trim-end').placeholder = duration.toFixed(1);
+    document.getElementById('edit-status').textContent = '';
+
+    // Destroy previous waveform
+    if (state.waveform) {
+        state.waveform.destroy();
+        state.waveform = null;
+    }
+
+    // Create waveform
+    const container = document.getElementById('edit-waveform');
+    const audioUrl = getApiUrl(`/api/screentool/video/${id}/${filename}`);
+
+    if (typeof VoxWaveform !== 'undefined') {
+        state.waveform = VoxWaveform.create(container, {
+            audioUrl,
+            duration,
+            height: 120
+        });
+    } else {
+        container.innerHTML = '<div style="color:var(--ink-muted);font-size:10px;padding:20px;">Waveform not available</div>';
+    }
+}
+
+function closeEditor() {
+    if (state.waveform) {
+        state.waveform.destroy();
+        state.waveform = null;
+    }
+    state.editFile = null;
+    document.getElementById('edit-empty').style.display = 'flex';
+    document.getElementById('edit-content').style.display = 'none';
 }
 
 init();
