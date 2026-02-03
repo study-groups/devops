@@ -12,6 +12,16 @@ const CONFIG_WHITELIST = [
     'FFMPEG_RESOLUTION', 'AUDIO_RECORDER', 'AUDIO_SAMPLE_RATE'
 ];
 
+const CONFIG_DEFAULTS = {
+    FFMPEG_FPS: '30',
+    FFMPEG_CRF: '23',
+    FFMPEG_PRESET: 'ultrafast',
+    FFMPEG_INPUT: ':0',
+    FFMPEG_RESOLUTION: '1920x1080',
+    AUDIO_RECORDER: 'arecord',
+    AUDIO_SAMPLE_RATE: '44100'
+};
+
 function getStDir(org, env) {
     const orgDir = path.join(TETRA_DIR, 'orgs', org || 'tetra');
     const candidate = path.join(orgDir, 'screentool');
@@ -172,7 +182,8 @@ router.get('/config', (req, res) => {
     const stSrc = getStSrc();
     const configPath = path.join(stDir, 'config.sh');
 
-    const config = parseConfigFile(configPath);
+    const saved = parseConfigFile(configPath);
+    const config = { ...CONFIG_DEFAULTS, ...saved };
     res.json({ ST_DIR: stDir, ST_SRC: stSrc, config });
 });
 
