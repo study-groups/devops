@@ -468,11 +468,59 @@ tsm_start() {
     # Export process dir so services can write runtime.json
     startup="${startup}export TSM_PROCESS_DIR='$proc_dir'"$'\n'
 
-    # Start process
+    # Initialize index.log for smart logging with header
+    local index_log="$proc_dir/index.log"
+    _tsm_write_index_header "$index_log" "$proc_name"
+
+    # Start process with log classification
+    # Output goes through classifier which writes to both raw log and index.log
     (
         $setsid_cmd bash -c "
             $startup
-            $command </dev/null >>'$log_out' 2>>'$log_err' &
+            # Run command, tee output through classifier
+            $command </dev/null 2>&1 | {
+                line_num=0
+                while IFS= read -r line || [[ -n \"\$line\" ]]; do
+                    ((line_num++))
+                    # Write raw to combined log
+                    printf '%s\n' \"\$line\" >> '$log_out'
+                    # Classify for smart logs (inline to avoid subshell overhead)
+                    ts=\$(date -u '+%Y%m%dT%H%M%S.000Z')
+                    type='log'
+                    msg=\"\$line\"
+                    # Strip ANSI codes
+                    clean=\$(printf '%s' \"\$line\" | sed 's/\x1b\[[0-9;]*m//g')
+                    # HTTP access log (check first - specific pattern)
+                    if [[ \"\$clean\" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+\\ -\\ -\\ \\[ ]]; then
+                        type='http'
+                        if [[ \"\$clean\" =~ \\\"([A-Z]+)\\ ([^\\ \\\"]+)[^\\\"]*\\\"\\ ([0-9]+) ]]; then
+                            method=\"\${BASH_REMATCH[1]}\"
+                            path=\"\${BASH_REMATCH[2]}\"
+                            status=\"\${BASH_REMATCH[3]}\"
+                            [[ \${#path} -gt 35 ]] && path=\"\${path:0:30}...\"
+                            msg=\"\$method \$path → \$status\"
+                        fi
+                    # Error detection
+                    elif [[ \"\$clean\" =~ (ERROR|Exception|Traceback|FATAL|CRITICAL) ]]; then
+                        type='error'
+                        msg=\"\$clean\"
+                    # Startup lines (first 10, non-HTTP, non-error)
+                    elif [[ \$line_num -le 10 ]]; then
+                        type='startup'
+                        msg=\"\$clean\"
+                    # Keyword match
+                    elif [[ -f '$proc_dir/keywords.txt' ]]; then
+                        while IFS= read -r kw || [[ -n \"\$kw\" ]]; do
+                            [[ -z \"\$kw\" || \"\$kw\" =~ ^# ]] && continue
+                            if [[ \"\$clean\" == *\"\$kw\"* ]]; then
+                                type='keyword'
+                                break
+                            fi
+                        done < '$proc_dir/keywords.txt'
+                    fi
+                    echo \"\$ts \$type \$msg\" >> '$index_log'
+                done
+            } &
             echo \$! > '$pid_file'
         " &
     )

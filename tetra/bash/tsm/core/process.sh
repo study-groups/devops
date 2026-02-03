@@ -330,6 +330,7 @@ tsm_info() {
 #   -e, --stderr-only  Show only stderr
 #   -o, --stdout-only  Show only stdout
 #   --json             Output as JSON array
+#   --smart            Show semantically indexed logs (startup, http, error, keyword)
 # Subcommands:
 #   rotate <name|all>  Rotate current logs to timestamped archive
 #   archive <name|all> Compress uncompressed archives
@@ -354,6 +355,7 @@ tsm_logs() {
     local stderr_only=false
     local stdout_only=false
     local json_output=false
+    local smart=false
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -388,6 +390,10 @@ tsm_logs() {
                 ;;
             --json)
                 json_output=true
+                shift
+                ;;
+            --smart|-s)
+                smart=true
                 shift
                 ;;
             -*)
@@ -425,6 +431,25 @@ tsm_logs() {
     if [[ ! -d "$dir" ]]; then
         tsm_error "process directory missing: $dir"
         return 1
+    fi
+
+    # Smart log mode - show semantically indexed logs
+    if [[ "$smart" == "true" ]]; then
+        local index_log="$dir/index.log"
+        if [[ ! -f "$index_log" || ! -s "$index_log" ]]; then
+            # Generate index on demand from existing logs
+            _tsm_index_logs "$dir"
+        fi
+        if [[ -f "$index_log" && -s "$index_log" ]]; then
+            if [[ "$follow" == "true" ]]; then
+                tail -f "$index_log" 2>/dev/null | grep -v '^#'
+            else
+                grep -v '^#' "$index_log" | tail -"$lines"
+            fi
+        else
+            echo "(no indexed log entries)"
+        fi
+        return 0
     fi
 
     # Follow mode - simple tail -f
