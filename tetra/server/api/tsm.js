@@ -17,6 +17,17 @@ const router = express.Router();
 const TETRA_DIR = process.env.TETRA_DIR || path.join(process.env.HOME, 'tetra');
 const ORGS_DIR = path.join(TETRA_DIR, 'orgs');
 
+/**
+ * Extract org/env/user from request (headers preferred, query fallback)
+ */
+function getContext(req) {
+    return {
+        org: req.get('X-Tetra-Org') || req.query.org || 'tetra',
+        env: req.get('X-Tetra-Env') || req.query.env || 'local',
+        user: req.get('X-Tetra-User') || req.query.user || ''
+    };
+}
+
 // Simple TTL cache for expensive operations
 const cache = new Map();
 const CACHE_TTL = 5000; // 5 seconds
@@ -170,7 +181,7 @@ function runTsmAsync(cmd, org = 'tetra', env = 'local', callback) {
 
 // List services (JSON) - cached for 5 seconds
 router.get('/ls', (req, res) => {
-    const { org = 'tetra', env = 'local', user = '' } = req.query;
+    const { org, env, user } = getContext(req);
     const cacheKey = `tsm:ls:${org}:${env}:${user}`;
 
     // Check cache first
@@ -211,7 +222,7 @@ router.get('/ls', (req, res) => {
 
 // Service status
 router.get('/status', (req, res) => {
-    const { org = 'tetra', env = 'local' } = req.query;
+    const { org, env } = getContext(req);
 
     try {
         const output = runTsm('tsm ls --json', org, env);
@@ -233,7 +244,7 @@ router.get('/status', (req, res) => {
 // Start service
 router.post('/start/:service', (req, res) => {
     const service = req.params.service;
-    const { org = 'tetra', env = 'local' } = req.query;
+    const { org, env } = getContext(req);
 
     runTsmAsync(`tsm start ${service}`, org, env, (err, stdout, stderr) => {
         if (err) {
@@ -258,7 +269,7 @@ router.post('/start/:service', (req, res) => {
 // Stop service
 router.post('/stop/:service', (req, res) => {
     const service = req.params.service;
-    const { org = 'tetra', env = 'local' } = req.query;
+    const { org, env } = getContext(req);
 
     runTsmAsync(`tsm stop ${service}`, org, env, (err, stdout, stderr) => {
         if (err) {
@@ -283,7 +294,7 @@ router.post('/stop/:service', (req, res) => {
 // Restart service
 router.post('/restart/:service', (req, res) => {
     const service = req.params.service;
-    const { org = 'tetra', env = 'local' } = req.query;
+    const { org, env } = getContext(req);
 
     runTsmAsync(`tsm restart ${service}`, org, env, (err, stdout, stderr) => {
         if (err) {
@@ -305,6 +316,33 @@ router.post('/restart/:service', (req, res) => {
     });
 });
 
+// Check S3 configuration status
+// NOTE: This route MUST come before /logs/:service to avoid being caught by the parameterized route
+router.get('/logs/s3-status', (req, res) => {
+    const { org, env } = getContext(req);
+
+    try {
+        // Check if TSM_LOG_S3_BUCKET is configured
+        const output = runTsm('echo "${TSM_LOG_S3_BUCKET:-}"', org, env);
+        const bucket = output.trim();
+
+        res.json({
+            configured: !!bucket,
+            bucket: bucket || null,
+            org,
+            env
+        });
+    } catch (err) {
+        res.json({
+            configured: false,
+            bucket: null,
+            error: err.message,
+            org,
+            env
+        });
+    }
+});
+
 // Get service logs (tail)
 // Query params:
 //   lines - Number of lines (default: 50)
@@ -314,7 +352,8 @@ router.post('/restart/:service', (req, res) => {
 //   timestamps - Add ISO timestamps to each line
 router.get('/logs/:service', (req, res) => {
     const service = req.params.service;
-    const { org = 'tetra', env = 'local', user = '', lines = 50, format = 'text', since = '', search = '', timestamps = '' } = req.query;
+    const { org, env, user } = getContext(req);
+    const { lines = 50, format = 'text', since = '', search = '', timestamps = '' } = req.query;
 
     try {
         let cmd = `tsm logs ${service} -n ${lines}`;
@@ -382,36 +421,11 @@ router.get('/logs/:service', (req, res) => {
     }
 });
 
-// Check S3 configuration status
-router.get('/logs/s3-status', (req, res) => {
-    const { org = 'tetra', env = 'local' } = req.query;
-
-    try {
-        // Check if TSM_LOG_S3_BUCKET is configured
-        const output = runTsm('echo "${TSM_LOG_S3_BUCKET:-}"', org, env);
-        const bucket = output.trim();
-
-        res.json({
-            configured: !!bucket,
-            bucket: bucket || null,
-            org,
-            env
-        });
-    } catch (err) {
-        res.json({
-            configured: false,
-            bucket: null,
-            error: err.message,
-            org,
-            env
-        });
-    }
-});
-
 // Export logs to S3/Spaces
 router.post('/logs/export/:service', (req, res) => {
     const service = req.params.service;
-    const { org = 'tetra', env = 'local', destination = 'spaces' } = req.query;
+    const { org, env } = getContext(req);
+    const { destination = 'spaces' } = req.query;
 
     runTsmAsync(`tsm logs export ${service} --destination ${destination}`, org, env, (err, stdout, stderr) => {
         if (err) {
@@ -437,7 +451,7 @@ router.post('/logs/export/:service', (req, res) => {
 
 // Patrol - single check pass
 router.post('/patrol', (req, res) => {
-    const { org = 'tetra', env = 'local' } = req.query;
+    const { org, env } = getContext(req);
 
     runTsmAsync('tsm patrol --once --json', org, env, (err, stdout, stderr) => {
         if (err) {
@@ -471,7 +485,7 @@ router.post('/patrol', (req, res) => {
 // Service info - detailed metadata
 router.get('/info/:service', (req, res) => {
     const service = req.params.service;
-    const { org = 'tetra', env = 'local', user = '' } = req.query;
+    const { org, env, user } = getContext(req);
     const cacheKey = `tsm:info:${org}:${env}:${service}`;
 
     // Check cache first
@@ -512,7 +526,7 @@ router.get('/info/:service', (req, res) => {
 
 // Health check - quick status
 router.get('/health', (req, res) => {
-    const { org = 'tetra', env = 'local' } = req.query;
+    const { org, env } = getContext(req);
 
     try {
         const output = runTsm('tsm doctor --json 2>/dev/null || echo "{}"', org, env);

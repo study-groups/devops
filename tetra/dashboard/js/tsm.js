@@ -56,10 +56,16 @@ function toggleLogs(serviceName) {
     loadServices();
 }
 
-function getApiUrl(endpoint) {
-    const params = new URLSearchParams({ org: state.org, env: state.env });
-    if (state.user) params.set('user', state.user);
-    return `${endpoint}?${params}`;
+// Fetch wrapper that sends org/env/user via headers
+async function apiFetch(endpoint, options = {}) {
+    const headers = {
+        'X-Tetra-Org': state.org,
+        'X-Tetra-Env': state.env,
+        ...(options.headers || {})
+    };
+    if (state.user) headers['X-Tetra-User'] = state.user;
+
+    return fetch(endpoint, { ...options, headers });
 }
 
 function updateHeader(data = {}) {
@@ -77,7 +83,7 @@ function updateHeader(data = {}) {
 
 async function loadServices() {
     try {
-        const res = await fetch(getApiUrl('/api/tsm/ls'));
+        const res = await apiFetch('/api/tsm/ls');
         const data = await res.json();
 
         updateHeader(data);
@@ -141,7 +147,7 @@ async function loadServices() {
 async function toggleService(name, status) {
     const action = status === 'online' ? 'stop' : 'start';
     try {
-        await fetch(getApiUrl(`/api/tsm/${action}/${name}`), { method: 'POST' });
+        await apiFetch(`/api/tsm/${action}/${name}`, { method: 'POST' });
         // Clear info cache for this service
         state.serviceInfoCache.delete(name);
         // Clear cache for this org:env so next load is fresh
@@ -176,28 +182,22 @@ async function fetchServiceInfo(serviceName, forceRefresh = false) {
     detailsEl.innerHTML = '<span class="loading">Loading...</span>';
 
     try {
-        // Build logs URL with filter params
-        let logsUrl = getApiUrl(`/api/tsm/logs/${serviceName}`) + '&lines=50';
-
-        // Add time range filter
+        // Build logs URL with filter params (these are data params, not context)
+        const logsParams = new URLSearchParams({ lines: 50 });
         if (state.logFilter.timeRange !== 'all') {
-            logsUrl += `&since=${state.logFilter.timeRange}`;
+            logsParams.set('since', state.logFilter.timeRange);
         }
-
-        // Add server-side search filter
         if (state.logFilter.search) {
-            logsUrl += `&search=${encodeURIComponent(state.logFilter.search)}`;
+            logsParams.set('search', state.logFilter.search);
         }
-
-        // Add timestamps
         if (state.logFilter.timestamps) {
-            logsUrl += '&timestamps=true';
+            logsParams.set('timestamps', 'true');
         }
 
         // Fetch info and recent logs in parallel
         const [infoRes, logsRes] = await Promise.all([
-            fetch(getApiUrl(`/api/tsm/info/${serviceName}`)),
-            fetch(logsUrl)
+            apiFetch(`/api/tsm/info/${serviceName}`),
+            apiFetch(`/api/tsm/logs/${serviceName}?${logsParams}`)
         ]);
         const data = await infoRes.json();
         const logsData = await logsRes.json();
@@ -254,7 +254,7 @@ function highlightSearchMatches(logs, search) {
 // Check S3 configuration status
 async function checkS3Status() {
     try {
-        const res = await fetch(getApiUrl('/api/tsm/logs/s3-status'));
+        const res = await apiFetch('/api/tsm/logs/s3-status');
         const data = await res.json();
         state.s3Configured = data.configured || false;
     } catch (err) {
@@ -265,7 +265,7 @@ async function checkS3Status() {
 // Export logs to S3
 async function exportLogsToS3(serviceName) {
     try {
-        const res = await fetch(getApiUrl(`/api/tsm/logs/export/${serviceName}`), { method: 'POST' });
+        const res = await apiFetch(`/api/tsm/logs/export/${serviceName}`, { method: 'POST' });
         const data = await res.json();
 
         if (data.error) {
@@ -448,7 +448,7 @@ function renderExpanded() {
 
 async function restartService(name) {
     try {
-        await fetch(getApiUrl(`/api/tsm/restart/${name}`), { method: 'POST' });
+        await apiFetch(`/api/tsm/restart/${name}`, { method: 'POST' });
         state.serviceInfoCache.delete(name);
         setTimeout(loadServices, 500);
     } catch (err) {
