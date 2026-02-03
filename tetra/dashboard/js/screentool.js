@@ -120,14 +120,19 @@ function renderRecordingInfo(id, data) {
         html += parts.join(', ') + '</span>';
     }
 
-    // Add play button if we have a file path
+    html += '</div>';
+
+    // Add mini player if we have a file path
     const filename = data.format?.filename;
     if (filename) {
         const basename = filename.split('/').pop();
-        html += `<div style="margin-top:8px"><button class="rec-btn" data-action="play-recording" data-id="${id}" data-file="${basename}">Play</button></div>`;
+        const videoUrl = getApiUrl(`/api/screentool/video/${id}/${basename}`);
+        html += `<div class="mini-player">
+            <video controls preload="metadata" data-id="${id}">
+                <source src="${videoUrl}" type="video/mp4">
+            </video>
+        </div>`;
     }
-
-    html += '</div>';
     detailsEl.innerHTML = html;
 }
 
