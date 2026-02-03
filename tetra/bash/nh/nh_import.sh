@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # nh_import.sh - Import DigitalOcean droplets from NodeHolder JSON
 #
-# Reads digocean.json (DO API response) and generates TOML for org infrastructure.
+# Reads digocean.json (DO API response) and generates [env.*] sections for org.
 #
 # Usage:
 #   nh_list <json_file>              List droplets with IPs
@@ -128,17 +128,13 @@ nh_import() {
 
     # Build TOML
     {
-        echo "# Infrastructure - environments and connectors"
+        echo "# Infrastructure - environments"
         echo "# Updated by: org import nh"
         echo "# Source: $json_file"
         echo "# Generated: $(date -Iseconds)"
         echo ""
         echo "[env.local]"
         echo 'description = "Local development"'
-
-        # Track envs for connectors section
-        local -A env_hosts
-        local -A env_users
 
         # Process each droplet
         jq -c '
@@ -157,31 +153,17 @@ nh_import() {
             echo "[env.$env]"
             echo "description = \"$env server ($name)\""
             echo "host = \"$public_ip\""
-            echo "user = \"root\""
-            echo "ssh_work_user = \"$env\""
+            echo "auth_user = \"root\""
+            echo "work_user = \"$env\""
             [[ -n "$private_ip" ]] && echo "private_ip = \"$private_ip\""
-
-            # Store for connectors (write to temp file for subshell escape)
-            echo "$env $public_ip" >> /tmp/nh_import_$$
         done
-
-        # Connectors section
-        if [[ -f /tmp/nh_import_$$ ]]; then
-            echo ""
-            echo "[connectors]"
-            while read -r env ip; do
-                echo "\"@$env\" = { auth_user = \"root\", work_user = \"$env\", host = \"$ip\" }"
-            done < /tmp/nh_import_$$
-            rm -f /tmp/nh_import_$$
-        fi
     } > "$output"
 
     # Report
     local env_count=$(grep -c '^\[env\.' "$output" 2>/dev/null || echo 0)
-    local conn_count=$(grep -c '"@' "$output" 2>/dev/null || echo 0)
 
     echo "Output: $output"
-    echo "  $env_count environments, $conn_count connectors"
+    echo "  $env_count environments"
     [[ -n "$backup" ]] && echo "  Backup: $backup"
     echo ""
     echo "Next: org build $org_name"

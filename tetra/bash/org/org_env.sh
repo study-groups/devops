@@ -58,6 +58,14 @@ _org_get_work_user() {
     echo "${val:-$env}"
 }
 
+# Get auth key for an environment (optional, defaults to empty)
+_org_get_auth_key() {
+    local env="$1"
+    local content=$(_org_get_env_section "$env") || return 1
+
+    _org_extract_key "$content" "auth_key"
+}
+
 # =============================================================================
 # ENVIRONMENT LISTING
 # =============================================================================
@@ -146,9 +154,4 @@ org_env_vars() {
 # Auto-export is now handled by org_switch
 # Removed auto-export on source to avoid race conditions during lazy loading
 
-# =============================================================================
-# EXPORTS
-# =============================================================================
-
-export -f _org_extract_key _org_get_env_section _org_get_host _org_get_user _org_get_work_user
-export -f org_env_list org_env_show org_env_names org_env_export org_env_vars
+# Functions available via source (no exports per CLAUDE.md)

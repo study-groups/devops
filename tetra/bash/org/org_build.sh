@@ -221,9 +221,8 @@ org_build() {
     # Show what was created
     local out_lines=$(wc -l < "$output_file" | tr -d ' ')
     local env_count=$(grep -c '^\[env\.' "$output_file" 2>/dev/null || echo 0)
-    local conn_count=$(grep -c '"@' "$output_file" 2>/dev/null || echo 0)
 
-    echo "  $out_lines lines, $env_count environments, $conn_count connectors"
+    echo "  $out_lines lines, $env_count environments"
 
     # Verify [org] section exists
     if ! grep -q '^\[org\]' "$output_file"; then
@@ -276,7 +275,7 @@ EOF
 
     if [[ ! -f "$sections_dir/10-infrastructure.toml" ]]; then
         cat > "$sections_dir/10-infrastructure.toml" << EOF
-# Infrastructure - environments and connectors
+# Infrastructure - environments
 # Updated by: org import nh $name
 
 [env.local]
@@ -284,13 +283,11 @@ description = "Local development"
 
 # Remote environments added by nh import:
 # [env.dev]
-# [env.staging]
-# [env.prod]
-
-# [connectors]
-# "@dev" = { auth_user = "root", work_user = "dev", host = "1.2.3.4" }
+# host = "1.2.3.4"
+# auth_user = "root"
+# work_user = "dev"
 EOF
-        echo "  10-infrastructure.toml [env] [connectors]"
+        echo "  10-infrastructure.toml [env.*]"
     else
         echo "  10-infrastructure.toml (exists)"
     fi
@@ -421,8 +418,4 @@ org_build_list() {
     done
 }
 
-# =============================================================================
-# EXPORTS
-# =============================================================================
-
-export -f org_build org_build_init org_build_list
+# Functions available via source (no exports per CLAUDE.md)

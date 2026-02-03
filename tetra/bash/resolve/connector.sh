@@ -2,6 +2,8 @@
 # bash/resolve/connector.sh
 # TES Level 2-4: Channel → Connector → Handle
 # Handles dual-role authentication: auth_user:work_user@host -i key
+#
+# Auth data comes from [env.*] sections via org_env.sh (single source of truth)
 
 # Resolve channel to connector (with authentication)
 # Level 2 → 3: dev@143.198.45.123 → root:dev@143.198.45.123 -i ~/.ssh/id_rsa
@@ -22,63 +24,12 @@ resolve_channel_to_connector() {
         return 0
     fi
 
-    # Look up connector details from org TOML
-    local org_toml
-    if [[ -n "$TETRA_ORG" ]]; then
-        org_toml="$TETRA_DIR/orgs/$TETRA_ORG/$TETRA_ORG.toml"
-    else
-        org_toml=$(find "$TETRA_DIR/orgs" -name "*.toml" -type f 2>/dev/null | head -1)
-    fi
-
-    if [[ ! -f "$org_toml" ]]; then
-        echo "ERROR: No organization TOML found" >&2
-        return 1
-    fi
-
-    # Parse [connectors] section to get auth_user and auth_key
+    # Look up connector details from [env.$symbol] via org_env functions
     local auth_user auth_key
-    local in_block=0
 
-    while IFS= read -r line; do
-        # Check if we're entering the connectors section
-        if [[ "$line" =~ ^\[connectors\] ]]; then
-            in_section=1
-            continue
-        fi
-
-        # Check if we're entering a different section
-        if [[ "$line" =~ ^\[.*\] ]] && [[ ! "$line" =~ ^\[connectors ]]; then
-            in_section=0
-            in_block=0
-            continue
-        fi
-
-        # Check if this is our symbol's block
-        if [[ $in_section -eq 1 ]] && [[ "$line" =~ ^\"@$symbol\" ]]; then
-            in_block=1
-            continue
-        fi
-
-        # Check if we're starting a new block
-        if [[ $in_section -eq 1 ]] && [[ "$line" =~ ^\"@ ]]; then
-            in_block=0
-        fi
-
-        # Parse values if we're in the right block
-        if [[ $in_block -eq 1 ]]; then
-            if [[ "$line" =~ auth_user[[:space:]]*=[[:space:]]*\"([^\"]+)\" ]]; then
-                auth_user="${BASH_REMATCH[1]}"
-            fi
-            if [[ "$line" =~ auth_key[[:space:]]*=[[:space:]]*\"([^\"]+)\" ]]; then
-                auth_key="${BASH_REMATCH[1]}"
-            fi
-
-            # If we have both, we're done
-            if [[ -n "$auth_user" ]] && [[ -n "$auth_key" ]]; then
-                break
-            fi
-        fi
-    done < "$org_toml"
+    # Get auth details from environment section (single source of truth)
+    auth_user=$(_org_get_user "$symbol" 2>/dev/null)
+    auth_key=$(_org_get_auth_key "$symbol" 2>/dev/null)
 
     # Expand tilde in auth_key
     auth_key="${auth_key/#\~/$HOME}"
