@@ -3,11 +3,11 @@
 const fs = require('fs');
 const router = require('express').Router();
 const {
-    getCaddyPaths, runCmd, formatFileSize
+    getCaddyPaths, runCmd, runCmdAsync, formatFileSize
 } = require('./lib');
 
 // Logs - get recent caddy logs (parsed JSON)
-router.get('/logs', (req, res) => {
+router.get('/logs', async (req, res) => {
     const { org = 'tetra', env = 'local', lines = 50 } = req.query;
     const paths = getCaddyPaths(org, env);
 
@@ -66,7 +66,7 @@ router.get('/logs', (req, res) => {
         }
 
         const cmd = `tail -n ${lines} ${paths.logDir}/*.log 2>/dev/null | jq -c 'select(.request) | {ts: .ts, status: .status, method: .request.method, host: .request.host, uri: .request.uri, duration: .duration}' 2>/dev/null || tail -n ${lines} ${paths.logDir}/*.log 2>/dev/null || echo ''`;
-        const output = runCmd(cmd, org, env);
+        const output = await runCmdAsync(cmd, org, env);
 
         const logs = output.trim().split('\n').filter(l => l && l.startsWith('{')).map(line => {
             try {
@@ -89,7 +89,7 @@ router.get('/logs', (req, res) => {
 });
 
 // Errors - get recent errors only
-router.get('/errors', (req, res) => {
+router.get('/errors', async (req, res) => {
     const { org = 'tetra', env = 'local', lines = 50 } = req.query;
     const paths = getCaddyPaths(org, env);
 
@@ -144,8 +144,8 @@ router.get('/errors', (req, res) => {
             return;
         }
 
-        const cmd = `cat ${paths.logDir}/*.log 2>/dev/null | jq -c 'select(.level == "error" or (.status // 0) >= 500) | {ts: .ts, status: .status, level: .level, msg: .msg, uri: .request.uri}' 2>/dev/null | tail -n ${lines} || echo ''`;
-        const output = runCmd(cmd, org, env);
+        const cmd = `jq -c 'select(.level == "error" or (.status // 0) >= 500) | {ts: .ts, status: .status, level: .level, msg: .msg, uri: .request.uri}' ${paths.logDir}/*.log 2>/dev/null | tail -n ${lines} || echo ''`;
+        const output = await runCmdAsync(cmd, org, env);
 
         const errors = output.trim().split('\n').filter(l => l && l.startsWith('{')).map(line => {
             try {

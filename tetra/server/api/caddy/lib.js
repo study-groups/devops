@@ -1,6 +1,8 @@
 // Caddy API - Shared helpers, constants, and utilities
 
-const { execSync } = require('child_process');
+const { execSync, execFile } = require('child_process');
+const util = require('util');
+const execFileAsync = util.promisify(execFile);
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
@@ -12,7 +14,7 @@ const CADDY_ADMIN_PORT = process.env.CADDY_ADMIN_PORT || 2019;
 
 // Simple TTL cache for expensive operations
 const cache = new Map();
-const CACHE_TTL = 5000; // 5 seconds
+const CACHE_TTL = 15000; // 15 seconds — prevents cache misses during slow SSH calls
 
 function getCached(key) {
     const entry = cache.get(key);
@@ -199,11 +201,13 @@ function getSSHConfig(org, env) {
     return null;
 }
 
+const SSH_MUX_OPTS = '-o ControlMaster=auto -o ControlPath=/tmp/tetra-ssh-%r@%h:%p -o ControlPersist=300';
+
 function runCmd(cmd, org = 'tetra', env = 'local') {
     const ssh = getSSHConfig(org, env);
 
     if (ssh) {
-        const sshCmd = `ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${ssh} '${cmd.replace(/'/g, "'\\''")}'`;
+        const sshCmd = `ssh ${SSH_MUX_OPTS} -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${ssh} '${cmd.replace(/'/g, "'\\''")}'`;
         return execSync(sshCmd, {
             shell: BASH,
             encoding: 'utf8',
@@ -215,6 +219,26 @@ function runCmd(cmd, org = 'tetra', env = 'local') {
             encoding: 'utf8',
             timeout: 10000
         });
+    }
+}
+
+// Async version — does NOT block the event loop
+async function runCmdAsync(cmd, org = 'tetra', env = 'local') {
+    const ssh = getSSHConfig(org, env);
+
+    if (ssh) {
+        const sshCmd = `ssh ${SSH_MUX_OPTS} -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${ssh} '${cmd.replace(/'/g, "'\\''")}'`;
+        const { stdout } = await execFileAsync(BASH, ['-c', sshCmd], {
+            encoding: 'utf8',
+            timeout: 30000
+        });
+        return stdout;
+    } else {
+        const { stdout } = await execFileAsync(BASH, ['-c', cmd], {
+            encoding: 'utf8',
+            timeout: 10000
+        });
+        return stdout;
     }
 }
 
@@ -286,6 +310,6 @@ module.exports = {
     TETRA_DIR, ORGS_DIR, CADDY_ADMIN_PORT, BASH,
     getCached, setCache,
     caddyApiGet, caddyApiPost, isCaddyApiAvailable,
-    getCaddyPaths, getSSHConfig, runCmd,
+    getCaddyPaths, getSSHConfig, runCmd, runCmdAsync,
     parseToml, parseRoutes, formatFileSize
 };

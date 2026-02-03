@@ -1,17 +1,19 @@
 // Caddy API - Status, Info, Routes, Validate routes
 
-const { execSync } = require('child_process');
+const { execFile } = require('child_process');
+const util = require('util');
+const execFileAsync = util.promisify(execFile);
 const fs = require('fs');
 const path = require('path');
 const router = require('express').Router();
 const {
     CADDY_ADMIN_PORT, BASH,
     getCached, setCache,
-    caddyApiGet, getCaddyPaths, getSSHConfig, runCmd, parseRoutes
+    caddyApiGet, getCaddyPaths, getSSHConfig, runCmd, runCmdAsync, parseRoutes
 } = require('./lib');
 
 // Info - show file paths and configuration locations
-router.get('/info', (req, res) => {
+router.get('/info', async (req, res) => {
     const { org = 'tetra', env = 'local' } = req.query;
     const paths = getCaddyPaths(org, env);
 
@@ -40,14 +42,14 @@ router.get('/info', (req, res) => {
             }
         } else {
             try {
-                const output = runCmd(`test -f ${paths.caddyfile} && echo "exists"`, org, env);
+                const output = await runCmdAsync(`test -f ${paths.caddyfile} && echo "exists"`, org, env);
                 exists = output.trim() === 'exists';
             } catch (e) {
                 exists = false;
             }
 
             try {
-                const modOutput = runCmd(`ls ${paths.modulesDir}/*.caddy 2>/dev/null | xargs -n1 basename 2>/dev/null || echo ""`, org, env);
+                const modOutput = await runCmdAsync(`ls ${paths.modulesDir}/*.caddy 2>/dev/null | xargs -n1 basename 2>/dev/null || echo ""`, org, env);
                 modules = modOutput.trim().split('\n').filter(m => m && m.endsWith('.caddy'));
             } catch (e) { /* ignore */ }
         }
@@ -107,15 +109,17 @@ router.get('/status', async (req, res) => {
                 }
 
                 try {
-                    version = execSync('caddy version 2>/dev/null | head -1', {
-                        shell: BASH, encoding: 'utf8', timeout: 3000
-                    }).trim().split(' ')[0];
+                    const { stdout } = await execFileAsync(BASH, ['-c', 'caddy version 2>/dev/null | head -1'], {
+                        encoding: 'utf8', timeout: 3000
+                    });
+                    version = stdout.trim().split(' ')[0];
                 } catch (e) { /* ignore */ }
             } else {
                 try {
-                    const pgrep = execSync('pgrep -f "caddy run" 2>/dev/null || echo ""', {
-                        shell: BASH, encoding: 'utf8', timeout: 3000
-                    }).trim();
+                    const { stdout } = await execFileAsync(BASH, ['-c', 'pgrep -f "caddy run" 2>/dev/null || echo ""'], {
+                        encoding: 'utf8', timeout: 3000
+                    });
+                    const pgrep = stdout.trim();
                     active = pgrep.length > 0;
                     if (active) {
                         pid = pgrep.split('\n')[0];
@@ -123,18 +127,22 @@ router.get('/status', async (req, res) => {
                 } catch (e) { /* not running */ }
             }
         } else {
-            const output = runCmd('systemctl is-active caddy 2>/dev/null || echo "inactive"', org, env);
-            active = output.trim() === 'active';
-
+            // Single SSH call for all remote status info
+            const output = await runCmdAsync(
+                'echo "ACTIVE=$(systemctl is-active caddy 2>/dev/null || echo inactive)"; ' +
+                'echo "LISTEN=$(ss -tlnp 2>/dev/null | grep caddy | head -1 | awk \'{print $4}\' || echo \\"\\")"; ' +
+                'echo "VERSION=$(caddy version 2>/dev/null | head -1 || echo \\"\\")"',
+                org, env
+            );
+            const info = {};
+            for (const line of output.trim().split('\n')) {
+                const eq = line.indexOf('=');
+                if (eq > 0) info[line.slice(0, eq)] = line.slice(eq + 1);
+            }
+            active = info.ACTIVE === 'active';
             if (active) {
-                try {
-                    const ss = runCmd("ss -tlnp 2>/dev/null | grep caddy | head -1 | awk '{print $4}' || echo ''", org, env).trim();
-                    if (ss) listen = ss;
-                } catch (e) { /* ignore */ }
-
-                try {
-                    version = runCmd('caddy version 2>/dev/null | head -1', org, env).trim().split(' ')[0];
-                } catch (e) { /* ignore */ }
+                if (info.LISTEN) listen = info.LISTEN;
+                if (info.VERSION) version = info.VERSION.split(' ')[0];
             }
         }
 
@@ -228,7 +236,7 @@ router.get('/routes', async (req, res) => {
         } else {
             try {
                 const cmd = `grep -E 'reverse_proxy' ${paths.caddyfile} 2>/dev/null || echo ""`;
-                const output = runCmd(cmd, org, env);
+                const output = await runCmdAsync(cmd, org, env);
 
                 const lines = output.split('\n').map(l => l.trim()).filter(l => l);
 
@@ -273,12 +281,12 @@ router.get('/routes', async (req, res) => {
 });
 
 // Validate - validate config
-router.get('/validate', (req, res) => {
+router.get('/validate', async (req, res) => {
     const { org = 'tetra', env = 'local' } = req.query;
     const paths = getCaddyPaths(org, env);
 
     try {
-        const output = runCmd(`caddy validate --config ${paths.caddyfile} 2>&1`, org, env);
+        const output = await runCmdAsync(`caddy validate --config ${paths.caddyfile} 2>&1`, org, env);
         res.json({
             valid: true,
             message: output.trim(),

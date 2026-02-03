@@ -271,4 +271,25 @@ router.post('/record/stop', (req, res) => {
     }
 });
 
+/**
+ * GET /video/:id/:filename - Serve a video file
+ */
+router.get('/video/:id/:filename', (req, res) => {
+    const { id, filename } = req.params;
+    const { org = 'tetra', env = 'local' } = req.query;
+
+    if (id.includes('..') || filename.includes('..')) {
+        return res.status(400).json({ error: 'invalid path' });
+    }
+
+    const stDir = getStDir(org, env);
+    const filePath = path.join(stDir, id, filename);
+
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'file not found' });
+    }
+
+    res.sendFile(filePath);
+});
+
 module.exports = router;
