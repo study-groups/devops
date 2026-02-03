@@ -1166,125 +1166,43 @@
         tlBulkFx.value = '';
     });
 
-    // Uses window.Tscale from js/tscale.js (tau tscale port)
-
-    // Detect word boundaries using tau tscale onset detection + VAD
+    // Detect word boundaries via Vox API
     tlDetect.addEventListener('click', function() {
         var shot = getCurrentShot();
         if (!shot || !shot.narration) return;
-        if (!shotAudio.src) { alert('No audio loaded.'); return; }
-
-        var words = shot.narration.split(/\s+/).filter(function(w) { return w.length > 0; });
-        if (words.length === 0) return;
+        if (!shot.voxId && !shot.audioFile) { alert('No audio loaded.'); return; }
 
         tlDetect.textContent = 'analyzing...';
         tlDetect.disabled = true;
 
-        fetch(shotAudio.src)
-            .then(function(r) { return r.arrayBuffer(); })
-            .then(function(buf) {
-                var ctx = new (window.AudioContext || window.webkitAudioContext)();
-                return ctx.decodeAudioData(buf);
+        // Preserve existing fx or default
+        var existingFx = (shot.timeline && shot.timeline.length > 0)
+            ? shot.timeline[0].fx : 'highlight';
+
+        // If shot has voxId, use Vox align-words API
+        if (shot.voxId) {
+            fetch('/api/vox/db/' + shot.voxId + '/align-words', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: shot.narration })
             })
-            .then(function(audioBuffer) {
-                var pcm = audioBuffer.getChannelData(0);
-                var fs = audioBuffer.sampleRate;
-                var duration = audioBuffer.duration;
-
-                // Run onset detection (tau tscale parity)
-                var onsets = Tscale.detectOnsets(pcm, fs, {
-                    ta: 0.002, tr: 0.010, threshold: 2.5, refractory: 0.030
-                });
-
-                // Run VAD for speech segments
-                var segments = Tscale.vad(pcm, fs, {
-                    thresholdDb: -40, hangoverMs: 300
-                });
-
-                // Preserve existing fx or default
-                var existingFx = (shot.timeline && shot.timeline.length > 0)
-                    ? shot.timeline[0].fx : 'highlight';
-
-                var cues = [];
-
-                if (onsets.length >= words.length) {
-                    // More onsets than words: use first N onsets as word starts
-                    for (var i = 0; i < words.length; i++) {
-                        var start = onsets[i];
-                        var end = (i + 1 < onsets.length) ? onsets[i + 1] : duration;
-                        cues.push({
-                            text: words[i],
-                            start: Math.round(start * 1000) / 1000,
-                            end: Math.round(end * 1000) / 1000,
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.ok && data.aligned) {
+                    shot.timeline = data.aligned.map(function(w) {
+                        return {
+                            text: w.text,
+                            start: w.start,
+                            end: w.start + w.length,
                             fx: existingFx
-                        });
-                    }
-                } else if (onsets.length > 0) {
-                    // Fewer onsets than words: use onsets as anchors,
-                    // distribute words proportionally between them
-                    // Add duration as final boundary
-                    var boundaries = onsets.slice();
-                    boundaries.push(duration);
-                    var wordsPerGap = words.length / onsets.length;
-                    var wIdx = 0;
-                    for (var g = 0; g < onsets.length && wIdx < words.length; g++) {
-                        var gStart = boundaries[g];
-                        var gEnd = boundaries[g + 1];
-                        var gDur = gEnd - gStart;
-                        var count = (g < onsets.length - 1)
-                            ? Math.round(wordsPerGap)
-                            : words.length - wIdx;
-                        if (count < 1) count = 1;
-                        if (wIdx + count > words.length) count = words.length - wIdx;
-                        var perWord = gDur / count;
-                        for (var c = 0; c < count && wIdx < words.length; c++) {
-                            cues.push({
-                                text: words[wIdx],
-                                start: Math.round((gStart + c * perWord) * 1000) / 1000,
-                                end: Math.round((gStart + (c + 1) * perWord) * 1000) / 1000,
-                                fx: existingFx
-                            });
-                            wIdx++;
-                        }
-                    }
+                        };
+                    });
+                    renderCueEditor();
+                    updateShotPreview();
+                    debouncedSave();
                 } else {
-                    // No onsets detected: fall back to VAD segments
-                    if (segments.length > 0) {
-                        var totalSegDur = segments.reduce(function(s, seg) {
-                            return s + (seg.end - seg.start);
-                        }, 0);
-                        var wIdx2 = 0;
-                        for (var s = 0; s < segments.length && wIdx2 < words.length; s++) {
-                            var sDur = segments[s].end - segments[s].start;
-                            var sWords = Math.max(1, Math.round(words.length * sDur / totalSegDur));
-                            if (wIdx2 + sWords > words.length) sWords = words.length - wIdx2;
-                            var pw = sDur / sWords;
-                            for (var sw = 0; sw < sWords && wIdx2 < words.length; sw++) {
-                                cues.push({
-                                    text: words[wIdx2],
-                                    start: Math.round((segments[s].start + sw * pw) * 1000) / 1000,
-                                    end: Math.round((segments[s].start + (sw + 1) * pw) * 1000) / 1000,
-                                    fx: existingFx
-                                });
-                                wIdx2++;
-                            }
-                        }
-                    } else {
-                        // Nothing detected, fall back to even spacing
-                        shot.timeline = generateEvenCues(shot.narration, duration);
-                        renderCueEditor();
-                        updateShotPreview();
-                        debouncedSave();
-                        tlDetect.textContent = 'detect';
-                        tlDetect.disabled = false;
-                        return;
-                    }
+                    alert('Alignment failed: ' + (data.error || 'unknown'));
                 }
-
-                shot.timeline = cues;
-                renderCueEditor();
-                updateShotPreview();
-                debouncedSave();
                 tlDetect.textContent = 'detect';
                 tlDetect.disabled = false;
             })
@@ -1293,6 +1211,44 @@
                 tlDetect.disabled = false;
                 alert('Detection failed: ' + e.message);
             });
+        } else {
+            // Fallback: use director API align-words endpoint
+            fetch(API + '/' + state.org + '/' + state.currentProject + '/shots/' + shot.id + '/align-words', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: shot.narration })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.ok && data.aligned) {
+                    shot.timeline = data.aligned.map(function(w) {
+                        return {
+                            text: w.text,
+                            start: w.start,
+                            end: w.start + w.length,
+                            fx: existingFx
+                        };
+                    });
+                    renderCueEditor();
+                    updateShotPreview();
+                    debouncedSave();
+                } else {
+                    // Final fallback: even spacing
+                    var duration = shot.audioDuration || (shotAudio.duration || 1);
+                    shot.timeline = generateEvenCues(shot.narration, duration);
+                    renderCueEditor();
+                    updateShotPreview();
+                    debouncedSave();
+                }
+                tlDetect.textContent = 'detect';
+                tlDetect.disabled = false;
+            })
+            .catch(function(e) {
+                tlDetect.textContent = 'detect';
+                tlDetect.disabled = false;
+                alert('Detection failed: ' + e.message);
+            });
+        }
     });
 
     // Save cue edits back to shot (start, end, fx)
@@ -1332,7 +1288,7 @@
         debouncedSave();
     });
 
-    // Send cues to guide iframe — anim-engine.js handles rendering
+    // Send cues to guide iframe — spandoc.js handles rendering (anim-engine compat)
     tlSendPreview.addEventListener('click', function() {
         var shot = getCurrentShot();
         if (!shot || !shot.timeline || shot.timeline.length === 0) return;
@@ -1340,6 +1296,7 @@
             ? API + '/' + state.org + '/' + state.currentProject + '/audio/' + shot.audioFile
             : '';
         try {
+            // Send both formats — spandoc.js handles anim-init via backwards compat
             previewIframe.contentWindow.postMessage({
                 type: 'anim-init',
                 cues: shot.timeline,

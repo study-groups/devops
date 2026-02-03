@@ -116,13 +116,17 @@ function importGuide(org, guideName) {
                 }
             }
 
-            // Carry timeline cues from guide JSON if present
+            // Carry timeline cues and spans from guide JSON if present
             let timeline = null;
+            let spans = null;
             for (const block of content) {
                 if ((block.type === 'paragraph' || block.type === 'text') && block.timeline) {
                     timeline = block.timeline;
-                    break;
                 }
+                if ((block.type === 'paragraph' || block.type === 'text') && block.spans) {
+                    spans = block.spans;
+                }
+                if (timeline || spans) break;
             }
 
             const id = 's' + String(shotIndex).padStart(2, '0');
@@ -133,6 +137,7 @@ function importGuide(org, guideName) {
                 stepIndex: shotIndex - 1,
                 narration,
                 timeline,
+                spans,
                 captureUrl: `/api/tut/${org}/${htmlName}`,
                 audioDuration: null,
                 audioFile: null,
@@ -384,6 +389,115 @@ router.post('/:org/:project/audio/:shotId', (req, res) => {
             status: 'error', error: e.message
         });
         res.status(500).json({ error: e.message, cost });
+    }
+});
+
+// POST /:org/:project/shots/:shotId/align-words — align text to audio onsets
+router.post('/:org/:project/shots/:shotId/align-words', (req, res) => {
+    const { org, project, shotId } = req.params;
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ error: 'text required' });
+
+    const data = readProject(org, project);
+    if (!data) return res.status(404).json({ error: 'Project not found' });
+
+    const shot = data.shots.find(s => s.id === shotId);
+    if (!shot) return res.status(404).json({ error: 'Shot not found' });
+
+    const audioDir = path.join(projectDir(org, project), 'audio');
+    const audioFile = shot.audioFile;
+    if (!audioFile) return res.status(404).json({ error: 'No audio file for shot' });
+
+    const audioPath = path.join(audioDir, audioFile);
+    if (!fs.existsSync(audioPath)) return res.status(404).json({ error: 'Audio file not found' });
+
+    const words = text.trim().split(/\s+/).filter(w => w.length > 0);
+    if (words.length === 0) return res.status(400).json({ error: 'no words in text' });
+
+    try {
+        // Get duration
+        let duration = shot.audioDuration || 1;
+        if (!shot.audioDuration) {
+            try {
+                const durOut = execSync(
+                    `ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${audioPath}"`,
+                    { encoding: 'utf-8', timeout: 10000 }
+                );
+                duration = parseFloat(durOut.trim()) || 1;
+            } catch (_) {}
+        }
+
+        // Run onset detection
+        let onsets = [];
+        try {
+            const out = shellExec(
+                `source ~/tetra/tetra.sh && vox analyze "${audioPath}" 2>/dev/null || echo "[]"`,
+                30000
+            );
+            try {
+                onsets = JSON.parse(out.trim());
+            } catch (_) {
+                onsets = out.trim().split(/[\s,]+/).map(Number).filter(n => !isNaN(n) && n >= 0);
+            }
+        } catch (_) {}
+
+        onsets = onsets.filter(n => typeof n === 'number' && !isNaN(n)).sort((a, b) => a - b);
+
+        // Align words to onsets
+        const aligned = [];
+
+        if (onsets.length >= words.length) {
+            for (let i = 0; i < words.length; i++) {
+                const start = onsets[i];
+                const end = (i + 1 < words.length) ? onsets[i + 1] : duration;
+                aligned.push({
+                    text: words[i],
+                    start: Math.round(start * 1000) / 1000,
+                    length: Math.round((end - start) * 1000) / 1000
+                });
+            }
+        } else if (onsets.length > 0) {
+            const boundaries = [...onsets, duration];
+            const wordsPerGap = words.length / onsets.length;
+            let wIdx = 0;
+            for (let g = 0; g < onsets.length && wIdx < words.length; g++) {
+                const gStart = boundaries[g];
+                const gEnd = boundaries[g + 1];
+                const gDur = gEnd - gStart;
+                let count = (g < onsets.length - 1) ? Math.round(wordsPerGap) : words.length - wIdx;
+                if (count < 1) count = 1;
+                if (wIdx + count > words.length) count = words.length - wIdx;
+                const perWord = gDur / count;
+                for (let c = 0; c < count && wIdx < words.length; c++) {
+                    const start = gStart + c * perWord;
+                    aligned.push({
+                        text: words[wIdx],
+                        start: Math.round(start * 1000) / 1000,
+                        length: Math.round(perWord * 1000) / 1000
+                    });
+                    wIdx++;
+                }
+            }
+        } else {
+            const perWord = duration / words.length;
+            for (let i = 0; i < words.length; i++) {
+                aligned.push({
+                    text: words[i],
+                    start: Math.round(i * perWord * 1000) / 1000,
+                    length: Math.round(perWord * 1000) / 1000
+                });
+            }
+        }
+
+        res.json({
+            ok: true,
+            shotId,
+            wordCount: words.length,
+            onsetCount: onsets.length,
+            aligned
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
 });
 

@@ -576,6 +576,126 @@ router.post('/db/:id/analyze', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /db/:id/align-words — detect onsets and align to provided text
+// ---------------------------------------------------------------------------
+router.post('/db/:id/align-words', (req, res) => {
+    const { id } = req.params;
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ error: 'text required' });
+
+    const words = text.trim().split(/\s+/).filter(w => w.length > 0);
+    if (words.length === 0) return res.status(400).json({ error: 'no words in text' });
+
+    const files = getVoxFiles(id);
+
+    // If no audio in db, check meta.storagePath for external audio
+    if (!files.audio && files.meta) {
+        try {
+            const meta = JSON.parse(fs.readFileSync(files.meta, 'utf-8'));
+            if (meta.storagePath && fs.existsSync(meta.storagePath)) {
+                files.audio = meta.storagePath;
+            }
+        } catch (_) {}
+    }
+
+    if (!files.audio) return res.status(404).json({ error: 'Audio not found' });
+
+    try {
+        // Get audio duration via ffprobe
+        let duration = 1;
+        try {
+            const durOut = execSync(
+                `ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${files.audio}"`,
+                { encoding: 'utf-8', timeout: 10000 }
+            );
+            duration = parseFloat(durOut.trim()) || 1;
+        } catch (_) {}
+
+        // Run onset detection via bash vox_analyze or fallback
+        let onsets = [];
+        try {
+            const out = shellExec(
+                `source ~/tetra/tetra.sh && vox analyze "${files.audio}" 2>/dev/null || echo "[]"`,
+                30000
+            );
+            try {
+                onsets = JSON.parse(out.trim());
+            } catch (_) {
+                onsets = out.trim().split(/[\s,]+/).map(Number).filter(n => !isNaN(n) && n >= 0);
+            }
+        } catch (_) {}
+
+        // Sort onsets
+        onsets = onsets.filter(n => typeof n === 'number' && !isNaN(n)).sort((a, b) => a - b);
+
+        // Align words to onsets
+        const aligned = [];
+
+        if (onsets.length >= words.length) {
+            // More onsets than words: use first N onsets
+            for (let i = 0; i < words.length; i++) {
+                const start = onsets[i];
+                const end = (i + 1 < words.length) ? onsets[i + 1] : duration;
+                aligned.push({
+                    text: words[i],
+                    start: Math.round(start * 1000) / 1000,
+                    length: Math.round((end - start) * 1000) / 1000
+                });
+            }
+        } else if (onsets.length > 0) {
+            // Fewer onsets than words: distribute proportionally
+            const boundaries = [...onsets, duration];
+            const wordsPerGap = words.length / onsets.length;
+            let wIdx = 0;
+            for (let g = 0; g < onsets.length && wIdx < words.length; g++) {
+                const gStart = boundaries[g];
+                const gEnd = boundaries[g + 1];
+                const gDur = gEnd - gStart;
+                let count = (g < onsets.length - 1)
+                    ? Math.round(wordsPerGap)
+                    : words.length - wIdx;
+                if (count < 1) count = 1;
+                if (wIdx + count > words.length) count = words.length - wIdx;
+                const perWord = gDur / count;
+                for (let c = 0; c < count && wIdx < words.length; c++) {
+                    const start = gStart + c * perWord;
+                    aligned.push({
+                        text: words[wIdx],
+                        start: Math.round(start * 1000) / 1000,
+                        length: Math.round(perWord * 1000) / 1000
+                    });
+                    wIdx++;
+                }
+            }
+        } else {
+            // No onsets: distribute evenly across duration
+            const perWord = duration / words.length;
+            for (let i = 0; i < words.length; i++) {
+                aligned.push({
+                    text: words[i],
+                    start: Math.round(i * perWord * 1000) / 1000,
+                    length: Math.round(perWord * 1000) / 1000
+                });
+            }
+        }
+
+        // Save to onsets.json
+        const onsetsPath = path.join(VOX_DB, `${id}.vox.onsets.json`);
+        fs.writeFileSync(onsetsPath, JSON.stringify(aligned, null, 2), 'utf-8');
+
+        res.json({
+            ok: true,
+            id,
+            wordCount: words.length,
+            onsetCount: onsets.length,
+            aligned
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ---------------------------------------------------------------------------
 // PUT /db/:id/layers/onsets — save edited onset markers
 // ---------------------------------------------------------------------------
 router.put('/db/:id/layers/onsets', (req, res) => {
