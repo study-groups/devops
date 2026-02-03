@@ -323,11 +323,3 @@ nh_validate() {
         return 1
     fi
 }
-
-# =============================================================================
-# EXPORTS
-# =============================================================================
-
-export -f nh_list nh_import nh_validate
-export -f _nh_get_public_ip _nh_get_private_ip _nh_name_to_env
-export -f _nh_parse_toml_envs _nh_parse_json_droplets

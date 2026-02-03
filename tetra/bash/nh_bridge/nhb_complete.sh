@@ -79,10 +79,3 @@ _nhb_complete() {
 
 # Register completion
 complete -F _nhb_complete nhb
-
-# =============================================================================
-# EXPORTS
-# =============================================================================
-
-export -f _nhb_complete
-export -f _nhb_complete_contexts _nhb_complete_orgs

@@ -78,5 +78,3 @@ ENV MAPPING ($NH_DIR/<ctx>/env-map.conf)
   do4n2=prod,staging
 EOF
 }
-
-export -f nhb nhb_help

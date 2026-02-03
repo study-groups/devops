@@ -325,15 +325,3 @@ nhb_quick_import() {
     # Run import
     nhb_import "$json_file" "$org_name"
 }
-
-# Export functions
-export -f nhb_check_available
-export -f nhb_get_location
-export -f nhb_get_json_age
-export -f nhb_validate_json
-export -f nhb_suggest_refresh
-export -f nhb_status
-export -f nhb_invoke_safe
-export -f nhb_fetch_latest
-export -f nhb_show_workflow
-export -f nhb_quick_import
