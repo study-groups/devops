@@ -101,7 +101,7 @@ _caddy_info() {
     echo "  Logs:      $logfile"
 
     if [[ "$target" == "localhost" ]]; then
-        local modules_dir="${TETRA_DIR:-$HOME/tetra}/orgs/${org:-tetra}/caddy/modules"
+        local modules_dir="$(_caddy_config_dir)/modules"
         echo "  Modules:   $modules_dir"
         echo ""
 
@@ -158,6 +158,36 @@ _caddy_info() {
     fi
 }
 
+# Humanize elapsed time from ps etime format (dd-hh:mm:ss or hh:mm:ss or mm:ss)
+_caddy_humanize_etime() {
+    local etime="$1"
+    local days=0 hours=0 mins=0 secs=0
+
+    # dd-hh:mm:ss
+    if [[ "$etime" =~ ^([0-9]+)-([0-9]+):([0-9]+):([0-9]+)$ ]]; then
+        days=${BASH_REMATCH[1]} hours=${BASH_REMATCH[2]}
+        mins=${BASH_REMATCH[3]} secs=${BASH_REMATCH[4]}
+    # hh:mm:ss
+    elif [[ "$etime" =~ ^([0-9]+):([0-9]+):([0-9]+)$ ]]; then
+        hours=${BASH_REMATCH[1]} mins=${BASH_REMATCH[2]} secs=${BASH_REMATCH[3]}
+    # mm:ss
+    elif [[ "$etime" =~ ^([0-9]+):([0-9]+)$ ]]; then
+        mins=${BASH_REMATCH[1]} secs=${BASH_REMATCH[2]}
+    else
+        echo "$etime"; return
+    fi
+
+    # Remove leading zeros for arithmetic
+    days=$((10#$days)) hours=$((10#$hours)) mins=$((10#$mins))
+
+    local parts=()
+    ((days > 0)) && parts+=("${days}d")
+    ((hours > 0)) && parts+=("${hours}h")
+    ((mins > 0)) && parts+=("${mins}m")
+    ((${#parts[@]} == 0)) && parts+=("${secs}s")
+    echo "${parts[*]}"
+}
+
 # Show resource usage (CPU, memory, disk)
 _caddy_resources() {
     local target=$(_caddy_ssh_target)
@@ -169,8 +199,13 @@ _caddy_resources() {
         local pid=$(pgrep -f "caddy run" 2>/dev/null | head -1)
         if [[ -n "$pid" ]]; then
             echo "Process: PID $pid"
-            ps -p "$pid" -o %cpu,%mem,rss,vsz,etime --no-headers 2>/dev/null | \
-                awk '{printf "  CPU:      %.1f%%\n  Memory:   %.1f%% (%d MB RSS)\n  Uptime:   %s\n", $1, $2, $3/1024, $5}'
+            local ps_out
+            ps_out=$(ps -p "$pid" -o %cpu,%mem,rss,vsz,etime --no-headers 2>/dev/null)
+            local cpu mem rss vsz etime
+            read -r cpu mem rss vsz etime <<< "$ps_out"
+            printf "  CPU:      %s%%\n" "$cpu"
+            printf "  Memory:   %s%% (%d MB RSS)\n" "$mem" "$(( ${rss:-0} / 1024 ))"
+            printf "  Uptime:   %s\n" "$(_caddy_humanize_etime "$etime")"
 
             # Open files
             local open_files=$(lsof -p "$pid" 2>/dev/null | wc -l | xargs)
@@ -189,11 +224,33 @@ _caddy_resources() {
         fi
     else
         _caddy_ssh '
+            humanize_etime() {
+                local e="$1" d=0 h=0 m=0 s=0
+                if [[ "$e" =~ ^([0-9]+)-([0-9]+):([0-9]+):([0-9]+)$ ]]; then
+                    d=${BASH_REMATCH[1]} h=${BASH_REMATCH[2]} m=${BASH_REMATCH[3]} s=${BASH_REMATCH[4]}
+                elif [[ "$e" =~ ^([0-9]+):([0-9]+):([0-9]+)$ ]]; then
+                    h=${BASH_REMATCH[1]} m=${BASH_REMATCH[2]} s=${BASH_REMATCH[3]}
+                elif [[ "$e" =~ ^([0-9]+):([0-9]+)$ ]]; then
+                    m=${BASH_REMATCH[1]} s=${BASH_REMATCH[2]}
+                else
+                    echo "$e"; return
+                fi
+                d=$((10#$d)) h=$((10#$h)) m=$((10#$m))
+                local out=""
+                ((d>0)) && out="${d}d "
+                ((h>0)) && out+="${h}h "
+                ((m>0)) && out+="${m}m"
+                [ -z "$out" ] && out="${s}s"
+                echo "$out"
+            }
+
             pid=$(pgrep -f "caddy" | head -1)
             if [ -n "$pid" ]; then
                 echo "Process: PID $pid"
-                ps -p $pid -o %cpu,%mem,rss,vsz,etime --no-headers 2>/dev/null | \
-                    awk "{printf \"  CPU:      %.1f%%\n  Memory:   %.1f%% (%d MB RSS)\n  Uptime:   %s\n\", \$1, \$2, \$3/1024, \$5}"
+                read cpu mem rss vsz etime <<< $(ps -p $pid -o %cpu,%mem,rss,vsz,etime --no-headers 2>/dev/null)
+                printf "  CPU:      %s%%\n" "$cpu"
+                printf "  Memory:   %s%% (%d MB RSS)\n" "$mem" "$(( ${rss:-0} / 1024 ))"
+                printf "  Uptime:   %s\n" "$(humanize_etime "$etime")"
 
                 open_files=$(lsof -p $pid 2>/dev/null | wc -l)
                 echo "  Files:    $open_files open"

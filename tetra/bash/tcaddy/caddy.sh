@@ -28,30 +28,38 @@ _caddy_exec() {
 }
 
 # Run command on current context host (legacy, for complex remote commands)
+# Uses SSH ControlMaster for connection reuse (~10ms vs ~300ms per call)
 _caddy_ssh() {
     local target
     target=$(_caddy_ssh_target)
 
     if [[ -z "$target" ]]; then
-        echo "No host set. Use: tcaddy ctx <org> <proj> <env>" >&2
+        echo "No host set. Use: tcaddy ctx <org> [env]" >&2
         return 1
     fi
 
     if [[ "$target" == "localhost" ]]; then
-        # Run locally via bash -c (commands are passed as strings)
         bash -c "$*"
     else
-        ssh "$target" "$@"
+        ssh -o ControlMaster=auto \
+            -o ControlPath="/tmp/tcaddy-ssh-%r@%h:%p" \
+            -o ControlPersist=300 \
+            "$target" "$@"
     fi
+}
+
+# Get local caddy config dir for current org
+_caddy_config_dir() {
+    local org=$(_caddy_org_full)
+    echo "${TETRA_DIR:-$HOME/tetra}/orgs/${org:-tetra}/targets/caddy"
 }
 
 # Get Caddyfile path for current context
 _caddy_caddyfile_path() {
     local target=$(_caddy_ssh_target)
-    local org=$(_caddy_org_full)
 
     if [[ "$target" == "localhost" ]]; then
-        echo "${TETRA_DIR:-$HOME/tetra}/orgs/${org:-tetra}/caddy/Caddyfile"
+        echo "$(_caddy_config_dir)/Caddyfile"
     else
         echo "/etc/caddy/Caddyfile"
     fi
@@ -76,7 +84,7 @@ source "${CADDY_SRC}/caddy_hosts.sh"
 # Run caddy locally using context-based Caddyfile
 _caddy_serve() {
     local org=$(_caddy_org)
-    local caddyfile="${TETRA_DIR:-$HOME/tetra}/orgs/${org:-tetra}/caddy/Caddyfile"
+    local caddyfile="$(_caddy_config_dir)/Caddyfile"
     local watch="${1:-}"
 
     if [[ ! -f "$caddyfile" ]]; then
@@ -152,14 +160,14 @@ _caddy_help() {
         ctx|context)
             echo -e "${CTX}tcaddy ctx${R} ${DIM}- Context management${R}"
             echo ""
-            echo -e "  ${CMD}set${R} ${ARG}<org> [proj] [env]${R}   ${DIM}Set context${R}"
-            echo -e "  ${CMD}proj${R} ${ARG}<name>${R}              ${DIM}Change proj only${R}"
+            echo -e "  ${CMD}set${R} ${ARG}<org> [env]${R}          ${DIM}Set context${R}"
             echo -e "  ${CMD}env${R} ${ARG}<name>${R}               ${DIM}Change env only${R}"
+            echo -e "  ${CMD}envs${R}                     ${DIM}List envs for org${R}"
             echo -e "  ${CMD}clear${R}                    ${DIM}Clear context${R}"
             echo -e "  ${CMD}status${R}                   ${DIM}Show current${R}"
-            echo -e "  ${CMD}add-env${R} ${ARG}<alias> <ssh>${R}    ${DIM}Add env alias${R}"
+            echo -e "  ${CMD}alias${R} ${ARG}<short> <org>${R}      ${DIM}Add org alias${R}"
             echo ""
-            echo -e "  ${DIM}Example: tcaddy ctx pja arcade dev${R}"
+            echo -e "  ${DIM}Example: tcaddy ctx pja prod${R}"
             ;;
         log|logs)
             echo -e "${LOG}tcaddy log${R} ${DIM}- Log viewing & analysis${R}"
@@ -184,7 +192,8 @@ _caddy_help() {
             echo -e "  ${CMD}validate${R}    ${DIM}Validate configuration${R}"
             echo -e "  ${CMD}fmt${R}         ${DIM}Format Caddyfile${R}"
             echo -e "  ${CMD}reload${R}      ${DIM}Reload config (triggers service)${R}"
-            echo -e "  ${CMD}deploy${R} ${ARG}[f]${R}  ${DIM}Deploy Caddyfile to host${R}"
+            echo -e "  ${CMD}deploy${R} ${ARG}[-n]${R}  ${DIM}Deploy config tree to host${R}"
+            echo -e "  ${CMD}audit${R}        ${DIM}Diff local vs remote config${R}"
             echo ""
             echo -e "  ${DIM}Shortcut: tcaddy c${R}"
             ;;
@@ -236,13 +245,14 @@ _caddy_help() {
         *)
             echo -e "${CMD}tcaddy${R} ${DIM}- Caddy server management${R}"
             echo ""
-            echo -e "  ${CTX}ctx${R}      ${DIM}Context (org:proj:env)${R}"
+            echo -e "  ${CTX}ctx${R}      ${DIM}Context (org:env)${R}"
             echo -e "  ${LOG}log${R}      ${DIM}Log viewing & analysis${R}"
             echo -e "  ${CFG}cfg${R}      ${DIM}Configuration management${R}"
             echo -e "  ${SVC}svc${R}      ${DIM}Service control${R}"
             echo -e "  ${RTE}route${R}    ${DIM}Sites & certificates${R}"
             echo -e "  ${LOG}ban${R}      ${DIM}fail2ban monitoring${R}"
             echo ""
+            echo -e "  ${CMD}map${R}      ${DIM}Proxy/backend visualization${R}"
             echo -e "  ${CMD}info${R}     ${DIM}Show paths & modules${R}"
             echo -e "  ${CMD}test${R}     ${DIM}Test API connectivity${R}"
             echo -e "  ${CMD}hosts${R}    ${DIM}Local /etc/hosts${R}"
@@ -298,6 +308,7 @@ _caddy_cfg() {
         fmt|format)  _caddy_fmt "$@" ;;
         reload|r)    _caddy_reload "$@" ;;
         deploy|d)    _caddy_deploy "$@" ;;
+        audit|a)     _caddy_audit "$@" ;;
         help|h)      _caddy_help cfg ;;
         *)
             echo "caddy cfg: unknown '$cmd'" >&2
@@ -386,6 +397,7 @@ tcaddy() {
         ban|f2b)     _caddy_ban "$@" ;;
 
         # Top-level commands
+        map)         _caddy_map "$@" ;;
         info)        _caddy_info "$@" ;;
         reload)      _caddy_reload "$@" ;;
         test)        _caddy_api_test "$@" ;;
@@ -421,7 +433,7 @@ tcaddy() {
 # =============================================================================
 
 # Core helpers
-export -f _caddy_is_local _caddy_exec _caddy_ssh _caddy_caddyfile_path
+export -f _caddy_is_local _caddy_exec _caddy_ssh _caddy_config_dir _caddy_caddyfile_path
 export -f _caddy_hex_to_ansi _caddy_help
 
 # Group dispatchers

@@ -131,35 +131,87 @@ _caddy_fmt() {
 # DEPLOY COMMAND
 # =============================================================================
 
-# Deploy Caddyfile from local to remote
+# Deploy full caddy config tree (Caddyfile + modules/ + snippets) to remote
+# Usage: _caddy_deploy [--dry-run|-n]
 _caddy_deploy() {
-    local caddyfile="${1:-$PWD/Caddyfile}"
-    local target
-    target=$(_caddy_ssh_target)
+    local dry_run=""
+    local env=$(_caddy_env)
+    local target=$(_caddy_ssh_target)
 
-    if [[ ! -f "$caddyfile" ]]; then
-        echo "Caddyfile not found: $caddyfile" >&2
-        return 1
-    fi
+    # Parse flags
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --dry-run|-n) dry_run="-n"; shift ;;
+            *) shift ;;
+        esac
+    done
 
     if [[ "$target" == "localhost" ]]; then
         echo "Cannot deploy to localhost" >&2
         return 1
     fi
 
-    echo "=== Deploying to $target ==="
+    # Resolve local caddy dir
+    local caddy_dir=$(_caddy_config_dir)
+    local env_caddyfile="${caddy_dir}/${env}.Caddyfile"
 
-    # Validate locally first
-    if command -v caddy &>/dev/null; then
-        echo "Validating locally..."
-        caddy validate --config "$caddyfile" || return 1
+    # Fall back to plain Caddyfile if env-specific doesn't exist
+    if [[ ! -f "$env_caddyfile" ]]; then
+        env_caddyfile="${caddy_dir}/Caddyfile"
     fi
 
-    # Deploy
-    echo "Copying Caddyfile..."
-    scp "$caddyfile" "$target:/etc/caddy/Caddyfile"
+    if [[ ! -f "$env_caddyfile" ]]; then
+        echo "Caddyfile not found: $env_caddyfile" >&2
+        return 1
+    fi
+
+    if [[ ! -d "$caddy_dir" ]]; then
+        echo "Caddy dir not found: $caddy_dir" >&2
+        return 1
+    fi
+
+    echo "=== Deploying to $target ==="
+    echo "  Source:    $caddy_dir"
+    echo "  Caddyfile: $(basename "$env_caddyfile")"
+    echo "  Env:       $env"
+    [[ -n "$dry_run" ]] && echo "  Mode:      DRY RUN"
+    echo ""
+
+    # Validate locally first (warn-only since remote paths may not exist locally)
+    if command -v caddy &>/dev/null; then
+        echo "Validating locally..."
+        if ! caddy validate --config "$env_caddyfile" 2>&1; then
+            echo "(local validation failed — may be due to remote-only paths)"
+            echo "Will validate on remote after sync."
+        fi
+        echo ""
+    fi
+
+    # Stage the env-specific Caddyfile as "Caddyfile" in a temp dir for atomic rsync
+    local stage_dir
+    stage_dir=$(mktemp -d)
+    rsync -a "${caddy_dir}/" "$stage_dir/"
+    # Remove all env Caddyfiles, place the correct one as Caddyfile
+    rm -f "$stage_dir"/*.Caddyfile "$stage_dir"/Caddyfile
+    cp "$env_caddyfile" "$stage_dir/Caddyfile"
+
+    echo "Syncing config tree (atomic)..."
+    rsync -avz --delete $dry_run \
+        --exclude='*.Caddyfile' \
+        --exclude='*.bak*' \
+        --temp-dir=/tmp \
+        "${stage_dir}/" "${target}:/etc/caddy/"
+
+    rm -rf "$stage_dir"
+
+    if [[ -n "$dry_run" ]]; then
+        echo ""
+        echo "Dry run complete. Run without -n to deploy."
+        return 0
+    fi
 
     # Validate on remote
+    echo ""
     echo "Validating on remote..."
     _caddy_ssh "caddy validate --config /etc/caddy/Caddyfile" || return 1
 
@@ -167,7 +219,226 @@ _caddy_deploy() {
     echo "Reloading..."
     _caddy_ssh "systemctl reload caddy"
 
+    echo ""
     echo "Deployed successfully"
+}
+
+# =============================================================================
+# AUDIT COMMAND
+# =============================================================================
+
+# Compare local caddy config vs remote
+# Usage: _caddy_audit
+_caddy_audit() {
+    local env=$(_caddy_env)
+    local target=$(_caddy_ssh_target)
+
+    if [[ "$target" == "localhost" ]]; then
+        echo "Audit requires a remote target" >&2
+        return 1
+    fi
+
+    local caddy_dir=$(_caddy_config_dir)
+    local env_caddyfile="${caddy_dir}/${env}.Caddyfile"
+    [[ ! -f "$env_caddyfile" ]] && env_caddyfile="${caddy_dir}/Caddyfile"
+
+    echo "=== Caddy Config Audit ==="
+    echo "  Local:  $caddy_dir"
+    echo "  Remote: $target:/etc/caddy/"
+    echo ""
+
+    # Remote caddy version and uptime — single SSH call
+    local remote_info
+    remote_info=$(_caddy_ssh 'echo "VERSION=$(caddy version 2>/dev/null | head -1)"; echo "UPTIME=$(systemctl show caddy -p ActiveEnterTimestamp --value 2>/dev/null)"' 2>/dev/null)
+    local remote_version remote_uptime
+    remote_version=$(echo "$remote_info" | sed -n 's/^VERSION=//p')
+    remote_uptime=$(echo "$remote_info" | sed -n 's/^UPTIME=//p')
+
+    echo "Remote Caddy: ${remote_version:-unknown}"
+    if [[ -n "$remote_uptime" ]]; then
+        echo "Remote Since: $remote_uptime"
+    fi
+
+    # Local caddy version
+    if command -v caddy &>/dev/null; then
+        echo "Local Caddy:  $(caddy version 2>/dev/null | head -1)"
+    fi
+    echo ""
+
+    # Compare Caddyfile
+    echo "--- Caddyfile diff ---"
+    local remote_caddyfile
+    remote_caddyfile=$(_caddy_ssh "cat /etc/caddy/Caddyfile 2>/dev/null")
+    if [[ -n "$remote_caddyfile" ]]; then
+        diff <(cat "$env_caddyfile") <(echo "$remote_caddyfile") && echo "(identical)" || true
+    else
+        echo "(remote Caddyfile not found)"
+    fi
+    echo ""
+
+    # Compare module files
+    echo "--- Module files ---"
+    local local_modules remote_modules
+    local_modules=$(ls "$caddy_dir/modules/"*.caddy 2>/dev/null | xargs -n1 basename | sort)
+    remote_modules=$(_caddy_ssh "ls /etc/caddy/modules/*.caddy 2>/dev/null | xargs -n1 basename | sort" 2>/dev/null)
+
+    local local_count=$(echo "$local_modules" | grep -c . 2>/dev/null || echo 0)
+    local remote_count=$(echo "$remote_modules" | grep -c . 2>/dev/null || echo 0)
+
+    echo "  Local:  $local_count files"
+    echo "  Remote: $remote_count files"
+
+    if [[ "$local_modules" != "$remote_modules" ]]; then
+        echo ""
+        echo "  File list diff:"
+        diff <(echo "$local_modules") <(echo "$remote_modules") | sed 's/^/    /' || true
+    else
+        echo "  File lists match"
+    fi
+    echo ""
+
+    # Diff module files — single SSH call fetches all remote content as a tar stream
+    local has_diff=false
+    local remote_tmp
+    remote_tmp=$(mktemp -d)
+
+    # Batch fetch: one SSH call for all module files + snippets
+    _caddy_ssh "tar -cf - -C /etc/caddy modules/ snippets.caddy 2>/dev/null || true" \
+        | tar -xf - -C "$remote_tmp" 2>/dev/null || true
+
+    while IFS= read -r mod; do
+        [[ -z "$mod" ]] && continue
+        local local_content remote_content
+        local_content=$(cat "$caddy_dir/modules/$mod" 2>/dev/null)
+        remote_content=$(cat "$remote_tmp/modules/$mod" 2>/dev/null)
+        if [[ "$local_content" != "$remote_content" ]]; then
+            has_diff=true
+            echo "--- modules/$mod ---"
+            diff <(echo "$local_content") <(echo "$remote_content") | head -20
+            echo ""
+        fi
+    done <<< "$local_modules"
+
+    # Check snippets.caddy
+    if [[ -f "$caddy_dir/snippets.caddy" ]]; then
+        local local_snip remote_snip
+        local_snip=$(cat "$caddy_dir/snippets.caddy")
+        remote_snip=$(cat "$remote_tmp/snippets.caddy" 2>/dev/null)
+        if [[ "$local_snip" != "$remote_snip" ]]; then
+            has_diff=true
+            echo "--- snippets.caddy ---"
+            diff <(echo "$local_snip") <(echo "$remote_snip") | head -20
+            echo ""
+        fi
+    fi
+
+    rm -rf "$remote_tmp"
+
+    if [[ "$has_diff" == false ]]; then
+        echo "All module files match."
+    fi
+}
+
+# =============================================================================
+# MAP COMMAND
+# =============================================================================
+
+# Parse Caddyfile modules and display proxy/backend map
+# Usage: _caddy_map
+_caddy_map() {
+    local org=$(_caddy_org)
+    local env=$(_caddy_env)
+    local caddy_dir=$(_caddy_config_dir)
+    local env_caddyfile="${caddy_dir}/${env}.Caddyfile"
+    [[ ! -f "$env_caddyfile" ]] && env_caddyfile="${caddy_dir}/Caddyfile"
+
+    if [[ ! -f "$env_caddyfile" ]]; then
+        echo "Caddyfile not found: $env_caddyfile" >&2
+        return 1
+    fi
+
+    # Resolve all imports into a single stream
+    local full_config=""
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^[[:space:]]*import[[:space:]]+(.*) ]]; then
+            local import_path="${BASH_REMATCH[1]}"
+            # Resolve relative to caddy_dir
+            local resolved="${caddy_dir}/${import_path}"
+            # Expand globs
+            for f in $resolved; do
+                [[ -f "$f" ]] && full_config+=$'\n'"$(cat "$f")"
+            done
+        else
+            full_config+=$'\n'"$line"
+        fi
+    done < "$env_caddyfile"
+
+    local domain=$(_caddy_domain)
+    local title="${org^^} ${env^} Proxy Map"
+    [[ -n "$domain" ]] && title+=" ($domain)"
+
+    echo "$title"
+    printf '═%.0s' $(seq 1 ${#title})
+    echo ""
+
+    # Parse site blocks and their routes using awk
+    echo "$full_config" | awk '
+    BEGIN { site=""; indent=0 }
+
+    # Site block header (line starting with a domain, not inside braces)
+    /^[a-zA-Z0-9].*\{/ && indent == 0 {
+        site = $1
+        gsub(/\{/, "", site)
+        indent = 1
+        printf "\n  %s\n", site
+        next
+    }
+
+    # Track brace depth
+    /\{/ && indent > 0 { indent++ }
+    /\}/ && indent > 0 {
+        indent--
+        if (indent == 0) site = ""
+        next
+    }
+
+    # handle path { ... reverse_proxy target }
+    /handle_path|handle/ && indent > 0 {
+        # Extract path matcher
+        match($0, /handle(_path)?\s+([^ {]+)/, m)
+        if (m[2] != "") {
+            current_path = m[2]
+        } else {
+            current_path = "/*"
+        }
+    }
+
+    # reverse_proxy lines
+    /reverse_proxy/ && indent > 0 {
+        match($0, /reverse_proxy\s+([^ }]+)/, m)
+        if (m[1] != "") {
+            target = m[1]
+            # Use current_path if set from handle block
+            p = (current_path != "") ? current_path : "/*"
+            printf "    %-20s → %s\n", p, target
+            current_path = ""
+        }
+    }
+
+    # file_server lines
+    /file_server/ && indent > 0 {
+        p = (current_path != "") ? current_path : "/*"
+        # Check for root directive nearby
+        printf "    %-20s → [file_server]\n", p
+        current_path = ""
+    }
+
+    # basic_auth annotation
+    /basic_auth/ && indent > 0 {
+        # Note it for the next route
+    }
+    '
+    echo ""
 }
 
 # =============================================================================

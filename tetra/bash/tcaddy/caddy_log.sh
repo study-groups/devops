@@ -112,10 +112,12 @@ _caddy_logs_stats() {
     echo "=== Log statistics ==="
     _caddy_ssh 'for f in /var/log/caddy/*.log; do
         name=$(basename "$f")
-        lines=$(wc -l < "$f" 2>/dev/null || echo 0)
-        errors=$(grep -c "\"level\":\"error\"" "$f" 2>/dev/null || echo 0)
-        s5xx=$(grep -c "\"status\":5" "$f" 2>/dev/null || echo 0)
-        printf "%-40s %6d lines, %4d errors, %4d 5xx\n" "$name" "$lines" "$errors" "$s5xx"
+        awk -v name="$name" '"'"'
+            { lines++ }
+            /"level":"error"/ { errors++ }
+            /"status":5/ { s5xx++ }
+            END { printf "%-40s %6d lines, %4d errors, %4d 5xx\n", name, lines, errors+0, s5xx+0 }
+        '"'"' "$f"
     done'
 }
 
@@ -140,26 +142,42 @@ _caddy_logs_top() {
     case "$what" in
         ips|ip)
             echo "=== Top $n IPs ==="
-            _caddy_ssh "cat $logfile 2>/dev/null | jq -r '.request.remote_ip // .request.client_ip // empty' | sort | uniq -c | sort -rn | head -n $n"
+            _caddy_ssh "jq -r '.request.remote_ip // .request.client_ip // empty' $logfile 2>/dev/null | sort | uniq -c | sort -rn | head -n $n"
             ;;
         paths|path|uri)
             echo "=== Top $n Paths ==="
-            _caddy_ssh "cat $logfile 2>/dev/null | jq -r '.request.uri // empty' | sort | uniq -c | sort -rn | head -n $n"
+            _caddy_ssh "jq -r '.request.uri // empty' $logfile 2>/dev/null | sort | uniq -c | sort -rn | head -n $n"
             ;;
         codes|status)
             echo "=== Status Code Distribution ==="
-            _caddy_ssh "cat $logfile 2>/dev/null | jq -r '.status // empty' | sort | uniq -c | sort -rn | head -n $n"
+            _caddy_ssh "jq -r '.status // empty' $logfile 2>/dev/null | sort | uniq -c | sort -rn | head -n $n"
             ;;
         ua|useragent|agents)
             echo "=== Top $n User Agents ==="
-            _caddy_ssh "cat $logfile 2>/dev/null | jq -r '.request.headers[\"User-Agent\"][0] // empty' | sort | uniq -c | sort -rn | head -n $n"
+            _caddy_ssh "jq -r '.request.headers[\"User-Agent\"][0] // empty' $logfile 2>/dev/null | sort | uniq -c | sort -rn | head -n $n"
             ;;
         errors|err)
             echo "=== Top $n Error Sources ==="
-            _caddy_ssh "cat $logfile 2>/dev/null | jq -r 'select(.status >= 400) | \"\\(.status) \\(.request.remote_ip // \"?\") \\(.request.uri // \"?\")\"' | sort | uniq -c | sort -rn | head -n $n"
+            _caddy_ssh "jq -r 'select(.status >= 400) | \"\\(.status) \\(.request.remote_ip // \"?\") \\(.request.uri // \"?\")\"' $logfile 2>/dev/null | sort | uniq -c | sort -rn | head -n $n"
+            ;;
+        all|a)
+            echo "=== Top $n Analysis (single pass) ==="
+            _caddy_ssh "jq -r '[.request.remote_ip // .request.client_ip // \"-\", .request.uri // \"-\", (.status // 0 | tostring), .request.headers[\"User-Agent\"][0] // \"-\"] | @tsv' $logfile 2>/dev/null" | awk -F'\t' -v n="$n" '
+                { ips[$1]++; paths[$2]++; codes[$3]++; uas[$4]++ }
+                END {
+                    print "--- IPs ---"
+                    PROCINFO["sorted_in"]="@val_num_desc"
+                    i=0; for(k in ips) { if(++i>n) break; printf "%7d %s\n", ips[k], k }
+                    print "\n--- Paths ---"
+                    i=0; for(k in paths) { if(++i>n) break; printf "%7d %s\n", paths[k], k }
+                    print "\n--- Status Codes ---"
+                    i=0; for(k in codes) { if(++i>n) break; printf "%7d %s\n", codes[k], k }
+                    print "\n--- User Agents ---"
+                    i=0; for(k in uas) { if(++i>n) break; printf "%7d %s\n", uas[k], k }
+                }'
             ;;
         *)
-            echo "Usage: tcaddy log top <ips|paths|codes|ua|errors> [count]"
+            echo "Usage: tcaddy log top <ips|paths|codes|ua|errors|all> [count]"
             return 1
             ;;
     esac
@@ -258,7 +276,7 @@ _caddy_logs_policy() {
             echo "=== Alert Policy ==="
             echo ""
             # Check for any alert/notification config
-            local alert_conf="${TETRA_DIR:-$HOME/tetra}/orgs/$(_caddy_org)/caddy/alerts.conf"
+            local alert_conf="$(_caddy_config_dir)/alerts.conf"
             if [[ -f "$alert_conf" ]]; then
                 echo "Config: $alert_conf"
                 cat "$alert_conf"
@@ -283,7 +301,7 @@ _caddy_logs_policy() {
             _caddy_ssh "grep -E 'level|format' /etc/caddy/Caddyfile 2>/dev/null | grep -v '^#' | sed 's/^[ \t]*/  /' | head -3" || echo "  (all levels, json)"
             echo ""
             echo "ALERTS:"
-            local alert_conf="${TETRA_DIR:-$HOME/tetra}/orgs/$(_caddy_org)/caddy/alerts.conf"
+            local alert_conf="$(_caddy_config_dir)/alerts.conf"
             if [[ -f "$alert_conf" ]]; then
                 head -3 "$alert_conf" | sed 's/^/  /'
             else

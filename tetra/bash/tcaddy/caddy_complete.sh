@@ -9,14 +9,14 @@
 # =============================================================================
 
 # Top-level groups (no shortcuts in completion - cleaner interface)
-_CADDY_GROUPS="ctx log cfg svc route ban info hosts serve help"
+_CADDY_GROUPS="ctx log cfg svc route ban map info hosts serve help"
 
 # Subcommands per group
 _CADDY_LOG_CMDS="policy roll show follow errors list stats raw json size top export archive help"
 
 # Policy subcommands
 _CADDY_LOG_POLICY="roll filter alert all"
-_CADDY_CFG_CMDS="show validate fmt reload deploy help"
+_CADDY_CFG_CMDS="show validate fmt reload deploy audit help"
 _CADDY_SVC_CMDS="status start stop restart ping version resources help"
 _CADDY_ROUTE_CMDS="list upstreams certs certs-list help"
 _CADDY_HOSTS_CMDS="status list add update remove edit ip domain"
@@ -27,9 +27,8 @@ _CADDY_LOG_TOP="ips paths codes ua errors"
 _CADDY_LOG_EXPORT="json csv"
 
 # Context subcommands and values
-_CADDY_CTX_CMDS="set proj env clear status add-env"
+_CADDY_CTX_CMDS="set env envs clear status alias"
 _CADDY_ORGS="pja tetra"
-_CADDY_PROJS="arcade api docs cabinet pbase dashboard"
 _CADDY_ENVS_LIST="dev local"
 
 # Help topics
@@ -95,8 +94,10 @@ _caddy_complete() {
         cfg)
             if [[ $COMP_CWORD -eq 2 ]]; then
                 COMPREPLY=($(compgen -W "$_CADDY_CFG_CMDS" -- "$cur"))
-            elif [[ $COMP_CWORD -eq 3 && "$subcmd" == "deploy" ]]; then
-                COMPREPLY=($(compgen -f -- "$cur"))
+            elif [[ $COMP_CWORD -eq 3 ]]; then
+                case "$subcmd" in
+                    deploy) COMPREPLY=($(compgen -W "--dry-run -n" -- "$cur")) ;;
+                esac
             fi
             ;;
 
@@ -122,18 +123,13 @@ _caddy_complete() {
             elif [[ $COMP_CWORD -eq 3 ]]; then
                 case "$subcmd" in
                     set|pja|tetra)
-                        COMPREPLY=($(compgen -W "$_CADDY_PROJS" -- "$cur"))
-                        ;;
-                    proj)
-                        COMPREPLY=($(compgen -W "$_CADDY_PROJS" -- "$cur"))
+                        # After org, complete envs
+                        COMPREPLY=($(compgen -W "$_CADDY_ENVS_LIST" -- "$cur"))
                         ;;
                     env)
                         COMPREPLY=($(compgen -W "$_CADDY_ENVS_LIST" -- "$cur"))
                         ;;
                 esac
-            elif [[ $COMP_CWORD -eq 4 ]]; then
-                # After proj, complete envs
-                COMPREPLY=($(compgen -W "$_CADDY_ENVS_LIST" -- "$cur"))
             fi
             ;;
 

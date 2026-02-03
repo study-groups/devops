@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
 # caddy/caddy_ctx.sh - Caddy context (reads from tetra.toml)
 #
-# Context: org:proj:env -> SSH target (from tetra.toml)
+# Context: org:env -> SSH target (from tetra.toml)
 # Examples:
-#   tcaddy ctx pja arcade dev -> reads from $TETRA_DIR/orgs/pixeljam-arcade/tetra.toml
-#   tcaddy ctx pixeljam-arcade arcade prod -> root@64.23.151.249
+#   tcaddy ctx pja dev -> reads from $TETRA_DIR/orgs/pixeljam-arcade/tetra.toml
+#   tcaddy ctx pja prod -> root@64.23.151.249
 
 # =============================================================================
 # CONTEXT STATE
 # =============================================================================
 
 declare -g CADDY_CTX_ORG=""
-declare -g CADDY_CTX_PROJ=""
 declare -g CADDY_CTX_ENV=""
 
 # =============================================================================
@@ -62,7 +61,6 @@ _caddy_toml_get() {
 # =============================================================================
 
 _caddy_org()  { echo "$CADDY_CTX_ORG"; }
-_caddy_proj() { echo "$CADDY_CTX_PROJ"; }
 _caddy_env()  { echo "${CADDY_CTX_ENV:-local}"; }
 
 # Get full org name (resolved from alias)
@@ -120,17 +118,15 @@ _caddy_domain() {
 # CONTEXT COMMANDS
 # =============================================================================
 
-# Set context: tcaddy ctx <org> <proj> <env>
+# Set context: tcaddy ctx <org> [env]
 caddy_ctx_set() {
     local org="$1"
-    local proj="${2:-}"
-    local env="${3:-}"
+    local env="${2:-}"
 
     if [[ -z "$org" ]]; then
-        echo "Usage: tcaddy ctx <org> <proj> <env>" >&2
+        echo "Usage: tcaddy ctx <org> [env]" >&2
         echo "  org:  pja, tetra, or full org name" >&2
-        echo "  proj: arcade, api, docs, ..." >&2
-        echo "  env:  dev, staging, prod, local" >&2
+        echo "  env:  dev, staging, prod, local (default: local)" >&2
         echo "" >&2
         echo "Aliases:" >&2
         for alias in "${!CADDY_ORG_ALIASES[@]}"; do
@@ -143,7 +139,6 @@ caddy_ctx_set() {
     fi
 
     CADDY_CTX_ORG="$org"
-    CADDY_CTX_PROJ="$proj"
     CADDY_CTX_ENV="$env"
 
     # Validate org exists
@@ -158,14 +153,6 @@ caddy_ctx_set() {
     caddy_ctx_status
 }
 
-# Set just proj
-caddy_ctx_proj() {
-    local proj="$1"
-    [[ -z "$proj" ]] && { echo "Usage: tcaddy ctx proj <name>" >&2; return 1; }
-    CADDY_CTX_PROJ="$proj"
-    caddy_ctx_status
-}
-
 # Set just env
 caddy_ctx_env() {
     local env="$1"
@@ -177,7 +164,6 @@ caddy_ctx_env() {
 # Clear context
 caddy_ctx_clear() {
     CADDY_CTX_ORG=""
-    CADDY_CTX_PROJ=""
     CADDY_CTX_ENV=""
     echo "Caddy context cleared"
 }
@@ -186,10 +172,9 @@ caddy_ctx_clear() {
 caddy_ctx_status() {
     local org=$(_caddy_org)
     local org_full=$(_caddy_org_full)
-    local proj=$(_caddy_proj)
     local env=$(_caddy_env)
 
-    echo "CADDY[${org:-_}:${proj:-_}:${env:-_}]"
+    echo "CADDY[${org:-_}:${env:-_}]"
 
     if [[ -n "$org" ]]; then
         local toml=$(_caddy_toml_path)
@@ -251,14 +236,13 @@ caddy_ctx() {
 
     case "$cmd" in
         set)     caddy_ctx_set "$@" ;;
-        proj)    caddy_ctx_proj "$@" ;;
         env)     caddy_ctx_env "$@" ;;
         envs)    caddy_ctx_envs ;;
         clear)   caddy_ctx_clear ;;
         status)  caddy_ctx_status ;;
         alias)   caddy_ctx_alias "$@" ;;
         *)
-            # Convenience: tcaddy ctx pja arcade dev
+            # Convenience: tcaddy ctx pja prod
             caddy_ctx_set "$cmd" "$@"
             ;;
     esac
@@ -268,8 +252,8 @@ caddy_ctx() {
 # EXPORTS
 # =============================================================================
 
-export -f _caddy_org _caddy_proj _caddy_env _caddy_org_full
+export -f _caddy_org _caddy_env _caddy_org_full
 export -f _caddy_ssh_target _caddy_domain _caddy_toml_path _caddy_toml_get
 export -f _caddy_resolve_org
-export -f caddy_ctx caddy_ctx_set caddy_ctx_proj caddy_ctx_env
+export -f caddy_ctx caddy_ctx_set caddy_ctx_env
 export -f caddy_ctx_clear caddy_ctx_status caddy_ctx_envs caddy_ctx_alias

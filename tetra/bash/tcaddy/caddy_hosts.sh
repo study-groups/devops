@@ -28,7 +28,7 @@ _caddy_local_ip() {
 # List configured subdomains for current org
 _caddy_subdomains() {
     local domain=$(_caddy_domain)
-    local caddyfile="${TETRA_DIR:-$HOME/tetra}/orgs/$(_caddy_org)/caddy/Caddyfile"
+    local caddyfile="$(_caddy_config_dir)/Caddyfile"
 
     if [[ -f "$caddyfile" ]]; then
         # Extract subdomains from Caddyfile (case insensitive)

@@ -106,7 +106,7 @@ _caddy_api_test() {
     local env=$(_caddy_env)
 
     echo "=== Caddy API Connectivity Test ==="
-    echo "Context: $(_caddy_org):$(_caddy_proj):$env"
+    echo "Context: $(_caddy_org):$env"
     echo "Target: $target"
     echo ""
 
@@ -121,7 +121,7 @@ _caddy_api_test() {
             echo "✗ Admin API not responding"
             echo ""
             echo "Is Caddy running? Try:"
-            echo "  caddy run --config \$TETRA_DIR/orgs/\$ORG/caddy/Caddyfile"
+            echo "  caddy run --config \$TETRA_DIR/orgs/\$ORG/targets/caddy/Caddyfile"
         fi
     else
         echo "Testing SSH connection..."
