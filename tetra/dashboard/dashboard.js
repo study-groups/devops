@@ -10,6 +10,7 @@ const Dashboard = (() => {
     const VIEWS = {
         console:   { src: 'console.iframe.html',   label: 'Console' },
         tsm:       { src: 'tsm.iframe.html',       label: 'TSM' },
+        tkm:       { src: 'tkm.iframe.html',       label: 'TKM' },
         deploy:    { src: 'deploy.iframe.html',    label: 'Deploy' },
         logs:      { src: 'logs.iframe.html',      label: 'Logs' },
         caddy:     { src: 'caddy.iframe.html',     label: 'Caddy' },
@@ -266,7 +267,7 @@ const Dashboard = (() => {
             btn.classList.remove('active');
             btn.title = 'Expand panel';
             takeoverPanel = null;
-            serializeToUrl();
+            clearUrl();
         } else {
             if (takeoverPanel) {
                 takeoverPanel.classList.remove('takeover-active');
@@ -279,6 +280,21 @@ const Dashboard = (() => {
             takeoverPanel = panel;
             serializeToUrl();
         }
+    }
+
+    function clearUrl() {
+        history.replaceState(null, '', window.location.pathname);
+    }
+
+    function copyShareUrl() {
+        serializeToUrl();
+        navigator.clipboard.writeText(window.location.href).then(() => {
+            const btn = document.querySelector('.share-btn');
+            if (btn) {
+                btn.textContent = 'copied!';
+                setTimeout(() => btn.textContent = 'share', 1500);
+            }
+        });
     }
 
     // ========================================================================
@@ -308,7 +324,6 @@ const Dashboard = (() => {
         });
 
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        if (!restoring) serializeToUrl();
     }
 
     function serializeToUrl() {
@@ -779,6 +794,7 @@ const Dashboard = (() => {
         renderOrgButtons,
         refreshOrgButtons,
         generateTestUrl,
+        copyShareUrl,
         VIEWS,
         ENVS,
         PANELS,

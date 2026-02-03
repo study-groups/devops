@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TKM - Key Manager</title>
+    <link rel="stylesheet" href="shared.css">
+    <link rel="stylesheet" href="iframe-base.css">
+    <style>
+        body { padding: 12px; }
+
+        /* Status overview */
+        .status-card {
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 10px 16px;
+            margin-bottom: 12px;
+            display: flex;
+            gap: 24px;
+            align-items: baseline;
+        }
+        .status-item {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+        .status-label {
+            color: var(--ink-muted);
+            font-size: 10px;
+        }
+        .status-value {
+            color: var(--ink);
+            font-size: 11px;
+            font-family: monospace;
+        }
+        .status-value.org { color: var(--four); font-weight: 600; }
+        .status-value.path { color: var(--ink-muted); }
+
+        /* Key list */
+        .key-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 10px;
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            margin-bottom: 4px;
+        }
+        .key-item:hover { border-color: var(--four); }
+        .key-name {
+            color: var(--four);
+            font-weight: 600;
+            font-size: 11px;
+            min-width: 120px;
+        }
+        .key-fingerprint {
+            color: var(--ink-muted);
+            font-size: 9px;
+            font-family: monospace;
+            flex: 1;
+        }
+        .key-status {
+            font-size: 8px;
+            padding: 2px 6px;
+            border-radius: 2px;
+        }
+        .key-status.exists { background: var(--two); color: var(--paper-dark); }
+        .key-status.missing { background: var(--one); color: var(--paper-dark); }
+        .key-status.revoked { background: var(--three); color: var(--paper-dark); }
+
+        /* Environment connectivity */
+        .env-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 10px;
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            margin-bottom: 4px;
+        }
+        .env-name {
+            color: var(--three);
+            font-weight: 600;
+            font-size: 11px;
+            min-width: 80px;
+        }
+        .env-host {
+            color: var(--ink);
+            font-size: 10px;
+            font-family: monospace;
+            flex: 1;
+        }
+        .env-test {
+            font-size: 8px;
+            padding: 2px 8px;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .env-test.ok { background: var(--two); color: var(--paper-dark); }
+        .env-test.fail { background: var(--one); color: var(--paper-dark); }
+        .env-test.pending { background: var(--paper-dark); color: var(--ink-muted); border: 1px solid var(--border); }
+        .env-test.testing {
+            background: var(--three);
+            color: var(--paper-dark);
+            animation: pulse 1s ease-in-out infinite;
+        }
+        .env-test:hover {
+            filter: brightness(1.2);
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Actions bar */
+        .actions-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .action-btn {
+            padding: 6px 12px;
+            font-size: 10px;
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .action-btn:hover {
+            border-color: var(--four);
+            color: var(--four);
+        }
+        .action-btn.primary { background: var(--four); border-color: var(--four); color: var(--paper-dark); }
+        .action-btn.danger { background: var(--one); border-color: var(--one); }
+        .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Env select for actions */
+        .env-select {
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            padding: 6px 10px;
+            font-size: 10px;
+            border-radius: 3px;
+            transition: all 0.15s ease;
+        }
+        .env-select:hover {
+            border-color: var(--four);
+        }
+
+        /* Output panel */
+        .output-panel {
+            margin-top: 12px;
+            display: none;
+        }
+        .output-panel.active { display: block; }
+        .output-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 10px;
+            background: var(--paper-dark);
+            border: 1px solid var(--border);
+            border-bottom: none;
+            border-radius: 3px 3px 0 0;
+        }
+        .output-title {
+            color: var(--four);
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .output-close {
+            cursor: pointer;
+            color: var(--ink-muted);
+            font-size: 14px;
+        }
+        .output-close:hover { color: var(--one); }
+        .output-pre {
+            margin: 0;
+            padding: 10px;
+            background: var(--paper-dark);
+            border: 1px solid var(--border);
+            border-radius: 0 0 3px 3px;
+            font-size: 9px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            color: var(--ink);
+            line-height: 1.5;
+        }
+        .output-pre .ok { color: var(--two); }
+        .output-pre .err { color: var(--one); }
+        .output-pre .warn { color: var(--three); }
+        .output-pre .info { color: var(--four); }
+
+        /* SSH Config section */
+        .config-block {
+            background: var(--paper-dark);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 9px;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+            color: var(--ink-muted);
+        }
+        .config-block .match { color: var(--four); }
+        .config-block .key { color: var(--two); }
+        .config-block .comment { color: var(--ink-muted); opacity: 0.6; }
+
+        /* Revoked keys section */
+        .keys-section-title {
+            font-size: 9px;
+            color: var(--ink-muted);
+            margin: 12px 0 6px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .keys-section-title.active { color: var(--two); }
+        .keys-section-title.revoked { color: var(--three); }
+        .key-item.revoked {
+            opacity: 0.7;
+            border-style: dashed;
+        }
+        .key-item.revoked .key-name { color: var(--ink-muted); }
+        .key-item .key-time {
+            font-size: 8px;
+            color: var(--ink-muted);
+            margin-left: 8px;
+        }
+        .key-item .clean-btn {
+            font-size: 8px;
+            padding: 2px 6px;
+            background: var(--one);
+            color: var(--paper-dark);
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+        .key-item .clean-btn:hover { filter: brightness(1.2); }
+
+        /* Modal styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: var(--paper-mid);
+            border: 2px solid var(--four);
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--four);
+            margin-bottom: 16px;
+        }
+        .modal-title.danger { color: var(--one); }
+        .modal-body {
+            font-size: 12px;
+            line-height: 1.6;
+            color: var(--ink);
+        }
+        .modal-section {
+            margin: 16px 0;
+            padding: 12px;
+            background: var(--paper-dark);
+            border-radius: 4px;
+        }
+        .modal-section-title {
+            font-size: 10px;
+            color: var(--ink-muted);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .modal-key-item {
+            display: flex;
+            gap: 12px;
+            padding: 4px 0;
+            font-family: monospace;
+            font-size: 11px;
+        }
+        .modal-key-item .name { color: var(--four); min-width: 100px; }
+        .modal-key-item .fp { color: var(--ink-muted); }
+        .modal-actions-list {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+        .modal-actions-list li {
+            margin: 4px 0;
+            color: var(--two);
+        }
+        .modal-warning {
+            margin: 16px 0;
+            padding: 12px;
+            background: rgba(255,107,107,0.1);
+            border: 1px solid var(--one);
+            border-radius: 4px;
+            color: var(--one);
+            font-size: 11px;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
+        .modal-btn {
+            padding: 10px 20px;
+            font-size: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: var(--paper-dark);
+            color: var(--ink);
+        }
+        .modal-btn:hover { border-color: var(--ink-muted); }
+        .modal-btn.primary {
+            background: var(--four);
+            border-color: var(--four);
+            color: var(--paper-dark);
+            font-weight: 600;
+        }
+        .modal-btn.danger {
+            background: var(--one);
+            border-color: var(--one);
+            color: var(--paper-dark);
+            font-weight: 600;
+        }
+
+        /* Post-rotate result */
+        .rotate-result {
+            margin: 16px 0;
+        }
+        .rotate-result .old-keys,
+        .rotate-result .new-keys {
+            margin: 12px 0;
+        }
+        .rotate-result .section-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        .rotate-result .old-keys .section-label { color: var(--one); }
+        .rotate-result .new-keys .section-label { color: var(--two); }
+
+        /* Tooltip styles */
+        .tooltip-container {
+            position: relative;
+        }
+        [data-tooltip] {
+            position: relative;
+        }
+        [data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--paper-dark);
+            border: 2px solid var(--four);
+            color: var(--ink);
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            width: 340px;
+            max-width: 90vw;
+            z-index: 1000;
+            margin-top: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            pointer-events: none;
+            animation: tooltipFade 0.2s ease;
+        }
+        [data-tooltip]:hover::before {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 10px solid transparent;
+            border-bottom-color: var(--four);
+            margin-top: -8px;
+            z-index: 1001;
+            pointer-events: none;
+        }
+        @keyframes tooltipFade {
+            from { opacity: 0; transform: translateX(-50%) translateY(-5px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        /* Position adjustments for edge buttons */
+        .env-select[data-tooltip]:hover::after,
+        .action-btn[data-action="init"][data-tooltip]:hover::after {
+            left: 0;
+            transform: translateX(0);
+        }
+        .env-select[data-tooltip]:hover::before,
+        .action-btn[data-action="init"][data-tooltip]:hover::before {
+            left: 30px;
+            transform: translateX(0);
+        }
+        .action-btn[data-action="rotate"][data-tooltip]:hover::after {
+            left: auto;
+            right: 0;
+            transform: translateX(0);
+        }
+        .action-btn[data-action="rotate"][data-tooltip]:hover::before {
+            left: auto;
+            right: 30px;
+            transform: translateX(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="iframe-header flat">
+        <span>TKM - Key Manager</span>
+        <span class="refresh" data-action="refresh">&#8635;</span>
+    </div>
+
+    <!-- Status Overview -->
+    <div class="section">
+        <div class="section-title">Status</div>
+        <div class="status-card" id="status-card">
+            <div class="empty">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="section">
+        <div class="section-title">Actions</div>
+        <div class="actions-bar">
+            <select class="env-select" id="env-select" data-tooltip="SELECT ENVIRONMENT
+
+Choose which environment to operate on:
+
+• all envs - Apply action to dev, staging, and prod
+• dev - Development server only
+• staging - Staging server only
+• prod - Production server only
+
+Most actions work with 'all' except Rotate which requires a specific environment for safety.">
+                <option value="all">all envs</option>
+            </select>
+            <button class="action-btn" data-action="init" data-tooltip="INITIALIZE KEY DIRECTORY
+
+Creates ~/.ssh/<org>/ directory where your SSH keys will be stored.
+
+This is a one-time setup step. Safe to run multiple times - if directory exists, does nothing.
+
+Run this FIRST before generating any keys.
+
+Creates: ~/.ssh/pixeljam-arcade/ (example)">Init</button>
+            <button class="action-btn" data-action="gen" data-tooltip="GENERATE SSH KEYPAIRS
+
+Creates Ed25519 SSH keypairs for each environment:
+
+• <env>_root - Key for root user access
+• <env>_dev - Key for app user access
+
+Also updates ~/.ssh/config with Match blocks so SSH automatically picks the right key.
+
+Keys are stored in ~/.ssh/<org>/ with proper permissions (600).
+
+Safe to run again - skips existing keys.">Generate</button>
+            <button class="action-btn primary" data-action="deploy" data-tooltip="DEPLOY PUBLIC KEYS TO SERVERS
+
+Pushes your public keys to remote servers' authorized_keys files.
+
+REQUIRES: Initial SSH access (password or existing key)
+
+What it does:
+1. Connects to server via SSH
+2. Appends public key to /root/.ssh/authorized_keys
+3. Appends public key to /home/<user>/.ssh/authorized_keys
+4. Sets correct permissions (700 for .ssh, 600 for authorized_keys)
+
+After this, you can SSH without passwords using your TKM keys.">Deploy</button>
+            <button class="action-btn" data-action="test" data-tooltip="TEST SSH CONNECTIVITY
+
+Verifies you can connect to servers using your TKM keys.
+
+For each environment, attempts:
+  ssh -o BatchMode=yes -o ConnectTimeout=5 root@<host> echo ok
+
+BatchMode=yes prevents password prompts - if key auth fails, test fails immediately.
+
+Results: OK = key works, FAIL = cannot connect
+
+Use this to verify your setup before automating deployments.">Test</button>
+            <button class="action-btn danger" data-action="rotate" data-tooltip="ROTATE KEYS (DANGER)
+
+Full key rotation for ONE environment:
+
+1. REVOKE - Archives old keys with timestamp
+   (dev_root → dev_root.revoked.20250203_120000)
+
+2. GENERATE - Creates fresh new keypair
+
+3. DEPLOY - Pushes new public key to server
+
+⚠️  IMPORTANT: Old keys still work on server!
+To fully invalidate old keys, you must manually remove them from the server's authorized_keys file.
+
+Use 'tkm remote clean' to remove old keys by fingerprint.
+
+Requires specific environment - cannot rotate 'all' for safety.">Rotate</button>
+        </div>
+    </div>
+
+    <!-- Keys -->
+    <div class="section">
+        <div class="section-title">Keys</div>
+        <div id="keys-list">
+            <div class="empty">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Environments -->
+    <div class="section">
+        <div class="section-title">Environments</div>
+        <div id="envs-list">
+            <div class="empty">Loading...</div>
+        </div>
+    </div>
+
+    <!-- SSH Config -->
+    <div class="section">
+        <div class="section-title">SSH Config</div>
+        <div class="config-block" id="ssh-config">Loading...</div>
+    </div>
+
+    <!-- Output Panel -->
+    <div class="output-panel" id="output-panel">
+        <div class="output-header">
+            <span class="output-title" id="output-title">Output</span>
+            <span class="output-close" id="output-close">&times;</span>
+        </div>
+        <pre class="output-pre" id="output-pre"></pre>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal" id="modal">
+            <div class="modal-title" id="modal-title">Confirm Action</div>
+            <div class="modal-body" id="modal-body"></div>
+            <div class="modal-buttons">
+                <button class="modal-btn" id="modal-cancel">Cancel</button>
+                <button class="modal-btn danger" id="modal-confirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/terrain-iframe.js"></script>
+    <script src="/js/iframe-init.js"></script>
+    <script>
+        var state = {
+            org: null,
+            keysDir: null,
+            activeKeys: [],
+            revokedKeys: [],
+            envs: [],
+            sshConfig: '',
+            modalCallback: null
+        };
+
+        function init() {
+            Terrain.Iframe.init({ name: 'tkm' });
+
+            Terrain.Iframe.on('refresh', loadAll);
+            Terrain.Iframe.on('init', () => runAction('init'));
+            Terrain.Iframe.on('gen', () => runAction('gen'));
+            Terrain.Iframe.on('deploy', () => runAction('deploy'));
+            Terrain.Iframe.on('test', () => runAction('test'));
+            Terrain.Iframe.on('rotate', () => confirmRotate());
+
+            document.getElementById('output-close').addEventListener('click', hideOutput);
+            document.getElementById('modal-cancel').addEventListener('click', hideModal);
+            document.getElementById('modal-confirm').addEventListener('click', function() {
+                if (state.modalCallback) state.modalCallback();
+                hideModal();
+            });
+            document.getElementById('modal-overlay').addEventListener('click', function(e) {
+                if (e.target === this) hideModal();
+            });
+
+            loadAll();
+        }
+
+        async function loadAll() {
+            await loadStatus();
+            await loadKeys();
+            await loadEnvs();
+            await loadConfig();
+        }
+
+        async function loadStatus() {
+            try {
+                var res = await fetch(Terrain.State.apiUrl('/api/tkm/status'));
+                var data = await res.json();
+
+                state.org = data.org;
+                state.keysDir = data.keysDir;
+
+                document.getElementById('status-card').innerHTML =
+                    '<div class="status-item">' +
+                        '<span class="status-label">Org</span>' +
+                        '<span class="status-value org">' + (data.org || '(none)') + '</span>' +
+                    '</div>' +
+                    '<div class="status-item">' +
+                        '<span class="status-label">Keys</span>' +
+                        '<span class="status-value path">' + (data.keysDir || '~/.ssh/&lt;org&gt;/') + '</span>' +
+                    '</div>' +
+                    '<div class="status-item">' +
+                        '<span class="status-label">Active</span>' +
+                        '<span class="status-value">' + (data.keyCount || 0) + ' keys</span>' +
+                    '</div>';
+            } catch (err) {
+                document.getElementById('status-card').innerHTML = '<div class="error">Failed to load status</div>';
+            }
+        }
+
+        async function loadKeys() {
+            try {
+                var res = await fetch(Terrain.State.apiUrl('/api/tkm/keys'));
+                var data = await res.json();
+
+                state.activeKeys = data.active || [];
+                state.revokedKeys = data.revoked || [];
+
+                var html = '';
+
+                // Active keys section
+                if (state.activeKeys.length > 0) {
+                    html += '<div class="keys-section-title active">Active Keys</div>';
+                    html += state.activeKeys.map(function(k) {
+                        return '<div class="key-item">' +
+                            '<span class="key-name">' + k.name + '</span>' +
+                            '<span class="key-fingerprint">' + (k.fingerprint || '-') + '</span>' +
+                            '<span class="key-status exists">OK</span>' +
+                        '</div>';
+                    }).join('');
+                }
+
+                // Revoked keys section
+                if (state.revokedKeys.length > 0) {
+                    html += '<div class="keys-section-title revoked">Revoked Keys (archived locally, may still be on server)</div>';
+                    html += state.revokedKeys.map(function(k) {
+                        var cleanBtn = k.fingerprint ?
+                            '<button class="clean-btn" data-fp="' + k.fingerprint + '" data-name="' + k.baseName + '">clean from server</button>' : '';
+                        return '<div class="key-item revoked">' +
+                            '<span class="key-name">' + k.baseName + '</span>' +
+                            '<span class="key-fingerprint">' + (k.fingerprint || '-') + '</span>' +
+                            '<span class="key-time">' + (k.revokedAt || '') + '</span>' +
+                            cleanBtn +
+                        '</div>';
+                    }).join('');
+                }
+
+                if (!html) {
+                    html = '<div class="empty">No keys. Run: tkm init && tkm gen all</div>';
+                }
+
+                document.getElementById('keys-list').innerHTML = html;
+
+                // Wire up clean buttons
+                document.querySelectorAll('.clean-btn').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        confirmClean(btn.dataset.name, btn.dataset.fp);
+                    });
+                });
+            } catch (err) {
+                document.getElementById('keys-list').innerHTML = '<div class="error">Failed to load keys</div>';
+            }
+        }
+
+        async function loadEnvs() {
+            try {
+                var res = await fetch(Terrain.State.apiUrl('/api/tkm/envs'));
+                var data = await res.json();
+
+                state.envs = data.envs || [];
+
+                // Update env select
+                var select = document.getElementById('env-select');
+                select.innerHTML = '<option value="all">all envs</option>' +
+                    state.envs.map(function(e) {
+                        return '<option value="' + e.name + '">' + e.name + '</option>';
+                    }).join('');
+
+                if (state.envs.length === 0) {
+                    document.getElementById('envs-list').innerHTML = '<div class="empty">No environments configured</div>';
+                    return;
+                }
+
+                document.getElementById('envs-list').innerHTML = state.envs.map(function(e) {
+                    var testTooltip = 'TEST ' + e.name.toUpperCase() + ' CONNECTION\n\nAttempts SSH connection to ' + (e.host || 'server') + ' using your TKM key.\n\nUses BatchMode=yes so it fails fast if key auth doesn\'t work (no password prompt).\n\nClick to test now.';
+                    return '<div class="env-item" data-env="' + e.name + '">' +
+                        '<span class="env-name">' + e.name + '</span>' +
+                        '<span class="env-host">' + (e.host || '-') + '</span>' +
+                        '<span class="env-test pending" data-env="' + e.name + '" data-tooltip="' + testTooltip.replace(/"/g, '&quot;') + '">test</span>' +
+                    '</div>';
+                }).join('');
+
+                // Wire up test buttons
+                document.querySelectorAll('.env-test').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        testEnv(btn.dataset.env);
+                    });
+                });
+            } catch (err) {
+                document.getElementById('envs-list').innerHTML = '<div class="error">Failed to load envs</div>';
+            }
+        }
+
+        async function loadConfig() {
+            try {
+                var res = await fetch(Terrain.State.apiUrl('/api/tkm/config'));
+                var data = await res.json();
+
+                var config = data.config || '';
+                // Syntax highlight
+                config = config
+                    .replace(/^(Match .*)$/gm, '<span class="match">$1</span>')
+                    .replace(/^(Host .*)$/gm, '<span class="match">$1</span>')
+                    .replace(/(IdentityFile .*)$/gm, '<span class="key">$1</span>')
+                    .replace(/^(# .*)$/gm, '<span class="comment">$1</span>');
+
+                document.getElementById('ssh-config').innerHTML = config || '(no tkm entries)';
+            } catch (err) {
+                document.getElementById('ssh-config').innerHTML = 'Failed to load config';
+            }
+        }
+
+        async function testEnv(envName) {
+            var btn = document.querySelector('.env-test[data-env="' + envName + '"]');
+            if (!btn) return;
+
+            btn.className = 'env-test testing';
+            btn.textContent = '...';
+
+            try {
+                var res = await fetch(Terrain.State.apiUrl('/api/tkm/test/' + envName));
+                var data = await res.json();
+
+                if (data.success) {
+                    btn.className = 'env-test ok';
+                    btn.textContent = 'OK';
+                } else {
+                    btn.className = 'env-test fail';
+                    btn.textContent = 'FAIL';
+                }
+            } catch (err) {
+                btn.className = 'env-test fail';
+                btn.textContent = 'ERR';
+            }
+        }
+
+        async function runAction(action) {
+            var env = document.getElementById('env-select').value;
+
+            showOutput(action + ' ' + env, 'Running...');
+
+            try {
+                var res = await fetch(Terrain.State.apiUrl('/api/tkm/' + action), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ env: env })
+                });
+                var data = await res.json();
+
+                var output = data.output || data.error || 'Done';
+                // Color code output lines
+                output = output
+                    .replace(/\[OK\]/g, '<span class="ok">[OK]</span>')
+                    .replace(/\[X\]/g, '<span class="err">[X]</span>')
+                    .replace(/\[!\]/g, '<span class="warn">[!]</span>')
+                    .replace(/FAILED/g, '<span class="err">FAILED</span>')
+                    .replace(/ok$/gm, '<span class="ok">ok</span>');
+
+                showOutput(action + ' ' + env, output);
+
+                // Reload data after action
+                loadAll();
+            } catch (err) {
+                showOutput(action + ' ' + env, '<span class="err">Error: ' + err.message + '</span>');
+            }
+        }
+
+        function showOutput(title, content) {
+            document.getElementById('output-title').textContent = title;
+            document.getElementById('output-pre').innerHTML = content;
+            document.getElementById('output-panel').classList.add('active');
+        }
+
+        function hideOutput() {
+            document.getElementById('output-panel').classList.remove('active');
+        }
+
+        // Modal functions
+        function showModal(title, bodyHtml, confirmText, isDanger, callback) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-title').className = 'modal-title' + (isDanger ? ' danger' : '');
+            document.getElementById('modal-body').innerHTML = bodyHtml;
+            var confirmBtn = document.getElementById('modal-confirm');
+            confirmBtn.textContent = confirmText || 'Confirm';
+            confirmBtn.className = 'modal-btn ' + (isDanger ? 'danger' : 'primary');
+            state.modalCallback = callback;
+            document.getElementById('modal-overlay').classList.add('active');
+        }
+
+        function hideModal() {
+            document.getElementById('modal-overlay').classList.remove('active');
+            state.modalCallback = null;
+        }
+
+        // Confirm rotate with preview
+        async function confirmRotate() {
+            var env = document.getElementById('env-select').value;
+
+            if (env === 'all') {
+                showModal('Cannot Rotate All',
+                    '<p>For safety, you must select a specific environment to rotate.</p>' +
+                    '<p>Choose <strong>dev</strong>, <strong>staging</strong>, or <strong>prod</strong> from the dropdown.</p>',
+                    'OK', false, hideModal);
+                return;
+            }
+
+            // Fetch preview
+            try {
+                var res = await fetch(Terrain.State.apiUrl('/api/tkm/rotate/preview') + '&env=' + env);
+                var data = await res.json();
+
+                if (!data.success) {
+                    showModal('Error', '<p>' + (data.error || 'Failed to load preview') + '</p>', 'OK', false, hideModal);
+                    return;
+                }
+
+                var keysHtml = data.currentKeys.map(function(k) {
+                    return '<div class="modal-key-item"><span class="name">' + k.name + '</span><span class="fp">' + (k.fingerprint || '-') + '</span></div>';
+                }).join('');
+
+                var actionsHtml = '<ul class="modal-actions-list">' +
+                    data.actions.map(function(a) { return '<li>' + a + '</li>'; }).join('') +
+                    '</ul>';
+
+                var bodyHtml =
+                    '<div class="modal-section">' +
+                        '<div class="modal-section-title">Current Keys (will be archived)</div>' +
+                        keysHtml +
+                    '</div>' +
+                    '<div class="modal-section">' +
+                        '<div class="modal-section-title">Actions to perform</div>' +
+                        actionsHtml +
+                    '</div>' +
+                    '<div class="modal-warning">' +
+                        '⚠️ ' + data.warning +
+                    '</div>';
+
+                showModal('Rotate ' + env.toUpperCase() + ' Keys', bodyHtml, 'Rotate Keys', true, function() {
+                    executeRotate(env);
+                });
+            } catch (err) {
+                showModal('Error', '<p>Failed to load preview: ' + err.message + '</p>', 'OK', false, hideModal);
+            }
+        }
+
+        async function executeRotate(env) {
+            showOutput('rotate ' + env, 'Rotating keys...');
+
+            try {
+                var res = await fetch(Terrain.State.apiUrl('/api/tkm/rotate'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ env: env })
+                });
+                var data = await res.json();
+
+                var output = data.output || data.error || 'Done';
+                output = output
+                    .replace(/\[OK\]/g, '<span class="ok">[OK]</span>')
+                    .replace(/Revoked:/g, '<span class="warn">Revoked:</span>')
+                    .replace(/Generated/g, '<span class="ok">Generated</span>')
+                    .replace(/Deployed/g, '<span class="ok">Deployed</span>');
+
+                showOutput('rotate ' + env, output +
+                    '\n\n<span class="warn">Remember: Old keys still work on server until removed!</span>' +
+                    '\n<span class="info">Use the "clean from server" button next to revoked keys to remove them.</span>');
+
+                loadAll();
+            } catch (err) {
+                showOutput('rotate ' + env, '<span class="err">Error: ' + err.message + '</span>');
+            }
+        }
+
+        // Confirm clean old key from server
+        function confirmClean(keyName, fingerprint) {
+            // Extract env from key name (e.g., dev_root -> dev)
+            var env = keyName.split('_')[0];
+
+            var bodyHtml =
+                '<p>This will remove the old key from the server\'s <code>authorized_keys</code> files.</p>' +
+                '<div class="modal-section">' +
+                    '<div class="modal-section-title">Key to remove</div>' +
+                    '<div class="modal-key-item"><span class="name">' + keyName + '</span></div>' +
+                    '<div class="modal-key-item"><span class="fp">' + fingerprint + '</span></div>' +
+                '</div>' +
+                '<p>This will search for and remove this fingerprint from:</p>' +
+                '<ul class="modal-actions-list">' +
+                    '<li>/root/.ssh/authorized_keys</li>' +
+                    '<li>/home/dev/.ssh/authorized_keys</li>' +
+                '</ul>' +
+                '<div class="modal-warning">' +
+                    '⚠️ Make sure your NEW key works before removing the old one! Test connectivity first.' +
+                '</div>';
+
+            showModal('Clean Old Key from Server', bodyHtml, 'Remove Key', true, function() {
+                executeClean(env, fingerprint);
+            });
+        }
+
+        async function executeClean(env, fingerprint) {
+            showOutput('clean ' + env, 'Removing old key from server...');
+
+            try {
+                var res = await fetch(Terrain.State.apiUrl('/api/tkm/clean'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ env: env, fingerprint: fingerprint })
+                });
+                var data = await res.json();
+
+                var output = data.output || data.error || 'Done';
+                showOutput('clean ' + env, output);
+
+                loadAll();
+            } catch (err) {
+                showOutput('clean ' + env, '<span class="err">Error: ' + err.message + '</span>');
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
