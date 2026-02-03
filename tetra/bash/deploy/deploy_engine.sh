@@ -347,6 +347,7 @@ _de_template() {
     local str="$1"
     local env="$2"
     local files="${3:-}"
+    local dry_run="${4:-0}"
 
     # Resolve values with inheritance
     local ssh="${DE_ENV["$env.ssh"]}"
@@ -374,6 +375,7 @@ _de_template() {
         [target_dir]="${DE_TARGET[target_dir]}"
         [remote_build]="${DE_TARGET[remote_build]}"
         [branch]="${DE_ENV["$env.branch"]:-${DE_ENV["${inherit:-}.branch"]:-main}}"
+        [rsync_dry]="$( (( dry_run )) && echo '-n' || echo '' )"
     )
 
     # Add all env-specific custom vars (e.g. pd_dir, workspace_path)
@@ -448,7 +450,7 @@ _de_exec_build() {
         _DE_PRE_RAN=1
     fi
 
-    cmd=$(_de_template "$cmd" "$env")
+    cmd=$(_de_template "$cmd" "$env" "" "$dry_run")
     _de_print_cmd "[build:$name]" "$cmd"
 
     if [[ "$dry_run" -eq 0 ]]; then
