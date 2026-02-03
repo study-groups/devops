@@ -350,44 +350,49 @@ router.post('/test', (req, res, next) => {
 // ---------------------------------------------------------------------------
 // GET /db — list voxes from db/
 // ---------------------------------------------------------------------------
-router.get('/db', (req, res) => {
+router.get('/db', async (req, res) => {
     try {
         fs.mkdirSync(VOX_DB, { recursive: true });
         const entries = fs.readdirSync(VOX_DB);
         const metaFiles = entries.filter(f => f.endsWith('.vox.meta.json'));
 
-        let voxes = metaFiles.map(f => {
-            try {
-                const data = JSON.parse(fs.readFileSync(path.join(VOX_DB, f), 'utf-8'));
-                return data;
-            } catch (_) { return null; }
-        }).filter(Boolean);
-
-        // Sort by epoch desc
-        voxes.sort((a, b) => parseInt(b.id) - parseInt(a.id));
-
-        // Search filter
-        const search = req.query.search;
-        if (search) {
-            const lower = search.toLowerCase();
-            voxes = voxes.filter(v => {
-                // Check source text
-                const srcPath = path.join(VOX_DB, v.id + '.vox.source.md');
-                try {
-                    const txt = fs.readFileSync(srcPath, 'utf-8');
-                    if (txt.toLowerCase().includes(lower)) return true;
-                } catch (_) {}
-                // Check voice/provider
-                if ((v.voice || '').toLowerCase().includes(lower)) return true;
-                if ((v.provider || '').toLowerCase().includes(lower)) return true;
-                return false;
-            });
-        }
+        // Sort by epoch (filename) desc BEFORE reading — most recent first
+        metaFiles.sort((a, b) => {
+            const idA = parseInt(a.split('.')[0]) || 0;
+            const idB = parseInt(b.split('.')[0]) || 0;
+            return idB - idA;
+        });
 
         const limit = parseInt(req.query.limit) || 50;
-        voxes = voxes.slice(0, limit);
+        const search = req.query.search ? req.query.search.toLowerCase() : null;
 
-        res.json({ voxes, total: metaFiles.length, dbPath: VOX_DB });
+        // Read only what we need, with early termination
+        const voxes = [];
+        for (const f of metaFiles) {
+            if (!search && voxes.length >= limit) break;
+            try {
+                const data = JSON.parse(fs.readFileSync(path.join(VOX_DB, f), 'utf-8'));
+                if (search) {
+                    // Check voice/provider first (cheap)
+                    let match = (data.voice || '').toLowerCase().includes(search) ||
+                                (data.provider || '').toLowerCase().includes(search);
+                    // Check source text only if needed
+                    if (!match) {
+                        const srcPath = path.join(VOX_DB, data.id + '.vox.source.md');
+                        try {
+                            const txt = fs.readFileSync(srcPath, 'utf-8');
+                            match = txt.toLowerCase().includes(search);
+                        } catch (_) {}
+                    }
+                    if (match) voxes.push(data);
+                } else {
+                    voxes.push(data);
+                }
+            } catch (_) {}
+            if (!search && voxes.length >= limit) break;
+        }
+
+        res.json({ voxes: voxes.slice(0, limit), total: metaFiles.length, dbPath: VOX_DB });
     } catch (e) {
         res.json({ voxes: [], total: 0, dbPath: VOX_DB, error: e.message });
     }
