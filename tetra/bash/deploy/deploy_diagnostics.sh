@@ -196,4 +196,3 @@ deploy_history() {
 # EXPORTS
 # =============================================================================
 
-export -f deploy_doctor _deploy_doctor_complete deploy_history

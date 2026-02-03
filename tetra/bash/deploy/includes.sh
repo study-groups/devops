@@ -356,12 +356,6 @@ export DEPLOY_WWW_USER DEPLOY_WWW_GROUP DEPLOY_WWW_PERMS
 export DEPLOY_NGINX_SITES_AVAILABLE DEPLOY_NGINX_SITES_ENABLED
 export DEPLOY_SSH_TIMEOUT DEPLOY_SSH_OPTIONS
 
-export -f _deploy_template_core
-export -f _deploy_toml_get _deploy_toml_get_array _deploy_toml_has_ssh
-export -f _deploy_parse_opts _deploy_validate_args _deploy_setup
-export -f _deploy_ssh_target _deploy_remote_exec _deploy_check_ssh _deploy_log
-export -f _deploy_build_rsync_args _deploy_set_permissions
-export -f _deploy_generate_proxy_config
 
 # =============================================================================
 # SOURCE DEPLOY MODULES
@@ -397,6 +391,7 @@ source "$DEPLOY_SRC/deploy_show.sh"
 source "$DEPLOY_SRC/deploy_items.sh"
 source "$DEPLOY_SRC/deploy_diagnostics.sh"
 source "$DEPLOY_SRC/deploy_help.sh"
+source "$DEPLOY_SRC/deploy_validate.sh"
 
 # Games deployment (S3/Spaces)
 tetra_source_if_exists "$DEPLOY_SRC/deploy_games.sh"

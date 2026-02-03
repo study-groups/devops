@@ -125,5 +125,3 @@ _deploy_smart_dispatch() {
 # EXPORTS
 # =============================================================================
 
-export -f _deploy_is_env _deploy_find_target _deploy_resolve
-export -f _deploy_is_engine_toml _deploy_smart_dispatch

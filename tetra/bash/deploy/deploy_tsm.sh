@@ -222,5 +222,3 @@ EOF
 # EXPORTS
 # =============================================================================
 
-export -f deploy_tsm deploy_tsm_install deploy_tsm_sync deploy_tsm_status
-export -f _deploy_tsm_sync_modules

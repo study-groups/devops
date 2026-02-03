@@ -175,5 +175,3 @@ deploy_push() {
 # EXPORTS
 # =============================================================================
 
-export -f deploy_push
-export -f _deploy_tsm_needs_rebuild _deploy_tsm_build_if_needed

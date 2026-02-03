@@ -318,8 +318,3 @@ deploy_repo_summary() {
 # EXPORTS
 # =============================================================================
 
-export -f deploy_repo_load deploy_repo_has_config deploy_repo_show
-export -f deploy_repo_run_pre_hooks deploy_repo_run_post_hooks
-export -f deploy_repo_is_service deploy_repo_service_info
-export -f deploy_repo_validate_env deploy_repo_summary
-export -f _deploy_clear_repo_vars

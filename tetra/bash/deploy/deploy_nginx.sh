@@ -320,6 +320,3 @@ deploy_nginx_status() {
 # EXPORTS
 # =============================================================================
 
-export -f deploy_nginx_generate deploy_nginx_show deploy_nginx_list
-export -f deploy_nginx_install deploy_nginx_uninstall deploy_nginx_status
-export -f _deploy_nginx_templates_dir _deploy_nginx_output_dir _deploy_nginx_output_file

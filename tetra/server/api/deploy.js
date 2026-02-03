@@ -1,5 +1,5 @@
 const express = require('express');
-const { execSync, exec } = require('child_process');
+const { execSync, exec, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { BASH } = require('../lib/bash');
@@ -281,10 +281,37 @@ router.get('/history', (req, res) => {
     }
 });
 
+// Delete history entry by timestamp
+router.delete('/history/:timestamp', (req, res) => {
+    try {
+        const logFile = path.join(TETRA_DIR, 'deploy/logs/deploy.log');
+        const timestamp = decodeURIComponent(req.params.timestamp);
+
+        if (!fs.existsSync(logFile)) {
+            return res.status(404).json({ error: 'Log file not found' });
+        }
+
+        const content = fs.readFileSync(logFile, 'utf8');
+        const lines = content.trim().split('\n').filter(Boolean);
+
+        // Filter out the line with matching timestamp
+        const newLines = lines.filter(line => !line.startsWith(timestamp + '|'));
+
+        if (newLines.length === lines.length) {
+            return res.status(404).json({ error: 'Entry not found' });
+        }
+
+        fs.writeFileSync(logFile, newLines.join('\n') + '\n', 'utf8');
+        res.json({ ok: true, deleted: timestamp });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Trigger deployment (dry-run by default for safety)
 // Uses engine path (colon syntax) for engine targets, legacy for others
 router.post('/deploy', (req, res) => {
-    const { target, env, pipeline = 'default', dryRun = true } = req.body;
+    const { target, env, pipeline = 'full', dryRun = true } = req.body;
 
     if (!target || !env) {
         return res.status(400).json({ error: 'target and env required' });
@@ -312,6 +339,74 @@ router.post('/deploy', (req, res) => {
             }
         }
     );
+});
+
+// Stream deployment output via Server-Sent Events
+// GET /api/deploy/stream?target=X&env=Y&pipeline=full&dryRun=true
+router.get('/stream', (req, res) => {
+    const { target, env, pipeline = 'full', dryRun = 'true' } = req.query;
+
+    if (!target || !env) {
+        return res.status(400).json({ error: 'target and env required' });
+    }
+
+    // Set SSE headers
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'  // Disable nginx buffering
+    });
+
+    const dryFlag = dryRun === 'true' ? '-n' : '';
+    const cmd = `source ~/tetra/tetra.sh && tmod load deploy && deploy ${target}:${pipeline} ${env} ${dryFlag}`;
+
+    // Send start event
+    res.write(`event: start\ndata: ${JSON.stringify({ target, env, pipeline, dryRun: dryRun === 'true' })}\n\n`);
+
+    const proc = spawn(BASH, ['-c', cmd], {
+        env: { ...process.env, TERM: 'dumb' }  // Disable colors that might interfere
+    });
+
+    let buffer = '';
+
+    const sendLine = (line) => {
+        if (line.trim()) {
+            res.write(`event: output\ndata: ${JSON.stringify({ line })}\n\n`);
+        }
+    };
+
+    const processData = (data) => {
+        buffer += data.toString();
+        const lines = buffer.split('\n');
+        buffer = lines.pop();  // Keep incomplete line in buffer
+        lines.forEach(sendLine);
+    };
+
+    proc.stdout.on('data', processData);
+    proc.stderr.on('data', processData);
+
+    proc.on('close', (code) => {
+        // Send remaining buffer
+        if (buffer.trim()) sendLine(buffer);
+
+        // Send completion event
+        res.write(`event: done\ndata: ${JSON.stringify({
+            status: code === 0 ? 'success' : 'failed',
+            exitCode: code
+        })}\n\n`);
+        res.end();
+    });
+
+    proc.on('error', (err) => {
+        res.write(`event: error\ndata: ${JSON.stringify({ error: err.message })}\n\n`);
+        res.end();
+    });
+
+    // Handle client disconnect
+    req.on('close', () => {
+        proc.kill('SIGTERM');
+    });
 });
 
 // Show target configuration

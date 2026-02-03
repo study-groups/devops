@@ -197,5 +197,3 @@ deploy_run() {
 # EXPORTS
 # =============================================================================
 
-export -f _deploy_edit_items _deploy_parse_item_args _deploy_apply_oneshot_filters
-export -f deploy_run

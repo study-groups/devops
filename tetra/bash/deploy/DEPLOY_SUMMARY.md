@@ -10,10 +10,10 @@ ORG → TARGET → PIPELINE → ENV
 **Address syntax:** `[org:]target[:pipeline][:{items}] env`
 
 Examples:
-- `deploy docs prod` - default pipeline to prod
+- `deploy docs prod` - full pipeline to prod
 - `deploy docs:gdocs prod` - gdocs pipeline
 - `deploy docs:{index} prod` - just index file
-- `deploy nodeholder:docs:default prod` - with org
+- `deploy nodeholder:docs:full prod` - with org
 
 ## tetra-deploy.toml Structure
 

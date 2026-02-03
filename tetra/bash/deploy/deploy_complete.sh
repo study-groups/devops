@@ -514,8 +514,3 @@ complete -F _deploy_complete deploy
 # EXPORTS
 # =============================================================================
 
-export -f _deploy_complete _deploy_complete_get_org _deploy_complete_colon_fix
-export -f _deploy_complete_orgs _deploy_complete_targets _deploy_complete_targets_for_org _deploy_complete_envs
-export -f _deploy_complete_pipelines _deploy_complete_target_pipeline
-export -f _deploy_complete_target_envs _deploy_complete_targets_or_envs
-export -f _deploy_complete_items _deploy_complete_prefixed_items _deploy_complete_operations

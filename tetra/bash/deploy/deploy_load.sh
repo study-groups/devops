@@ -204,5 +204,3 @@ _deploy_exec() {
 # EXPORTS
 # =============================================================================
 
-export -f _deploy_clear _deploy_load _deploy_load_standalone _deploy_load_org
-export -f _deploy_template _deploy_exec

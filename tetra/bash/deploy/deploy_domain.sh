@@ -149,7 +149,3 @@ deploy_domain_show() {
 # EXPORTS
 # =============================================================================
 
-export -f _deploy_get_env_domain _deploy_get_wildcard_domain
-export -f deploy_domain_resolve deploy_domain_get_path
-export -f deploy_domain_get_ssl_cert deploy_domain_get_ssl_key
-export -f deploy_domain_show

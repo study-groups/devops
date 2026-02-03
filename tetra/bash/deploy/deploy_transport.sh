@@ -170,7 +170,4 @@ deploy_transport_array DEPLOY_POST
 # EXPORTS
 # =============================================================================
 
-export -f deploy_transport_var deploy_transport_array deploy_transport_func
-export -f deploy_transport_clear deploy_transport_show
 # _deploy_transport_payload not exported - /bin/sh can't parse [[ ]] in function defs
-export -f deploy_remote deploy_remote_script deploy_remote_sudo

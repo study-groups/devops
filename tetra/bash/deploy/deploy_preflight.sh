@@ -251,4 +251,3 @@ deploy_preflight_quick() {
 # EXPORTS
 # =============================================================================
 
-export -f deploy_preflight deploy_preflight_quick

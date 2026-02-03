@@ -679,13 +679,3 @@ EOF
 # EXPORTS
 # =============================================================================
 
-export -f deploy_ctx deploy_ctx_set deploy_ctx_status deploy_ctx_help
-export -f _deploy_ctx_list_targets _deploy_ctx_list_envs
-export -f _deploy_ctx_save _deploy_ctx_load _deploy_active_org
-export -f _deploy_items_from_toml deploy_items_reset deploy_items_show
-export -f _deploy_items_exclude _deploy_items_include _deploy_items_glob
-export -f deploy_items _deploy_items_get_value
-export -f _deploy_prompt_org _deploy_prompt_target _deploy_prompt_env
-export -f _deploy_sync_to_tps
-export -f deploy_set deploy_org_set deploy_target_set deploy_env_set deploy_clear_context
-export -f deploy_info deploy_list _tetra_deploy_info

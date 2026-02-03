@@ -33,17 +33,17 @@ deploy_show() {
 }
 
 # Deploy with current context using de_run engine
-# Usage: deploy              (runs default pipeline)
+# Usage: deploy              (runs full pipeline)
 #        deploy quick        (runs quick pipeline)
 #        deploy restart      (runs restart pipeline)
 deploy_with_context() {
-    local pipeline="${1:-default}"
+    local pipeline="${1:-full}"
     local dry_run=0
 
     # Check for -n/--dry-run flag
     if [[ "$pipeline" == "-n" || "$pipeline" == "--dry-run" ]]; then
         dry_run=1
-        pipeline="${2:-default}"
+        pipeline="${2:-full}"
     fi
 
     if [[ -z "$DEPLOY_CTX_TARGET" ]]; then
@@ -83,4 +83,3 @@ deploy_with_context() {
 # EXPORTS
 # =============================================================================
 
-export -f deploy_show deploy_with_context

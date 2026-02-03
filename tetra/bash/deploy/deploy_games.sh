@@ -239,5 +239,3 @@ EOF
 # EXPORTS
 # =============================================================================
 
-export -f _deploy_games_config
-export -f deploy_games_list deploy_games_sync deploy_games_status deploy_games_help

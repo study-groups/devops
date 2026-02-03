@@ -305,7 +305,3 @@ EOF
 # EXPORTS
 # =============================================================================
 
-export -f deploy_systemd
-export -f deploy_systemd_install deploy_systemd_enable
-export -f deploy_systemd_start deploy_systemd_stop deploy_systemd_status
-export -f deploy_systemd_logs

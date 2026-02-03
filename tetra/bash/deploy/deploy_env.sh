@@ -798,7 +798,3 @@ _deploy_parse_toml() {
 # EXPORTS
 # =============================================================================
 
-export -f deploy_env_validate deploy_env_diff deploy_env_push deploy_env_pull
-export -f deploy_env_edit deploy_env_status deploy_env_promote deploy_env_generate
-export -f deploy_env_create _deploy_parse_toml
-export -f _deploy_env_mask_values

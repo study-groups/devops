@@ -27,7 +27,7 @@ declare -gA DEPLOY_ADDR=(
     [raw]=""           # Original input string
     [org]=""           # Organization (empty if not specified)
     [target]=""        # Target name (required)
-    [pipeline]="default"  # Pipeline name
+    [pipeline]="full"  # Pipeline name
     [items]=""         # Space-separated item keys
     [items_mode]=""    # "include" | "exclude" | "group" | ""
     [env]=""           # Environment
@@ -47,7 +47,7 @@ deploy_addr_clear() {
         [raw]=""
         [org]=""
         [target]=""
-        [pipeline]="default"
+        [pipeline]="full"
         [items]=""
         [items_mode]=""
         [env]=""
@@ -170,7 +170,7 @@ _deploy_addr_parse_rest() {
 
     # Wildcard
     if [[ "$rest" == "*" ]]; then
-        DEPLOY_ADDR[pipeline]="default"
+        DEPLOY_ADDR[pipeline]="full"
         return 0
     fi
 
@@ -223,8 +223,8 @@ deploy_addr_validate() {
     # 2. Validate target (required)
     deploy_addr_validate_target || return 1
 
-    # 3. Validate pipeline (if non-default)
-    if [[ -n "${DEPLOY_ADDR[pipeline]}" && "${DEPLOY_ADDR[pipeline]}" != "default" ]]; then
+    # 3. Validate pipeline (if non-full)
+    if [[ -n "${DEPLOY_ADDR[pipeline]}" && "${DEPLOY_ADDR[pipeline]}" != "full" ]]; then
         deploy_addr_validate_pipeline || return 1
     fi
 
@@ -447,7 +447,7 @@ deploy_addr_to_context() {
 deploy_addr_from_context() {
     DEPLOY_ADDR[org]="${DEPLOY_CTX_ORG:-}"
     DEPLOY_ADDR[target]="${DEPLOY_CTX_TARGET:-}"
-    DEPLOY_ADDR[pipeline]="${DEPLOY_CTX_PIPELINE:-default}"
+    DEPLOY_ADDR[pipeline]="${DEPLOY_CTX_PIPELINE:-full}"
     DEPLOY_ADDR[env]="${DEPLOY_CTX_ENV:-}"
 }
 
@@ -455,9 +455,3 @@ deploy_addr_from_context() {
 # EXPORTS
 # =============================================================================
 
-export -f deploy_addr_clear deploy_addr_show deploy_addr_parse
-export -f _deploy_addr_parse_rest _deploy_addr_parse_items
-export -f deploy_addr_validate deploy_addr_validate_org deploy_addr_validate_target
-export -f deploy_addr_validate_pipeline deploy_addr_validate_items
-export -f deploy_addr_resolve_exclude deploy_addr_resolve_group
-export -f deploy_addr_to_context deploy_addr_from_context

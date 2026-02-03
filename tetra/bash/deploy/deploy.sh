@@ -134,6 +134,10 @@ deploy() {
             shift
             deploy_doctor "$@"
             ;;
+        validate|val)
+            shift
+            deploy_validate "$@"
+            ;;
         games|g)
             # Route to deploy_games.sh functions
             shift
@@ -291,4 +295,3 @@ deploy() {
 # EXPORTS
 # =============================================================================
 
-export -f deploy
