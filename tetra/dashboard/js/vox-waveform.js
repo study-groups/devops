@@ -379,17 +379,48 @@
             }
         });
 
-        // Right-click to delete selected marker
+        // Right-click to set endpoint of selected marker (or delete if shift+right-click)
         canvas.addEventListener('contextmenu', function(e) {
             e.preventDefault();
             initEditable();
-            var idx = findNearOnset(e.clientX);
-            if (idx >= 0) {
-                editableOnsets.splice(idx, 1);
-                selectedIdx = -1;
-                dirty = true;
-                didInteract = true;
-                draw(audio.currentTime || 0);
+            var clickTime = xToTime(e.clientX);
+
+            if (e.shiftKey) {
+                // Shift+right-click: delete marker near click
+                var idx = findNearOnset(e.clientX);
+                if (idx >= 0) {
+                    editableOnsets.splice(idx, 1);
+                    selectedIdx = -1;
+                    dirty = true;
+                    didInteract = true;
+                    draw(audio.currentTime || 0);
+                }
+                return;
+            }
+
+            // Right-click: set endpoint of currently selected marker
+            // This moves the NEXT marker to the click position (defining this word's length)
+            if (selectedIdx >= 0 && selectedIdx < editableOnsets.length - 1) {
+                // Move the next onset to click position (sets endpoint of current word)
+                var nextIdx = selectedIdx + 1;
+                if (clickTime > editableOnsets[selectedIdx]) {
+                    editableOnsets[nextIdx] = clickTime;
+                    // Re-sort and update selection
+                    var currentStart = editableOnsets[selectedIdx];
+                    editableOnsets.sort(function(a, b) { return a - b; });
+                    selectedIdx = editableOnsets.indexOf(currentStart);
+                    dirty = true;
+                    didInteract = true;
+                    draw(audio.currentTime || 0);
+                }
+            } else if (selectedIdx === editableOnsets.length - 1) {
+                // Last marker selected: insert a new marker at click position as endpoint
+                if (clickTime > editableOnsets[selectedIdx]) {
+                    editableOnsets.push(clickTime);
+                    dirty = true;
+                    didInteract = true;
+                    draw(audio.currentTime || 0);
+                }
             }
         });
 

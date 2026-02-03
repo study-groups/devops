@@ -78,19 +78,19 @@ vox_coqui_version() {
     python -c "import TTS; print(TTS.__version__)" 2>/dev/null
 }
 
-# Install Coqui TTS
+# Install Coqui TTS and faster-whisper (for alignment)
 vox_coqui_install() {
-    echo "Installing Coqui TTS..."
+    echo "Installing Coqui TTS and faster-whisper..."
     tetra_python_activate || {
         echo "Error: Failed to activate tetra python environment" >&2
         return 1
     }
 
-    pip install TTS
+    pip install TTS faster-whisper
     local result=$?
 
     if [[ $result -eq 0 ]]; then
-        echo "Coqui TTS installed successfully"
+        echo "Coqui TTS and faster-whisper installed successfully"
         vox_coqui_status
     else
         echo "Error: Installation failed" >&2

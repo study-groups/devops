@@ -23,6 +23,7 @@ source "$VOX_SRC/vox_dry_run.sh"
 source "$VOX_SRC/vox_analyze.sh" 2>/dev/null || true
 source "$VOX_SRC/vox_tui_app.sh" 2>/dev/null || true
 source "$VOX_SRC/vox_coqui.sh" 2>/dev/null || true
+source "$VOX_SRC/vox_align.sh" 2>/dev/null || true
 
 # New architecture modules
 source "$VOX_SRC/vox_vars.sh" 2>/dev/null || true
@@ -549,6 +550,11 @@ EOF
             vox_coqui "$@"
             ;;
 
+        align|al)
+            # Word-level alignment using faster-whisper
+            vox_align "$@"
+            ;;
+
         help|h|--help|-h)
             cat <<'EOF'
 vox - Audio-text synchronization system
@@ -584,6 +590,14 @@ PROVIDER MANAGEMENT
   provider info [name]  Detailed provider info
   coqui install         Install Coqui TTS locally
   coqui status          Check Coqui installation
+
+WORD ALIGNMENT (faster-whisper)
+  align install         Install faster-whisper
+  align status          Check alignment status
+  align file <audio>    Get word timings from audio
+  align cues <audio>    Output in timeline cue format
+  align spans <audio>   Output in SpanDoc format
+  align generate <voice> Generate audio + align from stdin
 
 ANALYSIS
   analyze file <audio>  Full JSON analysis (tau filter bank)
