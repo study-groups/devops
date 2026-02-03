@@ -85,6 +85,20 @@ body {
     color: var(--ink-muted);
 }
 
+.share-btn {
+    background: transparent;
+    border: 1px solid var(--ink-muted);
+    color: var(--ink-muted);
+    padding: 2px 8px;
+    border-radius: 1px;
+    font-size: 10px;
+    cursor: pointer;
+}
+.share-btn:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+}
+
 /* ==========================================================================
    Pane Layout
    ========================================================================== */

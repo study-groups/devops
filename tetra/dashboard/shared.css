@@ -196,11 +196,11 @@ body {
 }
 
 .pill:first-child {
-    border-radius: 3px 0 0 3px;
+    border-radius: 1px 0 0 1px;
 }
 
 .pill:last-child {
-    border-radius: 0 3px 3px 0;
+    border-radius: 0 1px 1px 0;
 }
 
 .pill:not(:first-child) {
@@ -228,7 +228,7 @@ body {
 
 /* Standalone pill */
 .pill:only-child {
-    border-radius: 3px;
+    border-radius: 1px;
 }
 
 /* Tabs - Base (underline style) */

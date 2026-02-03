@@ -411,6 +411,9 @@ const Dashboard = (() => {
         if (takeoverId) {
             const panel = document.querySelector(`[data-panel="${takeoverId}"]`);
             if (panel) toggleTakeover(panel);
+        } else {
+            // Clear URL after restoring (no takeover = clean URL)
+            clearUrl();
         }
 
         return true;
