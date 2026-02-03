@@ -30,7 +30,9 @@
         var audioUrl = opts.audioUrl;
         var rmsData = opts.rms || null;   // { values: [...] }
         var vadData = opts.vad || null;   // { segments: [{start, end}] }
-        var onsetsData = opts.onsets || null; // [time, ...]
+        var onsetsData = opts.onsets || null; // [time, ...] or [{start,length}, ...]
+        var sourceText = opts.sourceText || '';
+        var words = sourceText.trim() ? sourceText.trim().split(/\s+/) : [];
 
         // Build DOM
         var wrapper = document.createElement('div');
@@ -68,8 +70,15 @@
         var rmsValues = null;
         var destroyed = false;
 
+        // Normalize onsets: accept [time,...] or [{start,length},...] → sorted time array
+        function normalizeOnsets(arr) {
+            if (!arr || !arr.length) return [];
+            if (typeof arr[0] === 'number') return arr.slice().sort(function(a, b) { return a - b; });
+            return arr.map(function(o) { return o.start; }).sort(function(a, b) { return a - b; });
+        }
+
         // Editable onset state
-        var editableOnsets = null;  // null = not yet initialized
+        var editableOnsets = null;  // null = not yet initialized (sorted time array)
         var savedOnsets = null;     // last-saved snapshot
         var selectedIdx = -1;
         var isDragging = false;
@@ -209,7 +218,7 @@
             ctx.stroke();
 
             // 3. Onset markers (from editableOnsets if available, else onsetsData)
-            var drawOnsets = editableOnsets || onsetsData;
+            var drawOnsets = editableOnsets || normalizeOnsets(onsetsData);
             if (drawOnsets && drawOnsets.length) {
                 var onsetClr = opts.onsetColor || DEFAULTS.onsetColor;
                 var selectedClr = 'rgba(255, 200, 0, 0.9)';
@@ -230,6 +239,19 @@
                     ctx.stroke();
                 }
                 ctx.setLineDash([]);
+
+                // Word label on selected marker
+                if (selectedIdx >= 0 && selectedIdx < drawOnsets.length) {
+                    var word = words[selectedIdx] || ('#' + selectedIdx);
+                    var lx = (drawOnsets[selectedIdx] / duration) * w;
+                    ctx.font = '10px monospace';
+                    ctx.fillStyle = selectedClr;
+                    var tw = ctx.measureText(word).width;
+                    // Keep label inside canvas
+                    var labelX = lx + 3;
+                    if (labelX + tw > w) labelX = lx - tw - 3;
+                    ctx.fillText(word, labelX, 11);
+                }
             }
 
             // 4. Playback cursor
@@ -283,8 +305,7 @@
         // Helper: initialize editable onsets from current data
         function initEditable() {
             if (editableOnsets) return;
-            var src = onsetsData || [];
-            editableOnsets = src.slice().sort(function(a, b) { return a - b; });
+            editableOnsets = normalizeOnsets(onsetsData);
             savedOnsets = editableOnsets.slice();
         }
 
@@ -400,20 +421,30 @@
                 audio.src = '';
                 if (ro) ro.disconnect();
             },
+            setSourceText: function(text) {
+                sourceText = text || '';
+                words = sourceText.trim() ? sourceText.trim().split(/\s+/) : [];
+            },
             setLayers: function(layers) {
                 if (layers.rms) { rmsData = layers.rms; rmsValues = layers.rms.values || null; }
                 if (layers.vad) vadData = layers.vad;
                 if (layers.onsets) {
                     onsetsData = layers.onsets;
-                    editableOnsets = layers.onsets.slice().sort(function(a, b) { return a - b; });
+                    editableOnsets = normalizeOnsets(layers.onsets);
                     savedOnsets = editableOnsets.slice();
                     dirty = false;
                 }
                 draw(audio.currentTime || 0);
             },
             getOnsets: function() {
-                var src = editableOnsets || onsetsData || [];
-                return src.slice().sort(function(a, b) { return a - b; });
+                var times = (editableOnsets || normalizeOnsets(onsetsData)).slice();
+                times.sort(function(a, b) { return a - b; });
+                var result = [];
+                for (var i = 0; i < times.length; i++) {
+                    var next = (i + 1 < times.length) ? times[i + 1] : duration;
+                    result.push({ start: times[i], length: next - times[i] });
+                }
+                return result;
             },
             hasEdits: function() { return dirty; },
             clearEdits: function() {

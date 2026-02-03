@@ -157,6 +157,33 @@
         }
         .rec-btn.recording:hover { opacity: 0.8; }
 
+        /* Video player */
+        #video-player {
+            display: none;
+            background: var(--paper-dark);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            margin-bottom: 8px;
+            padding: 8px;
+        }
+        #video-player.visible { display: block; }
+        #video-player video {
+            width: 100%;
+            height: auto;
+            border-radius: 2px;
+        }
+        #video-player .player-close {
+            font-size: 9px;
+            padding: 2px 8px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--ink);
+        }
+        #video-player .player-close:hover { background: var(--paper); }
+
         /* ST_DIR path display */
         .st-dir-path {
             font-size: 9px;
@@ -231,6 +258,10 @@
     </div>
 
     <div id="tab-recordings" class="tab-content active">
+        <div id="video-player">
+            <button class="player-close" data-action="close-player">Close</button>
+            <video id="video-el" controls></video>
+        </div>
         <div id="recordings">
             <div class="empty">Loading...</div>
         </div>

@@ -120,6 +120,13 @@ function renderRecordingInfo(id, data) {
         html += parts.join(', ') + '</span>';
     }
 
+    // Add play button if we have a file path
+    const filename = data.format?.filename;
+    if (filename) {
+        const basename = filename.split('/').pop();
+        html += `<div style="margin-top:8px"><button class="rec-btn" data-action="play-recording" data-id="${id}" data-file="${basename}">Play</button></div>`;
+    }
+
     html += '</div>';
     detailsEl.innerHTML = html;
 }
@@ -294,6 +301,20 @@ function init() {
     Terrain.Iframe.on('refresh', () => { loadRecordings(); checkStatus(); });
     Terrain.Iframe.on('save-config', () => saveConfig());
     Terrain.Iframe.on('toggle-recording', () => toggleRecording());
+    Terrain.Iframe.on('play-recording', (el, data) => {
+        const player = document.getElementById('video-player');
+        const video = document.getElementById('video-el');
+        video.src = getApiUrl(`/api/screentool/video/${data.id}/${data.file}`);
+        player.classList.add('visible');
+        video.play();
+    });
+    Terrain.Iframe.on('close-player', () => {
+        const player = document.getElementById('video-player');
+        const video = document.getElementById('video-el');
+        video.pause();
+        video.src = '';
+        player.classList.remove('visible');
+    });
 
     Terrain.Bus.subscribe('env-change', handleEnvChange);
 
