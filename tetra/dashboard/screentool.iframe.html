@@ -184,13 +184,24 @@
         }
         #video-player .player-close:hover { background: var(--paper); }
 
+        /* Details layout */
+        .rec-details-inner {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+        .rec-details .info-grid {
+            flex: 1;
+            min-width: 0;
+        }
+
         /* Mini player in details */
         .mini-player {
-            margin-top: 10px;
+            flex-shrink: 0;
             background: #000;
-            border-radius: 3px;
+            border-radius: 2px;
             overflow: hidden;
-            max-width: 320px;
+            width: 140px;
         }
         .mini-player video {
             width: 100%;

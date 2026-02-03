@@ -91,7 +91,7 @@ function renderRecordingInfo(id, data) {
     if (!detailsEl) return;
 
     const streams = data.streams || [];
-    let html = '<div class="info-grid">';
+    let infoHtml = '<div class="info-grid">';
 
     if (data.format) {
         const fmt = data.format;
@@ -99,41 +99,35 @@ function renderRecordingInfo(id, data) {
             ['Format', fmt.format_long_name || fmt.format_name],
             ['Duration', fmt.duration ? parseFloat(fmt.duration).toFixed(1) + 's' : null],
             ['Size', fmt.size ? formatBytes(parseInt(fmt.size)) : null],
-            ['Bitrate', fmt.bit_rate ? Math.round(parseInt(fmt.bit_rate) / 1000) + ' kbps' : null],
-            ['File', fmt.filename]
+            ['Bitrate', fmt.bit_rate ? Math.round(parseInt(fmt.bit_rate) / 1000) + ' kbps' : null]
         ];
         for (const [label, value] of fields) {
             if (value) {
-                html += `<span class="info-label">${label}:</span><span class="info-value">${value}</span>`;
+                infoHtml += `<span class="info-label">${label}:</span><span class="info-value">${value}</span>`;
             }
         }
     }
 
     for (const stream of streams) {
-        html += `<span class="info-label" style="margin-top:6px">${stream.codec_type}:</span><span class="info-value" style="margin-top:6px">`;
+        infoHtml += `<span class="info-label">${stream.codec_type}:</span><span class="info-value">`;
         const parts = [];
         if (stream.codec_name) parts.push(stream.codec_name);
         if (stream.width && stream.height) parts.push(`${stream.width}x${stream.height}`);
         if (stream.r_frame_rate) parts.push(stream.r_frame_rate + ' fps');
         if (stream.sample_rate) parts.push(stream.sample_rate + ' Hz');
         if (stream.channels) parts.push(stream.channels + 'ch');
-        html += parts.join(', ') + '</span>';
+        infoHtml += parts.join(', ') + '</span>';
     }
+    infoHtml += '</div>';
 
-    html += '</div>';
-
-    // Add mini player if we have a file path
+    let playerHtml = '';
     const filename = data.format?.filename;
     if (filename) {
         const basename = filename.split('/').pop();
         const videoUrl = getApiUrl(`/api/screentool/video/${id}/${basename}`);
-        html += `<div class="mini-player">
-            <video controls preload="metadata" data-id="${id}">
-                <source src="${videoUrl}" type="video/mp4">
-            </video>
-        </div>`;
+        playerHtml = `<div class="mini-player"><video controls preload="metadata"><source src="${videoUrl}"></video></div>`;
     }
-    detailsEl.innerHTML = html;
+    detailsEl.innerHTML = `<div class="rec-details-inner">${infoHtml}${playerHtml}</div>`;
 }
 
 function formatBytes(bytes) {
