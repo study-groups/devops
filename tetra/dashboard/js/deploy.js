@@ -393,30 +393,33 @@ async function loadHistory() {
                 }
             }
 
-            // Build detail lines
+            // Build detail lines (each wrapped in hd-line for vertical layout)
             var detailLines = [];
+            function hdLine(label, value) {
+                return '<span class="hd-line">' + el('span', 'hd-label', label) + ' ' + el('span', 'hd-value', value) + '</span>';
+            }
             if (envConfig) {
-                if (envConfig.ssh) detailLines.push(el('span', 'hd-label', 'ssh') + ' ' + el('span', 'hd-value', envConfig.ssh));
-                if (envConfig.domain) detailLines.push(el('span', 'hd-label', 'host') + ' ' + el('span', 'hd-value', envConfig.domain + (envConfig.port ? ':' + envConfig.port : '')));
-                if (envConfig.branch) detailLines.push(el('span', 'hd-label', 'branch') + ' ' + el('span', 'hd-value', envConfig.branch));
+                if (envConfig.ssh) detailLines.push(hdLine('ssh', envConfig.ssh));
+                if (envConfig.domain) detailLines.push(hdLine('host', envConfig.domain + (envConfig.port ? ':' + envConfig.port : '')));
+                if (envConfig.branch) detailLines.push(hdLine('branch', envConfig.branch));
             }
             if (h.branch && (!envConfig || h.branch !== envConfig.branch)) {
-                detailLines.push(el('span', 'hd-label', 'branch') + ' ' + el('span', 'hd-value', h.branch));
+                detailLines.push(hdLine('branch', h.branch));
             }
-            if (h.commit) detailLines.push(el('span', 'hd-label', 'commit') + ' ' + el('span', 'hd-value', h.commit.slice(0, 8)));
-            if (h.user) detailLines.push(el('span', 'hd-label', 'user') + ' ' + el('span', 'hd-value', h.user));
+            if (h.commit) detailLines.push(hdLine('commit', h.commit.slice(0, 8)));
+            if (h.user) detailLines.push(hdLine('user', h.user));
             if (pipeline && targetConfig && targetConfig.pipelines && targetConfig.pipelines[pipeline]) {
                 var steps = targetConfig.pipelines[pipeline];
-                detailLines.push(el('span', 'hd-label', 'steps') + ' ' + el('span', 'hd-value hd-steps', steps.join(' \u2192 ')));
+                detailLines.push('<span class="hd-line">' + el('span', 'hd-label', 'steps') + ' ' + el('span', 'hd-value hd-steps', steps.join(' \u2192 ')) + '</span>');
             }
             if (targetConfig && targetConfig.strategy) {
-                detailLines.push(el('span', 'hd-label', 'mode') + ' ' + el('span', 'hd-value', targetConfig.strategyDesc || targetConfig.strategy));
+                detailLines.push(hdLine('mode', targetConfig.strategyDesc || targetConfig.strategy));
             }
 
             // Full timestamp on hover
             var fullTs = h.timestamp || '';
 
-            return '<div class="history-item">' +
+            return '<div class="history-item expanded">' +
                 '<div class="history-row">' +
                     '<span class="timestamp" title="' + fullTs + '">' + ts + '</span>' +
                     '<span class="h-target">' + targetName + '</span>' +

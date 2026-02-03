@@ -220,8 +220,9 @@
             color: var(--ink-muted);
             line-height: 1.2;
         }
-        .history-item.expanded .history-details { display: flex; flex-wrap: wrap; gap: 2px 12px; }
-        .hd-label { color: var(--ink-muted); opacity: 0.6; }
+        .history-item.expanded .history-details { display: block; }
+        .history-details .hd-line { display: block; padding: 1px 0; }
+        .hd-label { color: var(--ink-muted); opacity: 0.6; display: inline-block; min-width: 52px; }
         .hd-value { color: var(--ink); }
         .hd-steps { color: var(--two); font-size: 8px; }
 
@@ -344,7 +345,7 @@
     </div>
 
     <div class="section">
-        <div class="section-title">Recent Deployments</div>
+        <div class="section-title">Recent Deployments <span style="font-weight:400;font-size:8px;color:var(--ink-muted);margin-left:8px">$TETRA_DIR/deploy/logs/deploy.log</span></div>
         <div id="history-filter" class="history-filter"></div>
         <div id="history">
             <div class="empty">Loading...</div>
