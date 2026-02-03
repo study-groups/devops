@@ -16,6 +16,8 @@ source "$NHB_SRC/nhb_bridge.sh"
 source "$NHB_SRC/nhb_import.sh"
 source "$NHB_SRC/nhb.sh"
 source "$NHB_SRC/nhb_complete.sh"
+source "$NHB_SRC/nhb_doctl.sh"
+source "$NHB_SRC/nhb_api.sh"
 
 # Module metadata (no export - bash can't export associative array elements)
 TETRA_MODULE_DESC[nh_bridge]="Nodeholder bridge (import digocean.json -> tetra.toml)"

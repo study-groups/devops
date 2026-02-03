@@ -352,6 +352,192 @@ function extractTomlValue(section, key) {
     return match ? match[1].trim() : null;
 }
 
+/**
+ * GET /api/orgs/:org/sections
+ * List section files for an organization
+ */
+router.get('/:org/sections', (req, res) => {
+    try {
+        const { org } = req.params;
+        const sectionsDir = path.join(ORGS_DIR, org, 'sections');
+
+        if (!fs.existsSync(sectionsDir)) {
+            return res.json({ org, sections: [] });
+        }
+
+        const entries = fs.readdirSync(sectionsDir, { withFileTypes: true });
+        const sections = entries
+            .filter(e => e.isFile() && e.name.endsWith('.toml'))
+            .map(e => {
+                const filePath = path.join(sectionsDir, e.name);
+                const stat = fs.statSync(filePath);
+                return {
+                    name: e.name,
+                    size: stat.size,
+                    modified: stat.mtime.toISOString()
+                };
+            })
+            .sort((a, b) => a.name.localeCompare(b.name));
+
+        res.json({ org, sections });
+    } catch (error) {
+        console.error('[API/orgs] Error listing sections:', error);
+        res.status(500).json({ error: 'Failed to list sections' });
+    }
+});
+
+/**
+ * GET /api/orgs/:org/sections/:name
+ * Get section content
+ */
+router.get('/:org/sections/:name', (req, res) => {
+    try {
+        const { org, name } = req.params;
+        const filePath = path.join(ORGS_DIR, org, 'sections', name);
+
+        // Security: ensure filename is safe
+        if (name.includes('/') || name.includes('..')) {
+            return res.status(400).json({ error: 'Invalid section name' });
+        }
+
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({ error: 'Section not found' });
+        }
+
+        const content = fs.readFileSync(filePath, 'utf-8');
+        const stat = fs.statSync(filePath);
+
+        res.json({
+            org,
+            section: name,
+            content,
+            size: stat.size,
+            modified: stat.mtime.toISOString()
+        });
+    } catch (error) {
+        console.error('[API/orgs] Error reading section:', error);
+        res.status(500).json({ error: 'Failed to read section' });
+    }
+});
+
+/**
+ * PUT /api/orgs/:org/sections/:name
+ * Update section content
+ */
+router.put('/:org/sections/:name', (req, res) => {
+    try {
+        const { org, name } = req.params;
+        const { content } = req.body;
+
+        // Security: ensure filename is safe
+        if (name.includes('/') || name.includes('..')) {
+            return res.status(400).json({ error: 'Invalid section name' });
+        }
+
+        if (content === undefined) {
+            return res.status(400).json({ error: 'Content required' });
+        }
+
+        const sectionsDir = path.join(ORGS_DIR, org, 'sections');
+        const filePath = path.join(sectionsDir, name);
+
+        // Create sections directory if needed
+        if (!fs.existsSync(sectionsDir)) {
+            fs.mkdirSync(sectionsDir, { recursive: true });
+        }
+
+        fs.writeFileSync(filePath, content, 'utf-8');
+        const stat = fs.statSync(filePath);
+
+        res.json({
+            success: true,
+            org,
+            section: name,
+            size: stat.size,
+            modified: stat.mtime.toISOString()
+        });
+    } catch (error) {
+        console.error('[API/orgs] Error writing section:', error);
+        res.status(500).json({ error: 'Failed to write section' });
+    }
+});
+
+/**
+ * POST /api/orgs/:org/sections/validate
+ * Validate TOML content without saving
+ */
+router.post('/:org/sections/validate', (req, res) => {
+    try {
+        const { content } = req.body;
+
+        if (!content) {
+            return res.json({ valid: false, error: 'Empty content' });
+        }
+
+        // Basic TOML validation
+        const errors = [];
+        const lines = content.split('\n');
+
+        lines.forEach((line, i) => {
+            const lineNum = i + 1;
+            const trimmed = line.trim();
+
+            // Skip comments and empty lines
+            if (trimmed.startsWith('#') || trimmed === '') return;
+
+            // Check section headers
+            if (trimmed.startsWith('[') && trimmed.endsWith(']')) return;
+
+            // Check key-value pairs
+            if (/^[a-zA-Z_][a-zA-Z0-9_]*\s*=/.test(trimmed)) return;
+
+            // Check array items or continuations
+            if (/^\s/.test(line)) return;
+            if (/^".*",?$/.test(trimmed)) return;
+            if (/^\]$/.test(trimmed)) return;
+
+            errors.push({ line: lineNum, message: 'Unexpected format' });
+        });
+
+        if (errors.length === 0) {
+            res.json({ valid: true });
+        } else {
+            res.json({ valid: false, errors: errors.slice(0, 10) });
+        }
+    } catch (error) {
+        console.error('[API/orgs] Validation error:', error);
+        res.status(500).json({ error: 'Validation failed' });
+    }
+});
+
+/**
+ * DELETE /api/orgs/:org/sections/:name
+ * Delete a section file
+ */
+router.delete('/:org/sections/:name', (req, res) => {
+    try {
+        const { org, name } = req.params;
+
+        // Security: ensure filename is safe
+        if (name.includes('/') || name.includes('..')) {
+            return res.status(400).json({ error: 'Invalid section name' });
+        }
+
+        const filePath = path.join(ORGS_DIR, org, 'sections', name);
+
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({ error: 'Section not found' });
+        }
+
+        fs.unlinkSync(filePath);
+
+        res.json({ success: true, org, section: name });
+    } catch (error) {
+        console.error('[API/orgs] Error deleting section:', error);
+        res.status(500).json({ error: 'Failed to delete section' });
+    }
+});
+
 // Keep old workspace/* route for backwards compatibility
 router.get('/:org/workspace/*', (req, res) => {
     try {

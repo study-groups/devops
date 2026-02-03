@@ -649,6 +649,10 @@ function restoreOutputs() {
 }
 
 function stripAnsi(str) {
+    // Use TetraUI if available, otherwise fallback
+    if (window.TetraUI && TetraUI.TerminalOutput) {
+        return TetraUI.TerminalOutput.strip(str);
+    }
     return str.replace(/\x1b\[[0-9;]*m/g, '');
 }
 
@@ -657,34 +661,39 @@ function escapeHtml(str) {
 }
 
 function formatOutput(raw) {
-    var clean = stripAnsi(raw);
-    var lines = clean.split('\n');
+    // Use TetraUI ANSI parser if available for color support
+    var useAnsi = window.TetraUI && TetraUI.TerminalOutput;
+
+    var lines = raw.split('\n');
     return lines.map(function(line) {
+        // Parse ANSI colors first if available
+        var formatted = useAnsi ? TetraUI.TerminalOutput.parseAnsi(line) : escapeHtml(stripAnsi(line));
+
         // Section headers: [target:pipeline:env]
-        if (/^\[.*:.*\]/.test(line.trim())) {
-            return '<span class="out-header">' + escapeHtml(line) + '</span>';
+        if (/^\[.*:.*\]/.test(stripAnsi(line).trim())) {
+            return '<span class="out-header">' + formatted + '</span>';
         }
         // DRY RUN banner
-        if (/\[DRY RUN\]/.test(line)) {
-            return '<span class="out-dryrun">' + escapeHtml(line) + '</span>';
+        if (/\[DRY RUN\]/.test(stripAnsi(line))) {
+            return '<span class="out-dryrun">' + formatted + '</span>';
         }
         // Step names: [remote:pull], [build:tsm], etc
-        if (/^\s+\[[\w:.-]+\]/.test(line)) {
-            return '<span class="out-step">' + escapeHtml(line) + '</span>';
+        if (/^\s+\[[\w:.-]+\]/.test(stripAnsi(line))) {
+            return '<span class="out-step">' + formatted + '</span>';
         }
         // Horizontal rules
-        if (/^[─]{4,}/.test(line.trim())) {
-            return '<span class="out-rule">' + escapeHtml(line) + '</span>';
+        if (/^[─]{4,}/.test(stripAnsi(line).trim())) {
+            return '<span class="out-rule">' + formatted + '</span>';
         }
         // Done line
-        if (/^Done\s/.test(line.trim())) {
-            return '<span class="out-done">' + escapeHtml(line) + '</span>';
+        if (/^Done\s/.test(stripAnsi(line).trim())) {
+            return '<span class="out-done">' + formatted + '</span>';
         }
         // Command lines (indented)
-        if (/^\s{2,}\S/.test(line)) {
-            return '<span class="out-cmd">' + escapeHtml(line) + '</span>';
+        if (/^\s{2,}\S/.test(stripAnsi(line))) {
+            return '<span class="out-cmd">' + formatted + '</span>';
         }
-        return escapeHtml(line);
+        return formatted;
     }).join('\n');
 }
 

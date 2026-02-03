@@ -1,7 +1,23 @@
 /* TETRA Dashboard - Shared Styles */
+/* This file aggregates all TDS component styles for backwards compatibility */
 
 /* TDS color sync: regenerate with `tds css --sync` */
 @import url('tds-vars.css');
+
+/* Import new modular CSS */
+@import url('css/tokens.css');
+@import url('css/base.css');
+@import url('css/components/spinner.css');
+@import url('css/components/tabs.css');
+@import url('css/components/cards.css');
+@import url('css/components/buttons.css');
+@import url('css/components/terminal-output.css');
+@import url('css/components/editor.css');
+@import url('css/layouts/iframe.css');
+@import url('css/layouts/grid.css');
+
+/* Legacy definitions below - kept for backwards compatibility */
+/* New code should use the modular imports above */
 
 :root {
     /* Fallback colors (overridden by tds-vars.css when present) */
