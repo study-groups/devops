@@ -148,17 +148,16 @@ function getAudioMime(filePath) {
 // ---------------------------------------------------------------------------
 router.get('/status', (req, res) => {
     try {
-        const out = shellExec('source ~/tetra/tetra.sh && vox provider status 2>/dev/null || echo "unavailable"', 10000);
-
+        // Fast provider detection without shelling out
         const providers = {
             openai: {
-                available: false,
+                available: !!process.env.OPENAI_API_KEY,
                 voices: VOX_DATA.openai.models['tts-1'],
                 models: Object.keys(VOX_DATA.openai.models),
                 costPer1M: { 'tts-1': 15.00, 'tts-1-hd': 30.00 }
             },
             coqui: {
-                available: false,
+                available: fs.existsSync('/opt/homebrew/bin/tts') || fs.existsSync('/usr/local/bin/tts'),
                 models: Object.keys(VOX_DATA.coqui.models),
                 aliases: { fast: 'vits', classic: 'tacotron', best: 'xtts' },
                 costPer1M: 0
@@ -170,31 +169,7 @@ router.get('/status', (req, res) => {
             }
         };
 
-        if (out.includes('openai') && !out.includes('openai: not')) {
-            providers.openai.available = true;
-        }
-        if (process.env.OPENAI_API_KEY) {
-            providers.openai.available = true;
-        }
-        if (out.includes('coqui') && !out.includes('coqui: not')) {
-            providers.coqui.available = true;
-        }
-        if (out.includes('formant') && !out.includes('formant: not')) {
-            providers.formant.available = true;
-        }
-
-        let cacheStats = null;
-        try {
-            const cacheOut = shellExec('source ~/tetra/tetra.sh && vox cache stats 2>/dev/null || echo "{}"', 10000);
-            const hitsMatch = cacheOut.match(/hits?:\s*(\d+)/i);
-            const missesMatch = cacheOut.match(/miss(?:es)?:\s*(\d+)/i);
-            const sizeMatch = cacheOut.match(/(\d+)\s*files?/i);
-            cacheStats = {
-                hits: hitsMatch ? parseInt(hitsMatch[1]) : 0,
-                misses: missesMatch ? parseInt(missesMatch[1]) : 0,
-                files: sizeMatch ? parseInt(sizeMatch[1]) : 0
-            };
-        } catch (_) {}
+        // Skip cache stats on status — too slow
 
         // Vox count
         let count = 0;
@@ -208,7 +183,7 @@ router.get('/status', (req, res) => {
             count = ids.size;
         } catch (_) {}
 
-        res.json({ providers, voxData: VOX_DATA, cache: cacheStats, count, dbPath: VOX_DB });
+        res.json({ providers, voxData: VOX_DATA, cache: null, count, dbPath: VOX_DB });
     } catch (e) {
         res.json({
             providers: {
