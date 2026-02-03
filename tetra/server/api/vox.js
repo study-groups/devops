@@ -465,6 +465,17 @@ router.get('/db/:id/audio', (req, res) => {
     const { id } = req.params;
     const codec = req.query.codec;
     const files = getVoxFiles(id);
+
+    // If no audio in db, check meta.storagePath for external audio
+    if (!files.audio && files.meta) {
+        try {
+            const meta = JSON.parse(fs.readFileSync(files.meta, 'utf-8'));
+            if (meta.storagePath && fs.existsSync(meta.storagePath)) {
+                files.audio = meta.storagePath;
+            }
+        } catch (_) {}
+    }
+
     if (!files.audio) return res.status(404).json({ error: 'Audio not found' });
 
     // If no codec requested, serve original
@@ -521,6 +532,17 @@ router.post('/db/:id/analyze', (req, res) => {
     const { id } = req.params;
     if (!id || id === 'undefined') return res.status(400).json({ error: 'Missing vox id' });
     const files = getVoxFiles(id);
+
+    // If no audio in db, check meta.storagePath for external audio
+    if (!files.audio && files.meta) {
+        try {
+            const meta = JSON.parse(fs.readFileSync(files.meta, 'utf-8'));
+            if (meta.storagePath && fs.existsSync(meta.storagePath)) {
+                files.audio = meta.storagePath;
+            }
+        } catch (_) {}
+    }
+
     if (!files.audio) return res.status(404).json({ error: 'Audio not found' });
 
     try {
