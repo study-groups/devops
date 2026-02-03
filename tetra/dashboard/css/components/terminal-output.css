@@ -1,0 +1,131 @@
+/**
+ * TDS TerminalOutput Component
+ * Non-interactive terminal display with ANSI color support
+ */
+
+.tetra-terminal-output {
+    background: var(--paper-dark);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: auto;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+}
+
+.tetra-terminal-output__content {
+    margin: 0;
+    padding: var(--space-md);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.tetra-terminal-output--nowrap .tetra-terminal-output__content {
+    white-space: pre;
+    overflow-x: auto;
+}
+
+.tetra-terminal-output__line {
+    display: flex;
+    min-height: 1.5em;
+}
+
+.tetra-terminal-output__linenum {
+    color: var(--ink-muted);
+    min-width: 3em;
+    padding-right: var(--space-md);
+    text-align: right;
+    user-select: none;
+    opacity: 0.5;
+}
+
+.tetra-terminal-output__text {
+    flex: 1;
+    color: var(--ink);
+}
+
+/* Streaming indicator */
+.tetra-terminal-output--streaming {
+    border-color: var(--four);
+}
+
+.tetra-terminal-output--streaming::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--four);
+    animation: tetra-terminal-pulse 1s ease-in-out infinite;
+}
+
+@keyframes tetra-terminal-pulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+}
+
+/* Header for labeled output */
+.tetra-terminal-output__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--paper-mid);
+    border-bottom: 1px solid var(--border);
+    font-size: var(--font-size-xs);
+    color: var(--ink-muted);
+    text-transform: uppercase;
+}
+
+.tetra-terminal-output__label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.tetra-terminal-output__close {
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity var(--transition-fast);
+}
+
+.tetra-terminal-output__close:hover {
+    opacity: 1;
+    color: var(--one);
+}
+
+/* Size variants */
+.tetra-terminal-output--sm {
+    font-size: 8px;
+    max-height: 100px;
+}
+
+.tetra-terminal-output--md {
+    max-height: 200px;
+}
+
+.tetra-terminal-output--lg {
+    max-height: 400px;
+}
+
+.tetra-terminal-output--full {
+    max-height: none;
+    height: 100%;
+}
+
+/* Status variants */
+.tetra-terminal-output--error {
+    border-color: var(--one);
+}
+
+.tetra-terminal-output--success {
+    border-color: var(--two);
+}
+
+/* Empty state */
+.tetra-terminal-output--empty .tetra-terminal-output__content::after {
+    content: 'No output';
+    color: var(--ink-muted);
+    font-style: italic;
+}

@@ -1,0 +1,58 @@
+/**
+ * TDS Design Tokens
+ * Tetra Design System - Core variables
+ */
+
+:root {
+    /* Colors - Paper/Ink naming */
+    --paper-dark: #0a0a0a;
+    --paper-mid: #1a1a1a;
+    --paper-light: #2a2a2a;
+    --ink: #e0e0e0;
+    --ink-muted: #666;
+    --border: #333;
+
+    /* Semantic colors (numbered for flexibility) */
+    --one: #ff6b6b;      /* red - error, danger, prod */
+    --two: #4ecdc4;      /* teal - success, online, local */
+    --three: #ffe66d;    /* yellow - warning, dev/staging */
+    --four: #6b5ce7;     /* purple - accent, active */
+
+    /* Bright variants */
+    --one-bright: #ff8a8a;
+    --two-bright: #7eeee6;
+    --three-bright: #fff09d;
+    --four-bright: #9389ed;
+
+    /* Typography */
+    --font-mono: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    --font-size-xs: 9px;
+    --font-size-sm: 10px;
+    --font-size-base: 12px;
+    --font-size-lg: 14px;
+    --font-size-xl: 16px;
+
+    /* Spacing */
+    --space-xs: 2px;
+    --space-sm: 4px;
+    --space-md: 8px;
+    --space-lg: 12px;
+    --space-xl: 16px;
+    --space-2xl: 24px;
+
+    /* Border radius */
+    --radius-sm: 2px;
+    --radius-md: 4px;
+    --radius-lg: 8px;
+
+    /* Transitions */
+    --transition-fast: 0.1s ease;
+    --transition-base: 0.15s ease;
+    --transition-slow: 0.3s ease;
+
+    /* Z-index layers */
+    --z-base: 1;
+    --z-dropdown: 100;
+    --z-modal: 200;
+    --z-tooltip: 300;
+}

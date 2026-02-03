@@ -1,0 +1,115 @@
+/**
+ * TDS Tabs Component
+ * Tab navigation styles
+ */
+
+/* Base tabs (underline style) */
+.tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+}
+
+.tab {
+    padding: var(--space-md) var(--space-lg);
+    font-size: var(--font-size-sm);
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color var(--transition-base), border-color var(--transition-base);
+}
+
+.tab:hover {
+    color: var(--ink);
+}
+
+.tab.active {
+    color: var(--ink);
+    border-bottom-color: var(--four);
+}
+
+/* Equal width variant */
+.tabs--equal .tab {
+    flex: 1;
+    text-align: center;
+}
+
+/* Pill/button variant */
+.tabs--pill {
+    gap: var(--space-sm);
+    border-bottom: none;
+}
+
+.tabs--pill .tab {
+    padding: 6px var(--space-lg);
+    background: var(--paper-mid);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    border-bottom: none;
+}
+
+.tabs--pill .tab:hover {
+    background: var(--paper-light);
+}
+
+.tabs--pill .tab.active {
+    background: var(--four);
+    color: var(--ink);
+    border-color: var(--four);
+}
+
+/* Compact variant */
+.tabs--compact .tab {
+    padding: var(--space-sm) var(--space-md);
+    font-size: var(--font-size-xs);
+}
+
+/* Vertical tabs */
+.tabs--vertical {
+    flex-direction: column;
+    border-bottom: none;
+    border-right: 1px solid var(--border);
+}
+
+.tabs--vertical .tab {
+    border-bottom: none;
+    border-right: 2px solid transparent;
+}
+
+.tabs--vertical .tab.active {
+    border-right-color: var(--four);
+}
+
+/* Tab content panels */
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* TetraUI namespaced versions */
+.tetra-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+}
+
+.tetra-tab {
+    padding: var(--space-md) var(--space-lg);
+    font-size: var(--font-size-sm);
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color var(--transition-base), border-color var(--transition-base);
+}
+
+.tetra-tab:hover {
+    color: var(--ink);
+}
+
+.tetra-tab.active {
+    color: var(--ink);
+    border-bottom-color: var(--four);
+}

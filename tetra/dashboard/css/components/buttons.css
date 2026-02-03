@@ -1,0 +1,170 @@
+/**
+ * TDS Buttons Component
+ * Button and pill styles
+ */
+
+/* Base button */
+.btn {
+    background: transparent;
+    border: 1px solid var(--paper-mid);
+    color: var(--ink-muted);
+    padding: var(--space-xs) var(--space-md);
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: border-color var(--transition-base), color var(--transition-base);
+}
+
+.btn:hover {
+    border-color: var(--four);
+    color: var(--four);
+}
+
+.btn.active {
+    border-color: var(--four);
+    color: var(--four);
+}
+
+.btn.primary {
+    background: var(--four);
+    border-color: var(--four);
+    color: var(--ink);
+}
+
+.btn.primary:hover {
+    background: var(--four-bright);
+    border-color: var(--four-bright);
+}
+
+.btn.danger {
+    background: var(--one);
+    border-color: var(--one);
+    color: var(--ink);
+}
+
+.btn.danger:hover {
+    background: var(--one-bright);
+    border-color: var(--one-bright);
+}
+
+.btn.success {
+    background: var(--two);
+    border-color: var(--two);
+    color: var(--paper-dark);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Button sizes */
+.btn--sm {
+    padding: 2px 6px;
+    font-size: 8px;
+}
+
+.btn--lg {
+    padding: var(--space-sm) var(--space-lg);
+    font-size: var(--font-size-sm);
+}
+
+/* Button group / actions row */
+.actions {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.actions .btn {
+    padding: var(--space-sm) var(--space-md);
+}
+
+/* Pill toggle buttons */
+.pill-group {
+    display: flex;
+}
+
+.pill {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--ink-muted);
+    padding: var(--space-sm) var(--space-md);
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all var(--transition-base);
+}
+
+.pill:first-child {
+    border-radius: 3px 0 0 3px;
+}
+
+.pill:last-child {
+    border-radius: 0 3px 3px 0;
+}
+
+.pill:not(:first-child) {
+    border-left: none;
+}
+
+.pill:hover {
+    color: var(--ink);
+    border-color: var(--four);
+}
+
+.pill:hover + .pill {
+    border-left-color: var(--four);
+}
+
+.pill.active {
+    background: var(--four);
+    border-color: var(--four);
+    color: var(--ink);
+}
+
+.pill.active + .pill {
+    border-left-color: var(--four);
+}
+
+/* Standalone pill */
+.pill:only-child {
+    border-radius: 3px;
+}
+
+/* Icon buttons */
+.btn-icon {
+    padding: var(--space-sm);
+    min-width: 24px;
+    text-align: center;
+}
+
+/* TetraUI namespaced */
+.tetra-btn {
+    background: transparent;
+    border: 1px solid var(--paper-mid);
+    color: var(--ink-muted);
+    padding: var(--space-xs) var(--space-md);
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: border-color var(--transition-base), color var(--transition-base);
+}
+
+.tetra-btn:hover {
+    border-color: var(--four);
+    color: var(--four);
+}
+
+.tetra-btn--primary {
+    background: var(--four);
+    border-color: var(--four);
+    color: var(--ink);
+}
+
+.tetra-btn--danger {
+    background: var(--one);
+    border-color: var(--one);
+    color: var(--ink);
+}
