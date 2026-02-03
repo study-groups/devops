@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# TSM Service: CDP Agent REST API
+# Node.js service that connects to Chrome CDP and exposes REST endpoints
+#
+# Usage:
+#   tsm start cdp-agent
+#   curl localhost:9223/api/cdp/status
+#
+# Prerequisites:
+#   Chrome must be running with CDP (tsm start chrome-cdp)
+#
+# Environment:
+#   CDP_AGENT_PORT - Agent API port (default: 9223)
+#   CDP_PORT - Chrome debugging port to connect to (default: 9222)
+
+TSM_NAME="cdp-agent"
+TSM_DESCRIPTION="CDP Agent REST API for browser debugging"
+TSM_PORT="${CDP_AGENT_PORT:-9223}"
+
+# Dependencies
+TSM_DEPENDS="chrome-cdp"
+
+# Working directory
+TSM_CWD="${TETRA_SRC}/server"
+
+# Run the CDP agent (standalone express server)
+TSM_COMMAND="node -e \"
+const express = require('express');
+const cdpApi = require('./api/cdp');
+const app = express();
+app.use(express.json());
+app.use('/api/cdp', cdpApi);
+app.listen(${TSM_PORT}, '127.0.0.1', () => {
+    console.log('CDP Agent listening on port ${TSM_PORT}');
+});
+\""
+
+# Health check
+TSM_HEALTH_CHECK='curl -s http://localhost:${TSM_PORT}/api/cdp/status >/dev/null 2>&1'
