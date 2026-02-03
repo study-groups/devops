@@ -14,7 +14,7 @@
     "@iarna/toml": "^2.2.5",
     "@nodeholder/pdata": "^0.1.10",
     "cors": "^2.8.5",
-    "express": "^4.21.0",
+    "express": "^5.0.0",
     "jsonwebtoken": "^9.0.3",
     "resend": "^6.7.0"
   },
