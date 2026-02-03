@@ -188,7 +188,7 @@
         .rec-details-inner {
             display: flex;
             gap: 12px;
-            align-items: flex-start;
+            align-items: stretch;
         }
         .rec-details .info-grid {
             flex: 1;
@@ -201,11 +201,14 @@
             background: #000;
             border-radius: 2px;
             overflow: hidden;
-            width: 140px;
+            width: 160px;
+            display: flex;
+            align-items: center;
         }
         .mini-player video {
             width: 100%;
-            height: auto;
+            height: 100%;
+            object-fit: cover;
             display: block;
         }
 
