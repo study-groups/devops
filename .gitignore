@@ -94,6 +94,9 @@ typings/
 # dotenv environment variables file
 .env
 
+# Image files (design assets)
+*.png
+
 # next.js build output
 .next
 
