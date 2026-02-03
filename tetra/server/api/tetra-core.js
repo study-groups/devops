@@ -399,5 +399,38 @@ router.get('/monitor/events', (req, res) => {
     });
 });
 
+// === DASHBOARD VIEWS ===
+
+const fs = require('fs');
+
+// Auto-discover iframe views from dashboard directory
+router.get('/views', (req, res) => {
+    const dashboardDir = path.join(__dirname, '../../dashboard');
+
+    try {
+        const files = fs.readdirSync(dashboardDir);
+        const views = files
+            .filter(f => f.endsWith('.iframe.html'))
+            .map(f => {
+                const id = f.replace('.iframe.html', '');
+                // Capitalize first letter for label
+                const label = id.charAt(0).toUpperCase() + id.slice(1);
+                return { id, src: f, label };
+            })
+            .sort((a, b) => a.label.localeCompare(b.label));
+
+        res.json({
+            views,
+            count: views.length,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            error: 'Failed to discover views',
+            message: error.message
+        });
+    }
+});
+
 // Export both the router and the executor for use in other modules
 module.exports = { router, tetraExecutor };

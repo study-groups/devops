@@ -311,12 +311,18 @@ router.post('/restart/:service', (req, res) => {
 //   format - Output format: "text" (default) or "json"
 //   since - Filter by time (e.g., "5m", "1h")
 //   search - Text search filter (grep on server side)
+//   timestamps - Add ISO timestamps to each line
 router.get('/logs/:service', (req, res) => {
     const service = req.params.service;
-    const { org = 'tetra', env = 'local', user = '', lines = 50, format = 'text', since = '', search = '' } = req.query;
+    const { org = 'tetra', env = 'local', user = '', lines = 50, format = 'text', since = '', search = '', timestamps = '' } = req.query;
 
     try {
         let cmd = `tsm logs ${service} -n ${lines}`;
+
+        // Add timestamps if requested
+        if (timestamps === 'true') {
+            cmd += ' -t';
+        }
 
         // Add since filter if provided
         if (since) {
