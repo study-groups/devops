@@ -493,18 +493,26 @@ function openEditor(id, filename, duration) {
         state.waveform = null;
     }
 
-    // Create waveform
+    // Create waveform editor
     const container = document.getElementById('edit-waveform');
     const audioUrl = getApiUrl(`/api/screentool/video/${id}/${filename}`);
 
-    if (typeof VoxWaveform !== 'undefined') {
-        state.waveform = VoxWaveform.create(container, {
+    if (typeof WaveformEditor !== 'undefined') {
+        state.waveform = WaveformEditor.create(container, {
             audioUrl,
             duration,
-            height: 120
+            height: 120,
+            mode: 'seek',
+            vad: { enabled: true, threshold: 0.02, minDuration: 0.1 },
+            onSeek: (t) => {
+                document.getElementById('edit-trim-start').value = t.toFixed(2);
+            },
+            onVadChange: (segments) => {
+                console.log('VAD segments:', segments.length);
+            }
         });
     } else {
-        container.innerHTML = '<div style="color:var(--ink-muted);font-size:10px;padding:20px;">Waveform not available</div>';
+        container.innerHTML = '<div style="color:var(--ink-muted);font-size:10px;padding:20px;">Waveform editor not available</div>';
     }
 }
 

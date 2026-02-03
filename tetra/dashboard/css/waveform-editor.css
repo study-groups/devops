@@ -1,0 +1,122 @@
+/**
+ * waveform-editor.css - Styles for the reusable waveform editor component
+ */
+
+.wf-editor {
+    background: var(--paper-dark, #1a1a2e);
+    border: 1px solid var(--border, #333);
+    border-radius: 4px;
+    padding: 8px;
+}
+
+.wf-editor-canvas {
+    width: 100%;
+    display: block;
+    border-radius: 3px;
+}
+
+.wf-editor-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.wf-editor-btn {
+    background: var(--paper-mid, #252538);
+    border: 1px solid var(--border, #333);
+    color: var(--ink-muted, #888);
+    padding: 3px 10px;
+    font-family: inherit;
+    font-size: 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.wf-editor-btn:hover {
+    color: var(--ink, #e0e0e0);
+    border-color: var(--four, #4fc3f7);
+}
+
+.wf-editor-btn.active {
+    background: var(--four, #4fc3f7);
+    color: var(--paper-dark, #1a1a2e);
+    border-color: var(--four, #4fc3f7);
+}
+
+.wf-play-btn {
+    font-size: 12px;
+    padding: 2px 10px;
+}
+
+.wf-editor-time {
+    font-size: 10px;
+    font-family: monospace;
+    color: var(--ink-muted, #888);
+    min-width: 80px;
+}
+
+.wf-mode-btn,
+.wf-vad-btn {
+    font-size: 9px;
+    padding: 2px 8px;
+}
+
+/* VAD Parameters Panel */
+.wf-editor-vad-panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 8px;
+    padding: 8px;
+    background: var(--paper-mid, #252538);
+    border-radius: 3px;
+    align-items: center;
+}
+
+.wf-vad-param {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 9px;
+}
+
+.wf-vad-param label {
+    color: var(--two, #ef5350);
+    min-width: 70px;
+}
+
+.wf-vad-param input[type="range"] {
+    width: 80px;
+    height: 4px;
+    cursor: pointer;
+}
+
+.wf-vad-value {
+    color: var(--ink-muted, #888);
+    font-family: monospace;
+    min-width: 40px;
+}
+
+.wf-vad-actions {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.wf-vad-apply,
+.wf-vad-to-onsets {
+    font-size: 9px;
+    padding: 2px 8px;
+}
+
+.wf-vad-to-onsets {
+    color: var(--three, #4caf50) !important;
+    border-color: var(--three, #4caf50) !important;
+}
+
+.wf-vad-to-onsets:hover {
+    background: var(--three, #4caf50);
+    color: var(--paper-dark, #1a1a2e) !important;
+}
