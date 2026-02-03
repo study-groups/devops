@@ -392,8 +392,19 @@ router.post('/transcode/:id/:filename', async (req, res) => {
             } : null
         };
 
-        // Step 2: Determine optimal conversion strategy
-        const videoIsH264 = videoStream?.codec_name === 'h264';
+        // Step 2: Validate source has video
+        if (!videoStream) {
+            return res.status(400).json({
+                error: 'Source file has no video stream',
+                source: sourceInfo
+            });
+        }
+
+        // Step 3: Determine optimal conversion strategy
+        const videoCodecName = videoStream.codec_name;
+        const videoIsH264 = videoCodecName === 'h264';
+        const videoIsH265 = videoCodecName === 'hevc' || videoCodecName === 'h265';
+        const videoIsVP9 = videoCodecName === 'vp9';
         const audioIsAAC = audioStream?.codec_name === 'aac';
         const audioIsCompatible = !audioStream || audioIsAAC || audioStream.codec_name === 'mp3';
 
@@ -411,17 +422,20 @@ router.post('/transcode/:id/:filename', async (req, res) => {
             description = `Video copy, transcode audio from ${audioStream?.codec_name} to AAC 128kbps.`;
         } else {
             strategy = 'full_transcode';
-            videoCodec = 'libx264 -preset fast -crf 23';
+            // For H.265/HEVC and VP9, need full re-encode to H.264
+            videoCodec = 'libx264 -preset medium -crf 23';
             audioCodec = audioStream ? 'aac -b:a 128k' : null;
-            description = `Full transcode: ${videoStream?.codec_name}→H.264 (CRF 23), audio→AAC.`;
+            const codecNote = videoIsH265 ? ' (HEVC→H.264)' : videoIsVP9 ? ' (VP9→H.264)' : '';
+            description = `Full transcode: ${videoCodecName}→H.264 CRF 23${codecNote}, audio→AAC. May take a while.`;
         }
 
-        // Step 3: Build ffmpeg command
+        // Step 4: Build ffmpeg command
+        // -map 0:v:0: Explicitly select first video stream
+        // -map 0:a?: Include audio if present (? = optional)
         // -movflags +faststart: Relocates moov atom to file start for progressive download
-        // -map 0: Copy all streams from input
-        // -y: Overwrite output (though we already checked it doesn't exist)
+        // -y: Overwrite output
         const audioArgs = audioCodec ? `-c:a ${audioCodec}` : '-an';
-        const ffmpegCmd = `ffmpeg -i "${inputPath}" -c:v ${videoCodec} ${audioArgs} -movflags +faststart -map 0 -y "${outputPath}" 2>&1`;
+        const ffmpegCmd = `ffmpeg -i "${inputPath}" -map 0:v:0 -map 0:a? -c:v ${videoCodec} ${audioArgs} -movflags +faststart -y "${outputPath}" 2>&1`;
 
         const conversionInfo = {
             source: sourceInfo,
@@ -443,6 +457,21 @@ router.post('/transcode/:id/:filename', async (req, res) => {
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         const outputStat = fs.statSync(outputPath);
 
+        // Step 6: Verify output has video stream
+        const verifyScript = `ffprobe -v quiet -print_format json -show_streams "${outputPath}"`;
+        const verifyOutput = execSync(verifyScript, { shell: BASH, timeout: 10000, encoding: 'utf8' });
+        const verifyData = JSON.parse(verifyOutput);
+        const outputVideoStream = verifyData.streams?.find(s => s.codec_type === 'video');
+
+        if (!outputVideoStream) {
+            fs.unlinkSync(outputPath);
+            return res.status(500).json({
+                error: 'Conversion failed: output has no video stream',
+                source: sourceInfo,
+                ffmpegLog: ffmpegOutput.slice(-3000)
+            });
+        }
+
         res.json({
             ok: true,
             ...conversionInfo,
@@ -451,7 +480,12 @@ router.post('/transcode/:id/:filename', async (req, res) => {
                 inputSize: parseInt(probeData.format?.size),
                 outputSize: outputStat.size,
                 compression: ((1 - outputStat.size / parseInt(probeData.format?.size)) * 100).toFixed(1) + '%',
-                ffmpegLog: ffmpegOutput.slice(-2000) // Last 2KB of ffmpeg output
+                outputVideo: {
+                    codec: outputVideoStream.codec_name,
+                    width: outputVideoStream.width,
+                    height: outputVideoStream.height
+                },
+                ffmpegLog: ffmpegOutput.slice(-2000)
             }
         });
 

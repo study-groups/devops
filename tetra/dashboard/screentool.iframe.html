@@ -191,8 +191,12 @@
             align-items: flex-start;
         }
         .rec-details .info-grid {
-            flex: 0 1 25%;
-            min-width: 180px;
+            flex: 0 0 auto;
+            min-width: 160px;
+        }
+        .rec-details .transcode-col {
+            flex: 0 0 auto;
+            min-width: 200px;
             max-width: 280px;
         }
 
@@ -202,7 +206,8 @@
             background: #000;
             border-radius: 2px;
             overflow: hidden;
-            min-width: 0;
+            min-width: 120px;
+            max-width: 280px;
         }
         .mini-player video {
             width: 100%;
@@ -211,10 +216,18 @@
         }
 
         /* Transcode UI */
-        .transcode-hint {
-            font-size: 8px;
-            color: var(--ink-muted);
-            margin-left: 6px;
+        .transcode-params {
+            font-size: 9px;
+            margin-bottom: 6px;
+        }
+        .transcode-param {
+            margin: 2px 0;
+            color: var(--ink);
+        }
+        .transcode-param span {
+            color: var(--two);
+            display: inline-block;
+            width: 55px;
         }
         .transcode-result {
             margin-top: 8px;

@@ -123,32 +123,50 @@ function renderRecordingInfo(id, data) {
         infoHtml += parts.join(', ') + '</span>';
     }
 
-    // Show convert button for non-MP4 files
+    infoHtml += '</div>';
+
+    // Build transcode column for non-MP4 files
     const filename = data.format?.filename;
     const basename = filename ? filename.split('/').pop() : '';
     const ext = basename.split('.').pop()?.toLowerCase();
-    if (ext && ext !== 'mp4') {
-        const videoCodec = streams.find(s => s.codec_type === 'video')?.codec_name || 'unknown';
-        const audioCodec = streams.find(s => s.codec_type === 'audio')?.codec_name || 'none';
-        const isH264 = videoCodec === 'h264';
-        const strategy = isH264 ? 'remux (stream copy)' : 'full transcode';
-        infoHtml += `<span class="info-label" style="margin-top:8px">Convert:</span>
-            <span class="info-value" style="margin-top:8px">
-                <button class="rec-btn" data-action="transcode" data-id="${id}" data-file="${basename}">→ MP4</button>
-                <span class="transcode-hint">${strategy}</span>
-            </span>`;
-    }
-    infoHtml += '</div>';
+    let transcodeHtml = '';
 
-    // Transcode result area
-    infoHtml += `<div class="transcode-result" data-id="${id}"></div>`;
+    if (ext && ext !== 'mp4') {
+        const videoStream = streams.find(s => s.codec_type === 'video');
+        const audioStream = streams.find(s => s.codec_type === 'audio');
+        const videoCodec = videoStream?.codec_name || 'unknown';
+        const audioCodec = audioStream?.codec_name || 'none';
+        const isH264 = videoCodec === 'h264';
+        const isH265 = videoCodec === 'hevc' || videoCodec === 'h265';
+        const isVP9 = videoCodec === 'vp9';
+
+        let strategy, desc;
+        if (isH264) {
+            strategy = 'remux';
+            desc = 'Stream copy (fast)';
+        } else {
+            strategy = 'transcode';
+            desc = isH265 ? 'HEVC→H.264' : isVP9 ? 'VP9→H.264' : `${videoCodec}→H.264`;
+        }
+
+        transcodeHtml = `<div class="transcode-col">
+            <div class="transcode-params">
+                <div class="transcode-param"><span>Source:</span> ${videoCodec}/${audioCodec}</div>
+                <div class="transcode-param"><span>Strategy:</span> ${strategy}</div>
+                <div class="transcode-param"><span>Output:</span> H.264/AAC MP4</div>
+                <div class="transcode-param"><span>Flags:</span> -movflags +faststart</div>
+            </div>
+            <button class="rec-btn" data-action="transcode" data-id="${id}" data-file="${basename}" style="margin-top:6px">Convert → MP4</button>
+            <div class="transcode-result" data-id="${id}"></div>
+        </div>`;
+    }
 
     let playerHtml = '';
     if (filename) {
         const videoUrl = getApiUrl(`/api/screentool/video/${id}/${basename}`);
         playerHtml = `<div class="mini-player"><video controls preload="metadata"><source src="${videoUrl}"></video></div>`;
     }
-    detailsEl.innerHTML = `<div class="rec-details-inner">${infoHtml}${playerHtml}</div>`;
+    detailsEl.innerHTML = `<div class="rec-details-inner">${infoHtml}${transcodeHtml}${playerHtml}</div>`;
 }
 
 function formatBytes(bytes) {
