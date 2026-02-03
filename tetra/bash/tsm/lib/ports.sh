@@ -54,26 +54,34 @@ tsm_resolve_port() {
             return 0
         fi
 
+        # Explicit port MUST be available - fail loudly if not
         if tsm_port_available "$explicit"; then
             echo "$explicit"
-        elif [[ $explicit -ge $TSM_PORT_MIN && $explicit -le $TSM_PORT_MAX ]]; then
-            # Within range, find next available
-            tsm_allocate_port "$explicit"
         else
-            # Outside range, use as-is (user's responsibility)
-            echo "$explicit"
+            # Port taken - report what's using it and FAIL
+            local blocker_pid=$(tsm_port_pid "$explicit")
+            if [[ -n "$blocker_pid" ]]; then
+                tsm_error "port $explicit in use by PID $blocker_pid (use '$explicit+' for auto-increment)"
+            else
+                tsm_error "port $explicit unavailable (use '$explicit+' for auto-increment)"
+            fi
+            return 1
         fi
         return 0
     fi
 
-    # Step 2: Environment PORT
+    # Step 2: Environment PORT (also strict - fail if unavailable)
     if [[ -n "$env_port" ]]; then
         if tsm_port_available "$env_port"; then
             echo "$env_port"
-        elif [[ $env_port -ge $TSM_PORT_MIN && $env_port -le $TSM_PORT_MAX ]]; then
-            tsm_allocate_port "$env_port"
         else
-            echo "$env_port"
+            local blocker_pid=$(tsm_port_pid "$env_port")
+            if [[ -n "$blocker_pid" ]]; then
+                tsm_error "env PORT=$env_port in use by PID $blocker_pid"
+            else
+                tsm_error "env PORT=$env_port unavailable"
+            fi
+            return 1
         fi
         return 0
     fi
