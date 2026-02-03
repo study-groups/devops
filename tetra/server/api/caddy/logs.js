@@ -167,7 +167,7 @@ router.get('/errors', async (req, res) => {
 });
 
 // Stats - longterm log statistics
-router.get('/stats', (req, res) => {
+router.get('/stats', async (req, res) => {
     const { org = 'tetra', env = 'local', period = '24h' } = req.query;
     const paths = getCaddyPaths(org, env);
 
@@ -259,57 +259,54 @@ router.get('/stats', (req, res) => {
                 result.message = `No log file found at ${logFile}`;
             }
         } else {
+            // Single SSH call for all stats — avoids 4x serial SSH overhead
             try {
-                const statsCmd = `
-                    cat ${paths.logDir}/*.log 2>/dev/null | jq -s '
-                        {
-                            total: length,
-                            errors: [.[] | select(.status >= 500 or .level == "error")] | length,
-                            avgDuration: (if length > 0 then ([.[].duration // 0] | add / length) else 0 end),
-                            uniqueIPs: ([.[].request.remote_ip // .[].request.client_ip] | unique | length)
-                        }
-                    ' 2>/dev/null || echo '{"total":0,"errors":0,"avgDuration":0,"uniqueIPs":0}'
+                const combinedCmd = `
+                    jq -r '[.request.remote_ip // .request.client_ip // "-", .request.uri // "-", (.status // 0 | tostring), (.duration // 0 | tostring)] | @tsv' ${paths.logDir}/*.log 2>/dev/null
                 `;
-                const summaryOutput = runCmd(statsCmd, org, env).trim();
-                try {
-                    const summary = JSON.parse(summaryOutput);
-                    result.summary = {
-                        totalRequests: summary.total || 0,
-                        errorCount: summary.errors || 0,
-                        avgDuration: (summary.avgDuration || 0).toFixed(3),
-                        uniqueIPs: summary.uniqueIPs || 0
-                    };
-                } catch (e) { /* use defaults */ }
+                const rawOutput = await runCmdAsync(combinedCmd, org, env);
 
-                const topIPsCmd = `cat ${paths.logDir}/*.log 2>/dev/null | jq -r '.request.remote_ip // .request.client_ip // empty' | sort | uniq -c | sort -rn | head -10 | awk '{print $1 "|" $2}'`;
-                const topIPsOutput = runCmd(topIPsCmd, org, env).trim();
-                if (topIPsOutput) {
-                    const maxCount = parseInt(topIPsOutput.split('\n')[0].split('|')[0]) || 1;
-                    result.topIPs = topIPsOutput.split('\n').filter(l => l).map(line => {
-                        const [count, ip] = line.split('|');
-                        return { ip, count: parseInt(count), percent: Math.round((parseInt(count) / maxCount) * 100) };
-                    });
+                // Parse on client side
+                const ipCounts = {}, pathCounts = {}, statusCounts = {};
+                let totalDuration = 0, durationCount = 0, errorCount = 0, total = 0;
+
+                for (const line of rawOutput.trim().split('\n')) {
+                    if (!line) continue;
+                    const [ip, uri, status, duration] = line.split('\t');
+                    total++;
+                    if (ip && ip !== '-') ipCounts[ip] = (ipCounts[ip] || 0) + 1;
+                    if (uri && uri !== '-') pathCounts[uri] = (pathCounts[uri] || 0) + 1;
+                    if (status) {
+                        statusCounts[status] = (statusCounts[status] || 0) + 1;
+                        if (parseInt(status) >= 500) errorCount++;
+                    }
+                    const dur = parseFloat(duration);
+                    if (dur > 0) { totalDuration += dur; durationCount++; }
                 }
 
-                const topPathsCmd = `cat ${paths.logDir}/*.log 2>/dev/null | jq -r '.request.uri // empty' | sort | uniq -c | sort -rn | head -10 | awk '{print $1 "|" $2}'`;
-                const topPathsOutput = runCmd(topPathsCmd, org, env).trim();
-                if (topPathsOutput) {
-                    const maxCount = parseInt(topPathsOutput.split('\n')[0].split('|')[0]) || 1;
-                    result.topPaths = topPathsOutput.split('\n').filter(l => l).map(line => {
-                        const [count, path] = line.split('|');
-                        return { path, count: parseInt(count), percent: Math.round((parseInt(count) / maxCount) * 100) };
-                    });
-                }
+                result.summary = {
+                    totalRequests: total,
+                    errorCount,
+                    avgDuration: durationCount > 0 ? (totalDuration / durationCount).toFixed(3) : 0,
+                    uniqueIPs: Object.keys(ipCounts).length
+                };
 
-                const statusCmd = `cat ${paths.logDir}/*.log 2>/dev/null | jq -r '.status // empty' | sort | uniq -c | sort -rn | awk '{print $1 "|" $2}'`;
-                const statusOutput = runCmd(statusCmd, org, env).trim();
-                if (statusOutput) {
-                    const total = statusOutput.split('\n').filter(l => l).reduce((sum, line) => sum + parseInt(line.split('|')[0]), 0) || 1;
-                    result.statusCodes = statusOutput.split('\n').filter(l => l).map(line => {
-                        const [count, code] = line.split('|');
-                        return { code, count: parseInt(count), percent: Math.round((parseInt(count) / total) * 100) };
-                    });
-                }
+                const sortedIPs = Object.entries(ipCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+                const maxIPCount = sortedIPs[0]?.[1] || 1;
+                result.topIPs = sortedIPs.map(([ip, count]) => ({
+                    ip, count, percent: Math.round((count / maxIPCount) * 100)
+                }));
+
+                const sortedPaths = Object.entries(pathCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+                const maxPathCount = sortedPaths[0]?.[1] || 1;
+                result.topPaths = sortedPaths.map(([path, count]) => ({
+                    path, count, percent: Math.round((count / maxPathCount) * 100)
+                }));
+
+                const sortedStatus = Object.entries(statusCounts).sort((a, b) => b[1] - a[1]);
+                result.statusCodes = sortedStatus.map(([code, count]) => ({
+                    code, count, percent: Math.round((count / (total || 1)) * 100)
+                }));
 
             } catch (e) {
                 console.warn('[Caddy] Stats fetch error:', e.message);
@@ -323,7 +320,7 @@ router.get('/stats', (req, res) => {
 });
 
 // Metadata - log analysis settings and resource usage
-router.get('/metadata', (req, res) => {
+router.get('/metadata', async (req, res) => {
     const { org = 'tetra', env = 'local' } = req.query;
     const paths = getCaddyPaths(org, env);
 
@@ -348,9 +345,9 @@ router.get('/metadata', (req, res) => {
 
         if (paths.isLocal) {
             try {
-                const pid = runCmd('pgrep -f "caddy run" 2>/dev/null | head -1 || echo ""', org, env).trim();
+                const pid = (await runCmdAsync('pgrep -f "caddy run" 2>/dev/null | head -1 || echo ""', org, env)).trim();
                 if (pid) {
-                    const ps = runCmd(`ps -p ${pid} -o %cpu,%mem,rss 2>/dev/null | tail -1 || echo "0 0 0"`, org, env).trim();
+                    const ps = (await runCmdAsync(`ps -p ${pid} -o %cpu,%mem,rss 2>/dev/null | tail -1 || echo "0 0 0"`, org, env)).trim();
                     const [cpu, mem, rss] = ps.split(/\s+/).map(Number);
                     result.resources.cpuPercent = cpu || 0;
                     result.resources.memoryMB = Math.round((rss || 0) / 1024);
@@ -397,8 +394,10 @@ router.get('/metadata', (req, res) => {
                 age: result.logFile?.modified || 'unknown'
             }];
         } else {
+            // Single SSH call for all metadata
             try {
-                const procStats = runCmd(`
+                const combinedCmd = `
+                    echo "---PROC---"
                     pid=$(pgrep -f "caddy" | head -1)
                     if [ -n "$pid" ]; then
                         ps -p $pid -o %cpu,%mem,rss --no-headers 2>/dev/null | awk '{print $1, $2, $3}'
@@ -407,36 +406,49 @@ router.get('/metadata', (req, res) => {
                         echo "0 0 0"
                         echo "0"
                     fi
-                `, org, env).trim().split('\n');
-
-                const [cpu, mem, rss] = (procStats[0] || '0 0 0').split(/\s+/).map(Number);
-                result.resources.cpuPercent = cpu || 0;
-                result.resources.memoryMB = Math.round((rss || 0) / 1024);
-                result.resources.openFiles = parseInt(procStats[1]) || 0;
-
-                const diskUsage = runCmd(`du -sm ${paths.logDir} 2>/dev/null | cut -f1 || echo "0"`, org, env).trim();
-                result.resources.diskUsageMB = parseInt(diskUsage) || 0;
-
-                const fileList = runCmd(`
+                    echo "---DISK---"
+                    du -sm ${paths.logDir} 2>/dev/null | cut -f1 || echo "0"
+                    echo "---FILES---"
                     ls -lh ${paths.logDir}/*.log 2>/dev/null | awk '{
                         split($9, a, "/");
                         name = a[length(a)];
                         size = $5;
                         print name "|" size "|" $6 " " $7
                     }'
-                `, org, env).trim();
+                    echo "---JSON---"
+                    grep -c 'format json' ${paths.caddyfile} 2>/dev/null || echo "0"
+                `;
+                const output = await runCmdAsync(combinedCmd, org, env);
 
-                if (fileList) {
-                    result.files = fileList.split('\n').filter(l => l).map(line => {
+                // Parse sections
+                const sections = output.split(/---(\w+)---/).filter(s => s.trim());
+                const data = {};
+                for (let i = 0; i < sections.length - 1; i += 2) {
+                    data[sections[i]] = sections[i + 1].trim();
+                }
+
+                if (data.PROC) {
+                    const procLines = data.PROC.split('\n');
+                    const [cpu, mem, rss] = (procLines[0] || '0 0 0').split(/\s+/).map(Number);
+                    result.resources.cpuPercent = cpu || 0;
+                    result.resources.memoryMB = Math.round((rss || 0) / 1024);
+                    result.resources.openFiles = parseInt(procLines[1]) || 0;
+                }
+
+                if (data.DISK) {
+                    result.resources.diskUsageMB = parseInt(data.DISK) || 0;
+                }
+
+                if (data.FILES) {
+                    result.files = data.FILES.split('\n').filter(l => l).map(line => {
                         const [name, size, date] = line.split('|');
                         return { name, size, age: date };
                     });
                 }
 
-                try {
-                    const hasJson = runCmd(`grep -c 'format json' ${paths.caddyfile} 2>/dev/null || echo "0"`, org, env).trim();
-                    result.analysis.jsonParsing = parseInt(hasJson) > 0;
-                } catch (e) { /* ignore */ }
+                if (data.JSON) {
+                    result.analysis.jsonParsing = parseInt(data.JSON) > 0;
+                }
 
             } catch (e) {
                 console.warn('[Caddy] Metadata fetch error:', e.message);

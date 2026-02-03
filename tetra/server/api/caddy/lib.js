@@ -201,6 +201,61 @@ function getSSHConfig(org, env) {
     return null;
 }
 
+// Extended SSH info including droplet name, IPs, and floating IP warning
+function getSSHInfo(org, env) {
+    if (env === 'local') {
+        return { ssh: null, host: 'localhost', isLocal: true };
+    }
+
+    const tomlPath = path.join(ORGS_DIR, org, 'tetra.toml');
+    const result = {
+        ssh: null,
+        host: null,
+        privateIp: null,
+        dropletName: null,
+        description: null,
+        domain: null,
+        isLocal: false,
+        isFloatingIp: false
+    };
+
+    if (fs.existsSync(tomlPath)) {
+        try {
+            const content = fs.readFileSync(tomlPath, 'utf-8');
+            const config = parseToml(content);
+            const envConfig = config.env?.[env];
+
+            if (envConfig?.host) {
+                if (envConfig.host === 'localhost' || envConfig.host === '127.0.0.1') {
+                    return { ssh: null, host: 'localhost', isLocal: true };
+                }
+
+                const user = envConfig.auth_user || envConfig.user || 'root';
+                result.ssh = `${user}@${envConfig.host}`;
+                result.host = envConfig.host;
+                result.privateIp = envConfig.private_ip || null;
+                result.domain = envConfig.domain || null;
+                result.description = envConfig.description || null;
+
+                // Extract droplet name from description like "Dev server (pxjam-arcade-dev01)"
+                const nameMatch = envConfig.description?.match(/\(([^)]+)\)/);
+                result.dropletName = nameMatch ? nameMatch[1] : null;
+
+                // Check for floating IP indicator (typically 159.x.x.x or reserved_ip field)
+                // DigitalOcean floating IPs are in specific ranges; also check if explicitly marked
+                if (envConfig.floating_ip || envConfig.reserved_ip) {
+                    result.isFloatingIp = true;
+                    result.floatingIp = envConfig.floating_ip || envConfig.reserved_ip;
+                }
+            }
+        } catch (e) {
+            console.warn(`[Caddy] Failed to parse ${tomlPath}:`, e.message);
+        }
+    }
+
+    return result;
+}
+
 const SSH_MUX_OPTS = '-o ControlMaster=auto -o ControlPath=/tmp/tetra-ssh-%r@%h:%p -o ControlPersist=300';
 
 function runCmd(cmd, org = 'tetra', env = 'local') {
@@ -310,6 +365,6 @@ module.exports = {
     TETRA_DIR, ORGS_DIR, CADDY_ADMIN_PORT, BASH,
     getCached, setCache,
     caddyApiGet, caddyApiPost, isCaddyApiAvailable,
-    getCaddyPaths, getSSHConfig, runCmd, runCmdAsync,
+    getCaddyPaths, getSSHConfig, getSSHInfo, runCmd, runCmdAsync,
     parseToml, parseRoutes, formatFileSize
 };

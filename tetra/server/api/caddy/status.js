@@ -9,8 +9,64 @@ const router = require('express').Router();
 const {
     CADDY_ADMIN_PORT, BASH,
     getCached, setCache,
-    caddyApiGet, getCaddyPaths, getSSHConfig, runCmd, runCmdAsync, parseRoutes
+    caddyApiGet, getCaddyPaths, getSSHConfig, getSSHInfo, runCmd, runCmdAsync, parseRoutes
 } = require('./lib');
+
+/**
+ * Extract routes from Caddy admin API JSON config
+ * Recursively walks through subroutes to find reverse_proxy and file_server handlers
+ */
+function extractRoutesFromConfig(servers) {
+    const routes = [];
+
+    function processHandlers(handlers, hostMatch, serverName) {
+        for (const handler of handlers) {
+            if (handler.handler === 'reverse_proxy' && handler.upstreams) {
+                const upstreams = handler.upstreams.map(u => u.dial).join(', ');
+                routes.push({
+                    path: hostMatch,
+                    upstream: upstreams,
+                    type: 'reverse_proxy',
+                    server: serverName
+                });
+            } else if (handler.handler === 'file_server') {
+                routes.push({
+                    path: hostMatch,
+                    upstream: handler.root || '.',
+                    type: 'file_server',
+                    server: serverName
+                });
+            } else if (handler.handler === 'subroute' && handler.routes) {
+                // Recurse into subroutes
+                for (const subRoute of handler.routes) {
+                    if (subRoute.handle) {
+                        processHandlers(subRoute.handle, hostMatch, serverName);
+                    }
+                }
+            }
+        }
+    }
+
+    for (const [serverName, server] of Object.entries(servers)) {
+        if (server.routes) {
+            for (const route of server.routes) {
+                let hostMatch = '/*';
+                if (route.match) {
+                    for (const matcher of route.match) {
+                        if (matcher.host) hostMatch = matcher.host.join(', ');
+                        else if (matcher.path) hostMatch = matcher.path.join(', ');
+                    }
+                }
+
+                if (route.handle) {
+                    processHandlers(route.handle, hostMatch, serverName);
+                }
+            }
+        }
+    }
+
+    return routes;
+}
 
 // Info - show file paths and configuration locations
 router.get('/info', async (req, res) => {
@@ -83,7 +139,7 @@ router.get('/status', async (req, res) => {
     }
 
     const paths = getCaddyPaths(org, env);
-    const ssh = getSSHConfig(org, env);
+    const sshInfo = getSSHInfo(org, env);
 
     try {
         let active = false;
@@ -154,7 +210,16 @@ router.get('/status', async (req, res) => {
             listen,
             adminApi,
             servers,
-            host: ssh || 'localhost',
+            // Connection info
+            host: sshInfo.ssh || 'localhost',
+            dropletName: sshInfo.dropletName || null,
+            dropletIp: sshInfo.host || 'localhost',
+            privateIp: sshInfo.privateIp || null,
+            domain: sshInfo.domain || null,
+            // Floating IP warning
+            isFloatingIp: sshInfo.isFloatingIp || false,
+            floatingIp: sshInfo.floatingIp || null,
+            // Paths
             caddyfile: paths.caddyfile,
             logFile: paths.logFile || paths.logDir,
             org,
@@ -192,40 +257,7 @@ router.get('/routes', async (req, res) => {
             const config = await caddyApiGet('config/apps/http/servers');
 
             if (config) {
-                for (const [serverName, server] of Object.entries(config)) {
-                    if (server.routes) {
-                        for (const route of server.routes) {
-                            let pathMatch = '/*';
-                            if (route.match) {
-                                for (const matcher of route.match) {
-                                    if (matcher.path) pathMatch = matcher.path.join(', ');
-                                    if (matcher.host) pathMatch = matcher.host.join(', ');
-                                }
-                            }
-
-                            if (route.handle) {
-                                for (const handler of route.handle) {
-                                    if (handler.handler === 'reverse_proxy' && handler.upstreams) {
-                                        const upstreams = handler.upstreams.map(u => u.dial).join(', ');
-                                        routes.push({
-                                            path: pathMatch,
-                                            upstream: upstreams,
-                                            type: 'reverse_proxy',
-                                            server: serverName
-                                        });
-                                    } else if (handler.handler === 'file_server') {
-                                        routes.push({
-                                            path: pathMatch,
-                                            upstream: handler.root || '.',
-                                            type: 'file_server',
-                                            server: serverName
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                routes = extractRoutesFromConfig(config);
             } else {
                 let content = '';
                 if (fs.existsSync(paths.caddyfile)) {
@@ -234,35 +266,53 @@ router.get('/routes', async (req, res) => {
                 routes = parseRoutes(content, paths.modulesDir, true);
             }
         } else {
+            // Remote: first try admin API, fall back to grepping module files
             try {
-                const cmd = `grep -E 'reverse_proxy' ${paths.caddyfile} 2>/dev/null || echo ""`;
-                const output = await runCmdAsync(cmd, org, env);
+                const apiOutput = await runCmdAsync(
+                    `curl -sf http://localhost:2019/config/apps/http/servers 2>/dev/null || echo "{}"`,
+                    org, env
+                );
+                const servers = JSON.parse(apiOutput.trim() || '{}');
 
-                const lines = output.split('\n').map(l => l.trim()).filter(l => l);
-
-                for (const line of lines) {
-                    if (line.includes('import ')) continue;
-
-                    const match = line.match(/reverse_proxy\s+(\S+)\s+(localhost:\d+|[\d.]+:\d+)/);
-                    if (match) {
-                        routes.push({
-                            path: match[1],
-                            upstream: match[2],
-                            type: 'reverse_proxy'
-                        });
-                    } else {
-                        const simpleMatch = line.match(/reverse_proxy\s+(localhost:\d+|[\d.]+:\d+)/);
-                        if (simpleMatch) {
-                            routes.push({
-                                path: '/*',
-                                upstream: simpleMatch[1],
-                                type: 'reverse_proxy'
-                            });
-                        }
-                    }
+                if (servers && Object.keys(servers).length > 0) {
+                    routes = extractRoutesFromConfig(servers);
                 }
             } catch (e) {
-                // Fall back to empty routes
+                // Admin API failed, fall back to grep across all caddy files
+            }
+
+            // If admin API didn't yield routes, grep module files
+            if (routes.length === 0) {
+                try {
+                    const cmd = `grep -h -E 'reverse_proxy' /etc/caddy/*.caddy /etc/caddy/modules/*/*.caddy ${paths.caddyfile} 2>/dev/null || echo ""`;
+                    const output = await runCmdAsync(cmd, org, env);
+
+                    const lines = output.split('\n').map(l => l.trim()).filter(l => l);
+
+                    for (const line of lines) {
+                        if (line.includes('import ')) continue;
+
+                        const match = line.match(/reverse_proxy\s+(\S+)\s+(localhost:\d+|[\d.]+:\d+)/);
+                        if (match) {
+                            routes.push({
+                                path: match[1],
+                                upstream: match[2],
+                                type: 'reverse_proxy'
+                            });
+                        } else {
+                            const simpleMatch = line.match(/reverse_proxy\s+(localhost:\d+|[\d.]+:\d+)/);
+                            if (simpleMatch) {
+                                routes.push({
+                                    path: '/*',
+                                    upstream: simpleMatch[1],
+                                    type: 'reverse_proxy'
+                                });
+                            }
+                        }
+                    }
+                } catch (e) {
+                    // Fall back to empty routes
+                }
             }
         }
 
