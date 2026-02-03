@@ -17,6 +17,9 @@ _chroma_render_line() {
     # Pre-line hook
     _chroma_run_hooks pre_line "$type" "$level" "$content" "$pad" "$width"
 
+    # Transform content through registered hooks
+    content=$(_chroma_run_transform_hooks "transform_content" "$content")
+
     # Handle table state transitions
     if [[ "$type" != table.* ]] && (( _CHROMA_IN_TABLE )); then
         _chroma_flush_table "$pad" "$width"

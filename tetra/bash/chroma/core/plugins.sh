@@ -10,16 +10,17 @@ declare -gA CHROMA_HOOKS=()
 
 # Available hook points
 declare -ga CHROMA_HOOK_POINTS=(
-    pre_render      # Before rendering starts
-    post_render     # After rendering completes
-    pre_line        # Before each line is processed
-    post_line       # After each line is rendered
-    render_heading  # Custom heading renderer (return 0 to skip default)
-    render_code     # Custom code block renderer
-    render_quote    # Custom blockquote renderer
-    render_list     # Custom list item renderer
-    render_table    # Custom table renderer
-    render_hr       # Custom horizontal rule renderer
+    pre_render        # Before rendering starts
+    post_render       # After rendering completes
+    pre_line          # Before each line is processed
+    post_line         # After each line is rendered
+    transform_content # Transform line content before rendering (returns modified content)
+    render_heading    # Custom heading renderer (return 0 to skip default)
+    render_code       # Custom code block renderer
+    render_quote      # Custom blockquote renderer
+    render_list       # Custom list item renderer
+    render_table      # Custom table renderer
+    render_hr         # Custom horizontal rule renderer
 )
 
 # Register a plugin
@@ -112,6 +113,26 @@ _chroma_run_hooks() {
         fi
     done
     return $handled
+}
+
+# Execute transform hooks that modify content
+# Usage: _chroma_run_transform_hooks <hook_point> <content>
+# Each callback receives content as $1, prints transformed content to stdout
+# Returns: transformed content (or original if no hooks)
+_chroma_run_transform_hooks() {
+    local hook="$1"
+    local content="$2"
+    local callbacks="${CHROMA_HOOKS[$hook]:-}"
+
+    [[ -z "$callbacks" ]] && { printf '%s' "$content"; return 0; }
+
+    local result="$content"
+    for callback in $callbacks; do
+        if declare -f "$callback" &>/dev/null; then
+            result=$("$callback" "$result")
+        fi
+    done
+    printf '%s' "$result"
 }
 
 # List registered plugins
