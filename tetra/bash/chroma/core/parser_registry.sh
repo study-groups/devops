@@ -187,6 +187,4 @@ chroma_parser_info() {
     fi
 }
 
-export -f chroma_register_parser chroma_get_parser chroma_parser_exists
-export -f chroma_parser_for_ext chroma_detect_format
-export -f chroma_list_parsers chroma_parser_info
+# Functions are local - no exports (TETRA convention)

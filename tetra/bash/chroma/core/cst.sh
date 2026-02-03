@@ -537,8 +537,4 @@ chroma_cst() {
     fi
 }
 
-# Export functions
-export -f chroma_cst chroma_cst_parse
-export -f _cst_parse_block _cst_parse_inline
-export -f _cst_node _cst_node_with_children _cst_inline_node
-export -f _cst_pos _cst_escape
+# Functions are local - no exports (TETRA convention)

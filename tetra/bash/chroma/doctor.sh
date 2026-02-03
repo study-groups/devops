@@ -322,4 +322,4 @@ chroma_status() {
     fi
 }
 
-export -f chroma_doctor chroma_status
+# Functions are local - no exports (TETRA convention)

@@ -210,6 +210,11 @@ chroma() {
             chroma_list_plugins
             return 0
             ;;
+        hooks)
+            shift
+            chroma_hooks "$@"
+            return $?
+            ;;
         browse)
             shift
             _chroma_browse "$@"
@@ -395,7 +400,8 @@ USAGE
   chroma browse [file]        Browse file with header in pager
   chroma themes               List available themes
   chroma theme [name]         Show or switch theme
-  chroma plugins              List loaded plugins and hooks
+  chroma hooks [list|info]    Discover available hooks
+  chroma plugins              List loaded plugins
   chroma config [cmd]         Manage plugin configuration
 
 OPTIONS

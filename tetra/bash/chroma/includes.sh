@@ -17,6 +17,13 @@ tetra_module_init_with_alias "chroma" "CHROMA"
 source "$CHROMA_SRC/chroma_modular.sh"
 
 #==============================================================================
+# TAB COMPLETION
+#==============================================================================
+
+# Source completion (completion functions are local - no exports)
+source "$CHROMA_SRC/chroma_complete.sh"
+
+#==============================================================================
 # RELOAD SUPPORT
 #==============================================================================
 
@@ -26,9 +33,8 @@ chroma_reload() {
 
     # Re-source the modular loader
     source "$CHROMA_SRC/chroma_modular.sh"
+    source "$CHROMA_SRC/chroma_complete.sh"
 
     echo "Chroma reloaded"
     chroma --help 2>/dev/null | head -3
 }
-
-export -f chroma_reload

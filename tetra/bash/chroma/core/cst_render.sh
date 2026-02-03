@@ -353,12 +353,4 @@ chroma_render_via_cst() {
     chroma_cst_parse "$input" | chroma_cst_render
 }
 
-# Export
-export -f chroma_cst_render chroma_render_via_cst
-export -f _cst_render_node _cst_render_children
-export -f _cst_render_document _cst_render_heading _cst_render_paragraph
-export -f _cst_render_code_block _cst_render_list_item _cst_render_blockquote
-export -f _cst_render_table _cst_render_hr _cst_render_blank
-export -f _cst_render_text _cst_render_bold _cst_render_italic
-export -f _cst_render_inline_code _cst_render_link _cst_render_unknown
-export -f _cst_color _cst_reset _cst_bold _cst_italic _cst_dim
+# Functions are local - no exports (TETRA convention)

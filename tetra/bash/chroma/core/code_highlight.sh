@@ -235,10 +235,4 @@ chroma_has_inline_code() {
     return 1
 }
 
-#==============================================================================
-# EXPORTS
-#==============================================================================
-
-export -f chroma_detect_language chroma_highlight_code
-export -f chroma_looks_like_code chroma_has_inline_code
-export -f _chroma_has_bat _chroma_highlight_bat _chroma_highlight_simple
+# Functions are local - no exports (TETRA convention)

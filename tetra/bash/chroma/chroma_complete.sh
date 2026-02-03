@@ -13,10 +13,10 @@
 # =============================================================================
 
 # All chroma subcommands
-_CHROMA_COMMANDS="cst doctor parser status reload table help"
+_CHROMA_COMMANDS="cst doctor hooks parser plugins status reload table help"
 
 # Help topics
-_CHROMA_HELP_TOPICS="render parser format doctor options plugins"
+_CHROMA_HELP_TOPICS="render parser format doctor options plugins hooks"
 
 # Format flags (shortcuts)
 _CHROMA_FORMATS="--toml --json --md --markdown --claude --ansi"
@@ -119,6 +119,36 @@ _chroma_complete_plugins() {
             basename "$f" .plugin.sh
         done
     fi
+}
+
+# List available hook points (from CHROMA_HOOK_POINTS or scan plugins.sh)
+_chroma_complete_hooks() {
+    # Try registry first
+    if [[ -n "${CHROMA_HOOK_POINTS[*]+x}" ]]; then
+        printf '%s\n' "${CHROMA_HOOK_POINTS[@]}"
+        return
+    fi
+
+    # Fallback: scan plugins.sh for hook points
+    local chroma_src="${CHROMA_SRC:-$TETRA_SRC/bash/chroma}"
+    if [[ -f "$chroma_src/core/plugins.sh" ]]; then
+        grep -oE '"[a-z_]+"' "$chroma_src/core/plugins.sh" 2>/dev/null | \
+            tr -d '"' | grep -E '^(pre_|post_|render_|transform_)' | sort -u
+        return
+    fi
+
+    # Hardcoded fallback
+    echo "pre_render"
+    echo "post_render"
+    echo "pre_line"
+    echo "post_line"
+    echo "transform_content"
+    echo "render_heading"
+    echo "render_code"
+    echo "render_quote"
+    echo "render_list"
+    echo "render_table"
+    echo "render_hr"
 }
 
 # List supported file extensions
@@ -261,6 +291,36 @@ _chroma_complete() {
             return
             ;;
 
+        # Hooks subcommand
+        hooks)
+            if [[ $COMP_CWORD -eq 2 ]]; then
+                COMPREPLY=($(compgen -W "list info" -- "$cur"))
+            elif [[ $COMP_CWORD -eq 3 ]]; then
+                local subcmd="${COMP_WORDS[2]}"
+                case "$subcmd" in
+                    info)
+                        COMPREPLY=($(compgen -W "$(_chroma_complete_hooks)" -- "$cur"))
+                        ;;
+                esac
+            fi
+            return
+            ;;
+
+        # Plugins subcommand
+        plugins)
+            if [[ $COMP_CWORD -eq 2 ]]; then
+                COMPREPLY=($(compgen -W "list info load" -- "$cur"))
+            elif [[ $COMP_CWORD -eq 3 ]]; then
+                local subcmd="${COMP_WORDS[2]}"
+                case "$subcmd" in
+                    info)
+                        COMPREPLY=($(compgen -W "$(_chroma_complete_plugins)" -- "$cur"))
+                        ;;
+                esac
+            fi
+            return
+            ;;
+
         # Status/reload - no additional completion
         status|reload)
             return
@@ -287,11 +347,4 @@ _chroma_complete() {
 
 complete -F _chroma_complete chroma
 
-# =============================================================================
-# EXPORTS
-# =============================================================================
-
-export -f _chroma_complete
-export -f _chroma_complete_parsers _chroma_complete_themes
-export -f _chroma_complete_presets _chroma_complete_checks
-export -f _chroma_complete_plugins _chroma_supported_extensions
+# Completion functions are local - no exports (TETRA convention)

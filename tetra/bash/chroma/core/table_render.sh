@@ -267,5 +267,4 @@ chroma_render_table_simple() {
     _render_table_border "bottom" "${col_widths[@]}"
 }
 
-export -f chroma_render_table chroma_render_table_simple
-export -f _render_cell _render_table_border
+# Functions are local - no exports (TETRA convention)

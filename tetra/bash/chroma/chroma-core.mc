@@ -36,7 +36,7 @@ chroma_reload() {
     chroma --help 2>/dev/null | head -3
 }
 
-export -f chroma_reload
+# Functions are local - no exports (TETRA convention)
 
 #MULTICAT_START
 # dir: /Users/mricos/src/devops/tetra/bash/chroma
@@ -1178,7 +1178,7 @@ chroma_status() {
     fi
 }
 
-export -f chroma_doctor chroma_status
+# Functions are local - no exports (TETRA convention)
 
 #MULTICAT_START
 # dir: /Users/mricos/src/devops/tetra/bash/chroma/core
