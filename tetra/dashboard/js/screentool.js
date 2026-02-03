@@ -301,6 +301,11 @@ function init() {
     Terrain.Iframe.on('switch-tab', (el, data) => switchTab(data.tab));
     Terrain.Iframe.on('refresh', () => { loadRecordings(); checkStatus(); });
     Terrain.Iframe.on('save-config', () => saveConfig());
+    Terrain.Iframe.on('config-select', (el) => {
+        const target = el.dataset.target;
+        const input = document.querySelector(`input[name="${target}"]`);
+        if (input && el.value) input.value = el.value;
+    });
     Terrain.Iframe.on('toggle-recording', () => toggleRecording());
     Terrain.Iframe.on('play-recording', (el, data) => {
         const player = document.getElementById('video-player');

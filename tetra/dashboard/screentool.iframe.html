@@ -232,7 +232,12 @@
             color: var(--two);
             text-align: right;
         }
+        .config-form .input-row {
+            display: flex;
+            gap: 4px;
+        }
         .config-form input {
+            flex: 1;
             font-size: 10px;
             padding: 4px 6px;
             background: var(--paper-mid);
@@ -244,6 +249,15 @@
         .config-form input:focus {
             outline: none;
             border-color: var(--four);
+        }
+        .config-form select {
+            font-size: 9px;
+            padding: 2px 4px;
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            color: var(--ink-muted);
+            cursor: pointer;
         }
         .config-save-row {
             grid-column: 1 / -1;
@@ -295,19 +309,82 @@
     <div id="tab-config" class="tab-content">
         <div class="config-form" id="config-form">
             <label>FFMPEG_FPS</label>
-            <input type="text" name="FFMPEG_FPS" value="">
+            <div class="input-row">
+                <input type="text" name="FFMPEG_FPS" value="">
+                <select data-target="FFMPEG_FPS" data-action="config-select">
+                    <option value="">-</option>
+                    <option value="15">15</option>
+                    <option value="24">24</option>
+                    <option value="30">30</option>
+                    <option value="60">60</option>
+                </select>
+            </div>
             <label>FFMPEG_CRF</label>
-            <input type="text" name="FFMPEG_CRF" value="">
+            <div class="input-row">
+                <input type="text" name="FFMPEG_CRF" value="">
+                <select data-target="FFMPEG_CRF" data-action="config-select">
+                    <option value="">-</option>
+                    <option value="18">18 (high)</option>
+                    <option value="23">23 (default)</option>
+                    <option value="28">28 (low)</option>
+                    <option value="35">35 (tiny)</option>
+                </select>
+            </div>
             <label>FFMPEG_PRESET</label>
-            <input type="text" name="FFMPEG_PRESET" value="">
+            <div class="input-row">
+                <input type="text" name="FFMPEG_PRESET" value="">
+                <select data-target="FFMPEG_PRESET" data-action="config-select">
+                    <option value="">-</option>
+                    <option value="ultrafast">ultrafast</option>
+                    <option value="superfast">superfast</option>
+                    <option value="veryfast">veryfast</option>
+                    <option value="fast">fast</option>
+                    <option value="medium">medium</option>
+                </select>
+            </div>
             <label>FFMPEG_INPUT</label>
-            <input type="text" name="FFMPEG_INPUT" value="">
+            <div class="input-row">
+                <input type="text" name="FFMPEG_INPUT" value="">
+                <select data-target="FFMPEG_INPUT" data-action="config-select">
+                    <option value="">-</option>
+                    <option value=":0">:0 (X11)</option>
+                    <option value=":0.0">:0.0</option>
+                    <option value="1">1 (Mac screen)</option>
+                    <option value="Capture screen 0">Capture screen 0</option>
+                </select>
+            </div>
             <label>FFMPEG_RESOLUTION</label>
-            <input type="text" name="FFMPEG_RESOLUTION" value="">
+            <div class="input-row">
+                <input type="text" name="FFMPEG_RESOLUTION" value="">
+                <select data-target="FFMPEG_RESOLUTION" data-action="config-select">
+                    <option value="">-</option>
+                    <option value="1280x720">1280x720</option>
+                    <option value="1920x1080">1920x1080</option>
+                    <option value="2560x1440">2560x1440</option>
+                    <option value="3840x2160">3840x2160</option>
+                </select>
+            </div>
             <label>AUDIO_RECORDER</label>
-            <input type="text" name="AUDIO_RECORDER" value="">
+            <div class="input-row">
+                <input type="text" name="AUDIO_RECORDER" value="">
+                <select data-target="AUDIO_RECORDER" data-action="config-select">
+                    <option value="">-</option>
+                    <option value="arecord">arecord (Linux)</option>
+                    <option value="sox">sox (cross)</option>
+                    <option value="ffmpeg">ffmpeg (Mac)</option>
+                    <option value="none">none</option>
+                </select>
+            </div>
             <label>AUDIO_SAMPLE_RATE</label>
-            <input type="text" name="AUDIO_SAMPLE_RATE" value="">
+            <div class="input-row">
+                <input type="text" name="AUDIO_SAMPLE_RATE" value="">
+                <select data-target="AUDIO_SAMPLE_RATE" data-action="config-select">
+                    <option value="">-</option>
+                    <option value="22050">22050</option>
+                    <option value="44100">44100</option>
+                    <option value="48000">48000</option>
+                </select>
+            </div>
             <div class="config-save-row">
                 <span id="config-msg" class="config-msg"></span>
                 <button class="config-save-btn" data-action="save-config">Save</button>
