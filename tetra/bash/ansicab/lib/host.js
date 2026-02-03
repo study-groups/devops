@@ -418,6 +418,13 @@ class Host {
         // Fallback: send 'r' key as input
         this.driver.sendInput(player.slot, { key: 'r' });
       }
+    } else if (data.t === 'game.stop') {
+      // Stop game (timer expiry or manual stop)
+      if (this.driver && typeof this.driver.reset === 'function') {
+        this.autoRespawn = false;
+        this.driver.reset();
+        console.log(`[host] Game stopped by ${player.nick || player.cid}`);
+      }
     } else if (data.t === 'game.play') {
       // Start game (any player can trigger)
       if (this.driver && typeof this.driver.play === 'function') {

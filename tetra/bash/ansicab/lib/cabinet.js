@@ -139,6 +139,9 @@ let mySlot = null;
 let gameName = null;
 let playerStates = { p1: 'none', p2: 'none', p3: 'none', p4: 'none' };
 
+// Current game type: 'flax' | 'pja-game' | 'static' | null
+let currentGameType = null;
+
 // Cabinet boot state machine
 const CabinetState = {
   GAMMA_BOOT: 'gamma_boot',   // Showing GAMMA logo, waiting for code+START
@@ -176,6 +179,122 @@ const dpadBtns = document.querySelectorAll('.dpad-btn[data-dir]');
 const actionBtns = document.querySelectorAll('.action-btn');
 
 // ========================================
+// VOLUME CONTROL
+// ========================================
+const volumeSlider = document.getElementById('volume-slider');
+const muteBtn = document.getElementById('mute-btn');
+let savedVolume = 0.8;
+
+volumeSlider.addEventListener('input', (e) => {
+  const level = e.target.value / 100;
+  if (typeof QUASAR !== 'undefined') QUASAR.setVolume(level);
+  savedVolume = level;
+  muteBtn.textContent = level === 0 ? '✕' : '♪';
+});
+
+muteBtn.addEventListener('click', () => {
+  if (typeof QUASAR !== 'undefined' && QUASAR.getVolume() > 0) {
+    savedVolume = QUASAR.getVolume();
+    QUASAR.setVolume(0);
+    muteBtn.textContent = '✕';
+    volumeSlider.value = 0;
+  } else {
+    if (typeof QUASAR !== 'undefined') QUASAR.setVolume(savedVolume);
+    muteBtn.textContent = '♪';
+    volumeSlider.value = savedVolume * 100;
+  }
+});
+
+// Set initial volume on QUASAR init
+const _origInitQuasar = initQuasar;
+initQuasar = function() {
+  _origInitQuasar();
+  setTimeout(() => {
+    if (typeof QUASAR !== 'undefined') QUASAR.setVolume(volumeSlider.value / 100);
+  }, 200);
+};
+
+// ========================================
+// PBASE COMMAND API
+// ========================================
+// Listen for pbase commands via postMessage
+window.addEventListener('message', (e) => {
+  if (e.data?.source !== 'pbase') return;
+  const { cmd, game } = e.data;
+
+  if (cmd === 'load' && game) {
+    loadGame(game);
+  }
+  if (cmd === 'unload') {
+    unloadGame();
+  }
+});
+
+function loadGame(game) {
+  // Store game metadata
+  gameMetadata.name = game.name || game.id;
+  gameName = game.name || game.id;
+  gameNameEl.textContent = (gameName || '---').toUpperCase();
+  currentGameType = game.type;
+
+  const gameIframe = document.getElementById('game-iframe');
+
+  switch (game.type) {
+    case 'flax':
+      // Hide iframe, show ANSI display
+      if (gameIframe) gameIframe.style.display = 'none';
+      gameDisplayEl.style.display = 'block';
+
+      // Connect via WebSocket to game.host:game.port
+      wsUrl = `ws://${game.host || 'localhost'}:${game.port || 1600}`;
+      connect();
+      break;
+
+    case 'pja-game':
+    case 'static':
+      // Hide ANSI display, show iframe
+      gameDisplayEl.style.display = 'none';
+      if (gameIframe) {
+        gameIframe.style.display = 'block';
+        gameIframe.src = game.entry;
+      }
+      break;
+
+    default:
+      console.warn('[cabinet] Unknown game type:', game.type);
+  }
+
+  // Transition to game boot state
+  cabinetState = CabinetState.GAME_BOOT;
+  renderGameBootScreen();
+}
+
+function unloadGame() {
+  // Close WebSocket if connected
+  if (ws) {
+    ws.close();
+    ws = null;
+  }
+
+  // Clear iframe
+  const gameIframe = document.getElementById('game-iframe');
+  if (gameIframe) {
+    gameIframe.src = 'about:blank';
+    gameIframe.style.display = 'none';
+  }
+
+  // Show ANSI display
+  gameDisplayEl.style.display = 'block';
+
+  // Reset state
+  currentGameType = null;
+  gameName = null;
+  gameNameEl.textContent = '---';
+  cabinetState = CabinetState.GAMMA_BOOT;
+  renderBootScreen();
+}
+
+// ========================================
 // TIMER
 // ========================================
 function updateTimer() {
@@ -185,6 +304,22 @@ function updateTimer() {
     return;
   }
   const remaining = Math.max(0, matchExpires - Date.now());
+
+  if (remaining <= 0) {
+    // Watchdog: match expired
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ t: 'game.stop' }));
+    }
+    cabinetState = CabinetState.GAME_BOOT;
+    isPlaying = false;
+    playBtn.textContent = '[START]';
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = null;
+    timeRemainingEl.textContent = '0:00';
+    timeRemainingEl.className = 'critical';
+    return;
+  }
+
   const mins = Math.floor(remaining / 60000);
   const secs = Math.floor((remaining % 60000) / 1000);
   timeRemainingEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -446,6 +581,7 @@ function connect() {
 
   ws.onclose = () => {
     mySlot = null;
+    if (typeof QUASAR !== 'undefined') QUASAR.stopAll();
     updateConnectionStatus('DISCONNECTED');
     deactivateDial();
     // Reset player states
@@ -674,17 +810,33 @@ playBtn.addEventListener('click', () => {
 });
 
 gameResetBtn.addEventListener('click', () => {
-  // Game reset - shows boot animation
-  sendPlay();
+  // Game reset - restart game to demo screen
+  sendReset();
+  cabinetState = CabinetState.GAME_BOOT;
   isPlaying = false;
   playBtn.textContent = '[START]';
 });
 
 consoleResetBtn.addEventListener('click', () => {
-  // GAMMA console reset - full reset
+  // DRACONIAN RESET - kill everything
   if (ws) ws.close();
 
+  // Kill audio immediately
+  if (typeof QUASAR !== 'undefined') {
+    QUASAR.stopAll();
+  }
+  quasarReady = false;
+
+  // Kill iframe if active
+  const gameIframe = document.getElementById('game-iframe');
+  if (gameIframe) {
+    gameIframe.src = 'about:blank';
+    gameIframe.style.display = 'none';
+  }
+  gameDisplayEl.style.display = 'block';
+
   // Reset all state
+  currentGameType = null;
   cabinetState = CabinetState.GAMMA_BOOT;
   isPlaying = false;
   matchCode = null;
