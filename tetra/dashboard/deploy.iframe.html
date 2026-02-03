@@ -200,14 +200,16 @@
             display: flex;
             gap: 8px;
             font-size: 10px;
+            font-family: monospace;
+            align-items: baseline;
         }
-        .history-item .timestamp { color: var(--ink-muted); min-width: 40px; }
-        .history-item .h-target { color: var(--four); min-width: 100px; }
-        .history-item .h-env { color: var(--three); min-width: 50px; }
-        .history-item .h-status { min-width: 60px; }
+        .history-item .timestamp { color: var(--ink-muted); min-width: 56px; text-align: right; flex-shrink: 0; }
+        .history-item .h-target { color: var(--four); min-width: 120px; flex-shrink: 0; }
+        .history-item .h-env { color: var(--three); min-width: 50px; flex-shrink: 0; }
+        .history-item .h-status { min-width: 52px; flex-shrink: 0; }
         .history-item .h-status.success { color: var(--two); }
         .history-item .h-status.failed { color: var(--one); }
-        .history-item .h-duration { color: var(--ink-muted); }
+        .history-item .h-duration { color: var(--ink-muted); text-align: right; margin-left: auto; }
 
         .history-details {
             display: none;
@@ -258,11 +260,9 @@
 
         /* Inline per-target output */
         .target-output {
-            display: none;
             margin-top: 8px;
             padding-left: 20px;
         }
-        .target-output:has(pre) { display: block; }
         .target.icon .target-output { display: none; }
 
         /* Deploy output formatting */

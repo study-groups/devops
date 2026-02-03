@@ -540,7 +540,7 @@
             } catch (e) {}
         }
 
-        updateAnimPlayer();
+        updateShotPreview();
     }
 
     // Save channel changes to shot
@@ -578,8 +578,8 @@
 
     [titleText, titlePosition, titleFadeIn, titleFadeOut, titleStyle,
      transitionType, transitionDuration, narrationText].forEach(function(el) {
-        el.addEventListener('change', debouncedSave);
-        el.addEventListener('input', debouncedSave);
+        el.addEventListener('change', function() { debouncedSave(); updateShotPreview(); });
+        el.addEventListener('input', function() { debouncedSave(); updateShotPreview(); });
     });
 
     // ----------------------------------------------------------------
@@ -848,159 +848,224 @@
     document.getElementById('channel-editor').addEventListener('click', function(e) {
         var header = e.target.closest('.channel-header');
         if (!header) return;
-        // Don't collapse if clicking a button inside the header
         if (e.target.closest('button')) return;
         header.closest('.channel').classList.toggle('collapsed');
     });
 
     // ----------------------------------------------------------------
-    // Animation Player
+    // Resizable split pane
     // ----------------------------------------------------------------
 
-    var animBg = document.getElementById('anim-bg');
-    var animTitleOverlay = document.getElementById('anim-title-overlay');
-    var animTransitionOverlay = document.getElementById('anim-transition-overlay');
-    var animPlayBtn = document.getElementById('anim-play');
-    var animPauseBtn = document.getElementById('anim-pause');
-    var animStopBtn = document.getElementById('anim-stop');
-    var animScrub = document.getElementById('anim-scrub');
-    var animTime = document.getElementById('anim-time');
-    var animRafId = null;
-    var animScrubbing = false;
+    (function() {
+        var handle = document.getElementById('split-handle');
+        var editorPane = document.getElementById('editor-pane');
+        var overlay = document.getElementById('drag-overlay');
+        var mainSplit = document.querySelector('.main-split');
 
-    function formatTime(t) {
+        handle.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            handle.classList.add('dragging');
+            overlay.classList.add('active');
+        });
+
+        overlay.addEventListener('mousemove', function(e) {
+            var rect = mainSplit.getBoundingClientRect();
+            var editorWidth = rect.right - e.clientX;
+            // Clamp: min 260px, leave at least 200px for preview
+            var minW = 260;
+            var maxW = rect.width - 200;
+            editorPane.style.width = Math.max(minW, Math.min(maxW, editorWidth)) + 'px';
+        });
+
+        function stopDrag() {
+            handle.classList.remove('dragging');
+            overlay.classList.remove('active');
+        }
+
+        overlay.addEventListener('mouseup', stopDrag);
+        overlay.addEventListener('mouseleave', stopDrag);
+        document.addEventListener('mouseup', stopDrag);
+    })();
+
+    // ----------------------------------------------------------------
+    // Shot Preview — composites screenshot + audio + word cues + title + transition
+    // ----------------------------------------------------------------
+
+    var spBg = document.getElementById('sp-bg');
+    var spTitle = document.getElementById('sp-title');
+    var spWords = document.getElementById('sp-words');
+    var spTransition = document.getElementById('sp-transition');
+    var spPlayBtn = document.getElementById('sp-play');
+    var spStopBtn = document.getElementById('sp-stop');
+    var spScrub = document.getElementById('sp-scrub');
+    var spTime = document.getElementById('sp-time');
+    var spRafId = null;
+    var spScrubbing = false;
+    var spWordSpans = [];  // cached references to word span elements
+
+    function fmtTime(t) {
         var m = Math.floor(t / 60);
         var s = Math.floor(t % 60);
         return m + ':' + (s < 10 ? '0' : '') + s;
     }
 
-    function updateAnimPlayer() {
+    // Build the preview for the current shot
+    function updateShotPreview() {
         var shot = getCurrentShot();
-        if (!shot) return;
+        if (!shot) {
+            spBg.style.display = 'none';
+            spWords.innerHTML = '';
+            spWordSpans = [];
+            return;
+        }
 
-        // Background
-        if (shot.videoFile) {
-            animBg.innerHTML = '<video src="' + API + '/' + state.org + '/' + state.currentProject + '/output/' + shot.videoFile + '" muted style="width:100%;height:100%;object-fit:cover"></video>';
-        } else if (shot.screenshotFile) {
-            animBg.innerHTML = '<img src="' + API + '/' + state.org + '/' + state.currentProject + '/shots/' + shot.screenshotFile + '">';
+        // Screenshot background
+        if (shot.screenshotFile) {
+            spBg.src = API + '/' + state.org + '/' + state.currentProject + '/shots/' + shot.screenshotFile;
+            spBg.style.display = '';
         } else {
-            animBg.innerHTML = '';
+            spBg.style.display = 'none';
         }
 
-        // Title overlay setup
+        // Word cue spans — render all words from timeline, or fall back to narration
+        var cues = shot.timeline || [];
+        spWordSpans = [];
+        if (cues.length > 0) {
+            var html = '';
+            for (var i = 0; i < cues.length; i++) {
+                html += '<span class="sp-w" data-idx="' + i + '" data-fx="' + (cues[i].fx || 'highlight') + '">' + cues[i].text + ' </span>';
+            }
+            spWords.innerHTML = html;
+            spWordSpans = spWords.querySelectorAll('.sp-w');
+        } else if (shot.narration) {
+            spWords.innerHTML = '<span style="color:rgba(255,255,255,0.4)">' + shot.narration + '</span>';
+        } else {
+            spWords.innerHTML = '';
+        }
+
+        // Title overlay
         var pos = titlePosition.value || 'none';
-        animTitleOverlay.className = 'anim-title-overlay';
-        if (pos !== 'none') {
-            animTitleOverlay.classList.add('pos-' + pos);
-        }
-        var style = titleStyle.value || 'default';
-        if (style !== 'default') {
-            animTitleOverlay.classList.add('style-' + style);
-        }
-        animTitleOverlay.textContent = titleText.value || '';
+        spTitle.className = 'sp-title';
+        if (pos !== 'none') spTitle.classList.add('pos-' + pos);
+        spTitle.textContent = titleText.value || '';
 
-        // Transition overlay setup
-        animTransitionOverlay.className = 'anim-transition-overlay';
+        // Transition overlay
+        spTransition.className = 'sp-transition';
         var tt = transitionType.value || 'cut';
-        if (tt !== 'cut') {
-            animTransitionOverlay.classList.add(tt);
-        }
-        animTransitionOverlay.style.opacity = '0';
+        if (tt !== 'cut') spTransition.classList.add(tt);
+        spTransition.style.opacity = '0';
 
-        // Reset scrub
+        // Scrub range
         var dur = shotAudio.duration || 0;
-        animScrub.max = dur || 100;
-        animScrub.value = 0;
-        animTime.textContent = '0:00 / ' + formatTime(dur);
+        spScrub.max = dur || 100;
+        spScrub.value = 0;
+        spTime.textContent = '0:00 / ' + fmtTime(dur);
     }
 
-    function animTick() {
+    // Per-frame update during playback
+    function spTick() {
         if (!shotAudio.src || shotAudio.paused) {
-            animRafId = null;
+            spRafId = null;
             return;
         }
         var t = shotAudio.currentTime;
         var dur = shotAudio.duration || 1;
 
-        // Update scrub + time
-        if (!animScrubbing) {
-            animScrub.value = t;
-            animTime.textContent = formatTime(t) + ' / ' + formatTime(dur);
+        // Scrub + time display
+        if (!spScrubbing) {
+            spScrub.value = t;
+            spTime.textContent = fmtTime(t) + ' / ' + fmtTime(dur);
         }
 
-        // Title fade logic
+        // Highlight active word cue with per-fx visual
+        var shot = getCurrentShot();
+        var cues = (shot && shot.timeline) || [];
+        for (var i = 0; i < spWordSpans.length && i < cues.length; i++) {
+            var c = cues[i];
+            var span = spWordSpans[i];
+            var fx = c.fx || 'highlight';
+            if (t >= c.start && t < c.end) {
+                span.className = 'sp-w active fx-' + fx;
+            } else if (t >= c.end) {
+                span.className = 'sp-w past';
+            } else {
+                span.className = 'sp-w';
+            }
+        }
+
+        // Title fade
         var fadeIn = parseFloat(titleFadeIn.value) || 0.5;
         var fadeOut = parseFloat(titleFadeOut.value) || 0.5;
         var pos = titlePosition.value || 'none';
         if (pos !== 'none' && titleText.value) {
-            if (t < fadeIn) {
-                animTitleOverlay.classList.add('visible');
-            } else if (t > dur - fadeOut) {
-                animTitleOverlay.classList.remove('visible');
-            } else {
-                animTitleOverlay.classList.add('visible');
-            }
+            spTitle.classList.toggle('visible', t >= 0 && t <= dur - fadeOut);
         } else {
-            animTitleOverlay.classList.remove('visible');
+            spTitle.classList.remove('visible');
         }
 
-        // Transition preview at end
+        // Transition at end
         var transDur = parseFloat(transitionDuration.value) || 0.5;
         var tt = transitionType.value || 'cut';
         if (tt !== 'cut' && dur - t <= transDur && dur - t >= 0) {
-            var progress = 1 - ((dur - t) / transDur);
-            if (tt === 'fade-black' || tt === 'crossfade') {
-                animTransitionOverlay.style.opacity = progress;
-            } else if (tt === 'slide-left') {
-                animTransitionOverlay.style.opacity = '1';
-                animTransitionOverlay.style.transform = 'translateX(' + (-100 + progress * 100) + '%)';
-            }
+            spTransition.style.opacity = 1 - ((dur - t) / transDur);
         } else {
-            animTransitionOverlay.style.opacity = '0';
-            animTransitionOverlay.style.transform = '';
+            spTransition.style.opacity = '0';
         }
 
-        animRafId = requestAnimationFrame(animTick);
+        spRafId = requestAnimationFrame(spTick);
     }
 
-    animPlayBtn.addEventListener('click', function() {
+    spPlayBtn.addEventListener('click', function() {
         if (!shotAudio.src) return;
-        shotAudio.play();
-        if (!animRafId) animRafId = requestAnimationFrame(animTick);
+        if (shotAudio.paused) {
+            shotAudio.play();
+            spPlayBtn.innerHTML = '&#9646;&#9646;';
+            if (!spRafId) spRafId = requestAnimationFrame(spTick);
+        } else {
+            shotAudio.pause();
+            spPlayBtn.innerHTML = '&#9654;';
+        }
     });
 
-    animPauseBtn.addEventListener('click', function() {
-        shotAudio.pause();
-    });
-
-    animStopBtn.addEventListener('click', function() {
+    spStopBtn.addEventListener('click', function() {
         shotAudio.pause();
         shotAudio.currentTime = 0;
-        animTitleOverlay.classList.remove('visible');
-        animTransitionOverlay.style.opacity = '0';
-        animTransitionOverlay.style.transform = '';
-        animScrub.value = 0;
-        animTime.textContent = '0:00 / ' + formatTime(shotAudio.duration || 0);
+        spPlayBtn.innerHTML = '&#9654;';
+        spTitle.classList.remove('visible');
+        spTransition.style.opacity = '0';
+        // Reset word highlights
+        for (var i = 0; i < spWordSpans.length; i++) spWordSpans[i].className = 'sp-w';
+        spScrub.value = 0;
+        spTime.textContent = '0:00 / ' + fmtTime(shotAudio.duration || 0);
     });
 
-    animScrub.addEventListener('input', function() {
-        animScrubbing = true;
-        shotAudio.currentTime = parseFloat(animScrub.value);
-        animTime.textContent = formatTime(shotAudio.currentTime) + ' / ' + formatTime(shotAudio.duration || 0);
+    spScrub.addEventListener('input', function() {
+        spScrubbing = true;
+        shotAudio.currentTime = parseFloat(spScrub.value);
+        spTime.textContent = fmtTime(shotAudio.currentTime) + ' / ' + fmtTime(shotAudio.duration || 0);
+        // Update word highlights at scrub position
+        var t = shotAudio.currentTime;
+        var shot = getCurrentShot();
+        var cues = (shot && shot.timeline) || [];
+        for (var i = 0; i < spWordSpans.length && i < cues.length; i++) {
+            var c = cues[i];
+            var fx = c.fx || 'highlight';
+            if (t >= c.start && t < c.end) spWordSpans[i].className = 'sp-w active fx-' + fx;
+            else if (t >= c.end) spWordSpans[i].className = 'sp-w past';
+            else spWordSpans[i].className = 'sp-w';
+        }
     });
-    animScrub.addEventListener('change', function() {
-        animScrubbing = false;
-    });
+    spScrub.addEventListener('change', function() { spScrubbing = false; });
 
     shotAudio.addEventListener('ended', function() {
-        animTitleOverlay.classList.remove('visible');
-        animTransitionOverlay.style.opacity = '0';
-        animTransitionOverlay.style.transform = '';
+        spPlayBtn.innerHTML = '&#9654;';
+        spTitle.classList.remove('visible');
+        spTransition.style.opacity = '0';
     });
 
     shotAudio.addEventListener('loadedmetadata', function() {
-        animScrub.max = shotAudio.duration;
-        animTime.textContent = '0:00 / ' + formatTime(shotAudio.duration);
+        spScrub.max = shotAudio.duration;
+        spTime.textContent = '0:00 / ' + fmtTime(shotAudio.duration);
     });
 
     window.addEventListener('message', function(e) {
@@ -1020,7 +1085,11 @@
 
     var tlEditor = document.getElementById('timeline-cue-editor');
     var tlAutoGen = document.getElementById('tl-auto-gen');
+    var tlDetect = document.getElementById('tl-detect');
     var tlSendPreview = document.getElementById('tl-send-preview');
+    var tlBulkFx = document.getElementById('tl-bulk-fx');
+
+    var FX_OPTIONS = ['highlight', 'jiggle', 'color-pop', 'underline-draw', 'fade-in', 'glow', 'typewriter'];
 
     function generateEvenCues(text, duration) {
         if (!text || !duration) return [];
@@ -1031,10 +1100,21 @@
             cues.push({
                 text: words[i],
                 start: Math.round(i * perWord * 100) / 100,
-                end: Math.round((i + 1) * perWord * 100) / 100
+                end: Math.round((i + 1) * perWord * 100) / 100,
+                fx: 'highlight'
             });
         }
         return cues;
+    }
+
+    function fxSelectHtml(selected) {
+        var html = '<select class="tl-fx">';
+        for (var i = 0; i < FX_OPTIONS.length; i++) {
+            var f = FX_OPTIONS[i];
+            html += '<option value="' + f + '"' + (f === selected ? ' selected' : '') + '>' + f + '</option>';
+        }
+        html += '</select>';
+        return html;
     }
 
     function renderCueEditor() {
@@ -1049,16 +1129,17 @@
         for (var i = 0; i < cues.length; i++) {
             html += '<div class="tl-cue-row" data-idx="' + i + '">' +
                 '<span class="tl-word">' + cues[i].text + '</span>' +
-                '<span class="tl-label">s:</span>' +
-                '<input type="number" class="tl-start" value="' + cues[i].start + '" step="0.05" min="0">' +
-                '<span class="tl-label">e:</span>' +
-                '<input type="number" class="tl-end" value="' + cues[i].end + '" step="0.05" min="0">' +
+                fxSelectHtml(cues[i].fx || 'highlight') +
+                '<button class="tl-nudge" data-nudge="-0.02" title="-20ms">&lt;</button>' +
+                '<input type="number" class="tl-start" value="' + cues[i].start + '" step="0.02" min="0">' +
+                '<input type="number" class="tl-end" value="' + cues[i].end + '" step="0.02" min="0">' +
+                '<button class="tl-nudge" data-nudge="0.02" title="+20ms">&gt;</button>' +
                 '</div>';
         }
         tlEditor.innerHTML = html;
     }
 
-    // Auto-generate evenly spaced cues from narration + audio duration
+    // Even spacing
     tlAutoGen.addEventListener('click', function() {
         var shot = getCurrentShot();
         if (!shot || !shot.narration) return;
@@ -1066,26 +1147,192 @@
         if (!dur) { alert('No audio duration. Generate audio first.'); return; }
         shot.timeline = generateEvenCues(shot.narration, dur);
         renderCueEditor();
+        updateShotPreview();
         debouncedSave();
     });
 
-    // Save cue edits back to shot
+    // Bulk fx: apply selected effect to all cues
+    tlBulkFx.addEventListener('change', function() {
+        var fx = tlBulkFx.value;
+        if (!fx) return;
+        var shot = getCurrentShot();
+        if (!shot || !shot.timeline || shot.timeline.length === 0) return;
+        for (var i = 0; i < shot.timeline.length; i++) {
+            shot.timeline[i].fx = fx;
+        }
+        renderCueEditor();
+        updateShotPreview();
+        debouncedSave();
+        tlBulkFx.value = '';
+    });
+
+    // Uses window.Tscale from js/tscale.js (tau tscale port)
+
+    // Detect word boundaries using tau tscale onset detection + VAD
+    tlDetect.addEventListener('click', function() {
+        var shot = getCurrentShot();
+        if (!shot || !shot.narration) return;
+        if (!shotAudio.src) { alert('No audio loaded.'); return; }
+
+        var words = shot.narration.split(/\s+/).filter(function(w) { return w.length > 0; });
+        if (words.length === 0) return;
+
+        tlDetect.textContent = 'analyzing...';
+        tlDetect.disabled = true;
+
+        fetch(shotAudio.src)
+            .then(function(r) { return r.arrayBuffer(); })
+            .then(function(buf) {
+                var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                return ctx.decodeAudioData(buf);
+            })
+            .then(function(audioBuffer) {
+                var pcm = audioBuffer.getChannelData(0);
+                var fs = audioBuffer.sampleRate;
+                var duration = audioBuffer.duration;
+
+                // Run onset detection (tau tscale parity)
+                var onsets = Tscale.detectOnsets(pcm, fs, {
+                    ta: 0.002, tr: 0.010, threshold: 2.5, refractory: 0.030
+                });
+
+                // Run VAD for speech segments
+                var segments = Tscale.vad(pcm, fs, {
+                    thresholdDb: -40, hangoverMs: 300
+                });
+
+                // Preserve existing fx or default
+                var existingFx = (shot.timeline && shot.timeline.length > 0)
+                    ? shot.timeline[0].fx : 'highlight';
+
+                var cues = [];
+
+                if (onsets.length >= words.length) {
+                    // More onsets than words: use first N onsets as word starts
+                    for (var i = 0; i < words.length; i++) {
+                        var start = onsets[i];
+                        var end = (i + 1 < onsets.length) ? onsets[i + 1] : duration;
+                        cues.push({
+                            text: words[i],
+                            start: Math.round(start * 1000) / 1000,
+                            end: Math.round(end * 1000) / 1000,
+                            fx: existingFx
+                        });
+                    }
+                } else if (onsets.length > 0) {
+                    // Fewer onsets than words: use onsets as anchors,
+                    // distribute words proportionally between them
+                    // Add duration as final boundary
+                    var boundaries = onsets.slice();
+                    boundaries.push(duration);
+                    var wordsPerGap = words.length / onsets.length;
+                    var wIdx = 0;
+                    for (var g = 0; g < onsets.length && wIdx < words.length; g++) {
+                        var gStart = boundaries[g];
+                        var gEnd = boundaries[g + 1];
+                        var gDur = gEnd - gStart;
+                        var count = (g < onsets.length - 1)
+                            ? Math.round(wordsPerGap)
+                            : words.length - wIdx;
+                        if (count < 1) count = 1;
+                        if (wIdx + count > words.length) count = words.length - wIdx;
+                        var perWord = gDur / count;
+                        for (var c = 0; c < count && wIdx < words.length; c++) {
+                            cues.push({
+                                text: words[wIdx],
+                                start: Math.round((gStart + c * perWord) * 1000) / 1000,
+                                end: Math.round((gStart + (c + 1) * perWord) * 1000) / 1000,
+                                fx: existingFx
+                            });
+                            wIdx++;
+                        }
+                    }
+                } else {
+                    // No onsets detected: fall back to VAD segments
+                    if (segments.length > 0) {
+                        var totalSegDur = segments.reduce(function(s, seg) {
+                            return s + (seg.end - seg.start);
+                        }, 0);
+                        var wIdx2 = 0;
+                        for (var s = 0; s < segments.length && wIdx2 < words.length; s++) {
+                            var sDur = segments[s].end - segments[s].start;
+                            var sWords = Math.max(1, Math.round(words.length * sDur / totalSegDur));
+                            if (wIdx2 + sWords > words.length) sWords = words.length - wIdx2;
+                            var pw = sDur / sWords;
+                            for (var sw = 0; sw < sWords && wIdx2 < words.length; sw++) {
+                                cues.push({
+                                    text: words[wIdx2],
+                                    start: Math.round((segments[s].start + sw * pw) * 1000) / 1000,
+                                    end: Math.round((segments[s].start + (sw + 1) * pw) * 1000) / 1000,
+                                    fx: existingFx
+                                });
+                                wIdx2++;
+                            }
+                        }
+                    } else {
+                        // Nothing detected, fall back to even spacing
+                        shot.timeline = generateEvenCues(shot.narration, duration);
+                        renderCueEditor();
+                        updateShotPreview();
+                        debouncedSave();
+                        tlDetect.textContent = 'detect';
+                        tlDetect.disabled = false;
+                        return;
+                    }
+                }
+
+                shot.timeline = cues;
+                renderCueEditor();
+                updateShotPreview();
+                debouncedSave();
+                tlDetect.textContent = 'detect';
+                tlDetect.disabled = false;
+            })
+            .catch(function(e) {
+                tlDetect.textContent = 'detect';
+                tlDetect.disabled = false;
+                alert('Detection failed: ' + e.message);
+            });
+    });
+
+    // Save cue edits back to shot (start, end, fx)
     tlEditor.addEventListener('change', function(e) {
-        var input = e.target;
-        if (!input.classList.contains('tl-start') && !input.classList.contains('tl-end')) return;
-        var row = input.closest('.tl-cue-row');
+        var el = e.target;
+        var row = el.closest('.tl-cue-row');
+        if (!row) return;
         var idx = parseInt(row.dataset.idx);
         var shot = getCurrentShot();
         if (!shot || !shot.timeline || !shot.timeline[idx]) return;
-        if (input.classList.contains('tl-start')) {
-            shot.timeline[idx].start = parseFloat(input.value) || 0;
-        } else {
-            shot.timeline[idx].end = parseFloat(input.value) || 0;
+        if (el.classList.contains('tl-start')) {
+            shot.timeline[idx].start = parseFloat(el.value) || 0;
+        } else if (el.classList.contains('tl-end')) {
+            shot.timeline[idx].end = parseFloat(el.value) || 0;
+        } else if (el.classList.contains('tl-fx')) {
+            shot.timeline[idx].fx = el.value;
+            updateShotPreview();  // rebuild word spans with new fx
         }
         debouncedSave();
     });
 
-    // Send cues to iframe for live preview
+    // Nudge: shift both start and end by +/-20ms
+    tlEditor.addEventListener('click', function(e) {
+        var btn = e.target.closest('.tl-nudge');
+        if (!btn) return;
+        var row = btn.closest('.tl-cue-row');
+        var idx = parseInt(row.dataset.idx);
+        var shot = getCurrentShot();
+        if (!shot || !shot.timeline || !shot.timeline[idx]) return;
+        var delta = parseFloat(btn.dataset.nudge);
+        var cue = shot.timeline[idx];
+        cue.start = Math.max(0, Math.round((cue.start + delta) * 1000) / 1000);
+        cue.end = Math.max(cue.start + 0.02, Math.round((cue.end + delta) * 1000) / 1000);
+        // Update the input values in the row
+        row.querySelector('.tl-start').value = cue.start;
+        row.querySelector('.tl-end').value = cue.end;
+        debouncedSave();
+    });
+
+    // Send cues to guide iframe — anim-engine.js handles rendering
     tlSendPreview.addEventListener('click', function() {
         var shot = getCurrentShot();
         if (!shot || !shot.timeline || shot.timeline.length === 0) return;
@@ -1099,7 +1346,6 @@
                 narration: shot.narration || '',
                 audioSrc: audioSrc
             }, '*');
-            // Start playback after short delay for init
             setTimeout(function() {
                 previewIframe.contentWindow.postMessage({
                     type: 'anim-play',

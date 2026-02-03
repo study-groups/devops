@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Agents</title>
+    <link rel="stylesheet" href="shared.css">
+    <script src="js/terrain-iframe.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-size: 11px;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            min-height: 28px;
+        }
+        .toolbar select {
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            font-family: inherit;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .toolbar-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--ink-muted);
+            padding: 2px 8px;
+            font-family: inherit;
+            font-size: 9px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .toolbar-btn:hover { color: var(--ink); border-color: var(--four); }
+        .toolbar-btn.active { border-color: var(--two); color: var(--two); }
+        .toolbar-spacer { flex: 1; }
+        .toolbar-label { font-size: 9px; color: var(--ink-muted); }
+        .toolbar-sep { width: 1px; height: 16px; background: var(--border); margin: 0 4px; }
+
+        /* Agent cards */
+        .cards-section {
+            flex-shrink: 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            border-bottom: 1px solid var(--border);
+        }
+        .cards-row {
+            display: flex;
+            gap: 6px;
+            padding: 4px 10px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+
+        /* Per-card icon state (default) */
+        .agent-card.icon {
+            min-width: 0;
+            padding: 3px 8px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+        .agent-card.icon .card-header { margin-bottom: 0; }
+        .agent-card.icon .card-name { font-size: 10px; }
+        .agent-card.icon .card-provider,
+        .agent-card.icon .card-type,
+        .agent-card.icon .card-model,
+        .agent-card.icon .card-budgets,
+        .agent-card.icon .card-models,
+        .agent-card.icon .card-tags,
+        .agent-card.icon .budget-edit { display: none; }
+        .agent-card.icon .card-spend-inline { display: inline; }
+
+        /* Per-card expanded state */
+        .agent-card.expanded { min-width: 220px; cursor: pointer; }
+        .agent-card.expanded .card-spend-inline { display: none; }
+
+        .agent-card {
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 8px 10px;
+            min-width: 220px;
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: border-color 0.15s;
+        }
+        .agent-card:hover { border-color: var(--four); }
+        .agent-card.selected { border-color: var(--two); }
+        .agent-card.over-budget { border-color: var(--one); }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+        .card-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--ink);
+        }
+        .card-provider {
+            font-size: 9px;
+            color: var(--ink-muted);
+            background: var(--paper-dark);
+            padding: 1px 5px;
+            border-radius: 2px;
+        }
+        .card-key-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-left: auto;
+        }
+        .card-key-dot.ok { background: var(--two); }
+        .card-key-dot.missing { background: var(--one); }
+        .card-spend-inline {
+            display: none;
+            font-size: 9px;
+            color: var(--ink-muted);
+        }
+        .card-type {
+            font-size: 8px;
+            color: var(--ink-muted);
+            background: var(--paper-dark);
+            padding: 1px 4px;
+            border-radius: 2px;
+        }
+        .card-tags {
+            font-size: 8px;
+            color: var(--ink-muted);
+            margin-top: 4px;
+        }
+        .card-tags span {
+            background: var(--paper-dark);
+            padding: 0 4px;
+            border-radius: 2px;
+            margin-right: 3px;
+        }
+        .agent-card.free { border-left: 2px solid var(--two); }
+        .cards-section.icon-view .card-type,
+        .cards-section.icon-view .card-tags { display: none; }
+        .cards-section.compact-view .card-tags { display: none; }
+
+        .card-model {
+            font-size: 10px;
+            color: var(--ink-muted);
+            margin-bottom: 6px;
+        }
+        .card-model select {
+            background: var(--paper-dark);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            font-family: inherit;
+            font-size: 9px;
+            padding: 1px 4px;
+            border-radius: 2px;
+            margin-left: 4px;
+        }
+
+        /* Budget gauges */
+        .card-budgets {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .budget-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .budget-label {
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--ink-muted);
+            width: 32px;
+        }
+        .budget-bar {
+            flex: 1;
+            height: 6px;
+            background: var(--paper-dark);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .budget-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+        .budget-fill.ok { background: var(--two); }
+        .budget-fill.warn { background: var(--three); }
+        .budget-fill.over { background: var(--one); }
+        .budget-amount {
+            font-size: 9px;
+            color: var(--ink-muted);
+            min-width: 70px;
+            text-align: right;
+        }
+
+        /* Model breakdown (inline in card) */
+        .card-models {
+            margin-top: 6px;
+            font-size: 9px;
+            color: var(--ink-muted);
+        }
+        .model-line {
+            display: flex;
+            justify-content: space-between;
+            padding: 1px 0;
+        }
+        .model-name { color: var(--four); }
+
+        /* Ledger table */
+        .ledger-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .ledger-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-bottom: 1px solid var(--border);
+            background: var(--paper-mid);
+            flex-shrink: 0;
+        }
+        .ledger-header select {
+            background: var(--paper-dark);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            font-family: inherit;
+            font-size: 9px;
+            padding: 1px 4px;
+            border-radius: 2px;
+        }
+        .section-title {
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--ink-muted);
+        }
+        .filter-btn {
+            background: none;
+            border: 1px solid transparent;
+            color: var(--ink-muted);
+            padding: 1px 6px;
+            font-family: inherit;
+            font-size: 9px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .filter-btn:hover { color: var(--ink); }
+        .filter-btn.active { border-color: var(--four); color: var(--four); }
+
+        .ledger-scroll {
+            flex: 1;
+            overflow: auto;
+        }
+        .ledger-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+        }
+        .ledger-table th {
+            position: sticky;
+            top: 0;
+            background: var(--paper-mid);
+            text-align: left;
+            padding: 3px 6px;
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--ink-muted);
+            border-bottom: 1px solid var(--border);
+        }
+        .ledger-table td {
+            padding: 2px 6px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        .ledger-table tr:hover td { background: var(--paper-mid); }
+        .ledger-table .agent-qa { color: var(--two); }
+        .ledger-table .agent-vox { color: var(--four); }
+        .ledger-table .cost { color: var(--three); }
+
+        /* Stats bar */
+        .stats-bar {
+            flex-shrink: 0;
+            padding: 4px 10px;
+            border-top: 1px solid var(--border);
+            font-size: 9px;
+            color: var(--ink-muted);
+            background: var(--paper-dark);
+            display: flex;
+            gap: 16px;
+        }
+
+        /* Edit budget inline */
+        .budget-edit {
+            display: none;
+            gap: 4px;
+            align-items: center;
+            margin-top: 6px;
+        }
+        .budget-edit.visible { display: flex; }
+        .budget-edit input {
+            width: 50px;
+            background: var(--paper-dark);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            font-family: inherit;
+            font-size: 9px;
+            padding: 2px 4px;
+            border-radius: 2px;
+        }
+        .budget-edit label {
+            font-size: 8px;
+            color: var(--ink-muted);
+        }
+
+        /* Register form */
+        .register-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        .register-overlay.visible { display: flex; }
+        .register-form {
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 16px;
+            width: 300px;
+        }
+        .register-form h3 {
+            margin: 0 0 12px 0;
+            font-size: 12px;
+            color: var(--ink);
+        }
+        .register-form .field {
+            margin-bottom: 8px;
+        }
+        .register-form label {
+            display: block;
+            font-size: 9px;
+            color: var(--ink-muted);
+            margin-bottom: 2px;
+        }
+        .register-form input, .register-form select {
+            width: 100%;
+            background: var(--paper-dark);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            font-family: inherit;
+            font-size: 10px;
+            padding: 4px 6px;
+            border-radius: 3px;
+        }
+        .register-form .form-actions {
+            display: flex;
+            gap: 6px;
+            justify-content: flex-end;
+            margin-top: 12px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <select id="type-filter">
+            <option value="">All Types</option>
+            <option value="qa">qa</option>
+            <option value="vox">vox</option>
+            <option value="general">general</option>
+        </select>
+        <div class="toolbar-spacer"></div>
+        <button class="toolbar-btn" id="create-btn">+ Create</button>
+        <button class="toolbar-btn" id="refresh-btn">Refresh</button>
+    </div>
+
+    <!-- Agent cards -->
+    <div class="cards-section" id="cards-section">
+        <div class="cards-row" id="cards-row">
+            <div style="padding:8px; color:var(--ink-muted); font-size:10px;">Loading agents...</div>
+        </div>
+    </div>
+
+    <!-- Ledger -->
+    <div class="ledger-section">
+        <div class="ledger-header">
+            <span class="section-title">Ledger</span>
+            <button class="filter-btn active" data-agent="all">All</button>
+            <div id="agent-filters"></div>
+            <div class="toolbar-spacer"></div>
+            <span class="section-title" id="ledger-count"></span>
+            <select id="period-select" style="margin-left:auto;">
+                <option value="day">Today</option>
+                <option value="week">This Week</option>
+                <option value="total" selected>All Time</option>
+            </select>
+        </div>
+        <div class="ledger-scroll">
+            <table class="ledger-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Agent</th>
+                        <th>Model</th>
+                        <th>In</th>
+                        <th>Out</th>
+                        <th>Cost</th>
+                        <th>Run ID</th>
+                    </tr>
+                </thead>
+                <tbody id="ledger-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="stats-bar">
+        <span id="stats-agents">Agents: 0</span>
+        <span id="stats-calls">Calls: 0</span>
+        <span id="stats-cost">Cost: $0.000000</span>
+        <span id="stats-period">Period: all</span>
+    </div>
+
+    <!-- Create overlay -->
+    <div class="register-overlay" id="create-overlay">
+        <div class="register-form">
+            <h3>Create Agent</h3>
+            <div class="field">
+                <label>Type (module)</label>
+                <select id="cr-type">
+                    <option value="qa">qa</option>
+                    <option value="vox">vox</option>
+                    <option value="general">general</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Provider</label>
+                <select id="cr-provider"></select>
+            </div>
+            <div class="field">
+                <label>Model</label>
+                <select id="cr-model"></select>
+            </div>
+            <div class="field">
+                <label>Name</label>
+                <input id="cr-name" placeholder="auto-generated if blank">
+            </div>
+            <div class="field">
+                <label>Tags (comma-separated)</label>
+                <input id="cr-tags" placeholder="e.g. fast, cheap">
+            </div>
+            <div class="field">
+                <label>Daily Budget ($) <span style="color:var(--ink-muted)">(0 = free)</span></label>
+                <input id="cr-daily" type="number" step="0.5" value="5.0">
+            </div>
+            <div class="field">
+                <label>Total Budget ($)</label>
+                <input id="cr-total" type="number" step="10" value="100.0">
+            </div>
+            <div class="form-actions">
+                <button class="toolbar-btn" id="cr-cancel">Cancel</button>
+                <button class="toolbar-btn" id="cr-submit" style="border-color:var(--two);color:var(--two);">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/agents.js"></script>
+</body>
+</html>

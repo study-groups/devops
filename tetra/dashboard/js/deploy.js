@@ -22,6 +22,9 @@ var targetsData = [];
 // Persisted selections across re-renders
 var savedSelections = {};
 
+// Persisted output per target (survives re-render)
+var targetOutputs = {}; // { targetName: { html, label } }
+
 function saveExpanded() {
     try { localStorage.setItem('deploy-expanded', JSON.stringify(expandedTargets)); } catch (_) {}
 }
@@ -99,6 +102,13 @@ function restoreSelections() {
 // --- Toggle ---
 
 function toggleTarget(name) {
+    // If collapsing while output is showing, just clear output instead
+    if (expandedTargets[name] && targetOutputs[name]) {
+        delete targetOutputs[name];
+        renderTargets();
+        return;
+    }
+
     expandedTargets[name] = !expandedTargets[name];
     saveExpanded();
 
@@ -306,6 +316,7 @@ function renderTargets() {
     }).join('');
 
     restoreSelections();
+    restoreOutputs();
 
     // Event delegation for expand/collapse
     els.targets.querySelectorAll('.target').forEach(function(card) {
@@ -316,6 +327,35 @@ function renderTargets() {
             if (name) toggleTarget(name);
         });
     });
+}
+
+function formatTimestamp(isoStr) {
+    if (!isoStr) return '';
+    var date = new Date(isoStr);
+    if (isNaN(date.getTime())) return isoStr.slice(11, 16) || '';
+    var now = new Date();
+    var diffMs = now - date;
+    var diffMin = Math.floor(diffMs / 60000);
+    var diffHr = Math.floor(diffMs / 3600000);
+    var diffDay = Math.floor(diffMs / 86400000);
+
+    // Under 1 hour: "Xm ago"
+    if (diffMin < 60) return diffMin + 'm ago';
+    // Under 24 hours: "Xh ago"
+    if (diffHr < 24) return diffHr + 'h ago';
+    // Under 7 days: "Xd ago"
+    if (diffDay < 7) return diffDay + 'd ago';
+    // Older: "Jan 15" or "Dec 3"
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return months[date.getMonth()] + ' ' + date.getDate();
+}
+
+function formatDuration(secs) {
+    if (secs == null || secs === '') return '';
+    var n = Number(secs);
+    if (isNaN(n)) return secs;
+    if (n < 60) return n + 's';
+    return Math.floor(n / 60) + 'm' + (n % 60 ? (n % 60) + 's' : '');
 }
 
 async function loadHistory() {
@@ -332,10 +372,11 @@ async function loadHistory() {
         }
 
         els.history.innerHTML = data.history.slice(0, 15).map(function(h) {
-            var ts = h.timestamp ? h.timestamp.split('T')[1]?.slice(0, 5) || h.timestamp.slice(11, 16) : '';
+            var ts = formatTimestamp(h.timestamp);
             var target = h.target || '';
             var action = h.action || '';
             var label = action ? target + ':' + action : target;
+            var dur = formatDuration(h.duration);
 
             var detailLines = [];
             if (h.branch) detailLines.push('Branch: ' + h.branch);
@@ -348,7 +389,7 @@ async function loadHistory() {
                     '<span class="h-target">' + label + '</span>' +
                     '<span class="h-env">' + (h.env || '') + '</span>' +
                     '<span class="h-status ' + (h.status || '') + '">' + (h.status || '') + '</span>' +
-                    '<span class="h-duration">' + (h.duration || '') + 's</span>' +
+                    (dur ? '<span class="h-duration">' + dur + '</span>' : '') +
                 '</div>' +
                 (detailLines.length ? '<div class="history-details">' + detailLines.join('<br>') + '</div>' : '') +
             '</div>';
@@ -415,26 +456,47 @@ async function deploy(target) {
 }
 
 function showOutput(text, label, targetName) {
+    // Persist in JS state so re-renders don't lose it
+    if (targetName) {
+        targetOutputs[targetName] = { text: text, label: label };
+    }
+
     var container = targetName ? document.getElementById('output-' + targetName) : null;
     if (container) {
-        var closeId = 'close-output-' + targetName;
-        container.innerHTML = el('div', 'output-header',
-            el('span', 'output-label', label || '') +
-            '<span class="output-close" id="' + closeId + '">\u00D7</span>') +
-            '<pre class="output-pre">' + formatOutput(text) + '</pre>';
-        container.style.display = 'block';
-        var closeBtn = document.getElementById(closeId);
-        if (closeBtn) {
-            closeBtn.addEventListener('click', function() {
-                container.style.display = 'none';
-                container.innerHTML = '';
-            });
-        }
+        renderOutputInContainer(container, text, label, targetName);
     } else {
         // Fallback to global output
         els.outputContainer.style.display = 'block';
         els.output.innerHTML = '<pre class="output-pre">' + formatOutput(text) + '</pre>';
     }
+}
+
+function renderOutputInContainer(container, text, label, targetName) {
+    var closeId = 'close-output-' + targetName;
+    container.innerHTML = el('div', 'output-header',
+        el('span', 'output-label', label || '') +
+        '<span class="output-close" id="' + closeId + '">\u00D7</span>') +
+        '<pre class="output-pre">' + formatOutput(text) + '</pre>';
+    container.style.display = 'block';
+    var closeBtn = document.getElementById(closeId);
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            container.style.display = 'none';
+            container.innerHTML = '';
+            delete targetOutputs[targetName];
+        });
+    }
+}
+
+function restoreOutputs() {
+    Object.keys(targetOutputs).forEach(function(name) {
+        var container = document.getElementById('output-' + name);
+        if (container) {
+            var o = targetOutputs[name];
+            renderOutputInContainer(container, o.text, o.label, name);
+        }
+    });
 }
 
 function stripAnsi(str) {

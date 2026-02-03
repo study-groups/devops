@@ -22,7 +22,8 @@ const Dashboard = (() => {
         tut:       { src: 'tut.iframe.html',       label: 'Tut' },
         director:  { src: 'director.iframe.html',  label: 'Director' },
         vox:       { src: 'vox.iframe.html',      label: 'Vox' },
-        agents:    { src: 'agents.iframe.html',   label: 'Agents' }
+        agents:    { src: 'agents.iframe.html',   label: 'Agents' },
+        screentool: { src: 'screentool.iframe.html', label: 'Screentool' }
     };
 
     const ENVS = [
@@ -65,6 +66,7 @@ const Dashboard = (() => {
 
     let environments = {};
     let takeoverPanel = null;
+    let restoring = false;
     const iframeTimings = new Map();
 
     // DOM references (set during init)
@@ -300,7 +302,7 @@ const Dashboard = (() => {
         });
 
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        serializeToHash();
+        if (!restoring) serializeToHash();
     }
 
     function serializeToHash() {
@@ -696,9 +698,11 @@ const Dashboard = (() => {
         await Promise.all(ORGS.map(org => fetchEnvironments(org.id)));
 
         // Load from URL hash if present, otherwise from localStorage
+        restoring = true;
         if (!restoreFromHash()) {
             loadPanelState();
         }
+        restoring = false;
     }
 
     // ========================================================================

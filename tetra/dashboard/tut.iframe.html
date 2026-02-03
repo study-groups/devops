@@ -2,137 +2,688 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Tutorials</title>
+    <title>Tut Editor</title>
     <link rel="stylesheet" href="shared.css">
     <script src="js/terrain-iframe.js"></script>
     <style>
         body {
+            font-size: 11px;
+            padding: 0;
+            height: 100vh;
             display: flex;
             flex-direction: column;
-            height: 100vh;
             overflow: hidden;
         }
 
-        .tut-toolbar {
+        /* Toolbar */
+        .toolbar {
+            flex-shrink: 0;
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 6px 10px;
-            background: var(--paper-mid);
+            padding: 4px 10px;
             border-bottom: 1px solid var(--border);
-            flex-shrink: 0;
+            background: var(--paper-mid);
         }
-
-        .tut-toolbar label {
-            font-size: 9px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--ink-muted);
+        .toolbar-org {
+            font-size: 10px;
+            color: var(--two);
+            font-weight: 600;
         }
-
-        .env-pills { display: flex; }
-        .env-pill {
-            background: transparent;
+        .toolbar-btn {
+            background: none;
             border: 1px solid var(--border);
             color: var(--ink-muted);
-            padding: 3px 10px;
+            padding: 2px 8px;
             font-family: inherit;
-            font-size: 10px;
+            font-size: 9px;
+            border-radius: 3px;
             cursor: pointer;
             transition: all 0.15s;
         }
-        .env-pill:first-child { border-radius: 3px 0 0 3px; }
-        .env-pill:last-child { border-radius: 0 3px 3px 0; }
-        .env-pill:not(:first-child) { border-left: none; }
-        .env-pill:hover { color: var(--ink); }
+        .toolbar-btn:hover { color: var(--ink); border-color: var(--four); }
+        .toolbar-btn.active { color: var(--four); border-color: var(--four); }
+        .toolbar-spacer { flex: 1; }
 
-        .env-pill.active[data-env="local"] {
-            background: var(--two); border-color: var(--two); color: #000;
-        }
-        .env-pill.active[data-env="dev"] {
-            background: var(--three); border-color: var(--three); color: #000;
-        }
-        .env-pill.active[data-env="stg"] {
-            background: var(--three); border-color: var(--three); color: #000;
-        }
-        .env-pill.active[data-env="prod"] {
-            background: var(--one); border-color: var(--one); color: #000;
-        }
-
-        .tut-sep {
-            width: 1px;
-            height: 18px;
-            background: var(--border);
-        }
-
-        .ssh-badge {
-            font-size: 9px;
-            color: var(--ink-muted);
-            display: none;
-            align-items: center;
+        /* Tag filter */
+        .tag-filters {
+            display: flex;
             gap: 4px;
         }
-        .ssh-badge.visible { display: flex; }
-        .ssh-badge .dot {
-            width: 6px; height: 6px;
-            border-radius: 50%;
-            background: var(--three);
+        .tag-filter {
+            font-size: 9px;
+            padding: 2px 8px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            color: var(--ink-muted);
+            cursor: pointer;
+            background: none;
+            font-family: inherit;
+            transition: all 0.15s;
+        }
+        .tag-filter:hover { color: var(--ink); }
+        .tag-filter.active { border-color: var(--four); color: var(--four); background: rgba(107,92,231,0.12); }
+        .tag-filter[data-tag="guides"].active { border-color: var(--two); color: var(--two); background: rgba(78,205,196,0.12); }
+        .tag-filter[data-tag="refs"].active { border-color: var(--three); color: var(--three); background: rgba(255,230,109,0.12); }
+        .tag-filter[data-tag="thesis"].active { border-color: var(--one); color: var(--one); background: rgba(255,107,107,0.12); }
+
+        /* Main area */
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: row;
+            overflow: hidden;
         }
 
-        .host-input {
+        /* Sidebar */
+        .sidebar {
+            width: 200px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            overflow: hidden;
+            transition: width 0.2s;
+        }
+        .sidebar.collapsed { width: 0; border-right: none; }
+
+        .sidebar-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 6px;
+        }
+
+        /* Pill card */
+        .pill-card {
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            margin-bottom: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+            overflow: hidden;
+        }
+        .pill-card:hover { border-color: var(--ink-muted); }
+        .pill-card.active { border-color: var(--four); }
+        .pill-card.active .pill-header { color: var(--four); }
+
+        .pill-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 8px;
+            font-size: 10px;
+            color: var(--ink);
+        }
+        .pill-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .pill-version {
+            font-size: 8px;
+            color: var(--ink-muted);
+        }
+        .pill-type-badge {
+            font-size: 8px;
+            color: var(--ink-muted);
+            padding: 0 4px;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+        }
+        .pill-type-badge.guide { color: var(--two); border-color: var(--two); }
+        .pill-type-badge.reference { color: var(--three); border-color: var(--three); }
+        .pill-type-badge.thesis { color: var(--one); border-color: var(--one); }
+
+        /* Pill expanded */
+        .pill-body {
+            display: none;
+            padding: 0 8px 6px;
+            font-size: 9px;
+        }
+        .pill-card.expanded .pill-body { display: block; }
+
+        .pill-title {
+            font-size: 10px;
+            color: var(--ink);
+            margin-bottom: 4px;
+        }
+        .pill-links {
+            display: flex;
+            gap: 6px;
+            margin: 4px 0;
+        }
+        .pill-link {
+            padding: 2px 8px;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--ink-muted);
+            cursor: pointer;
+            font-size: 9px;
+            font-family: inherit;
+            background: none;
+            transition: all 0.15s;
+        }
+        .pill-link:hover { color: var(--ink); border-color: var(--four); }
+        .pill-link.active-link { color: var(--four); border-color: var(--four); background: rgba(107,92,231,0.12); }
+        .pill-link.disabled { opacity: 0.3; pointer-events: none; }
+
+        .pill-stats {
+            color: var(--ink-muted);
+            margin: 4px 0;
+        }
+        .pill-actions {
+            display: flex;
+            gap: 4px;
+            margin-top: 4px;
+        }
+        .pill-action-btn {
+            font-size: 8px;
+            padding: 1px 6px;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--ink-muted);
+            cursor: pointer;
+            font-family: inherit;
+            background: none;
+            transition: all 0.15s;
+        }
+        .pill-action-btn:hover { color: var(--ink); border-color: var(--four); }
+
+        /* Sidebar info panel */
+        .sidebar-info {
+            flex-shrink: 0;
+            border-top: 1px solid var(--border);
+            padding: 6px 8px;
+            font-size: 9px;
+            color: var(--ink-muted);
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        .sidebar-info-heading {
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            color: var(--ink-muted);
+            cursor: pointer;
+        }
+        .sidebar-info-heading:hover { color: var(--ink); }
+        .info-chain {
+            font-size: 9px;
+            color: var(--ink-muted);
+            line-height: 1.6;
+        }
+        .info-chain span { color: var(--two); }
+
+        /* Right panel */
+        .right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .right-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 10px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            min-height: 26px;
+        }
+        .right-title {
+            font-size: 10px;
+            color: var(--two);
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .right-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--ink-muted);
+            padding: 2px 8px;
+            font-family: inherit;
+            font-size: 9px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .right-btn:hover { color: var(--ink); border-color: var(--four); }
+
+        /* Right panel modes */
+        .mode-empty {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--ink-muted);
+            font-size: 10px;
+        }
+
+        /* Mode A: Form editor */
+        .mode-form {
+            flex: 1;
+            display: none;
+            flex-direction: row;
+            overflow: hidden;
+        }
+        .mode-form.active { display: flex; }
+
+        .form-side {
+            flex: 55%;
+            overflow-y: auto;
+            padding: 8px;
+            border-right: 1px solid var(--border);
+        }
+        .json-side {
+            flex: 45%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .json-side-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 8px;
+            border-bottom: 1px solid var(--border);
+            font-size: 9px;
+            color: var(--ink-muted);
+        }
+        .json-side-header label { cursor: pointer; }
+        .json-textarea {
+            flex: 1;
+            border: none;
+            background: var(--paper-dark);
+            color: var(--ink);
+            font-family: 'SF Mono', 'Menlo', monospace;
+            font-size: 10px;
+            padding: 8px;
+            resize: none;
+            outline: none;
+            tab-size: 2;
+        }
+
+        /* Form sections */
+        .form-section {
+            margin-bottom: 12px;
+        }
+        .form-section-title {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--ink-muted);
+            margin-bottom: 6px;
+            padding-bottom: 3px;
+            border-bottom: 1px solid var(--border);
+        }
+        .form-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+        .form-label {
+            font-size: 9px;
+            color: var(--ink-muted);
+            width: 80px;
+            flex-shrink: 0;
+        }
+        .form-input {
+            flex: 1;
             background: var(--paper-dark);
             border: 1px solid var(--border);
             color: var(--ink);
+            padding: 3px 6px;
             font-family: inherit;
             font-size: 10px;
-            padding: 3px 6px;
             border-radius: 2px;
-            width: 180px;
+            outline: none;
         }
-        .host-input:focus { outline: none; border-color: var(--four); }
+        .form-input:focus { border-color: var(--four); }
+        .form-select {
+            background: var(--paper-dark);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            padding: 3px 6px;
+            font-family: inherit;
+            font-size: 10px;
+            border-radius: 2px;
+        }
 
-        .tut-viewer {
-            flex: 1;
+        /* Step cards in form */
+        .step-card {
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            margin-bottom: 6px;
             overflow: hidden;
         }
-        .tut-viewer iframe {
-            width: 100%;
-            height: 100%;
+        .step-card-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            background: var(--paper-mid);
+            cursor: pointer;
+            font-size: 10px;
+        }
+        .step-card-header:hover { background: var(--paper-light); }
+        .step-card-num {
+            color: var(--four);
+            font-size: 9px;
+            font-weight: 600;
+        }
+        .step-card-title {
+            flex: 1;
+            color: var(--ink);
+        }
+        .step-card-count {
+            font-size: 8px;
+            color: var(--ink-muted);
+        }
+        .step-card-body {
+            display: none;
+            padding: 6px 8px;
+        }
+        .step-card.expanded .step-card-body { display: block; }
+
+        /* Content block in form */
+        .block-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            padding: 4px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 9px;
+        }
+        .block-item:last-child { border-bottom: none; }
+        .block-type {
+            font-size: 8px;
+            color: var(--ink-muted);
+            padding: 1px 4px;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+        .block-preview {
+            flex: 1;
+            color: var(--ink);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .block-vox-btn {
+            font-size: 10px;
+            cursor: pointer;
+            opacity: 0.4;
+            flex-shrink: 0;
+        }
+        .block-vox-btn:hover { opacity: 1; }
+        .block-vox-btn.has-vox { opacity: 1; color: var(--two); }
+        .block-timeline-btn {
+            font-size: 9px;
+            cursor: pointer;
+            opacity: 0.4;
+            flex-shrink: 0;
+            padding: 0 2px;
+        }
+        .block-timeline-btn:hover { opacity: 1; }
+        .block-timeline-btn.has-timeline { opacity: 1; color: var(--four); }
+
+        /* Timeline editor inline */
+        .timeline-editor {
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 8px;
+            margin: 4px 0;
+            background: var(--paper-dark);
+        }
+        .te-waveform-wrap {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+        .te-play-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--ink-muted);
+            width: 24px;
+            height: 24px;
+            font-size: 10px;
+            cursor: pointer;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        .te-play-btn:hover { color: var(--ink); border-color: var(--four); }
+        .te-waveform-canvas {
+            flex: 1;
+            height: 60px;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            cursor: crosshair;
+        }
+        .te-chunk-strip {
+            margin-bottom: 6px;
+        }
+        .te-chunk-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 0;
+            font-size: 9px;
+            border-bottom: 1px solid var(--border);
+        }
+        .te-chunk-row:last-child { border-bottom: none; }
+        .te-chunk-label {
+            flex: 1;
+            color: var(--ink);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .te-chunk-time {
+            color: var(--ink-muted);
+            font-size: 8px;
+            flex-shrink: 0;
+        }
+        .te-fx-select {
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            font-family: inherit;
+            font-size: 9px;
+            padding: 1px 4px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+        .te-btn-row {
+            display: flex;
+            gap: 6px;
+        }
+        .te-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--ink-muted);
+            padding: 2px 8px;
+            font-family: inherit;
+            font-size: 9px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .te-btn:hover { color: var(--ink); border-color: var(--four); }
+
+        /* Mode B: Compiled preview */
+        .mode-preview {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .mode-preview.active { display: flex; }
+        .preview-frame {
+            flex: 1;
             border: none;
             background: var(--paper-dark);
         }
+
+        /* Mode C: Info panel */
+        .mode-info {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 16px;
+        }
+        .mode-info.active { display: flex; }
+        .info-section {
+            margin-bottom: 16px;
+        }
+        .info-section-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--four);
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--border);
+        }
+        .info-row {
+            font-size: 10px;
+            color: var(--ink);
+            margin-bottom: 4px;
+            padding: 3px 0;
+        }
+        .info-row .label { color: var(--ink-muted); }
+        .info-block-types {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .info-block-type {
+            font-size: 9px;
+            padding: 2px 6px;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--ink-muted);
+        }
+
+        /* Status bar */
+        .status-bar {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 4px 10px;
+            border-top: 1px solid var(--border);
+            font-size: 9px;
+            color: var(--ink-muted);
+            background: var(--paper-mid);
+        }
+        .status-bar .count { color: var(--two); }
+        .sidebar-toggle {
+            margin-left: auto;
+            background: none;
+            border: none;
+            color: var(--ink-muted);
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 9px;
+        }
+        .sidebar-toggle:hover { color: var(--ink); }
+
+        .form-status {
+            flex-shrink: 0;
+            padding: 3px 10px;
+            font-size: 9px;
+            color: var(--ink-muted);
+            border-top: 1px solid var(--border);
+            background: var(--paper-mid);
+        }
+        .form-status.saved { color: var(--two); }
+        .form-status.error { color: var(--one); }
     </style>
 </head>
 <body>
-    <div class="tut-toolbar">
-        <label>Env</label>
-        <div class="env-pills">
-            <button class="env-pill active" data-env="local" data-action="set-env">local</button>
-            <button class="env-pill" data-env="dev" data-action="set-env">dev</button>
-            <button class="env-pill" data-env="stg" data-action="set-env">stg</button>
-            <button class="env-pill" data-env="prod" data-action="set-env">prod</button>
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <span class="toolbar-org" id="toolbar-org">tetra</span>
+        <button class="toolbar-btn" data-action="validate">validate</button>
+        <button class="toolbar-btn" data-action="build-all">build all</button>
+        <button class="toolbar-btn" data-action="new-doc">+ new</button>
+        <span class="toolbar-spacer"></span>
+        <div class="tag-filters">
+            <button class="tag-filter active" data-tag="all" data-action="filter-tag">all</button>
+            <button class="tag-filter" data-tag="guide" data-action="filter-tag">guides</button>
+            <button class="tag-filter" data-tag="reference" data-action="filter-tag">refs</button>
+            <button class="tag-filter" data-tag="thesis" data-action="filter-tag">thesis</button>
         </div>
-
-        <div class="ssh-badge" id="ssh-badge">
-            <span class="dot"></span>
-            <span>SSH</span>
-        </div>
-
-        <input type="text" class="host-input hidden" id="remote-host"
-               placeholder="host:port (e.g. do4-n2:8012)">
-
-        <div class="tut-sep"></div>
-
-        <label id="base-url-label" style="font-size:10px; color:var(--ink-muted)">localhost:?</label>
-
-        <span class="refresh icon-refresh" data-action="refresh"
-              style="margin-left:auto; cursor:pointer;"></span>
     </div>
 
-    <div class="tut-viewer" id="tut-viewer">
-        <iframe id="tut-frame" src="about:blank"></iframe>
+    <!-- Main area -->
+    <div class="main-area">
+        <!-- Sidebar: pill cards -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-scroll" id="sidebar-scroll">
+                <div style="text-align:center;padding:20px;color:var(--ink-muted);font-size:10px">Loading...</div>
+            </div>
+            <div class="sidebar-info" id="sidebar-info">
+                <div class="sidebar-info-heading" data-action="toggle-info">terrain info</div>
+                <div class="info-chain" id="info-chain">
+                    <span>terrain</span> &rarr; template &rarr; schema
+                </div>
+            </div>
+        </div>
+
+        <!-- Right panel -->
+        <div class="right-panel" id="right-panel">
+            <div class="right-toolbar" id="right-toolbar">
+                <span class="right-title" id="right-title"></span>
+                <button class="right-btn" id="btn-save" data-action="save" style="display:none">save</button>
+                <button class="right-btn" id="btn-build" data-action="build-one" style="display:none">build</button>
+                <button class="right-btn" id="btn-tab" data-action="open-tab" style="display:none">tab</button>
+                <button class="right-btn" id="btn-home" data-action="home" style="display:none">home</button>
+            </div>
+
+            <div class="mode-empty" id="mode-empty">Select a document from the sidebar</div>
+
+            <!-- Mode A: Form editor + live JSON -->
+            <div class="mode-form" id="mode-form">
+                <div class="form-side" id="form-side"></div>
+                <div class="json-side">
+                    <div class="json-side-header">
+                        <span>JSON</span>
+                        <label><input type="checkbox" id="json-editable"> editable</label>
+                    </div>
+                    <textarea class="json-textarea" id="json-textarea" readonly></textarea>
+                </div>
+            </div>
+
+            <!-- Mode B: Compiled preview -->
+            <div class="mode-preview" id="mode-preview">
+                <iframe class="preview-frame" id="preview-frame" src="about:blank"></iframe>
+            </div>
+
+            <!-- Mode C: Info panel -->
+            <div class="mode-info" id="mode-info"></div>
+
+            <div class="form-status" id="form-status"></div>
+        </div>
     </div>
 
+    <!-- Status bar -->
+    <div class="status-bar">
+        <span id="status-text">docs: <span class="count" id="doc-count">0</span></span>
+        <span id="status-detail"></span>
+        <button class="sidebar-toggle" data-action="toggle-sidebar">sidebar</button>
+    </div>
+
+    <script src="js/vox-waveform.js"></script>
+    <script src="js/timeline-editor.js"></script>
     <script src="js/tut.js"></script>
 </body>
 </html>

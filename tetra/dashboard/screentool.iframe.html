@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Screentool</title>
+    <link rel="stylesheet" href="shared.css">
+    <style>
+        body {
+            font-size: 11px;
+            padding: 12px;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        /* Tab navigation */
+        .st-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 8px;
+        }
+        .st-tab {
+            padding: 6px 12px;
+            font-size: 10px;
+            color: var(--ink-muted);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s ease;
+        }
+        .st-tab:hover { color: var(--ink); }
+        .st-tab.active {
+            color: var(--ink);
+            border-bottom-color: var(--four);
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Recordings table */
+        .rec-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .rec-table th {
+            text-align: left;
+            font-size: 9px;
+            color: var(--ink-muted);
+            text-transform: uppercase;
+            padding: 4px 8px;
+            border-bottom: 1px solid var(--border);
+        }
+        .rec-row {
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+        }
+        .rec-row:hover { background: var(--paper-mid); }
+        .rec-row.expanded {
+            background: var(--paper-mid);
+            border-bottom: none;
+        }
+        .rec-row td {
+            padding: 6px 8px;
+            font-size: 10px;
+        }
+        .rec-row .expand-icon {
+            color: var(--ink-muted);
+            font-size: 8px;
+            margin-right: 4px;
+            transition: transform 0.15s ease;
+        }
+        .rec-row.expanded .expand-icon {
+            transform: rotate(90deg);
+        }
+
+        /* Recording details */
+        .rec-details {
+            display: none;
+            background: var(--paper-dark);
+            border-bottom: 1px solid var(--border);
+            padding: 8px 12px 12px 24px;
+            font-size: 10px;
+        }
+        .rec-details.visible { display: block; }
+        .rec-details .info-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 4px 12px;
+        }
+        .rec-details .info-label { color: var(--two); }
+        .rec-details .info-value { color: var(--ink); word-break: break-all; }
+
+        /* Status indicator */
+        .status-recording {
+            color: var(--one);
+            font-weight: 600;
+            font-size: 10px;
+        }
+        .status-idle {
+            color: var(--ink-muted);
+            font-size: 10px;
+        }
+        .badge-audio {
+            font-size: 8px;
+            background: var(--three);
+            color: var(--paper-dark);
+            padding: 1px 4px;
+            border-radius: 2px;
+        }
+
+        /* Info tab */
+        .info-panel {
+            padding: 8px 0;
+            font-size: 10px;
+            line-height: 1.5;
+        }
+        .info-panel h3 {
+            color: var(--three);
+            font-size: 11px;
+            margin: 16px 0 8px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .info-panel h3:first-child { margin-top: 0; }
+        .info-panel p { color: var(--ink); margin: 6px 0; }
+        .info-panel code {
+            background: var(--paper-mid);
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-size: 9px;
+            color: var(--two);
+        }
+        .info-panel .cmd {
+            display: block;
+            background: var(--paper-mid);
+            padding: 6px 8px;
+            margin: 6px 0;
+            border-radius: 2px;
+            font-size: 9px;
+            color: var(--ink);
+            border-left: 2px solid var(--four);
+        }
+
+        /* Record button */
+        .rec-btn {
+            font-size: 9px;
+            padding: 3px 8px;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            cursor: pointer;
+            background: var(--paper-mid);
+            color: var(--ink);
+            transition: all 0.15s ease;
+        }
+        .rec-btn:hover { background: var(--paper-dark); }
+        .rec-btn.recording {
+            background: var(--one);
+            color: var(--paper);
+            border-color: var(--one);
+        }
+        .rec-btn.recording:hover { opacity: 0.8; }
+
+        /* ST_DIR path display */
+        .st-dir-path {
+            font-size: 9px;
+            color: var(--ink-muted);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 200px;
+        }
+
+        /* Config form */
+        .config-form {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 6px 12px;
+            align-items: center;
+            padding: 8px 0;
+        }
+        .config-form label {
+            font-size: 10px;
+            color: var(--two);
+            text-align: right;
+        }
+        .config-form input {
+            font-size: 10px;
+            padding: 4px 6px;
+            background: var(--paper-mid);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            color: var(--ink);
+            font-family: inherit;
+        }
+        .config-form input:focus {
+            outline: none;
+            border-color: var(--four);
+        }
+        .config-save-row {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 4px;
+        }
+        .config-save-btn {
+            font-size: 9px;
+            padding: 4px 12px;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            cursor: pointer;
+            background: var(--four);
+            color: var(--paper);
+        }
+        .config-save-btn:hover { opacity: 0.8; }
+        .config-msg {
+            font-size: 9px;
+            margin-right: 8px;
+            color: var(--three);
+            align-self: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="iframe-header" style="padding: 0 0 8px 0; border: none;">
+        <div class="st-tabs">
+            <span class="st-tab active" data-action="switch-tab" data-tab="recordings">Recordings</span>
+            <span class="st-tab" data-action="switch-tab" data-tab="config">Config</span>
+            <span class="st-tab" data-action="switch-tab" data-tab="info">Info</span>
+        </div>
+        <span id="st-dir-display" class="st-dir-path" title=""></span>
+        <span id="rec-status" class="status-idle"></span>
+        <button id="rec-toggle-btn" class="rec-btn" data-action="toggle-recording">REC</button>
+        <span class="refresh icon-refresh" data-action="refresh"></span>
+    </div>
+
+    <div id="tab-recordings" class="tab-content active">
+        <div id="recordings">
+            <div class="empty">Loading...</div>
+        </div>
+    </div>
+
+    <div id="tab-config" class="tab-content">
+        <div class="config-form" id="config-form">
+            <label>FFMPEG_FPS</label>
+            <input type="text" name="FFMPEG_FPS" value="">
+            <label>FFMPEG_CRF</label>
+            <input type="text" name="FFMPEG_CRF" value="">
+            <label>FFMPEG_PRESET</label>
+            <input type="text" name="FFMPEG_PRESET" value="">
+            <label>FFMPEG_INPUT</label>
+            <input type="text" name="FFMPEG_INPUT" value="">
+            <label>FFMPEG_RESOLUTION</label>
+            <input type="text" name="FFMPEG_RESOLUTION" value="">
+            <label>AUDIO_RECORDER</label>
+            <input type="text" name="AUDIO_RECORDER" value="">
+            <label>AUDIO_SAMPLE_RATE</label>
+            <input type="text" name="AUDIO_SAMPLE_RATE" value="">
+            <div class="config-save-row">
+                <span id="config-msg" class="config-msg"></span>
+                <button class="config-save-btn" data-action="save-config">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-info" class="tab-content">
+        <div class="info-panel">
+            <h3>Screentool - Screen Recording Manager</h3>
+            <p>Screentool captures screen recordings using ffmpeg. Recordings are stored in session directories under <code>$ST_DIR</code>.</p>
+
+            <h3>Recording Sessions</h3>
+            <p>Each session is identified by a timestamp-based ID and stored as a directory containing the video file and optional audio.</p>
+            <div class="cmd">$ST_DIR/
+  1234567890/
+    screen.mkv
+    audio.wav</div>
+
+            <h3>Info</h3>
+            <p>Click any recording row to expand and see ffprobe details: codec, resolution, bitrate, and duration.</p>
+
+            <h3>Status</h3>
+            <p>The header shows recording status. A red indicator appears when ffmpeg is actively recording.</p>
+        </div>
+    </div>
+
+    <script src="/js/terrain-iframe.js"></script>
+    <script src="/js/screentool.js"></script>
+</body>
+</html>

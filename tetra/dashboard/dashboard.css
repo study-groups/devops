@@ -297,15 +297,14 @@ body {
    Takeover Mode
    ========================================================================== */
 
-.panes.takeover { position: relative; }
-.panes.takeover .pane-row,
 .panes.takeover .divider { display: none; }
-.panes.takeover .panel { display: none; }
+.panes.takeover .panel:not(.takeover-active) { display: none; }
 
 .panes.takeover .panel.takeover-active {
     display: flex;
-    position: absolute;
+    position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    width: 100% !important;
-    height: 100% !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 1000;
 }
