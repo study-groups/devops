@@ -276,6 +276,40 @@ router.delete('/registry/:org', (req, res) => {
 });
 
 /**
+ * GET /api/orgs/registry/raw
+ * Get raw repos.toml content for editing
+ */
+router.get('/registry/raw', (req, res) => {
+    try {
+        const content = fs.existsSync(REPOS_TOML)
+            ? fs.readFileSync(REPOS_TOML, 'utf8')
+            : '# Tetra Org Registry\n# Add orgs with [orgname] sections\n';
+        res.json({ content, path: REPOS_TOML });
+    } catch (error) {
+        console.error('[API/orgs] Error reading registry:', error);
+        res.status(500).json({ error: 'Failed to read registry' });
+    }
+});
+
+/**
+ * PUT /api/orgs/registry/raw
+ * Save raw repos.toml content
+ */
+router.put('/registry/raw', express.json(), (req, res) => {
+    try {
+        const { content } = req.body;
+        if (typeof content !== 'string') {
+            return res.status(400).json({ error: 'Content required' });
+        }
+        fs.writeFileSync(REPOS_TOML, content, 'utf8');
+        res.json({ success: true, message: 'Registry saved' });
+    } catch (error) {
+        console.error('[API/orgs] Error saving registry:', error);
+        res.status(500).json({ error: 'Failed to save registry' });
+    }
+});
+
+/**
  * POST /api/orgs/:org/clone
  * Clone an org's config repo
  */

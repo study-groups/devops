@@ -64,12 +64,21 @@ function initEvents() {
                 return;
             }
 
-            // Edit registry button (gear)
+            // Edit registry button (gear) - open repos.toml in editor
             const editRegistryBtn = e.target.closest('[data-action="edit-registry"]');
             if (editRegistryBtn) {
                 e.stopPropagation();
-                // For now, just open the first org's edit form as a placeholder
-                // Could later show a full registry editor
+                // Switch to config tab and load registry
+                document.querySelectorAll('.infra-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.infra-tab-content').forEach(c => c.classList.remove('active'));
+                document.querySelector('[data-tab="config"]').classList.add('active');
+                document.getElementById('tab-config').classList.add('active');
+                // Render minimal config view with editor
+                const container = dom.config();
+                if (container) {
+                    container.innerHTML = html.configView({ id: 'registry' }, [], null);
+                }
+                loadRegistry();
                 return;
             }
 
@@ -142,8 +151,13 @@ function initEvents() {
         }
 
         const saveBtn = e.target.closest('[data-action="save-section"]');
-        if (saveBtn && getSelectedOrg()) {
-            saveSection(getSelectedOrg());
+        if (saveBtn) {
+            const editingSection = getEditingSection();
+            if (editingSection === '__registry__') {
+                saveRegistry();
+            } else if (getSelectedOrg()) {
+                saveSection(getSelectedOrg());
+            }
             return;
         }
 

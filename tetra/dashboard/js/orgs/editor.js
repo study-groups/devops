@@ -73,3 +73,64 @@ function closeEditor() {
         state.dispatch('closeEditor');
     }
 }
+
+// Load repos.toml registry for editing
+async function loadRegistry() {
+    const editor = document.getElementById('section-editor');
+    const title = document.getElementById('editor-title');
+    const textarea = document.getElementById('section-content');
+    const status = document.getElementById('editor-status');
+
+    if (!editor || !textarea) return;
+
+    state.dispatch('editSection', '__registry__');
+    title.textContent = 'repos.toml';
+    textarea.value = 'Loading...';
+    status.textContent = '';
+    editor.style.display = 'block';
+
+    try {
+        const resp = await fetch('/api/orgs/registry/raw');
+        if (resp.ok) {
+            const data = await resp.json();
+            textarea.value = data.content || '';
+        } else {
+            textarea.value = '# Failed to load registry';
+        }
+    } catch (e) {
+        textarea.value = '# Error: ' + e.message;
+    }
+}
+
+async function saveRegistry() {
+    const textarea = document.getElementById('section-content');
+    const status = document.getElementById('editor-status');
+
+    if (!textarea) return;
+
+    status.textContent = 'Saving...';
+    status.style.color = 'var(--three)';
+
+    try {
+        const resp = await fetch('/api/orgs/registry/raw', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: textarea.value })
+        });
+
+        if (resp.ok) {
+            status.textContent = 'Saved!';
+            status.style.color = 'var(--three)';
+            setTimeout(() => {
+                status.textContent = '';
+                renderOrgs(); // Refresh org list
+            }, 1000);
+        } else {
+            status.textContent = 'Save failed';
+            status.style.color = 'var(--one)';
+        }
+    } catch (e) {
+        status.textContent = 'Error: ' + e.message;
+        status.style.color = 'var(--one)';
+    }
+}
