@@ -586,6 +586,7 @@
     <!-- Tab bar -->
     <div class="vox-tabs">
         <div class="vox-tab active" data-vox-tab="vox">Vox</div>
+        <div class="vox-tab" data-vox-tab="trash">Trash</div>
         <div class="vox-tab" data-vox-tab="lab">Lab</div>
     </div>
 
@@ -666,6 +667,36 @@
     <audio id="shared-audio"></audio>
 
     </div><!-- /tab-vox -->
+
+    <!-- === TRASH TAB === -->
+    <div id="tab-trash" class="vox-tab-content hidden">
+        <div class="toolbar">
+            <span class="toolbar-label">Trash</span>
+            <div class="toolbar-sep"></div>
+            <button class="toolbar-btn" id="trash-refresh-btn">Refresh</button>
+            <div class="toolbar-spacer"></div>
+            <button class="toolbar-btn" id="trash-empty-btn" style="color:var(--one);border-color:var(--one);">Empty Trash</button>
+        </div>
+        <div class="log-section" style="flex:1;">
+            <div class="log-scroll">
+                <table class="log-table">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Time</th>
+                            <th>ID</th>
+                            <th>Provider</th>
+                            <th>Voice</th>
+                            <th>Dur</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trash-body"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="stats-bar" id="trash-stats-bar">Trash: 0 items</div>
+    </div><!-- /tab-trash -->
 
     <!-- === LAB TAB === -->
     <div id="tab-lab" class="vox-tab-content hidden">
@@ -774,7 +805,11 @@
     <script>
     (function() {
         var tabs = document.querySelectorAll('.vox-tab');
-        var contents = { vox: document.getElementById('tab-vox'), lab: document.getElementById('tab-lab') };
+        var contents = {
+            vox: document.getElementById('tab-vox'),
+            trash: document.getElementById('tab-trash'),
+            lab: document.getElementById('tab-lab')
+        };
         tabs.forEach(function(tab) {
             tab.addEventListener('click', function() {
                 var name = tab.dataset.voxTab;
@@ -784,6 +819,9 @@
                 });
                 if (name === 'lab' && window.VoxlabPanel) {
                     VoxlabPanel.refresh();
+                }
+                if (name === 'trash' && window.VoxTrash) {
+                    VoxTrash.refresh();
                 }
             });
         });

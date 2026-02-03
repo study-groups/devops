@@ -605,18 +605,132 @@ router.put('/db/:id/layers/onsets', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// DELETE /db/:id — remove all files for epoch
+// DELETE /db/:id — soft delete (move to trash) or permanent delete
 // ---------------------------------------------------------------------------
+const VOX_TRASH = path.join(VOX_DATA_DIR, 'trash');
+
 router.delete('/db/:id', (req, res) => {
     const { id } = req.params;
+    const permanent = req.query.permanent === 'true';
     const files = getVoxFiles(id);
     if (Object.keys(files).length === 0) return res.status(404).json({ error: 'Vox not found' });
 
-    let removed = 0;
-    for (const filePath of Object.values(files)) {
-        try { fs.unlinkSync(filePath); removed++; } catch (_) {}
+    if (permanent) {
+        // Permanent delete
+        let removed = 0;
+        for (const filePath of Object.values(files)) {
+            try { fs.unlinkSync(filePath); removed++; } catch (_) {}
+        }
+        return res.json({ ok: true, id, removed, permanent: true });
     }
-    res.json({ ok: true, id, removed });
+
+    // Soft delete: move to trash
+    fs.mkdirSync(VOX_TRASH, { recursive: true });
+    let moved = 0;
+    for (const filePath of Object.values(files)) {
+        try {
+            const dest = path.join(VOX_TRASH, path.basename(filePath));
+            fs.renameSync(filePath, dest);
+            moved++;
+        } catch (_) {}
+    }
+    res.json({ ok: true, id, moved, trashed: true });
+});
+
+// ---------------------------------------------------------------------------
+// GET /trash — list trashed voxes
+// ---------------------------------------------------------------------------
+router.get('/trash', (req, res) => {
+    try {
+        fs.mkdirSync(VOX_TRASH, { recursive: true });
+        const entries = fs.readdirSync(VOX_TRASH);
+        const metaFiles = entries.filter(f => f.endsWith('.vox.meta.json'));
+
+        metaFiles.sort((a, b) => {
+            const idA = parseInt(a.split('.')[0]) || 0;
+            const idB = parseInt(b.split('.')[0]) || 0;
+            return idB - idA;
+        });
+
+        const limit = parseInt(req.query.limit) || 50;
+        const voxes = [];
+        for (const f of metaFiles) {
+            if (voxes.length >= limit) break;
+            try {
+                const data = JSON.parse(fs.readFileSync(path.join(VOX_TRASH, f), 'utf-8'));
+                voxes.push(data);
+            } catch (_) {}
+        }
+
+        res.json({ voxes, total: metaFiles.length, trashPath: VOX_TRASH });
+    } catch (e) {
+        res.json({ voxes: [], total: 0, trashPath: VOX_TRASH, error: e.message });
+    }
+});
+
+// ---------------------------------------------------------------------------
+// POST /trash/:id/restore — restore from trash
+// ---------------------------------------------------------------------------
+router.post('/trash/:id/restore', (req, res) => {
+    const { id } = req.params;
+    const prefix = id + '.vox.';
+
+    try {
+        const entries = fs.readdirSync(VOX_TRASH);
+        const files = entries.filter(f => f.startsWith(prefix));
+        if (files.length === 0) return res.status(404).json({ error: 'Vox not found in trash' });
+
+        fs.mkdirSync(VOX_DB, { recursive: true });
+        let restored = 0;
+        for (const f of files) {
+            try {
+                fs.renameSync(path.join(VOX_TRASH, f), path.join(VOX_DB, f));
+                restored++;
+            } catch (_) {}
+        }
+        res.json({ ok: true, id, restored });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /trash/:id — permanently delete from trash
+// ---------------------------------------------------------------------------
+router.delete('/trash/:id', (req, res) => {
+    const { id } = req.params;
+    const prefix = id + '.vox.';
+
+    try {
+        const entries = fs.readdirSync(VOX_TRASH);
+        const files = entries.filter(f => f.startsWith(prefix));
+        if (files.length === 0) return res.status(404).json({ error: 'Vox not found in trash' });
+
+        let removed = 0;
+        for (const f of files) {
+            try { fs.unlinkSync(path.join(VOX_TRASH, f)); removed++; } catch (_) {}
+        }
+        res.json({ ok: true, id, removed });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /trash — empty trash (delete all)
+// ---------------------------------------------------------------------------
+router.delete('/trash', (req, res) => {
+    try {
+        fs.mkdirSync(VOX_TRASH, { recursive: true });
+        const entries = fs.readdirSync(VOX_TRASH);
+        let removed = 0;
+        for (const f of entries) {
+            try { fs.unlinkSync(path.join(VOX_TRASH, f)); removed++; } catch (_) {}
+        }
+        res.json({ ok: true, removed });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 // ---------------------------------------------------------------------------
