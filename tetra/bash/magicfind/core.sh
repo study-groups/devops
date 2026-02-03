@@ -14,7 +14,11 @@ Requirements:
 - Use rg (ripgrep), find, or grep (prefer rg for text search)
 - Search RECURSIVELY from current directory unless path specified
 - For case-insensitive search use -i flag
-- Handle errors gracefully (use 2>/dev/null if needed)"
+- Handle errors gracefully (use 2>/dev/null where appropriate)
+- IMPORTANT: When piping rg/grep output to other commands, extract filenames first with cut -d: -f1 | sort -u
+- IMPORTANT: Do NOT suppress stderr on the final output command -- only on intermediate steps
+- Keep commands simple. Prefer 'rg -il pattern .' over complex pipelines when just finding files
+- Only add sorting/stat if explicitly requested. Simple file lists are fine."
 
     # Add rules if enabled
     if [[ "$use_rules" == "true" ]]; then
@@ -118,14 +122,20 @@ mf() {
             local exit_code=$?
 
             _mf_db_save_result "$ts" "$exit_code" "$output"
-            _mf_db_append_meta "$ts" "status=$( (( exit_code == 0 )) && echo success || echo fail )"
 
-            if [[ -n "$output" ]]; then
+            if ((exit_code == 0)) && [[ -n "$output" ]]; then
+                _mf_db_append_meta "$ts" "status=success"
                 echo "$output"
+                return 0
+            elif ((exit_code == 0)); then
+                _mf_db_append_meta "$ts" "status=empty"
+                $verbose && echo "Cached command returned empty, falling through to generate..." >&2
+                # Fall through to LLM generation below
             else
-                echo "(no results)" >&2
+                _mf_db_append_meta "$ts" "status=fail"
+                echo "(cached command failed, regenerating...)" >&2
+                # Fall through to LLM generation below
             fi
-            return $exit_code
         fi
     fi
 
@@ -177,16 +187,19 @@ mf() {
 
         _mf_db_save_result "$ts" "$exit_code" "$output"
 
-        if ((exit_code == 0)); then
+        if ((exit_code == 0)) && [[ -n "$output" ]]; then
             _mf_db_append_meta "$ts" "status=success" "attempts=$attempt"
             $verbose && echo "Success on attempt $attempt" >&2
-
-            if [[ -n "$output" ]]; then
-                echo "$output"
-            else
-                echo "(no results)" >&2
-            fi
+            echo "$output"
             return 0
+        elif ((exit_code == 0)); then
+            # Command ran but found nothing -- treat as soft failure
+            _mf_db_append_meta "$ts" "status=empty"
+            $verbose && echo "Empty results on attempt $attempt, retrying..." >&2
+            error_context="Command ran successfully but produced NO output. The search term likely exists but the pipeline lost the results. Try a simpler command. Previous command was: $cmd"
+            prev_ts="$ts"
+            ((attempt++))
+            continue
         else
             _mf_db_append_meta "$ts" "status=fail"
             $verbose && echo "Failed: $output" >&2

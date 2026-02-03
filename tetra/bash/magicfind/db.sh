@@ -126,9 +126,17 @@ _mf_db_find_similar() {
         local ts="${f##*/}"
         ts="${ts%.query}"
 
-        # Only consider successful queries
+        # Only consider queries that actually produced output
         local status=$(_mf_db_get_meta "$ts" "status")
         [[ "$status" != "success" ]] && continue
+
+        # Skip if the cached result was empty (status=success but no output lines)
+        local result_file="$MF_DIR/db/$ts.result"
+        if [[ -f "$result_file" ]]; then
+            local result_lines
+            result_lines=$(sed -n '/^---$/,$p' "$result_file" | tail -n +2 | grep -c '.')
+            ((result_lines == 0)) && continue
+        fi
 
         local stored=$(<"$f")
         local stored_tokens=$(_mf_tokenize "$stored")
