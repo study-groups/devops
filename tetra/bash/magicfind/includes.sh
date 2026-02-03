@@ -12,6 +12,7 @@ MF_DIR="${TETRA_DIR:-$HOME/tetra}/magicfind"
 # Source module components
 source "$MF_SRC/db.sh"
 source "$MF_SRC/rules.sh"
+source "$MF_SRC/render.sh"
 source "$MF_SRC/core.sh"
 
 # Function wrapper for discoverability

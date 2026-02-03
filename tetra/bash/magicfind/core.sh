@@ -52,6 +52,8 @@ mf() {
     local use_rules=true
     local use_cache=true
     local max_attempts=5
+    local content_mode=false
+    local raw_mode=false
 
     # Initialize
     _mf_rules_init
@@ -61,6 +63,8 @@ mf() {
         case "$1" in
             -n|--dry-run)   dry_run=true; shift ;;
             -v|--verbose)   verbose=true; shift ;;
+            -c|--content)   content_mode=true; shift ;;
+            -r|--raw)       raw_mode=true; shift ;;
             --no-rules)     use_rules=false; shift ;;
             --no-cache)     use_cache=false; shift ;;
             --threshold)    MF_SIMILARITY_THRESHOLD="$2"; shift 2 ;;
@@ -86,6 +90,12 @@ mf() {
         similar)  shift; _mf_db_similar "$@"; return ;;
         help|-h)  _mf_help; return ;;
     esac
+
+    # Numeric selection: mf N opens result N from last search
+    if [[ "$1" =~ ^[0-9]+$ ]]; then
+        _mf_select "$1"
+        return $?
+    fi
 
     local query="$*"
     if [[ -z "$query" ]]; then
@@ -125,7 +135,13 @@ mf() {
 
             if ((exit_code == 0)) && [[ -n "$output" ]]; then
                 _mf_db_append_meta "$ts" "status=success"
-                echo "$output"
+                if $raw_mode; then
+                    echo "$output"
+                else
+                    local render_mode="file"
+                    $content_mode && render_mode="content"
+                    echo "$output" | _mf_render "$query" "$render_mode"
+                fi
                 return 0
             elif ((exit_code == 0)); then
                 _mf_db_append_meta "$ts" "status=empty"
@@ -190,7 +206,13 @@ mf() {
         if ((exit_code == 0)) && [[ -n "$output" ]]; then
             _mf_db_append_meta "$ts" "status=success" "attempts=$attempt"
             $verbose && echo "Success on attempt $attempt" >&2
-            echo "$output"
+            if $raw_mode; then
+                echo "$output"
+            else
+                local render_mode="file"
+                $content_mode && render_mode="content"
+                echo "$output" | _mf_render "$query" "$render_mode"
+            fi
             return 0
         elif ((exit_code == 0)); then
             # Command ran but found nothing -- treat as soft failure
@@ -237,6 +259,7 @@ mf - LLM-assisted file search (magicfind)
 
 USAGE:
     mf [options] <query>           Search with natural language
+    mf N                           View result N from last search
     mf list [N]                    List recent queries
     mf show <ts>                   Show record details
     mf replay <ts> [var=val]       Replay a command
@@ -249,6 +272,8 @@ USAGE:
 OPTIONS:
     -n, --dry-run    Show command without executing
     -v, --verbose    Show progress
+    -c, --content    Show match counts per file
+    -r, --raw        Raw output (no formatting/grouping)
     --no-rules       Skip rules
     --no-cache       Skip cache lookup
     --threshold N    Similarity threshold 0-100 (default: 70)
