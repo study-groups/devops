@@ -134,9 +134,10 @@ router.get('/status', (req, res) => {
             elapsed=""
             pid=""
 
-            if pgrep -f 'ffmpeg.*screen' >/dev/null 2>&1; then
+            # Only match ffmpeg writing to this ST_DIR
+            if pgrep -f "ffmpeg.*$st_dir" >/dev/null 2>&1; then
                 recording=true
-                pid=$(pgrep -f 'ffmpeg.*screen' | head -1)
+                pid=$(pgrep -f "ffmpeg.*$st_dir" | head -1)
             fi
 
             if [[ -L "$st_dir/latest" ]]; then
