@@ -2,14 +2,31 @@
 // All rendering templates for org list, config, infra, workspace
 
 const html = {
+    // Header with add button and gear
+    listHeader: () => `
+        <div class="org-list-header">
+            <span class="org-list-title">Organizations</span>
+            <div class="org-list-actions">
+                <button class="org-action-btn" data-action="add-org" title="Add org to registry">+</button>
+                <button class="org-action-btn" data-action="edit-registry" title="Edit registry">&#9881;</button>
+            </div>
+        </div>
+    `,
+
     orgItem: (org, isEnabled, isSelected) => {
         const labelClass = org.active ? ' active' : '';
         const label = Terrain.Orgs.label(org.id);
         const aliasInfo = org.alias ? `<span class="org-alias">${esc(org.alias)}</span>` : '';
+        const isCloned = org.cloned !== false;
+
+        // Clone status dot: solid = cloned, hollow = not cloned
+        const statusDot = isCloned
+            ? `<span class="org-status-dot cloned" title="Cloned">&#9679;</span>`
+            : `<span class="org-status-dot uncloned" title="Not cloned">&#9675;</span>`;
 
         const details = orgDetailsCache.get(org.id);
         let statsHtml = '';
-        if (details) {
+        if (details && isCloned) {
             const envCount = details.envCount || 0;
             const sectionCount = details.sections?.length || 0;
             statsHtml = `
@@ -21,25 +38,113 @@ const html = {
         }
 
         const badges = [];
-        if (org.hasInfra) badges.push('<span class="org-badge infra" title="Has infrastructure configuration">infra</span>');
-        if (org.hasSections) badges.push('<span class="org-badge sections" title="Has sections/ directory with TOML partials">sections</span>');
-        if (org.nhSource) badges.push('<span class="org-badge nh" title="NodeHolder: digocean.json imported from DigitalOcean">nh</span>');
+        if (!isCloned) {
+            badges.push(`<button class="org-clone-btn" data-action="clone-org" data-org="${esc(org.id)}" title="Clone from ${esc(org.repo || 'registry')}">clone</button>`);
+        } else {
+            if (org.hasInfra) badges.push('<span class="org-badge infra" title="Has infrastructure configuration">infra</span>');
+            if (org.hasSections) badges.push('<span class="org-badge sections" title="Has sections/ directory with TOML partials">sections</span>');
+            if (org.nhSource) badges.push('<span class="org-badge nh" title="NodeHolder: digocean.json imported from DigitalOcean">nh</span>');
+        }
+
+        // Edit button for registry entry
+        const editBtn = `<button class="org-edit-btn" data-action="edit-org" data-org="${esc(org.id)}" title="Edit registry entry">&#9998;</button>`;
 
         return `
-            <div class="org-item${isSelected ? ' selected' : ''}" data-org="${esc(org.id)}">
-                <div class="org-toggle${isEnabled ? ' enabled' : ''}" data-org="${esc(org.id)}" title="Toggle visibility in top bar"></div>
+            <div class="org-item${isSelected ? ' selected' : ''}${!isCloned ? ' uncloned' : ''}" data-org="${esc(org.id)}" data-cloned="${isCloned}">
+                ${statusDot}
+                <div class="org-toggle${isEnabled ? ' enabled' : ''}${!isCloned ? ' disabled' : ''}" data-org="${esc(org.id)}" title="${isCloned ? 'Toggle visibility in top bar' : 'Clone first to enable'}"></div>
                 <div class="org-info">
                     <div class="org-name-row">
                         <span class="org-name">${esc(org.id)}</span>
                         ${aliasInfo}
                     </div>
-                    <div class="org-meta">${esc(org.description || org.type || '')}</div>
+                    <div class="org-meta">${esc(org.description || (isCloned ? org.type : 'Not cloned') || '')}</div>
                     ${statsHtml}
                     <div class="org-badges">${badges.join('')}</div>
                 </div>
-                <span class="org-label${labelClass}" title="${org.active ? 'Active org' : 'Click to view'}">${esc(label)}</span>
+                <div class="org-item-actions">
+                    ${editBtn}
+                    <span class="org-label${labelClass}" title="${org.active ? 'Active org' : 'Click to view'}">${esc(label)}</span>
+                </div>
             </div>`;
     },
+
+    // Add org form
+    addOrgForm: () => `
+        <div class="org-form-overlay" id="org-form-overlay">
+            <div class="org-form">
+                <div class="org-form-header">
+                    <span>Add Organization</span>
+                    <button class="org-form-close" data-action="close-form">&times;</button>
+                </div>
+                <div class="org-form-body">
+                    <label>
+                        <span>Name</span>
+                        <input type="text" id="org-form-name" placeholder="my-org" pattern="[a-zA-Z0-9_-]+" required>
+                    </label>
+                    <label>
+                        <span>Repo URL</span>
+                        <input type="text" id="org-form-repo" placeholder="git@github.com:user/repo.git" required>
+                    </label>
+                    <label>
+                        <span>Description</span>
+                        <input type="text" id="org-form-desc" placeholder="Optional description">
+                    </label>
+                    <label>
+                        <span>Alias</span>
+                        <input type="text" id="org-form-alias" placeholder="Short name (optional)">
+                    </label>
+                    <label>
+                        <span>NH Source</span>
+                        <input type="text" id="org-form-nh" placeholder="NodeHolder org name (optional)">
+                    </label>
+                </div>
+                <div class="org-form-footer">
+                    <button class="config-btn secondary" data-action="close-form">Cancel</button>
+                    <button class="config-btn primary" data-action="save-org">Add to Registry</button>
+                </div>
+                <div class="org-form-status" id="org-form-status"></div>
+            </div>
+        </div>
+    `,
+
+    // Edit org form (similar but pre-filled)
+    editOrgForm: (org) => `
+        <div class="org-form-overlay" id="org-form-overlay">
+            <div class="org-form">
+                <div class="org-form-header">
+                    <span>Edit: ${esc(org.id)}</span>
+                    <button class="org-form-close" data-action="close-form">&times;</button>
+                </div>
+                <div class="org-form-body">
+                    <input type="hidden" id="org-form-name" value="${esc(org.id)}">
+                    <label>
+                        <span>Repo URL</span>
+                        <input type="text" id="org-form-repo" value="${esc(org.repo || '')}" placeholder="git@github.com:user/repo.git">
+                    </label>
+                    <label>
+                        <span>Description</span>
+                        <input type="text" id="org-form-desc" value="${esc(org.description || '')}" placeholder="Optional description">
+                    </label>
+                    <label>
+                        <span>Alias</span>
+                        <input type="text" id="org-form-alias" value="${esc(org.alias || '')}" placeholder="Short name (optional)">
+                    </label>
+                    <label>
+                        <span>NH Source</span>
+                        <input type="text" id="org-form-nh" value="${esc(org.nhSource || '')}" placeholder="NodeHolder org name (optional)">
+                    </label>
+                </div>
+                <div class="org-form-footer">
+                    <button class="config-btn danger" data-action="delete-org" data-org="${esc(org.id)}">Remove</button>
+                    <span style="flex:1"></span>
+                    <button class="config-btn secondary" data-action="close-form">Cancel</button>
+                    <button class="config-btn primary" data-action="update-org" data-org="${esc(org.id)}">Save</button>
+                </div>
+                <div class="org-form-status" id="org-form-status"></div>
+            </div>
+        </div>
+    `,
 
     config: (org, details) => {
         if (!details) {
