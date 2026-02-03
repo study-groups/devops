@@ -197,6 +197,9 @@ _de_parse_value() {
     val="${val%\"}"
     val="${val#\'}"
     val="${val%\'}"
+    # Process TOML escape sequences in double-quoted strings
+    val="${val//\\\"/\"}"    # \" → "
+    val="${val//\\\\/\\}"    # \\ → \
     echo "$val"
 }
 
@@ -470,7 +473,16 @@ _de_exec_push() {
     local cwd=$(_de_template "{{cwd}}" "$env")
     local source="${DE_TARGET[source]}"
 
-    echo -e "  ${DE_CLR_STEP}[push]${DE_CLR_NC} ${DE_CLR_DIM}${ssh}:${cwd}/${DE_CLR_NC}"
+    # Get work_user for display and auto-chown
+    local work_user="${DE_ENV["$env.work_user"]:-${DE_ENV["$env.ssh_work_user"]}}"
+    local auth_user="${DE_ENV["$env.user"]}"
+    local inherit="${DE_ENV["$env.inherit"]}"
+    [[ -z "$work_user" && -n "$inherit" ]] && work_user="${DE_ENV["$inherit.work_user"]:-${DE_ENV["$inherit.ssh_work_user"]}}"
+
+    local owner_info=""
+    [[ -n "$work_user" && "$work_user" != "$auth_user" ]] && owner_info=" → chown $work_user"
+
+    echo -e "  ${DE_CLR_STEP}[push]${DE_CLR_NC} ${DE_CLR_DIM}${ssh}:${cwd}/${owner_info}${DE_CLR_NC}"
 
     local cmd="rsync $options"
     [[ "$delete" == "true" ]] && cmd="$cmd --delete"
@@ -520,6 +532,15 @@ _de_exec_push() {
     if [[ "$dry_run" -eq 0 ]]; then
         (cd "$DE_TOML_DIR" && eval "$cmd") || return 1
 
+        # Auto-chown to work_user if different from auth_user and no explicit chown set
+        if [[ -z "$chown" && -n "$work_user" && "$work_user" != "$auth_user" ]]; then
+            echo -e "  ${DE_CLR_STEP}[chown]${DE_CLR_NC} ${DE_CLR_DIM}$work_user:$work_user${DE_CLR_NC}"
+            ssh "$ssh" "chown -R $work_user:$work_user $cwd" || return 1
+        elif [[ -n "$chown" ]]; then
+            echo -e "  ${DE_CLR_STEP}[chown]${DE_CLR_NC} ${DE_CLR_DIM}$chown${DE_CLR_NC}"
+            ssh "$ssh" "chown -R $chown $cwd" || return 1
+        fi
+
         if [[ -n "$chmod" ]]; then
             echo -e "  ${DE_CLR_STEP}[chmod]${DE_CLR_NC} ${DE_CLR_DIM}$chmod${DE_CLR_NC}"
             ssh "$ssh" "chmod -R $chmod $cwd" || return 1
@@ -528,6 +549,8 @@ _de_exec_push() {
 }
 
 # Execute remote command from [remote] section
+# If work_user is set and different from auth user, runs command as work_user via su
+# To force root execution, set [remote] run_as_root = true or name command with _root suffix
 _de_exec_remote() {
     local name="$1"
     local env="$2"
@@ -543,16 +566,42 @@ _de_exec_remote() {
     cmd=$(_de_template "$cmd" "$env")
 
     local ssh=$(_de_template "{{ssh}}" "$env")
+    local work_user="${DE_ENV["$env.work_user"]:-${DE_ENV["$env.ssh_work_user"]}}"
+    local auth_user="${DE_ENV["$env.user"]}"
 
-    echo -e "  ${DE_CLR_STEP}[remote:$name]${DE_CLR_NC}"
+    # Inherit work_user if not set
+    local inherit="${DE_ENV["$env.inherit"]}"
+    [[ -z "$work_user" && -n "$inherit" ]] && work_user="${DE_ENV["$inherit.work_user"]:-${DE_ENV["$inherit.ssh_work_user"]}}"
+
+    # Check for root override: command ends with _root or run_as_root is set
+    local run_as_root="${DE_REMOTE[run_as_root]}"
+    [[ "$name" == *_root ]] && run_as_root="true"
+
+    # Determine effective user
+    local run_as="$auth_user"
+    if [[ -n "$work_user" && "$work_user" != "$auth_user" && "$run_as_root" != "true" ]]; then
+        run_as="$work_user"
+    fi
+
+    echo -e "  ${DE_CLR_STEP}[remote:$name]${DE_CLR_NC} ${DE_CLR_DIM}as $run_as${DE_CLR_NC}"
     _de_print_cmd "" "$cmd"
 
     if [[ "$dry_run" -eq 0 ]]; then
-        ssh "$ssh" "$cmd" || return 1
+        if [[ "$run_as" != "$auth_user" ]]; then
+            # Run as work_user via su with login shell
+            # Use heredoc to avoid escaping issues
+            ssh "$ssh" "su - $work_user -s /bin/bash" <<EOF || return 1
+$cmd
+EOF
+        else
+            ssh "$ssh" "$cmd" || return 1
+        fi
     fi
 }
 
 # Execute post-deploy command from [post] section (runs on remote)
+# If work_user is set and different from auth user, runs command as work_user via su
+# To force root execution, name command with _root suffix (e.g., systemd_root)
 _de_exec_post() {
     local name="$1"
     local env="$2"
@@ -568,12 +617,36 @@ _de_exec_post() {
     cmd=$(_de_template "$cmd" "$env")
 
     local ssh=$(_de_template "{{ssh}}" "$env")
+    local work_user="${DE_ENV["$env.work_user"]:-${DE_ENV["$env.ssh_work_user"]}}"
+    local auth_user="${DE_ENV["$env.user"]}"
 
-    echo -e "  ${DE_CLR_STEP}[post:$name]${DE_CLR_NC}"
+    # Inherit work_user if not set
+    local inherit="${DE_ENV["$env.inherit"]}"
+    [[ -z "$work_user" && -n "$inherit" ]] && work_user="${DE_ENV["$inherit.work_user"]:-${DE_ENV["$inherit.ssh_work_user"]}}"
+
+    # Check for root override: command ends with _root
+    local run_as_root="false"
+    [[ "$name" == *_root ]] && run_as_root="true"
+
+    # Determine effective user
+    local run_as="$auth_user"
+    if [[ -n "$work_user" && "$work_user" != "$auth_user" && "$run_as_root" != "true" ]]; then
+        run_as="$work_user"
+    fi
+
+    echo -e "  ${DE_CLR_STEP}[post:$name]${DE_CLR_NC} ${DE_CLR_DIM}as $run_as${DE_CLR_NC}"
     _de_print_cmd "" "$cmd"
 
     if [[ "$dry_run" -eq 0 ]]; then
-        ssh "$ssh" "$cmd" || return 1
+        if [[ "$run_as" != "$auth_user" ]]; then
+            # Run as work_user via su with login shell
+            # Use heredoc to avoid escaping issues
+            ssh "$ssh" "su - $work_user -s /bin/bash" <<EOF || return 1
+$cmd
+EOF
+        else
+            ssh "$ssh" "$cmd" || return 1
+        fi
     fi
 }
 

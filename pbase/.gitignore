@@ -27,3 +27,4 @@ data/
 tsm/*.tsm
 tsm/*.env
 
+*.tsm

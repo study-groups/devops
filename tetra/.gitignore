@@ -93,3 +93,4 @@ bash/*/VERIFY_*.sh
 # Output files
 out
 *.png
+*.tsm
