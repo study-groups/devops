@@ -153,7 +153,8 @@ vox_coqui_models() {
 }
 
 # Generate TTS using Coqui (local)
-# Usage: echo "text" | vox_coqui_generate [output_file] [model]
+# Usage: echo "text" | vox_coqui_generate [output_file] [model_spec]
+# model_spec: vits, tacotron, xtts/SpeakerName (underscore for spaces)
 # If no output_file, generates to db: $EPOCH.vox.coqui-$preset.wav
 vox_coqui_generate() {
     local output_file="${1:-}"
@@ -176,9 +177,18 @@ vox_coqui_generate() {
         return 1
     fi
 
+    # Parse model spec: "xtts/Speaker_Name" → model=xtts, speaker="Speaker Name"
+    local base_model="$model_input"
+    local speaker=""
+    if [[ "$model_input" == */* ]]; then
+        base_model="${model_input%%/*}"
+        speaker="${model_input#*/}"
+        speaker="${speaker//_/ }"
+    fi
+
     # Resolve model preset to full path and kind
-    local model=$(_vox_coqui_resolve_model "$model_input")
-    local kind=$(_vox_coqui_get_kind "$model_input")
+    local model=$(_vox_coqui_resolve_model "$base_model")
+    local kind=$(_vox_coqui_get_kind "$base_model")
 
     # Generate to db if no output specified
     local to_stdout=false
@@ -194,17 +204,26 @@ vox_coqui_generate() {
 
     python -c "
 import sys, os
-# Redirect stdout to stderr for TTS library noise
 sys.stdout = sys.stderr
+
+# Patch torch.load for xtts compatibility with PyTorch 2.6+
+import torch
+_orig_load = torch.load
+def _patched_load(*args, **kwargs):
+    kwargs.setdefault('weights_only', False)
+    return _orig_load(*args, **kwargs)
+torch.load = _patched_load
 
 from TTS.api import TTS
 
 text = '''$text'''
 model = '$model'
 output = '$output_file'
+speaker = '$speaker' or None
+language = 'en' if speaker else None
 
 tts = TTS(model_name=model, progress_bar=False)
-tts.tts_to_file(text=text, file_path=output)
+tts.tts_to_file(text=text, file_path=output, speaker=speaker, language=language)
 " 2>/dev/null
 
     local result=$?

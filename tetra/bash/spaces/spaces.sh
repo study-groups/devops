@@ -462,7 +462,6 @@ export -f spaces_put
 export -f spaces_sync
 export -f spaces_url
 export -f spaces_delete
-export -f spaces_index
 
 # CLI interface
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

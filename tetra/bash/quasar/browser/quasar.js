@@ -16,6 +16,7 @@ window.QUASAR = (function() {
   // State
   let audioContext = null;
   let workletNode = null;
+  let masterGain = null;
   let initialized = false;
   let mode = 'tia';
 
@@ -176,7 +177,10 @@ window.QUASAR = (function() {
 
       // Create worklet node
       workletNode = new AudioWorkletNode(audioContext, 'tia-processor');
-      workletNode.connect(audioContext.destination);
+      masterGain = audioContext.createGain();
+      masterGain.gain.value = 1.0;
+      workletNode.connect(masterGain);
+      masterGain.connect(audioContext.destination);
 
       initialized = true;
       console.log('[QUASAR] Initialized, mode:', mode);
@@ -342,6 +346,20 @@ window.QUASAR = (function() {
   }
 
   /**
+   * Set master volume (0.0 - 1.0)
+   */
+  function setVolume(level) {
+    if (masterGain) masterGain.gain.value = Math.max(0, Math.min(1, level));
+  }
+
+  /**
+   * Get master volume
+   */
+  function getVolume() {
+    return masterGain ? masterGain.gain.value : 1.0;
+  }
+
+  /**
    * Stop all voices
    */
   function stopAll() {
@@ -364,6 +382,10 @@ window.QUASAR = (function() {
     if (workletNode) {
       workletNode.disconnect();
       workletNode = null;
+    }
+    if (masterGain) {
+      masterGain.disconnect();
+      masterGain = null;
     }
     if (audioContext) {
       audioContext.suspend().then(() => {
@@ -400,6 +422,8 @@ window.QUASAR = (function() {
     processFrame,
     setMode,
     setEngine: setMode,  // Alias
+    setVolume,
+    getVolume,
     stopAll,
     destroy,
     getState,
