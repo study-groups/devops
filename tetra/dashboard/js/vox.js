@@ -411,7 +411,8 @@
         if (wfContainer && window.VoxWaveform && data.id) {
             var wfOpts = {
                 audioUrl: API + '/db/' + data.id + '/audio',
-                duration: (data.audio && data.audio.duration) || data.duration || 1
+                duration: (data.audio && data.audio.duration) || data.duration || 1,
+                sourceText: data.source || ''
             };
             if (data.layers) {
                 if (data.layers.rms && data.layers.rms.data) wfOpts.rms = data.layers.rms.data;
