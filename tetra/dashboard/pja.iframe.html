@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PixelJam Arcade</title>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --surface: #16213e;
+            --surface-hover: #1f2f4f;
+            --primary: #0f3460;
+            --accent: #e94560;
+            --text: #eee;
+            --text-muted: #888;
+            --border: #334;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --error: #f44336;
+            --info: #4fc3f7;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'SF Mono', 'Consolas', monospace;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 12px;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Control Bar */
+        .control-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 6px 10px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .env-selector, .viewport-selector {
+            display: flex;
+            gap: 2px;
+        }
+
+        .env-btn, .viewport-btn {
+            padding: 4px 10px;
+            background: var(--primary);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--text-muted);
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .env-btn:hover, .viewport-btn:hover { background: var(--surface-hover); color: var(--text); }
+        .env-btn.active { background: var(--accent); border-color: var(--accent); color: var(--text); }
+        .viewport-btn.active { background: var(--info); border-color: var(--info); color: var(--bg); }
+
+        .separator {
+            width: 1px;
+            height: 20px;
+            background: var(--border);
+            margin: 0 4px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 4px;
+        }
+
+        .nav-btn {
+            padding: 4px 8px;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 3px;
+            color: var(--text-muted);
+            font-size: 10px;
+            cursor: pointer;
+        }
+
+        .nav-btn:hover { color: var(--info); border-color: var(--border); }
+
+        .metrics {
+            display: flex;
+            gap: 12px;
+            margin-left: auto;
+            font-size: 10px;
+        }
+
+        .metric {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .metric-label { color: var(--text-muted); }
+        .metric-value { color: var(--info); font-weight: 600; }
+        .metric-value.good { color: var(--success); }
+        .metric-value.slow { color: var(--warning); }
+        .metric-value.bad { color: var(--error); }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+
+        .status-dot.online { background: var(--success); }
+        .status-dot.offline { background: var(--error); }
+        .status-dot.loading { background: var(--warning); animation: pulse 1s infinite; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .auth-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 8px;
+            background: var(--primary);
+            border-radius: 3px;
+            font-size: 10px;
+        }
+
+        .auth-indicator.logged-in { background: rgba(76, 175, 80, 0.2); border: 1px solid var(--success); }
+        .auth-indicator.logged-out { background: rgba(244, 67, 54, 0.2); border: 1px solid var(--error); }
+
+        .auth-user { color: var(--text); font-weight: 600; }
+        .auth-status { color: var(--text-muted); }
+
+        .actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .action-btn {
+            padding: 4px 8px;
+            background: var(--primary);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--text);
+            font-size: 10px;
+            cursor: pointer;
+        }
+
+        .action-btn:hover { background: var(--surface-hover); }
+        .action-btn.active { background: var(--accent); border-color: var(--accent); }
+
+        /* URL Bar */
+        .url-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 10px;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            font-size: 11px;
+        }
+
+        .url-display {
+            flex: 1;
+            padding: 4px 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--info);
+            font-family: monospace;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .url-display .protocol { color: var(--text-muted); }
+        .url-display .domain { color: var(--accent); }
+        .url-display .path { color: var(--text); }
+
+        .viewport-size {
+            font-size: 10px;
+            color: var(--text-muted);
+            min-width: 80px;
+            text-align: right;
+        }
+
+        /* Inner Iframe Container */
+        .iframe-wrapper {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            background: #111;
+            overflow: auto;
+            padding: 8px;
+            min-height: 0;
+        }
+
+        .iframe-container {
+            position: relative;
+            background: #fff;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            transition: width 0.3s, height 0.3s;
+        }
+
+        .iframe-container.full {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .iframe-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+
+        .iframe-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            z-index: 10;
+        }
+
+        .iframe-overlay.hidden { display: none; }
+
+        .loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text { color: var(--text-muted); font-size: 12px; }
+
+        /* Dev Tools Panel */
+        .devtools {
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            max-height: 50vh;
+            transition: max-height 0.2s;
+        }
+
+        .devtools.collapsed { max-height: 28px; }
+        .devtools.collapsed .devtools-content { display: none; }
+
+        .devtools-tabs {
+            display: flex;
+            gap: 2px;
+            padding: 4px 8px;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .devtools-tab {
+            padding: 4px 12px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 10px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+
+        .devtools-tab:hover { color: var(--text); }
+        .devtools-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+        .devtools-toggle {
+            margin-left: auto;
+            padding: 2px 8px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 10px;
+        }
+
+        .devtools-content {
+            flex: 1;
+            overflow: hidden;
+            min-height: 150px;
+        }
+
+        .devtools-panel {
+            display: none;
+            height: 100%;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .devtools-panel.active { display: block; }
+
+        /* Console Panel */
+        .console-output {
+            font-family: 'SF Mono', monospace;
+            font-size: 11px;
+        }
+
+        .console-entry {
+            padding: 3px 6px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            gap: 8px;
+        }
+
+        .console-entry.log { color: var(--text); }
+        .console-entry.info { color: var(--info); }
+        .console-entry.warn { color: var(--warning); background: rgba(255,152,0,0.1); }
+        .console-entry.error { color: var(--error); background: rgba(244,67,54,0.1); }
+
+        .console-time { color: var(--text-muted); min-width: 70px; }
+        .console-msg { flex: 1; word-break: break-word; }
+
+        .console-toolbar {
+            display: flex;
+            gap: 8px;
+            padding: 4px 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 8px;
+        }
+
+        .console-filter {
+            padding: 2px 8px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--text);
+            font-size: 10px;
+        }
+
+        /* Storage Panel */
+        .storage-section {
+            margin-bottom: 16px;
+        }
+
+        .storage-section h4 {
+            font-size: 10px;
+            color: var(--accent);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .storage-table {
+            width: 100%;
+            font-size: 10px;
+            border-collapse: collapse;
+        }
+
+        .storage-table th {
+            text-align: left;
+            color: var(--text-muted);
+            padding: 4px 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .storage-table td {
+            padding: 4px 8px;
+            border-bottom: 1px solid var(--border);
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .storage-table .key { color: var(--info); }
+        .storage-table .value { color: var(--text-muted); font-family: monospace; }
+
+        .storage-empty { color: var(--text-muted); font-style: italic; }
+
+        /* Session Panel */
+        .session-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .session-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 10px;
+        }
+
+        .session-card h4 {
+            font-size: 10px;
+            color: var(--accent);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .session-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            font-size: 10px;
+        }
+
+        .session-row .label { color: var(--text-muted); }
+        .session-row .value { color: var(--text); }
+
+        .session-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 12px;
+        }
+
+        .session-btn {
+            padding: 4px 10px;
+            background: var(--primary);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--text);
+            font-size: 10px;
+            cursor: pointer;
+        }
+
+        .session-btn:hover { background: var(--surface-hover); }
+        .session-btn.danger { border-color: var(--error); color: var(--error); }
+        .session-btn.danger:hover { background: var(--error); color: var(--text); }
+
+        .impersonate-form {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .impersonate-form input {
+            flex: 1;
+            padding: 4px 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--text);
+            font-size: 10px;
+        }
+
+        .impersonate-form input:focus { outline: none; border-color: var(--accent); }
+
+        /* Connection Status */
+        .bridge-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px;
+            background: var(--bg);
+            border-radius: 4px;
+            margin-bottom: 12px;
+        }
+
+        .bridge-status.connected { border-left: 3px solid var(--success); }
+        .bridge-status.disconnected { border-left: 3px solid var(--error); }
+
+        .bridge-status .status-text { font-size: 11px; }
+        .bridge-status .hint { font-size: 10px; color: var(--text-muted); }
+    </style>
+</head>
+<body>
+    <!-- Control Bar -->
+    <div class="control-bar">
+        <div class="env-selector">
+            <button class="env-btn" data-env="prod">prod</button>
+            <button class="env-btn" data-env="staging">staging</button>
+            <button class="env-btn active" data-env="dev">dev</button>
+        </div>
+
+        <div class="separator"></div>
+
+        <div class="viewport-selector">
+            <button class="viewport-btn" data-vp="mobile" title="375x667">Mobile</button>
+            <button class="viewport-btn" data-vp="tablet" title="768x1024">Tablet</button>
+            <button class="viewport-btn" data-vp="desktop" title="1280x800">Desktop</button>
+            <button class="viewport-btn active" data-vp="full" title="Full width">Full</button>
+        </div>
+
+        <div class="separator"></div>
+
+        <div class="nav-links">
+            <button class="nav-btn" data-path="/">Home</button>
+            <button class="nav-btn" data-path="/games">Games</button>
+            <button class="nav-btn" data-path="/account">Account</button>
+            <button class="nav-btn" data-path="/play/" data-prompt="slug">Play</button>
+        </div>
+
+        <div class="metrics">
+            <div class="metric">
+                <div class="status-dot loading" id="status-dot"></div>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Load:</span>
+                <span class="metric-value" id="metric-load">--</span>
+            </div>
+        </div>
+
+        <div class="auth-indicator logged-out" id="auth-indicator">
+            <span class="auth-status" id="auth-status">Not connected</span>
+            <span class="auth-user" id="auth-user"></span>
+        </div>
+
+        <div class="actions">
+            <button class="action-btn" id="btn-refresh" title="Refresh">↻</button>
+            <button class="action-btn" id="btn-devtools" title="DevTools">DevTools</button>
+            <button class="action-btn" id="btn-open" title="Open in New Tab">↗</button>
+        </div>
+    </div>
+
+    <!-- URL Bar -->
+    <div class="url-bar">
+        <div class="url-display" id="url-display">
+            <span class="protocol">https://</span><span class="domain" id="url-domain">dev.pixeljamarcade.com</span><span class="path" id="url-path">/</span>
+        </div>
+        <div class="viewport-size" id="viewport-size">Full</div>
+    </div>
+
+    <!-- Inner Iframe -->
+    <div class="iframe-wrapper">
+        <div class="iframe-container full" id="iframe-container">
+            <div class="iframe-overlay" id="overlay">
+                <div class="loading-spinner"></div>
+                <div class="loading-text" id="loading-text">Loading...</div>
+            </div>
+            <iframe id="inner-frame" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
+        </div>
+    </div>
+
+    <!-- DevTools Panel -->
+    <div class="devtools collapsed" id="devtools">
+        <div class="devtools-tabs">
+            <button class="devtools-tab active" data-panel="console">Console</button>
+            <button class="devtools-tab" data-panel="storage">Storage</button>
+            <button class="devtools-tab" data-panel="session">Session</button>
+            <button class="devtools-toggle" id="devtools-toggle">▲ DevTools</button>
+        </div>
+
+        <div class="devtools-content">
+            <!-- Console Panel -->
+            <div class="devtools-panel active" id="panel-console">
+                <div class="console-toolbar">
+                    <select class="console-filter" id="console-filter">
+                        <option value="all">All levels</option>
+                        <option value="log">Log</option>
+                        <option value="info">Info</option>
+                        <option value="warn">Warnings</option>
+                        <option value="error">Errors</option>
+                    </select>
+                    <button class="session-btn" id="btn-clear-console">Clear</button>
+                </div>
+                <div class="bridge-status disconnected" id="bridge-status">
+                    <div class="status-dot offline"></div>
+                    <div>
+                        <div class="status-text">Bridge not connected</div>
+                        <div class="hint">Inject tetra-bridge.js on target site to enable console mirroring</div>
+                    </div>
+                </div>
+                <div class="console-output" id="console-output"></div>
+            </div>
+
+            <!-- Storage Panel -->
+            <div class="devtools-panel" id="panel-storage">
+                <div class="bridge-status disconnected" id="storage-bridge-status">
+                    <div class="status-dot offline"></div>
+                    <div>
+                        <div class="status-text">Bridge not connected</div>
+                        <div class="hint">Storage inspection requires tetra-bridge.js on target</div>
+                    </div>
+                </div>
+                <div class="storage-section">
+                    <h4>localStorage</h4>
+                    <table class="storage-table" id="local-storage-table">
+                        <thead><tr><th>Key</th><th>Value</th></tr></thead>
+                        <tbody><tr><td colspan="2" class="storage-empty">Waiting for bridge...</td></tr></tbody>
+                    </table>
+                </div>
+                <div class="storage-section">
+                    <h4>Cookies</h4>
+                    <table class="storage-table" id="cookies-table">
+                        <thead><tr><th>Name</th><th>Value</th></tr></thead>
+                        <tbody><tr><td colspan="2" class="storage-empty">Waiting for bridge...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Session Panel -->
+            <div class="devtools-panel" id="panel-session">
+                <div class="session-grid">
+                    <div class="session-card">
+                        <h4>Auth State</h4>
+                        <div class="session-row">
+                            <span class="label">Status</span>
+                            <span class="value" id="session-status">Unknown</span>
+                        </div>
+                        <div class="session-row">
+                            <span class="label">User ID</span>
+                            <span class="value" id="session-uid">--</span>
+                        </div>
+                        <div class="session-row">
+                            <span class="label">Email</span>
+                            <span class="value" id="session-email">--</span>
+                        </div>
+                        <div class="session-row">
+                            <span class="label">Role</span>
+                            <span class="value" id="session-role">--</span>
+                        </div>
+                        <div class="session-actions">
+                            <button class="session-btn" id="btn-refresh-session">Refresh</button>
+                            <button class="session-btn danger" id="btn-logout">Force Logout</button>
+                        </div>
+                    </div>
+
+                    <div class="session-card">
+                        <h4>Impersonate User</h4>
+                        <div class="session-row">
+                            <span class="label">Current</span>
+                            <span class="value" id="impersonate-current">None</span>
+                        </div>
+                        <div class="impersonate-form">
+                            <input type="text" id="impersonate-input" placeholder="User ID or email">
+                            <button class="session-btn" id="btn-impersonate">Go</button>
+                        </div>
+                        <div class="session-actions" style="margin-top:8px">
+                            <button class="session-btn" id="btn-clear-impersonate">Clear Impersonation</button>
+                        </div>
+                    </div>
+
+                    <div class="session-card">
+                        <h4>Session Info</h4>
+                        <div class="session-row">
+                            <span class="label">Session ID</span>
+                            <span class="value" id="session-id">--</span>
+                        </div>
+                        <div class="session-row">
+                            <span class="label">Created</span>
+                            <span class="value" id="session-created">--</span>
+                        </div>
+                        <div class="session-row">
+                            <span class="label">Expires</span>
+                            <span class="value" id="session-expires">--</span>
+                        </div>
+                        <div class="session-row">
+                            <span class="label">Token Type</span>
+                            <span class="value" id="session-token-type">--</span>
+                        </div>
+                    </div>
+
+                    <div class="session-card">
+                        <h4>Bridge Script</h4>
+                        <div class="session-row">
+                            <span class="label">Status</span>
+                            <span class="value" id="bridge-script-status">Not injected</span>
+                        </div>
+                        <div class="session-row">
+                            <span class="label">Script URL</span>
+                            <span class="value" style="font-size:9px">/targets/arcade/tetra-bridge.js</span>
+                        </div>
+                        <div class="session-actions">
+                            <button class="session-btn" id="btn-copy-script">Copy Script Tag</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Environment to subdomain mapping
+        const ENV_DOMAINS = {
+            prod: 'pixeljamarcade.com',
+            staging: 'staging.pixeljamarcade.com',
+            dev: 'dev.pixeljamarcade.com'
+        };
+
+        // Viewport presets
+        const VIEWPORTS = {
+            mobile: { width: 375, height: 667, label: '375×667' },
+            tablet: { width: 768, height: 1024, label: '768×1024' },
+            desktop: { width: 1280, height: 800, label: '1280×800' },
+            full: { width: '100%', height: '100%', label: 'Full' }
+        };
+
+        // State
+        let currentEnv = 'dev';
+        let currentPath = '/';
+        let currentViewport = 'full';
+        let loadStartTime = 0;
+        let bridgeConnected = false;
+        let consoleLogs = [];
+        let consoleFilter = 'all';
+
+        // DOM refs
+        const $ = id => document.getElementById(id);
+        const frame = $('inner-frame');
+        const overlay = $('overlay');
+        const loadingText = $('loading-text');
+        const statusDot = $('status-dot');
+        const container = $('iframe-container');
+
+        // Parse URL params
+        function parseParams() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('env') && ENV_DOMAINS[params.get('env')]) {
+                currentEnv = params.get('env');
+            }
+            if (params.get('path')) {
+                currentPath = params.get('path');
+            }
+            if (params.get('viewport') && VIEWPORTS[params.get('viewport')]) {
+                currentViewport = params.get('viewport');
+            }
+            updateEnvButtons();
+            updateViewportButtons();
+        }
+
+        // Update button states
+        function updateEnvButtons() {
+            document.querySelectorAll('.env-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.env === currentEnv);
+            });
+        }
+
+        function updateViewportButtons() {
+            document.querySelectorAll('.viewport-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.vp === currentViewport);
+            });
+        }
+
+        // Get current URL (with tetra=1 to enable bridge script)
+        function getCurrentUrl() {
+            const base = `https://${ENV_DOMAINS[currentEnv]}${currentPath}`;
+            const sep = currentPath.includes('?') ? '&' : '?';
+            return `${base}${sep}tetra=1`;
+        }
+
+        // Update URL display
+        function updateUrlDisplay() {
+            $('url-domain').textContent = ENV_DOMAINS[currentEnv];
+            $('url-path').textContent = currentPath;
+        }
+
+        // Set viewport size
+        function setViewport(vp) {
+            currentViewport = vp;
+            updateViewportButtons();
+
+            const preset = VIEWPORTS[vp];
+            $('viewport-size').textContent = preset.label;
+
+            if (vp === 'full') {
+                container.classList.add('full');
+                container.style.width = '';
+                container.style.height = '';
+            } else {
+                container.classList.remove('full');
+                container.style.width = preset.width + 'px';
+                container.style.height = preset.height + 'px';
+            }
+        }
+
+        // Load the iframe
+        function loadFrame() {
+            const url = getCurrentUrl();
+
+            loadStartTime = performance.now();
+            bridgeConnected = false;
+            updateBridgeStatus();
+
+            // Show loading
+            overlay.classList.remove('hidden');
+            loadingText.textContent = `Loading ${ENV_DOMAINS[currentEnv]}...`;
+            statusDot.className = 'status-dot loading';
+
+            // Reset metrics
+            $('metric-load').textContent = '--';
+            $('metric-load').className = 'metric-value';
+
+            // Update URL display
+            updateUrlDisplay();
+
+            // Load iframe
+            frame.src = url;
+        }
+
+        // Handle iframe load complete
+        frame.onload = () => {
+            const loadTime = Math.round(performance.now() - loadStartTime);
+
+            // Update status
+            statusDot.className = 'status-dot online';
+            overlay.classList.add('hidden');
+
+            // Update load metric
+            const loadEl = $('metric-load');
+            loadEl.textContent = loadTime + 'ms';
+            loadEl.className = 'metric-value ' + (loadTime < 1000 ? 'good' : loadTime < 3000 ? 'slow' : 'bad');
+
+            // Log to console
+            addConsoleEntry('info', `Page loaded in ${loadTime}ms`);
+
+            // Notify parent
+            notifyParent('loaded', { env: currentEnv, path: currentPath, loadTime });
+        };
+
+        frame.onerror = () => {
+            statusDot.className = 'status-dot offline';
+            loadingText.innerHTML = `Failed to load ${getCurrentUrl()}`;
+            addConsoleEntry('error', `Failed to load ${getCurrentUrl()}`);
+        };
+
+        // Console logging
+        function addConsoleEntry(level, msg, timestamp) {
+            const time = timestamp || new Date().toLocaleTimeString('en-US', { hour12: false });
+            consoleLogs.push({ level, msg, time });
+
+            if (consoleFilter === 'all' || consoleFilter === level) {
+                const output = $('console-output');
+                const entry = document.createElement('div');
+                entry.className = `console-entry ${level}`;
+                entry.innerHTML = `<span class="console-time">${time}</span><span class="console-msg">${escapeHtml(msg)}</span>`;
+                output.appendChild(entry);
+                output.scrollTop = output.scrollHeight;
+            }
+
+            // Keep max 500 entries
+            if (consoleLogs.length > 500) consoleLogs.shift();
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function filterConsole(level) {
+            consoleFilter = level;
+            const output = $('console-output');
+            output.innerHTML = '';
+
+            const filtered = level === 'all' ? consoleLogs : consoleLogs.filter(l => l.level === level);
+            filtered.forEach(({ level: lvl, msg, time }) => {
+                const entry = document.createElement('div');
+                entry.className = `console-entry ${lvl}`;
+                entry.innerHTML = `<span class="console-time">${time}</span><span class="console-msg">${escapeHtml(msg)}</span>`;
+                output.appendChild(entry);
+            });
+        }
+
+        // Bridge status
+        function updateBridgeStatus() {
+            const status = $('bridge-status');
+            const storageStatus = $('storage-bridge-status');
+            const dot = status.querySelector('.status-dot');
+            const storageDot = storageStatus.querySelector('.status-dot');
+
+            if (bridgeConnected) {
+                status.className = 'bridge-status connected';
+                storageStatus.className = 'bridge-status connected';
+                dot.className = 'status-dot online';
+                storageDot.className = 'status-dot online';
+                status.querySelector('.status-text').textContent = 'Bridge connected';
+                storageStatus.querySelector('.status-text').textContent = 'Bridge connected';
+                $('bridge-script-status').textContent = 'Connected';
+            } else {
+                status.className = 'bridge-status disconnected';
+                storageStatus.className = 'bridge-status disconnected';
+                dot.className = 'status-dot offline';
+                storageDot.className = 'status-dot offline';
+                status.querySelector('.status-text').textContent = 'Bridge not connected';
+                storageStatus.querySelector('.status-text').textContent = 'Bridge not connected';
+                $('bridge-script-status').textContent = 'Not injected';
+            }
+        }
+
+        // Update auth indicator
+        function updateAuthIndicator(user) {
+            const indicator = $('auth-indicator');
+            const statusEl = $('auth-status');
+            const userEl = $('auth-user');
+
+            if (user && user.id) {
+                indicator.className = 'auth-indicator logged-in';
+                statusEl.textContent = '';
+                userEl.textContent = user.email || user.id;
+
+                // Update session panel
+                $('session-status').textContent = 'Logged In';
+                $('session-uid').textContent = user.id || '--';
+                $('session-email').textContent = user.email || '--';
+                $('session-role').textContent = user.role || '--';
+            } else {
+                indicator.className = 'auth-indicator logged-out';
+                statusEl.textContent = bridgeConnected ? 'Logged Out' : 'Not connected';
+                userEl.textContent = '';
+
+                $('session-status').textContent = bridgeConnected ? 'Logged Out' : 'Unknown';
+                $('session-uid').textContent = '--';
+                $('session-email').textContent = '--';
+                $('session-role').textContent = '--';
+            }
+        }
+
+        // Update storage tables
+        function updateStorage(data) {
+            // localStorage
+            const lsBody = $('local-storage-table').querySelector('tbody');
+            if (data.localStorage && Object.keys(data.localStorage).length > 0) {
+                lsBody.innerHTML = Object.entries(data.localStorage).map(([k, v]) =>
+                    `<tr><td class="key">${escapeHtml(k)}</td><td class="value" title="${escapeHtml(v)}">${escapeHtml(truncate(v, 50))}</td></tr>`
+                ).join('');
+            } else {
+                lsBody.innerHTML = '<tr><td colspan="2" class="storage-empty">Empty</td></tr>';
+            }
+
+            // Cookies
+            const cookieBody = $('cookies-table').querySelector('tbody');
+            if (data.cookies && Object.keys(data.cookies).length > 0) {
+                cookieBody.innerHTML = Object.entries(data.cookies).map(([k, v]) =>
+                    `<tr><td class="key">${escapeHtml(k)}</td><td class="value" title="${escapeHtml(v)}">${escapeHtml(truncate(v, 50))}</td></tr>`
+                ).join('');
+            } else {
+                cookieBody.innerHTML = '<tr><td colspan="2" class="storage-empty">No cookies</td></tr>';
+            }
+        }
+
+        function truncate(str, len) {
+            return str && str.length > len ? str.slice(0, len) + '...' : str;
+        }
+
+        // Message handling from bridge script
+        window.addEventListener('message', (e) => {
+            // Verify origin matches current env
+            const expectedOrigin = `https://${ENV_DOMAINS[currentEnv]}`;
+            if (e.origin !== expectedOrigin && e.origin !== window.location.origin) {
+                return;
+            }
+
+            const msg = e.data;
+            if (!msg || !msg.type || msg.source !== 'tetra-bridge') return;
+
+            switch (msg.type) {
+                case 'bridge-ready':
+                    bridgeConnected = true;
+                    updateBridgeStatus();
+                    addConsoleEntry('info', 'Bridge connected');
+                    // Request initial data
+                    sendToBridge('get-auth');
+                    sendToBridge('get-storage');
+                    break;
+
+                case 'console':
+                    addConsoleEntry(msg.level || 'log', msg.message, msg.timestamp);
+                    break;
+
+                case 'auth-state':
+                    updateAuthIndicator(msg.user);
+                    if (msg.session) {
+                        $('session-id').textContent = truncate(msg.session.id, 20) || '--';
+                        $('session-created').textContent = msg.session.created || '--';
+                        $('session-expires').textContent = msg.session.expires || '--';
+                        $('session-token-type').textContent = msg.session.tokenType || '--';
+                    }
+                    break;
+
+                case 'storage-state':
+                    updateStorage(msg);
+                    break;
+
+                case 'impersonate-result':
+                    if (msg.success) {
+                        $('impersonate-current').textContent = msg.userId;
+                        addConsoleEntry('info', `Impersonating user: ${msg.userId}`);
+                    } else {
+                        addConsoleEntry('error', `Impersonation failed: ${msg.error}`);
+                    }
+                    break;
+
+                case 'env-change':
+                    if (msg.env && ENV_DOMAINS[msg.env]) {
+                        switchEnv(msg.env);
+                    }
+                    break;
+            }
+        });
+
+        // Send message to bridge
+        function sendToBridge(type, data = {}) {
+            if (!bridgeConnected) return;
+            frame.contentWindow.postMessage({
+                type,
+                source: 'tetra-dashboard',
+                ...data
+            }, `https://${ENV_DOMAINS[currentEnv]}`);
+        }
+
+        // Switch environment
+        function switchEnv(env) {
+            if (env === currentEnv) return;
+            currentEnv = env;
+            updateEnvButtons();
+            loadFrame();
+        }
+
+        // Navigate to path
+        function navigateTo(path) {
+            currentPath = path;
+            loadFrame();
+        }
+
+        // Toggle devtools
+        function toggleDevtools() {
+            const devtools = $('devtools');
+            devtools.classList.toggle('collapsed');
+            $('devtools-toggle').textContent = devtools.classList.contains('collapsed') ? '▲ DevTools' : '▼ DevTools';
+        }
+
+        // Switch devtools panel
+        function switchDevtoolsPanel(panel) {
+            document.querySelectorAll('.devtools-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === panel));
+            document.querySelectorAll('.devtools-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + panel));
+        }
+
+        // Open in new tab
+        function openExternal() {
+            window.open(getCurrentUrl(), '_blank');
+        }
+
+        // Notify parent window
+        function notifyParent(type, data) {
+            if (window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'pja-' + type,
+                    source: 'terrain',
+                    view: 'pja',
+                    ...data
+                }, '*');
+            }
+        }
+
+        // Copy bridge script tag
+        function copyBridgeScript() {
+            const script = `<script src="https://tetra.local/orgs/pixeljam-arcade/targets/arcade/tetra-bridge.js"><\/script>`;
+            navigator.clipboard.writeText(script).then(() => {
+                addConsoleEntry('info', 'Bridge script tag copied to clipboard');
+            });
+        }
+
+        // Event listeners - env buttons
+        document.querySelectorAll('.env-btn').forEach(btn => {
+            btn.onclick = () => switchEnv(btn.dataset.env);
+        });
+
+        // Event listeners - viewport buttons
+        document.querySelectorAll('.viewport-btn').forEach(btn => {
+            btn.onclick = () => setViewport(btn.dataset.vp);
+        });
+
+        // Event listeners - nav buttons
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.onclick = () => {
+                let path = btn.dataset.path;
+                if (btn.dataset.prompt) {
+                    const slug = prompt(`Enter ${btn.dataset.prompt}:`, 'dino-run');
+                    if (slug) path += slug;
+                    else return;
+                }
+                navigateTo(path);
+            };
+        });
+
+        // Event listeners - devtools tabs
+        document.querySelectorAll('.devtools-tab').forEach(tab => {
+            tab.onclick = () => switchDevtoolsPanel(tab.dataset.panel);
+        });
+
+        // Event listeners - action buttons
+        $('btn-refresh').onclick = loadFrame;
+        $('btn-devtools').onclick = toggleDevtools;
+        $('btn-open').onclick = openExternal;
+        $('devtools-toggle').onclick = toggleDevtools;
+
+        // Console controls
+        $('console-filter').onchange = (e) => filterConsole(e.target.value);
+        $('btn-clear-console').onclick = () => {
+            consoleLogs = [];
+            $('console-output').innerHTML = '';
+        };
+
+        // Session controls
+        $('btn-refresh-session').onclick = () => sendToBridge('get-auth');
+        $('btn-logout').onclick = () => {
+            if (confirm('Force logout the current user?')) {
+                sendToBridge('force-logout');
+            }
+        };
+
+        $('btn-impersonate').onclick = () => {
+            const userId = $('impersonate-input').value.trim();
+            if (userId) {
+                sendToBridge('impersonate', { userId });
+            }
+        };
+
+        $('btn-clear-impersonate').onclick = () => {
+            sendToBridge('clear-impersonate');
+            $('impersonate-current').textContent = 'None';
+        };
+
+        $('btn-copy-script').onclick = copyBridgeScript;
+
+        // Init
+        parseParams();
+        setViewport(currentViewport);
+        loadFrame();
+
+        // Notify ready
+        notifyParent('ready', { env: currentEnv });
+    </script>
+</body>
+</html>

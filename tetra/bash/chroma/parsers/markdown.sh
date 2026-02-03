@@ -21,7 +21,7 @@ _chroma_wrap_text() {
     done
 }
 
-# Flush accumulated paragraph text
+# Flush accumulated paragraph text (pattern-aware)
 _chroma_flush_paragraph() {
     local text="$1"
     local width="$2"
@@ -29,9 +29,17 @@ _chroma_flush_paragraph() {
 
     [[ -z "$text" ]] && return
 
-    tds_text_color "text.primary"
-    _chroma_wrap_text "$text" "$width" "$margin_str"
-    reset_color
+    # Check if text matches a pattern (topic_desc, key_value, etc.)
+    if declare -F _chroma_pattern_match &>/dev/null && _chroma_pattern_match "$text"; then
+        printf '%s' "$margin_str"
+        _chroma_render_pattern "$text" "text.primary" "$width" "$margin_str"
+        echo
+    else
+        # No pattern match - plain text with wrapping
+        tds_text_color "text.primary"
+        _chroma_wrap_text "$text" "$width" "$margin_str"
+        reset_color
+    fi
 }
 
 # Render markdown content
@@ -143,11 +151,23 @@ _chroma_parse_markdown() {
         fi
 
         # Regular text - strip leading whitespace and accumulate
-        local trimmed="${line#"${line%%[![:space:]]*}"}"
+        # Check for hard break (2+ trailing spaces before newline)
+        local has_hard_break=0
+        [[ "$line" =~ [[:space:]]{2,}$ ]] && has_hard_break=1
+
+        local trimmed="${line#"${line%%[![:space:]]*}"}"  # strip leading
+        trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"  # strip trailing
+
         if [[ -n "$para_buffer" ]]; then
             para_buffer+=" $trimmed"
         else
             para_buffer="$trimmed"
+        fi
+
+        # If line had hard break, flush paragraph and continue fresh
+        if (( has_hard_break )); then
+            _chroma_flush_paragraph "$para_buffer" "$width" "$margin_str"
+            para_buffer=""
         fi
     done < "$file"
 

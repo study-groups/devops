@@ -8,7 +8,7 @@
 #   source "$TETRA_SRC/bash/lib/treesitter.sh"
 #   ts_available bash && ts_list_functions file.sh
 #
-# Supported languages: bash, go, python, javascript, typescript, c, json
+# Supported languages: bash, go, python, javascript, typescript, c, json, toml, markdown
 
 # Cache for availability checks
 declare -gA _TS_LANG_AVAILABLE
@@ -46,6 +46,8 @@ ts_available() {
         typescript|ts) ext=".ts"; echo ';' > "$test_file$ext" ;;
         c)         ext=".c"; echo ';' > "$test_file$ext" ;;
         json)      ext=".json"; echo '{}' > "$test_file$ext" ;;
+        toml)      ext=".toml"; echo 'key = "value"' > "$test_file$ext" ;;
+        markdown|md) ext=".md"; echo '# Test' > "$test_file$ext" ;;
         *)
             _TS_LANG_AVAILABLE[$lang]=1
             return 1
@@ -216,7 +218,7 @@ ts_status() {
     fi
 
     echo "  Languages:"
-    local langs=(bash go python javascript typescript c json)
+    local langs=(bash go python javascript typescript c json toml markdown)
     for lang in "${langs[@]}"; do
         if ts_available "$lang"; then
             echo "    $lang: available"

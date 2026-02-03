@@ -194,19 +194,131 @@ _tetra_install_python() {
     _install_update_toggle "TETRA_PYTHON" "$py_runtime"
 }
 
+# --- Install tree-sitter CLI + grammars ---
+_tetra_install_treesitter() {
+    local tetra_runtime="${TETRA_DIR:-$HOME/tetra}"
+    local ts_dir="$tetra_runtime/treesitter"
+    local parsers_dir="$ts_dir/parsers"
+
+    _install_load_conf
+    local grammars="${TREESITTER_GRAMMARS:-bash markdown json}"
+
+    _step "Tree-sitter"
+
+    # Check if already installed
+    if command -v tree-sitter &>/dev/null; then
+        local ts_ver
+        ts_ver=$(tree-sitter --version 2>/dev/null | head -1)
+        _ok "tree-sitter CLI  ${DIM}${ts_ver} (exists)${RST}"
+    else
+        # Try to install CLI
+        _info "Installing tree-sitter CLI..."
+        local installed=0
+
+        # Method 1: cargo (if rust installed)
+        if command -v cargo &>/dev/null; then
+            if cargo install tree-sitter-cli 2>/dev/null; then
+                installed=1
+                _ok "tree-sitter CLI  ${DIM}via cargo${RST}"
+            fi
+        fi
+
+        # Method 2: npm (if node available)
+        if (( !installed )) && command -v npm &>/dev/null; then
+            if npm install -g tree-sitter-cli 2>/dev/null; then
+                installed=1
+                _ok "tree-sitter CLI  ${DIM}via npm${RST}"
+            fi
+        fi
+
+        # Method 3: homebrew (macOS)
+        if (( !installed )) && [[ "$OSTYPE" == darwin* ]] && command -v brew &>/dev/null; then
+            if brew install tree-sitter 2>/dev/null; then
+                installed=1
+                _ok "tree-sitter CLI  ${DIM}via homebrew${RST}"
+            fi
+        fi
+
+        if (( !installed )); then
+            _warn "tree-sitter CLI install failed"
+            _info "Install manually: cargo install tree-sitter-cli"
+            _info "  or: npm install -g tree-sitter-cli"
+            _info "  or: brew install tree-sitter (macOS)"
+            return 1
+        fi
+    fi
+
+    # Create parsers directory
+    mkdir -p "$parsers_dir"
+
+    # Initialize tree-sitter config if needed
+    local config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/tree-sitter"
+    local config_file="$config_dir/config.json"
+    if [[ ! -f "$config_file" ]]; then
+        mkdir -p "$config_dir"
+        cat > "$config_file" <<EOF
+{
+  "parser-directories": [
+    "$parsers_dir"
+  ]
+}
+EOF
+        _ok "config.json  ${DIM}parser-directories → $parsers_dir${RST}"
+    else
+        # Check if our parsers dir is in config
+        if ! grep -q "$parsers_dir" "$config_file" 2>/dev/null; then
+            _warn "Add $parsers_dir to $config_file parser-directories"
+        fi
+    fi
+
+    # Install grammars
+    _info "Installing grammars: $grammars"
+    for grammar in $grammars; do
+        local repo_name="tree-sitter-${grammar}"
+        local repo_url="https://github.com/tree-sitter/${repo_name}.git"
+        local grammar_dir="$parsers_dir/$repo_name"
+
+        # Special case for markdown (different org)
+        if [[ "$grammar" == "markdown" ]]; then
+            repo_url="https://github.com/tree-sitter-grammars/tree-sitter-markdown.git"
+        fi
+
+        if [[ -d "$grammar_dir" ]]; then
+            _ok "$grammar  ${DIM}exists${RST}"
+        else
+            _info "Cloning $repo_name..."
+            if git clone --depth 1 "$repo_url" "$grammar_dir" 2>/dev/null; then
+                # Build the grammar
+                (
+                    cd "$grammar_dir" || exit 1
+                    # Some grammars need npm install first
+                    [[ -f package.json ]] && npm install --silent 2>/dev/null || true
+                    tree-sitter generate 2>/dev/null || true
+                ) && _ok "$grammar  ${DIM}installed${RST}" || _warn "$grammar build failed"
+            else
+                _warn "$grammar clone failed"
+            fi
+        fi
+    done
+
+    _ok "tree-sitter setup complete"
+}
+
 # --- Dispatcher ---
 tetra_install() {
     local what="${1:-}"
     shift 2>/dev/null || true
 
     case "$what" in
-        nvm|node)   _tetra_install_nvm "$@" ;;
-        bun)        _tetra_install_bun "$@" ;;
-        python|py)  _tetra_install_python "$@" ;;
+        nvm|node)       _tetra_install_nvm "$@" ;;
+        bun)            _tetra_install_bun "$@" ;;
+        python|py)      _tetra_install_python "$@" ;;
+        treesitter|ts)  _tetra_install_treesitter "$@" ;;
         all)
             _tetra_install_nvm "$@"
             _tetra_install_bun "$@"
             _tetra_install_python "$@"
+            _tetra_install_treesitter "$@"
             ;;
         "")
             echo "Usage: tetra install <runtime>"
@@ -215,12 +327,13 @@ tetra_install() {
             echo "  nvm [version]     Install nvm + node"
             echo "  bun               Install bun"
             echo "  python [version]  Install python runtime"
+            echo "  treesitter        Install tree-sitter CLI + grammars"
             echo "  all               Install all runtimes"
             return 1
             ;;
         *)
             echo "Unknown runtime: $what"
-            echo "Available: nvm, bun, python, all"
+            echo "Available: nvm, bun, python, treesitter, all"
             return 1
             ;;
     esac
