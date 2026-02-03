@@ -187,28 +187,20 @@
         /* Details layout */
         .rec-details-inner {
             display: flex;
-            gap: 12px;
-            align-items: stretch;
-        }
-        .rec-details .info-grid {
-            flex: 1;
-            min-width: 0;
+            flex-direction: column;
+            gap: 8px;
         }
 
         /* Mini player in details */
         .mini-player {
-            flex-shrink: 0;
             background: #000;
             border-radius: 2px;
             overflow: hidden;
-            width: 160px;
-            display: flex;
-            align-items: center;
+            width: 100%;
         }
         .mini-player video {
             width: 100%;
-            height: 100%;
-            object-fit: cover;
+            height: auto;
             display: block;
         }
 
