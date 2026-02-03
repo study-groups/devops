@@ -122,12 +122,29 @@ function renderRecordingInfo(id, data) {
         if (stream.channels) parts.push(stream.channels + 'ch');
         infoHtml += parts.join(', ') + '</span>';
     }
+
+    // Show convert button for non-MP4 files
+    const filename = data.format?.filename;
+    const basename = filename ? filename.split('/').pop() : '';
+    const ext = basename.split('.').pop()?.toLowerCase();
+    if (ext && ext !== 'mp4') {
+        const videoCodec = streams.find(s => s.codec_type === 'video')?.codec_name || 'unknown';
+        const audioCodec = streams.find(s => s.codec_type === 'audio')?.codec_name || 'none';
+        const isH264 = videoCodec === 'h264';
+        const strategy = isH264 ? 'remux (stream copy)' : 'full transcode';
+        infoHtml += `<span class="info-label" style="margin-top:8px">Convert:</span>
+            <span class="info-value" style="margin-top:8px">
+                <button class="rec-btn" data-action="transcode" data-id="${id}" data-file="${basename}">→ MP4</button>
+                <span class="transcode-hint">${strategy}</span>
+            </span>`;
+    }
     infoHtml += '</div>';
 
+    // Transcode result area
+    infoHtml += `<div class="transcode-result" data-id="${id}"></div>`;
+
     let playerHtml = '';
-    const filename = data.format?.filename;
     if (filename) {
-        const basename = filename.split('/').pop();
         const videoUrl = getApiUrl(`/api/screentool/video/${id}/${basename}`);
         playerHtml = `<div class="mini-player"><video controls preload="metadata"><source src="${videoUrl}"></video></div>`;
     }
@@ -322,6 +339,43 @@ function init() {
         video.pause();
         video.src = '';
         player.classList.remove('visible');
+    });
+    Terrain.Iframe.on('transcode', async (el, data) => {
+        const resultEl = document.querySelector(`.transcode-result[data-id="${data.id}"]`);
+        if (!resultEl) return;
+
+        el.disabled = true;
+        el.textContent = 'Converting...';
+        resultEl.innerHTML = '<div class="transcode-progress">Analyzing source file...</div>';
+
+        try {
+            const res = await fetch(getApiUrl(`/api/screentool/transcode/${data.id}/${data.file}`), { method: 'POST' });
+            const result = await res.json();
+
+            if (result.ok) {
+                resultEl.innerHTML = `
+                    <div class="transcode-success">
+                        <div class="transcode-header">Conversion Complete</div>
+                        <div class="transcode-detail"><span>Strategy:</span> ${result.strategy}</div>
+                        <div class="transcode-detail"><span>Description:</span> ${result.description}</div>
+                        <div class="transcode-detail"><span>Output:</span> ${result.output}</div>
+                        <div class="transcode-detail"><span>Time:</span> ${result.result.elapsed}</div>
+                        <div class="transcode-detail"><span>Size:</span> ${formatBytes(result.result.inputSize)} → ${formatBytes(result.result.outputSize)} (${result.result.compression})</div>
+                        <div class="transcode-cmd"><span>Command:</span><code>${result.command}</code></div>
+                    </div>`;
+                el.textContent = 'Done';
+                // Refresh to show new file
+                setTimeout(() => { state.infoCache.delete(data.id); loadRecordings(); }, 1500);
+            } else {
+                resultEl.innerHTML = `<div class="transcode-error">Error: ${result.error}</div>`;
+                el.textContent = '→ MP4';
+                el.disabled = false;
+            }
+        } catch (err) {
+            resultEl.innerHTML = `<div class="transcode-error">Failed: ${err.message}</div>`;
+            el.textContent = '→ MP4';
+            el.disabled = false;
+        }
     });
 
     Terrain.Bus.subscribe('env-change', handleEnvChange);

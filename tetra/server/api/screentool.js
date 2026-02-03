@@ -330,4 +330,141 @@ router.get('/video/:id/:filename', (req, res) => {
     }
 });
 
+/**
+ * POST /transcode/:id/:filename - Convert video to browser-compatible MP4
+ *
+ * Conversion strategy:
+ * 1. Probe source file for codec info (ffprobe)
+ * 2. If video is H.264 and audio is AAC: remux only (-c copy) ~instant
+ * 3. If video is H.264 but audio needs conversion: copy video, transcode audio
+ * 4. If video needs conversion: full transcode with libx264/aac
+ *
+ * Output uses -movflags +faststart to relocate moov atom for streaming.
+ * Original file is preserved; new file is named <original>_converted.mp4
+ */
+router.post('/transcode/:id/:filename', async (req, res) => {
+    const { id, filename } = req.params;
+    const { org = 'tetra', env = 'local' } = req.query;
+
+    if (id.includes('..') || filename.includes('..')) {
+        return res.status(400).json({ error: 'invalid path' });
+    }
+
+    const stDir = getStDir(org, env);
+    const inputPath = path.join(stDir, id, filename);
+    const baseName = path.basename(filename, path.extname(filename));
+    const outputPath = path.join(stDir, id, `${baseName}_converted.mp4`);
+
+    if (!fs.existsSync(inputPath)) {
+        return res.status(404).json({ error: 'source file not found' });
+    }
+
+    if (fs.existsSync(outputPath)) {
+        return res.status(400).json({ error: 'converted file already exists', output: outputPath });
+    }
+
+    try {
+        // Step 1: Probe source file for codec information
+        const probeScript = `ffprobe -v quiet -print_format json -show_streams -show_format "${inputPath}"`;
+        const probeOutput = execSync(probeScript, { shell: BASH, timeout: 10000, encoding: 'utf8' });
+        const probeData = JSON.parse(probeOutput);
+
+        const videoStream = probeData.streams?.find(s => s.codec_type === 'video');
+        const audioStream = probeData.streams?.find(s => s.codec_type === 'audio');
+
+        const sourceInfo = {
+            container: probeData.format?.format_name,
+            duration: probeData.format?.duration,
+            size: probeData.format?.size,
+            video: videoStream ? {
+                codec: videoStream.codec_name,
+                profile: videoStream.profile,
+                width: videoStream.width,
+                height: videoStream.height,
+                fps: videoStream.r_frame_rate,
+                bitrate: videoStream.bit_rate
+            } : null,
+            audio: audioStream ? {
+                codec: audioStream.codec_name,
+                sample_rate: audioStream.sample_rate,
+                channels: audioStream.channels,
+                bitrate: audioStream.bit_rate
+            } : null
+        };
+
+        // Step 2: Determine optimal conversion strategy
+        const videoIsH264 = videoStream?.codec_name === 'h264';
+        const audioIsAAC = audioStream?.codec_name === 'aac';
+        const audioIsCompatible = !audioStream || audioIsAAC || audioStream.codec_name === 'mp3';
+
+        let strategy, videoCodec, audioCodec, description;
+
+        if (videoIsH264 && audioIsCompatible) {
+            strategy = 'remux';
+            videoCodec = 'copy';
+            audioCodec = 'copy';
+            description = 'Stream copy (remux) - video H.264, audio compatible. Near-instant.';
+        } else if (videoIsH264 && !audioIsCompatible) {
+            strategy = 'transcode_audio';
+            videoCodec = 'copy';
+            audioCodec = 'aac -b:a 128k';
+            description = `Video copy, transcode audio from ${audioStream?.codec_name} to AAC 128kbps.`;
+        } else {
+            strategy = 'full_transcode';
+            videoCodec = 'libx264 -preset fast -crf 23';
+            audioCodec = audioStream ? 'aac -b:a 128k' : null;
+            description = `Full transcode: ${videoStream?.codec_name}→H.264 (CRF 23), audio→AAC.`;
+        }
+
+        // Step 3: Build ffmpeg command
+        // -movflags +faststart: Relocates moov atom to file start for progressive download
+        // -map 0: Copy all streams from input
+        // -y: Overwrite output (though we already checked it doesn't exist)
+        const audioArgs = audioCodec ? `-c:a ${audioCodec}` : '-an';
+        const ffmpegCmd = `ffmpeg -i "${inputPath}" -c:v ${videoCodec} ${audioArgs} -movflags +faststart -map 0 -y "${outputPath}" 2>&1`;
+
+        const conversionInfo = {
+            source: sourceInfo,
+            strategy,
+            description,
+            command: ffmpegCmd,
+            output: `${id}/${baseName}_converted.mp4`
+        };
+
+        // Step 4: Execute conversion
+        const startTime = Date.now();
+        const ffmpegOutput = execSync(ffmpegCmd, {
+            shell: BASH,
+            timeout: 600000, // 10 min timeout
+            encoding: 'utf8',
+            maxBuffer: 10 * 1024 * 1024
+        });
+
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        const outputStat = fs.statSync(outputPath);
+
+        res.json({
+            ok: true,
+            ...conversionInfo,
+            result: {
+                elapsed: `${elapsed}s`,
+                inputSize: parseInt(probeData.format?.size),
+                outputSize: outputStat.size,
+                compression: ((1 - outputStat.size / parseInt(probeData.format?.size)) * 100).toFixed(1) + '%',
+                ffmpegLog: ffmpegOutput.slice(-2000) // Last 2KB of ffmpeg output
+            }
+        });
+
+    } catch (err) {
+        // Clean up partial output on failure
+        if (fs.existsSync(outputPath)) {
+            fs.unlinkSync(outputPath);
+        }
+        res.status(500).json({
+            error: err.message,
+            stderr: err.stderr?.slice(-2000)
+        });
+    }
+});
+
 module.exports = router;
