@@ -1,6 +1,8 @@
 // Caddy API - Config, Running config, Reload, Deploy routes
 
-const { execSync } = require('child_process');
+const { execSync, execFile } = require('child_process');
+const util = require('util');
+const execFileAsync = util.promisify(execFile);
 const fs = require('fs');
 const path = require('path');
 const router = require('express').Router();
@@ -123,11 +125,10 @@ router.post('/reload', async (req, res) => {
 
             if (apiAvailable) {
                 try {
-                    const adaptOutput = execSync(`caddy adapt --config "${paths.caddyfile}" 2>&1`, {
-                        shell: BASH,
-                        encoding: 'utf8',
-                        timeout: 10000
-                    });
+                    const { stdout: adaptOutput } = await execFileAsync(
+                        BASH, ['-c', `caddy adapt --config "${paths.caddyfile}" 2>&1`],
+                        { encoding: 'utf8', timeout: 10000 }
+                    );
 
                     const jsonConfig = JSON.parse(adaptOutput);
                     const result = await caddyApiPost('load', jsonConfig);
@@ -145,18 +146,18 @@ router.post('/reload', async (req, res) => {
                 }
             } else {
                 try {
-                    output = execSync(`caddy reload --config "${paths.caddyfile}" 2>&1`, {
-                        shell: BASH,
-                        encoding: 'utf8',
-                        timeout: 10000
-                    });
+                    const { stdout } = await execFileAsync(
+                        BASH, ['-c', `caddy reload --config "${paths.caddyfile}" 2>&1`],
+                        { encoding: 'utf8', timeout: 10000 }
+                    );
+                    output = stdout;
                     method = 'caddy-reload';
                 } catch (e) {
-                    output = execSync(`pkill -USR1 -f "caddy run" 2>&1 || echo "No caddy process found"`, {
-                        shell: BASH,
-                        encoding: 'utf8',
-                        timeout: 5000
-                    });
+                    const { stdout } = await execFileAsync(
+                        BASH, ['-c', `pkill -USR1 -f "caddy run" 2>&1 || echo "No caddy process found"`],
+                        { encoding: 'utf8', timeout: 5000 }
+                    );
+                    output = stdout;
                     method = 'signal';
                 }
             }
@@ -189,7 +190,7 @@ router.post('/deploy', (req, res) => {
     try {
         const flag = dryRun ? '--dry-run' : '';
         const cmd = `source "${process.env.TETRA_SRC}/bash/tcaddy/caddy.sh" && ` +
-            `caddy_ctx set ${org} '' ${env} 2>/dev/null && ` +
+            `caddy_ctx set ${org} ${env} 2>/dev/null && ` +
             `_caddy_deploy ${flag} 2>&1`;
 
         const output = execSync(cmd, {

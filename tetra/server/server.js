@@ -331,6 +331,7 @@ app.use('/api/voxlab', require('./api/voxlab'));
 app.use('/api/director', require('./api/director'));
 app.use('/api/qa', require('./api/qa'));
 app.use('/api/agents', require('./api/agents'));
+app.use('/api/screentool', require('./api/screentool'));
 
 // Environment data for frontend
 app.get('/api/env', (req, res) => {
