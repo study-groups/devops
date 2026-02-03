@@ -1,0 +1,194 @@
+/**
+ * TetraUI Modal - Popup dialogs and info panels
+ *
+ * Modes:
+ *   info    - Info display with close button
+ *   confirm - Confirm/cancel with callback
+ *   danger  - Destructive action confirmation
+ */
+
+.tetra-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+}
+.tetra-modal-overlay.active { display: flex; }
+
+.tetra-modal {
+    background: var(--paper-mid, #2a2a2e);
+    border: 2px solid var(--four, #00d4aa);
+    border-radius: 8px;
+    padding: 20px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    animation: modal-enter 0.15s ease-out;
+}
+.tetra-modal.size-sm { max-width: 350px; }
+.tetra-modal.size-lg { max-width: 700px; }
+
+@keyframes modal-enter {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Title */
+.tetra-modal-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--four, #00d4aa);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.tetra-modal-title.danger { color: var(--one, #ff6b6b); }
+.tetra-modal-title.warning { color: var(--two, #ffd93d); }
+
+/* Body */
+.tetra-modal-body {
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--ink, #e0e0e0);
+}
+
+/* Section blocks */
+.tetra-modal-section {
+    margin: 16px 0;
+    padding: 12px;
+    background: var(--paper-dark, #1a1a1e);
+    border-radius: 4px;
+}
+.tetra-modal-section-title {
+    font-size: 10px;
+    color: var(--ink-muted, #888);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+/* Key-value items (for displaying properties) */
+.tetra-modal-kv {
+    display: flex;
+    gap: 12px;
+    padding: 4px 0;
+    font-family: monospace;
+    font-size: 11px;
+}
+.tetra-modal-kv .key {
+    color: var(--four, #00d4aa);
+    min-width: 100px;
+}
+.tetra-modal-kv .val {
+    color: var(--ink-muted, #888);
+}
+
+/* Lists */
+.tetra-modal-list {
+    margin: 8px 0;
+    padding-left: 20px;
+}
+.tetra-modal-list li {
+    margin: 4px 0;
+    color: var(--two, #ffd93d);
+}
+
+/* Warning/info callouts */
+.tetra-modal-callout {
+    margin: 16px 0;
+    padding: 12px;
+    border-radius: 4px;
+    font-size: 11px;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+}
+.tetra-modal-callout.info {
+    background: rgba(0, 212, 170, 0.1);
+    border: 1px solid var(--four, #00d4aa);
+    color: var(--four, #00d4aa);
+}
+.tetra-modal-callout.warning {
+    background: rgba(255, 217, 61, 0.1);
+    border: 1px solid var(--two, #ffd93d);
+    color: var(--two, #ffd93d);
+}
+.tetra-modal-callout.danger {
+    background: rgba(255, 107, 107, 0.1);
+    border: 1px solid var(--one, #ff6b6b);
+    color: var(--one, #ff6b6b);
+}
+
+/* Buttons */
+.tetra-modal-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+    justify-content: flex-end;
+}
+.tetra-modal-btn {
+    padding: 10px 20px;
+    font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid var(--border, #444);
+    background: var(--paper-dark, #1a1a1e);
+    color: var(--ink, #e0e0e0);
+    transition: all 0.1s ease;
+}
+.tetra-modal-btn:hover {
+    border-color: var(--ink-muted, #888);
+}
+.tetra-modal-btn.primary {
+    background: var(--four, #00d4aa);
+    border-color: var(--four, #00d4aa);
+    color: var(--paper-dark, #1a1a1e);
+    font-weight: 600;
+}
+.tetra-modal-btn.primary:hover {
+    filter: brightness(1.1);
+}
+.tetra-modal-btn.danger {
+    background: var(--one, #ff6b6b);
+    border-color: var(--one, #ff6b6b);
+    color: var(--paper-dark, #1a1a1e);
+    font-weight: 600;
+}
+.tetra-modal-btn.danger:hover {
+    filter: brightness(1.1);
+}
+
+/* Code blocks in modal */
+.tetra-modal code {
+    background: var(--paper-dark, #1a1a1e);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 11px;
+}
+
+/* Preformatted content */
+.tetra-modal-pre {
+    background: var(--paper-dark, #1a1a1e);
+    padding: 12px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 11px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    margin: 12px 0;
+}

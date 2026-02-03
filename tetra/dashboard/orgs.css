@@ -3,8 +3,40 @@
 body {
     font-size: 11px;
     padding: 12px;
+    padding-top: 40px;
     height: 100vh;
     overflow-y: auto;
+}
+
+/* Sticky header */
+.sticky-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: var(--paper-dark);
+    padding: 8px 12px !important;
+    border-bottom: 1px solid var(--border) !important;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+}
+
+/* Selected org badge - right aligned */
+.selected-org-badge {
+    font-size: 9px;
+    padding: 3px 8px;
+    background: var(--two);
+    color: var(--paper-dark);
+    border-radius: 2px;
+    font-weight: 600;
+    margin-left: auto;
+    margin-right: 8px;
+    display: none;
+}
+
+.selected-org-badge:not(:empty) {
+    display: inline-block;
 }
 
 /* Tabs */
@@ -64,7 +96,7 @@ body {
 
 .org-item {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 12px;
     padding: 12px 14px;
     background: var(--paper-mid);
@@ -94,7 +126,6 @@ body {
     cursor: pointer;
     transition: background 0.2s;
     flex-shrink: 0;
-    margin-top: 2px;
 }
 
 .org-toggle::after {
@@ -126,6 +157,13 @@ body {
     align-items: center;
     gap: 8px;
     margin-bottom: 4px;
+    flex-wrap: wrap;
+}
+
+.org-name-row .org-badges {
+    display: inline-flex;
+    gap: 4px;
+    margin-left: 4px;
 }
 
 .org-name {
@@ -259,7 +297,6 @@ body {
     color: var(--ink-muted);
     flex-shrink: 0;
     font-weight: 600;
-    align-self: flex-start;
 }
 
 .org-label.active {
@@ -586,6 +623,14 @@ body {
     word-break: break-all;
 }
 
+.config-path-value.ok {
+    color: var(--three);
+}
+
+.config-path-value.muted {
+    color: var(--ink-muted);
+}
+
 /* Infrastructure Tab */
 .org-infra {
     padding-top: 4px;
@@ -907,6 +952,38 @@ body {
     text-align: right;
 }
 
+/* Actionable command row */
+.cmd-row.cmd-action {
+    border-color: var(--four);
+    border-style: dashed;
+}
+
+.cmd-row.cmd-action:hover {
+    border-style: solid;
+    background: rgba(107, 92, 231, 0.1);
+}
+
+.cmd-row.cmd-action .cmd-text::before {
+    content: '▶ ';
+    color: var(--four);
+}
+
+.cmd-status {
+    font-size: 8px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    padding: 2px 6px;
+    background: var(--paper-mid);
+    border-radius: 2px;
+    min-width: 50px;
+    text-align: center;
+}
+
+.cmd-row.cmd-action:hover .cmd-status {
+    background: var(--four);
+    color: var(--paper-dark);
+}
+
 /* ==========================================================================
    Registry UI - Clone status, add/edit forms
    ========================================================================== */
@@ -960,7 +1037,6 @@ body {
     font-size: 10px;
     line-height: 1;
     flex-shrink: 0;
-    margin-top: 6px;
 }
 
 .org-status-dot.cloned {

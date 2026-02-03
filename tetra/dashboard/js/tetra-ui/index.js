@@ -20,6 +20,7 @@
  *   TetraUI.Editor     - CodeMirror wrapper
  *   TetraUI.TerminalOutput - Terminal display with ANSI
  *   TetraUI.ansi       - ANSI color utilities
+ *   TetraUI.Modal      - Popup dialogs and info panels
  */
 
 (function() {
@@ -40,7 +41,8 @@
         'store',
         'events',
         'editor',
-        'terminal-output'
+        'terminal-output',
+        'modal'
     ];
 
     /**
@@ -50,7 +52,8 @@
         return !!(
             TetraUI.dom &&
             TetraUI.Spinner &&
-            TetraUI.TerminalOutput
+            TetraUI.TerminalOutput &&
+            TetraUI.Modal
         );
     };
 

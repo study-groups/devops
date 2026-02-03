@@ -3,7 +3,15 @@
 
 function selectOrg(orgId) {
     state.dispatch('selectOrg', orgId);
+    updateSelectedBadge(orgId);
     renderOrgs();
+}
+
+function updateSelectedBadge(orgId) {
+    const badge = document.getElementById('selected-org-badge');
+    if (badge) {
+        badge.textContent = orgId || '';
+    }
 
     const activeTab = document.querySelector('.infra-tab.active');
     const currentTab = activeTab ? activeTab.dataset.tab : 'list';
@@ -145,21 +153,66 @@ function initEvents() {
             return;
         }
 
-        const nhImportBtn = e.target.closest('[data-action="nh-import"]');
-        if (nhImportBtn) {
-            const org = nhImportBtn.dataset.org;
-            if (org) importNhInfra(org);
-            return;
-        }
-
         const cmdRow = e.target.closest('.cmd-row');
         if (cmdRow && cmdRow.dataset.cmd) {
+            // Check if it's an action command (like nh-import)
+            if (cmdRow.classList.contains('cmd-action') && cmdRow.dataset.action === 'nh-import') {
+                const org = cmdRow.dataset.org;
+                if (org) importNhInfra(org);
+                return;
+            }
+
+            // Regular command - copy to clipboard
             navigator.clipboard.writeText(cmdRow.dataset.cmd);
             const copied = cmdRow.querySelector('.cmd-copied');
             if (copied) {
                 copied.textContent = 'Copied!';
                 setTimeout(() => { copied.textContent = ''; }, 1500);
             }
+            return;
+        }
+
+        // Form actions
+        const closeFormBtn = e.target.closest('[data-action="close-form"]');
+        if (closeFormBtn) {
+            closeForm();
+            return;
+        }
+
+        const saveOrgBtn = e.target.closest('[data-action="save-org"]');
+        if (saveOrgBtn) {
+            const data = getFormData();
+            if (!data.id || !data.repo) {
+                const status = document.getElementById('org-form-status');
+                if (status) {
+                    status.textContent = 'Name and repo URL are required';
+                    status.style.color = 'var(--one)';
+                }
+                return;
+            }
+            addOrgToRegistry(data);
+            return;
+        }
+
+        const updateOrgBtn = e.target.closest('[data-action="update-org"]');
+        if (updateOrgBtn) {
+            const orgId = updateOrgBtn.dataset.org;
+            const data = getFormData();
+            updateOrgInRegistry(orgId, data);
+            return;
+        }
+
+        const deleteOrgBtn = e.target.closest('[data-action="delete-org"]');
+        if (deleteOrgBtn) {
+            const orgId = deleteOrgBtn.dataset.org;
+            removeOrgFromRegistry(orgId);
+            return;
+        }
+
+        // Close form on overlay click
+        const overlay = e.target.closest('.org-form-overlay');
+        if (overlay && e.target === overlay) {
+            closeForm();
             return;
         }
     });

@@ -77,6 +77,17 @@ async function loadOrgConfig(orgId) {
                 }
             }
 
+            // Fetch storage config
+            try {
+                const storageResp = await fetch(`/api/orgs/${encodeURIComponent(orgId)}/storage`);
+                if (storageResp.ok) {
+                    const storageData = await storageResp.json();
+                    details.storage = storageData;
+                }
+            } catch (e) {
+                // Ignore
+            }
+
             // Parse tetra.toml for environments
             try {
                 const tomlResp = await fetch(`/api/orgs/${encodeURIComponent(orgId)}/file/tetra.toml`);
@@ -165,13 +176,13 @@ function copyCmd(cmd) {
 
 async function importNhInfra(orgId) {
     const status = document.getElementById('nh-import-status');
-    const btn = document.querySelector('[data-action="nh-import"]');
+    const row = document.querySelector('.cmd-row.cmd-action[data-action="nh-import"]');
 
     if (status) {
-        status.textContent = 'Importing...';
-        status.style.color = 'var(--three)';
+        status.textContent = 'running...';
+        status.style.background = 'var(--three)';
+        status.style.color = 'var(--paper-dark)';
     }
-    if (btn) btn.disabled = true;
 
     try {
         const resp = await fetch(`/api/nh/${encodeURIComponent(orgId)}/import`, {
@@ -184,24 +195,22 @@ async function importNhInfra(orgId) {
 
         if (data.success) {
             if (status) {
-                status.textContent = `Imported ${data.environments?.length || 0} environments`;
-                status.style.color = 'var(--three)';
+                status.textContent = `${data.environments?.length || 0} envs`;
+                status.style.background = 'var(--two)';
             }
             // Refresh the config view
             setTimeout(() => loadOrgConfig(orgId), 1500);
         } else {
             if (status) {
-                status.textContent = data.error || 'Import failed';
-                status.style.color = 'var(--one)';
+                status.textContent = 'failed';
+                status.style.background = 'var(--one)';
             }
         }
     } catch (e) {
         if (status) {
-            status.textContent = 'Error: ' + e.message;
-            status.style.color = 'var(--one)';
+            status.textContent = 'error';
+            status.style.background = 'var(--one)';
         }
-    } finally {
-        if (btn) btn.disabled = false;
     }
 }
 

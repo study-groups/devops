@@ -49,11 +49,7 @@ function parseReposToml() {
  * Write repos.toml registry file
  */
 function writeReposToml(registry) {
-    const lines = [
-        '# Tetra Org Repository Registry',
-        '# Maps local org directories to their git repos',
-        ''
-    ];
+    const lines = [];
 
     for (const [orgName, config] of Object.entries(registry)) {
         lines.push(`[${orgName}]`);
@@ -133,7 +129,7 @@ router.get('/', (req, res) => {
         const entries = fs.readdirSync(ORGS_DIR, { withFileTypes: true });
         const orgs = entries
             .filter(e => e.isDirectory() || e.isSymbolicLink())
-            .filter(e => !e.name.startsWith('.'))
+            .filter(e => !e.name.startsWith('.') && e.name !== 'repos.toml')
             .map(e => e.name)
             .sort();
 
@@ -355,7 +351,7 @@ router.get('/list', (req, res) => {
         const clonedOrgs = new Set();
         const entries = fs.readdirSync(ORGS_DIR, { withFileTypes: true });
         const orgs = entries
-            .filter(e => (e.isDirectory() || e.isSymbolicLink()) && !e.name.startsWith('.'))
+            .filter(e => (e.isDirectory() || e.isSymbolicLink()) && !e.name.startsWith('.') && e.name !== 'repos.toml')
             .map(e => {
                 clonedOrgs.add(e.name);
                 const orgDir = path.join(ORGS_DIR, e.name);

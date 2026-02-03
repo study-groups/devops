@@ -57,10 +57,10 @@ const html = {
                     <div class="org-name-row">
                         <span class="org-name">${esc(org.id)}</span>
                         ${aliasInfo}
+                        <span class="org-badges">${badges.join('')}</span>
                     </div>
                     <div class="org-meta">${esc(org.description || (isCloned ? org.type : 'Not cloned') || '')}</div>
                     ${statsHtml}
-                    <div class="org-badges">${badges.join('')}</div>
                 </div>
                 <div class="org-item-actions">
                     ${editBtn}
@@ -205,21 +205,51 @@ const html = {
                         <code class="cmd-text">doctl auth switch --context ${esc(org)}</code>
                         <span class="cmd-copied"></span>
                     </div>
-                    <div class="cmd-row" data-cmd="tmod load nh_bridge && nhb_import ~/nh/${esc(org)}/digocean.json ${esc(org)}">
-                        <code class="cmd-text">tmod load nh_bridge && nhb_import ~/nh/${esc(org)}/digocean.json ${esc(org)}</code>
-                        <span class="cmd-copied"></span>
-                    </div>
                     <div class="cmd-row" data-cmd="doctl auth init --context ${esc(org)}">
                         <code class="cmd-text">doctl auth init --context ${esc(org)}</code>
                         <span class="cmd-copied"></span>
                     </div>
+                    <div class="cmd-row cmd-action" data-action="nh-import" data-org="${esc(org)}" data-cmd="nhb_import ~/nh/${esc(org)}/digocean.json ${esc(org)}">
+                        <code class="cmd-text">nhb_import ~/nh/${esc(org)}/digocean.json ${esc(org)}</code>
+                        <span class="cmd-status" id="nh-import-status">${nhSource ? 'imported' : 'run'}</span>
+                    </div>
                 </div>
-                ${nhSource ? `<div class="config-nh-status ok" style="margin-top: 8px;">Last imported from: ${esc(nhSource)}</div>` : ''}
-                <div class="config-actions" style="margin-top: 12px;">
-                    <button class="config-btn primary" data-action="nh-import" data-org="${esc(org)}">
-                        Import Infrastructure
-                    </button>
-                    <span class="nh-import-status" id="nh-import-status"></span>
+            </div>
+        `;
+
+        const storage = details.storage || {};
+        let storageHtml = `
+            <div class="config-section">
+                <div class="config-section-title">Storage (S3/Spaces)</div>
+                <div class="config-paths">
+                    <div class="config-path-row">
+                        <span class="config-path-label">Status:</span>
+                        <span class="config-path-value ${storage.configured ? 'ok' : 'muted'}">${storage.configured ? 'Configured' : 'Not configured'}</span>
+                    </div>
+                    ${storage.bucket ? `
+                    <div class="config-path-row">
+                        <span class="config-path-label">Bucket:</span>
+                        <span class="config-path-value">${esc(storage.bucket)}</span>
+                    </div>
+                    <div class="config-path-row">
+                        <span class="config-path-label">Endpoint:</span>
+                        <span class="config-path-value">${esc(storage.endpoint)}</span>
+                    </div>
+                    <div class="config-path-row">
+                        <span class="config-path-label">Region:</span>
+                        <span class="config-path-value">${esc(storage.region)}</span>
+                    </div>
+                    <div class="config-path-row">
+                        <span class="config-path-label">Prefix:</span>
+                        <span class="config-path-value">${esc(storage.prefix)}</span>
+                    </div>
+                    <div class="config-path-row">
+                        <span class="config-path-label">Source:</span>
+                        <span class="config-path-value muted">${esc(storage.source)}</span>
+                    </div>
+                    ` : `
+                    <div class="config-hint">Add [storage.s3] section to sections/30-storage.toml</div>
+                    `}
                 </div>
             </div>
         `;
@@ -252,6 +282,7 @@ const html = {
             ${sectionsHtml}
             ${editorHtml}
             ${commandsHtml}
+            ${storageHtml}
             ${pathsHtml}
         `;
     },
@@ -332,6 +363,43 @@ const html = {
             `;
         }
 
+        let commandsHtml = `
+            <div class="config-section">
+                <div class="config-section-title">Commands (click to copy)</div>
+                <div class="cmd-list">
+                    <div class="cmd-row" data-cmd="org storage status ${esc(org)}">
+                        <code class="cmd-text">org storage status ${esc(org)}</code>
+                        <span class="cmd-copied"></span>
+                    </div>
+                    <div class="cmd-row" data-cmd="org storage test ${esc(org)}">
+                        <code class="cmd-text">org storage test ${esc(org)}</code>
+                        <span class="cmd-copied"></span>
+                    </div>
+                    <div class="cmd-row" data-cmd="tsm logs export all">
+                        <code class="cmd-text">tsm logs export all</code>
+                        <span class="cmd-copied"></span>
+                    </div>
+                    <div class="cmd-row" data-cmd="TETRA_ORG=${esc(org)} ~/tetra/browser/collect-inventory.sh">
+                        <code class="cmd-text">TETRA_ORG=${esc(org)} ~/tetra/browser/collect-inventory.sh</code>
+                        <span class="cmd-copied"></span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        let archHtml = `
+            <div class="config-section">
+                <div class="config-section-title">Directory Structure</div>
+                <div class="config-paths" style="font-size: 9px; line-height: 1.6;">
+                    <code style="color: var(--ink-muted); white-space: pre;">~/tetra/orgs/${esc(org)}/
+├── sections/        # TOML source files
+├── tetra.toml       # Built config
+├── tsm/             # Service definitions
+└── workspace/       # Content files</code>
+                </div>
+            </div>
+        `;
+
         return `
             <div class="config-header">
                 <span class="config-title">${esc(org)} Infrastructure</span>
@@ -339,6 +407,8 @@ const html = {
             ${summaryHtml}
             ${envsHtml}
             ${volumesHtml}
+            ${commandsHtml}
+            ${archHtml}
         `;
     },
 
