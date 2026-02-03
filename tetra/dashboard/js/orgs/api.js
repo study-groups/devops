@@ -28,11 +28,13 @@ function renderOrgs() {
     if (!container) return;
 
     const orgs = Terrain.Orgs.all();
-    container.innerHTML = orgs.map(org => {
+    const orgItems = orgs.map(org => {
         const isEnabled = Terrain.Orgs.isEnabled(org.id);
         const isSelected = getSelectedOrg() === org.id;
         return html.orgItem(org, isEnabled, isSelected);
     }).join('');
+
+    container.innerHTML = html.listHeader() + orgItems;
 }
 
 async function loadOrgConfig(orgId) {
@@ -201,4 +203,200 @@ async function importNhInfra(orgId) {
     } finally {
         if (btn) btn.disabled = false;
     }
+}
+
+// Registry management functions
+
+async function cloneOrg(orgId) {
+    const btn = document.querySelector(`[data-action="clone-org"][data-org="${orgId}"]`);
+    const originalText = btn?.textContent;
+
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'cloning...';
+    }
+
+    try {
+        const resp = await fetch(`/api/orgs/${encodeURIComponent(orgId)}/clone`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await resp.json();
+
+        if (data.success) {
+            if (btn) btn.textContent = 'done!';
+            // Refresh the org list
+            setTimeout(() => loadOrgs(), 1000);
+        } else {
+            if (btn) {
+                btn.textContent = 'failed';
+                btn.style.background = 'var(--one)';
+            }
+            console.error('[Orgs] Clone failed:', data.error);
+            setTimeout(() => {
+                if (btn) {
+                    btn.textContent = originalText;
+                    btn.style.background = '';
+                    btn.disabled = false;
+                }
+            }, 2000);
+        }
+    } catch (e) {
+        console.error('[Orgs] Clone error:', e);
+        if (btn) {
+            btn.textContent = 'error';
+            btn.style.background = 'var(--one)';
+            btn.disabled = false;
+        }
+    }
+}
+
+async function addOrgToRegistry(orgData) {
+    const status = document.getElementById('org-form-status');
+
+    try {
+        const resp = await fetch('/api/orgs/registry', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orgData)
+        });
+
+        const data = await resp.json();
+
+        if (data.success) {
+            if (status) {
+                status.textContent = 'Added successfully!';
+                status.style.color = 'var(--two)';
+            }
+            setTimeout(() => {
+                closeForm();
+                loadOrgs();
+            }, 1000);
+            return true;
+        } else {
+            if (status) {
+                status.textContent = data.error || 'Failed to add';
+                status.style.color = 'var(--one)';
+            }
+            return false;
+        }
+    } catch (e) {
+        if (status) {
+            status.textContent = 'Error: ' + e.message;
+            status.style.color = 'var(--one)';
+        }
+        return false;
+    }
+}
+
+async function updateOrgInRegistry(orgId, orgData) {
+    const status = document.getElementById('org-form-status');
+
+    try {
+        const resp = await fetch(`/api/orgs/registry/${encodeURIComponent(orgId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orgData)
+        });
+
+        const data = await resp.json();
+
+        if (data.success) {
+            if (status) {
+                status.textContent = 'Updated successfully!';
+                status.style.color = 'var(--two)';
+            }
+            setTimeout(() => {
+                closeForm();
+                loadOrgs();
+            }, 1000);
+            return true;
+        } else {
+            if (status) {
+                status.textContent = data.error || 'Failed to update';
+                status.style.color = 'var(--one)';
+            }
+            return false;
+        }
+    } catch (e) {
+        if (status) {
+            status.textContent = 'Error: ' + e.message;
+            status.style.color = 'var(--one)';
+        }
+        return false;
+    }
+}
+
+async function removeOrgFromRegistry(orgId) {
+    if (!confirm(`Remove "${orgId}" from registry?\n\nThis only removes the registry entry. The cloned directory (if any) will remain.`)) {
+        return false;
+    }
+
+    const status = document.getElementById('org-form-status');
+
+    try {
+        const resp = await fetch(`/api/orgs/registry/${encodeURIComponent(orgId)}`, {
+            method: 'DELETE'
+        });
+
+        const data = await resp.json();
+
+        if (data.success) {
+            if (status) {
+                status.textContent = 'Removed from registry';
+                status.style.color = 'var(--two)';
+            }
+            setTimeout(() => {
+                closeForm();
+                loadOrgs();
+            }, 1000);
+            return true;
+        } else {
+            if (status) {
+                status.textContent = data.error || 'Failed to remove';
+                status.style.color = 'var(--one)';
+            }
+            return false;
+        }
+    } catch (e) {
+        if (status) {
+            status.textContent = 'Error: ' + e.message;
+            status.style.color = 'var(--one)';
+        }
+        return false;
+    }
+}
+
+function showAddOrgForm() {
+    const existing = document.getElementById('org-form-overlay');
+    if (existing) existing.remove();
+
+    document.body.insertAdjacentHTML('beforeend', html.addOrgForm());
+}
+
+function showEditOrgForm(orgId) {
+    const orgs = Terrain.Orgs.all();
+    const org = orgs.find(o => o.id === orgId);
+    if (!org) return;
+
+    const existing = document.getElementById('org-form-overlay');
+    if (existing) existing.remove();
+
+    document.body.insertAdjacentHTML('beforeend', html.editOrgForm(org));
+}
+
+function closeForm() {
+    const overlay = document.getElementById('org-form-overlay');
+    if (overlay) overlay.remove();
+}
+
+function getFormData() {
+    return {
+        id: document.getElementById('org-form-name')?.value?.trim(),
+        repo: document.getElementById('org-form-repo')?.value?.trim(),
+        description: document.getElementById('org-form-desc')?.value?.trim() || undefined,
+        alias: document.getElementById('org-form-alias')?.value?.trim() || undefined,
+        nh_source: document.getElementById('org-form-nh')?.value?.trim() || undefined
+    };
 }
