@@ -66,4 +66,3 @@ tsm_hooks_list() {
     [[ ${#TSM_HOOKS_POST_STOP[@]} -eq 0 ]] && echo "  (none)"
 }
 
-export -f tsm_hook_register tsm_hooks_run tsm_hooks_list

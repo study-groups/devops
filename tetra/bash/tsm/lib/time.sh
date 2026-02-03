@@ -193,7 +193,3 @@ tsm_since_threshold() {
 
 # === EXPORTS ===
 
-export -f tsm_timestamp tsm_epoch_ms
-export -f tsm_parse_timestamp
-export -f tsm_delta tsm_delta_padded
-export -f tsm_parse_duration tsm_since_threshold

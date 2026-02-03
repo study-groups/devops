@@ -450,6 +450,11 @@ tsm_start() {
     # Build startup script
     local startup="source \$HOME/tetra/tetra.sh"$'\n'
 
+    # Auto-activate runtimes based on command
+    if [[ "$command" =~ ^python ]]; then
+        startup="${startup}tetra_python_activate 2>/dev/null"$'\n'
+    fi
+
     # Source env file if provided
     [[ -n "$env_file" ]] && startup="${startup}source '$env_file'"$'\n'
 
@@ -518,9 +523,17 @@ tsm_start() {
 
     echo "Started: $proc_name (id:$id pid:$pid port:${resolved_port:-none})"
 
+    # Background early-exit watchdog
+    (
+        sleep "${TSM_HEALTHCHECK_DELAY:-3}"
+        if ! kill -0 "$pid" 2>/dev/null; then
+            tsm_set_status "$proc_name" "stopped"
+            tail -5 "$log_err" 2>/dev/null > "$proc_dir/early_exit"
+        fi
+    ) &>/dev/null &
+    disown
+
     # Run post-start hooks
     tsm_hooks_run "post_start" "$proc_name" "$resolved_port"
 }
 
-export -f tsm_find_service tsm_load_service tsm_is_tsm_file tsm_load_tsm_file
-export -f _tsm_show_dryrun tsm_describe tsm_start

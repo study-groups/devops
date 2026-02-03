@@ -605,7 +605,43 @@ _tsm_logs_follow_enhanced() {
     done
 }
 
-export -f tsm_stop _tsm_stop_one tsm_stop_all tsm_kill
-export -f tsm_delete _tsm_delete_one tsm_cleanup
-export -f tsm_restart _tsm_restart_one tsm_info tsm_logs
-export -f _tsm_logs_static _tsm_logs_json _tsm_logs_follow_enhanced
+# === CHECK ===
+
+# Check all "online" processes, report dead ones with stderr tail
+tsm_check() {
+    local found=0
+    local dead=0
+
+    for name in $(tsm_list_tracked); do
+        local meta=$(tsm_meta_file "$name")
+        [[ -f "$meta" ]] || continue
+
+        local status=$(jq -r '.status // empty' "$meta" 2>/dev/null)
+        [[ "$status" == "online" ]] || continue
+
+        local pid=$(jq -r '.pid // empty' "$meta" 2>/dev/null)
+        ((found++))
+
+        if ! tsm_is_pid_alive "$pid"; then
+            ((dead++))
+            tsm_set_status "$name" "stopped"
+            local proc_dir=$(tsm_process_dir "$name")
+            echo "DEAD: $name (pid:$pid)"
+            if [[ -f "$proc_dir/current.err" && -s "$proc_dir/current.err" ]]; then
+                echo "  --- stderr (last 5 lines) ---"
+                tail -5 "$proc_dir/current.err" | sed 's/^/  /'
+            fi
+            # Write early_exit marker if not already present
+            [[ -f "$proc_dir/early_exit" ]] || tail -5 "$proc_dir/current.err" 2>/dev/null > "$proc_dir/early_exit"
+        fi
+    done
+
+    if [[ $found -eq 0 ]]; then
+        echo "No online processes to check."
+    elif [[ $dead -eq 0 ]]; then
+        echo "All $found online process(es) healthy."
+    else
+        echo "$dead of $found process(es) dead."
+    fi
+}
+

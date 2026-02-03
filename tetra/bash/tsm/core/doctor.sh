@@ -107,7 +107,7 @@ _doctor_health() {
     fi
     echo ""
 
-    # Active ports - comprehensive view
+    # Active ports - comprehensive view (deduplicated across IPv4/IPv6)
     echo "Active Ports:"
     local tsm_pgids=()
 
@@ -125,8 +125,12 @@ _doctor_health() {
         fi
     done
 
-    # Get all listening ports
+    # Get all listening ports, dedup by port:pid
     local port_count=0 external_count=0
+    declare -A _seen_port_pid=()
+    declare -A _port_pids=()     # port -> space-separated pids
+    local -a _port_lines=()
+
     while IFS= read -r line; do
         [[ -z "$line" ]] && continue
         local pid=$(echo "$line" | awk '{print $2}')
@@ -135,6 +139,14 @@ _doctor_health() {
 
         # Skip non-numeric ports
         [[ "$port" =~ ^[0-9]+$ ]] || continue
+
+        # Deduplicate IPv4/IPv6 for same port:pid
+        local key="${port}:${pid}"
+        [[ -v _seen_port_pid["$key"] ]] && continue
+        _seen_port_pid["$key"]=1
+
+        # Track which pids are on each port (for conflict detection)
+        _port_pids["$port"]="${_port_pids["$port"]:-} $pid"
 
         local cmd=$(ps -p "$pid" -o args= 2>/dev/null | head -c 40)
         [[ -z "$cmd" ]] && continue
@@ -164,6 +176,25 @@ _doctor_health() {
             ((warnings++))
         fi
     fi
+
+    # Detect port conflicts (multiple distinct PIDs on same port)
+    local conflicts=0
+    for port in "${!_port_pids[@]}"; do
+        # Get unique pids for this port
+        local unique_pids
+        unique_pids=$(echo "${_port_pids[$port]}" | tr ' ' '\n' | sort -u | grep -c .)
+        if [[ $unique_pids -gt 1 ]]; then
+            ((conflicts++))
+            local pids_list
+            pids_list=$(echo "${_port_pids[$port]}" | tr ' ' '\n' | sort -un | paste -sd, -)
+            echo "  [CONFLICT] port $port has $unique_pids listeners (pids: $pids_list)"
+        fi
+    done
+    if [[ $conflicts -gt 0 ]]; then
+        ((warnings += conflicts))
+    fi
+
+    unset _seen_port_pid _port_pids
     echo ""
 
     # Summary
@@ -350,4 +381,3 @@ Examples:
 EOF
 }
 
-export -f tsm_doctor

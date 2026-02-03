@@ -400,4 +400,3 @@ _tsm_list_ports() {
     done
 }
 
-export -f _tsm_list_table _tsm_list_grouped _tsm_grouped_header _tsm_grouped_row _tsm_list_ports

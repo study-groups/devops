@@ -349,6 +349,3 @@ tsm_stack() {
 }
 
 export TSM_STACKS_DIR
-export -f _tsm_parse_stack _tsm_find_stack _tsm_find_service_proc
-export -f tsm_stack_list tsm_stack_start tsm_stack_stop tsm_stack_restart tsm_stack_status
-export -f tsm_stack

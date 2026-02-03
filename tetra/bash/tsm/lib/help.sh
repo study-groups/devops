@@ -343,4 +343,3 @@ tsm_show_help() {
     fi
 }
 
-export -f tsm_show_help

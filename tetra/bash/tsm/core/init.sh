@@ -147,5 +147,3 @@ tsm_detect_interpreter() {
     echo "unknown"
 }
 
-export -f tsm_setup tsm_load_env tsm_parse_env tsm_env_var
-export -f tsm_generate_name tsm_detect_interpreter

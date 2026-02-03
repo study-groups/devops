@@ -241,10 +241,3 @@ tsm_list_users() {
 export TSM_MULTI_USER TSM_IS_ROOT TSM_CURRENT_USER
 export TSM_TARGET_USER TSM_TARGET_SERVICE
 
-export -f tsm_multi_user_enabled
-export -f tsm_discover_user_homes tsm_extract_username
-export -f tsm_get_user_processes_dir tsm_get_all_process_dirs
-export -f tsm_parse_user_service
-export -f tsm_get_process_owner tsm_can_control tsm_require_permission
-export -f tsm_run_as_user tsm_get_user_env
-export -f tsm_list_users

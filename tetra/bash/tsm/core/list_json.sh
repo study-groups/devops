@@ -133,4 +133,3 @@ _tsm_list_services_json() {
     echo "]"
 }
 
-export -f _tsm_list_json _tsm_list_services_json

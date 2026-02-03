@@ -317,7 +317,3 @@ tsm_uptime() {
     tsm_format_uptime "$secs"
 }
 
-export -f tsm_get_next_id tsm_process_dir tsm_meta_file _tsm_infer_stack
-export -f tsm_create_meta tsm_read_meta tsm_read_meta_json tsm_update_meta
-export -f tsm_set_status tsm_process_alive tsm_list_tracked tsm_remove_meta
-export -f tsm_add_port tsm_remove_port tsm_uptime

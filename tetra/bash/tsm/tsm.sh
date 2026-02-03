@@ -86,6 +86,7 @@ tsm() {
         build)    tsm_build "$@" ;;
 
         # Diagnostics
+        check)    tsm_check "$@" ;;
         doctor)   tsm_doctor "$@" ;;
         patrol)   tsm_patrol "$@" ;;
 
@@ -129,7 +130,7 @@ LIST        ls [available|enabled] [-U] [--org ORG]
 INSPECT     info, logs, ports, describe
 BUILD       build <env>, promote [file.tsm]
 SERVICES    save, enable, disable, startup, stack
-SYSTEM      doctor, patrol, cleanup, setup, users
+SYSTEM      check, doctor, patrol, cleanup, setup, users
 INTEGRATE   caddy
 REMOTE      @target or -H user@host prefix
 
@@ -149,4 +150,3 @@ tsm help start                Detailed command help
 EOF
 }
 
-export -f tsm

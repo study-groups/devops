@@ -217,4 +217,3 @@ _tsm_list_services() {
     [[ $count -eq 0 ]] && echo "(no services ${mode})"
 }
 
-export -f _tsm_svc_col _tsm_svc_sep _tsm_get_services_dirs _tsm_extract_org _tsm_is_enabled _tsm_service_running _tsm_list_services

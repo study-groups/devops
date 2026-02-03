@@ -368,10 +368,3 @@ tsm_logs_subcommand() {
 # === EXPORTS ===
 
 export TSM_LOG_ROTATION_SIZE_MB TSM_LOG_RETENTION_DAYS TSM_LOG_COMPRESS TSM_LOG_ARCHIVE_DIR
-export -f tsm_logs_rotate tsm_logs_rotate_one tsm_logs_rotate_all
-export -f tsm_logs_archive tsm_logs_archive_one
-export -f tsm_logs_clean tsm_logs_clean_one
-export -f tsm_logs_export
-export -f tsm_logs_list
-export -f tsm_logs_subcommand
-export -f _tsm_file_size _tsm_should_rotate _tsm_archive_name _tsm_logs_export_s3

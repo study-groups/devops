@@ -349,4 +349,3 @@ _tsm_list_long() {
     [[ $count -eq 0 ]] && echo "(no processes)"
 }
 
-export -f _tsm_list_verbose _tsm_list_long

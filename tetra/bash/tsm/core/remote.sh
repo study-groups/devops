@@ -233,5 +233,3 @@ tsm_remote_status() {
 # === EXPORTS ===
 
 export TSM_REMOTE_SSH_OPTS
-export -f tsm_resolve_target tsm_remote tsm_parse_remote_args tsm_maybe_remote
-export -f tsm_remote_ping tsm_remote_status

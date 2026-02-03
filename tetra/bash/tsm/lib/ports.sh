@@ -164,6 +164,3 @@ tsm_port_connection_details() {
 }
 
 export TSM_PORT_MIN TSM_PORT_MAX
-export -f tsm_port_available tsm_allocate_port tsm_resolve_port
-export -f tsm_detect_port tsm_port_pid tsm_port_type tsm_parse_env_port
-export -f tsm_port_connections tsm_port_connection_details

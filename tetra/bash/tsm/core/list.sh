@@ -84,6 +84,11 @@ tsm_list() {
             else
                 _tsm_list_table "$show_all"
             fi
+
+            # Warn about early exits detected during sweep
+            if [[ ${_TSM_EARLY_EXIT_COUNT:-0} -gt 0 ]]; then
+                echo "warn: ${_TSM_EARLY_EXIT_COUNT} service(s) exited early. Use 'tsm logs <name> --err' to inspect." >&2
+            fi
             ;;
     esac
 }
@@ -91,6 +96,7 @@ tsm_list() {
 # Sweep stale (dead) processes
 _tsm_sweep_stale() {
     local processes_dirs=()
+    local early_exit_count=0
 
     if [[ "$_TSM_LIST_ALL_USERS" == "true" ]] && tsm_multi_user_enabled; then
         # Sweep all users' processes
@@ -116,9 +122,13 @@ _tsm_sweep_stale() {
             if [[ "$status" == "online" ]] && ! tsm_is_pid_alive "$pid"; then
                 # Update status in place
                 jq '.status = "stopped"' "$meta" > "${meta}.tmp" && mv "${meta}.tmp" "$meta"
+                # Check for early exit marker
+                [[ -f "${dir}early_exit" ]] && ((early_exit_count++))
             fi
         done
     done
+
+    # Store count for post-table warning
+    _TSM_EARLY_EXIT_COUNT=$early_exit_count
 }
 
-export -f tsm_list _tsm_sweep_stale

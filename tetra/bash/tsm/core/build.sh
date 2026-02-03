@@ -492,5 +492,3 @@ tsm_build() {
     return $rc
 }
 
-export -f tsm_build _tsm_build_env _tsm_parse_toml _tsm_list_envs
-export -f _tsm_toml_get _tsm_build_chain _tsm_merge_section _tsm_resolve_env

@@ -66,4 +66,3 @@ tsm_has_flock() { [[ -n "$(tsm_get_flock)" ]]; }
 tsm_has_setsid() { [[ -n "$(tsm_get_setsid)" ]]; }
 
 export TSM_PLATFORM TSM_PLATFORM_HOMEBREW_PREFIX
-export -f tsm_get_flock tsm_get_setsid tsm_has_flock tsm_has_setsid

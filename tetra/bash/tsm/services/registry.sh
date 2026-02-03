@@ -332,4 +332,3 @@ tsm_promote() {
     echo "Enable with: tsm enable $name"
 }
 
-export -f tsm_services tsm_save tsm_rm tsm_enable tsm_disable tsm_show tsm_add tsm_promote

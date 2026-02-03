@@ -219,8 +219,3 @@ tsm_format_name() {
 # =============================================================================
 
 export _TSM_HAS_TDS
-export -f tsm_esc tsm_reset
-export -f tsm_colorize_status tsm_status_esc _tsm_status_token
-export -f tsm_format_name
-export -f tsm_header tsm_success tsm_error tsm_warn tsm_msg_info
-export -f tsm_col_esc

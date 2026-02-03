@@ -33,7 +33,6 @@ _tsm_json_escape() {
 }
 
 # Export for use in other modules
-export -f _tsm_json_escape
 
 tsm_json_error() {
     local message="$1" code="${2:-1}"
@@ -423,13 +422,3 @@ tsm_format_uptime() {
 
 # === EXPORTS ===
 
-export -f tsm_error tsm_warn
-export -f tsm_json_error tsm_json_success
-export -f tsm_is_pid_alive tsm_is_running
-export -f tsm_get_next_id
-export -f tsm_resolve_name _tsm_resolve_error
-export -f tsm_validate_script tsm_validate_env_file tsm_find_env_file
-export -f tsm_env_get tsm_env_gets tsm_parse_env_port
-export -f tsm_resolve_path
-export -f _tsm_safe_remove_dir
-export -f tsm_term_width tsm_format_uptime

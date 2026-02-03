@@ -101,4 +101,3 @@ _tsm_analyze_syntax() {
     done
 }
 
-export -f _tsm_analyze_help _tsm_analyze_syntax

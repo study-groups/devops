@@ -127,4 +127,3 @@ tsm_is_running() {
     kill -0 "$pid" 2>/dev/null
 }
 
-export -f _tsm_patrol_user tsm_patrol tsm_is_running

@@ -27,9 +27,15 @@ _tsm_startup_user() {
             continue
         fi
 
-        # Source service definition
-        local TSM_NAME="" TSM_COMMAND="" TSM_PORT="" TSM_ENV="" TSM_CWD=""
-        source "$svc_file" 2>/dev/null
+        # Source service definition in subshell to prevent env leaks
+        # (.tsm files may export USER, PATH, etc. that clobber our context)
+        local TSM_NAME TSM_COMMAND TSM_PORT TSM_ENV TSM_CWD
+        eval "$(bash -c "
+            TSM_NAME='' TSM_COMMAND='' TSM_PORT='' TSM_ENV='' TSM_CWD=''
+            source '$svc_file' 2>/dev/null
+            printf 'TSM_NAME=%q TSM_COMMAND=%q TSM_PORT=%q TSM_ENV=%q TSM_CWD=%q' \
+                \"\$TSM_NAME\" \"\$TSM_COMMAND\" \"\$TSM_PORT\" \"\$TSM_ENV\" \"\$TSM_CWD\"
+        ")"
 
         local display_name="${TSM_NAME:-$name}"
         echo "  Starting: $username:$display_name"
@@ -42,7 +48,8 @@ _tsm_startup_user() {
 
         # Run as the target user from service CWD
         local start_ok=false
-        if [[ "$username" == "$USER" || "$username" == "$(whoami)" ]]; then
+        local whoami=$(whoami)
+        if [[ "$username" == "$whoami" ]]; then
             (
                 cd "${TSM_CWD:-$PWD}" 2>/dev/null || true
                 tsm_start "${args[@]}" >/dev/null 2>&1
@@ -51,6 +58,8 @@ _tsm_startup_user() {
             # Root starting another user's service
             sudo -u "$username" bash -c "
                 source ~/tetra/tetra.sh
+                tetra_nvm_activate
+                tmod load tsm
                 cd '${TSM_CWD:-$PWD}' 2>/dev/null || true
                 tsm_start ${args[*]@Q} >/dev/null 2>&1
             " && start_ok=true
@@ -109,4 +118,3 @@ tsm_startup() {
     echo "Total started: $total_started, Failed: $total_failed"
 }
 
-export -f _tsm_startup_user tsm_startup

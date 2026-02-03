@@ -180,5 +180,3 @@ if declare -F tsm_hook_register &>/dev/null; then
     tsm_hook_register "post_stop" "_tsm_caddy_autoreload_hook"
 fi
 
-export -f tsm_caddy tsm_caddy_generate tsm_caddy_show tsm_caddy_reload
-export -f tsm_caddy_start tsm_caddy_stop tsm_caddy_status _tsm_caddy_autoreload_hook
