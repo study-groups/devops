@@ -37,14 +37,6 @@
             border-radius: 2px;
             margin-left: 4px;
         }
-        .env-indicator {
-            font-size: 9px;
-            color: var(--ink-muted);
-        }
-        .env-indicator.dev { color: var(--three); }
-        .env-indicator.staging { color: var(--three); }
-        .env-indicator.prod { color: var(--one); }
-
         /* Expandable service rows */
         .service-row {
             cursor: pointer;
@@ -124,6 +116,82 @@
             word-break: break-all;
             max-height: 120px;
             overflow-y: auto;
+        }
+
+        /* Log toolbar */
+        .log-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .log-toolbar .search-input {
+            flex: 1;
+            min-width: 100px;
+            max-width: 180px;
+            padding: 4px 8px;
+            font-size: 9px;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            background: var(--paper-dark);
+            color: var(--ink);
+        }
+        .log-toolbar .search-input:focus {
+            outline: none;
+            border-color: var(--two);
+        }
+        .log-toolbar select {
+            padding: 4px 6px;
+            font-size: 9px;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            background: var(--paper-dark);
+            color: var(--ink);
+        }
+        .log-toolbar .pill-group {
+            display: flex;
+            gap: 2px;
+        }
+        .log-toolbar .pill {
+            padding: 3px 6px;
+            font-size: 8px;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            background: var(--paper-mid);
+            color: var(--ink-muted);
+            cursor: pointer;
+        }
+        .log-toolbar .pill:hover {
+            color: var(--ink);
+            border-color: var(--ink-muted);
+        }
+        .log-toolbar .pill.active {
+            background: var(--two);
+            color: var(--paper-dark);
+            border-color: var(--two);
+        }
+        .log-toolbar .export-btn {
+            padding: 3px 8px;
+            font-size: 8px;
+            border: 1px solid var(--three);
+            border-radius: 2px;
+            background: transparent;
+            color: var(--three);
+            cursor: pointer;
+        }
+        .log-toolbar .export-btn:hover {
+            background: var(--three);
+            color: var(--paper-dark);
+        }
+        .log-toolbar .export-btn.hidden {
+            display: none;
+        }
+
+        /* Log highlight for search matches */
+        .log-highlight {
+            background: rgba(255, 230, 109, 0.3);
+            color: var(--three);
         }
 
         /* Tab navigation */

@@ -120,11 +120,32 @@ body {
     color: var(--ink-muted);
 }
 
-.org-repo {
-    font-size: 8px;
-    color: var(--three, #6a9);
-    font-family: monospace;
-    margin-top: 1px;
+.org-badges {
+    display: flex;
+    gap: 4px;
+    margin-top: 2px;
+}
+
+.org-badge {
+    font-size: 7px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    text-transform: uppercase;
+}
+
+.org-badge.infra {
+    background: rgba(99, 102, 241, 0.2);
+    color: var(--four);
+}
+
+.org-badge.sections {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--three);
+}
+
+.org-badge.nh {
+    background: rgba(245, 158, 11, 0.2);
+    color: var(--one);
 }
 
 .org-label {
@@ -138,6 +159,239 @@ body {
 
 .org-label.system { background: rgba(99, 102, 241, 0.2); color: var(--four); }
 .org-label.admin { background: rgba(245, 158, 11, 0.2); color: var(--three); }
+
+/* Config Panel */
+.org-config {
+    padding-top: 4px;
+}
+
+.config-empty {
+    text-align: center;
+    color: var(--ink-muted);
+    font-size: 10px;
+    padding: 20px;
+}
+
+.config-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+.config-title {
+    font-weight: 600;
+    color: var(--two);
+    font-size: 14px;
+}
+
+.config-type {
+    font-size: 9px;
+    padding: 2px 8px;
+    background: var(--paper-mid);
+    border-radius: 8px;
+    color: var(--ink-muted);
+}
+
+.config-section {
+    margin-bottom: 16px;
+}
+
+.config-section-title {
+    font-size: 9px;
+    color: var(--three);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+}
+
+.config-desc {
+    font-size: 10px;
+    color: var(--ink-muted);
+    margin: 0 0 10px 0;
+}
+
+/* Config Status Grid */
+.config-status-grid {
+    display: flex;
+    gap: 12px;
+}
+
+.config-status-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    padding: 4px 8px;
+    background: var(--paper-mid);
+    border-radius: 4px;
+}
+
+.config-status-icon {
+    font-size: 10px;
+}
+
+.config-status-item.ok .config-status-icon { color: var(--three); }
+.config-status-item.missing .config-status-icon { color: var(--one); }
+.config-status-item.na .config-status-icon { color: var(--ink-muted); }
+
+/* Sections List */
+.config-sections-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.config-section-file {
+    font-size: 9px;
+    padding: 2px 6px;
+    background: var(--paper-dark);
+    border-radius: 3px;
+    color: var(--two);
+    font-family: monospace;
+}
+
+.config-hint {
+    font-size: 9px;
+    color: var(--ink-muted);
+}
+
+.config-hint code {
+    background: var(--paper-dark);
+    padding: 1px 4px;
+    border-radius: 2px;
+    color: var(--four);
+}
+
+/* Workflow Steps */
+.config-workflow {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.workflow-step {
+    display: flex;
+    gap: 10px;
+    padding: 8px;
+    background: var(--paper-mid);
+    border-radius: 4px;
+    border-left: 3px solid var(--four);
+}
+
+.workflow-num {
+    width: 20px;
+    height: 20px;
+    background: var(--four);
+    color: var(--paper-dark);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.workflow-content {
+    flex: 1;
+}
+
+.workflow-title {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 4px;
+}
+
+.workflow-cmd {
+    font-size: 9px;
+    font-family: monospace;
+    background: var(--paper-dark);
+    padding: 4px 8px;
+    border-radius: 2px;
+    color: var(--two);
+    margin-bottom: 4px;
+}
+
+.workflow-hint {
+    font-size: 8px;
+    color: var(--ink-muted);
+}
+
+/* NH Status */
+.config-nh-status {
+    font-size: 9px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    margin-top: 8px;
+}
+
+.config-nh-status.ok {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--three);
+}
+
+/* Config Actions */
+.config-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.config-btn {
+    padding: 6px 12px;
+    font-size: 9px;
+    border: 1px solid var(--four);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--four);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.config-btn:hover {
+    background: var(--four);
+    color: var(--paper-dark);
+}
+
+.config-btn.secondary {
+    border-color: var(--border);
+    color: var(--ink-muted);
+}
+
+.config-btn.secondary:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+    background: transparent;
+}
+
+/* Config Paths */
+.config-paths {
+    background: var(--paper-mid);
+    border-radius: 4px;
+    padding: 8px;
+}
+
+.config-path-row {
+    display: flex;
+    gap: 8px;
+    font-size: 9px;
+    padding: 3px 0;
+}
+
+.config-path-label {
+    color: var(--ink-muted);
+    min-width: 70px;
+}
+
+.config-path-value {
+    color: var(--two);
+    font-family: monospace;
+}
 
 /* Workspace */
 .org-workspace {

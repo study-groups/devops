@@ -275,6 +275,83 @@ router.get('/:org/file/*', (req, res) => {
     }
 });
 
+/**
+ * GET /api/orgs/:org/storage
+ * Get S3/storage configuration for an organization
+ */
+router.get('/:org/storage', (req, res) => {
+    try {
+        const { org } = req.params;
+        const orgDir = path.join(ORGS_DIR, org);
+
+        if (!fs.existsSync(orgDir)) {
+            return res.status(404).json({ error: 'Organization not found' });
+        }
+
+        // Try to read storage config from tetra.toml
+        const tetraToml = path.join(orgDir, 'tetra.toml');
+        const sectionsStorage = path.join(orgDir, 'sections', '30-storage.toml');
+
+        let bucket = null;
+        let endpoint = null;
+        let region = null;
+        let prefix = null;
+
+        // Check sections file first, then main tetra.toml
+        const configFiles = [sectionsStorage, tetraToml];
+
+        for (const configFile of configFiles) {
+            if (fs.existsSync(configFile)) {
+                try {
+                    const content = fs.readFileSync(configFile, 'utf-8');
+
+                    // Look for [storage.s3] section
+                    const s3Section = content.match(/\[storage\.s3\]([\s\S]*?)(?=\n\[|$)/);
+                    if (s3Section) {
+                        const section = s3Section[1];
+                        bucket = bucket || extractTomlValue(section, 'bucket');
+                        endpoint = endpoint || extractTomlValue(section, 'endpoint');
+                        region = region || extractTomlValue(section, 'region');
+                        prefix = prefix || extractTomlValue(section, 'prefix');
+                    }
+                } catch (e) {
+                    console.warn(`[API/orgs] Failed to parse ${configFile}:`, e.message);
+                }
+            }
+        }
+
+        // Check environment variables as fallback
+        if (!bucket && process.env.TSM_LOG_S3_BUCKET) {
+            bucket = process.env.TSM_LOG_S3_BUCKET;
+        }
+        if (!endpoint && process.env.TSM_LOG_S3_ENDPOINT) {
+            endpoint = process.env.TSM_LOG_S3_ENDPOINT;
+        }
+
+        const configured = !!bucket;
+
+        res.json({
+            org,
+            configured,
+            bucket: bucket || null,
+            endpoint: endpoint || 'https://nyc3.digitaloceanspaces.com',
+            region: region || 'nyc3',
+            prefix: prefix || 'tsm/logs/',
+            source: bucket ? (fs.existsSync(sectionsStorage) ? 'sections/30-storage.toml' : 'tetra.toml') : 'none'
+        });
+    } catch (error) {
+        console.error('[API/orgs] Error getting storage config:', error);
+        res.status(500).json({ error: 'Failed to get storage configuration' });
+    }
+});
+
+// Helper to extract TOML value from a section string
+function extractTomlValue(section, key) {
+    const regex = new RegExp(`^${key}\\s*=\\s*"?([^"\\n]*)"?`, 'm');
+    const match = section.match(regex);
+    return match ? match[1].trim() : null;
+}
+
 // Keep old workspace/* route for backwards compatibility
 router.get('/:org/workspace/*', (req, res) => {
     try {

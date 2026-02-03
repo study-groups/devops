@@ -5,13 +5,17 @@ const Infra = (function() {
 
     // State
     let orgData = { servers: {}, inventory: {} };
+    let storageData = { configured: false };
 
     // DOM references
     const dom = {
         grid: () => document.getElementById('server-grid'),
         panel: () => document.getElementById('detail-panel'),
         detailBody: () => document.getElementById('detail-body'),
-        backupStatus: () => document.getElementById('backup-status')
+        backupStatus: () => document.getElementById('backup-status'),
+        storageStatus: () => document.getElementById('storage-status'),
+        storageConfig: () => document.getElementById('storage-config'),
+        storageBrowser: () => document.getElementById('storage-browser')
     };
 
     // Template helpers
@@ -35,11 +39,12 @@ const Infra = (function() {
             const status = cfg.status || 'unknown';
             const homeUsers = inv.home ? Object.keys(inv.home) : [];
             const usersHtml = buildUserList(homeUsers, inv.home);
+            const floatingIp = cfg.floating_ip || cfg.floatingIp;
 
             return `
                 <span class="server-badge ${status}">${status}</span>
                 <div class="server-name">${esc(name)}</div>
-                <div class="server-ip">${esc(cfg.ip)}</div>
+                <div class="server-ip">${esc(cfg.ip)}${floatingIp ? `<span class="floating-ip" title="Floating IP">${esc(floatingIp)}</span>` : ''}</div>
                 <div class="server-desc">${esc(cfg.description || '')}</div>
                 <div class="server-stats">
                     <span>${homeUsers.length} users</span>
@@ -50,9 +55,21 @@ const Infra = (function() {
         },
 
         detailPanel: (name, cfg, inv) => {
+            const floatingIp = cfg.floating_ip || cfg.floatingIp;
             let content = `
                 <div class="detail-title">${esc(name)}</div>
-                <div style="font-size:10px;color:var(--ink-muted);margin-bottom:8px;">${esc(cfg.ip)}</div>
+                <div class="detail-ips">
+                    <div class="detail-ip-row">
+                        <span class="detail-ip-label">Droplet IP:</span>
+                        <span class="detail-ip-value">${esc(cfg.ip)}</span>
+                    </div>
+                    ${floatingIp ? `
+                    <div class="detail-ip-row floating">
+                        <span class="detail-ip-label">Floating IP:</span>
+                        <span class="detail-ip-value">${esc(floatingIp)}</span>
+                    </div>
+                    ` : ''}
+                </div>
                 <p style="font-size:10px;">${esc(cfg.description || '')}</p>
             `;
 
@@ -94,13 +111,15 @@ const Infra = (function() {
                 content += '</div>';
             }
 
+            // Use floating IP for SSH if available, otherwise droplet IP
+            const sshIp = floatingIp || cfg.ip;
             content += `
                 <div class="detail-section">
                     <div class="detail-section-title">Actions</div>
-                    <button class="btn" data-copy="ssh root@${esc(cfg.ip)}">SSH</button>
+                    <button class="btn" data-copy="ssh root@${esc(sshIp)}">SSH${floatingIp ? ' (float)' : ''}</button>
                     <button class="btn" data-copy="./backup-${esc(name)}.sh --dry-run">Dry Run</button>
                     <button class="btn primary" data-copy="./backup-${esc(name)}.sh">Backup</button>
-                    <div class="cmd">ssh root@${esc(cfg.ip)}</div>
+                    <div class="cmd">ssh root@${esc(sshIp)}</div>
                 </div>
             `;
 
@@ -109,7 +128,50 @@ const Infra = (function() {
 
         loading: () => '<div class="loading">Loading infrastructure data...</div>',
         error: (msg) => `<div class="error">${esc(msg)}</div>`,
-        noData: (org) => `<div class="loading">No infrastructure data for ${esc(org)}</div>`
+        noData: (org) => `<div class="loading">No infrastructure data for ${esc(org)}</div>`,
+
+        // Storage templates
+        storageConfig: (data) => {
+            if (!data.configured) {
+                return `
+                    <div class="storage-config-grid">
+                        <span class="storage-config-label">Status:</span>
+                        <span class="storage-config-value not-set">Not configured</span>
+                    </div>
+                    <p style="font-size:9px;color:var(--ink-muted);margin-top:8px;">
+                        Run <code style="background:var(--paper-dark);padding:1px 4px;">org storage init</code> to configure S3 storage.
+                    </p>
+                `;
+            }
+            return `
+                <div class="storage-config-grid">
+                    <span class="storage-config-label">Bucket:</span>
+                    <span class="storage-config-value">${esc(data.bucket)}</span>
+                    <span class="storage-config-label">Endpoint:</span>
+                    <span class="storage-config-value">${esc(data.endpoint)}</span>
+                    <span class="storage-config-label">Region:</span>
+                    <span class="storage-config-value">${esc(data.region)}</span>
+                    <span class="storage-config-label">Prefix:</span>
+                    <span class="storage-config-value">${esc(data.prefix)}</span>
+                    <span class="storage-config-label">Source:</span>
+                    <span class="storage-config-value">${esc(data.source)}</span>
+                </div>
+                <button class="storage-test-btn" data-action="test-storage">Test Connection</button>
+                <div id="storage-test-result"></div>
+            `;
+        },
+
+        storageBrowser: (objects) => {
+            if (!objects || objects.length === 0) {
+                return '<div class="storage-empty">No objects found in prefix</div>';
+            }
+            return objects.map(obj => `
+                <div class="storage-object">
+                    <span class="storage-object-name${obj.isFolder ? ' folder' : ''}">${esc(obj.name)}</span>
+                    <span class="storage-object-size">${esc(obj.size || '')}</span>
+                </div>
+            `).join('');
+        }
     };
 
     // Escape HTML to prevent XSS
@@ -241,6 +303,100 @@ const Infra = (function() {
         });
     }
 
+    // Load storage configuration
+    async function loadStorage() {
+        const org = getOrg();
+        const statusEl = dom.storageStatus();
+        const configEl = dom.storageConfig();
+        const browserEl = dom.storageBrowser();
+
+        if (statusEl) statusEl.textContent = 'Checking...';
+        if (configEl) configEl.innerHTML = '<div class="loading">Loading storage configuration...</div>';
+
+        try {
+            const resp = await fetch(`/api/orgs/${encodeURIComponent(org)}/storage`);
+            if (resp.ok) {
+                storageData = await resp.json();
+            } else {
+                storageData = { configured: false, error: 'Failed to load' };
+            }
+        } catch (e) {
+            console.warn('Failed to fetch storage config:', e.message);
+            storageData = { configured: false, error: e.message };
+        }
+
+        renderStorage();
+    }
+
+    // Render storage UI
+    function renderStorage() {
+        const statusEl = dom.storageStatus();
+        const configEl = dom.storageConfig();
+        const browserEl = dom.storageBrowser();
+
+        if (statusEl) {
+            if (storageData.configured) {
+                statusEl.textContent = 'Configured';
+                statusEl.className = 'storage-status configured';
+            } else {
+                statusEl.textContent = 'Not Configured';
+                statusEl.className = 'storage-status not-configured';
+            }
+        }
+
+        if (configEl) {
+            configEl.innerHTML = html.storageConfig(storageData);
+        }
+
+        if (browserEl) {
+            if (storageData.configured) {
+                browserEl.innerHTML = `
+                    <div class="storage-browser-header">
+                        <span class="storage-browser-title">Log Archives</span>
+                        <span class="storage-browser-path">s3://${esc(storageData.bucket)}/${esc(storageData.prefix)}</span>
+                    </div>
+                    <div class="storage-objects" id="storage-objects">
+                        <div class="storage-empty">Click "Test Connection" to list objects</div>
+                    </div>
+                `;
+            } else {
+                browserEl.innerHTML = '';
+            }
+        }
+    }
+
+    // Test storage connection
+    async function testStorage() {
+        const resultEl = document.getElementById('storage-test-result');
+        if (!resultEl) return;
+
+        resultEl.className = 'storage-test-result';
+        resultEl.textContent = 'Testing connection...';
+
+        try {
+            const org = getOrg();
+            const resp = await fetch(`/api/tsm/logs/s3-status?org=${encodeURIComponent(org)}`);
+            const data = await resp.json();
+
+            if (data.configured) {
+                resultEl.className = 'storage-test-result success';
+                resultEl.textContent = `Connection OK - Bucket: ${data.bucket}`;
+
+                // Update objects list
+                const objectsEl = document.getElementById('storage-objects');
+                if (objectsEl) {
+                    objectsEl.innerHTML = '<div class="storage-empty">Connection verified. Use CLI to browse objects.</div>';
+                }
+            } else {
+                resultEl.className = 'storage-test-result error';
+                resultEl.textContent = data.error || 'S3 not configured on server';
+            }
+        } catch (e) {
+            resultEl.className = 'storage-test-result error';
+            resultEl.textContent = 'Connection failed: ' + e.message;
+        }
+    }
+
     // Initialize tab switching
     function initTabs() {
         document.querySelectorAll('.infra-tab').forEach(tab => {
@@ -250,6 +406,10 @@ const Infra = (function() {
                 tab.classList.add('active');
                 document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
 
+                // Load storage data when switching to storage tab
+                if (tab.dataset.tab === 'storage') {
+                    loadStorage();
+                }
             });
         });
     }
@@ -278,9 +438,22 @@ const Infra = (function() {
         // Refresh button
         const refreshBtn = document.querySelector('[data-action="refresh"]');
         if (refreshBtn) {
-            refreshBtn.addEventListener('click', loadData);
+            refreshBtn.addEventListener('click', () => {
+                loadData();
+                // Also refresh storage if on storage tab
+                const storageTab = document.querySelector('.infra-tab[data-tab="storage"]');
+                if (storageTab && storageTab.classList.contains('active')) {
+                    loadStorage();
+                }
+            });
         }
 
+        // Storage test button (event delegation)
+        document.addEventListener('click', (e) => {
+            if (e.target.matches('[data-action="test-storage"]')) {
+                testStorage();
+            }
+        });
     }
 
     // Initialize Terrain integration for org changes
@@ -308,6 +481,7 @@ const Infra = (function() {
     return {
         init,
         loadData,
+        loadStorage,
         closeDetail
     };
 })();

@@ -106,6 +106,23 @@ body {
     font-size: 9px;
     color: var(--ink-muted);
     font-family: monospace;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.floating-ip {
+    font-size: 8px;
+    color: var(--three);
+    background: rgba(16, 185, 129, 0.15);
+    padding: 1px 4px;
+    border-radius: 2px;
+}
+
+.floating-ip::before {
+    content: "float: ";
+    color: var(--ink-muted);
 }
 
 .server-desc {
@@ -181,7 +198,32 @@ body {
 .detail-title {
     color: var(--two);
     font-size: 14px;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
+}
+
+.detail-ips {
+    margin-bottom: 8px;
+}
+
+.detail-ip-row {
+    display: flex;
+    gap: 8px;
+    font-size: 10px;
+    padding: 2px 0;
+}
+
+.detail-ip-label {
+    color: var(--ink-muted);
+    min-width: 70px;
+}
+
+.detail-ip-value {
+    color: var(--ink);
+    font-family: monospace;
+}
+
+.detail-ip-row.floating .detail-ip-value {
+    color: var(--three);
 }
 
 .detail-section {
@@ -259,3 +301,201 @@ body {
 .legend-dot.important { background: var(--one); }
 .legend-dot.active { background: var(--two); }
 .legend-dot.cleanup { background: var(--ink-muted); }
+
+/* Storage Panel */
+.storage-panel {
+    padding: 0;
+}
+
+.storage-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.storage-title {
+    font-weight: 600;
+    color: var(--three);
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.storage-status {
+    font-size: 9px;
+    padding: 2px 8px;
+    border-radius: 8px;
+    background: var(--paper-mid);
+    color: var(--ink-muted);
+}
+
+.storage-status.configured {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--three);
+}
+
+.storage-status.not-configured {
+    background: rgba(245, 158, 11, 0.2);
+    color: var(--one);
+}
+
+.storage-config {
+    background: var(--paper-mid);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 12px;
+}
+
+.storage-config .loading {
+    color: var(--ink-muted);
+    font-size: 10px;
+    text-align: center;
+    padding: 10px;
+}
+
+.storage-config-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 12px;
+    font-size: 10px;
+}
+
+.storage-config-label {
+    color: var(--two);
+}
+
+.storage-config-value {
+    color: var(--ink);
+    font-family: monospace;
+    word-break: break-all;
+}
+
+.storage-config-value.not-set {
+    color: var(--ink-muted);
+    font-style: italic;
+}
+
+/* Storage Browser */
+.storage-browser {
+    margin-bottom: 12px;
+}
+
+.storage-browser-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.storage-browser-title {
+    font-size: 10px;
+    color: var(--three);
+    text-transform: uppercase;
+}
+
+.storage-browser-path {
+    font-size: 9px;
+    color: var(--ink-muted);
+    font-family: monospace;
+}
+
+.storage-objects {
+    background: var(--paper-dark);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.storage-object {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 9px;
+}
+
+.storage-object:last-child {
+    border-bottom: none;
+}
+
+.storage-object:hover {
+    background: var(--paper-mid);
+}
+
+.storage-object-name {
+    color: var(--two);
+    font-family: monospace;
+}
+
+.storage-object-name.folder {
+    color: var(--three);
+}
+
+.storage-object-size {
+    color: var(--ink-muted);
+}
+
+.storage-object-date {
+    color: var(--ink-muted);
+    font-size: 8px;
+}
+
+.storage-empty {
+    text-align: center;
+    padding: 20px;
+    color: var(--ink-muted);
+    font-size: 10px;
+}
+
+/* Storage Actions */
+.storage-actions {
+    margin-top: 12px;
+}
+
+.storage-actions h4 {
+    color: var(--three);
+    font-size: 10px;
+    text-transform: uppercase;
+    margin: 12px 0 6px 0;
+}
+
+.storage-actions h4:first-child {
+    margin-top: 0;
+}
+
+/* Connection Test Button */
+.storage-test-btn {
+    padding: 4px 10px;
+    font-size: 9px;
+    border: 1px solid var(--three);
+    border-radius: 2px;
+    background: transparent;
+    color: var(--three);
+    cursor: pointer;
+    margin-top: 8px;
+}
+
+.storage-test-btn:hover {
+    background: var(--three);
+    color: var(--paper-dark);
+}
+
+.storage-test-result {
+    margin-top: 6px;
+    padding: 6px 8px;
+    border-radius: 2px;
+    font-size: 9px;
+}
+
+.storage-test-result.success {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--three);
+}
+
+.storage-test-result.error {
+    background: rgba(255, 107, 107, 0.1);
+    color: var(--one);
+}

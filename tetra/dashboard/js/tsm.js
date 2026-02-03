@@ -13,7 +13,14 @@ const state = {
     user: params.get('user') || '',
     watchedServices: new Set(JSON.parse(localStorage.getItem('tsm-watched-logs') || '[]')),
     expandedService: null,
-    serviceInfoCache: new Map()
+    serviceInfoCache: new Map(),
+    // Log filtering state
+    logFilter: {
+        search: '',
+        level: 'all',
+        timeRange: 'all'  // all, 1m, 5m, 1h
+    },
+    s3Configured: false
 };
 
 // DOM elements
@@ -156,17 +163,30 @@ async function toggleExpand(serviceName) {
     }
 }
 
-async function fetchServiceInfo(serviceName) {
+async function fetchServiceInfo(serviceName, forceRefresh = false) {
     const detailsEl = document.querySelector(`.service-details[data-service="${serviceName}"]`);
     if (!detailsEl) return;
 
     detailsEl.innerHTML = '<span class="loading">Loading...</span>';
 
     try {
+        // Build logs URL with filter params
+        let logsUrl = getApiUrl(`/api/tsm/logs/${serviceName}`) + '&lines=50';
+
+        // Add time range filter
+        if (state.logFilter.timeRange !== 'all') {
+            logsUrl += `&since=${state.logFilter.timeRange}`;
+        }
+
+        // Add server-side search filter
+        if (state.logFilter.search) {
+            logsUrl += `&search=${encodeURIComponent(state.logFilter.search)}`;
+        }
+
         // Fetch info and recent logs in parallel
         const [infoRes, logsRes] = await Promise.all([
             fetch(getApiUrl(`/api/tsm/info/${serviceName}`)),
-            fetch(getApiUrl(`/api/tsm/logs/${serviceName}`) + '&lines=10')
+            fetch(logsUrl)
         ]);
         const data = await infoRes.json();
         const logsData = await logsRes.json();
@@ -176,6 +196,87 @@ async function fetchServiceInfo(serviceName) {
     } catch (err) {
         detailsEl.innerHTML = `<span class="error">Failed to load info: ${err.message}</span>`;
     }
+}
+
+// Filter logs by level (client-side)
+function filterLogsByLevel(logs, level) {
+    if (level === 'all') return logs;
+
+    const lines = logs.split('\n');
+    const filtered = lines.filter(line => {
+        const lowerLine = line.toLowerCase();
+        switch (level) {
+            case 'error':
+                return lowerLine.includes('error') || lowerLine.includes('err]') || lowerLine.includes('[e]');
+            case 'warn':
+                return lowerLine.includes('warn') || lowerLine.includes('[w]');
+            case 'info':
+                return lowerLine.includes('info') || lowerLine.includes('[i]') ||
+                       (!lowerLine.includes('error') && !lowerLine.includes('warn'));
+            default:
+                return true;
+        }
+    });
+    return filtered.join('\n');
+}
+
+// Highlight search matches in logs
+function highlightSearchMatches(logs, search) {
+    if (!search) return logs;
+
+    const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    return logs.replace(regex, '<span class="log-highlight">$1</span>');
+}
+
+// Check S3 configuration status
+async function checkS3Status() {
+    try {
+        const res = await fetch(getApiUrl('/api/tsm/logs/s3-status'));
+        const data = await res.json();
+        state.s3Configured = data.configured || false;
+    } catch (err) {
+        state.s3Configured = false;
+    }
+}
+
+// Export logs to S3
+async function exportLogsToS3(serviceName) {
+    try {
+        const res = await fetch(getApiUrl(`/api/tsm/logs/export/${serviceName}`), { method: 'POST' });
+        const data = await res.json();
+
+        if (data.error) {
+            showToast(`Export failed: ${data.error}`, 'error');
+        } else {
+            showToast(`Logs exported successfully`, 'success');
+        }
+    } catch (err) {
+        showToast(`Export failed: ${err.message}`, 'error');
+    }
+}
+
+// Simple toast notification
+function showToast(message, type = 'info') {
+    const existing = document.querySelector('.toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 10px;
+        z-index: 1000;
+        background: ${type === 'error' ? 'var(--one)' : 'var(--three)'};
+        color: var(--paper-dark);
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
 }
 
 function renderServiceInfo(serviceName, data) {
@@ -238,16 +339,52 @@ function renderServiceInfo(serviceName, data) {
         html += `<div class="info-section"><pre style="margin:0;white-space:pre-wrap;color:var(--ink);font-size:9px;">${info.raw}</pre></div>`;
     }
 
-    // Recent logs section
-    if (data.recentLogs) {
-        const escapedLogs = data.recentLogs
+    // Recent logs section with toolbar
+    if (data.recentLogs || state.expandedService === serviceName) {
+        // Apply level filter
+        let filteredLogs = data.recentLogs || '';
+        filteredLogs = filterLogsByLevel(filteredLogs, state.logFilter.level);
+
+        // Escape HTML
+        let escapedLogs = filteredLogs
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
+
+        // Apply search highlighting (after escaping)
+        if (state.logFilter.search) {
+            escapedLogs = highlightSearchMatches(escapedLogs, state.logFilter.search);
+        }
+
+        const exportBtnClass = state.s3Configured ? 'export-btn' : 'export-btn hidden';
+
         html += `
             <div class="info-section">
                 <div class="info-section-title">Recent Logs</div>
-                <pre class="recent-logs">${escapedLogs}</pre>
+                <div class="log-toolbar">
+                    <input type="text" class="search-input" placeholder="Search logs..."
+                           value="${state.logFilter.search}"
+                           data-action="log-search" data-service="${serviceName}">
+                    <select data-action="log-level" data-service="${serviceName}">
+                        <option value="all"${state.logFilter.level === 'all' ? ' selected' : ''}>All</option>
+                        <option value="error"${state.logFilter.level === 'error' ? ' selected' : ''}>Error</option>
+                        <option value="warn"${state.logFilter.level === 'warn' ? ' selected' : ''}>Warn</option>
+                        <option value="info"${state.logFilter.level === 'info' ? ' selected' : ''}>Info</option>
+                    </select>
+                    <div class="pill-group">
+                        <button class="pill${state.logFilter.timeRange === '1m' ? ' active' : ''}"
+                                data-action="log-time" data-time="1m" data-service="${serviceName}">1m</button>
+                        <button class="pill${state.logFilter.timeRange === '5m' ? ' active' : ''}"
+                                data-action="log-time" data-time="5m" data-service="${serviceName}">5m</button>
+                        <button class="pill${state.logFilter.timeRange === '1h' ? ' active' : ''}"
+                                data-action="log-time" data-time="1h" data-service="${serviceName}">1h</button>
+                        <button class="pill${state.logFilter.timeRange === 'all' ? ' active' : ''}"
+                                data-action="log-time" data-time="all" data-service="${serviceName}">All</button>
+                    </div>
+                    <button class="${exportBtnClass}"
+                            data-action="export-logs" data-service="${serviceName}">Export</button>
+                </div>
+                <pre class="recent-logs">${escapedLogs || '(no logs)'}</pre>
             </div>
         `;
     }
@@ -352,8 +489,49 @@ function init() {
     Terrain.Iframe.on('switch-tab', (el, data) => switchTab(data.tab));
     Terrain.Iframe.on('refresh', () => loadServices());
 
+    // Log toolbar actions
+    Terrain.Iframe.on('log-time', (el, data) => {
+        state.logFilter.timeRange = data.time;
+        state.serviceInfoCache.delete(data.service);
+        fetchServiceInfo(data.service, true);
+    });
+
+    Terrain.Iframe.on('export-logs', (el, data) => {
+        exportLogsToS3(data.service);
+    });
+
+    // Handle log search input (with debounce)
+    let searchTimeout = null;
+    document.addEventListener('input', (e) => {
+        if (e.target.matches('[data-action="log-search"]')) {
+            const service = e.target.dataset.service;
+            state.logFilter.search = e.target.value;
+
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                state.serviceInfoCache.delete(service);
+                fetchServiceInfo(service, true);
+            }, 300);
+        }
+    });
+
+    // Handle log level select
+    document.addEventListener('change', (e) => {
+        if (e.target.matches('[data-action="log-level"]')) {
+            const service = e.target.dataset.service;
+            state.logFilter.level = e.target.value;
+            // Level filter is client-side, just re-render
+            if (state.serviceInfoCache.has(service)) {
+                renderServiceInfo(service, state.serviceInfoCache.get(service));
+            }
+        }
+    });
+
     // Listen for env-change messages from parent
     Terrain.Bus.subscribe('env-change', handleEnvChange);
+
+    // Check S3 configuration on load
+    checkS3Status();
 
     loadServices();
     setInterval(loadServices, CONFIG.refreshInterval);

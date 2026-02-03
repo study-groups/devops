@@ -64,9 +64,14 @@ _org_help() {
     echo -e "  ${C}secrets list${N}       Show secret keys"
     echo -e "  ${C}secrets edit${N}       Edit secrets.env"
     echo ""
+    echo -e "${Y}STORAGE${N}"
+    echo -e "  ${C}storage init${N}       Create S3/Spaces bucket, configure tetra.toml"
+    echo -e "  ${C}storage status${N}     Show bucket and connectivity status"
+    echo -e "  ${C}storage test${N}       Upload/download test object"
+    echo ""
     echo -e "${Y}ALL COMMANDS${N}"
     echo -e "  ${D}Orgs${N}    status list switch create init alias unalias"
-    echo -e "  ${D}Build${N}   sections build import domain pdata secrets"
+    echo -e "  ${D}Build${N}   sections build import domain pdata secrets storage"
     echo -e "  ${D}Toml${N}    view section get set edit validate path"
     echo -e "  ${D}Env${N}     env"
 }
@@ -128,6 +133,7 @@ source "$ORG_SRC/org_build.sh"
 source "$ORG_SRC/org_secrets.sh"
 source "$ORG_SRC/org_domain.sh"
 source "$ORG_SRC/org_guide.sh"
+source "$ORG_SRC/org_storage.sh"
 source "$ORG_SRC/org_complete.sh"
 
 # =============================================================================
@@ -907,6 +913,11 @@ EOF
         # Secrets management
         secrets|sec)
             org_secrets "$@"
+            ;;
+
+        # Storage management (S3/Spaces)
+        storage|stor)
+            org_storage "$@"
             ;;
 
         # SSH - delegate to tkm or use variables directly

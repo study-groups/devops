@@ -310,9 +310,10 @@ router.post('/restart/:service', (req, res) => {
 //   lines - Number of lines (default: 50)
 //   format - Output format: "text" (default) or "json"
 //   since - Filter by time (e.g., "5m", "1h")
+//   search - Text search filter (grep on server side)
 router.get('/logs/:service', (req, res) => {
     const service = req.params.service;
-    const { org = 'tetra', env = 'local', user = '', lines = 50, format = 'text', since = '' } = req.query;
+    const { org = 'tetra', env = 'local', user = '', lines = 50, format = 'text', since = '', search = '' } = req.query;
 
     try {
         let cmd = `tsm logs ${service} -n ${lines}`;
@@ -350,19 +351,82 @@ router.get('/logs/:service', (req, res) => {
             }
         } else {
             // Text format returns raw log output
-            const output = runTsm(cmd, org, env, user || null);
+            let output = runTsm(cmd, org, env, user || null);
+
+            // Apply server-side search filter if provided
+            if (search && output) {
+                const searchLower = search.toLowerCase();
+                const lines = output.split('\n');
+                const filtered = lines.filter(line => line.toLowerCase().includes(searchLower));
+                output = filtered.join('\n');
+            }
+
             res.json({
                 service,
                 logs: output,
                 org,
                 env,
                 user: user || null,
-                format: 'text'
+                format: 'text',
+                search: search || null
             });
         }
     } catch (err) {
         res.status(500).json({ error: err.message, service, org, env, user: user || null });
     }
+});
+
+// Check S3 configuration status
+router.get('/logs/s3-status', (req, res) => {
+    const { org = 'tetra', env = 'local' } = req.query;
+
+    try {
+        // Check if TSM_LOG_S3_BUCKET is configured
+        const output = runTsm('echo "${TSM_LOG_S3_BUCKET:-}"', org, env);
+        const bucket = output.trim();
+
+        res.json({
+            configured: !!bucket,
+            bucket: bucket || null,
+            org,
+            env
+        });
+    } catch (err) {
+        res.json({
+            configured: false,
+            bucket: null,
+            error: err.message,
+            org,
+            env
+        });
+    }
+});
+
+// Export logs to S3/Spaces
+router.post('/logs/export/:service', (req, res) => {
+    const service = req.params.service;
+    const { org = 'tetra', env = 'local', destination = 'spaces' } = req.query;
+
+    runTsmAsync(`tsm logs export ${service} --destination ${destination}`, org, env, (err, stdout, stderr) => {
+        if (err) {
+            res.status(500).json({
+                error: stderr || err.message,
+                status: 'failed',
+                service,
+                org,
+                env
+            });
+        } else {
+            res.json({
+                message: stdout.trim(),
+                status: 'exported',
+                service,
+                org,
+                env,
+                destination
+            });
+        }
+    });
 });
 
 // Patrol - single check pass

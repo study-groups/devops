@@ -11,6 +11,7 @@
     <div class="iframe-header" style="padding: 0 0 8px 0; border: none;">
         <div class="infra-tabs">
             <span class="infra-tab active" data-tab="servers">Servers</span>
+            <span class="infra-tab" data-tab="storage">Storage</span>
             <span class="infra-tab" data-tab="backups">Backups</span>
             <span class="infra-tab" data-tab="info">Info</span>
         </div>
@@ -24,6 +25,34 @@
             <div class="legend-item"><div class="legend-dot cleanup"></div> Cleanup</div>
         </div>
         <div class="server-grid" id="server-grid"></div>
+    </div>
+
+    <div id="tab-storage" class="tab-content">
+        <div class="storage-panel">
+            <div class="storage-header">
+                <span class="storage-title">S3/Spaces Storage</span>
+                <span class="storage-status" id="storage-status">Checking...</span>
+            </div>
+            <div class="storage-config" id="storage-config">
+                <div class="loading">Loading storage configuration...</div>
+            </div>
+            <div class="storage-browser" id="storage-browser">
+                <!-- Populated by JS -->
+            </div>
+            <div class="storage-actions">
+                <h4>Quick Commands</h4>
+                <div class="cmd">org storage status          # Check connectivity
+org storage test            # Upload/download test
+tsm logs export all         # Export all logs to S3</div>
+                <h4>Configuration</h4>
+                <div class="cmd"># Set credentials
+export DO_SPACES_KEY="your-key"
+export DO_SPACES_SECRET="your-secret"
+
+# Initialize bucket
+org storage init</div>
+            </div>
+        </div>
     </div>
 
     <div id="tab-backups" class="tab-content">
@@ -115,6 +144,7 @@ exclude = ["ds-env", "nltk_data", "dist"]</div>
         "servers": {
             "do4-n2": {
                 "ip": "68.183.248.67",
+                "floating_ip": "167.99.0.123",
                 "priority": 1,
                 "status": "important",
                 "description": "Production server",
