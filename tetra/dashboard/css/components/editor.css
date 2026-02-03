@@ -1,0 +1,147 @@
+/**
+ * TDS Editor Component
+ * CodeMirror theme and editor styles
+ */
+
+/* Tetra dark theme for CodeMirror */
+.cm-s-tetra.CodeMirror {
+    background: var(--paper-dark);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-base);
+    height: auto;
+}
+
+.cm-s-tetra .CodeMirror-gutters {
+    background: var(--paper-mid);
+    border-right: 1px solid var(--border);
+    color: var(--ink-muted);
+}
+
+.cm-s-tetra .CodeMirror-linenumber {
+    color: var(--ink-muted);
+}
+
+.cm-s-tetra .CodeMirror-cursor {
+    border-left: 2px solid var(--four);
+}
+
+.cm-s-tetra .CodeMirror-selected {
+    background: var(--paper-light);
+}
+
+.cm-s-tetra .CodeMirror-focused .CodeMirror-selected {
+    background: rgba(107, 92, 231, 0.3);
+}
+
+.cm-s-tetra .CodeMirror-matchingbracket {
+    color: var(--two) !important;
+    font-weight: bold;
+}
+
+/* Syntax colors - mapped to TDS palette */
+.cm-s-tetra .cm-keyword { color: var(--four); }
+.cm-s-tetra .cm-atom { color: var(--one); }
+.cm-s-tetra .cm-number { color: var(--two); }
+.cm-s-tetra .cm-def { color: var(--ink); }
+.cm-s-tetra .cm-variable { color: var(--ink); }
+.cm-s-tetra .cm-variable-2 { color: var(--four-bright); }
+.cm-s-tetra .cm-variable-3, .cm-s-tetra .cm-type { color: var(--three); }
+.cm-s-tetra .cm-property { color: var(--two); }
+.cm-s-tetra .cm-operator { color: var(--ink-muted); }
+.cm-s-tetra .cm-comment { color: var(--ink-muted); font-style: italic; }
+.cm-s-tetra .cm-string { color: var(--two); }
+.cm-s-tetra .cm-string-2 { color: var(--two-bright); }
+.cm-s-tetra .cm-meta { color: var(--three); }
+.cm-s-tetra .cm-qualifier { color: var(--four); }
+.cm-s-tetra .cm-builtin { color: var(--four); }
+.cm-s-tetra .cm-bracket { color: var(--ink-muted); }
+.cm-s-tetra .cm-tag { color: var(--one); }
+.cm-s-tetra .cm-attribute { color: var(--three); }
+.cm-s-tetra .cm-header { color: var(--four); font-weight: bold; }
+.cm-s-tetra .cm-quote { color: var(--two); }
+.cm-s-tetra .cm-hr { color: var(--ink-muted); }
+.cm-s-tetra .cm-link { color: var(--four); }
+.cm-s-tetra .cm-error { color: var(--one); }
+
+/* TOML-specific */
+.cm-s-tetra .cm-toml-section { color: var(--four); font-weight: bold; }
+.cm-s-tetra .cm-toml-key { color: var(--ink); }
+.cm-s-tetra .cm-toml-value { color: var(--two); }
+
+/* Active line */
+.cm-s-tetra .CodeMirror-activeline-background {
+    background: var(--paper-mid);
+}
+
+/* Scrollbars */
+.cm-s-tetra .CodeMirror-vscrollbar,
+.cm-s-tetra .CodeMirror-hscrollbar {
+    outline: none;
+}
+
+/* Editor wrapper */
+.tetra-editor {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.tetra-editor__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--paper-mid);
+    border-bottom: 1px solid var(--border);
+    font-size: var(--font-size-xs);
+    color: var(--ink-muted);
+}
+
+.tetra-editor__title {
+    text-transform: uppercase;
+}
+
+.tetra-editor__actions {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.tetra-editor__status {
+    font-size: var(--font-size-xs);
+    color: var(--ink-muted);
+}
+
+.tetra-editor__status--dirty {
+    color: var(--three);
+}
+
+.tetra-editor__status--saving {
+    color: var(--four);
+}
+
+.tetra-editor__status--saved {
+    color: var(--two);
+}
+
+.tetra-editor__status--error {
+    color: var(--one);
+}
+
+/* Simple textarea fallback */
+.tetra-editor__textarea {
+    width: 100%;
+    min-height: 200px;
+    background: var(--paper-dark);
+    border: none;
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-base);
+    padding: var(--space-md);
+    resize: vertical;
+    outline: none;
+}
+
+.tetra-editor__textarea:focus {
+    outline: none;
+}

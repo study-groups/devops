@@ -1,0 +1,183 @@
+/**
+ * TDS Base Styles
+ * Reset, scrollbars, body defaults
+ */
+
+/* Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Dark scrollbars - WebKit */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--paper-dark);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--paper-mid);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #333;
+}
+
+/* Dark scrollbars - Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--paper-mid) var(--paper-dark);
+}
+
+/* Base body */
+body {
+    background: var(--paper-dark);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-base);
+}
+
+/* Common utilities */
+.hidden {
+    display: none;
+}
+
+.empty {
+    color: var(--ink-muted);
+    padding: var(--space-xl);
+    text-align: center;
+}
+
+.error {
+    color: var(--one);
+    padding: var(--space-md);
+}
+
+/* Status dot */
+.status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ink-muted);
+}
+
+.status-dot.online,
+.status-dot.connected {
+    background: var(--two);
+}
+
+.status-dot.stopped,
+.status-dot.offline,
+.status-dot.disconnected {
+    background: var(--one);
+}
+
+/* Icons - semantic classes for common UI icons */
+.icon::before {
+    font-style: normal;
+}
+
+.icon-gear::before    { content: "\2699"; }   /* settings/options */
+.icon-refresh::before { content: "\21BB"; }   /* refresh/reload */
+.icon-close::before   { content: "\00D7"; }   /* close/dismiss */
+.icon-plus::before    { content: "+"; }       /* add/new */
+.icon-copy::before    { content: "\2398"; }   /* copy */
+
+/* Empty state */
+.empty-state {
+    padding: var(--space-xl);
+    text-align: center;
+    color: var(--ink-muted);
+    font-size: var(--font-size-sm);
+}
+
+/* Badge */
+.badge {
+    background: var(--paper-dark);
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+}
+
+/* Section headers */
+h2 {
+    font-size: var(--font-size-sm);
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin: 0 0 6px 0;
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--border);
+}
+
+.section {
+    margin-bottom: var(--space-lg);
+}
+
+/* Form inputs - dark by default */
+.input,
+input[type="text"],
+input[type="url"],
+input[type="email"],
+input[type="password"],
+input[type="number"] {
+    background: var(--paper-dark);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    padding: var(--space-md) var(--space-lg);
+    font-family: inherit;
+    font-size: var(--font-size-base);
+    border-radius: var(--radius-sm);
+}
+
+.input:focus,
+input:focus {
+    outline: none;
+    border-color: var(--four);
+}
+
+.input::placeholder,
+input::placeholder {
+    color: var(--ink-muted);
+}
+
+.input-sm {
+    padding: 6px var(--space-md);
+    font-size: var(--font-size-sm);
+}
+
+.select,
+select {
+    background: var(--paper-dark);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    padding: var(--space-md) var(--space-lg);
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+    border-radius: var(--radius-sm);
+}
+
+/* Log display */
+.log {
+    background: var(--paper-dark);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    max-height: 120px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+}
+
+.log-entry { margin-bottom: 2px; }
+.log-entry.ok { color: var(--two); }
+.log-entry.err { color: var(--one); }
+.log-entry.warn { color: var(--three); }
+.log-entry.info { color: var(--ink-muted); }
