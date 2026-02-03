@@ -65,13 +65,15 @@ _org_help() {
     echo -e "  ${C}secrets edit${N}       Edit secrets.env"
     echo ""
     echo -e "${Y}STORAGE${N}"
-    echo -e "  ${C}storage init${N}       Create S3/Spaces bucket, configure tetra.toml"
-    echo -e "  ${C}storage status${N}     Show bucket and connectivity status"
-    echo -e "  ${C}storage test${N}       Upload/download test object"
+    echo -e "  ${C}s3 list${N}            List S3 buckets"
+    echo -e "  ${C}s3 init${N}            Create bucket, configure [s3] in tetra.toml"
+    echo -e "  ${C}s3 status${N}          Show bucket and connectivity status"
+    echo -e "  ${C}volumes list${N}       List DO block storage volumes"
+    echo -e "  ${C}volumes init${N}       Create volume, configure [volumes] in tetra.toml"
     echo ""
     echo -e "${Y}ALL COMMANDS${N}"
     echo -e "  ${D}Orgs${N}    status list switch create init alias unalias"
-    echo -e "  ${D}Build${N}   sections build import domain pdata secrets storage"
+    echo -e "  ${D}Build${N}   sections build import domain pdata secrets s3 volumes"
     echo -e "  ${D}Toml${N}    view section get set edit validate path"
     echo -e "  ${D}Env${N}     env"
 }
@@ -133,7 +135,8 @@ source "$ORG_SRC/org_build.sh"
 source "$ORG_SRC/org_secrets.sh"
 source "$ORG_SRC/org_domain.sh"
 source "$ORG_SRC/org_guide.sh"
-source "$ORG_SRC/org_storage.sh"
+source "$ORG_SRC/org_s3.sh"
+source "$ORG_SRC/org_volumes.sh"
 source "$ORG_SRC/org_complete.sh"
 
 # =============================================================================
@@ -595,7 +598,8 @@ org() {
 
                 # Show optional configured sections
                 local extras=""
-                grep -q '^\[storage' "$toml" 2>/dev/null && extras+="storage "
+                grep -q '^\[s3\.' "$toml" 2>/dev/null && extras+="s3 "
+                grep -q '^\[volumes' "$toml" 2>/dev/null && extras+="volumes "
                 grep -q '^\[resources' "$toml" 2>/dev/null && extras+="resources "
                 grep -q '^\[services' "$toml" 2>/dev/null && extras+="services "
                 [[ -n "$extras" ]] && echo "" && echo "Also: $extras"
@@ -915,9 +919,14 @@ EOF
             org_secrets "$@"
             ;;
 
-        # Storage management (S3/Spaces)
-        storage|stor)
-            org_storage "$@"
+        # S3-compatible object storage (AWS S3, DO Spaces, MinIO)
+        s3)
+            org_s3 "$@"
+            ;;
+
+        # Block storage volumes (DigitalOcean Volumes)
+        volumes|vol)
+            org_volumes "$@"
             ;;
 
         # SSH - delegate to tkm or use variables directly

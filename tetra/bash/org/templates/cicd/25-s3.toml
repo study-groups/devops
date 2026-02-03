@@ -1,0 +1,11 @@
+# S3-compatible object storage
+# Configure with: org s3 init <name>
+
+# [s3.logs]
+# bucket = "{{ORG_NAME}}-logs"
+# endpoint = "https://nyc3.digitaloceanspaces.com"
+# region = "nyc3"
+
+# [s3.assets]
+# bucket = "{{ORG_NAME}}-assets"
+# region = "us-east-1"  # AWS S3 (no endpoint)

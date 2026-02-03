@@ -1,0 +1,7 @@
+# DigitalOcean block storage volumes
+# Configure with: org volumes init
+
+# [volumes.data]
+# size = "10"
+# region = "nyc3"
+# mount = "/mnt/data"
