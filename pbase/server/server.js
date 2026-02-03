@@ -54,14 +54,18 @@ import { LocalGameProvider } from './lib/LocalGameProvider.js';
 import { GameManifest } from './lib/GameManifest.js';
 import { ManifestTools } from './lib/ManifestTools.js';
 import { MagicLink } from './lib/MagicLink.js';
+import { InviteStore } from './lib/InviteStore.js';
 import { getHealth as getPermissionsHealth } from './lib/permissions.js';
+import { getPermissions } from './lib/permissions.js';
+import { JWT_SECRET } from './lib/config.js';
+import jwt from 'jsonwebtoken';
 import { initializeValidation, getValidationHealth, validateGame } from './middleware/validation.js';
 
 // Initialize services
 const pdata = new PData();
-const magicLink = new MagicLink({
-    baseUrl: process.env.PBASE_URL || `http://localhost:${PORT}`,
-});
+const PBASE_URL = process.env.PBASE_URL || `http://localhost:${PORT}`;
+const magicLink = new MagicLink({ baseUrl: PBASE_URL });
+const inviteStore = new InviteStore(PD_DIR);
 
 let s3Provider = null;
 let manifestTools = null;
@@ -122,6 +126,70 @@ app.use('/api/auth', createAuthRoutes(pdata, magicLink));
 app.use('/api/s3', createS3Routes(s3Provider, pdata, manifestTools));
 app.use('/api/games', createGamesRoutes(workspace, pdata, s3Provider));
 app.use('/api/admin', createAdminRoutes(pdata));
+
+// Invite routes (public landing page + admin API)
+import { createInviteRoutes } from './routes/invite.js';
+app.use(createInviteRoutes(inviteStore, pdata, magicLink, PBASE_URL));
+
+// GET /api/auth/check — Called by Caddy forward_auth
+// Returns 200 with X-User headers or 401
+app.get('/api/auth/check', (req, res) => {
+    // Parse cookie
+    const cookieHeader = req.headers.cookie || '';
+    let sessionToken = null;
+    for (const pair of cookieHeader.split(';')) {
+        const [name, ...rest] = pair.trim().split('=');
+        if (name === 'pbase_session') {
+            sessionToken = decodeURIComponent(rest.join('='));
+            break;
+        }
+    }
+
+    // Try cookie first, then Authorization header
+    const authHeader = req.headers.authorization;
+
+    // JWT from cookie
+    if (sessionToken) {
+        try {
+            const decoded = jwt.verify(sessionToken, JWT_SECRET);
+            const role = pdata.getUserRole(decoded.username) || decoded.role || 'user';
+            res.set('X-User-ID', decoded.username);
+            res.set('X-User-Email', decoded.email || '');
+            res.set('X-User-Role', role);
+            return res.sendStatus(200);
+        } catch { /* fall through */ }
+    }
+
+    // JWT from Bearer header
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        try {
+            const decoded = jwt.verify(authHeader.slice(7), JWT_SECRET);
+            const role = pdata.getUserRole(decoded.username) || decoded.role || 'user';
+            res.set('X-User-ID', decoded.username);
+            res.set('X-User-Email', decoded.email || '');
+            res.set('X-User-Role', role);
+            return res.sendStatus(200);
+        } catch { /* fall through */ }
+    }
+
+    // Basic Auth
+    if (authHeader && authHeader.startsWith('Basic ')) {
+        try {
+            const decoded = Buffer.from(authHeader.slice(6), 'base64').toString('utf-8');
+            const [username, ...rest] = decoded.split(':');
+            const password = rest.join(':');
+            if (pdata.validateUser(username, password)) {
+                const role = pdata.getUserRole(username) || 'user';
+                res.set('X-User-ID', username);
+                res.set('X-User-Email', '');
+                res.set('X-User-Role', role);
+                return res.sendStatus(200);
+            }
+        } catch { /* fall through */ }
+    }
+
+    res.sendStatus(401);
+});
 
 // Workspace/Org endpoints - for managing local workspace
 import { readdir } from 'fs/promises';

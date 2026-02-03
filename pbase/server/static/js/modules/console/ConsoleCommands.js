@@ -25,6 +25,11 @@ export const CATEGORIES = {
         color: '#ba68c8',
         description: 'ControlDeck integration'
     },
+    cabinet: {
+        label: 'CABINET',
+        color: '#ff9900',
+        description: 'Gamma cabinet control'
+    },
     theme: {
         label: 'THEME',
         color: '#f06292',
@@ -240,6 +245,32 @@ export const THEME_COMMANDS = {
     }
 };
 
+// Cabinet commands (gamma-cabinet universal player)
+export const CABINET_COMMANDS = {
+    cabinet: {
+        description: 'Load gamma-cabinet player',
+        usage: 'cabinet',
+        category: 'cabinet'
+    },
+    'cabinet.load': {
+        description: 'Load game in cabinet by slug',
+        usage: 'cabinet.load <slug>',
+        args: ['slug'],
+        category: 'cabinet'
+    },
+    'cabinet.unload': {
+        description: 'Unload current game from cabinet',
+        usage: 'cabinet.unload',
+        category: 'cabinet'
+    },
+    'cabinet.flax': {
+        description: 'Connect cabinet to flax server',
+        usage: 'cabinet.flax <host> <port>',
+        args: ['host', 'port'],
+        category: 'cabinet'
+    }
+};
+
 // Frame/iframe commands
 export const FRAME_COMMANDS = {
     load: {
@@ -315,6 +346,7 @@ export const ALL_COMMANDS = {
     ...RT_COMMANDS,
     ...MP_COMMANDS,
     ...DECK_COMMANDS,
+    ...CABINET_COMMANDS,
     ...THEME_COMMANDS,
     ...FRAME_COMMANDS,
     ...UTIL_COMMANDS

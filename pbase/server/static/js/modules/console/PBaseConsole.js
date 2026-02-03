@@ -42,6 +42,9 @@ export class PBaseConsole {
         // Current loaded game
         this._currentGame = null;
 
+        // Cabinet state
+        this._cabinetLoaded = false;
+
         // Resize state
         this._resizing = false;
         this._startPos = 0;
@@ -580,6 +583,78 @@ export class PBaseConsole {
         } else if (cmd === 'deckstate') {
             const state = this._parseJson(args.join(' '));
             this.output.result(`ControlDeck state: ${JSON.stringify(state)}`, 'deck');
+
+        // Cabinet commands (gamma-cabinet universal player)
+        } else if (cmd === 'cabinet') {
+            // Load gamma-cabinet into the frame
+            const cabinetUrl = 'http://localhost:4444/api/pbase/cabinet';
+            this._updateStatus('loading');
+            this._urlInput.value = cabinetUrl;
+            this.frame.load(cabinetUrl);
+            this._cabinetLoaded = true;
+            this.output.result('Loading gamma-cabinet...', 'cabinet');
+        } else if (cmd === 'cabinet.load') {
+            if (!this._cabinetLoaded) {
+                this.output.warn('Load cabinet first with: cabinet');
+                return;
+            }
+            const slug = args[0];
+            if (!slug) {
+                this.output.error('Usage: cabinet.load <slug>');
+                return;
+            }
+            // Find game in list
+            const game = this.games.find(g => g.slug === slug || g.id === slug);
+            if (!game) {
+                this.output.error(`Game not found: ${slug}`);
+                return;
+            }
+            // Send load command to cabinet via postMessage
+            this.frame.iframe.contentWindow.postMessage({
+                source: 'pbase',
+                cmd: 'load',
+                game: {
+                    type: game.type || 'static',
+                    host: game.host || 'localhost',
+                    port: game.port || 1600,
+                    entry: game.entry,
+                    name: game.name || slug,
+                    id: game.id || slug
+                }
+            }, '*');
+            this._currentGame = game;
+            this._updateStatusBar(game);
+            this.output.result(`Loading ${game.name || slug} in cabinet...`, 'cabinet');
+        } else if (cmd === 'cabinet.unload') {
+            if (!this._cabinetLoaded) {
+                this.output.warn('Cabinet not loaded');
+                return;
+            }
+            this.frame.iframe.contentWindow.postMessage({
+                source: 'pbase',
+                cmd: 'unload'
+            }, '*');
+            this._currentGame = null;
+            this._updateStatusBar(null);
+            this.output.result('Cabinet unloaded', 'cabinet');
+        } else if (cmd === 'cabinet.flax') {
+            if (!this._cabinetLoaded) {
+                this.output.warn('Load cabinet first with: cabinet');
+                return;
+            }
+            const host = args[0] || 'localhost';
+            const port = parseInt(args[1]) || 1600;
+            this.frame.iframe.contentWindow.postMessage({
+                source: 'pbase',
+                cmd: 'load',
+                game: {
+                    type: 'flax',
+                    host,
+                    port,
+                    name: `flax@${host}:${port}`
+                }
+            }, '*');
+            this.output.result(`Connecting cabinet to ws://${host}:${port}...`, 'cabinet');
 
         // Theme commands
         } else if (cmd === 'theme.get') {
