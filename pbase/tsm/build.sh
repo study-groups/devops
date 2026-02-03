@@ -40,10 +40,7 @@ GAMES_DIR=$(get_toml "shared" "GAMES_DIR")
 S3_BUCKET=$(get_toml "shared" "S3_BUCKET")
 S3_ENDPOINT=$(get_toml "shared" "S3_ENDPOINT")
 
-# Expand $HOME
-PBASE_SRC="${PBASE_SRC//\$HOME/$HOME}"
-PD_DIR="${PD_DIR//\$HOME/$HOME}"
-GAMES_DIR="${GAMES_DIR//\$HOME/$HOME}"
+# No expansion needed - using explicit paths
 
 # Build function
 build_env() {
