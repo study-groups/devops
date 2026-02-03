@@ -4,26 +4,16 @@
  */
 const express = require('express');
 const router = express.Router();
-const { execSync } = require('child_process');
 const path = require('path');
-
-const BASH = '/bin/bash';
-const TETRA_SRC = process.env.TETRA_SRC || path.join(process.env.HOME, 'src/devops/tetra');
-const TETRA_DIR = process.env.TETRA_DIR || path.join(process.env.HOME, 'tetra');
+const { tetraExec, TETRA_SRC, TETRA_DIR, BASH } = require('../lib/tetra-exec');
+const { execSync } = require('child_process');
 
 /**
  * Execute nh_bridge command and return JSON result
  */
 function nhbExec(cmd, timeout = 30000) {
-    const fullCmd = `source ~/tetra/tetra.sh && tmod load nh_bridge && ${cmd}`;
     try {
-        const result = execSync(fullCmd, {
-            shell: BASH,
-            encoding: 'utf8',
-            timeout,
-            env: { ...process.env, TETRA_SRC, TETRA_DIR }
-        });
-        return JSON.parse(result.trim());
+        return tetraExec('nh_bridge', cmd, { timeout, json: true });
     } catch (error) {
         console.error('[API/nh] Command failed:', cmd, error.message);
         return { error: error.message };
@@ -171,6 +161,56 @@ router.get('/:context/json-status', (req, res) => {
         res.json(result);
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * POST /api/nh/:org/import
+ * Import digocean.json into tetra sections (10-infrastructure.toml)
+ */
+router.post('/:org/import', (req, res) => {
+    const { org } = req.params;
+    const { confirm, noBuild } = req.body;
+
+    if (!confirm) {
+        return res.status(400).json({
+            error: 'confirmation required',
+            message: 'This will import infrastructure to tetra sections. Set confirm: true to proceed.',
+            org
+        });
+    }
+
+    try {
+        const noBuildArg = noBuild ? 'no-build' : '';
+        const fullCmd = `source ~/tetra/tetra.sh && tmod load nh_bridge && nhb_import ~/nh/${org}/digocean.json ${org} ${noBuildArg} 2>&1`;
+
+        const output = execSync(fullCmd, {
+            shell: BASH,
+            encoding: 'utf8',
+            timeout: 60000,
+            env: { ...process.env, TETRA_SRC, TETRA_DIR }
+        });
+
+        // Parse output for key info
+        const envMatch = output.match(/(\w+): (\S+) \(([^)]+)\)/g) || [];
+        const environments = envMatch.map(m => {
+            const parts = m.match(/(\w+): (\S+) \(([^)]+)\)/);
+            return parts ? { env: parts[1], droplet: parts[2], ip: parts[3] } : null;
+        }).filter(Boolean);
+
+        const updatedMatch = output.match(/Updated: (.+)/);
+        const updated = updatedMatch ? updatedMatch[1] : null;
+
+        res.json({
+            success: !output.includes('Error:') && !output.includes('error(s)'),
+            org,
+            environments,
+            updated,
+            built: !noBuild && !output.includes('Build aborted'),
+            log: output
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message, log: error.stdout || error.stderr });
     }
 });
 

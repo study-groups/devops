@@ -2,7 +2,7 @@ const express = require('express');
 const { execSync, exec, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { BASH } = require('../lib/bash');
+const { tetraExec, tetraSpawn, TETRA_DIR, BASH } = require('../lib/tetra-exec');
 const router = express.Router();
 
 /**
@@ -10,15 +10,8 @@ const router = express.Router();
  * Calls real deploy bash commands
  */
 
-const TETRA_DIR = process.env.TETRA_DIR || path.join(process.env.HOME, 'tetra');
-
 function runDeploy(cmd) {
-    const fullCmd = `source ~/tetra/tetra.sh && tmod load deploy && ${cmd}`;
-    return execSync(fullCmd, {
-        shell: BASH,
-        encoding: 'utf8',
-        timeout: 30000
-    });
+    return tetraExec('deploy', cmd, { timeout: 30000 });
 }
 
 // Simple TOML section parser - extracts keys from a [section]
