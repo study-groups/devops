@@ -48,16 +48,51 @@ function initEvents() {
     const orgListEl = dom.orgList();
     if (orgListEl) {
         orgListEl.addEventListener('click', e => {
+            // Add org button
+            const addBtn = e.target.closest('[data-action="add-org"]');
+            if (addBtn) {
+                e.stopPropagation();
+                showAddOrgForm();
+                return;
+            }
+
+            // Edit registry button (gear)
+            const editRegistryBtn = e.target.closest('[data-action="edit-registry"]');
+            if (editRegistryBtn) {
+                e.stopPropagation();
+                // For now, just open the first org's edit form as a placeholder
+                // Could later show a full registry editor
+                return;
+            }
+
+            // Clone org button
+            const cloneBtn = e.target.closest('[data-action="clone-org"]');
+            if (cloneBtn) {
+                e.stopPropagation();
+                cloneOrg(cloneBtn.dataset.org);
+                return;
+            }
+
+            // Edit org button
+            const editBtn = e.target.closest('[data-action="edit-org"]');
+            if (editBtn) {
+                e.stopPropagation();
+                showEditOrgForm(editBtn.dataset.org);
+                return;
+            }
+
+            // Toggle (only for cloned orgs)
             const toggle = e.target.closest('.org-toggle');
-            if (toggle) {
+            if (toggle && !toggle.classList.contains('disabled')) {
                 e.stopPropagation();
                 Terrain.Orgs.toggle(toggle.dataset.org);
                 renderOrgs();
                 return;
             }
 
+            // Select org (only for cloned orgs)
             const item = e.target.closest('.org-item');
-            if (item) {
+            if (item && item.dataset.cloned === 'true') {
                 selectOrg(item.dataset.org);
             }
         });
