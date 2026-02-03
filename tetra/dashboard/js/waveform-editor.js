@@ -602,6 +602,11 @@
                 playBtn.innerHTML = '&#9654;';
             },
 
+            markSaved: function() {
+                // Reset any "has edits" visual indicator
+                // This is called after onsets are successfully saved to server
+            },
+
             get audio() { return audio; },
             get duration() { return duration; }
         };

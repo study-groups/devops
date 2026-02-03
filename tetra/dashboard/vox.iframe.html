@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Vox</title>
     <link rel="stylesheet" href="shared.css">
+    <link rel="stylesheet" href="css/waveform-editor.css">
     <script src="js/terrain-iframe.js"></script>
     <style>
         * { box-sizing: border-box; }
@@ -49,6 +50,35 @@
         .toolbar-btn:hover { color: var(--ink); border-color: var(--four); }
         .toolbar-btn:disabled { opacity: 0.4; cursor: default; }
         .toolbar-btn.primary { border-color: var(--two); color: var(--two); }
+
+        /* Large tooltip on hover */
+        .toolbar-btn[data-tooltip] {
+            position: relative;
+        }
+        .toolbar-btn[data-tooltip]::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-secondary, #1a1a2e);
+            color: var(--ink, #e0e0e0);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 100;
+            border: 1px solid var(--border, #333);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .toolbar-btn[data-tooltip]:hover::after {
+            opacity: 1;
+        }
+
         .toolbar-spacer { flex: 1; }
         .toolbar-label { font-size: 9px; color: var(--ink-muted); }
         .toolbar-sep { width: 1px; height: 16px; background: var(--border); margin: 0 4px; }
@@ -797,6 +827,7 @@
     </div><!-- /tab-lab -->
 
     <script src="js/tscale.js"></script>
+    <script src="js/waveform-editor.js"></script>
     <script src="js/vox-waveform.js"></script>
     <!-- Vox modules (order matters) -->
     <script src="js/vox/vox-helpers.js"></script>

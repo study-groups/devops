@@ -104,10 +104,10 @@ Vox.buildExpandContent = function(data) {
 
     // Actions
     html += '<div class="expand-actions">';
-    html += '<button class="toolbar-btn expand-save-onsets-btn">Save Onsets</button>';
-    html += '<button class="toolbar-btn expand-analyze-btn">Analyze</button>';
-    html += '<button class="toolbar-btn expand-link-tut-btn">Link to Tut</button>';
-    html += '<button class="toolbar-btn expand-trash-btn">Trash</button>';
+    html += '<button class="toolbar-btn expand-save-onsets-btn" data-tooltip="Save edited word boundaries to server">Save Onsets</button>';
+    html += '<button class="toolbar-btn expand-analyze-btn" data-tooltip="Run audio analysis (RMS, VAD, onsets)">Analyze</button>';
+    html += '<button class="toolbar-btn expand-json-btn" data-tooltip="Copy SpanDoc JSON block to clipboard">JSON</button>';
+    html += '<button class="toolbar-btn expand-trash-btn" data-tooltip="Move this vox entry to trash">Trash</button>';
     html += '</div>';
 
     html += '</div>';
@@ -168,22 +168,49 @@ Vox.populateExpandRow = function(expandRow, data) {
     var td = expandRow.querySelector('td');
     td.innerHTML = Vox.buildExpandContent(data);
 
-    // Initialize waveform player
+    // Initialize waveform editor
     var wfContainer = td.querySelector('.vox-waveform-container');
-    if (wfContainer && window.VoxWaveform && data.id) {
+    var WF = window.WaveformEditor || window.VoxWaveform;
+    if (wfContainer && WF && data.id) {
+        var duration = (data.audio && data.audio.duration) || data.duration || 1;
+        var existingOnsets = [];
+        if (data.layers && data.layers.onsets && data.layers.onsets.data) {
+            var od = data.layers.onsets.data;
+            existingOnsets = Array.isArray(od) ? od.map(function(o) {
+                return typeof o === 'number' ? o : o.start;
+            }) : [];
+        }
+
         var wfOpts = {
             audioUrl: Vox.API + '/db/' + data.id + '/audio',
-            duration: (data.audio && data.audio.duration) || data.duration || 1,
-            sourceText: data.source || ''
+            duration: duration,
+            height: 100,
+            mode: 'seek',
+            vad: { enabled: true, threshold: 0.02, minDuration: 0.08 },
+            onOnsetsChange: function(onsets) {
+                // Mark as having edits
+                var btn = td.querySelector('.expand-save-onsets-btn');
+                if (btn) btn.style.color = 'var(--three)';
+            }
         };
-        if (data.layers) {
-            if (data.layers.rms && data.layers.rms.data) wfOpts.rms = data.layers.rms.data;
-            if (data.layers.vad && data.layers.vad.data) wfOpts.vad = data.layers.vad.data;
-            if (data.layers.onsets && data.layers.onsets.data) {
-                wfOpts.onsets = Array.isArray(data.layers.onsets.data) ? data.layers.onsets.data : [];
+
+        // For VoxWaveform compatibility
+        if (WF === window.VoxWaveform) {
+            wfOpts.sourceText = data.source || '';
+            if (data.layers) {
+                if (data.layers.rms && data.layers.rms.data) wfOpts.rms = data.layers.rms.data;
+                if (data.layers.vad && data.layers.vad.data) wfOpts.vad = data.layers.vad.data;
+                if (existingOnsets.length) wfOpts.onsets = existingOnsets;
             }
         }
-        var player = window.VoxWaveform.create(wfContainer, wfOpts);
+
+        var player = WF.create(wfContainer, wfOpts);
+
+        // Set existing onsets if using new WaveformEditor
+        if (WF === window.WaveformEditor && existingOnsets.length) {
+            player.setOnsets(existingOnsets);
+        }
+
         state.cache['_wf_' + data.id] = player;
     }
 
@@ -236,10 +263,10 @@ Vox.populateExpandRow = function(expandRow, data) {
         });
     }
 
-    // Bind Link to Tut
-    var linkTutBtn = td.querySelector('.expand-link-tut-btn');
-    if (linkTutBtn) {
-        linkTutBtn.addEventListener('click', function() {
+    // Bind JSON (copy SpanDoc block)
+    var jsonBtn = td.querySelector('.expand-json-btn');
+    if (jsonBtn) {
+        jsonBtn.addEventListener('click', function() {
             var label = (data.source || '').substring(0, 60);
             if ((data.source || '').length > 60) label += '...';
             var voice = data.voice || (data.voices && data.voices[0]) || '';
@@ -253,11 +280,11 @@ Vox.populateExpandRow = function(expandRow, data) {
                 sourceHash: (data.source_hash || '').substring(0, 10)
             };
             navigator.clipboard.writeText(JSON.stringify(block, null, 2)).then(function() {
-                linkTutBtn.textContent = 'Copied!';
-                setTimeout(function() { linkTutBtn.textContent = 'Link to Tut'; }, 1500);
+                jsonBtn.textContent = 'Copied!';
+                setTimeout(function() { jsonBtn.textContent = 'JSON'; }, 1500);
             }).catch(function() {
-                linkTutBtn.textContent = 'Copy failed';
-                setTimeout(function() { linkTutBtn.textContent = 'Link to Tut'; }, 1500);
+                jsonBtn.textContent = 'Copy failed';
+                setTimeout(function() { jsonBtn.textContent = 'JSON'; }, 1500);
             });
         });
     }
