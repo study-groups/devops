@@ -439,10 +439,14 @@
             getOnsets: function() {
                 var times = (editableOnsets || normalizeOnsets(onsetsData)).slice();
                 times.sort(function(a, b) { return a - b; });
+                var dur = duration || 1;
                 var result = [];
                 for (var i = 0; i < times.length; i++) {
-                    var next = (i + 1 < times.length) ? times[i + 1] : duration;
-                    result.push({ start: times[i], length: next - times[i] });
+                    var t = times[i];
+                    if (typeof t !== 'number' || isNaN(t)) continue;
+                    var next = (i + 1 < times.length) ? times[i + 1] : dur;
+                    var len = Math.max(0, next - t);
+                    result.push({ start: t, length: len });
                 }
                 return result;
             },
