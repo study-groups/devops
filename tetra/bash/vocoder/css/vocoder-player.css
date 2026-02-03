@@ -1,0 +1,119 @@
+/* vocoder-player.css - Standalone player styles
+ *
+ * Uses CSS custom properties with fallbacks.
+ * Works in terrain themes, vox.iframe.html, or standalone.
+ */
+
+.vocoder-player {
+    --vp-bg: var(--paper-dark, var(--bg-tertiary, #1a1a1a));
+    --vp-text: var(--ink, var(--text-primary, #ccc));
+    --vp-text-muted: var(--ink-muted, var(--text-secondary, #8b949e));
+    --vp-accent: var(--four, var(--accent-primary, #58a6ff));
+    --vp-accent-bg: var(--four-dim, rgba(88,166,255,0.15));
+    --vp-border: var(--border, #30363d);
+
+    background: var(--vp-bg);
+    border: 1px solid var(--vp-border);
+    border-left: 3px solid var(--vp-accent);
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    margin: 1rem 0;
+    font-size: 0.85rem;
+    font-family: inherit;
+}
+
+.vocoder-player-text {
+    color: var(--vp-text);
+    line-height: 1.6;
+    margin-bottom: 0.5rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.vocoder-player-text .vp-word {
+    cursor: pointer;
+    border-radius: 2px;
+    padding: 0 1px;
+    transition: background 0.1s;
+}
+
+.vocoder-player-text .vp-word:hover {
+    background: var(--vp-accent-bg);
+}
+
+.vocoder-player-text .vp-word.active {
+    background: var(--vp-accent);
+    color: #fff;
+}
+
+.vocoder-player-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 0.25rem;
+}
+
+.vocoder-player-controls .vp-play-btn {
+    background: none;
+    border: 1px solid var(--vp-border);
+    color: var(--vp-accent);
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.vocoder-player-controls .vp-play-btn:hover {
+    background: var(--vp-accent-bg);
+}
+
+.vocoder-player-controls .vp-progress {
+    flex: 1;
+    height: 4px;
+    background: var(--vp-border);
+    border-radius: 2px;
+    cursor: pointer;
+    position: relative;
+}
+
+.vocoder-player-controls .vp-progress-fill {
+    height: 100%;
+    background: var(--vp-accent);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.1s linear;
+}
+
+.vocoder-player-controls .vp-time {
+    color: var(--vp-text-muted);
+    font-family: monospace;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+    min-width: 70px;
+    text-align: right;
+}
+
+.vocoder-player-meta {
+    color: var(--vp-text-muted);
+    font-size: 0.7rem;
+    font-family: monospace;
+}
+
+.vocoder-player-status {
+    color: var(--vp-text-muted);
+    font-size: 0.7rem;
+    margin-top: 4px;
+}
+
+.vocoder-player-status.ready {
+    color: var(--success, #3fb950);
+}
+
+.vocoder-player-status.error {
+    color: var(--error, #f85149);
+}
