@@ -55,7 +55,7 @@ _tetra_tsm_services() {
 # TETRA COMMANDS
 # =============================================================================
 
-_TETRA_COMMANDS="status module ctx repl trepl tui doctor help version"
+_TETRA_COMMANDS="config status module ctx python repl trepl tui doctor help version init install remove guide"
 
 # =============================================================================
 # MAIN COMPLETION
@@ -114,8 +114,26 @@ _tetra_complete() {
             fi
             ;;
 
+        python|py)
+            if [[ $COMP_CWORD -eq 2 ]]; then
+                COMPREPLY=($(compgen -W "doctor install activate list state help" -- "$cur"))
+            fi
+            ;;
+
+        install)
+            if [[ $COMP_CWORD -eq 2 ]]; then
+                COMPREPLY=($(compgen -W "nvm bun python all" -- "$cur"))
+            fi
+            ;;
+
         doctor|doc)
             COMPREPLY=()  # No subcommands
+            ;;
+
+        guide)
+            if [[ $COMP_CWORD -eq 2 ]]; then
+                COMPREPLY=($(compgen -W "pipeline sections envs quickstart commands" -- "$cur"))
+            fi
             ;;
 
         repl|trepl|tui)
