@@ -12,6 +12,12 @@ _tds_cmd_help() {
     echo "  modules   list show edit init reload"
     echo "  hex       <#RRGGBB>"
     echo
+    echo "EXPORT"
+    echo "  css           Output CSS variables to stdout"
+    echo "  css --sync    Write to dashboard/tds-vars.css"
+    echo "  css --json    Output as JSON for APIs"
+    echo "  css --map     Show palette→CSS mapping"
+    echo
     echo "TOOLS"
     echo "  doctor    Health check and diagnostics"
     echo "  repl      Interactive color explorer"
@@ -20,6 +26,7 @@ _tds_cmd_help() {
     echo "EXAMPLES"
     echo "  tds theme list"
     echo "  tds theme set warm"
+    echo "  tds css --sync           # sync colors to web dashboard"
     echo "  tds token get status.error"
     echo "  tds modules edit tsm"
     echo "  tds hex #3b82f6"

@@ -14,15 +14,17 @@
 # =============================================================================
 
 _de_init_colors() {
-    if type tds_text_color &>/dev/null; then
-        DE_CLR_HEAD=$(tds_text_color "content.heading.h1")
-        DE_CLR_STEP=$(tds_text_color "content.heading.h2")
-        DE_CLR_CMD=$(tds_text_color "action.primary")
-        DE_CLR_FILE=$(tds_text_color "action.secondary")
-        DE_CLR_DIM=$(tds_text_color "text.muted")
-        DE_CLR_OK=$(tds_text_color "status.success")
-        DE_CLR_WARN=$(tds_text_color "status.warning")
-        DE_CLR_NC=$(reset_color)
+    # Check if TDS is fully initialized (not just function exists, but arrays too)
+    # Suppress stderr to avoid "invalid arithmetic operator" errors from dot-notation keys
+    if type tds_text_color &>/dev/null && declare -p TDS_COLOR_TOKENS &>/dev/null; then
+        DE_CLR_HEAD=$(tds_text_color "content.heading.h1" 2>/dev/null) || DE_CLR_HEAD='\033[1;36m'
+        DE_CLR_STEP=$(tds_text_color "content.heading.h2" 2>/dev/null) || DE_CLR_STEP='\033[0;33m'
+        DE_CLR_CMD=$(tds_text_color "action.primary" 2>/dev/null) || DE_CLR_CMD='\033[0;37m'
+        DE_CLR_FILE=$(tds_text_color "action.secondary" 2>/dev/null) || DE_CLR_FILE='\033[0;32m'
+        DE_CLR_DIM=$(tds_text_color "text.muted" 2>/dev/null) || DE_CLR_DIM='\033[0;90m'
+        DE_CLR_OK=$(tds_text_color "status.success" 2>/dev/null) || DE_CLR_OK='\033[0;32m'
+        DE_CLR_WARN=$(tds_text_color "status.warning" 2>/dev/null) || DE_CLR_WARN='\033[0;33m'
+        DE_CLR_NC=$(reset_color 2>/dev/null) || DE_CLR_NC='\033[0m'
     else
         DE_CLR_HEAD='\033[1;36m'    # Cyan bold
         DE_CLR_STEP='\033[0;33m'    # Yellow
@@ -576,7 +578,7 @@ _de_exec_post() {
 }
 
 de_run() {
-    local pipeline="${1:-default}"
+    local pipeline="${1:-full}"
     local env="$2"
     local dry_run="${3:-0}"
     local items_override="${4:-}"  # Optional: space-separated file keys
@@ -733,8 +735,3 @@ de_show() {
 # EXPORTS
 # =============================================================================
 
-export -f de_load de_run de_show de_pipelines de_files de_envs
-export -f _de_clear _de_parse_value _de_parse_array
-export -f _de_template _de_resolve_files
-export -f _de_exec_build _de_exec_push _de_exec_remote _de_exec_post
-export -f _de_init_colors _de_format_size _de_print_line _de_print_cmd _de_print_file

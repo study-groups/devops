@@ -1,7 +1,10 @@
 /* TETRA Dashboard - Shared Styles */
 
+/* TDS color sync: regenerate with `tds css --sync` */
+@import url('tds-vars.css');
+
 :root {
-    /* Colors - Paper/Ink naming */
+    /* Fallback colors (overridden by tds-vars.css when present) */
     --paper-dark: #0a0a0a;
     --paper-mid: #1a1a1a;
     --paper-light: #2a2a2a;
@@ -379,19 +382,66 @@ select {
     text-transform: uppercase;
 }
 
-/* Loading spinner */
+/* Loading spinner - quad squares */
 .loading {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    border: 2px solid var(--ink-muted);
-    border-radius: 50%;
-    border-top-color: var(--four);
-    animation: spin 1s linear infinite;
+    display: inline-grid;
+    grid-template-columns: repeat(2, 6px);
+    gap: 2px;
+    width: 14px;
+    height: 14px;
 }
 
-@keyframes spin {
-    to { transform: rotate(360deg); }
+.loading::before,
+.loading::after {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: var(--four);
+    border-radius: 1px;
+}
+
+.loading::before {
+    animation: quad-blink 1.4s ease-in-out infinite;
+    animation-delay: 0s;
+    box-shadow: 8px 0 0 var(--four), 0 8px 0 var(--four), 8px 8px 0 var(--four);
+}
+
+.loading::after {
+    animation: quad-blink 1.4s ease-in-out infinite;
+    animation-delay: 0.35s;
+}
+
+/* Quad blink animation - random-feeling staggered fade */
+@keyframes quad-blink {
+    0%, 100% { opacity: 0.15; }
+    25% { opacity: 0.8; }
+    50% { opacity: 0.3; }
+    75% { opacity: 1; }
+}
+
+/* Alternative: individual square animations */
+.quad-spinner {
+    display: grid;
+    grid-template-columns: repeat(2, 6px);
+    gap: 2px;
+}
+
+.quad-spinner span {
+    width: 6px;
+    height: 6px;
+    background: var(--four);
+    border-radius: 1px;
+    animation: quad-fade 1.6s ease-in-out infinite;
+}
+
+.quad-spinner span:nth-child(1) { animation-delay: 0s; }
+.quad-spinner span:nth-child(2) { animation-delay: 0.4s; }
+.quad-spinner span:nth-child(3) { animation-delay: 0.8s; }
+.quad-spinner span:nth-child(4) { animation-delay: 0.2s; }
+
+@keyframes quad-fade {
+    0%, 100% { opacity: 0.1; transform: scale(0.85); }
+    50% { opacity: 1; transform: scale(1); }
 }
 
 /* Empty state */
@@ -426,3 +476,78 @@ select {
     padding: 8px 12px;
     overflow: auto;
 }
+
+/* Grid layouts */
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+
+/* Stat cards - compact data display */
+.stat {
+    background: var(--paper-mid);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 6px 8px;
+}
+.stat-val {
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--four);
+}
+.stat-lbl {
+    font-size: 9px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+}
+.stat.warn .stat-val { color: var(--three); }
+.stat.bad .stat-val { color: var(--one); }
+.stat.good .stat-val { color: var(--two); }
+
+/* Key-value display */
+.kv {
+    display: flex;
+    gap: 8px;
+    padding: 3px 0;
+    border-bottom: 1px solid var(--border);
+}
+.kv:last-child { border-bottom: none; }
+.kv-k {
+    color: var(--ink-muted);
+    min-width: 80px;
+    font-size: 10px;
+}
+.kv-v {
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    word-break: break-all;
+}
+
+/* Log display */
+.log {
+    background: var(--paper-dark);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 6px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    max-height: 120px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+}
+.log-entry { margin-bottom: 2px; }
+.log-entry.ok { color: var(--two); }
+.log-entry.err { color: var(--one); }
+.log-entry.warn { color: var(--three); }
+.log-entry.info { color: var(--ink-muted); }
+
+/* Section headers */
+h2 {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin: 0 0 6px 0;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+}
+.section { margin-bottom: 12px; }

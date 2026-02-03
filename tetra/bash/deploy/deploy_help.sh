@@ -6,15 +6,16 @@
 
 # Help color definitions (TDS semantic colors)
 _deploy_help_colors() {
-    # Use TDS if available, fallback to ANSI
-    if type tds_text_color &>/dev/null; then
-        CLR_H1=$(tds_text_color "content.heading.h1")
-        CLR_H2=$(tds_text_color "content.heading.h2")
-        CLR_CMD=$(tds_text_color "action.primary")
-        CLR_ARG=$(tds_text_color "action.secondary")
-        CLR_DIM=$(tds_text_color "text.muted")
-        CLR_OK=$(tds_text_color "status.success")
-        CLR_NC=$(reset_color)
+    # Use TDS if available and fully initialized, fallback to ANSI
+    # Suppress stderr to avoid "invalid arithmetic operator" errors from dot-notation keys
+    if type tds_text_color &>/dev/null && declare -p TDS_COLOR_TOKENS &>/dev/null; then
+        CLR_H1=$(tds_text_color "content.heading.h1" 2>/dev/null) || CLR_H1='\033[1;34m'
+        CLR_H2=$(tds_text_color "content.heading.h2" 2>/dev/null) || CLR_H2='\033[0;36m'
+        CLR_CMD=$(tds_text_color "action.primary" 2>/dev/null) || CLR_CMD='\033[0;33m'
+        CLR_ARG=$(tds_text_color "action.secondary" 2>/dev/null) || CLR_ARG='\033[0;32m'
+        CLR_DIM=$(tds_text_color "text.muted" 2>/dev/null) || CLR_DIM='\033[0;90m'
+        CLR_OK=$(tds_text_color "status.success" 2>/dev/null) || CLR_OK='\033[0;32m'
+        CLR_NC=$(reset_color 2>/dev/null) || CLR_NC='\033[0m'
     else
         CLR_H1='\033[1;34m'      # Blue bold - section headers
         CLR_H2='\033[0;36m'      # Cyan - subsections
@@ -217,7 +218,7 @@ deploy_help() {
             _deploy_help_sub "Combined Syntax:"
             _deploy_help_cmd "docs:quick:{gdocs}" "Pipeline + items filter"
             _deploy_help_cmd "docs:quick:~gdocs" "Pipeline + shorthand"
-            _deploy_help_cmd "docs:default -index" "Pipeline, exclude via flag"
+            _deploy_help_cmd "docs:full -index" "Pipeline, exclude via flag"
             echo ""
             _deploy_help_sub "Behavior:"
             echo -e "  ${CLR_DIM}• {items} affects both build AND push steps${CLR_NC}"
@@ -290,5 +291,3 @@ deploy_help() {
 # EXPORTS
 # =============================================================================
 
-export -f deploy_help
-export -f _deploy_help_colors _deploy_help_section _deploy_help_sub _deploy_help_cmd _deploy_help_ex

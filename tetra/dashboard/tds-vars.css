@@ -1,0 +1,27 @@
+/* TDS Theme Variables - AUTO-GENERATED */
+/* Source: tds css --sync */
+/* Do not edit manually - changes will be overwritten */
+/* To customize: modify TDS theme, then run: tds css --sync */
+
+/* TDS Generated CSS Variables */
+/* Run: tds css --sync to regenerate */
+
+:root {
+    /* Paper (backgrounds) */
+    --paper-dark: #131315;
+    --paper-mid: #303135;
+    --paper-light: #4D5055;
+
+    /* Ink (text) */
+    --ink: #E9EAEB;
+    --ink-muted: #6A6D75;
+
+    /* Structure */
+    --border: #4D5055;
+
+    /* Semantic colors */
+    --one: #E53935; /* error, danger, prod */
+    --two: #43A047; /* success, online, local */
+    --three: #FB8C00; /* warning, dev/staging */
+    --four: #8E24AA; /* accent, active */
+}

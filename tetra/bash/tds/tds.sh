@@ -113,6 +113,11 @@ source "$TDS_SRC/cmd/modules.sh"
 source "$TDS_SRC/cmd/doctor.sh"
 
 # =============================================================================
+# LAYER 12: Export utilities (CSS, JSON for web dashboard)
+# =============================================================================
+source "$TDS_SRC/exports/css_export.sh"
+
+# =============================================================================
 # MAIN COMMAND
 # =============================================================================
 
@@ -129,6 +134,9 @@ tds() {
         modules)  tds_modules "$@" ;;
         hex)      _tds_hex "$@" ;;
 
+        # Export tools
+        css)      tds_css "$@" ;;
+
         # Tools
         doctor)        _tds_cmd_doctor ;;
         repl)          tds_repl ;;
@@ -142,7 +150,7 @@ tds() {
 
         *)
             echo "Unknown: tds $resource"
-            echo "Resources: theme, palette, token, pattern, modules, hex"
+            echo "Resources: theme, palette, token, pattern, modules, hex, css"
             echo "Tools: doctor, repl, guide"
             return 1
             ;;
