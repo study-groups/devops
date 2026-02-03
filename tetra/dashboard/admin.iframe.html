@@ -38,17 +38,29 @@
         .slow { color: var(--one); }
 
         /* Smoke test grid */
-        .smoke-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
-        .smoke-item { background: var(--paper-mid); border: 1px solid var(--border); border-radius: 2px; padding: 4px 6px; font-size: 9px; display: flex; justify-content: space-between; align-items: center; }
-        .smoke-item .name { color: var(--four); font-weight: 600; }
-        .smoke-item .time { color: var(--ink-muted); font-family: var(--font-mono); }
-        .smoke-item.pending { opacity: 0.5; }
+        .smoke-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .smoke-item { background: transparent; border: 1px solid var(--border); border-radius: 3px; padding: 6px 8px; font-size: 11px; display: flex; align-items: center; gap: 8px; }
+        .smoke-item .name { color: #a78bfa; font-weight: 700; flex: 1; }
+        .smoke-item .time { color: #a78bfa; font-family: var(--font-mono); min-width: 32px; text-align: right; font-weight: 700; }
+        .smoke-item.pending .name { opacity: 0.6; }
+        .smoke-item.pending .time { opacity: 0.6; }
         .smoke-item.running { border-color: var(--three); }
         .smoke-item.running .time { color: var(--three); }
         .smoke-item.pass { border-color: var(--two); }
         .smoke-item.pass .time { color: var(--two); }
         .smoke-item.fail { border-color: var(--one); }
+        .smoke-item.fail .name { color: var(--one); }
         .smoke-item.fail .time { color: var(--one); }
+        .smoke-item.disabled .name { color: var(--ink-muted); }
+        .smoke-item.disabled .time { color: var(--ink-muted); }
+
+        /* Toggle switch */
+        .iframe-toggle { width: 28px; height: 16px; background: var(--paper-dark); border: 1px solid var(--border); border-radius: 8px; position: relative; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+        .iframe-toggle:hover { border-color: var(--ink-muted); }
+        .iframe-toggle::after { content: ''; position: absolute; width: 12px; height: 12px; background: var(--ink-muted); border-radius: 50%; top: 1px; left: 1px; transition: transform 0.2s, background 0.2s; }
+        .iframe-toggle.enabled { background: var(--four); border-color: var(--four); }
+        .iframe-toggle.enabled::after { transform: translateX(12px); background: #c4b5fd; }
+        .iframe-toggle.enabled:hover { background: #7c6ff0; }
 
         /* Inputs */
         .input-row { display: flex; gap: 6px; align-items: center; }
@@ -94,11 +106,68 @@
         .help-article .help-category { margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
         .help-article .help-category:last-child { border-bottom: none; }
         .help-article .category-title { font-size: 12px; font-weight: bold; color: var(--four); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* API Reference */
+        .api-stats { font-size: 9px; color: var(--ink-muted); margin-bottom: 8px; padding: 4px 8px; background: var(--paper-mid); border-radius: 2px; }
+        .api-section { margin-bottom: 12px; }
+        .api-section-header { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px 8px; background: var(--paper-mid); border-radius: 2px; margin: 0; font-size: 11px; user-select: none; }
+        .api-section-header:hover { background: var(--paper-light); }
+        .api-section-header.static { cursor: default; }
+        .api-section-header.static:hover { background: var(--paper-mid); }
+        .api-toggle { font-size: 8px; color: var(--ink-muted); width: 12px; }
+        .api-title { color: var(--four); font-weight: 600; }
+        .api-count { font-size: 9px; color: var(--ink-muted); background: var(--paper-dark); padding: 1px 5px; border-radius: 8px; }
+        .api-base { font-size: 9px; color: var(--ink-muted); font-family: var(--font-mono); margin-left: auto; }
+        .api-table { margin-top: 4px; }
+        .api-table.collapsed { display: none; }
+        .api-table th:last-child, .api-table td:last-child { width: 50px; text-align: right; }
+        .api-row { transition: background 0.1s; }
+        .api-row:hover { background: var(--paper-mid); }
+        .api-method { font-size: 9px; font-weight: 600; padding: 1px 4px; border-radius: 2px; }
+        .method-get { color: var(--two); }
+        .method-post { color: var(--three); }
+        .method-put { color: var(--four); }
+        .method-delete { color: var(--one); }
+        .api-path { font-size: 9px; color: var(--ink); }
+        .api-desc { color: var(--ink-muted); }
+        .api-actions { display: flex; gap: 4px; justify-content: flex-end; }
+        .api-btn { background: none; border: 1px solid var(--border); color: var(--ink-muted); padding: 3px 8px; font-size: 9px; cursor: pointer; border-radius: 2px; opacity: 0; transition: opacity 0.15s; }
+        .api-row:hover .api-btn { opacity: 1; }
+        .api-btn:hover { border-color: var(--four); color: var(--four); }
+        .api-params { padding: 8px; font-size: 10px; }
+        .api-params p { margin: 0 0 6px 0; color: var(--ink-muted); }
+        .api-params ul { margin: 0; padding-left: 16px; }
+        .api-params li { margin-bottom: 4px; color: var(--ink-muted); }
+        .api-params code { background: var(--paper-dark); padding: 1px 4px; border-radius: 2px; }
+        .api-response-panel { background: var(--paper-dark); border: 1px solid var(--two); border-radius: 4px; margin-bottom: 12px; }
+        .api-response-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: var(--paper-mid); border-bottom: 1px solid var(--border); font-size: 10px; color: var(--two); }
+        .api-response-actions { display: flex; gap: 6px; align-items: center; }
+        .api-response-copy { opacity: 1; }
+        .api-response-close { background: none; border: none; color: var(--ink-muted); cursor: pointer; font-size: 14px; padding: 0 4px; }
+        .api-response-close:hover { color: var(--one); }
+        .api-response-body { margin: 0; padding: 8px; font-size: 9px; max-height: 200px; overflow: auto; color: var(--ink); }
+        #tab-api mark { background: var(--three); color: var(--paper); padding: 0 2px; border-radius: 2px; }
+
+        /* API Form */
+        .api-form-row { background: var(--paper-dark); }
+        .api-form { padding: 8px 12px; border-left: 2px solid var(--four); }
+        .api-form-fields { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+        .api-form-field { display: flex; flex-direction: column; gap: 2px; min-width: 120px; }
+        .api-form-field label { font-size: 9px; color: var(--ink-muted); }
+        .api-form-field input { background: var(--paper-mid); border: 1px solid var(--border); color: var(--ink); padding: 4px 8px; font-size: 10px; border-radius: 2px; font-family: var(--font-mono); }
+        .api-form-field input:focus { outline: none; border-color: var(--four); }
+        .api-form-field input::placeholder { color: var(--ink-muted); opacity: 0.6; }
+        .api-form-hint { font-size: 8px; color: var(--ink-muted); opacity: 0.7; }
+        .api-form-actions { display: flex; gap: 6px; }
+        .api-form-actions .api-btn { opacity: 1; }
+        .api-form-actions .api-btn.send { border-color: var(--two); color: var(--two); }
+        .api-form-actions .api-btn.send:hover { background: var(--two); color: var(--paper); }
     </style>
 </head>
 <body>
     <script src="/js/terrain-iframe.js"></script>
     <script src="/js/help-data.js"></script>
+    <script src="/js/api-reference.js"></script>
 
     <div class="tabs">
         <div class="tab active" data-tab="admin">Admin</div>
@@ -115,8 +184,8 @@
             <h2>Iframes <span style="font-weight:normal;text-transform:none;margin-left:8px" id="smoke-status"></span></h2>
             <div class="smoke-grid" id="smoke-grid"></div>
             <div class="btn-row">
-                <button class="btn" data-action="run-smoke">Run All</button>
-                <button class="btn" data-action="copy-url">Copy State URL</button>
+                <button class="btn" data-action="check-iframes">Check</button>
+                <button class="btn" data-action="run-iframes">Run</button>
             </div>
         </div>
 
@@ -190,114 +259,7 @@
 
     <!-- API TAB -->
     <div id="tab-api" class="tab-content">
-        <div class="help-section">
-            <h3>TSM (Service Manager)</h3>
-            <table>
-                <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
-                <tbody>
-                    <tr><td>GET</td><td><code>/api/tsm/ls</code></td><td>List services (JSON, cached 5s)</td></tr>
-                    <tr><td>GET</td><td><code>/api/tsm/status</code></td><td>Service status summary</td></tr>
-                    <tr><td>GET</td><td><code>/api/tsm/health</code></td><td>Health check (tsm doctor)</td></tr>
-                    <tr><td>GET</td><td><code>/api/tsm/info/:svc</code></td><td>Service metadata</td></tr>
-                    <tr><td>GET</td><td><code>/api/tsm/logs/:svc</code></td><td>Service logs (lines, since, format)</td></tr>
-                    <tr><td>POST</td><td><code>/api/tsm/start/:svc</code></td><td>Start service</td></tr>
-                    <tr><td>POST</td><td><code>/api/tsm/stop/:svc</code></td><td>Stop service</td></tr>
-                    <tr><td>POST</td><td><code>/api/tsm/restart/:svc</code></td><td>Restart service</td></tr>
-                    <tr><td>POST</td><td><code>/api/tsm/patrol</code></td><td>Run patrol check</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="help-section">
-            <h3>Caddy (Reverse Proxy)</h3>
-            <table>
-                <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
-                <tbody>
-                    <tr><td>GET</td><td><code>/api/caddy/info</code></td><td>Caddy version and info</td></tr>
-                    <tr><td>GET</td><td><code>/api/caddy/status</code></td><td>Status with upstreams</td></tr>
-                    <tr><td>GET</td><td><code>/api/caddy/routes</code></td><td>Parsed route list</td></tr>
-                    <tr><td>GET</td><td><code>/api/caddy/config</code></td><td>Caddyfile source</td></tr>
-                    <tr><td>GET</td><td><code>/api/caddy/config/running</code></td><td>Live config from admin API</td></tr>
-                    <tr><td>GET</td><td><code>/api/caddy/logs</code></td><td>Access logs (lines, host, status)</td></tr>
-                    <tr><td>GET</td><td><code>/api/caddy/errors</code></td><td>Error logs</td></tr>
-                    <tr><td>GET</td><td><code>/api/caddy/stats</code></td><td>Request stats summary</td></tr>
-                    <tr><td>GET</td><td><code>/api/caddy/fail2ban</code></td><td>Fail2ban jail status</td></tr>
-                    <tr><td>POST</td><td><code>/api/caddy/reload</code></td><td>Reload Caddy config</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="help-section">
-            <h3>Capture (Screenshots/DOM)</h3>
-            <table>
-                <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
-                <tbody>
-                    <tr><td>POST</td><td><code>/api/capture</code></td><td>Create new capture</td></tr>
-                    <tr><td>GET</td><td><code>/api/capture/list</code></td><td>List captures (limit, session)</td></tr>
-                    <tr><td>GET</td><td><code>/api/capture/sessions</code></td><td>List capture sessions</td></tr>
-                    <tr><td>GET</td><td><code>/api/capture/:org/:id</code></td><td>Get capture metadata</td></tr>
-                    <tr><td>GET</td><td><code>/api/capture/:org/:id/file/:f</code></td><td>Get capture file</td></tr>
-                    <tr><td>DELETE</td><td><code>/api/capture/:org/:id</code></td><td>Delete capture</td></tr>
-                    <tr><td>GET</td><td><code>/api/capture/journeys</code></td><td>List journeys</td></tr>
-                    <tr><td>POST</td><td><code>/api/capture/journeys/:org/:n</code></td><td>Create journey</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="help-section">
-            <h3>Deploy</h3>
-            <table>
-                <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
-                <tbody>
-                    <tr><td>GET</td><td><code>/api/deploy/status</code></td><td>Deployment status</td></tr>
-                    <tr><td>GET</td><td><code>/api/deploy/targets</code></td><td>List deploy targets</td></tr>
-                    <tr><td>GET</td><td><code>/api/deploy/history</code></td><td>Deployment history</td></tr>
-                    <tr><td>POST</td><td><code>/api/deploy/deploy</code></td><td>Trigger deployment</td></tr>
-                    <tr><td>GET</td><td><code>/api/deploy/show/:t/:e</code></td><td>Show target/env config</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="help-section">
-            <h3>Logs</h3>
-            <table>
-                <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
-                <tbody>
-                    <tr><td>GET</td><td><code>/api/logs</code></td><td>Service logs (service, lines, since)</td></tr>
-                    <tr><td>GET</td><td><code>/api/logs/stream</code></td><td>SSE log stream</td></tr>
-                    <tr><td>GET</td><td><code>/api/logs/activity</code></td><td>Activity log</td></tr>
-                    <tr><td>POST</td><td><code>/api/logs/activity</code></td><td>Add activity entry</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="help-section">
-            <h3>Core / Orgs / Envs</h3>
-            <table>
-                <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
-                <tbody>
-                    <tr><td>GET</td><td><code>/api/tetra/ping</code></td><td>Simple health ping</td></tr>
-                    <tr><td>GET</td><td><code>/api/tetra/health/deep</code></td><td>Deep health check</td></tr>
-                    <tr><td>GET</td><td><code>/api/tetra/health/modules</code></td><td>Module health status</td></tr>
-                    <tr><td>GET</td><td><code>/api/orgs</code></td><td>List organizations</td></tr>
-                    <tr><td>GET</td><td><code>/api/orgs/:org</code></td><td>Org details</td></tr>
-                    <tr><td>GET</td><td><code>/api/environments</code></td><td>List environments</td></tr>
-                    <tr><td>GET</td><td><code>/api/environments/test</code></td><td>Test env connectivity</td></tr>
-                    <tr><td>POST</td><td><code>/api/environments/exec</code></td><td>Execute remote command</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="help-section">
-            <h3>Query Parameters</h3>
-            <p>Most endpoints accept these common params:</p>
-            <ul>
-                <li><code>org</code> - Organization (default: tetra)</li>
-                <li><code>env</code> - Environment (default: local)</li>
-                <li><code>user</code> - SSH user override for remote</li>
-            </ul>
-            <p>Use <code>Terrain.State.apiUrl('/api/foo')</code> to auto-append context params.</p>
-        </div>
+        <div id="api-reference"></div>
     </div>
 
     <!-- HELP TAB -->
@@ -358,6 +320,9 @@
         });
 
         initTab();
+
+        // Initialize API Reference
+        ApiReference.init('api-reference', 'help-search');
 
         // Update context display
         function updateContext() {
@@ -511,32 +476,96 @@
         // Iframe Smoke Tests
         // ========================================================================
 
-        const IFRAMES = [
-            'admin', 'agents', 'caddy', 'capture', 'console', 'deploy',
-            'developer', 'director', 'infra', 'logs', 'orgs', 'playwright',
-            'screentool', 'tests', 'tsm', 'tut', 'vox'
-        ].sort();
-
+        let IFRAMES = [];
+        let iframeConfig = {};
         const smokeResults = {};
 
-        function initSmokeGrid() {
-            const grid = document.getElementById('smoke-grid');
-            grid.innerHTML = IFRAMES.map(name =>
-                `<div class="smoke-item pending" data-iframe="${name}">
-                    <span class="name">${name}</span>
-                    <span class="time">--</span>
-                </div>`
-            ).join('');
+        async function loadIframeConfig() {
+            try {
+                const res = await fetch('/api/iframes');
+                const data = await res.json();
+                IFRAMES = data.iframes || [];
+                iframeConfig = {};
+                IFRAMES.forEach(f => { iframeConfig[f.id] = f; });
+                return IFRAMES;
+            } catch (e) {
+                log('Failed to load iframe config: ' + e.message, 'err');
+                return [];
+            }
         }
 
-        async function runSmokeTest(name) {
+        function renderSmokeGrid() {
+            const grid = document.getElementById('smoke-grid');
+            const statusEl = document.getElementById('smoke-status');
+
+            const enabled = IFRAMES.filter(f => f.enabled).length;
+            statusEl.textContent = `${enabled}/${IFRAMES.length} enabled`;
+
+            grid.innerHTML = IFRAMES.map(f => {
+                const disabledClass = f.enabled ? '' : ' disabled';
+                const toggleClass = f.enabled ? ' enabled' : '';
+                return `<div class="smoke-item pending${disabledClass}" data-iframe="${f.id}">
+                    <div class="iframe-toggle${toggleClass}" data-iframe="${f.id}" title="${f.enabled ? 'Disable' : 'Enable'}"></div>
+                    <span class="name">${f.id}</span>
+                    <span class="time">--</span>
+                </div>`;
+            }).join('');
+
+            // Add toggle click handlers
+            grid.querySelectorAll('.iframe-toggle').forEach(toggle => {
+                toggle.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const id = toggle.dataset.iframe;
+                    const iframe = iframeConfig[id];
+                    if (!iframe) return;
+
+                    const newEnabled = !iframe.enabled;
+                    toggle.classList.toggle('enabled', newEnabled);
+
+                    try {
+                        const res = await fetch(`/api/iframes/${id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ enabled: newEnabled })
+                        });
+                        if (res.ok) {
+                            iframe.enabled = newEnabled;
+                            const item = toggle.closest('.smoke-item');
+                            item.classList.toggle('disabled', !newEnabled);
+                            log(`${id}: ${newEnabled ? 'enabled' : 'disabled'}`, 'ok');
+
+                            // Update status count
+                            const enabled = IFRAMES.filter(f => f.enabled).length;
+                            statusEl.textContent = `${enabled}/${IFRAMES.length} enabled`;
+                        }
+                    } catch (e) {
+                        log(`Failed to update ${id}: ${e.message}`, 'err');
+                        toggle.classList.toggle('enabled', iframe.enabled);
+                    }
+                });
+            });
+        }
+
+        async function initSmokeGrid() {
+            await loadIframeConfig();
+            renderSmokeGrid();
+        }
+
+        // Check iframe existence (HEAD request - fast)
+        async function checkIframe(name) {
             const item = document.querySelector(`.smoke-item[data-iframe="${name}"]`);
             if (!item) return;
 
-            item.className = 'smoke-item running';
+            const iframe = iframeConfig[name];
+            if (!iframe?.enabled) {
+                item.querySelector('.time').textContent = '--';
+                return;
+            }
+
+            item.className = item.className.replace(/pending|pass|fail/, 'running');
             item.querySelector('.time').textContent = '...';
 
-            const url = `${name}.iframe.html?org=${Terrain.State.org}&env=${Terrain.State.env}`;
+            const url = iframe.src.startsWith('http') ? iframe.src : `${name}.iframe.html?org=${Terrain.State.org}&env=${Terrain.State.env}`;
             const start = Date.now();
 
             try {
@@ -544,43 +573,105 @@
                 const duration = Date.now() - start;
                 smokeResults[name] = { ok: res.ok, duration };
 
-                item.className = `smoke-item ${res.ok ? 'pass' : 'fail'}`;
+                item.className = item.className.replace('running', res.ok ? 'pass' : 'fail');
                 item.querySelector('.time').textContent = res.ok ? `${duration}ms` : 'ERR';
             } catch (e) {
                 smokeResults[name] = { ok: false, error: e.message };
-                item.className = 'smoke-item fail';
+                item.className = item.className.replace('running', 'fail');
                 item.querySelector('.time').textContent = 'ERR';
             }
         }
 
-        async function runAllSmokeTests() {
-            const statusEl = document.getElementById('smoke-status');
-            statusEl.textContent = 'Running...';
-            log('Starting smoke tests for all iframes');
+        // Run iframe (actually load and execute JS)
+        async function runIframe(name) {
+            const item = document.querySelector(`.smoke-item[data-iframe="${name}"]`);
+            if (!item) return;
 
-            for (const name of IFRAMES) {
-                await runSmokeTest(name);
+            const iframe = iframeConfig[name];
+            if (!iframe?.enabled) {
+                item.querySelector('.time').textContent = '--';
+                return;
+            }
+
+            item.className = item.className.replace(/pending|pass|fail/, 'running');
+            item.querySelector('.time').textContent = '...';
+
+            const url = iframe.src.startsWith('http') ? iframe.src : `${name}.iframe.html?org=${Terrain.State.org}&env=${Terrain.State.env}`;
+            const start = Date.now();
+
+            return new Promise(resolve => {
+                const testFrame = document.createElement('iframe');
+                testFrame.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;';
+                testFrame.src = url;
+
+                const timeout = setTimeout(() => {
+                    cleanup();
+                    smokeResults[name] = { ok: false, error: 'timeout' };
+                    item.className = item.className.replace('running', 'fail');
+                    item.querySelector('.time').textContent = '>5s';
+                    resolve();
+                }, 5000);
+
+                function cleanup() {
+                    clearTimeout(timeout);
+                    if (testFrame.parentNode) testFrame.remove();
+                }
+
+                testFrame.onload = () => {
+                    const duration = Date.now() - start;
+                    cleanup();
+                    smokeResults[name] = { ok: true, duration };
+                    item.className = item.className.replace('running', 'pass');
+                    item.querySelector('.time').textContent = `${duration}ms`;
+                    resolve();
+                };
+
+                testFrame.onerror = () => {
+                    cleanup();
+                    smokeResults[name] = { ok: false, error: 'load error' };
+                    item.className = item.className.replace('running', 'fail');
+                    item.querySelector('.time').textContent = 'ERR';
+                    resolve();
+                };
+
+                document.body.appendChild(testFrame);
+            });
+        }
+
+        async function checkAllIframes() {
+            const statusEl = document.getElementById('smoke-status');
+            statusEl.textContent = 'Checking...';
+            log('Checking iframe files (HEAD)');
+
+            const enabledIframes = IFRAMES.filter(f => f.enabled);
+            await Promise.all(enabledIframes.map(f => checkIframe(f.id)));
+
+            const passed = Object.values(smokeResults).filter(r => r.ok).length;
+            const total = enabledIframes.length;
+            statusEl.textContent = `${passed}/${total} exist`;
+            log(`Check: ${passed}/${total} files exist`, passed === total ? 'ok' : 'warn');
+        }
+
+        async function runAllIframes() {
+            const statusEl = document.getElementById('smoke-status');
+            statusEl.textContent = 'Loading...';
+            log('Running iframe load tests');
+
+            const enabledIframes = IFRAMES.filter(f => f.enabled);
+            for (const iframe of enabledIframes) {
+                await runIframe(iframe.id);
             }
 
             const passed = Object.values(smokeResults).filter(r => r.ok).length;
-            const total = IFRAMES.length;
+            const total = enabledIframes.length;
             const avgTime = Math.round(
                 Object.values(smokeResults)
                     .filter(r => r.ok && r.duration)
-                    .reduce((sum, r) => sum + r.duration, 0) / passed
+                    .reduce((sum, r) => sum + r.duration, 0) / (passed || 1)
             ) || 0;
 
             statusEl.textContent = `${passed}/${total} OK, avg ${avgTime}ms`;
-            log(`Smoke tests: ${passed}/${total} passed, avg ${avgTime}ms`, passed === total ? 'ok' : 'warn');
-        }
-
-        function copyStateUrl() {
-            const url = window.location.href;
-            navigator.clipboard.writeText(url).then(() => {
-                log('State URL copied to clipboard', 'ok');
-            }).catch(() => {
-                log('Failed to copy URL', 'err');
-            });
+            log(`Run: ${passed}/${total} loaded, avg ${avgTime}ms`, passed === total ? 'ok' : 'warn');
         }
 
         initSmokeGrid();
@@ -596,8 +687,8 @@
             })
             .on('preview-groom', previewGroom)
             .on('run-groom', runGroom)
-            .on('run-smoke', runAllSmokeTests)
-            .on('copy-url', copyStateUrl);
+            .on('check-iframes', checkAllIframes)
+            .on('run-iframes', runAllIframes);
 
         // Listen for timing updates
         Terrain.Bus.subscribe('*', msg => {
@@ -665,18 +756,27 @@
                 });
             });
 
-            // Search functionality - also switches to Help tab
+            // Search functionality - searches current tab (API or Help)
             searchEl.addEventListener('input', (e) => {
                 clearTimeout(helpSearchTimeout);
                 helpSearchTimeout = setTimeout(() => {
-                    if (e.target.value.trim()) {
-                        // Switch to Help tab if not already there
-                        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                        document.querySelector('[data-tab="help"]').classList.add('active');
-                        document.getElementById('tab-help').classList.add('active');
+                    const query = e.target.value.trim();
+                    const activeTab = localStorage.getItem(ADMIN_TAB_KEY) || 'admin';
+
+                    if (query) {
+                        // If on Admin tab, switch to API for search
+                        if (activeTab === 'admin') {
+                            setActiveTab('api');
+                        }
                     }
-                    performSearch(e.target.value);
+
+                    // Search API tab
+                    if (typeof ApiReference !== 'undefined') {
+                        ApiReference.render(query);
+                    }
+
+                    // Also search Help tab
+                    performSearch(query);
                 }, 150);
             });
         }
