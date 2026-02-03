@@ -373,25 +373,59 @@ async function loadHistory() {
 
         els.history.innerHTML = data.history.slice(0, 15).map(function(h) {
             var ts = formatTimestamp(h.timestamp);
-            var target = h.target || '';
-            var action = h.action || '';
-            var label = action ? target + ':' + action : target;
+            // target field may be "arcade:tsm" — split to get base target name
+            var rawTarget = h.target || '';
+            var targetName = rawTarget.split(':')[0];
+            var pipeline = rawTarget.split(':')[1] || '';
             var dur = formatDuration(h.duration);
 
+            // Cross-reference with loaded targets for config details
+            var targetConfig = null;
+            var envConfig = null;
+            for (var i = 0; i < targetsData.length; i++) {
+                if (targetsData[i].name === targetName) {
+                    targetConfig = targetsData[i];
+                    var envs = targetConfig.envs || [];
+                    for (var j = 0; j < envs.length; j++) {
+                        if (envs[j].name === h.env) { envConfig = envs[j]; break; }
+                    }
+                    break;
+                }
+            }
+
+            // Build detail lines
             var detailLines = [];
-            if (h.branch) detailLines.push('Branch: ' + h.branch);
-            if (h.commit) detailLines.push('Commit: ' + h.commit);
-            if (h.user) detailLines.push('User: ' + h.user);
+            if (envConfig) {
+                if (envConfig.ssh) detailLines.push(el('span', 'hd-label', 'ssh') + ' ' + el('span', 'hd-value', envConfig.ssh));
+                if (envConfig.domain) detailLines.push(el('span', 'hd-label', 'host') + ' ' + el('span', 'hd-value', envConfig.domain + (envConfig.port ? ':' + envConfig.port : '')));
+                if (envConfig.branch) detailLines.push(el('span', 'hd-label', 'branch') + ' ' + el('span', 'hd-value', envConfig.branch));
+            }
+            if (h.branch && (!envConfig || h.branch !== envConfig.branch)) {
+                detailLines.push(el('span', 'hd-label', 'branch') + ' ' + el('span', 'hd-value', h.branch));
+            }
+            if (h.commit) detailLines.push(el('span', 'hd-label', 'commit') + ' ' + el('span', 'hd-value', h.commit.slice(0, 8)));
+            if (h.user) detailLines.push(el('span', 'hd-label', 'user') + ' ' + el('span', 'hd-value', h.user));
+            if (pipeline && targetConfig && targetConfig.pipelines && targetConfig.pipelines[pipeline]) {
+                var steps = targetConfig.pipelines[pipeline];
+                detailLines.push(el('span', 'hd-label', 'steps') + ' ' + el('span', 'hd-value hd-steps', steps.join(' \u2192 ')));
+            }
+            if (targetConfig && targetConfig.strategy) {
+                detailLines.push(el('span', 'hd-label', 'mode') + ' ' + el('span', 'hd-value', targetConfig.strategyDesc || targetConfig.strategy));
+            }
+
+            // Full timestamp on hover
+            var fullTs = h.timestamp || '';
 
             return '<div class="history-item">' +
                 '<div class="history-row">' +
-                    '<span class="timestamp">' + ts + '</span>' +
-                    '<span class="h-target">' + label + '</span>' +
+                    '<span class="timestamp" title="' + fullTs + '">' + ts + '</span>' +
+                    '<span class="h-target">' + targetName + '</span>' +
+                    '<span class="h-pipeline">' + pipeline + '</span>' +
                     '<span class="h-env">' + (h.env || '') + '</span>' +
                     '<span class="h-status ' + (h.status || '') + '">' + (h.status || '') + '</span>' +
                     (dur ? '<span class="h-duration">' + dur + '</span>' : '') +
                 '</div>' +
-                (detailLines.length ? '<div class="history-details">' + detailLines.join('<br>') + '</div>' : '') +
+                (detailLines.length ? '<div class="history-details">' + detailLines.join('') + '</div>' : '') +
             '</div>';
         }).join('');
 
