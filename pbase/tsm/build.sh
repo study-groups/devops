@@ -34,13 +34,8 @@ COMMAND=$(get_toml "service" "command")
 # Get shared config
 PORT=$(get_toml "shared" "PORT")
 PBASE_PORT=$(get_toml "shared" "PBASE_PORT")
-PBASE_SRC=$(get_toml "shared" "PBASE_SRC")
-PD_DIR=$(get_toml "shared" "PD_DIR")
-GAMES_DIR=$(get_toml "shared" "GAMES_DIR")
 S3_BUCKET=$(get_toml "shared" "S3_BUCKET")
 S3_ENDPOINT=$(get_toml "shared" "S3_ENDPOINT")
-
-# No expansion needed - using explicit paths
 
 # Build function
 build_env() {
@@ -51,9 +46,17 @@ build_env() {
     local pbase_env=$(get_toml "$env" "PBASE_ENV")
     local tetra_dir=$(get_toml "$env" "TETRA_DIR")
     local tetra_org=$(get_toml "$env" "TETRA_ORG")
+    local pbase_src=$(get_toml "$env" "PBASE_SRC")
+    local pd_dir=$(get_toml "$env" "PD_DIR")
+    local games_dir=$(get_toml "$env" "GAMES_DIR")
+    local cwd=$(get_toml "$env" "cwd")
 
-    # Expand $HOME
+    # Expand $HOME for local env
     tetra_dir="${tetra_dir//\$HOME/$HOME}"
+    pbase_src="${pbase_src//\$HOME/$HOME}"
+    pd_dir="${pd_dir//\$HOME/$HOME}"
+    games_dir="${games_dir//\$HOME/$HOME}"
+    cwd="${cwd//\$HOME/$HOME}"
 
     # Source org secrets at build time
     local secrets_file="${tetra_dir}/orgs/${tetra_org}/secrets.env"
@@ -79,14 +82,14 @@ build_env() {
 # Built: $(date -Iseconds)
 
 export TSM_NAME="$NAME"
-export TSM_CWD="$PBASE_SRC/server"
+export TSM_CWD="$cwd"
 export TSM_PORT="$PORT"
 export PORT="$PORT"
 export PBASE_PORT="$PBASE_PORT"
 export PBASE_ENV="$pbase_env"
-export PBASE_SRC="$PBASE_SRC"
-export PD_DIR="$PD_DIR"
-export GAMES_DIR="$GAMES_DIR"
+export PBASE_SRC="$pbase_src"
+export PD_DIR="$pd_dir"
+export GAMES_DIR="$games_dir"
 export S3_BUCKET="$S3_BUCKET"
 export S3_ENDPOINT="$S3_ENDPOINT"
 export S3_ACCESS_KEY="$s3_access_key"
@@ -97,8 +100,8 @@ EOF
 
     chmod +x "$output"
     echo "Built: $output"
-    echo "  PD_DIR=$PD_DIR"
-    echo "  GAMES_DIR=$GAMES_DIR"
+    echo "  PD_DIR=$pd_dir"
+    echo "  GAMES_DIR=$games_dir"
 }
 
 # Build specified env or all
